@@ -1051,7 +1051,7 @@ extension DJConnectIOSUITests {
     }
 
     func testActualPairedOwnerLiveNativeSnapshotUpdateReconnectAndPlayer() async throws {
-        let base = URL(string: "http://127.0.0.1:18196")!
+        let base = URL(string: ProcessInfo.processInfo.environment["DJC_APPLE_PAIRED_UI_BASE"] ?? "http://127.0.0.1:18197")!
         func control(_ operation: String, method: String = "POST") async throws -> [String: Any] {
             var request = URLRequest(url: base.appendingPathComponent("__apple_paired_fixture/" + operation))
             request.httpMethod = method
@@ -1075,6 +1075,25 @@ extension DJConnectIOSUITests {
         let pinned = app.descendants(matching: .any)["session-pinned-current"].firstMatch
         XCTAssertTrue(pinned.exists)
         XCTAssertFalse(app.buttons["Terug naar de actuele bijdrage"].exists)
+        let mood = app.descendants(matching: .any)["active-session-mood"].firstMatch
+        guard mood.waitForExistence(timeout: 10) else {
+            print(app.debugDescription)
+            try saveHistoryScreenshot("paired-ui-missing-mood-control")
+            XCTFail("Native active mood control not exposed"); return
+        }
+        if base.port == 18197 {
+            let party = mood.buttons["Feest"]
+            XCTAssertTrue(party.isEnabled)
+            party.tap()
+            try await Task.sleep(for: .milliseconds(700))
+            let afterMood = try await control("state", method: "GET")
+            XCTAssertEqual((afterMood["active"] as? [String: Any])?["selected_mood"] as? String, "party")
+            XCTAssertEqual((afterMood["active"] as? [String: Any])?["session_id"] as? String, sessionID)
+            XCTAssertEqual((afterMood["active"] as? [String: Any])?["mood_revision"] as? Int, 1)
+            XCTAssertEqual((afterMood["active"] as? [String: Any])?["now_playing"] as? NSDictionary,
+                           (before["active"] as? [String: Any])?["now_playing"] as? NSDictionary)
+            try saveHistoryScreenshot("paired-ui-confirmed-active-mood")
+        }
         let beforeMenu = try await control("state", method: "GET")
         let handoff = app.buttons["session-handoff-toggle"]
         XCTAssertTrue(handoff.isHittable); handoff.tap()
@@ -1127,6 +1146,23 @@ extension DJConnectIOSUITests {
         }
         earlierSessions.tap()
         XCTAssertTrue(app.buttons["saved-session-" + sessionID].waitForExistence(timeout: 10))
+        let refresh = app.buttons["saved-sessions-refresh"]
+        XCTAssertTrue(refresh.exists)
+        _ = try await control("history_fail_once")
+        refresh.tap()
+        XCTAssertTrue(app.staticTexts["Sessies laden"].firstMatch.waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["Opnieuw"].waitForExistence(timeout: 10))
+        try saveHistoryScreenshot("paired-ui-archive-transient-error")
+        let savedList = app.descendants(matching: .any)["saved-sessions-list"].firstMatch
+        print("Saved-list native frame: " + String(describing: savedList.frame))
+        let errorText = app.staticTexts["saved-sessions-error"]
+        XCTAssertTrue(errorText.exists)
+        errorText.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.1,
+            thenDragTo: savedList.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75)))
+        if !app.buttons["saved-session-" + sessionID].waitForExistence(timeout: 10) {
+            print(app.debugDescription)
+            XCTFail("Native pull-to-refresh did not recover the archived Session")
+        }
         try saveHistoryScreenshot("paired-ui-archive-dates-gradient")
     }
 

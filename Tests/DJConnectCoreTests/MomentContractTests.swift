@@ -197,3 +197,22 @@ func sessionDecodeFailureOmitsPrivateMomentBodyFromDiagnostics() async throws {
         #expect(message?.contains("Current") == false)
     }
 }
+
+@Test func activeMoodHighestRevisionSurvivesLateSnapshotAndPreviousSessionReply() throws {
+    var runtime = try JSONDecoder().decode(MomentReceipt.self, from: receiptData()).runtime
+    runtime.moodRevision = 0; runtime.broadcast.session.moodRevision = 0
+    func response(_ id: String, _ mood: String, _ revision: Int) throws -> DJConnectSessionMoodResponse {
+        try JSONDecoder().decode(DJConnectSessionMoodResponse.self, from: JSONSerialization.data(withJSONObject: [
+            "success":true,"contract_version":1,"session_id":id,"selected_mood":mood,"mood_revision":revision,"changed":true]))
+    }
+    let old = runtime.broadcast
+    let accepted = runtime.applying(mood: try response(runtime.id, "party", 3))
+    #expect(accepted.selectedMood == "party" && accepted.confirmedMoodRevision == 3)
+    #expect(accepted.broadcast.djMoments == runtime.broadcast.djMoments)
+    #expect(accepted.broadcast.playback == runtime.broadcast.playback)
+    #expect(accepted.applying(broadcastState: old).selectedMood == "party")
+    #expect(accepted.applying(mood: try response(runtime.id, "chill", 2)) == accepted)
+    #expect(accepted.applying(mood: try response(runtime.id, "chill", 3)) == accepted)
+    #expect(accepted.applying(mood: try response("previous-session", "chill", 99)) == accepted)
+    #expect(accepted.startedAt == runtime.startedAt && accepted.sessionID == runtime.sessionID)
+}

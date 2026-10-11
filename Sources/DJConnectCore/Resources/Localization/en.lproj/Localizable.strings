@@ -1032,3 +1032,28 @@
 
 "ui.session.history.end_unknown" = "end time unknown";
 "ui.session.history.less_than_minute" = "less than 1 minute";
+
+// Native session refresh and readable Music DNA privacy.
+"ui.session.history.refresh" = "Refresh previous sessions";
+"ui.session.history.updated" = "Previous sessions updated";
+"ui.session.refresh.loading" = "Updating DJ session…";
+"ui.session.refresh.updated" = "DJ session updated";
+"ui.music.dna.privacy.enabled.yes" = "Music DNA is on.";
+"ui.music.dna.privacy.enabled.no" = "Music DNA is off.";
+"ui.music.dna.privacy.clear.yes" = "You can clear your Music DNA.";
+"ui.music.dna.privacy.clear.no" = "Clearing is currently unavailable.";
+"ui.music.dna.privacy.export.yes" = "You can download your Music DNA.";
+"ui.music.dna.privacy.export.no" = "Downloading is currently unavailable.";
+"ui.music.dna.privacy.import.yes" = "You can import your Music DNA.";
+"ui.music.dna.privacy.import.no" = "Importing is currently unavailable.";
+"ui.music.dna.privacy.audio.yes" = "Voice recordings are stored.";
+"ui.music.dna.privacy.audio.no" = "Voice recordings are not stored.";
+"ui.music.dna.privacy.credentials.yes" = "Music service access tokens are stored.";
+"ui.music.dna.privacy.credentials.no" = "Music service access tokens are not stored.";
+"ui.music.dna.privacy.questions.yes" = "Full questions are stored.";
+"ui.music.dna.privacy.questions.no" = "Full questions are not stored.";
+"ui.music.dna.privacy.unknown" = "Privacy information is currently unavailable.";
+"ui.session.mood.updating" = "Updating mood…";
+"ui.session.mood.failed" = "Mood was not updated. Check the current choice and try again.";
+"ui.output.refresh" = "Refresh output devices";
+"ui.session.history.start_unknown" = "start time unknown";

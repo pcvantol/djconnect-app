@@ -164,26 +164,29 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
     }
 
-    public func loadSessions(more: Bool = false) async {
-        guard available, !listLoading, let host, host.canRefreshSessionHistory else { return }
+    @discardableResult
+    public func loadSessions(more: Bool = false) async -> Bool {
+        guard available, !(more && listLoading), let host, host.canRefreshSessionHistory else { return false }
         let cursor = more ? listNextCursor : nil
-        if more && cursor == nil { return }
+        if more && cursor == nil { return false }
         let generation = UUID(); listGeneration = generation
         let captured = epoch
         listLoading = true; listErrorKey = nil
         defer { if generation == listGeneration { listLoading = false } }
         do {
             let page = try await host.withHomeAssistantClient { try await $0.savedSessions(cursor: cursor) }
-            guard captured == epoch, generation == listGeneration else { return }
+            guard captured == epoch, generation == listGeneration else { return false }
             guard cursor == nil || listRevision == page.revision.value else { throw DJConnectError.invalidResponse }
             let old = cursor == nil ? [] : sessions
             sessions = mergeSessions(old, page.sessions.filter { $0.readOnly })
             listRevision = page.revision.value; listNextCursor = page.nextCursor
+            return true
         } catch {
-            guard captured == epoch, generation == listGeneration else { return }
-            if withdrawAuthority(for: error) { return }
+            guard captured == epoch, generation == listGeneration else { return false }
+            if withdrawAuthority(for: error) { return false }
             sessions = []; listNextCursor = nil
             listErrorKey = errorKey(error)
+            return false
         }
     }
 
@@ -482,7 +485,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         if case DJConnectError.server(let status, _) = error { return status == 409 }
         return false
     }
-    @discardableResult private func withdrawAuthority(for error: Error) -> Bool {
+    @discardableResult func withdrawAuthority(for error: Error) -> Bool {
         guard (error as? DJConnectError)?.invalidatesSessionAuthority == true else { return false }
         suspend()
         host?.revokeProfileConversationAuthority()

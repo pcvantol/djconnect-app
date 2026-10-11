@@ -4947,33 +4947,7 @@ private struct MusicDNASectionGrid: View {
     }
 
     private func privacyDashboardText(_ dashboard: DJConnectMusicDNAPrivacyDashboard) -> String {
-        var lines: [String] = []
-        if let enabled = dashboard.enabled {
-            lines.append("enabled: \(enabled ? "yes" : "no")")
-        }
-        if !dashboard.activeDataSources.isEmpty {
-            lines.append("\(localizedKey(model.language, "ui.music.dna.active.data.sources")): \(dashboard.activeDataSources.prefix(5).joined(separator: ", "))")
-        }
-        if !dashboard.controls.isEmpty {
-            lines.append(dashboard.controls.keys.sorted().map { "\($0.replacingOccurrences(of: "_", with: " ")): \(dashboard.controls[$0] == true ? "yes" : "no")" }.joined(separator: ", "))
-        }
-        if !dashboard.rawCounts.isEmpty {
-            lines.append(dashboard.rawCounts.keys.sorted().map { "\($0.replacingOccurrences(of: "_", with: " ")): \(dashboard.rawCounts[$0] ?? 0)" }.joined(separator: ", "))
-        }
-        if !dashboard.retentionLimits.isEmpty {
-            lines.append(dashboard.retentionLimits.keys.sorted().map { "\($0.replacingOccurrences(of: "_", with: " ")): \(dashboard.retentionLimits[$0]?.description ?? "")" }.joined(separator: ", "))
-        }
-        let booleans: [(String, Bool?)] = [
-            ("clear", dashboard.supportsClear),
-            ("export", dashboard.supportsExport),
-            ("import", dashboard.supportsImport),
-            ("stores raw audio", dashboard.storesRawAudio),
-            ("stores OAuth tokens", dashboard.storesOAuthTokens),
-            ("stores full prompts", dashboard.storesFullPrompts)
-        ]
-        lines.append(contentsOf: booleans.compactMap { key, value in value.map { "\(key): \($0 ? "yes" : "no")" } })
-        lines.append(contentsOf: dashboard.flags.keys.sorted().map { "\($0.replacingOccurrences(of: "_", with: " ")): \(dashboard.flags[$0] == true ? "yes" : "no")" })
-        return lines.joined(separator: "\n").ifEmpty(localizedKey(model.language, "ui.not.enough.signals"))
+        MusicDNAPrivacySummary.text(dashboard, language: model.language)
     }
 
     private func energySignals(_ values: [DJConnectMusicDNAEnergySignal]) -> String {
@@ -10101,10 +10075,11 @@ private struct DJSessionView: View {
     }
 
     private func refreshNowPlayingWithToast() async {
-        let didRefresh = await model.refreshNowPlaying()
-        await model.refreshActiveDJSession()
+        statusToast = DJConnectVisualNotice(text: localizedKey(model.language, "ui.session.refresh.loading"), systemImage: "arrow.clockwise")
+        _ = await model.refreshNowPlaying()
+        let didRefresh = await model.refreshActiveDJSession()
         showStatusToast(
-            didRefresh ? localizedKey(model.language, "appModel.now.playing.updated") : localizedKey(model.language, "appModel.now.playing.update.failed"),
+            didRefresh ? localizedKey(model.language, "ui.session.refresh.updated") : localizedKey(model.language, "ui.session.unavailable"),
             systemImage: didRefresh ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
         )
     }
@@ -10169,6 +10144,7 @@ struct ActiveDJSessionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             if showsMoments {
+                ActiveSessionMoodPicker(model: model, session: session)
                 NativeSessionMomentsView(session: session, language: model.language, isRecovering: model.djSessionIsRecovering, isLiveUnavailable: model.djSessionLiveUnavailable, retryConnection: { Task { await model.retryDJSessionConnection() } }, artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL), returnToCurrent: returnToCurrent)
             }
             Divider()
@@ -11197,6 +11173,11 @@ private struct OutputSelectorView: View {
                 Text(localizedKey(model.language, "ui.output.device"))
                     .font(.headline)
                 Spacer()
+                if model.isLoadingOutputs { ProgressView() }
+                Button { model.loadOutputs() } label: { Image(systemName: "arrow.clockwise") }
+                    .disabled(!canUsePlayback || model.isLoadingOutputs)
+                    .accessibilityLabel(localizedKey(model.language, "ui.output.refresh"))
+                    .accessibilityIdentifier("output-devices-refresh")
             }
 
             if model.availableOutputs.isEmpty {
@@ -11233,7 +11214,7 @@ private struct OutputSelectorView: View {
         }
         .opacity(canUsePlayback ? 1 : 0.55)
         .tint(djConnectAccent)
-        .task {
+        .task(id: canUsePlayback) {
             if model.canUsePlaybackFeatures {
                 model.loadOutputs()
             }
@@ -15103,10 +15084,11 @@ private struct StatusToast: View {
             .background(.ultraThinMaterial, in: Capsule())
             .shadow(color: Color(red: 1.0, green: 0.36, blue: 0.0).opacity(0.34), radius: 16, y: 8)
             .accessibilityAddTraits(.isStaticText)
+            .allowsHitTesting(false)
     }
 }
 
-private extension View {
+extension View {
     func djStatusToastOverlay(_ toast: DJConnectVisualNotice?) -> some View {
         overlay(alignment: .top) {
             if let toast {
@@ -16673,7 +16655,7 @@ private struct MoreView: View {
                         NowPlayingView(model: model) { showingPlayerQueue = true }
                     }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.session.history.title"), systemImage: "clock.arrow.circlepath") {
-                        SavedSessionsView(model: model)
+                        SavedSessionsView(model: model, embedsNavigationStack: false)
                     }
                     MoreNavigationRow(
                         title: "Music DNA",
@@ -19179,5 +19161,26 @@ private func permissionStatusColor(_ status: DJConnectPermissionStatus) -> Color
         .secondary
     case .unavailable:
         .orange
+    }
+}
+
+/// Render only known privacy claims, preserving false and unknown values.
+/// Provider labels and diagnostic dictionaries remain data, not user-facing copy.
+enum MusicDNAPrivacySummary {
+    static func text(_ dashboard: DJConnectMusicDNAPrivacyDashboard, language: String) -> String {
+        func localized(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
+        let values: [(String, Bool?)] = [
+            ("enabled", dashboard.enabled),
+            ("clear", dashboard.supportsClear ?? dashboard.controls["clear_supported"]),
+            ("export", dashboard.supportsExport ?? dashboard.controls["export_supported"]),
+            ("import", dashboard.supportsImport ?? dashboard.controls["import_supported"]),
+            ("audio", dashboard.storesRawAudio),
+            ("credentials", dashboard.storesOAuthTokens),
+            ("questions", dashboard.storesFullPrompts)
+        ]
+        let lines = values.compactMap { key, value in
+            value.map { localized("ui.music.dna.privacy." + key + ($0 ? ".yes" : ".no")) }
+        }
+        return lines.isEmpty ? localized("ui.music.dna.privacy.unknown") : lines.joined(separator: "\n")
     }
 }

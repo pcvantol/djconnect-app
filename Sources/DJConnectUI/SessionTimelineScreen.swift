@@ -5,15 +5,24 @@ struct SavedSessionsView: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
     @Environment(\.scenePhase) private var scenePhase
-    init(model: DJConnectAppModel) { self.model = model; history = model.sessionHistory }
+    @State private var refreshing = false
+    @State private var statusToast: DJConnectVisualNotice?
+    private let embedsNavigationStack: Bool
+    init(model: DJConnectAppModel, embedsNavigationStack: Bool = true) {
+        self.model = model; history = model.sessionHistory; self.embedsNavigationStack = embedsNavigationStack
+    }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
-    var body: some View {
-        NavigationStack {
-            ScrollView {
+    @ViewBuilder var body: some View {
+        if embedsNavigationStack { NavigationStack { content } }
+        else { content }
+    }
+    private var content: some View {
+            List {
                 VStack(alignment: .leading, spacing: 16) {
                     if history.listLoading || history.preparing { ProgressView().accessibilityLabel(text("ui.session.history.loading")) }
                     if let key = history.listErrorKey {
-                        Text(text(key)); Button(text("ui.retry")) { Task { await history.prepare(); await history.loadSessions() } }
+                        Text(text(key)).accessibilityIdentifier("saved-sessions-error")
+                        Button(text("ui.retry")) { Task { await refresh() } }
                     } else if !history.available && !history.preparing {
                         Text(text("ui.session.history.unavailable"))
                     } else if history.sessions.isEmpty && !history.listLoading && !history.preparing {
@@ -31,7 +40,7 @@ struct SavedSessionsView: View {
                                     Text(text(session.lifecycleStatus == "INTERRUPTED" ? "ui.session.history.interrupted" : "ui.session.history.ended"))
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
-                                Spacer(); Image(systemName: "chevron.right")
+                                Spacer()
                             }
                             .padding(16)
                             .background(
@@ -52,18 +61,48 @@ struct SavedSessionsView: View {
                     }
                 }
                 .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity).padding(20)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .accessibilityIdentifier("saved-sessions-list")
             .background(DJConnectCanvasBackground())
             .navigationTitle(text("ui.session.history.title"))
-            .refreshable { await history.prepare(); await history.loadSessions() }
+            .scrollBounceBehavior(.always)
+            .refreshable { await refresh() }
+            .toolbar {
+                Button { Task { await refresh() } } label: { Image(systemName: "arrow.clockwise") }
+                    .disabled(refreshing)
+                    .accessibilityLabel(text("ui.session.history.refresh"))
+                    .accessibilityIdentifier("saved-sessions-refresh")
+                    .help(text("ui.session.history.refresh"))
+            }
+            .djStatusToastOverlay(statusToast)
             .task { await history.restoreVisibleSessions() }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { Task { await history.restoreVisibleSessions() } }
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("screen-saved-sessions")
+    }
+    private func refresh() async {
+        guard !refreshing else { return }
+        refreshing = true
+        defer { refreshing = false }
+        statusToast = DJConnectVisualNotice(text: text("ui.session.history.loading"), systemImage: "arrow.clockwise")
+        await history.prepare()
+        let succeeded = await history.loadSessions()
+        let notice = DJConnectVisualNotice(text: text(succeeded ? "ui.session.history.updated" : "ui.session.history.unavailable"),
+                                          systemImage: succeeded ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+        statusToast = notice
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            if statusToast?.id == notice.id { statusToast = nil }
         }
     }
+
 }
 
 /// The same native timeline surface serves the active Session and readonly archive.
@@ -306,19 +345,22 @@ struct SessionTimelineScreen: View {
 
     private func pinnedCurrent(_ session: DJConnectSessionRuntime) -> some View {
         let limit = max(60, viewportHeight * 0.4)
-        let header = NativeSessionMomentsView(session: session, language: model.language,
+        let header = VStack(alignment: .leading, spacing: 12) {
+            ActiveSessionMoodPicker(model: model, session: session)
+            NativeSessionMomentsView(session: session, language: model.language,
             isRecovering: model.djSessionIsRecovering,
             isLiveUnavailable: model.djSessionLiveUnavailable,
             retryConnection: { Task { await model.retryDJSessionConnection() } },
             artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL),
             showsFlow: false)
-            .padding(20)
+        }.padding(20)
         return ViewThatFits(in: .vertical) {
             header
             ScrollView { header }.frame(height: limit)
         }
         .frame(maxHeight: limit)
         .background(DJConnectCanvasBackground())
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("session-pinned-current")
     }
 
@@ -473,14 +515,32 @@ struct SessionEntryView: View {
                             Link(destination: url) { logo.resizable().scaledToFit().frame(width: 110, height: 31).padding(16) }
                                 .accessibilityLabel("Spotify")
                         }
-                    }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-                        .djSessionFrostedSurface(cornerRadius: 20)
+                    }
+                    .padding(20).padding(.bottom, 40)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .djSessionFrostedSurface(cornerRadius: 20)
+                    .overlay(alignment: .bottomTrailing) { askButton.padding(8) }
                 }
-                Button(text(selected ? "ui.session.history.selected_context" : "ui.session.history.ask_entry"), action: askAction)
-                    .font(.caption).accessibilityIdentifier("ask-entry-" + entry.id)
+                if entry.kind == .conversationUser || entry.kind == .conversationDJ {
+                    HStack { Spacer(); askButton }
+                }
             }
         }
         .padding(4).overlay(RoundedRectangle(cornerRadius: 20).stroke(isSelectedMatch ? Color.yellow : .clear, lineWidth: 2))
+    }
+    private var askButton: some View {
+        Button(action: askAction) {
+            Image(systemName: selected ? "checkmark.bubble" : "bubble.left.and.bubble.right")
+                .font(.system(size: 16))
+                .foregroundStyle(selected ? djConnectAccent : .secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(text("ui.session.history.ask_entry"))
+        .accessibilityValue(selected ? text("ui.session.history.selected_context") : "")
+        .accessibilityIdentifier("ask-entry-" + entry.id)
+        .help(text(selected ? "ui.session.history.selected_context" : "ui.session.history.ask_entry"))
     }
     private var sourceURLs: [URL] {
         [entry.playback?.sourceURL, entry.sourceAttribution?["url"], entry.sourceAttribution?["url_previous"]]
@@ -558,7 +618,7 @@ struct SessionComposerContext: View {
 enum SessionArchiveSummary {
     static func text(_ session: DJConnectSavedSession, language: String,
                      timeZone: TimeZone = .current) -> String {
-        guard let start = DJConnectHistoryEntry.date(session.startedAt.isEmpty ? session.createdAt : session.startedAt) else { return "" }
+        guard let created = DJConnectHistoryEntry.date(session.createdAt) else { return "" }
         let locale = Locale(identifier: language)
         let date = DateFormatter()
         date.locale = locale; date.timeZone = timeZone
@@ -566,6 +626,11 @@ enum SessionArchiveSummary {
         let time = DateFormatter()
         time.locale = locale; time.timeZone = timeZone; time.dateFormat = "HH:mm"
         let endValue = session.endedAt.isEmpty && session.lifecycleStatus == "INTERRUPTED" ? session.interruptedAt : session.endedAt
+        guard let start = DJConnectHistoryEntry.date(session.startedAt) else {
+            let endLabel = DJConnectHistoryEntry.date(endValue).map { date.string(from: $0) + " " + time.string(from: $0) }
+                ?? DJConnectLocalization.localized(key: "ui.session.history.end_unknown", language: language)
+            return date.string(from: created) + " (" + DJConnectLocalization.localized(key: "ui.session.history.start_unknown", language: language) + " – " + endLabel + ")"
+        }
         guard let end = DJConnectHistoryEntry.date(endValue), end >= start else {
             return date.string(from: start) + " (" + time.string(from: start) + " – " +
                 DJConnectLocalization.localized(key: "ui.session.history.end_unknown", language: language) + ")"
@@ -582,5 +647,30 @@ enum SessionArchiveSummary {
             : duration.string(from: floor(elapsed / 60) * 60) ?? ""
         let endLabel = calendar.isDate(start, inSameDayAs: end) ? time.string(from: end) : date.string(from: end) + " " + time.string(from: end)
         return date.string(from: start) + " – " + length + " (" + time.string(from: start) + " – " + endLabel + ")"
+    }
+}
+
+struct ActiveSessionMoodPicker: View {
+    @ObservedObject var model: DJConnectAppModel
+    let session: DJConnectSessionRuntime
+    @Environment(\.scenePhase) private var scenePhase
+    private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Picker(text("ui.session.select_mood"), selection: Binding(get: { session.selectedMood }, set: { mood in
+                Task { await model.changeActiveSessionMood(mood) }
+            })) {
+                ForEach(["chill", "groove", "energy", "party"], id: \.self) { mood in Text(text("ui.session.mood." + mood)).tag(mood) }
+            }
+            .pickerStyle(.segmented)
+            .disabled(!model.activeMoodAvailable || model.activeMoodPending || session.confirmedMoodRevision == nil)
+            .accessibilityIdentifier("active-session-mood")
+            if model.activeMoodPending { ProgressView(text("ui.session.mood.updating")) }
+            if let error = model.activeMoodError { Text(error).font(.caption).foregroundStyle(.secondary) }
+        }
+        .task(id: session.id) { await model.refreshActiveMoodCapability() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await model.refreshActiveMoodCapability() } }
+        }
     }
 }

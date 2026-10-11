@@ -697,7 +697,14 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var pairingMessage: String?
     @Published public var userNotice: DJConnectUserNotice?
     @Published public var playback: DJConnectPlayback?
-    @Published public private(set) var activeDJSession: DJConnectSessionRuntime?
+    @Published public private(set) var activeDJSession: DJConnectSessionRuntime? {
+        didSet { if oldValue?.id != activeDJSession?.id { resetActiveMoodState() } }
+    }
+    private var moodOperationGeneration = UUID()
+    private var moodCapabilityGeneration = UUID()
+    @Published public private(set) var activeMoodAvailable = false
+    @Published public private(set) var activeMoodPending = false
+    @Published public private(set) var activeMoodError: String?
     @Published public var selectedSessionMood = "groove"
     @Published public private(set) var isLoadingDJSession = false
     @Published public private(set) var djSessionErrorMessage: String?
@@ -1751,7 +1758,12 @@ public final class DJConnectAppModel: ObservableObject {
         updatePlaybackProgressTimer()
         updateNowPlayingPollTimer()
         syncTrackInsightLiveActivity(reason: "App became active")
-        if pairingStatus == .paired, !isDemoMode { Task { await refreshActiveDJSession() } }
+        if pairingStatus == .paired, !isDemoMode {
+            Task {
+                await refreshActiveDJSession()
+                if activeDJSession != nil { await refreshActiveMoodCapability() }
+            }
+        }
         #if DEBUG
         guard !isUITestRuntimeFixtureActive else {
             return
@@ -4760,8 +4772,9 @@ public final class DJConnectAppModel: ObservableObject {
         return false
     }
 
-    public func refreshActiveDJSession() async {
-        guard isAppInForeground, pairingStatus == .paired, !isLoadingDJSession else { return }
+    @discardableResult
+    public func refreshActiveDJSession() async -> Bool {
+        guard isAppInForeground, pairingStatus == .paired, !isLoadingDJSession else { return false }
         let request = UUID()
         sessionRequestGeneration = request
         isLoadingDJSession = true
@@ -4770,16 +4783,16 @@ public final class DJConnectAppModel: ObservableObject {
             let response = try await withHomeAssistantClient { client in
                 try await client.activeSession()
             }
-            guard request == sessionRequestGeneration, pairingStatus == .paired else { return }
+            guard request == sessionRequestGeneration, pairingStatus == .paired else { return false }
             guard response.success else {
                 clearSessionProjection()
                 djSessionErrorMessage = localized(key: "ui.session.unavailable")
-                return
+                return false
             }
             if let incoming = response.resolvedSession, incoming.broadcast.session.sessionID != incoming.sessionID {
                 clearSessionProjection()
                 djSessionErrorMessage = localized(key: "ui.session.unavailable")
-                return
+                return false
             }
             if activeDJSession?.sessionID != response.resolvedSession?.sessionID {
                 vibeCastHandoffApproved = false
@@ -4792,12 +4805,54 @@ public final class DJConnectAppModel: ObservableObject {
             }
             djSessionErrorMessage = nil
             startSessionBroadcastIfNeeded()
+            return true
         } catch {
-            guard request == sessionRequestGeneration else { return }
+            guard request == sessionRequestGeneration else { return false }
             if (error as? DJConnectError)?.invalidatesSessionAuthority == true {
                 clearSessionProjection()
             }
             djSessionErrorMessage = localized(key: "ui.session.unavailable")
+            return false
+        }
+    }
+
+    public func refreshActiveMoodCapability() async {
+        activeMoodAvailable = false
+        guard isAppInForeground, pairingStatus == .paired else { return }
+        let generation = UUID(); moodCapabilityGeneration = generation
+        let epoch = sessionHistory.responseEpoch
+        do {
+            let caps = try await withHomeAssistantClient { try await $0.activeSessionMoodCapabilities() }
+            guard generation == moodCapabilityGeneration, epoch == sessionHistory.responseEpoch, isAppInForeground, pairingStatus == .paired else { return }
+            activeMoodAvailable = caps.available
+        } catch {
+            guard generation == moodCapabilityGeneration, epoch == sessionHistory.responseEpoch else { return }
+            _ = sessionHistory.withdrawAuthority(for: error)
+        }
+    }
+
+    public func changeActiveSessionMood(_ mood: String) async {
+        guard activeMoodAvailable, !activeMoodPending, isAppInForeground, pairingStatus == .paired,
+              let current = activeDJSession, let revision = current.confirmedMoodRevision,
+              ["chill", "groove", "energy", "party"].contains(mood) else { return }
+        let epoch = sessionHistory.responseEpoch
+        let generation = UUID(); moodOperationGeneration = generation
+        activeMoodPending = true; activeMoodError = nil
+        defer { if generation == moodOperationGeneration { activeMoodPending = false } }
+        do {
+            let response = try await withHomeAssistantClient { try await $0.updateSessionMood(sessionID: current.id, mood: mood, expectedRevision: revision) }
+            guard generation == moodOperationGeneration, epoch == sessionHistory.responseEpoch, pairingStatus == .paired, isAppInForeground,
+                  let latest = activeDJSession, latest.id == current.id else { return }
+            activeDJSession = latest.applying(mood: response)
+        } catch {
+            guard generation == moodOperationGeneration, epoch == sessionHistory.responseEpoch, activeDJSession?.id == current.id else { return }
+            if sessionHistory.withdrawAuthority(for: error) { return }
+            else {
+                // Conflict or a lost reply: reread once, never replay the stale write.
+                _ = await refreshActiveDJSession()
+            }
+            guard generation == moodOperationGeneration, epoch == sessionHistory.responseEpoch, activeDJSession?.id == current.id else { return }
+            activeMoodError = localized(key: "ui.session.mood.failed")
         }
     }
 
@@ -5000,7 +5055,13 @@ public final class DJConnectAppModel: ObservableObject {
         await refreshActiveDJSession()
     }
 
+    private func resetActiveMoodState() {
+        moodOperationGeneration = UUID(); moodCapabilityGeneration = UUID()
+        activeMoodAvailable = false; activeMoodPending = false; activeMoodError = nil
+    }
+
     private func invalidateSessionRequest() {
+        resetActiveMoodState()
         sessionRequestGeneration = UUID()
         isLoadingDJSession = false
     }

@@ -1032,3 +1032,28 @@
 
 "ui.session.history.end_unknown" = "hora de fin desconocida";
 "ui.session.history.less_than_minute" = "menos de 1 minuto";
+
+// Native session refresh and readable Music DNA privacy.
+"ui.session.history.refresh" = "Actualizar sesiones anteriores";
+"ui.session.history.updated" = "Sesiones anteriores actualizadas";
+"ui.session.refresh.loading" = "Actualizando la sesión DJ…";
+"ui.session.refresh.updated" = "Sesión DJ actualizada";
+"ui.music.dna.privacy.enabled.yes" = "Music DNA está activado.";
+"ui.music.dna.privacy.enabled.no" = "Music DNA está desactivado.";
+"ui.music.dna.privacy.clear.yes" = "Puedes borrar tu Music DNA.";
+"ui.music.dna.privacy.clear.no" = "El borrado no está disponible actualmente.";
+"ui.music.dna.privacy.export.yes" = "Puedes descargar tu Music DNA.";
+"ui.music.dna.privacy.export.no" = "La descarga no está disponible actualmente.";
+"ui.music.dna.privacy.import.yes" = "Puedes importar tu Music DNA.";
+"ui.music.dna.privacy.import.no" = "La importación no está disponible actualmente.";
+"ui.music.dna.privacy.audio.yes" = "Se guardan las grabaciones de voz.";
+"ui.music.dna.privacy.audio.no" = "No se guardan las grabaciones de voz.";
+"ui.music.dna.privacy.credentials.yes" = "Se guardan los tokens de acceso a los servicios de música.";
+"ui.music.dna.privacy.credentials.no" = "No se guardan los tokens de acceso a los servicios de música.";
+"ui.music.dna.privacy.questions.yes" = "Se guardan las preguntas completas.";
+"ui.music.dna.privacy.questions.no" = "No se guardan las preguntas completas.";
+"ui.music.dna.privacy.unknown" = "La información de privacidad no está disponible actualmente.";
+"ui.session.mood.updating" = "Actualizando el ambiente…";
+"ui.session.mood.failed" = "No se ha actualizado el ambiente. Comprueba la selección actual e inténtalo de nuevo.";
+"ui.output.refresh" = "Actualizar dispositivos de salida";
+"ui.session.history.start_unknown" = "hora de inicio desconocida";
