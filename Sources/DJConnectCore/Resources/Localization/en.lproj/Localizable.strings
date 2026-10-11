@@ -1068,3 +1068,10 @@
 "demo.session.voice_question" = "Sample voice question: what fits next?";
 "demo.session.voice_answer" = "A slightly more energetic track fits this groove. This is a scripted demo answer; nothing was recorded or played.";
 "demo.session.voice_hint" = "Show a sample voice question";
+
+// Native invitation when no DJ Session is active.
+"ui.session.welcome.eyebrow" = "Welcome to DJConnect";
+"ui.session.welcome.title" = "Your music.\nYour moment.";
+"ui.session.welcome.subtitle" = "Make room for your music. Start a session and let the DJ listen along with you.";
+"ui.session.welcome.promise" = "Stories behind your music. Space for your questions.";
+"ui.session.welcome.mood" = "How do you want to listen?";

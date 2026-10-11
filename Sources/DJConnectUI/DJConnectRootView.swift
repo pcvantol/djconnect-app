@@ -10103,33 +10103,161 @@ private struct DJSessionView: View {
 
 private struct IdleDJSessionView: View {
     @ObservedObject var model: DJConnectAppModel
+    @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 42
+    private let moods: [(id: String, glyph: String)] = [
+        ("chill", "moon.stars"), ("groove", "waveform"),
+        ("energy", "bolt"), ("party", "sparkles")
+    ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text(localizedKey(model.language, "ui.session.idle")).foregroundStyle(.secondary)
-            Picker(localizedKey(model.language, "ui.session.select_mood"), selection: $model.selectedSessionMood) {
-                Text(localizedKey(model.language, "ui.session.mood.chill")).tag("chill")
-                Text(localizedKey(model.language, "ui.session.mood.groove")).tag("groove")
-                Text(localizedKey(model.language, "ui.session.mood.energy")).tag("energy")
-                Text(localizedKey(model.language, "ui.session.mood.party")).tag("party")
+        VStack(alignment: .leading, spacing: 28) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 36) {
+                    welcomeCopy(compactArtwork: false).frame(width: 380, alignment: .leading)
+                    Spacer(minLength: 0)
+                    DJSessionWelcomeArtwork().frame(width: 280, height: 280)
+                }
+                welcomeCopy(compactArtwork: true)
             }
-            .pickerStyle(.segmented)
-            Button(localizedKey(model.language, "ui.session.start")) { Task { await model.startDJSession() } }
-                .buttonStyle(.borderedProminent)
+            VStack(alignment: .leading, spacing: 16) {
+                Text(localizedKey(model.language, "ui.session.welcome.mood"))
+                    .font(.headline)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 10)], spacing: 10) {
+                    ForEach(moods, id: \.id) { mood in
+                        moodButton(mood.id, glyph: mood.glyph)
+                    }
+                }
+                Button { Task { await model.startDJSession() } } label: {
+                    HStack(spacing: 12) {
+                        if model.isLoadingDJSession { ProgressView().tint(.white) }
+                        else { Image(systemName: "play.fill") }
+                        Text(localizedKey(model.language, "ui.session.start"))
+                            .font(.headline)
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 54)
+                    .background(djConnectIconGradient, in: RoundedRectangle(cornerRadius: 18))
+                    .overlay { RoundedRectangle(cornerRadius: 18).stroke(.white.opacity(0.22)) }
+                }
+                .buttonStyle(.plain)
                 .disabled(model.isLoadingDJSession || (!model.isDemoMode && model.pairingStatus != .paired) || !model.canUsePlaybackFeatures)
-            if model.isLoadingDJSession { ProgressView() }
-            if model.isDemoMode {
-                Text(localizedKey(model.language, "demo.session.notice")).font(.footnote).foregroundStyle(.secondary)
-            } else if model.pairingStatus != .paired || !model.canUsePlaybackFeatures {
-                Text(localizedKey(model.language, "ui.session.requires_connection")).font(.footnote).foregroundStyle(.secondary)
-            }
-            if let error = model.djSessionErrorMessage {
-                Text(error).font(.footnote).foregroundStyle(.red)
+                .opacity(startAvailable ? 1 : 0.5)
+                .accessibilityIdentifier("session-welcome-start")
+                if model.isDemoMode {
+                    Text(localizedKey(model.language, "demo.session.notice")).font(.footnote).foregroundStyle(.secondary)
+                } else if model.pairingStatus != .paired || !model.canUsePlaybackFeatures {
+                    Text(localizedKey(model.language, "ui.session.requires_connection")).font(.footnote).foregroundStyle(.secondary)
+                }
+                if let error = model.djSessionErrorMessage {
+                    Text(error).font(.footnote).foregroundStyle(.red)
+                }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 28)
+        .padding(28)
+        .background {
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
+                .fill(LinearGradient(colors: [Color(red: 0.09, green: 0.06, blue: 0.20),
+                    Color(red: 0.17, green: 0.08, blue: 0.32), Color(red: 0.08, green: 0.15, blue: 0.32)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing))
+        }
+        .overlay { RoundedRectangle(cornerRadius: 32, style: .continuous).stroke(.white.opacity(0.16)) }
+        .frame(maxWidth: 960)
+        .frame(maxWidth: .infinity, alignment: .top)
+        .padding(.vertical, 12)
         .accessibilityIdentifier("screen-idle-dj-session")
+    }
+
+    private var startAvailable: Bool {
+        !model.isLoadingDJSession && (model.isDemoMode || model.pairingStatus == .paired) && model.canUsePlaybackFeatures
+    }
+
+    private func welcomeCopy(compactArtwork: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 12) {
+                Label(localizedKey(model.language, "ui.session.welcome.eyebrow"), systemImage: "sparkles")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color(red: 0.89, green: 0.65, blue: 1))
+                if compactArtwork {
+                    Spacer(minLength: 0)
+                    DJSessionWelcomeArtwork().frame(width: 84, height: 84)
+                }
+            }
+            Text(localizedKey(model.language, "ui.session.welcome.title"))
+                .font(.system(size: titleSize, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            Text(localizedKey(model.language, "ui.session.welcome.subtitle"))
+                .font(.body).foregroundStyle(.white.opacity(0.82))
+                .fixedSize(horizontal: false, vertical: true)
+            Label(localizedKey(model.language, "ui.session.welcome.promise"), systemImage: "bubble.left.and.bubble.right")
+                .font(.subheadline).foregroundStyle(.white.opacity(0.65))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func moodButton(_ mood: String, glyph: String) -> some View {
+        let selected = model.selectedSessionMood == mood
+        return Button { model.selectedSessionMood = mood } label: {
+            HStack(spacing: 8) {
+                Image(systemName: glyph)
+                Text(localizedKey(model.language, "ui.session.mood." + mood))
+                    .font(.subheadline.weight(.semibold))
+            }
+            .foregroundStyle(.white.opacity(selected ? 1 : 0.78))
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .background(selected ? djConnectAccent.opacity(0.35) : .white.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
+            .overlay { RoundedRectangle(cornerRadius: 14).stroke(selected ? djConnectAccent.opacity(0.85) : .white.opacity(0.12)) }
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("session-welcome-mood-" + mood)
+    }
+}
+
+/// Decorative native artwork; it carries no playback or Session state.
+private struct DJSessionWelcomeArtwork: View {
+    var body: some View {
+        GeometryReader { geometry in
+            let size = min(geometry.size.width, geometry.size.height)
+            ZStack {
+                Circle().fill(djConnectIconGradient).blur(radius: size * 0.13).opacity(0.45)
+                    .frame(width: size * 0.85, height: size * 0.85)
+                Circle().fill(LinearGradient(colors: [.black.opacity(0.85), Color(red: 0.19, green: 0.14, blue: 0.33)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: size * 0.79, height: size * 0.79)
+                    .overlay { Circle().stroke(.white.opacity(0.2)).frame(width: size * 0.79, height: size * 0.79) }
+                ForEach(0..<5) { ring in
+                    Circle().stroke(.white.opacity(0.06), lineWidth: 1)
+                        .frame(width: size * (0.42 + Double(ring) * 0.065), height: size * (0.42 + Double(ring) * 0.065))
+                }
+                Circle().fill(djConnectIconGradient).frame(width: size * 0.32, height: size * 0.32)
+                Image(systemName: "sparkles").font(.system(size: size * 0.15, weight: .medium)).foregroundStyle(.white)
+                artworkGlyph("music.note", size: size).offset(x: size * 0.35, y: -size * 0.25)
+                artworkGlyph("bubble.left.and.bubble.right", size: size).offset(x: -size * 0.35, y: size * 0.13)
+                HStack(spacing: 4) {
+                    ForEach(Array([10.0, 18, 28, 15, 34, 23, 12, 27, 17].enumerated()), id: \.offset) { bar in
+                        Capsule().fill(djConnectIconGradient).frame(width: 4, height: bar.element)
+                    }
+                }
+                .padding(.horizontal, 18).padding(.vertical, 12)
+                .background(.ultraThinMaterial, in: Capsule())
+                .overlay { Capsule().stroke(.white.opacity(0.2)) }
+                .offset(x: size * 0.16, y: size * 0.35)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+        }
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+
+    private func artworkGlyph(_ glyph: String, size: CGFloat) -> some View {
+        Image(systemName: glyph).font(.system(size: size * 0.07, weight: .medium))
+            .foregroundStyle(.white)
+            .frame(width: size * 0.18, height: size * 0.18)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: size * 0.06))
+            .overlay { RoundedRectangle(cornerRadius: size * 0.06).stroke(.white.opacity(0.22)) }
+            .rotationEffect(.degrees(-10))
     }
 }
 

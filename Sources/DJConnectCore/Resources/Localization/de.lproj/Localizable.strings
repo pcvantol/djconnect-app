@@ -1068,3 +1068,10 @@
 "demo.session.voice_question" = "Beispiel-Sprachfrage: Was passt als Nächstes?";
 "demo.session.voice_answer" = "Ein etwas lebhafterer Titel passt zu diesem Groove. Dies ist eine vorbereitete Demoantwort; es wurde nichts aufgenommen oder abgespielt.";
 "demo.session.voice_hint" = "Eine Beispiel-Sprachfrage zeigen";
+
+// Native invitation when no DJ Session is active.
+"ui.session.welcome.eyebrow" = "Willkommen bei DJConnect";
+"ui.session.welcome.title" = "Deine Musik.\nDein Moment.";
+"ui.session.welcome.subtitle" = "Gib deiner Musik Raum. Starte eine Session und lass den DJ mit dir zuhören.";
+"ui.session.welcome.promise" = "Geschichten zu deiner Musik. Platz für deine Fragen.";
+"ui.session.welcome.mood" = "Wie möchtest du hören?";

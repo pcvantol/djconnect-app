@@ -1068,3 +1068,10 @@
 "demo.session.voice_question" = "Voorbeeld stemvraag: wat past hierna?";
 "demo.session.voice_answer" = "Een iets energieker nummer past bij deze groove. Dit is een vooraf geschreven demoantwoord; er is niets opgenomen of afgespeeld.";
 "demo.session.voice_hint" = "Toon een voorbeeld van een stemvraag";
+
+// Native invitation when no DJ Session is active.
+"ui.session.welcome.eyebrow" = "Welkom bij DJConnect";
+"ui.session.welcome.title" = "Jouw muziek.\nJouw moment.";
+"ui.session.welcome.subtitle" = "Geef je muziek de ruimte. Start een sessie en laat de DJ met je meeluisteren.";
+"ui.session.welcome.promise" = "Verhalen bij je muziek. Ruimte voor jouw vragen.";
+"ui.session.welcome.mood" = "Hoe wil je luisteren?";

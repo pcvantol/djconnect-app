@@ -1372,6 +1372,9 @@ extension DJConnectIOSUITests {
         app.buttons["session-end-button"].tap()
         let restart = app.buttons["Start DJ-sessie"].firstMatch
         XCTAssertTrue(restart.waitForExistence(timeout: 5) && restart.isEnabled)
+        XCTAssertTrue(app.staticTexts["Jouw muziek.\nJouw moment."].firstMatch.exists)
+        let welcome = XCTAttachment(screenshot: app.screenshot()); welcome.name = "demo-native-idle-welcome-hero"; welcome.lifetime = .keepAlways; add(welcome)
+        if !restart.isHittable { app.scrollViews.firstMatch.swipeUp() }
         app.buttons["Feest"].firstMatch.tap(); restart.tap()
         XCTAssertTrue(app.staticTexts["Een avond met de DJ"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Feest"].firstMatch.isSelected)
