@@ -6582,7 +6582,7 @@ private struct MusicDiscoveryEmptyState: View {
 
 @MainActor
 private func musicDiscoveryArtworkURL(_ rawValue: String?, model: DJConnectAppModel) -> URL? {
-    model.resolvedHomeAssistantImageURL(rawValue)
+    model.resolvedMusicDiscoveryImageURL(rawValue)
 }
 
 private struct MusicDNATrackListRow: View {
@@ -10084,6 +10084,16 @@ private struct DJSessionView: View {
                         Task { await refreshNowPlayingWithToast() }
                     }
                 }
+                if !history.available, model.activeDJSession != nil {
+                    ToolbarItem {
+                    Button(role: .destructive) { Task { await model.endDJSession() } } label: {
+                        Image(systemName: "xmark.circle")
+                    }
+                    .disabled(model.isLoadingDJSession)
+                    .accessibilityLabel(localizedKey(model.language, "ui.session.end"))
+                    .accessibilityIdentifier("session-end-button")
+                }
+                    }
             }
             .djUserNoticeToast(model: model)
         }
@@ -10188,10 +10198,6 @@ struct ActiveDJSessionView: View {
                 Text(localizedKey(model.language, "ui.vibecast.handoff.failed"))
                     .font(.footnote).foregroundStyle(.red)
             }
-            Button(localizedKey(model.language, "ui.session.queue"), action: openQueueAction).buttonStyle(.bordered)
-            Button(localizedKey(model.language, "ui.session.end"), role: .destructive) { Task { await model.endDJSession() } }
-                .buttonStyle(.bordered)
-                .disabled(model.isLoadingDJSession)
             if let error = model.djSessionErrorMessage {
                 Text(error).font(.footnote).foregroundStyle(.red)
             }
@@ -11228,7 +11234,7 @@ private struct OutputSelectorView: View {
         .opacity(canUsePlayback ? 1 : 0.55)
         .tint(djConnectAccent)
         .task {
-            if model.canUsePlaybackFeatures, model.availableOutputs.isEmpty {
+            if model.canUsePlaybackFeatures {
                 model.loadOutputs()
             }
         }

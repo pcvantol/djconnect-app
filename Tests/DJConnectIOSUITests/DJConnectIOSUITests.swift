@@ -1072,6 +1072,25 @@ extension DJConnectIOSUITests {
         if app.buttons["Niet nu"].waitForExistence(timeout: 2) { app.buttons["Niet nu"].tap() }
         XCTAssertTrue(app.descendants(matching: .any)["screen-session-conversation"].waitForExistence(timeout: 20))
         XCTAssertTrue(app.staticTexts["We voeren de energie geleidelijk op."].firstMatch.waitForExistence(timeout: 15))
+        let pinned = app.descendants(matching: .any)["session-pinned-current"].firstMatch
+        XCTAssertTrue(pinned.exists)
+        XCTAssertFalse(app.buttons["Terug naar de actuele bijdrage"].exists)
+        let beforeMenu = try await control("state", method: "GET")
+        let handoff = app.buttons["session-handoff-toggle"]
+        XCTAssertTrue(handoff.isHittable); handoff.tap()
+        XCTAssertTrue(app.textFields["vibecast-handoff-code"].waitForExistence(timeout: 5))
+        try saveHistoryScreenshot("paired-ui-handoff-popover")
+        app.buttons["session-handoff-close"].tap()
+        let afterMenu = try await control("state", method: "GET")
+        XCTAssertEqual((beforeMenu["active"] as? NSDictionary), (afterMenu["active"] as? NSDictionary))
+        let draft = app.textViews.firstMatch
+        XCTAssertTrue(draft.isHittable); draft.tap(); draft.typeText("Layoutproef")
+        XCTAssertLessThan(pinned.frame.maxY, draft.frame.minY + 1)
+        XCTAssertLessThan(pinned.frame.height, app.frame.height * 0.6)
+        try saveHistoryScreenshot("paired-ui-pinned-with-keyboard")
+        draft.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 11))
+        app.buttons["session-search-toggle"].tap()
+        app.buttons["Zoeken sluiten"].firstMatch.tap()
         try saveHistoryScreenshot("paired-ios-01-authorized-native-snapshot")
         _ = try await control("update")
         XCTAssertTrue(app.staticTexts["Paired native update"].firstMatch.waitForExistence(timeout: 10))
@@ -1098,6 +1117,9 @@ extension DJConnectIOSUITests {
         more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
         try saveHistoryScreenshot("paired-ios-05-player-after-session-end")
+        more.tap(); app.buttons["Eerdere sessies"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["saved-session-" + sessionID].waitForExistence(timeout: 10))
+        try saveHistoryScreenshot("paired-ui-archive-dates-gradient")
     }
 
     func testActualCoreArchiveAndPlayerNavigationPreservesSessionB() async throws {

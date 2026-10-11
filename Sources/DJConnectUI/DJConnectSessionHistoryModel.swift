@@ -188,7 +188,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func loadTimeline(_ sessionID: String, more: Bool = false, window: DJConnectHistoryWindow? = nil,
-                             anchorEntryID: String? = nil, limit: Int = 20) async {
+                             anchorEntryID: String? = nil, limit: Int = 20, preserveLoadedEntries: Bool = false) async {
         guard available, let host, host.canRefreshSessionHistory, !(timelines[sessionID]?.loading ?? false),
               timelineNavigations[sessionID] == nil else { return }
         let cursor = more ? timelines[sessionID]?.nextCursor : nil
@@ -203,7 +203,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             }
             guard captured == epoch, timelineGenerations[sessionID] == generation else { return }
             guard cursor == nil || timelines[sessionID]?.revision == page.revision.value else { throw DJConnectError.invalidResponse }
-            var previous = cursor == nil && window == nil ? [] : timelines[sessionID]?.entries ?? []
+            var previous = cursor == nil && window == nil && !preserveLoadedEntries ? [] : timelines[sessionID]?.entries ?? []
             if window != nil, let lower = page.scannedOrderMin, let upper = page.scannedOrderMax {
                 previous.removeAll { $0.order >= lower && $0.order <= upper }
             }
@@ -503,7 +503,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             await loadTimeline(sessionID, window: .anchor, anchorEntryID: anchor)
             if timelines[sessionID]?.entries.contains(where: { $0.id == anchor && $0.isRetained() }) == true { return }
         }
-        await loadTimeline(sessionID, window: active ? .tail : nil)
+        await loadTimeline(sessionID, window: .tail)
     }
     private func errorKey(_ error: Error) -> String {
         isConflict(error) ? "ui.session.history.changed" : "ui.session.history.unavailable"

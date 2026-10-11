@@ -501,12 +501,21 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     let sessions = try historyData(["success": true, "schema_version": 1, "sessions": [try #require(timelineObject["session"])],
         "revision": try #require(timelineObject["revision"]), "retention_days": 30])
     let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    var tail = timelineObject
+    tail["window"] = "tail"; tail["window_limit"] = 20
+    tail["scan_complete"] = true; tail["next_cursor"] = NSNull()
+    tail["scanned_order_min"] = page.entries.map(\.order).min()
+    tail["scanned_order_max"] = page.entries.map(\.order).max()
+    let tailData = try historyData(tail)
     let gate = HistoryAuthorityGate()
     let fixture = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
         if gate.denied { return (403, Data(#"{"success":false,"error":"invalid_profile","message":"Private denied detail"}"#.utf8), 0) }
         if request.url!.path.hasSuffix("ask_dj/history") { return (200, profile, 0) }
         if request.url!.path.hasSuffix("/session/history") { return (200, sessions, 0) }
+        if URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.contains(where: { $0.name == "window" && $0.value == "tail" }) == true {
+            return (200, tailData, 0)
+        }
         return (200, timeline, 0)
     }
     defer { fixture.close() }
@@ -539,6 +548,7 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     #expect(model.sessionHistory.hasAuthorizedOwner && !model.sessionHistory.sessions.isEmpty)
     await model.sessionHistory.restoreVisibleTimeline(page.session.id, active: false, anchor: nil)
     #expect(model.sessionHistory.timelines[page.session.id]?.entries.count == page.entries.count)
+    #expect(fixture.requests.last?.url?.query?.contains("window=tail") == true)
 }
 
 @Test @MainActor func sessionHistoryQueuedTurnCannotSendAfterSynchronousBackground() async throws {
@@ -1085,4 +1095,57 @@ func pairedLiveActualProducerWithdrawsChangedProfileAndRejectsInvalidToken() asy
     #expect((records["authorization_present"] as? Bool) == false)
     #expect((records["identity_present"] as? Bool) == false)
     #expect((records["query_present"] as? Bool) == false)
+}
+
+@Test func sessionArchiveSummaryUsesActualTimezoneDurationAndBothDates() throws {
+    let session = try JSONDecoder().decode(DJConnectSavedSession.self, from: Data(#"{"session_id":"summary","lifecycle_status":"ENDED","created_at":"2026-10-11T10:00:00Z","started_at":"2026-10-11T10:00:00Z","ended_at":"2026-10-11T16:00:00Z","interrupted_at":"","revision":"r1","read_only":true,"history_coverage":"retained"}"#.utf8))
+    let text = SessionArchiveSummary.text(session, language: "nl", timeZone: try #require(TimeZone(identifier: "Europe/Amsterdam")))
+    #expect(text.contains("11 oktober 2026"))
+    #expect(text.contains("6 uur"))
+    #expect(text.contains("12:00 – 18:00"))
+    #expect(!text.hasPrefix("ma")) // The example date is actually Sunday.
+}
+
+@Test func sessionArchiveSummaryNeverInventsMissingOrInvalidEnd() throws {
+    for end in ["", "2026-10-11T09:00:00Z"] {
+        let json: [String: Any] = ["session_id":"summary", "lifecycle_status":"ENDED", "created_at":"2026-10-11T10:00:00Z", "started_at":"2026-10-11T10:00:00Z", "ended_at":end, "interrupted_at":"", "revision":"r1", "read_only":true, "history_coverage":"retained"]
+        let session = try JSONDecoder().decode(DJConnectSavedSession.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(SessionArchiveSummary.text(session, language: "nl").contains("eindtijd onbekend"))
+    }
+}
+
+@Test @MainActor func sessionHistoryNewestWindowSurvivesEarlierPagingAndRestore() async throws {
+    let receipt = try historyObject("window-producer-receipt")
+    var tail = try #require(receipt["tail_window"] as? [String: Any])
+    tail["window_limit"] = 20
+    let tailData = try historyData(tail)
+    let firstData = try historyData(try #require(receipt["first_page"]))
+    let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: tailData)
+    let profile = try historyData(try #require(try historyObject()["later_historical_answer"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("ask_dj/history") { return (200, profile, 0) }
+        return (200, request.url!.query?.contains("window=tail") == true ? tailData : firstData, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    await model.sessionHistory.loadTimeline(page.session.id, window: .tail)
+    let newest = try #require(page.entries.last?.id)
+    #expect(model.sessionHistory.timelines[page.session.id]?.entries.last?.id == newest)
+    await model.sessionHistory.loadTimeline(page.session.id, preserveLoadedEntries: true)
+    #expect(model.sessionHistory.timelines[page.session.id]?.entries.last?.id == newest)
+    #expect((model.sessionHistory.timelines[page.session.id]?.entries.count ?? 0) > page.entries.count)
+    await model.sessionHistory.refreshVisibleTimeline(page.session.id, anchor: nil)
+    await model.sessionHistory.restoreVisibleTimeline(page.session.id, active: false, anchor: nil)
+    #expect(model.sessionHistory.timelines[page.session.id]?.entries.last?.id == newest)
+    #expect(fixture.requests.last?.url?.query?.contains("window=tail") == true)
+}
+
+@Test func sessionArchiveSummaryShowsEndDateForOvernightSessions() throws {
+    let session = try JSONDecoder().decode(DJConnectSavedSession.self, from: Data(#"{"session_id":"overnight","lifecycle_status":"ENDED","created_at":"2026-10-10T21:00:00Z","started_at":"2026-10-10T21:00:00Z","ended_at":"2026-10-11T04:00:00Z","interrupted_at":"","revision":"r1","read_only":true,"history_coverage":"retained"}"#.utf8))
+    let text = SessionArchiveSummary.text(session, language: "nl", timeZone: try #require(TimeZone(identifier: "Europe/Amsterdam")))
+    #expect(text.contains("10 oktober 2026") && text.contains("11 oktober 2026"))
+    #expect(text.contains("7 uur") && text.contains("23:00") && text.contains("06:00"))
 }

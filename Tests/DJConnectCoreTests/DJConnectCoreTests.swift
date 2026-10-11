@@ -13302,3 +13302,16 @@ private extension String {
     await Task.yield()
     await transport.stop()
 }
+
+@MainActor
+@Test func discoveryPublicArtworkDoesNotBroadenProtectedResponseImagePolicy() throws {
+    let defaults = try testDefaults()
+    defaults.set("https://discovery-art.local", forKey: "DJConnectHomeAssistantURL")
+    let model = DJConnectAppModel(defaults: defaults, startBackgroundTasks: false)
+    #expect(model.resolvedMusicDiscoveryImageURL("https://i.scdn.co/image/example")?.host == "i.scdn.co")
+    #expect(model.resolvedHomeAssistantImageURL("https://i.scdn.co/image/example") == nil)
+    #expect(model.resolvedMusicDiscoveryImageURL("https://i.scdn.co.evil.test/image/example") == nil)
+    #expect(model.resolvedMusicDiscoveryImageURL("https://user:secret@i.scdn.co/image/example") == nil)
+    #expect(model.resolvedMusicDiscoveryImageURL("http://i.scdn.co/image/example") == nil)
+    #expect(model.resolvedMusicDiscoveryImageURL("/api/djconnect/image_proxy/album")?.host == "discovery-art.local")
+}

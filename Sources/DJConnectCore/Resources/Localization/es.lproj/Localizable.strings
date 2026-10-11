@@ -1029,3 +1029,6 @@
 "ui.music.dna.temporarily_unavailable" = "Music DNA no está disponible ahora. Inténtalo de nuevo.";
 
 "ui.session.live_unavailable" = "La sesión de DJ no se puede actualizar ahora.";
+
+"ui.session.history.end_unknown" = "hora de fin desconocida";
+"ui.session.history.less_than_minute" = "menos de 1 minuto";

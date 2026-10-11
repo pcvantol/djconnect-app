@@ -8751,6 +8751,17 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    /// Discovery may reference public Spotify artwork, without sending app credentials.
+    public func resolvedMusicDiscoveryImageURL(_ rawValue: String?) -> URL? {
+        guard let raw = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines),
+              let url = URL(string: raw), url.user == nil, url.password == nil else { return nil }
+        if url.scheme?.lowercased() == "https", url.host?.lowercased() == "i.scdn.co",
+           url.port == nil || url.port == 443 {
+            return url
+        }
+        return resolvedHomeAssistantImageURL(raw)
+    }
+
     public func resolvedHomeAssistantImageURL(_ rawValue: String?) -> URL? {
         guard let rawValue = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines), !rawValue.isEmpty else {
             return nil

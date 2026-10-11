@@ -26,14 +26,23 @@ struct SavedSessionsView: View {
                         } label: {
                             HStack {
                                 VStack(alignment: .leading, spacing: 5) {
-                                    SessionTimestampText(value: session.startedAt.isEmpty ? session.createdAt : session.startedAt, language: model.language)
+                                    Text(SessionArchiveSummary.text(session, language: model.language))
                                         .font(.headline).multilineTextAlignment(.leading)
                                     Text(text(session.lifecycleStatus == "INTERRUPTED" ? "ui.session.history.interrupted" : "ui.session.history.ended"))
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer(); Image(systemName: "chevron.right")
                             }
-                            .padding(16).background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                            .padding(16)
+                            .background(
+                                LinearGradient(colors: [.black.opacity(0.72), Color(red: 0.20, green: 0.08, blue: 0.32).opacity(0.72)],
+                                               startPoint: .topLeading, endPoint: .bottomTrailing),
+                                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            )
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(djConnectAccent.opacity(0.12), lineWidth: 1)
+                            }
                         }
                         .buttonStyle(.plain).accessibilityIdentifier("saved-session-" + session.id)
                     }
@@ -69,6 +78,8 @@ struct SessionTimelineScreen: View {
     @State private var priorSearchPosition: String?
     @State private var query = ""
     @State private var searching = false
+    @State private var showingHandoff = false
+    @State private var viewportHeight: CGFloat = 600
     @State private var selectedMatchID: String?
     @State private var hasNewEntries = false
     @State private var positionUnavailable = false
@@ -88,7 +99,7 @@ struct SessionTimelineScreen: View {
     private var timeline: DJConnectSessionHistoryModel.Timeline { history.timelines[sessionID] ?? .init() }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     private var matches: [DJConnectHistoryEntry] {
-        history.acceptedSearchSessionID == sessionID && history.acceptedSearchQuery == query ? history.searchMatches.filter { $0.isRetained() } : []
+        history.acceptedSearchSessionID == sessionID && history.acceptedSearchQuery == query ? history.searchMatches.reversed().filter { $0.isRetained() } : []
     }
     private var selectedIndex: Int { matches.firstIndex(where: { $0.id == selectedMatchID }) ?? 0 }
     private var canSend: Bool {
@@ -103,24 +114,35 @@ struct SessionTimelineScreen: View {
                 TimelineView(.periodic(from: .now, by: 1)) { clock in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 18) {
-                            if let activeSession {
-                                NativeSessionMomentsView(session: activeSession, language: model.language,
-                                    isRecovering: model.djSessionIsRecovering,
-                                    isLiveUnavailable: model.djSessionLiveUnavailable,
-                                    retryConnection: { Task { await model.retryDJSessionConnection() } },
-                                    artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL),
-                                    returnToCurrent: { jump("current", proxy: proxy) }, showsFlow: false)
-                                    .id("current")
-                            } else {
+                            Color.clear.frame(height: 1).id("current")
+                            if activeSession == nil {
                                 Label(text("ui.session.history.readonly"), systemImage: "lock")
                                     .font(.headline).accessibilityAddTraits(.isHeader)
                             }
                             if positionUnavailable { Text(text("ui.session.history.changed")) }
+                            if let error = model.djSessionErrorMessage, activeSession != nil {
+                                Text(error).foregroundStyle(.red)
+                            }
                             if timeline.loading { ProgressView() }
                             if let key = timeline.errorKey {
-                                Text(text(key)); Button(text("ui.retry")) { Task { await history.loadTimeline(sessionID) } }
+                                Text(text(key)); Button(text("ui.retry")) { Task { await history.loadTimeline(sessionID, window: .tail) } }
                             }
-                            ForEach(timeline.entries.filter { $0.isRetained(at: clock.date) }) { entry in
+                            ForEach(history.pendingTurns.reversed().filter { $0.context.sessionID == sessionID }) { turn in
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Text(turn.text).fixedSize(horizontal: false, vertical: true)
+                                    if turn.failed {
+                                        Text(text(turn.contextChanged ? "ui.session.history.changed" : "ui.session.history.unavailable"))
+                                        Button(text(turn.contextChanged ? "ui.session.history.current_context" : "ui.retry")) {
+                                            if turn.contextChanged { history.useCurrentContext(turn) }
+                                            else { history.retry(turn) }
+                                        }
+                                    } else { Label(text("ui.session.history.awaiting"), systemImage: "ellipsis.bubble") }
+                                }
+                                .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                                .id("pending-" + turn.id)
+                            }
+                            ForEach(timeline.entries.reversed().filter { $0.isRetained(at: clock.date) }) { entry in
                                 SessionEntryView(entry: entry, language: model.language,
                                     highlights: matches.first(where: { $0.id == entry.id && $0.text == entry.text })?.highlights ?? [],
                                     isSelectedMatch: selectedMatchID == entry.id || initialAnchor == entry.id,
@@ -140,48 +162,36 @@ struct SessionTimelineScreen: View {
                                 Button(text("ui.session.history.more")) { Task { await history.loadTimeline(sessionID, more: true) } }
                                     .disabled(timeline.loading)
                             } else if timeline.windowed {
-                                Button(text("ui.session.history.earlier")) { Task { await history.loadTimeline(sessionID) } }
+                                Button(text("ui.session.history.earlier")) { Task { await history.loadTimeline(sessionID, preserveLoadedEntries: true) } }
                                     .disabled(timeline.loading)
-                            }
-                            ForEach(history.pendingTurns.filter { $0.context.sessionID == sessionID }) { turn in
-                                VStack(alignment: .leading, spacing: 10) {
-                                    Text(turn.text).fixedSize(horizontal: false, vertical: true)
-                                    if turn.failed {
-                                        Text(text(turn.contextChanged ? "ui.session.history.changed" : "ui.session.history.unavailable"))
-                                        Button(text(turn.contextChanged ? "ui.session.history.current_context" : "ui.retry")) {
-                                            if turn.contextChanged { history.useCurrentContext(turn) }
-                                            else { history.retry(turn) }
-                                        }
-                                    } else { Label(text("ui.session.history.awaiting"), systemImage: "ellipsis.bubble") }
-                                }
-                                .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-                                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
-                                .id("pending-" + turn.id)
-                            }
-                            if let activeSession {
-                                ActiveDJSessionView(model: model, session: activeSession, openQueueAction: openQueueAction, showsMoments: false)
                             }
                             Color.clear.frame(height: 1).id("tail")
                         }
                         .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity).padding(20)
                         .scrollTargetLayout()
                     }
+                    .safeAreaInset(edge: .top, spacing: 0) {
+                        if let activeSession {
+                            pinnedCurrent(activeSession)
+                        }
+                    }
                     .scrollPosition(id: $visibleEntry, anchor: .top)
-                    .refreshable { await history.refreshConversation(); await history.loadTimeline(sessionID) }
+                    .refreshable { await history.refreshConversation(); await history.refreshVisibleTimeline(sessionID, anchor: visibleEntry) }
                 }
                 if activeSession != nil {
-                    HStack {
-                        Button(text("ui.session.back_current")) { jump("current", proxy: proxy) }
-                        Spacer()
-                        if hasNewEntries {
-                            Button(text("ui.session.history.new_entries")) { jump("tail", proxy: proxy); hasNewEntries = false }
+                    if hasNewEntries {
+                        Button(text("ui.session.history.new_entries")) {
+                            jump(timeline.entries.last?.id ?? "current", proxy: proxy)
+                            hasNewEntries = false
                         }
-                    }.font(.footnote).padding(.horizontal, 20).padding(.vertical, 8)
+                        .font(.footnote).padding(.horizontal, 20).padding(.vertical, 8)
+                    }
                     AskDJInputBar(model: model, canSend: canSend,
                                   canUseVoiceInput: model.canUseProfileConversation && model.voiceEnabled,
                                   isInputFocused: $inputFocused)
                 }
             }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewportHeight = $0 }
             .background(DJConnectCanvasBackground())
             .toolbar {
                 if activeSession != nil {
@@ -201,10 +211,35 @@ struct SessionTimelineScreen: View {
                     .accessibilityLabel(text("ui.session.history.search"))
                     .accessibilityIdentifier("session-search-toggle")
                     .keyboardShortcut("f", modifiers: .command)
+                if let activeSession {
+                    Button { showingHandoff.toggle() } label: {
+                        Image(systemName: "tv.badge.wifi")
+                    }
+                    .accessibilityLabel(text("ui.vibecast.handoff.title"))
+                    .accessibilityIdentifier("session-handoff-toggle")
+                    .help(text("ui.vibecast.handoff.title"))
+                    .popover(isPresented: $showingHandoff) {
+                        VStack(spacing: 0) {
+                            HStack {
+                                Spacer()
+                                Button { showingHandoff = false } label: { Image(systemName: "xmark") }
+                                    .accessibilityLabel(text("ui.close"))
+                                    .accessibilityIdentifier("session-handoff-close")
+                                    .keyboardShortcut(.cancelAction)
+                            }.padding(12)
+                            ScrollView {
+                                ActiveDJSessionView(model: model, session: activeSession,
+                                                    openQueueAction: openQueueAction, showsMoments: false)
+                            }
+                        }
+                        .frame(idealWidth: 400, idealHeight: 300)
+                        .presentationCompactAdaptation(.popover)
+                    }
+                }
             }
             .task(id: sessionID) {
                 let restoreGeneration = anchorGeneration
-                await history.prepare(); await history.loadTimeline(sessionID, window: activeSession == nil ? nil : .tail)
+                await history.prepare(); await history.loadTimeline(sessionID, window: .tail)
                 guard !Task.isCancelled, restoreGeneration == anchorGeneration else { return }
                 if let initialAnchor { await selectAnchor(initialAnchor, proxy: proxy, restoreRequest: true) }
                 else if let anchor = history.readingAnchor(sessionID: sessionID) {
@@ -222,6 +257,8 @@ struct SessionTimelineScreen: View {
                     try? await Task.sleep(for: .seconds(10))
                 }
             }
+            .onChange(of: activeSession?.id) { showingHandoff = false }
+            .onChange(of: history.profileScopeActive) { showingHandoff = false }
             .onChange(of: query) { _, value in sceneRestoreTask?.cancel(); anchorGeneration = UUID(); history.search(sessionID: sessionID, query: value) }
             .onChange(of: history.searchMatches) {
                 guard searching, !matches.isEmpty else { return }
@@ -231,7 +268,7 @@ struct SessionTimelineScreen: View {
                 }
             }
             .onChange(of: timeline.entries.last?.id) { old, new in
-                if old != nil, old != new { hasNewEntries = true }
+                if old != nil, old != new, visibleEntry != "current", visibleEntry != new { hasNewEntries = true }
             }
             .onChange(of: timeline.revision) {
                 if searching && !query.isEmpty { history.search(sessionID: sessionID, query: query) }
@@ -267,12 +304,31 @@ struct SessionTimelineScreen: View {
         }
     }
 
+    private func pinnedCurrent(_ session: DJConnectSessionRuntime) -> some View {
+        let limit = max(60, viewportHeight * 0.4)
+        let header = NativeSessionMomentsView(session: session, language: model.language,
+            isRecovering: model.djSessionIsRecovering,
+            isLiveUnavailable: model.djSessionLiveUnavailable,
+            retryConnection: { Task { await model.retryDJSessionConnection() } },
+            artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL),
+            showsFlow: false)
+            .padding(20)
+        return ViewThatFits(in: .vertical) {
+            header
+            ScrollView { header }.frame(height: limit)
+        }
+        .frame(maxHeight: limit)
+        .background(DJConnectCanvasBackground())
+        .accessibilityIdentifier("session-pinned-current")
+    }
+
     private func jump(_ id: String, proxy: ScrollViewProxy) {
         sceneRestoreTask?.cancel()
         anchorGeneration = UUID()
         // One scroll controller: mixing proxy animation with the bound target can
         // let a layout/keyboard measurement overwrite the requested anchor.
-        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { visibleEntry = id }
+        let target = id == "tail" ? (timeline.entries.last?.id ?? "current") : id
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { visibleEntry = target }
     }
     private func selectAnchor(_ id: String, proxy: ScrollViewProxy, searchRequest: Bool = false, restoreRequest: Bool = false) async {
         guard !id.hasPrefix("pending-"), !["current", "tail"].contains(id), !searchRequest || searching else { return }
@@ -494,5 +550,37 @@ struct SessionComposerContext: View {
                 Text(text("ui.hold.to.record.a.voice.request.for.ask.dj")).font(.caption).foregroundStyle(.secondary)
             }
         }
+    }
+}
+
+
+/// Display only server-confirmed timestamps; never infer an end from playback or last entry.
+enum SessionArchiveSummary {
+    static func text(_ session: DJConnectSavedSession, language: String,
+                     timeZone: TimeZone = .current) -> String {
+        guard let start = DJConnectHistoryEntry.date(session.startedAt.isEmpty ? session.createdAt : session.startedAt) else { return "" }
+        let locale = Locale(identifier: language)
+        let date = DateFormatter()
+        date.locale = locale; date.timeZone = timeZone
+        date.setLocalizedDateFormatFromTemplate("EEE d MMMM yyyy")
+        let time = DateFormatter()
+        time.locale = locale; time.timeZone = timeZone; time.dateFormat = "HH:mm"
+        let endValue = session.endedAt.isEmpty && session.lifecycleStatus == "INTERRUPTED" ? session.interruptedAt : session.endedAt
+        guard let end = DJConnectHistoryEntry.date(endValue), end >= start else {
+            return date.string(from: start) + " (" + time.string(from: start) + " – " +
+                DJConnectLocalization.localized(key: "ui.session.history.end_unknown", language: language) + ")"
+        }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = locale; calendar.timeZone = timeZone
+        let duration = DateComponentsFormatter()
+        duration.calendar = calendar; duration.unitsStyle = .full
+        duration.allowedUnits = end.timeIntervalSince(start) >= 3600 ? [.hour, .minute] : [.minute]
+        duration.zeroFormattingBehavior = .dropAll
+        let elapsed = end.timeIntervalSince(start)
+        let length = elapsed < 60
+            ? DJConnectLocalization.localized(key: "ui.session.history.less_than_minute", language: language)
+            : duration.string(from: floor(elapsed / 60) * 60) ?? ""
+        let endLabel = calendar.isDate(start, inSameDayAs: end) ? time.string(from: end) : date.string(from: end) + " " + time.string(from: end)
+        return date.string(from: start) + " – " + length + " (" + time.string(from: start) + " – " + endLabel + ")"
     }
 }
