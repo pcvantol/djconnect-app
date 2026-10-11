@@ -696,7 +696,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var updateRequiredMessage: String?
     @Published public var pairingMessage: String?
     @Published public var userNotice: DJConnectUserNotice?
-    @Published public var playback: DJConnectPlayback?
+    @Published public var playback: DJConnectPlayback? { didSet { syncDemoSessionPlayback() } }
     @Published public private(set) var activeDJSession: DJConnectSessionRuntime? {
         didSet { if oldValue?.id != activeDJSession?.id { resetActiveMoodState() } }
     }
@@ -1713,6 +1713,9 @@ public final class DJConnectAppModel: ObservableObject {
     public func startDemoMode() {
         log(.debug, "User action: start demo mode")
         stopPairingWait()
+        cancelVoiceRecording()
+        clearSessionProjection()
+        sessionHistory.reset()
         isDemoMode = true
         isShowingPairingSuccess = false
         isPairingScreenDismissed = true
@@ -1732,6 +1735,8 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func stopDemoMode() {
         log(.debug, "User action: stop demo mode")
+        cancelVoiceRecording()
+        clearAskDJHistoryLocally()
         isDemoMode = false
         defaults.removeObject(forKey: demoModeKey)
         isPairingScreenDismissed = false
@@ -1783,7 +1788,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func markInactiveSession(enteringBackground: Bool = true) {
-        if enteringBackground {
+        if enteringBackground && !isDemoMode {
             if sessionHistory.profileScopeActive {
                 cancelVoiceRecording()
                 clearAskDJHistoryLocally()
@@ -3357,6 +3362,7 @@ public final class DJConnectAppModel: ObservableObject {
             askDJErrorMessage = nil
             appendAskDJMessage(role: .user, text: text, status: .sent)
             appendAskDJMessage(role: .dj, text: demoAskDJResponse)
+            sessionHistory.recordDemoTurn(question: text, answer: demoAskDJResponse)
             playAskDJResponseHaptic()
             notifyAskDJResponse(demoAskDJResponse)
             return
@@ -3872,6 +3878,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func startVoiceRecording() {
+        if isDemoMode { playDemoVoiceExample(); return }
         guard !isRecordingVoice, voiceStatus != .processing else {
             return
         }
@@ -3897,7 +3904,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         shouldBypassPermissionExplanationOnce = false
         if isDemoMode {
-            startDemoVoiceRequestAfterPermission()
+            playDemoVoiceExample()
             return
         }
         guard pairingStatus == .paired else {
@@ -3941,37 +3948,16 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func startDemoVoiceRequestAfterPermission() {
-        voiceStartTask?.cancel()
-        isRecordingVoice = true
-        voiceStatus = .listening
-        voiceErrorMessage = nil
-
-        voiceStartTask = Task { @MainActor in
-            let granted = await requestMicrophoneAccess()
-            guard !Task.isCancelled, isRecordingVoice else {
-                return
-            }
-            isRecordingVoice = false
-            voiceStartTask = nil
-            guard granted else {
-                dismissWakeWordListeningMessage()
-                voiceStatus = .unavailable
-                voiceErrorMessage = localized(key: "appModel.microphone.access.is.required.for.push.to.talk")
-                log(.warning, "Demo voice request ignored because microphone permission was not granted")
-                resumeWakeWordListeningIfNeeded()
-                return
-            }
-            voiceStatus = .processing
-            let demoResponse = "Ja ja, daar is hij dan, de knaller van Luna Vale, Neonregen!"
-            djResponseText = demoResponse
-            appendAskDJMessage(role: .user, text: localized(key: "appModel.voice.request"))
-            appendAskDJMessage(role: .dj, text: demoResponse)
-            notifyAskDJResponse(demoResponse)
-            speakDemoResponse(demoResponse)
-            voiceStatus = .idle
-            log(.info, "Demo voice request completed")
-        }
+    /// Scripted and explicitly labelled; Demo Mode never records or uploads audio.
+    private func playDemoVoiceExample() {
+        guard isDemoMode, voiceEnabled else { return }
+        cancelVoiceRecording()
+        let question = localized(key: "demo.session.voice_question")
+        let answer = localized(key: "demo.session.voice_answer")
+        voiceErrorMessage = nil; voiceStatus = .idle; djResponseText = answer
+        appendAskDJMessage(role: .user, text: question)
+        appendAskDJMessage(role: .dj, text: answer)
+        sessionHistory.recordDemoTurn(question: question, answer: answer, inputType: "voice")
     }
 
     private func showWakeWordListeningMessage() {
@@ -4039,6 +4025,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     /// Shared real capture submission; keeping operation identity prevents old uploads changing a new capture.
     func uploadRecordedVoiceWAV(_ data: Data, operation: UUID, historyEpoch: UUID) async {
+        guard !isDemoMode else { return }
         do {
             guard operation == voiceOperationGeneration, historyEpoch == sessionHistory.responseEpoch else { return }
             voiceStatus = .processing
@@ -4774,6 +4761,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     @discardableResult
     public func refreshActiveDJSession() async -> Bool {
+        if isDemoMode { return true }
         guard isAppInForeground, pairingStatus == .paired, !isLoadingDJSession else { return false }
         let request = UUID()
         sessionRequestGeneration = request
@@ -4817,6 +4805,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func refreshActiveMoodCapability() async {
+        if isDemoMode { activeMoodAvailable = activeDJSession != nil; return }
         activeMoodAvailable = false
         guard isAppInForeground, pairingStatus == .paired else { return }
         let generation = UUID(); moodCapabilityGeneration = generation
@@ -4832,6 +4821,13 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func changeActiveSessionMood(_ mood: String) async {
+        if isDemoMode {
+            guard var demo = activeDJSession, ["chill", "groove", "energy", "party"].contains(mood) else { return }
+            let revision = (demo.confirmedMoodRevision ?? 0) + (demo.selectedMood == mood ? 0 : 1)
+            demo.selectedMood = mood; demo.moodRevision = revision
+            demo.broadcast.session.selectedMood = mood; demo.broadcast.session.moodRevision = revision
+            activeDJSession = demo; return
+        }
         guard activeMoodAvailable, !activeMoodPending, isAppInForeground, pairingStatus == .paired,
               let current = activeDJSession, let revision = current.confirmedMoodRevision,
               ["chill", "groove", "energy", "party"].contains(mood) else { return }
@@ -4857,6 +4853,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func startDJSession() async {
+        if isDemoMode { if activeDJSession == nil { applyDemoSessionExamples() }; return }
         guard pairingStatus == .paired, canUsePlaybackFeatures, !isLoadingDJSession else { return }
         let request = UUID()
         sessionRequestGeneration = request
@@ -4895,6 +4892,10 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func endDJSession() async {
+        if isDemoMode {
+            if let id = activeDJSession?.id { sessionHistory.archiveDemoSession(id) }
+            activeDJSession = nil; activeMoodAvailable = false; djSessionErrorMessage = nil; return
+        }
         guard let sessionID = activeDJSession?.sessionID, !isLoadingDJSession else { return }
         let request = UUID()
         sessionRequestGeneration = request
@@ -5075,6 +5076,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func stopSessionBroadcast() {
+        guard !isDemoMode else { return }
         djSessionLiveUnavailable = false
         djSessionIsRecovering = activeDJSession != nil
         activeDJSession?.broadcast.clearNativeAuthority()
@@ -5855,7 +5857,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private var demoAskDJResponse: String {
-        localized(key: "appModel.ask.dj.gives.real.answers.as.soon.as.djconnect")
+        localized(key: "demo.session.answer")
     }
 
     private var askDJAudioResponseMode: DJConnectAskDJRequest.AudioResponse {
@@ -7969,6 +7971,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func notifyAskDJResponse(_ text: String) {
+        guard !isDemoMode else { return }
         playVoiceHaptic(.response)
         #if canImport(UserNotifications)
         guard !Self.isRunningUnderSwiftPMTests else {
@@ -8921,6 +8924,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func clearAskDJHistoryLocally() {
         askDJMessages = []
+        guard !isDemoMode else { return }
         defaults.removeObject(forKey: askDJMessagesKey)
         defaults.removeObject(forKey: askDJHistoryRevisionKey)
         defaults.removeObject(forKey: askDJClearRevisionKey)
@@ -8943,7 +8947,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func saveAskDJMessages() {
-        guard !sessionHistory.profileScopeActive else { return }
+        guard !isDemoMode, !sessionHistory.profileScopeActive else { return }
         do {
             let data = try JSONEncoder().encode(askDJMessages)
             defaults.set(data, forKey: askDJMessagesKey)
@@ -8958,7 +8962,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func saveAskDJWidgetSnapshot() {
-        guard !sessionHistory.profileScopeActive else { return }
+        guard !isDemoMode, !sessionHistory.profileScopeActive else { return }
         let latestPrompt = askDJMessages.last(where: { $0.role == .user })?.text
         let latestResponse = askDJMessages.last(where: { $0.role == .dj && !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })?.text
         guard latestPrompt != nil || latestResponse != nil else {
@@ -9714,6 +9718,33 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    private func syncDemoSessionPlayback() {
+        guard isDemoMode, var session = activeDJSession, var context = session.broadcast.playback, let playback else { return }
+        let changed = context.title != playback.trackName || context.artist != playback.artistName
+        context.title = playback.trackName; context.artist = playback.artistName
+        context.state = playback.isPlaying == true ? "playing" : "paused"
+        context.positionMS = playback.progressMS; context.durationMS = playback.durationMS
+        context.artworkURL = playback.albumImageURL?.absoluteString
+        session.broadcast.playback = context
+        activeDJSession = session
+        if changed { sessionHistory.recordDemoPlayback(title: playback.trackName ?? "", artist: playback.artistName ?? "") }
+    }
+
+    private func applyDemoSessionExamples() {
+        guard isDemoMode else { return }
+        do {
+            let data = try DJConnectDemoSessionData.make(language: language, mood: selectedSessionMood)
+            activeDJSession = data.active
+            sessionHistory.installDemo(data, preservingArchives: true)
+            syncDemoSessionPlayback()
+            activeMoodAvailable = true
+            djSessionErrorMessage = nil
+        } catch {
+            activeDJSession = nil; sessionHistory.reset()
+            log(.warning, "Demo session examples unavailable")
+        }
+    }
+
     private func applyDemoState() {
         let output = DJConnectOutputDevice(
             id: "demo-living-room",
@@ -9769,6 +9800,7 @@ public final class DJConnectAppModel: ObservableObject {
         ]
         playlists = playlistItems.map(\.name)
         updateDemoWidgetSnapshots()
+        applyDemoSessionExamples()
         djResponseText = localized(key: "appModel.tap.the.microphone.icon.to.hear.a.sample.announcement")
         backendAvailable = true
         updateRequiredMessage = nil
@@ -9818,6 +9850,7 @@ public final class DJConnectAppModel: ObservableObject {
         pairingMessage = nil
         backendAvailable = true
         updateRequiredMessage = nil
+        if scenario == "review_demo" { startDemoMode(); return }
         if scenario == "session_history_contract" || scenario == "paired_owner_contract" {
             var environment = ProcessInfo.processInfo.environment
             var arguments = ProcessInfo.processInfo.arguments

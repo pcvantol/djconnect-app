@@ -1057,3 +1057,14 @@
 "ui.session.mood.failed" = "No se ha actualizado el ambiente. Comprueba la selección actual e inténtalo de nuevo.";
 "ui.output.refresh" = "Actualizar dispositivos de salida";
 "ui.session.history.start_unknown" = "hora de inicio desconocida";
+
+// Curated local App Store review sessions.
+"demo.session.notice" = "Demo · Sesiones de ejemplo, no tu historial de escucha";
+"demo.session.title" = "Una noche con el DJ";
+"demo.session.direction" = "Mantenemos el groove. Los sintetizadores cálidos y una transición suave dejan espacio para la siguiente canción.";
+"demo.session.archive_direction" = "Esta sesión comenzó suave y fue ganando energía. Un ejemplo de cómo el DJ acompaña tu escucha.";
+"demo.session.question" = "Cuéntame sobre esta aportación";
+"demo.session.answer" = "En este ejemplo, el DJ mantiene el ambiente y prepara una transición suave. En una sesión real, tu música y la aportación seleccionada proporcionan el contexto.";
+"demo.session.voice_question" = "Ejemplo de pregunta por voz: ¿qué encaja después?";
+"demo.session.voice_answer" = "Una canción un poco más enérgica encaja con este groove. Esta respuesta de demo está preparada; no se ha grabado ni reproducido nada.";
+"demo.session.voice_hint" = "Mostrar un ejemplo de pregunta por voz";

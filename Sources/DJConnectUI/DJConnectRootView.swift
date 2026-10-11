@@ -10116,10 +10116,10 @@ private struct IdleDJSessionView: View {
             .pickerStyle(.segmented)
             Button(localizedKey(model.language, "ui.session.start")) { Task { await model.startDJSession() } }
                 .buttonStyle(.borderedProminent)
-                .disabled(model.isLoadingDJSession || model.isDemoMode || model.pairingStatus != .paired || !model.canUsePlaybackFeatures)
+                .disabled(model.isLoadingDJSession || (!model.isDemoMode && model.pairingStatus != .paired) || !model.canUsePlaybackFeatures)
             if model.isLoadingDJSession { ProgressView() }
             if model.isDemoMode {
-                Text(localizedKey(model.language, "ui.session.demo_unavailable")).font(.footnote).foregroundStyle(.secondary)
+                Text(localizedKey(model.language, "demo.session.notice")).font(.footnote).foregroundStyle(.secondary)
             } else if model.pairingStatus != .paired || !model.canUsePlaybackFeatures {
                 Text(localizedKey(model.language, "ui.session.requires_connection")).font(.footnote).foregroundStyle(.secondary)
             }
@@ -14070,6 +14070,10 @@ struct AskDJInputBar: View {
 
     private func send() {
         isInputFocused.wrappedValue = false
+        #if os(iOS)
+        // The UIKit multiline editor can become first responder before SwiftUI focus updates.
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        #endif
         if let sendAction { sendAction() } else { model.sendAskDJText() }
     }
 
@@ -14377,7 +14381,7 @@ private struct AskDJVoiceInputButton: View {
         }
         .help(helpText)
         .accessibilityLabel(helpText)
-        .accessibilityHint(localizedKey(model.language, "ui.hold.to.record.a.voice.request.for.ask.dj"))
+        .accessibilityHint(localizedKey(model.language, model.isDemoMode ? "demo.session.voice_hint" : "ui.hold.to.record.a.voice.request.for.ask.dj"))
         .accessibilityIdentifier("ask-dj-composer-microphone")
         .accessibilityAction {
             DJConnectHaptics.impact()
@@ -14407,6 +14411,7 @@ private struct AskDJVoiceInputButton: View {
     }
 
     private var helpText: String {
+        if model.isDemoMode { return localizedKey(model.language, "demo.session.voice_hint") }
         if isProcessing {
             return localizedKey(model.language, "ui.processing.voice.request")
         }

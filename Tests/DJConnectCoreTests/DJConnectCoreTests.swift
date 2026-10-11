@@ -10987,7 +10987,7 @@ private func makePairedMusicDNAModel(
     #expect(model.askDJMessages[0].role == .user)
     #expect(model.askDJMessages[0].status == .sent)
     #expect(model.askDJMessages[1].role == .dj)
-    #expect(model.askDJMessages[1].text.contains("Home Assistant"))
+    #expect(model.askDJMessages[1].text == DJConnectLocalization.localized(key: "demo.session.answer", language: model.language))
 }
 
 @MainActor

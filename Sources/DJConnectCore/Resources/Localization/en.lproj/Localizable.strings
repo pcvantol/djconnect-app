@@ -1057,3 +1057,14 @@
 "ui.session.mood.failed" = "Mood was not updated. Check the current choice and try again.";
 "ui.output.refresh" = "Refresh output devices";
 "ui.session.history.start_unknown" = "start time unknown";
+
+// Curated local App Store review sessions.
+"demo.session.notice" = "Demo · Sample sessions, not your listening history";
+"demo.session.title" = "An evening with the DJ";
+"demo.session.direction" = "We keep the groove going. Warm synths and a gentle transition leave room for the next track.";
+"demo.session.archive_direction" = "This session started gently and gradually gained energy. An example of how the DJ accompanies your listening.";
+"demo.session.question" = "Tell me about this contribution";
+"demo.session.answer" = "In this example the DJ keeps the mood and shapes a gentle transition. In a real session, your music and selected contribution provide the context.";
+"demo.session.voice_question" = "Sample voice question: what fits next?";
+"demo.session.voice_answer" = "A slightly more energetic track fits this groove. This is a scripted demo answer; nothing was recorded or played.";
+"demo.session.voice_hint" = "Show a sample voice question";

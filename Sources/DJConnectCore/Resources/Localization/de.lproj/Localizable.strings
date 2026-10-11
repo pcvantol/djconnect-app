@@ -1057,3 +1057,14 @@
 "ui.session.mood.failed" = "Stimmung nicht aktualisiert. Prüfe die aktuelle Auswahl und versuche es erneut.";
 "ui.output.refresh" = "Ausgabegeräte aktualisieren";
 "ui.session.history.start_unknown" = "Startzeit unbekannt";
+
+// Curated local App Store review sessions.
+"demo.session.notice" = "Demo · Beispielsitzungen, kein persönlicher Hörverlauf";
+"demo.session.title" = "Ein Abend mit dem DJ";
+"demo.session.direction" = "Wir halten den Groove. Warme Synthesizer und ein sanfter Übergang lassen Raum für den nächsten Titel.";
+"demo.session.archive_direction" = "Diese Sitzung begann ruhig und wurde allmählich lebhafter. Ein Beispiel dafür, wie der DJ das Hören begleitet.";
+"demo.session.question" = "Erzähle mir von diesem Beitrag";
+"demo.session.answer" = "In diesem Beispiel hält der DJ die Stimmung und gestaltet einen sanften Übergang. In einer echten Sitzung liefern deine Musik und der ausgewählte Beitrag den Kontext.";
+"demo.session.voice_question" = "Beispiel-Sprachfrage: Was passt als Nächstes?";
+"demo.session.voice_answer" = "Ein etwas lebhafterer Titel passt zu diesem Groove. Dies ist eine vorbereitete Demoantwort; es wurde nichts aufgenommen oder abgespielt.";
+"demo.session.voice_hint" = "Eine Beispiel-Sprachfrage zeigen";

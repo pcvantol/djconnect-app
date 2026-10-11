@@ -19,6 +19,7 @@ struct SavedSessionsView: View {
     private var content: some View {
             List {
                 VStack(alignment: .leading, spacing: 16) {
+                    if model.isDemoMode { Label(text("demo.session.notice"), systemImage: "sparkles").font(.caption).accessibilityIdentifier("session-demo-notice") }
                     if history.listLoading || history.preparing { ProgressView().accessibilityLabel(text("ui.session.history.loading")) }
                     if let key = history.listErrorKey {
                         Text(text(key)).accessibilityIdentifier("saved-sessions-error")
@@ -28,6 +29,11 @@ struct SavedSessionsView: View {
                     } else if history.sessions.isEmpty && !history.listLoading && !history.preparing {
                         Text(text("ui.session.history.empty"))
                     }
+                }
+                .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity).padding(.horizontal, 20)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
                     ForEach(history.sessions) { session in
                         NavigationLink {
                             SessionTimelineScreen(model: model, sessionID: session.id)
@@ -54,16 +60,16 @@ struct SavedSessionsView: View {
                             }
                         }
                         .buttonStyle(.plain).accessibilityIdentifier("saved-session-" + session.id)
+                        .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                     }
                     if history.listNextCursor != nil {
                         Button(text("ui.session.history.more")) { Task { await history.loadSessions(more: true) } }
                             .disabled(history.listLoading)
+                            .listRowBackground(Color.clear).listRowSeparator(.hidden)
                     }
-                }
-                .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity).padding(20)
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
@@ -142,13 +148,14 @@ struct SessionTimelineScreen: View {
     }
     private var selectedIndex: Int { matches.firstIndex(where: { $0.id == selectedMatchID }) ?? 0 }
     private var canSend: Bool {
-        history.profileScopeActive && model.canUseProfileConversation && !model.isSendingAskDJText &&
+        (model.isDemoMode ? model.canUseAskDJFeatures : history.profileScopeActive && model.canUseProfileConversation) && !model.isSendingAskDJText &&
         !model.askDJDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
+                if model.isDemoMode { Label(text("demo.session.notice"), systemImage: "sparkles").font(.caption).padding(8).accessibilityIdentifier("session-demo-notice") }
                 if searching { TimelineView(.periodic(from: .now, by: 1)) { _ in searchBar(proxy: proxy) } }
                 TimelineView(.periodic(from: .now, by: 1)) { clock in
                     ScrollView {
@@ -226,7 +233,7 @@ struct SessionTimelineScreen: View {
                         .font(.footnote).padding(.horizontal, 20).padding(.vertical, 8)
                     }
                     AskDJInputBar(model: model, canSend: canSend,
-                                  canUseVoiceInput: model.canUseProfileConversation && model.voiceEnabled,
+                                  canUseVoiceInput: (model.isDemoMode || model.canUseProfileConversation) && model.voiceEnabled,
                                   isInputFocused: $inputFocused)
                 }
             }
@@ -250,7 +257,7 @@ struct SessionTimelineScreen: View {
                     .accessibilityLabel(text("ui.session.history.search"))
                     .accessibilityIdentifier("session-search-toggle")
                     .keyboardShortcut("f", modifiers: .command)
-                if let activeSession {
+                if let activeSession, !model.isDemoMode {
                     Button { showingHandoff.toggle() } label: {
                         Image(systemName: "tv.badge.wifi")
                     }
@@ -591,7 +598,7 @@ struct SessionComposerContext: View {
     init(model: DJConnectAppModel) { self.model = model; history = model.sessionHistory }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     var body: some View {
-        if history.profileScopeActive {
+        if history.profileScopeActive || model.isDemoMode {
             if history.selectedEntry != nil {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {

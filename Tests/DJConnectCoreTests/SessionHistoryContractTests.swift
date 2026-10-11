@@ -1279,3 +1279,122 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(text.contains("begintijd onbekend"))
     #expect(!text.contains("6 uur"))
 }
+
+@Test @MainActor func reviewDemoSessionsUseNativeModelsAndNeverBecomeLiveAuthority() async throws {
+    let name = "demo-session-test-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.startDemoMode()
+    let active = try #require(model.activeDJSession)
+    #expect(active.id.hasPrefix("demo-active-"))
+    #expect(active.broadcast.nativeCurrentMoment(at: Date())?.content.isEmpty == false)
+    #expect(model.sessionHistory.available && !model.sessionHistory.profileScopeActive && !model.sessionHistory.hasAuthorizedOwner)
+    #expect(!model.canRefreshSessionHistory && !model.canUseProfileConversation)
+    #expect(model.sessionHistory.sessions.count == 2)
+    #expect(model.sessionHistory.sessions.allSatisfy { $0.readOnly && $0.isContractValid })
+    #expect(model.sessionHistory.timelines.values.allSatisfy { $0.entries.count == 6 && $0.entries.allSatisfy { $0.isContractValid && $0.isRetained() } })
+    let archive = try #require(model.sessionHistory.sessions.first)
+    let original = model.sessionHistory.timelines[archive.id]
+    model.sessionHistory.search(sessionID: archive.id, query: "Electric Feel")
+    #expect(model.sessionHistory.searchMatches.count == 1)
+    await model.sessionHistory.loadSessions()
+    await model.sessionHistory.loadTimeline(archive.id)
+    #expect(model.sessionHistory.timelines[archive.id] == original)
+    let entry = try #require(original?.entries.first)
+    model.sessionHistory.rememberReadingAnchor(entry.id, sessionID: archive.id)
+    #expect(model.sessionHistory.readingAnchor(sessionID: archive.id) == entry.id)
+    let action = try JSONDecoder().decode(DJConnectSessionOpenAction.self, from: JSONSerialization.data(withJSONObject: [
+        "kind": "open_session", "session_id": archive.id, "entry_id": entry.id, "navigation_only": true]))
+    #expect(await model.sessionHistory.open(action))
+    #expect(model.activeDJSession == active)
+    model.askDJDraft = "Demo question"
+    model.sessionHistory.sendText()
+    #expect(model.sessionHistory.timelines[active.id]?.entries.count == 8)
+    #expect(model.sessionHistory.timelines[archive.id] == original)
+    #expect(model.askDJDraft.isEmpty && model.askDJMessages.count == 2)
+    await model.changeActiveSessionMood("party")
+    #expect(model.activeDJSession?.selectedMood == "party")
+    #expect(model.activeDJSession?.broadcast.playback == active.broadcast.playback)
+    model.markInactiveSession()
+    model.markActiveSession()
+    #expect(model.sessionHistory.sessions.count == 2)
+    #expect(model.sessionHistory.timelines[active.id]?.entries.count == 8)
+    #expect(model.activeDJSession?.broadcast.nativeCurrentMoment(at: Date()) != nil)
+    await model.endDJSession()
+    #expect(model.activeDJSession == nil)
+    #expect(model.sessionHistory.sessions.first?.id == active.id && model.sessionHistory.sessions.first?.readOnly == true)
+    #expect(model.playback?.trackName == "Midnight City")
+    model.sendPlaybackCommand("next")
+    for _ in 0..<20 where model.playback?.trackName != "Sweet Disposition" { await Task.yield() }
+    model.selectedSessionMood = "party"
+    await model.startDJSession()
+    #expect(model.activeDJSession?.selectedMood == "party")
+    #expect(model.activeDJSession?.broadcast.session.selectedMood == "party")
+    #expect(model.activeDJSession?.broadcast.playback?.title == model.playback?.trackName)
+    #expect(model.activeDJSession?.broadcast.playback?.title == "Sweet Disposition")
+    #expect(model.sessionHistory.sessions.contains { $0.id == active.id && $0.readOnly })
+    model.stopDemoMode()
+    #expect(!model.sessionHistory.available && model.sessionHistory.sessions.isEmpty && model.activeDJSession == nil)
+    #expect(model.sessionHistory.selectedEntry == nil && model.sessionHistory.openTarget == nil)
+    #expect(model.sessionHistory.readingAnchor(sessionID: archive.id) == nil)
+}
+
+@Test @MainActor func demoExamplesCannotInstallOutsideDemoAndAreLocalized() throws {
+    let name = "demo-off-test-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name)); defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    for language in ["nl", "en", "de", "fr", "es"] {
+        let data = try DJConnectDemoSessionData.make(language: language)
+        #expect(data.active.broadcast.nativeCurrentMoment(at: Date())?.content == DJConnectLocalization.localized(key: "demo.session.direction", language: language))
+        model.sessionHistory.installDemo(data)
+        #expect(!model.sessionHistory.available && model.sessionHistory.timelines.isEmpty)
+    }
+}
+
+@Test @MainActor func demoInputNeverPersistsAndCannotUploadCapturedVoice() async throws {
+    let name = "demo-private-test-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name)); defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    let oldOperation = model.voiceOperationID; let oldEpoch = model.sessionHistory.responseEpoch
+    model.isRecordingVoice = true
+    model.startDemoMode()
+    #expect(!model.isRecordingVoice && model.voiceOperationID != oldOperation)
+    model.askDJDraft = "PRIVATE DEMO INPUT"
+    model.sendAskDJText()
+    model.startVoiceRecording()
+    #expect(!model.isRecordingVoice && model.voiceStatus == .idle)
+    #expect(model.sessionHistory.timelines[model.activeDJSession?.id ?? ""]?.entries.count == 10)
+    #expect(model.sessionHistory.timelines.values.flatMap(\.entries).suffix(2).contains { $0.inputType == "voice" })
+    await model.uploadRecordedVoiceWAV(Data([0, 1, 2]), operation: model.voiceOperationID, historyEpoch: model.sessionHistory.responseEpoch)
+    #expect(model.voiceStatus == .idle && model.voiceErrorMessage == nil)
+    model.stopDemoMode()
+    #expect(model.askDJMessages.isEmpty)
+    await model.uploadRecordedVoiceWAV(Data([0, 1, 2]), operation: oldOperation, historyEpoch: oldEpoch)
+    #expect(model.voiceStatus == .idle && model.voiceErrorMessage == nil)
+    let next = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    #expect(next.askDJMessages.isEmpty && next.activeDJSession == nil && !next.sessionHistory.available)
+}
+
+@Test @MainActor func reviewDemoAllActionsStayOfflineAndPreserveNormalChatCache() async throws {
+    let wire = HistoryWireFixture { _ in (503, Data(), 0) }; defer { wire.close() }
+    let name = "demo-cache-test-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name)); defer { defaults.removePersistentDomain(forName: name) }
+    let saved = try JSONEncoder().encode([DJConnectAskDJMessage(role: .user, text: "Existing ordinary chat")])
+    defaults.set(saved, forKey: "DJConnectAskDJMessages")
+    defaults.set(wire.baseURL.absoluteString, forKey: "DJConnectHomeAssistantURL")
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), urlSession: wire.session(), startBackgroundTasks: false)
+    model.startDemoMode()
+    await model.refreshActiveDJSession(); await model.refreshActiveMoodCapability(); await model.changeActiveSessionMood("party")
+    await model.sessionHistory.prepare(); await model.sessionHistory.loadSessions()
+    await model.sessionHistory.refreshConversation()
+    if let id = model.activeDJSession?.id { await model.sessionHistory.loadTimeline(id) }
+    model.askDJDraft = "Private demo-only question"; model.sendAskDJText(); model.startVoiceRecording()
+    await model.uploadRecordedVoiceWAV(Data([1]), operation: model.voiceOperationID, historyEpoch: model.sessionHistory.responseEpoch)
+    await model.endDJSession(); await model.startDJSession()
+    model.stopDemoMode()
+    #expect(wire.requests.isEmpty)
+    #expect(defaults.data(forKey: "DJConnectAskDJMessages") == saved)
+    let next = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), urlSession: wire.session(), startBackgroundTasks: false)
+    #expect(next.askDJMessages.map(\.text) == ["Existing ordinary chat"])
+}

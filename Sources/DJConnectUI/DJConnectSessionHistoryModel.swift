@@ -77,13 +77,53 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     init(host: DJConnectAppModel) { self.host = host }
 
+    /// Explicit, ephemeral review examples; never an owner grant or backend history.
+    func installDemo(_ data: DJConnectDemoSessionData, preservingArchives: Bool = false) {
+        guard host?.isDemoMode == true else { return }
+        let archived = preservingArchives ? sessions.filter { $0.readOnly && $0.id.hasPrefix("demo-active-") } : []
+        let oldTimelines = timelines.filter { archived.map(\.id).contains($0.key) }
+        reset()
+        available = true; searchAvailable = true; ownerScope = nil
+        sessions = archived + data.sessions; timelines = data.timelines
+        timelines.merge(oldTimelines) { _, old in old }
+    }
+
+    func recordDemoPlayback(title: String, artist: String) {
+        guard let host, host.isDemoMode, let id = host.activeDJSession?.id, var timeline = timelines[id] else { return }
+        do {
+            let order = (timeline.entries.last?.order ?? 0) + 1
+            timeline.entries.append(try DJConnectDemoSessionData.observed(id: id, order: order, title: title, artist: artist, at: Date()))
+            timelines[id] = timeline
+        } catch { return }
+    }
+
+    func recordDemoTurn(question: String, answer: String, inputType: String = "text") {
+        guard let host, host.isDemoMode, let id = host.activeDJSession?.id, var timeline = timelines[id] else { return }
+        do {
+            let next = (timeline.entries.last?.order ?? 0) + 1
+            let entries = try DJConnectDemoSessionData.turn(sessionID: id, order: next, question: question, answer: answer,
+                                                          inputType: inputType, selected: selectedEntry, at: Date())
+            timeline.entries += entries; timelines[id] = timeline
+        } catch { return }
+    }
+
+    func archiveDemoSession(_ sessionID: String) {
+        guard host?.isDemoMode == true, var timeline = timelines[sessionID], let session = timeline.session else { return }
+        do {
+            let archived = try DJConnectDemoSessionData.saved(id: sessionID, start: DJConnectHistoryEntry.date(session.startedAt) ?? Date(), end: Date())
+            timeline.session = archived; timelines[sessionID] = timeline
+            sessions.insert(archived, at: 0)
+        } catch { return }
+    }
+
     func rememberReadingAnchor(_ anchor: String?, sessionID: String) {
-        guard hasAuthorizedOwner, let anchor, !anchor.hasPrefix("pending-") else { return }
+        guard hasAuthorizedOwner || host?.isDemoMode == true, let anchor, !anchor.hasPrefix("pending-") else { return }
         readingAnchors[sessionID] = anchor
     }
-    func readingAnchor(sessionID: String) -> String? { hasAuthorizedOwner ? readingAnchors[sessionID] : nil }
+    func readingAnchor(sessionID: String) -> String? { (hasAuthorizedOwner || host?.isDemoMode == true) ? readingAnchors[sessionID] : nil }
 
     public func prepare() async {
+        if host?.isDemoMode == true { return }
         if let preparationTask { await preparationTask.value; return }
         let id = UUID(); preparationID = id
         let task = Task<Void, Never> { [weak self] in await self?.performPreparation() }
@@ -166,6 +206,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     @discardableResult
     public func loadSessions(more: Bool = false) async -> Bool {
+        if host?.isDemoMode == true { return available }
         guard available, !(more && listLoading), let host, host.canRefreshSessionHistory else { return false }
         let cursor = more ? listNextCursor : nil
         if more && cursor == nil { return false }
@@ -192,6 +233,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     public func loadTimeline(_ sessionID: String, more: Bool = false, window: DJConnectHistoryWindow? = nil,
                              anchorEntryID: String? = nil, limit: Int = 20, preserveLoadedEntries: Bool = false) async {
+        if host?.isDemoMode == true { return }
         guard available, let host, host.canRefreshSessionHistory, !(timelines[sessionID]?.loading ?? false),
               timelineNavigations[sessionID] == nil else { return }
         let cursor = more ? timelines[sessionID]?.nextCursor : nil
@@ -230,6 +272,11 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     /// Every known navigation target is revalidated before displaying an anchor.
     @discardableResult public func open(_ action: DJConnectSessionOpenAction, navigate: Bool = true) async -> Bool {
+        if host?.isDemoMode == true {
+            guard available, timelines[action.sessionID]?.entries.contains(where: { $0.reference == action.reference && $0.isRetained() }) == true else { return false }
+            if navigate { openTarget = action.reference }
+            return true
+        }
         guard available, let host, host.canRefreshSessionHistory else { return false }
         navigationErrorKey = nil
         let captured = epoch; let generation = UUID(); navigationGeneration = generation
@@ -261,6 +308,15 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func search(sessionID: String, query: String) {
+        if host?.isDemoMode == true {
+            clearSearch()
+            acceptedSearchQuery = query; acceptedSearchSessionID = sessionID
+            searchMatches = query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? [] : (timelines[sessionID]?.entries ?? []).filter {
+                ($0.text ?? $0.playback?.title ?? "").localizedCaseInsensitiveContains(query) && $0.isRetained()
+            }
+            searchComplete = true; searchTotal = searchMatches.count
+            return
+        }
         searchTask?.cancel(); searchGeneration = UUID(); searchLoading = false
         clearSearchResults()
         guard searchAvailable, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
@@ -306,6 +362,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func sendText() {
+        if host?.isDemoMode == true { host?.sendAskDJText(); return }
         guard profileScopeActive, let host, host.canUseProfileConversation, !host.isSendingAskDJText else { return }
         guard let capturedOwner = ownerScope else { host.failProfileConversationText(id: nil, errorKey: "ui.session.history.unavailable"); return }
         let text = host.askDJDraft.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -501,7 +558,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     public func restoreVisibleTimeline(_ sessionID: String, active: Bool, anchor: String?) async {
         await prepare()
-        guard hasAuthorizedOwner, !Task.isCancelled else { return }
+        guard hasAuthorizedOwner || host?.isDemoMode == true, !Task.isCancelled else { return }
         if let anchor, !["current", "tail"].contains(anchor), !anchor.hasPrefix("pending-") {
             await loadTimeline(sessionID, window: .anchor, anchorEntryID: anchor)
             if timelines[sessionID]?.entries.contains(where: { $0.id == anchor && $0.isRetained() }) == true { return }
@@ -510,5 +567,95 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
     private func errorKey(_ error: Error) -> String {
         isConflict(error) ? "ui.session.history.changed" : "ui.session.history.unavailable"
+    }
+}
+
+/// Curated App Store review data. Only constructed after explicit Demo Mode activation.
+/// This does not mint server authority, contact providers or persist personal history.
+struct DJConnectDemoSessionData {
+    let active: DJConnectSessionRuntime
+    let sessions: [DJConnectSavedSession]
+    let timelines: [String: DJConnectSessionHistoryModel.Timeline]
+
+    private static func decode<T: Decodable>(_ object: [String: Any], as: T.Type = T.self) throws -> T {
+        try JSONDecoder().decode(T.self, from: JSONSerialization.data(withJSONObject: object))
+    }
+    private static func stamp(_ date: Date) -> String { ISO8601DateFormatter().string(from: date) }
+    static func saved(id: String, start: Date, end: Date?) throws -> DJConnectSavedSession {
+        try decode(["session_id": id, "lifecycle_status": end == nil ? "ACTIVE" : "ENDED", "created_at": stamp(start),
+                    "started_at": stamp(start), "ended_at": end.map(stamp) ?? "", "interrupted_at": "",
+                    "revision": "demo-1", "read_only": end != nil, "history_coverage": "retained_entries_only"])
+    }
+    private static func entry(_ id: String, order: Int, kind: String, at: Date, values: [String: Any]) throws -> DJConnectHistoryEntry {
+        var object: [String: Any] = ["entry_id": id + "-entry-" + String(order), "session_id": id, "order": order,
+            "kind": kind, "occurred_at": stamp(at), "retained_until": stamp(at.addingTimeInterval(365 * 86400)),
+            "historical_view_only": true, "current_display_allowed": false]
+        object.merge(values) { _, new in new }
+        return try decode(object)
+    }
+    static func observed(id: String, order: Int, title: String, artist: String, at: Date) throws -> DJConnectHistoryEntry {
+        try entry(id, order: order, kind: "playback_observed", at: at, values: ["text": title + " · " + artist,
+            "playback": ["title": title, "artist": artist, "provider": "Demo", "coverage": "observed_playing_not_full_listen"]])
+    }
+    static func turn(sessionID id: String, order: Int, question: String, answer: String, inputType: String,
+                     selected: DJConnectSessionEntryReference? = nil, at: Date) throws -> [DJConnectHistoryEntry] {
+        var context: [String: Any] = ["session_id": id]
+        if let selected { context["selected_entry"] = ["session_id": selected.sessionID, "entry_id": selected.entryID] }
+        let turn = UUID().uuidString
+        var common: [String: Any] = ["turn_id": "demo-turn-" + turn, "client_message_id": "demo-request-" + turn,
+                                    "input_type": inputType, "context": context]
+        common["role"] = "user"; common["text"] = question; common["origin_message_id"] = "demo-user-" + turn
+        let user = try entry(id, order: order, kind: "conversation_user", at: at, values: common)
+        common["role"] = "assistant"; common["text"] = answer; common["origin_message_id"] = "demo-dj-" + turn
+        return [user, try entry(id, order: order + 1, kind: "conversation_dj", at: at.addingTimeInterval(1), values: common)]
+    }
+    static func make(language: String, mood: String = "groove", now: Date = Date()) throws -> Self {
+        let selectedMood = ["chill", "groove", "energy", "party"].contains(mood) ? mood : "groove"
+        func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
+        let id = "demo-active-" + UUID().uuidString
+        let start = now.addingTimeInterval(-1200)
+        let expiry = stamp(now.addingTimeInterval(86400))
+        let momentID = id + "-direction"
+        let moment: [String: Any] = ["moment_id": momentID, "session_id": id, "type": "session", "created_at": stamp(now),
+            "title": text("demo.session.title"), "summary": text("demo.session.direction"), "content": text("demo.session.direction"),
+            "playback_item_id": "demo-0", "source_references": ["session_direction"],
+            "knowledge_intent": ["type": "session_direction"], "generation_metadata": ["context_source": "session_direction", "validated": "true"],
+            "presentation_intent": ["visibility": "owner_only", "dj_persona": "home_dj", "source_session_mood": selectedMood]]
+        let broadcast: [String: Any] = ["session": ["session_id": id, "runtime_state": "active", "selected_mood": selectedMood, "mood_revision": 0],
+            "planner": ["planning_state": "ready", "planning_horizon_minutes": 15, "current_direction": "maintaining_energy"],
+            "session_flow": ["flow_id": id + "-flow", "planning_horizon_minutes": 15, "created_at": stamp(start), "items": []],
+            "playback": ["state": "playing", "item_id": "demo-0", "title": "Midnight City", "artist": "M83",
+                         "album": "Hurry Up, We're Dreaming", "duration_ms": 244000, "position_ms": 48000, "updated_at": stamp(now)],
+            "dj_moments": [moment], "presentations": [],
+            "native_delivery": ["schema_version": 1, "session_id": id, "revision": "demo-1", "current_moment_id": momentID,
+                "active_flow_moment_ids": [], "revocation_scope": "session", "admissions": [["moment_id": momentID, "qualification": "qualified",
+                    "current_display_allowed": true, "active_flow_display_allowed": false, "source_expires_at": NSNull(),
+                    "display_expires_at": expiry, "executable_actions": [], "requires_spotify_attribution": false]]]]
+        let runtime: DJConnectSessionRuntime = try decode(["session_id": id, "room": "", "selected_mood": selectedMood, "mood_revision": 0,
+            "music_backend": "demo", "runtime_state": "active", "started_at": stamp(start),
+            "planner": ["planning_horizon_minutes": 15], "broadcast": broadcast])
+        var timelines: [String: DJConnectSessionHistoryModel.Timeline] = [:]
+        var sessions: [DJConnectSavedSession] = []
+        let examples: [(String, Date, Date?, String, String)] = [
+            (id, start, nil, "Midnight City", "M83"),
+            ("demo-evening", now.addingTimeInterval(-86400 - 4200), now.addingTimeInterval(-86400), "Electric Feel", "MGMT"),
+            ("demo-morning", now.addingTimeInterval(-172800 - 1800), now.addingTimeInterval(-172800), "Sweet Disposition", "The Temper Trap")]
+        for (sessionID, began, ended, track, artist) in examples {
+            let summary = try saved(id: sessionID, start: began, end: ended)
+            if ended != nil { sessions.append(summary) }
+            let playback = try entry(sessionID, order: 1, kind: "playback_observed", at: began, values: [
+                "text": track + " · " + artist, "playback": ["title": track, "artist": artist, "provider": "Demo",
+                    "coverage": "observed_playing_not_full_listen"]])
+            let direction = try entry(sessionID, order: 2, kind: "dj_moment", at: began.addingTimeInterval(60), values: [
+                "text": text(ended == nil ? "demo.session.direction" : "demo.session.archive_direction"),
+                "moment_id": sessionID + "-example-direction", "moment_type": "session", "persona": "home_dj",
+                "archive_basis": "runtime_authored_direction_v1"])
+            let typed = try turn(sessionID: sessionID, order: 3, question: text("demo.session.question"),
+                                 answer: text("demo.session.answer"), inputType: "text", selected: direction.reference, at: began.addingTimeInterval(120))
+            let voice = try turn(sessionID: sessionID, order: 5, question: text("demo.session.voice_question"),
+                                 answer: text("demo.session.voice_answer"), inputType: "voice", at: began.addingTimeInterval(240))
+            timelines[sessionID] = .init(session: summary, entries: [playback, direction] + typed + voice, revision: "demo-1")
+        }
+        return .init(active: runtime, sessions: sessions, timelines: timelines)
     }
 }

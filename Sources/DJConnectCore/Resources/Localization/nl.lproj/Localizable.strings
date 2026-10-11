@@ -1057,3 +1057,14 @@
 "ui.session.mood.failed" = "Stemming niet bijgewerkt. Controleer de huidige keuze en probeer opnieuw.";
 "ui.output.refresh" = "Uitvoerapparaten bijwerken";
 "ui.session.history.start_unknown" = "begintijd onbekend";
+
+// Curated local App Store review sessions.
+"demo.session.notice" = "Demo · Voorbeeldsessies, geen echte luistergeschiedenis";
+"demo.session.title" = "Een avond met de DJ";
+"demo.session.direction" = "We houden de groove vast. Een warme synthklank en een rustig opgebouwde overgang maken ruimte voor het volgende nummer.";
+"demo.session.archive_direction" = "Deze sessie begon rustig en kreeg daarna meer energie. Een voorbeeld van hoe de DJ je luisteravond begeleidt.";
+"demo.session.question" = "Vertel over deze bijdrage";
+"demo.session.answer" = "In dit voorbeeld houdt de DJ de sfeer vast en bouwt de overgang rustig op. Bij een echte sessie gebruikt de DJ je muziek en de geselecteerde bijdrage als context.";
+"demo.session.voice_question" = "Voorbeeld stemvraag: wat past hierna?";
+"demo.session.voice_answer" = "Een iets energieker nummer past bij deze groove. Dit is een vooraf geschreven demoantwoord; er is niets opgenomen of afgespeeld.";
+"demo.session.voice_hint" = "Toon een voorbeeld van een stemvraag";
