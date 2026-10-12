@@ -1402,6 +1402,20 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(output.waitForExistence(timeout: 5))
         XCTAssertEqual(output.value as? String, "Woonkamer")
         XCTAssertGreaterThanOrEqual(output.frame.minY, times.frame.maxY)
+        let volume = app.descendants(matching: .any)["session-playback-volume"].firstMatch
+        XCTAssertTrue(volume.exists)
+        XCTAssertEqual(volume.value as? String, "42%")
+        XCTAssertLessThan(abs(volume.frame.midY - output.frame.midY), 5)
+        let favorite = app.buttons["session-favorite-button"].firstMatch
+        XCTAssertTrue(favorite.isHittable)
+        XCTAssertLessThan(favorite.frame.minX, times.frame.minX)
+        XCTAssertLessThan(abs(favorite.frame.midY - times.frame.midY), 3)
+        let initialFavoriteLabel = favorite.label
+        favorite.tap()
+        let favoriteChanged = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            favorite.label != initialFavoriteLabel
+        }, object: favorite)
+        XCTAssertEqual(XCTWaiter.wait(for: [favoriteChanged], timeout: 5), .completed)
         let pinned = app.descendants(matching: .any)["session-pinned-current"].firstMatch
         let music = app.descendants(matching: .any)["session-music-context"].firstMatch
         let card = app.descendants(matching: .any)["session-current-card"].firstMatch

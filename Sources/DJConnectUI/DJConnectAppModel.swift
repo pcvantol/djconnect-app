@@ -3208,7 +3208,32 @@ public final class DJConnectAppModel: ObservableObject {
         toggleCurrentTrackFavorite()
     }
 
-    public func toggleCurrentTrackFavorite() {
+    /// A Session heart must represent the same current playback that the existing command targets.
+    func canToggleSessionFavorite(_ session: DJConnectSessionRuntime) -> Bool {
+        guard canUsePlaybackFeatures, !djSessionIsRecovering, !djSessionLiveUnavailable,
+              activeDJSession?.id == session.id,
+              let expected = session.broadcast.playback,
+              let currentSessionPlayback = activeDJSession?.broadcast.playback,
+              let current = playback, current.hasPlayback != false else { return false }
+        func normalized(_ value: String?) -> String { value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "" }
+        let title = normalized(expected.title), artist = normalized(expected.artist)
+        guard !title.isEmpty, !artist.isEmpty,
+              title == normalized(current.trackName), artist == normalized(current.artistName),
+              title == normalized(currentSessionPlayback.title), artist == normalized(currentSessionPlayback.artist),
+              expected.itemID == currentSessionPlayback.itemID else { return false }
+        if let expectedDuration = expected.durationMS, let duration = current.durationMS,
+           expectedDuration != duration { return false }
+        return true
+    }
+
+    func toggleSessionFavorite(_ session: DJConnectSessionRuntime) {
+        guard canToggleSessionFavorite(session) else { return }
+        toggleCurrentTrackFavorite(expectedSession: session)
+    }
+
+    public func toggleCurrentTrackFavorite() { toggleCurrentTrackFavorite(expectedSession: nil) }
+
+    private func toggleCurrentTrackFavorite(expectedSession: DJConnectSessionRuntime?) {
         guard !isSavingCurrentTrack else {
             return
         }
@@ -3221,6 +3246,7 @@ public final class DJConnectAppModel: ObservableObject {
         log(.info, shouldFavorite ? "Adding current track to favorites" : "Removing current track from favorites")
         Task {
             defer { isSavingCurrentTrack = false }
+            if let expectedSession, !canToggleSessionFavorite(expectedSession) { return }
             let didToggle = await sendSetCurrentTrackFavoriteCommand(shouldFavorite)
             userNotice = DJConnectUserNotice(text: didToggle ? localized(
                 key: shouldFavorite ? "appModel.saved.to.favorites" : "appModel.removed.from.favorites"

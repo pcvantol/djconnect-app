@@ -13308,3 +13308,30 @@ private extension String {
     #expect(model.resolvedMusicDiscoveryImageURL("http://i.scdn.co/image/example") == nil)
     #expect(model.resolvedMusicDiscoveryImageURL("/api/djconnect/image_proxy/album")?.host == "discovery-art.local")
 }
+
+@MainActor
+@Test func sessionFavoriteRejectsMissingOrChangedPlayback() async throws {
+    let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.startDemoMode()
+    let session = try #require(model.activeDJSession)
+    #expect(model.canToggleSessionFavorite(session))
+    let original = try #require(model.playback)
+    model.playback = nil
+    #expect(!model.canToggleSessionFavorite(session))
+    model.toggleSessionFavorite(session)
+    #expect(!model.isSavingCurrentTrack)
+    var otherTrack = original
+    otherTrack.trackName = "A different track"
+    model.playback = otherTrack
+    #expect(!model.canToggleSessionFavorite(session))
+    model.toggleSessionFavorite(session)
+    #expect(!model.isSavingCurrentTrack)
+    #expect(model.playback?.currentTrackFavoriteStatus == original.currentTrackFavoriteStatus)
+    model.playback = original
+    #expect(model.canToggleSessionFavorite(session))
+    model.toggleSessionFavorite(session)
+    for _ in 0..<20 where model.playback?.currentTrackFavoriteStatus == original.currentTrackFavoriteStatus {
+        try await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(model.playback?.currentTrackFavoriteStatus != original.currentTrackFavoriteStatus)
+}

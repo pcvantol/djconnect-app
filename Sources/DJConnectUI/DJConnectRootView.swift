@@ -3688,6 +3688,21 @@ actor DJConnectArtworkDataCache {
     }
 }
 
+/// Shared ground tones for the current Session header and Now Playing card.
+/// Track-derived tint blending remains local to the player; Music DNA keeps its own palette.
+private struct DJConnectSessionMoodPalette {
+    let colors: [Color]
+    let glow: Double
+    init(stepIndex: Int) {
+        switch stepIndex {
+        case 1: colors = ["#06C7AD", "#169BC8", "#10B981"].compactMap(Color.init(hex:)); glow = 0.46
+        case 2: colors = ["#DDFF00", "#00B8FF", "#39FF78"].compactMap(Color.init(hex:)); glow = 0.58
+        case 3: colors = ["#FF287F", "#AA38F5", "#F43DCE"].compactMap(Color.init(hex:)); glow = 0.66
+        default: colors = MusicDNAHelixMoodPalette(stepIndex: 0).colors; glow = 0.36
+        }
+    }
+}
+
 /// The pinned Session surface follows confirmed mood; the conversation canvas stays unchanged.
 struct DJSessionPinnedMoodBackground: View {
     let mood: String
@@ -3695,14 +3710,7 @@ struct DJSessionPinnedMoodBackground: View {
 
     private var stepIndex: Int { ["chill", "groove", "energy", "party"].firstIndex(of: mood) ?? 0 }
 
-    private var colors: [Color] {
-        switch stepIndex {
-        case 1: return ["#06C7AD", "#169BC8", "#10B981"].compactMap(Color.init(hex:))
-        case 2: return ["#DDFF00", "#00B8FF", "#39FF78"].compactMap(Color.init(hex:))
-        case 3: return ["#FF287F", "#AA38F5", "#F43DCE"].compactMap(Color.init(hex:))
-        default: return MusicDNAHelixMoodPalette(stepIndex: 0).colors
-        }
-    }
+    private var colors: [Color] { DJConnectSessionMoodPalette(stepIndex: stepIndex).colors }
 
     var body: some View {
         let strength = stepIndex == 0 ? 0.20 : stepIndex == 2 ? 0.34 : 0.30
@@ -3729,8 +3737,8 @@ private struct NowPlayingMoodCardBackground: View {
     let tint: Color
     let moodStepIndex: Int
 
-    private var palette: MusicDNAHelixMoodPalette {
-        MusicDNAHelixMoodPalette(stepIndex: moodStepIndex)
+    private var palette: DJConnectSessionMoodPalette {
+        DJConnectSessionMoodPalette(stepIndex: moodStepIndex)
     }
 
     var body: some View {
@@ -8815,7 +8823,7 @@ struct ActiveDJSessionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             if showsMoments {
-                NativeSessionMomentsView(session: session, language: model.language, isRecovering: model.djSessionIsRecovering, isLiveUnavailable: model.djSessionLiveUnavailable, retryConnection: { Task { await model.retryDJSessionConnection() } }, artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL), returnToCurrent: returnToCurrent, playbackOutputName: model.sessionPlaybackOutputName)
+                NativeSessionMomentsView(session: session, language: model.language, isRecovering: model.djSessionIsRecovering, isLiveUnavailable: model.djSessionLiveUnavailable, retryConnection: { Task { await model.retryDJSessionConnection() } }, artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL), returnToCurrent: returnToCurrent, playbackOutputName: model.sessionPlaybackOutputName, playbackModel: model)
             }
             Divider()
             Text(localizedKey(model.language, "ui.vibecast.handoff.title")).font(.headline)
@@ -9669,8 +9677,10 @@ struct PlaybackControlsView: View {
     }
 }
 
-private struct FavoriteTrackButton: View {
+struct FavoriteTrackButton: View {
     @ObservedObject var model: DJConnectAppModel
+    var identifier = "now-playing-favorite-button"
+    var sessionContext: DJConnectSessionRuntime? = nil
 
     private var isFavorite: Bool {
         model.playback?.currentTrackFavoriteStatus == true
@@ -9689,7 +9699,8 @@ private struct FavoriteTrackButton: View {
     var body: some View {
         Button {
             DJConnectHaptics.selection()
-            model.toggleCurrentTrackFavorite()
+            if let sessionContext { model.toggleSessionFavorite(sessionContext) }
+            else { model.toggleCurrentTrackFavorite() }
         } label: {
             if model.isSavingCurrentTrack {
                 ProgressView()
@@ -9707,8 +9718,8 @@ private struct FavoriteTrackButton: View {
         .tint(isFavorite ? djConnectAccent : .white)
         .help(helpText)
         .accessibilityLabel(label)
-        .accessibilityIdentifier("now-playing-favorite-button")
-        .disabled(model.isSavingCurrentTrack)
+        .accessibilityIdentifier(identifier)
+        .disabled(model.isSavingCurrentTrack || (sessionContext.map { !model.canToggleSessionFavorite($0) } ?? false))
     }
 }
 
@@ -13477,7 +13488,7 @@ struct PlaylistsView: View {
                                     PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
                                         .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(DJConnectMediaRowButtonStyle())
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
                                 .listRowInsets(djConnectListRowInsets)
@@ -13582,7 +13593,7 @@ struct PlaylistsView: View {
                             PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
                                 .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(DJConnectMediaRowButtonStyle())
                         .disabled(arePlaylistItemsDisabled)
                         .allowsHitTesting(!arePlaylistItemsDisabled)
                         .id(playlist.id)
@@ -13821,22 +13832,7 @@ private struct PlaylistRow: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color.black.opacity(0.72),
-                    Color(red: 0.20, green: 0.08, blue: 0.32).opacity(0.72)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(djConnectAccent.opacity(0.12), lineWidth: 1)
-        }
-        .contentShape(Rectangle())
+        .modifier(DJConnectMediaRowSurface())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(playlist.name)
     }

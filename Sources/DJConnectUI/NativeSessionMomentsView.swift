@@ -60,6 +60,7 @@ struct NativeSessionMomentsView: View {
     var returnToCurrent: () -> Void = {}
     var showsFlow = true
     var playbackOutputName: String? = nil
+    var playbackModel: DJConnectAppModel? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedMomentID: String?
 
@@ -228,19 +229,36 @@ struct NativeSessionMomentsView: View {
                     let current = max(0, min(position, duration))
                     ProgressView(value: Double(current), total: Double(duration))
                         .accessibilityLabel(text("ui.session.music_progress"))
-                    Text("\(sessionPlaybackTime(current)) / \(sessionPlaybackTime(duration))")
-                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .accessibilityLabel(text("ui.session.music_duration"))
-                        .accessibilityValue("\(sessionPlaybackTime(current)) / \(sessionPlaybackTime(duration))")
+                    HStack(alignment: .center, spacing: 8) {
+                        if let playbackModel, playbackModel.canToggleSessionFavorite(session) {
+                            FavoriteTrackButton(model: playbackModel, identifier: "session-favorite-button", sessionContext: session)
+                                .disabled(!playbackModel.canUsePlaybackFeatures || playbackModel.isRefreshing)
+                        }
+                        Spacer(minLength: 0)
+                        Text("\(sessionPlaybackTime(current)) / \(sessionPlaybackTime(duration))")
+                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            .accessibilityLabel(text("ui.session.music_duration"))
+                            .accessibilityValue("\(sessionPlaybackTime(current)) / \(sessionPlaybackTime(duration))")
+                    }
                 }
                 if let playbackOutputName {
-                    Label(playbackOutputName, systemImage: "hifispeaker.fill")
-                        .font(.caption).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityLabel(text("ui.output.device"))
-                        .accessibilityValue(playbackOutputName)
-                        .accessibilityIdentifier("session-playback-output")
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Label(playbackOutputName, systemImage: "hifispeaker.fill")
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityLabel(text("ui.output.device"))
+                            .accessibilityValue(playbackOutputName)
+                            .accessibilityIdentifier("session-playback-output")
+                        Spacer(minLength: 0)
+                        if let rawVolume = playbackModel?.playback?.volumePercent {
+                            let volume = max(0, min(100, rawVolume))
+                            Label("\(volume)%", systemImage: volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                                .fixedSize()
+                                .accessibilityLabel(text("watch.volume"))
+                                .accessibilityValue("\(volume)%")
+                                .accessibilityIdentifier("session-playback-volume")
+                        }
+                    }
+                    .font(.caption).foregroundStyle(.secondary)
                 }
             }
         }

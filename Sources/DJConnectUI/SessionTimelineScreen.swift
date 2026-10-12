@@ -7,6 +7,7 @@ struct SavedSessionsView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var refreshing = false
     @State private var statusToast: DJConnectVisualNotice?
+    @State private var openedSessionID: String?
     private let embedsNavigationStack: Bool
     init(model: DJConnectAppModel, embedsNavigationStack: Bool = true) {
         self.model = model; history = model.sessionHistory; self.embedsNavigationStack = embedsNavigationStack
@@ -28,10 +29,7 @@ struct SavedSessionsView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                     ForEach(history.sessions) { session in
-                        NavigationLink {
-                            SessionTimelineScreen(model: model, sessionID: session.id)
-                                .navigationTitle(text("ui.session.history.title"))
-                        } label: {
+                        Button { openedSessionID = session.id } label: {
                             HStack(spacing: 12) {
                                 Image(systemName: "clock.arrow.circlepath")
                                     .font(.title2.weight(.medium)).foregroundStyle(djConnectAccent)
@@ -52,7 +50,7 @@ struct SavedSessionsView: View {
                             .padding(.horizontal, 10).padding(.vertical, 9)
                             .modifier(DJConnectMediaRowSurface())
                         }
-                        .buttonStyle(DJConnectMediaRowButtonStyle()).navigationLinkIndicatorVisibility(.hidden)
+                        .buttonStyle(DJConnectMediaRowButtonStyle())
                         .accessibilityIdentifier("saved-session-" + session.id)
                         .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity)
                         .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
@@ -83,6 +81,10 @@ struct SavedSessionsView: View {
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("saved-sessions-empty-state")
                 }
+            }
+            .navigationDestination(item: $openedSessionID) { sessionID in
+                SessionTimelineScreen(model: model, sessionID: sessionID)
+                    .navigationTitle(text("ui.session.history.title"))
             }
             .navigationTitle(text("ui.session.history.title"))
             .scrollBounceBehavior(.always)
@@ -379,7 +381,7 @@ struct SessionTimelineScreen: View {
             isLiveUnavailable: model.djSessionLiveUnavailable,
             retryConnection: { Task { await model.retryDJSessionConnection() } },
             artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL),
-            showsFlow: false, playbackOutputName: model.sessionPlaybackOutputName)
+            showsFlow: false, playbackOutputName: model.sessionPlaybackOutputName, playbackModel: model)
         }.padding(20).fixedSize(horizontal: false, vertical: true)
         return ViewThatFits(in: .vertical) {
             header
