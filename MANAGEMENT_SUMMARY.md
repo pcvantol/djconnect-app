@@ -1,6 +1,15 @@
 # DJConnect App Management Summary
 
-## Current Apple Session UI/Demo/welcome followup — 2026-10-12
+## Current Session header refinement — 2026-10-12
+
+Owner-requested header correction is source-delivered through [PR #101](https://github.com/pcvantol/djconnect-app/pull/101), reviewed head `c5af1f07c8440a6e6f90b0a186d04aaea07f0dd4`, protected source-main `03d02a40c4caa9b5d37c8767e49f87b88cf106a3`. Both trees are `af668f407b18246157217157ceafacb7e4d51d2b`; parent is prior reconciled main `c045473`. Official Owner Authorization38210333937 and premerge CI38208915501 PASS. Source-main CI/coverage38210411713 and durable exact-SHA evidence38211003692 independently verified PASS. This separate [Finalization candidate](docs/history/prompts/2026-10-12-apple-session-header-finalization.md) requires its own publication/protected-merge authority.
+
+Build40015 keeps current music/artwork left and current DJ/quiet/recovery content right, including compact widths; current header stays pinned. Compact full Spotify logo/source links and at least44pt hit areas retain attribution. Native iPhone/iPad tests and actual temporary Mac AX/screenshots PASS; independent technical and bounded visual reviews GO. These Demo captures do not qualify actual artwork/Spotify provider retrieval, XXXL/long-language stress or real-provider acceptance.473 reported general tests include8 gated producer skips. Product Acceptance: `PARTIAL`.
+
+Repository State: `MERGED_UNRECONCILED` until separately approved protected Finalization publication/merge and exact-main readback. Previous PR99/100 is completed/reconciled; the prior sections below are historical snapshots. iPad/MacBook ordinary40014 were privately installed under separate owner authority; this refinement has not installed40015. One reused Apple writer; original separate WIP and terminal #95/#96 preserved; temporary Mac test stopped. No Core changes, new install, Store release or HA deployment is authorized by this document.
+
+
+## Previous Apple Session UI/Demo/welcome followup — snapshot 2026-10-12
 
 Owner-requested followup is source delivered through
 [PR99](https://github.com/pcvantol/djconnect-app/pull/99), reviewed
