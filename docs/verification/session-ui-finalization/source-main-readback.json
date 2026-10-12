@@ -1,0 +1,31 @@
+{
+  "assignment": "DJC-APPLE-SESSION-CONVERSATION-HISTORY-V1-20261008",
+  "source_pr": 99,
+  "reviewed_head": "1b78af9d2aa94176ed79c0337ae3f780894edf38",
+  "source_main": "0e0deed212107b8ab36a7cfa0b3d32ed2c388231",
+  "source_tree": "6dae800c84d76b6dd81b430314af284c4cadc4b7",
+  "source_parent": "dfa26059d358846394107abd16a5e89e97144d1d",
+  "exact_main_tree_equal": true,
+  "source_ci_run": 38200531242,
+  "source_ci_and_coverage": "PASS",
+  "source_post_merge_evidence_run": 38200987651,
+  "source_qualification_sha256": "a24573c09e1e1fd64898fefee34c1199f61ffa221cf8051e4f473837d43bd25e",
+  "canonical_integrity": "3f50ed0f4210d3294bfdd7fee7be5e193eb254a4f687c0c54bc0c892803f1b6c",
+  "canonical_validator_revision": "ebbb35f038a7a3c7d46c12660968bcd50eb67580",
+  "canonical_validator_sha256": "2419a355e1fb6b85448d362681c061470d59d45936b06f2b9a6249278351a449",
+  "canonical_validation": "PASS",
+  "coverage_archive_sha256": "d5713fe8ad6595a1a5bfa800ff0282f682858bba620ec0c60519dba758900b73",
+  "coverage_main_sha_binding": "PASS",
+  "runner_archive_sha256": "42212e56f061c7a2ef8a4af907890d7d7bf57e9dc0bd0af2abd53156e8dfd628",
+  "owner_authorization_run": 38200426205,
+  "owner_authorization_archive_sha256": "3b4715cff470af5549601c25cdc641eb8f4ffa1f093699066b565a0b4547c52b",
+  "product_acceptance": "PARTIAL",
+  "repository_reconciliation": "FINALIZATION_CANDIDATE_NOT_YET_PUBLISHED",
+  "finalization_effects": "Require separate exact-candidate permission and normal protected publication; resulting main/evidence readback recorded only after execution",
+  "nonblocking_tde": "existing Python<3.11 prevents TDE1.1.1 installation; app test/coverage stage passed; assessment NOT_RUN",
+  "tests_environment_skips": {
+    "Swift tests": 8,
+    "Run macOS core tests with coverage": 8
+  },
+  "no_new_install_store_testflight_or_ha_deployment": true
+}

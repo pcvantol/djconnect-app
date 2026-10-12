@@ -1,8 +1,32 @@
 # DJConnect iOS/macOS/watchOS App Handoff
 
-## Current bounded Apple handoff — 2026-10-10
+## Current bounded Apple handoff — 2026-10-12
 
-SourcePR97/current source-main65c744b delivers the selected native
+Source [PR99](https://github.com/pcvantol/djconnect-app/pull/99), approved head
+1b78af9d2aa94176ed79c0337ae3f780894edf38, is protected merged to exact
+source-main0e0deed212107b8ab36a7cfa0b3d32ed2c388231. Candidate/main tree
+6dae800c84d76b6dd81b430314af284c4cadc4b7 equality, official Owner Authorization,
+main CI/coverage and internal exact-SHA evidence independently verified PASS.
+The same sole Apple writer, closed #95/#96 and original separate WIP remain
+preserved; earlier source/history PR97/98 are not reopened.
+
+Followup delivers newest-first pinned native Session UI, honest archive
+rows/refresh, separate player routes, server-owned mood revisions, localized
+privacy/output handling, representative explicit Demo active/readonly previous
+Sessions and the native idle welcomehero. See the
+[latest Finalization candidate](history/prompts/2026-10-12-apple-session-ui-demo-welcome-finalization.md)
+and [portable source/native/main receipts](verification/session-ui-finalization/source-main-readback.json).
+Source reconciliation is `MERGED_UNRECONCILED` until the separate Finalization
+receives exact-head authority, protected publication and main/evidence readback.
+Product acceptance remains `PARTIAL`; Demo voice is scripted, not microphone/STT.
+Producer artwork fields, current real-provider/physical acceptance and latest
+installations remain bounded/open. No new Core writer, Store/HA deployment,
+next capability or implicit installation follows from this source merge.
+
+
+## Previous bounded Apple handoff — snapshot 2026-10-10
+
+SourcePR97/prior source-main65c744b delivers the selected native
 conversation/history/search/paired-live slice. One original Apple writer;
 #95/#96 closed; unrelated primary WIP retained. The source/main trees are equal.
 See [Finalization snapshot](history/prompts/2026-10-10-apple-session-conversation-history-finalization.md)
@@ -95,14 +119,17 @@ The wakeword activation prompt may be shown after the user leaves the pairing
 success sheet, not on top of it.
 
 For App Store review and UI auditing, the pairing sheet may expose Demo Mode.
-Demo Mode uses local sample playback, queue, playlist, output, and DJ
-announcement state. It must not store a bearer token, create HA entities, or
+Demo Mode uses local sample playback, queue, playlist, output, DJ
+announcement and representative native active/readonly previous Session state.
+Session/conversation examples stay in memory, are visibly labeled, grant no
+Profile authority and preserve ordinary chat/widget caches. It must not store a bearer token, create HA entities, or
 be treated as backend validation. Demo Mode is session-only: after app restart,
 an unpaired client returns to the pairing sheet. Exiting Demo Mode from
 Settings must return to the initial unpaired state with Now Playing behind the
-pairing sheet. The Demo Mode microphone action may show and play a local sample
-DJ announcement. It must remain visibly local demo behavior and must not call
-Home Assistant.
+pairing sheet. The Demo Mode microphone action shows an explicitly scripted question/answer
+in the native Session timeline. It requests no microphone consent and records,
+uploads or plays no audio. It remains visibly local Demo and calls no Home
+Assistant endpoint.
 
 If the user resets pairing, the app should clear runtime playback/output/
 queue/playlist state, navigate back to Now Playing, and present the pairing

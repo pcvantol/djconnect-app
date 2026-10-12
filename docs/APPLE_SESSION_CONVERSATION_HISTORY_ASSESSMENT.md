@@ -1,5 +1,11 @@
 # Apple Session conversation/history assessment
 
+This assessment records the completed PR97/history source snapshot. The later
+owner-requested UI/Demo/welcome followup is delivered by PR99/source-main
+0e0deed212107b8ab36a7cfa0b3d32ed2c388231; current reconciliation and bounded
+acceptance are in the [latest Finalization candidate](history/prompts/2026-10-12-apple-session-ui-demo-welcome-finalization.md)
+and repository rolling records. The earlier assignment is not reopened.
+
 Assignment `DJC-APPLE-SESSION-CONVERSATION-HISTORY-V1-20261008`, including
 `DJC-SESSION-FLOW-TEXT-SEARCH-V1-20261008`. SourcePR97 protected merged as
 65c744b6a7d1f1a2620af7283dc8df1dcc6a8e0a from exact reviewed/authorized

@@ -8,6 +8,23 @@ feitelijk in de app aanwezig zijn. Bij iedere release moet dit document opnieuw
 worden gecontroleerd en aangepast wanneer architectuur, platformversies,
 dependencies, tooling of conventies wijzigen.
 
+## Gerichte Session/Demo-aanvulling — 2026-10-12
+
+PR99/source-main0e0deed levert gedeelde native Session-presentatie voor iPhone,
+iPad en Mac: actuele context vast, bijdragen nieuwst eerst, aparte spelerroute,
+readonly archiefrijen met begin/eind/duur en guarded refresh, en een responsive
+welkomsthero zolang geen Session actief is. Stemming blijft een backend-owned
+revisiecontract; openen/navigeren veroorzaakt geen playback- of Sessionmutatie.
+
+De expliciete lokale Demo-uitzondering gebruikt dezelfde typed decode/state/
+render-modellen met voorbeeldsessies in geheugen. Geen Profile-authority of
+gewone chat/widget-persistence; geen serververzoeken of microfoonopname/upload.
+De voiceknop toont een herkenbaar vooraf geschreven voorbeeld. Decoratieve
+vector-artwork heeft geen interactie/AX-inhoud; de titel schaalt met Dynamic Type.
+Dit is een gerichte ontwerpaanvulling, geen nieuwe dependency-inventaris of
+Store-release. Exacte bewijsgrenzen en nog voorwaardelijke Finalization:
+[latest snapshot](history/prompts/2026-10-12-apple-session-ui-demo-welcome-finalization.md).
+
 ## Bronnen
 
 - `Package.swift`: Swift package layout, Swift tools-versie, platform minima en

@@ -1,6 +1,37 @@
 # DJConnect Repository Status
 
-## Current conversation/history source — 2026-10-10
+## Current Apple Session UI/Demo/welcome followup — 2026-10-12
+
+Owner-requested followup to `DJC-APPLE-SESSION-CONVERSATION-HISTORY-V1-20261008`
+is source delivered through [PR99](https://github.com/pcvantol/djconnect-app/pull/99).
+Exact reviewed head1b78af9d2aa94176ed79c0337ae3f780894edf38 protected squash
+merged to source-main0e0deed212107b8ab36a7cfa0b3d32ed2c388231; both trees
+6dae800c84d76b6dd81b430314af284c4cadc4b7. Official Owner Authorization38200426205,
+source-mainCI/coverage38200531242 and durable SHA-evidence38200987651 PASS;
+formal asset, coverage/runner hashes and commit bindings independently verified.
+One reused Apple writer; original separate WIP and terminal #95/#96 retained.
+Previous source/history PR97/98 remain completed predecessors.
+
+Current scope: pinned current context/newest-first contributions, in-card
+question glyphs, archive gradient/start/end/duration/refresh, separate player,
+pinned server mood revisions, localized privacy and capability-driven output
+reload, representative explicit Demo active/readonly history, and responsive
+native idle welcomehero. Native iPhone/iPad/Mac software GO is bounded;473
+reported general suite tests include8 environment-gated producer skips and do
+not replace the dedicated actual paired/native runs. Demo voice is scripted.
+Missing producer artwork and current real-provider/physical speaker/voice or
+Store acceptance are not inferred. Latest physical installations remain open.
+
+Repository State: `MERGED_UNRECONCILED` until the separate exact-head
+[Finalization candidate](docs/history/prompts/2026-10-12-apple-session-ui-demo-welcome-finalization.md)
+is authorized, protected published and main/evidence read back. Intended state
+then `MERGED_RECONCILED`; Product Acceptance: `PARTIAL`. Own temporary Mac app
+and current loopback UI lab are stopped; original WIP, source branches and
+native evidence remain preserved. No new Core lane, installation/HA/Store
+publication or next slice is authorized by this record.
+
+
+## Previous conversation/history source — snapshot 2026-10-10
 
 `DJC-APPLE-SESSION-CONVERSATION-HISTORY-V1-20261008`, with
 `DJC-SESSION-FLOW-TEXT-SEARCH-V1-20261008`, is source-delivered through
@@ -214,7 +245,7 @@ receipt. No second Apple implementation prompt is active.
 
 ## Completion Report
 
-The current decoder Finalization report is
+The earlier decoder Finalization report is
 `docs/history/prompts/2026-10-04-vibecast-pi-session-decoder-finalization.md`.
 The earlier owner-handoff source Finalization is
 `docs/history/prompts/2026-10-04-vibecast-pi-owner-handoff-source-finalization.md`.
@@ -223,6 +254,8 @@ The earlier PR #50 assessment remains in
 
 ## Repository-Local Next Action
 
-Complete the first slice's separate nonterminal active-Session update on the
-physical Pi, preserve the separate Google Cast WIP branch and stop before
-another slice.
+Complete only the current Apple followup's separately authorized protected
+Finalization and exact-main/evidence readback, then stop this selected slice.
+Retain unrelated original WIP and predecessor qualification records. Current
+physical installations or unresolved acceptance require their own applicable
+authority; no Pi/Cast/Core or other next capability is selected here.
