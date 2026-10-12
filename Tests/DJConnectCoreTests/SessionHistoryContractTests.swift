@@ -1398,3 +1398,79 @@ private func activeMoodRuntimeWire() throws -> Data {
     let next = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), urlSession: wire.session(), startBackgroundTasks: false)
     #expect(next.askDJMessages.map(\.text) == ["Existing ordinary chat"])
 }
+
+@Test func sessionTimelineRefreshHonorsExactExpiryBetweenMinuteTicks() {
+    let start = Date(timeIntervalSince1970: 120)
+    let expires = start.addingTimeInterval(7.125)
+    let schedule = SessionEntryRefreshSchedule(deadlines: [expires, expires, start.addingTimeInterval(-1)])
+    let dates = Array(schedule.entries(from: start, mode: .normal).prefix(4))
+    #expect(dates == [start, expires, start.addingTimeInterval(60), start.addingTimeInterval(120)])
+}
+
+@Test func sessionTimelineMinuteBoundaryExpiryDoesNotDuplicateTicks() {
+    let start = Date(timeIntervalSince1970: 119)
+    let boundary = Date(timeIntervalSince1970: 120)
+    let schedule = SessionEntryRefreshSchedule(deadlines: [boundary, boundary])
+    #expect(Array(schedule.entries(from: start, mode: .normal).prefix(3)) == [start, boundary, boundary.addingTimeInterval(60)])
+    #expect(sessionPlaybackTime(-1) == "0:00")
+    #expect(sessionPlaybackTime(67000) == "1:07")
+    #expect(sessionPlaybackTime(3601000) == "60:01")
+}
+
+@Test @MainActor func activeMoodBoundIntentDoesNotTargetReplacementSession() async throws {
+    let runtime = try activeMoodRuntimeWire()
+    let object = try #require(JSONSerialization.jsonObject(with: runtime) as? [String: Any])
+    let session = try #require(object["session"] as? [String: Any])
+    let sessionID = try #require(session["session_id"] as? String)
+    let replacementWire = Data(String(decoding: runtime, as: UTF8.self).replacingOccurrences(of: sessionID, with: sessionID + "-replacement").utf8)
+    let switched = HistoryAuthorityGate()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, activeMoodCapsWire, 0) }
+        if request.url!.path.hasSuffix("/session/active") { return (200, switched.denied ? replacementWire : runtime, 0) }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.refreshActiveDJSession(); await model.refreshActiveMoodCapability()
+    let prior = try #require(model.activeDJSession)
+    let epoch = model.sessionHistory.responseEpoch
+    switched.denied = true
+    await model.refreshActiveDJSession()
+    #expect(model.activeDJSession?.id == prior.id + "-replacement")
+    await model.refreshActiveMoodCapability()
+    #expect(model.activeMoodAvailable)
+    #expect(model.activeDJSession?.confirmedMoodRevision != nil)
+    await model.changeActiveSessionMood("party", expectedSessionID: prior.id, expectedEpoch: epoch)
+    #expect(fixture.requests.allSatisfy { !$0.url!.path.hasSuffix("/session/mood") })
+    #expect(model.activeDJSession?.selectedMood == prior.selectedMood)
+    let replacement = try #require(model.activeDJSession)
+    await model.changeActiveSessionMood("party", expectedSessionID: replacement.id, expectedEpoch: model.sessionHistory.responseEpoch)
+    let writes = fixture.requests.filter { $0.url!.path.hasSuffix("/session/mood") }
+    #expect(writes.count == 1, "Positive control proves B can dispatch; only stale A was blocked")
+    #expect(model.activeDJSession?.id == replacement.id)
+}
+
+@Test func pairedConnectionIndicatorDoesNotTreatPairingAsLiveHealth() {
+    #expect(SessionConnectionStatus.resolve(demo: false, pairing: .paired, mode: .offline, backendAvailable: true, recovering: false, liveUnavailable: false) == .offline)
+    #expect(SessionConnectionStatus.resolve(demo: false, pairing: .paired, mode: .local, backendAvailable: true, recovering: true, liveUnavailable: false) == .recovering)
+    #expect(SessionConnectionStatus.resolve(demo: false, pairing: .paired, mode: .remote, backendAvailable: true, recovering: false, liveUnavailable: true) == .liveUnavailable)
+    #expect(SessionConnectionStatus.resolve(demo: false, pairing: .paired, mode: .local, backendAvailable: false, recovering: true, liveUnavailable: true) == .backendUnavailable)
+    #expect(SessionConnectionStatus.resolve(demo: false, pairing: .paired, mode: .remote, backendAvailable: true, recovering: false, liveUnavailable: false) == .connected)
+    #expect(SessionConnectionStatus.resolve(demo: true, pairing: .unpaired, mode: .offline, backendAvailable: false, recovering: false, liveUnavailable: false) == .demo)
+}
+
+@Test @MainActor func reviewDemoExitRestoresRequiredPairingGateAndCanRestartDemo() throws {
+    let defaults = try #require(UserDefaults(suiteName: "demo-exit-gate-" + UUID().uuidString))
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.applyUITestRuntimeFixture("review_demo")
+    #expect(model.isDemoMode)
+    #expect(!model.shouldShowPairingScreen)
+    model.stopDemoMode()
+    #expect(model.pairingStatus == .unpaired)
+    #expect(model.shouldShowPairingScreen)
+    model.completePairingScreen()
+    #expect(model.shouldShowPairingScreen, "Cannot dismiss before pairing")
+    model.startDemoMode()
+    #expect(model.isDemoMode)
+    #expect(!model.shouldShowPairingScreen)
+}

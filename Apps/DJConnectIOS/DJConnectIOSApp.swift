@@ -14,10 +14,6 @@ struct DJConnectIOSApp: App {
             DJConnectLaunchContainer(isBusy: model.isRefreshing, content: DJConnectRootView(model: model))
                 .onAppear {
                     appDelegate.model = model
-                    appDelegate.updateVibeCastSignal()
-                }
-                .onChange(of: model.currentTrackInsight) {
-                    appDelegate.updateVibeCastSignal()
                 }
         }
     }
@@ -81,15 +77,12 @@ struct DJConnectIOSApp: App {
 }
 
 final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotificationCenterDelegate {
-    private let vibeCastOutputController = VibeCastExternalDisplayController()
 
     weak var model: DJConnectAppModel? {
         didSet {
             Task { @MainActor in
                 flushPendingHomeScreenAction()
             }
-            vibeCastOutputController.model = model
-            updateVibeCastSignal()
         }
     }
     private var pendingHomeScreenAction: DJConnectHomeScreenAction?
@@ -97,7 +90,6 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
     override init() {
         super.init()
         UNUserNotificationCenter.current().delegate = self
-        vibeCastOutputController.start()
     }
 
     func application(
@@ -180,8 +172,6 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
         let configuration = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
         if connectingSceneSession.role == .windowApplication {
             configuration.delegateClass = DJConnectIOSSceneDelegate.self
-        } else if connectingSceneSession.role == .windowExternalDisplayNonInteractive {
-            configuration.delegateClass = VibeCastExternalDisplaySceneDelegate.self
         }
         return configuration
     }
@@ -222,9 +212,6 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
         model.performHomeScreenAction(action)
     }
 
-    func updateVibeCastSignal() {
-        vibeCastOutputController.update()
-    }
 }
 
 final class DJConnectIOSSceneDelegate: NSObject, UIWindowSceneDelegate {
@@ -276,91 +263,4 @@ final class DJConnectIOSSceneDelegate: NSObject, UIWindowSceneDelegate {
             windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .allButUpsideDown))
         }
     }
-}
-
-@MainActor
-private final class VibeCastExternalDisplaySceneDelegate: NSObject, UIWindowSceneDelegate {
-    func scene(
-        _ scene: UIScene,
-        willConnectTo session: UISceneSession,
-        options connectionOptions: UIScene.ConnectionOptions
-    ) {
-        VibeCastExternalDisplayController.updateActiveController()
-    }
-
-    func sceneDidDisconnect(_ scene: UIScene) {
-        VibeCastExternalDisplayController.updateActiveController()
-    }
-}
-
-@MainActor
-private final class VibeCastExternalDisplayController {
-    private static weak var activeController: VibeCastExternalDisplayController?
-
-    weak var model: DJConnectAppModel?
-    private var outputWindows: [String: UIWindow] = [:]
-    private var observers: [NSObjectProtocol] = []
-
-    init() {
-        Self.activeController = self
-    }
-
-    static func updateActiveController() {
-        activeController?.update()
-    }
-
-    func start() {
-        guard observers.isEmpty else {
-            return
-        }
-        let center = NotificationCenter.default
-        observers.append(center.addObserver(forName: UIScene.didActivateNotification, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor in self?.update() }
-        })
-        observers.append(center.addObserver(forName: UIScene.didDisconnectNotification, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor in self?.update() }
-        })
-        update()
-    }
-
-    func update() {
-        guard let model, model.currentTrackInsight != nil else {
-            clear()
-            return
-        }
-        let scenes = externalWindowScenes
-        guard !scenes.isEmpty else {
-            clear()
-            return
-        }
-        let activeSessionIDs = Set(scenes.map { $0.session.persistentIdentifier })
-        for staleID in outputWindows.keys where !activeSessionIDs.contains(staleID) {
-            outputWindows[staleID]?.isHidden = true
-            outputWindows[staleID] = nil
-        }
-        for scene in scenes {
-            let sessionID = scene.session.persistentIdentifier
-            let window = outputWindows[sessionID] ?? UIWindow(windowScene: scene)
-            window.rootViewController = UIHostingController(rootView: VibeCastOutputView(model: model))
-            window.windowLevel = .normal
-            window.isHidden = false
-            outputWindows[sessionID] = window
-        }
-    }
-
-    private var externalWindowScenes: [UIWindowScene] {
-        UIApplication.shared.connectedScenes.compactMap { scene in
-            guard let windowScene = scene as? UIWindowScene,
-                  windowScene.session.role == .windowExternalDisplayNonInteractive else {
-                return nil
-            }
-            return windowScene
-        }
-    }
-
-    private func clear() {
-        outputWindows.values.forEach { $0.isHidden = true }
-        outputWindows.removeAll()
-    }
-
 }

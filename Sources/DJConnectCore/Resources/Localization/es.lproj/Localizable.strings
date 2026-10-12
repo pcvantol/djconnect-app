@@ -212,21 +212,7 @@
 "demo.music.dna.signal.playfulVocalFragments" = "Fragmentos vocales juguetones";
 "demo.music.dna.source.subtitle" = "Perfil de ejemplo ficticio";
 "ui.rendered.privately.on.your.device" = "Rendered privately on your device";
-"ui.analyze.a.track.to.publish.the.visualizer.signal" = "Analyze a track to publish the visualizer signal.";
-"ui.airplay.vibecast" = "AirPlay VibeCast";
-"ui.send.vibecast.video.to.airplay" = "Send VibeCast video to AirPlay";
-"ui.preparing.vibecast.video" = "Preparing VibeCast video";
-"ui.prepare.vibecast.video" = "Prepare VibeCast video";
-"ui.analyze.track.insight.before.using.vibecast" = "Analyze Track Insight before using VibeCast";
-"ui.local.avplayer.preview" = "Local AVPlayer preview";
-"ui.rendering.vibecast.video" = "Rendering VibeCast video...";
-"ui.route.this.vibecast.video.with.airplay" = "Route this VibeCast video with AirPlay";
-"ui.choose.airplay.display" = "Choose AirPlay display";
-"ui.airplay" = "AirPlay";
 "ui.vibecast" = "VibeCast";
-"ui.vibecast.unavailable" = "VibeCast unavailable";
-"ui.choose.an.airplay.display.for.vibecast" = "Choose an AirPlay display for VibeCast";
-"ui.vibecast.via.airplay" = "VibeCast via AirPlay";
 "ui.genre" = "Genero";
 "ui.energy" = "Energia";
 "ui.dance" = "Baile";
@@ -810,7 +796,7 @@
 "ui.enter.the.code.shown.by.home.assistant.while.this.device" = "Enter the code shown by Home Assistant while this device and Home Assistant are on the same LAN.";
 "ui.apple.watch.is.paired.with.home.assistant.through.this.iphone" = "Apple Watch is paired with Home Assistant through this iPhone.";
 "ui.djconnect.is.paired.with.home.assistant" = "DJConnect is paired with Home Assistant.";
-"ui.pairing.is.local.only.use.the.lan.address.of.home" = "El emparejamiento es solo local. Usa la dirección LAN de Home Assistant. Apple puede pedir acceso a la red local para que DJConnect encuentre Home Assistant y luego transmita VibeCast a televisores AirPlay en esta red.";
+"ui.pairing.is.local.only.use.the.lan.address.of.home" = "El emparejamiento es solo local. Usa la dirección LAN de Home Assistant. Apple puede pedir acceso a la red local para que DJConnect se conecte a Home Assistant en esta red.";
 "ui.enter.a.valid.local.home.assistant.url.for.example.http" = "Enter a valid local Home Assistant URL, for example http://homeassistant.local:8123.";
 "ui.enter.the.6.digit.code.shown.by.home.assistant" = "Enter the 6-digit code shown by Home Assistant.";
 "ui.choose.value.in.the.home.assistant.djconnect.setup.flow.and" = "Elige %@ en el flujo de configuracion de DJConnect en Home Assistant e introduce aqui el codigo de Home Assistant.";
@@ -834,7 +820,6 @@
 "ui.music.dna.is.enabled.but.home.assistant.has.not.built" = "Music DNA esta activado, pero Home Assistant aun no ha creado datos de perfil. Esto puede pasar justo despues de activarlo o despues de borrar el perfil aprendido.";
 "ui.djconnect.cannot.read.the.current.music.dna.state.from.home" = "DJConnect cannot read the current Music DNA state from Home Assistant right now. This is a temporary connection or backend issue, not the same as Music DNA being turned off.";
 "ui.future.timeline.taste.evolution.artist.affinity.mood.shifts.year.in" = "Future timeline: taste evolution, artist affinity, mood shifts, Year in Music and compatibility scores.";
-"ui.this.mp4.is.played.through.avplayer.use.the.airplay.control" = "This MP4 is played through AVPlayer. Use the AirPlay control above to send the active VibeCast video route to a display.";
 "ui.see.what.makes.the.current.track.feel.the.way.it" = "See what makes the current track feel the way it does.";
 "ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant" = "Playback is unavailable\nCheck the music service authorization in Home Assistant";
 "ui.sends.the.current.track.to.the.backend.for.analysis.and" = "Sends the current track to the backend for analysis and opens Track Insight.";
@@ -1075,3 +1060,14 @@
 "ui.session.welcome.subtitle" = "Dale espacio a tu música. Inicia una sesión y deja que el DJ te acompañe.";
 "ui.session.welcome.promise" = "Historias de tu música. Espacio para tus preguntas.";
 "ui.session.welcome.mood" = "¿Cómo quieres escuchar?";
+
+"ui.session.music_duration" = "Tiempo transcurrido y duración total";
+"ui.session.music_remaining" = "Tiempo restante";
+
+"ui.session.end.confirm" = "¿Terminar esta sesión de DJ?";
+
+"ui.connection.status" = "Estado de conexión";
+
+"ui.connection.offline" = "Sin conexión con Home Assistant";
+"ui.connection.recovering" = "Restableciendo la conexión con la sesión de DJ…";
+"ui.connection.backend_unavailable" = "La música no está disponible temporalmente";

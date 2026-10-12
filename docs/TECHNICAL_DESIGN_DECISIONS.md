@@ -1,5 +1,10 @@
 # Technische designbeslissingen
 
+## Current Session controls and glass followup — 2026-10-12
+
+Build40016 is local on `codex/apple-session-mood-toolbar`, based on reconciled main7900ec7. Toolbar mood/status popovers, bound End confirmation, top-right glyphs, native glass rendering and playback time labels are implemented across shared Apple UI. Full477-test run PASS; bounded native iPhone/iPad controls PASS. Physical scroll acceptance, final Mac screen proof, publication and40016 installation are pending; ordinary physical iPad/MacBook40015 remains installed. No Core/backend mutation or Store/HA release. See [current qualification](verification/SESSION_CONTROLS_GLASS_20261012.md). The previous sections below are historical delivery snapshots.
+
+
 ## Session header refinement — 2026-10-12
 
 PR101 source-main03d02a40c4caa9b5d37c8767e49f87b88cf106a3 implements the owner-requested fixed music-left/DJ-right layout and compact full Spotify attribution. The shared native Layout measures unrestricted text heights while the existing pinned header may scroll. It changes no backend, authority, event, playback or conversation contract. Premerge CI and bounded native iPhone/iPad/Mac reviews PASS; source-main CI/coverage38210411713 and formal exact-SHA evidence38211003692 independently verified PASS; separate Finalization remains pending.473 reported general tests include8 gated skips. Product acceptance is PARTIAL; actual provider imagery/Spotify-runtime and XXXL/long-language are not inferred. Previous PR99/100 is completed, with separately approved ordinary40014 installed on iPad/MacBook;40015 is not installed. See [header evidence](verification/SESSION_HEADER_COLUMNS_20261012.md).
