@@ -10533,7 +10533,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func demoVoiceRecordingShowsMicrophoneConsentBeforeDemoResponse() throws {
+@Test func demoVoiceExampleDoesNotRequestMicrophoneConsent() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10543,16 +10543,15 @@ private func makePairedMusicDNAModel(
         startBackgroundTasks: false
     )
     model.startDemoMode()
-    guard model.microphonePermissionStatus == .unknown else {
-        return
-    }
+    let originalPermission = model.microphonePermissionStatus
 
     model.startVoiceRecording()
 
-    #expect(model.isShowingPermissionExplanation == true)
-    #expect(model.permissionExplanationKind == .microphone)
-    #expect(model.askDJMessages.contains { $0.text == "Voice request" } == false)
-    #expect(model.djResponseText.isEmpty)
+    #expect(model.isShowingPermissionExplanation == false)
+    #expect(model.microphonePermissionStatus == originalPermission)
+    #expect(model.isRecordingVoice == false)
+    #expect(model.askDJMessages.contains { $0.text == DJConnectLocalization.localized(key: "demo.session.voice_question", language: model.language) })
+    #expect(model.djResponseText == DJConnectLocalization.localized(key: "demo.session.voice_answer", language: model.language))
 }
 
 @MainActor
