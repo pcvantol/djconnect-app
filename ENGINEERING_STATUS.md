@@ -1,6 +1,35 @@
 # DJConnect App Engineering Status
 
-## Current conversation/history source — 2026-10-10
+## Current Apple Session UI/Demo/welcome followup — 2026-10-12
+
+Owner-requested followup is source delivered through
+[PR99](https://github.com/pcvantol/djconnect-app/pull/99), reviewed
+1b78af9d2aa94176ed79c0337ae3f780894edf38, protected source-main
+0e0deed212107b8ab36a7cfa0b3d32ed2c388231; tree
+6dae800c84d76b6dd81b430314af284c4cadc4b7 equals the approved candidate.
+Official Owner Authorization38200426205, source-mainCI/coverage38200531242
+and durable exact-SHA evidence38200987651 independently verified PASS.
+
+Current scope is native pinned/newest-first Session UI, archive styling/time/
+refresh, separate player routes, server-owned mood and localized privacy/output
+handling, explicit representative Demo active/readonly history and the idle
+welcomehero. Native iPhone/iPad/Mac software proof/reviews are bounded;473
+reported general tests include8 environment-gated producer skips, separately
+from dedicated actual paired/native runs. Demo voice is scripted and captures
+no audio. Producer artwork, current real-provider/physical acceptance and
+latest installation remain open, not silently replaced by demo screenshots.
+
+Repository State: `MERGED_UNRECONCILED` until this separate exact-head
+[Finalization candidate](docs/history/prompts/2026-10-12-apple-session-ui-demo-welcome-finalization.md)
+is authorized, protected published and exact main/evidence read back. Intended
+state then `MERGED_RECONCILED`; Product Acceptance: `PARTIAL`. One reused Apple
+writer; original separate WIP, terminal #95/#96, completed predecessors #97/#98
+and recoverable evidence retained. Own temporary Mac/current UI lab stopped.
+No next Core/Apple capability, installation, HA deployment or Store release
+is authorized by this status record.
+
+
+## Previous conversation/history source — snapshot 2026-10-10
 
 `DJC-APPLE-SESSION-CONVERSATION-HISTORY-V1-20261008`, with
 `DJC-SESSION-FLOW-TEXT-SEARCH-V1-20261008`, is source-delivered through
