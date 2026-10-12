@@ -1029,3 +1029,49 @@
 "ui.music.dna.temporarily_unavailable" = "Music DNA is nu niet beschikbaar. Probeer het opnieuw.";
 
 "ui.session.live_unavailable" = "De DJ-sessie kan nu niet worden bijgewerkt.";
+
+"ui.session.history.end_unknown" = "eindtijd onbekend";
+"ui.session.history.less_than_minute" = "minder dan 1 minuut";
+
+// Native session refresh and readable Music DNA privacy.
+"ui.session.history.refresh" = "Eerdere sessies bijwerken";
+"ui.session.history.updated" = "Eerdere sessies bijgewerkt";
+"ui.session.refresh.loading" = "DJ-sessie bijwerken…";
+"ui.session.refresh.updated" = "DJ-sessie bijgewerkt";
+"ui.music.dna.privacy.enabled.yes" = "Music DNA staat aan.";
+"ui.music.dna.privacy.enabled.no" = "Music DNA staat uit.";
+"ui.music.dna.privacy.clear.yes" = "Je kunt je Music DNA wissen.";
+"ui.music.dna.privacy.clear.no" = "Wissen is momenteel niet beschikbaar.";
+"ui.music.dna.privacy.export.yes" = "Je kunt je Music DNA downloaden.";
+"ui.music.dna.privacy.export.no" = "Downloaden is momenteel niet beschikbaar.";
+"ui.music.dna.privacy.import.yes" = "Je kunt je Music DNA importeren.";
+"ui.music.dna.privacy.import.no" = "Importeren is momenteel niet beschikbaar.";
+"ui.music.dna.privacy.audio.yes" = "Stemopnames worden bewaard.";
+"ui.music.dna.privacy.audio.no" = "Stemopnames worden niet bewaard.";
+"ui.music.dna.privacy.credentials.yes" = "Toegangstokens voor muziekdiensten worden bewaard.";
+"ui.music.dna.privacy.credentials.no" = "Toegangstokens voor muziekdiensten worden niet bewaard.";
+"ui.music.dna.privacy.questions.yes" = "Volledige vragen worden bewaard.";
+"ui.music.dna.privacy.questions.no" = "Volledige vragen worden niet bewaard.";
+"ui.music.dna.privacy.unknown" = "Privacy-informatie is momenteel niet beschikbaar.";
+"ui.session.mood.updating" = "Stemming bijwerken…";
+"ui.session.mood.failed" = "Stemming niet bijgewerkt. Controleer de huidige keuze en probeer opnieuw.";
+"ui.output.refresh" = "Uitvoerapparaten bijwerken";
+"ui.session.history.start_unknown" = "begintijd onbekend";
+
+// Curated local App Store review sessions.
+"demo.session.notice" = "Demo · Voorbeeldsessies, geen echte luistergeschiedenis";
+"demo.session.title" = "Een avond met de DJ";
+"demo.session.direction" = "We houden de groove vast. Een warme synthklank en een rustig opgebouwde overgang maken ruimte voor het volgende nummer.";
+"demo.session.archive_direction" = "Deze sessie begon rustig en kreeg daarna meer energie. Een voorbeeld van hoe de DJ je luisteravond begeleidt.";
+"demo.session.question" = "Vertel over deze bijdrage";
+"demo.session.answer" = "In dit voorbeeld houdt de DJ de sfeer vast en bouwt de overgang rustig op. Bij een echte sessie gebruikt de DJ je muziek en de geselecteerde bijdrage als context.";
+"demo.session.voice_question" = "Voorbeeld stemvraag: wat past hierna?";
+"demo.session.voice_answer" = "Een iets energieker nummer past bij deze groove. Dit is een vooraf geschreven demoantwoord; er is niets opgenomen of afgespeeld.";
+"demo.session.voice_hint" = "Toon een voorbeeld van een stemvraag";
+
+// Native invitation when no DJ Session is active.
+"ui.session.welcome.eyebrow" = "Welkom bij DJConnect";
+"ui.session.welcome.title" = "Jouw muziek.\nJouw moment.";
+"ui.session.welcome.subtitle" = "Geef je muziek de ruimte. Start een sessie en laat de DJ met je meeluisteren.";
+"ui.session.welcome.promise" = "Verhalen bij je muziek. Ruimte voor jouw vragen.";
+"ui.session.welcome.mood" = "Hoe wil je luisteren?";

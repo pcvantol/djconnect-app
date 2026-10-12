@@ -10533,7 +10533,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func demoVoiceRecordingShowsMicrophoneConsentBeforeDemoResponse() throws {
+@Test func demoVoiceExampleDoesNotRequestMicrophoneConsent() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10543,16 +10543,15 @@ private func makePairedMusicDNAModel(
         startBackgroundTasks: false
     )
     model.startDemoMode()
-    guard model.microphonePermissionStatus == .unknown else {
-        return
-    }
+    let originalPermission = model.microphonePermissionStatus
 
     model.startVoiceRecording()
 
-    #expect(model.isShowingPermissionExplanation == true)
-    #expect(model.permissionExplanationKind == .microphone)
-    #expect(model.askDJMessages.contains { $0.text == "Voice request" } == false)
-    #expect(model.djResponseText.isEmpty)
+    #expect(model.isShowingPermissionExplanation == false)
+    #expect(model.microphonePermissionStatus == originalPermission)
+    #expect(model.isRecordingVoice == false)
+    #expect(model.askDJMessages.contains { $0.text == DJConnectLocalization.localized(key: "demo.session.voice_question", language: model.language) })
+    #expect(model.djResponseText == DJConnectLocalization.localized(key: "demo.session.voice_answer", language: model.language))
 }
 
 @MainActor
@@ -10987,7 +10986,7 @@ private func makePairedMusicDNAModel(
     #expect(model.askDJMessages[0].role == .user)
     #expect(model.askDJMessages[0].status == .sent)
     #expect(model.askDJMessages[1].role == .dj)
-    #expect(model.askDJMessages[1].text.contains("Home Assistant"))
+    #expect(model.askDJMessages[1].text == DJConnectLocalization.localized(key: "demo.session.answer", language: model.language))
 }
 
 @MainActor
@@ -13301,4 +13300,17 @@ private extension String {
     )
     await Task.yield()
     await transport.stop()
+}
+
+@MainActor
+@Test func discoveryPublicArtworkDoesNotBroadenProtectedResponseImagePolicy() throws {
+    let defaults = try testDefaults()
+    defaults.set("https://discovery-art.local", forKey: "DJConnectHomeAssistantURL")
+    let model = DJConnectAppModel(defaults: defaults, startBackgroundTasks: false)
+    #expect(model.resolvedMusicDiscoveryImageURL("https://i.scdn.co/image/example")?.host == "i.scdn.co")
+    #expect(model.resolvedHomeAssistantImageURL("https://i.scdn.co/image/example") == nil)
+    #expect(model.resolvedMusicDiscoveryImageURL("https://i.scdn.co.evil.test/image/example") == nil)
+    #expect(model.resolvedMusicDiscoveryImageURL("https://user:secret@i.scdn.co/image/example") == nil)
+    #expect(model.resolvedMusicDiscoveryImageURL("http://i.scdn.co/image/example") == nil)
+    #expect(model.resolvedMusicDiscoveryImageURL("/api/djconnect/image_proxy/album")?.host == "discovery-art.local")
 }

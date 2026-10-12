@@ -113,23 +113,26 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
         public var sessionID: String
         public var runtimeState: String
         public var selectedMood: String
+        public var moodRevision: Int? = nil
         public var locale: String? = nil
 
         enum CodingKeys: String, CodingKey {
             case sessionID = "session_id"
             case runtimeState = "runtime_state"
             case selectedMood = "selected_mood"
-            case locale
+            case locale, moodRevision = "mood_revision"
         }
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             sessionID = try c.decode(String.self, forKey: .sessionID)
             runtimeState = try c.decode(String.self, forKey: .runtimeState)
             selectedMood = try c.decode(String.self, forKey: .selectedMood)
+            moodRevision = try c.decodeIfPresent(Int.self, forKey: .moodRevision)
+            if let moodRevision, moodRevision < 0 { throw DJConnectError.invalidResponse }
             locale = try? c.decode(String.self, forKey: .locale)
         }
-        public init(sessionID: String, runtimeState: String, selectedMood: String, locale: String? = nil) {
-            self.sessionID = sessionID; self.runtimeState = runtimeState; self.selectedMood = selectedMood; self.locale = locale
+        public init(sessionID: String, runtimeState: String, selectedMood: String, locale: String? = nil, moodRevision: Int? = nil) {
+            self.sessionID = sessionID; self.runtimeState = runtimeState; self.selectedMood = selectedMood; self.locale = locale; self.moodRevision = moodRevision
         }
     }
 
@@ -189,6 +192,7 @@ public struct DJConnectSessionRuntime: Codable, Equatable, Sendable, Identifiabl
     public var sessionID: String
     public var room: String
     public var selectedMood: String
+    public var moodRevision: Int? = nil
     public var musicBackend: String
     public var runtimeState: String
     public var startedAt: String
@@ -201,6 +205,7 @@ public struct DJConnectSessionRuntime: Codable, Equatable, Sendable, Identifiabl
         case sessionID = "session_id"
         case room
         case selectedMood = "selected_mood"
+        case moodRevision = "mood_revision"
         case musicBackend = "music_backend"
         case runtimeState = "runtime_state"
         case startedAt = "started_at"
@@ -296,11 +301,23 @@ public extension DJConnectSessionRuntime {
         guard broadcastState.session.sessionID == sessionID,
               (broadcastState.delivery?.snapshotWatermark ?? 0) >= (broadcast.delivery?.snapshotWatermark ?? 0) else { return self }
         runtime.runtimeState = broadcastState.session.runtimeState
-        runtime.selectedMood = broadcastState.session.selectedMood
+        let priorRevision = confirmedMoodRevision
+        let incomingRevision = broadcastState.session.moodRevision
+        let acceptMood = priorRevision == nil || incomingRevision.map { revision in
+            revision > priorRevision! || (revision == priorRevision! && broadcastState.session.selectedMood == selectedMood)
+        } == true
+        if acceptMood {
+            runtime.selectedMood = broadcastState.session.selectedMood
+            runtime.moodRevision = incomingRevision
+        }
         runtime.planner = DJConnectPlannerRuntime(
             planningHorizonMinutes: broadcastState.planner.planningHorizonMinutes
         )
         runtime.broadcast = broadcastState
+        if let priorRevision, !acceptMood {
+            runtime.broadcast.session.selectedMood = selectedMood
+            runtime.broadcast.session.moodRevision = priorRevision
+        }
         return runtime
     }
 
@@ -335,5 +352,58 @@ public extension DJConnectSessionRuntime {
             state.presentations.removeAll { !allowed.contains($0.momentID) }
         }
         return applying(broadcastState: state)
+    }
+}
+
+public struct DJConnectActiveMoodCapabilities: Decodable, Sendable {
+    public struct Contract: Decodable, Sendable {
+        let available: Bool
+        let version: Int
+        let path: String
+        let method: String
+        let authentication: String
+        let moods: [String]
+        let ordering: String
+        let scope: String
+    }
+    let capabilities: [String: Bool]?
+    let contractVersions: [String: Int]?
+    let contract: Contract?
+    enum CodingKeys: String, CodingKey { case capabilities, contractVersions = "contract_versions", contract = "active_session_mood" }
+    public var available: Bool {
+        guard capabilities?["active_session_mood"] == true, contractVersions?["active_session_mood"] == 1,
+              let contract else { return false }
+        return contract.available && contract.version == 1 && contract.path == "/api/djconnect/v1/session/mood" &&
+            contract.method == "POST" && contract.authentication == "paired_device_bearer" &&
+            contract.moods == ["chill", "groove", "energy", "party"] && contract.ordering == "expected_mood_revision" &&
+            contract.scope == "active_device_bound_owner_session"
+    }
+}
+
+public struct DJConnectSessionMoodResponse: Decodable, Equatable, Sendable {
+    public let success: Bool
+    public let contractVersion: Int
+    public let sessionID: String
+    public let selectedMood: String
+    public let moodRevision: Int
+    public let changed: Bool
+    enum CodingKeys: String, CodingKey {
+        case success, changed, contractVersion = "contract_version", sessionID = "session_id", selectedMood = "selected_mood", moodRevision = "mood_revision"
+    }
+}
+
+public extension DJConnectSessionRuntime {
+    var confirmedMoodRevision: Int? {
+        [moodRevision, broadcast.session.moodRevision].compactMap { $0 }.filter { $0 >= 0 }.max()
+    }
+    func applying(mood response: DJConnectSessionMoodResponse) -> Self {
+        guard response.success, response.contractVersion == 1, response.sessionID == sessionID,
+              response.moodRevision >= 0, response.moodRevision >= (confirmedMoodRevision ?? 0),
+              response.moodRevision != confirmedMoodRevision || response.selectedMood == selectedMood,
+              ["chill", "groove", "energy", "party"].contains(response.selectedMood) else { return self }
+        var result = self
+        result.selectedMood = response.selectedMood; result.moodRevision = response.moodRevision
+        result.broadcast.session.selectedMood = response.selectedMood; result.broadcast.session.moodRevision = response.moodRevision
+        return result
     }
 }

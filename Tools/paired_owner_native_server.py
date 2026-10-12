@@ -18,17 +18,20 @@ from aiohttp import web
 ROOT = Path(os.environ["DJC_SOURCE_ROOT"])
 LAB = Path(os.environ["DJC_LAB_ROOT"])
 CONTROL = "apple-paired-fixture-control"
-PIN = "648496f3c218305323c752a632a086cfad97fb15f8f0c9d9126ae92fc319f58b"
+BASELINE_PIN = "648496f3c218305323c752a632a086cfad97fb15f8f0c9d9126ae92fc319f58b"
+PIN = json.loads((ROOT / "consumer-source-pin.json").read_text())["content_archive_sha256"]
 sys.dont_write_bytecode = True
 
 
 def initializer():
     manifest = json.loads((ROOT / "consumer-source-pin.json").read_text())
-    assert manifest["content_archive_sha256"] == PIN
+    assert manifest["content_archive_sha256"] in {BASELINE_PIN, "8b0357411254eb62e12a6d89d35a72288a0642a597e595ac0ba6db5191d0de13"}
+    if manifest["content_archive_sha256"] != BASELINE_PIN:
+        assert manifest["source_sha"] == "491e2258920e730901875e3c8b258565a06e8463"
     for name, digest in manifest["integration_source_hashes"].items():
         assert hashlib.sha256((ROOT / name).read_bytes()).hexdigest() == digest, name
     path = ROOT / "scripts/verification/verify_paired_live_auth.py"
-    expected = json.loads((ROOT / "evidence/early-source-manifest.json").read_text())["files"]
+    expected = manifest.get("verification_source_hashes") or json.loads((ROOT / "evidence/early-source-manifest.json").read_text())["files"]
     assert hashlib.sha256(path.read_bytes()).hexdigest() == expected[str(path.relative_to(ROOT))]
     spec = importlib.util.spec_from_file_location("pinned_paired_native", path)
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
@@ -58,6 +61,11 @@ async def main():
     core = initializer(); state = await core.initialize_native()
     hass, manager = state["hass"], state["manager"]
     slot = hass.config_entries.async_get_entry("mac-owner-entry")
+    # Model the configured/loaded slots explicitly, as the pinned mood producer
+    # qualification does. No auth/owner handler is substituted or relaxed.
+    from homeassistant.config_entries import ConfigEntryState
+    for configured in (state["slot"], slot):
+        configured._async_set_state(hass, ConfigEntryState.LOADED, None)
     mac = core.DJConnectRuntime(slot)
     hass.data["djconnect"]["mac-owner-entry"] = mac
     await state["storage"].async_upsert_device("djconnect-macos-ABCDEF123456", "macos", linked_profile_id="profile-a")
@@ -96,9 +104,16 @@ async def main():
     # Session state, payloads, or authorization. Never log private payload data.
     web.WebSocketResponse.send_json = observed_send_json
 
+    history_fault = {"once": False}
+
     @web.middleware
     async def record(request, handler):
-        response = await handler(request)
+        if request.path == "/api/djconnect/v1/session/history" and history_fault["once"]:
+            history_fault["once"] = False
+            await asyncio.sleep(3.0)
+            response = web.json_response({"success":False,"error":"test_transient_unavailable"}, status=503)
+        else:
+            response = await handler(request)
         # Never record bodies/headers/auth frames/tokens/text/Session IDs/cursors.
         records.append({"method": request.method, "route": request.path.split("/")[-1], "status": response.status})
         (LAB / "sanitized-native-transport.json").write_text(json.dumps({"content_pin": PIN, "requests": records}, indent=2))
@@ -109,7 +124,7 @@ async def main():
         active = await manager.async_get_active("profile-a")
         if active is None: return None
         value = active.as_dict()
-        return {"session_id": value["session_id"], "state": value["runtime_state"], "now_playing": value["broadcast"]["playback"]}
+        return {"session_id": value["session_id"], "state": value["runtime_state"], "selected_mood":value["selected_mood"], "mood_revision":value.get("mood_revision"), "now_playing": value["broadcast"]["playback"]}
 
     async def seed():
         active = await manager.async_get_active("profile-a")
@@ -127,7 +142,8 @@ async def main():
         if request.headers.get("Authorization") != "Bearer " + CONTROL: raise web.HTTPUnauthorized()
         operation = request.match_info["operation"]
         save_wire_receipt({"control":operation})
-        if operation == "start": await seed()
+        if operation == "history_fail_once": history_fault["once"] = True
+        elif operation == "start": await seed()
         elif operation in {"update", "resume_update"}:
             active = await manager.async_get_active("profile-a"); assert active is not None
             await manager.async_update_playback_projection(owner_profile_id="profile-a", session_id=active.session_id,

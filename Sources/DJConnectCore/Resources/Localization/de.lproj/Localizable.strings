@@ -1029,3 +1029,49 @@
 "ui.music.dna.temporarily_unavailable" = "Music DNA ist gerade nicht verfügbar. Bitte versuche es erneut.";
 
 "ui.session.live_unavailable" = "Die DJ-Sitzung kann gerade nicht aktualisiert werden.";
+
+"ui.session.history.end_unknown" = "Endzeit unbekannt";
+"ui.session.history.less_than_minute" = "weniger als 1 Minute";
+
+// Native session refresh and readable Music DNA privacy.
+"ui.session.history.refresh" = "Frühere Sitzungen aktualisieren";
+"ui.session.history.updated" = "Frühere Sitzungen aktualisiert";
+"ui.session.refresh.loading" = "DJ-Sitzung wird aktualisiert…";
+"ui.session.refresh.updated" = "DJ-Sitzung aktualisiert";
+"ui.music.dna.privacy.enabled.yes" = "Music DNA ist eingeschaltet.";
+"ui.music.dna.privacy.enabled.no" = "Music DNA ist ausgeschaltet.";
+"ui.music.dna.privacy.clear.yes" = "Du kannst deine Music DNA löschen.";
+"ui.music.dna.privacy.clear.no" = "Löschen ist derzeit nicht verfügbar.";
+"ui.music.dna.privacy.export.yes" = "Du kannst deine Music DNA herunterladen.";
+"ui.music.dna.privacy.export.no" = "Herunterladen ist derzeit nicht verfügbar.";
+"ui.music.dna.privacy.import.yes" = "Du kannst deine Music DNA importieren.";
+"ui.music.dna.privacy.import.no" = "Importieren ist derzeit nicht verfügbar.";
+"ui.music.dna.privacy.audio.yes" = "Sprachaufnahmen werden gespeichert.";
+"ui.music.dna.privacy.audio.no" = "Sprachaufnahmen werden nicht gespeichert.";
+"ui.music.dna.privacy.credentials.yes" = "Zugriffstokens für Musikdienste werden gespeichert.";
+"ui.music.dna.privacy.credentials.no" = "Zugriffstokens für Musikdienste werden nicht gespeichert.";
+"ui.music.dna.privacy.questions.yes" = "Vollständige Fragen werden gespeichert.";
+"ui.music.dna.privacy.questions.no" = "Vollständige Fragen werden nicht gespeichert.";
+"ui.music.dna.privacy.unknown" = "Datenschutzinformationen sind derzeit nicht verfügbar.";
+"ui.session.mood.updating" = "Stimmung wird aktualisiert…";
+"ui.session.mood.failed" = "Stimmung nicht aktualisiert. Prüfe die aktuelle Auswahl und versuche es erneut.";
+"ui.output.refresh" = "Ausgabegeräte aktualisieren";
+"ui.session.history.start_unknown" = "Startzeit unbekannt";
+
+// Curated local App Store review sessions.
+"demo.session.notice" = "Demo · Beispielsitzungen, kein persönlicher Hörverlauf";
+"demo.session.title" = "Ein Abend mit dem DJ";
+"demo.session.direction" = "Wir halten den Groove. Warme Synthesizer und ein sanfter Übergang lassen Raum für den nächsten Titel.";
+"demo.session.archive_direction" = "Diese Sitzung begann ruhig und wurde allmählich lebhafter. Ein Beispiel dafür, wie der DJ das Hören begleitet.";
+"demo.session.question" = "Erzähle mir von diesem Beitrag";
+"demo.session.answer" = "In diesem Beispiel hält der DJ die Stimmung und gestaltet einen sanften Übergang. In einer echten Sitzung liefern deine Musik und der ausgewählte Beitrag den Kontext.";
+"demo.session.voice_question" = "Beispiel-Sprachfrage: Was passt als Nächstes?";
+"demo.session.voice_answer" = "Ein etwas lebhafterer Titel passt zu diesem Groove. Dies ist eine vorbereitete Demoantwort; es wurde nichts aufgenommen oder abgespielt.";
+"demo.session.voice_hint" = "Eine Beispiel-Sprachfrage zeigen";
+
+// Native invitation when no DJ Session is active.
+"ui.session.welcome.eyebrow" = "Willkommen bei DJConnect";
+"ui.session.welcome.title" = "Deine Musik.\nDein Moment.";
+"ui.session.welcome.subtitle" = "Gib deiner Musik Raum. Starte eine Session und lass den DJ mit dir zuhören.";
+"ui.session.welcome.promise" = "Geschichten zu deiner Musik. Platz für deine Fragen.";
+"ui.session.welcome.mood" = "Wie möchtest du hören?";

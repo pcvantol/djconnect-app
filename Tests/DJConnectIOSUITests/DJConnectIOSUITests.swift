@@ -1051,7 +1051,7 @@ extension DJConnectIOSUITests {
     }
 
     func testActualPairedOwnerLiveNativeSnapshotUpdateReconnectAndPlayer() async throws {
-        let base = URL(string: "http://127.0.0.1:18196")!
+        let base = URL(string: ProcessInfo.processInfo.environment["DJC_APPLE_PAIRED_UI_BASE"] ?? "http://127.0.0.1:18197")!
         func control(_ operation: String, method: String = "POST") async throws -> [String: Any] {
             var request = URLRequest(url: base.appendingPathComponent("__apple_paired_fixture/" + operation))
             request.httpMethod = method
@@ -1064,14 +1064,54 @@ extension DJConnectIOSUITests {
         let before = try await control("start")
         let sessionID = try XCTUnwrap((before["active"] as? [String: Any])?["session_id"] as? String)
         let app = XCUIApplication(); app.terminate()
-        app.launchArguments = ["--uitesting", "--runtime-fixture=paired_owner_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchArguments = ["--uitesting", "--runtime-fixture=paired_owner_contract", "-DJCONNECTRuntimeFixture", "paired_owner_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
         app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
         app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "paired_owner_contract"
         // Actual POST /pair from an empty local store; no HA/SDK token injected.
         app.launch()
+        try await Task.sleep(for: .milliseconds(400))
+        app.terminate(); app.launch()
         if app.buttons["Niet nu"].waitForExistence(timeout: 2) { app.buttons["Niet nu"].tap() }
         XCTAssertTrue(app.descendants(matching: .any)["screen-session-conversation"].waitForExistence(timeout: 20))
         XCTAssertTrue(app.staticTexts["We voeren de energie geleidelijk op."].firstMatch.waitForExistence(timeout: 15))
+        let pinned = app.descendants(matching: .any)["session-pinned-current"].firstMatch
+        XCTAssertTrue(pinned.exists)
+        XCTAssertFalse(app.buttons["Terug naar de actuele bijdrage"].exists)
+        let mood = app.descendants(matching: .any)["active-session-mood"].firstMatch
+        guard mood.waitForExistence(timeout: 10) else {
+            print(app.debugDescription)
+            try saveHistoryScreenshot("paired-ui-missing-mood-control")
+            XCTFail("Native active mood control not exposed"); return
+        }
+        if base.port == 18197 {
+            let party = mood.buttons["Feest"]
+            XCTAssertTrue(party.isEnabled)
+            party.tap()
+            try await Task.sleep(for: .milliseconds(700))
+            let afterMood = try await control("state", method: "GET")
+            XCTAssertEqual((afterMood["active"] as? [String: Any])?["selected_mood"] as? String, "party")
+            XCTAssertEqual((afterMood["active"] as? [String: Any])?["session_id"] as? String, sessionID)
+            XCTAssertEqual((afterMood["active"] as? [String: Any])?["mood_revision"] as? Int, 1)
+            XCTAssertEqual((afterMood["active"] as? [String: Any])?["now_playing"] as? NSDictionary,
+                           (before["active"] as? [String: Any])?["now_playing"] as? NSDictionary)
+            try saveHistoryScreenshot("paired-ui-confirmed-active-mood")
+        }
+        let beforeMenu = try await control("state", method: "GET")
+        let handoff = app.buttons["session-handoff-toggle"]
+        XCTAssertTrue(handoff.isHittable); handoff.tap()
+        XCTAssertTrue(app.textFields["vibecast-handoff-code"].waitForExistence(timeout: 5))
+        try saveHistoryScreenshot("paired-ui-handoff-popover")
+        app.buttons["session-handoff-close"].tap()
+        let afterMenu = try await control("state", method: "GET")
+        XCTAssertEqual((beforeMenu["active"] as? NSDictionary), (afterMenu["active"] as? NSDictionary))
+        let draft = app.textViews.firstMatch
+        XCTAssertTrue(draft.isHittable); draft.tap(); draft.typeText("Layoutproef")
+        XCTAssertLessThan(pinned.frame.maxY, draft.frame.minY + 1)
+        XCTAssertLessThan(pinned.frame.height, app.frame.height * 0.6)
+        try saveHistoryScreenshot("paired-ui-pinned-with-keyboard")
+        draft.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 11))
+        app.buttons["session-search-toggle"].tap()
+        app.buttons["Zoeken sluiten"].firstMatch.tap()
         try saveHistoryScreenshot("paired-ios-01-authorized-native-snapshot")
         _ = try await control("update")
         XCTAssertTrue(app.staticTexts["Paired native update"].firstMatch.waitForExistence(timeout: 10))
@@ -1098,6 +1138,34 @@ extension DJConnectIOSUITests {
         more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
         try saveHistoryScreenshot("paired-ios-05-player-after-session-end")
+        let moreBack = app.navigationBars["Speelt Nu"].buttons["Meer"]
+        if moreBack.exists { moreBack.tap() } else { more.tap() }
+        let earlierSessions = app.descendants(matching: .any)["Eerdere sessies"].firstMatch
+        try saveHistoryScreenshot("paired-ui-more-before-archive")
+        guard earlierSessions.waitForExistence(timeout: 10) else {
+            print(app.debugDescription)
+            XCTFail("Native earlier-session destination not present"); return
+        }
+        earlierSessions.tap()
+        XCTAssertTrue(app.buttons["saved-session-" + sessionID].waitForExistence(timeout: 10))
+        let refresh = app.buttons["saved-sessions-refresh"]
+        XCTAssertTrue(refresh.exists)
+        _ = try await control("history_fail_once")
+        refresh.tap()
+        XCTAssertTrue(app.staticTexts["Sessies laden"].firstMatch.waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["Opnieuw"].waitForExistence(timeout: 10))
+        try saveHistoryScreenshot("paired-ui-archive-transient-error")
+        let savedList = app.descendants(matching: .any)["saved-sessions-list"].firstMatch
+        print("Saved-list native frame: " + String(describing: savedList.frame))
+        let errorText = app.staticTexts["saved-sessions-error"]
+        XCTAssertTrue(errorText.exists)
+        errorText.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.1,
+            thenDragTo: savedList.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75)))
+        if !app.buttons["saved-session-" + sessionID].waitForExistence(timeout: 10) {
+            print(app.debugDescription)
+            XCTFail("Native pull-to-refresh did not recover the archived Session")
+        }
+        try saveHistoryScreenshot("paired-ui-archive-dates-gradient")
     }
 
     func testActualCoreArchiveAndPlayerNavigationPreservesSessionB() async throws {
@@ -1250,5 +1318,66 @@ extension DJConnectIOSUITests {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let name = XCUIApplication().frame.width > 600 ? name.replacingOccurrences(of: "ios-", with: "ipad-") : name
         try screenshot.pngRepresentation.write(to: directory.appendingPathComponent(name + ".png"))
+    }
+}
+
+extension DJConnectIOSUITests {
+    func testReviewDemoActiveAndReadonlySessionsWithoutHomeAssistant() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-DJCONNECTRuntimeFixture", "review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment = ["DJCONNECT_UITEST_HA_URL": "", "DJCONNECT_UITEST_RUNTIME_FIXTURE": "review_demo"]
+        app.terminate(); app.launch()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        app.terminate(); app.launch()
+        let sessionTab = app.tabBars.buttons["DJ-sessie"]
+        if sessionTab.exists { sessionTab.tap() }
+        XCTAssertTrue(app.staticTexts["Een avond met de DJ"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["session-demo-notice"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["Midnight City"].firstMatch.exists)
+        let overviewBeforeTyping = XCTAttachment(screenshot: app.screenshot()); overviewBeforeTyping.name = "demo-native-overview-before-keyboard"; overviewBeforeTyping.lifetime = .keepAlways; add(overviewBeforeTyping)
+        let composer = app.textViews.firstMatch
+        XCTAssertTrue(composer.exists)
+        composer.tap(); composer.typeText("Demo vraag")
+        app.buttons["ask-dj-composer-send"].tap()
+        XCTAssertTrue(app.staticTexts["Demo vraag"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.keyboards.firstMatch.exists, "Explicit Send should dismiss the multiline editor keyboard")
+        app.buttons["ask-dj-composer-microphone"].press(forDuration: 0.2)
+        let voiceEntry = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@ AND identifier ENDSWITH %@", "session-entry-demo-active-", "-entry-10")).firstMatch
+        XCTAssertTrue(voiceEntry.waitForExistence(timeout: 5), "The demo voice example must appear in the actual Session timeline")
+        let active = XCTAttachment(screenshot: app.screenshot()); active.name = "demo-native-active-session"; active.lifetime = .keepAlways; add(active)
+        let more = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.buttons["Meer"].firstMatch
+        more.tap()
+        let moreBack = app.navigationBars.buttons["Meer"].firstMatch
+        if moreBack.exists && moreBack.isHittable { moreBack.tap() }
+        let archive = app.buttons["Eerdere sessies"].firstMatch
+        if archive.waitForExistence(timeout: 5) { archive.tap() }
+        else { app.staticTexts["Eerdere sessies"].firstMatch.tap() }
+        let row = app.descendants(matching: .any)["saved-session-demo-evening"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["saved-sessions-refresh"].firstMatch.exists)
+        let overview = XCTAttachment(screenshot: app.screenshot()); overview.name = "demo-native-saved-session-overview"; overview.lifetime = .keepAlways; add(overview)
+        row.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].firstMatch.waitForExistence(timeout: 5))
+        let observed = app.descendants(matching: .any)["session-entry-demo-evening-entry-1"].firstMatch
+        for _ in 0..<6 where !observed.exists {
+            if let timelineScroll = app.scrollViews.allElementsBoundByIndex.first(where: { $0.frame.height > 300 }) { timelineScroll.swipeUp() }
+        }
+        let diagnostic = XCTAttachment(screenshot: app.screenshot()); diagnostic.name = "demo-native-readonly-before-assertion"; diagnostic.lifetime = .keepAlways; add(diagnostic)
+        XCTAssertTrue(observed.exists)
+        XCTAssertTrue(app.staticTexts["Electric Feel · MGMT"].firstMatch.exists)
+        XCTAssertFalse(app.textViews.firstMatch.exists)
+        let readonly = XCTAttachment(screenshot: app.screenshot()); readonly.name = "demo-native-readonly-session"; readonly.lifetime = .keepAlways; add(readonly)
+        let dj = app.tabBars.buttons["DJ-sessie"].exists ? app.tabBars.buttons["DJ-sessie"] : app.buttons["DJ-sessie"].firstMatch
+        dj.tap()
+        app.buttons["session-end-button"].tap()
+        let restart = app.buttons["Start DJ-sessie"].firstMatch
+        XCTAssertTrue(restart.waitForExistence(timeout: 5) && restart.isEnabled)
+        XCTAssertTrue(app.staticTexts["Jouw muziek.\nJouw moment."].firstMatch.exists)
+        let welcome = XCTAttachment(screenshot: app.screenshot()); welcome.name = "demo-native-idle-welcome-hero"; welcome.lifetime = .keepAlways; add(welcome)
+        if !restart.isHittable { app.scrollViews.firstMatch.swipeUp() }
+        app.buttons["Feest"].firstMatch.tap(); restart.tap()
+        XCTAssertTrue(app.staticTexts["Een avond met de DJ"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Feest"].firstMatch.isSelected)
+        let restarted = XCTAttachment(screenshot: app.screenshot()); restarted.name = "demo-native-restarted-selected-mood"; restarted.lifetime = .keepAlways; add(restarted)
     }
 }

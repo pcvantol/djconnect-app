@@ -1029,3 +1029,49 @@
 "ui.music.dna.temporarily_unavailable" = "Music DNA no está disponible ahora. Inténtalo de nuevo.";
 
 "ui.session.live_unavailable" = "La sesión de DJ no se puede actualizar ahora.";
+
+"ui.session.history.end_unknown" = "hora de fin desconocida";
+"ui.session.history.less_than_minute" = "menos de 1 minuto";
+
+// Native session refresh and readable Music DNA privacy.
+"ui.session.history.refresh" = "Actualizar sesiones anteriores";
+"ui.session.history.updated" = "Sesiones anteriores actualizadas";
+"ui.session.refresh.loading" = "Actualizando la sesión DJ…";
+"ui.session.refresh.updated" = "Sesión DJ actualizada";
+"ui.music.dna.privacy.enabled.yes" = "Music DNA está activado.";
+"ui.music.dna.privacy.enabled.no" = "Music DNA está desactivado.";
+"ui.music.dna.privacy.clear.yes" = "Puedes borrar tu Music DNA.";
+"ui.music.dna.privacy.clear.no" = "El borrado no está disponible actualmente.";
+"ui.music.dna.privacy.export.yes" = "Puedes descargar tu Music DNA.";
+"ui.music.dna.privacy.export.no" = "La descarga no está disponible actualmente.";
+"ui.music.dna.privacy.import.yes" = "Puedes importar tu Music DNA.";
+"ui.music.dna.privacy.import.no" = "La importación no está disponible actualmente.";
+"ui.music.dna.privacy.audio.yes" = "Se guardan las grabaciones de voz.";
+"ui.music.dna.privacy.audio.no" = "No se guardan las grabaciones de voz.";
+"ui.music.dna.privacy.credentials.yes" = "Se guardan los tokens de acceso a los servicios de música.";
+"ui.music.dna.privacy.credentials.no" = "No se guardan los tokens de acceso a los servicios de música.";
+"ui.music.dna.privacy.questions.yes" = "Se guardan las preguntas completas.";
+"ui.music.dna.privacy.questions.no" = "No se guardan las preguntas completas.";
+"ui.music.dna.privacy.unknown" = "La información de privacidad no está disponible actualmente.";
+"ui.session.mood.updating" = "Actualizando el ambiente…";
+"ui.session.mood.failed" = "No se ha actualizado el ambiente. Comprueba la selección actual e inténtalo de nuevo.";
+"ui.output.refresh" = "Actualizar dispositivos de salida";
+"ui.session.history.start_unknown" = "hora de inicio desconocida";
+
+// Curated local App Store review sessions.
+"demo.session.notice" = "Demo · Sesiones de ejemplo, no tu historial de escucha";
+"demo.session.title" = "Una noche con el DJ";
+"demo.session.direction" = "Mantenemos el groove. Los sintetizadores cálidos y una transición suave dejan espacio para la siguiente canción.";
+"demo.session.archive_direction" = "Esta sesión comenzó suave y fue ganando energía. Un ejemplo de cómo el DJ acompaña tu escucha.";
+"demo.session.question" = "Cuéntame sobre esta aportación";
+"demo.session.answer" = "En este ejemplo, el DJ mantiene el ambiente y prepara una transición suave. En una sesión real, tu música y la aportación seleccionada proporcionan el contexto.";
+"demo.session.voice_question" = "Ejemplo de pregunta por voz: ¿qué encaja después?";
+"demo.session.voice_answer" = "Una canción un poco más enérgica encaja con este groove. Esta respuesta de demo está preparada; no se ha grabado ni reproducido nada.";
+"demo.session.voice_hint" = "Mostrar un ejemplo de pregunta por voz";
+
+// Native invitation when no DJ Session is active.
+"ui.session.welcome.eyebrow" = "Te damos la bienvenida a DJConnect";
+"ui.session.welcome.title" = "Tu música.\nTu momento.";
+"ui.session.welcome.subtitle" = "Dale espacio a tu música. Inicia una sesión y deja que el DJ te acompañe.";
+"ui.session.welcome.promise" = "Historias de tu música. Espacio para tus preguntas.";
+"ui.session.welcome.mood" = "¿Cómo quieres escuchar?";

@@ -29,8 +29,10 @@ The Apple app owns:
   Speech Recognition.
 - one-time first-run onboarding that points setup to Home Assistant and notes
   the Home Assistant-owned music backend requirement.
-- local Demo Mode state for App Store review and UI inspection without a live
-  backend.
+- explicit local Demo Mode for App Store review without a live backend: curated
+  current/native Session, readonly earlier Sessions and scripted text/voice examples
+  use the same views/models. Examples remain in memory, make no server requests,
+  confer no Profile authority and are excluded from ordinary chat/widget persistence.
 
 The Apple app does not own Profile resolution. Application session state is
 device/client runtime state. Profile state is backend-owned and may be selected

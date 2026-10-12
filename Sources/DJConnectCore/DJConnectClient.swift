@@ -257,6 +257,35 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request, using: sessionProjectionSession)
     }
 
+    public func activeSessionMoodCapabilities() async throws -> DJConnectActiveMoodCapabilities {
+        try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
+    }
+
+    public func sessionMoodRequest(sessionID: String, mood: String, expectedRevision: Int) throws -> URLRequest {
+        guard !sessionID.isEmpty, expectedRevision >= 0, ["chill", "groove", "energy", "party"].contains(mood) else {
+            throw DJConnectError.invalidResponse
+        }
+        // This contract requires exactly six fields; the generic identified envelope adds fields.
+        var request = try authenticatedRequest(path: Self.apiV1Path("session/mood"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "contract_version": 1, "client_type": identity.clientType.rawValue, "device_id": identity.deviceID,
+            "session_id": sessionID, "selected_mood": mood, "expected_mood_revision": expectedRevision
+        ])
+        return request
+    }
+
+    public func updateSessionMood(sessionID: String, mood: String, expectedRevision: Int) async throws -> DJConnectSessionMoodResponse {
+        let result: DJConnectSessionMoodResponse = try await decodedResponse(
+            for: sessionMoodRequest(sessionID: sessionID, mood: mood, expectedRevision: expectedRevision), using: sessionProjectionSession)
+        guard result.success, result.contractVersion == 1, result.sessionID == sessionID, result.moodRevision >= expectedRevision,
+              result.selectedMood == mood,
+              result.moodRevision - expectedRevision == (result.changed ? 1 : 0) else { throw DJConnectError.invalidResponse }
+        return result
+    }
+
     public func endSession(_ payload: DJConnectSessionEndRequest) async throws -> DJConnectSessionResponse {
         let request = try sessionEndRequest(payload)
         return try await decodedResponse(for: request, using: sessionProjectionSession)

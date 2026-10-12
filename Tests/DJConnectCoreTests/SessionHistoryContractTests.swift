@@ -501,12 +501,21 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     let sessions = try historyData(["success": true, "schema_version": 1, "sessions": [try #require(timelineObject["session"])],
         "revision": try #require(timelineObject["revision"]), "retention_days": 30])
     let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    var tail = timelineObject
+    tail["window"] = "tail"; tail["window_limit"] = 20
+    tail["scan_complete"] = true; tail["next_cursor"] = NSNull()
+    tail["scanned_order_min"] = page.entries.map(\.order).min()
+    tail["scanned_order_max"] = page.entries.map(\.order).max()
+    let tailData = try historyData(tail)
     let gate = HistoryAuthorityGate()
     let fixture = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
         if gate.denied { return (403, Data(#"{"success":false,"error":"invalid_profile","message":"Private denied detail"}"#.utf8), 0) }
         if request.url!.path.hasSuffix("ask_dj/history") { return (200, profile, 0) }
         if request.url!.path.hasSuffix("/session/history") { return (200, sessions, 0) }
+        if URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.contains(where: { $0.name == "window" && $0.value == "tail" }) == true {
+            return (200, tailData, 0)
+        }
         return (200, timeline, 0)
     }
     defer { fixture.close() }
@@ -539,6 +548,7 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     #expect(model.sessionHistory.hasAuthorizedOwner && !model.sessionHistory.sessions.isEmpty)
     await model.sessionHistory.restoreVisibleTimeline(page.session.id, active: false, anchor: nil)
     #expect(model.sessionHistory.timelines[page.session.id]?.entries.count == page.entries.count)
+    #expect(fixture.requests.last?.url?.query?.contains("window=tail") == true)
 }
 
 @Test @MainActor func sessionHistoryQueuedTurnCannotSendAfterSynchronousBackground() async throws {
@@ -1085,4 +1095,306 @@ func pairedLiveActualProducerWithdrawsChangedProfileAndRejectsInvalidToken() asy
     #expect((records["authorization_present"] as? Bool) == false)
     #expect((records["identity_present"] as? Bool) == false)
     #expect((records["query_present"] as? Bool) == false)
+}
+
+@Test func sessionArchiveSummaryUsesActualTimezoneDurationAndBothDates() throws {
+    let session = try JSONDecoder().decode(DJConnectSavedSession.self, from: Data(#"{"session_id":"summary","lifecycle_status":"ENDED","created_at":"2026-10-11T10:00:00Z","started_at":"2026-10-11T10:00:00Z","ended_at":"2026-10-11T16:00:00Z","interrupted_at":"","revision":"r1","read_only":true,"history_coverage":"retained"}"#.utf8))
+    let text = SessionArchiveSummary.text(session, language: "nl", timeZone: try #require(TimeZone(identifier: "Europe/Amsterdam")))
+    #expect(text.contains("11 oktober 2026"))
+    #expect(text.contains("6 uur"))
+    #expect(text.contains("12:00 – 18:00"))
+    #expect(!text.hasPrefix("ma")) // The example date is actually Sunday.
+}
+
+@Test func sessionArchiveSummaryNeverInventsMissingOrInvalidEnd() throws {
+    for end in ["", "2026-10-11T09:00:00Z"] {
+        let json: [String: Any] = ["session_id":"summary", "lifecycle_status":"ENDED", "created_at":"2026-10-11T10:00:00Z", "started_at":"2026-10-11T10:00:00Z", "ended_at":end, "interrupted_at":"", "revision":"r1", "read_only":true, "history_coverage":"retained"]
+        let session = try JSONDecoder().decode(DJConnectSavedSession.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(SessionArchiveSummary.text(session, language: "nl").contains("eindtijd onbekend"))
+    }
+}
+
+@Test @MainActor func sessionHistoryNewestWindowSurvivesEarlierPagingAndRestore() async throws {
+    let receipt = try historyObject("window-producer-receipt")
+    var tail = try #require(receipt["tail_window"] as? [String: Any])
+    tail["window_limit"] = 20
+    let tailData = try historyData(tail)
+    let firstData = try historyData(try #require(receipt["first_page"]))
+    let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: tailData)
+    let profile = try historyData(try #require(try historyObject()["later_historical_answer"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("ask_dj/history") { return (200, profile, 0) }
+        return (200, request.url!.query?.contains("window=tail") == true ? tailData : firstData, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    await model.sessionHistory.loadTimeline(page.session.id, window: .tail)
+    let newest = try #require(page.entries.last?.id)
+    #expect(model.sessionHistory.timelines[page.session.id]?.entries.last?.id == newest)
+    await model.sessionHistory.loadTimeline(page.session.id, preserveLoadedEntries: true)
+    #expect(model.sessionHistory.timelines[page.session.id]?.entries.last?.id == newest)
+    #expect((model.sessionHistory.timelines[page.session.id]?.entries.count ?? 0) > page.entries.count)
+    await model.sessionHistory.refreshVisibleTimeline(page.session.id, anchor: nil)
+    await model.sessionHistory.restoreVisibleTimeline(page.session.id, active: false, anchor: nil)
+    #expect(model.sessionHistory.timelines[page.session.id]?.entries.last?.id == newest)
+    #expect(fixture.requests.last?.url?.query?.contains("window=tail") == true)
+}
+
+@Test func sessionArchiveSummaryShowsEndDateForOvernightSessions() throws {
+    let session = try JSONDecoder().decode(DJConnectSavedSession.self, from: Data(#"{"session_id":"overnight","lifecycle_status":"ENDED","created_at":"2026-10-10T21:00:00Z","started_at":"2026-10-10T21:00:00Z","ended_at":"2026-10-11T04:00:00Z","interrupted_at":"","revision":"r1","read_only":true,"history_coverage":"retained"}"#.utf8))
+    let text = SessionArchiveSummary.text(session, language: "nl", timeZone: try #require(TimeZone(identifier: "Europe/Amsterdam")))
+    #expect(text.contains("10 oktober 2026") && text.contains("11 oktober 2026"))
+    #expect(text.contains("7 uur") && text.contains("23:00") && text.contains("06:00"))
+}
+
+@Test func musicDNAPrivacyUsesLocalizedClaimsWithoutInventingUnknownAssurances() throws {
+    let wire = Data(#"{"enabled":true,"data_sources":[{"label":"Ask DJ playback context","enabled":false}],"controls":{"clear_supported":true,"export_supported":false,"import_supported":true,"opt_out_preserves_clear":true},"stores_raw_audio":false,"stores_oauth_tokens":false,"stores_full_prompts":true,"flags":{"unknown_internal_flag":true}}"#.utf8)
+    let dashboard = try JSONDecoder().decode(DJConnectMusicDNAPrivacyDashboard.self, from: wire)
+    let text = MusicDNAPrivacySummary.text(dashboard, language: "nl")
+    #expect(text.contains("Music DNA staat aan."))
+    #expect(text.contains("Stemopnames worden niet bewaard."))
+    #expect(text.contains("Volledige vragen worden bewaard."))
+    #expect(text.contains("Downloaden is momenteel niet beschikbaar."))
+    for raw in ["enabled:", "disabled", "OAuth", "clear supported", "unknown_internal_flag", "Ask DJ playback context"] { #expect(!text.contains(raw)) }
+    let unknown = MusicDNAPrivacySummary.text(.init(flags: ["unknown": false]), language: "nl")
+    #expect(unknown == "Privacy-informatie is momenteel niet beschikbaar.")
+    for language in ["nl", "en", "de", "fr", "es"] {
+        #expect(!MusicDNAPrivacySummary.text(dashboard, language: language).contains("ui.music.dna."))
+    }
+}
+
+@Test @MainActor func sessionArchiveExplicitRefreshSupersedesSlowOldFailure() async throws {
+    let receipt = try historyObject()
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
+    let sessions = try historyData(["success": true, "schema_version": 1, "sessions": [try #require(timeline["session"])],
+                                  "revision": try #require(timeline["revision"]), "retention_days": 30])
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true},"contract_versions":{"session_conversation_history":1}}"#.utf8)
+    let sequence = ArchiveRefreshSequence()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("ask_dj/history") { return (200, profile, 0) }
+        if sequence.next() == 1 { return (503, Data(#"{"success":false,"error":"unavailable"}"#.utf8), 0.2) }
+        return (200, sessions, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    let old = Task { await model.sessionHistory.loadSessions() }
+    try await Task.sleep(for: .milliseconds(40))
+    #expect(model.sessionHistory.listLoading)
+    #expect(await model.sessionHistory.loadSessions())
+    #expect(!(await old.value))
+    #expect(!model.sessionHistory.sessions.isEmpty)
+    #expect(model.sessionHistory.listErrorKey == nil && !model.sessionHistory.listLoading)
+}
+private final class ArchiveRefreshSequence: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    func next() -> Int { lock.withLock { count += 1; return count } }
+}
+
+private let activeMoodCapsWire = Data(#"{"capabilities":{"active_session_mood":true,"session_conversation_history":true},"contract_versions":{"active_session_mood":1,"session_conversation_history":1},"active_session_mood":{"available":true,"version":1,"path":"/api/djconnect/v1/session/mood","method":"POST","authentication":"paired_device_bearer","moods":["chill","groove","energy","party"],"ordering":"expected_mood_revision","scope":"active_device_bound_owner_session"}}"#.utf8)
+private func activeMoodRuntimeWire() throws -> Data {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let object = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/moment-contract-receipt.json"))) as? [String: Any])
+    var runtime = try #require(object["runtime"] as? [String: Any])
+    runtime["mood_revision"] = 0
+    var broadcast = try #require(runtime["broadcast"] as? [String: Any])
+    var session = try #require(broadcast["session"] as? [String: Any]); session["mood_revision"] = 0
+    broadcast["session"] = session; runtime["broadcast"] = broadcast
+    return try historyData(["success":true,"session":runtime])
+}
+
+@Test func activeMoodRequestUsesExactlyOwnerContractAndPinnedCapability() throws {
+    let fixture = HistoryWireFixture { _ in (200, Data(), 0) }; defer { fixture.close() }
+    let client = fixture.client()
+    let request = try client.sessionMoodRequest(sessionID: "current", mood: "energy", expectedRevision: 3)
+    let requestData = try #require(request.httpBody)
+    let body = try #require(JSONSerialization.jsonObject(with: requestData) as? [String: Any])
+    #expect(Set(body.keys) == ["contract_version","client_type","device_id","session_id","selected_mood","expected_mood_revision"])
+    #expect(request.url?.path == "/api/djconnect/v1/session/mood" && request.httpMethod == "POST")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic-fixture-token")
+    #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-ios-ABCDEF123456")
+    #expect(try JSONDecoder().decode(DJConnectActiveMoodCapabilities.self, from: activeMoodCapsWire).available)
+    #expect(!(try JSONDecoder().decode(DJConnectActiveMoodCapabilities.self, from: Data(#"{"capabilities":{"active_session_mood":true},"contract_versions":{"active_session_mood":1}}"#.utf8))).available)
+}
+
+@Test(arguments: ["mood", "capabilities"])
+@MainActor func activeMoodAuthorityDenialWithdrawsLoadedProfile(_ route: String) async throws {
+    let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let runtime = try activeMoodRuntimeWire()
+    let denial = HistoryAuthorityGate()
+    let fixture = HistoryWireFixture { request in
+        if denial.denied && request.url!.path.hasSuffix("/" + route) { return (403, Data(#"{"success":false,"error":"invalid_profile"}"#.utf8), 0) }
+        if request.url!.path.hasSuffix("/capabilities") { return (200, activeMoodCapsWire, 0) }
+        if request.url!.path.hasSuffix("/session/active") { return (200, runtime, 0) }
+        if request.url!.path.hasSuffix("ask_dj/history") { return (200, profile, 0) }
+        return (404, Data(#"{"success":false}"#.utf8), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare(); await model.refreshActiveDJSession(); await model.refreshActiveMoodCapability()
+    #expect(model.sessionHistory.hasAuthorizedOwner && model.activeMoodAvailable && model.activeDJSession != nil)
+    denial.denied = true
+    if route == "mood" { await model.changeActiveSessionMood("party") } else { await model.refreshActiveMoodCapability() }
+    #expect(!model.sessionHistory.hasAuthorizedOwner && model.askDJMessages.isEmpty)
+    #expect(model.sessionHistory.pendingTurns.isEmpty && model.activeDJSession == nil)
+    #expect(!model.activeMoodPending && !model.activeMoodAvailable && model.activeMoodError == nil)
+}
+
+@Test @MainActor func activeMoodLateFailureAfterBackgroundCannotRestoreOldStatus() async throws {
+    let runtime = try activeMoodRuntimeWire()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, activeMoodCapsWire, 0) }
+        if request.url!.path.hasSuffix("/session/active") { return (200, runtime, 0) }
+        if request.url!.path.hasSuffix("/session/mood") { return (409, Data(#"{"success":false,"error":"mood_revision_conflict"}"#.utf8), 0.15) }
+        return (404, Data(#"{"success":false}"#.utf8), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.refreshActiveDJSession(); await model.refreshActiveMoodCapability()
+    let pending = Task { await model.changeActiveSessionMood("party") }
+    try await Task.sleep(for: .milliseconds(30))
+    #expect(model.activeMoodPending)
+    model.markInactiveSession()
+    #expect(!model.activeMoodPending && !model.activeMoodAvailable && model.activeMoodError == nil)
+    await pending.value
+    #expect(!model.activeMoodPending && model.activeMoodError == nil)
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/mood") }.count == 1)
+    model.markActiveSession()
+    for _ in 0..<20 {
+        if model.activeMoodAvailable { break }
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(model.activeMoodAvailable && !model.activeMoodPending && model.activeMoodError == nil)
+}
+
+@Test func sessionArchiveDoesNotInventDurationFromCreationWhenStartIsMissing() throws {
+    let session = try JSONDecoder().decode(DJConnectSavedSession.self, from: Data(#"{"session_id":"unknown-start","lifecycle_status":"ENDED","created_at":"2026-10-11T10:00:00Z","started_at":"","ended_at":"2026-10-11T16:00:00Z","interrupted_at":"","revision":"1","read_only":true,"history_coverage":"retained_visible"}"#.utf8))
+    let text = SessionArchiveSummary.text(session, language: "nl")
+    #expect(text.contains("begintijd onbekend"))
+    #expect(!text.contains("6 uur"))
+}
+
+@Test @MainActor func reviewDemoSessionsUseNativeModelsAndNeverBecomeLiveAuthority() async throws {
+    let name = "demo-session-test-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.startDemoMode()
+    let active = try #require(model.activeDJSession)
+    #expect(active.id.hasPrefix("demo-active-"))
+    #expect(active.broadcast.nativeCurrentMoment(at: Date())?.content.isEmpty == false)
+    #expect(model.sessionHistory.available && !model.sessionHistory.profileScopeActive && !model.sessionHistory.hasAuthorizedOwner)
+    #expect(!model.canRefreshSessionHistory && !model.canUseProfileConversation)
+    #expect(model.sessionHistory.sessions.count == 2)
+    #expect(model.sessionHistory.sessions.allSatisfy { $0.readOnly && $0.isContractValid })
+    #expect(model.sessionHistory.timelines.values.allSatisfy { $0.entries.count == 6 && $0.entries.allSatisfy { $0.isContractValid && $0.isRetained() } })
+    let archive = try #require(model.sessionHistory.sessions.first)
+    let original = model.sessionHistory.timelines[archive.id]
+    model.sessionHistory.search(sessionID: archive.id, query: "Electric Feel")
+    #expect(model.sessionHistory.searchMatches.count == 1)
+    await model.sessionHistory.loadSessions()
+    await model.sessionHistory.loadTimeline(archive.id)
+    #expect(model.sessionHistory.timelines[archive.id] == original)
+    let entry = try #require(original?.entries.first)
+    model.sessionHistory.rememberReadingAnchor(entry.id, sessionID: archive.id)
+    #expect(model.sessionHistory.readingAnchor(sessionID: archive.id) == entry.id)
+    let action = try JSONDecoder().decode(DJConnectSessionOpenAction.self, from: JSONSerialization.data(withJSONObject: [
+        "kind": "open_session", "session_id": archive.id, "entry_id": entry.id, "navigation_only": true]))
+    #expect(await model.sessionHistory.open(action))
+    #expect(model.activeDJSession == active)
+    model.askDJDraft = "Demo question"
+    model.sessionHistory.sendText()
+    #expect(model.sessionHistory.timelines[active.id]?.entries.count == 8)
+    #expect(model.sessionHistory.timelines[archive.id] == original)
+    #expect(model.askDJDraft.isEmpty && model.askDJMessages.count == 2)
+    await model.changeActiveSessionMood("party")
+    #expect(model.activeDJSession?.selectedMood == "party")
+    #expect(model.activeDJSession?.broadcast.playback == active.broadcast.playback)
+    model.markInactiveSession()
+    model.markActiveSession()
+    #expect(model.sessionHistory.sessions.count == 2)
+    #expect(model.sessionHistory.timelines[active.id]?.entries.count == 8)
+    #expect(model.activeDJSession?.broadcast.nativeCurrentMoment(at: Date()) != nil)
+    await model.endDJSession()
+    #expect(model.activeDJSession == nil)
+    #expect(model.sessionHistory.sessions.first?.id == active.id && model.sessionHistory.sessions.first?.readOnly == true)
+    #expect(model.playback?.trackName == "Midnight City")
+    model.sendPlaybackCommand("next")
+    for _ in 0..<20 where model.playback?.trackName != "Sweet Disposition" { await Task.yield() }
+    model.selectedSessionMood = "party"
+    await model.startDJSession()
+    #expect(model.activeDJSession?.selectedMood == "party")
+    #expect(model.activeDJSession?.broadcast.session.selectedMood == "party")
+    #expect(model.activeDJSession?.broadcast.playback?.title == model.playback?.trackName)
+    #expect(model.activeDJSession?.broadcast.playback?.title == "Sweet Disposition")
+    #expect(model.sessionHistory.sessions.contains { $0.id == active.id && $0.readOnly })
+    model.stopDemoMode()
+    #expect(!model.sessionHistory.available && model.sessionHistory.sessions.isEmpty && model.activeDJSession == nil)
+    #expect(model.sessionHistory.selectedEntry == nil && model.sessionHistory.openTarget == nil)
+    #expect(model.sessionHistory.readingAnchor(sessionID: archive.id) == nil)
+}
+
+@Test @MainActor func demoExamplesCannotInstallOutsideDemoAndAreLocalized() throws {
+    let name = "demo-off-test-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name)); defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    for language in ["nl", "en", "de", "fr", "es"] {
+        let data = try DJConnectDemoSessionData.make(language: language)
+        #expect(data.active.broadcast.nativeCurrentMoment(at: Date())?.content == DJConnectLocalization.localized(key: "demo.session.direction", language: language))
+        model.sessionHistory.installDemo(data)
+        #expect(!model.sessionHistory.available && model.sessionHistory.timelines.isEmpty)
+    }
+}
+
+@Test @MainActor func demoInputNeverPersistsAndCannotUploadCapturedVoice() async throws {
+    let name = "demo-private-test-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name)); defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    let oldOperation = model.voiceOperationID; let oldEpoch = model.sessionHistory.responseEpoch
+    model.isRecordingVoice = true
+    model.startDemoMode()
+    #expect(!model.isRecordingVoice && model.voiceOperationID != oldOperation)
+    model.askDJDraft = "PRIVATE DEMO INPUT"
+    model.sendAskDJText()
+    model.startVoiceRecording()
+    #expect(!model.isRecordingVoice && model.voiceStatus == .idle)
+    #expect(model.sessionHistory.timelines[model.activeDJSession?.id ?? ""]?.entries.count == 10)
+    #expect(model.sessionHistory.timelines.values.flatMap(\.entries).suffix(2).contains { $0.inputType == "voice" })
+    await model.uploadRecordedVoiceWAV(Data([0, 1, 2]), operation: model.voiceOperationID, historyEpoch: model.sessionHistory.responseEpoch)
+    #expect(model.voiceStatus == .idle && model.voiceErrorMessage == nil)
+    model.stopDemoMode()
+    #expect(model.askDJMessages.isEmpty)
+    await model.uploadRecordedVoiceWAV(Data([0, 1, 2]), operation: oldOperation, historyEpoch: oldEpoch)
+    #expect(model.voiceStatus == .idle && model.voiceErrorMessage == nil)
+    let next = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    #expect(next.askDJMessages.isEmpty && next.activeDJSession == nil && !next.sessionHistory.available)
+}
+
+@Test @MainActor func reviewDemoAllActionsStayOfflineAndPreserveNormalChatCache() async throws {
+    let wire = HistoryWireFixture { _ in (503, Data(), 0) }; defer { wire.close() }
+    let name = "demo-cache-test-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name)); defer { defaults.removePersistentDomain(forName: name) }
+    let saved = try JSONEncoder().encode([DJConnectAskDJMessage(role: .user, text: "Existing ordinary chat")])
+    defaults.set(saved, forKey: "DJConnectAskDJMessages")
+    defaults.set(wire.baseURL.absoluteString, forKey: "DJConnectHomeAssistantURL")
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), urlSession: wire.session(), startBackgroundTasks: false)
+    model.startDemoMode()
+    await model.refreshActiveDJSession(); await model.refreshActiveMoodCapability(); await model.changeActiveSessionMood("party")
+    await model.sessionHistory.prepare(); await model.sessionHistory.loadSessions()
+    await model.sessionHistory.refreshConversation()
+    if let id = model.activeDJSession?.id { await model.sessionHistory.loadTimeline(id) }
+    model.askDJDraft = "Private demo-only question"; model.sendAskDJText(); model.startVoiceRecording()
+    await model.uploadRecordedVoiceWAV(Data([1]), operation: model.voiceOperationID, historyEpoch: model.sessionHistory.responseEpoch)
+    await model.endDJSession(); await model.startDJSession()
+    model.stopDemoMode()
+    #expect(wire.requests.isEmpty)
+    #expect(defaults.data(forKey: "DJConnectAskDJMessages") == saved)
+    let next = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), urlSession: wire.session(), startBackgroundTasks: false)
+    #expect(next.askDJMessages.map(\.text) == ["Existing ordinary chat"])
 }
