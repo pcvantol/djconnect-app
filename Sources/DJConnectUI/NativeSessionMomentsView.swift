@@ -36,7 +36,6 @@ struct NativeSessionMomentsView: View {
     var returnToCurrent: () -> Void = {}
     var showsFlow = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selectedMomentID: String?
 
     private func text(_ key: String) -> String {
@@ -47,25 +46,12 @@ struct NativeSessionMomentsView: View {
         TimelineView(.periodic(from: .now, by: 1)) { clock in
             let current = currentMoment(at: clock.date)
             VStack(alignment: .leading, spacing: 24) {
-                Group {
-                    if dynamicTypeSize.isAccessibilitySize {
-                        VStack(alignment: .leading, spacing: 20) {
-                            currentCard(current)
-                            musicContext
-                        }
-                    } else {
-                        ViewThatFits(in: .horizontal) {
-                            HStack(alignment: .top, spacing: 24) {
-                                currentCard(current).frame(minWidth: 380, maxWidth: .infinity)
-                                musicContext.frame(width: 260)
-                            }
-                            VStack(alignment: .leading, spacing: 20) {
-                                currentCard(current)
-                                musicContext
-                            }
-                        }
-                    }
+                SessionCurrentColumns {
+                    musicContext
+                    currentCard(current)
+                        .accessibilityIdentifier("session-current-card")
                 }
+                .accessibilityElement(children: .contain)
                 .id("native-session-current")
                 .animation(djSessionReducedMotion(reduceMotion) ? nil : .easeInOut(duration: 0.2), value: current?.id)
                 if showsFlow {
@@ -193,7 +179,7 @@ struct NativeSessionMomentsView: View {
             if let playback = session.broadcast.playback {
                 if let raw = playback.artworkURL, let url = URL(string: raw, relativeTo: artworkBaseURL)?.absoluteURL, ["http", "https"].contains(url.scheme) {
                     AsyncImage(url: url) { image in image.resizable().scaledToFit() } placeholder: { Image(systemName: "music.note") }
-                        .frame(maxWidth: 180, maxHeight: 180).clipShape(RoundedRectangle(cornerRadius: 16))
+                        .frame(maxWidth: .infinity, maxHeight: 180).clipShape(RoundedRectangle(cornerRadius: 16))
                 }
                 Text(playback.title ?? text("ui.nothing.playing")).font(.headline)
                 if let artist = playback.artist { Text(artist).foregroundStyle(.secondary) }
@@ -204,7 +190,36 @@ struct NativeSessionMomentsView: View {
                 }
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("session-music-context")
+    }
+}
+
+/// Keeps music on the left even at compact widths and larger text sizes.
+/// Each column measures its full text height, so the pinned header can scroll
+/// vertically without changing the relationship between artwork and DJ content.
+private struct SessionCurrentColumns: Layout {
+    private func widths(_ proposal: ProposedViewSize) -> (CGFloat, CGFloat, CGFloat) {
+        let width = max(0, proposal.width ?? 800)
+        let gap: CGFloat = width < 600 ? 12 : 24
+        let music = min(180, width * 0.25)
+        return (music, max(0, width - music - gap), gap)
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard subviews.count == 2 else { return .zero }
+        let (music, card, gap) = widths(proposal)
+        let left = subviews[0].sizeThatFits(.init(width: music, height: nil))
+        let right = subviews[1].sizeThatFits(.init(width: card, height: nil))
+        return CGSize(width: music + card + gap, height: max(left.height, right.height))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard subviews.count == 2 else { return }
+        let (music, card, gap) = widths(.init(width: bounds.width, height: nil))
+        subviews[0].place(at: bounds.origin, anchor: .topLeading, proposal: .init(width: music, height: nil))
+        subviews[1].place(at: CGPoint(x: bounds.minX + music + gap, y: bounds.minY), anchor: .topLeading,
+                          proposal: .init(width: card, height: nil))
     }
 }
 
@@ -226,8 +241,8 @@ struct MomentCard: View {
             if moment.sourceAttribution?["provider"] == "Spotify",
                let logo = spotifyAttributionLogo, let url = moment.nativeSourceURLs.first {
                 Link(destination: url) {
-                    logo.resizable().scaledToFit().frame(width: 110, height: 31)
-                        .padding(16)
+                    logo.resizable().scaledToFit().frame(width: 70, height: 20)
+                        .padding(10).frame(minHeight: 44).contentShape(Rectangle())
                 }
                 .accessibilityLabel("Spotify")
                 .accessibilityValue(url.absoluteString)

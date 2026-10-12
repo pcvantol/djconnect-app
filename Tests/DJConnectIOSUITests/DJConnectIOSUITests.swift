@@ -1322,6 +1322,28 @@ extension DJConnectIOSUITests {
 }
 
 extension DJConnectIOSUITests {
+    func testSessionCurrentMusicStaysLeftOfDJCard() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-DJCONNECTRuntimeFixture", "review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment = ["DJCONNECT_UITEST_HA_URL": "", "DJCONNECT_UITEST_RUNTIME_FIXTURE": "review_demo"]
+        app.terminate(); app.launch()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        app.terminate(); app.launch()
+        let tab = app.tabBars.buttons["DJ-sessie"]
+        if tab.exists { tab.tap() }
+        let music = app.descendants(matching: .any)["session-music-context"].firstMatch
+        let card = app.descendants(matching: .any)["session-current-card"].firstMatch
+        guard music.waitForExistence(timeout: 10), card.waitForExistence(timeout: 10) else {
+            XCTFail("Native current music/card should be exposed independently")
+            return
+        }
+        XCTAssertLessThanOrEqual(music.frame.maxX, card.frame.minX)
+        XCTAssertEqual(music.frame.minY, card.frame.minY, accuracy: 2)
+        XCTAssertGreaterThan(card.frame.width, music.frame.width)
+        let image = XCTAttachment(screenshot: app.screenshot())
+        image.name = "session-music-left-dj-right"; image.lifetime = .keepAlways; add(image)
+    }
+
     func testReviewDemoActiveAndReadonlySessionsWithoutHomeAssistant() {
         let app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-DJCONNECTRuntimeFixture", "review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
