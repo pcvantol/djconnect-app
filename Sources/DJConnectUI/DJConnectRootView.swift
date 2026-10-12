@@ -12663,7 +12663,6 @@ struct AskDJMessageBubble: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .padding(.trailing, contextQuestionAction == nil ? 0 : 36)
-                .djSessionFrostedSurface(cornerRadius: 18)
                 .overlay(alignment: .topTrailing) {
                     if let contextQuestionAction {
                         Button(action: contextQuestionAction) {
@@ -12682,6 +12681,7 @@ struct AskDJMessageBubble: View {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .stroke(bubbleStrokeStyle, lineWidth: isActiveSearchResult ? 2 : 1)
                 }
+                .djSessionFrostedSurface(cornerRadius: 18)
                 HStack(spacing: 8) {
                     Text(messageMetadataText)
                         .font(.caption2.weight(.medium))

@@ -525,8 +525,8 @@ struct SessionEntryView: View {
                     }
                     .padding(20)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .djSessionFrostedSurface(cornerRadius: 20)
                     .overlay(alignment: .topTrailing) { askButton.padding(8) }
+                    .djSessionFrostedSurface(cornerRadius: 20)
                 }
             }
         }

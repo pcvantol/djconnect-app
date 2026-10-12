@@ -1358,7 +1358,14 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
         XCTAssertEqual(toggle.value as? String, "Feest")
         XCTAssertFalse(app.buttons["session-mood-option-3"].exists)
+        let glyph = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ask-entry-")).firstMatch
+        XCTAssertTrue(glyph.waitForExistence(timeout: 5))
+        XCTAssertTrue(glyph.isHittable)
         let image = XCTAttachment(screenshot: app.screenshot()); image.name = "native-session-glass-times-top-glyph"; image.lifetime = .keepAlways; add(image)
+        glyph.tap()
+        XCTAssertTrue(app.staticTexts["Geselecteerde bijdrage"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(glyph.value as? String, "Geselecteerde bijdrage")
+        let selected = XCTAttachment(screenshot: app.screenshot()); selected.name = "native-visible-glyph-selected-context"; selected.lifetime = .keepAlways; add(selected)
     }
 
     func testSessionTimelineScrollBenchmark() {
