@@ -32,27 +32,28 @@ struct SavedSessionsView: View {
                             SessionTimelineScreen(model: model, sessionID: session.id)
                                 .navigationTitle(text("ui.session.history.title"))
                         } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 5) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.title2.weight(.medium)).foregroundStyle(djConnectAccent)
+                                    .frame(width: 52, height: 52)
+                                    .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+                                    .accessibilityHidden(true)
+                                VStack(alignment: .leading, spacing: 4) {
                                     Text(SessionArchiveSummary.text(session, language: model.language))
-                                        .font(.headline).multilineTextAlignment(.leading)
+                                        .font(.body.weight(.medium)).multilineTextAlignment(.leading)
                                     Text(text(session.lifecycleStatus == "INTERRUPTED" ? "ui.session.history.interrupted" : "ui.session.history.ended"))
-                                        .font(.caption).foregroundStyle(.secondary)
+                                        .font(.caption2.weight(.medium)).foregroundStyle(.secondary.opacity(0.82))
                                 }
-                                Spacer()
+                                Spacer(minLength: 8)
+                                Image(systemName: "chevron.right")
+                                    .font(.body.weight(.semibold)).foregroundStyle(.secondary)
+                                    .accessibilityHidden(true)
                             }
-                            .padding(16)
-                            .background(
-                                LinearGradient(colors: [.black.opacity(0.72), Color(red: 0.20, green: 0.08, blue: 0.32).opacity(0.72)],
-                                               startPoint: .topLeading, endPoint: .bottomTrailing),
-                                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            )
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .stroke(djConnectAccent.opacity(0.12), lineWidth: 1)
-                            }
+                            .padding(.horizontal, 10).padding(.vertical, 9)
+                            .modifier(DJConnectMediaRowSurface())
                         }
-                        .buttonStyle(.plain).accessibilityIdentifier("saved-session-" + session.id)
+                        .buttonStyle(DJConnectMediaRowButtonStyle()).navigationLinkIndicatorVisibility(.hidden)
+                        .accessibilityIdentifier("saved-session-" + session.id)
                         .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity)
                         .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
                         .listRowBackground(Color.clear)
@@ -168,8 +169,7 @@ struct SessionTimelineScreen: View {
     var body: some View {
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
-                if model.isDemoMode { Label(text("demo.session.notice"), systemImage: "sparkles").font(.caption).padding(8).accessibilityIdentifier("session-demo-notice") }
-                if searching { TimelineView(SessionEntryRefreshSchedule(deadlines: history.searchMatches.compactMap { DJConnectHistoryEntry.date($0.retainedUntil) })) { _ in searchBar(proxy: proxy) } }
+                if model.isDemoMode && activeSession == nil { Label(text("demo.session.notice"), systemImage: "sparkles").font(.caption).padding(8).accessibilityIdentifier("session-demo-notice") }
                 TimelineView(SessionEntryRefreshSchedule(deadlines: timeline.entries.compactMap { DJConnectHistoryEntry.date($0.retainedUntil) })) { clock in
                     ScrollView {
                         DJSessionGlassGroup {
@@ -232,8 +232,11 @@ struct SessionTimelineScreen: View {
                         }
                     }
                     .safeAreaInset(edge: .top, spacing: 0) {
-                        if let activeSession {
-                            pinnedCurrent(activeSession)
+                        VStack(spacing: 0) {
+                            if let activeSession { pinnedCurrent(activeSession) }
+                            if searching {
+                                TimelineView(SessionEntryRefreshSchedule(deadlines: history.searchMatches.compactMap { DJConnectHistoryEntry.date($0.retainedUntil) })) { _ in searchBar(proxy: proxy) }
+                            }
                         }
                     }
                     .scrollPosition(id: $visibleEntry, anchor: .top)
@@ -366,19 +369,25 @@ struct SessionTimelineScreen: View {
     private func pinnedCurrent(_ session: DJConnectSessionRuntime) -> some View {
         let limit = max(60, viewportHeight * 0.4)
         let header = VStack(alignment: .leading, spacing: 12) {
+            if model.isDemoMode {
+                Label(text("demo.session.notice"), systemImage: "sparkles")
+                    .font(.caption).frame(maxWidth: .infinity).padding(.bottom, 8)
+                    .accessibilityIdentifier("session-demo-notice")
+            }
             NativeSessionMomentsView(session: session, language: model.language,
             isRecovering: model.djSessionIsRecovering,
             isLiveUnavailable: model.djSessionLiveUnavailable,
             retryConnection: { Task { await model.retryDJSessionConnection() } },
             artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL),
-            showsFlow: false)
-        }.padding(20)
+            showsFlow: false, playbackOutputName: model.sessionPlaybackOutputName)
+        }.padding(20).fixedSize(horizontal: false, vertical: true)
         return ViewThatFits(in: .vertical) {
             header
             ScrollView { header }.frame(height: limit)
         }
-        .frame(maxHeight: limit)
-        .background(DJConnectCanvasBackground())
+        .frame(maxHeight: limit, alignment: .top)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(DJSessionPinnedMoodBackground(mood: session.selectedMood))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("session-pinned-current")
     }
@@ -618,9 +627,20 @@ struct SessionComposerContext: View {
                         }
                     }
                     Spacer()
-                    Button(text("ui.close")) { history.selectedEntry = nil }
-                        .accessibilityIdentifier("clear-session-question-context")
-                }.font(.caption).accessibilityIdentifier("session-question-context")
+                    Button { history.selectedEntry = nil } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(text("ui.close"))
+                    .help(text("ui.close"))
+                    .accessibilityIdentifier("clear-session-question-context")
+                }.font(.caption)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("session-question-context")
             }
             if let error = model.voiceErrorMessage {
                 Text(error).font(.caption).foregroundStyle(.red).accessibilityIdentifier("session-voice-error")
@@ -677,6 +697,9 @@ struct ActiveSessionMoodToolbar: View {
         let epoch: UUID
     }
     @State private var moodIntent: MoodIntent?
+    #if os(macOS)
+    @FocusState private var moodPopoverFocused: Bool
+    #endif
     @ObservedObject private var history: DJConnectSessionHistoryModel
     init(model: DJConnectAppModel, session: DJConnectSessionRuntime) {
         self.model = model; self.session = session; history = model.sessionHistory
@@ -698,12 +721,6 @@ struct ActiveSessionMoodToolbar: View {
         .help(text("ui.session.select_mood"))
         .popover(item: $moodIntent) { intent in
             VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Spacer()
-                    Button { moodIntent = nil } label: { Image(systemName: "xmark") }
-                        .accessibilityLabel(text("ui.close"))
-                        .accessibilityIdentifier("session-mood-close")
-                }
                 MoodModeControl(steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
                                 selectedIndex: selectedIndex, language: model.language,
                                 caption: text("ui.session.select_mood"),
@@ -718,6 +735,16 @@ struct ActiveSessionMoodToolbar: View {
                 if let error = model.activeMoodError { Text(error).font(.caption).foregroundStyle(.secondary) }
             }
             .padding(12).frame(idealWidth: 360)
+            #if os(macOS)
+            .focusable()
+            .focusEffectDisabled()
+            .focused($moodPopoverFocused)
+            .onAppear { moodPopoverFocused = true }
+            .onChange(of: selectedIndex) { moodPopoverFocused = true }
+            .onDisappear { moodPopoverFocused = false }
+            .onKeyPress(.escape) { moodIntent = nil; return .handled }
+            .onExitCommand { moodIntent = nil }
+            #endif
             .presentationCompactAdaptation(.popover)
         }
         .task(id: session.id) { await model.refreshActiveMoodCapability() }

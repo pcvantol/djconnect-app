@@ -59,6 +59,7 @@ struct NativeSessionMomentsView: View {
     var artworkBaseURL: URL? = nil
     var returnToCurrent: () -> Void = {}
     var showsFlow = true
+    var playbackOutputName: String? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedMomentID: String?
 
@@ -183,6 +184,21 @@ struct NativeSessionMomentsView: View {
             }
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)
             .djSessionFrostedSurface()
+        } else if session.runtimeState == "active", session.broadcast.playback?.state == "paused" {
+            VStack(alignment: .leading, spacing: 12) {
+                Image(systemName: "pause.circle.fill")
+                    .font(.system(size: 36, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                Text(text("ui.paused")).font(.title2.weight(.semibold))
+                    .accessibilityAddTraits(.isHeader)
+                Text(text("ui.session.playback_paused_detail"))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(24).frame(maxWidth: .infinity, alignment: .leading)
+            .djSessionFrostedSurface()
+            .accessibilityIdentifier("session-playback-paused")
         } else if let moment {
             MomentCard(moment: moment, kind: kind(moment), presentation: presentation(for: moment), language: language)
                 .id(moment.id)
@@ -212,13 +228,19 @@ struct NativeSessionMomentsView: View {
                     let current = max(0, min(position, duration))
                     ProgressView(value: Double(current), total: Double(duration))
                         .accessibilityLabel(text("ui.session.music_progress"))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("\(sessionPlaybackTime(current)) / \(sessionPlaybackTime(duration))")
-                            .accessibilityLabel(text("ui.session.music_duration"))
-                        Text("−" + sessionPlaybackTime(duration - current))
-                            .accessibilityLabel(text("ui.session.music_remaining"))
-                    }
-                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    Text("\(sessionPlaybackTime(current)) / \(sessionPlaybackTime(duration))")
+                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .accessibilityLabel(text("ui.session.music_duration"))
+                        .accessibilityValue("\(sessionPlaybackTime(current)) / \(sessionPlaybackTime(duration))")
+                }
+                if let playbackOutputName {
+                    Label(playbackOutputName, systemImage: "hifispeaker.fill")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityLabel(text("ui.output.device"))
+                        .accessibilityValue(playbackOutputName)
+                        .accessibilityIdentifier("session-playback-output")
                 }
             }
         }

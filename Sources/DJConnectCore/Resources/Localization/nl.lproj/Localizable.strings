@@ -151,7 +151,7 @@
 "ui.summary" = "Samenvatting";
 "ui.favorite.genres" = "Favoriete genres";
 "ui.favorite.artists" = "Favoriete artiesten";
-"ui.mood" = "Mood";
+"ui.mood" = "Stemming";
 "ui.profile.mood" = "Smaakrichting";
 "ui.energy.profile" = "Energieprofiel";
 "ui.listening.rhythm" = "Luisterritme";
@@ -917,7 +917,7 @@
 "ui.discover" = "Ontdek";
 "ui.session.title" = "DJ-sessie";
 "ui.session.idle" = "Geen actieve sessie.";
-"ui.session.select_mood" = "Kies stemming";
+"ui.session.select_mood" = "Kies je stemming";
 "ui.session.mood.chill" = "Rustig";
 "ui.session.mood.groove" = "Groove";
 "ui.session.mood.energy" = "Energie";
@@ -1071,3 +1071,7 @@
 "ui.connection.offline" = "Geen verbinding met Home Assistant";
 "ui.connection.recovering" = "Verbinding met de DJ-sessie herstellen…";
 "ui.connection.backend_unavailable" = "Muziek is tijdelijk niet beschikbaar";
+
+"ui.session.playback_paused_detail" = "Je muziek staat op pauze. Je DJ-sessie blijft actief.";
+
+"ui.chat.you" = "Jij";

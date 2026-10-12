@@ -151,7 +151,7 @@
 "ui.summary" = "Resumen";
 "ui.favorite.genres" = "Favorite Genres";
 "ui.favorite.artists" = "Favorite Artists";
-"ui.mood" = "Estado de animo";
+"ui.mood" = "Estado de ánimo";
 "ui.profile.mood" = "Profile mood";
 "ui.energy.profile" = "Energy Profile";
 "ui.listening.rhythm" = "Listening Rhythm";
@@ -917,7 +917,7 @@
 "ui.discover" = "Descubrir";
 "ui.session.title" = "Sesión DJ";
 "ui.session.idle" = "No hay sesión activa.";
-"ui.session.select_mood" = "Elegir ambiente";
+"ui.session.select_mood" = "Elige tu estado de ánimo";
 "ui.session.mood.chill" = "Tranquilo";
 "ui.session.mood.groove" = "Groove";
 "ui.session.mood.energy" = "Energía";
@@ -1071,3 +1071,7 @@
 "ui.connection.offline" = "Sin conexión con Home Assistant";
 "ui.connection.recovering" = "Restableciendo la conexión con la sesión de DJ…";
 "ui.connection.backend_unavailable" = "La música no está disponible temporalmente";
+
+"ui.session.playback_paused_detail" = "Tu música está en pausa. Tu sesión de DJ sigue activa.";
+
+"ui.chat.you" = "Tú";

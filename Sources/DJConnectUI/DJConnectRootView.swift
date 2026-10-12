@@ -147,6 +147,10 @@ private extension EnvironmentValues {
 let djConnectAccent = Color(red: 0.84, green: 0.22, blue: 0.96)
 enum DJConnectCardAppearance {
     static let cornerRadius: CGFloat = 32
+    static let segmentedContentInset: CGFloat = 8
+    static var segmentedItemShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: max(0, cornerRadius - segmentedContentInset), style: .continuous)
+    }
     // Compact conversation bubbles retain their own geometry; all borders share these tokens.
     static let conversationCornerRadius: CGFloat = 18
     static let borderOpacity: Double = 0.16
@@ -3760,6 +3764,30 @@ actor DJConnectArtworkDataCache {
         }
         let now = Date()
         failedUntil = failedUntil.filter { $0.value > now }
+    }
+}
+
+/// The pinned Session surface follows confirmed mood; the conversation canvas stays unchanged.
+struct DJSessionPinnedMoodBackground: View {
+    let mood: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var stepIndex: Int { ["chill", "groove", "energy", "party"].firstIndex(of: mood) ?? 0 }
+
+    var body: some View {
+        let palette = MusicDNAHelixMoodPalette(stepIndex: stepIndex)
+        ZStack {
+            DJConnectCanvasBackground()
+            LinearGradient(colors: [palette.colors[0].opacity(0.20),
+                                    palette.colors[1].opacity(0.10),
+                                    palette.colors[2].opacity(0.14)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+        }
+        .clipped()
+        .ignoresSafeArea(.container, edges: .top)
+        .animation(djSessionReducedMotion(reduceMotion) ? nil : .easeInOut(duration: 0.28), value: stepIndex)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
@@ -8711,7 +8739,7 @@ private struct IdleDJSessionView: View {
                         moodButton(mood.id, glyph: mood.glyph)
                     }
                 }
-                .padding(8)
+                .padding(DJConnectCardAppearance.segmentedContentInset)
                 .djConnectGradientCard()
                 Button { Task { await model.startDJSession() } } label: {
                     HStack(spacing: 12) {
@@ -8790,8 +8818,8 @@ private struct IdleDJSessionView: View {
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(.white.opacity(selected ? 1 : 0.78))
             .frame(maxWidth: .infinity, minHeight: 48)
-            .background(selected ? djConnectAccent.opacity(0.35) : .white.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
-            .overlay { RoundedRectangle(cornerRadius: 14).stroke(selected ? djConnectAccent.opacity(0.85) : .white.opacity(0.12)) }
+            .background(selected ? djConnectAccent.opacity(0.35) : .white.opacity(0.05), in: DJConnectCardAppearance.segmentedItemShape)
+            .overlay { DJConnectCardAppearance.segmentedItemShape.stroke(selected ? djConnectAccent.opacity(0.85) : .white.opacity(0.12)) }
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -8855,7 +8883,7 @@ struct ActiveDJSessionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             if showsMoments {
-                NativeSessionMomentsView(session: session, language: model.language, isRecovering: model.djSessionIsRecovering, isLiveUnavailable: model.djSessionLiveUnavailable, retryConnection: { Task { await model.retryDJSessionConnection() } }, artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL), returnToCurrent: returnToCurrent)
+                NativeSessionMomentsView(session: session, language: model.language, isRecovering: model.djSessionIsRecovering, isLiveUnavailable: model.djSessionLiveUnavailable, retryConnection: { Task { await model.retryDJSessionConnection() } }, artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL), returnToCurrent: returnToCurrent, playbackOutputName: model.sessionPlaybackOutputName)
             }
             Divider()
             Text(localizedKey(model.language, "ui.vibecast.handoff.title")).font(.headline)
@@ -9752,6 +9780,44 @@ private struct FavoriteTrackButton: View {
     }
 }
 
+/// Shared queue/archive row surface; their leading glyph and trailing action remain distinct.
+struct DJConnectMediaRowSurface: ViewModifier {
+    static let cornerRadius: CGFloat = 12
+    func body(content: Content) -> some View {
+        content
+        .background(
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.72),
+                    Color(red: 0.20, green: 0.08, blue: 0.32).opacity(0.72)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
+                .stroke(djConnectAccent.opacity(0.12), lineWidth: 1)
+        }
+    }
+}
+
+struct DJConnectMediaRowButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed && isEnabled
+        let shape = RoundedRectangle(cornerRadius: DJConnectMediaRowSurface.cornerRadius, style: .continuous)
+        configuration.label
+            .contentShape(shape)
+            .overlay { shape.fill(djConnectAccent.opacity(pressed ? 0.14 : 0)).allowsHitTesting(false) }
+            .overlay { shape.stroke(djConnectAccent.opacity(pressed ? 0.60 : 0), lineWidth: 1.5).allowsHitTesting(false) }
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.10), value: pressed)
+    }
+}
+
 private struct QueueItemRow: View {
     let item: DJConnectQueueItem
     var isLoading = false
@@ -9786,21 +9852,7 @@ private struct QueueItemRow: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color.black.opacity(0.72),
-                    Color(red: 0.20, green: 0.08, blue: 0.32).opacity(0.72)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(djConnectAccent.opacity(0.12), lineWidth: 1)
-        }
+        .modifier(DJConnectMediaRowSurface())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(item.displayTitle)
     }
@@ -10500,7 +10552,9 @@ private struct AskDJView: View {
                     canUseVoiceInput: canUseVoiceInput,
                     isInputFocused: $isInputFocused
                 )
+                #if os(iOS)
                 .padding(.bottom, 8)
+                #endif
             }
             .background(DJConnectCanvasBackground())
             .djStatusToastOverlay(text: toast, systemImage: "bubble.left.and.bubble.right")
@@ -11283,6 +11337,12 @@ struct AskDJMessageBubble: View {
                 }
                 .djSessionFrostedSurface(cornerRadius: DJConnectCardAppearance.conversationCornerRadius)
                 HStack(spacing: 8) {
+                    if isUser {
+                        Text(localizedKey(language, "ui.chat.you"))
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.60))
+                            .accessibilityIdentifier("ask-dj-user-label")
+                    }
                     Text(messageMetadataText)
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.white.opacity(0.46))
@@ -12616,35 +12676,28 @@ struct MoodModeControl: View {
     let selectedIndex: Int
     let language: String
     let caption: String
-    var closeAction: (() -> Void)? = nil
     var selectableLabels = false
     var commitsOnDragEnd = false
     var showsCardBackground = true
     var onSelect: (Int) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(caption)
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 8) {
                 Image(systemName: askDJMoodIcon(for: selectedIndex))
-                    .font(.caption.weight(.bold))
+                    .font(.subheadline.weight(.bold))
                     .foregroundStyle(djConnectAccent)
                 Text(localizedKey(language, "ui.mood"))
-                    .font(.caption.weight(.bold))
+                    .font(.subheadline.weight(.bold))
                     .foregroundStyle(.primary)
                 Spacer()
                 Text(steps[selectedIndex].label)
-                    .font(.caption.weight(.bold))
+                    .font(.subheadline.weight(.bold))
                     .foregroundStyle(djConnectAccent)
-                if let closeAction {
-                    Button(action: closeAction) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.caption.weight(.bold))
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                    .help(localizedKey(language, "ui.close"))
-                    .accessibilityLabel(localizedKey(language, "ui.close"))
-                }
+
             }
 
             GeometryReader { geometry in
@@ -12697,8 +12750,8 @@ struct MoodModeControl: View {
                     ForEach(steps.indices, id: \.self) { index in
                         Button { onSelect(index) } label: {
                             VStack(spacing: 3) {
-                                Image(systemName: askDJMoodIcon(for: index))
-                                Text(steps[index].label).font(.caption.weight(.semibold))
+                                Image(systemName: askDJMoodIcon(for: index)).font(.title3)
+                                Text(steps[index].label).font(.subheadline.weight(.semibold))
                             }
                             .foregroundStyle(index == selectedIndex ? djConnectAccent : .secondary)
                             .frame(maxWidth: .infinity, minHeight: 44)
@@ -12713,10 +12766,6 @@ struct MoodModeControl: View {
                 AskDJMoodLabelsView(steps: steps, selectedIndex: selectedIndex)
             }
 
-            Text(caption)
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
         }
         .padding(12)
         .background {
@@ -12940,7 +12989,11 @@ struct AskDJInputBar: View {
         }
         .padding(.horizontal, djConnectScreenHorizontalPadding)
         .padding(.top, 18)
+        #if os(macOS)
+        .padding(.bottom, 12)
+        #else
         .padding(.bottom, 18)
+        #endif
         .background {
             ZStack(alignment: .top) {
                 Rectangle()
@@ -12962,6 +13015,9 @@ struct AskDJInputBar: View {
                 Rectangle()
                     .fill(Color(red: 0.08, green: 0.06, blue: 0.14).opacity(0.70))
             }
+            #if os(macOS)
+            .ignoresSafeArea(.container, edges: .bottom)
+            #endif
         }
         .overlay(alignment: .top) {
             LinearGradient(
@@ -13290,7 +13346,7 @@ struct QueueView: View {
                                     QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
                                         .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(DJConnectMediaRowButtonStyle())
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
                                 .listRowInsets(djConnectListRowInsets)
@@ -13397,7 +13453,7 @@ struct QueueView: View {
                             QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
                                 .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(DJConnectMediaRowButtonStyle())
                         .disabled(areQueueItemsDisabled || !model.canStartQueueItem(item))
                         .allowsHitTesting(!areQueueItemsDisabled && model.canStartQueueItem(item))
                         .accessibilityLabel(item.displayTitle)
@@ -14098,14 +14154,14 @@ private struct GameModePicker: View {
                                 Color.clear
                             }
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .clipShape(DJConnectCardAppearance.segmentedItemShape)
                 }
                 .buttonStyle(.plain)
-                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .contentShape(DJConnectCardAppearance.segmentedItemShape)
                 .accessibilityAddTraits(selection == game ? [.isSelected] : [])
             }
         }
-        .padding(8)
+        .padding(DJConnectCardAppearance.segmentedContentInset)
         .frame(minHeight: 60)
         .background(
             LinearGradient(

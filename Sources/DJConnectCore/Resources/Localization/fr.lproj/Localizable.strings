@@ -917,7 +917,7 @@
 "ui.discover" = "Decouvrir";
 "ui.session.title" = "Session DJ";
 "ui.session.idle" = "Aucune session active.";
-"ui.session.select_mood" = "Choisir l'ambiance";
+"ui.session.select_mood" = "Choisissez votre ambiance";
 "ui.session.mood.chill" = "Détente";
 "ui.session.mood.groove" = "Groove";
 "ui.session.mood.energy" = "Énergie";
@@ -1071,3 +1071,7 @@
 "ui.connection.offline" = "Pas de connexion à Home Assistant";
 "ui.connection.recovering" = "Reconnexion à la session DJ…";
 "ui.connection.backend_unavailable" = "La musique est temporairement indisponible";
+
+"ui.session.playback_paused_detail" = "Votre musique est en pause. Votre session DJ reste active.";
+
+"ui.chat.you" = "Vous";

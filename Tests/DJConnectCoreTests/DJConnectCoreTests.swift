@@ -7514,6 +7514,29 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
+@Test func sessionSpeakerUsesPlaybackAuthorityInsteadOfPendingOrNormalizedOutputs() throws {
+    let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.language = "nl"
+    model.startDemoMode()
+    #expect(model.sessionPlaybackOutputName == "Woonkamer")
+    model.selectedOutput = "Pending Kitchen"
+    #expect(model.sessionPlaybackOutputName == "Woonkamer")
+    for device in [
+        DJConnectPlaybackDevice(id: "speaker", name: "Stale Speaker", active: false),
+        DJConnectPlaybackDevice(id: "speaker", name: "Stale Speaker", active: true, cached: true)
+    ] {
+        model.apply(commandResponse: DJConnectCommandResponse(
+            success: true, backendAvailable: true,
+            playback: DJConnectPlayback(hasPlayback: true, device: device),
+            devices: [DJConnectOutputDevice(id: "speaker", name: "Stale Speaker", active: true)]
+        ))
+        #expect(model.sessionPlaybackOutputName == nil)
+    }
+    model.stopDemoMode()
+    #expect(model.sessionPlaybackOutputName == nil)
+}
+
+@MainActor
 @Test func outputDevicesIncludeNoOutputBeforeBackendDevices() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))

@@ -755,6 +755,15 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var queueContext: String?
     @Published public var playlistItems: [DJConnectPlaylist] = []
     @Published public var selectedOutput = "Not selected"
+    /// Playback response authority only; pending selections and normalized output lists are excluded.
+    var sessionPlaybackOutputName: String? {
+        guard activeDJSession?.runtimeState == "active", !djSessionIsRecovering,
+              !djSessionLiveUnavailable, isDemoMode || (isConnected && backendAvailable),
+              let device = playback?.device, device.active != false, device.cached != true,
+              device.id != Self.syntheticNoOutputID,
+              let name = device.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else { return nil }
+        return name
+    }
     @Published public var djResponseText = ""
     @Published public private(set) var askDJMessages: [DJConnectAskDJMessage] = []
     @Published public private(set) var askDJScrollRequestID: UUID?

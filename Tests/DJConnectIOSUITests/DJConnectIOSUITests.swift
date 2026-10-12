@@ -478,8 +478,7 @@ final class DJConnectIOSUITests: XCTestCase {
     }
 
     func testGamesTabShowsLocalGameChoices() {
-        let app = launchApp()
-        enterDemoModeIfNeeded(app)
+        let app = launchSessionUIDemo()
 
         tapTabOrMoreItem("Games", in: app)
 
@@ -489,6 +488,17 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Sky Dash"].exists || app.staticTexts["Sky Dash"].exists)
         XCTAssertTrue(app.buttons["Maze Chase"].exists || app.staticTexts["Maze Chase"].exists)
         XCTAssertTrue(app.buttons["Tik om te spelen"].exists || app.staticTexts["Tik om te spelen"].exists)
+        let first = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        first.name = "game-selector-first-rounded-inset"; first.lifetime = .keepAlways; add(first)
+        let maze = app.buttons["Maze Chase"].firstMatch
+        maze.tap()
+        let state = app.descendants(matching: .any)["games-state"].firstMatch
+        let selected = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            (state.value as? String)?.contains("game=pacman") == true
+        }, object: state)
+        XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 5), .completed)
+        let last = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        last.name = "game-selector-last-rounded-inset"; last.lifetime = .keepAlways; add(last)
     }
 
     func testGamesSurfaceRespondsToHardwareKeyboardArrowKeys() {
@@ -1103,7 +1113,7 @@ extension DJConnectIOSUITests {
                            (before["active"] as? [String: Any])?["now_playing"] as? NSDictionary)
             try saveHistoryScreenshot("paired-ui-confirmed-active-mood")
         }
-        app.buttons["session-mood-close"].tap()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.7)).tap()
         let beforeMenu = try await control("state", method: "GET")
         let handoff = app.buttons["session-handoff-toggle"]
         XCTAssertTrue(handoff.isHittable); handoff.tap()
@@ -1346,6 +1356,32 @@ extension DJConnectIOSUITests {
         return app
     }
 
+    func testPausedPlaybackHasDistinctSessionPresentationAndResumes() {
+        let app = launchSessionUIDemo()
+        XCTAssertTrue(app.buttons["session-end-button"].waitForExistence(timeout: 10))
+        tapTabOrMoreItem("Speelt Nu", in: app)
+        let pause = app.buttons["Pauze"].firstMatch
+        XCTAssertTrue(pause.waitForExistence(timeout: 5)); pause.tap()
+        XCTAssertTrue(app.buttons["Afspelen"].firstMatch.waitForExistence(timeout: 5))
+        app.tabBars.buttons["DJ-sessie"].tap()
+        let paused = app.staticTexts["Gepauzeerd"].firstMatch
+        XCTAssertTrue(paused.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Gepauzeerd"].exists)
+        XCTAssertTrue(app.buttons["session-end-button"].isEnabled)
+        XCTAssertTrue(app.descendants(matching: .any)["session-playback-output"].firstMatch.exists)
+        let image = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        image.name = "native-session-playback-paused"; image.lifetime = .keepAlways; add(image)
+        app.tabBars.buttons["Meer"].tap()
+        if !app.navigationBars["Speelt Nu"].exists { tapTabOrMoreItem("Speelt Nu", in: app) }
+        let play = app.buttons["Afspelen"].firstMatch
+        XCTAssertTrue(play.waitForExistence(timeout: 5)); play.tap()
+        XCTAssertTrue(app.buttons["Pauze"].firstMatch.waitForExistence(timeout: 5))
+        app.tabBars.buttons["DJ-sessie"].tap()
+        let resumed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: paused)
+        XCTAssertEqual(XCTWaiter.wait(for: [resumed], timeout: 5), .completed)
+        XCTAssertTrue(app.buttons["session-end-button"].isEnabled)
+    }
+
     func testSessionMoodToolbarAndPlaybackTimes() {
         let app = launchSessionUIDemo()
         let connection = app.buttons["session-connection-toggle"]
@@ -1358,14 +1394,28 @@ extension DJConnectIOSUITests {
         let toggle = app.buttons["session-mood-toggle"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 10))
         XCTAssertFalse(app.descendants(matching: .any)["active-session-mood"].firstMatch.exists)
-        XCTAssertTrue(app.staticTexts["Verstreken tijd en totale duur"].firstMatch.exists)
-        XCTAssertTrue(app.staticTexts["Resterende tijd"].firstMatch.exists)
+        let times = app.staticTexts["Verstreken tijd en totale duur"].firstMatch
+        XCTAssertTrue(times.exists)
+        XCTAssertTrue((times.value as? String)?.contains(" / ") == true)
+        XCTAssertFalse(app.staticTexts["Resterende tijd"].firstMatch.exists)
+        let output = app.descendants(matching: .any)["session-playback-output"].firstMatch
+        XCTAssertTrue(output.waitForExistence(timeout: 5))
+        XCTAssertEqual(output.value as? String, "Woonkamer")
+        XCTAssertGreaterThanOrEqual(output.frame.minY, times.frame.maxY)
+        let pinned = app.descendants(matching: .any)["session-pinned-current"].firstMatch
+        let music = app.descendants(matching: .any)["session-music-context"].firstMatch
+        let card = app.descendants(matching: .any)["session-current-card"].firstMatch
+        XCTAssertLessThanOrEqual(pinned.frame.maxY - max(music.frame.maxY, card.frame.maxY), 32,
+                                 "Pinned header should hug its content instead of reserving blank viewport height")
+        let userLabel = app.staticTexts["ask-dj-user-label"].firstMatch
+        XCTAssertTrue(userLabel.exists)
+        XCTAssertEqual(userLabel.label, "Jij")
         toggle.tap()
         let party = app.buttons["session-mood-option-3"]
         XCTAssertTrue(party.waitForExistence(timeout: 5))
         let menu = XCTAttachment(screenshot: app.screenshot()); menu.name = "native-session-mood-popover"; menu.lifetime = .keepAlways; add(menu)
         party.tap()
-        app.buttons["session-mood-close"].tap()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.7)).tap()
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
         XCTAssertEqual(toggle.value as? String, "Feest")
         XCTAssertFalse(app.buttons["session-mood-option-3"].exists)
@@ -1377,6 +1427,11 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(app.staticTexts["Geselecteerde bijdrage"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertEqual(glyph.value as? String, "Geselecteerde bijdrage")
         let selected = XCTAttachment(screenshot: app.screenshot()); selected.name = "native-visible-glyph-selected-context"; selected.lifetime = .keepAlways; add(selected)
+        let clear = app.buttons["clear-session-question-context"].firstMatch
+        XCTAssertTrue(clear.isHittable)
+        clear.tap()
+        XCTAssertFalse(app.staticTexts["Geselecteerde bijdrage"].firstMatch.exists)
+        XCTAssertTrue(app.descendants(matching: .any)["ask-dj-composer-input"].firstMatch.exists)
     }
 
     func testIPadNativeBottomNavigationPreservesExpandedSession() throws {
