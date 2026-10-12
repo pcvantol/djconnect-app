@@ -1434,6 +1434,28 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(app.descendants(matching: .any)["ask-dj-composer-input"].firstMatch.exists)
     }
 
+    func testConfirmedMoodPalettesInPinnedSessionHeader() {
+        let app = launchSessionUIDemo()
+        XCUIDevice.shared.orientation = .landscapeLeft
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let toggle = app.buttons["session-mood-toggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+        for (index, label) in ["Rustig", "Groove", "Energie", "Feest"].enumerated() {
+            toggle.tap()
+            let option = app.buttons["session-mood-option-\(index)"]
+            XCTAssertTrue(option.waitForExistence(timeout: 5))
+            option.tap()
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.7)).tap()
+            XCTAssertEqual(toggle.value as? String, label)
+            XCTAssertTrue(app.descendants(matching: .any)["session-music-context"].firstMatch.exists)
+            XCTAssertTrue(app.descendants(matching: .any)["session-current-card"].firstMatch.exists)
+            let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            screenshot.name = "confirmed-pinned-mood-\(index)-\(label)"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+        }
+    }
+
     func testIPadNativeBottomNavigationPreservesExpandedSession() throws {
         let app = launchRuntimeFixtureApp("review_demo")
         guard app.frame.width > 600 else { throw XCTSkip("iPad navigation qualification") }
