@@ -21,14 +21,7 @@ struct SavedSessionsView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     if model.isDemoMode { Label(text("demo.session.notice"), systemImage: "sparkles").font(.caption).accessibilityIdentifier("session-demo-notice") }
                     if history.listLoading || history.preparing { ProgressView().accessibilityLabel(text("ui.session.history.loading")) }
-                    if let key = history.listErrorKey {
-                        Text(text(key)).accessibilityIdentifier("saved-sessions-error")
-                        Button(text("ui.retry")) { Task { await refresh() } }
-                    } else if !history.available && !history.preparing {
-                        Text(text("ui.session.history.unavailable"))
-                    } else if history.sessions.isEmpty && !history.listLoading && !history.preparing {
-                        Text(text("ui.session.history.empty"))
-                    }
+
                 }
                 .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity).padding(.horizontal, 20)
                 .listRowInsets(EdgeInsets())
@@ -75,12 +68,27 @@ struct SavedSessionsView: View {
             .scrollContentBackground(.hidden)
             .accessibilityIdentifier("saved-sessions-list")
             .background(DJConnectCanvasBackground())
+            .overlay {
+                if let emptyTitle {
+                    VStack(spacing: 18) {
+                        DJConnectEmptyState(title: emptyTitle, systemImage: "clock.arrow.circlepath")
+                            .allowsHitTesting(false)
+                        if history.listErrorKey != nil && model.pairingStatus == .paired && !model.isDemoMode {
+                            Button(text("ui.retry")) { Task { await refresh() } }
+                                .disabled(refreshing)
+                        }
+                    }
+                    .padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("saved-sessions-empty-state")
+                }
+            }
             .navigationTitle(text("ui.session.history.title"))
             .scrollBounceBehavior(.always)
             .refreshable { await refresh() }
             .toolbar {
                 Button { Task { await refresh() } } label: { Image(systemName: "arrow.clockwise") }
-                    .disabled(refreshing)
+                    .disabled(refreshing || model.isDemoMode || model.pairingStatus != .paired)
                     .accessibilityLabel(text("ui.session.history.refresh"))
                     .accessibilityIdentifier("saved-sessions-refresh")
                     .help(text("ui.session.history.refresh"))
@@ -93,8 +101,13 @@ struct SavedSessionsView: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("screen-saved-sessions")
     }
+    private var emptyTitle: String? {
+        guard history.sessions.isEmpty, !history.listLoading, !history.preparing else { return nil }
+        if let error = history.listErrorKey { return text(error) }
+        return text(history.available ? "ui.session.history.empty" : "ui.session.history.unavailable")
+    }
     private func refresh() async {
-        guard !refreshing else { return }
+        guard !refreshing, !model.isDemoMode, model.pairingStatus == .paired else { return }
         refreshing = true
         defer { refreshing = false }
         statusToast = DJConnectVisualNotice(text: text("ui.session.history.loading"), systemImage: "arrow.clockwise")
@@ -186,7 +199,7 @@ struct SessionTimelineScreen: View {
                                     } else { Label(text("ui.session.history.awaiting"), systemImage: "ellipsis.bubble") }
                                 }
                                 .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-                                .djSessionFrostedSurface(cornerRadius: 16)
+                                .djSessionFrostedSurface()
                                 .id("pending-" + turn.id)
                             }
                             ForEach(timeline.entries.reversed().filter { $0.isRetained(at: clock.date) }) { entry in
@@ -526,11 +539,11 @@ struct SessionEntryView: View {
                     .padding(20)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .overlay(alignment: .topTrailing) { askButton.padding(8) }
-                    .djSessionFrostedSurface(cornerRadius: 20)
+                    .djSessionFrostedSurface(cornerRadius: DJConnectCardAppearance.conversationCornerRadius)
                 }
             }
         }
-        .padding(4).overlay(RoundedRectangle(cornerRadius: 20).stroke(isSelectedMatch ? Color.yellow : .clear, lineWidth: 2))
+        .padding(4).overlay(RoundedRectangle(cornerRadius: DJConnectCardAppearance.conversationCornerRadius).stroke(isSelectedMatch ? Color.yellow : .clear, lineWidth: 2))
     }
     private var askButton: some View {
         Button(action: askAction) {
@@ -582,7 +595,7 @@ struct SessionHistoryMatchCard: View {
                         .accessibilityIdentifier("open-session-" + entry.id)
                 }
             }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                .djSessionFrostedSurface(cornerRadius: 14)
+                .djSessionFrostedSurface(cornerRadius: DJConnectCardAppearance.conversationCornerRadius)
         }
         }
     }
@@ -658,9 +671,12 @@ struct ActiveSessionMoodToolbar: View {
     @ObservedObject var model: DJConnectAppModel
     let session: DJConnectSessionRuntime
     @Environment(\.scenePhase) private var scenePhase
-    @State private var showingMood = false
-    @State private var openedEpoch: UUID?
-    @State private var openedSessionID: String?
+    private struct MoodIntent: Identifiable {
+        let id = UUID()
+        let sessionID: String
+        let epoch: UUID
+    }
+    @State private var moodIntent: MoodIntent?
     @ObservedObject private var history: DJConnectSessionHistoryModel
     init(model: DJConnectAppModel, session: DJConnectSessionRuntime) {
         self.model = model; self.session = session; history = model.sessionHistory
@@ -671,8 +687,8 @@ struct ActiveSessionMoodToolbar: View {
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     var body: some View {
         Button {
-            if showingMood { showingMood = false; openedEpoch = nil; openedSessionID = nil }
-            else { openedSessionID = session.id; openedEpoch = history.responseEpoch; showingMood = true }
+            if moodIntent != nil { moodIntent = nil }
+            else { moodIntent = MoodIntent(sessionID: session.id, epoch: history.responseEpoch) }
         } label: {
             Image(systemName: askDJMoodIcon(for: selectedIndex))
         }
@@ -680,13 +696,11 @@ struct ActiveSessionMoodToolbar: View {
         .accessibilityValue(text("ui.session.mood." + moods[selectedIndex]))
         .accessibilityIdentifier("session-mood-toggle")
         .help(text("ui.session.select_mood"))
-        .popover(isPresented: $showingMood) {
-            let boundSessionID = openedSessionID
-            let boundEpoch = openedEpoch
+        .popover(item: $moodIntent) { intent in
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Spacer()
-                    Button { showingMood = false } label: { Image(systemName: "xmark") }
+                    Button { moodIntent = nil } label: { Image(systemName: "xmark") }
                         .accessibilityLabel(text("ui.close"))
                         .accessibilityIdentifier("session-mood-close")
                 }
@@ -695,8 +709,8 @@ struct ActiveSessionMoodToolbar: View {
                                 caption: text("ui.session.select_mood"),
                                 selectableLabels: true,
                                 commitsOnDragEnd: true, showsCardBackground: false) { index in
-                    guard canChange, moods.indices.contains(index), let boundEpoch, let boundSessionID else { return }
-                    Task { await model.changeActiveSessionMood(moods[index], expectedSessionID: boundSessionID, expectedEpoch: boundEpoch) }
+                    guard canChange, moods.indices.contains(index) else { return }
+                    Task { await model.changeActiveSessionMood(moods[index], expectedSessionID: intent.sessionID, expectedEpoch: intent.epoch) }
                 }
                 .disabled(!canChange)
                 .accessibilityIdentifier("active-session-mood")
@@ -707,11 +721,11 @@ struct ActiveSessionMoodToolbar: View {
             .presentationCompactAdaptation(.popover)
         }
         .task(id: session.id) { await model.refreshActiveMoodCapability() }
-        .onChange(of: session.id) { showingMood = false; openedEpoch = nil; openedSessionID = nil }
-        .onChange(of: history.responseEpoch) { showingMood = false; openedEpoch = nil; openedSessionID = nil }
+        .onChange(of: session.id) { moodIntent = nil }
+        .onChange(of: history.responseEpoch) { moodIntent = nil }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await model.refreshActiveMoodCapability() } }
-            else { showingMood = false; openedEpoch = nil; openedSessionID = nil }
+            else { moodIntent = nil }
         }
     }
 }
@@ -804,17 +818,8 @@ struct SessionConnectionToolbarButton: View {
         .help(text(status.key))
         .popover(isPresented: $showingStatus) {
             VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text(text("ui.connection.status")).font(.headline)
-                    Spacer()
-                    Button { showingStatus = false } label: {
-                        Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle())
-                    }
-                        .accessibilityLabel(text("ui.close"))
-                        .accessibilityIdentifier("session-connection-close")
-                        .keyboardShortcut(.cancelAction)
-                }
-                if status != .connected && !model.isDemoMode {
+                Text(text("ui.connection.status")).font(.headline)
+                if [.offline, .recovering, .liveUnavailable, .backendUnavailable].contains(status) && !model.isDemoMode {
                     Label(text(status.key), systemImage: "exclamationmark.triangle")
                         .foregroundStyle(status.color)
                 }

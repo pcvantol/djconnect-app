@@ -743,9 +743,6 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var autoTrackInsightEnabled = false {
         didSet { defaults.set(autoTrackInsightEnabled, forKey: autoTrackInsightEnabledKey) }
     }
-    @Published public var showVisualizerOnAirPlay = false {
-        didSet { defaults.set(showVisualizerOnAirPlay, forKey: showVisualizerOnAirPlayKey) }
-    }
     @Published public private(set) var trackInsightNavigationRequestID: UUID?
     @Published public private(set) var homeScreenActionRequest: DJConnectHomeScreenActionRequest?
     @Published public var queue: [String] = []
@@ -1002,7 +999,6 @@ public final class DJConnectAppModel: ObservableObject {
     private let localResponseAudioEnabledKey = "DJConnectLocalResponseAudioEnabled"
     private let djAnnouncementOutputKey = "DJConnectDJAnnouncementOutput"
     private let autoTrackInsightEnabledKey = "DJConnectAutoTrackInsightEnabled"
-    private let showVisualizerOnAirPlayKey = "DJConnectShowVisualizerOnAirPlay"
     private let webSocketFastPathEnabledKey = "DJConnectWebSocketFastPathEnabled"
     private let legacyPushTokenKey = "DJConnectPushToken"
     private let registeredPushTokenKey = "DJConnectRegisteredPushToken"
@@ -1182,7 +1178,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     public var shouldShowPairingScreen: Bool {
         #if DEBUG
-        if isUITestRuntimeFixtureActive {
+        if isUITestRuntimeFixtureActive && uiTestRuntimeFixtureScenario != "review_demo" {
             switch uiTestRuntimeFixtureScenario {
             case "pairing_success", "stale_auth":
                 return !isShowingWelcome
@@ -1279,7 +1275,6 @@ public final class DJConnectAppModel: ObservableObject {
         self.djAnnouncementOutput = defaults.string(forKey: djAnnouncementOutputKey).flatMap(DJAnnouncementOutput.init(rawValue:)) ?? .clientDevice
         self.autoTrackInsightEnabled = defaults.bool(forKey: autoTrackInsightEnabledKey)
         self.webSocketFastPathEnabled = defaults.bool(forKey: webSocketFastPathEnabledKey)
-        self.showVisualizerOnAirPlay = defaults.bool(forKey: showVisualizerOnAirPlayKey)
         self.demoMusicDNAEnabled = defaults.bool(forKey: demoMusicDNAEnabledKey)
         self.askDJMessages = Self.loadAskDJMessages(defaults: defaults, key: askDJMessagesKey)
         loadPersistentDiagnosticLog()
@@ -9924,6 +9919,9 @@ public final class DJConnectAppModel: ObservableObject {
             isPairingScreenDismissed = false
             isShowingPairingSuccess = true
             pairingMessage = localized(key: "appModel.pairing.complete")
+        case "offline_network":
+            hasEvaluatedDeviceNetwork = true
+            isDeviceNetworkAvailable = false
         case "backend_unavailable":
             apply(error: .backendUnavailable(message: "Fixture playback backend unavailable"))
             userNotice = nil

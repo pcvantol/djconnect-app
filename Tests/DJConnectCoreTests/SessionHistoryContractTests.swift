@@ -1458,3 +1458,19 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(SessionConnectionStatus.resolve(demo: false, pairing: .paired, mode: .remote, backendAvailable: true, recovering: false, liveUnavailable: false) == .connected)
     #expect(SessionConnectionStatus.resolve(demo: true, pairing: .unpaired, mode: .offline, backendAvailable: false, recovering: false, liveUnavailable: false) == .demo)
 }
+
+@Test @MainActor func reviewDemoExitRestoresRequiredPairingGateAndCanRestartDemo() throws {
+    let defaults = try #require(UserDefaults(suiteName: "demo-exit-gate-" + UUID().uuidString))
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.applyUITestRuntimeFixture("review_demo")
+    #expect(model.isDemoMode)
+    #expect(!model.shouldShowPairingScreen)
+    model.stopDemoMode()
+    #expect(model.pairingStatus == .unpaired)
+    #expect(model.shouldShowPairingScreen)
+    model.completePairingScreen()
+    #expect(model.shouldShowPairingScreen, "Cannot dismiss before pairing")
+    model.startDemoMode()
+    #expect(model.isDemoMode)
+    #expect(!model.shouldShowPairingScreen)
+}

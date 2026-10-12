@@ -6,17 +6,11 @@ import UniformTypeIdentifiers
 #if canImport(AVFoundation)
 @preconcurrency import AVFoundation
 #endif
-#if canImport(AVKit)
-@preconcurrency import AVKit
-#endif
 #if canImport(WebKit)
 import WebKit
 #endif
 #if canImport(MetalKit)
 import MetalKit
-#endif
-#if canImport(Network)
-import Network
 #endif
 #if os(iOS)
 import UIKit
@@ -139,7 +133,32 @@ private func localizedPairingStatus(_ status: DJConnectPairingStatus, language: 
     }
 }
 
+// Preserve expanded content without changing the native tab/toolbar traits.
+private struct DJConnectContentSizeClassKey: EnvironmentKey {
+    static let defaultValue: UserInterfaceSizeClass? = nil
+}
+private extension EnvironmentValues {
+    var djConnectContentSizeClass: UserInterfaceSizeClass? {
+        get { self[DJConnectContentSizeClassKey.self] }
+        set { self[DJConnectContentSizeClassKey.self] = newValue }
+    }
+}
+
 let djConnectAccent = Color(red: 0.84, green: 0.22, blue: 0.96)
+enum DJConnectCardAppearance {
+    static let cornerRadius: CGFloat = 32
+    // Compact conversation bubbles retain their own geometry; all borders share these tokens.
+    static let conversationCornerRadius: CGFloat = 18
+    static let borderOpacity: Double = 0.16
+    static let borderWidth: CGFloat = 1
+    static var shape: RoundedRectangle { RoundedRectangle(cornerRadius: cornerRadius, style: .continuous) }
+}
+private struct DJConnectCardOutline: ViewModifier {
+    func body(content: Content) -> some View {
+        content.clipShape(DJConnectCardAppearance.shape)
+            .overlay { DJConnectCardAppearance.shape.stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth) }
+    }
+}
 private let djConnectButtonBlue = Color(red: 0.16, green: 0.56, blue: 1.0)
 private let djConnectButtonPurple = Color(red: 0.84, green: 0.18, blue: 1.0)
 private let djConnectIconGradient = LinearGradient(
@@ -204,8 +223,6 @@ private struct DJConnectTableRowBackground: View {
 }
 
 private struct DJConnectGradientCardStyle: ViewModifier {
-    var cornerRadius: CGFloat = 12
-    var strokeOpacity: Double = 0.16
 
     func body(content: Content) -> some View {
         content
@@ -218,18 +235,15 @@ private struct DJConnectGradientCardStyle: ViewModifier {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 ),
-                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                in: DJConnectCardAppearance.shape
             )
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(.white.opacity(strokeOpacity), lineWidth: 1.5)
-            }
+            .modifier(DJConnectCardOutline())
     }
 }
 
 private extension View {
-    func djConnectGradientCard(cornerRadius: CGFloat = 12, strokeOpacity: Double = 0.16) -> some View {
-        modifier(DJConnectGradientCardStyle(cornerRadius: cornerRadius, strokeOpacity: strokeOpacity))
+    func djConnectGradientCard() -> some View {
+        modifier(DJConnectGradientCardStyle())
     }
 }
 
@@ -745,7 +759,12 @@ public struct DJConnectRootView: View {
                         Button {
                             showingFeedback = true
                         } label: {
-                            Label(localizedKey(model.language, "ui.share.feedback"), systemImage: "bubble.left.and.bubble.right")
+                            Label {
+                                Text(localizedKey(model.language, "ui.share.feedback"))
+                            } icon: {
+                                Image(systemName: "bubble.left.and.bubble.right")
+                                    .symbolRenderingMode(.monochrome).foregroundStyle(djConnectAccent)
+                            }
                         }
                         .buttonStyle(.plain)
                     }
@@ -772,28 +791,15 @@ public struct DJConnectRootView: View {
                 .accentColor(Color(red: 0.74, green: 0.22, blue: 0.96))
                 #else
                 GeometryReader { proxy in
-                    ZStack(alignment: .bottom) {
-                        if usesTopTabLayout(for: proxy.size) {
+                    Group {
+                        if usesNativeiPadTabs {
                             iPadRootTabs
-                                .id("top-tabs-\(orientationID(for: proxy.size))")
                         } else {
                             compactRootTabs
                                 .id("compact-tabs-\(orientationID(for: proxy.size))")
                         }
-
-                        if shouldShowOfflineNetworkBanner {
-                            OfflineNetworkBanner(
-                                language: model.language,
-                                refreshAction: model.refreshNetworkAvailability,
-                                settingsAction: openDJConnectSystemNetworkSettings
-                            )
-                            .padding(.horizontal, usesTopTabLayout(for: proxy.size) ? 18 : 0)
-                            .padding(.bottom, usesTopTabLayout(for: proxy.size) ? 0 : 49)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                        }
                     }
                     .frame(width: proxy.size.width, height: proxy.size.height)
-                    .animation(.snappy(duration: 0.22), value: shouldShowOfflineNetworkBanner)
                 }
                 #endif
             }
@@ -897,6 +903,7 @@ public struct DJConnectRootView: View {
         guard let request = model.homeScreenActionRequest else {
             return
         }
+        moreResetID = UUID()
         switch request.action {
         case .nowPlaying:
             selectedSection = .nowPlaying
@@ -975,9 +982,7 @@ public struct DJConnectRootView: View {
     #endif
 
     #if os(iOS)
-    private func usesTopTabLayout(for size: CGSize) -> Bool {
-        horizontalSizeClass == .regular || size.width > size.height
-    }
+    private var usesNativeiPadTabs: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
     private func orientationID(for size: CGSize) -> String {
         size.width > size.height ? "landscape" : "portrait"
@@ -989,6 +994,7 @@ public struct DJConnectRootView: View {
                 isMoreSectionSelected ? .more : selectedSection
             },
             set: { newValue in
+                if newValue == .more && isMoreSectionSelected { return }
                 if newValue == .discovery {
                     selectDiscovery()
                 } else {
@@ -1003,6 +1009,8 @@ public struct DJConnectRootView: View {
             DJSessionView(model: model) {
                 selectedSection = .queue
             }
+                .environment(\.djConnectContentSizeClass, horizontalSizeClass)
+                .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice }
                 .tabItem {
                     Label(localizedKey(model.language, "ui.session.title"), systemImage: "sparkles")
                 }
@@ -1011,6 +1019,8 @@ public struct DJConnectRootView: View {
                 selectedSection = .trackInsight
                 model.openTrackInsight()
             }
+                .environment(\.djConnectContentSizeClass, horizontalSizeClass)
+                .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice }
                 .tabItem {
                     Label {
                         Text("Ask DJ")
@@ -1022,85 +1032,75 @@ public struct DJConnectRootView: View {
                 }
                 .tag(DJConnectSection.askDJ)
             TrackInsightView(model: model)
+                .environment(\.djConnectContentSizeClass, horizontalSizeClass)
+                .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice }
                 .tabItem {
                     Label("Track Insight", systemImage: "waveform.path.ecg")
                 }
                 .tag(DJConnectSection.trackInsight)
             MusicDiscoveryView(model: model)
+                .environment(\.djConnectContentSizeClass, horizontalSizeClass)
+                .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice }
                 .tabItem {
                     Label(localizedKey(model.language, "ui.discover"), systemImage: "wand.and.stars")
                 }
                 .tag(DJConnectSection.discovery)
-            MoreView(model: model) {
+            MoreView(model: model, requestedSection: isMoreSectionSelected && selectedSection != .more ? selectedSection : nil) {
                 selectedSection = .nowPlaying
             }
             .id(moreResetID)
+                .environment(\.djConnectContentSizeClass, horizontalSizeClass)
+                .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice }
                 .tabItem {
                     Label(localizedKey(model.language, "ui.more"), systemImage: "ellipsis")
                 }
                 .tag(DJConnectSection.more)
         }
+        .tabViewStyle(.tabBarOnly)
         .tint(djConnectAccent)
         .accentColor(djConnectAccent)
         .environment(\.symbolVariants, .none)
     }
 
-    private var iPadRootTabs: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-            ScrollView(.horizontal) {
-            HStack(spacing: 8) {
-                DJConnectTopTabButton(
-                    title: localizedKey(model.language, "ui.session.title"),
-                    systemImage: "sparkles",
-                    isSelected: selectedSection == .djSession
-                ) { selectedSection = .djSession }
-                DJConnectTopTabButton(
-                    title: localizedKey(model.language, "ui.queue"),
-                    systemImage: "music.note.list",
-                    isSelected: selectedSection == .queue
-                ) { selectedSection = .queue }
-                DJConnectTopTabButton(
-                    title: "Ask DJ",
-                    systemImage: "bubble.left.and.bubble.right",
-                    symbolVariant: .none,
-                    isSelected: selectedSection == .askDJ
-                ) { selectedSection = .askDJ }
-                DJConnectTopTabButton(
-                    title: "Track Insight",
-                    systemImage: "waveform.path.ecg",
-                    isSelected: selectedSection == .trackInsight
-                ) { selectedSection = .trackInsight }
-                DJConnectTopTabButton(
-                    title: localizedKey(model.language, "ui.discover"),
-                    systemImage: "wand.and.stars",
-                    isSelected: selectedSection == .discovery
-                ) { selectDiscovery() }
-            }
-            }
-            .scrollIndicators(.hidden)
-                DJConnectTopTabButton(
-                    title: localizedKey(model.language, "ui.more"),
-                    systemImage: "ellipsis",
-                    isSelected: isMoreSectionSelected
-                ) { selectedSection = .more }
-                .fixedSize(horizontal: true, vertical: false)
-            }
-            .padding(6)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(Color.white.opacity(0.12))
-                    .overlay {
-                        Capsule(style: .continuous)
-                            .stroke(Color.white.opacity(0.16), lineWidth: 1)
-                    }
-            )
-            .padding(.top, 18)
-            .padding(.bottom, 10)
-
-            selectedView
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+    @ViewBuilder private var nativeTabOfflineNotice: some View {
+        if shouldShowOfflineNetworkBanner {
+            OfflineNetworkBanner(language: model.language,
+                                 refreshAction: model.refreshNetworkAvailability,
+                                 settingsAction: openDJConnectSystemNetworkSettings)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
         }
+    }
+
+    private var iPadRootTabs: some View {
+        let sections: [DJConnectSection] = [.djSession, .askDJ, .trackInsight, .discovery, .more]
+        let selection = Binding<Int>(
+            get: { sections.firstIndex(of: compactTabSelection.wrappedValue) ?? 0 },
+            set: { index in if sections.indices.contains(index) { compactTabSelection.wrappedValue = sections[index] } }
+        )
+        return NativeBottomTabBar(
+            screens: [
+                AnyView(DJSessionView(model: model) { selectedSection = .queue }
+                    .environment(\.djConnectContentSizeClass, horizontalSizeClass)
+                    .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice }),
+                AnyView(AskDJView(model: model) { selectedSection = .trackInsight; model.openTrackInsight() }
+                    .environment(\.djConnectContentSizeClass, horizontalSizeClass)
+                    .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice }),
+                AnyView(TrackInsightView(model: model)
+                    .environment(\.djConnectContentSizeClass, horizontalSizeClass)
+                    .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice }),
+                AnyView(MusicDiscoveryView(model: model)
+                    .environment(\.djConnectContentSizeClass, horizontalSizeClass)
+                    .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice }),
+                AnyView(MoreView(model: model, requestedSection: isMoreSectionSelected && selectedSection != .more ? selectedSection : nil) {
+                    selectedSection = .nowPlaying
+                }.id(moreResetID)
+                    .environment(\.djConnectContentSizeClass, horizontalSizeClass)
+                    .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice })
+            ],
+            titles: [localizedKey(model.language, "ui.session.title"), "Ask DJ", "Track Insight",
+                     localizedKey(model.language, "ui.discover"), localizedKey(model.language, "ui.more")],
+            symbols: ["sparkles", "bubble.left.and.bubble.right", "waveform.path.ecg", "wand.and.stars", "ellipsis"],
+            scenePhase: scenePhase, selection: selection)
     }
 
     private var isMoreSectionSelected: Bool {
@@ -1406,9 +1406,14 @@ private struct SidebarItem: View {
 
     var body: some View {
         Button(action: action) {
-            Label(title, systemImage: systemImage)
+            Label {
+                Text(title).foregroundStyle(isSelected ? .white : .primary)
+            } icon: {
+                Image(systemName: systemImage)
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(isSelected ? .white : djConnectAccent)
+            }
                 .font(.body.weight(.semibold))
-                .foregroundStyle(isSelected ? .white : .primary)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 12)
@@ -1443,41 +1448,11 @@ private struct SidebarItem: View {
 }
 #endif
 
-#if os(iOS)
-private struct DJConnectTopTabButton: View {
-    let title: String
-    let systemImage: String
-    var symbolVariant: SymbolVariants = .none
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label {
-                Text(title)
-            } icon: {
-                Image(systemName: systemImage)
-                    .symbolVariant(symbolVariant)
-            }
-                .font(.headline.weight(.semibold))
-                .labelStyle(.titleAndIcon)
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: true)
-                .foregroundStyle(isSelected ? djConnectAccent : .primary)
-                .frame(minWidth: 118)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .contentShape(Capsule(style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-    }
-}
-#endif
-
 private struct PairingSheetView: View {
     @ObservedObject var model: DJConnectAppModel
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @State private var isManualPairingVisible = false
     #if os(iOS)
     @State private var isShowingQRScanner = false
@@ -2023,11 +1998,11 @@ private struct PairingNetworkNotice: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            DJConnectCardAppearance.shape
                 .fill(Color.primary.opacity(0.06))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            DJConnectCardAppearance.shape
                 .stroke(Color.primary.opacity(0.08), lineWidth: 1)
         )
         .accessibilityElement(children: .combine)
@@ -2169,9 +2144,9 @@ private struct PairingEditableURLCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .djConnectGradientCard(strokeOpacity: !trimmedText.isEmpty && !isValid ? 0.0 : 0.16)
+        .djConnectGradientCard()
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            DJConnectCardAppearance.shape
                 .stroke(!trimmedText.isEmpty && !isValid ? .orange.opacity(0.75) : .clear, lineWidth: 1)
         }
         .task {
@@ -2258,9 +2233,9 @@ private struct PairingCodeEntryCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .djConnectGradientCard(strokeOpacity: !trimmedText.isEmpty && !isValid ? 0.0 : 0.16)
+        .djConnectGradientCard()
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            DJConnectCardAppearance.shape
                 .stroke(!trimmedText.isEmpty && !isValid ? .orange.opacity(0.75) : .clear, lineWidth: 1)
         }
         #if os(iOS)
@@ -2783,7 +2758,9 @@ private struct CrashReportPromptView: View {
 
 private struct WelcomeView: View {
     @ObservedObject var model: DJConnectAppModel
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @State private var selectedStepIndex = 0
     private let startURL = URL(string: "https://djconnect.dev/start")!
     private var steps: [WelcomeTourStep] { WelcomeTourStep.steps(language: model.language) }
@@ -2991,10 +2968,10 @@ private struct WelcomeTourPreview: View {
             #endif
         }
         .padding(14)
-        .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Color.white.opacity(0.07), in: DJConnectCardAppearance.shape)
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+            DJConnectCardAppearance.shape
+                .stroke(Color.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
         }
         .onAppear {
             withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
@@ -3910,14 +3887,12 @@ private func averageArtworkColor(from data: Data) -> Color? {
 
 private struct TrackInsightView: View {
     @ObservedObject var model: DJConnectAppModel
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @State private var isShowingShare = false
     @State private var isAnimationActive = false
     @State private var statusToast: DJConnectVisualNotice?
-    #if canImport(AVKit) && (os(iOS) || os(macOS))
-    @StateObject private var vibeCastAirPlaySession = VibeCastAirPlaySession()
-    @State private var shouldMaintainAirPlayVibeCast = false
-    #endif
 
     private var insight: TrackInsight? {
         model.currentTrackInsight
@@ -3927,11 +3902,6 @@ private struct TrackInsightView: View {
         insight?.id
     }
 
-    #if canImport(AVKit) && (os(iOS) || os(macOS))
-    private var airPlayRenderID: String {
-        "\(insightID ?? "none")|\(model.askDJMoodStepIndex)"
-    }
-    #endif
 
     private var playbackShareIdentity: String {
         Self.shareIdentity(title: model.playback?.trackName, artist: model.playback?.artistName)
@@ -3993,14 +3963,6 @@ private struct TrackInsightView: View {
                         #endif
                     }
                 }
-                #if canImport(AVKit) && (os(iOS) || os(macOS))
-                if let player = vibeCastAirPlaySession.player {
-                    HiddenAirPlayVideoPlayer(player: player)
-                        .frame(width: 44, height: 44)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                }
-                #endif
             }
             .djStatusToastOverlay(statusToast)
             .navigationTitle(screenTitle(model.language, key: "Track Insight", isDemoMode: model.isDemoMode))
@@ -4010,24 +3972,6 @@ private struct TrackInsightView: View {
             #endif
             .toolbar {
                 #if os(iOS)
-                ToolbarItemGroup(placement: .topBarLeading) {
-                    #if canImport(AVKit)
-                    VibeCastAirPlayToolbarButton(
-                        language: model.language,
-                        hasInsight: insight != nil,
-                        isPreparing: vibeCastAirPlaySession.isPreparing,
-                        isAnalyzing: model.isLoadingTrackInsight,
-                        isReady: vibeCastAirPlaySession.player != nil,
-                        canPrepare: model.canStartTrackInsightAnalysis,
-                        prepareAction: {
-                            Task { await prepareAirPlayVibeCast() }
-                        }
-                    )
-                    #else
-                    AirPlayToolbarButton(language: model.language)
-                    #endif
-                }
-
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     if insight != nil {
                         Button {
@@ -4046,21 +3990,6 @@ private struct TrackInsightView: View {
                 }
                 #else
                 ToolbarItemGroup(placement: .primaryAction) {
-                    #if canImport(AVKit)
-                    VibeCastAirPlayToolbarButton(
-                        language: model.language,
-                        hasInsight: insight != nil,
-                        isPreparing: vibeCastAirPlaySession.isPreparing,
-                        isAnalyzing: model.isLoadingTrackInsight,
-                        isReady: vibeCastAirPlaySession.player != nil,
-                        canPrepare: model.canStartTrackInsightAnalysis,
-                        prepareAction: {
-                            Task { await prepareAirPlayVibeCast() }
-                        }
-                    )
-                    #else
-                    AirPlayToolbarButton(language: model.language)
-                    #endif
                     if insight != nil {
                         Button {
                             isShowingShare = true
@@ -4099,37 +4028,8 @@ private struct TrackInsightView: View {
                 }
                 showStatusToast(message, systemImage: "exclamationmark.triangle.fill")
             }
-            #if canImport(AVKit) && (os(iOS) || os(macOS))
-            .onChange(of: model.playback?.progressMS) {
-                vibeCastAirPlaySession.sync(to: model.playback)
-            }
-            .onChange(of: model.playback?.isPlaying) {
-                vibeCastAirPlaySession.sync(to: model.playback)
-            }
-            .onChange(of: model.playback?.durationMS) {
-                vibeCastAirPlaySession.sync(to: model.playback)
-            }
-            #endif
             .djUserNoticeToast(model: model)
         }
-        #if canImport(AVKit) && (os(iOS) || os(macOS))
-        .task(id: airPlayRenderID) {
-            guard let insight else {
-                vibeCastAirPlaySession.reset()
-                return
-            }
-            guard shouldMaintainAirPlayVibeCast else {
-                return
-            }
-            await vibeCastAirPlaySession.prepare(
-                insight: insight,
-                language: model.language,
-                moodStepIndex: model.askDJMoodStepIndex,
-                fallbackArtworkURL: model.playback?.albumImageURL
-            )
-            vibeCastAirPlaySession.sync(to: model.playback, force: true)
-        }
-        #endif
         .onAppear {
             isAnimationActive = true
         }
@@ -4160,6 +4060,7 @@ private struct TrackInsightView: View {
     }
 
     private func refreshTrackInsightWithToast() async {
+        guard !model.isDemoMode, model.pairingStatus == .paired else { return }
         let didRefresh = await model.refreshTrackInsight(open: true, forceRefresh: true)
         let failureMessage = model.trackInsightErrorMessage?.trimmingCharacters(in: .whitespacesAndNewlines)
         showStatusToast(
@@ -4170,41 +4071,6 @@ private struct TrackInsightView: View {
         )
     }
 
-    #if canImport(AVKit) && (os(iOS) || os(macOS))
-    private func prepareAirPlayVibeCast() async {
-        shouldMaintainAirPlayVibeCast = true
-        if insight == nil || (!playbackShareIdentity.isEmpty && playbackShareIdentity != insightShareIdentity) {
-            _ = await model.refreshTrackInsight(open: false, forceRefresh: false)
-        }
-        guard let insight = model.currentTrackInsight else {
-            let failureMessage = model.trackInsightErrorMessage?.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let failureMessage, !failureMessage.isEmpty {
-                showStatusToast(failureMessage, systemImage: "exclamationmark.triangle.fill")
-            }
-            return
-        }
-        await vibeCastAirPlaySession.prepare(
-            insight: insight,
-            language: model.language,
-            moodStepIndex: model.askDJMoodStepIndex,
-            fallbackArtworkURL: model.playback?.albumImageURL
-        )
-        vibeCastAirPlaySession.sync(to: model.playback, force: true)
-    }
-
-    private func scheduleAirPlayVibeCastRefreshIfNeeded() {
-        guard shouldMaintainAirPlayVibeCast else {
-            return
-        }
-        guard model.canStartTrackInsightAnalysis else {
-            vibeCastAirPlaySession.reset()
-            return
-        }
-        Task { @MainActor in
-            await prepareAirPlayVibeCast()
-        }
-    }
-    #endif
 
     private func showStatusToast(_ text: String, systemImage: String) {
         let notice = DJConnectVisualNotice(text: text, systemImage: systemImage)
@@ -4250,7 +4116,7 @@ private struct TrackInsightRefreshButton: View {
                 Image(systemName: "arrow.clockwise")
             }
         }
-        .disabled(model.isLoadingTrackInsight || !model.canStartTrackInsightAnalysis)
+        .disabled(model.isDemoMode || model.pairingStatus != .paired || model.isLoadingTrackInsight || !model.canStartTrackInsightAnalysis)
         .tint(.primary)
         .help(localizedKey(model.language, "ui.refresh.track.insight"))
         .accessibilityLabel(localizedKey(model.language, "ui.refresh.track.insight"))
@@ -4259,7 +4125,9 @@ private struct TrackInsightRefreshButton: View {
 
 private struct MusicDNAView: View {
     @ObservedObject var model: DJConnectAppModel
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @State private var statusToast: DJConnectVisualNotice?
 
     private func shouldUseWideLayout(for size: CGSize) -> Bool {
@@ -4303,6 +4171,7 @@ private struct MusicDNAView: View {
                     #if DEBUG
                     guard !model.isMusicDNAPreviewMode else { return }
                     #endif
+                    guard !model.isDemoMode, model.pairingStatus == .paired else { return }
                     await model.refreshMusicDNAProfile(showToast: true)
                 }
                 #endif
@@ -4396,7 +4265,7 @@ private struct MusicDNARefreshButton: View {
                 Image(systemName: "arrow.clockwise")
             }
         }
-        .disabled(model.isLoadingMusicDNA || model.isUpdatingMusicDNA)
+        .disabled(model.isDemoMode || model.pairingStatus != .paired || model.isLoadingMusicDNA || model.isUpdatingMusicDNA)
         .tint(.primary)
         .help(localizedKey(model.language, "ui.refresh.music.dna"))
         .accessibilityLabel(localizedKey(model.language, "ui.refresh.music.dna"))
@@ -4419,11 +4288,11 @@ private struct MusicDNAHeroView: View {
         VStack(alignment: .leading, spacing: 14) {
             MusicDNAHelixView(moodStepIndex: moodStepIndex)
                 .frame(height: 220)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(DJConnectCardAppearance.shape)
         }
         .padding(24)
         .frame(maxWidth: .infinity, minHeight: 268, alignment: .center)
-        .djConnectGradientCard(cornerRadius: 8)
+        .djConnectGradientCard()
     }
 
     private var inactiveHero: some View {
@@ -4455,11 +4324,11 @@ private struct MusicDNAHeroView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            in: DJConnectCardAppearance.shape
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(.white.opacity(0.16), lineWidth: 1.5)
+            DJConnectCardAppearance.shape
+                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
         }
     }
 }
@@ -4530,6 +4399,8 @@ private struct MusicDNAOptInPromptView: View {
             .padding(28)
             .frame(minWidth: 360, idealWidth: 520, maxWidth: 620, minHeight: 420, alignment: .topLeading)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("music-dna-opt-in-prompt")
     }
 }
 
@@ -4579,7 +4450,9 @@ private struct MusicDNAContentView: View {
 private struct MusicDNASectionGrid: View {
     @ObservedObject var model: DJConnectAppModel
     let response: DJConnectMusicDNAProfileResponse
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     private var profile: DJConnectMusicDNAProfile { response.profile }
@@ -5054,7 +4927,7 @@ private struct MusicDNADisabledView: View {
             .disabled(model.isUpdatingMusicDNA)
         }
         .padding(24)
-        .djConnectGradientCard(cornerRadius: 8)
+        .djConnectGradientCard()
     }
 }
 
@@ -5081,7 +4954,7 @@ private struct MusicDNANoProfileView: View {
             .foregroundStyle(.white.opacity(0.62))
         }
         .padding(24)
-        .djConnectGradientCard(cornerRadius: 8)
+        .djConnectGradientCard()
     }
 }
 
@@ -5110,7 +4983,7 @@ private struct MusicDNAUnavailableView: View {
             .disabled(model.isLoadingMusicDNA)
         }
         .padding(24)
-        .djConnectGradientCard(cornerRadius: 8)
+        .djConnectGradientCard()
     }
 }
 
@@ -5132,7 +5005,7 @@ private struct MusicDNALoadingView: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .djConnectGradientCard(cornerRadius: 8)
+        .djConnectGradientCard()
     }
 }
 
@@ -5799,7 +5672,9 @@ private struct MusicDNAChipRow: View {
 }
 
 private struct MusicDNADashboardPanelModifier: ViewModifier {
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     func body(content: Content) -> some View {
@@ -5812,10 +5687,10 @@ private struct MusicDNADashboardPanelModifier: ViewModifier {
         .scrollBounceBehavior(.basedOnSize)
         #endif
             .frame(maxWidth: .infinity, minHeight: panelMinHeight, alignment: .topLeading)
-            .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(.white.opacity(0.08), in: DJConnectCardAppearance.shape)
             .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(.white.opacity(0.10), lineWidth: 1)
+                DJConnectCardAppearance.shape
+                    .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
             }
     }
 
@@ -5901,7 +5776,9 @@ private func musicDNAMoodTint(_ zone: String) -> Color {
 
 private struct MusicDiscoveryView: View {
     @ObservedObject var model: DJConnectAppModel
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @State private var selectedDetail: MusicDiscoveryDetailSelection?
     @State private var statusToast: DJConnectVisualNotice?
 
@@ -6068,11 +5945,11 @@ private struct MusicDiscoveryView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            in: DJConnectCardAppearance.shape
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(.white.opacity(0.16), lineWidth: 1.5)
+            DJConnectCardAppearance.shape
+                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
         }
     }
 }
@@ -6126,7 +6003,7 @@ private struct MusicDiscoveryCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             artwork
-                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .contentShape(DJConnectCardAppearance.shape)
                 .onTapGesture {
                     #if os(iOS)
                     DJConnectHaptics.selection()
@@ -6163,7 +6040,7 @@ private struct MusicDiscoveryCard: View {
 
     private var artwork: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            DJConnectCardAppearance.shape
                 .fill(.white.opacity(0.10))
             if let artworkURL {
                 AsyncImage(url: artworkURL) { phase in
@@ -6193,10 +6070,10 @@ private struct MusicDiscoveryCard: View {
             }
         }
         .frame(width: 142, height: 142)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .clipShape(DJConnectCardAppearance.shape)
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(.white.opacity(0.16), lineWidth: 1)
+            DJConnectCardAppearance.shape
+                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
         }
     }
 }
@@ -6444,10 +6321,10 @@ private struct DJConnectStatusCard<Action: View>: View {
         }
         .padding(16)
         .frame(maxWidth: 520, alignment: .leading)
-        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(.white.opacity(0.08), in: DJConnectCardAppearance.shape)
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(.white.opacity(0.14), lineWidth: 1)
+            DJConnectCardAppearance.shape
+                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
         }
     }
 }
@@ -6501,11 +6378,11 @@ private struct MusicDiscoveryLockedState: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            in: DJConnectCardAppearance.shape
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(.white.opacity(0.16), lineWidth: 1.5)
+            DJConnectCardAppearance.shape
+                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
         }
         .shadow(color: djConnectButtonPurple.opacity(0.18), radius: 18, y: 10)
     }
@@ -6813,7 +6690,7 @@ private struct MusicDNATimelinePreview: View {
             .fixedSize(horizontal: false, vertical: true)
         }
         .padding(14)
-        .djConnectGradientCard(cornerRadius: 8)
+        .djConnectGradientCard()
     }
 }
 
@@ -6989,10 +6866,10 @@ private struct TrackInsightHero: View {
         .padding(14)
         .frame(maxWidth: .infinity)
         .clipped()
-        .background(profile.gradient, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(profile.gradient, in: DJConnectCardAppearance.shape)
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(.white.opacity(colorScheme == .dark ? 0.16 : 0.22), lineWidth: 1)
+            DJConnectCardAppearance.shape
+                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
         }
     }
 }
@@ -7528,1289 +7405,6 @@ private struct TrackInsightPrivacyFooter: View {
             .padding(.bottom, 6)
     }
 }
-
-public struct VibeCastOutputView: View {
-    @ObservedObject var model: DJConnectAppModel
-    let insight: TrackInsight?
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    public init(model: DJConnectAppModel, insight: TrackInsight? = nil) {
-        self.model = model
-        self.insight = insight
-    }
-
-    public var body: some View {
-        ZStack {
-            DJConnectCanvasBackground()
-            if let insight = insight ?? model.currentTrackInsight {
-                VibeCastVisualizerSignalView(
-                    insight: insight,
-                    playback: model.playback,
-                    vibeCastItems: model.vibeCastItems,
-                    genreBadge: model.vibeCastResponse?.context?.genreBadge ?? fallbackGenreBadge(from: insight),
-                    language: model.language,
-                    moodStepIndex: model.askDJMoodStepIndex,
-                    reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled
-                )
-            } else {
-                VibeCastEmptySignalView(language: model.language)
-            }
-        }
-        .ignoresSafeArea()
-        .task {
-            await model.runVibeCastPolling()
-        }
-    }
-
-    private func fallbackGenreBadge(from insight: TrackInsight) -> DJConnectVibeCastResponse.Context.GenreBadge? {
-        guard let label = [insight.genre, insight.subgenre]
-            .compactMap({ $0?.trimmingCharacters(in: .whitespacesAndNewlines) })
-            .first(where: { !$0.isEmpty }) else {
-            return nil
-        }
-        let canonical = label
-            .lowercased()
-            .components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .filter { !$0.isEmpty }
-            .joined(separator: "-")
-        return DJConnectVibeCastResponse.Context.GenreBadge(
-            label: label,
-            genre: canonical.isEmpty ? nil : canonical,
-            placement: "top_trailing"
-        )
-    }
-}
-
-struct VibeCastVisualizerSignalView: View {
-    let insight: TrackInsight
-    let playback: DJConnectPlayback?
-    let vibeCastItems: [DJConnectVibeCastResponse.Item]
-    let genreBadge: DJConnectVibeCastResponse.Context.GenreBadge?
-    let language: String
-    let moodStepIndex: Int
-    let reduceMotion: Bool
-    var renderedArtworkImage: Image? = nil
-    @State private var playbackAnchor = TrackVibePlaybackAnchor()
-
-    private var profile: TrackVibeProfile {
-        TrackVibeProfile.make(for: insight)
-            .applyingTrackInsightMoodRenderOverride(stepIndex: moodStepIndex)
-    }
-
-    private var isPlaying: Bool {
-        playback?.isPlaying == true
-    }
-
-    private var playbackSignature: String {
-        TrackVibePlaybackAnchor.signature(for: playback)
-    }
-
-    var body: some View {
-        Group {
-            if reduceMotion || !isPlaying {
-                TimelineView(.periodic(from: .now, by: 60)) { timeline in
-                    premiumScene(date: timeline.date)
-                }
-            } else {
-                TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
-                    premiumScene(date: timeline.date)
-                }
-            }
-        }
-        .onAppear {
-            playbackAnchor.update(from: playback, at: Date())
-        }
-        .onChange(of: playbackSignature) {
-            playbackAnchor.update(from: playback, at: Date())
-        }
-        .onChange(of: playback?.progressMS) {
-            playbackAnchor.update(from: playback, at: Date())
-        }
-        .onChange(of: playback?.isPlaying) {
-            playbackAnchor.update(from: playback, at: Date())
-        }
-        .onChange(of: playback?.durationMS) {
-            playbackAnchor.update(from: playback, at: Date())
-        }
-    }
-
-    private func premiumScene(date: Date) -> some View {
-        let phase = TrackVibePlaybackPhase(playback: playback, anchor: playbackAnchor, date: date)
-        return GeometryReader { geometry in
-            let artworkSize = artworkSize(in: geometry.size)
-            let artworkY = geometry.size.height * 0.29
-            let infoY = min(geometry.size.height * 0.56, artworkY + artworkSize / 2 + 78)
-            ZStack {
-                TrackInsightPremiumBackground(profile: profile, phase: phase, date: date)
-                TrackInsightLightField(profile: profile, phase: phase, date: date)
-
-                TrackInsightHeroArtwork(
-                    insight: insight,
-                    profile: profile,
-                    playback: playback,
-                    reduceMotion: reduceMotion,
-                    isActive: !reduceMotion && isPlaying,
-                    renderedArtworkImage: renderedArtworkImage
-                )
-                .frame(width: artworkSize, height: artworkSize)
-                .position(x: geometry.size.width * 0.50, y: artworkY)
-
-                TrackInsightHeroInfo(insight: insight, language: language)
-                    .frame(maxWidth: min(920, geometry.size.width * 0.78))
-                    .position(x: geometry.size.width / 2, y: infoY)
-
-                TrackInsightPremiumSpectrum(profile: profile, phase: phase)
-                    .frame(height: max(112, geometry.size.height * 0.17))
-                    .padding(.horizontal, max(52, geometry.size.width * 0.12))
-                    .position(x: geometry.size.width / 2, y: geometry.size.height * 0.86)
-
-                VibeCastBubbleField(
-                    items: vibeCastItems,
-                    profile: profile,
-                    canvasSize: geometry.size,
-                    reduceMotion: reduceMotion
-                )
-
-                brandHeader
-                    .padding(max(24, geometry.size.width * 0.035))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
-                if let genreBadge, let label = genreBadge.displayLabel {
-                    VibeCastGenreBadge(
-                        label: label,
-                        canonicalGenre: genreBadge.canonicalGenre,
-                        moodStepIndex: moodStepIndex
-                    )
-                        .frame(maxWidth: min(360, max(190, geometry.size.width * 0.40)), alignment: .trailing)
-                        .padding(max(24, geometry.size.width * 0.035))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                }
-            }
-        }
-    }
-
-    private func artworkSize(in size: CGSize) -> CGFloat {
-        min(size.width * 0.24, size.height * 0.36, 360)
-    }
-
-    private var brandHeader: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "airplayvideo")
-                .font(.headline.weight(.bold))
-            Text("DJCONNECT VIBECAST")
-                .font(.headline.weight(.bold))
-                .tracking(1.2)
-            Spacer(minLength: 0)
-        }
-        .foregroundStyle(.white.opacity(0.88))
-    }
-}
-
-private struct VibeCastGenreBadge: View {
-    let label: String
-    let canonicalGenre: String?
-    let moodStepIndex: Int
-
-    private var moodPalette: MusicDNAHelixMoodPalette {
-        MusicDNAHelixMoodPalette(stepIndex: moodStepIndex)
-    }
-
-    var body: some View {
-        let primary = moodPalette.colors[safe: 0] ?? djConnectAccent
-        let secondary = moodPalette.colors[safe: 1] ?? Color(red: 0.45, green: 0.28, blue: 1.0)
-        let tertiary = moodPalette.colors[safe: 2] ?? Color(red: 0.0, green: 0.78, blue: 0.94)
-
-        HStack(spacing: 9) {
-            Image(systemName: "music.note.list")
-                .font(.system(size: 14, weight: .black))
-                .foregroundStyle(.white)
-                .frame(width: 24, height: 24)
-                .background {
-                    Circle()
-                        .fill(.white.opacity(0.18))
-                        .overlay {
-                            Circle()
-                                .stroke(.white.opacity(0.34), lineWidth: 1)
-                        }
-                }
-
-            Text(label)
-                .font(.system(size: 20, weight: .black, design: .rounded))
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
-                .truncationMode(.tail)
-                .foregroundStyle(.white)
-        }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 16)
-            .background {
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                primary,
-                                secondary,
-                                tertiary
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .overlay {
-                        Capsule()
-                            .stroke(.white.opacity(0.55), lineWidth: 1.5)
-                    }
-                    .shadow(color: primary.opacity(0.30 + moodPalette.glow * 0.24), radius: 22, y: 8)
-                    .shadow(color: tertiary.opacity(0.18 + moodPalette.glow * 0.16), radius: 18, y: 2)
-            }
-            .accessibilityLabel(label)
-            .accessibilityIdentifier("vibecast-genre-badge")
-            .help(canonicalGenre ?? label)
-    }
-}
-
-private struct VibeCastBubbleField: View {
-    let items: [DJConnectVibeCastResponse.Item]
-    let profile: TrackVibeProfile
-    let canvasSize: CGSize
-    let reduceMotion: Bool
-
-    private var visibleItems: [DJConnectVibeCastResponse.Item] {
-        Array(items.prefix(canvasSize.width < 720 ? 3 : 5))
-    }
-
-    var body: some View {
-        ZStack {
-            ForEach(Array(visibleItems.enumerated()), id: \.element.id) { index, item in
-                let style = bubbleStyle(for: item, index: index)
-                VibeCastFactBubble(item: item, accent: bubbleAccent(index: index), style: style)
-                    .frame(width: style.width)
-                    .position(position(for: item, index: index))
-                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.7).delay(Double(index) * 0.12), value: visibleItems.map(\.id))
-            }
-        }
-        .allowsHitTesting(false)
-    }
-
-    private var bubbleWidth: CGFloat {
-        min(300, max(190, canvasSize.width * (canvasSize.width < 720 ? 0.34 : 0.22)))
-    }
-
-    private func position(for item: DJConnectVibeCastResponse.Item, index: Int) -> CGPoint {
-        let leftSide = stableSeed(item.id, salt: index) % 2 == 0
-        let width = bubbleStyle(for: item, index: index).width
-        let sideInset = max(18, canvasSize.width * 0.035)
-        let x = leftSide ? sideInset + width / 2 : canvasSize.width - sideInset - width / 2
-        let safeTop = max(92, canvasSize.height * 0.14)
-        let safeBottom = min(canvasSize.height * 0.74, canvasSize.height - 150)
-        let lanes = max(1, visibleItems.count)
-        let lane = CGFloat(index % lanes)
-        let laneHeight = max(1, (safeBottom - safeTop) / CGFloat(lanes))
-        let jitter = CGFloat(stableSeed(item.id, salt: 31) % 37) - 18
-        let y = min(safeBottom, max(safeTop, safeTop + laneHeight * (lane + 0.5) + jitter))
-        return CGPoint(x: x, y: y)
-    }
-
-    private func bubbleStyle(for item: DJConnectVibeCastResponse.Item, index: Int) -> VibeCastFactBubble.Style {
-        let widthSeed = stableSeed(item.id, salt: 17 + index)
-        let fontSeed = stableSeed(item.id, salt: 43 + index)
-        let shapeSeed = stableSeed(item.id, salt: 71 + index)
-        let widthScale = CGFloat(92 + (widthSeed % 19)) / 100
-        let fontSize = CGFloat(16 + (fontSeed % 4))
-        let cornerBase = CGFloat(16 + (shapeSeed % 10))
-        return VibeCastFactBubble.Style(
-            width: min(330, max(182, bubbleWidth * widthScale)),
-            fontSize: fontSize,
-            verticalPadding: CGFloat(12 + (shapeSeed % 4)),
-            horizontalPadding: CGFloat(15 + (widthSeed % 5)),
-            cornerRadii: RectangleCornerRadii(
-                topLeading: cornerBase + CGFloat(shapeSeed % 7),
-                bottomLeading: cornerBase * 0.72 + CGFloat((shapeSeed / 3) % 5),
-                bottomTrailing: cornerBase + CGFloat((shapeSeed / 5) % 9),
-                topTrailing: cornerBase * 0.82 + CGFloat((shapeSeed / 7) % 6)
-            )
-        )
-    }
-
-    private func bubbleAccent(index: Int) -> Color {
-        profile.colors[safe: index % max(profile.colors.count, 1)] ?? djConnectAccent
-    }
-
-    private func stableSeed(_ value: String, salt: Int) -> Int {
-        abs(value.unicodeScalars.reduce(salt) { ($0 &* 31) &+ Int($1.value) })
-    }
-}
-
-private struct VibeCastFactBubble: View {
-    struct Style: Equatable {
-        var width: CGFloat
-        var fontSize: CGFloat
-        var verticalPadding: CGFloat
-        var horizontalPadding: CGFloat
-        var cornerRadii: RectangleCornerRadii
-    }
-
-    let item: DJConnectVibeCastResponse.Item
-    let accent: Color
-    let style: Style
-
-    var body: some View {
-        richText
-            .font(.system(size: style.fontSize, weight: .semibold, design: .rounded))
-            .lineSpacing(3)
-            .foregroundStyle(.white.opacity(0.92))
-            .multilineTextAlignment(.leading)
-            .padding(.vertical, style.verticalPadding)
-            .padding(.horizontal, style.horizontalPadding)
-            .background {
-                UnevenRoundedRectangle(cornerRadii: style.cornerRadii, style: .continuous)
-                    .fill(.black.opacity(0.36))
-                    .overlay {
-                        UnevenRoundedRectangle(cornerRadii: style.cornerRadii, style: .continuous)
-                            .stroke(accent.opacity(0.46), lineWidth: 1)
-                    }
-                    .shadow(color: accent.opacity(0.22), radius: 18, y: 8)
-            }
-    }
-
-    private var richText: Text {
-        Text(attributedRichText)
-    }
-
-    private var attributedRichText: AttributedString {
-        item.text.reduce(into: AttributedString()) { partial, segment in
-            partial += attributedText(for: segment)
-        }
-    }
-
-    private func attributedText(for segment: DJConnectVibeCastResponse.TextSegment) -> AttributedString {
-        var text = AttributedString(segment.type == .lineBreak ? "\n" : segment.value)
-        switch segment.type {
-        case .lineBreak:
-            break
-        case .strong:
-            text.font = .system(size: style.fontSize + 1.5, weight: .black, design: .rounded)
-        case .emphasis:
-            text.inlinePresentationIntent = .emphasized
-        case .magnify:
-            text.font = .system(size: style.fontSize + 5, weight: .black, design: .rounded)
-            text.foregroundColor = .white
-        case .accent:
-            text.font = .system(size: style.fontSize + 1, weight: .bold, design: .rounded)
-            text.foregroundColor = accent.mix(with: .white, by: 0.24)
-        case .text, .emoji, .unknown:
-            break
-        }
-        return text
-    }
-}
-
-private struct VibeCastEmptySignalView: View {
-    let language: String
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "airplayvideo")
-                .font(.system(size: 58, weight: .semibold))
-                .foregroundStyle(djConnectAccent)
-            Text("VibeCast")
-                .font(.largeTitle.weight(.bold))
-                .foregroundStyle(.white)
-            Text(localizedKey(language, "ui.analyze.a.track.to.publish.the.visualizer.signal"))
-                .font(.headline)
-                .foregroundStyle(.white.opacity(0.68))
-        }
-        .padding(32)
-    }
-}
-
-#if DEBUG && os(iOS) && targetEnvironment(simulator)
-#Preview("VibeCast - Genre Badge") {
-    VibeCastVisualizerSignalView(
-        insight: DemoTrackInsightService.defaultTracks[6],
-        playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, progressMS: 62_000, durationMS: 360_000),
-        vibeCastItems: [
-            DJConnectVibeCastResponse.Item(
-                id: "preview-fact",
-                kind: .genreFact,
-                text: [.init(type: .text, value: "Warm melodic layers with a patient groove.")]
-            )
-        ],
-        genreBadge: .init(label: "melodic techno", genre: "melodic-techno", placement: "top_trailing"),
-        language: "en",
-        moodStepIndex: 5,
-        reduceMotion: true
-    )
-}
-
-#Preview("VibeCast - No Genre Badge") {
-    VibeCastVisualizerSignalView(
-        insight: DemoTrackInsightService.defaultTracks[3],
-        playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, progressMS: 92_000, durationMS: 540_000),
-        vibeCastItems: [
-            DJConnectVibeCastResponse.Item(
-                id: "preview-fact",
-                kind: .trackFact,
-                text: [.init(type: .text, value: "The build stays spacious and slow-burning.")]
-            )
-        ],
-        genreBadge: nil,
-        language: "en",
-        moodStepIndex: 4,
-        reduceMotion: true
-    )
-}
-
-#Preview("VibeCast - Long Genre Badge") {
-    VibeCastVisualizerSignalView(
-        insight: DemoTrackInsightService.defaultTracks[9],
-        playback: DJConnectPlayback(hasPlayback: true, isPlaying: true, progressMS: 128_000, durationMS: 560_000),
-        vibeCastItems: [
-            DJConnectVibeCastResponse.Item(
-                id: "preview-fact",
-                kind: .genreFact,
-                text: [.init(type: .text, value: "A cinematic groove with live-disco motion.")]
-            )
-        ],
-        genreBadge: .init(
-            label: "deep progressive melodic techno with organic house textures",
-            genre: "deep-progressive-melodic-techno",
-            placement: "unknown"
-        ),
-        language: "en",
-        moodStepIndex: 7,
-        reduceMotion: true
-    )
-}
-#endif
-
-#if canImport(AVKit) && (os(iOS) || os(macOS))
-private func vibeCastAirPlayDebug(_ message: String) {
-    print("VibeCast AirPlay: \(message)")
-}
-
-private final class VibeCastAirPlayStreamServer: @unchecked Sendable {
-    private let fileURL: URL
-    private let token = UUID().uuidString
-    private let queue = DispatchQueue(label: "DJConnect.VibeCastAirPlayStreamServer")
-    private let listener: NWListener
-
-    private init(fileURL: URL, listener: NWListener) {
-        self.fileURL = fileURL
-        self.listener = listener
-    }
-
-    deinit {
-        stop()
-    }
-
-    static func start(fileURL: URL) async throws -> (server: VibeCastAirPlayStreamServer, url: URL) {
-        let listener = try NWListener(using: .tcp, on: .any)
-        let server = VibeCastAirPlayStreamServer(fileURL: fileURL, listener: listener)
-        let port = try await server.startListening()
-        guard let host = Self.localIPv4Address(),
-              let url = URL(string: "http://\(host):\(port)/\(server.token).mp4") else {
-            server.stop()
-            throw URLError(.cannotFindHost)
-        }
-        vibeCastAirPlayDebug("streaming over http url=\(url.absoluteString)")
-        return (server, url)
-    }
-
-    func stop() {
-        listener.cancel()
-    }
-
-    private func startListening() async throws -> UInt16 {
-        try await withCheckedThrowingContinuation { continuation in
-            let state = LockedResultContinuation<UInt16>(continuation)
-            listener.newConnectionHandler = { [weak self] connection in
-                self?.handle(connection)
-            }
-            listener.stateUpdateHandler = { listenerState in
-                switch listenerState {
-                case .ready:
-                    if let port = self.listener.port?.rawValue {
-                        state.resume(returning: port)
-                    } else {
-                        state.resume(throwing: URLError(.badServerResponse))
-                    }
-                case .failed(let error):
-                    state.resume(throwing: error)
-                case .cancelled:
-                    state.resume(throwing: CancellationError())
-                default:
-                    break
-                }
-            }
-            listener.start(queue: queue)
-        }
-    }
-
-    private func handle(_ connection: NWConnection) {
-        connection.start(queue: queue)
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 8_192) { [weak self] data, _, _, _ in
-            guard let self else {
-                connection.cancel()
-                return
-            }
-            guard let data,
-                  let request = String(data: data, encoding: .utf8),
-                  let requestLine = request.components(separatedBy: "\r\n").first else {
-                self.sendStatus(404, body: "not found", on: connection)
-                return
-            }
-            let isGet = requestLine.hasPrefix("GET /\(self.token).mp4 ")
-            let isHead = requestLine.hasPrefix("HEAD /\(self.token).mp4 ")
-            guard isGet || isHead else {
-                self.sendStatus(404, body: "not found", on: connection)
-                return
-            }
-            do {
-                let fileData = try Data(contentsOf: self.fileURL)
-                let fileCount = fileData.count
-                let range = Self.byteRange(from: request, fileCount: fileCount)
-                let statusLine = range == nil ? "HTTP/1.1 200 OK" : "HTTP/1.1 206 Partial Content"
-                let bodyRange = range ?? (0..<fileCount)
-                let bodyCount = max(bodyRange.upperBound - bodyRange.lowerBound, 0)
-                vibeCastAirPlayDebug("http \(isHead ? "HEAD" : "GET") \(statusLine) range=\(range.map { "\($0.lowerBound)-\($0.upperBound - 1)" } ?? "full") bytes=\(bodyCount)")
-                let header = Self.httpHeader(
-                    statusLine: statusLine,
-                    contentLength: bodyCount,
-                    contentRange: range.map { "bytes \($0.lowerBound)-\($0.upperBound - 1)/\(fileCount)" },
-                    contentType: "video/mp4"
-                )
-                guard !isHead else {
-                    self.send(Data(header.utf8), on: connection)
-                    return
-                }
-                var responseData = Data(header.utf8)
-                responseData.append(fileData.subdata(in: bodyRange))
-                let response = HTTPResponse(data: responseData)
-                self.send(response.data, on: connection)
-            } catch {
-                self.sendStatus(500, body: error.localizedDescription, on: connection)
-            }
-        }
-    }
-
-    private func sendStatus(_ status: Int, body: String, on connection: NWConnection) {
-        let bodyData = Data(body.utf8)
-        var response = Data(Self.httpHeader(
-            statusLine: "HTTP/1.1 \(status) Error",
-            contentLength: bodyData.count,
-            contentRange: nil,
-            contentType: "text/plain; charset=utf-8"
-        ).utf8)
-        response.append(bodyData)
-        let httpResponse = HTTPResponse(data: response)
-        send(httpResponse.data, on: connection)
-    }
-
-    private func send(_ data: Data, on connection: NWConnection) {
-        let response = HTTPResponse(data: data)
-        connection.send(content: response.data, completion: .contentProcessed { _ in
-            connection.cancel()
-        })
-    }
-
-    private static func byteRange(from request: String, fileCount: Int) -> Range<Int>? {
-        for line in request.components(separatedBy: "\r\n") {
-            let lower = line.lowercased()
-            guard lower.hasPrefix("range: bytes=") else {
-                continue
-            }
-            let value = line.dropFirst("Range: bytes=".count)
-            let parts = value.split(separator: "-", omittingEmptySubsequences: false)
-            guard let first = parts.first,
-                  let start = Int(first.trimmingCharacters(in: .whitespaces)),
-                  start < fileCount else {
-                return nil
-            }
-            let end: Int
-            if parts.count > 1,
-               let parsedEnd = Int(parts[1].trimmingCharacters(in: .whitespaces)) {
-                end = min(parsedEnd + 1, fileCount)
-            } else {
-                end = fileCount
-            }
-            guard start < end else {
-                return nil
-            }
-            return start..<end
-        }
-        return nil
-    }
-
-    private static func httpHeader(
-        statusLine: String,
-        contentLength: Int,
-        contentRange: String?,
-        contentType: String
-    ) -> String {
-        var lines = [
-            statusLine,
-            "Content-Type: \(contentType)",
-            "Accept-Ranges: bytes",
-            "Content-Length: \(contentLength)",
-            "Cache-Control: no-store",
-            "Connection: close"
-        ]
-        if let contentRange {
-            lines.insert("Content-Range: \(contentRange)", at: 4)
-        }
-        return lines.joined(separator: "\r\n") + "\r\n\r\n"
-    }
-
-    private static func localIPv4Address() -> String? {
-        var interfaces: UnsafeMutablePointer<ifaddrs>?
-        guard getifaddrs(&interfaces) == 0, let first = interfaces else {
-            return nil
-        }
-        defer { freeifaddrs(interfaces) }
-
-        var candidate: String?
-        var pointer: UnsafeMutablePointer<ifaddrs>? = first
-        while let interface = pointer?.pointee {
-            defer { pointer = interface.ifa_next }
-            guard let address = interface.ifa_addr,
-                  address.pointee.sa_family == UInt8(AF_INET) else {
-                continue
-            }
-            let flags = Int32(interface.ifa_flags)
-            guard (flags & IFF_UP) != 0, (flags & IFF_LOOPBACK) == 0 else {
-                continue
-            }
-            var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-            let result = getnameinfo(
-                address,
-                socklen_t(address.pointee.sa_len),
-                &host,
-                socklen_t(host.count),
-                nil,
-                0,
-                NI_NUMERICHOST
-            )
-            guard result == 0 else {
-                continue
-            }
-            let name = Self.string(fromNullTerminatedCString: interface.ifa_name)
-            let ip = Self.string(fromNullTerminatedCString: host)
-            if name == "en0" {
-                return ip
-            }
-            candidate = candidate ?? ip
-        }
-        return candidate
-    }
-
-    private static func string(fromNullTerminatedCString pointer: UnsafePointer<CChar>) -> String {
-        var bytes: [UInt8] = []
-        var index = 0
-        while pointer[index] != 0 {
-            bytes.append(UInt8(bitPattern: pointer[index]))
-            index += 1
-        }
-        return String(decoding: bytes, as: UTF8.self)
-    }
-
-    private struct HTTPResponse: @unchecked Sendable {
-        let data: Data
-    }
-}
-
-private final class LockedResultContinuation<Value: Sendable>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<Value, Error>?
-
-    init(_ continuation: CheckedContinuation<Value, Error>) {
-        self.continuation = continuation
-    }
-
-    func resume(returning value: Value) {
-        resume(with: .success(value))
-    }
-
-    func resume(throwing error: Error) {
-        resume(with: .failure(error))
-    }
-
-    private func resume(with result: Result<Value, Error>) {
-        lock.lock()
-        let continuation = continuation
-        self.continuation = nil
-        lock.unlock()
-
-        switch result {
-        case .success(let value):
-            continuation?.resume(returning: value)
-        case .failure(let error):
-            continuation?.resume(throwing: error)
-        }
-    }
-}
-
-private func makeAirPlayPreviewPlayer(url: URL) async -> AVPlayer {
-    await Task.detached(priority: .userInitiated) {
-        let item = AVPlayerItem(url: url)
-        item.preferredForwardBufferDuration = 1
-        let avPlayer = AVPlayer(playerItem: item)
-        avPlayer.actionAtItemEnd = .none
-        avPlayer.automaticallyWaitsToMinimizeStalling = false
-        avPlayer.allowsExternalPlayback = true
-        #if os(iOS)
-        avPlayer.usesExternalPlaybackWhileExternalScreenIsActive = true
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay])
-        try? AVAudioSession.sharedInstance().setActive(true)
-        #endif
-        return avPlayer
-    }.value
-}
-
-@MainActor
-private final class VibeCastAirPlaySession: ObservableObject {
-    @Published var player: AVPlayer?
-    @Published var isPreparing = false
-    @Published var progress = 0.0
-    @Published var errorMessage: String?
-
-    private var preparedRenderID: String?
-    private var preparingRenderID: String?
-    private var renderedURL: URL?
-    private var streamServer: VibeCastAirPlayStreamServer?
-    private var playerDiagnostics: [NSKeyValueObservation] = []
-    private var playerDiagnosticObservers: [NSObjectProtocol] = []
-
-    func prepare(insight: TrackInsight, language: String, moodStepIndex: Int, fallbackArtworkURL: URL?) async {
-        let renderID = [
-            insight.id,
-            "\(moodStepIndex)",
-            insight.artwork?.absoluteString ?? fallbackArtworkURL?.absoluteString ?? ""
-        ].joined(separator: "|")
-        if preparedRenderID == renderID, player != nil {
-            player?.play()
-            return
-        }
-        guard preparingRenderID != renderID else {
-            vibeCastAirPlayDebug("prepare ignored; render already in progress id=\(renderID)")
-            return
-        }
-        reset()
-        preparingRenderID = renderID
-        preparedRenderID = renderID
-        isPreparing = true
-        progress = 0
-        errorMessage = nil
-        do {
-            let url = try await TrackInsightShareRenderer.renderAirPlayVideo(
-                insight: insight,
-                language: language,
-                moodStepIndex: moodStepIndex,
-                fallbackArtworkURL: fallbackArtworkURL
-            ) { [weak self] value in
-                self?.progress = value
-            }
-            try Task.checkCancellation()
-            renderedURL = url
-            let served = try await VibeCastAirPlayStreamServer.start(fileURL: url)
-            streamServer = served.server
-            let avPlayer = await makeAirPlayPreviewPlayer(url: served.url)
-            installDiagnostics(for: avPlayer, url: served.url)
-            player = avPlayer
-            isPreparing = false
-            preparingRenderID = nil
-            avPlayer.play()
-        } catch is CancellationError {
-            reset()
-        } catch {
-            preparingRenderID = nil
-            errorMessage = error.localizedDescription
-            isPreparing = false
-        }
-    }
-
-    func reset() {
-        clearDiagnostics()
-        streamServer?.stop()
-        streamServer = nil
-        player?.pause()
-        player = nil
-        renderedURL = nil
-        preparedRenderID = nil
-        preparingRenderID = nil
-        progress = 0
-        errorMessage = nil
-        isPreparing = false
-    }
-
-    func sync(to playback: DJConnectPlayback?, force _: Bool = false) {
-        guard let player else {
-            return
-        }
-        if playback?.isPlaying == true {
-            player.play()
-        } else {
-            player.pause()
-        }
-    }
-
-    func loopIfNeeded(_ object: Any?) {
-        guard let item = object as? AVPlayerItem,
-              item == player?.currentItem else {
-            return
-        }
-        item.seek(to: .zero, completionHandler: nil)
-        player?.play()
-    }
-
-    private func installDiagnostics(for player: AVPlayer, url: URL) {
-        clearDiagnostics()
-        vibeCastAirPlayDebug("prepared url=\(url.lastPathComponent)")
-        if let item = player.currentItem {
-            playerDiagnostics.append(item.observe(\.status, options: [.initial, .new]) { item, _ in
-                vibeCastAirPlayDebug("item status=\(Self.describe(item.status)) error=\(item.error?.localizedDescription ?? "none")")
-            })
-            playerDiagnostics.append(item.observe(\.isPlaybackLikelyToKeepUp, options: [.initial, .new]) { item, _ in
-                vibeCastAirPlayDebug("item likelyToKeepUp=\(item.isPlaybackLikelyToKeepUp)")
-            })
-            playerDiagnostics.append(item.observe(\.isPlaybackBufferEmpty, options: [.initial, .new]) { item, _ in
-                vibeCastAirPlayDebug("item bufferEmpty=\(item.isPlaybackBufferEmpty)")
-            })
-            playerDiagnosticObservers.append(NotificationCenter.default.addObserver(
-                forName: .AVPlayerItemFailedToPlayToEndTime,
-                object: item,
-                queue: .main
-            ) { notification in
-                let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
-                vibeCastAirPlayDebug("failedToPlayToEnd error=\(error?.localizedDescription ?? "unknown")")
-            })
-            playerDiagnosticObservers.append(NotificationCenter.default.addObserver(
-                forName: .AVPlayerItemNewErrorLogEntry,
-                object: item,
-                queue: .main
-            ) { _ in
-                let event = item.errorLog()?.events.last
-                vibeCastAirPlayDebug("errorLog status=\(event?.errorStatusCode ?? 0) domain=\(event?.errorDomain ?? "unknown") comment=\(event?.errorComment ?? "none")")
-            })
-            playerDiagnosticObservers.append(NotificationCenter.default.addObserver(
-                forName: .AVPlayerItemNewAccessLogEntry,
-                object: item,
-                queue: .main
-            ) { _ in
-                let event = item.accessLog()?.events.last
-                vibeCastAirPlayDebug("accessLog playbackType=\(event?.playbackType ?? "unknown") observedBitrate=\(event?.observedBitrate ?? 0) indicatedBitrate=\(event?.indicatedBitrate ?? 0)")
-            })
-        }
-        playerDiagnostics.append(player.observe(\.timeControlStatus, options: [.initial, .new]) { player, _ in
-            vibeCastAirPlayDebug("timeControlStatus=\(Self.describe(player.timeControlStatus)) reason=\(player.reasonForWaitingToPlay?.rawValue ?? "none")")
-        })
-        playerDiagnostics.append(player.observe(\.isExternalPlaybackActive, options: [.initial, .new]) { player, _ in
-            vibeCastAirPlayDebug("externalPlaybackActive=\(player.isExternalPlaybackActive)")
-        })
-    }
-
-    private func clearDiagnostics() {
-        playerDiagnostics.removeAll()
-        playerDiagnosticObservers.forEach(NotificationCenter.default.removeObserver)
-        playerDiagnosticObservers.removeAll()
-    }
-
-    nonisolated private static func describe(_ status: AVPlayerItem.Status) -> String {
-        switch status {
-        case .unknown:
-            return "unknown"
-        case .readyToPlay:
-            return "readyToPlay"
-        case .failed:
-            return "failed"
-        @unknown default:
-            return "unknown(\(status.rawValue))"
-        }
-    }
-
-    nonisolated private static func describe(_ status: AVPlayer.TimeControlStatus) -> String {
-        switch status {
-        case .paused:
-            return "paused"
-        case .waitingToPlayAtSpecifiedRate:
-            return "waitingToPlayAtSpecifiedRate"
-        case .playing:
-            return "playing"
-        @unknown default:
-            return "unknown"
-        }
-    }
-}
-
-#if canImport(AVFoundation) && os(iOS)
-private struct HiddenAirPlayVideoPlayer: UIViewRepresentable {
-    let player: AVPlayer
-
-    func makeUIView(context: Context) -> PlayerLayerHostView {
-        let view = PlayerLayerHostView()
-        view.playerLayer.player = player
-        view.playerLayer.videoGravity = .resizeAspect
-        view.isUserInteractionEnabled = false
-        view.alpha = 0.001
-        return view
-    }
-
-    func updateUIView(_ uiView: PlayerLayerHostView, context: Context) {
-        if uiView.playerLayer.player !== player {
-            uiView.playerLayer.player = player
-        }
-        uiView.alpha = 0.001
-    }
-
-    final class PlayerLayerHostView: UIView {
-        override class var layerClass: AnyClass {
-            AVPlayerLayer.self
-        }
-
-        var playerLayer: AVPlayerLayer {
-            layer as! AVPlayerLayer
-        }
-    }
-}
-#elseif canImport(AVFoundation) && os(macOS)
-private struct HiddenAirPlayVideoPlayer: NSViewRepresentable {
-    let player: AVPlayer
-
-    func makeNSView(context: Context) -> PlayerLayerHostView {
-        let view = PlayerLayerHostView()
-        view.playerLayer.player = player
-        view.playerLayer.videoGravity = .resizeAspect
-        view.wantsLayer = true
-        view.alphaValue = 0.001
-        return view
-    }
-
-    func updateNSView(_ nsView: PlayerLayerHostView, context: Context) {
-        if nsView.playerLayer.player !== player {
-            nsView.playerLayer.player = player
-        }
-        nsView.alphaValue = 0.001
-    }
-
-    final class PlayerLayerHostView: NSView {
-        let playerLayer = AVPlayerLayer()
-
-        override init(frame frameRect: NSRect) {
-            super.init(frame: frameRect)
-            wantsLayer = true
-            layer = playerLayer
-        }
-
-        required init?(coder: NSCoder) {
-            super.init(coder: coder)
-            wantsLayer = true
-            layer = playerLayer
-        }
-    }
-}
-#endif
-
-private struct VibeCastAirPlayToolbarButton: View {
-    let language: String
-    let hasInsight: Bool
-    let isPreparing: Bool
-    let isAnalyzing: Bool
-    let isReady: Bool
-    let canPrepare: Bool
-    let prepareAction: () -> Void
-
-    var body: some View {
-        if hasInsight, isReady {
-            NativeAirPlayRoutePicker()
-                .frame(width: 30, height: 30)
-                .accessibilityLabel(localizedKey(language, "ui.airplay.vibecast"))
-                .help(localizedKey(language, "ui.send.vibecast.video.to.airplay"))
-        } else if isPreparing || isAnalyzing {
-            ProgressView()
-                .controlSize(.small)
-                .frame(width: 30, height: 30)
-                .tint(.primary)
-                .accessibilityLabel(localizedKey(language, "ui.preparing.vibecast.video"))
-        } else {
-            Button(action: prepareAction) {
-                Image(systemName: "airplayvideo")
-                    .frame(width: 30, height: 30)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(canPrepare ? .primary : .secondary)
-            .disabled(!canPrepare)
-            .opacity(canPrepare ? 1 : 0.42)
-            .accessibilityLabel(localizedKey(language, hasInsight ? "ui.prepare.vibecast.video" : "ui.analyze.track.insight.before.using.vibecast"))
-            .help(localizedKey(language, hasInsight ? "ui.prepare.vibecast.video" : "ui.analyze.track.insight.before.using.vibecast"))
-        }
-    }
-}
-#endif
-
-#if canImport(AVKit)
-private struct VibeCastAVPlayerPreviewSheet: View {
-    let insight: TrackInsight
-    let language: String
-    @Environment(\.dismiss) private var dismiss
-    @State private var player: AVPlayer?
-    @State private var renderedURL: URL?
-    @State private var progress = 0.0
-    @State private var errorMessage: String?
-    @State private var renderTask: Task<Void, Never>?
-
-    var body: some View {
-        ZStack {
-            DJConnectCanvasBackground()
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(alignment: .center, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("VibeCast")
-                            .font(.title.bold())
-                            .foregroundStyle(.white)
-                        Text(localizedKey(language, "ui.local.avplayer.preview"))
-                            .font(.callout.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.62))
-                    }
-                    Spacer(minLength: 0)
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.headline.weight(.semibold))
-                            .frame(width: 36, height: 36)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.white.opacity(0.82))
-                    .background(.white.opacity(0.10), in: Circle())
-                }
-
-                ZStack {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(.black.opacity(0.36))
-                    if let player {
-                        VideoPlayer(player: player)
-                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            .onAppear {
-                                player.play()
-                            }
-                    } else if let errorMessage {
-                        VStack(spacing: 10) {
-                            Image(systemName: "exclamationmark.triangle")
-                                .font(.title.weight(.semibold))
-                                .foregroundStyle(.orange)
-                            Text(errorMessage)
-                                .font(.callout.weight(.semibold))
-                                .foregroundStyle(.white.opacity(0.78))
-                                .multilineTextAlignment(.center)
-                        }
-                        .padding(20)
-                    } else {
-                        VStack(spacing: 12) {
-                            ProgressView(value: progress)
-                                .tint(djConnectAccent)
-                                .frame(maxWidth: 260)
-                            Text(localizedKey(language, "ui.rendering.vibecast.video"))
-                                .font(.callout.weight(.semibold))
-                                .foregroundStyle(.white.opacity(0.72))
-                            Text("\(Int((progress * 100).rounded()))%")
-                                .font(.caption.monospacedDigit().weight(.bold))
-                                .foregroundStyle(.white.opacity(0.54))
-                        }
-                        .padding(20)
-                    }
-                }
-                .aspectRatio(1200.0 / 628.0, contentMode: .fit)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(.white.opacity(0.14), lineWidth: 1)
-                }
-
-                #if os(iOS)
-                HStack(spacing: 12) {
-                    Label(
-                        localizedKey(language, "ui.route.this.vibecast.video.with.airplay"),
-                        systemImage: "airplayvideo"
-                    )
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(.white.opacity(player == nil ? 0.42 : 0.78))
-                    Spacer(minLength: 0)
-                    NativeAirPlayRoutePicker()
-                        .frame(width: 42, height: 42)
-                        .opacity(player == nil ? 0.38 : 1)
-                        .disabled(player == nil)
-                        .accessibilityLabel(localizedKey(language, "ui.choose.airplay.display"))
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(.white.opacity(0.12), lineWidth: 1)
-                }
-                #endif
-
-                Text(localizedKey(language, "ui.this.mp4.is.played.through.avplayer.use.the.airplay.control"))
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.54))
-                .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(22)
-            .frame(maxWidth: 860)
-        }
-        .task(id: insight.id) {
-            startRender()
-        }
-        .onDisappear {
-            renderTask?.cancel()
-            player?.pause()
-            player = nil
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { notification in
-            guard let item = notification.object as? AVPlayerItem,
-                  item == player?.currentItem else {
-                return
-            }
-            item.seek(to: .zero, completionHandler: nil)
-            player?.play()
-        }
-    }
-
-    private func startRender() {
-        guard renderTask == nil else {
-            return
-        }
-        progress = 0
-        errorMessage = nil
-        renderTask = Task { @MainActor in
-            do {
-                let url = try await TrackInsightShareRenderer.renderAirPlayVideo(
-                    insight: insight,
-                    language: language
-                ) { value in
-                    progress = value
-                }
-                try Task.checkCancellation()
-                renderedURL = url
-                #if !os(macOS)
-                let avPlayer = await makeAirPlayPreviewPlayer(url: url)
-                #else
-                let item = AVPlayerItem(url: url)
-                let avPlayer = AVPlayer(playerItem: item)
-                avPlayer.actionAtItemEnd = .none
-                avPlayer.allowsExternalPlayback = true
-                #endif
-                player = avPlayer
-                avPlayer.play()
-            } catch is CancellationError {
-                return
-            } catch {
-                errorMessage = error.localizedDescription
-            }
-        }
-    }
-}
-#endif
-
-private struct AirPlayToolbarButton: View {
-    let language: String
-    #if os(macOS)
-    @Environment(\.openWindow) private var openWindow
-    #endif
-
-    var body: some View {
-        #if canImport(AVKit) && os(iOS)
-        NativeAirPlayRoutePicker()
-            .frame(width: 30, height: 30)
-            .accessibilityLabel(localizedKey(language, "ui.airplay"))
-            .help(airPlayHelpText)
-        #elseif canImport(AVKit) && os(macOS)
-        NativeAirPlayRoutePicker {
-            openWindow(id: "vibecast")
-        }
-        .frame(width: 30, height: 30)
-        .accessibilityLabel(localizedKey(language, "ui.airplay"))
-        .help(airPlayHelpText)
-        #elseif os(macOS)
-        Button {
-            openWindow(id: "vibecast")
-        } label: {
-            Image(systemName: "airplayvideo")
-        }
-        .buttonStyle(.borderless)
-        .foregroundStyle(.primary)
-        .accessibilityLabel(localizedKey(language, "ui.vibecast"))
-        .help(airPlayHelpText)
-        #else
-        Button {} label: {
-            Image(systemName: "airplayvideo")
-        }
-        .disabled(true)
-        .help(localizedKey(language, "ui.vibecast.unavailable"))
-        #endif
-    }
-
-    private var airPlayHelpText: String {
-        #if os(macOS)
-        localizedKey(language, "ui.choose.an.airplay.display.for.vibecast")
-        #else
-        localizedKey(language, "ui.vibecast.via.airplay")
-        #endif
-    }
-}
-
-#if canImport(AVKit) && os(iOS)
-private struct NativeAirPlayRoutePicker: UIViewRepresentable {
-    func makeUIView(context: Context) -> AVRoutePickerView {
-        let picker = AVRoutePickerView(frame: .zero)
-        picker.backgroundColor = .clear
-        picker.tintColor = .white
-        picker.activeTintColor = UIColor(red: 0.72, green: 0.28, blue: 1.0, alpha: 1.0)
-        picker.prioritizesVideoDevices = true
-        return picker
-    }
-
-    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
-}
-#elseif canImport(AVKit) && os(macOS)
-private struct NativeAirPlayRoutePicker: NSViewRepresentable {
-    let onActivate: () -> Void
-
-    init(onActivate: @escaping () -> Void = {}) {
-        self.onActivate = onActivate
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onActivate: onActivate)
-    }
-
-    func makeNSView(context: Context) -> AVRoutePickerView {
-        let picker = AVRoutePickerView(frame: .zero)
-        picker.wantsLayer = true
-        picker.layer?.backgroundColor = NSColor.clear.cgColor
-        let recognizer = NSClickGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.activate))
-        recognizer.delaysPrimaryMouseButtonEvents = false
-        picker.addGestureRecognizer(recognizer)
-        return picker
-    }
-
-    func updateNSView(_ nsView: AVRoutePickerView, context: Context) {
-        context.coordinator.onActivate = onActivate
-    }
-
-    final class Coordinator: NSObject {
-        var onActivate: () -> Void
-
-        init(onActivate: @escaping () -> Void) {
-            self.onActivate = onActivate
-        }
-
-        @objc func activate() {
-            onActivate()
-        }
-    }
-}
-#endif
 
 private struct TrackVibeVisualizerView: View {
     let profile: TrackVibeProfile
@@ -9581,7 +8175,9 @@ private struct TrackInsightMetricsGrid: View {
     let insight: TrackInsight
     let language: String
     let moodStepIndex: Int
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -9756,7 +8352,7 @@ private struct TrackInsightMetricPill: View {
         .padding(.horizontal, 11)
         .padding(.vertical, 9)
         .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
-        .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(.white.opacity(0.10), in: DJConnectCardAppearance.shape)
     }
 }
 
@@ -9804,7 +8400,7 @@ private struct TrackInsightAnalysisCard: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .djConnectGradientCard(cornerRadius: 8)
+        .djConnectGradientCard()
     }
 }
 
@@ -9898,7 +8494,7 @@ private struct TrackInsightEmptyState: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity)
-        .djConnectGradientCard(cornerRadius: 8)
+        .djConnectGradientCard()
     }
 }
 
@@ -10025,7 +8621,7 @@ private struct DJSessionView: View {
                 }
                 .background(.clear)
                 .refreshable {
-                    if !model.isDemoMode {
+                    if !model.isDemoMode, model.pairingStatus == .paired {
                         await refreshNowPlayingWithToast()
                     }
                 }
@@ -10110,11 +8706,13 @@ private struct IdleDJSessionView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text(localizedKey(model.language, "ui.session.welcome.mood"))
                     .font(.headline)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 10)], spacing: 10) {
+                HStack(spacing: 4) {
                     ForEach(moods, id: \.id) { mood in
                         moodButton(mood.id, glyph: mood.glyph)
                     }
                 }
+                .padding(8)
+                .djConnectGradientCard()
                 Button { Task { await model.startDJSession() } } label: {
                     HStack(spacing: 12) {
                         if model.isLoadingDJSession { ProgressView().tint(.white) }
@@ -10122,14 +8720,10 @@ private struct IdleDJSessionView: View {
                         Text(localizedKey(model.language, "ui.session.start"))
                             .font(.headline)
                     }
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, minHeight: 54)
-                    .background(djConnectIconGradient, in: RoundedRectangle(cornerRadius: 18))
-                    .overlay { RoundedRectangle(cornerRadius: 18).stroke(.white.opacity(0.22)) }
+                    .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(DJConnectLilacPillButtonStyle())
                 .disabled(model.isLoadingDJSession || (!model.isDemoMode && model.pairingStatus != .paired) || !model.canUsePlaybackFeatures)
-                .opacity(startAvailable ? 1 : 0.5)
                 .accessibilityIdentifier("session-welcome-start")
                 if model.isDemoMode {
                     Text(localizedKey(model.language, "demo.session.notice")).font(.footnote).foregroundStyle(.secondary)
@@ -10143,27 +8737,23 @@ private struct IdleDJSessionView: View {
         }
         .padding(28)
         .background {
-            RoundedRectangle(cornerRadius: 32, style: .continuous)
+            RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous)
                 .fill(LinearGradient(colors: [Color(red: 0.09, green: 0.06, blue: 0.20),
                     Color(red: 0.17, green: 0.08, blue: 0.32), Color(red: 0.08, green: 0.15, blue: 0.32)],
                     startPoint: .topLeading, endPoint: .bottomTrailing))
         }
-        .overlay { RoundedRectangle(cornerRadius: 32, style: .continuous).stroke(.white.opacity(0.16)) }
+        .modifier(DJConnectCardOutline())
         .frame(maxWidth: 960)
         .frame(maxWidth: .infinity, alignment: .top)
         .padding(.vertical, 12)
         .accessibilityIdentifier("screen-idle-dj-session")
     }
 
-    private var startAvailable: Bool {
-        !model.isLoadingDJSession && (model.isDemoMode || model.pairingStatus == .paired) && model.canUsePlaybackFeatures
-    }
-
     private func welcomeCopy(compactArtwork: Bool) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
                 Label(localizedKey(model.language, "ui.session.welcome.eyebrow"), systemImage: "sparkles")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.title3.weight(.semibold))
                     .foregroundStyle(Color(red: 0.89, green: 0.65, blue: 1))
                 if compactArtwork {
                     Spacer(minLength: 0)
@@ -10187,11 +8777,17 @@ private struct IdleDJSessionView: View {
     private func moodButton(_ mood: String, glyph: String) -> some View {
         let selected = model.selectedSessionMood == mood
         return Button { model.selectedSessionMood = mood } label: {
-            HStack(spacing: 8) {
-                Image(systemName: glyph)
-                Text(localizedKey(model.language, "ui.session.mood." + mood))
-                    .font(.subheadline.weight(.semibold))
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    Image(systemName: glyph)
+                    Text(localizedKey(model.language, "ui.session.mood." + mood))
+                }
+                VStack(spacing: 4) {
+                    Image(systemName: glyph)
+                    Text(localizedKey(model.language, "ui.session.mood." + mood))
+                }
             }
+            .font(.subheadline.weight(.semibold))
             .foregroundStyle(.white.opacity(selected ? 1 : 0.78))
             .frame(maxWidth: .infinity, minHeight: 48)
             .background(selected ? djConnectAccent.opacity(0.35) : .white.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
@@ -10245,7 +8841,6 @@ private struct DJSessionWelcomeArtwork: View {
             .frame(width: size * 0.18, height: size * 0.18)
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: size * 0.06))
             .overlay { RoundedRectangle(cornerRadius: size * 0.06).stroke(.white.opacity(0.22)) }
-            .rotationEffect(.degrees(-10))
     }
 }
 
@@ -10322,7 +8917,7 @@ private struct IOSNowPlayingView: View {
                 }
                 .background(.clear)
                 .refreshable {
-                    if !model.isDemoMode {
+                    if !model.isDemoMode, model.pairingStatus == .paired {
                         await refreshNowPlayingWithToast()
                     }
                 }
@@ -10416,7 +9011,7 @@ struct IOSConnectionCard: View {
                     }
                 }
                 .padding(10)
-                .djConnectGradientCard(cornerRadius: 10)
+                .djConnectGradientCard()
             }
 
             if let updateRequiredMessage = model.updateRequiredMessage {
@@ -10571,8 +9166,9 @@ private struct IOSTrackHero: View {
         .padding(14)
         .background {
             NowPlayingMoodCardBackground(tint: cardTint, moodStepIndex: model.askDJMoodStepIndex)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
         }
+        .modifier(DJConnectCardOutline())
         .task(id: nowPlayingTrackKey(for: playback)) {
             cardTint = await sampledArtworkTint(for: playback)
         }
@@ -10866,8 +9462,9 @@ struct TrackSummaryView: View {
         .padding(16)
         .background {
             NowPlayingMoodCardBackground(tint: cardTint, moodStepIndex: model.askDJMoodStepIndex)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
         }
+        .modifier(DJConnectCardOutline())
         .task(id: nowPlayingTrackKey(for: playback)) {
             cardTint = await sampledArtworkTint(for: playback)
         }
@@ -11553,7 +10150,9 @@ private extension DJConnectRepeatState {
 private struct AskDJView: View {
     @ObservedObject var model: DJConnectAppModel
     var openTrackInsightAction: () -> Void = {}
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @State private var showingClearConfirmation = false
     @State private var selectedWebLink: DJConnectResponseLink?
     @State private var feedbackMessage: DJConnectAskDJMessage?
@@ -11922,7 +10521,7 @@ private struct AskDJView: View {
                     Button {
                         isInputFocused = false
                         Task {
-                            if !model.isDemoMode {
+                            if !model.isDemoMode, model.pairingStatus == .paired {
                                 await model.refreshAskDJHistory(showToast: true)
                             }
                         }
@@ -11931,7 +10530,7 @@ private struct AskDJView: View {
                             .foregroundStyle(model.isDemoMode ? .secondary : .primary)
                     }
                     .tint(.primary)
-                    .disabled(model.isDemoMode || model.isClearingAskDJHistory || model.isCheckingAskDJHistoryState)
+                    .disabled(model.isDemoMode || model.pairingStatus != .paired || model.isClearingAskDJHistory || model.isCheckingAskDJHistoryState)
                     .help(localizedKey(model.language, "ui.refresh.ask.dj"))
                     .accessibilityLabel(localizedKey(model.language, "ui.refresh.ask.dj"))
                 }
@@ -11971,7 +10570,7 @@ private struct AskDJView: View {
                     Button {
                         isInputFocused = false
                         Task {
-                            if !model.isDemoMode {
+                            if !model.isDemoMode, model.pairingStatus == .paired {
                                 await model.refreshAskDJHistory(showToast: true)
                             }
                         }
@@ -11980,7 +10579,7 @@ private struct AskDJView: View {
                             .foregroundStyle(model.isDemoMode ? .secondary : .primary)
                     }
                     .tint(.primary)
-                    .disabled(model.isDemoMode || model.isClearingAskDJHistory || model.isCheckingAskDJHistoryState)
+                    .disabled(model.isDemoMode || model.pairingStatus != .paired || model.isClearingAskDJHistory || model.isCheckingAskDJHistoryState)
                     .help(localizedKey(model.language, "ui.refresh.ask.dj"))
                     .accessibilityLabel(localizedKey(model.language, "ui.refresh.ask.dj"))
                 }
@@ -12275,12 +10874,12 @@ private struct AskDJEmptyState: View {
                         .padding(.vertical, 10)
                         .frame(maxWidth: 480, alignment: .leading)
                         .background {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            DJConnectCardAppearance.shape
                                 .fill(.white.opacity(0.09))
                         }
                         .overlay {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(.white.opacity(0.12), lineWidth: 1)
+                            DJConnectCardAppearance.shape
+                                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
                         }
                     }
                     .buttonStyle(.plain)
@@ -12336,11 +10935,11 @@ private struct AskDJEmptyState: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            in: DJConnectCardAppearance.shape
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(.white.opacity(0.16), lineWidth: 1.5)
+            DJConnectCardAppearance.shape
+                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
         }
     }
 }
@@ -12367,12 +10966,12 @@ private struct AskDJOfflineNotice: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .background {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            DJConnectCardAppearance.shape
                 .fill(Color.white.opacity(0.10))
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.14), lineWidth: 1)
+            DJConnectCardAppearance.shape
+                .stroke(Color.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
         }
         .padding(.horizontal, 4)
     }
@@ -12663,6 +11262,7 @@ struct AskDJMessageBubble: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .padding(.trailing, contextQuestionAction == nil ? 0 : 36)
+                .frame(minHeight: contextQuestionAction == nil ? 0 : 44)
                 .overlay(alignment: .topTrailing) {
                     if let contextQuestionAction {
                         Button(action: contextQuestionAction) {
@@ -12671,7 +11271,7 @@ struct AskDJMessageBubble: View {
                                 .foregroundStyle(contextQuestionSelected ? djConnectAccent : .secondary)
                                 .frame(width: 44, height: 44).contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain).padding(4)
+                        .buttonStyle(.plain).padding(.trailing, 4)
                         .accessibilityLabel(localizedKey(language, "ui.session.history.ask_entry"))
                         .accessibilityValue(contextQuestionSelected ? localizedKey(language, "ui.session.history.selected_context") : "")
                         .accessibilityIdentifier(contextQuestionID)
@@ -12681,7 +11281,7 @@ struct AskDJMessageBubble: View {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .stroke(bubbleStrokeStyle, lineWidth: isActiveSearchResult ? 2 : 1)
                 }
-                .djSessionFrostedSurface(cornerRadius: 18)
+                .djSessionFrostedSurface(cornerRadius: DJConnectCardAppearance.conversationCornerRadius)
                 HStack(spacing: 8) {
                     Text(messageMetadataText)
                         .font(.caption2.weight(.medium))
@@ -12939,10 +11539,10 @@ private struct AskDJTrackInsightSummary: View {
             .foregroundStyle(.white.opacity(0.58))
         }
         .padding(10)
-        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(.white.opacity(0.08), in: DJConnectCardAppearance.shape)
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(.white.opacity(0.12), lineWidth: 1)
+            DJConnectCardAppearance.shape
+                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
         }
         .accessibilityLabel(localizedKey(language, "ui.track.insight.preview"))
     }
@@ -13899,7 +12499,9 @@ private extension DJConnectResponseLink {
 
 private struct AskDJImageStrip: View {
     let images: [DJConnectResponseImage]
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
 
     private var isCompact: Bool {
         #if os(iOS)
@@ -13982,9 +12584,9 @@ private struct AskDJImageCard: View {
             }
             .frame(width: width, height: width)
             .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(DJConnectCardAppearance.shape)
             .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                DJConnectCardAppearance.shape
                     .stroke(.white.opacity(0.18), lineWidth: 1)
             }
 
@@ -15196,7 +13798,7 @@ struct PlaylistsView: View {
     }
 }
 
-private struct DJConnectEmptyState: View {
+struct DJConnectEmptyState: View {
     let title: String
     let systemImage: String
 
@@ -15397,7 +13999,9 @@ private enum LocalGameMode: String, CaseIterable, Identifiable {
 private struct GamesView: View {
     let language: String
     let isDemoMode: Bool
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @State private var selectedGame = LocalGameMode.pong
 
     private func contentMaxWidth(for size: CGSize) -> CGFloat {
@@ -15455,7 +14059,9 @@ private struct GamesView: View {
 
 private struct GameModePicker: View {
     @Binding var selection: LocalGameMode
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
 
     private var columns: [GridItem] {
         if horizontalSizeClass == .compact {
@@ -15510,11 +14116,11 @@ private struct GameModePicker: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+            in: DJConnectCardAppearance.shape
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(.white.opacity(0.16), lineWidth: 1.5)
+            DJConnectCardAppearance.shape
+                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
         }
     }
 }
@@ -15523,7 +14129,9 @@ private struct LocalGameSurface: View {
     let game: LocalGameMode
     let language: String
     var maxCanvasHeight: CGFloat? = nil
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @AppStorage("djconnect.app.game.pong.high") private var pongHighScore = 0
     @AppStorage("djconnect.app.game.asteroids.high") private var asteroidsHighScore = 0
     @AppStorage("djconnect.app.game.fly.high") private var flyHighScore = 0
@@ -15723,11 +14331,11 @@ private struct LocalGameSurface: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            in: RoundedRectangle(cornerRadius: 8)
+            in: DJConnectCardAppearance.shape
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(.white.opacity(0.12), lineWidth: 1)
+            DJConnectCardAppearance.shape
+                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
         }
         .focusable(true)
         .focusEffectDisabled()
@@ -16795,12 +15403,16 @@ public struct DJConnectAboutView: View {
 
 private struct MoreView: View {
     @ObservedObject var model: DJConnectAppModel
+    var requestedSection: DJConnectSection? = nil
+    @State private var destinationSelection: DJConnectSection?
     var returnToNowPlaying: () -> Void
     @State private var showingFeedback = false
     @State private var showingPlayerQueue = false
 
     var body: some View {
         moreList
+        .onAppear { routeRequestedSection() }
+        .onChange(of: requestedSection) { routeRequestedSection() }
         .sheet(isPresented: $showingPlayerQueue) { QueueView(model: model) }
         .sheet(isPresented: $showingFeedback) {
             FeedbackPromptView(model: model)
@@ -16811,66 +15423,17 @@ private struct MoreView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    MoreNavigationRow(title: localizedKey(model.language, "ui.now.playing"), systemImage: "music.note") {
-                        NowPlayingView(model: model) { showingPlayerQueue = true }
-                    }
-                    MoreNavigationRow(title: localizedKey(model.language, "ui.session.history.title"), systemImage: "clock.arrow.circlepath") {
-                        SavedSessionsView(model: model, embedsNavigationStack: false)
-                    }
-                    MoreNavigationRow(
-                        title: "Music DNA",
-                        systemImage: "heart"
-                    ) {
-                        MusicDNAView(model: model)
-                    }
-                    MoreNavigationRow(
-                        title: localizedKey(model.language, "ui.queue"),
-                        systemImage: "music.note.list"
-                    ) {
-                        QueueView(model: model)
-                    }
-                    MoreNavigationRow(
-                        title: localizedKey(model.language, "ui.playlists"),
-                        systemImage: "rectangle.stack"
-                    ) {
-                        PlaylistsView(model: model)
-                    }
-                    MoreNavigationRow(
-                        title: localizedKey(model.language, "ui.games"),
-                        systemImage: "gamecontroller"
-                    ) {
-                        GamesView(language: model.language, isDemoMode: model.isDemoMode)
-                    }
-                    MoreNavigationRow(
-                        title: localizedKey(model.language, "ui.settings"),
-                        systemImage: "gearshape"
-                    ) {
-                        SettingsView(model: model, returnToNowPlaying: returnToNowPlaying)
-                    }
-                    MoreNavigationRow(
-                        title: localizedKey(model.language, "ui.logs"),
-                        systemImage: "doc.text.magnifyingglass"
-                    ) {
-                        LogsView(model: model)
-                    }
-                    MoreNavigationRow(
-                        title: localizedKey(model.language, "ui.about"),
-                        systemImage: "info.circle"
-                    ) {
-                        AboutView(model: model)
-                    }
-                    MoreNavigationRow(
-                        title: localizedKey(model.language, "ui.legal"),
-                        systemImage: "doc.text"
-                    ) {
-                        LegalNoticesView(language: model.language)
-                    }
-                    MoreNavigationRow(
-                        title: localizedKey(model.language, "ui.privacy"),
-                        systemImage: "hand.raised"
-                    ) {
-                        PrivacyView(language: model.language)
-                    }
+                    MoreNavigationRow(title: localizedKey(model.language, "ui.now.playing"), systemImage: "music.note") { destinationSelection = .nowPlaying }
+                    MoreNavigationRow(title: localizedKey(model.language, "ui.session.history.title"), systemImage: "clock.arrow.circlepath") { destinationSelection = .savedSessions }
+                    MoreNavigationRow(title: "Music DNA", systemImage: "heart") { destinationSelection = .musicDNA }
+                    MoreNavigationRow(title: localizedKey(model.language, "ui.queue"), systemImage: "music.note.list") { destinationSelection = .queue }
+                    MoreNavigationRow(title: localizedKey(model.language, "ui.playlists"), systemImage: "rectangle.stack") { destinationSelection = .playlists }
+                    MoreNavigationRow(title: localizedKey(model.language, "ui.games"), systemImage: "gamecontroller") { destinationSelection = .games }
+                    MoreNavigationRow(title: localizedKey(model.language, "ui.settings"), systemImage: "gearshape") { destinationSelection = .settings }
+                    MoreNavigationRow(title: localizedKey(model.language, "ui.logs"), systemImage: "doc.text.magnifyingglass") { destinationSelection = .logs }
+                    MoreNavigationRow(title: localizedKey(model.language, "ui.about"), systemImage: "info.circle") { destinationSelection = .about }
+                    MoreNavigationRow(title: localizedKey(model.language, "ui.legal"), systemImage: "doc.text") { destinationSelection = .legal }
+                    MoreNavigationRow(title: localizedKey(model.language, "ui.privacy"), systemImage: "hand.raised") { destinationSelection = .privacy }
                     Button {
                         showingFeedback = true
                     } label: {
@@ -16911,19 +15474,40 @@ private struct MoreView: View {
             }
             .background(DJConnectCanvasBackground())
             .navigationTitle(screenTitle(model.language, key: "More", isDemoMode: model.isDemoMode))
+            .navigationDestination(item: $destinationSelection) { destination($0) }
         }
     }
+    private func routeRequestedSection() {
+        guard let requestedSection else { return }
+        destinationSelection = requestedSection
+    }
+
+    @ViewBuilder private func destination(_ section: DJConnectSection) -> some View {
+        switch section {
+        case .nowPlaying: NowPlayingView(model: model) { showingPlayerQueue = true }
+        case .queue: QueueView(model: model)
+        case .savedSessions: SavedSessionsView(model: model, embedsNavigationStack: false)
+        case .playlists: PlaylistsView(model: model)
+        case .musicDNA: MusicDNAView(model: model)
+        case .games: GamesView(language: model.language, isDemoMode: model.isDemoMode)
+        case .settings: SettingsView(model: model, returnToNowPlaying: returnToNowPlaying)
+        case .logs: LogsView(model: model)
+        case .about: AboutView(model: model)
+        case .legal: LegalNoticesView(language: model.language)
+        case .privacy: PrivacyView(language: model.language)
+        default: EmptyView()
+        }
+    }
+
 }
 
-private struct MoreNavigationRow<Destination: View>: View {
+private struct MoreNavigationRow: View {
     let title: String
     let systemImage: String
-    @ViewBuilder var destination: () -> Destination
+    var action: () -> Void
 
     var body: some View {
-        NavigationLink {
-            destination()
-        } label: {
+        Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: systemImage)
                     .font(.title3)
@@ -17390,7 +15974,7 @@ private struct MusicDNAStatPill: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(Color.white.opacity(0.08), in: DJConnectCardAppearance.shape)
     }
 }
 
@@ -17728,6 +16312,7 @@ struct SettingsView: View {
                                 returnToNowPlaying()
                                 model.stopDemoMode()
                             }
+                            .accessibilityIdentifier("settings-stop-demo")
                         }
                         .djMusicDNASettingsListRow()
                     }
@@ -18481,7 +17066,9 @@ private struct LogSearchText: View {
 
 private struct AboutView: View {
     @ObservedObject var model: DJConnectAppModel
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     private let websiteURL = URL(string: "https://djconnect.dev")!
 
     private var contentMaxWidth: CGFloat {
@@ -18683,7 +17270,9 @@ private struct AboutView: View {
 
 private struct LegalNoticesView: View {
     let language: String
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
 
     private var contentMaxWidth: CGFloat {
         horizontalSizeClass == .regular ? .infinity : 760
@@ -18724,7 +17313,9 @@ private struct LegalNoticesView: View {
 
 private struct PrivacyView: View {
     let language: String
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
 
     private var contentMaxWidth: CGFloat {
         horizontalSizeClass == .regular ? .infinity : 760
@@ -18765,7 +17356,9 @@ private struct AskDJFeedbackPromptView: View {
     let message: DJConnectAskDJMessage
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @State private var userNote = ""
     @State private var issueBody = ""
 
@@ -19008,10 +17601,10 @@ private struct AboutBanner: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .clipShape(DJConnectCardAppearance.shape)
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            DJConnectCardAppearance.shape
                 .fill(
                     LinearGradient(
                         colors: [
@@ -19026,7 +17619,7 @@ private struct AboutBanner: View {
                 .blendMode(.multiply)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            DJConnectCardAppearance.shape
                 .fill(
                     LinearGradient(
                         colors: [
@@ -19040,10 +17633,10 @@ private struct AboutBanner: View {
                 .blendMode(.multiply)
         }
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            DJConnectCardAppearance.shape
                 .stroke(.white.opacity(0.12), lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(DJConnectCardAppearance.shape)
     }
 }
 
@@ -19085,7 +17678,9 @@ private struct SettingsRow<Content: View>: View {
 private struct AboutStackedRow<Content: View>: View {
     let label: String
     @ViewBuilder var content: Content
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
+    @Environment(\.djConnectContentSizeClass) private var contentSizeClass
+    private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
 
     private var usesHorizontalLayout: Bool {
         #if os(macOS)

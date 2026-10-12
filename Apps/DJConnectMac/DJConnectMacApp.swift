@@ -13,7 +13,7 @@ struct DJConnectMacApp: App {
     var body: some Scene {
         WindowGroup {
             DJConnectLaunchContainer(isBusy: model.isRefreshing, content: DJConnectRootView(model: model))
-                .frame(minWidth: 1120, idealWidth: 1280, minHeight: 880, idealHeight: 1060)
+                .frame(minWidth: 960, idealWidth: 1280, minHeight: 480, idealHeight: 1060)
                 .background(WindowConfigurator())
                 .onAppear {
                     appDelegate.model = model
@@ -38,15 +38,6 @@ struct DJConnectMacApp: App {
         .defaultSize(width: 520, height: 620)
         .windowResizability(.contentSize)
 
-        Window("VibeCast", id: "vibecast") {
-            VibeCastOutputView(model: model)
-                .frame(minWidth: 960, idealWidth: 1280, minHeight: 540, idealHeight: 720)
-                .background(Color.black)
-                .background(VibeCastWindowConfigurator())
-        }
-        .defaultSize(width: 1280, height: 720)
-        .windowStyle(.hiddenTitleBar)
-        .restorationBehavior(.disabled)
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button(localizedAboutMenuTitle(for: model.language)) {
@@ -98,7 +89,6 @@ private func localizedAboutMenuTitle(for language: String) -> String {
 }
 
 private let mainWindowIdentifier = NSUserInterfaceItemIdentifier("DJConnectMainWindow")
-private let vibeCastWindowIdentifier = NSUserInterfaceItemIdentifier("DJConnectVibeCastWindow")
 
 @MainActor
 final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcurrency UNUserNotificationCenterDelegate {
@@ -229,6 +219,15 @@ private struct WindowConfigurator: NSViewRepresentable {
             window.backgroundColor = .clear
             window.toolbarStyle = .unifiedCompact
             window.identifier = mainWindowIdentifier
+            // Keep restored windows within the screen instead of centering oversized content.
+            if let visible = (window.screen ?? NSScreen.main)?.visibleFrame {
+                var frame = window.frame
+                frame.size.width = min(frame.width, visible.width)
+                frame.size.height = min(frame.height, visible.height)
+                frame.origin.x = min(max(frame.minX, visible.minX), visible.maxX - frame.width)
+                frame.origin.y = min(max(frame.minY, visible.minY), visible.maxY - frame.height)
+                if frame != window.frame { window.setFrame(frame, display: true) }
+            }
         }
     }
 }
@@ -268,40 +267,6 @@ private struct MenuWindowCenteringConfigurator: NSViewRepresentable {
                 window.center(in: parentWindow)
                 self.centeredWindow = window
             }
-        }
-    }
-}
-
-private struct VibeCastWindowConfigurator: NSViewRepresentable {
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async {
-            context.coordinator.configure(window: view.window)
-        }
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async {
-            context.coordinator.configure(window: nsView.window)
-        }
-    }
-
-    @MainActor
-    final class Coordinator {
-        private weak var configuredWindow: NSWindow?
-
-        func configure(window: NSWindow?) {
-            guard let window, configuredWindow !== window else {
-                return
-            }
-            configuredWindow = window
-            window.identifier = vibeCastWindowIdentifier
-            window.isRestorable = false
         }
     }
 }

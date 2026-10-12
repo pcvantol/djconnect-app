@@ -890,7 +890,7 @@ private var defaultScreenshotDirectory: URL {
         .deletingLastPathComponent()
         .deletingLastPathComponent()
         .appendingPathComponent("tmp")
-        .appendingPathComponent("ask-dj-airplay-screenshots")
+        .appendingPathComponent("ask-dj-screenshots")
 }
 
 @MainActor
@@ -1002,7 +1002,8 @@ extension DJConnectIOSUITests {
             XCUIDevice.shared.orientation = .portrait
         }
         let more = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.buttons["Meer"].firstMatch
-        more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
+        more.tap()
+        if !app.navigationBars["Speelt Nu"].exists { app.buttons["Speelt Nu"].firstMatch.tap() }
         XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
         try saveHistoryScreenshot("ios-history-05-player-during-session")
         let tab = app.tabBars.buttons["DJ-sessie"].exists ? app.tabBars.buttons["DJ-sessie"] : app.buttons["DJ-sessie"].firstMatch
@@ -1089,8 +1090,12 @@ extension DJConnectIOSUITests {
             let party = mood.buttons["Feest"]
             XCTAssertTrue(party.isEnabled)
             party.tap()
-            try await Task.sleep(for: .milliseconds(700))
-            let afterMood = try await control("state", method: "GET")
+            var afterMood = try await control("state", method: "GET")
+            for _ in 0..<25 {
+                if (afterMood["active"] as? [String: Any])?["selected_mood"] as? String == "party" { break }
+                try await Task.sleep(for: .milliseconds(200))
+                afterMood = try await control("state", method: "GET")
+            }
             XCTAssertEqual((afterMood["active"] as? [String: Any])?["selected_mood"] as? String, "party")
             XCTAssertEqual((afterMood["active"] as? [String: Any])?["session_id"] as? String, sessionID)
             XCTAssertEqual((afterMood["active"] as? [String: Any])?["mood_revision"] as? Int, 1)
@@ -1126,7 +1131,8 @@ extension DJConnectIOSUITests {
         try saveHistoryScreenshot("paired-ios-03-authorized-reconnect")
         let navigationBefore = try await control("state", method: "GET")
         let more = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.buttons["Meer"].firstMatch
-        more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
+        more.tap()
+        if !app.navigationBars["Speelt Nu"].exists { app.buttons["Speelt Nu"].firstMatch.tap() }
         XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
         let after = try await control("state", method: "GET")
         XCTAssertEqual((after["active"] as? [String: Any])?["session_id"] as? String, sessionID)
@@ -1138,7 +1144,8 @@ extension DJConnectIOSUITests {
         let dj = app.tabBars.buttons["DJ-sessie"].exists ? app.tabBars.buttons["DJ-sessie"] : app.buttons["DJ-sessie"].firstMatch
         dj.tap()
         XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 15))
-        more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
+        more.tap()
+        if !app.navigationBars["Speelt Nu"].exists { app.buttons["Speelt Nu"].firstMatch.tap() }
         XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
         try saveHistoryScreenshot("paired-ios-05-player-after-session-end")
         let moreBack = app.navigationBars["Speelt Nu"].buttons["Meer"]
@@ -1160,7 +1167,7 @@ extension DJConnectIOSUITests {
         try saveHistoryScreenshot("paired-ui-archive-transient-error")
         let savedList = app.descendants(matching: .any)["saved-sessions-list"].firstMatch
         print("Saved-list native frame: " + String(describing: savedList.frame))
-        let errorText = app.staticTexts["saved-sessions-error"]
+        let errorText = app.staticTexts["De sessiehistorie is niet beschikbaar. Probeer opnieuw."].firstMatch
         XCTAssertTrue(errorText.exists)
         errorText.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.1,
             thenDragTo: savedList.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75)))
@@ -1220,7 +1227,8 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(app.descendants(matching: .any)["screen-session-conversation"].waitForExistence(timeout: 10))
         let readback2 = try await activeID()
         XCTAssertEqual(readback2, sessionB)
-        more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
+        more.tap()
+        if !app.navigationBars["Speelt Nu"].exists { app.buttons["Speelt Nu"].firstMatch.tap() }
         XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
         let readback3 = try await activeID()
         XCTAssertEqual(readback3, sessionB)
@@ -1228,7 +1236,8 @@ extension DJConnectIOSUITests {
         _ = try await control("end")
         dj.tap()
         XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 15))
-        more.tap(); app.buttons["Speelt Nu"].firstMatch.tap()
+        more.tap()
+        if !app.navigationBars["Speelt Nu"].exists { app.buttons["Speelt Nu"].firstMatch.tap() }
         XCTAssertTrue(app.navigationBars["Speelt Nu"].waitForExistence(timeout: 5))
         let finalReadback = try await activeID()
         XCTAssertNil(finalReadback)
@@ -1342,8 +1351,10 @@ extension DJConnectIOSUITests {
         let connection = app.buttons["session-connection-toggle"]
         XCTAssertTrue(connection.waitForExistence(timeout: 5))
         connection.tap()
-        XCTAssertTrue(app.buttons["session-connection-close"].waitForExistence(timeout: 5))
-        app.buttons["session-connection-close"].tap()
+        XCTAssertTrue(app.staticTexts["Verbindingsstatus"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["session-connection-close"].exists)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.7)).tap()
+        XCTAssertFalse(app.staticTexts["Verbindingsstatus"].firstMatch.exists)
         let toggle = app.buttons["session-mood-toggle"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 10))
         XCTAssertFalse(app.descendants(matching: .any)["active-session-mood"].firstMatch.exists)
@@ -1366,6 +1377,63 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(app.staticTexts["Geselecteerde bijdrage"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertEqual(glyph.value as? String, "Geselecteerde bijdrage")
         let selected = XCTAttachment(screenshot: app.screenshot()); selected.name = "native-visible-glyph-selected-context"; selected.lifetime = .keepAlways; add(selected)
+    }
+
+    func testIPadNativeBottomNavigationPreservesExpandedSession() throws {
+        let app = launchRuntimeFixtureApp("review_demo")
+        guard app.frame.width > 600 else { throw XCTSkip("iPad navigation qualification") }
+        let bar = app.tabBars.firstMatch
+        XCTAssertTrue(bar.waitForExistence(timeout: 10))
+        XCTAssertGreaterThan(bar.frame.minY, app.frame.height * 0.75)
+        XCTAssertTrue(bar.buttons["DJ-sessie"].isSelected)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "ipad-native-liquid-glass-bottom-navigation"
+        screenshot.lifetime = .keepAlways; add(screenshot)
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let rotated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            app.frame.width > app.frame.height && bar.frame.minY > app.frame.height * 0.75
+        }, object: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [rotated], timeout: 5), .completed)
+        let landscape = XCTAttachment(screenshot: app.screenshot())
+        landscape.name = "ipad-native-liquid-glass-landscape"; landscape.lifetime = .keepAlways; add(landscape)
+        bar.buttons["Ask DJ"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-ask-dj"].waitForExistence(timeout: 5))
+        let consent = app.descendants(matching: .any)["music-dna-opt-in-prompt"].firstMatch
+        if consent.waitForExistence(timeout: 3) {
+            let later = app.buttons["Niet nu"].firstMatch
+            XCTAssertTrue(later.waitForExistence(timeout: 5)); later.tap()
+        }
+        print("Native More before tap: frame=\(bar.buttons["Meer"].frame) hittable=\(bar.buttons["Meer"].isHittable) selected=\(bar.buttons["Meer"].isSelected)")
+        let menuReady = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: bar.buttons["Meer"])
+        XCTAssertEqual(XCTWaiter.wait(for: [menuReady], timeout: 5), .completed)
+        bar.buttons["Meer"].tap()
+        XCTAssertTrue(bar.buttons["Meer"].isSelected)
+        XCTAssertTrue(app.descendants(matching: .any)["Wachtrij"].firstMatch.waitForExistence(timeout: 5))
+        XCUIDevice.shared.orientation = .portrait
+    }
+
+    func testNativeBottomMoreRoutesAndOfflineRemainReachable() throws {
+        for (screen, identifier) in [
+            ("now-playing", "screen-now-playing"),
+            ("queue", "screen-queue"),
+            ("playlists", "screen-playlists")
+        ] {
+            let app = launchRuntimeFixtureApp("ready", screen: screen)
+            if !app.descendants(matching: .any)[identifier].waitForExistence(timeout: 10) {
+                print(app.debugDescription); XCTFail(screen); return
+            }
+        }
+        let offline = launchRuntimeFixtureApp("offline_network", screen: "dj-session")
+        let bar = offline.tabBars.firstMatch
+        XCTAssertTrue(bar.waitForExistence(timeout: 10))
+        let notice = offline.staticTexts["Apparaat offline"].firstMatch
+        XCTAssertTrue(notice.waitForExistence(timeout: 5))
+        XCTAssertLessThan(notice.frame.maxY, bar.frame.minY)
+        bar.buttons["Ask DJ"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(bar.buttons["Ask DJ"].isSelected)
+        bar.buttons["Meer"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(bar.buttons["Meer"].isSelected)
+        XCTAssertTrue(offline.descendants(matching: .any)["Wachtrij"].firstMatch.waitForExistence(timeout: 5))
     }
 
     func testSessionTimelineScrollBenchmark() {
@@ -1476,5 +1544,30 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(app.staticTexts["Een avond met de DJ"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertEqual(app.buttons["session-mood-toggle"].value as? String, "Feest")
         let restarted = XCTAttachment(screenshot: app.screenshot()); restarted.name = "demo-native-restarted-selected-mood"; restarted.lifetime = .keepAlways; add(restarted)
+    }
+}
+
+extension DJConnectIOSUITests {
+    func testReviewDemoExitShowsBlockingPairingAndDemoCanRestart() {
+        let app = launchSessionUIDemo()
+        let more = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.buttons["Meer"].firstMatch
+        XCTAssertTrue(more.waitForExistence(timeout: 5)); more.tap()
+        let settings = app.buttons["Instellingen"].firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 5)); settings.tap()
+        let stop = app.buttons["settings-stop-demo"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 5))
+        stop.tap()
+        let pairing = app.descendants(matching: .any)["screen-pairing"].firstMatch
+        XCTAssertTrue(pairing.waitForExistence(timeout: 8))
+        let demo = app.buttons["pairing-start-demo-button"]
+        XCTAssertTrue(demo.exists && demo.isEnabled)
+        if app.frame.width > 600 { app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.8)).tap() }
+        else { app.swipeDown() }
+        XCTAssertTrue(pairing.exists, "Required pairing must not dismiss interactively")
+        let blocked = XCTAttachment(screenshot: app.screenshot()); blocked.name = "review-demo-exit-blocking-pairing"; blocked.lifetime = .keepAlways; add(blocked)
+        demo.tap()
+        let tab = app.tabBars.buttons["DJ-sessie"].exists ? app.tabBars.buttons["DJ-sessie"] : app.buttons["DJ-sessie"].firstMatch
+        XCTAssertTrue(tab.waitForExistence(timeout: 5)); tab.tap()
+        XCTAssertTrue(app.staticTexts["Een avond met de DJ"].firstMatch.waitForExistence(timeout: 10))
     }
 }

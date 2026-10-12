@@ -533,13 +533,10 @@ quiet empty state without clearing pairing unless the app-wide stale-pairing
 logic applies. When local HA WebSocket fast-path is enabled and Home Assistant
 advertises `djconnect/vibecast`, the same response contract may be fetched over
 WebSocket; missing capability or transport failure falls back to HTTP once.
-While VibeCast is visible, iOS/macOS also keep Track Insight warm client-side:
-the app auto-analyzes the current playing track and each next playing track
-with `open:false`, deduping repeated playback snapshots until VibeCast closes.
-The iOS AirPlay VibeCast video renderer preloads album artwork before encoding
-the MP4 frames; if Track Insight has no artwork URL it falls back to the current
-Now Playing artwork URL so AirPlay does not bake in the placeholder while the
-live VibeCast window loads images asynchronously.
+Apple clients use the DJ-session VibeCast handoff to the backend-owned receiver.
+The legacy native AirPlay picker, local stream server, video route and external
+display windows have been removed. Track Insight image and short video sharing
+remain available.
 
 All status and command payloads include `device_id`, `client_type`,
 `app_version`, `protocol_version` and `firmware`. `app_version` is the bundle
