@@ -270,7 +270,10 @@ struct SessionTimelineScreen: View {
                 Button {
                     if searching { closeSearch(proxy: proxy) }
                     else { priorSearchPosition = visibleEntry; searching = true; searchFocused = true }
-                } label: { Image(systemName: "magnifyingglass") }
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(searching ? djConnectAccent : .primary)
+                }
                     .disabled(!history.searchAvailable)
                     .accessibilityLabel(text("ui.session.history.search"))
                     .accessibilityIdentifier("session-search-toggle")
@@ -431,33 +434,28 @@ struct SessionTimelineScreen: View {
     }
     @ViewBuilder private func searchBar(proxy: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                TextField(text("ui.session.history.search"), text: $query)
-                    .textFieldStyle(.roundedBorder).focused($searchFocused)
-                    .submitLabel(.search)
-                    .onSubmit {
-                        #if os(iOS)
-                        searchFocused = false
-                        #endif
-                        moveMatch(1, proxy: proxy)
-                    }
-                    .accessibilityIdentifier("session-search-field")
-                if history.searchLoading { ProgressView() }
-                Button { moveMatch(-1, proxy: proxy) } label: { Image(systemName: "chevron.up") }
-                    .disabled(matches.isEmpty).accessibilityLabel(text("ui.previous.result"))
-                Button { moveMatch(1, proxy: proxy) } label: { Image(systemName: "chevron.down") }
-                    .disabled(matches.isEmpty).accessibilityLabel(text("ui.next.result"))
-                Button { closeSearch(proxy: proxy) } label: { Image(systemName: "xmark") }
-                    .accessibilityLabel(text("ui.close.search"))
-            }
+            AskDJSearchBar(language: model.language, scopeName: text("ui.session.history.title"),
+                           fieldIdentifier: "session-search-field", countIdentifier: "session-search-count",
+                           isLoading: history.searchLoading, text: $query, isFocused: $searchFocused,
+                           resultCount: history.acceptedSearchQuery == query ? matches.count : 0,
+                           selectedIndex: selectedIndex,
+                           previousAction: { moveMatch(-1, proxy: proxy) },
+                           nextAction: { moveMatch(1, proxy: proxy) },
+                           closeAction: { closeSearch(proxy: proxy) },
+                           submitAction: {
+                               #if os(iOS)
+                               searchFocused = false
+                               #endif
+                               moveMatch(1, proxy: proxy)
+                           })
             if let key = history.searchErrorKey {
                 Text(text(key))
                 Button(text("ui.retry")) { history.search(sessionID: sessionID, query: query) }
             } else if !query.isEmpty && !history.searchLoading && history.acceptedSearchQuery == query {
                 HStack {
                     Text(matches.isEmpty && history.searchComplete ? text("ui.session.history.no_match") :
-                         "\(matches.isEmpty ? 0 : selectedIndex + 1)/\(matches.count) · " + text(history.searchComplete ? "ui.session.history.complete" : "ui.session.history.partial"))
-                        .accessibilityIdentifier("session-search-count")
+                         text(history.searchComplete ? "ui.session.history.complete" : "ui.session.history.partial"))
+                        .font(.caption).foregroundStyle(.secondary)
                     if history.searchNextCursor != nil {
                         Button(text("ui.session.history.more")) { Task { await history.moreSearch() } }
                     }
@@ -469,7 +467,7 @@ struct SessionTimelineScreen: View {
                 anchorGeneration = UUID(); self.selectedMatchID = nil; positionUnavailable = true
             }
         }
-        .font(.callout).padding(16).background(.thinMaterial)
+        .font(.callout).padding(.horizontal, 20).padding(.vertical, 10)
         .onKeyPress(.escape) { closeSearch(proxy: proxy); return .handled }
         .onKeyPress(.upArrow) { moveMatch(-1, proxy: proxy); return .handled }
         .onKeyPress(.downArrow) { moveMatch(1, proxy: proxy); return .handled }
@@ -485,8 +483,8 @@ struct SessionHighlightedText: View {
             guard let range = mark.safeRange(in: text), let stringRange = Range(range, in: text),
                   let lower = AttributedString.Index(stringRange.lowerBound, within: result),
                   let upper = AttributedString.Index(stringRange.upperBound, within: result) else { continue }
-            result[lower..<upper].backgroundColor = .yellow
-            result[lower..<upper].foregroundColor = .black
+            result[lower..<upper].backgroundColor = djConnectAccent.opacity(0.48)
+            result[lower..<upper].foregroundColor = .white
         }
         return result
     }
@@ -554,7 +552,7 @@ struct SessionEntryView: View {
                 }
             }
         }
-        .padding(4).overlay(RoundedRectangle(cornerRadius: DJConnectCardAppearance.conversationCornerRadius).stroke(isSelectedMatch ? Color.yellow : .clear, lineWidth: 2))
+        .padding(4)
     }
     private var askButton: some View {
         Button(action: askAction) {

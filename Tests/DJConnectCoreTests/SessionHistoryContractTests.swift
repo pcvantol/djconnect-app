@@ -1474,3 +1474,30 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(model.isDemoMode)
     #expect(!model.shouldShowPairingScreen)
 }
+
+@Test @MainActor func playbackSurfacesFollowConfirmedSessionMoodInsteadOfLegacyAskDJMood() async throws {
+    let name = "playback-mood-test-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.askDJMood = 0
+    #expect(model.playbackMoodStepIndex == 1)
+    #expect(model.confirmedSessionMoodInt == nil)
+    model.startDemoMode()
+    for (index, mood) in ["chill", "groove", "energy", "party"].enumerated() {
+        await model.changeActiveSessionMood(mood)
+        #expect(model.playbackMoodStepIndex == index)
+        #expect(model.confirmedSessionMoodInt == [0, 35, 70, 100][index])
+        let payload = model.profileConversationPayload(text: "question", clientMessageID: UUID().uuidString, context: DJConnectConversationContext(sessionID: model.activeDJSession?.id))
+        #expect(payload.mood == [0, 35, 70, 100][index])
+        #expect(model.askDJMood == 0)
+    }
+    // An unconfirmed start-session choice must not recolour the current Session.
+    model.selectedSessionMood = "chill"
+    #expect(model.playbackMoodStepIndex == 3)
+    await model.endDJSession()
+    #expect(model.playbackMoodStepIndex == 1)
+    #expect(model.confirmedSessionMoodInt == nil)
+    let payload = model.profileConversationPayload(text: "question", clientMessageID: UUID().uuidString, context: DJConnectConversationContext(sessionID: nil))
+    #expect(payload.mood == nil)
+}

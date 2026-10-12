@@ -1064,6 +1064,19 @@ public final class DJConnectAppModel: ObservableObject {
         max(0, min(100, Int(askDJMood.rounded())))
     }
 
+    /// Project confirmed server-owned Session mood; omit it when no Session is active.
+    public var confirmedSessionMoodInt: Int? {
+        guard let mood = activeDJSession?.selectedMood,
+              let index = ["chill", "groove", "energy", "party"].firstIndex(of: mood) else { return nil }
+        return [0, 35, 70, 100][index]
+    }
+
+    /// Neutral presentation outside a Session never reuses the old Ask DJ slider value.
+    public var playbackMoodStepIndex: Int {
+        guard let mood = confirmedSessionMoodInt else { return 1 }
+        return Self.askDJMoodStepIndex(for: Double(mood))
+    }
+
     public var askDJMoodStepIndex: Int {
         Self.askDJMoodStepIndex(for: askDJMood)
     }
@@ -3344,7 +3357,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
     func profileConversationPayload(text: String, clientMessageID: String, context: DJConnectConversationContext) -> DJConnectAskDJRequest {
         var payload = DJConnectAskDJRequest(identity: identity, text: text, clientMessageID: clientMessageID,
-            inputType: "text", mood: askDJMoodInt, djStyle: "warm_radio_dj", musicDNAKey: askDJMusicDNAKey,
+            inputType: "text", mood: confirmedSessionMoodInt, djStyle: "warm_radio_dj", musicDNAKey: askDJMusicDNAKey,
             audioResponse: .never, djAnnouncementOutput: djAnnouncementOutput, language: currentRequestLocale)
         payload.conversationContext = context
         return payload
@@ -3467,7 +3480,7 @@ public final class DJConnectAppModel: ObservableObject {
                     clientType: identity.clientType.rawValue,
                     forceRefresh: forceRefresh,
                     locale: language,
-                    mood: askDJMoodInt,
+                    mood: confirmedSessionMoodInt,
                     musicDNAKey: askDJMusicDNAKey,
                     includeVisualProfile: true,
                     includeRawResponse: true
@@ -5163,7 +5176,7 @@ public final class DJConnectAppModel: ObservableObject {
                     wakewordEnabled: wakeWordEnabled,
                     wakewordPhrase: wakeWordPhrase,
                     wakewordStatus: "\(wakeWordStatus)",
-                    mood: askDJMoodInt,
+                    mood: confirmedSessionMoodInt,
                     musicDNAKey: askDJMusicDNAKey
                 )
             )
@@ -5271,7 +5284,7 @@ public final class DJConnectAppModel: ObservableObject {
             command: command,
             limit: Self.commandLimit(for: command),
             language: currentRequestLocale,
-            mood: askDJMoodInt,
+            mood: confirmedSessionMoodInt,
             musicDNAKey: askDJMusicDNAKey
         )
     }
@@ -5335,7 +5348,7 @@ public final class DJConnectAppModel: ObservableObject {
                     identity: identity,
                     command: "status",
                     language: currentRequestLocale,
-                    mood: askDJMoodInt,
+                    mood: confirmedSessionMoodInt,
                     musicDNAKey: askDJMusicDNAKey
                 )
             )
@@ -5656,7 +5669,7 @@ public final class DJConnectAppModel: ObservableObject {
         try await withHomeAssistantClient { client in
             try await client.sendVoice(
                 wavData: wavData,
-                mood: askDJMoodInt,
+                mood: confirmedSessionMoodInt,
                 djStyle: "warm_radio_dj",
                 musicDNAKey: askDJMusicDNAKey,
                 language: currentRequestLocale
@@ -5945,7 +5958,7 @@ public final class DJConnectAppModel: ObservableObject {
                 text: text,
                 clientMessageID: clientMessageID,
                 inputType: "text",
-                mood: askDJMoodInt,
+                mood: confirmedSessionMoodInt,
                 djStyle: "warm_radio_dj",
                 musicDNAKey: askDJMusicDNAKey,
                 audioResponse: askDJAudioResponseMode,
@@ -5992,7 +6005,7 @@ public final class DJConnectAppModel: ObservableObject {
         musicDNAErrorMessage = nil
         do {
             let response = try await withHomeAssistantClient { client in
-                try await client.musicDNAProfile(mood: askDJMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
+                try await client.musicDNAProfile(mood: confirmedSessionMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
             }
             apply(musicDNAProfile: response)
             if showToast {
@@ -6080,14 +6093,14 @@ public final class DJConnectAppModel: ObservableObject {
         musicDNAErrorMessage = nil
         do {
             let response = try await withHomeAssistantClient { client in
-                try await client.setMusicDNAEnabled(enabled, mood: askDJMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
+                try await client.setMusicDNAEnabled(enabled, mood: confirmedSessionMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
             }
             apply(musicDNAProfile: response)
             pendingMusicDNAEnabled = enabled
             pendingMusicDNAEnabledAt = Date()
             try Task.checkCancellation()
             let refreshed = try await withHomeAssistantClient { client in
-                try await client.musicDNAProfile(mood: askDJMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
+                try await client.musicDNAProfile(mood: confirmedSessionMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
             }
             apply(musicDNAProfile: refreshed)
         } catch let error as DJConnectError {
@@ -6112,11 +6125,11 @@ public final class DJConnectAppModel: ObservableObject {
         musicDNAErrorMessage = nil
         do {
             _ = try await withHomeAssistantClient { client in
-                try await client.clearMusicDNA(mood: askDJMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
+                try await client.clearMusicDNA(mood: confirmedSessionMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
             }
             try Task.checkCancellation()
             let refreshed = try await withHomeAssistantClient { client in
-                try await client.musicDNAProfile(mood: askDJMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
+                try await client.musicDNAProfile(mood: confirmedSessionMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
             }
             apply(musicDNAProfile: refreshed)
         } catch let error as DJConnectError {
@@ -6197,7 +6210,7 @@ public final class DJConnectAppModel: ObservableObject {
         musicDNAErrorMessage = nil
         defer { isUpdatingMusicDNA = false }
         let response = try await withHomeAssistantClient { client in
-            try await client.importMusicDNA(preview.profile, mood: askDJMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
+            try await client.importMusicDNA(preview.profile, mood: confirmedSessionMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
         }
         apply(musicDNAProfile: response)
     }
@@ -6868,7 +6881,7 @@ public final class DJConnectAppModel: ObservableObject {
             try await client.askDJIdleSuggestion(DJConnectAskDJIdleSuggestionRequest(
                 identity: identity,
                 clientMessageID: UUID().uuidString,
-                mood: askDJMoodInt,
+                mood: confirmedSessionMoodInt,
                 djStyle: "warm_radio_dj",
                 musicDNAKey: askDJMusicDNAKey
             ))
@@ -6885,7 +6898,7 @@ public final class DJConnectAppModel: ObservableObject {
                 play: command == "ask_dj_play_recommendation",
                 musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision,
                 language: currentRequestLocale,
-                mood: askDJMoodInt,
+                mood: confirmedSessionMoodInt,
                 musicDNAKey: askDJMusicDNAKey,
                 djAnnouncementOutput: djAnnouncementOutput
             ))
@@ -6908,7 +6921,7 @@ public final class DJConnectAppModel: ObservableObject {
                     command: "set_current_track_favorite",
                     value: .bool(shouldFavorite),
                     language: currentRequestLocale,
-                    mood: askDJMoodInt,
+                    mood: confirmedSessionMoodInt,
                     musicDNAKey: askDJMusicDNAKey
                 ))
             }
@@ -6952,7 +6965,7 @@ public final class DJConnectAppModel: ObservableObject {
                     command: command,
                     value: value,
                     language: currentRequestLocale,
-                    mood: askDJMoodInt,
+                    mood: confirmedSessionMoodInt,
                     musicDNAKey: askDJMusicDNAKey
                 ))
             }
@@ -9656,7 +9669,7 @@ public final class DJConnectAppModel: ObservableObject {
                         play: play,
                         limit: Self.commandLimit(for: command),
                         language: currentRequestLocale,
-                        mood: askDJMoodInt,
+                        mood: confirmedSessionMoodInt,
                         musicDNAKey: askDJMusicDNAKey
                     )
                 )
@@ -10708,7 +10721,7 @@ public final class DJConnectAppModel: ObservableObject {
                     wakewordEnabled: false,
                     wakewordPhrase: "",
                     wakewordStatus: "\(wakeWordStatus)",
-                    mood: askDJMoodInt,
+                    mood: confirmedSessionMoodInt,
                     musicDNAKey: askDJMusicDNAKey
                 ))
             } catch let error as DJConnectError {

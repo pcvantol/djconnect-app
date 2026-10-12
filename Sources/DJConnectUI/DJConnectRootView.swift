@@ -3896,7 +3896,7 @@ private struct TrackInsightView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                DJConnectCanvasBackground()
+                DJSessionPinnedMoodBackground(mood: ["chill", "groove", "energy", "party"][model.playbackMoodStepIndex])
                 GeometryReader { proxy in
                     let contentWidth = min(maxContentWidth(for: proxy.size), proxy.size.width)
                     ZStack(alignment: .top) {
@@ -3906,14 +3906,14 @@ private struct TrackInsightView: View {
                                     TrackInsightHero(
                                         model: model,
                                         insight: insight,
-                                        moodStepIndex: model.askDJMoodStepIndex,
+                                        moodStepIndex: model.playbackMoodStepIndex,
                                         isAnimationActive: isAnimationActive
                                     )
                                     .id(trackInsightHeroRenderID(for: insight))
                                         .frame(maxWidth: .infinity, alignment: .topLeading)
                                     TrackInsightAnalysisCard(insight: insight, language: model.language)
                                         .frame(maxWidth: .infinity, alignment: .topLeading)
-                                    TrackInsightMetricsGrid(insight: insight, language: model.language, moodStepIndex: model.askDJMoodStepIndex)
+                                    TrackInsightMetricsGrid(insight: insight, language: model.language, moodStepIndex: model.playbackMoodStepIndex)
                                         .frame(maxWidth: .infinity, alignment: .topLeading)
                                     TrackInsightPrivacyFooter(language: model.language)
                                         .frame(maxWidth: .infinity, alignment: .top)
@@ -3982,7 +3982,7 @@ private struct TrackInsightView: View {
                     TrackInsightSharePreviewView(
                         insight: insight,
                         language: model.language,
-                        moodStepIndex: model.askDJMoodStepIndex
+                        moodStepIndex: model.playbackMoodStepIndex
                     )
                 }
             }
@@ -4015,8 +4015,8 @@ private struct TrackInsightView: View {
             insight.artist,
             insight.visualProfile?.motionStyle?.rawValue ?? "",
             insight.visualProfile?.palette.joined(separator: ",") ?? "",
-            String(model.askDJMoodStepIndex),
-            String(model.askDJMoodInt)
+            String(model.playbackMoodStepIndex),
+            String(model.confirmedSessionMoodInt ?? 35)
         ].joined(separator: "|")
     }
 
@@ -8224,8 +8224,8 @@ private struct TrackInsightMetricRing: View {
     let icon: String
     let moodStepIndex: Int
 
-    private var moodPalette: MusicDNAHelixMoodPalette {
-        MusicDNAHelixMoodPalette(stepIndex: moodStepIndex)
+    private var moodPalette: DJConnectSessionMoodPalette {
+        DJConnectSessionMoodPalette(stepIndex: moodStepIndex)
     }
 
     private var normalizedValue: Double {
@@ -8491,7 +8491,7 @@ extension TrackVibeProfile {
             copy.animationSpeed = max(0.45, animationSpeed * 0.70)
             copy.motionStyle = .dreamy
         case 1:
-            copy.palette = ["#2EC4B6", "#7B61FF", "#D184FF"]
+            copy.palette = ["#06C7AD", "#169BC8", "#10B981"]
             copy.glow = max(0.38, glow * 0.95)
             copy.pulseSpeed = max(0.55, pulseSpeed * 0.92)
             copy.waveform = max(0.34, waveform * 0.96)
@@ -8500,7 +8500,7 @@ extension TrackVibeProfile {
             copy.animationSpeed = max(0.58, animationSpeed * 0.90)
             copy.motionStyle = .balanced
         case 2:
-            copy.palette = ["#8AC926", "#FFD166", "#FF6A3D"]
+            copy.palette = ["#DDFF00", "#00B8FF", "#39FF78"]
             copy.glow = min(0.95, max(0.48, glow * 1.14))
             copy.pulseSpeed = min(2.2, max(0.75, pulseSpeed * 1.16))
             copy.waveform = min(1.0, max(0.46, waveform * 1.12))
@@ -8509,7 +8509,7 @@ extension TrackVibeProfile {
             copy.animationSpeed = min(1.9, max(0.75, animationSpeed * 1.12))
             copy.motionStyle = .energetic
         default:
-            copy.palette = ["#FF2E63", "#A855F7", "#FFD166"]
+            copy.palette = ["#FF287F", "#AA38F5", "#F43DCE"]
             copy.glow = min(0.95, max(0.56, glow * 1.26))
             copy.pulseSpeed = min(2.2, max(0.95, pulseSpeed * 1.34))
             copy.waveform = min(1.0, max(0.56, waveform * 1.24))
@@ -9133,7 +9133,7 @@ private struct IOSTrackHero: View {
         }
         .padding(14)
         .background {
-            NowPlayingMoodCardBackground(tint: cardTint, moodStepIndex: model.askDJMoodStepIndex)
+            NowPlayingMoodCardBackground(tint: cardTint, moodStepIndex: model.playbackMoodStepIndex)
                 .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
         }
         .modifier(DJConnectCardOutline())
@@ -9429,7 +9429,7 @@ struct TrackSummaryView: View {
         }
         .padding(16)
         .background {
-            NowPlayingMoodCardBackground(tint: cardTint, moodStepIndex: model.askDJMoodStepIndex)
+            NowPlayingMoodCardBackground(tint: cardTint, moodStepIndex: model.playbackMoodStepIndex)
                 .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
         }
         .modifier(DJConnectCardOutline())
@@ -10159,6 +10159,7 @@ private struct AskDJView: View {
     @State private var isAskDJScrollToBottomButtonSuppressed = false
     @State private var askDJViewportHeight: CGFloat = 0
     @State private var didScrollAskDJToInitialBottom = false
+    @State private var promptCaretRequest: UUID?
     @FocusState private var isInputFocused: Bool
     @FocusState private var isSearchFocused: Bool
 
@@ -10300,6 +10301,7 @@ private struct AskDJView: View {
                                             isRequestingIdleSuggestion: model.isRequestingAskDJIdleSuggestion,
                                             selectExample: { example in
                                                 model.askDJDraft = example
+                                                promptCaretRequest = UUID()
                                                 isInputFocused = true
                                             }
                                         )
@@ -10314,7 +10316,7 @@ private struct AskDJView: View {
                                                 isAudioPlaying: isTransientMessage ? false : model.isPlayingAskDJAudio(message.audioURL),
                                                 isRetryDisabled: isTransientMessage || isAskDJHistoryStale || model.isSendingAskDJText,
                                                 playingActionID: model.playingAskDJActionID,
-                                                currentMood: model.askDJMoodInt,
+                                                currentMood: model.confirmedSessionMoodInt,
                                                 isSearchResult: searchResultIDs.contains(message.id),
                                                 isActiveSearchResult: activeSearchResultID == message.id,
                                                 searchText: askDJSearchText,
@@ -10343,6 +10345,7 @@ private struct AskDJView: View {
                                                 setPromptAction: { text in
                                                     guard !isAskDJHistoryStale else { return }
                                                     model.askDJDraft = text
+                                                    promptCaretRequest = UUID()
                                                     isInputFocused = true
                                                 },
                                                 historicalMatches: model.sessionHistory.historicalMatches[message.serverID ?? ""] ?? [],
@@ -10493,7 +10496,8 @@ private struct AskDJView: View {
                     model: model,
                     canSend: canSend,
                     canUseVoiceInput: canUseVoiceInput,
-                    isInputFocused: $isInputFocused
+                    isInputFocused: $isInputFocused,
+                    caretRequest: promptCaretRequest
                 )
                 #if os(iOS)
                 .padding(.bottom, 8)
@@ -10714,9 +10718,12 @@ private struct AskDJView: View {
 }
 
 
-private struct AskDJSearchBar: View {
+struct AskDJSearchBar: View {
     let language: String
     var scopeName: String = "Ask DJ"
+    var fieldIdentifier = "ask-dj-search-field"
+    var countIdentifier = "ask-dj-search-count"
+    var isLoading = false
     @Binding var text: String
     var isFocused: FocusState<Bool>.Binding
     let resultCount: Int
@@ -10724,6 +10731,7 @@ private struct AskDJSearchBar: View {
     let previousAction: () -> Void
     let nextAction: () -> Void
     let closeAction: () -> Void
+    var submitAction: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 9) {
@@ -10738,29 +10746,39 @@ private struct AskDJSearchBar: View {
                 .font(.callout.weight(.semibold))
                 .submitLabel(.search)
                 .focused(isFocused)
+                .focusEffectDisabled()
+                .tint(djConnectAccent)
+                .accessibilityIdentifier(fieldIdentifier)
                 .onSubmit {
-                    if resultCount > 0 {
+                    if let submitAction {
+                        submitAction()
+                    } else if resultCount > 0 {
                         nextAction()
                     }
                 }
+            if isLoading { ProgressView().controlSize(.small) }
             Text(resultLabel)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.54))
                 .frame(minWidth: 44, alignment: .trailing)
+                .accessibilityIdentifier(countIdentifier)
             Button(action: previousAction) {
                 Image(systemName: "chevron.up")
             }
             .disabled(resultCount == 0)
             .help(localizedKey(language, "ui.previous.result"))
+            .accessibilityLabel(localizedKey(language, "ui.previous.result"))
             Button(action: nextAction) {
                 Image(systemName: "chevron.down")
             }
             .disabled(resultCount == 0)
             .help(localizedKey(language, "ui.next.result"))
+            .accessibilityLabel(localizedKey(language, "ui.next.result"))
             Button(action: closeAction) {
                 Image(systemName: "xmark")
             }
             .help(localizedKey(language, "ui.close.search"))
+            .accessibilityLabel(localizedKey(language, "ui.close.search"))
         }
         .buttonStyle(.plain)
         .foregroundStyle(.white.opacity(0.86))
@@ -10772,17 +10790,8 @@ private struct AskDJSearchBar: View {
         }
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.08, green: 0.43, blue: 1.0).opacity(0.55),
-                            Color(red: 0.84, green: 0.22, blue: 0.96).opacity(0.45)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    lineWidth: 1
-                )
+                .stroke(djConnectAccent.opacity(isFocused.wrappedValue ? 0.80 : 0.40), lineWidth: 1)
+
         }
         .shadow(color: .black.opacity(0.24), radius: 16, y: 8)
         .onKeyPress(.return) {
@@ -12294,7 +12303,7 @@ private struct AskDJMarkdownText: View {
             of: query,
             options: [.caseInsensitive, .diacriticInsensitive]
         ) {
-            attributed[matchRange].backgroundColor = Color.white.opacity(0.24)
+            attributed[matchRange].backgroundColor = djConnectAccent.opacity(0.48)
             searchRange = matchRange.upperBound..<attributed.endIndex
         }
         return Text(attributed)
@@ -12745,6 +12754,9 @@ func askDJMoodIcon(for index: Int) -> String {
 /// the general Ask DJ surface continues using the existing model actions.
 struct AskDJInputBar: View {
     @ObservedObject var model: DJConnectAppModel
+    #if os(macOS)
+    @State private var promptSelection: TextSelection?
+    #endif
     let canSend: Bool
     let canUseVoiceInput: Bool
     var isInputFocused: FocusState<Bool>.Binding
@@ -12753,6 +12765,7 @@ struct AskDJInputBar: View {
     var stopVoiceAction: (() -> Void)? = nil
     var toggleVoiceAction: (() -> Void)? = nil
     var cancelVoiceAction: (() -> Void)? = nil
+    var caretRequest: UUID? = nil
 
     private func send() {
         isInputFocused.wrappedValue = false
@@ -12790,11 +12803,21 @@ struct AskDJInputBar: View {
                 AskDJPromptTextView(text: $model.askDJDraft, isInputFocused: isInputFocused)
                     .frame(minHeight: 44)
                 #else
-                TextField("", text: $model.askDJDraft, axis: .vertical)
+                TextField("", text: $model.askDJDraft, selection: $promptSelection, axis: .vertical)
                     .lineLimit(1...4)
                     .textFieldStyle(.plain)
                     .accessibilityLabel("Ask DJ")
                     .focused(isInputFocused)
+                    .onChange(of: caretRequest) { _, request in
+                        guard let request else { return }
+                        let draft = model.askDJDraft
+                        // Apply after the native editor's initial focus selection.
+                        // Subsequent typing and deliberate text selection stay untouched.
+                        DispatchQueue.main.async {
+                            guard caretRequest == request, isInputFocused.wrappedValue, model.askDJDraft == draft else { return }
+                            promptSelection = TextSelection(insertionPoint: model.askDJDraft.endIndex)
+                        }
+                    }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 11)
