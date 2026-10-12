@@ -9,19 +9,21 @@ import Testing
 private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var handlers: [String: (URLRequest) throws -> (HTTPURLResponse, Data)] = [:]
     private static let lock = NSLock()
+    static let sessionHeader = "X-DJConnect-Test-Session"
 
     static func setHandler(
         for host: String,
+        sessionID: String,
         handler: @escaping (URLRequest) throws -> (HTTPURLResponse, Data)
     ) {
         lock.lock()
-        handlers[host] = handler
+        handlers[sessionID + "|" + host] = handler
         lock.unlock()
     }
 
-    static func handler(for host: String) -> ((URLRequest) throws -> (HTTPURLResponse, Data))? {
+    static func handler(for host: String, sessionID: String) -> ((URLRequest) throws -> (HTTPURLResponse, Data))? {
         lock.lock()
-        let handler = handlers[host]
+        let handler = handlers[sessionID + "|" + host]
         lock.unlock()
         return handler
     }
@@ -35,7 +37,9 @@ private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     }
 
     override func startLoading() {
-        guard let host = request.url?.host, let handler = Self.handler(for: host) else {
+        guard let host = request.url?.host,
+              let sessionID = request.value(forHTTPHeaderField: Self.sessionHeader),
+              let handler = Self.handler(for: host, sessionID: sessionID) else {
             client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
             return
         }
@@ -574,9 +578,11 @@ private func mockSession(
     host: String,
     handler: @escaping (URLRequest) throws -> (HTTPURLResponse, Data)
 ) -> URLSession {
-    MockURLProtocol.setHandler(for: host, handler: handler)
+    let sessionID = UUID().uuidString
+    MockURLProtocol.setHandler(for: host, sessionID: sessionID, handler: handler)
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [MockURLProtocol.self]
+    configuration.httpAdditionalHeaders = [MockURLProtocol.sessionHeader: sessionID]
     return URLSession(configuration: configuration)
 }
 
@@ -1874,6 +1880,17 @@ private func makePairedMusicDNAModel(
     #expect(recorder.requests.count == 2)
 }
 
+/// Await the observed async effect instead of assuming the MainActor is idle after 100 ms.
+@MainActor
+private func waitForFastPathState(_ condition: @MainActor () async -> Bool) async -> Bool {
+    let deadline = ContinuousClock.now.advanced(by: .seconds(15))
+    repeat {
+        if await condition() { return true }
+        try? await Task.sleep(for: .milliseconds(20))
+    } while ContinuousClock.now < deadline
+    return await condition()
+}
+
 @MainActor
 @Test func appModelActiveLifecycleRefreshesWebSocketFastPathWhenPairedAndEnabled() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
@@ -1890,11 +1907,11 @@ private func makePairedMusicDNAModel(
     model.homeAssistantURL = "http://homeassistant.local:8123"
     model.pairingStatus = .paired
     model.webSocketFastPathEnabled = true
-    try await Task.sleep(for: .milliseconds(100))
+    #expect(await waitForFastPathState { await fastPath.prepareCalls >= 1 && model.fastPathDiagnostics.fastPathTransport == "websocket" })
     let baseline = await fastPath.prepareCalls
 
     model.markActiveSession()
-    try await Task.sleep(for: .milliseconds(100))
+    #expect(await waitForFastPathState { await fastPath.prepareCalls >= baseline + 1 && model.fastPathDiagnostics.fastPathTransport == "websocket" })
 
     #expect(await fastPath.prepareCalls >= baseline + 1)
     #expect(model.fastPathDiagnostics.fastPathTransport == "websocket")
@@ -1924,7 +1941,7 @@ private func makePairedMusicDNAModel(
     model.webSocketFastPathEnabled = true
 
     model.pairingStatus = .paired
-    try await Task.sleep(for: .milliseconds(100))
+    #expect(await waitForFastPathState { await fastPath.prepareCalls >= 1 })
 
     #expect(await fastPath.prepareCalls >= 1)
     #expect(model.pairingStatus == .paired)
@@ -1946,7 +1963,7 @@ private func makePairedMusicDNAModel(
     model.homeAssistantURL = "http://homeassistant.local:8123"
     model.pairingStatus = .paired
     model.webSocketFastPathEnabled = true
-    try await Task.sleep(for: .milliseconds(100))
+    #expect(await waitForFastPathState { await fastPath.prepareCalls >= 1 && model.fastPathDiagnostics.fastPathTransport == "websocket" })
     let baseline = await fastPath.prepareCalls
 
     model.markInactiveSession()
@@ -10702,7 +10719,8 @@ private func makePairedMusicDNAModel(
     let minor = versionParts.dropFirst().first ?? 0
     let patch = versionParts.dropFirst(2).first ?? 0
     let nextVersion = "\(major).\(minor).\(patch + 1)"
-    MockURLProtocol.setHandler(for: "djconnect.dev") { request in
+    let sessionID = try #require(session.configuration.httpAdditionalHeaders?[MockURLProtocol.sessionHeader] as? String)
+    MockURLProtocol.setHandler(for: "djconnect.dev", sessionID: sessionID) { request in
         let path = request.url?.path ?? ""
         requests.append(path)
         let response = try httpResponse(for: request, statusCode: 200)
@@ -12776,17 +12794,18 @@ private func makePairedMusicDNAModel(
     #expect(source.contains(".scrollBounceBehavior(.basedOnSize)"))
 }
 
-@Test func moodPickerIsCentralizedInNowPlayingOnly() throws {
-    let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
-    let nowPlayingSection = try #require(source.structBody(named: "NowPlayingMoodControlSection"))
-    let trackInsightSection = try #require(source.structBody(named: "TrackInsightView"))
-    let askDJSection = try #require(source.structBody(named: "AskDJView"))
-
-    #expect(nowPlayingSection.contains("AskDJMoodModeControl(model: model)"))
-    #expect(!trackInsightSection.contains("AskDJMoodModeControl("))
-    #expect(!trackInsightSection.contains("trackInsightMoodToolbarButton"))
-    #expect(!askDJSection.contains("AskDJMoodModeControl("))
-    #expect(!askDJSection.contains("askDJMoodToolbarButton"))
+@Test func moodPickerIsCentralizedInSessionToolbarOnly() throws {
+    let root = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
+    let timeline = try loadRepositoryText("Sources/DJConnectUI/SessionTimelineScreen.swift")
+    let nowPlaying = try #require(root.structBody(named: "NowPlayingView"))
+    let iosNowPlaying = try #require(root.structBody(named: "IOSNowPlayingView"))
+    let askDJ = try #require(root.structBody(named: "AskDJView"))
+    #expect(!root.contains("NowPlayingMoodControlSection"))
+    #expect(!root.contains("AskDJMoodModeControl"))
+    #expect(!nowPlaying.contains("MoodModeControl"))
+    #expect(!iosNowPlaying.contains("MoodModeControl"))
+    #expect(!askDJ.contains("MoodModeControl"))
+    #expect(timeline.contains("struct ActiveSessionMoodToolbar: View"))
 }
 
 @Test func gamesCanvasIsCappedOnIPadLandscapeOnly() throws {
@@ -13031,7 +13050,7 @@ private func loadRepositoryText(_ relativePath: String) throws -> String {
 
 private extension String {
     func structBody(named name: String) -> String? {
-        guard let declaration = range(of: "private struct \(name): View {") else {
+        guard let declaration = range(of: "struct \(name): View {") else {
             return nil
         }
         var depth = 0

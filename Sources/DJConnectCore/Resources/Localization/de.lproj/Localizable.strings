@@ -1075,3 +1075,14 @@
 "ui.session.welcome.subtitle" = "Gib deiner Musik Raum. Starte eine Session und lass den DJ mit dir zuhören.";
 "ui.session.welcome.promise" = "Geschichten zu deiner Musik. Platz für deine Fragen.";
 "ui.session.welcome.mood" = "Wie möchtest du hören?";
+
+"ui.session.music_duration" = "Verstrichene Zeit und Gesamtdauer";
+"ui.session.music_remaining" = "Verbleibende Zeit";
+
+"ui.session.end.confirm" = "Diese DJ-Sitzung beenden?";
+
+"ui.connection.status" = "Verbindungsstatus";
+
+"ui.connection.offline" = "Keine Verbindung zu Home Assistant";
+"ui.connection.recovering" = "Verbindung zur DJ-Sitzung wird wiederhergestellt…";
+"ui.connection.backend_unavailable" = "Musik ist vorübergehend nicht verfügbar";

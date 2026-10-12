@@ -1009,6 +1009,7 @@ extension DJConnectIOSUITests {
         tab.tap()
         let end = app.buttons["session-end-button"]
         XCTAssertTrue(end.isHittable); end.tap()
+        app.alerts.buttons["session-end-confirm"].firstMatch.tap()
         XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 15))
         try await control("restart")
         more.tap(); app.buttons["Eerdere sessies"].firstMatch.tap()
@@ -1077,6 +1078,7 @@ extension DJConnectIOSUITests {
         let pinned = app.descendants(matching: .any)["session-pinned-current"].firstMatch
         XCTAssertTrue(pinned.exists)
         XCTAssertFalse(app.buttons["Terug naar de actuele bijdrage"].exists)
+        app.buttons["session-mood-toggle"].tap()
         let mood = app.descendants(matching: .any)["active-session-mood"].firstMatch
         guard mood.waitForExistence(timeout: 10) else {
             print(app.debugDescription)
@@ -1096,6 +1098,7 @@ extension DJConnectIOSUITests {
                            (before["active"] as? [String: Any])?["now_playing"] as? NSDictionary)
             try saveHistoryScreenshot("paired-ui-confirmed-active-mood")
         }
+        app.buttons["session-mood-close"].tap()
         let beforeMenu = try await control("state", method: "GET")
         let handoff = app.buttons["session-handoff-toggle"]
         XCTAssertTrue(handoff.isHittable); handoff.tap()
@@ -1322,6 +1325,65 @@ extension DJConnectIOSUITests {
 }
 
 extension DJConnectIOSUITests {
+    private func launchSessionUIDemo() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-DJCONNECTRuntimeFixture", "review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment = ["DJCONNECT_UITEST_HA_URL": "", "DJCONNECT_UITEST_RUNTIME_FIXTURE": "review_demo"]
+        app.terminate(); app.launch()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        app.terminate(); app.launch()
+        let tab = app.tabBars.buttons["DJ-sessie"]
+        if tab.exists { tab.tap() }
+        return app
+    }
+
+    func testSessionMoodToolbarAndPlaybackTimes() {
+        let app = launchSessionUIDemo()
+        let connection = app.buttons["session-connection-toggle"]
+        XCTAssertTrue(connection.waitForExistence(timeout: 5))
+        connection.tap()
+        XCTAssertTrue(app.buttons["session-connection-close"].waitForExistence(timeout: 5))
+        app.buttons["session-connection-close"].tap()
+        let toggle = app.buttons["session-mood-toggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.descendants(matching: .any)["active-session-mood"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["Verstreken tijd en totale duur"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["Resterende tijd"].firstMatch.exists)
+        toggle.tap()
+        let party = app.buttons["session-mood-option-3"]
+        XCTAssertTrue(party.waitForExistence(timeout: 5))
+        let menu = XCTAttachment(screenshot: app.screenshot()); menu.name = "native-session-mood-popover"; menu.lifetime = .keepAlways; add(menu)
+        party.tap()
+        app.buttons["session-mood-close"].tap()
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertEqual(toggle.value as? String, "Feest")
+        XCTAssertFalse(app.buttons["session-mood-option-3"].exists)
+        let image = XCTAttachment(screenshot: app.screenshot()); image.name = "native-session-glass-times-top-glyph"; image.lifetime = .keepAlways; add(image)
+    }
+
+    func testSessionTimelineScrollBenchmark() {
+        let app = launchSessionUIDemo()
+        XCTAssertTrue(app.staticTexts["Midnight City"].firstMatch.waitForExistence(timeout: 10))
+        for index in 0..<10 {
+            let composer = app.textViews.firstMatch
+            composer.tap(); composer.typeText("Scroll \(index)")
+            app.buttons["ask-dj-composer-send"].tap()
+        }
+        let options = XCTMeasureOptions(); options.iterationCount = 3
+        func scrollSequence() {
+            let lower = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.82))
+            let upper = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.48))
+            lower.press(forDuration: 0.1, thenDragTo: upper)
+            lower.press(forDuration: 0.1, thenDragTo: upper)
+            upper.press(forDuration: 0.1, thenDragTo: lower)
+            upper.press(forDuration: 0.1, thenDragTo: lower)
+        }
+        scrollSequence()
+        measure(metrics: [XCTClockMetric(), XCTCPUMetric(application: app), XCTMemoryMetric(application: app)], options: options) {
+            scrollSequence()
+        }
+    }
+
     func testSessionCurrentMusicStaysLeftOfDJCard() {
         let app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-DJCONNECTRuntimeFixture", "review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
@@ -1392,6 +1454,12 @@ extension DJConnectIOSUITests {
         let dj = app.tabBars.buttons["DJ-sessie"].exists ? app.tabBars.buttons["DJ-sessie"] : app.buttons["DJ-sessie"].firstMatch
         dj.tap()
         app.buttons["session-end-button"].tap()
+        XCTAssertTrue(app.alerts.buttons["session-end-confirm"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Annuleren"].tap()
+        XCTAssertTrue(app.buttons["session-end-button"].exists)
+        XCTAssertFalse(app.buttons["Start DJ-sessie"].firstMatch.exists)
+        app.buttons["session-end-button"].tap()
+        app.alerts.buttons["session-end-confirm"].firstMatch.tap()
         let restart = app.buttons["Start DJ-sessie"].firstMatch
         XCTAssertTrue(restart.waitForExistence(timeout: 5) && restart.isEnabled)
         XCTAssertTrue(app.staticTexts["Jouw muziek.\nJouw moment."].firstMatch.exists)
@@ -1399,7 +1467,7 @@ extension DJConnectIOSUITests {
         if !restart.isHittable { app.scrollViews.firstMatch.swipeUp() }
         app.buttons["Feest"].firstMatch.tap(); restart.tap()
         XCTAssertTrue(app.staticTexts["Een avond met de DJ"].firstMatch.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Feest"].firstMatch.isSelected)
+        XCTAssertEqual(app.buttons["session-mood-toggle"].value as? String, "Feest")
         let restarted = XCTAttachment(screenshot: app.screenshot()); restarted.name = "demo-native-restarted-selected-mood"; restarted.lifetime = .keepAlways; add(restarted)
     }
 }

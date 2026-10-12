@@ -1075,3 +1075,14 @@
 "ui.session.welcome.subtitle" = "Faites place à la musique. Lancez une session et laissez le DJ vous accompagner.";
 "ui.session.welcome.promise" = "Des histoires musicales. Une place pour vos questions.";
 "ui.session.welcome.mood" = "Quelle ambiance vous tente ?";
+
+"ui.session.music_duration" = "Temps écoulé et durée totale";
+"ui.session.music_remaining" = "Temps restant";
+
+"ui.session.end.confirm" = "Terminer cette session DJ ?";
+
+"ui.connection.status" = "État de la connexion";
+
+"ui.connection.offline" = "Pas de connexion à Home Assistant";
+"ui.connection.recovering" = "Reconnexion à la session DJ…";
+"ui.connection.backend_unavailable" = "La musique est temporairement indisponible";

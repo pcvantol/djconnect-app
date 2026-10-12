@@ -156,9 +156,10 @@ struct SessionTimelineScreen: View {
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
                 if model.isDemoMode { Label(text("demo.session.notice"), systemImage: "sparkles").font(.caption).padding(8).accessibilityIdentifier("session-demo-notice") }
-                if searching { TimelineView(.periodic(from: .now, by: 1)) { _ in searchBar(proxy: proxy) } }
-                TimelineView(.periodic(from: .now, by: 1)) { clock in
+                if searching { TimelineView(SessionEntryRefreshSchedule(deadlines: history.searchMatches.compactMap { DJConnectHistoryEntry.date($0.retainedUntil) })) { _ in searchBar(proxy: proxy) } }
+                TimelineView(SessionEntryRefreshSchedule(deadlines: timeline.entries.compactMap { DJConnectHistoryEntry.date($0.retainedUntil) })) { clock in
                     ScrollView {
+                        DJSessionGlassGroup {
                         LazyVStack(alignment: .leading, spacing: 18) {
                             Color.clear.frame(height: 1).id("current")
                             if activeSession == nil {
@@ -169,7 +170,7 @@ struct SessionTimelineScreen: View {
                             if let error = model.djSessionErrorMessage, activeSession != nil {
                                 Text(error).foregroundStyle(.red)
                             }
-                            if timeline.loading { ProgressView() }
+                            if timeline.loading && timeline.entries.isEmpty { ProgressView() }
                             if let key = timeline.errorKey {
                                 Text(text(key)); Button(text("ui.retry")) { Task { await history.loadTimeline(sessionID, window: .tail) } }
                             }
@@ -185,7 +186,7 @@ struct SessionTimelineScreen: View {
                                     } else { Label(text("ui.session.history.awaiting"), systemImage: "ellipsis.bubble") }
                                 }
                                 .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-                                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                                .djSessionFrostedSurface(cornerRadius: 16)
                                 .id("pending-" + turn.id)
                             }
                             ForEach(timeline.entries.reversed().filter { $0.isRetained(at: clock.date) }) { entry in
@@ -215,6 +216,7 @@ struct SessionTimelineScreen: View {
                         }
                         .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity).padding(20)
                         .scrollTargetLayout()
+                        }
                     }
                     .safeAreaInset(edge: .top, spacing: 0) {
                         if let activeSession {
@@ -240,14 +242,12 @@ struct SessionTimelineScreen: View {
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewportHeight = $0 }
             .background(DJConnectCanvasBackground())
             .toolbar {
+                if let activeSession {
+                    SessionConnectionToolbarButton(model: model)
+                    ActiveSessionMoodToolbar(model: model, session: activeSession)
+                }
                 if activeSession != nil {
-                    Button(role: .destructive) { Task { await model.endDJSession() } } label: {
-                        Image(systemName: "xmark.circle")
-                    }
-                    .disabled(model.isLoadingDJSession)
-                    .accessibilityLabel(text("ui.session.end"))
-                    .accessibilityIdentifier("session-end-button")
-                    .help(text("ui.session.end"))
+                    SessionEndToolbarButton(model: model)
                 }
                 Button {
                     if searching { closeSearch(proxy: proxy) }
@@ -353,7 +353,6 @@ struct SessionTimelineScreen: View {
     private func pinnedCurrent(_ session: DJConnectSessionRuntime) -> some View {
         let limit = max(60, viewportHeight * 0.4)
         let header = VStack(alignment: .leading, spacing: 12) {
-            ActiveSessionMoodPicker(model: model, session: session)
             NativeSessionMomentsView(session: session, language: model.language,
             isRecovering: model.djSessionIsRecovering,
             isLiveUnavailable: model.djSessionLiveUnavailable,
@@ -503,13 +502,14 @@ struct SessionEntryView: View {
                         isSearchResult: !highlights.isEmpty, isActiveSearchResult: isSelectedMatch, searchText: "",
                         retryAction: {}, playAction: { _ in }, audioAction: {}, trackInsightAction: {},
                         openLink: { _ in }, feedbackAction: { _ in }, setPromptAction: { _ in }, isReadOnly: true,
-                        serverHighlights: highlights)
+                        serverHighlights: highlights, contextQuestionAction: askAction,
+                        contextQuestionSelected: selected, contextQuestionID: "ask-entry-" + entry.id)
                     if entry.inputType == "voice" { Label(text("ui.session.history.voice"), systemImage: "mic.fill").font(.caption) }
                 } else {
                     VStack(alignment: .leading, spacing: 10) {
                         Label(text(entry.kind == .djMoment ? "ui.session.moment.generic" : "ui.session.history.playback"),
                               systemImage: entry.kind == .djMoment ? "sparkles" : "music.note")
-                            .font(.caption.weight(.semibold))
+                            .font(.caption.weight(.semibold)).padding(.trailing, 40)
                         SessionHighlightedText(text: entry.text ?? "", highlights: highlights).font(.title3)
                         SessionTimestampText(value: entry.occurredAt, language: language).font(.caption).foregroundStyle(.secondary)
                         ForEach(sourceURLs, id: \.absoluteString) { url in
@@ -523,13 +523,10 @@ struct SessionEntryView: View {
                                 .accessibilityLabel("Spotify")
                         }
                     }
-                    .padding(20).padding(.bottom, 40)
+                    .padding(20)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .djSessionFrostedSurface(cornerRadius: 20)
-                    .overlay(alignment: .bottomTrailing) { askButton.padding(8) }
-                }
-                if entry.kind == .conversationUser || entry.kind == .conversationDJ {
-                    HStack { Spacer(); askButton }
+                    .overlay(alignment: .topTrailing) { askButton.padding(8) }
                 }
             }
         }
@@ -657,27 +654,226 @@ enum SessionArchiveSummary {
     }
 }
 
-struct ActiveSessionMoodPicker: View {
+struct ActiveSessionMoodToolbar: View {
     @ObservedObject var model: DJConnectAppModel
     let session: DJConnectSessionRuntime
     @Environment(\.scenePhase) private var scenePhase
+    @State private var showingMood = false
+    @State private var openedEpoch: UUID?
+    @State private var openedSessionID: String?
+    @ObservedObject private var history: DJConnectSessionHistoryModel
+    init(model: DJConnectAppModel, session: DJConnectSessionRuntime) {
+        self.model = model; self.session = session; history = model.sessionHistory
+    }
+    private let moods = ["chill", "groove", "energy", "party"]
+    private var selectedIndex: Int { moods.firstIndex(of: session.selectedMood) ?? 0 }
+    private var canChange: Bool { model.activeMoodAvailable && !model.activeMoodPending && session.confirmedMoodRevision != nil }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Picker(text("ui.session.select_mood"), selection: Binding(get: { session.selectedMood }, set: { mood in
-                Task { await model.changeActiveSessionMood(mood) }
-            })) {
-                ForEach(["chill", "groove", "energy", "party"], id: \.self) { mood in Text(text("ui.session.mood." + mood)).tag(mood) }
+        Button {
+            if showingMood { showingMood = false; openedEpoch = nil; openedSessionID = nil }
+            else { openedSessionID = session.id; openedEpoch = history.responseEpoch; showingMood = true }
+        } label: {
+            Image(systemName: askDJMoodIcon(for: selectedIndex))
+        }
+        .accessibilityLabel(text("ui.session.select_mood"))
+        .accessibilityValue(text("ui.session.mood." + moods[selectedIndex]))
+        .accessibilityIdentifier("session-mood-toggle")
+        .help(text("ui.session.select_mood"))
+        .popover(isPresented: $showingMood) {
+            let boundSessionID = openedSessionID
+            let boundEpoch = openedEpoch
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Spacer()
+                    Button { showingMood = false } label: { Image(systemName: "xmark") }
+                        .accessibilityLabel(text("ui.close"))
+                        .accessibilityIdentifier("session-mood-close")
+                }
+                MoodModeControl(steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
+                                selectedIndex: selectedIndex, language: model.language,
+                                caption: text("ui.session.select_mood"),
+                                selectableLabels: true,
+                                commitsOnDragEnd: true, showsCardBackground: false) { index in
+                    guard canChange, moods.indices.contains(index), let boundEpoch, let boundSessionID else { return }
+                    Task { await model.changeActiveSessionMood(moods[index], expectedSessionID: boundSessionID, expectedEpoch: boundEpoch) }
+                }
+                .disabled(!canChange)
+                .accessibilityIdentifier("active-session-mood")
+                if model.activeMoodPending { ProgressView(text("ui.session.mood.updating")) }
+                if let error = model.activeMoodError { Text(error).font(.caption).foregroundStyle(.secondary) }
             }
-            .pickerStyle(.segmented)
-            .disabled(!model.activeMoodAvailable || model.activeMoodPending || session.confirmedMoodRevision == nil)
-            .accessibilityIdentifier("active-session-mood")
-            if model.activeMoodPending { ProgressView(text("ui.session.mood.updating")) }
-            if let error = model.activeMoodError { Text(error).font(.caption).foregroundStyle(.secondary) }
+            .padding(12).frame(idealWidth: 360)
+            .presentationCompactAdaptation(.popover)
         }
         .task(id: session.id) { await model.refreshActiveMoodCapability() }
+        .onChange(of: session.id) { showingMood = false; openedEpoch = nil; openedSessionID = nil }
+        .onChange(of: history.responseEpoch) { showingMood = false; openedEpoch = nil; openedSessionID = nil }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await model.refreshActiveMoodCapability() } }
+            else { showingMood = false; openedEpoch = nil; openedSessionID = nil }
+        }
+    }
+}
+
+/// Refresh relative timestamps once per minute, but expire authorized entries
+/// exactly at their server deadline rather than delaying revocation to a tick.
+struct SessionEntryRefreshSchedule: TimelineSchedule {
+    let deadlines: [Date]
+    func entries(from startDate: Date, mode: TimelineScheduleMode) -> AnySequence<Date> {
+        let future = deadlines.filter { $0 > startDate }.sorted()
+        return AnySequence {
+            var index = 0
+            var first = true
+            var nextMinute = Date(timeIntervalSince1970: (floor(startDate.timeIntervalSince1970 / 60) + 1) * 60)
+            return AnyIterator<Date> {
+                if first { first = false; return startDate }
+                if index < future.count, future[index] <= nextMinute {
+                    let deadline = future[index]
+                    while index < future.count && future[index] == deadline { index += 1 }
+                    if deadline == nextMinute { nextMinute = nextMinute.addingTimeInterval(60) }
+                    return deadline
+                }
+                let tick = nextMinute; nextMinute = nextMinute.addingTimeInterval(60)
+                return tick
+            }
+        }
+    }
+}
+
+/// Bind confirmation to the session that was visible when the owner clicked End.
+struct SessionEndToolbarButton: View {
+    @ObservedObject var model: DJConnectAppModel
+    @State private var confirming = false
+    @State private var requestedSessionID: String?
+
+    private func text(_ key: String) -> String {
+        DJConnectLocalization.localized(key: key, language: model.language)
+    }
+
+    var body: some View {
+        Button(role: .destructive) {
+            requestedSessionID = model.activeDJSession?.id
+            confirming = requestedSessionID != nil
+        } label: {
+            Image(systemName: "xmark.circle")
+        }
+        .disabled(model.isLoadingDJSession || model.activeDJSession == nil)
+        .accessibilityLabel(text("ui.session.end"))
+        .accessibilityIdentifier("session-end-button")
+        .help(text("ui.session.end"))
+        .alert(text("ui.session.end.confirm"), isPresented: $confirming) {
+            Button(text("ui.session.end"), role: .destructive) {
+                let expectedSessionID = requestedSessionID
+                requestedSessionID = nil
+                Task { @MainActor in
+                    guard let expectedSessionID, model.activeDJSession?.id == expectedSessionID else { return }
+                    await model.endDJSession()
+                }
+            }
+            .accessibilityIdentifier("session-end-confirm")
+            Button(text("ui.cancel"), role: .cancel) { requestedSessionID = nil }
+        }
+        .onChange(of: model.activeDJSession?.id) { _, _ in
+            confirming = false
+            requestedSessionID = nil
+        }
+    }
+}
+
+struct SessionConnectionToolbarButton: View {
+    @ObservedObject var model: DJConnectAppModel
+    @State private var showingStatus = false
+    private func text(_ key: String) -> String {
+        DJConnectLocalization.localized(key: key, language: model.language)
+    }
+    private var status: SessionConnectionStatus {
+        .resolve(demo: model.isDemoMode, pairing: model.pairingStatus, mode: model.haConnectionMode,
+                 backendAvailable: model.backendAvailable, recovering: model.djSessionIsRecovering,
+                 liveUnavailable: model.djSessionLiveUnavailable)
+    }
+    var body: some View {
+        Button { showingStatus.toggle() } label: {
+            Circle().fill(status.color).frame(width: 12, height: 12)
+                .overlay { Circle().stroke(.white.opacity(0.35), lineWidth: 1) }
+                .frame(width: 44, height: 44)
+        }
+        .accessibilityLabel(text("ui.connection.status"))
+        .accessibilityValue(text(status.key))
+        .accessibilityIdentifier("session-connection-toggle")
+        .help(text(status.key))
+        .popover(isPresented: $showingStatus) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text(text("ui.connection.status")).font(.headline)
+                    Spacer()
+                    Button { showingStatus = false } label: {
+                        Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle())
+                    }
+                        .accessibilityLabel(text("ui.close"))
+                        .accessibilityIdentifier("session-connection-close")
+                        .keyboardShortcut(.cancelAction)
+                }
+                if status != .connected && !model.isDemoMode {
+                    Label(text(status.key), systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(status.color)
+                }
+                if model.isDemoMode {
+                    Label(text(status.key), systemImage: "play.circle.fill")
+                } else {
+                    #if os(iOS)
+                    IOSConnectionCard(model: model)
+                    #else
+                    SetupStatusView(model: model)
+                    #endif
+                }
+            }
+            .padding(16).frame(idealWidth: 340, maxWidth: 420)
+            .presentationCompactAdaptation(.popover)
+        }
+    }
+}
+
+/// Presentation only: pairing is retained across outages, so it is not a health signal.
+enum SessionConnectionStatus: Equatable {
+    case demo, ready, pairing, setupPending, stale, offline, recovering, liveUnavailable, backendUnavailable, connected
+    static func resolve(demo: Bool, pairing: DJConnectPairingStatus, mode: DJConnectHAConnectionMode,
+                        backendAvailable: Bool, recovering: Bool, liveUnavailable: Bool) -> Self {
+        if demo { return .demo }
+        switch pairing {
+        case .unpaired: return .ready
+        case .pairing: return .pairing
+        case .waitingForHomeAssistantCompletion: return .setupPending
+        case .stale: return .stale
+        case .paired:
+            if mode == .offline { return .offline }
+            if !backendAvailable { return .backendUnavailable }
+            if recovering { return .recovering }
+            if liveUnavailable { return .liveUnavailable }
+            return .connected
+        }
+    }
+    var key: String {
+        switch self {
+        case .demo: "ui.app.store.preview.without.home.assistant"
+        case .ready: "ui.ready.to.pair"
+        case .pairing: "ui.pairing.with.home.assistant"
+        case .setupPending: "ui.finish.setup.in.home.assistant"
+        case .stale: "ui.not.connected.to.home.assistant"
+        case .offline: "ui.connection.offline"
+        case .recovering: "ui.connection.recovering"
+        case .liveUnavailable: "ui.session.unavailable"
+        case .backendUnavailable: "ui.connection.backend_unavailable"
+        case .connected: "ui.paired"
+        }
+    }
+    var color: Color {
+        switch self {
+        case .demo: .purple
+        case .connected: .green
+        case .ready: .secondary
+        case .offline, .backendUnavailable: .red
+        case .pairing, .setupPending, .stale, .recovering, .liveUnavailable: .orange
         }
     }
 }

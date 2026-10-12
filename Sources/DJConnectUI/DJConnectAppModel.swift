@@ -4820,7 +4820,9 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    public func changeActiveSessionMood(_ mood: String) async {
+    public func changeActiveSessionMood(_ mood: String, expectedSessionID: String? = nil, expectedEpoch: UUID? = nil) async {
+        guard expectedSessionID == nil || activeDJSession?.id == expectedSessionID,
+              expectedEpoch == nil || sessionHistory.responseEpoch == expectedEpoch else { return }
         if isDemoMode {
             guard var demo = activeDJSession, ["chill", "groove", "energy", "party"].contains(mood) else { return }
             let revision = (demo.confirmedMoodRevision ?? 0) + (demo.selectedMood == mood ? 0 : 1)

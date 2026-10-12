@@ -8,12 +8,7 @@ import AppKit
 
 extension View {
     func djSessionFrostedSurface(cornerRadius: CGFloat) -> some View {
-        background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(.white.opacity(0.16), lineWidth: 0.75)
-                    .allowsHitTesting(false)
-            }
+        modifier(DJSessionGlassSurface(cornerRadius: cornerRadius))
     }
 
     @ViewBuilder func djSessionNavigationTitleStyle() -> some View {
@@ -22,6 +17,32 @@ extension View {
         #else
         self
         #endif
+    }
+}
+
+private struct DJSessionGlassSurface: ViewModifier {
+    let cornerRadius: CGFloat
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @ViewBuilder func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        if #available(iOS 26, macOS 26, watchOS 26, tvOS 26, *) {
+            if reduceTransparency { content.background(.regularMaterial, in: shape) }
+            else { content.glassEffect(.regular, in: shape) }
+        } else { content.background(.ultraThinMaterial, in: shape) }
+    }
+}
+
+/// Share the glass compositor across visible cards without merging separated bubbles.
+struct DJSessionGlassGroup<Content: View>: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    let content: Content
+    init(@ViewBuilder content: () -> Content) { self.content = content() }
+    var body: some View {
+        if #available(iOS 26, macOS 26, watchOS 26, tvOS 26, *), !reduceTransparency {
+            GlassEffectContainer(spacing: 0) { content }
+        } else {
+            content
+        }
     }
 }
 
@@ -185,8 +206,16 @@ struct NativeSessionMomentsView: View {
                 if let artist = playback.artist { Text(artist).foregroundStyle(.secondary) }
                 if let album = playback.album { Text(album).font(.caption).foregroundStyle(.secondary) }
                 if let duration = playback.durationMS, duration > 0, let position = playback.positionMS {
-                    ProgressView(value: Double(max(0, min(position, duration))), total: Double(duration))
+                    let current = max(0, min(position, duration))
+                    ProgressView(value: Double(current), total: Double(duration))
                         .accessibilityLabel(text("ui.session.music_progress"))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(sessionPlaybackTime(current)) / \(sessionPlaybackTime(duration))")
+                            .accessibilityLabel(text("ui.session.music_duration"))
+                        Text("−" + sessionPlaybackTime(duration - current))
+                            .accessibilityLabel(text("ui.session.music_remaining"))
+                    }
+                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                 }
             }
         }
@@ -282,4 +311,9 @@ func djSessionReducedMotion(_ systemPreference: Bool) -> Bool {
     #else
     return systemPreference
     #endif
+}
+
+func sessionPlaybackTime(_ milliseconds: Int) -> String {
+    let seconds = max(0, milliseconds) / 1000
+    return "\(seconds / 60):\(String(format: "%02d", seconds % 60))"
 }

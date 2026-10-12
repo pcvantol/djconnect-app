@@ -1,5 +1,10 @@
 # DJConnect iOS/macOS/watchOS App Handoff
 
+## Current Session controls and glass followup — 2026-10-12
+
+Build40016 is local on `codex/apple-session-mood-toolbar`, based on reconciled main7900ec7. Toolbar mood/status popovers, bound End confirmation, top-right glyphs, native glass rendering and playback time labels are implemented across shared Apple UI. Full477-test run PASS; bounded native iPhone/iPad controls PASS. Physical scroll acceptance, final Mac screen proof, publication and40016 installation are pending; ordinary physical iPad/MacBook40015 remains installed. No Core/backend mutation or Store/HA release. See [current qualification](verification/SESSION_CONTROLS_GLASS_20261012.md). The previous sections below are historical delivery snapshots.
+
+
 ## Current Session header refinement — 2026-10-12
 
 Owner-requested header correction is source-delivered through [PR #101](https://github.com/pcvantol/djconnect-app/pull/101), reviewed head `c5af1f07c8440a6e6f90b0a186d04aaea07f0dd4`, protected source-main `03d02a40c4caa9b5d37c8767e49f87b88cf106a3`. Both trees are `af668f407b18246157217157ceafacb7e4d51d2b`; parent is prior reconciled main `c045473`. Official Owner Authorization38210333937 and premerge CI38208915501 PASS. Source-main CI/coverage38210411713 and durable exact-SHA evidence38211003692 independently verified PASS. This separate [Finalization candidate](history/prompts/2026-10-12-apple-session-header-finalization.md) requires its own publication/protected-merge authority.

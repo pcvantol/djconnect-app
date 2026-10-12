@@ -1075,3 +1075,14 @@
 "ui.session.welcome.subtitle" = "Geef je muziek de ruimte. Start een sessie en laat de DJ met je meeluisteren.";
 "ui.session.welcome.promise" = "Verhalen bij je muziek. Ruimte voor jouw vragen.";
 "ui.session.welcome.mood" = "Hoe wil je luisteren?";
+
+"ui.session.music_duration" = "Verstreken tijd en totale duur";
+"ui.session.music_remaining" = "Resterende tijd";
+
+"ui.session.end.confirm" = "Wil je deze DJ-sessie beëindigen?";
+
+"ui.connection.status" = "Verbindingsstatus";
+
+"ui.connection.offline" = "Geen verbinding met Home Assistant";
+"ui.connection.recovering" = "Verbinding met de DJ-sessie herstellen…";
+"ui.connection.backend_unavailable" = "Muziek is tijdelijk niet beschikbaar";

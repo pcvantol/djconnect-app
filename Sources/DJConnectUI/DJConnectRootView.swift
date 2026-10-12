@@ -3299,8 +3299,6 @@ struct NowPlayingView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     TrackSummaryView(model: model)
                     OutputSelectorView(model: model)
-                    NowPlayingMoodControlSection(model: model)
-                    SetupStatusView(model: model)
                 }
                 .djConnectScreenPadding()
                 .disabled(model.isRefreshing)
@@ -9991,15 +9989,6 @@ private extension Color {
     }
 }
 
-private struct NowPlayingMoodControlSection: View {
-    @ObservedObject var model: DJConnectAppModel
-
-    var body: some View {
-        AskDJMoodModeControl(model: model)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-    }
-}
-
 private struct DJSessionView: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
@@ -10053,21 +10042,20 @@ private struct DJSessionView: View {
                     }
                 }
                 #endif
+                if !history.available || model.activeDJSession == nil {
+                    ToolbarItem { SessionConnectionToolbarButton(model: model) }
+                }
                 ToolbarItem {
                     RefreshButton(model: model) {
                         Task { await refreshNowPlayingWithToast() }
                     }
                 }
-                if !history.available, model.activeDJSession != nil {
-                    ToolbarItem {
-                    Button(role: .destructive) { Task { await model.endDJSession() } } label: {
-                        Image(systemName: "xmark.circle")
-                    }
-                    .disabled(model.isLoadingDJSession)
-                    .accessibilityLabel(localizedKey(model.language, "ui.session.end"))
-                    .accessibilityIdentifier("session-end-button")
+                if !history.available, let session = model.activeDJSession {
+                    ToolbarItem { ActiveSessionMoodToolbar(model: model, session: session) }
                 }
-                    }
+                if !history.available, model.activeDJSession != nil {
+                    ToolbarItem { SessionEndToolbarButton(model: model) }
+                }
             }
             .djUserNoticeToast(model: model)
         }
@@ -10272,7 +10260,6 @@ struct ActiveDJSessionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             if showsMoments {
-                ActiveSessionMoodPicker(model: model, session: session)
                 NativeSessionMomentsView(session: session, language: model.language, isRecovering: model.djSessionIsRecovering, isLiveUnavailable: model.djSessionLiveUnavailable, retryConnection: { Task { await model.retryDJSessionConnection() } }, artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL), returnToCurrent: returnToCurrent)
             }
             Divider()
@@ -10327,10 +10314,6 @@ private struct IOSNowPlayingView: View {
                     VStack(spacing: 16) {
                         IOSTrackHero(model: model, openQueueAction: openQueueAction)
                         OutputSelectorView(model: model)
-                        NowPlayingMoodControlSection(model: model)
-                        if !model.isDemoMode {
-                            IOSConnectionCard(model: model)
-                        }
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
@@ -10388,7 +10371,7 @@ private struct IOSNowPlayingView: View {
     }
 }
 
-private struct IOSConnectionCard: View {
+struct IOSConnectionCard: View {
     @ObservedObject var model: DJConnectAppModel
 
     var body: some View {
@@ -12419,6 +12402,9 @@ struct AskDJMessageBubble: View {
     var serverHighlights: [DJConnectHistoryHighlight]? = nil
     var historicalMatches: [DJConnectHistoryEntry] = []
     var openHistoryAction: ((DJConnectSessionOpenAction) -> Void)? = nil
+    var contextQuestionAction: (() -> Void)? = nil
+    var contextQuestionSelected = false
+    var contextQuestionID = ""
 
     private var renderedMessageText: some View {
         Group {
@@ -12676,8 +12662,21 @@ struct AskDJMessageBubble: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background {
-                    bubbleBackground
+                .padding(.trailing, contextQuestionAction == nil ? 0 : 36)
+                .djSessionFrostedSurface(cornerRadius: 18)
+                .overlay(alignment: .topTrailing) {
+                    if let contextQuestionAction {
+                        Button(action: contextQuestionAction) {
+                            Image(systemName: contextQuestionSelected ? "checkmark.bubble" : "bubble.left.and.bubble.right")
+                                .font(.system(size: 16))
+                                .foregroundStyle(contextQuestionSelected ? djConnectAccent : .secondary)
+                                .frame(width: 44, height: 44).contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain).padding(4)
+                        .accessibilityLabel(localizedKey(language, "ui.session.history.ask_entry"))
+                        .accessibilityValue(contextQuestionSelected ? localizedKey(language, "ui.session.history.selected_context") : "")
+                        .accessibilityIdentifier(contextQuestionID)
+                    }
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -12770,10 +12769,6 @@ struct AskDJMessageBubble: View {
         }
     }
 
-    private var bubbleBackground: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(.ultraThinMaterial)
-    }
 
 }
 
@@ -14014,22 +14009,28 @@ private struct AskDJImageCard: View {
     }
 }
 
-private struct AskDJMoodModeControl: View {
-    @ObservedObject var model: DJConnectAppModel
-    var caption: String? = nil
-    var closeAction: (() -> Void)?
+struct MoodModeControl: View {
+    let steps: [(label: String, value: Int)]
+    let selectedIndex: Int
+    let language: String
+    let caption: String
+    var closeAction: (() -> Void)? = nil
+    var selectableLabels = false
+    var commitsOnDragEnd = false
+    var showsCardBackground = true
+    var onSelect: (Int) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 8) {
-                Image(systemName: askDJMoodIcon(for: model.askDJMoodStepIndex))
+                Image(systemName: askDJMoodIcon(for: selectedIndex))
                     .font(.caption.weight(.bold))
                     .foregroundStyle(djConnectAccent)
-                Text(localizedKey(model.language, "ui.mood"))
+                Text(localizedKey(language, "ui.mood"))
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.primary)
                 Spacer()
-                Text(model.askDJMoodLabel)
+                Text(steps[selectedIndex].label)
                     .font(.caption.weight(.bold))
                     .foregroundStyle(djConnectAccent)
                 if let closeAction {
@@ -14039,14 +14040,14 @@ private struct AskDJMoodModeControl: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
-                    .help(localizedKey(model.language, "ui.close"))
-                    .accessibilityLabel(localizedKey(model.language, "ui.close"))
+                    .help(localizedKey(language, "ui.close"))
+                    .accessibilityLabel(localizedKey(language, "ui.close"))
                 }
             }
 
             GeometryReader { geometry in
-                let steps = model.askDJMoodSteps
-                let selectedIndex = model.askDJMoodStepIndex
+                let steps = steps
+                let selectedIndex = selectedIndex
                 let width = max(1, geometry.size.width)
                 let horizontalInset: CGFloat = 40
                 let usableWidth = max(1, width - horizontalInset * 2)
@@ -14080,7 +14081,7 @@ private struct AskDJMoodModeControl: View {
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { value in
-                            updateMood(from: value.location.x, width: width)
+                            if !commitsOnDragEnd { updateMood(from: value.location.x, width: width) }
                         }
                         .onEnded { value in
                             updateMood(from: value.location.x, width: width)
@@ -14089,29 +14090,55 @@ private struct AskDJMoodModeControl: View {
             }
             .frame(height: 28)
 
-            AskDJMoodLabelsView(steps: model.askDJMoodSteps, selectedIndex: model.askDJMoodStepIndex)
+            if selectableLabels {
+                HStack(spacing: 0) {
+                    ForEach(steps.indices, id: \.self) { index in
+                        Button { onSelect(index) } label: {
+                            VStack(spacing: 3) {
+                                Image(systemName: askDJMoodIcon(for: index))
+                                Text(steps[index].label).font(.caption.weight(.semibold))
+                            }
+                            .foregroundStyle(index == selectedIndex ? djConnectAccent : .secondary)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("session-mood-option-" + String(index))
+                        .accessibilityAddTraits(index == selectedIndex ? .isSelected : [])
+                    }
+                }
+            } else {
+                AskDJMoodLabelsView(steps: steps, selectedIndex: selectedIndex)
+            }
 
-            Text(caption ?? localizedKey(model.language, "ui.mood.guides.ask.dj.s.recommendations.from.calmer.tracks.to"))
+            Text(caption)
             .font(.caption2)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
         }
         .padding(12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.primary.opacity(0.10), lineWidth: 1)
-        )
+        .background {
+            if showsCardBackground {
+                RoundedRectangle(cornerRadius: 8, style: .continuous).fill(.regularMaterial)
+            }
+        }
+        .overlay {
+            if showsCardBackground {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color.primary.opacity(0.10), lineWidth: 1)
+            }
+        }
         .frame(maxWidth: .infinity)
-        .frame(height: 136)
-        .shadow(color: Color.black.opacity(0.18), radius: 18, y: 10)
+        .frame(minHeight: 136)
+        .shadow(color: Color.black.opacity(0.18), radius: showsCardBackground ? 18 : 0, y: showsCardBackground ? 10 : 0)
         .accessibilityElement(children: .contain)
+        .accessibilityValue(steps[selectedIndex].label)
     }
 
     private func updateMood(from xPosition: CGFloat, width: CGFloat) {
-        let stepCount = max(model.askDJMoodSteps.count, 1)
+        let stepCount = max(steps.count, 1)
         guard stepCount > 1 else {
-            model.setAskDJMoodStep(0)
+            onSelect(0)
             return
         }
         let horizontalInset: CGFloat = 40
@@ -14119,7 +14146,7 @@ private struct AskDJMoodModeControl: View {
         let clampedX = max(horizontalInset, min(width - horizontalInset, xPosition))
         let ratio = (clampedX - horizontalInset) / usableWidth
         let index = Int((ratio * CGFloat(stepCount - 1)).rounded())
-        model.setAskDJMoodStep(index)
+        onSelect(index)
     }
 }
 
@@ -14170,7 +14197,7 @@ private struct AskDJMoodLabelsView: View {
     }
 }
 
-private func askDJMoodIcon(for index: Int) -> String {
+func askDJMoodIcon(for index: Int) -> String {
     switch index {
     case 0:
         return "moon.zzz.fill"
