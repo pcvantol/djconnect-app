@@ -1,5 +1,10 @@
 # Technische designbeslissingen
 
+## Session header refinement — 2026-10-12
+
+PR101 source-main03d02a40c4caa9b5d37c8767e49f87b88cf106a3 implements the owner-requested fixed music-left/DJ-right layout and compact full Spotify attribution. The shared native Layout measures unrestricted text heights while the existing pinned header may scroll. It changes no backend, authority, event, playback or conversation contract. Premerge CI and bounded native iPhone/iPad/Mac reviews PASS; source-main CI/coverage38210411713 and formal exact-SHA evidence38211003692 independently verified PASS; separate Finalization remains pending.473 reported general tests include8 gated skips. Product acceptance is PARTIAL; actual provider imagery/Spotify-runtime and XXXL/long-language are not inferred. Previous PR99/100 is completed, with separately approved ordinary40014 installed on iPad/MacBook;40015 is not installed. See [header evidence](verification/SESSION_HEADER_COLUMNS_20261012.md).
+
+
 Laatst bijgewerkt: 2026-09-23
 
 Dit document is in eerste instantie reverse-engineered uit de codebase. Het legt

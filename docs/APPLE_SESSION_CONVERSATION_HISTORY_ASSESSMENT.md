@@ -1,9 +1,14 @@
 # Apple Session conversation/history assessment
 
+## Session header refinement — 2026-10-12
+
+PR101 source-main03d02a40c4caa9b5d37c8767e49f87b88cf106a3 implements the owner-requested fixed music-left/DJ-right layout and compact full Spotify attribution. The shared native Layout measures unrestricted text heights while the existing pinned header may scroll. It changes no backend, authority, event, playback or conversation contract. Premerge CI and bounded native iPhone/iPad/Mac reviews PASS; source-main CI/coverage38210411713 and formal exact-SHA evidence38211003692 independently verified PASS; separate Finalization remains pending.473 reported general tests include8 gated skips. Product acceptance is PARTIAL; actual provider imagery/Spotify-runtime and XXXL/long-language are not inferred. Previous PR99/100 is completed, with separately approved ordinary40014 installed on iPad/MacBook;40015 is not installed. See [header evidence](verification/SESSION_HEADER_COLUMNS_20261012.md).
+
+
 This assessment records the completed PR97/history source snapshot. The later
 owner-requested UI/Demo/welcome followup is delivered by PR99/source-main
-0e0deed212107b8ab36a7cfa0b3d32ed2c388231; current reconciliation and bounded
-acceptance are in the [latest Finalization candidate](history/prompts/2026-10-12-apple-session-ui-demo-welcome-finalization.md)
+0e0deed212107b8ab36a7cfa0b3d32ed2c388231; its historical reconciliation and bounded
+acceptance are in the [PR99/100 Finalization snapshot](history/prompts/2026-10-12-apple-session-ui-demo-welcome-finalization.md). Current refinement reconciliation is in the [header Finalization candidate](history/prompts/2026-10-12-apple-session-header-finalization.md)
 and repository rolling records. The earlier assignment is not reopened.
 
 Assignment `DJC-APPLE-SESSION-CONVERSATION-HISTORY-V1-20261008`, including
