@@ -177,6 +177,7 @@ struct SessionTimelineScreen: View {
     var activeSession: DJConnectSessionRuntime?
     var initialAnchor: String?
     var openQueueAction: () -> Void = {}
+    var refreshAction: (() -> Void)?
     @StateObject private var renderCache = SessionTimelineRenderCache()
     @State private var currentHeaderVisible = true
     @State private var phoneComposerHeight: CGFloat = 96
@@ -201,9 +202,10 @@ struct SessionTimelineScreen: View {
     @Environment(\.scenePhase) private var scenePhase
 
     init(model: DJConnectAppModel, sessionID: String, activeSession: DJConnectSessionRuntime? = nil,
-         initialAnchor: String? = nil, openQueueAction: @escaping () -> Void = {}) {
+         initialAnchor: String? = nil, openQueueAction: @escaping () -> Void = {}, refreshAction: (() -> Void)? = nil) {
         self.model = model; history = model.sessionHistory; self.sessionID = sessionID
         self.activeSession = activeSession; self.initialAnchor = initialAnchor; self.openQueueAction = openQueueAction
+        self.refreshAction = refreshAction
     }
     private var floatsComposerOnPhone: Bool {
         #if os(iOS)
@@ -390,40 +392,45 @@ struct SessionTimelineScreen: View {
             }
             .background(sessionBackground)
             .toolbar {
-                if let activeSession {
-                    SessionConnectionToolbarButton(model: model)
-                    ActiveSessionMoodToolbar(model: model, session: activeSession)
-                    ActiveSessionPresenceToolbar(model: model, session: activeSession)
-                }
-                if activeSession != nil {
-                    SessionEndToolbarButton(model: model)
-                }
-                Button {
-                    if searching { closeSearch(proxy: proxy) }
-                    else { priorSearchPosition = visibleEntry; inputFocused = false; searching = true; searchFocused = true }
-                } label: {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(searching ? djConnectAccent : .primary)
-                }
-                    .disabled(!history.searchAvailable)
-                    .accessibilityLabel(text("ui.session.history.search"))
-                    .accessibilityIdentifier("session-search-toggle")
-                    .keyboardShortcut("f", modifiers: .command)
-                if let activeSession, !model.isDemoMode {
-                    Button { showingHandoff.toggle() } label: {
-                        Image(systemName: "tv.badge.wifi")
-                            .foregroundStyle(model.vibeCastHandoffApproved ? djConnectAccent : .white)
+                ToolbarItemGroup(placement: djConnectRefreshToolbarPlacement) {
+                    #if os(macOS)
+                    if let refreshAction { RefreshButton(model: model, action: refreshAction) }
+                    #endif
+                    if let activeSession {
+                        SessionConnectionToolbarButton(model: model)
+                        ActiveSessionMoodToolbar(model: model, session: activeSession)
+                        ActiveSessionPresenceToolbar(model: model, session: activeSession)
                     }
-                    .accessibilityLabel(text("ui.vibecast.handoff.title"))
-                    .accessibilityIdentifier("session-handoff-toggle")
-                    .help(text("ui.vibecast.handoff.title"))
-                    .popover(isPresented: $showingHandoff) {
-                        ScrollView {
-                            ActiveDJSessionView(model: model, session: activeSession,
-                                                openQueueAction: openQueueAction, showsMoments: false)
+                    if activeSession != nil {
+                        SessionEndToolbarButton(model: model)
+                    }
+                    Button {
+                        if searching { closeSearch(proxy: proxy) }
+                        else { priorSearchPosition = visibleEntry; inputFocused = false; searching = true; searchFocused = true }
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(searching ? djConnectAccent : .primary)
+                    }
+                        .disabled(!history.searchAvailable)
+                        .accessibilityLabel(text("ui.session.history.search"))
+                        .accessibilityIdentifier("session-search-toggle")
+                        .keyboardShortcut("f", modifiers: .command)
+                    if let activeSession, !model.isDemoMode {
+                        Button { showingHandoff.toggle() } label: {
+                            Image(systemName: "tv.badge.wifi")
+                                .foregroundStyle(model.vibeCastHandoffApproved ? djConnectAccent : .white)
                         }
-                        .frame(idealWidth: 400, idealHeight: 300)
-                        .presentationCompactAdaptation(.popover)
+                        .accessibilityLabel(text("ui.vibecast.handoff.title"))
+                        .accessibilityIdentifier("session-handoff-toggle")
+                        .help(text("ui.vibecast.handoff.title"))
+                        .popover(isPresented: $showingHandoff) {
+                            ScrollView {
+                                ActiveDJSessionView(model: model, session: activeSession,
+                                                    openQueueAction: openQueueAction, showsMoments: false)
+                            }
+                            .frame(idealWidth: 400, idealHeight: 300)
+                            .presentationCompactAdaptation(.popover)
+                        }
                     }
                 }
             }

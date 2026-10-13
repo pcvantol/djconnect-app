@@ -827,6 +827,11 @@ public struct DJConnectRootView: View {
                     .animation(.snappy(duration: 0.22), value: shouldShowOfflineNetworkBanner)
                     }
                 }
+                .toolbar {
+                    // Keep the system-owned toggle on the leading edge even
+                    // when the sidebar collapses into the detail-only layout.
+                    DefaultToolbarItem(kind: .sidebarToggle, placement: .navigation)
+                }
                 .tint(Color(red: 0.74, green: 0.22, blue: 0.96))
                 .accentColor(Color(red: 0.74, green: 0.22, blue: 0.96))
                 #else
@@ -3378,7 +3383,7 @@ private struct AppleWatchPairingReminderButton: View {
     }
 }
 
-private struct RefreshButton: View {
+struct RefreshButton: View {
     @ObservedObject var model: DJConnectAppModel
     var action: (() -> Void)?
 
@@ -8807,7 +8812,9 @@ private struct DJSessionView: View {
             ZStack {
                 DJConnectCanvasBackground()
                 if history.available, let session = model.activeDJSession {
-                    SessionTimelineScreen(model: model, sessionID: session.id, activeSession: session, openQueueAction: openQueueAction)
+                    SessionTimelineScreen(model: model, sessionID: session.id, activeSession: session,
+                                          openQueueAction: openQueueAction,
+                                          refreshAction: { Task { await refreshNowPlayingWithToast() } })
                 } else {
                 ScrollViewReader { scroll in
                 ScrollView {
@@ -8851,24 +8858,37 @@ private struct DJSessionView: View {
                     }
                 }
                 #endif
+                #if os(macOS)
                 if !history.available || model.activeDJSession == nil {
-                    ToolbarItem { SessionConnectionToolbarButton(model: model) }
+                    sessionRefreshToolbar
                 }
-                ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
-                    RefreshButton(model: model) {
-                        Task { await refreshNowPlayingWithToast() }
-                    }
-                }
+                sessionConnectionToolbar
+                #else
+                sessionConnectionToolbar
+                sessionRefreshToolbar
+                #endif
                 if !history.available, let session = model.activeDJSession {
-                    ToolbarItem { ActiveSessionMoodToolbar(model: model, session: session) }
+                    ToolbarItem(placement: djConnectRefreshToolbarPlacement) { ActiveSessionMoodToolbar(model: model, session: session) }
                 }
                 if !history.available, model.activeDJSession != nil {
-                    ToolbarItem { SessionEndToolbarButton(model: model) }
+                    ToolbarItem(placement: djConnectRefreshToolbarPlacement) { SessionEndToolbarButton(model: model) }
                 }
             }
             .djUserNoticeToast(model: model, screenImage: "sparkles")
         }
         .accessibilityIdentifier("screen-dj-session")
+    }
+
+    @ToolbarContentBuilder private var sessionRefreshToolbar: some ToolbarContent {
+        ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
+            RefreshButton(model: model) { Task { await refreshNowPlayingWithToast() } }
+        }
+    }
+
+    @ToolbarContentBuilder private var sessionConnectionToolbar: some ToolbarContent {
+        if !history.available || model.activeDJSession == nil {
+            ToolbarItem(placement: djConnectRefreshToolbarPlacement) { SessionConnectionToolbarButton(model: model) }
+        }
     }
 
     private var sessionNavigationTitle: String {
@@ -13500,7 +13520,10 @@ struct QueueView: View {
             #endif
             .djStatusToastOverlay(statusToast, screenImage: "music.note.list")
             .toolbar {
-                ToolbarItem {
+                #if os(macOS)
+                queueRefreshToolbar
+                #endif
+                ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
                     Button {
                         toggleQueueSearch()
                     } label: {
@@ -13511,22 +13534,9 @@ struct QueueView: View {
                     .help(isSearchVisible ? localizedKey(model.language, "ui.close.search") : localizedKey(model.language, "ui.search.queue"))
                     .accessibilityLabel(isSearchVisible ? localizedKey(model.language, "ui.close.search") : localizedKey(model.language, "ui.search.queue"))
                 }
-                ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
-                    Button {
-                        Task { await refreshQueueWithToast() }
-                    } label: {
-                        if model.isLoadingQueue {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Image(systemName: "arrow.clockwise").foregroundStyle(.white)
-                        }
-                    }
-                    .disabled(model.isDemoMode || !canUsePlayback || model.isLoadingQueue)
-                    .tint(.white)
-                    .help(localizedKey(model.language, "ui.reload.queue"))
-                    .accessibilityLabel(localizedKey(model.language, "ui.reload.queue"))
-                }
+                #if os(iOS)
+                queueRefreshToolbar
+                #endif
             }
             .task {
                 guard model.canUsePlaybackFeatures else {
@@ -13602,6 +13612,25 @@ struct QueueView: View {
         }
         DispatchQueue.main.async {
             isSearchFocused = true
+        }
+    }
+
+    @ToolbarContentBuilder private var queueRefreshToolbar: some ToolbarContent {
+        ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
+            Button {
+                Task { await refreshQueueWithToast() }
+            } label: {
+                if model.isLoadingQueue {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: "arrow.clockwise").foregroundStyle(.white)
+                }
+            }
+            .disabled(model.isDemoMode || !canUsePlayback || model.isLoadingQueue)
+            .tint(.white)
+            .help(localizedKey(model.language, "ui.reload.queue"))
+            .accessibilityLabel(localizedKey(model.language, "ui.reload.queue"))
         }
     }
 
@@ -13801,7 +13830,10 @@ struct PlaylistsView: View {
             #endif
             .djStatusToastOverlay(statusToast, screenImage: "rectangle.stack")
             .toolbar {
-                ToolbarItem {
+                #if os(macOS)
+                playlistRefreshToolbar
+                #endif
+                ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
                     Button {
                         togglePlaylistSearch()
                     } label: {
@@ -13812,22 +13844,9 @@ struct PlaylistsView: View {
                     .help(isSearchVisible ? localizedKey(model.language, "ui.close.search") : localizedKey(model.language, "ui.search.playlists"))
                     .accessibilityLabel(isSearchVisible ? localizedKey(model.language, "ui.close.search") : localizedKey(model.language, "ui.search.playlists"))
                 }
-                ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
-                    Button {
-                        Task { await refreshPlaylistsWithToast() }
-                    } label: {
-                        if model.isLoadingPlaylists {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Image(systemName: "arrow.clockwise").foregroundStyle(.white)
-                        }
-                    }
-                    .disabled(model.isDemoMode || !canUsePlayback || model.isLoadingPlaylists)
-                    .tint(.white)
-                    .help(localizedKey(model.language, "ui.reload.playlists"))
-                    .accessibilityLabel(localizedKey(model.language, "ui.reload.playlists"))
-                }
+                #if os(iOS)
+                playlistRefreshToolbar
+                #endif
             }
             .task {
                 guard model.canUsePlaybackFeatures else {
@@ -13898,6 +13917,25 @@ struct PlaylistsView: View {
         }
         DispatchQueue.main.async {
             isSearchFocused = true
+        }
+    }
+
+    @ToolbarContentBuilder private var playlistRefreshToolbar: some ToolbarContent {
+        ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
+            Button {
+                Task { await refreshPlaylistsWithToast() }
+            } label: {
+                if model.isLoadingPlaylists {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: "arrow.clockwise").foregroundStyle(.white)
+                }
+            }
+            .disabled(model.isDemoMode || !canUsePlayback || model.isLoadingPlaylists)
+            .tint(.white)
+            .help(localizedKey(model.language, "ui.reload.playlists"))
+            .accessibilityLabel(localizedKey(model.language, "ui.reload.playlists"))
         }
     }
 

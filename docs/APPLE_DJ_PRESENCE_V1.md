@@ -156,3 +156,15 @@ nontransparent native titlebar. The fullscreen toolbar visibility and removal
 of fullSizeContentView remain intact; no traffic-light/header geometry is changed.
 The unsigned Mac build-for-testing gate passes. Native visual Mac qualification
 remains behind the existing temporary-runner permission gate. No installation.
+
+## Owner-added stable Mac toolbar placement
+
+Collapsing the sidebar must not relocate page actions to the trailing edge.
+The system-owned sidebar toggle is explicitly repositioned with
+`DefaultToolbarItem(kind: .sidebarToggle, placement: .navigation)`; no replacement
+sidebar controller or visibility store is added. Session actions and list search
+use explicit platform placement. The active Mac Session uses one action group,
+with the existing refresh action passed from its owner and rendered first.
+Queue/playlist refresh also precedes search on Mac; iOS retains trailing refresh.
+Both unsigned Mac/iOS build-for-testing gates pass. Native Mac visual proof still
+requires the already-pending temporary-runner authorization.
