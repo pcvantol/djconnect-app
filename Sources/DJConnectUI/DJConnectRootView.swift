@@ -10351,12 +10351,16 @@ private struct OutputDeviceChoiceRow: View {
             .padding(.vertical, 11)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(isActive ? Color.white.opacity(0.10) : Color.white.opacity(0.055))
+                Color.clear
+                    .djSessionFrostedSurface(cornerRadius: 14)
+                    .allowsHitTesting(false)
             }
             .overlay {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(isActive ? Color.white.opacity(0.22) : Color.white.opacity(0.10), lineWidth: 1)
+                if isActive {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(activeColor.opacity(0.65), lineWidth: 2)
+                        .allowsHitTesting(false)
+                }
             }
             .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }

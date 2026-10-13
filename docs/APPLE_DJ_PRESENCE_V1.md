@@ -309,3 +309,9 @@ its failed log and both input-export manifests are retained. Product source is
 unchanged by this test expansion. This remains software proof, not native/live
 playlist acceptance. No installation was performed: the selected slice explicitly
 excludes new installations until the Owner changes that scope.
+
+### Owner-requested output device glass cards — 2026-10-14
+
+OutputDeviceChoiceRow now uses the existing shared djSessionFrostedSurface on a non-hit-testing background, with the same bright card border and native glass/material accessibility fallback as the dashboard cards. Existing 14pt row shape, typography, selection action and selected checkmark remain; selected output also has a 2pt accent outline. No device discovery, playback, Core or persistence changes.
+
+Unsigned Mac and iOS Simulator builds PASS from temporary source qualification copy /private/tmp/djc-output-glass-proof-f035ba7, containing the exact changed RootView bytes. Logs /private/tmp/djc-output-glass-mac-readonly-build.log and /private/tmp/djc-output-glass-ios-readonly-build.log. First sandbox build failed SwiftUIMacros service access; subsequent source-directory build stalled in NSFileCoordinator before compilation and only that own process was terminated. Failed/stalled logs retained. Native visual and installed verification NOT_RUN; no signing or installation.
