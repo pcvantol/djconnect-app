@@ -10216,7 +10216,9 @@ private struct OutputSelectorView: View {
                 Spacer()
                 if model.isLoadingOutputs { ProgressView() }
                 Button { model.loadOutputs() } label: { Image(systemName: "arrow.clockwise").foregroundStyle(.white) }
+                    .buttonStyle(DJConnectButtonStyle(shape: .icon))
                     .tint(.white)
+                    .help(localizedKey(model.language, "ui.output.refresh"))
                     .disabled(!canUsePlayback || model.isLoadingOutputs)
                     .accessibilityLabel(localizedKey(model.language, "ui.output.refresh"))
                     .accessibilityIdentifier("output-devices-refresh")

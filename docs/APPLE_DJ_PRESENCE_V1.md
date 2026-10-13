@@ -284,3 +284,8 @@ The Mac Share Feedback action now reuses `SidebarItem` directly under Privacy,
 so its body semibold font, icon/text alignment, padding and hit target match the
 other sidebar rows. It retains the existing feedback-sheet action. The unsigned
 Mac build-for-testing gate passes; the installed app is untouched.
+
+The output-selector refresh action now uses the existing circular44-point
+`DJConnectButtonStyle(shape: .icon)` with native interactive glass, a white
+glyph and localized help. Both unsigned Mac/iOS builds pass; no installation
+or native visual acceptance is claimed.
