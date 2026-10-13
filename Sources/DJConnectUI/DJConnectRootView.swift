@@ -795,17 +795,11 @@ public struct DJConnectRootView: View {
                             systemImage: "hand.raised",
                             isSelected: selectedSection == .privacy
                         ) { selectedSection = .privacy }
-                        Button {
-                            showingFeedback = true
-                        } label: {
-                            Label {
-                                Text(localizedKey(model.language, "ui.share.feedback"))
-                            } icon: {
-                                Image(systemName: "bubble.left.and.bubble.right")
-                                    .symbolRenderingMode(.monochrome).foregroundStyle(djConnectAccent)
-                            }
-                        }
-                        .buttonStyle(.plain)
+                        SidebarItem(
+                            title: localizedKey(model.language, "ui.share.feedback"),
+                            systemImage: "bubble.left.and.bubble.right",
+                            isSelected: false
+                        ) { showingFeedback = true }
                     }
                     .navigationTitle(screenTitle(model.language, key: "ui.djconnect", isDemoMode: model.isDemoMode))
                     .scrollContentBackgroundIfAvailable(.hidden)

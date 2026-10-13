@@ -279,3 +279,8 @@ Settings, Logs, About, Legal, Privacy, Share Feedback. Existing Mac rows are
 reordered accordingly without changing destinations or their actions. The
 unsigned Mac build-for-testing gate passes; no installation or native visual
 acceptance is claimed.
+
+The Mac Share Feedback action now reuses `SidebarItem` directly under Privacy,
+so its body semibold font, icon/text alignment, padding and hit target match the
+other sidebar rows. It retains the existing feedback-sheet action. The unsigned
+Mac build-for-testing gate passes; the installed app is untouched.
