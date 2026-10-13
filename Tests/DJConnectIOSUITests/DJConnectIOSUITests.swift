@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 @MainActor
 final class DJConnectIOSUITests: XCTestCase {
@@ -1527,6 +1528,50 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(offline.descendants(matching: .any)["Wachtrij"].firstMatch.waitForExistence(timeout: 5))
     }
 
+    func testIPhoneSessionHeroScrollsAwayAndJumpReturns() throws {
+        guard UIDevice.current.userInterfaceIdiom == .phone else { throw XCTSkip("iPhone-only scrolling header") }
+        XCUIDevice.shared.orientation = .portrait
+        let app = launchSessionUIDemo()
+        let title = app.staticTexts["Midnight City"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        let jump = app.buttons["session-jump-top"]
+        XCTAssertFalse(jump.exists)
+        for _ in 0..<5 where !jump.exists {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.76))
+                .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.26)))
+        }
+        XCTAssertTrue(jump.waitForExistence(timeout: 5) && jump.isHittable)
+        let away = XCTAttachment(screenshot: app.screenshot()); away.name = "iphone-hero-offscreen-jump-top"; away.lifetime = .keepAlways; add(away)
+        jump.tap()
+        let returned = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: jump)
+        XCTAssertEqual(XCTWaiter.wait(for: [returned], timeout: 5), .completed)
+        XCTAssertTrue(title.isHittable)
+        let top = XCTAttachment(screenshot: app.screenshot()); top.name = "iphone-fullwidth-current-after-jump"; top.lifetime = .keepAlways; add(top)
+    }
+
+    func testIPhoneSessionFloatingComposerAndScopedSearch() throws {
+        guard UIDevice.current.userInterfaceIdiom == .phone else { throw XCTSkip("iPhone floating composer") }
+        let app = launchSessionUIDemo()
+        let input = app.textViews.firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        let tabs = app.tabBars.firstMatch
+        XCTAssertTrue(tabs.exists)
+        XCTAssertLessThan(input.frame.maxY, tabs.frame.minY - 8)
+        input.tap()
+        input.typeText("Een vraag over deze bijdrage")
+        XCTAssertTrue(app.buttons["ask-dj-composer-send"].isHittable)
+        app.buttons["ask-dj-composer-send"].tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        app.buttons["session-search-toggle"].tap()
+        let search = app.textFields["session-search-field"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        XCTAssertEqual(search.placeholderValue, "Zoek in deze sessie")
+        search.typeText("groove\n")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "iphone-floating-composer-session-search"; shot.lifetime = .keepAlways; add(shot)
+    }
+
     func testSessionTimelineScrollBenchmark() {
         let app = launchSessionUIDemo()
         XCTAssertTrue(app.staticTexts["Midnight City"].firstMatch.waitForExistence(timeout: 10))
@@ -1565,9 +1610,16 @@ extension DJConnectIOSUITests {
             XCTFail("Native current music/card should be exposed independently")
             return
         }
-        XCTAssertLessThanOrEqual(music.frame.maxX, card.frame.minX)
-        XCTAssertEqual(music.frame.minY, card.frame.minY, accuracy: 2)
-        XCTAssertGreaterThan(card.frame.width, music.frame.width)
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            XCTAssertGreaterThan(music.frame.width, app.frame.width * 0.75)
+            XCTAssertEqual(music.frame.minX, card.frame.minX, accuracy: 2)
+            XCTAssertEqual(music.frame.width, card.frame.width, accuracy: 2)
+            XCTAssertGreaterThanOrEqual(card.frame.minY, music.frame.maxY)
+        } else {
+            XCTAssertLessThanOrEqual(music.frame.maxX, card.frame.minX)
+            XCTAssertEqual(music.frame.minY, card.frame.minY, accuracy: 2)
+            XCTAssertGreaterThan(card.frame.width, music.frame.width)
+        }
         let image = XCTAttachment(screenshot: app.screenshot())
         image.name = "session-music-left-dj-right"; image.lifetime = .keepAlways; add(image)
     }

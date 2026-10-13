@@ -1501,3 +1501,32 @@ private func activeMoodRuntimeWire() throws -> Data {
     let payload = model.profileConversationPayload(text: "question", clientMessageID: UUID().uuidString, context: DJConnectConversationContext(sessionID: nil))
     #expect(payload.mood == nil)
 }
+
+@Test @MainActor func sessionRenderCacheKeepsStableRowsAndHonorsExactExpiryAndEpoch() throws {
+    let data = try DJConnectDemoSessionData.make(language: "nl")
+    let entries = try #require(data.timelines[data.active.id]?.entries)
+    let cache = SessionTimelineRenderCache(); let epoch = UUID()
+    let first = cache.snapshot(entries, sessionID: data.active.id, epoch: epoch)
+    #expect(!first.isEmpty)
+    let same = cache.snapshot(entries, sessionID: data.active.id, epoch: epoch)
+    #expect(first == same)
+    let deadline = try #require(first.first?.deadline)
+    let expired = cache.snapshot([first[0].entry], sessionID: data.active.id, epoch: epoch, at: deadline)
+    #expect(expired.isEmpty)
+    #expect(cache.snapshot([], sessionID: data.active.id, epoch: epoch).isEmpty)
+    let replaced = cache.snapshot(entries, sessionID: data.active.id, epoch: UUID())
+    #expect(replaced.first?.message.id != first.first?.message.id)
+    cache.clear()
+    #expect(cache.snapshot([], sessionID: data.active.id, epoch: epoch).isEmpty)
+}
+
+@Test @MainActor func sessionEquatableRowsInvalidateForContextSearchAndLanguage() throws {
+    let data = try DJConnectDemoSessionData.make(language: "nl")
+    let entry = try #require(data.timelines[data.active.id]?.entries.first)
+    let base = SessionEntryView(entry: entry, language: "nl", contextEpoch: UUID(), opensActiveComposer: true)
+    var changed = base; changed.contextEpoch = UUID(); #expect(base != changed)
+    changed = base; changed.opensActiveComposer = false; #expect(base != changed)
+    changed = base; changed.highlights = [.init(startUTF16: 0, lengthUTF16: 1)]; #expect(base != changed)
+    changed = base; changed.selected = true; #expect(base != changed)
+    #expect(base != SessionEntryView(entry: entry, language: "en", contextEpoch: base.contextEpoch, opensActiveComposer: true))
+}

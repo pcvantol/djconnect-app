@@ -997,7 +997,7 @@
 "ui.session.history.awaiting" = "Wachten op het DJ-antwoord";
 "ui.session.history.new_entries" = "Nieuwe bijdragen";
 "ui.session.history.selected_context" = "Geselecteerde bijdrage";
-"ui.session.history.search" = "Zoeken in deze sessie";
+"ui.session.history.search" = "Zoek in deze sessie";
 "ui.session.history.no_match" = "Geen treffers in deze sessie";
 "ui.session.history.complete" = "Zoeken voltooid";
 "ui.session.history.partial" = "Er kunnen meer treffers volgen";

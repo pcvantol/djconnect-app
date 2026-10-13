@@ -10743,6 +10743,7 @@ private struct AskDJView: View {
 struct AskDJSearchBar: View {
     let language: String
     var scopeName: String = "Ask DJ"
+    var promptKey: String? = nil
     var fieldIdentifier = "ask-dj-search-field"
     var countIdentifier = "ask-dj-search-count"
     var isLoading = false
@@ -10855,7 +10856,7 @@ struct AskDJSearchBar: View {
     }
 
     private var searchPrompt: Text {
-        Text(localizedKey(language, "ui.search.value", arguments: scopeName))
+        Text(promptKey.map { localizedKey(language, $0) } ?? localizedKey(language, "ui.search.value", arguments: scopeName))
     }
 }
 
@@ -12788,6 +12789,7 @@ struct AskDJInputBar: View {
     var toggleVoiceAction: (() -> Void)? = nil
     var cancelVoiceAction: (() -> Void)? = nil
     var caretRequest: UUID? = nil
+    var floating = false
 
     private func send() {
         isInputFocused.wrappedValue = false
@@ -12896,48 +12898,59 @@ struct AskDJInputBar: View {
             .accessibilityIdentifier("ask-dj-composer-send")
         }
         }
-        .padding(.horizontal, djConnectScreenHorizontalPadding)
-        .padding(.top, 18)
+        .padding(.horizontal, floating ? 12 : djConnectScreenHorizontalPadding)
+        .padding(.top, floating ? 12 : 18)
         #if os(macOS)
         .padding(.bottom, 12)
         #else
-        .padding(.bottom, 18)
+        .padding(.bottom, floating ? 12 : 18)
         #endif
         .background {
-            ZStack(alignment: .top) {
-                Rectangle()
+            if floating {
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .fill(.ultraThinMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 26, style: .continuous)
+                            .stroke(.white.opacity(0.16), lineWidth: 1)
+                    }
+            } else {
+                ZStack(alignment: .top) {
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.06, green: 0.43, blue: 1.00).opacity(0.22),
+                            Color(red: 0.40, green: 0.25, blue: 0.98).opacity(0.18),
+                            Color(red: 0.84, green: 0.22, blue: 0.96).opacity(0.24)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    Rectangle()
+                        .fill(.white.opacity(0.12))
+                        .frame(height: 1)
+                }
+                .background {
+                    Rectangle()
+                        .fill(Color(red: 0.08, green: 0.06, blue: 0.14).opacity(0.70))
+                }
+                #if os(macOS)
+                .ignoresSafeArea(.container, edges: .bottom)
+                #endif
+            }
+        }
+        .overlay(alignment: .top) {
+            if !floating {
                 LinearGradient(
                     colors: [
-                        Color(red: 0.06, green: 0.43, blue: 1.00).opacity(0.22),
-                        Color(red: 0.40, green: 0.25, blue: 0.98).opacity(0.18),
-                        Color(red: 0.84, green: 0.22, blue: 0.96).opacity(0.24)
+                        Color(red: 0.06, green: 0.43, blue: 1.00).opacity(0.36),
+                        Color(red: 0.84, green: 0.22, blue: 0.96).opacity(0.38)
                     ],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
-                Rectangle()
-                    .fill(.white.opacity(0.12))
-                    .frame(height: 1)
+                .frame(height: 1)
             }
-            .background {
-                Rectangle()
-                    .fill(Color(red: 0.08, green: 0.06, blue: 0.14).opacity(0.70))
-            }
-            #if os(macOS)
-            .ignoresSafeArea(.container, edges: .bottom)
-            #endif
-        }
-        .overlay(alignment: .top) {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.06, green: 0.43, blue: 1.00).opacity(0.36),
-                    Color(red: 0.84, green: 0.22, blue: 0.96).opacity(0.38)
-                ],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-            .frame(height: 1)
         }
     }
 }

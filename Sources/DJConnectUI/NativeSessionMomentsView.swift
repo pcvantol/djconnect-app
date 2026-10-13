@@ -68,11 +68,19 @@ struct NativeSessionMomentsView: View {
         DJConnectLocalization.localized(key: key, language: language)
     }
 
+    private var stacksCurrentOnPhone: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .phone
+        #else
+        false
+        #endif
+    }
+
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { clock in
             let current = currentMoment(at: clock.date)
             VStack(alignment: .leading, spacing: 24) {
-                SessionCurrentColumns {
+                SessionCurrentColumns(stacked: stacksCurrentOnPhone) {
                     musicContext
                     currentCard(current)
                         .accessibilityIdentifier("session-current-card")
@@ -264,6 +272,7 @@ struct NativeSessionMomentsView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("session-music-context")
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -271,6 +280,7 @@ struct NativeSessionMomentsView: View {
 /// Each column measures its full text height, so the pinned header can scroll
 /// vertically without changing the relationship between artwork and DJ content.
 private struct SessionCurrentColumns: Layout {
+    var stacked = false
     private func widths(_ proposal: ProposedViewSize) -> (CGFloat, CGFloat, CGFloat) {
         let width = max(0, proposal.width ?? 800)
         let gap: CGFloat = width < 600 ? 12 : 24
@@ -280,6 +290,12 @@ private struct SessionCurrentColumns: Layout {
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         guard subviews.count == 2 else { return .zero }
+        if stacked {
+            let width = max(0, proposal.width ?? 400)
+            let top = subviews[0].sizeThatFits(.init(width: width, height: nil))
+            let bottom = subviews[1].sizeThatFits(.init(width: width, height: nil))
+            return CGSize(width: width, height: top.height + 16 + bottom.height)
+        }
         let (music, card, gap) = widths(proposal)
         let left = subviews[0].sizeThatFits(.init(width: music, height: nil))
         let right = subviews[1].sizeThatFits(.init(width: card, height: nil))
@@ -288,6 +304,13 @@ private struct SessionCurrentColumns: Layout {
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         guard subviews.count == 2 else { return }
+        if stacked {
+            let top = subviews[0].sizeThatFits(.init(width: bounds.width, height: nil))
+            subviews[0].place(at: bounds.origin, anchor: .topLeading, proposal: .init(width: bounds.width, height: nil))
+            subviews[1].place(at: CGPoint(x: bounds.minX, y: bounds.minY + top.height + 16), anchor: .topLeading,
+                              proposal: .init(width: bounds.width, height: nil))
+            return
+        }
         let (music, card, gap) = widths(.init(width: bounds.width, height: nil))
         subviews[0].place(at: bounds.origin, anchor: .topLeading, proposal: .init(width: music, height: nil))
         subviews[1].place(at: CGPoint(x: bounds.minX + music + gap, y: bounds.minY), anchor: .topLeading,
