@@ -72,8 +72,9 @@ purpose and cannot force-delete them as stale branches.
 
 ## Qualification and remaining boundaries
 
-Source delivery and documentary reconciliation: bounded PASS, with separately
-observed TDE limitation. Product Acceptance remains PARTIAL. Physical scrolling,
+Source delivery: bounded PASS, with separately observed TDE limitation.
+Documentary Finalization is prepared for review; execution and reconciliation
+remain pending its own grant/merge/readback. Product Acceptance remains PARTIAL. Physical scrolling,
 VoiceOver, fullscreen hover, microphone/provider/voice and actual LAN/cellular
 transition acceptance are not inferred from software tests or old demo captures.
 Favorite/top artist strips lack real thumbnails because the current name/value
