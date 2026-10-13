@@ -6164,10 +6164,7 @@ private struct MusicDiscoveryView: View {
 
     private var header: some View {
         VStack(spacing: 16) {
-            Image(systemName: "wand.and.stars")
-                .font(.system(size: 50, weight: .semibold))
-                .foregroundStyle(djConnectIconGradient)
-                .frame(width: 72, height: 72)
+            DJConnectHeroGlyph(systemImage: "wand.and.stars")
 
             Text(localizedKey(model.language, "ui.discover"))
                 .font(.title2.weight(.bold))
@@ -8672,14 +8669,52 @@ private extension TrackInsight {
     }
 }
 
+/// Decorative hero artwork. Keep the symbol sharp while its halo breathes.
+private struct DJConnectHeroGlyph: View {
+    let systemImage: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+
+    var body: some View {
+        Group {
+            if reduceMotion || scenePhase != .active {
+                artwork(glow: 0.22, scale: 1.06)
+            } else {
+                TimelineView(.animation(minimumInterval: 1.0 / 15.0)) { context in
+                    let phase = context.date.timeIntervalSinceReferenceDate * (2 * Double.pi / 6)
+                    let pulse = (sin(phase) + 1) / 2
+                    artwork(glow: 0.18 + pulse * 0.16, scale: 1.04 + pulse * 0.08)
+                }
+            }
+        }
+        .frame(width: 72, height: 72)
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+
+    private func artwork(glow: Double, scale: Double) -> some View {
+        ZStack {
+            symbol
+                .scaleEffect(scale)
+                .blur(radius: 9)
+                .opacity(glow)
+            symbol
+        }
+    }
+
+    private var symbol: some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 50, weight: .semibold))
+            .foregroundStyle(djConnectIconGradient)
+    }
+}
+
 private struct TrackInsightEmptyState: View {
     @ObservedObject var model: DJConnectAppModel
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "waveform.path.ecg")
-                .font(.system(size: 50, weight: .semibold))
-                .foregroundStyle(djConnectIconGradient)
+            DJConnectHeroGlyph(systemImage: "waveform.path.ecg")
             Text("Track Insight")
                 .font(.title2.weight(.bold))
             Text(localizedKey(model.language, "ui.see.what.makes.the.current.track.feel.the.way.it"))
@@ -11239,10 +11274,7 @@ private struct AskDJEmptyState: View {
 
     private var hero: some View {
         VStack(spacing: 16) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 50, weight: .semibold))
-                .foregroundStyle(djConnectIconGradient)
-                .frame(width: 72, height: 72)
+            DJConnectHeroGlyph(systemImage: "bubble.left.and.bubble.right")
             Text(localizedKey(language, "ui.ask.dj"))
                 .font(.title2.weight(.bold))
                 .foregroundStyle(.white)

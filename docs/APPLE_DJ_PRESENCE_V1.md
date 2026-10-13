@@ -202,3 +202,15 @@ status and a delayed pre-selection queue read, plus scheduler overlap retention.
 Unsigned Mac/iOS build-for-testing gates pass. Independent technical delta review
 reports no remaining P1/P2. This is software/build proof, not installed/native
 end-user acceptance. The installed40021 apps/settings remain untouched.
+
+## Owner-added hero glow
+
+Track Insight's empty hero, Discover's header and Ask DJ's hero reuse one
+decorative glyph view. The sharp foreground symbol retains the existing gradient;
+a faint blurred duplicate behind it breathes over six seconds, without moving
+text or controls. The animation redraws only the glyph at a maximum of fifteen
+updates per second. Reduce Motion and inactive scenes render a static halo with
+no animation timeline. The decoration is excluded from accessibility and hit
+testing. Both unsigned Mac/iOS build-for-testing gates pass; independent bounded
+source UX review reports no finding. Native animation smoothness/performance and
+installed acceptance are not claimed. No release or installation is performed.
