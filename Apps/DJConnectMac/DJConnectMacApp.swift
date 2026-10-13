@@ -214,12 +214,14 @@ private struct WindowConfigurator: NSViewRepresentable {
             }
             configuredWindow = window
 
-            window.titlebarAppearsTransparent = true
+            // Native window chrome must not reveal other windows behind the app.
+            window.titlebarAppearsTransparent = false
             window.titleVisibility = .hidden
             // Reserve native titlebar/toolbar space, including traffic lights revealed in fullscreen.
             window.styleMask.remove(.fullSizeContentView)
             window.isMovableByWindowBackground = true
-            window.backgroundColor = .clear
+            window.backgroundColor = .windowBackgroundColor
+            window.isOpaque = true
             window.toolbarStyle = .unifiedCompact
             window.identifier = mainWindowIdentifier
             // Keep restored windows within the screen instead of centering oversized content.

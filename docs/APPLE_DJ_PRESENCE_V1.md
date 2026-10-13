@@ -147,3 +147,12 @@ temporary distinct Mac bundle while preserving the running installed Mac app.
 Debug UI/Swift qualification resolves shared presentation/widget preferences to
 an isolated suite; production app-group identity remains `group.dev.djconnect`.
 No fixture data may replace installed40021 preferences or private widget state.
+
+## Owner-added Mac window chrome correction
+
+The Owner reported desktop content showing through the toolbar in ordinary
+window mode. The main NSWindow now uses its standard opaque background and
+nontransparent native titlebar. The fullscreen toolbar visibility and removal
+of fullSizeContentView remain intact; no traffic-light/header geometry is changed.
+The unsigned Mac build-for-testing gate passes. Native visual Mac qualification
+remains behind the existing temporary-runner permission gate. No installation.
