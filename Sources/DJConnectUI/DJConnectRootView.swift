@@ -1265,7 +1265,7 @@ public struct DJConnectRootView: View {
                 NavigationStack {
                     SessionTimelineScreen(model: model, sessionID: target.sessionID,
                                           initialAnchor: target.entryID)
-                        .navigationTitle(localizedKey(model.language, "ui.session.history.title"))
+                        .navigationTitle(savedSessionNavigationTitle(target.sessionID, history: history, language: model.language))
                         .toolbar { Button(localizedKey(model.language, "ui.close")) { history.openTarget = nil } }
                 }
                 #if os(macOS)

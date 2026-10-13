@@ -4,6 +4,20 @@ import DJConnectCore
 import UIKit
 #endif
 
+@MainActor
+func savedSessionNavigationTitle(_ sessionID: String, history: DJConnectSessionHistoryModel, language: String) -> String {
+    let session = history.sessions.first(where: { $0.id == sessionID }) ?? history.timelines[sessionID]?.session
+    guard let session,
+          let date = DJConnectHistoryEntry.date(session.startedAt) ?? DJConnectHistoryEntry.date(session.createdAt) else {
+        return DJConnectLocalization.localized(key: "ui.session.history.detail.label", language: language)
+    }
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: language)
+    formatter.timeZone = .current
+    formatter.setLocalizedDateFormatFromTemplate("d MMM")
+    return String(format: DJConnectLocalization.localized(key: "ui.session.history.detail.title", language: language), formatter.string(from: date))
+}
+
 struct SavedSessionsView: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
@@ -129,21 +143,7 @@ struct SavedSessionsView: View {
             .accessibilityIdentifier("screen-saved-sessions")
     }
     private func detailTitle(sessionID: String) -> String {
-        #if os(iOS)
-        if UIDevice.current.userInterfaceIdiom == .phone {
-            guard let session = history.sessions.first(where: { $0.id == sessionID }),
-                  let date = DJConnectHistoryEntry.date(session.startedAt)
-                    ?? DJConnectHistoryEntry.date(session.createdAt) else {
-                return text("ui.session.history.detail.label")
-            }
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: model.language)
-            formatter.timeZone = .current
-            formatter.setLocalizedDateFormatFromTemplate("d MMM")
-            return String(format: text("ui.session.history.detail.title"), formatter.string(from: date))
-        }
-        #endif
-        return text("ui.session.history.title")
+        savedSessionNavigationTitle(sessionID, history: history, language: model.language)
     }
 
     private var emptyTitle: String? {
