@@ -9993,14 +9993,7 @@ struct DJConnectMediaRowSurface: ViewModifier {
     static let cornerRadius: CGFloat = 12
     func body(content: Content) -> some View {
         content
-        .background(
-            Color(red: 0.055, green: 0.065, blue: 0.12),
-            in: RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
-                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
-        }
+            .djSessionFrostedSurface(cornerRadius: Self.cornerRadius)
     }
 }
 

@@ -706,6 +706,14 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var activeMoodAvailable = false
     @Published public private(set) var activeMoodPending = false
     @Published public private(set) var activeMoodError: String?
+    @Published public private(set) var activePresenceAvailable = false
+    @Published public private(set) var activePresenceDesired: DJConnectSessionPresenceValue?
+    @Published public private(set) var activePresencePending = false
+    @Published public private(set) var activePresenceRequiresDecision = false
+    @Published public private(set) var activePresenceError: String?
+    private var presenceTask: Task<Void, Never>?
+    private var presenceGeneration = UUID()
+    private var presenceIntent = UUID()
     @Published public var selectedSessionMood = "groove"
     @Published public private(set) var isLoadingDJSession = false
     @Published public private(set) var djSessionErrorMessage: String?
@@ -4855,7 +4863,7 @@ public final class DJConnectAppModel: ObservableObject {
                 vibeCastHandoffFailed = false
             }
             if let old = activeDJSession, let incoming = response.resolvedSession, old.id == incoming.id {
-                activeDJSession = old.applying(broadcastState: incoming.broadcast)
+                activeDJSession = old.applying(broadcastState: incoming.presenceSafeBroadcast)
             } else {
                 activeDJSession = response.resolvedSession
             }
@@ -4865,8 +4873,12 @@ public final class DJConnectAppModel: ObservableObject {
         } catch {
             guard request == sessionRequestGeneration else { return false }
             if (error as? DJConnectError)?.invalidatesSessionAuthority == true {
-                clearSessionProjection()
+                _ = sessionHistory.withdrawAuthority(for: error)
+                await recoverAfterPairedAuthorityWithdrawal((error as? DJConnectError).map {
+                    if case .profile = $0 { return "profile_changed" }; return "unauthorized"
+                } ?? "unauthorized")
             }
+            guard request == sessionRequestGeneration else { return false }
             djSessionErrorMessage = localized(key: "ui.session.unavailable")
             return false
         }
@@ -4875,6 +4887,7 @@ public final class DJConnectAppModel: ObservableObject {
     public func refreshActiveMoodCapability() async {
         if isDemoMode { activeMoodAvailable = activeDJSession != nil; return }
         activeMoodAvailable = false
+        activePresenceAvailable = false
         guard isAppInForeground, pairingStatus == .paired else { return }
         let generation = UUID(); moodCapabilityGeneration = generation
         let epoch = sessionHistory.responseEpoch
@@ -4882,9 +4895,86 @@ public final class DJConnectAppModel: ObservableObject {
             let caps = try await withHomeAssistantClient { try await $0.activeSessionMoodCapabilities() }
             guard generation == moodCapabilityGeneration, epoch == sessionHistory.responseEpoch, isAppInForeground, pairingStatus == .paired else { return }
             activeMoodAvailable = caps.available
+            activePresenceAvailable = caps.presenceAvailable
         } catch {
             guard generation == moodCapabilityGeneration, epoch == sessionHistory.responseEpoch else { return }
             _ = sessionHistory.withdrawAuthority(for: error)
+        }
+    }
+
+    /// One active-Session writer; rapid deliberate choices replace the queued intent.
+    /// Confirmation comes exclusively from the server projection, never from this queue.
+    public func selectActiveSessionPresence(_ value: DJConnectSessionPresenceValue,
+                                           expectedSessionID: String, expectedEpoch: UUID) {
+        guard expectedSessionID == activeDJSession?.id, expectedEpoch == sessionHistory.responseEpoch,
+              activePresenceAvailable, isAppInForeground, pairingStatus == .paired,
+              activeDJSession?.confirmedPresence != nil else { return }
+        activePresenceDesired = value; presenceIntent = UUID()
+        activePresenceError = nil; activePresenceRequiresDecision = false
+        guard presenceTask == nil else { return }
+        let generation = presenceGeneration
+        activePresencePending = true
+        presenceTask = Task { await drainPresence(sessionID: expectedSessionID, epoch: expectedEpoch, generation: generation) }
+    }
+
+    public func acceptCurrentSessionPresence(expectedSessionID: String, expectedEpoch: UUID) {
+        guard expectedSessionID == activeDJSession?.id, expectedEpoch == sessionHistory.responseEpoch,
+              !activePresencePending else { return }
+        activePresenceDesired = nil; activePresenceRequiresDecision = false; activePresenceError = nil
+    }
+
+    private func drainPresence(sessionID: String, epoch: UUID, generation: UUID) async {
+        func isCurrent() -> Bool {
+            generation == presenceGeneration && epoch == sessionHistory.responseEpoch &&
+            activeDJSession?.id == sessionID && isAppInForeground && pairingStatus == .paired &&
+            !Task.isCancelled
+        }
+        defer {
+            if generation == presenceGeneration { activePresencePending = false; presenceTask = nil }
+        }
+        while isCurrent(), activePresenceAvailable, !activePresenceRequiresDecision,
+              let desired = activePresenceDesired, let current = activeDJSession?.confirmedPresence {
+            if desired == current.selectedPresence { activePresenceDesired = nil; return }
+            let intent = presenceIntent
+            do {
+                let response = try await withHomeAssistantClient(allowsOperationReplay: false) {
+                    try await $0.updateSessionPresence(sessionID: sessionID, presence: desired,
+                                                       expectedRevision: current.presenceRevision)
+                }
+                guard isCurrent(), let latest = activeDJSession else { return }
+                activeDJSession = latest.applying(presence: response.snapshot)
+                // A newer live event can supersede this reply. Never erase a newer gesture.
+                if intent == presenceIntent {
+                    if activeDJSession?.confirmedPresence?.selectedPresence == desired { activePresenceDesired = nil }
+                    else { activePresenceRequiresDecision = true; activePresenceError = localized(key: "ui.session.presence.conflict") }
+                }
+            } catch {
+                guard isCurrent() else { return }
+                if let conflict = error as? DJConnectSessionPresenceConflict {
+                    if let latest = activeDJSession { activeDJSession = latest.applying(presence: conflict.current) }
+                    activePresenceRequiresDecision = true
+                    activePresenceError = localized(key: "ui.session.presence.conflict")
+                    return
+                }
+                if (error as? DJConnectError)?.invalidatesSessionAuthority == true {
+                    _ = sessionHistory.withdrawAuthority(for: error)
+                    let code: String
+                    if case .profile = error as? DJConnectError { code = "profile_changed" } else { code = "unauthorized" }
+                    await recoverAfterPairedAuthorityWithdrawal(code)
+                    return
+                }
+                // Even a transport error may follow a successful CAS. Reconcile once;
+                // the ordinary read may use fallback, but the write never replays.
+                _ = await refreshActiveDJSession()
+                guard isCurrent() else { return }
+                if activeDJSession?.confirmedPresence?.selectedPresence == activePresenceDesired {
+                    activePresenceDesired = nil
+                } else {
+                    activePresenceRequiresDecision = true
+                    activePresenceError = localized(key: "ui.session.presence.uncertain")
+                }
+                return
+            }
         }
     }
 
@@ -5041,7 +5131,7 @@ public final class DJConnectAppModel: ObservableObject {
                     guard let self else { throw CancellationError() }
                     let response = try await self.withHomeAssistantClient { try await $0.activeSession() }
                     guard response.success else { throw DJConnectError.invalidResponse }
-                    return response.resolvedSession?.broadcast
+                    return response.resolvedSession?.presenceSafeBroadcast
                 })
         }
         let previousTransport = sessionBroadcastTransport
@@ -5139,6 +5229,10 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func resetActiveMoodState() {
+        presenceGeneration = UUID(); presenceIntent = UUID()
+        presenceTask?.cancel(); presenceTask = nil
+        activePresenceAvailable = false; activePresencePending = false
+        activePresenceDesired = nil; activePresenceRequiresDecision = false; activePresenceError = nil
         moodOperationGeneration = UUID(); moodCapabilityGeneration = UUID()
         activeMoodAvailable = false; activeMoodPending = false; activeMoodError = nil
     }
@@ -10447,7 +10541,7 @@ public final class DJConnectAppModel: ObservableObject {
         return urls
     }
 
-    func withHomeAssistantClient<T: Sendable>(_ operation: (DJConnectClient) async throws -> T) async throws -> T {
+    func withHomeAssistantClient<T: Sendable>(allowsOperationReplay: Bool = true, _ operation: (DJConnectClient) async throws -> T) async throws -> T {
         let localURL = Self.normalizedHomeAssistantURL(from: localHomeAssistantURL())
             ?? Self.normalizedHomeAssistantURL(from: homeAssistantURL)
         let remoteURL = Self.normalizedHomeAssistantURL(from: haRemoteURL)
@@ -10491,7 +10585,7 @@ public final class DJConnectAppModel: ObservableObject {
                 }
             }
         )
-        return try await transport.perform { client in
+        return try await transport.perform(allowsOperationReplay: allowsOperationReplay) { client in
             do {
                 let result = try await operation(client)
                 await updateFastPathDiagnostics(from: client)

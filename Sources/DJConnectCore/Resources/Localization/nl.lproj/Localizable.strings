@@ -1094,3 +1094,20 @@
 
 "ui.session.history.detail.label" = "Sessie";
 "ui.session.history.detail.title" = "Sessie %@";
+
+// Ephemeral active Session presence, Core v1.
+"ui.session.presence.music_only" = "Alleen muziek";
+"ui.session.presence.occasional" = "Af en toe";
+"ui.session.presence.balanced" = "Gebalanceerd";
+"ui.session.presence.talkative" = "Praatgraag";
+"ui.session.presence.presenter" = "Presentator";
+"ui.session.presence.title" = "DJ-aanwezigheid";
+"ui.session.presence.explanation" = "Hoeveel vertelt de DJ tijdens je sessie?";
+"ui.session.presence.confirmed" = "Bevestigd";
+"ui.session.presence.pending" = "Gekozen";
+"ui.session.presence.unavailable" = "DJ-aanwezigheid is niet beschikbaar via deze verbinding.";
+"ui.session.presence.conflict" = "De sessiestand is elders gewijzigd. Kies of je die behoudt of jouw keuze toepast.";
+"ui.session.presence.uncertain" = "De bevestiging kon niet worden opgehaald. Controleer de bevestigde stand voordat je jouw keuze opnieuw toepast.";
+"ui.session.presence.accept_current" = "Bevestigde stand behouden";
+"ui.session.presence.apply_choice" = "Mijn keuze toepassen";
+"ui.session.presence.music_only_help" = "Alleen muziek stopt toekomstige spontane DJ-bijdragen. Je kunt nog met de DJ chatten en eerdere bijdragen lezen.";

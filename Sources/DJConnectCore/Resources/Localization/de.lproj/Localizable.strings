@@ -1094,3 +1094,20 @@
 
 "ui.session.history.detail.label" = "Sitzung";
 "ui.session.history.detail.title" = "Sitzung %@";
+
+// Ephemeral active Session presence, Core v1.
+"ui.session.presence.music_only" = "Nur Musik";
+"ui.session.presence.occasional" = "Gelegentlich";
+"ui.session.presence.balanced" = "Ausgewogen";
+"ui.session.presence.talkative" = "Gesprächig";
+"ui.session.presence.presenter" = "Moderator";
+"ui.session.presence.title" = "DJ-Präsenz";
+"ui.session.presence.explanation" = "Wie viel erzählt der DJ während deiner Session?";
+"ui.session.presence.confirmed" = "Bestätigt";
+"ui.session.presence.pending" = "Gewählt";
+"ui.session.presence.unavailable" = "DJ-Präsenz ist über diese Verbindung nicht verfügbar.";
+"ui.session.presence.conflict" = "Die Session-Einstellung wurde anderswo geändert. Behalte sie oder wende deine Wahl an.";
+"ui.session.presence.uncertain" = "Die Bestätigung konnte nicht abgerufen werden. Prüfe die bestätigte Einstellung, bevor du deine Wahl erneut anwendest.";
+"ui.session.presence.accept_current" = "Bestätigte Einstellung behalten";
+"ui.session.presence.apply_choice" = "Meine Wahl anwenden";
+"ui.session.presence.music_only_help" = "Nur Musik stoppt zukünftige spontane DJ-Beiträge. Du kannst weiterhin mit dem DJ chatten und frühere Beiträge lesen.";

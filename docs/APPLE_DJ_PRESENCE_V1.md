@@ -117,3 +117,18 @@ Finalization. Send actual node/status/consumer receipts to Core1101 for its owni
 writer's DAG updates; no sibling roadmap/SYNC copy or Core document write.
 No install, signing, HA/Pages/runner/workflow change, Forecast, summary, new provider
 or automatic next product slice. Stop after this selected Presence delivery.
+
+## Owner-added presentation scope
+
+The Owner additionally requested glass rows for queue, saved Sessions and playlists
+during implementation. Their existing shared `DJConnectMediaRowSurface` now reuses
+the native Session glass modifier and bright border, including the existing
+Reduce Transparency material fallback. This is a bounded Apple presentation
+change; the list models, row actions and backend contracts remain intact.
+
+The Owner subsequently requested one scrolling Session panel on iPhone/iPad/Mac:
+current playback/Moment and retained conversation now share the existing timeline
+scroll controller. The former pinned upper panel and its nested fallback scroller
+are removed. The existing Mood palette paints the entire active Session surface;
+readonly history retains its ordinary canvas. Composer, exact-entry search,
+reading anchors and owner/Session identity keep their existing owners.

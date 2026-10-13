@@ -1094,3 +1094,20 @@
 
 "ui.session.history.detail.label" = "Session";
 "ui.session.history.detail.title" = "Session %@";
+
+// Ephemeral active Session presence, Core v1.
+"ui.session.presence.music_only" = "Musique uniquement";
+"ui.session.presence.occasional" = "De temps en temps";
+"ui.session.presence.balanced" = "Équilibré";
+"ui.session.presence.talkative" = "Bavard";
+"ui.session.presence.presenter" = "Présentateur";
+"ui.session.presence.title" = "Présence du DJ";
+"ui.session.presence.explanation" = "Combien le DJ raconte-t-il pendant votre session ?";
+"ui.session.presence.confirmed" = "Confirmé";
+"ui.session.presence.pending" = "Choisi";
+"ui.session.presence.unavailable" = "La présence du DJ est indisponible sur cette connexion.";
+"ui.session.presence.conflict" = "Le réglage de la session a changé ailleurs. Gardez-le ou appliquez votre choix.";
+"ui.session.presence.uncertain" = "La confirmation est indisponible. Vérifiez le réglage confirmé avant de réappliquer votre choix.";
+"ui.session.presence.accept_current" = "Garder le réglage confirmé";
+"ui.session.presence.apply_choice" = "Appliquer mon choix";
+"ui.session.presence.music_only_help" = "Musique uniquement arrête les futures interventions spontanées du DJ. Vous pouvez toujours discuter avec le DJ et lire les interventions précédentes.";

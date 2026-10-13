@@ -19,14 +19,17 @@ ROOT = Path(os.environ["DJC_SOURCE_ROOT"])
 LAB = Path(os.environ["DJC_LAB_ROOT"])
 CONTROL = "apple-paired-fixture-control"
 BASELINE_PIN = "648496f3c218305323c752a632a086cfad97fb15f8f0c9d9126ae92fc319f58b"
+PRESENCE_PIN = "2896a8172946c52760d3d00df29949dd0fcbb55cc0721451255a4fed1b0477db"
 PIN = json.loads((ROOT / "consumer-source-pin.json").read_text())["content_archive_sha256"]
 sys.dont_write_bytecode = True
 
 
 def initializer():
     manifest = json.loads((ROOT / "consumer-source-pin.json").read_text())
-    assert manifest["content_archive_sha256"] in {BASELINE_PIN, "8b0357411254eb62e12a6d89d35a72288a0642a597e595ac0ba6db5191d0de13"}
-    if manifest["content_archive_sha256"] != BASELINE_PIN:
+    assert manifest["content_archive_sha256"] in {BASELINE_PIN, "8b0357411254eb62e12a6d89d35a72288a0642a597e595ac0ba6db5191d0de13", PRESENCE_PIN}
+    if manifest["content_archive_sha256"] == PRESENCE_PIN:
+        assert manifest["source_sha"] == "b5c25f7c8098ce805bf4cab94a887c8590f9717f"
+    elif manifest["content_archive_sha256"] != BASELINE_PIN:
         assert manifest["source_sha"] == "491e2258920e730901875e3c8b258565a06e8463"
     for name, digest in manifest["integration_source_hashes"].items():
         assert hashlib.sha256((ROOT / name).read_bytes()).hexdigest() == digest, name
@@ -98,7 +101,12 @@ async def main():
             result = value.get("result", {})
             item["success"] = value.get("success") is True
             item["snapshot_sent"] = isinstance(result, dict) and isinstance(result.get("snapshot"), dict)
-        if kind == "event": item["event_type"] = value.get("event_type")
+        if kind == "event":
+            item["event_type"] = value.get("event_type")
+            if value.get("event_type") == "presence_changed":
+                session = value.get("payload", {}).get("session", {})
+                item["selected_presence"] = session.get("selected_presence")
+                item["presence_revision"] = session.get("presence_revision")
         save_wire_receipt(item)
     # Observe actual aiohttp sends without replacing producer handlers, auth,
     # Session state, payloads, or authorization. Never log private payload data.
@@ -115,7 +123,15 @@ async def main():
         else:
             response = await handler(request)
         # Never record bodies/headers/auth frames/tokens/text/Session IDs/cursors.
-        records.append({"method": request.method, "route": request.path.split("/")[-1], "status": response.status})
+        receipt = {"method": request.method, "route": request.path.split("/")[-1], "status": response.status}
+        if request.path == "/api/djconnect/v1/session/presence":
+            # Narrow public policy fields only; no bearer, owner, text or Session ID.
+            try:
+                result = json.loads(response.body)
+                for key in ("selected_presence", "presence_revision", "changed", "error"):
+                    if key in result: receipt[key] = result[key]
+            except (ValueError, AttributeError, TypeError): pass
+        records.append(receipt)
         (LAB / "sanitized-native-transport.json").write_text(json.dumps({"content_pin": PIN, "requests": records}, indent=2))
         return response
     hass.http.app.middlewares.append(record)
@@ -124,7 +140,7 @@ async def main():
         active = await manager.async_get_active("profile-a")
         if active is None: return None
         value = active.as_dict()
-        return {"session_id": value["session_id"], "state": value["runtime_state"], "selected_mood":value["selected_mood"], "mood_revision":value.get("mood_revision"), "now_playing": value["broadcast"]["playback"]}
+        return {"session_id": value["session_id"], "state": value["runtime_state"], "selected_mood":value["selected_mood"], "mood_revision":value.get("mood_revision"), "selected_presence":value.get("selected_presence"), "presence_revision":value.get("presence_revision"), "now_playing": value["broadcast"]["playback"]}
 
     async def seed():
         active = await manager.async_get_active("profile-a")
@@ -167,7 +183,9 @@ async def main():
     hass.http.app.router.add_route("*", "/__apple_paired_fixture/{operation}", control)
     await seed()
     runner = web.AppRunner(hass.http.app); await runner.setup()
-    await web.TCPSite(runner, "0.0.0.0", 18191).start()
+    port = int(os.environ.get("DJC_NATIVE_PORT", "18191"))
+    assert port in {18191, 18213}
+    await web.TCPSite(runner, "0.0.0.0", port).start()
     print(json.dumps({"ready":True,"content_pin":PIN,"pairing":"genuine HTTP/HA ConfigEntryStore","ha_user_credentials_issued":False}), flush=True)
     try: await asyncio.Event().wait()
     finally: await runner.cleanup(); await state["service"].async_close()

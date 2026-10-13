@@ -1876,3 +1876,65 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(app.staticTexts["Een avond met de DJ"].firstMatch.waitForExistence(timeout: 10))
     }
 }
+
+extension DJConnectIOSUITests {
+    /// Connected immutable Core SDK/router/CAS/Broadcast qualification. Synthetic
+    /// music only; screenshots do not claim installed device or microphone proof.
+    func testActualPairedPresenceFivePositionsAndNativeConfirmation() async throws {
+        let base = URL(string: ProcessInfo.processInfo.environment["DJC_APPLE_PRESENCE_UI_BASE"] ?? "http://127.0.0.1:18213")!
+        func control(_ operation: String) async throws -> [String: Any] {
+            var request = URLRequest(url: base.appendingPathComponent("__apple_paired_fixture/" + operation))
+            request.httpMethod = "POST"
+            request.setValue("Bearer apple-paired-fixture-control", forHTTPHeaderField: "Authorization")
+            let (data, response) = try await URLSession.shared.data(for: request)
+            XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        }
+        _ = try await control("select_ios_pairing")
+        let before = try await control("start")
+        let original = try XCTUnwrap(before["active"] as? [String: Any])
+        let language = ProcessInfo.processInfo.environment["DJC_APPLE_PRESENCE_LANGUAGE"] ?? "nl"
+        let app = XCUIApplication(); app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=paired_owner_contract", "-DJCONNECTRuntimeFixture", "paired_owner_contract", "-AppleLanguages", "(\(language))", "-AppleLocale", language]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "paired_owner_contract"
+        app.launch()
+        XCTAssertTrue(app.buttons["session-presence-toggle"].waitForExistence(timeout: 25))
+        app.buttons["session-presence-toggle"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["active-session-presence"].firstMatch.waitForExistence(timeout: 10))
+        let values = ["music_only", "occasional", "balanced", "talkative", "presenter"]
+        let anchors = ["nl":["Alleen muziek","Af en toe","Gebalanceerd","Praatgraag","Presentator"],"en":["Music only","Occasionally","Balanced","Talkative","Presenter"],"de":["Nur Musik","Gelegentlich","Ausgewogen","Gesprächig","Moderator"],"fr":["Musique uniquement","De temps en temps","Équilibré","Bavard","Présentateur"],"es":["Solo música","De vez en cuando","Equilibrado","Conversador","Presentador"]]
+        for (offset, value) in values.enumerated() {
+            let button = app.buttons["session-presence-choice-" + value]
+            XCTAssertTrue(button.waitForExistence(timeout: 10) && button.isEnabled && button.isHittable)
+            button.tap()
+            var current: [String: Any] = [:]
+            for _ in 0..<40 {
+                let readback = try await control("state")
+                current = try XCTUnwrap(readback["active"] as? [String: Any])
+                if current["selected_presence"] as? String == value { break }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            XCTAssertEqual(current["selected_presence"] as? String, value)
+            XCTAssertEqual(current["presence_revision"] as? Int, offset + 1)
+            XCTAssertEqual(current["session_id"] as? String, original["session_id"] as? String)
+            XCTAssertEqual(current["selected_mood"] as? String, original["selected_mood"] as? String)
+            XCTAssertEqual(current["mood_revision"] as? Int, original["mood_revision"] as? Int)
+            XCTAssertEqual(current["now_playing"] as? NSDictionary, original["now_playing"] as? NSDictionary)
+            let confirmed = app.staticTexts["session-presence-confirmed"]
+            XCTAssertTrue(confirmed.waitForExistence(timeout: 10))
+            let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", anchors[language]![offset]), object: confirmed)
+            let visibleResult = await XCTWaiter.fulfillment(of: [visible], timeout: 10)
+            XCTAssertEqual(visibleResult, .completed, "The native label must confirm the actual server-selected position")
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "presence-\(language)-\(value)-confirmed"
+            screenshot.lifetime = .keepAlways; add(screenshot)
+        }
+        XCTAssertTrue(app.sliders["session-presence-slider"].exists, "Native adjustable control is exposed")
+        XCTAssertFalse(app.descendants(matching: .any)["session-presence-error"].firstMatch.exists)
+        let final = try await control("state")
+        XCTAssertEqual(final["ha_refresh_tokens"] as? Int, final["initial_ha_refresh_tokens"] as? Int)
+        XCTAssertEqual(final["ha_users"] as? Int, final["initial_ha_users"] as? Int)
+        app.terminate()
+    }
+}

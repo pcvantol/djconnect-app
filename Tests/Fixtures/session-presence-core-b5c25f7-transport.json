@@ -1,0 +1,552 @@
+[
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": 0
+    },
+    "status": 200,
+    "response": {
+      "success": true,
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "presence_revision": 1,
+      "changed": true
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": 1
+    },
+    "status": 200,
+    "response": {
+      "success": true,
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "presence_revision": 1,
+      "changed": false
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "presenter",
+      "expected_presence_revision": 0
+    },
+    "status": 409,
+    "response": {
+      "success": false,
+      "error": "presence_revision_conflict",
+      "current": {
+        "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+        "selected_presence": "talkative",
+        "presence_revision": 1
+      }
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "presenter",
+      "expected_presence_revision": 1
+    },
+    "status": 200,
+    "response": {
+      "success": true,
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "presenter",
+      "presence_revision": 2,
+      "changed": true
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-macos-ABCDEF123457",
+      "client_type": "macos",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "music_only",
+      "expected_presence_revision": 1
+    },
+    "status": 409,
+    "response": {
+      "success": false,
+      "error": "presence_revision_conflict",
+      "current": {
+        "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+        "selected_presence": "presenter",
+        "presence_revision": 2
+      }
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "presenter",
+      "expected_presence_revision": 2
+    },
+    "status": 200,
+    "response": {
+      "success": true,
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "presenter",
+      "presence_revision": 2,
+      "changed": false
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": true,
+      "expected_presence_revision": 2
+    },
+    "status": 400,
+    "response": {
+      "success": false,
+      "error": "invalid_selected_presence"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": 42,
+      "expected_presence_revision": 2
+    },
+    "status": 400,
+    "response": {
+      "success": false,
+      "error": "invalid_selected_presence"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": 1.5,
+      "expected_presence_revision": 2
+    },
+    "status": 400,
+    "response": {
+      "success": false,
+      "error": "invalid_selected_presence"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": null,
+      "expected_presence_revision": 2
+    },
+    "status": 400,
+    "response": {
+      "success": false,
+      "error": "invalid_selected_presence"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "ENERGY",
+      "expected_presence_revision": 2
+    },
+    "status": 400,
+    "response": {
+      "success": false,
+      "error": "invalid_selected_presence"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative ",
+      "expected_presence_revision": 2
+    },
+    "status": 400,
+    "response": {
+      "success": false,
+      "error": "invalid_selected_presence"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "focus",
+      "expected_presence_revision": 2
+    },
+    "status": 400,
+    "response": {
+      "success": false,
+      "error": "invalid_selected_presence"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": [],
+      "expected_presence_revision": 2
+    },
+    "status": 400,
+    "response": {
+      "success": false,
+      "error": "invalid_selected_presence"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": {},
+      "expected_presence_revision": 2
+    },
+    "status": 400,
+    "response": {
+      "success": false,
+      "error": "invalid_selected_presence"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": true
+    },
+    "status": 400,
+    "response": {
+      "success": false,
+      "error": "invalid_presence_revision"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": 1.0
+    },
+    "status": 400,
+    "response": {
+      "success": false,
+      "error": "invalid_presence_revision"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": -1
+    },
+    "status": 400,
+    "response": {
+      "success": false,
+      "error": "invalid_presence_revision"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": "0"
+    },
+    "status": 400,
+    "response": {
+      "success": false,
+      "error": "invalid_presence_revision"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": null
+    },
+    "status": 400,
+    "response": {
+      "success": false,
+      "error": "invalid_presence_revision"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": 2
+    },
+    "status": 401,
+    "response": {
+      "success": false,
+      "error": "unauthorized"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": 2
+    },
+    "status": 401,
+    "response": {
+      "success": false,
+      "error": "unauthorized"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": 2
+    },
+    "status": 401,
+    "response": {
+      "success": false,
+      "error": "unauthorized"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": 2
+    },
+    "status": 401,
+    "response": {
+      "success": false,
+      "error": "unauthorized"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": 2
+    },
+    "status": 401,
+    "response": {
+      "success": false,
+      "error": "unauthorized"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": 2
+    },
+    "status": 401,
+    "response": {
+      "success": false,
+      "error": "unauthorized"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": 2
+    },
+    "status": 401,
+    "response": {
+      "success": false,
+      "error": "unauthorized"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": 2
+    },
+    "status": 401,
+    "response": {
+      "success": false,
+      "error": "unauthorized"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": 2
+    },
+    "status": 401,
+    "response": {
+      "success": false,
+      "error": "unauthorized"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": 2
+    },
+    "status": 401,
+    "response": {
+      "success": false,
+      "error": "unauthorized"
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "music_only",
+      "expected_presence_revision": 3
+    },
+    "status": 200,
+    "response": {
+      "success": true,
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "music_only",
+      "presence_revision": 4,
+      "changed": true
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": 2
+    },
+    "status": 200,
+    "response": {
+      "success": true,
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "presence_revision": 3,
+      "changed": true
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "talkative",
+      "expected_presence_revision": 2
+    },
+    "status": 409,
+    "response": {
+      "success": false,
+      "error": "presence_revision_conflict",
+      "current": {
+        "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+        "selected_presence": "music_only",
+        "presence_revision": 4
+      }
+    }
+  },
+  {
+    "request": {
+      "device_id": "djconnect-ios-ABCDEF123456",
+      "client_type": "ios",
+      "contract_version": 1,
+      "session_id": "session-2e0f02b4d668493d848b7f6a27985064",
+      "selected_presence": "presenter",
+      "expected_presence_revision": 4
+    },
+    "status": 404,
+    "response": {
+      "success": false,
+      "error": "active_session_not_found",
+      "message": "active_session_not_found"
+    }
+  }
+]
