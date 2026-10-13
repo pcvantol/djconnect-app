@@ -222,3 +222,17 @@ Reduce Motion and inactive scenes use a static disk without an animation timelin
 Existing illustration geometry, accessibility hiding and hit-testing behavior
 remain intact. Both unsigned Mac/iOS builds pass; bounded source UX review has
 no findings. Native smoothness/performance and installed acceptance remain unclaimed.
+
+## Owner-added archive back-to-top control
+
+Readonly earlier Session timelines now reuse the existing floating glass
+`session-jump-top` button and sole scroll-position controller. The archive
+summary is the real top target; visibility tracking shows the button when that
+header leaves view and hides it at the top. Archive help/accessibility text is
+localized in all five languages, while active Session labels remain unchanged.
+Localization validation passes for1081keys; unsigned Mac/iOS builds pass.
+The existing iPhone active-Session shared-control test
+`testIPhoneSessionHeroScrollsAwayAndJumpReturns` passes (one test, zero failures,
+19.362seconds). This verifies preservation of the active shared control, not
+native archive-specific or Mac visual qualification. Independent bounded source
+UX review reports no finding. Installed apps remain untouched.

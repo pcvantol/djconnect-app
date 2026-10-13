@@ -1111,3 +1111,5 @@
 "ui.session.presence.accept_current" = "Bevestigde stand behouden";
 "ui.session.presence.apply_choice" = "Mijn keuze toepassen";
 "ui.session.presence.music_only_help" = "Alleen muziek stopt toekomstige spontane DJ-bijdragen. Je kunt nog met de DJ chatten en eerdere bijdragen lezen.";
+
+"ui.session.history.back_top" = "Naar boven";

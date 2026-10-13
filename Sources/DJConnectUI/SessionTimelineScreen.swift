@@ -245,7 +245,7 @@ struct SessionTimelineScreen: View {
                         LazyVStack(alignment: .leading, spacing: 18) {
                             if let activeSession {
                                 scrollingCurrent(activeSession).id("current")
-                            } else { Color.clear.frame(height: 1).id("current") }
+                            }
                             if activeSession == nil {
                                 VStack(alignment: .leading, spacing: 6) {
                                     if let session = timeline.session ?? history.sessions.first(where: { $0.id == sessionID }) {
@@ -259,6 +259,7 @@ struct SessionTimelineScreen: View {
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
                                 .padding(.horizontal, 20)
+                                .id("current")
                             }
                             if positionUnavailable { Text(text("ui.session.history.changed")).padding(.horizontal, 20) }
                             if let error = model.djSessionErrorMessage, activeSession != nil {
@@ -361,18 +362,19 @@ struct SessionTimelineScreen: View {
                         }
                     }
                     .onScrollTargetVisibilityChange(idType: String.self, threshold: 0.01) { visibleIDs in
-                        if activeSession != nil { currentHeaderVisible = visibleIDs.contains("current") }
+                        currentHeaderVisible = visibleIDs.contains("current")
                         oldestEntriesVisible = visibleIDs.contains("tail") || timeline.entries.first.map { visibleIDs.contains($0.id) } == true
                         if oldestEntriesVisible { loadEarlierIfNeeded() }
                     }
                     .overlay(alignment: .bottomTrailing) {
-                        if activeSession != nil && !currentHeaderVisible {
+                        if !currentHeaderVisible {
                             Button {
                                 jump("current", proxy: proxy)
                                 hasNewEntries = false
                             } label: { Image(systemName: "arrow.up") }
                             .buttonStyle(DJConnectButtonStyle(shape: .icon))
-                            .accessibilityLabel(text("ui.session.back_current"))
+                            .accessibilityLabel(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
+                            .help(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
                             .accessibilityIdentifier("session-jump-top")
                             .padding(16)
                             .padding(.bottom, !searching && floatsComposerOnPhone ? phoneComposerHeight + 8 : 8)

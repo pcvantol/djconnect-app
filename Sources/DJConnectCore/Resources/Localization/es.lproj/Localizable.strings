@@ -1111,3 +1111,5 @@
 "ui.session.presence.accept_current" = "Conservar el ajuste confirmado";
 "ui.session.presence.apply_choice" = "Aplicar mi elección";
 "ui.session.presence.music_only_help" = "Solo música detiene las futuras intervenciones espontáneas del DJ. Puedes seguir chateando con el DJ y leer las intervenciones anteriores.";
+
+"ui.session.history.back_top" = "Volver arriba";

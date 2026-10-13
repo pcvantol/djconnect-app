@@ -1111,3 +1111,5 @@
 "ui.session.presence.accept_current" = "Keep confirmed setting";
 "ui.session.presence.apply_choice" = "Apply my choice";
 "ui.session.presence.music_only_help" = "Music only stops future proactive DJ contributions. You can still chat with the DJ and read previous contributions.";
+
+"ui.session.history.back_top" = "Back to top";
