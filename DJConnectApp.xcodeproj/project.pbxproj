@@ -19,8 +19,10 @@
 		1EBA30C15C3D35490BFAB014 /* DJConnectIOSUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75854DE35F5A2B4F10D86022 /* DJConnectIOSUITests.swift */; };
 		228B9B8F4550DD031259FAD6 /* DJConnectSessionBroadcastTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31C5377358CBFFBF8BA6CB06 /* DJConnectSessionBroadcastTransport.swift */; };
 		2329BAE9585FE20E43B8CED8 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 36C561DF0639DA1A6347591D /* Localizable.strings */; };
+		2386D444B3E508A82E0D5E7D /* SessionTimelineRendering.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB1971D307A974FC7A093763 /* SessionTimelineRendering.swift */; };
 		2573CE0B0A2FD7979C72084D /* DJConnectModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26056425DEFDCF738458EB87 /* DJConnectModels.swift */; };
 		27B8CE350A2D35CDEB4ACD45 /* DJConnectSessionHistoryModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEF605C0E4BEC2FA89633A14 /* DJConnectSessionHistoryModel.swift */; };
+		2842328625158FD5AFFC61D6 /* SessionTimelineRendering.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB1971D307A974FC7A093763 /* SessionTimelineRendering.swift */; };
 		29B857CB82C69FD7F31F7105 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = C1969523B9A957E4B7A7D53C /* InfoPlist.strings */; };
 		29BF6445096461E85653805D /* DJConnectPairedOwnerLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = C162C43F9DC210B40900B1CB /* DJConnectPairedOwnerLive.swift */; };
 		29BF66A31A3EA39B99785792 /* DJConnectSessionHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = D30A7F8046B3191EF66D2033 /* DJConnectSessionHistory.swift */; };
@@ -447,6 +449,7 @@
 		E1372E7133BB3581B0031DBA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		E261C2E77577F5E05601B484 /* DJConnectWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchApp.swift; sourceTree = "<group>"; };
 		E2E24226BDC5D6BD0DE369B1 /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/Localizable.strings; sourceTree = "<group>"; };
+		EB1971D307A974FC7A093763 /* SessionTimelineRendering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTimelineRendering.swift; sourceTree = "<group>"; };
 		EE354E073321251BA44BDCFF /* DJConnectTrackInsightWidgetsIOS.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = DJConnectTrackInsightWidgetsIOS.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		EF55E6BE5E6AA1843606BB31 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
 		F12708B5EACDDCDDCDC9C133 /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -706,6 +709,7 @@
 				BEF605C0E4BEC2FA89633A14 /* DJConnectSessionHistoryModel.swift */,
 				7CE40DF95FB967211356B085 /* NativeBottomTabBar.swift */,
 				8559C062E8B01097AFFB103A /* NativeSessionMomentsView.swift */,
+				EB1971D307A974FC7A093763 /* SessionTimelineRendering.swift */,
 				B4ABF74B77230368B5FC81B8 /* SessionTimelineScreen.swift */,
 				B05725000CDA3CC68FEF50CE /* TrackInsightLiveActivityController.swift */,
 				5C97BDBB086FDCCF212549C6 /* TrackInsightShareRenderer.swift */,
@@ -1355,6 +1359,7 @@
 				27B8CE350A2D35CDEB4ACD45 /* DJConnectSessionHistoryModel.swift in Sources */,
 				EF0E7CD9F3CF79AE3F43855E /* NativeBottomTabBar.swift in Sources */,
 				C2F31C0F4860EC860D73445B /* NativeSessionMomentsView.swift in Sources */,
+				2386D444B3E508A82E0D5E7D /* SessionTimelineRendering.swift in Sources */,
 				B131F68F5394732CED039782 /* SessionTimelineScreen.swift in Sources */,
 				BECAF9FC07EE86ADEEC95AF4 /* TrackInsightLiveActivityController.swift in Sources */,
 				F1743F294A122B7019290ECE /* TrackInsightShareRenderer.swift in Sources */,
@@ -1383,6 +1388,7 @@
 				3D9A4123EC198088A8FC1EE8 /* DJConnectSessionHistoryModel.swift in Sources */,
 				7E0E853AD780CB4E0127E87F /* NativeBottomTabBar.swift in Sources */,
 				368640E0BC4AF9BCF455513D /* NativeSessionMomentsView.swift in Sources */,
+				2842328625158FD5AFFC61D6 /* SessionTimelineRendering.swift in Sources */,
 				57BE7BC62AC958EB8A59F6D3 /* SessionTimelineScreen.swift in Sources */,
 				510927DF0C46833AB9D7B3E3 /* TrackInsightLiveActivityController.swift in Sources */,
 				BD27A2C25BAA6A07092F5B9C /* TrackInsightShareRenderer.swift in Sources */,
@@ -1778,6 +1784,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -1809,7 +1816,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 40016;
+				CURRENT_PROJECT_VERSION = 40021;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1927,6 +1934,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -1958,7 +1966,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 40016;
+				CURRENT_PROJECT_VERSION = 40021;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;

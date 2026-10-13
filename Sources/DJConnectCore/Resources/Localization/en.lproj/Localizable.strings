@@ -917,7 +917,7 @@
 "ui.discover" = "Discover";
 "ui.session.title" = "DJ Session";
 "ui.session.idle" = "No active session.";
-"ui.session.select_mood" = "Select Mood";
+"ui.session.select_mood" = "Choose your mood";
 "ui.session.mood.chill" = "Chill";
 "ui.session.mood.groove" = "Groove";
 "ui.session.mood.energy" = "Energy";
@@ -1071,3 +1071,26 @@
 "ui.connection.offline" = "No connection to Home Assistant";
 "ui.connection.recovering" = "Reconnecting to the DJ session…";
 "ui.connection.backend_unavailable" = "Music is temporarily unavailable";
+
+"ui.session.playback_paused_detail" = "Your music is paused. Your DJ session remains active.";
+
+"ui.chat.you" = "You";
+
+"ui.session.mood.unavailable" = "Changing the mood is not yet available through this connection.";
+
+"ui.session.chat.placeholder" = "Chat with the DJ…";
+
+"ui.music.dna.range.short_term" = "Short term";
+
+"ui.music.dna.range.medium_term" = "Medium term";
+
+"ui.music.dna.range.long_term" = "Long term";
+
+"ui.music.dna.recovering" = "Music DNA is temporarily unavailable and will reload automatically.";
+
+"ui.music.dna.profile_access" = "Music DNA is not accessible for this profile. Check your profile in Settings.";
+
+"ui.music.dna.processing_failed" = "Music DNA could not be processed. Report this through Feedback.";
+
+"ui.session.history.detail.label" = "Session";
+"ui.session.history.detail.title" = "Session %@";

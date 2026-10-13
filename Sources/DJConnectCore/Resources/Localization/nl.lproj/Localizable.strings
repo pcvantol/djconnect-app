@@ -151,7 +151,7 @@
 "ui.summary" = "Samenvatting";
 "ui.favorite.genres" = "Favoriete genres";
 "ui.favorite.artists" = "Favoriete artiesten";
-"ui.mood" = "Mood";
+"ui.mood" = "Stemming";
 "ui.profile.mood" = "Smaakrichting";
 "ui.energy.profile" = "Energieprofiel";
 "ui.listening.rhythm" = "Luisterritme";
@@ -917,7 +917,7 @@
 "ui.discover" = "Ontdek";
 "ui.session.title" = "DJ-sessie";
 "ui.session.idle" = "Geen actieve sessie.";
-"ui.session.select_mood" = "Kies stemming";
+"ui.session.select_mood" = "Kies je stemming";
 "ui.session.mood.chill" = "Rustig";
 "ui.session.mood.groove" = "Groove";
 "ui.session.mood.energy" = "Energie";
@@ -997,7 +997,7 @@
 "ui.session.history.awaiting" = "Wachten op het DJ-antwoord";
 "ui.session.history.new_entries" = "Nieuwe bijdragen";
 "ui.session.history.selected_context" = "Geselecteerde bijdrage";
-"ui.session.history.search" = "Zoeken in deze sessie";
+"ui.session.history.search" = "Zoek in deze sessie";
 "ui.session.history.no_match" = "Geen treffers in deze sessie";
 "ui.session.history.complete" = "Zoeken voltooid";
 "ui.session.history.partial" = "Er kunnen meer treffers volgen";
@@ -1071,3 +1071,26 @@
 "ui.connection.offline" = "Geen verbinding met Home Assistant";
 "ui.connection.recovering" = "Verbinding met de DJ-sessie herstellen…";
 "ui.connection.backend_unavailable" = "Muziek is tijdelijk niet beschikbaar";
+
+"ui.session.playback_paused_detail" = "Je muziek staat op pauze. Je DJ-sessie blijft actief.";
+
+"ui.chat.you" = "Jij";
+
+"ui.session.mood.unavailable" = "Stemming wijzigen is nog niet beschikbaar via deze verbinding.";
+
+"ui.session.chat.placeholder" = "Chat met de DJ…";
+
+"ui.music.dna.range.short_term" = "Korte termijn";
+
+"ui.music.dna.range.medium_term" = "Middellange termijn";
+
+"ui.music.dna.range.long_term" = "Lange termijn";
+
+"ui.music.dna.recovering" = "Music DNA is tijdelijk niet beschikbaar en wordt automatisch opnieuw geladen.";
+
+"ui.music.dna.profile_access" = "Music DNA is niet toegankelijk voor dit profiel. Controleer je profiel in Instellingen.";
+
+"ui.music.dna.processing_failed" = "Music DNA kon niet worden verwerkt. Meld dit via Feedback.";
+
+"ui.session.history.detail.label" = "Sessie";
+"ui.session.history.detail.title" = "Sessie %@";

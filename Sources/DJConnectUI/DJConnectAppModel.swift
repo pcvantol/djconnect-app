@@ -400,6 +400,7 @@ private extension DJConnectAskDJMessageResponse {
 public struct DJConnectUserNotice: Identifiable, Equatable, Sendable {
     public let id = UUID()
     public var text: String
+    public var systemImage: String? = nil
 }
 
 public struct DJConnectVisualNotice: Identifiable, Equatable, Sendable {
@@ -722,6 +723,8 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var vibeCastDisabledReason: String?
     @Published public private(set) var isVibeCastStreamingActive = false
     @Published public private(set) var musicDNAProfileResponse: DJConnectMusicDNAProfileResponse?
+    private var musicDNARefreshGeneration = UUID()
+    @Published public private(set) var musicDNAProfileNeedsRecovery = false
     @Published public private(set) var isLoadingMusicDNA = false
     @Published public private(set) var isUpdatingMusicDNA = false
     @Published public private(set) var musicDNAErrorMessage: String?
@@ -755,10 +758,38 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var queueContext: String?
     @Published public var playlistItems: [DJConnectPlaylist] = []
     @Published public var selectedOutput = "Not selected"
+    /// Playback response authority only; pending selections and normalized output lists are excluded.
+    var sessionPlaybackOutputName: String? {
+        guard activeDJSession?.runtimeState == "active", !djSessionIsRecovering,
+              !djSessionLiveUnavailable, isDemoMode || (isConnected && backendAvailable),
+              let device = playback?.device, device.active != false, device.cached != true,
+              device.id != Self.syntheticNoOutputID,
+              let name = device.name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else { return nil }
+        return name
+    }
     @Published public var djResponseText = ""
     @Published public private(set) var askDJMessages: [DJConnectAskDJMessage] = []
     @Published public private(set) var askDJScrollRequestID: UUID?
-    @Published public var askDJDraft = ""
+    private var composerDraft = ""
+    public private(set) var askDJDraftRevision = 0
+    public var askDJDraft: String {
+        get { composerDraft }
+        set {
+            guard composerDraft != newValue else { return }
+            objectWillChange.send()
+            composerDraft = newValue
+            askDJDraftRevision &+= 1
+        }
+    }
+
+    /// Native editors own ordinary character updates; app actions still publish draft replacement.
+    public func setAskDJDraftFromEditor(_ value: String) {
+        guard composerDraft != value else { return }
+        let wasEmpty = composerDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let isEmpty = value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if wasEmpty != isEmpty { objectWillChange.send() }
+        composerDraft = value
+    }
     @Published public private(set) var isSendingAskDJText = false
     @Published public private(set) var isRequestingAskDJIdleSuggestion = false
     @Published public private(set) var playingAskDJActionID: String?
@@ -903,6 +934,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var webSocketFastPathCache: [String: any DJConnectWebSocketFastPathTransport] = [:]
     private var webSocketSessionAuthProviders: [String: DJConnectWebSocketSessionAuthProvider] = [:]
     private var sessionBroadcastTransport: DJConnectSessionBroadcastTransport?
+    private var localTransportProbeAfter: Date?
     private var sessionBroadcastGeneration = UUID()
     private var sessionBroadcastSessionID: String?
     private var sessionRequestGeneration = UUID()
@@ -1053,6 +1085,19 @@ public final class DJConnectAppModel: ObservableObject {
 
     public var askDJMoodInt: Int {
         max(0, min(100, Int(askDJMood.rounded())))
+    }
+
+    /// Project confirmed server-owned Session mood; omit it when no Session is active.
+    public var confirmedSessionMoodInt: Int? {
+        guard let mood = activeDJSession?.selectedMood,
+              let index = ["chill", "groove", "energy", "party"].firstIndex(of: mood) else { return nil }
+        return [0, 35, 70, 100][index]
+    }
+
+    /// Neutral presentation outside a Session never reuses the old Ask DJ slider value.
+    public var playbackMoodStepIndex: Int {
+        guard let mood = confirmedSessionMoodInt else { return 1 }
+        return Self.askDJMoodStepIndex(for: Double(mood))
     }
 
     public var askDJMoodStepIndex: Int {
@@ -1752,6 +1797,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func markActiveSession() {
         isAppInForeground = true
+        localTransportProbeAfter = nil
         defaults.set(false, forKey: cleanShutdownKey)
         refreshPermissionStatuses()
         resumeWakeWordListeningIfNeeded()
@@ -3199,7 +3245,32 @@ public final class DJConnectAppModel: ObservableObject {
         toggleCurrentTrackFavorite()
     }
 
-    public func toggleCurrentTrackFavorite() {
+    /// A Session heart must represent the same current playback that the existing command targets.
+    func canToggleSessionFavorite(_ session: DJConnectSessionRuntime) -> Bool {
+        guard canUsePlaybackFeatures, !djSessionIsRecovering, !djSessionLiveUnavailable,
+              activeDJSession?.id == session.id,
+              let expected = session.broadcast.playback,
+              let currentSessionPlayback = activeDJSession?.broadcast.playback,
+              let current = playback, current.hasPlayback != false else { return false }
+        func normalized(_ value: String?) -> String { value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "" }
+        let title = normalized(expected.title), artist = normalized(expected.artist)
+        guard !title.isEmpty, !artist.isEmpty,
+              title == normalized(current.trackName), artist == normalized(current.artistName),
+              title == normalized(currentSessionPlayback.title), artist == normalized(currentSessionPlayback.artist),
+              expected.itemID == currentSessionPlayback.itemID else { return false }
+        if let expectedDuration = expected.durationMS, let duration = current.durationMS,
+           expectedDuration != duration { return false }
+        return true
+    }
+
+    func toggleSessionFavorite(_ session: DJConnectSessionRuntime) {
+        guard canToggleSessionFavorite(session) else { return }
+        toggleCurrentTrackFavorite(expectedSession: session)
+    }
+
+    public func toggleCurrentTrackFavorite() { toggleCurrentTrackFavorite(expectedSession: nil) }
+
+    private func toggleCurrentTrackFavorite(expectedSession: DJConnectSessionRuntime?) {
         guard !isSavingCurrentTrack else {
             return
         }
@@ -3212,10 +3283,12 @@ public final class DJConnectAppModel: ObservableObject {
         log(.info, shouldFavorite ? "Adding current track to favorites" : "Removing current track from favorites")
         Task {
             defer { isSavingCurrentTrack = false }
+            if let expectedSession, !canToggleSessionFavorite(expectedSession) { return }
             let didToggle = await sendSetCurrentTrackFavoriteCommand(shouldFavorite)
             userNotice = DJConnectUserNotice(text: didToggle ? localized(
                 key: shouldFavorite ? "appModel.saved.to.favorites" : "appModel.removed.from.favorites"
-            ) : localized(key: "appModel.favorite.status.could.not.be.changed"))
+            ) : localized(key: "appModel.favorite.status.could.not.be.changed"),
+                systemImage: didToggle ? (shouldFavorite ? "heart.fill" : "heart") : "exclamationmark.triangle")
         }
     }
 
@@ -3309,7 +3382,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
     func profileConversationPayload(text: String, clientMessageID: String, context: DJConnectConversationContext) -> DJConnectAskDJRequest {
         var payload = DJConnectAskDJRequest(identity: identity, text: text, clientMessageID: clientMessageID,
-            inputType: "text", mood: askDJMoodInt, djStyle: "warm_radio_dj", musicDNAKey: askDJMusicDNAKey,
+            inputType: "text", mood: confirmedSessionMoodInt, djStyle: "warm_radio_dj", musicDNAKey: askDJMusicDNAKey,
             audioResponse: .never, djAnnouncementOutput: djAnnouncementOutput, language: currentRequestLocale)
         payload.conversationContext = context
         return payload
@@ -3432,7 +3505,7 @@ public final class DJConnectAppModel: ObservableObject {
                     clientType: identity.clientType.rawValue,
                     forceRefresh: forceRefresh,
                     locale: language,
-                    mood: askDJMoodInt,
+                    mood: confirmedSessionMoodInt,
                     musicDNAKey: askDJMusicDNAKey,
                     includeVisualProfile: true,
                     includeRawResponse: true
@@ -4963,7 +5036,13 @@ public final class DJConnectAppModel: ObservableObject {
             let client = DJConnectClient(baseURL: baseURL, identity: identity, tokenStore: tokenStore, session: urlSession)
             let store = tokenStore
             transport = DJConnectSessionBroadcastTransport(baseURL: baseURL, session: urlSession,
-                discover: { try await client.pairedOwnerLiveCapability() }, pairedToken: { try store.loadToken() })
+                discover: { try await client.pairedOwnerLiveCapability() }, pairedToken: { try store.loadToken() },
+                httpRecovery: { [weak self] in
+                    guard let self else { throw CancellationError() }
+                    let response = try await self.withHomeAssistantClient { try await $0.activeSession() }
+                    guard response.success else { throw DJConnectError.invalidResponse }
+                    return response.resolvedSession?.broadcast
+                })
         }
         let previousTransport = sessionBroadcastTransport
         sessionBroadcastTransport = transport
@@ -5022,6 +5101,12 @@ public final class DJConnectAppModel: ObservableObject {
                 },
                 onAuthorityWithdrawn: { [weak self] code in
                     await self?.handlePairedAuthorityWithdrawal(code, broadcastGeneration: generation)
+                },
+                onHTTPSnapshot: { [weak self] snapshot in
+                    await MainActor.run {
+                        guard let self, self.sessionBroadcastGeneration == generation else { return }
+                        self.applySessionBroadcastSnapshot(snapshot)
+                    }
                 }
             )
         }
@@ -5128,7 +5213,7 @@ public final class DJConnectAppModel: ObservableObject {
                     wakewordEnabled: wakeWordEnabled,
                     wakewordPhrase: wakeWordPhrase,
                     wakewordStatus: "\(wakeWordStatus)",
-                    mood: askDJMoodInt,
+                    mood: confirmedSessionMoodInt,
                     musicDNAKey: askDJMusicDNAKey
                 )
             )
@@ -5236,7 +5321,7 @@ public final class DJConnectAppModel: ObservableObject {
             command: command,
             limit: Self.commandLimit(for: command),
             language: currentRequestLocale,
-            mood: askDJMoodInt,
+            mood: confirmedSessionMoodInt,
             musicDNAKey: askDJMusicDNAKey
         )
     }
@@ -5300,7 +5385,7 @@ public final class DJConnectAppModel: ObservableObject {
                     identity: identity,
                     command: "status",
                     language: currentRequestLocale,
-                    mood: askDJMoodInt,
+                    mood: confirmedSessionMoodInt,
                     musicDNAKey: askDJMusicDNAKey
                 )
             )
@@ -5621,7 +5706,7 @@ public final class DJConnectAppModel: ObservableObject {
         try await withHomeAssistantClient { client in
             try await client.sendVoice(
                 wavData: wavData,
-                mood: askDJMoodInt,
+                mood: confirmedSessionMoodInt,
                 djStyle: "warm_radio_dj",
                 musicDNAKey: askDJMusicDNAKey,
                 language: currentRequestLocale
@@ -5910,7 +5995,7 @@ public final class DJConnectAppModel: ObservableObject {
                 text: text,
                 clientMessageID: clientMessageID,
                 inputType: "text",
-                mood: askDJMoodInt,
+                mood: confirmedSessionMoodInt,
                 djStyle: "warm_radio_dj",
                 musicDNAKey: askDJMusicDNAKey,
                 audioResponse: askDJAudioResponseMode,
@@ -5939,43 +6024,74 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func refreshMusicDNAProfile(showToast: Bool = false) async {
+        await refreshMusicDNAProfile(showToast: showToast, retryDelays: [.seconds(1), .seconds(3), .seconds(8)])
+    }
+
+    func refreshMusicDNAProfile(showToast: Bool = false, retryDelays: [Duration]) async {
         if isDemoMode {
             applyDemoMusicDNAProfile()
-            if showToast {
-                showMusicDNAToast(localized(key: "appModel.music.dna.updated"), systemImage: "heart")
-            }
+            musicDNAProfileNeedsRecovery = false
+            if showToast { showMusicDNAToast(localized(key: "appModel.music.dna.updated"), systemImage: "heart") }
             return
         }
-        guard pairingStatus == .paired, !isDemoMode, isRuntimeCompatible else {
+        guard pairingStatus == .paired, isRuntimeCompatible else {
             clearMusicDNADisplay()
-            if showToast {
-                showMusicDNAToast(localized(key: "appModel.no.connection.to.home.assistant"), systemImage: "exclamationmark.triangle.fill")
-            }
             return
         }
+        guard isAppInForeground, !isLoadingMusicDNA else { return }
+        let epoch = sessionHistory.responseEpoch
+        let generation = UUID(); musicDNARefreshGeneration = generation
         isLoadingMusicDNA = true
         musicDNAErrorMessage = nil
-        do {
-            let response = try await withHomeAssistantClient { client in
-                try await client.musicDNAProfile(mood: askDJMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
-            }
-            apply(musicDNAProfile: response)
-            if showToast {
-                showMusicDNAToast(localized(key: "appModel.music.dna.updated"), systemImage: "heart")
-            }
-        } catch let error as DJConnectError {
-            handleMusicDNAError(error)
-            if showToast {
-                showMusicDNAToast(messageForMusicDNARefreshFailure(error), systemImage: "exclamationmark.triangle.fill")
-            }
-        } catch {
-            musicDNAErrorMessage = localized(key: "ui.music.dna.temporarily_unavailable")
-            log(.warning, "Music DNA profile refresh failed: \(error.localizedDescription)")
-            if showToast {
-                showMusicDNAToast(localized(key: "appModel.music.dna.update.failed"), systemImage: "exclamationmark.triangle.fill")
+        defer { if musicDNARefreshGeneration == generation { isLoadingMusicDNA = false } }
+        for attempt in 0...retryDelays.count {
+            guard !Task.isCancelled, isAppInForeground, pairingStatus == .paired, !isDemoMode, isRuntimeCompatible,
+                  musicDNARefreshGeneration == generation, epoch == sessionHistory.responseEpoch else { return }
+            do {
+                let response = try await withHomeAssistantClient { client in
+                    try await client.musicDNAProfile(mood: confirmedSessionMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
+                }
+                guard !Task.isCancelled, isAppInForeground, !isDemoMode, musicDNARefreshGeneration == generation,
+                      epoch == sessionHistory.responseEpoch else { return }
+                apply(musicDNAProfile: response)
+                musicDNAProfileNeedsRecovery = false
+                if showToast { showMusicDNAToast(localized(key: "appModel.music.dna.updated"), systemImage: "heart") }
+                return
+            } catch {
+                guard !Self.isCancellation(error), !Task.isCancelled, !isDemoMode,
+                      musicDNARefreshGeneration == generation, epoch == sessionHistory.responseEpoch else { return }
+                let transient: Bool
+                if let error = error as? DJConnectError {
+                    switch error {
+                    case .network, .backendUnavailable: transient = true
+                    case let .server(code, _): transient = code == 408 || code == 429 || (500...599).contains(code)
+                    default: transient = false
+                    }
+                } else { transient = false }
+                musicDNAProfileNeedsRecovery = transient
+                if transient {
+                    musicDNAErrorMessage = localized(key: "ui.music.dna.recovering")
+                    guard attempt < retryDelays.count else { return }
+                    do { try await Task.sleep(for: retryDelays[attempt]) } catch { return }
+                } else {
+                    if let typed = error as? DJConnectError {
+                        handleMusicDNAError(typed)
+                        switch typed {
+                        case .authStale, .notConfigured, .missingToken, .versionMismatch: break
+                        case .profile:
+                            clearMusicDNADisplay()
+                            musicDNAErrorMessage = localized(key: "ui.music.dna.profile_access")
+                        default: musicDNAErrorMessage = localized(key: "ui.music.dna.processing_failed")
+                        }
+                    } else {
+                        musicDNAErrorMessage = localized(key: "ui.music.dna.processing_failed")
+                    }
+                    log(.warning, "Music DNA profile refresh stopped: \(error.localizedDescription)")
+                    if showToast, let message = musicDNAErrorMessage { showMusicDNAToast(message, systemImage: "exclamationmark.triangle.fill") }
+                    return
+                }
             }
         }
-        isLoadingMusicDNA = false
     }
 
     private func showMusicDNAToast(_ text: String, systemImage: String) {
@@ -6045,14 +6161,18 @@ public final class DJConnectAppModel: ObservableObject {
         musicDNAErrorMessage = nil
         do {
             let response = try await withHomeAssistantClient { client in
-                try await client.setMusicDNAEnabled(enabled, mood: askDJMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
+                try await client.setMusicDNAEnabled(enabled, mood: confirmedSessionMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
             }
             apply(musicDNAProfile: response)
             pendingMusicDNAEnabled = enabled
             pendingMusicDNAEnabledAt = Date()
             try Task.checkCancellation()
+            if enabled, response.success, response.enabled {
+                _ = await refreshMusicDiscovery()
+            }
+            try Task.checkCancellation()
             let refreshed = try await withHomeAssistantClient { client in
-                try await client.musicDNAProfile(mood: askDJMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
+                try await client.musicDNAProfile(mood: confirmedSessionMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
             }
             apply(musicDNAProfile: refreshed)
         } catch let error as DJConnectError {
@@ -6077,11 +6197,11 @@ public final class DJConnectAppModel: ObservableObject {
         musicDNAErrorMessage = nil
         do {
             _ = try await withHomeAssistantClient { client in
-                try await client.clearMusicDNA(mood: askDJMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
+                try await client.clearMusicDNA(mood: confirmedSessionMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
             }
             try Task.checkCancellation()
             let refreshed = try await withHomeAssistantClient { client in
-                try await client.musicDNAProfile(mood: askDJMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
+                try await client.musicDNAProfile(mood: confirmedSessionMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
             }
             apply(musicDNAProfile: refreshed)
         } catch let error as DJConnectError {
@@ -6162,7 +6282,7 @@ public final class DJConnectAppModel: ObservableObject {
         musicDNAErrorMessage = nil
         defer { isUpdatingMusicDNA = false }
         let response = try await withHomeAssistantClient { client in
-            try await client.importMusicDNA(preview.profile, mood: askDJMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
+            try await client.importMusicDNA(preview.profile, mood: confirmedSessionMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
         }
         apply(musicDNAProfile: response)
     }
@@ -6780,6 +6900,8 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func clearMusicDNADisplay() {
+        musicDNARefreshGeneration = UUID()
+        musicDNAProfileNeedsRecovery = false
         musicDNAProfileResponse = nil
         musicDNAErrorMessage = nil
         isLoadingMusicDNA = false
@@ -6833,7 +6955,7 @@ public final class DJConnectAppModel: ObservableObject {
             try await client.askDJIdleSuggestion(DJConnectAskDJIdleSuggestionRequest(
                 identity: identity,
                 clientMessageID: UUID().uuidString,
-                mood: askDJMoodInt,
+                mood: confirmedSessionMoodInt,
                 djStyle: "warm_radio_dj",
                 musicDNAKey: askDJMusicDNAKey
             ))
@@ -6850,7 +6972,7 @@ public final class DJConnectAppModel: ObservableObject {
                 play: command == "ask_dj_play_recommendation",
                 musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision,
                 language: currentRequestLocale,
-                mood: askDJMoodInt,
+                mood: confirmedSessionMoodInt,
                 musicDNAKey: askDJMusicDNAKey,
                 djAnnouncementOutput: djAnnouncementOutput
             ))
@@ -6873,7 +6995,7 @@ public final class DJConnectAppModel: ObservableObject {
                     command: "set_current_track_favorite",
                     value: .bool(shouldFavorite),
                     language: currentRequestLocale,
-                    mood: askDJMoodInt,
+                    mood: confirmedSessionMoodInt,
                     musicDNAKey: askDJMusicDNAKey
                 ))
             }
@@ -6917,7 +7039,7 @@ public final class DJConnectAppModel: ObservableObject {
                     command: command,
                     value: value,
                     language: currentRequestLocale,
-                    mood: askDJMoodInt,
+                    mood: confirmedSessionMoodInt,
                     musicDNAKey: askDJMusicDNAKey
                 ))
             }
@@ -9621,7 +9743,7 @@ public final class DJConnectAppModel: ObservableObject {
                         play: play,
                         limit: Self.commandLimit(for: command),
                         language: currentRequestLocale,
-                        mood: askDJMoodInt,
+                        mood: confirmedSessionMoodInt,
                         musicDNAKey: askDJMusicDNAKey
                     )
                 )
@@ -10335,10 +10457,19 @@ public final class DJConnectAppModel: ObservableObject {
 
         let localFastPath = localURL.flatMap { webSocketFastPathIfLocal($0) }
         let configuration = transportConfiguration(allowsRemoteHTTPFallback: identity.clientType != .watchos)
+        // After an actual LAN failure, remote reads must not wait for the same
+        // local timeout every two seconds. Periodically probe LAN again so
+        // returning home restores the preferred local connection automatically.
+        let now = Date()
+        let prefersRemote = haConnectionMode == .remote && (localTransportProbeAfter.map { $0 > now } ?? false)
+        if haConnectionMode == .remote && !prefersRemote {
+            localTransportProbeAfter = now.addingTimeInterval(15)
+        }
         let transport = DJConnectHATransportManager(
             localURL: localURL,
             remoteURL: remoteURL,
             allowsRemoteFallback: configuration.allowsRemoteHTTPFallback,
+            prefersRemote: prefersRemote,
             clientFactory: { [weak self, identity, tokenStore, urlSession, localURL, localFastPath] baseURL in
                 let fastPath = DJConnectFastPathPolicy.isEligible(baseURL: baseURL, localURL: localURL) ? localFastPath : nil
                 return DJConnectClient(
@@ -10373,6 +10504,10 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     func recordConnectionMode(_ mode: DJConnectHAConnectionMode, baseURL: URL?) {
+        if mode == .local { localTransportProbeAfter = nil }
+        else if mode == .remote && localTransportProbeAfter == nil {
+            localTransportProbeAfter = Date().addingTimeInterval(15)
+        }
         haConnectionMode = mode
         defaults.set(mode.rawValue, forKey: haConnectionModeKey)
         if mode == .local, let baseURL {
@@ -10673,7 +10808,7 @@ public final class DJConnectAppModel: ObservableObject {
                     wakewordEnabled: false,
                     wakewordPhrase: "",
                     wakewordStatus: "\(wakeWordStatus)",
-                    mood: askDJMoodInt,
+                    mood: confirmedSessionMoodInt,
                     musicDNAKey: askDJMusicDNAKey
                 ))
             } catch let error as DJConnectError {

@@ -11,9 +11,9 @@ extension View {
         modifier(DJSessionGlassSurface(cornerRadius: cornerRadius))
     }
 
-    @ViewBuilder func djSessionNavigationTitleStyle() -> some View {
+    @ViewBuilder func djSessionNavigationTitleStyle(compactPhone: Bool = false) -> some View {
         #if os(iOS)
-        navigationBarTitleDisplayMode(.large)
+        navigationBarTitleDisplayMode(compactPhone && UIDevice.current.userInterfaceIdiom == .phone ? .inline : .large)
         #else
         self
         #endif
@@ -59,6 +59,8 @@ struct NativeSessionMomentsView: View {
     var artworkBaseURL: URL? = nil
     var returnToCurrent: () -> Void = {}
     var showsFlow = true
+    var playbackOutputName: String? = nil
+    var playbackModel: DJConnectAppModel? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedMomentID: String?
 
@@ -66,11 +68,19 @@ struct NativeSessionMomentsView: View {
         DJConnectLocalization.localized(key: key, language: language)
     }
 
+    private var stacksCurrentOnPhone: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .phone
+        #else
+        false
+        #endif
+    }
+
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { clock in
             let current = currentMoment(at: clock.date)
             VStack(alignment: .leading, spacing: 24) {
-                SessionCurrentColumns {
+                SessionCurrentColumns(stacked: true) {
                     musicContext
                     currentCard(current)
                         .accessibilityIdentifier("session-current-card")
@@ -183,6 +193,21 @@ struct NativeSessionMomentsView: View {
             }
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)
             .djSessionFrostedSurface()
+        } else if session.runtimeState == "active", session.broadcast.playback?.state == "paused" {
+            VStack(alignment: .leading, spacing: 12) {
+                Image(systemName: "pause.circle.fill")
+                    .font(.system(size: 36, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                Text(text("ui.paused")).font(.title2.weight(.semibold))
+                    .accessibilityAddTraits(.isHeader)
+                Text(text("ui.session.playback_paused_detail"))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(24).frame(maxWidth: .infinity, alignment: .leading)
+            .djSessionFrostedSurface()
+            .accessibilityIdentifier("session-playback-paused")
         } else if let moment {
             MomentCard(moment: moment, kind: kind(moment), presentation: presentation(for: moment), language: language)
                 .id(moment.id)
@@ -198,13 +223,36 @@ struct NativeSessionMomentsView: View {
         }
     }
 
+    private var musicArtworkURL: URL? {
+        guard let raw = session.broadcast.playback?.artworkURL,
+              let url = URL(string: raw, relativeTo: artworkBaseURL)?.absoluteURL,
+              ["http", "https"].contains(url.scheme) else { return nil }
+        return url
+    }
+
     private var musicContext: some View {
+        Group {
+            if let url = musicArtworkURL {
+                SessionCurrentColumns(stacked: stacksCurrentOnPhone) {
+                    AsyncImage(url: url) { image in image.resizable().scaledToFit() } placeholder: { Image(systemName: "music.note") }
+                        .frame(maxHeight: 180)
+                        .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
+                        .frame(maxWidth: .infinity)
+                        .accessibilityIdentifier("session-music-artwork")
+                    musicDetails
+                }
+            } else {
+                musicDetails
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("session-music-context")
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var musicDetails: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let playback = session.broadcast.playback {
-                if let raw = playback.artworkURL, let url = URL(string: raw, relativeTo: artworkBaseURL)?.absoluteURL, ["http", "https"].contains(url.scheme) {
-                    AsyncImage(url: url) { image in image.resizable().scaledToFit() } placeholder: { Image(systemName: "music.note") }
-                        .frame(maxWidth: .infinity, maxHeight: 180).clipShape(RoundedRectangle(cornerRadius: 16))
-                }
                 Text(playback.title ?? text("ui.nothing.playing")).font(.headline)
                 if let artist = playback.artist { Text(artist).foregroundStyle(.secondary) }
                 if let album = playback.album { Text(album).font(.caption).foregroundStyle(.secondary) }
@@ -212,18 +260,42 @@ struct NativeSessionMomentsView: View {
                     let current = max(0, min(position, duration))
                     ProgressView(value: Double(current), total: Double(duration))
                         .accessibilityLabel(text("ui.session.music_progress"))
-                    VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .center, spacing: 8) {
+                        if let playbackModel, playbackModel.canToggleSessionFavorite(session) {
+                            FavoriteTrackButton(model: playbackModel, identifier: "session-favorite-button", sessionContext: session)
+                                .disabled(!playbackModel.canUsePlaybackFeatures || playbackModel.isRefreshing)
+                        }
+                        Spacer(minLength: 0)
                         Text("\(sessionPlaybackTime(current)) / \(sessionPlaybackTime(duration))")
+                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                             .accessibilityLabel(text("ui.session.music_duration"))
-                        Text("−" + sessionPlaybackTime(duration - current))
-                            .accessibilityLabel(text("ui.session.music_remaining"))
+                            .accessibilityValue("\(sessionPlaybackTime(current)) / \(sessionPlaybackTime(duration))")
                     }
-                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                }
+                if let playbackOutputName {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Label(playbackOutputName, systemImage: "hifispeaker.fill")
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityLabel(text("ui.output.device"))
+                            .accessibilityValue(playbackOutputName)
+                            .accessibilityIdentifier("session-playback-output")
+                        Spacer(minLength: 0)
+                        if let rawVolume = playbackModel?.playback?.volumePercent {
+                            let volume = max(0, min(100, rawVolume))
+                            Label("\(volume)%", systemImage: volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                                .fixedSize()
+                                .accessibilityLabel(text("watch.volume"))
+                                .accessibilityValue("\(volume)%")
+                                .accessibilityIdentifier("session-playback-volume")
+                        }
+                    }
+                    .font(.caption).foregroundStyle(.secondary)
                 }
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("session-music-context")
+        .accessibilityIdentifier("session-music-details")
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -231,6 +303,7 @@ struct NativeSessionMomentsView: View {
 /// Each column measures its full text height, so the pinned header can scroll
 /// vertically without changing the relationship between artwork and DJ content.
 private struct SessionCurrentColumns: Layout {
+    var stacked = false
     private func widths(_ proposal: ProposedViewSize) -> (CGFloat, CGFloat, CGFloat) {
         let width = max(0, proposal.width ?? 800)
         let gap: CGFloat = width < 600 ? 12 : 24
@@ -240,6 +313,12 @@ private struct SessionCurrentColumns: Layout {
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         guard subviews.count == 2 else { return .zero }
+        if stacked {
+            let width = max(0, proposal.width ?? 400)
+            let top = subviews[0].sizeThatFits(.init(width: width, height: nil))
+            let bottom = subviews[1].sizeThatFits(.init(width: width, height: nil))
+            return CGSize(width: width, height: top.height + 16 + bottom.height)
+        }
         let (music, card, gap) = widths(proposal)
         let left = subviews[0].sizeThatFits(.init(width: music, height: nil))
         let right = subviews[1].sizeThatFits(.init(width: card, height: nil))
@@ -248,6 +327,13 @@ private struct SessionCurrentColumns: Layout {
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         guard subviews.count == 2 else { return }
+        if stacked {
+            let top = subviews[0].sizeThatFits(.init(width: bounds.width, height: nil))
+            subviews[0].place(at: bounds.origin, anchor: .topLeading, proposal: .init(width: bounds.width, height: nil))
+            subviews[1].place(at: CGPoint(x: bounds.minX, y: bounds.minY + top.height + 16), anchor: .topLeading,
+                              proposal: .init(width: bounds.width, height: nil))
+            return
+        }
         let (music, card, gap) = widths(.init(width: bounds.width, height: nil))
         subviews[0].place(at: bounds.origin, anchor: .topLeading, proposal: .init(width: music, height: nil))
         subviews[1].place(at: CGPoint(x: bounds.minX + music + gap, y: bounds.minY), anchor: .topLeading,
@@ -282,6 +368,8 @@ struct MomentCard: View {
             }
             ForEach(moment.nativeSourceURLs, id: \.absoluteString) { url in
                 Link(sourceLabel(url), destination: url)
+                    .foregroundStyle(djConnectAccent)
+                    .tint(djConnectAccent)
                     .accessibilityValue(url.absoluteString)
                     .accessibilityIdentifier("moment-source-" + url.absoluteString)
             }

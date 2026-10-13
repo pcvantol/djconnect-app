@@ -8,6 +8,7 @@ public actor DJConnectSessionBroadcastTransport {
     public typealias EventHandler = @Sendable (DJConnectSessionBroadcastEvent) async -> Void
     public typealias TerminationHandler = @Sendable () async -> Void
     public typealias AuthorityHandler = @Sendable (String) async -> Void
+    public typealias HTTPRecovery = @Sendable () async throws -> DJConnectBroadcastState?
 
     private let baseURL: URL
     private let auth: DJConnectHomeAssistantWebSocketAuth?
@@ -19,6 +20,9 @@ public actor DJConnectSessionBroadcastTransport {
     private var socket: URLSessionWebSocketTask?
     private var runTask: Task<Void, Never>?
     private var shouldRun = false
+    private let httpRecovery: HTTPRecovery?
+    private var httpRecoveryTask: Task<Void, Never>?
+    private var liveConnected = false
 
     public init(
         baseURL: URL,
@@ -28,15 +32,18 @@ public actor DJConnectSessionBroadcastTransport {
         self.baseURL = baseURL
         self.auth = auth
         self.discover = nil; self.pairedToken = nil
+        self.httpRecovery = nil
         self.session = session
     }
 
     /// Production paired mode never falls back to an HA credential issuer.
     public init(baseURL: URL, session: URLSession = .shared,
                 discover: @escaping @Sendable () async throws -> DJConnectPairedOwnerLiveCapability?,
-                pairedToken: @escaping @Sendable () throws -> String?) {
+                pairedToken: @escaping @Sendable () throws -> String?,
+                httpRecovery: HTTPRecovery? = nil) {
         self.baseURL = baseURL; self.session = pairedLiveCredentialFreeSession(from: session)
         self.auth = nil; self.discover = discover; self.pairedToken = pairedToken
+        self.httpRecovery = httpRecovery
     }
 
     deinit { if discover != nil { session.invalidateAndCancel() } }
@@ -50,10 +57,18 @@ public actor DJConnectSessionBroadcastTransport {
         onUnavailable: @escaping TerminationHandler = {},
         onDisconnected: @escaping TerminationHandler = {},
         onConnectionUnavailable: @escaping TerminationHandler = {},
-        onAuthorityWithdrawn: AuthorityHandler? = nil
+        onAuthorityWithdrawn: AuthorityHandler? = nil,
+        onHTTPSnapshot: @escaping @Sendable (DJConnectBroadcastState) async -> Void = { _ in }
     ) {
         stop()
         shouldRun = true
+        if let httpRecovery {
+            httpRecoveryTask = Task { [weak self] in
+                await self?.runHTTPRecovery(sessionID: sessionID, recovery: httpRecovery,
+                    onSnapshot: onHTTPSnapshot, onTerminated: onTerminated, onUnavailable: onUnavailable,
+                    onAuthorityWithdrawn: onAuthorityWithdrawn)
+            }
+        }
         runTask = Task { [weak self] in
             await self?.run(
                 sessionID: sessionID,
@@ -75,6 +90,51 @@ public actor DJConnectSessionBroadcastTransport {
         runTask = nil
         socket?.cancel(with: .goingAway, reason: nil)
         socket = nil
+        liveConnected = false
+        httpRecoveryTask?.cancel()
+        httpRecoveryTask = nil
+    }
+
+    private func runHTTPRecovery(sessionID: String, recovery: HTTPRecovery,
+                                 onSnapshot: @escaping @Sendable (DJConnectBroadcastState) async -> Void,
+                                 onTerminated: @escaping TerminationHandler,
+                                 onUnavailable: @escaping TerminationHandler,
+                                 onAuthorityWithdrawn: AuthorityHandler?) async {
+        while shouldRun, !Task.isCancelled {
+            if !liveConnected {
+                do {
+                    let snapshot = try await recovery()
+                    guard shouldRun, !Task.isCancelled else { return }
+                    // A late HTTP response cannot replace a freshly connected live snapshot.
+                    if !liveConnected {
+                        guard let snapshot, snapshot.session.runtimeState == "active" else {
+                            stop(); await onTerminated(); return
+                        }
+                        guard snapshot.session.sessionID == sessionID else {
+                            stop(); await onTerminated(); return
+                        }
+                        await onSnapshot(snapshot)
+                    }
+                } catch {
+                    guard shouldRun, !Task.isCancelled, !(error is CancellationError),
+                          (error as? URLError)?.code != .cancelled else { return }
+                    if let denial = error as? DJConnectError, denial.invalidatesSessionAuthority {
+                        stop()
+                        if let onAuthorityWithdrawn {
+                            // Use the same owner withdrawal as paired live; never retain
+                            // private history or credentials after an HTTP authority denial.
+                            let code: String
+                            if case let .profile(profileCode, _, _) = denial { code = profileCode.rawValue }
+                            else { code = "unauthorized" }
+                            await onAuthorityWithdrawn(code)
+                        } else { await onUnavailable() }
+                        return
+                    }
+                    // Transient connectivity keeps recovery running without a user refresh.
+                }
+            }
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+        }
     }
 
     private func run(
@@ -94,6 +154,7 @@ public actor DJConnectSessionBroadcastTransport {
                 try await connect(identity: identity)
                 let subscription = try await subscribe(sessionID: sessionID, identity: identity)
                 guard shouldRun, !Task.isCancelled else { return }
+                liveConnected = true
                 await onSnapshot(subscription)
                 retryDelay = 1_000_000_000
                 while shouldRun, !Task.isCancelled {
@@ -117,9 +178,10 @@ public actor DJConnectSessionBroadcastTransport {
                 let hadSocket = socket != nil
                 socket?.cancel(with: .goingAway, reason: nil)
                 socket = nil
+                liveConnected = false
                 // Missing auth issuance is not a transient socket disconnect.
                 if !hadSocket, case .routeMissing = error as? DJConnectError {
-                    stop()
+                    if httpRecovery == nil { stop() }
                     await onConnectionUnavailable()
                     return
                 }

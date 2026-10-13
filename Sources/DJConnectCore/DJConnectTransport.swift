@@ -69,6 +69,7 @@ public final class DJConnectHATransportManager: Sendable {
     public let localURL: URL?
     public let remoteURL: URL?
     public let allowsRemoteFallback: Bool
+    public let prefersRemote: Bool
     private let clientFactory: @Sendable (URL) -> DJConnectClient
     private let modeReporter: (@Sendable (DJConnectHAConnectionMode, URL?) -> Void)?
 
@@ -76,12 +77,14 @@ public final class DJConnectHATransportManager: Sendable {
         localURL: URL?,
         remoteURL: URL?,
         allowsRemoteFallback: Bool,
+        prefersRemote: Bool = false,
         clientFactory: @escaping @Sendable (URL) -> DJConnectClient,
         modeReporter: (@Sendable (DJConnectHAConnectionMode, URL?) -> Void)? = nil
     ) {
         self.localURL = localURL
         self.remoteURL = remoteURL
         self.allowsRemoteFallback = allowsRemoteFallback
+        self.prefersRemote = prefersRemote
         self.clientFactory = clientFactory
         self.modeReporter = modeReporter
     }
@@ -97,11 +100,13 @@ public final class DJConnectHATransportManager: Sendable {
         if values.isEmpty {
             values.append(DJConnectTransportResolution(mode: .offline, baseURL: nil))
         }
+        if prefersRemote, values.count == 2 { values.reverse() }
         return values
     }
 
     @MainActor
     public func perform<T: Sendable>(_ operation: (DJConnectClient) async throws -> T) async throws -> T {
+        try Task.checkCancellation()
         let candidates = candidates
         guard candidates.first?.mode != .offline else {
             modeReporter?(.offline, nil)
@@ -118,6 +123,7 @@ public final class DJConnectHATransportManager: Sendable {
                 modeReporter?(candidate.mode, baseURL)
                 return result
             } catch let error as DJConnectError {
+                try Task.checkCancellation()
                 lastError = error
                 // A provider error is a response from reachable Home Assistant.
                 // Preserve transport reachability; playback availability remains separate.
@@ -137,6 +143,9 @@ public final class DJConnectHATransportManager: Sendable {
                     throw error
                 }
             } catch {
+                if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
+                    throw CancellationError()
+                }
                 lastError = error
                 guard index + 1 < candidates.count else {
                     modeReporter?(.offline, nil)

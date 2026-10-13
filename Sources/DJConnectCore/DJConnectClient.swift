@@ -646,7 +646,18 @@ public final class DJConnectClient: Sendable {
     }
 
     public func musicDiscoveryFeedRequest(musicDNAKey: String? = nil, language: String? = nil, profileContext: DJConnectProfileContext? = nil) throws -> URLRequest {
-        var request = try authenticatedRequest(url: endpointWithProfileContext(path: Self.apiV1Path("music_discovery"), profileContext: profileContext))
+        let endpoint = endpointWithProfileContext(path: Self.apiV1Path("music_discovery"), profileContext: profileContext)
+        guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else {
+            throw DJConnectError.invalidConfiguration("Invalid Discover endpoint")
+        }
+        if let musicDNAKey, !musicDNAKey.isEmpty {
+            var query = components.queryItems ?? []
+            query.removeAll { $0.name == "music_dna_key" }
+            query.append(URLQueryItem(name: "music_dna_key", value: musicDNAKey))
+            components.queryItems = query
+        }
+        guard let url = components.url else { throw DJConnectError.invalidConfiguration("Invalid Discover endpoint") }
+        var request = try authenticatedRequest(url: url)
         request.httpMethod = "GET"
         applyMusicDNAHeaders(to: &request, mood: nil, musicDNAKey: musicDNAKey, language: language)
         applyProfileContextHeaders(to: &request, profileContext: profileContext)
@@ -1001,6 +1012,9 @@ public final class DJConnectClient: Sendable {
         do {
             (data, response) = try await (requestSession ?? session).data(for: request)
         } catch {
+            if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
+                throw CancellationError()
+            }
             throw DJConnectError.network(message: error.localizedDescription)
         }
 
@@ -1141,10 +1155,28 @@ public final class DJConnectClient: Sendable {
         guard let webSocketFastPath else {
             return nil
         }
+        try Task.checkCancellation()
         do {
-            return try await operation(webSocketFastPath, loadedToken())
+            let result = try await operation(webSocketFastPath, loadedToken())
+            try Task.checkCancellation()
+            return result
         } catch {
-            return nil
+            if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
+                throw CancellationError()
+            }
+            // A rejected operation is an authoritative answer, not a transport
+            // failure. Replaying it over HTTP can duplicate a write or hide a
+            // Profile/authentication rejection.
+            if let error = error as? DJConnectError {
+                switch error {
+                case .routeMissing, .network, .invalidResponse:
+                    return nil
+                default:
+                    throw error
+                }
+            }
+            if error is URLError { return nil }
+            throw error
         }
     }
 

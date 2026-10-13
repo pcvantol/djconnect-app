@@ -205,6 +205,7 @@ struct DJConnectClientContractFixtureTests {
         let components = try #require(URLComponents(url: feedURL, resolvingAgainstBaseURL: false))
         let query = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).compactMap { item in item.value.map { (item.name, $0) } })
         #expect(query["profile_id"] == "profile-peter")
+        #expect(query["music_dna_key"] == "profile:profile-peter")
         #expect(query["private_session"] == "true")
         #expect(query["request_source"] == "discover")
         #expect(feedRequest.value(forHTTPHeaderField: "X-DJConnect-Profile-ID") == "profile-peter")

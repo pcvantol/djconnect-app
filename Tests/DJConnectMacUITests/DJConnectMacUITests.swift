@@ -45,6 +45,26 @@ final class DJConnectMacUITests: XCTestCase {
         lastScreenshotPNG = png
     }
 
+    func testAskDJNavigationKeepsSidebarAndComposerInsideWindow() {
+        let app = launchMonkeyApp()
+        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 12))
+        let session = app.buttons["DJ-sessie"].firstMatch
+        XCTAssertTrue(session.waitForExistence(timeout: 6))
+        let sidebarY = session.frame.minY
+        let window = app.windows.firstMatch.frame
+        for _ in 0..<3 {
+            openScreen("Ask DJ", in: app)
+            XCTAssertTrue(session.isHittable)
+            XCTAssertEqual(session.frame.minY, sidebarY, accuracy: 2,
+                           "Changing the detail must not displace the sidebar")
+            let composer = app.descendants(matching: .any)["ask-dj-composer-input"].firstMatch
+            XCTAssertTrue(composer.waitForExistence(timeout: 6))
+            XCTAssertGreaterThanOrEqual(composer.frame.minY, window.minY)
+            XCTAssertLessThanOrEqual(composer.frame.maxY, window.maxY)
+            session.tap()
+        }
+    }
+
     func testMonkeyModeSafeNavigationSmoke() {
         let app = launchMonkeyApp()
         let duration = TimeInterval(ProcessInfo.processInfo.environment["DJCONNECT_MONKEY_SECONDS"] ?? "20") ?? 20

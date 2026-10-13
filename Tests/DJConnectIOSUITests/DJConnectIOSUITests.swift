@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 @MainActor
 final class DJConnectIOSUITests: XCTestCase {
@@ -308,7 +309,7 @@ final class DJConnectIOSUITests: XCTestCase {
         enterDemoModeIfNeeded(app)
 
         XCTAssertTrue(app.tabBars.buttons["DJ-sessie"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.tabBars.buttons["Ask DJ"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Speelt Nu"].exists)
         XCTAssertTrue(app.tabBars.buttons["Track Insight"].exists)
         XCTAssertTrue(app.tabBars.buttons["Ontdek"].exists || app.tabBars.buttons["Discover"].exists)
         XCTAssertTrue(app.tabBars.buttons["Meer"].exists || app.tabBars.buttons["More"].exists)
@@ -453,7 +454,7 @@ final class DJConnectIOSUITests: XCTestCase {
         enterDemoModeIfNeeded(app)
 
         XCTAssertTrue(app.tabBars.buttons["DJ Session"].waitForExistence(timeout: 6))
-        XCTAssertTrue(app.tabBars.buttons["Ask DJ"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Speelt Nu"].exists)
         XCTAssertTrue(app.tabBars.buttons["Track Insight"].exists)
         XCTAssertTrue(app.tabBars.buttons["More"].exists)
         app.tabBars.buttons["More"].tap()
@@ -478,8 +479,7 @@ final class DJConnectIOSUITests: XCTestCase {
     }
 
     func testGamesTabShowsLocalGameChoices() {
-        let app = launchApp()
-        enterDemoModeIfNeeded(app)
+        let app = launchSessionUIDemo()
 
         tapTabOrMoreItem("Games", in: app)
 
@@ -489,6 +489,17 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Sky Dash"].exists || app.staticTexts["Sky Dash"].exists)
         XCTAssertTrue(app.buttons["Maze Chase"].exists || app.staticTexts["Maze Chase"].exists)
         XCTAssertTrue(app.buttons["Tik om te spelen"].exists || app.staticTexts["Tik om te spelen"].exists)
+        let first = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        first.name = "game-selector-first-rounded-inset"; first.lifetime = .keepAlways; add(first)
+        let maze = app.buttons["Maze Chase"].firstMatch
+        maze.tap()
+        let state = app.descendants(matching: .any)["games-state"].firstMatch
+        let selected = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            (state.value as? String)?.contains("game=pacman") == true
+        }, object: state)
+        XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 5), .completed)
+        let last = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        last.name = "game-selector-last-rounded-inset"; last.lifetime = .keepAlways; add(last)
     }
 
     func testGamesSurfaceRespondsToHardwareKeyboardArrowKeys() {
@@ -1020,7 +1031,8 @@ extension DJConnectIOSUITests {
         try saveHistoryScreenshot("ios-history-06-readonly-after-server-restart")
         app.terminate(); app.launch()
         XCTAssertTrue(app.buttons["Start DJ-sessie"].waitForExistence(timeout: 10))
-        let ask = app.tabBars.buttons["Ask DJ"].exists ? app.tabBars.buttons["Ask DJ"] : app.buttons["Ask DJ"].firstMatch
+        app.tabBars.buttons["Meer"].tap()
+        let ask = app.buttons["Ask DJ"].firstMatch
         ask.tap()
         let question = app.textViews.firstMatch
         XCTAssertTrue(question.waitForExistence(timeout: 5))
@@ -1103,13 +1115,18 @@ extension DJConnectIOSUITests {
                            (before["active"] as? [String: Any])?["now_playing"] as? NSDictionary)
             try saveHistoryScreenshot("paired-ui-confirmed-active-mood")
         }
-        app.buttons["session-mood-close"].tap()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.7)).tap()
         let beforeMenu = try await control("state", method: "GET")
         let handoff = app.buttons["session-handoff-toggle"]
         XCTAssertTrue(handoff.isHittable); handoff.tap()
         XCTAssertTrue(app.textFields["vibecast-handoff-code"].waitForExistence(timeout: 5))
         try saveHistoryScreenshot("paired-ui-handoff-popover")
-        app.buttons["session-handoff-close"].tap()
+        XCTAssertFalse(app.buttons["session-handoff-close"].exists)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.7)).tap()
+        let handoffDismissed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: app.textFields["vibecast-handoff-code"])
+        XCTAssertEqual(XCTWaiter.wait(for: [handoffDismissed], timeout: 5), .completed)
         let afterMenu = try await control("state", method: "GET")
         XCTAssertEqual((beforeMenu["active"] as? NSDictionary), (afterMenu["active"] as? NSDictionary))
         let draft = app.textViews.firstMatch
@@ -1346,6 +1363,63 @@ extension DJConnectIOSUITests {
         return app
     }
 
+    func testPausedPlaybackHasDistinctSessionPresentationAndResumes() {
+        let app = launchSessionUIDemo()
+        XCTAssertTrue(app.buttons["session-end-button"].waitForExistence(timeout: 10))
+        tapTabOrMoreItem("Speelt Nu", in: app)
+        let pause = app.buttons["Pauze"].firstMatch
+        XCTAssertTrue(pause.waitForExistence(timeout: 5)); pause.tap()
+        XCTAssertTrue(app.buttons["Afspelen"].firstMatch.waitForExistence(timeout: 5))
+        app.tabBars.buttons["DJ-sessie"].tap()
+        let paused = app.staticTexts["Gepauzeerd"].firstMatch
+        XCTAssertTrue(paused.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Gepauzeerd"].exists)
+        XCTAssertTrue(app.buttons["session-end-button"].isEnabled)
+        XCTAssertTrue(app.descendants(matching: .any)["session-playback-output"].firstMatch.exists)
+        let image = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        image.name = "native-session-playback-paused"; image.lifetime = .keepAlways; add(image)
+        app.tabBars.buttons["Meer"].tap()
+        if !app.navigationBars["Speelt Nu"].exists { tapTabOrMoreItem("Speelt Nu", in: app) }
+        let play = app.buttons["Afspelen"].firstMatch
+        XCTAssertTrue(play.waitForExistence(timeout: 5)); play.tap()
+        XCTAssertTrue(app.buttons["Pauze"].firstMatch.waitForExistence(timeout: 5))
+        app.tabBars.buttons["DJ-sessie"].tap()
+        let resumed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: paused)
+        XCTAssertEqual(XCTWaiter.wait(for: [resumed], timeout: 5), .completed)
+        XCTAssertTrue(app.buttons["session-end-button"].isEnabled)
+    }
+
+    func testSessionMenuReturnScrollsCurrentBackToTop() {
+        let app = launchSessionUIDemo()
+        let title = app.staticTexts["Een avond met de DJ"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        let initialTop = title.frame.minY
+        let scroll = app.scrollViews.firstMatch
+        scroll.swipeUp(); scroll.swipeUp()
+        tapTabOrMoreItem("Speelt Nu", in: app)
+        tapTabOrMoreItem("DJ-sessie", in: app)
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertTrue(title.isHittable)
+        XCTAssertEqual(title.frame.minY, initialTop, accuracy: 3)
+    }
+
+    func testRapidIdleSessionMoodChangesKeepAppRunning() {
+        let app = launchSessionUIDemo()
+        XCTAssertTrue(app.buttons["session-end-button"].waitForExistence(timeout: 10))
+        app.buttons["session-end-button"].tap()
+        let confirm = app.alerts.buttons["session-end-confirm"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5)); confirm.tap()
+        let moods = ["Rustig", "Energie", "Groove", "Feest"]
+        XCTAssertTrue(app.buttons["Rustig"].waitForExistence(timeout: 10))
+        let points = moods.map { app.buttons[$0].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)) }
+        for _ in 0..<15 {
+            for point in points { point.tap() }
+        }
+        XCTAssertEqual(app.state, .runningForeground)
+        XCTAssertTrue(app.buttons["Feest"].isSelected)
+        XCTAssertTrue(app.buttons["Start DJ-sessie"].isHittable)
+    }
+
     func testSessionMoodToolbarAndPlaybackTimes() {
         let app = launchSessionUIDemo()
         let connection = app.buttons["session-connection-toggle"]
@@ -1358,14 +1432,43 @@ extension DJConnectIOSUITests {
         let toggle = app.buttons["session-mood-toggle"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 10))
         XCTAssertFalse(app.descendants(matching: .any)["active-session-mood"].firstMatch.exists)
-        XCTAssertTrue(app.staticTexts["Verstreken tijd en totale duur"].firstMatch.exists)
-        XCTAssertTrue(app.staticTexts["Resterende tijd"].firstMatch.exists)
+        let times = app.staticTexts["Verstreken tijd en totale duur"].firstMatch
+        XCTAssertTrue(times.exists)
+        XCTAssertTrue((times.value as? String)?.contains(" / ") == true)
+        XCTAssertFalse(app.staticTexts["Resterende tijd"].firstMatch.exists)
+        let output = app.descendants(matching: .any)["session-playback-output"].firstMatch
+        XCTAssertTrue(output.waitForExistence(timeout: 5))
+        XCTAssertEqual(output.value as? String, "Woonkamer")
+        XCTAssertGreaterThanOrEqual(output.frame.minY, times.frame.maxY)
+        let volume = app.descendants(matching: .any)["session-playback-volume"].firstMatch
+        XCTAssertTrue(volume.exists)
+        XCTAssertEqual(volume.value as? String, "42%")
+        XCTAssertLessThan(abs(volume.frame.midY - output.frame.midY), 5)
+        let favorite = app.buttons["session-favorite-button"].firstMatch
+        XCTAssertTrue(favorite.isHittable)
+        XCTAssertLessThan(favorite.frame.minX, times.frame.minX)
+        XCTAssertLessThan(abs(favorite.frame.midY - times.frame.midY), 3)
+        let unselected = XCTAttachment(screenshot: app.screenshot()); unselected.name = "session-unselected-white-heart"; unselected.lifetime = .keepAlways; add(unselected)
+        let initialFavoriteLabel = favorite.label
+        favorite.tap()
+        let favoriteChanged = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            favorite.label != initialFavoriteLabel
+        }, object: favorite)
+        XCTAssertEqual(XCTWaiter.wait(for: [favoriteChanged], timeout: 5), .completed)
+        let pinned = app.descendants(matching: .any)["session-pinned-current"].firstMatch
+        let music = app.descendants(matching: .any)["session-music-context"].firstMatch
+        let card = app.descendants(matching: .any)["session-current-card"].firstMatch
+        XCTAssertLessThanOrEqual(pinned.frame.maxY - max(music.frame.maxY, card.frame.maxY), 32,
+                                 "Pinned header should hug its content instead of reserving blank viewport height")
+        let userLabel = app.staticTexts["ask-dj-user-label"].firstMatch
+        XCTAssertTrue(userLabel.exists)
+        XCTAssertEqual(userLabel.label, "Jij")
         toggle.tap()
         let party = app.buttons["session-mood-option-3"]
         XCTAssertTrue(party.waitForExistence(timeout: 5))
         let menu = XCTAttachment(screenshot: app.screenshot()); menu.name = "native-session-mood-popover"; menu.lifetime = .keepAlways; add(menu)
         party.tap()
-        app.buttons["session-mood-close"].tap()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.7)).tap()
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
         XCTAssertEqual(toggle.value as? String, "Feest")
         XCTAssertFalse(app.buttons["session-mood-option-3"].exists)
@@ -1377,6 +1480,33 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(app.staticTexts["Geselecteerde bijdrage"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertEqual(glyph.value as? String, "Geselecteerde bijdrage")
         let selected = XCTAttachment(screenshot: app.screenshot()); selected.name = "native-visible-glyph-selected-context"; selected.lifetime = .keepAlways; add(selected)
+        let clear = app.buttons["clear-session-question-context"].firstMatch
+        XCTAssertTrue(clear.isHittable)
+        clear.tap()
+        XCTAssertFalse(app.staticTexts["Geselecteerde bijdrage"].firstMatch.exists)
+        XCTAssertTrue(app.descendants(matching: .any)["ask-dj-composer-input"].firstMatch.exists)
+    }
+
+    func testConfirmedMoodPalettesInPinnedSessionHeader() {
+        let app = launchSessionUIDemo()
+        XCUIDevice.shared.orientation = .landscapeLeft
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let toggle = app.buttons["session-mood-toggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+        for (index, label) in ["Rustig", "Groove", "Energie", "Feest"].enumerated() {
+            toggle.tap()
+            let option = app.buttons["session-mood-option-\(index)"]
+            XCTAssertTrue(option.waitForExistence(timeout: 5))
+            option.tap()
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.7)).tap()
+            XCTAssertEqual(toggle.value as? String, label)
+            XCTAssertTrue(app.descendants(matching: .any)["session-music-context"].firstMatch.exists)
+            XCTAssertTrue(app.descendants(matching: .any)["session-current-card"].firstMatch.exists)
+            let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            screenshot.name = "confirmed-pinned-mood-\(index)-\(label)"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+        }
     }
 
     func testIPadNativeBottomNavigationPreservesExpandedSession() throws {
@@ -1396,7 +1526,8 @@ extension DJConnectIOSUITests {
         XCTAssertEqual(XCTWaiter.wait(for: [rotated], timeout: 5), .completed)
         let landscape = XCTAttachment(screenshot: app.screenshot())
         landscape.name = "ipad-native-liquid-glass-landscape"; landscape.lifetime = .keepAlways; add(landscape)
-        bar.buttons["Ask DJ"].tap()
+        bar.buttons["Meer"].tap()
+        app.buttons["Ask DJ"].firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["screen-ask-dj"].waitForExistence(timeout: 5))
         let consent = app.descendants(matching: .any)["music-dna-opt-in-prompt"].firstMatch
         if consent.waitForExistence(timeout: 3) {
@@ -1429,11 +1560,178 @@ extension DJConnectIOSUITests {
         let notice = offline.staticTexts["Apparaat offline"].firstMatch
         XCTAssertTrue(notice.waitForExistence(timeout: 5))
         XCTAssertLessThan(notice.frame.maxY, bar.frame.minY)
-        bar.buttons["Ask DJ"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        XCTAssertTrue(bar.buttons["Ask DJ"].isSelected)
+        bar.buttons["Meer"].tap()
+        offline.buttons["Ask DJ"].firstMatch.tap()
+        XCTAssertTrue(bar.buttons["Meer"].isSelected)
         bar.buttons["Meer"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertTrue(bar.buttons["Meer"].isSelected)
         XCTAssertTrue(offline.descendants(matching: .any)["Wachtrij"].firstMatch.waitForExistence(timeout: 5))
+    }
+
+    func testIPhoneSessionHeroScrollsAwayAndJumpReturns() throws {
+        guard UIDevice.current.userInterfaceIdiom == .phone else { throw XCTSkip("iPhone-only scrolling header") }
+        XCUIDevice.shared.orientation = .portrait
+        let app = launchSessionUIDemo()
+        let title = app.staticTexts["Midnight City"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        let jump = app.buttons["session-jump-top"]
+        XCTAssertFalse(jump.exists)
+        for _ in 0..<5 where !jump.exists {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.76))
+                .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.26)))
+        }
+        XCTAssertTrue(jump.waitForExistence(timeout: 5) && jump.isHittable)
+        let away = XCTAttachment(screenshot: app.screenshot()); away.name = "iphone-hero-offscreen-jump-top"; away.lifetime = .keepAlways; add(away)
+        jump.tap()
+        let returned = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: jump)
+        XCTAssertEqual(XCTWaiter.wait(for: [returned], timeout: 5), .completed)
+        XCTAssertTrue(title.isHittable)
+        let top = XCTAttachment(screenshot: app.screenshot()); top.name = "iphone-fullwidth-current-after-jump"; top.lifetime = .keepAlways; add(top)
+    }
+
+    func testIPhonePlaybackButtonsHaveCircularBounds() throws {
+        guard UIDevice.current.userInterfaceIdiom == .phone else { throw XCTSkip("iPhone playback controls") }
+        let app = launchSessionUIDemo()
+        tapTabOrMoreItem("Speelt Nu", in: app)
+        for label in ["Vorig nummer", "Pauze", "Volgend nummer"] {
+            let button = app.buttons[label].firstMatch
+            XCTAssertTrue(button.waitForExistence(timeout: 10), label)
+            XCTAssertEqual(button.frame.width, button.frame.height, accuracy: 1, label)
+            XCTAssertGreaterThanOrEqual(button.frame.width, label == "Pauze" ? 66 : 54)
+        }
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "iphone-circular-playback-controls"; attachment.lifetime = .keepAlways; add(attachment)
+    }
+
+    func testSessionRefreshIsRightmostToolbarAction() {
+        let app = launchSessionUIDemo()
+        let refresh = app.buttons["screen-refresh"].firstMatch
+        let search = app.buttons["session-search-toggle"].firstMatch
+        XCTAssertTrue(refresh.waitForExistence(timeout: 10))
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(refresh.frame.midX, search.frame.midX)
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "session-refresh-rightmost"; attachment.lifetime = .keepAlways; add(attachment)
+    }
+
+    func testPrimaryNowPlayingTabAndAskDJInMore() {
+        let app = launchRuntimeFixtureApp("review_demo")
+        let bar = app.tabBars.firstMatch
+        XCTAssertTrue(bar.buttons["Speelt Nu"].waitForExistence(timeout: 10))
+        XCTAssertFalse(bar.buttons["Ask DJ"].exists)
+        bar.buttons["Speelt Nu"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-now-playing"].waitForExistence(timeout: 6))
+        bar.buttons["Meer"].tap()
+        let ask = app.buttons["Ask DJ"].firstMatch
+        XCTAssertTrue(ask.waitForExistence(timeout: 6)); ask.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-ask-dj"].waitForExistence(timeout: 6))
+    }
+
+    func testIPhoneAskDJFloatingComposerAndSearch() throws {
+        guard UIDevice.current.userInterfaceIdiom == .phone else { throw XCTSkip("iPhone composer layout") }
+        let app = launchRuntimeFixtureApp("review_demo")
+        XCTAssertTrue(app.tabBars.buttons["Meer"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Meer"].tap()
+        let ask = app.buttons["Ask DJ"].firstMatch
+        XCTAssertTrue(ask.waitForExistence(timeout: 6)); ask.tap()
+        let consent = app.descendants(matching: .any)["music-dna-opt-in-prompt"].firstMatch
+        if consent.waitForExistence(timeout: 3) {
+            app.buttons["Niet nu"].firstMatch.tap()
+        }
+        let input = app.textViews["ask-dj-composer-input"].firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        XCTAssertLessThanOrEqual(input.frame.maxY, app.tabBars.firstMatch.frame.minY - 8)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "ask-dj-floating-composer"; screenshot.lifetime = .keepAlways; add(screenshot)
+        let search = app.buttons["Zoek in Ask DJ"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        XCTAssertTrue(app.textFields.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(input.exists)
+    }
+
+    func testIPhoneSessionFloatingComposerAndScopedSearch() throws {
+        guard UIDevice.current.userInterfaceIdiom == .phone else { throw XCTSkip("iPhone floating composer") }
+        let app = launchSessionUIDemo()
+        let input = app.textViews.firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        let tabs = app.tabBars.firstMatch
+        XCTAssertTrue(tabs.exists)
+        XCTAssertLessThan(input.frame.maxY, tabs.frame.minY - 8)
+        input.tap()
+        input.typeText("Een vraag over deze bijdrage")
+        XCTAssertTrue(app.buttons["ask-dj-composer-send"].isHittable)
+        app.buttons["ask-dj-composer-send"].tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        app.buttons["session-search-toggle"].tap()
+        let search = app.textFields["session-search-field"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        XCTAssertEqual(search.placeholderValue, "Zoek in deze sessie")
+        XCTAssertFalse(input.exists, "Searching hides the composer completely")
+        search.typeText("groove\n")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "iphone-floating-composer-session-search"; shot.lifetime = .keepAlways; add(shot)
+        app.buttons["Zoeken sluiten"].tap()
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+    }
+
+    func testSessionComposerTypingProfileWorkload() throws {
+        guard ProcessInfo.processInfo.environment["DJC_TYPING_PROFILER_SYNC"] == "1" else {
+            throw XCTSkip("Manual Instruments workload; requires synchronized profiler")
+        }
+        let app = launchSessionUIDemo()
+        let input = app.textViews.firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        input.tap()
+        let control = FileManager.default.temporaryDirectory.appendingPathComponent("djc-profiler-" + UUID().uuidString + ".ready")
+        defer { try? FileManager.default.removeItem(at: control) }
+        print("DJC_TYPING_PROFILE_READY control_file=\(control.path)")
+        let deadline = Date().addingTimeInterval(60)
+        while !FileManager.default.fileExists(atPath: control.path) && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        guard FileManager.default.fileExists(atPath: control.path) else {
+            XCTFail("The actual profiler never signalled recording start"); return
+        }
+        let draft = String(repeating: "Vertel iets over het ritme en de muzikanten in deze bijdrage. ", count: 5)
+        let started = Date()
+        print("DJC_TYPING_PROFILE_BEGIN epoch=\(started.timeIntervalSince1970)")
+        input.typeText(draft)
+        print("DJC_TYPING_PROFILE_FINISHED epoch=\(Date().timeIntervalSince1970) seconds=\(Date().timeIntervalSince(started))")
+        XCTAssertEqual(input.value as? String, draft)
+        RunLoop.current.run(until: Date().addingTimeInterval(20))
+    }
+
+    func testComposerGrowsWhilePlaybackPausedAndSendsCompleteDraft() {
+        let app = launchSessionUIDemo()
+        tapTabOrMoreItem("Speelt Nu", in: app)
+        let pause = app.buttons["Pauze"].firstMatch
+        XCTAssertTrue(pause.waitForExistence(timeout: 5)); pause.tap()
+        XCTAssertTrue(app.buttons["Afspelen"].firstMatch.waitForExistence(timeout: 5))
+        app.tabBars.buttons["DJ-sessie"].tap()
+        XCTAssertTrue(app.staticTexts["Gepauzeerd"].waitForExistence(timeout: 5))
+        let input = app.textViews.firstMatch
+        input.tap(); input.typeText("Beginning End")
+        input.coordinate(withNormalizedOffset: CGVector(dx: 0.20, dy: 0.5)).tap()
+        input.typeText("X"); input.typeText("Y")
+        let edited = input.value as? String ?? ""
+        XCTAssertTrue(edited.contains("XY") && edited.hasSuffix(" End"), "Native edits must keep the insertion point instead of jumping to the end")
+        app.buttons["ask-dj-composer-send"].tap()
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        input.tap(); input.typeText("Regel een")
+        let oneLineHeight = input.frame.height
+        let extra = "\nRegel twee\nRegel drie\nRegel vier"
+        input.typeText(extra)
+        XCTAssertGreaterThan(input.frame.height, oneLineHeight + 10)
+        XCTAssertEqual(input.value as? String, "Regel een" + extra)
+        XCTAssertTrue(app.buttons["ask-dj-composer-send"].isHittable)
+        let image = XCTAttachment(screenshot: app.screenshot()); image.name = "paused-local-editor-multiline"; image.lifetime = .keepAlways; add(image)
+        app.buttons["ask-dj-composer-send"].tap()
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        XCTAssertEqual(input.value as? String, "")
+        let message = app.staticTexts["Regel een" + extra].firstMatch
+        XCTAssertTrue(message.waitForExistence(timeout: 5))
     }
 
     func testSessionTimelineScrollBenchmark() {
@@ -1459,7 +1757,7 @@ extension DJConnectIOSUITests {
         }
     }
 
-    func testSessionCurrentMusicStaysLeftOfDJCard() {
+    func testSessionCurrentStoryBelowFullWidthMusic() {
         let app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-DJCONNECTRuntimeFixture", "review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
         app.launchEnvironment = ["DJCONNECT_UITEST_HA_URL": "", "DJCONNECT_UITEST_RUNTIME_FIXTURE": "review_demo"]
@@ -1474,11 +1772,18 @@ extension DJConnectIOSUITests {
             XCTFail("Native current music/card should be exposed independently")
             return
         }
-        XCTAssertLessThanOrEqual(music.frame.maxX, card.frame.minX)
-        XCTAssertEqual(music.frame.minY, card.frame.minY, accuracy: 2)
-        XCTAssertGreaterThan(card.frame.width, music.frame.width)
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            XCTAssertGreaterThan(music.frame.width, app.frame.width * 0.75)
+            XCTAssertEqual(music.frame.minX, card.frame.minX, accuracy: 2)
+            XCTAssertEqual(music.frame.width, card.frame.width, accuracy: 2)
+            XCTAssertGreaterThanOrEqual(card.frame.minY, music.frame.maxY)
+        } else {
+            XCTAssertEqual(music.frame.minX, card.frame.minX, accuracy: 2)
+            XCTAssertEqual(music.frame.width, card.frame.width, accuracy: 2)
+            XCTAssertGreaterThanOrEqual(card.frame.minY, music.frame.maxY)
+        }
         let image = XCTAttachment(screenshot: app.screenshot())
-        image.name = "session-music-left-dj-right"; image.lifetime = .keepAlways; add(image)
+        image.name = "session-music-above-full-width-story"; image.lifetime = .keepAlways; add(image)
     }
 
     func testReviewDemoActiveAndReadonlySessionsWithoutHomeAssistant() {
