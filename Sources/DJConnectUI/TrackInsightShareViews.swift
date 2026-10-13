@@ -411,27 +411,31 @@ private struct TrackInsightShareSegmentControl<Option: Hashable & Identifiable>:
                 .foregroundStyle(.white.opacity(0.86))
                 .frame(width: 92, alignment: .trailing)
 
-            DJSessionGlassGroup {
-                HStack(spacing: 8) {
-                    ForEach(options) { option in
-                        Button {
-                            selection = option
-                        } label: {
-                            Text(label(option))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.74)
-                        }
-                        .buttonStyle(DJConnectButtonStyle(
-                            emphasis: option == selection ? .selected : .secondary,
-                            shape: .segmented, expands: true, usesLiveGlass: false))
-                        .accessibilityAddTraits(option == selection ? .isSelected : [])
+            HStack(spacing: 8) {
+                ForEach(options) { option in
+                    Button {
+                        selection = option
+                    } label: {
+                        Text(label(option))
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.74)
                     }
+                    .buttonStyle(DJConnectButtonStyle(
+                        emphasis: option == selection ? .selected : .secondary,
+                        shape: .segmented, expands: true, usesLiveGlass: false))
+                    .accessibilityAddTraits(option == selection ? .isSelected : [])
                 }
             }
             .padding(DJConnectCardAppearance.segmentedContentInset)
             .frame(minHeight: 60)
             .frame(maxWidth: 390)
-            .djSessionFrostedSurface()
+            // Composite glass behind the controls so option labels stay sharp.
+            .background {
+                Color.clear.djSessionFrostedSurface()
+                    .allowsHitTesting(false)
+            }
         }
         .frame(maxWidth: .infinity)
     }

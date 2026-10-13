@@ -177,3 +177,10 @@ its failed receipt is retained. After grouping the actions, the existing
 `testSessionRefreshIsRightmostToolbarAction` passes (one test, zero failures,
 12.792 seconds). Both unsigned platform builds pass after this correction.
 Mac collapsed-sidebar visual qualification remains pending runner authorization.
+
+The Owner reported the Media/Format labels again. The share selector now applies
+its frosted surface to a separate background view rather than the controls'
+entire subtree, keeping all option text outside the glass compositor. Labels
+use explicit white semibold body text; existing selection and accessibility
+traits are retained. Both unsigned Mac/iOS builds pass. This is source/build
+qualification; native Mac visual verification remains pending runner permission.
