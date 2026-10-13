@@ -1,5 +1,16 @@
 # DJConnect iOS/macOS/watchOS App Handoff
 
+## Current build40021 source reconciliation — 2026-10-13
+
+[Source PR #105](https://github.com/pcvantol/djconnect-app/pull/105) is protected merged as `357251cedc4b78a4f9d5b446d3cdafc610cedc40`; reviewed head `6edfcb0c1dddde38398d23dbee93a6b557b742e2` shares tree `d6ae93ee6fd3eb64a1c9ab6756f17cac87c9dd35`. All previously local40021 followups are retained, plus the independently reviewed HTTP authority-withdrawal privacy correction.498 shared tests, unsigned Mac/iOS Simulator builds and contract/localization/security checks PASS; technical/privacy and UX bounded GO. Source-main CI/coverage38439881390 and formal evidence38441132690 PASS; independently verified hashes and canonical integrity are in [portable receipts](verification/40021-source-finalization/source-main-readback.json). Separate Finalization requires its own exact-candidate publication/merge authority and readback.
+
+Existing Mac40021 installation task remains closed. Backups, settings, original separate WIP and exact installed-source snapshot are preserved; the later review correction is not installed. Physical/provider/artist-image and full transport parity limits remain explicit in [qualification](verification/APPLE_40021_SOURCE_RECONCILIATION_20261013.md). No Core write, new install or release is authorized by this record.
+
+Current action is documentary40021 Finalization only. Then continue the already selected `DJC-APPLE-DJ-PRESENCE-V1-20261011` from a freshly admitted reconciled main, using the existing writer and Core presence v1. No Presence source has started. Other queue items remain deferred to their own pickup. The following sections retain historical freeze points.
+
+See the separate [Finalization snapshot](history/prompts/2026-10-13-apple-40021-main-finalization.md) and portable source receipts before declaring repository/workspace completion.
+
+
 ## Current Session controls and glass followup — 2026-10-12
 
 Build40016 is local on `codex/apple-session-mood-toolbar`, based on reconciled main7900ec7. Toolbar mood/status popovers, bound End confirmation, top-right glyphs, native glass rendering and playback time labels are implemented across shared Apple UI. Full477-test run PASS; bounded native iPhone/iPad controls PASS. Physical scroll acceptance, final Mac screen proof, publication and40016 installation are pending; ordinary physical iPad/MacBook40015 remains installed. No Core/backend mutation or Store/HA release. See [current qualification](verification/SESSION_CONTROLS_GLASS_20261012.md). The previous sections below are historical delivery snapshots.
