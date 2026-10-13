@@ -289,3 +289,23 @@ The output-selector refresh action now uses the existing circular44-point
 `DJConnectButtonStyle(shape: .icon)` with native interactive glass, a white
 glyph and localized help. Both unsigned Mac/iOS builds pass; no installation
 or native visual acceptance is claimed.
+
+## Play Now installed/candidate discrepancy readback
+
+After the Owner reported missing playlist controls again, fresh readback showed
+that the installed `/Applications/DJConnect.app` UI framework hash matches the
+preserved signed40021 binding exactly. Its UI-framework symbols lack the new
+live-response projection, message lookup and scoped playback guard; the unsigned
+candidate framework contains all three. Build number alone was not used as
+artifact proof. Thus the source fix has not changed that installed renderer.
+
+The existing accepted-response regression now covers both track and playlist
+recommendations and dispatches the corresponding offered command exactly once,
+followed by status readback. Both cases PASS on a69-file hashed, readonly Swift
+input export at `/private/tmp/djc-playnow-playlist-minimal-2c9e419` using the
+standard Swift build system. The original source-directory attempt stopped on
+input-timestamp drift despite byte-identical SessionTimelineScreen content;
+its failed log and both input-export manifests are retained. Product source is
+unchanged by this test expansion. This remains software proof, not native/live
+playlist acceptance. No installation was performed: the selected slice explicitly
+excludes new installations until the Owner changes that scope.

@@ -2194,15 +2194,17 @@ private final class PresenceModes: @unchecked Sendable {
     #expect(commands == ["queue", "play_context_at", "queue"])
 }
 
-@Test @MainActor func activeSessionProjectsLivePlayNowWithoutPromotingArchivedActions() async throws {
+@Test(arguments: ["track", "playlist"]) @MainActor
+func activeSessionProjectsLivePlayNowWithoutPromotingArchivedActions(kind: String) async throws {
     let receipt = try historyObject()
     let sessionID = try #require(receipt["session_id"] as? String)
     let timelineData = try historyData(try #require(receipt["archived_timeline"]))
     let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: timelineData)
     let entry = try #require(page.entries.first { $0.kind == .conversationDJ })
     var responseObject = try #require(receipt["text_turn"] as? [String: Any])
-    let actionObject: [String: Any] = ["id":"live-play-now", "title":"Play offered track",
-        "kind":"track", "uri":"spotify:track:0123456789abcdefghijkL", "command":"play_track"]
+    let playbackCommand = kind == "playlist" ? "start_playlist" : "play_track"
+    let actionObject: [String: Any] = ["id":"live-play-now", "title":"Play offered " + kind,
+        "kind":kind, "uri":"spotify:" + kind + ":0123456789abcdefghijkL", "command":playbackCommand]
     var assistant = try #require(responseObject["assistant_message"] as? [String: Any])
     assistant["playback_actions"] = [actionObject]
     responseObject["assistant_message"] = assistant
@@ -2245,7 +2247,7 @@ private final class PresenceModes: @unchecked Sendable {
     _ = try await model.sessionHistory.sendExistingText("Offer a track", clientMessageID: "question-0")
     let projected = try #require(model.sessionHistory.liveMessage(for: entry, activeSessionID: sessionID))
     let offered = try #require(projected.renderablePlaybackActions.first)
-    #expect(offered.id == "live-play-now")
+    #expect(offered.id == "live-play-now" && offered.kind == kind && offered.isRecommendationAction)
     #expect(model.sessionHistory.liveMessage(for: entry, activeSessionID: nil) == nil)
     #expect(model.sessionHistory.liveMessage(for: entry, activeSessionID: "another-session") == nil)
     var wrongText = entry; wrongText.text = "Unrelated answer"
@@ -2267,7 +2269,7 @@ private final class PresenceModes: @unchecked Sendable {
     let commands = try wire.requests.filter { $0.url!.path.hasSuffix("/command") }.compactMap {
         (try JSONSerialization.jsonObject(with: presenceRequestBody($0)) as? [String: Any])?["command"] as? String
     }
-    #expect(commands.filter { $0 == "play_track" }.count == 1)
+    #expect(commands.filter { $0 == playbackCommand }.count == 1)
     #expect(commands.contains("status"))
     let requestCount = wire.requests.count
     model.markInactiveSession()
