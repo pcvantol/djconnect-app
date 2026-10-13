@@ -699,7 +699,13 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var userNotice: DJConnectUserNotice?
     @Published public var playback: DJConnectPlayback? { didSet { syncDemoSessionPlayback() } }
     @Published public private(set) var activeDJSession: DJConnectSessionRuntime? {
-        didSet { if oldValue?.id != activeDJSession?.id { resetActiveMoodState() } }
+        didSet {
+            if oldValue?.id != activeDJSession?.id {
+                resetActiveMoodState()
+                invalidateSessionPlaybackActions()
+                sessionHistory.discardLiveResponses()
+            }
+        }
     }
     private var moodOperationGeneration = UUID()
     private var moodCapabilityGeneration = UUID()
@@ -801,6 +807,8 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var isSendingAskDJText = false
     @Published public private(set) var isRequestingAskDJIdleSuggestion = false
     @Published public private(set) var playingAskDJActionID: String?
+    private var askDJPlayOperation = UUID()
+    private var askDJPlayIsSessionScoped = false
     @Published public private(set) var isSavingCurrentTrack = false
     @Published public private(set) var isClearingAskDJHistory = false
     @Published public private(set) var isCheckingAskDJHistoryState = true
@@ -3612,15 +3620,18 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    public func playAskDJRecommendation(_ action: DJConnectAskDJPlaybackAction) {
-        guard playingAskDJActionID == nil else {
+    public func playAskDJRecommendation(_ action: DJConnectAskDJPlaybackAction,
+                                        isStillValid: (@MainActor () -> Bool)? = nil) {
+        guard isStillValid?() != false, playingAskDJActionID == nil else {
             return
         }
         if action.isFavoriteCurrentTrackControlAction {
+            guard isStillValid == nil else { return }
             setCurrentTrackFavoriteFromAskDJ(action)
             return
         }
         if action.isAskDJMessageAction {
+            guard isStillValid == nil else { return }
             sendAskDJFollowUpAction(action)
             return
         }
@@ -3636,21 +3647,32 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
 
+        let operation = UUID(); askDJPlayOperation = operation
+        askDJPlayIsSessionScoped = isStillValid != nil
+        let valid: @MainActor () -> Bool = { [weak self] in
+            self?.askDJPlayOperation == operation && !Task.isCancelled && isStillValid?() != false
+        }
         playingAskDJActionID = action.id
         askDJErrorMessage = nil
         playAskDJActionHaptic()
         log(.info, "Sending Ask DJ Play Now recommendation action")
 
         Task {
-            defer { playingAskDJActionID = nil }
+            defer {
+                if askDJPlayOperation == operation {
+                    playingAskDJActionID = nil; askDJPlayIsSessionScoped = false
+                }
+            }
+            guard valid() else { return }
             do {
-                let response = try await playAskDJRecommendationWithFallback(action)
+                let response = try await playAskDJRecommendationWithFallback(action, isStillValid: valid)
+                guard valid() else { return }
                 apply(commandResponse: response)
                 if applyAskDJPlayNowCommandResponse(response) {
                     if response.success {
                         showAskDJToast(localized(key: "appModel.playing.recommendation"))
                         playAskDJResponseHaptic()
-                        await refreshAfterDJResponse()
+                        await refreshAfterDJResponse(isStillValid: valid)
                         log(.info, "Ask DJ Play Now assistant response rendered")
                         return
                     }
@@ -3665,7 +3687,7 @@ public final class DJConnectAppModel: ObservableObject {
                 }
                 if renderAskDJCommandPlaybackActions(response) {
                     playAskDJResponseHaptic()
-                    await refreshAfterDJResponse()
+                    await refreshAfterDJResponse(isStillValid: valid)
                     return
                 }
                 if action.isOutputAction, let outputDeviceID = action.outputDeviceID {
@@ -3675,18 +3697,26 @@ public final class DJConnectAppModel: ObservableObject {
                     showAskDJToast(localized(key: "appModel.playing.recommendation"))
                 }
                 playAskDJResponseHaptic()
-                await refreshAfterDJResponse()
+                await refreshAfterDJResponse(isStillValid: valid)
                 log(.info, "Ask DJ action completed")
             } catch let error as DJConnectError {
+                guard valid() else { return }
                 askDJErrorMessage = askDJErrorText(for: error)
                 showAskDJToast(for: error)
                 log(.warning, "Ask DJ action failed: \(Self.describe(error))")
             } catch {
+                guard valid() else { return }
                 askDJErrorMessage = askDJUnavailableText()
                 showAskDJToast(localized(key: "appModel.ask.dj.is.unreachable"))
                 log(.error, "Ask DJ action failed unexpectedly: \(error.localizedDescription)")
             }
         }
+    }
+
+    func invalidateSessionPlaybackActions() {
+        guard askDJPlayIsSessionScoped else { return }
+        askDJPlayOperation = UUID(); askDJPlayIsSessionScoped = false
+        playingAskDJActionID = nil
     }
 
     private func sendAskDJFollowUpAction(_ action: DJConnectAskDJPlaybackAction) {
@@ -5307,8 +5337,9 @@ public final class DJConnectAppModel: ObservableObject {
         activeDJSession = active.applying(broadcastEvent: event)
     }
 
-    private func refreshStatus(client: DJConnectClient) async throws {
+    private func refreshStatus(client: DJConnectClient, isStillValid: (@MainActor () -> Bool)? = nil) async throws {
         do {
+            guard isStillValid?() != false else { throw CancellationError() }
             log(.debug, "Posting status to Home Assistant")
             let response = try await client.postStatus(
                 DJConnectStatusPayload(
@@ -5328,6 +5359,7 @@ public final class DJConnectAppModel: ObservableObject {
                     musicDNAKey: askDJMusicDNAKey
                 )
             )
+            guard isStillValid?() != false else { throw CancellationError() }
             guard validateHomeAssistantVersion(
                 haVersion: response.haVersion,
                 haMajorMinor: response.haMajorMinor,
@@ -5358,6 +5390,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
             log(.debug, "Status refresh succeeded")
         } catch let error as DJConnectError {
+            guard isStillValid?() != false else { throw CancellationError() }
             log(.warning, "Status refresh failed: \(Self.describe(error))")
             switch error {
             case .backendUnavailable:
@@ -5378,7 +5411,8 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func refreshBackendCollections(force: Bool = false) async {
+    private func refreshBackendCollections(force: Bool = false, isStillValid: (@MainActor () -> Bool)? = nil) async {
+        guard isStillValid?() != false else { return }
         if !force, let lastBackendCollectionsRefreshAt, Date().timeIntervalSince(lastBackendCollectionsRefreshAt) < backendCollectionsRefreshInterval {
             log(.debug, "Backend collection refresh throttled")
             return
@@ -5398,6 +5432,7 @@ public final class DJConnectAppModel: ObservableObject {
             let queuePayload = backendCollectionCommandPayload(command: "queue")
             let playlistsPayload = backendCollectionCommandPayload(command: "playlists")
             let results = try await withHomeAssistantClient { client in
+                guard isStillValid?() != false else { throw CancellationError() }
                 async let devices = Self.fetchBackendCollectionCommand(
                     client: client,
                     payload: devicesPayload
@@ -5413,6 +5448,7 @@ public final class DJConnectAppModel: ObservableObject {
                 return await [devices, queue, playlists]
             }
 
+            guard isStillValid?() != false else { return }
             let didLoadAnyCollection = applyBackendCollectionCommandResults(results)
             if didLoadAnyCollection {
                 lastBackendCollectionsRefreshAt = Date()
@@ -5482,14 +5518,15 @@ public final class DJConnectAppModel: ObservableObject {
         return didLoadAnyCollection
     }
 
-    private func refreshStatusWithFallback() async throws {
+    private func refreshStatusWithFallback(isStillValid: (@MainActor () -> Bool)? = nil) async throws {
         try await withHomeAssistantClient { client in
-            try await refreshPlaybackSnapshot(client: client)
+            try await refreshPlaybackSnapshot(client: client, isStillValid: isStillValid)
         }
     }
 
-    private func refreshPlaybackSnapshot(client: DJConnectClient) async throws {
+    private func refreshPlaybackSnapshot(client: DJConnectClient, isStillValid: (@MainActor () -> Bool)? = nil) async throws {
         do {
+            guard isStillValid?() != false else { throw CancellationError() }
             log(.debug, "Loading Now Playing snapshot")
             let response = try await client.sendCommandResponse(
                 DJConnectCommandPayload(
@@ -5500,32 +5537,36 @@ public final class DJConnectAppModel: ObservableObject {
                     musicDNAKey: askDJMusicDNAKey
                 )
             )
+            guard isStillValid?() != false else { throw CancellationError() }
             apply(commandResponse: response)
             if response.playback == nil {
-                try await refreshStatus(client: client)
+                try await refreshStatus(client: client, isStillValid: isStillValid)
             }
         } catch let error as DJConnectError {
             if case .routeMissing = error {
-                try await refreshStatus(client: client)
+                try await refreshStatus(client: client, isStillValid: isStillValid)
             } else {
                 throw error
             }
         }
     }
 
-    private func refreshAfterDJResponse() async {
-        guard pairingStatus == .paired else {
+    private func refreshAfterDJResponse(isStillValid: (@MainActor () -> Bool)? = nil) async {
+        guard isStillValid?() != false, pairingStatus == .paired else {
             return
         }
 
         do {
             log(.debug, "Refreshing Home Assistant state after DJ response")
-            try await refreshStatusWithFallback()
-            await refreshBackendCollections(force: true)
+            try await refreshStatusWithFallback(isStillValid: isStillValid)
+            guard isStillValid?() != false else { return }
+            await refreshBackendCollections(force: true, isStillValid: isStillValid)
         } catch let error as DJConnectError {
+            guard isStillValid?() != false else { return }
             log(.warning, "DJ response refresh failed: \(Self.describe(error))")
             apply(error: error)
         } catch {
+            guard isStillValid?() != false else { return }
             log(.error, "DJ response refresh failed unexpectedly: \(error.localizedDescription)")
         }
     }
@@ -7073,10 +7114,12 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func playAskDJRecommendationWithFallback(_ action: DJConnectAskDJPlaybackAction) async throws -> DJConnectCommandResponse {
+    private func playAskDJRecommendationWithFallback(_ action: DJConnectAskDJPlaybackAction,
+                                                       isStillValid: @escaping @MainActor () -> Bool) async throws -> DJConnectCommandResponse {
         let command = action.command?.isEmpty == false ? action.command! : Self.defaultAskDJCommand(for: action)
         return try await withHomeAssistantClient { client in
-            try await client.sendCommandResponse(DJConnectCommandPayload(
+            guard isStillValid() else { throw CancellationError() }
+            return try await client.sendCommandResponse(DJConnectCommandPayload(
                 identity: identity,
                 command: command,
                 value: Self.askDJCommandValue(for: action, command: command),
@@ -8006,6 +8049,11 @@ public final class DJConnectAppModel: ObservableObject {
         } else {
             messages.append(mapped)
         }
+    }
+
+    /// Reuse the common response projection for ephemeral active-Session rendering.
+    func sessionResponseMessage(_ message: DJConnectAskDJHistoryMessage) -> DJConnectAskDJMessage {
+        makeAskDJMessage(from: message, existing: nil, fallbackID: nil)
     }
 
     private func makeAskDJMessage(

@@ -309,9 +309,14 @@ struct SessionTimelineScreen: View {
                             }
                             ForEach(preparedEntries.reversed().filter { $0.isRetained(at: clock.date) }) { prepared in
                                 let entry = prepared.entry
+                                let liveMessage = history.liveMessage(for: entry, activeSessionID: activeSession?.id)
+                                let actionEpoch = history.responseEpoch
                                 SessionEntryView(entry: entry, language: model.language,
-                                    messageAdapter: prepared.message, contextEpoch: history.responseEpoch,
+                                    messageAdapter: liveMessage ?? prepared.message, contextEpoch: actionEpoch,
                                     opensActiveComposer: activeSession != nil,
+                                    allowsPlaybackActions: liveMessage != nil,
+                                    playingActionID: model.playingAskDJActionID,
+                                    playAction: { action in history.playLiveAction(action, for: entry, expectedEpoch: actionEpoch) },
                                     highlights: matchMap[entry.id]?.text == entry.text ? (matchMap[entry.id]?.highlights ?? []) : [],
                                     isSelectedMatch: selectedMatchID == entry.id || initialAnchor == entry.id,
                                     selected: history.selectedEntry == entry.reference) {
@@ -676,11 +681,15 @@ struct SessionTimestampText: View {
 }
 
 struct SessionEntryView: View, Equatable {
+    @Environment(\.openURL) private var openURL
     let entry: DJConnectHistoryEntry
     let language: String
     var messageAdapter: DJConnectAskDJMessage? = nil
     var contextEpoch: UUID? = nil
     var opensActiveComposer = false
+    var allowsPlaybackActions = false
+    var playingActionID: String? = nil
+    var playAction: (DJConnectAskDJPlaybackAction) -> Void = { _ in }
     var highlights: [DJConnectHistoryHighlight] = []
     var isSelectedMatch = false
     var selected = false
@@ -688,6 +697,7 @@ struct SessionEntryView: View, Equatable {
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.entry == rhs.entry && lhs.language == rhs.language && lhs.messageAdapter == rhs.messageAdapter &&
         lhs.contextEpoch == rhs.contextEpoch && lhs.opensActiveComposer == rhs.opensActiveComposer &&
+        lhs.allowsPlaybackActions == rhs.allowsPlaybackActions && lhs.playingActionID == rhs.playingActionID &&
         lhs.highlights == rhs.highlights && lhs.isSelectedMatch == rhs.isSelectedMatch && lhs.selected == rhs.selected
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
@@ -702,10 +712,15 @@ struct SessionEntryView: View, Equatable {
                         role: entry.kind == .conversationUser ? .user : .dj,
                         text: entry.text ?? "", createdAt: DJConnectHistoryEntry.date(entry.occurredAt) ?? .distantPast),
                         language: language, isStaleHistory: false, isAudioLoading: false, isAudioPlaying: false,
-                        isRetryDisabled: true, playingActionID: nil, currentMood: nil,
+                        isRetryDisabled: true, playingActionID: playingActionID, currentMood: nil,
                         isSearchResult: !highlights.isEmpty, isActiveSearchResult: isSelectedMatch, searchText: "",
-                        retryAction: {}, playAction: { _ in }, audioAction: {}, trackInsightAction: {},
-                        openLink: { _ in }, feedbackAction: { _ in }, setPromptAction: { _ in }, isReadOnly: true,
+                        retryAction: {}, playAction: playAction, audioAction: {}, trackInsightAction: {},
+                        openLink: { link in
+                            let url = link.url
+                            guard ["https", "http"].contains(url.scheme?.lowercased() ?? ""),
+                                  url.user == nil, url.password == nil else { return }
+                            openURL(url)
+                        }, feedbackAction: { _ in }, setPromptAction: { _ in }, isReadOnly: true, allowsSessionPlaybackActions: allowsPlaybackActions,
                         serverHighlights: highlights, contextQuestionAction: askAction,
                         contextQuestionSelected: selected, contextQuestionID: "ask-entry-" + entry.id)
                     if entry.inputType == "voice" { Label(text("ui.session.history.voice"), systemImage: "mic.fill").font(.caption) }

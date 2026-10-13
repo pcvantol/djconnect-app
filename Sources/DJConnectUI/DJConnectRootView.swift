@@ -11395,6 +11395,7 @@ struct AskDJMessageBubble: View {
     let feedbackAction: (DJConnectAskDJMessage) -> Void
     let setPromptAction: (String) -> Void
     var isReadOnly = false
+    var allowsSessionPlaybackActions = false
     var serverHighlights: [DJConnectHistoryHighlight]? = nil
     var historicalMatches: [DJConnectHistoryEntry] = []
     var openHistoryAction: ((DJConnectSessionOpenAction) -> Void)? = nil
@@ -11636,7 +11637,7 @@ struct AskDJMessageBubble: View {
                     if !sourceLinks.isEmpty {
                         AskDJSourcesStack(links: sourceLinks, language: language, openLink: openLink)
                     }
-                    if !isReadOnly, !isStaleHistory, !isUser, !renderablePlaybackActions.isEmpty {
+                    if (!isReadOnly || allowsSessionPlaybackActions), !isStaleHistory, !isUser, !renderablePlaybackActions.isEmpty {
                         AskDJPlaybackActionStack(
                             actions: renderablePlaybackActions,
                             language: language,

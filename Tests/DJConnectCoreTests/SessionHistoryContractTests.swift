@@ -1892,6 +1892,8 @@ private final class PresenceScript: @unchecked Sendable {
 
 @Test @MainActor func presenceRapidIntentsHaveOnePendingWriteAndLatestQueue() async throws {
     let runtime = try presenceRuntimeWire(), script = PresenceScript()
+    let firstReplyGate = DispatchSemaphore(value: 0)
+    defer { firstReplyGate.signal() }
     let fixture = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/capabilities") { return (200, presenceCapsWire, 0) }
         if request.url!.path.hasSuffix("/session/active") { return (200, runtime, 0) }
@@ -1899,7 +1901,8 @@ private final class PresenceScript: @unchecked Sendable {
             let number = script.nextWrite()
             let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as! [String: Any]
             #expect(body["expected_presence_revision"] as? Int == number - 1)
-            return (200, try historyData(["success":true,"contract_version":1,"session_id":body["session_id"]!,"selected_presence":body["selected_presence"]!,"presence_revision":number,"changed":true]), 0.10)
+            if number == 1 { _ = firstReplyGate.wait(timeout: .now() + 15) }
+            return (200, try historyData(["success":true,"contract_version":1,"session_id":body["session_id"]!,"selected_presence":body["selected_presence"]!,"presence_revision":number,"changed":true]), 0)
         }
         return (404, Data(), 0)
     }
@@ -1908,12 +1911,15 @@ private final class PresenceScript: @unchecked Sendable {
     await model.refreshActiveDJSession(); await model.refreshActiveMoodCapability()
     let id = try #require(model.activeDJSession?.id), epoch = model.sessionHistory.responseEpoch
     model.selectActiveSessionPresence(.talkative, expectedSessionID: id, expectedEpoch: epoch)
-    try await Task.sleep(for: .milliseconds(20))
+    for _ in 0..<120 where script.writes == 0 {
+        try await Task.sleep(for: .milliseconds(25))
+    }
     #expect(model.activePresencePending && model.activeDJSession?.confirmedPresence?.selectedPresence == .balanced)
     model.selectActiveSessionPresence(.occasional, expectedSessionID: id, expectedEpoch: epoch)
     model.selectActiveSessionPresence(.musicOnly, expectedSessionID: id, expectedEpoch: epoch)
     model.selectActiveSessionPresence(.presenter, expectedSessionID: id, expectedEpoch: epoch)
     #expect(script.writes == 1 && model.activePresenceDesired == .presenter)
+    firstReplyGate.signal()
     for _ in 0..<50 { if !model.activePresencePending { break }; try await Task.sleep(for: .milliseconds(20)) }
     #expect(script.writes == 2 && !model.activePresencePending && model.activePresenceDesired == nil)
     #expect(model.activeDJSession?.confirmedPresence?.selectedPresence == .presenter && model.activeDJSession?.confirmedPresence?.presenceRevision == 2)
@@ -2186,4 +2192,182 @@ private final class PresenceModes: @unchecked Sendable {
         (try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])?["command"] as? String
     }
     #expect(commands == ["queue", "play_context_at", "queue"])
+}
+
+@Test @MainActor func activeSessionProjectsLivePlayNowWithoutPromotingArchivedActions() async throws {
+    let receipt = try historyObject()
+    let sessionID = try #require(receipt["session_id"] as? String)
+    let timelineData = try historyData(try #require(receipt["archived_timeline"]))
+    let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: timelineData)
+    let entry = try #require(page.entries.first { $0.kind == .conversationDJ })
+    var responseObject = try #require(receipt["text_turn"] as? [String: Any])
+    let actionObject: [String: Any] = ["id":"live-play-now", "title":"Play offered track",
+        "kind":"track", "uri":"spotify:track:0123456789abcdefghijkL", "command":"play_track"]
+    var assistant = try #require(responseObject["assistant_message"] as? [String: Any])
+    assistant["playback_actions"] = [actionObject]
+    responseObject["assistant_message"] = assistant
+    responseObject["playback_actions"] = [actionObject]
+    responseObject["history_revision"] = 4
+    var confirmation = try #require(responseObject["conversation"] as? [String: Any])
+    confirmation["entry_ids"] = [] // This case tests live delivery independent of anchor opening.
+    confirmation["context"] = ["session_id": sessionID]
+    responseObject["conversation"] = confirmation
+    let responseData = try historyData(responseObject)
+    let profileHistory = try historyData(try #require(receipt["later_historical_answer"]))
+    var runtimeObject = try #require(JSONSerialization.jsonObject(with: activeMoodRuntimeWire()) as? [String: Any])
+    var runtime = try #require(runtimeObject["session"] as? [String: Any])
+    runtime["session_id"] = sessionID
+    var broadcast = try #require(runtime["broadcast"] as? [String: Any])
+    var broadcastSession = try #require(broadcast["session"] as? [String: Any])
+    broadcastSession["session_id"] = sessionID; broadcast["session"] = broadcastSession
+    runtime["broadcast"] = broadcast; runtimeObject["session"] = runtime
+    let runtimeData = try historyData(runtimeObject)
+    let wire = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, activeMoodCapsWire, 0) }
+        if request.url!.path.hasSuffix("/session/active") { return (200, runtimeData, 0) }
+        if request.url!.path.hasSuffix("/ask_dj/message") { return (200, responseData, 0) }
+        if request.url!.path.hasSuffix("/command") {
+            let command = (try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])?["command"] as? String
+            if command == "status" {
+                return (200, Data(#"{"success":true,"playback":{"track_name":"Offered track","is_playing":true}}"#.utf8), 0)
+            }
+            return (200, Data(#"{"success":true}"#.utf8), 0)
+        }
+        if request.url!.path.contains("session/history") { return (200, timelineData, 0) }
+        return (200, profileHistory, 0)
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    await model.refreshActiveDJSession()
+    #expect(model.sessionHistory.liveMessage(for: entry, activeSessionID: sessionID) == nil)
+    _ = try await model.sessionHistory.sendExistingText("Offer a track", clientMessageID: "question-0")
+    let projected = try #require(model.sessionHistory.liveMessage(for: entry, activeSessionID: sessionID))
+    let offered = try #require(projected.renderablePlaybackActions.first)
+    #expect(offered.id == "live-play-now")
+    #expect(model.sessionHistory.liveMessage(for: entry, activeSessionID: nil) == nil)
+    #expect(model.sessionHistory.liveMessage(for: entry, activeSessionID: "another-session") == nil)
+    var wrongText = entry; wrongText.text = "Unrelated answer"
+    #expect(model.sessionHistory.liveMessage(for: wrongText, activeSessionID: sessionID) == nil)
+    let capturedEpoch = model.sessionHistory.responseEpoch
+    var forged = offered; forged.uri = "spotify:track:another"
+    model.sessionHistory.playLiveAction(forged, for: entry, expectedEpoch: capturedEpoch)
+    #expect(model.playingAskDJActionID == nil)
+    model.sessionHistory.playLiveAction(offered, for: entry, expectedEpoch: UUID())
+    #expect(model.playingAskDJActionID == nil)
+    #expect(!wire.requests.contains { $0.url!.path.hasSuffix("/command") })
+    model.sessionHistory.playLiveAction(offered, for: entry, expectedEpoch: capturedEpoch)
+    #expect(model.playingAskDJActionID == offered.id)
+    for _ in 0..<120 {
+        if model.playingAskDJActionID == nil { break }
+        try await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(model.playingAskDJActionID == nil)
+    let commands = try wire.requests.filter { $0.url!.path.hasSuffix("/command") }.compactMap {
+        (try JSONSerialization.jsonObject(with: presenceRequestBody($0)) as? [String: Any])?["command"] as? String
+    }
+    #expect(commands.filter { $0 == "play_track" }.count == 1)
+    #expect(commands.contains("status"))
+    let requestCount = wire.requests.count
+    model.markInactiveSession()
+    #expect(model.sessionHistory.liveMessage(for: entry, activeSessionID: sessionID) == nil)
+    model.sessionHistory.playLiveAction(offered, for: entry, expectedEpoch: capturedEpoch)
+    #expect(model.playingAskDJActionID == nil)
+    #expect(wire.requests.count == requestCount)
+    let archiveOnly = SessionTimelineRenderCache().snapshot([entry], sessionID: sessionID, epoch: UUID())
+    #expect(archiveOnly.first?.message.playbackActions.isEmpty == true)
+}
+
+@Test(arguments: [true, false]) @MainActor
+func sessionPlayNowWithdrawalFencesDispatchAndLateResponse(beforeDispatch: Bool) async throws {
+    let replyGate = DispatchSemaphore(value: 0)
+    defer { replyGate.signal() }
+    let wire = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/command") {
+            if !beforeDispatch { _ = replyGate.wait(timeout: .now() + 15) }
+            return (200, Data(#"{"success":true,"assistant_message":{"id":"late-answer","role":"assistant","text":"Stale playback answer","created_at":"2026-10-14T00:00:00Z"}}"#.utf8), 0)
+        }
+        return (404, Data(), 0)
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    let offered = try JSONDecoder().decode(DJConnectAskDJPlaybackAction.self,
+        from: Data(#"{"id":"scoped-play","title":"Play track","kind":"track","command":"play_track","uri":"spotify:track:0123456789abcdefghijkL"}"#.utf8))
+    model.playAskDJRecommendation(offered, isStillValid: { true })
+    if !beforeDispatch {
+        for _ in 0..<120 {
+            if wire.requests.contains(where: { $0.url!.path.hasSuffix("/command") }) { break }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        #expect(wire.requests.contains { $0.url!.path.hasSuffix("/command") })
+    }
+    model.sessionHistory.suspend()
+    let newerResponse = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self,
+        from: Data(#"{"history_revision":1,"clear_revision":0,"assistant_message":{"id":"new-answer","role":"assistant","text":"New owner display","created_at":"2026-10-14T00:00:00Z"}}"#.utf8))
+    #expect(model.applyProfileConversationResponse(newerResponse, fallback: nil))
+    let newer = model.askDJMessages
+    #expect(newer.first?.text == "New owner display")
+    replyGate.signal()
+    try await Task.sleep(for: .milliseconds(250))
+    #expect(model.askDJMessages == newer)
+    #expect(model.playingAskDJActionID == nil)
+    #expect(model.askDJErrorMessage == nil)
+    #expect(wire.requests.filter { $0.url!.path.hasSuffix("/command") }.count == (beforeDispatch ? 0 : 1))
+}
+
+@Test(arguments: ["status", "devices"], [false, true]) @MainActor
+func sessionPlayNowFollowUpReadsDoNotApplyAfterWithdrawal(stage: String, fail: Bool) async throws {
+    let replyGate = DispatchSemaphore(value: 0)
+    defer { replyGate.signal() }
+    let wire = HistoryWireFixture { request in
+        let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
+        let command = body?["command"] as? String
+        if command == stage {
+            _ = replyGate.wait(timeout: .now() + 15)
+            if fail { return (503, Data(#"{"success":false,"error":"backend_unavailable"}"#.utf8), 0) }
+        }
+        if command == "status" {
+            return (200, Data(#"{"success":true,"playback":{"track_name":"Stale track","is_playing":true}}"#.utf8), 0)
+        }
+        if command == "devices" {
+            return (200, Data(#"{"success":true,"devices":[{"id":"old-output","name":"Old output"}]}"#.utf8), 0)
+        }
+        if command == "queue" { return (200, Data(#"{"success":true,"queue":[{"title":"Old queue"}]}"#.utf8), 0) }
+        if command == "playlists" { return (200, Data(#"{"success":true,"playlists":[]}"#.utf8), 0) }
+        return (200, Data(#"{"success":true}"#.utf8), 0)
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    let offered = try JSONDecoder().decode(DJConnectAskDJPlaybackAction.self,
+        from: Data(#"{"id":"followup-play","title":"Play track","kind":"track","command":"play_track","uri":"spotify:track:0123456789abcdefghijkL"}"#.utf8))
+    model.playAskDJRecommendation(offered, isStillValid: { true })
+    func commands() throws -> [String] {
+        try wire.requests.compactMap {
+            (try JSONSerialization.jsonObject(with: presenceRequestBody($0)) as? [String: Any])?["command"] as? String
+        }
+    }
+    for _ in 0..<120 {
+        if try commands().contains(stage) { break }
+        try await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(try commands().contains(stage))
+    model.sessionHistory.suspend()
+    let freshPlayback = try JSONDecoder().decode(DJConnectPlayback.self,
+        from: Data(#"{"track_name":"New owner track","is_playing":false}"#.utf8))
+    model.apply(playback: freshPlayback)
+    model.queueItems = [DJConnectQueueItem(title: "New owner queue")]
+    replyGate.signal()
+    try await Task.sleep(for: .milliseconds(250))
+    #expect(model.playback == freshPlayback)
+    #expect(model.queueItems.map(\.title) == ["New owner queue"])
+    #expect(model.pairingStatus == .paired && model.backendAvailable)
+    #expect(model.askDJErrorMessage == nil && model.playingAskDJActionID == nil)
+    if stage == "status" {
+        #expect(try commands() == ["play_track", "status"])
+    }
 }

@@ -243,3 +243,32 @@ selected Session cards and Ask DJ bubbles share a three-point focus border.
 The existing focus gradient, server UTF-16 ranges, queries and result navigation
 remain intact. Both unsigned Mac/iOS builds pass; bounded source UX review has
 no findings. Native visual/installed acceptance is not claimed.
+
+## Owner-added active Session Play Now parity
+
+The new Session timeline previously rebuilt conversation replies as text-only
+messages and made every common bubble readonly. It now reuses the existing Ask DJ
+response mapper and playback-action stack for a directly accepted live answer in
+the active Session. Ephemeral presentation state in the existing HistoryModel
+binds that answer to the owner epoch, Session, server/client message identity,
+text and retained entry. History reads never populate it; suspend/reset/Session
+identity changes clear it. Archived answers remain the existing readonly projection.
+
+Only the common playback stack is enabled by this live adapter. Its callback
+revalidates the captured scope and exact offered payload before using the existing
+AppModel playback route. Generation/validity fences cover dispatch, response,
+follow-up status/collections, errors and loading cleanup. Only the `active`
+presentation field is normalized for completion/output state; command/URI/value
+identity stays intact. Accepted response links use native URL opening after the
+existing safe link projection and a HTTP/HTTPS/no-credentials guard.
+
+Qualification:514shared Swift tests PASS, including live reply-to-entry projection,
+one explicit callback dispatch/status refresh, forged/stale/archive rejection,
+withdrawal before dispatch and late command/status/collection responses. The
+existing rapid Presence test replaces its20ms request-start assumption with a
+held first reply and observed dispatch; its one-write/latest-queue assertions
+remain intact. The initial timing failure and successful controlled full rerun
+are preserved separately. Both unsigned Mac/iOS build-for-testing gates PASS.
+Independent source technical/UX findings were repaired; final frozen review is
+recorded separately. These are software/build checks, not installed/native Play
+Now acceptance. No Core contract/source write, transport rebuild or installation.
