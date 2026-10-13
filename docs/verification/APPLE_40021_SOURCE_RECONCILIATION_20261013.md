@@ -67,16 +67,21 @@ Simulator builds PASS. Private40021 Mac installs were separately verified on bot
 Macs and officially closed before this source reconciliation. They do not contain
 the subsequent review privacy correction and are not reinstalled here.
 
-Fresh source checks:1065 localization keys across five languages,29 HTTP routes,
-WebSocket contract e2e and fixture security PASS; targeted withdrawal regression
-PASS for both denial cases. Full final-source regression/build/review results and
-protected merge/evidence will be recorded in the separate Finalization increment.
+Final source checks:498 shared tests, fresh unsigned Mac/iOS Simulator builds,
+1065 localization keys across five languages,29 HTTP routes, WebSocket contract
+e2e and fixture security PASS; targeted withdrawal regression PASS for both denial
+cases. Both independent exact-source reviews give bounded GO. Protected source
+PR105 is merged as357251cedc4b78a4f9d5b446d3cdafc610cedc40, identical tree to
+reviewed6edfcb0. Main CI/coverage38439881390 and formal evidence38441132690 PASS;
+[portable receipts](40021-source-finalization/source-main-readback.json) include
+independently verified asset hashes and canonical integrity/redaction. Separate
+Finalization publication/merge/readback remains its own gate.
 An initial loopback check was sandbox-denied and passed with allowed loopback;
 an initial Swift run failed on compiler input metadata changes and is retained,
 not presented as a product regression or PASS.
 
-Independent UX review gives bounded source GO; technical re-review must qualify
-the privacy correction. Favorite/top artist strips still use generic glyphs:
+Independent UX and technical/privacy reviews give bounded source GO on the
+corrected candidate. Favorite/top artist strips still use generic glyphs:
 the current name/value producer contract contains no artist image field. Earlier
 demo screenshots are not exact final40021 screenshots. Full physical VoiceOver,
 fullscreen hover, scrolling and LAN/cellular acceptance remain unqualified.

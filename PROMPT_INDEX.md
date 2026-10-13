@@ -1,5 +1,14 @@
 # DJConnect Repository Prompt Index
 
+## Current increment — build40021 source Finalization, 2026-10-13
+
+Owner explicitly selected merging the preserved40021 changes before the new Presence slice. [Source PR #105](https://github.com/pcvantol/djconnect-app/pull/105) is protected merged as `357251cedc4b78a4f9d5b446d3cdafc610cedc40` from reviewed head `6edfcb0c1dddde38398d23dbee93a6b557b742e2`, identical tree `d6ae93ee6fd3eb64a1c9ab6756f17cac87c9dd35`. Same Apple writer; original WIP, installation snapshot/backups/settings and earlier closed assignments preserved.
+
+Only the dedicated documentary Finalization may proceed until exact-main CI/formal artifact readback and separately approved Finalization publication/merge/cleanup establish `MERGED_RECONCILED` and `WORKSPACE_READY`. The selected [Presence pickup](https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6150506243) requires its fresh final base/branch ACK after this prerequisite. No implicit second source writer, Core change, installation or other queued product work. Earlier index entries below are historical.
+
+Immutable [Finalization history](docs/history/prompts/2026-10-13-apple-40021-main-finalization.md) binds source PR105, source-main357251c, current evidence and the retained recovery lineage.
+
+
 ## Current Apple assignment — 2026-10-08
 
 `DJC-APPLE-MOMENT-FIRST-SESSION-V1-20261008` bron is beschermd gemergd:

@@ -1,5 +1,18 @@
 # DJConnect Repository Status
 
+## Current build40021 source reconciliation — 2026-10-13
+
+The owner-requested build40021 source is protected merged through [PR #105](https://github.com/pcvantol/djconnect-app/pull/105), reviewed head `6edfcb0c1dddde38398d23dbee93a6b557b742e2`, exact source-main `357251cedc4b78a4f9d5b446d3cdafc610cedc40`, identical tree `d6ae93ee6fd3eb64a1c9ab6756f17cac87c9dd35`. Same existing Apple writer; installed40021 snapshot `7baa9a4`/tree `1ce640a530307de6e80bc51c48a4d2fa1e24940f`, original unrelated WIP, backups/settings and installation receipts retained.
+
+498 shared tests, fresh unsigned Mac/iOS Simulator builds,1065 localization keys and HTTP/WebSocket/security fixtures pass. Independent technical/privacy and UX exact-source reviews give bounded GO. The review privacy correction withdraws private owner state on HTTP recovery auth/Profile-denial and fences late history responses. Official exact-head Owner Authorization38439052617 and premerge CI38438848001 PASS. Source-main CI/coverage38439881390 and durable formal evidence38441132690 independently verified PASS, including artifact digests, exact source/merge tree and canonical integrity/redaction checks.
+
+Repository State becomes `MERGED_RECONCILED` only after this separate Finalization is explicitly authorized, protected merged and its exact-main/formal evidence is read back. Until then it remains `MERGED_UNRECONCILED`; Workspace State becomes `WORKSPACE_READY` after safe cleanup with recovery lineage retained. Product Acceptance: `PARTIAL`. Existing40021 installs are closed and unchanged; the subsequent privacy correction is not installed. Artist imagery, physical UX/voice and complete LAN/cellular/action-transport parity remain open. The optional TDE observe job failed because runner Python3.9 is below TDE1.1.1 minimum3.11; no TDE assessment PASS is claimed. See [source qualification](docs/verification/APPLE_40021_SOURCE_RECONCILIATION_20261013.md).
+
+The selected `DJC-APPLE-DJ-PRESENCE-V1-20261011` pickup remains pending its fresh post-Finalization base/branch ACK; no Presence code or new installation is included here. No Core writes, transport redesign, Forecast, session summary, public release or provider expansion. The sections below are historical snapshots, not current install/source state.
+
+The separate [Finalization snapshot](docs/history/prompts/2026-10-13-apple-40021-main-finalization.md) records exact protected delivery, recovery, qualification limits and bounded continuation.
+
+
 ## Current Session header refinement — 2026-10-12
 
 Owner-requested header correction is source-delivered through [PR #101](https://github.com/pcvantol/djconnect-app/pull/101), reviewed head `c5af1f07c8440a6e6f90b0a186d04aaea07f0dd4`, protected source-main `03d02a40c4caa9b5d37c8767e49f87b88cf106a3`. Both trees are `af668f407b18246157217157ceafacb7e4d51d2b`; parent is prior reconciled main `c045473`. Official Owner Authorization38210333937 and premerge CI38208915501 PASS. Source-main CI/coverage38210411713 and durable exact-SHA evidence38211003692 independently verified PASS. This separate [Finalization candidate](docs/history/prompts/2026-10-12-apple-session-header-finalization.md) requires its own publication/protected-merge authority.
