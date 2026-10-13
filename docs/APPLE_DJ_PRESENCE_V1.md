@@ -236,3 +236,10 @@ The existing iPhone active-Session shared-control test
 19.362seconds). This verifies preservation of the active shared control, not
 native archive-specific or Mac visual qualification. Independent bounded source
 UX review reports no finding. Installed apps remain untouched.
+
+The Owner requested stronger search highlighting. Session/server-range and
+Ask DJ text marks now share an opaque warm-gold background with dark navy text;
+selected Session cards and Ask DJ bubbles share a three-point focus border.
+The existing focus gradient, server UTF-16 ranges, queries and result navigation
+remain intact. Both unsigned Mac/iOS builds pass; bounded source UX review has
+no findings. Native visual/installed acceptance is not claimed.

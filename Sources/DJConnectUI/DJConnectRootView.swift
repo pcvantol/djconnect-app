@@ -159,6 +159,9 @@ enum DJConnectCardAppearance {
         LinearGradient(colors: [Color.white.opacity(0.92), Color(red: 0.16, green: 0.56, blue: 1.0), djConnectAccent],
                        startPoint: .topLeading, endPoint: .bottomTrailing)
     }
+    static let searchMatchBackground = Color(red: 1.0, green: 0.84, blue: 0.30)
+    static let searchMatchForeground = Color(red: 0.07, green: 0.04, blue: 0.15)
+    static let searchFocusWidth: CGFloat = 3
     static let segmentedContentInset: CGFloat = 8
     static var segmentedItemShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: max(0, cornerRadius - segmentedContentInset), style: .continuous)
@@ -11673,7 +11676,7 @@ struct AskDJMessageBubble: View {
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(bubbleStrokeStyle, lineWidth: isActiveSearchResult ? 2 : 1)
+                        .stroke(bubbleStrokeStyle, lineWidth: isActiveSearchResult ? DJConnectCardAppearance.searchFocusWidth : 1)
                 }
                 .djSessionFrostedSurface(cornerRadius: DJConnectCardAppearance.conversationCornerRadius)
                 HStack(spacing: 8) {
@@ -12684,7 +12687,8 @@ private struct AskDJMarkdownText: View {
             of: query,
             options: [.caseInsensitive, .diacriticInsensitive]
         ) {
-            attributed[matchRange].backgroundColor = djConnectAccent.opacity(0.48)
+            attributed[matchRange].backgroundColor = DJConnectCardAppearance.searchMatchBackground
+            attributed[matchRange].foregroundColor = DJConnectCardAppearance.searchMatchForeground
             searchRange = matchRange.upperBound..<attributed.endIndex
         }
         return Text(attributed)

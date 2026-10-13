@@ -657,8 +657,8 @@ struct SessionHighlightedText: View {
             guard let range = mark.safeRange(in: text), let stringRange = Range(range, in: text),
                   let lower = AttributedString.Index(stringRange.lowerBound, within: result),
                   let upper = AttributedString.Index(stringRange.upperBound, within: result) else { continue }
-            result[lower..<upper].backgroundColor = djConnectAccent.opacity(0.48)
-            result[lower..<upper].foregroundColor = .white
+            result[lower..<upper].backgroundColor = DJConnectCardAppearance.searchMatchBackground
+            result[lower..<upper].foregroundColor = DJConnectCardAppearance.searchMatchForeground
         }
         return result
     }
@@ -736,7 +736,7 @@ struct SessionEntryView: View, Equatable {
                     .overlay {
                         if isSelectedMatch {
                             RoundedRectangle(cornerRadius: DJConnectCardAppearance.conversationCornerRadius, style: .continuous)
-                                .stroke(DJConnectCardAppearance.searchFocusGradient, lineWidth: 2)
+                                .stroke(DJConnectCardAppearance.searchFocusGradient, lineWidth: DJConnectCardAppearance.searchFocusWidth)
                                 .allowsHitTesting(false)
                         } else if !highlights.isEmpty {
                             RoundedRectangle(cornerRadius: DJConnectCardAppearance.conversationCornerRadius, style: .continuous)
