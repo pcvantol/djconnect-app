@@ -272,3 +272,10 @@ are preserved separately. Both unsigned Mac/iOS build-for-testing gates PASS.
 Independent source technical/UX findings were repaired; final frozen review is
 recorded separately. These are software/build checks, not installed/native Play
 Now acceptance. No Core contract/source write, transport rebuild or installation.
+
+The Owner specified the Mac sidebar sequence: DJ Session, Now Playing, Track
+Insight, Discover, Ask DJ, Earlier Sessions, Music DNA, Queue, Playlists, Games,
+Settings, Logs, About, Legal, Privacy, Share Feedback. Existing Mac rows are
+reordered accordingly without changing destinations or their actions. The
+unsigned Mac build-for-testing gate passes; no installation or native visual
+acceptance is claimed.

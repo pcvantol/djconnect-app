@@ -726,25 +726,10 @@ public struct DJConnectRootView: View {
                             isSelected: selectedSection == .djSession
                         ) { selectedSection = .djSession }
                         SidebarItem(
-                            title: localizedKey(model.language, "ui.session.history.title"),
-                            systemImage: "clock.arrow.circlepath",
-                            isSelected: selectedSection == .savedSessions
-                        ) { selectedSection = .savedSessions }
-                        SidebarItem(
                             title: localizedKey(model.language, "ui.now.playing"),
                             systemImage: "music.note",
                             isSelected: selectedSection == .nowPlaying
                         ) { selectedSection = .nowPlaying }
-                        SidebarItem(
-                            title: localizedKey(model.language, "ui.queue"),
-                            systemImage: "music.note.list",
-                            isSelected: selectedSection == .queue
-                        ) { selectedSection = .queue }
-                        SidebarItem(
-                            title: "Ask DJ",
-                            systemImage: "bubble.left.and.bubble.right",
-                            isSelected: selectedSection == .askDJ
-                        ) { selectedSection = .askDJ }
                         SidebarItem(
                             title: "Track Insight",
                             systemImage: "waveform.path.ecg",
@@ -756,10 +741,25 @@ public struct DJConnectRootView: View {
                             isSelected: selectedSection == .discovery
                         ) { selectDiscovery() }
                         SidebarItem(
+                            title: "Ask DJ",
+                            systemImage: "bubble.left.and.bubble.right",
+                            isSelected: selectedSection == .askDJ
+                        ) { selectedSection = .askDJ }
+                        SidebarItem(
+                            title: localizedKey(model.language, "ui.session.history.title"),
+                            systemImage: "clock.arrow.circlepath",
+                            isSelected: selectedSection == .savedSessions
+                        ) { selectedSection = .savedSessions }
+                        SidebarItem(
                             title: "Music DNA",
                             systemImage: "heart",
                             isSelected: selectedSection == .musicDNA
                         ) { selectedSection = .musicDNA }
+                        SidebarItem(
+                            title: localizedKey(model.language, "ui.queue"),
+                            systemImage: "music.note.list",
+                            isSelected: selectedSection == .queue
+                        ) { selectedSection = .queue }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.playlists"),
                             systemImage: "rectangle.stack",
