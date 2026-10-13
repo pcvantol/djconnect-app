@@ -549,6 +549,10 @@ extension DJConnectMacUITests {
         pausedScreenshot.lifetime = .keepAlways; add(pausedScreenshot)
         XCTAssertEqual(final["ha_refresh_tokens"] as? Int, final["initial_ha_refresh_tokens"] as? Int)
         XCTAssertEqual(final["ha_users"] as? Int, final["initial_ha_users"] as? Int)
+        app.typeKey(XCUIKeyboardKey.escape.rawValue, modifierFlags: [])
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.sliders["session-presence-slider"])
+        let closedResult = await XCTWaiter.fulfillment(of: [closed], timeout: 5)
+        XCTAssertEqual(closedResult, .completed, "Escape must close the native presence popover")
         app.terminate()
     }
 }

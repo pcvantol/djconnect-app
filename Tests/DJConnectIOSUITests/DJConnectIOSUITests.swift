@@ -1894,6 +1894,9 @@ extension DJConnectIOSUITests {
         let before = try await control("start")
         let original = try XCTUnwrap(before["active"] as? [String: Any])
         let language = ProcessInfo.processInfo.environment["DJC_APPLE_PRESENCE_LANGUAGE"] ?? "nl"
+        if ProcessInfo.processInfo.environment["DJC_APPLE_PRESENCE_LANDSCAPE"] == "1" {
+            XCUIDevice.shared.orientation = .landscapeLeft
+        } else { XCUIDevice.shared.orientation = .portrait }
         let app = XCUIApplication(); app.terminate()
         app.launchArguments = ["--uitesting", "--runtime-fixture=paired_owner_contract", "-DJCONNECTRuntimeFixture", "paired_owner_contract", "-AppleLanguages", "(\(language))", "-AppleLocale", language]
         app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
@@ -1906,7 +1909,9 @@ extension DJConnectIOSUITests {
         let anchors = ["nl":["Alleen muziek","Af en toe","Gebalanceerd","Praatgraag","Presentator"],"en":["Music only","Occasionally","Balanced","Talkative","Presenter"],"de":["Nur Musik","Gelegentlich","Ausgewogen","Gesprächig","Moderator"],"fr":["Musique uniquement","De temps en temps","Équilibré","Bavard","Présentateur"],"es":["Solo música","De vez en cuando","Equilibrado","Conversador","Presentador"]]
         for (offset, value) in values.enumerated() {
             let button = app.buttons["session-presence-choice-" + value]
-            XCTAssertTrue(button.waitForExistence(timeout: 10) && button.isEnabled && button.isHittable)
+            XCTAssertTrue(button.waitForExistence(timeout: 10) && button.isEnabled)
+            for _ in 0..<3 where !button.isHittable { app.scrollViews["session-presence-scroll"].swipeUp() }
+            XCTAssertTrue(button.isHittable)
             if offset == 0 { _ = try await control("presence_delay_once") }
             button.tap()
             if offset == 0 {

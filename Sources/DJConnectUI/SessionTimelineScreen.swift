@@ -906,6 +906,7 @@ struct ActiveSessionPresenceToolbar: View {
                 ActiveSessionPresenceControl(model: model, sessionID: captured.sessionID, epoch: captured.epoch)
                     .padding(16)
             }
+            .accessibilityIdentifier("session-presence-scroll")
             .frame(idealWidth: 360, idealHeight: 420)
             #if os(macOS)
             .focusable()
@@ -947,7 +948,7 @@ struct ActiveSessionPresenceControl: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(text("ui.session.presence.title")).font(.headline)
-            Text(text("ui.session.presence.explanation")).font(.subheadline).foregroundStyle(.secondary)
+            Text(text("ui.session.presence.explanation")).font(.subheadline).foregroundStyle(.white.opacity(0.88))
             if enabled {
                 Text(text(values[min(4, max(0, Int(preview.rounded())))].localizationKey)).font(.body.weight(.semibold))
                 Slider(value: Binding(get: { preview }, set: { next in
@@ -981,11 +982,11 @@ struct ActiveSessionPresenceControl: View {
                     }
                 }
             } else {
-                Text(text("ui.session.presence.unavailable")).font(.body).foregroundStyle(.secondary)
+                Text(text("ui.session.presence.unavailable")).font(.body).foregroundStyle(.white.opacity(0.88))
             }
             if let confirmed {
                 Text(text("ui.session.presence.confirmed") + ": " + text(confirmed.selectedPresence.localizationKey))
-                    .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("session-presence-confirmed")
+                    .font(.caption).foregroundStyle(.white.opacity(0.88)).accessibilityIdentifier("session-presence-confirmed")
             }
             if model.activePresencePending, let desired = model.activePresenceDesired {
                 HStack { ProgressView().tint(.white); Text(text("ui.session.presence.pending") + ": " + text(desired.localizationKey)).font(.caption) }
@@ -1002,7 +1003,7 @@ struct ActiveSessionPresenceControl: View {
                         .buttonStyle(DJConnectButtonStyle())
                 }
             }
-            Text(text("ui.session.presence.music_only_help")).font(.caption).foregroundStyle(.secondary)
+            Text(text("ui.session.presence.music_only_help")).font(.caption).foregroundStyle(.white.opacity(0.88))
         }
         .onAppear { syncPreview() }
         .onChange(of: confirmed) { syncPreview() }
