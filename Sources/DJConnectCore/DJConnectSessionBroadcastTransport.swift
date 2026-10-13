@@ -65,7 +65,8 @@ public actor DJConnectSessionBroadcastTransport {
         if let httpRecovery {
             httpRecoveryTask = Task { [weak self] in
                 await self?.runHTTPRecovery(sessionID: sessionID, recovery: httpRecovery,
-                    onSnapshot: onHTTPSnapshot, onTerminated: onTerminated, onUnavailable: onUnavailable)
+                    onSnapshot: onHTTPSnapshot, onTerminated: onTerminated, onUnavailable: onUnavailable,
+                    onAuthorityWithdrawn: onAuthorityWithdrawn)
             }
         }
         runTask = Task { [weak self] in
@@ -97,7 +98,8 @@ public actor DJConnectSessionBroadcastTransport {
     private func runHTTPRecovery(sessionID: String, recovery: HTTPRecovery,
                                  onSnapshot: @escaping @Sendable (DJConnectBroadcastState) async -> Void,
                                  onTerminated: @escaping TerminationHandler,
-                                 onUnavailable: @escaping TerminationHandler) async {
+                                 onUnavailable: @escaping TerminationHandler,
+                                 onAuthorityWithdrawn: AuthorityHandler?) async {
         while shouldRun, !Task.isCancelled {
             if !liveConnected {
                 do {
@@ -116,8 +118,17 @@ public actor DJConnectSessionBroadcastTransport {
                 } catch {
                     guard shouldRun, !Task.isCancelled, !(error is CancellationError),
                           (error as? URLError)?.code != .cancelled else { return }
-                    if (error as? DJConnectError)?.invalidatesSessionAuthority == true {
-                        stop(); await onUnavailable(); return
+                    if let denial = error as? DJConnectError, denial.invalidatesSessionAuthority {
+                        stop()
+                        if let onAuthorityWithdrawn {
+                            // Use the same owner withdrawal as paired live; never retain
+                            // private history or credentials after an HTTP authority denial.
+                            let code: String
+                            if case let .profile(profileCode, _, _) = denial { code = profileCode.rawValue }
+                            else { code = "unauthorized" }
+                            await onAuthorityWithdrawn(code)
+                        } else { await onUnavailable() }
+                        return
                     }
                     // Transient connectivity keeps recovery running without a user refresh.
                 }

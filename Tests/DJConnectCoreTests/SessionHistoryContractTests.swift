@@ -988,6 +988,56 @@ private actor HTTPBroadcastRecoveryProbe {
     func finish() { ended = true }
 }
 
+private final class HTTPRecoveryActiveReadCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    func next() -> Int { lock.withLock { count += 1; return count } }
+}
+
+@Test(arguments: ["unauthorized", "invalid_profile"])
+@MainActor func sessionHTTPRecoveryWithdrawsPrivateOwnerState(_ denial: String) async throws {
+    let receipt = try historyObject()
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    let archive = try historyData(try #require(receipt["archived_timeline"]))
+    let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: archive)
+    let active = try historyData(try #require(historyObject("active-session-before-auth-failure")["response"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let counter = HTTPRecoveryActiveReadCounter()
+    let historyCounter = HTTPRecoveryActiveReadCounter()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/session/active") {
+            if counter.next() == 1 { return (200, active, 0) }
+            return (denial == "unauthorized" ? 401 : 403,
+                Data("{\"success\":false,\"error\":\"\(denial)\"}".utf8), 0)
+        }
+        if request.url!.path.hasSuffix("/timeline") { return (200, archive, 0) }
+        return (200, profile, historyCounter.next() == 1 ? 0 : 0.4)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { defaults.removePersistentDomain(forName: name); model.markInactiveSession() }
+    await model.sessionHistory.prepare()
+    await model.sessionHistory.loadTimeline(page.session.id)
+    #expect(model.sessionHistory.hasAuthorizedOwner && !model.askDJMessages.isEmpty)
+    #expect(model.sessionHistory.timelines[page.session.id] != nil)
+    let lateHistory = Task { try? await model.sessionHistory.fetchExistingHistory() }
+    try await Task.sleep(for: .milliseconds(30))
+    let epoch = model.sessionHistory.responseEpoch
+    #expect(await model.refreshActiveDJSession())
+    for _ in 0..<100 where model.sessionHistory.responseEpoch == epoch {
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(model.sessionHistory.responseEpoch != epoch)
+    #expect(!model.sessionHistory.hasAuthorizedOwner && !model.sessionHistory.profileScopeActive)
+    #expect(model.activeDJSession == nil && model.askDJMessages.isEmpty && !model.isSendingAskDJText)
+    #expect(model.sessionHistory.pendingTurns.isEmpty && model.sessionHistory.timelines.isEmpty)
+    _ = await lateHistory.value
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(model.askDJMessages.isEmpty && model.activeDJSession == nil)
+    #expect(fixture.requests.allSatisfy { $0.httpMethod != "POST" })
+}
+
 @Test func sessionBroadcastAutomaticallyRecoversHTTPWhenLocalWebSocketIsUnavailable() async throws {
     let response = try JSONDecoder().decode(DJConnectSessionResponse.self,
         from: historyData(try #require(historyObject("active-session-before-auth-failure")["response"])))
