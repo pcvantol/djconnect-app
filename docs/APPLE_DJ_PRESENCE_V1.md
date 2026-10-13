@@ -214,3 +214,11 @@ no animation timeline. The decoration is excluded from accessibility and hit
 testing. Both unsigned Mac/iOS build-for-testing gates pass; independent bounded
 source UX review reports no finding. Native animation smoothness/performance and
 installed acceptance are not claimed. No release or installation is performed.
+
+The Owner also requested gentle spinning of the welcome vinyl illustration.
+Only the disk/grooves and a faint reflection rotate, once per thirty-two seconds;
+the center label, sparkle and surrounding badges/equalizer stay stationary.
+Reduce Motion and inactive scenes use a static disk without an animation timeline.
+Existing illustration geometry, accessibility hiding and hit-testing behavior
+remain intact. Both unsigned Mac/iOS builds pass; bounded source UX review has
+no findings. Native smoothness/performance and installed acceptance remain unclaimed.

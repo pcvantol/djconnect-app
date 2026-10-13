@@ -9095,20 +9095,16 @@ private struct IdleDJSessionView: View {
 
 /// Decorative native artwork; it carries no playback or Session state.
 private struct DJSessionWelcomeArtwork: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some View {
         GeometryReader { geometry in
             let size = min(geometry.size.width, geometry.size.height)
             ZStack {
                 Circle().fill(djConnectIconGradient).blur(radius: size * 0.13).opacity(0.45)
                     .frame(width: size * 0.85, height: size * 0.85)
-                Circle().fill(LinearGradient(colors: [.black.opacity(0.85), Color(red: 0.19, green: 0.14, blue: 0.33)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: size * 0.79, height: size * 0.79)
-                    .overlay { Circle().stroke(.white.opacity(0.2)).frame(width: size * 0.79, height: size * 0.79) }
-                ForEach(0..<5) { ring in
-                    Circle().stroke(.white.opacity(0.06), lineWidth: 1)
-                        .frame(width: size * (0.42 + Double(ring) * 0.065), height: size * (0.42 + Double(ring) * 0.065))
-                }
+                animatedRecord(size: size)
                 Circle().fill(djConnectIconGradient).frame(width: size * 0.32, height: size * 0.32)
                 Image(systemName: "sparkles").font(.system(size: size * 0.15, weight: .medium)).foregroundStyle(.white)
                 artworkGlyph("music.note", size: size).offset(x: size * 0.35, y: -size * 0.25)
@@ -9128,6 +9124,42 @@ private struct DJSessionWelcomeArtwork: View {
         }
         .accessibilityHidden(true)
         .allowsHitTesting(false)
+    }
+
+    @ViewBuilder private func animatedRecord(size: CGFloat) -> some View {
+        if reduceMotion || scenePhase != .active {
+            record(size: size, rotation: .zero)
+        } else {
+            TimelineView(.animation(minimumInterval: 1.0 / 15.0)) { context in
+                let turn = context.date.timeIntervalSinceReferenceDate
+                    .truncatingRemainder(dividingBy: 32) / 32
+                record(size: size, rotation: .degrees(turn * 360))
+            }
+        }
+    }
+
+    private func record(size: CGFloat, rotation: Angle) -> some View {
+        ZStack {
+            Circle().fill(LinearGradient(
+                colors: [.black.opacity(0.85), Color(red: 0.19, green: 0.14, blue: 0.33)],
+                startPoint: .topLeading, endPoint: .bottomTrailing))
+                .frame(width: size * 0.79, height: size * 0.79)
+                .overlay { Circle().stroke(.white.opacity(0.2)) }
+            ForEach(0..<5) { ring in
+                Circle().stroke(.white.opacity(0.06), lineWidth: 1)
+                    .frame(width: size * (0.42 + Double(ring) * 0.065),
+                           height: size * (0.42 + Double(ring) * 0.065))
+            }
+            // A faint reflection makes the slow rotation visible on circular grooves.
+            Circle().stroke(AngularGradient(stops: [
+                .init(color: .clear, location: 0),
+                .init(color: .white.opacity(0.075), location: 0.14),
+                .init(color: .clear, location: 0.26),
+                .init(color: .clear, location: 1)
+            ], center: .center), lineWidth: size * 0.13)
+                .frame(width: size * 0.60, height: size * 0.60)
+        }
+        .rotationEffect(rotation)
     }
 
     private func artworkGlyph(_ glyph: String, size: CGFloat) -> some View {
