@@ -113,9 +113,13 @@ async def main():
     web.WebSocketResponse.send_json = observed_send_json
 
     history_fault = {"once": False}
+    presence_fault = {"delay_once": False}
 
     @web.middleware
     async def record(request, handler):
+        if request.path == "/api/djconnect/v1/session/presence" and presence_fault["delay_once"]:
+            presence_fault["delay_once"] = False
+            await asyncio.sleep(4.0)
         if request.path == "/api/djconnect/v1/session/history" and history_fault["once"]:
             history_fault["once"] = False
             await asyncio.sleep(3.0)
@@ -123,7 +127,10 @@ async def main():
         else:
             response = await handler(request)
         # Never record bodies/headers/auth frames/tokens/text/Session IDs/cursors.
-        receipt = {"method": request.method, "route": request.path.split("/")[-1], "status": response.status}
+        route = request.path.split("/")[-1]
+        if request.path.startswith("/api/djconnect/v1/session/history/"):
+            route = "session-history-detail"
+        receipt = {"method": request.method, "route": route, "status": response.status}
         if request.path == "/api/djconnect/v1/session/presence":
             # Narrow public policy fields only; no bearer, owner, text or Session ID.
             try:
@@ -159,6 +166,12 @@ async def main():
         operation = request.match_info["operation"]
         save_wire_receipt({"control":operation})
         if operation == "history_fail_once": history_fault["once"] = True
+        elif operation == "presence_delay_once": presence_fault["delay_once"] = True
+        elif operation == "pause":
+            active = await manager.async_get_active("profile-a"); assert active is not None
+            await manager.async_update_playback_projection(owner_profile_id="profile-a", session_id=active.session_id,
+                state="paused", media_identity="synthetic:paired:25", title="Native fixture 25",
+                artist="Synthetic artist", duration_ms=120000, position_ms=1000)
         elif operation == "start": await seed()
         elif operation in {"update", "resume_update"}:
             active = await manager.async_get_active("profile-a"); assert active is not None

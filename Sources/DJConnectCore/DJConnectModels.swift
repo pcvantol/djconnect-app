@@ -1485,7 +1485,7 @@ public struct TrackInsight: Codable, Equatable, Sendable, Identifiable {
 }
 
 public struct DJConnectTrackInsightWidgetSnapshot: Codable, Equatable, Sendable {
-    public static let appGroupIdentifier = "group.dev.djconnect"
+    public static var appGroupIdentifier: String { DJConnectLocalization.appGroupIdentifier }
     public static let storageKey = "DJConnectTrackInsightWidgetSnapshot"
     public static let widgetKind = "DJConnectTrackInsightWidget"
 

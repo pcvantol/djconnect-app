@@ -498,7 +498,16 @@ extension DJConnectMacUITests {
         for (offset, value) in values.enumerated() {
             let button = app.buttons["session-presence-choice-" + value]
             XCTAssertTrue(button.waitForExistence(timeout: 10) && button.isEnabled && button.isHittable)
+            if offset == 0 { _ = try await control("presence_delay_once") }
             button.tap()
+            if offset == 0 {
+                XCTAssertTrue(app.descendants(matching: .any)["session-presence-pending"].firstMatch.waitForExistence(timeout: 2))
+                XCTAssertTrue(app.staticTexts["session-presence-confirmed"].label.contains(anchors[language]![2]),
+                              "Pending intent must not replace the confirmed server value")
+                let pending = XCTAttachment(screenshot: app.screenshot())
+                pending.name = "presence-\(language)-pending-distinct-from-confirmed"
+                pending.lifetime = .keepAlways; add(pending)
+            }
             var current: [String: Any] = [:]
             for _ in 0..<40 {
                 let readback = try await control("state")
@@ -523,7 +532,21 @@ extension DJConnectMacUITests {
         }
         XCTAssertTrue(app.sliders["session-presence-slider"].exists, "Native adjustable control is exposed")
         XCTAssertFalse(app.descendants(matching: .any)["session-presence-error"].firstMatch.exists)
+        let paused = try await control("pause")
+        let pausedRuntime = try XCTUnwrap(paused["active"] as? [String: Any])
+        app.buttons["session-presence-choice-balanced"].tap()
+        let pausedConfirmation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", anchors[language]![2]), object: app.staticTexts["session-presence-confirmed"])
+        let pausedResult = await XCTWaiter.fulfillment(of: [pausedConfirmation], timeout: 10)
+        XCTAssertEqual(pausedResult, .completed)
         let final = try await control("state")
+        let finalRuntime = try XCTUnwrap(final["active"] as? [String: Any])
+        XCTAssertEqual(finalRuntime["presence_revision"] as? Int, 6)
+        XCTAssertEqual(finalRuntime["selected_presence"] as? String, "balanced")
+        XCTAssertEqual(finalRuntime["now_playing"] as? NSDictionary, pausedRuntime["now_playing"] as? NSDictionary,
+                       "Changing presence while paused must preserve actual playback")
+        let pausedScreenshot = XCTAttachment(screenshot: app.screenshot())
+        pausedScreenshot.name = "presence-\(language)-paused-confirmed"
+        pausedScreenshot.lifetime = .keepAlways; add(pausedScreenshot)
         XCTAssertEqual(final["ha_refresh_tokens"] as? Int, final["initial_ha_refresh_tokens"] as? Int)
         XCTAssertEqual(final["ha_users"] as? Int, final["initial_ha_users"] as? Int)
         app.terminate()

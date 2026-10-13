@@ -132,3 +132,18 @@ scroll controller. The former pinned upper panel and its nested fallback scrolle
 are removed. The existing Mood palette paints the entire active Session surface;
 readonly history retains its ordinary canvas. Composer, exact-entry search,
 reading anchors and owner/Session identity keep their existing owners.
+
+The Owner also reported blurred unselected Media/Format labels in Track Insight
+sharing. That shared selector retains its outer native glass surface; individual
+segments use ordinary high-contrast fills with white labels, avoiding nested
+interactive glass over the text. Selection, accessibility traits and rendering
+actions retain their existing owners.
+
+## Native qualification isolation
+
+Bind Xcode's first automatic app launch as well as the explicit test launch to
+the loopback-only ordinary-pairing fixture. Use dedicated new simulators and a
+temporary distinct Mac bundle while preserving the running installed Mac app.
+Debug UI/Swift qualification resolves shared presentation/widget preferences to
+an isolated suite; production app-group identity remains `group.dev.djconnect`.
+No fixture data may replace installed40021 preferences or private widget state.

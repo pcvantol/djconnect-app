@@ -423,7 +423,7 @@ private struct TrackInsightShareSegmentControl<Option: Hashable & Identifiable>:
                         }
                         .buttonStyle(DJConnectButtonStyle(
                             emphasis: option == selection ? .selected : .secondary,
-                            shape: .segmented, expands: true))
+                            shape: .segmented, expands: true, usesLiveGlass: false))
                         .accessibilityAddTraits(option == selection ? .isSelected : [])
                     }
                 }

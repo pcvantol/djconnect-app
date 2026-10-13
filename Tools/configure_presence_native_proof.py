@@ -10,7 +10,7 @@ import plistlib
 import subprocess
 
 
-def configure(source: Path, destination: Path, language: str) -> None:
+def configure(source: Path, destination: Path, language: str, mac_app: Path | None = None) -> None:
     source = source.resolve()
     data = plistlib.loads(subprocess.check_output(['/bin/cat', str(source)]))
     root = str(source.parent)
@@ -30,6 +30,16 @@ def configure(source: Path, destination: Path, language: str) -> None:
     for target in targets:
         if not target.get('IsUITestBundle'): continue
         if target.get('ProductModuleName') not in {'DJConnectIOSUITests', 'DJConnectMacUITests'}: continue
+        if mac_app is not None:
+            assert target['ProductModuleName'] == 'DJConnectMacUITests'
+            mac_app = mac_app.resolve()
+            assert mac_app.parent == Path('/private/tmp') and mac_app.name.startswith('djc-mac-presenceproof-')
+            info = plistlib.loads(subprocess.check_output(['/bin/cat', str(mac_app / 'Contents/Info.plist')]))
+            assert info['CFBundleIdentifier'] == 'dev.djconnect.mac.presenceproof'
+            old_app = target['UITargetAppPath']
+            target['UITargetAppPath'] = str(mac_app)
+            target['UITargetAppBundleIdentifier'] = info['CFBundleIdentifier']
+            target['DependentProductPaths'] = [str(mac_app) if item == old_app else item for item in target.get('DependentProductPaths', [])]
         # Xcode starts the target before the test's explicit app.launch(). Bind
         # this first launch too, so it cannot load normal account preferences.
         target['UITargetAppCommandLineArguments'] = ['--uitesting', '--runtime-fixture=paired_owner_contract', '-DJCONNECTRuntimeFixture', 'paired_owner_contract', '-AppleLanguages', '(' + language + ')', '-AppleLocale', language]
@@ -54,5 +64,6 @@ if __name__ == '__main__':
     parser.add_argument('source', type=Path)
     parser.add_argument('destination', type=Path)
     parser.add_argument('--language', choices=['en', 'nl', 'de', 'fr', 'es'], default='nl')
+    parser.add_argument('--mac-app', type=Path)
     options = parser.parse_args()
-    configure(options.source, options.destination, options.language)
+    configure(options.source, options.destination, options.language, options.mac_app)
