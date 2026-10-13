@@ -1672,6 +1672,7 @@ private func makePairedMusicDNAModel(
     #expect(feed.httpMethod == "GET")
     #expect(feed.url?.path == "/api/djconnect/v1/music_discovery")
     #expect(feed.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key") == "user:abc123")
+    #expect(URLComponents(url: try #require(feed.url), resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "music_dna_key" })?.value == "user:abc123")
     #expect(feed.value(forHTTPHeaderField: "X-DJConnect-Language") == "nl")
     #expect(refresh.httpMethod == "POST")
     #expect(refresh.url?.path == "/api/djconnect/v1/music_discovery/refresh")
@@ -3055,6 +3056,71 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
     #expect(model.isShowingMusicDNAOptInPrompt == false)
 }
 
+private final class ProfileConsentServer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var enabled = false
+    private var key: String?
+
+    func respond(_ request: URLRequest) throws -> (HTTPURLResponse, Data) {
+        lock.lock(); defer { lock.unlock() }
+        let body = try requestBodyData(request).map { try JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? nil
+        let queryKey = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "music_dna_key" })?.value
+        let requestedKey = body?["music_dna_key"] as? String ?? queryKey
+        if request.url?.path.hasSuffix("music_dna/settings") == true {
+            enabled = body?["enabled"] as? Bool ?? false
+            key = requestedKey
+        }
+        // Reproduce the live server's GET context mismatch when the key is absent.
+        let responseEnabled = enabled && requestedKey != nil && requestedKey == key
+        let payload: [String: Any] = ["success": true, "enabled": responseEnabled,
+            "music_dna_key": requestedKey ?? "other-context", "profile": [:], "sections": []]
+        return (try httpResponse(for: request, statusCode: 200), try JSONSerialization.data(withJSONObject: payload))
+    }
+}
+
+@MainActor
+@Test func musicDNAActivationRefreshesDiscoverAndSurvivesFreshClientWithoutLocalConsent() async throws {
+    let defaults = try testDefaults()
+    let server = ProfileConsentServer()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "musicdna-relaunch.local") { request in
+        recorder.append(request)
+        return try server.respond(request)
+    }
+    var first: DJConnectAppModel? = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-relaunch.local", session: session)
+    await first?.setMusicDNAEnabled(true)
+    #expect(first?.musicDiscoveryResponse?.enabled == true)
+    #expect(recorder.requests.filter { $0.url?.path == "/api/djconnect/v1/music_discovery/refresh" }.count == 1)
+    first = nil
+
+    let relaunched = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-relaunch.local", session: session)
+    #expect(relaunched.musicDNAProfileResponse == nil)
+    await relaunched.loadMusicDiscovery()
+    #expect(relaunched.musicDiscoveryResponse?.enabled == true)
+    await relaunched.refreshMusicDNAProfile()
+    #expect(relaunched.musicDNAProfileResponse?.enabled == true)
+    let read = try #require(recorder.requests.last(where: { $0.url?.path == "/api/djconnect/v1/music_discovery" }))
+    #expect(URLComponents(url: try #require(read.url), resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "music_dna_key" })?.value == read.value(forHTTPHeaderField: "X-DJConnect-Music-DNA-Key"))
+}
+
+@MainActor
+@Test func confirmedMusicDNAActivationLoadsDiscoverEvenIfFollowupProfileReadFails() async throws {
+    let defaults = try testDefaults()
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "musicdna-followup-glitch.local") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/v1/music_dna/profile" {
+            return (try httpResponse(for: request, statusCode: 503), Data(#"{"success":false,"error":"music_dna_unavailable"}"#.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"profile":{},"sections":[]}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "musicdna-followup-glitch.local", session: session)
+    await model.setMusicDNAEnabled(true)
+    #expect(model.musicDNAProfileResponse?.enabled == true)
+    #expect(model.musicDiscoveryResponse?.enabled == true)
+    #expect(recorder.requests.map { $0.url?.path } == ["/api/djconnect/v1/music_dna/settings", "/api/djconnect/v1/music_discovery/refresh", "/api/djconnect/v1/music_dna/profile"])
+}
+
 @MainActor
 @Test func optInMusicDNAUsesSettingsEndpointAndRefreshesProfile() async throws {
     let defaults = try testDefaults()
@@ -3071,6 +3137,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 
     #expect(recorder.requests.map { $0.url?.path } == [
         "/api/djconnect/v1/music_dna/settings",
+        "/api/djconnect/v1/music_discovery/refresh",
         "/api/djconnect/v1/music_dna/profile"
     ])
     #expect(model.musicDNAProfileResponse?.enabled == true)
@@ -3098,6 +3165,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 
     #expect(recorder.requests.map { $0.url?.path } == [
         "/api/djconnect/v1/music_dna/settings",
+        "/api/djconnect/v1/music_discovery/refresh",
         "/api/djconnect/v1/music_dna/profile",
         "/api/djconnect/v1/music_dna/profile"
     ])
@@ -5711,6 +5779,35 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
     #expect(counter.count == 1)
 }
 
+@Test(arguments: ["cancelled", "url_cancelled", "auth", "profile", "server", "backend"])
+func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) async throws {
+    let failure: any Error
+    switch kind {
+    case "cancelled": failure = CancellationError()
+    case "url_cancelled": failure = URLError(.cancelled)
+    case "auth": failure = DJConnectError.authStale(statusCode: 401, message: nil)
+    case "profile": failure = DJConnectError.profile(code: .profileAccessDenied, statusCode: 403, message: nil)
+    case "server": failure = DJConnectError.server(statusCode: 200, message: "Command rejected")
+    default: failure = DJConnectError.backendUnavailable(message: nil)
+    }
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJMessage])
+    await fastPath.setAskDJError(failure)
+    let client = DJConnectClient(baseURL: URL(string: "http://ws-no-replay.local:8123")!,
+        identity: testIOSIdentity(), tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "ws-no-replay.local") { request in
+            Issue.record("HTTP must not replay a cancelled or server-rejected WebSocket request")
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"history_revision":9,"clear_revision":1,"assistant_message":{"role":"assistant","text":"Unexpected replay"}}"#.utf8))
+        }, webSocketFastPath: fastPath)
+    do {
+        _ = try await client.sendAskDJMessage(DJConnectAskDJRequest(identity: testIOSIdentity(), text: "Question"))
+        Issue.record("Expected the original failure")
+    } catch is CancellationError {
+        #expect(kind == "cancelled" || kind == "url_cancelled")
+    } catch let error as DJConnectError {
+        #expect(error == failure as? DJConnectError)
+    }
+}
+
 @Test func remoteOnlyClientStaysHTTPWithoutFastPath() async throws {
     final class Counter: @unchecked Sendable {
         let lock = NSLock()
@@ -7354,16 +7451,17 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func transportFallsBackFromLocalToRemoteAfterPairing() async throws {
+@Test(arguments: ["iPhone", "iPad", "Mac"])
+func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throws {
     let localURL = try #require(URL(string: "http://192.168.1.13:8123"))
     let remoteURL = try #require(URL(string: "https://example.ui.nabu.casa"))
     let recorder = ConnectionModeRecorder()
     let identity = DJConnectIdentity(
-        deviceID: "djconnect-ios-8F3A2C91B45D",
-        deviceName: "DJConnect iPhone",
-        clientType: .ios,
+        deviceID: "djconnect-" + (device == "Mac" ? "macos" : "ios") + "-8F3A2C91B45D",
+        deviceName: "DJConnect " + device,
+        clientType: device == "Mac" ? .macos : .ios,
         firmware: "3.2.0",
-        platform: .ios
+        platform: device == "Mac" ? .macos : .ios
     )
     let transport = DJConnectHATransportManager(
         localURL: localURL,
@@ -7416,6 +7514,25 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
     }
 
     #expect(recorder.modes == [.offline])
+}
+
+@Test @MainActor func preferredRemoteHTTPAvoidsRepeatedLANTimeoutAndCanReturnToLocal() async throws {
+    let local = URL(string: "http://192.168.1.13:8123")!
+    let remote = URL(string: "https://example.ui.nabu.casa")!
+    let recorder = ConnectionModeRecorder()
+    let manager = DJConnectHATransportManager(localURL: local, remoteURL: remote,
+        allowsRemoteFallback: true, prefersRemote: true,
+        clientFactory: { DJConnectClient(baseURL: $0, identity: testIOSIdentity(), tokenStore: DJConnectInMemoryTokenStore()) },
+        modeReporter: { mode, _ in recorder.append(mode) })
+    #expect(manager.candidates.map(\.mode) == [.remote, .local])
+    let result = try await manager.perform { client in
+        if client.baseURL == remote { throw DJConnectError.network(message: "Remote unavailable") }
+        return client.baseURL
+    }
+    #expect(result == local && recorder.modes == [.local])
+    let next = DJConnectHATransportManager(localURL: local, remoteURL: remote, allowsRemoteFallback: true,
+        clientFactory: { DJConnectClient(baseURL: $0, identity: testIOSIdentity(), tokenStore: DJConnectInMemoryTokenStore()) })
+    #expect(next.candidates.map(\.mode) == [.local, .remote])
 }
 
 @Test func pairingAndCommandResponsesDecodeMusicBackendSummary() throws {
@@ -13334,4 +13451,24 @@ private extension String {
         try await Task.sleep(for: .milliseconds(25))
     }
     #expect(model.playback?.currentTrackFavoriteStatus != original.currentTrackFavoriteStatus)
+}
+
+@MainActor
+@Test(arguments: [false, true]) func transportCancellationNeverReportsOffline(rawURLCancellation: Bool) async throws {
+    let recorder = ConnectionModeRecorder()
+    let identity = DJConnectIdentity(deviceID: "cancellation-test", deviceName: "Test", clientType: .macos,
+                                     firmware: "4.0.0", platform: .macos)
+    let transport = DJConnectHATransportManager(
+        localURL: URL(string: "http://local.test"), remoteURL: URL(string: "https://remote.test"),
+        allowsRemoteFallback: true,
+        clientFactory: { DJConnectClient(baseURL: $0, identity: identity, tokenStore: DJConnectInMemoryTokenStore()) },
+        modeReporter: { mode, _ in recorder.append(mode) })
+    do {
+        _ = try await transport.perform { _ -> String in
+            if rawURLCancellation { throw URLError(.cancelled) }
+            throw CancellationError()
+        }
+        Issue.record("Cancellation must propagate")
+    } catch is CancellationError {}
+    #expect(recorder.modes.isEmpty)
 }

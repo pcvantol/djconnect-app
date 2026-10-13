@@ -416,8 +416,29 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
     /// Private conversation responses never enter exportable diagnostics as free text.
     @discardableResult
     func recordTransportFailure(_ error: Error, privateResponse: Bool) -> Error {
-        let safeError: Error = privateResponse ? DJConnectError.network(message: "Scoped Profile history request failed") : error
-        markUnhealthy(safeError)
+        if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
+            return CancellationError()
+        }
+        let safeError: Error
+        if privateResponse, let typed = error as? DJConnectError {
+            // Redact private text without changing an authoritative failure into
+            // a retryable network error.
+            switch typed {
+            case let .authStale(statusCode, _): safeError = DJConnectError.authStale(statusCode: statusCode, message: nil)
+            case let .profile(code, statusCode, _): safeError = DJConnectError.profile(code: code, statusCode: statusCode, message: nil)
+            case let .server(statusCode, _): safeError = DJConnectError.server(statusCode: statusCode, message: nil)
+            case .backendUnavailable: safeError = DJConnectError.backendUnavailable(message: nil)
+            case .routeMissing: safeError = DJConnectError.routeMissing(message: nil)
+            case .missingToken: safeError = DJConnectError.missingToken
+            case .invalidResponse: safeError = DJConnectError.invalidResponse
+            default: safeError = DJConnectError.network(message: "Scoped Profile history request failed")
+            }
+        } else {
+            safeError = privateResponse ? DJConnectError.network(message: "Scoped Profile history request failed") : error
+        }
+        if privateResponse {
+            markUnhealthy(DJConnectError.network(message: "Scoped Profile history request failed"))
+        } else { markUnhealthy(safeError) }
         return safeError
     }
 

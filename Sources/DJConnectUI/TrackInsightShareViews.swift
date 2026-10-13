@@ -411,63 +411,29 @@ private struct TrackInsightShareSegmentControl<Option: Hashable & Identifiable>:
                 .foregroundStyle(.white.opacity(0.86))
                 .frame(width: 92, alignment: .trailing)
 
-            HStack(spacing: 8) {
-                ForEach(options) { option in
-                    Button {
-                        selection = option
-                    } label: {
-                        Text(label(option))
-                            .font(.system(size: 16, weight: .semibold, design: .default))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.74)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 44)
-                            .contentShape(Rectangle())
-                            .background(selectionBackground(for: option))
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            DJSessionGlassGroup {
+                HStack(spacing: 8) {
+                    ForEach(options) { option in
+                        Button {
+                            selection = option
+                        } label: {
+                            Text(label(option))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.74)
+                        }
+                        .buttonStyle(DJConnectButtonStyle(
+                            emphasis: option == selection ? .selected : .secondary,
+                            shape: .segmented, expands: true))
+                        .accessibilityAddTraits(option == selection ? .isSelected : [])
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(option == selection ? .white : .white.opacity(0.70))
-                    .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .accessibilityAddTraits(option == selection ? .isSelected : [])
                 }
             }
-            .padding(8)
+            .padding(DJConnectCardAppearance.segmentedContentInset)
             .frame(minHeight: 60)
             .frame(maxWidth: 390)
-            .background(
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.04, green: 0.03, blue: 0.13).opacity(0.96),
-                        Color(red: 0.11, green: 0.05, blue: 0.24).opacity(0.96)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ),
-                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(.white.opacity(0.16), lineWidth: 1.5)
-            }
+            .djSessionFrostedSurface()
         }
         .frame(maxWidth: .infinity)
-    }
-
-    @ViewBuilder
-    private func selectionBackground(for option: Option) -> some View {
-        if option == selection {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.98, green: 0.49, blue: 0.27),
-                    Color(red: 0.74, green: 0.20, blue: 0.77)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        } else {
-            Color.clear
-        }
     }
 }
 

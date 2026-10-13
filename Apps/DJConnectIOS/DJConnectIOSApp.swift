@@ -10,11 +10,14 @@ struct DJConnectIOSApp: App {
     @StateObject private var model = DJConnectIOSApp.makeModel()
 
     var body: some Scene {
-        WindowGroup {
-            DJConnectLaunchContainer(isBusy: model.isRefreshing, content: DJConnectRootView(model: model))
-                .onAppear {
-                    appDelegate.model = model
-                }
+        // SwiftUI may evaluate the scene content builder on its async render thread.
+        // Read actor-isolated app state here, before the nonisolated builder runs.
+        let content = DJConnectLaunchContainer(isBusy: model.isRefreshing, content: DJConnectRootView(model: model))
+            .onAppear {
+                appDelegate.model = model
+            }
+        return WindowGroup { @Sendable in
+            content
         }
     }
 

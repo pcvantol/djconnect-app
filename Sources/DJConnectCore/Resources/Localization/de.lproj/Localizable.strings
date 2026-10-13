@@ -1075,3 +1075,22 @@
 "ui.session.playback_paused_detail" = "Deine Musik ist pausiert. Deine DJ-Session bleibt aktiv.";
 
 "ui.chat.you" = "Du";
+
+"ui.session.mood.unavailable" = "Die Stimmung kann über diese Verbindung noch nicht geändert werden.";
+
+"ui.session.chat.placeholder" = "Chatte mit dem DJ…";
+
+"ui.music.dna.range.short_term" = "Kurzfristig";
+
+"ui.music.dna.range.medium_term" = "Mittelfristig";
+
+"ui.music.dna.range.long_term" = "Langfristig";
+
+"ui.music.dna.recovering" = "Music DNA ist vorübergehend nicht verfügbar und wird automatisch neu geladen.";
+
+"ui.music.dna.profile_access" = "Music DNA ist für dieses Profil nicht zugänglich. Prüfe dein Profil in den Einstellungen.";
+
+"ui.music.dna.processing_failed" = "Music DNA konnte nicht verarbeitet werden. Melde dies über Feedback.";
+
+"ui.session.history.detail.label" = "Sitzung";
+"ui.session.history.detail.title" = "Sitzung %@";

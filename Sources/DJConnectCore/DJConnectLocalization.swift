@@ -110,6 +110,16 @@ public enum DJConnectLocalization {
     }
 
     private static func localizedBundle(for languageCode: String) -> Bundle? {
+        localizedBundles[languageCode]
+    }
+
+    // Immutable app resources: discover once, while language selection stays per call.
+    private static let localizedBundles: [String: Bundle] = Dictionary(uniqueKeysWithValues:
+        supportedLanguageCodes.compactMap { language in
+            resolveLocalizedBundle(for: language).map { (language, $0) }
+        })
+
+    private static func resolveLocalizedBundle(for languageCode: String) -> Bundle? {
         for bundle in localizationCandidateBundles {
             if let path = bundle.path(
                 forResource: languageCode,
@@ -128,7 +138,7 @@ public enum DJConnectLocalization {
         return nil
     }
 
-    private static var localizationCandidateBundles: [Bundle] {
+    private static let localizationCandidateBundles: [Bundle] = {
         var bundles = [resourceBundle, Bundle.main]
         bundles.append(contentsOf: Bundle.allFrameworks.filter { bundle in
             bundle.bundleIdentifier?.contains("DJConnectCore") == true
@@ -140,15 +150,15 @@ public enum DJConnectLocalization {
             }
             uniqueBundles.append(bundle)
         }
-    }
+    }()
 
-    private static var resourceBundle: Bundle {
+    private static let resourceBundle: Bundle = {
         #if SWIFT_PACKAGE
         Bundle.module
         #else
         Bundle(for: DJConnectLocalizationBundleToken.self)
         #endif
-    }
+    }()
 
 }
 

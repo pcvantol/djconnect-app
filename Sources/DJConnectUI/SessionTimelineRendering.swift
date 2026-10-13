@@ -47,13 +47,16 @@ struct SessionTimelineRenderEntry: Equatable, Identifiable {
     func clear() { sessionID = nil; epoch = nil; entries.removeAll() }
 }
 
-/// Opacity only: lazy prefetch and row height remain stable while entering the viewport.
+/// Fade once on lazy appearance, without a transition driven by every scroll frame.
 struct SessionRowFade: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var appeared = false
     var selected: Bool
     func body(content: Content) -> some View {
-        content.scrollTransition(reduceMotion ? .identity : .animated(.easeOut(duration: 0.18)), axis: .vertical) { view, phase in
-            view.opacity(selected || phase.isIdentity ? 1 : 0.65)
-        }
+        content.opacity(reduceMotion || selected || appeared ? 1 : 0)
+            .onAppear {
+                guard !appeared else { return }
+                withAnimation(reduceMotion || selected ? nil : .easeOut(duration: 0.12)) { appeared = true }
+            }
     }
 }

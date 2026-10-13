@@ -85,3 +85,39 @@ Render preparation is transient, keyed by Session and authority response epoch. 
 Session search now uses the localized session-scoped prompt (Dutch: "Zoek in deze sessie") instead of the archive screen title. The complete search controls/status have a translucent backing for readability while contributions scroll behind them. Ask DJ retains its existing independent search scope and input layout.
 
 Qualification: 482 Swift tests PASS before the last composer/search refinements; the two targeted render-cache/context tests PASS on the latest source. Native iPhone full-width/current-jump and floating-composer/search/keyboard tests PASS. iPad left/right layout and native bottom-navigation tests PASS (the navigation test required one retry after a simulator launch failure). Unsigned generic iOS and Mac builds PASS;1055 localization keys validate. Exported simulator screenshots were inspected. Bounded source review GO. CPU/clock/memory simulator comparison is retained separately with its limits; it is not physical frame-rate acceptance. Physical iPhone17Pro and iPad scroll qualification remains open because the profiler cannot attach over the available connection. Existing installed versions and this exact candidate's subsequent installation receipts are recorded separately; no Store, HA, Watch or source publication is included.
+
+## Build 40021 Mac minimum window size
+
+The main Mac window minimum content size changes from 960 by 480 to 960 by 800 points, matching the owner's reference proportions and reserving height for all sidebar destinations including Feedback. Only the sidebar's scroll indicators are hidden; content pages retain their existing scrolling behavior. The settings and About window constraints are unchanged. This is a source change pending installed visual qualification, not a claim of physical scroll-performance acceptance.
+
+## Build 40021 initial saved-session loading
+
+Saved Sessions no longer interprets the model's initial unchecked `available == false` as a completed unavailable result. A view-local first-load flag shows loading until restoration finishes, suppressing the initial error/empty overlay. The load task follows connection readiness and Demo mode; cancelled tasks cannot mark restoration complete. Successful empty results retain the existing localized empty-state label, while completed capability or request failures retain their existing unavailable/error states. No backend history or authority contract is changed.
+
+## Build 40021 expanded current header layout
+
+Mac and iPad now place artwork to the left of the full playback metadata, progress, favorite, output and volume block. The story card spans the full header width below that row. iPhone keeps its vertically stacked artwork and metadata, and its scrolling header behavior. Mac and iPad retain their pinned-header height bound and overflow fallback. Missing artwork does not reserve an empty artwork column. Shared artwork corner rounding remains applied. The previous native iPad geometry check is updated to assert equal music/story widths and story placement below music.
+
+## Build 40021 Mac Ask DJ viewport containment
+
+Mac navigation preserves the NavigationSplitView identity when changing sections, resetting only the selected detail. A GeometryReader explicitly proposes the actual detail viewport width and height to the selected screen, preventing detail fitting requirements from increasing the outer split layout. A native Mac regression test checks repeated Ask DJ navigation, stable reachable Session sidebar position and composer containment within the main window. Installed/native execution of this new regression remains pending; compilation alone does not confirm resolution of the owner screenshot.
+
+## Build 40021 navigation cancellation and reachability
+
+HTTP cancellation previously became a generic network error in dataAndStatusCodeResponse; transport could report offline/fall back and Session History could replace retained content with an unavailable error. Cancellation now propagates as CancellationError, transport skips offline reporting and fallback for cancelled operations, and readonly preparation/conversation/list/timeline/search catches ignore cancellation. Real network and authority failures retain their existing behavior. Targeted tests cover raw URL cancellation and CancellationError, full HTTP-to-history cancellation preserving Session rows, timeline, owner scope and local connection mode, and genuine unreachable transport still reporting offline. These software tests prove this cancellation path; the owner-reported physical Mac navigation symptom still needs installed reproduction/acceptance.
+
+## Build 40021 native Mac titlebar layout
+
+The prior fullscreen toolbar visibility adjustment was insufficient according to the owner screenshot: traffic lights overlapped the first sidebar destination. The main window now uses the native titleBar style instead of hiddenTitleBar and no longer forces fullSizeContentView. The title text remains hidden and the titlebar remains transparent, while native window chrome owns the reserved content area. Fullscreen hover/traffic-light overlap remains pending runtime visual qualification; unsigned build success alone is not acceptance.
+
+## Build 40021 iPhone Ask DJ floating composer
+
+General Ask DJ now uses the shared floating composer on iPhone, inset12 horizontally and8 above the tab-safe-area boundary, with measured bottom scroll-content margin. Its offline notice participates in the feed instead of occupying a separate footer, and the jump-to-bottom button clears the measured composer. Search hides the composer and removes its reserved content margin. Mac and iPad retain their existing footer presentation. A native iPhone geometry/search regression and screenshot are recorded separately; this does not establish physical scroll-performance acceptance.
+
+## Build 40021 bottom primary navigation
+
+iPhone and iPad replace the second primary Ask DJ tab with localized Now Playing (music.note). The five tabs are Session, Now Playing, Track Insight, Discover and More. Ask DJ is the first More destination, replacing the redundant More Now Playing row. Home-screen/requested-section routing treats Ask DJ as a More destination and Now Playing as primary; Mac sidebar destinations are unchanged. Ask DJ reuses the containing More NavigationStack instead of nesting another stack. Native iPhone tests cover primary Now Playing and Ask DJ through More, including floating composer clearance and search hiding the composer after the test handles the Music DNA consent dialog.
+
+## Build 40021 Music DNA automatic read recovery
+
+The profile read now coalesces loading and retries network errors, backend-unavailable responses and transient HTTP408/429/5xx failures after1/3/8 seconds. Existing loaded profile data stays visible while recovery is pending. While the Music DNA page is visible and active, an unresolved transient failure triggers another bounded read cycle after30 seconds. Navigation/background cancellation stops its task, and response epoch plus refresh generation guards reject stale completions. Read recovery only repeats the existing profile endpoint, whose transport method is POST with identity context; it never repeats settings, consent, clear, export or import mutations. Nontransient invalid-profile errors clear the private display and direct the owner to Settings; other processing errors direct Feedback, while existing pairing/version handling remains authoritative. New recovery labels are localized in all five languages. Full Swift suite491 tests PASS before the final backend-unavailable test expansion; the expanded focused read tests and final build are recorded separately. Installed runtime recovery remains unqualified.

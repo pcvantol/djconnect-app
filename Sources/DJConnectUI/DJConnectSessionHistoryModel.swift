@@ -75,6 +75,25 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             ?? historicalMatches.values.flatMap { $0 }.first { $0.reference == reference && $0.isRetained() }?.text
     }
 
+    /// Resolve only a retained, server-owned answer identity; never infer an entry from its text.
+    func contextEntry(for message: DJConnectAskDJMessage) -> DJConnectHistoryEntry? {
+        guard profileScopeActive || host?.isDemoMode == true else { return nil }
+        return Self.contextEntry(for: message, entries: timelines.values.flatMap(\.entries)
+            + historicalMatches.values.flatMap { $0 })
+    }
+
+    nonisolated static func contextEntry(for message: DJConnectAskDJMessage,
+                                         entries: [DJConnectHistoryEntry], at date: Date = Date()) -> DJConnectHistoryEntry? {
+        guard message.role == .dj, message.messageKind == .assistant,
+              let serverID = message.serverID, !serverID.isEmpty else { return nil }
+        let matches = entries.filter {
+            $0.kind == .conversationDJ && $0.originMessageID == serverID
+                && $0.isContractValid && $0.isRetained(at: date)
+        }
+        guard let entry = matches.first, matches.allSatisfy({ $0.reference == entry.reference }) else { return nil }
+        return entry
+    }
+
     init(host: DJConnectAppModel) { self.host = host }
 
     /// Explicit, ephemeral review examples; never an owner grant or backend history.
@@ -152,6 +171,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             }
             if available { await refreshConversation() }
         } catch {
+            guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
             guard captured == epoch else { return }
             if withdrawAuthority(for: error) { return }
             listErrorKey = "ui.session.history.unavailable"
@@ -197,6 +217,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             historicalMatches = response.historicalMatches
             reconcilePending(with: response.base)
         } catch {
+            guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
             guard captured == epoch else { return }
             historicalMatches = [:]
             host.clearProfileConversationDisplay()
@@ -223,6 +244,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             listRevision = page.revision.value; listNextCursor = page.nextCursor
             return true
         } catch {
+            guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return false }
             guard captured == epoch, generation == listGeneration else { return false }
             if withdrawAuthority(for: error) { return false }
             sessions = []; listNextCursor = nil
@@ -257,6 +279,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             timelines[sessionID] = Timeline(session: page.session, entries: entries, nextCursor: nextCursor,
                                             revision: page.revision.value, loading: false, errorKey: nil, windowed: window != nil)
         } catch {
+            guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
             guard captured == epoch, timelineGenerations[sessionID] == generation else { return }
             if withdrawAuthority(for: error) { return }
             timelines[sessionID] = Timeline(errorKey: errorKey(error))
@@ -347,6 +370,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             searchNextCursor = page.nextCursor; searchComplete = page.complete
             searchTotal = page.totalCount; searchErrorKey = nil
         } catch {
+            guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
             guard captured == epoch, generation == searchGeneration, !Task.isCancelled else { return }
             if withdrawAuthority(for: error) { return }
             clearSearchResults(); searchErrorKey = errorKey(error)
@@ -473,6 +497,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             guard host.applyProfileConversationHistory(response.base) else { throw DJConnectError.server(statusCode: 409, message: nil) }
             historicalMatches = response.historicalMatches
             reconcilePending(with: response.base)
+            if let sessionID = host.activeDJSession?.sessionID, timelines[sessionID] == nil {
+                await loadTimeline(sessionID, window: .tail, preserveLoadedEntries: true)
+            }
             return response.base
         } catch {
             if captured == epoch { _ = withdrawAuthority(for: error) }

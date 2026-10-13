@@ -13,7 +13,7 @@ struct DJConnectMacApp: App {
     var body: some Scene {
         WindowGroup {
             DJConnectLaunchContainer(isBusy: model.isRefreshing, content: DJConnectRootView(model: model))
-                .frame(minWidth: 960, idealWidth: 1280, minHeight: 480, idealHeight: 1060)
+                .frame(minWidth: 960, idealWidth: 1280, minHeight: 800, idealHeight: 1060)
                 .background(WindowConfigurator())
                 // Let the native fullscreen toolbar reserve its own area when the menu bar reveals.
                 .windowToolbarFullScreenVisibility(.visible)
@@ -21,7 +21,7 @@ struct DJConnectMacApp: App {
                     appDelegate.model = model
                 }
         }
-        .windowStyle(.hiddenTitleBar)
+        .windowStyle(.titleBar)
         #if DEBUG
         .defaultLaunchBehavior(ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("--runtime-fixture") }) ? .presented : .automatic)
         #endif
@@ -216,7 +216,8 @@ private struct WindowConfigurator: NSViewRepresentable {
 
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
-            window.styleMask.insert(.fullSizeContentView)
+            // Reserve native titlebar/toolbar space, including traffic lights revealed in fullscreen.
+            window.styleMask.remove(.fullSizeContentView)
             window.isMovableByWindowBackground = true
             window.backgroundColor = .clear
             window.toolbarStyle = .unifiedCompact

@@ -1075,3 +1075,22 @@
 "ui.session.playback_paused_detail" = "Je muziek staat op pauze. Je DJ-sessie blijft actief.";
 
 "ui.chat.you" = "Jij";
+
+"ui.session.mood.unavailable" = "Stemming wijzigen is nog niet beschikbaar via deze verbinding.";
+
+"ui.session.chat.placeholder" = "Chat met de DJ…";
+
+"ui.music.dna.range.short_term" = "Korte termijn";
+
+"ui.music.dna.range.medium_term" = "Middellange termijn";
+
+"ui.music.dna.range.long_term" = "Lange termijn";
+
+"ui.music.dna.recovering" = "Music DNA is tijdelijk niet beschikbaar en wordt automatisch opnieuw geladen.";
+
+"ui.music.dna.profile_access" = "Music DNA is niet toegankelijk voor dit profiel. Controleer je profiel in Instellingen.";
+
+"ui.music.dna.processing_failed" = "Music DNA kon niet worden verwerkt. Meld dit via Feedback.";
+
+"ui.session.history.detail.label" = "Sessie";
+"ui.session.history.detail.title" = "Sessie %@";

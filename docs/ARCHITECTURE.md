@@ -94,11 +94,25 @@ memory only, authenticating `/api/websocket`, and then checking matching
 `djconnect/*` capabilities. The paired DJConnect `device_token` is not HA
 WebSocket auth; it is sent only inside DJConnect payloads after HA auth succeeds.
 This is deliberately optional: HTTP remains the canonical implementation,
-remote/Nabu Casa URLs use HTTP only, and every WebSocket failure path falls back
-to the existing HTTP flow without treating the pairing as stale. WebSocket
+remote/Nabu Casa action requests use HTTP only. Missing capabilities and network
+failures fall back to the existing HTTP flow; cancellation and authoritative
+server, Profile or authentication errors propagate without replaying the request. WebSocket
 diagnostics must remain non-secret: route/capability state is fine, but HA
 tokens, DJConnect device tokens, raw prompts, Ask DJ history, raw audio, and
 Music DNA content are not.
+
+Active DJ Session delivery uses a separate paired-owner WebSocket contract,
+not the optional HA-credential action fast path. While that live subscription
+is disconnected, the foreground client automatically reads the existing
+owner-authorized active Session HTTP projection every two seconds. This uses
+the same Broadcast DTO, native admission checks, expiry and identity validation;
+it never synthesizes a Moment or replays a session mutation. A successful live
+snapshot pauses HTTP recovery. Session termination, authority withdrawal and
+leaving the foreground stop recovery. After a confirmed remote connection,
+ordinary requests prefer that route for up to fifteen seconds before probing
+LAN again; foreground resume resets the probe delay. HTTP offers snapshot
+delivery rather than WebSocket event latency. Session lifecycle, pinned mood,
+history, search and voice still use their existing HTTP contracts.
 
 `DJConnectWatch`
 

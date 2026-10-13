@@ -7826,11 +7826,17 @@ public struct DJConnectOutputDevice: Codable, Equatable, Identifiable, Sendable 
             cached: try container.decodeIfPresent(Bool.self, forKey: .cached),
             provider: try container.decodeIfPresent(String.self, forKey: .provider),
             source: try container.decodeIfPresent(String.self, forKey: .source),
-            firstSeenAt: try container.decodeIfPresent(String.self, forKey: .firstSeenAt),
-            lastSeenAt: try container.decodeIfPresent(String.self, forKey: .lastSeenAt),
+            firstSeenAt: Self.observedTimestamp(container, key: .firstSeenAt),
+            lastSeenAt: Self.observedTimestamp(container, key: .lastSeenAt),
             supportsVolume: try container.decodeIfPresent(Bool.self, forKey: .supportsVolume),
             volumePercent: try container.decodeIfPresent(Int.self, forKey: .volumePercent)
         )
+    }
+
+    private static func observedTimestamp(_ container: KeyedDecodingContainer<CodingKeys>, key: CodingKeys) -> String? {
+        if let text = try? container.decode(String.self, forKey: key) { return text }
+        guard let seconds = try? container.decode(Double.self, forKey: key), seconds.isFinite, seconds >= 0 else { return nil }
+        return ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: seconds))
     }
 
     public func encode(to encoder: Encoder) throws {

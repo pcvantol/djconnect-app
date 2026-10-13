@@ -11,9 +11,9 @@ extension View {
         modifier(DJSessionGlassSurface(cornerRadius: cornerRadius))
     }
 
-    @ViewBuilder func djSessionNavigationTitleStyle() -> some View {
+    @ViewBuilder func djSessionNavigationTitleStyle(compactPhone: Bool = false) -> some View {
         #if os(iOS)
-        navigationBarTitleDisplayMode(.large)
+        navigationBarTitleDisplayMode(compactPhone && UIDevice.current.userInterfaceIdiom == .phone ? .inline : .large)
         #else
         self
         #endif
@@ -80,7 +80,7 @@ struct NativeSessionMomentsView: View {
         TimelineView(.periodic(from: .now, by: 1)) { clock in
             let current = currentMoment(at: clock.date)
             VStack(alignment: .leading, spacing: 24) {
-                SessionCurrentColumns(stacked: stacksCurrentOnPhone) {
+                SessionCurrentColumns(stacked: true) {
                     musicContext
                     currentCard(current)
                         .accessibilityIdentifier("session-current-card")
@@ -223,13 +223,36 @@ struct NativeSessionMomentsView: View {
         }
     }
 
+    private var musicArtworkURL: URL? {
+        guard let raw = session.broadcast.playback?.artworkURL,
+              let url = URL(string: raw, relativeTo: artworkBaseURL)?.absoluteURL,
+              ["http", "https"].contains(url.scheme) else { return nil }
+        return url
+    }
+
     private var musicContext: some View {
+        Group {
+            if let url = musicArtworkURL {
+                SessionCurrentColumns(stacked: stacksCurrentOnPhone) {
+                    AsyncImage(url: url) { image in image.resizable().scaledToFit() } placeholder: { Image(systemName: "music.note") }
+                        .frame(maxHeight: 180)
+                        .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
+                        .frame(maxWidth: .infinity)
+                        .accessibilityIdentifier("session-music-artwork")
+                    musicDetails
+                }
+            } else {
+                musicDetails
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("session-music-context")
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var musicDetails: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let playback = session.broadcast.playback {
-                if let raw = playback.artworkURL, let url = URL(string: raw, relativeTo: artworkBaseURL)?.absoluteURL, ["http", "https"].contains(url.scheme) {
-                    AsyncImage(url: url) { image in image.resizable().scaledToFit() } placeholder: { Image(systemName: "music.note") }
-                        .frame(maxWidth: .infinity, maxHeight: 180).clipShape(RoundedRectangle(cornerRadius: 16))
-                }
                 Text(playback.title ?? text("ui.nothing.playing")).font(.headline)
                 if let artist = playback.artist { Text(artist).foregroundStyle(.secondary) }
                 if let album = playback.album { Text(album).font(.caption).foregroundStyle(.secondary) }
@@ -271,7 +294,7 @@ struct NativeSessionMomentsView: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("session-music-context")
+        .accessibilityIdentifier("session-music-details")
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
@@ -345,6 +368,8 @@ struct MomentCard: View {
             }
             ForEach(moment.nativeSourceURLs, id: \.absoluteString) { url in
                 Link(sourceLabel(url), destination: url)
+                    .foregroundStyle(djConnectAccent)
+                    .tint(djConnectAccent)
                     .accessibilityValue(url.absoluteString)
                     .accessibilityIdentifier("moment-source-" + url.absoluteString)
             }
