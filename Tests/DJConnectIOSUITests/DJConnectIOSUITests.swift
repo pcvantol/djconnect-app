@@ -1912,7 +1912,6 @@ extension DJConnectIOSUITests {
         let anchors = ["nl":["Alleen muziek","Af en toe","Gebalanceerd","Praatgraag","Presentator"],"en":["Music only","Occasionally","Balanced","Talkative","Presenter"],"de":["Nur Musik","Gelegentlich","Ausgewogen","Gesprächig","Moderator"],"fr":["Musique uniquement","De temps en temps","Équilibré","Bavard","Présentateur"],"es":["Solo música","De vez en cuando","Equilibrado","Conversador","Presentador"]]
         for (offset, value) in values.enumerated() {
             let button = app.buttons["session-presence-choice-" + value]
-            XCTAssertTrue(button.waitForExistence(timeout: 10) && button.isEnabled)
             let viewport = app.scrollViews["session-presence-scroll"]
             // Inspect native bounds first: XCTest may throw when asking hittability
             // for a wholly clipped activation point at accessibility text sizes.
@@ -1930,7 +1929,7 @@ extension DJConnectIOSUITests {
             let reachable = XCTAttachment(screenshot: app.screenshot())
             reachable.name = "presence-native-reachable-\(value)"
             reachable.lifetime = .keepAlways; add(reachable)
-            XCTAssertTrue(button.isHittable)
+            XCTAssertTrue(button.exists && button.isEnabled && button.isHittable)
             if offset == 0 { _ = try await control("presence_delay_once") }
             button.tap()
             if offset == 0 {
