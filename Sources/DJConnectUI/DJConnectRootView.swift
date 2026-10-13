@@ -8663,6 +8663,14 @@ private struct IdleDJSessionView: View {
         ("energy", "bolt"), ("party", "sparkles")
     ]
 
+    private var usesIconOnlyMoodButtons: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .phone
+        #else
+        false
+        #endif
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
             ViewThatFits(in: .horizontal) {
@@ -8676,13 +8684,22 @@ private struct IdleDJSessionView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text(localizedKey(model.language, "ui.session.welcome.mood"))
                     .font(.headline)
-                HStack(spacing: 4) {
-                    ForEach(moods, id: \.id) { mood in
-                        moodButton(mood.id, glyph: mood.glyph)
+                VStack(spacing: 8) {
+                    HStack(spacing: 4) {
+                        ForEach(moods, id: \.id) { mood in
+                            moodButton(mood.id, glyph: mood.glyph)
+                        }
+                    }
+                    .padding(DJConnectCardAppearance.segmentedContentInset)
+                    .djConnectGradientCard()
+                    if usesIconOnlyMoodButtons {
+                        Text(localizedKey(model.language, "ui.session.mood." + model.selectedSessionMood))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.82))
+                            .frame(maxWidth: .infinity)
+                            .accessibilityIdentifier("session-welcome-selected-mood")
                     }
                 }
-                .padding(DJConnectCardAppearance.segmentedContentInset)
-                .djConnectGradientCard()
                 Button { Task { await model.startDJSession() } } label: {
                     HStack(spacing: 12) {
                         if model.isLoadingDJSession { ProgressView().tint(.white) }
@@ -8747,14 +8764,21 @@ private struct IdleDJSessionView: View {
     private func moodButton(_ mood: String, glyph: String) -> some View {
         let selected = model.selectedSessionMood == mood
         return Button { model.selectedSessionMood = mood } label: {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
+            Group {
+                if usesIconOnlyMoodButtons {
                     Image(systemName: glyph)
-                    Text(localizedKey(model.language, "ui.session.mood." + mood))
-                }
-                VStack(spacing: 4) {
-                    Image(systemName: glyph)
-                    Text(localizedKey(model.language, "ui.session.mood." + mood))
+                        .font(.title3.weight(.semibold))
+                } else {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) {
+                            Image(systemName: glyph)
+                            Text(localizedKey(model.language, "ui.session.mood." + mood))
+                        }
+                        VStack(spacing: 4) {
+                            Image(systemName: glyph)
+                            Text(localizedKey(model.language, "ui.session.mood." + mood))
+                        }
+                    }
                 }
             }
             .font(.subheadline.weight(.semibold))
@@ -8763,6 +8787,7 @@ private struct IdleDJSessionView: View {
         }
         .buttonStyle(DJConnectButtonStyle(emphasis: selected ? .selected : .secondary, shape: .segmented, expands: true))
         .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityLabel(localizedKey(model.language, "ui.session.mood." + mood))
         .accessibilityIdentifier("session-welcome-mood-" + mood)
     }
 }
@@ -8787,15 +8812,16 @@ private struct DJSessionWelcomeArtwork: View {
                 Image(systemName: "sparkles").font(.system(size: size * 0.15, weight: .medium)).foregroundStyle(.white)
                 artworkGlyph("music.note", size: size).offset(x: size * 0.35, y: -size * 0.25)
                 artworkGlyph("bubble.left.and.bubble.right", size: size).offset(x: -size * 0.35, y: size * 0.13)
-                HStack(spacing: 4) {
+                HStack(spacing: size * 0.02) {
                     ForEach(Array([10.0, 18, 28, 15, 34, 23, 12, 27, 17].enumerated()), id: \.offset) { bar in
-                        Capsule().fill(djConnectIconGradient).frame(width: 4, height: bar.element)
+                        Capsule().fill(djConnectIconGradient)
+                            .frame(width: size * 0.025, height: size * 0.22 * bar.element / 34)
                     }
                 }
-                .padding(.horizontal, 18).padding(.vertical, 12)
+                .padding(.horizontal, size * 0.075).padding(.vertical, size * 0.045)
                 .background(.ultraThinMaterial, in: Capsule())
                 .overlay { Capsule().stroke(.white.opacity(0.2)) }
-                .offset(x: size * 0.16, y: size * 0.35)
+                .offset(x: size * 0.16, y: size * 0.32)
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }

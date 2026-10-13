@@ -59,3 +59,11 @@ Track Insight previously read the legacy Ask DJ slider while the active Session 
 The owner explicitly requested removal of the old mood fallback from client requests, without a compatibility path. All main Apple model request mood arguments now use optional `confirmedSessionMoodInt`: server-confirmed chill/groove/energy/party map to the existing numeric 0/35/70/100 contract, and absent Session omits the value. The backend retains profile/intelligence authority. No new contract, local response-style generation or backend modification is introduced. Existing legacy preference/UI APIs are not claimed removed; they no longer supply main-client request mood. Outside a Session, playback presentation uses neutral Groove, independent of the legacy slider. Regression coverage verifies all four render/request values, rejection of unconfirmed start choices and absent-Session omission.
 
 Latest source qualification: 480 Swift tests PASS (33.889 seconds); unsigned Mac and generic iOS device builds PASS. Native and installed acceptance retain their separate boundaries above.
+
+## Build 40019 welcome artwork and iPhone mood row
+
+The welcome illustration waveform now scales its bars, spacing and padding with the artwork size. Its capsule is roughly 53% of the artwork width rather than a fixed104-point overlay on84-point phone artwork, and it sits below the centre label without obscuring the chat glyph. The exact before/after SwiftUI artwork is rendered at84 and280 points for visual verification.
+
+Only iPhone uses four icon-only welcome mood buttons with the selected mood's localized name centered beneath the row. Device idiom, rather than size class, preserves the labels on iPad, including compact iPad windows, and Mac. Each button retains its full localized accessibility name, selected trait, existing identifier and existing start-session intent. Session/backend mood authority is unchanged.
+
+Build40019 unsigned Mac and generic iOS builds PASS. Existing native iPhone demo/history/welcome/restart test PASS; its exported idle welcome screenshot visually confirms the smaller artwork overlay and icon-only row with selected Groove label below. Source review GO. This simulator visual proof does not close the open physical iPad scroll measurement or Mac native-menu hover acceptance.
