@@ -1916,10 +1916,16 @@ extension DJConnectIOSUITests {
             let viewport = app.scrollViews["session-presence-scroll"]
             // Inspect native bounds first: XCTest may throw when asking hittability
             // for a wholly clipped activation point at accessibility text sizes.
-            for _ in 0..<6 {
-                let bounds = button.frame
-                if bounds.height > 0 && viewport.frame.insetBy(dx: 0, dy: 8).contains(CGPoint(x: bounds.midX, y: bounds.midY)) { break }
-                viewport.swipeUp(velocity: .slow)
+            for _ in 0..<10 {
+                if button.exists {
+                    let bounds = button.frame
+                    if bounds.height > 0 && viewport.frame.insetBy(dx: 0, dy: 8).contains(CGPoint(x: bounds.midX, y: bounds.midY)) { break }
+                }
+                // A full-page flick can skip an entire large-text option. Use a
+                // short deliberate native drag; do not bypass its hit target.
+                viewport.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
+                    .press(forDuration: 0.2, thenDragTo: viewport.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)),
+                           withVelocity: .slow, thenHoldForDuration: 0.2)
             }
             let reachable = XCTAttachment(screenshot: app.screenshot())
             reachable.name = "presence-native-reachable-\(value)"
@@ -1961,7 +1967,19 @@ extension DJConnectIOSUITests {
         XCTAssertFalse(app.descendants(matching: .any)["session-presence-error"].firstMatch.exists)
         let paused = try await control("pause")
         let pausedRuntime = try XCTUnwrap(paused["active"] as? [String: Any])
-        app.buttons["session-presence-choice-balanced"].tap()
+        let pausedChoice = app.buttons["session-presence-choice-balanced"]
+        let pausedViewport = app.scrollViews["session-presence-scroll"]
+        for _ in 0..<10 {
+            if pausedChoice.exists {
+                let bounds = pausedChoice.frame
+                if pausedViewport.frame.insetBy(dx: 0, dy: 8).contains(CGPoint(x: bounds.midX, y: bounds.midY)) { break }
+            }
+            pausedViewport.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
+                .press(forDuration: 0.2, thenDragTo: pausedViewport.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65)),
+                       withVelocity: .slow, thenHoldForDuration: 0.2)
+        }
+        XCTAssertTrue(pausedChoice.isHittable)
+        pausedChoice.tap()
         let pausedConfirmation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", anchors[language]![2]), object: app.staticTexts["session-presence-confirmed"])
         let pausedResult = await XCTWaiter.fulfillment(of: [pausedConfirmation], timeout: 10)
         XCTAssertEqual(pausedResult, .completed)
