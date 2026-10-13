@@ -1,0 +1,59 @@
+{
+  "assignment": "DJC-APPLE-DJ-PRESENCE-V1-20261011",
+  "candidate_sha": "6bb90167cbc0d751424701f89c86b7a2e9bfed0c",
+  "candidate_tree": "396e27faa7895b89c8f1919a8731551d4dccf202",
+  "base": "a522596f5c232cb0f73351146a34392c9a0d711f",
+  "shared_tests": {
+    "count": 514,
+    "result": "PASS",
+    "input_manifest_sha256": "de3680ab161ef6133a3bb0f81bb576707ac1e6ac217d1a8ab9f92a78707be16b",
+    "log_sha256": "c237271e11e1d004d5b8e47ac67c32d47db969be9c2d825fa9d2368d11f8dcc5"
+  },
+  "unsigned_builds": {
+    "macos": "PASS",
+    "ios_simulator": "PASS",
+    "compiled_source_files_match_candidate": true
+  },
+  "localizations": {
+    "keys": 1081,
+    "result": "PASS"
+  },
+  "http_contract": {
+    "routes": 29,
+    "result": "PASS"
+  },
+  "websocket_contract": {
+    "messages": 18,
+    "advertised_routes": 16,
+    "result": "PASS"
+  },
+  "fixture_security": "PASS",
+  "postman": "NOT_APPLICABLE_VALIDATOR_ABSENT_CI_CONDITIONAL",
+  "native": {
+    "iphone": {
+      "result": "PASS",
+      "tests": 1,
+      "failures": 0,
+      "summary_sha256": "49e335860e5f22963a5549c636cbee07eaa4d9b986d112bbfc0c3ae6f1ebcc01"
+    },
+    "ipad": {
+      "result": "PASS",
+      "tests": 1,
+      "failures": 0,
+      "summary_sha256": "2389971ad341bf824c86de4a855c180bcd1767264407cd56e7dae80000020c54"
+    },
+    "macos": "BLOCKED_PENDING_SPECIFIC_TEMPORARY_SIGNING_AUTHORIZATION"
+  },
+  "reviews": {
+    "technical_source": "GO",
+    "ux_source": "GO",
+    "ipad_largest_text_visual": "BOUNDED_GO"
+  },
+  "source_delivery": "UNPUBLISHED",
+  "finalization": "NOT_COMPLETE",
+  "installed_acceptance": "NOT_RUN",
+  "physical_hardware": "NOT_RUN",
+  "production_core_writes": false,
+  "new_app_installation": false,
+  "queue_transition": "PENDING_CURRENT_FINALIZATION"
+}
