@@ -168,3 +168,12 @@ with the existing refresh action passed from its owner and rendered first.
 Queue/playlist refresh also precedes search on Mac; iOS retains trailing refresh.
 Both unsigned Mac/iOS build-for-testing gates pass. Native Mac visual proof still
 requires the already-pending temporary-runner authorization.
+
+The active Session refresh belongs to the same toolbar action group on both
+platform families: first on Mac, last on iOS/iPadOS. The parent renders refresh
+only outside the active timeline, preserving its existing action/toast owner.
+An initial native iPhone order check caught the parent/child placement regression;
+its failed receipt is retained. After grouping the actions, the existing
+`testSessionRefreshIsRightmostToolbarAction` passes (one test, zero failures,
+12.792 seconds). Both unsigned platform builds pass after this correction.
+Mac collapsed-sidebar visual qualification remains pending runner authorization.

@@ -432,6 +432,9 @@ struct SessionTimelineScreen: View {
                             .presentationCompactAdaptation(.popover)
                         }
                     }
+                    #if os(iOS)
+                    if let refreshAction { RefreshButton(model: model, action: refreshAction) }
+                    #endif
                 }
             }
             .onAppear {

@@ -8865,7 +8865,9 @@ private struct DJSessionView: View {
                 sessionConnectionToolbar
                 #else
                 sessionConnectionToolbar
-                sessionRefreshToolbar
+                if !history.available || model.activeDJSession == nil {
+                    sessionRefreshToolbar
+                }
                 #endif
                 if !history.available, let session = model.activeDJSession {
                     ToolbarItem(placement: djConnectRefreshToolbarPlacement) { ActiveSessionMoodToolbar(model: model, session: session) }
