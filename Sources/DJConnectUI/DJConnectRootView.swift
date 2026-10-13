@@ -4468,6 +4468,7 @@ private struct MusicDNASectionGrid: View {
     @Environment(\.djConnectContentSizeClass) private var contentSizeClass
     private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var profile: DJConnectMusicDNAProfile { response.profile }
 
@@ -4481,7 +4482,7 @@ private struct MusicDNASectionGrid: View {
             }
             .scrollClipDisabled()
         } else {
-            LazyVGrid(columns: gridColumns, spacing: 12) {
+            MusicDNAAdaptiveCardLayout(minimumColumnWidth: dynamicTypeSize.isAccessibilitySize ? 360 : 280) {
                 panels
             }
         }
@@ -4635,12 +4636,6 @@ private struct MusicDNASectionGrid: View {
         #else
         musicDNADashboardPanelMinHeight
         #endif
-    }
-
-    private var gridColumns: [GridItem] {
-        return [
-            GridItem(.adaptive(minimum: 280), spacing: 12, alignment: .top)
-        ]
     }
 
     private var summaryRows: [MusicDNASummaryItem] {
@@ -5921,23 +5916,74 @@ private struct MusicDNAChipRow: View {
     }
 }
 
+/// Keep source/accessibility order stable while filling the shortest visible column.
+private struct MusicDNAAdaptiveCardLayout: Layout {
+    var minimumColumnWidth: CGFloat = 280
+    var spacing: CGFloat = 12
+
+    private func arrangement(width: CGFloat, subviews: Subviews) -> (frames: [CGRect], height: CGFloat) {
+        guard !subviews.isEmpty else { return ([], 0) }
+        let columns = min(subviews.count, max(1, Int((width + spacing) / (minimumColumnWidth + spacing))))
+        let columnWidth = max(1, (width - CGFloat(columns - 1) * spacing) / CGFloat(columns))
+        var bottoms = Array(repeating: CGFloat.zero, count: columns)
+        var frames: [CGRect] = []
+        for subview in subviews {
+            // First minimum wins ties, keeping equal-height cards left-to-right.
+            let column = bottoms.indices.min { bottoms[$0] < bottoms[$1] } ?? 0
+            let height = subview.sizeThatFits(ProposedViewSize(width: columnWidth, height: nil)).height
+            frames.append(CGRect(x: CGFloat(column) * (columnWidth + spacing), y: bottoms[column], width: columnWidth, height: height))
+            bottoms[column] += height + spacing
+        }
+        return (frames, max(0, (bottoms.max() ?? 0) - spacing))
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width.flatMap { $0.isFinite ? max(1, $0) : nil } ?? minimumColumnWidth
+        return CGSize(width: width, height: arrangement(width: width, subviews: subviews).height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let frames = arrangement(width: bounds.width, subviews: subviews).frames
+        for (index, subview) in subviews.enumerated() {
+            let frame = frames[index]
+            subview.place(at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY), anchor: .topLeading,
+                          proposal: ProposedViewSize(width: frame.width, height: frame.height))
+        }
+    }
+}
+
 private struct MusicDNADashboardPanelModifier: ViewModifier {
     @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
     @Environment(\.djConnectContentSizeClass) private var contentSizeClass
     private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
+    @ViewBuilder
     func body(content: Content) -> some View {
-        ScrollView(.vertical, showsIndicators: false) {
+        if usesBoundedPhoneCard {
+            ScrollView(.vertical, showsIndicators: false) {
+                content.padding(18).frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+            #if os(iOS)
+            .scrollBounceBehavior(.basedOnSize)
+            #endif
+            .frame(maxWidth: .infinity, minHeight: panelMinHeight, alignment: .topLeading)
+            .djSessionFrostedSurface()
+        } else {
             content
                 .padding(18)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
+                .fixedSize(horizontal: false, vertical: true)
+                .djSessionFrostedSurface()
         }
+    }
+
+    private var usesBoundedPhoneCard: Bool {
         #if os(iOS)
-        .scrollBounceBehavior(.basedOnSize)
+        horizontalSizeClass == .compact && UIDevice.current.userInterfaceIdiom == .phone
+        #else
+        false
         #endif
-            .frame(maxWidth: .infinity, minHeight: panelMinHeight, alignment: .topLeading)
-            .djSessionFrostedSurface()
     }
 
     private var panelMinHeight: CGFloat {
