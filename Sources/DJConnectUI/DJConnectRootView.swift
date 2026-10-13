@@ -9032,10 +9032,6 @@ struct IOSConnectionCard: View {
             }
         }
         .padding(14)
-        .background {
-            DJConnectTableRowBackground()
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        }
     }
 
     @ViewBuilder

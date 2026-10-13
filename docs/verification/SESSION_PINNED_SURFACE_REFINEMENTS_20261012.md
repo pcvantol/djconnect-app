@@ -67,3 +67,9 @@ The welcome illustration waveform now scales its bars, spacing and padding with 
 Only iPhone uses four icon-only welcome mood buttons with the selected mood's localized name centered beneath the row. Device idiom, rather than size class, preserves the labels on iPad, including compact iPad windows, and Mac. Each button retains its full localized accessibility name, selected trait, existing identifier and existing start-session intent. Session/backend mood authority is unchanged.
 
 Build40019 unsigned Mac and generic iOS builds PASS. Existing native iPhone demo/history/welcome/restart test PASS; its exported idle welcome screenshot visually confirms the smaller artwork overlay and icon-only row with selected Groove label below. Source review GO. This simulator visual proof does not close the open physical iPad scroll measurement or Mac native-menu hover acceptance.
+
+## Build 40020 connection popover
+
+The iOS connection popover no longer wraps its paired status content in the dark table-row gradient. Its icon, connection label, health dot and recovery text render directly on the native popover glass. Padding, health/pairing semantics and native outer surface are retained. The Mac status content already had no card background. The unrelated untracked `DJConnectApp 2.xcodeproj` copy is preserved and excluded; all builds use the canonical `DJConnectApp.xcodeproj`.
+
+Build40020 unsigned iOS device and Mac builds PASS; bounded source/document review GO. No interaction or backend change requires an additional behavioral regression test for this decorative background removal. Native visual acceptance remains distinct.
