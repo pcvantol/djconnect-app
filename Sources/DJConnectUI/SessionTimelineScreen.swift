@@ -907,7 +907,7 @@ struct ActiveSessionPresenceToolbar: View {
                     .padding(16)
             }
             .accessibilityIdentifier("session-presence-scroll")
-            .frame(idealWidth: 360, idealHeight: 420)
+            .frame(idealWidth: 360, idealHeight: 480)
             #if os(macOS)
             .focusable()
             .focusEffectDisabled()
@@ -929,6 +929,7 @@ struct ActiveSessionPresenceControl: View {
     @ObservedObject var model: DJConnectAppModel
     let sessionID: String
     let epoch: UUID
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var preview = 2.0
     @State private var dragging = false
     private let values = DJConnectSessionPresenceValue.allCases
@@ -970,7 +971,7 @@ struct ActiveSessionPresenceControl: View {
                     commit(preview)
                 }
                 .accessibilityIdentifier("session-presence-slider")
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 8)], spacing: 8) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 280 : 120), spacing: 8)], spacing: 8) {
                     ForEach(Array(values.enumerated()), id: \.element) { index, value in
                         Button { preview = Double(index); commit(preview) } label: {
                             Text(text(value.localizationKey)).font(.caption).multilineTextAlignment(.center)

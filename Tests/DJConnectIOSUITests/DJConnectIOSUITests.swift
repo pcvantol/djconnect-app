@@ -1905,12 +1905,25 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(app.buttons["session-presence-toggle"].waitForExistence(timeout: 25))
         app.buttons["session-presence-toggle"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["active-session-presence"].firstMatch.waitForExistence(timeout: 10))
+        let placement = XCTAttachment(screenshot: app.screenshot())
+        placement.name = "presence-native-placement-before-selection"
+        placement.lifetime = .keepAlways; add(placement)
         let values = ["music_only", "occasional", "balanced", "talkative", "presenter"]
         let anchors = ["nl":["Alleen muziek","Af en toe","Gebalanceerd","Praatgraag","Presentator"],"en":["Music only","Occasionally","Balanced","Talkative","Presenter"],"de":["Nur Musik","Gelegentlich","Ausgewogen","Gesprächig","Moderator"],"fr":["Musique uniquement","De temps en temps","Équilibré","Bavard","Présentateur"],"es":["Solo música","De vez en cuando","Equilibrado","Conversador","Presentador"]]
         for (offset, value) in values.enumerated() {
             let button = app.buttons["session-presence-choice-" + value]
             XCTAssertTrue(button.waitForExistence(timeout: 10) && button.isEnabled)
-            for _ in 0..<3 where !button.isHittable { app.scrollViews["session-presence-scroll"].swipeUp() }
+            let viewport = app.scrollViews["session-presence-scroll"]
+            // Inspect native bounds first: XCTest may throw when asking hittability
+            // for a wholly clipped activation point at accessibility text sizes.
+            for _ in 0..<6 {
+                let bounds = button.frame
+                if bounds.height > 0 && viewport.frame.insetBy(dx: 0, dy: 8).contains(CGPoint(x: bounds.midX, y: bounds.midY)) { break }
+                viewport.swipeUp(velocity: .slow)
+            }
+            let reachable = XCTAttachment(screenshot: app.screenshot())
+            reachable.name = "presence-native-reachable-\(value)"
+            reachable.lifetime = .keepAlways; add(reachable)
             XCTAssertTrue(button.isHittable)
             if offset == 0 { _ = try await control("presence_delay_once") }
             button.tap()
