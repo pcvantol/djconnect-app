@@ -184,3 +184,21 @@ entire subtree, keeping all option text outside the glass compositor. Labels
 use explicit white semibold body text; existing selection and accessibility
 traits are retained. Both unsigned Mac/iOS builds pass. This is source/build
 qualification; native Mac visual verification remains pending runner permission.
+
+## Owner-added queue selection recovery
+
+Starting a queue item now schedules an explicit fresh queue read through the
+existing command refresh scheduler. The read is independent of the eight-second
+status throttle and thirty-second collection throttle. A pre-selection queue
+read is allowed to finish, then the invalidation triggers another read rather
+than being discarded by `isLoadingQueue`. Waiting remains cancellable and checks
+foreground, pairing and offline state. Coalescing retains the queue invalidation
+until completion, including when a subsequent status-only action reschedules it.
+The server response updates the existing shared queue projection on all Apple
+clients; playback commands, transport and backend contracts are unchanged.
+
+Qualification: 511 shared Swift tests pass, including wire regressions for busy
+status and a delayed pre-selection queue read, plus scheduler overlap retention.
+Unsigned Mac/iOS build-for-testing gates pass. Independent technical delta review
+reports no remaining P1/P2. This is software/build proof, not installed/native
+end-user acceptance. The installed40021 apps/settings remain untouched.

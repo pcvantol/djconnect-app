@@ -9507,32 +9507,32 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 @MainActor
 @Test func commandRefreshSchedulerCoalescesPendingRefreshes() async throws {
     let scheduler = DJConnectRefreshScheduler()
-    var refreshIncludesCollections: [Bool] = []
+    var refreshIncludesQueue: [Bool] = []
     var cleanupCount = 0
 
     scheduler.scheduleCommandRefresh(
         delay: .milliseconds(250),
         isStillValid: { true },
-        refresh: { includeCollections in
-            refreshIncludesCollections.append(includeCollections)
+        refresh: { includeQueue in
+            refreshIncludesQueue.append(includeQueue)
         }
     )
     scheduler.scheduleCommandRefresh(
         delay: .milliseconds(40),
-        includeCollections: true,
+        includeQueue: true,
         cleanup: {
             cleanupCount += 1
         },
         isStillValid: { true },
-        refresh: { includeCollections in
-            refreshIncludesCollections.append(includeCollections)
+        refresh: { includeQueue in
+            refreshIncludesQueue.append(includeQueue)
         }
     )
-    for _ in 0..<20 where refreshIncludesCollections.isEmpty || cleanupCount == 0 {
+    for _ in 0..<20 where refreshIncludesQueue.isEmpty || cleanupCount == 0 {
         try await Task.sleep(for: .milliseconds(25))
     }
 
-    #expect(refreshIncludesCollections == [true])
+    #expect(refreshIncludesQueue == [true])
     #expect(cleanupCount == 1)
 }
 
@@ -13471,4 +13471,31 @@ private extension String {
         Issue.record("Cancellation must propagate")
     } catch is CancellationError {}
     #expect(recorder.modes.isEmpty)
+}
+
+@MainActor
+@Test func commandRefreshSchedulerRetainsQueueInvalidationWhileReadIsWaiting() async throws {
+    let scheduler = DJConnectRefreshScheduler()
+    var refreshes: [Bool] = []
+    scheduler.scheduleCommandRefresh(
+        delay: .milliseconds(1), includeQueue: true,
+        isStillValid: { true },
+        refresh: { includeQueue in
+            refreshes.append(includeQueue)
+            try? await Task.sleep(for: .milliseconds(500))
+        }
+    )
+    for _ in 0..<30 where refreshes.isEmpty {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(refreshes == [true])
+    scheduler.scheduleCommandRefresh(
+        delay: .milliseconds(1), isStillValid: { true },
+        refresh: { includeQueue in refreshes.append(includeQueue) }
+    )
+    for _ in 0..<30 where refreshes.count < 2 {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(refreshes == [true, true])
+    scheduler.cancelAll()
 }

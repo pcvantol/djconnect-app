@@ -2116,3 +2116,74 @@ private final class PresenceModes: @unchecked Sendable {
     #expect(model.haConnectionMode == .local && model.pairingStatus == .paired && model.activeMoodAvailable)
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/presence") }.count == 1)
 }
+
+@Test @MainActor func queueSelectionRefreshesQueueWhileStatusRefreshIsBusy() async throws {
+    let wire = HistoryWireFixture { request in
+        let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
+        switch body?["command"] as? String {
+        case "play_context_at": return (200, Data(#"{"success":true}"#.utf8), 0)
+        case "queue": return (200, Data(#"{"success":true,"queue":[{"title":"Next track","uri":"spotify:track:next"}]}"#.utf8), 0)
+        default: return (404, Data(), 0)
+        }
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.isRefreshing = true
+    let selected = DJConnectQueueItem(title: "Selected track", uri: "spotify:track:selected")
+    model.queueItems = [selected]
+    model.startQueueItem(selected, at: 0)
+    for _ in 0..<100 {
+        if model.queueItems.first?.title == "Next track" { break }
+        try await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(model.queueItems.map(\.title) == ["Next track"])
+    #expect(model.loadingQueueItemIndex == nil)
+    let commands = try wire.requests.compactMap { request in
+        (try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])?["command"] as? String
+    }
+    #expect(commands == ["play_context_at", "queue"])
+    #expect(model.isRefreshing) // Queue refresh does not take over the status refresh.
+}
+
+@Test @MainActor func queueSelectionWaitsForOlderQueueReadThenFetchesFreshRows() async throws {
+    let counter = HTTPRecoveryActiveReadCounter()
+    let wire = HistoryWireFixture { request in
+        let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
+        switch body?["command"] as? String {
+        case "play_context_at": return (200, Data(#"{"success":true}"#.utf8), 0)
+        case "queue":
+            if counter.next() == 1 {
+                return (200, Data(#"{"success":true,"queue":[{"title":"Old queue","uri":"spotify:track:old"}]}"#.utf8), 1.6)
+            }
+            return (200, Data(#"{"success":true,"queue":[{"title":"Fresh queue","uri":"spotify:track:fresh"}]}"#.utf8), 0)
+        default: return (404, Data(), 0)
+        }
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.isRefreshing = true
+    let selected = DJConnectQueueItem(title: "Selected track", uri: "spotify:track:selected")
+    model.queueItems = [selected]
+    let olderRead = Task { await model.refreshQueue() }
+    for _ in 0..<30 {
+        if model.isLoadingQueue { break }
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(model.isLoadingQueue)
+    model.startQueueItem(selected, at: 0)
+    for _ in 0..<140 {
+        if model.queueItems.first?.title == "Fresh queue" { break }
+        try await Task.sleep(for: .milliseconds(25))
+    }
+    _ = await olderRead.value
+    #expect(model.queueItems.map(\.title) == ["Fresh queue"])
+    #expect(model.loadingQueueItemIndex == nil)
+    let commands = try wire.requests.compactMap { request in
+        (try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])?["command"] as? String
+    }
+    #expect(commands == ["queue", "play_context_at", "queue"])
+}

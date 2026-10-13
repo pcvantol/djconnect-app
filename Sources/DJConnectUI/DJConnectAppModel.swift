@@ -3006,12 +3006,12 @@ public final class DJConnectAppModel: ObservableObject {
     private func scheduleCommandRefresh(
         reason: String,
         delay: Duration = .milliseconds(850),
-        includeCollections: Bool = false,
+        includeQueue: Bool = false,
         cleanup: (@MainActor () -> Void)? = nil
     ) {
         refreshScheduler.scheduleCommandRefresh(
             delay: delay,
-            includeCollections: includeCollections,
+            includeQueue: includeQueue,
             cleanup: cleanup,
             isStillValid: { [weak self] in
                 guard let self else {
@@ -3021,14 +3021,31 @@ public final class DJConnectAppModel: ObservableObject {
                     && self.pairingStatus == .paired
                     && !self.isOfflineModeActive
             },
-            refresh: { [weak self] includeCollections in
+            refresh: { [weak self] includeQueue in
                 guard let self else {
                     return
                 }
+                // A successful playback selection invalidates the queue even
+                // when a recent status/collection refresh would be throttled.
+                if includeQueue {
+                    // Let a pre-selection read finish before requesting the
+                    // post-selection queue; otherwise the invalidation is lost.
+                    while self.isLoadingQueue {
+                        do { try await Task.sleep(for: .milliseconds(50)) }
+                        catch { return }
+                        guard !Task.isCancelled, self.isAppInForeground,
+                              self.pairingStatus == .paired, !self.isOfflineModeActive else { return }
+                    }
+                    guard !Task.isCancelled, self.isAppInForeground,
+                          self.pairingStatus == .paired, !self.isOfflineModeActive else { return }
+                    _ = await self.refreshQueue()
+                }
+                guard !Task.isCancelled, self.isAppInForeground,
+                      self.pairingStatus == .paired, !self.isOfflineModeActive else { return }
                 _ = await self.runRefresh(
                     reason: reason,
                     allowThrottle: true,
-                    refreshCollections: includeCollections
+                    refreshCollections: false
                 )
             }
         )
@@ -3342,7 +3359,7 @@ public final class DJConnectAppModel: ObservableObject {
             scheduleCommandRefresh(
                 reason: "Queue item Now Playing refresh completed",
                 delay: .milliseconds(1_100),
-                includeCollections: true
+                includeQueue: true
             ) {
                 self.loadingQueueItemID = nil
                 self.loadingQueueItemIndex = nil
