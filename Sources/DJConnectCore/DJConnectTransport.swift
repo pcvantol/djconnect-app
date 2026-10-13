@@ -142,6 +142,11 @@ public final class DJConnectHATransportManager: Sendable {
                     }
                     throw error
                 }
+            } catch let conflict as DJConnectSessionPresenceConflict {
+                // An authorized CAS conflict proves this route is reachable.
+                // Preserve connection health and never replay the mutation.
+                modeReporter?(candidate.mode, baseURL)
+                throw conflict
             } catch {
                 if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
                     throw CancellationError()

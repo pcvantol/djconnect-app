@@ -2062,3 +2062,57 @@ private final class PresenceReadPhase: @unchecked Sendable {
         set { lock.withLock { phase = newValue } }
     }
 }
+
+private final class PresenceModes: @unchecked Sendable {
+    private let lock = NSLock()
+    private var modes: [DJConnectHAConnectionMode] = []
+    func record(_ value: DJConnectHAConnectionMode) { lock.withLock { modes.append(value) } }
+    var values: [DJConnectHAConnectionMode] { lock.withLock { modes } }
+}
+
+@Test(arguments: [DJConnectHAConnectionMode.local, .remote])
+@MainActor func presenceTypedCASConflictKeepsReachableRoute(_ mode: DJConnectHAConnectionMode) async throws {
+    let fixture = HistoryWireFixture { _ in (409, Data(#"{"success":false,"error":"presence_revision_conflict","current":{"session_id":"current","selected_presence":"music_only","presence_revision":4}}"#.utf8), 0) }
+    defer { fixture.close() }
+    let modes = PresenceModes()
+    let manager = DJConnectHATransportManager(localURL: mode == .local ? fixture.baseURL : nil, remoteURL: mode == .remote ? fixture.baseURL : URL(string: "https://remote.test"), allowsRemoteFallback: true, clientFactory: { _ in fixture.client() }, modeReporter: { value, _ in modes.record(value) })
+    do {
+        _ = try await manager.perform(allowsOperationReplay: false) { try await $0.updateSessionPresence(sessionID: "current", presence: .presenter, expectedRevision: 3) }
+        Issue.record("Expected authorized conflict")
+    } catch let conflict as DJConnectSessionPresenceConflict {
+        #expect(conflict.current.presenceRevision == 4)
+    }
+    #expect(modes.values == [mode] && fixture.requests.count == 1)
+}
+
+@Test @MainActor func presenceConflictRetainsOwnerGrantAndExplicitDecision() async throws {
+    var caps = try #require(JSONSerialization.jsonObject(with: activeMoodCapsWire) as? [String: Any])
+    let presence = try #require(JSONSerialization.jsonObject(with: presenceCapsWire) as? [String: Any])
+    var booleans = caps["capabilities"] as! [String: Bool], versions = caps["contract_versions"] as! [String: Int]
+    booleans["active_session_presence"] = true; versions["active_session_presence"] = 1
+    caps["capabilities"] = booleans; caps["contract_versions"] = versions; caps["active_session_presence"] = presence["active_session_presence"]
+    let capabilities = try historyData(caps), runtime = try presenceRuntimeWire()
+    let history = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, capabilities, 0) }
+        if request.url!.path.hasSuffix("/session/active") { return (200, runtime, 0) }
+        if request.url!.path.hasSuffix("ask_dj/history") { return (200, history, 0) }
+        if request.url!.path.hasSuffix("/session/presence") {
+            let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as! [String: Any]
+            return (409, try historyData(["success":false,"error":"presence_revision_conflict","current":["session_id":body["session_id"]!,"selected_presence":"music_only","presence_revision":4]]), 0)
+        }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare(); await model.refreshActiveDJSession(); await model.refreshActiveMoodCapability()
+    #expect(model.sessionHistory.hasAuthorizedOwner && model.activeMoodAvailable)
+    let epoch = model.sessionHistory.responseEpoch, id = try #require(model.activeDJSession?.id)
+    model.selectActiveSessionPresence(.presenter, expectedSessionID: id, expectedEpoch: epoch)
+    for _ in 0..<30 { if !model.activePresencePending { break }; try await Task.sleep(for: .milliseconds(20)) }
+    await Task.yield()
+    #expect(model.activePresenceRequiresDecision && model.activePresenceDesired == .presenter)
+    #expect(model.sessionHistory.hasAuthorizedOwner && model.sessionHistory.responseEpoch == epoch)
+    #expect(model.haConnectionMode == .local && model.pairingStatus == .paired && model.activeMoodAvailable)
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/presence") }.count == 1)
+}
