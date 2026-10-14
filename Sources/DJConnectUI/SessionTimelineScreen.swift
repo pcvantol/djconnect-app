@@ -405,10 +405,13 @@ struct SessionTimelineScreen: View {
             }
             .background(sessionBackground)
             .toolbar {
+                #if os(macOS)
                 ToolbarItemGroup(placement: djConnectRefreshToolbarPlacement) {
-                    #if os(macOS)
                     if let refreshAction { RefreshButton(model: model, action: refreshAction) }
-                    #endif
+                    sessionSearchToolbarButton(proxy: proxy)
+                }
+                #endif
+                ToolbarItemGroup(placement: djConnectRefreshToolbarPlacement) {
                     if let activeSession {
                         SessionConnectionToolbarButton(model: model)
                         ActiveSessionMoodToolbar(model: model, session: activeSession)
@@ -419,17 +422,9 @@ struct SessionTimelineScreen: View {
                         SessionEndToolbarButton(model: model)
                     }
                     #endif
-                    Button {
-                        if searching { closeSearch(proxy: proxy) }
-                        else { priorSearchPosition = visibleEntry; inputFocused = false; searching = true; searchFocused = true }
-                    } label: {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundStyle(searching ? djConnectAccent : .primary)
-                    }
-                        .disabled(!history.searchAvailable)
-                        .accessibilityLabel(text("ui.session.history.search"))
-                        .accessibilityIdentifier("session-search-toggle")
-                        .keyboardShortcut("f", modifiers: .command)
+                    #if !os(macOS)
+                    sessionSearchToolbarButton(proxy: proxy)
+                    #endif
                     if let activeSession, !model.isDemoMode {
                         Button { showingHandoff.toggle() } label: {
                             Image(systemName: "tv.badge.wifi")
@@ -529,6 +524,20 @@ struct SessionTimelineScreen: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(activeSession == nil ? "screen-history-timeline" : "screen-session-conversation")
         }
+    }
+
+    private func sessionSearchToolbarButton(proxy: ScrollViewProxy) -> some View {
+        Button {
+            if searching { closeSearch(proxy: proxy) }
+            else { priorSearchPosition = visibleEntry; inputFocused = false; searching = true; searchFocused = true }
+        } label: {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(searching ? djConnectAccent : .primary)
+        }
+            .disabled(!history.searchAvailable)
+            .accessibilityLabel(text("ui.session.history.search"))
+            .accessibilityIdentifier("session-search-toggle")
+            .keyboardShortcut("f", modifiers: .command)
     }
 
     private func clearReadingState() {
