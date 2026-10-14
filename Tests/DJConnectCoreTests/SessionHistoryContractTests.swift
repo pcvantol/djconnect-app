@@ -682,8 +682,15 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
     await model.sessionHistory.prepare()
+    let selected = DJConnectSessionEntryReference(sessionID: "session-a", entryID: "entry-a")
+    model.sessionHistory.selectedEntry = selected
+    model.askDJDraft = "  "
+    model.sessionHistory.sendText()
+    #expect(model.sessionHistory.selectedEntry == selected)
     model.askDJDraft = "Queued before connection loss"
     model.sessionHistory.sendText()
+    #expect(model.sessionHistory.selectedEntry == nil)
+    #expect(model.sessionHistory.pendingTurns.first?.context.selectedEntry == selected)
     model.recordConnectionMode(.offline, baseURL: fixture.baseURL)
     try await Task.sleep(for: .milliseconds(100))
     #expect(fixture.requests.allSatisfy { $0.httpMethod != "POST" })
@@ -692,6 +699,8 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     #expect(turn.failed && !turn.contextChanged)
     model.recordConnectionMode(.local, baseURL: fixture.baseURL)
     model.sessionHistory.retry(turn)
+    #expect(model.sessionHistory.pendingTurns.first?.context.selectedEntry == selected)
+    #expect(model.sessionHistory.selectedEntry == nil)
     model.recordConnectionMode(.offline, baseURL: fixture.baseURL)
     try await Task.sleep(for: .milliseconds(100))
     #expect(fixture.requests.allSatisfy { $0.httpMethod != "POST" })

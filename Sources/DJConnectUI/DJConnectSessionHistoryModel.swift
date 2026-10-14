@@ -179,6 +179,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             let entries = try DJConnectDemoSessionData.turn(sessionID: id, order: next, question: question, answer: answer,
                                                           inputType: inputType, selected: selectedEntry, at: Date())
             timeline.entries += entries; timelines[id] = timeline
+            selectedEntry = nil
         } catch { return }
     }
 
@@ -457,6 +458,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         let turn = PendingTurn(id: id, text: text, context: context, localMessageID: localID,
             payload: host.profileConversationPayload(text: text, clientMessageID: id, context: context), requestEpoch: epoch, ownerScope: capturedOwner)
         pendingTurns.append(turn)
+        selectedEntry = nil
         Task { await submit(turn) }
     }
 
@@ -516,6 +518,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     public func uploadVoice(_ data: Data) async throws {
         guard let host, let context = voiceContext, let id = voiceClientID, let payload = voicePayload else { throw DJConnectError.invalidResponse }
         let captured = epoch
+        if selectedEntry == context.selectedEntry { selectedEntry = nil }
         do {
             defer { if voiceClientID == id { cancelVoiceContext() } }
             let response = try await host.withHomeAssistantClient {
@@ -572,6 +575,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         let captured = epoch
         do {
             let payload = host.profileConversationPayload(text: text, clientMessageID: clientMessageID, context: currentContext())
+            selectedEntry = nil
             let response = try await host.withHomeAssistantClient { try await $0.sendSessionConversation(payload) }
             guard captured == epoch else { throw CancellationError() }
             try await accept(response, fallback: nil, apply: false)
