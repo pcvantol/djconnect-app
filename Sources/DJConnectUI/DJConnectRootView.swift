@@ -17157,13 +17157,11 @@ private struct LogsView: View {
             : localizedKey(model.language, "ui.search.logs")
     }
 
-    private var selectableLogText: String {
+    private func numberedLogText(_ text: String, index: Int) -> String {
         let digits = logLineNumberDigits(total: model.diagnosticLogLines.count)
-        return model.diagnosticLogLines.enumerated().map { index, line in
-            let rawNumber = String(index + 1)
-            let number = String(repeating: " ", count: max(0, digits - rawNumber.count)) + rawNumber
-            return "\(number)  \(line.text)"
-        }.joined(separator: "\n")
+        let rawNumber = String(index + 1)
+        let number = String(repeating: " ", count: max(0, digits - rawNumber.count)) + rawNumber
+        return "\(number)  \(text)"
     }
 
     var body: some View {
@@ -17208,21 +17206,21 @@ private struct LogsView: View {
                                 }
                                 .frame(height: 0)
                                 VStack(alignment: .leading, spacing: 0) {
-                                    ForEach(model.diagnosticLogLines) { line in
-                                        Color.clear
-                                            .frame(height: 0)
-                                            .id(line.id)
+                                    ForEach(Array(model.diagnosticLogLines.enumerated()), id: \.element.id) { index, line in
+                                        LogSearchText(
+                                            text: numberedLogText(line.text, index: index),
+                                            lineNumberWidth: logLineNumberDigits(total: model.diagnosticLogLines.count),
+                                            highlight: logSearchText,
+                                            isSearchResult: !logSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                        )
+                                        .font(.system(.caption, design: .monospaced))
+                                        .foregroundStyle(Color.white.opacity(0.88))
+                                        .textSelection(.enabled)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .id(line.id)
+                                        .accessibilityIdentifier("log-line-" + line.id.uuidString)
                                     }
-                                    LogSearchText(
-                                        text: selectableLogText,
-                                        lineNumberWidth: logLineNumberDigits(total: model.diagnosticLogLines.count),
-                                        highlight: logSearchText,
-                                        isSearchResult: !logSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                    )
-                                    .font(.system(.caption, design: .monospaced))
-                                    .foregroundStyle(Color.white.opacity(0.88))
-                                    .textSelection(.enabled)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
                                 }
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 8)
