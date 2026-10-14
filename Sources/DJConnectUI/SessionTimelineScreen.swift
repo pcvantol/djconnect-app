@@ -427,6 +427,7 @@ struct SessionTimelineScreen: View {
                     #if !os(macOS)
                     sessionSearchToolbarButton(proxy: proxy)
                     #endif
+                    #if os(macOS)
                     if let activeSession, !model.isDemoMode {
                         Button { showingHandoff.toggle() } label: {
                             Image(systemName: "tv.badge.wifi")
@@ -440,8 +441,29 @@ struct SessionTimelineScreen: View {
                             .presentationCompactAdaptation(.popover)
                         }
                     }
-                    #if os(iOS)
-                    if let refreshAction { RefreshButton(model: model, action: refreshAction) }
+                    #else
+                    if (activeSession != nil && !model.isDemoMode) || refreshAction != nil {
+                        Menu {
+                            if activeSession != nil && !model.isDemoMode {
+                                Button { showingHandoff = true } label: {
+                                    Label(text("ui.vibecast.handoff.title"), systemImage: "tv.badge.wifi")
+                                }
+                                .accessibilityIdentifier("session-handoff-toggle")
+                            }
+                            if let refreshAction {
+                                Button(action: refreshAction) {
+                                    Label(text("ui.refresh"), systemImage: "arrow.clockwise")
+                                }
+                                .disabled(model.isDemoMode || model.pairingStatus != .paired || model.isRefreshing)
+                                .accessibilityIdentifier("screen-refresh")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .foregroundStyle(.white)
+                        }
+                        .accessibilityLabel(text("ui.more"))
+                        .accessibilityIdentifier("session-more-menu")
+                    }
                     #endif
                 }
                 #if os(macOS)
@@ -453,6 +475,14 @@ struct SessionTimelineScreen: View {
                 }
                 #endif
             }
+            #if os(iOS)
+            .sheet(isPresented: $showingHandoff) {
+                if let activeSession {
+                    VibeCastHandoffPopover(model: model, session: activeSession, openQueueAction: openQueueAction)
+                        .presentationDetents([.medium, .large])
+                }
+            }
+            #endif
             .onAppear {
                 guard activeSession != nil, initialAnchor == nil else { return }
                 Task { @MainActor in
