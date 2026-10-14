@@ -869,10 +869,13 @@ public struct DJConnectRootView: View {
                             sidebarVisibility = sidebarVisibility == .detailOnly ? .all : .detailOnly
                         } label: {
                             Image(systemName: "sidebar.left")
-                                .foregroundStyle(.primary)
+                                .symbolRenderingMode(.monochrome)
+                                .foregroundStyle(.white)
                                 .frame(width: 36, height: 28)
                         }
                         .djConnectPlainButtonStyle()
+                        .tint(.white)
+                        .foregroundStyle(.white)
                         .accessibilityLabel(localizedKey(model.language, "ui.navigation.menu"))
                         .accessibilityIdentifier("main-sidebar-toggle")
                     }
