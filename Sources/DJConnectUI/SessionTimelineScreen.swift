@@ -413,7 +413,9 @@ struct SessionTimelineScreen: View {
                 #endif
                 ToolbarItemGroup(placement: djConnectRefreshToolbarPlacement) {
                     if let activeSession {
+                        #if !os(macOS)
                         SessionConnectionToolbarButton(model: model)
+                        #endif
                         ActiveSessionMoodToolbar(model: model, session: activeSession)
                         ActiveSessionPresenceToolbar(model: model, session: activeSession)
                     }
@@ -444,7 +446,8 @@ struct SessionTimelineScreen: View {
                 }
                 #if os(macOS)
                 if activeSession != nil {
-                    ToolbarItem(placement: .confirmationAction) {
+                    ToolbarItemGroup(placement: .confirmationAction) {
+                        SessionConnectionToolbarButton(model: model)
                         SessionEndToolbarButton(model: model)
                     }
                 }
