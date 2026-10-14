@@ -17113,12 +17113,16 @@ private struct LogsView: View {
     @State private var selectedSearchResultIndex = 0
     @FocusState private var isSearchFocused: Bool
 
+    private var displayedLogLines: [DJConnectDiagnosticLogLine] {
+        Array(model.diagnosticLogLines.reversed())
+    }
+
     private var logSearchResultIDs: [UUID] {
         let query = logSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
             return []
         }
-        return model.diagnosticLogLines.compactMap { line in
+        return displayedLogLines.compactMap { line in
             line.text.localizedCaseInsensitiveContains(query) ? line.id : nil
         }
     }
@@ -17137,7 +17141,7 @@ private struct LogsView: View {
     }
 
     private func numberedLogText(_ text: String, index: Int) -> String {
-        let digits = logLineNumberDigits(total: model.diagnosticLogLines.count)
+        let digits = logLineNumberDigits(total: displayedLogLines.count)
         let rawNumber = String(index + 1)
         let number = String(repeating: " ", count: max(0, digits - rawNumber.count)) + rawNumber
         return "\(number)  \(text)"
@@ -17146,7 +17150,7 @@ private struct LogsView: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 14) {
-                if model.diagnosticLogLines.isEmpty {
+                if displayedLogLines.isEmpty {
                     HStack {
                         Spacer()
                         ContentUnavailableView(
@@ -17185,10 +17189,10 @@ private struct LogsView: View {
                                 }
                                 .frame(height: 0)
                                 VStack(alignment: .leading, spacing: 0) {
-                                    ForEach(Array(model.diagnosticLogLines.enumerated()), id: \.element.id) { index, line in
+                                    ForEach(Array(displayedLogLines.enumerated()), id: \.element.id) { index, line in
                                         LogSearchText(
                                             text: numberedLogText(line.text, index: index),
-                                            lineNumberWidth: logLineNumberDigits(total: model.diagnosticLogLines.count),
+                                            lineNumberWidth: logLineNumberDigits(total: displayedLogLines.count),
                                             highlight: logSearchText,
                                             isSearchResult: !logSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                         )
@@ -17211,7 +17215,7 @@ private struct LogsView: View {
                             .onAppear {
                                 scrollLogsToTop(proxy)
                             }
-                            .onChange(of: model.diagnosticLogLines.first?.id) {
+                            .onChange(of: displayedLogLines.first?.id) {
                                 if logSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                                     scrollLogsToTop(proxy)
                                 }
@@ -17311,7 +17315,7 @@ private struct LogsView: View {
         }
         .help(logSearchButtonTitle)
         .accessibilityLabel(logSearchButtonTitle)
-        .disabled(model.diagnosticLogLines.isEmpty)
+        .disabled(displayedLogLines.isEmpty)
 
         Button {
             copyText(model.diagnosticExportText())
@@ -17324,7 +17328,7 @@ private struct LogsView: View {
         .tint(.white)
         .help(localizedKey(model.language, "ui.copy.logs"))
         .accessibilityLabel(localizedKey(model.language, "ui.copy.logs"))
-        .disabled(model.diagnosticLogLines.isEmpty)
+        .disabled(displayedLogLines.isEmpty)
 
     }
 
@@ -17337,7 +17341,7 @@ private struct LogsView: View {
         }
         .help(localizedKey(model.language, "ui.clear.logs"))
         .accessibilityLabel(localizedKey(model.language, "ui.clear.logs"))
-        .disabled(model.diagnosticLogLines.isEmpty)
+        .disabled(displayedLogLines.isEmpty)
     }
 
     private func showStatusToast(_ text: String) {
@@ -17356,7 +17360,7 @@ private struct LogsView: View {
     }
 
     private func showLogSearch() {
-        guard !model.diagnosticLogLines.isEmpty else {
+        guard !displayedLogLines.isEmpty else {
             return
         }
         withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
@@ -17404,7 +17408,7 @@ private struct LogsView: View {
     }
 
     private func scrollLogsToTop(_ proxy: ScrollViewProxy) {
-        guard let firstLogID = model.diagnosticLogLines.first?.id else {
+        guard let firstLogID = displayedLogLines.first?.id else {
             return
         }
         DispatchQueue.main.async {
