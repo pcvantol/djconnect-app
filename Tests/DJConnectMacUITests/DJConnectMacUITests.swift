@@ -643,3 +643,57 @@ extension DJConnectMacUITests {
         restored.name = "restoration-native-main-window-after-relaunch"; restored.lifetime = .keepAlways; add(restored)
     }
 }
+
+
+extension DJConnectMacUITests {
+    func testNativeSplashToolbarAndDetailLayoutScreens() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--monkey-testing", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HOLD_SPLASH"] = "1"
+        app.launch()
+        defer { app.terminate() }
+        let window = app.windows["DJConnectMainWindow"]
+        guard window.waitForExistence(timeout: 4) else { XCTFail("Isolated native main window missing"); return }
+        let splash = app.descendants(matching: .any)["launch-splash"].firstMatch
+        XCTAssertTrue(splash.waitForExistence(timeout: 2), "Probe must observe splash, not infer it from source")
+        let menu = app.buttons["main-sidebar-toggle"].firstMatch
+        XCTAssertFalse(menu.exists && menu.isHittable, "Toolbar must not expose actions over splash")
+        let initial = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        initial.name = "layout-splash-controls-hidden"; initial.lifetime = .keepAlways; add(initial)
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND hittable == true"), object: menu)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 16), .completed)
+        XCTAssertFalse(splash.exists, "Toolbar may appear only after splash removal")
+        let screens = [("DJ-sessie", "screen-dj-session"), ("Speelt Nu", "screen-now-playing"),
+                       ("Track Insight", "screen-track-insight"), ("Ontdek", "screen-discovery"),
+                       ("Ask DJ", "screen-ask-dj"), ("Eerdere sessies", "screen-saved-sessions"),
+                       ("Music DNA", "screen-music-dna"), ("Wachtrij", "screen-queue"),
+                       ("Afspeellijsten", "screen-playlists"), ("Games", "screen-games"),
+                       ("Instellingen", "screen-settings"), ("Logs", "screen-logs"),
+                       ("Over", "screen-about"), ("Juridisch", "screen-legal"), ("Privacy", "screen-privacy")]
+        for (index, destinationInfo) in screens.enumerated() {
+            let (title, screenID) = destinationInfo
+            let destination = app.buttons[title].firstMatch
+            guard destination.waitForExistence(timeout: 3), destination.isHittable else { XCTFail("Sidebar destination missing: \(title)"); return }
+            destination.click()
+            let screen = app.descendants(matching: .any)[screenID].firstMatch
+            guard screen.waitForExistence(timeout: 5) else { XCTFail("Destination did not open: \(screenID)"); return }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+            XCTAssertTrue(menu.exists && menu.isHittable, "Toolbar lost on \(title)")
+            let capture = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            capture.name = "layout-\(index)-\(title)"; capture.lifetime = .keepAlways; add(capture)
+        }
+        // Exercise the actual archive destination and return, using demo-only data.
+        app.buttons["Eerdere sessies"].firstMatch.click()
+        let archive = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "saved-session-")).firstMatch
+        guard archive.waitForExistence(timeout: 5), archive.isHittable else { XCTFail("Demo archive row unavailable"); return }
+        archive.click()
+        let timeline = app.descendants(matching: .any)["screen-history-timeline"].firstMatch
+        XCTAssertTrue(timeline.waitForExistence(timeout: 5))
+        app.buttons["Eerdere sessies"].firstMatch.click()
+        XCTAssertTrue(archive.waitForExistence(timeout: 5))
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: timeline)
+        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed)
+        let returned = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        returned.name = "layout-archive-return"; returned.lifetime = .keepAlways; add(returned)
+    }
+}

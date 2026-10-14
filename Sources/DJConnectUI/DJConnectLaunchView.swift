@@ -35,6 +35,7 @@ public struct DJConnectLaunchContainer<Content: View>: View {
                 .accessibilityHidden(showLaunch)
             if showLaunch {
                 DJConnectLaunchView()
+                    .accessibilityIdentifier("launch-splash")
                     .transition(.opacity)
                     .zIndex(1)
             }
@@ -54,6 +55,17 @@ public struct DJConnectLaunchContainer<Content: View>: View {
         }
     }
 
+    private var minimumLaunchDuration: Duration {
+        #if DEBUG
+        // Extend only the isolated UI probe so XCTest can observe the splash.
+        if ProcessInfo.processInfo.arguments.contains("--uitesting"),
+           ProcessInfo.processInfo.environment["DJCONNECT_UITEST_HOLD_SPLASH"] == "1" {
+            return .seconds(6)
+        }
+        #endif
+        return .seconds(1.5)
+    }
+
     private func showLaunchOverlay() {
         minimumLaunchTask?.cancel()
         maximumLaunchTask?.cancel()
@@ -63,7 +75,7 @@ public struct DJConnectLaunchContainer<Content: View>: View {
         mainControlsVisible = false
 
         minimumLaunchTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(1.5))
+            try? await Task.sleep(for: minimumLaunchDuration)
             guard !Task.isCancelled else { return }
             minimumLaunchTimeElapsed = true
             updateLaunchVisibility()
