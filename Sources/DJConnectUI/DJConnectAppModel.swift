@@ -6454,7 +6454,8 @@ public final class DJConnectAppModel: ObservableObject {
             supportsMusicDiscoveryFeedback = false
             return
         }
-        if !force, let response = musicDiscoveryResponse, !isMusicDiscoveryExpired(response) {
+        if !force, let response = musicDiscoveryResponse, !isMusicDiscoveryExpired(response),
+           !response.enabled || !response.visibleSections.isEmpty {
             return
         }
         isLoadingMusicDiscovery = true
