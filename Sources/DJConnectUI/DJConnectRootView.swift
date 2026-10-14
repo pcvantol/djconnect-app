@@ -10439,10 +10439,6 @@ private struct OutputSelectorView: View {
         }
         #if os(iOS)
         .padding(14)
-        .background {
-            DJConnectTableRowBackground()
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-        }
         #endif
     }
 }
