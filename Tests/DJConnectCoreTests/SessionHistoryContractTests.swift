@@ -2017,21 +2017,24 @@ private func presenceRequestBody(_ request: URLRequest) throws -> Data {
     var metadata = broadcast["session"] as! [String: Any]
     metadata["selected_presence"] = "presenter"; broadcast["session"] = metadata; session["broadcast"] = broadcast; first["session"] = session
     let contradiction = try historyData(first), older = try presenceRuntimeWire(value: "talkative", revision: 3), newer = try presenceRuntimeWire(value: "occasional", revision: 5)
-    let script = PresenceScript()
+    let script = PresenceScript(), phase = PresenceReadPhase()
     let fixture = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/session/active") {
-            let read = script.nextWrite()
-            return (200, read == 1 ? contradiction : read == 2 ? older : newer, 0)
+            _ = script.nextWrite()
+            // Broadcast HTTP recovery may also read active state. Each phase
+            // describes server state, rather than advancing for each reader.
+            let index = phase.value
+            return (200, index == 0 ? contradiction : index == 1 ? older : newer, 0)
         }
         return (404, Data(), 0)
     }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
     await model.refreshActiveDJSession()
-    #expect(model.activeDJSession?.confirmedPresence == nil && model.activeDJSession?.presenceRevisionFloor == 4)
-    await model.refreshActiveDJSession()
-    #expect(model.activeDJSession?.confirmedPresence == nil && model.activeDJSession?.presenceRevisionFloor == 4)
-    await model.refreshActiveDJSession()
+    #expect(model.activeDJSession?.confirmedPresence == nil && model.activeDJSession?.presenceRevisionFloor == 4, "Active HTTP reads=\(script.writes); floor=\(String(describing: model.activeDJSession?.presenceRevisionFloor)); confirmed=\(String(describing: model.activeDJSession?.confirmedPresence?.selectedPresence))")
+    phase.value = 1; await model.refreshActiveDJSession()
+    #expect(model.activeDJSession?.confirmedPresence == nil && model.activeDJSession?.presenceRevisionFloor == 4, "Active HTTP reads=\(script.writes); floor=\(String(describing: model.activeDJSession?.presenceRevisionFloor)); confirmed=\(String(describing: model.activeDJSession?.confirmedPresence?.selectedPresence))")
+    phase.value = 2; await model.refreshActiveDJSession()
     #expect(model.activeDJSession?.confirmedPresence?.selectedPresence == .occasional && model.activeDJSession?.presenceRevisionFloor == 5)
 }
 
