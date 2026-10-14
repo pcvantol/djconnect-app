@@ -229,3 +229,27 @@ work, not a new general audit or roadmap transport writer. Diagnostic code is
 local; remote draft107 remains25a5e92, protected delivery/Finalization remain
 separate. The ordinary Mac process58349/build40034 is unchanged. Only the manual
 isolated proof process was stopped after exact executable verification.
+
+
+## Executed00ba403 native cases and bounded mouse-event successor
+
+After explicit owner approval, exactly the new00ba403 runner/proof bundles were
+ad-hoc signed and strict/deep verified. Both native cases were actually run,
+sequentially. Window-restoration FAIL66.789s: initialWindowPresent=false,
+then native New Window interaction times out waiting for menu-open notification.
+Normal quit/relaunch was not reached. Presence FAIL at its strict main-window
+precondition, before any Presence click/mutation. These outcomes neither prove
+restoration repaired nor establish the popup lifecycle cause. Separate xcresults,
+logs and hash receipt `/private/tmp/djc-presence-00ba403-native-receipt.json`
+are retained. No production installation, state deletion or settings change.
+
+Official local XCUIElement.h distinguishes XCUIElementTouchEvents.tap from
+XCUIElementMouseEvents.click. A bounded successor changes only the five menu/
+button event calls in these two Mac cases to native mouse clicks; all fixture
+policy/assertions and product code remain unchanged. Independent test-source
+review GO; actual new unsigned build-for-testing PASS. This is a test-input
+correction hypothesis, not proof that touch calls caused prior failures. The
+mouse trial must qualify windowcreation, normal restoration and Presence as
+separate boundaries. It reuses the unchanged already-signed00ba403 proof app;
+only its new temporary runner needs signing authority. No new native PASS or
+expansion of an earlier exact-bundle grant is inferred.

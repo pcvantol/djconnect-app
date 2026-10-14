@@ -523,7 +523,7 @@ extension DJConnectMacUITests {
             XCTFail("Presence toggle must be enabled and hittable before native activation")
             app.terminate(); return
         }
-        toggle.tap()
+        toggle.click()
         guard app.descendants(matching: .any)["active-session-presence"].firstMatch.waitForExistence(timeout: 10) else {
             let evidence = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
             evidence.name = "presence-native-popover-missing"; evidence.lifetime = .keepAlways; add(evidence)
@@ -536,7 +536,7 @@ extension DJConnectMacUITests {
             let button = app.buttons["session-presence-choice-" + value]
             XCTAssertTrue(button.waitForExistence(timeout: 10) && button.isEnabled && button.isHittable)
             if offset == 0 { _ = try await control("presence_delay_once") }
-            button.tap()
+            button.click()
             if offset == 0 {
                 XCTAssertTrue(app.descendants(matching: .any)["session-presence-pending"].firstMatch.waitForExistence(timeout: 2))
                 XCTAssertTrue(app.staticTexts["session-presence-confirmed"].label.contains(anchors[language]![2]),
@@ -571,7 +571,7 @@ extension DJConnectMacUITests {
         XCTAssertFalse(app.descendants(matching: .any)["session-presence-error"].firstMatch.exists)
         let paused = try await control("pause")
         let pausedRuntime = try XCTUnwrap(paused["active"] as? [String: Any])
-        app.buttons["session-presence-choice-balanced"].tap()
+        app.buttons["session-presence-choice-balanced"].click()
         let pausedConfirmation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", anchors[language]![2]), object: app.staticTexts["session-presence-confirmed"])
         let pausedResult = await XCTWaiter.fulfillment(of: [pausedConfirmation], timeout: 10)
         XCTAssertEqual(pausedResult, .completed)
@@ -612,10 +612,10 @@ extension DJConnectMacUITests {
         if !initialWindowPresent {
             let file = app.menuBars.menuBarItems["Archief"]
             guard file.waitForExistence(timeout: 5) else { XCTFail("Native File menu must exist"); return }
-            file.tap()
+            file.click()
             let newWindow = app.menuItems["Nieuw venster"]
             guard newWindow.waitForExistence(timeout: 5), newWindow.isEnabled else { XCTFail("Native New Window must be available"); return }
-            newWindow.tap()
+            newWindow.click()
         }
         guard window.waitForExistence(timeout: 10) else { XCTFail("Native main window must be created without deleting saved state"); return }
         let created = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
