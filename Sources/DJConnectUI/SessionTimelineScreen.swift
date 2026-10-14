@@ -1104,9 +1104,6 @@ struct ActiveSessionMoodToolbar: View {
                 if model.activeMoodPending { ProgressView(text("ui.session.mood.updating")) }
                 if !canChange && !model.activeMoodPending {
                     Text(text("ui.session.mood.unavailable")).font(.caption).foregroundStyle(.secondary)
-                    Button(text("ui.retry")) {
-                        Task { _ = await model.refreshActiveDJSession(); await model.refreshActiveMoodCapability() }
-                    }
                 }
                 if let error = model.activeMoodError { Text(error).font(.caption).foregroundStyle(.secondary) }
             }
@@ -1125,6 +1122,14 @@ struct ActiveSessionMoodToolbar: View {
         }
         .task(id: CapabilityScope(sessionID: session.id, epoch: history.responseEpoch, authorized: model.pairingStatus == .paired)) {
             if model.isDemoMode || model.pairingStatus == .paired { await model.refreshActiveMoodCapability() }
+        }
+        .onChange(of: moodIntent?.id) { _, id in
+            guard id != nil, scenePhase == .active,
+                  model.isDemoMode || model.pairingStatus == .paired else { return }
+            Task {
+                _ = await model.refreshActiveDJSession()
+                await model.refreshActiveMoodCapability()
+            }
         }
         .onChange(of: session.id) { moodIntent = nil }
         .onChange(of: history.responseEpoch) { moodIntent = nil }

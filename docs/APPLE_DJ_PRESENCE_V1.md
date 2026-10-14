@@ -378,3 +378,7 @@ Owner requests newest items at the top in Ask DJ and active Session with an upwa
 ## Newest-first search selection review correction
 
 Independent review identified positional search-selection drift when a newer matching response was prepended. Ask DJ now retains the selected message UUID across message updates and recomputes its displayed index. Navigation explicitly changes that UUID; query changes and closing search reset it. A focused regression covers prepending a reply, disappearing selected message, query reset and empty results. Earlier full-suite failures in unchanged Mood-replacement timing and shared widget-language defaults are retained separately, not labeled PASS or altered as part of the presentation scope.
+
+## Mood unavailable UX and deployment root-cause preparation
+
+Owner requested removal of the misleading Retry action and correction of Mood availability. Removed the manual retry button; opening the owner/foreground Mood popover refreshes the existing authorized active-session and capability reads automatically. No client Mood state, backend mutation or protocol fallback is invented. Production read-only inspection confirms the deployed integration lacks session_mood.py and session_presence.py; current published Core main has the qualified implementations. A verified artifact/backup/rollback recovery is prepared privately, and production replacement/restart awaits Owner permission. No Core producer/source edits were made. Internal deployment details were not published after approval review rejected that issue payload.
