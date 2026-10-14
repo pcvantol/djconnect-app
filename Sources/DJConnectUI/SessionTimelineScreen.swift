@@ -770,7 +770,6 @@ struct SessionEntryView: View, Equatable {
                     .padding(20)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .overlay(alignment: .topTrailing) { askButton.padding(8) }
-                    .djSessionFrostedSurface(cornerRadius: DJConnectCardAppearance.conversationCornerRadius)
                     .overlay {
                         if isSelectedMatch {
                             RoundedRectangle(cornerRadius: DJConnectCardAppearance.conversationCornerRadius, style: .continuous)
@@ -782,6 +781,7 @@ struct SessionEntryView: View, Equatable {
                                 .allowsHitTesting(false)
                         }
                     }
+                    .djSessionFrostedSurface(cornerRadius: DJConnectCardAppearance.conversationCornerRadius)
                     .accessibilityAddTraits(isSelectedMatch ? [.isSelected] : [])
                 }
             }
