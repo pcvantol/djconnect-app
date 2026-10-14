@@ -1030,7 +1030,7 @@ public struct DJConnectRootView: View {
         case .queue:
             selectedSection = .queue
         case .askDJ:
-            selectedSection = .askDJ
+            selectSidebarSection(.askDJ)
         case .trackInsight:
             selectedSection = .trackInsight
         case .discovery:
@@ -13084,14 +13084,20 @@ struct MoodModeControl: View {
                             .position(x: horizontalInset + CGFloat(index) * slotWidth, y: 14)
                     }
 
-                    Image(systemName: askDJMoodIcon(for: selectedIndex))
-                        .font(.system(size: 15, weight: .black))
-                        .foregroundStyle(.white)
+                    Circle()
+                        .fill(djConnectAccent)
                         .frame(width: 28, height: 28)
-                        .background(Circle().fill(djConnectAccent))
+                        .overlay {
+                            Image(systemName: askDJMoodIcon(for: selectedIndex))
+                                .font(.system(size: 15, weight: .black))
+                                .foregroundStyle(.white)
+                                .transaction { $0.animation = nil }
+                        }
                         .shadow(color: djConnectAccent.opacity(0.28), radius: 8, y: 3)
-                        .position(x: max(14, min(width - 14, markerX)), y: 14)
-                        .animation(.spring(response: 0.28, dampingFraction: 0.82), value: selectedIndex)
+                        // Animate only horizontal travel; changing SF Symbols must
+                        // not animate their different intrinsic baselines.
+                        .offset(x: max(14, min(width - 14, markerX)) - 14)
+                        .animation(.easeInOut(duration: 0.2), value: selectedIndex)
                 }
                 .contentShape(Rectangle())
                 .gesture(
@@ -17531,7 +17537,7 @@ private struct AboutView: View {
         ZStack {
             DJConnectCanvasBackground()
             ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
+                VStack(alignment: .leading, spacing: 24) {
                     AboutBanner()
 
                     SettingsSection(title: localizedKey(model.language, "ui.app"), showsDivider: false) {
@@ -17744,7 +17750,7 @@ private struct LegalNoticesView: View {
             ZStack {
                 DJConnectCanvasBackground()
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 24) {
                         AboutBanner()
 
                         VStack(alignment: .leading, spacing: 20) {

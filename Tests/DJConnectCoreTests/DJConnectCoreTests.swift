@@ -13527,3 +13527,15 @@ private extension String {
     #expect(refreshes == [true, true])
     scheduler.cancelAll()
 }
+
+@MainActor
+@Test func freshOutputDevicesDoNotReactivatePreviousPlaybackSpeaker() throws {
+    let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.apply(playback: DJConnectPlayback(device: DJConnectPlaybackDevice(id: "old", name: "Old speaker")))
+    model.apply(commandResponse: DJConnectCommandResponse(success: true, backendAvailable: true, devices: [
+        DJConnectOutputDevice(id: "old", name: "Old speaker", active: false),
+        DJConnectOutputDevice(id: "new", name: "New speaker", active: true)
+    ]))
+    #expect(model.availableOutputs.filter { $0.active == true }.map(\.id) == ["new"])
+    #expect(model.selectedOutput == "New speaker")
+}

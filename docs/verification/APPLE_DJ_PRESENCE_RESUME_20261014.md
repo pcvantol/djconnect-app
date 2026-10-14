@@ -432,3 +432,69 @@ attachment manifest `/private/tmp/djc-about-glass-native-correct-captures/manife
 This is isolated native demo qualification;40059 not installed or protected
 merged. Existing writer integrated the already-protected main via ordinary
 merge, without resetting history/WIP. Two untracked projectcopies remain.
+
+## PR108 protected merge and bounded UI/output follow-up
+
+PR108 exact candidate442db204fadc0c6dd026463a4eba119bc2182744 was owner-authorized
+(run38607061008) and protected merged as aa65e902d8f5c05b9044708edca9730ac884e8d7.
+Main run38607375724: Post-merge coverage evidence SUCCESS; ordinary CI FAILURE
+at queueSelectionWaitsForOlderQueueReadThenFetchesFreshRows loadingQueueItemIndex
+assertion. The original Presence coverage failure is repaired; ordinary CI is
+not declared green. Failed receipts remain preserved.
+
+The queue test previously stopped when fresh rows became visible, before the
+command refresh task's cleanup. Its wait now requires both the new rows and
+loading completion, without removing any final assertions or changing product
+queue scheduling. An intermediate full520 coverage run passed52.793s; full521
+passed52.495s; the final expanded suite is recorded below separately.
+
+Additional direct user findings handled in this bounded follow-up:
+- Mood marker: fixed28pt circle and symbol overlay; animate horizontal offset
+  only, disable symbol baseline interpolation. Native motion proof is separate
+  from source geometry review.
+- About/Legal/Privacy: outer card gaps consistently24pt (previous28/20/24).
+- Archive context bubble: use the same root-selection path as sidebar Ask DJ,
+  withdrawing the pushed archive before replacing its root. Native assertion
+  requires archive disappearance, Ask DJ visibility and selected context.
+- Outputs: explicit device active flags outrank an older playback snapshot.
+  Reproduced double-active state and wrong selectedOutput in
+  /private/tmp/djc-output-stale-red.xcresult before product correction.
+  Accepted set_output immediately reads devices; acceptance itself does not
+  manufacture confirmation. Both empty acknowledgement and acknowledgement
+  containing old devices are covered.
+- Rapid output switching: fence response/error application and each transport
+  attempt to the originating output-selection generation. Reproduced late-A
+  replacing confirmed B in /private/tmp/djc-output-late-red.xcresult, and a
+  superseded A remote-fallback write in
+  /private/tmp/djc-output-fallback-red-compiled.xcresult. Subsequent read/write
+  attempts for a superseded selection cancel before dispatch.
+
+Sole writer remains codex/apple-dj-presence-v1 in the existing recovery source;
+ordinary merge e64bed6 integrated approved main without resetting WIP.
+Fresh authoritative host verification MATCH in
+/private/tmp/djc-pr108-followup-host-verify.log. Restricted verification could
+not see Docker/network state; it was not treated as authoritative host drift.
+No ordinary installation, pairing change, HA mutation or Finalization occurred.
+Installed build remains40058 on the three previously verified devices.
+
+Native first follow-up attempt failed because its copied xctestrun retained
+UITargetAppBundleIdentifier=dev.djconnect.mac.aboutglassproof despite a new
+proof-app path. The fixture configuration is corrected, old failed receipt
+retained; this run is not native acceptance.
+
+Final follow-up validation:523 Core tests PASS52.679s with Xcode coverage
+(/private/tmp/djc-apple-followup-final.xcresult); unsigned final iOS build PASS
+(/private/tmp/djc-apple-followup-ios-final.log); Mac build-for-testing PASS
+(/private/tmp/djc-apple-followup-native-final-build.log). Independent technical
+review source GO after closing both output races.
+
+Corrected native proof PASS77.168s,1test0failures
+(/private/tmp/djc-apple-followup-native-final.xcresult). It exercises15root
+screens, archive overview return, then the actual archive bubble action:
+archive disappears, Ask DJ appears, selected context remains visible.
+Loaded UI/Core paths were read from the running proof PID and both resolve
+inside /private/tmp/djc-apple-followup-final-proof.app/Contents/Frameworks
+(/private/tmp/djc-apple-followup-final-loaded-frameworks.log).
+This is isolated native proof, not ordinary installed-device acceptance.
+Slider motion correction has source geometry review; this navigation probe
+alone is not a frame-by-frame motion qualification.
