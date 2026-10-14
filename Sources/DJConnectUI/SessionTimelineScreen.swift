@@ -104,7 +104,7 @@ struct SavedSessionsView: View {
                             .allowsHitTesting(false)
                         if history.listErrorKey != nil && model.pairingStatus == .paired && !model.isDemoMode {
                             Button(text("ui.retry")) { Task { await refresh() } }
-                                .buttonStyle(DJConnectButtonStyle())
+                                .djConnectButtonStyle(DJConnectButtonStyle())
                                 .disabled(refreshing)
                         }
                     }
@@ -286,7 +286,7 @@ struct SessionTimelineScreen: View {
                                             await history.loadTimeline(sessionID, window: .tail)
                                         }
                                     }
-                                    .buttonStyle(DJConnectButtonStyle())
+                                    .djConnectButtonStyle(DJConnectButtonStyle())
                                     .disabled(retryRefreshing || timeline.loading)
                                     .accessibilityIdentifier("session-timeline-retry")
                                 }
@@ -380,7 +380,7 @@ struct SessionTimelineScreen: View {
                                 jump("current", proxy: proxy)
                                 hasNewEntries = false
                             } label: { Image(systemName: "arrow.up") }
-                            .buttonStyle(DJConnectButtonStyle(shape: .icon))
+                            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
                             .accessibilityLabel(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
                             .help(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
                             .accessibilityIdentifier("session-jump-top")
@@ -411,9 +411,11 @@ struct SessionTimelineScreen: View {
                         ActiveSessionMoodToolbar(model: model, session: activeSession)
                         ActiveSessionPresenceToolbar(model: model, session: activeSession)
                     }
+                    #if !os(macOS)
                     if activeSession != nil {
                         SessionEndToolbarButton(model: model)
                     }
+                    #endif
                     Button {
                         if searching { closeSearch(proxy: proxy) }
                         else { priorSearchPosition = visibleEntry; inputFocused = false; searching = true; searchFocused = true }
@@ -434,11 +436,10 @@ struct SessionTimelineScreen: View {
                         .accessibilityIdentifier("session-handoff-toggle")
                         .help(text("ui.vibecast.handoff.title"))
                         .popover(isPresented: $showingHandoff) {
-                            ScrollView {
-                                ActiveDJSessionView(model: model, session: activeSession,
-                                                    openQueueAction: openQueueAction, showsMoments: false)
-                            }
-                            .frame(idealWidth: 400, idealHeight: 300)
+                            ActiveDJSessionView(model: model, session: activeSession,
+                                                openQueueAction: openQueueAction, showsMoments: false)
+                            .frame(width: 400)
+                            .fixedSize(horizontal: false, vertical: true)
                             .presentationCompactAdaptation(.popover)
                         }
                     }
@@ -446,6 +447,13 @@ struct SessionTimelineScreen: View {
                     if let refreshAction { RefreshButton(model: model, action: refreshAction) }
                     #endif
                 }
+                #if os(macOS)
+                if activeSession != nil {
+                    ToolbarItem(placement: .confirmationAction) {
+                        SessionEndToolbarButton(model: model)
+                    }
+                }
+                #endif
             }
             .onAppear {
                 guard activeSession != nil, initialAnchor == nil else { return }
@@ -776,7 +784,7 @@ struct SessionEntryView: View, Equatable {
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .djConnectPlainButtonStyle()
         .accessibilityLabel(text("ui.session.history.ask_entry"))
         .accessibilityValue(selected ? text("ui.session.history.selected_context") : "")
         .accessibilityIdentifier("ask-entry-" + entry.id)
@@ -812,7 +820,7 @@ struct SessionHistoryMatchCard: View {
                 }
                 if let action = entry.openAction, action.reference == entry.reference {
                     Button(text("ui.session.history.open")) { open(action) }
-                        .buttonStyle(.plain)
+                        .djConnectPlainButtonStyle()
                         .frame(minHeight: 44, alignment: .leading)
                         .contentShape(Rectangle())
                         .accessibilityIdentifier("open-session-" + entry.id)
@@ -848,7 +856,7 @@ struct SessionComposerContext: View {
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .djConnectPlainButtonStyle()
                     .accessibilityLabel(text("ui.close"))
                     .help(text("ui.close"))
                     .accessibilityIdentifier("clear-session-question-context")
@@ -1007,7 +1015,7 @@ struct ActiveSessionPresenceControl: View {
                             Text(text(value.localizationKey)).font(.caption).multilineTextAlignment(.center)
                                 .frame(maxWidth: .infinity, minHeight: 44)
                         }
-                        .buttonStyle(DJConnectButtonStyle(emphasis: Int(preview) == index ? .selected : .secondary))
+                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: Int(preview) == index ? .selected : .secondary))
                         .accessibilityAddTraits(Int(preview) == index ? .isSelected : [])
                         .accessibilityIdentifier("session-presence-choice-" + value.rawValue)
                     }
@@ -1028,10 +1036,10 @@ struct ActiveSessionPresenceControl: View {
             }
             if model.activePresenceRequiresDecision, enabled, !model.activePresencePending {
                 Button(text("ui.session.presence.accept_current")) { model.acceptCurrentSessionPresence(expectedSessionID: sessionID, expectedEpoch: epoch) }
-                    .buttonStyle(DJConnectButtonStyle())
+                    .djConnectButtonStyle(DJConnectButtonStyle())
                 if let desired = model.activePresenceDesired {
                     Button(text("ui.session.presence.apply_choice") + ": " + text(desired.localizationKey)) { commit(preview) }
-                        .buttonStyle(DJConnectButtonStyle())
+                        .djConnectButtonStyle(DJConnectButtonStyle())
                 }
             }
             Text(text("ui.session.presence.music_only_help")).font(.caption).foregroundStyle(.white.opacity(0.88))

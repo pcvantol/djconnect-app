@@ -107,7 +107,7 @@ struct NativeSessionMomentsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
                     }
-                    .buttonStyle(.plain)
+                    .djConnectPlainButtonStyle()
                     .accessibilityIdentifier("session-flow-\(moment.id)")
                     } else {
                         Text(item.label).font(.callout).foregroundStyle(.secondary)

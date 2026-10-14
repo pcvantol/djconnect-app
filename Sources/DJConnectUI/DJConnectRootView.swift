@@ -699,6 +699,13 @@ private enum DJConnectSection: Hashable {
     case privacy
 }
 
+#if os(macOS)
+private enum DJConnectSidebarFocusTarget: Hashable {
+    case section(DJConnectSection)
+    case feedback
+}
+#endif
+
 public struct DJConnectRootView: View {
     @ObservedObject private var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
@@ -706,6 +713,10 @@ public struct DJConnectRootView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedSection = DJConnectSection.djSession
     @State private var openedSavedSessionID: String?
+    #if os(macOS)
+    @State private var sidebarVisibility: NavigationSplitViewVisibility = .all
+    @FocusState private var focusedSidebarItem: DJConnectSidebarFocusTarget?
+    #endif
     @State private var moreResetID = UUID()
     @State private var showingFeedback = false
 
@@ -719,92 +730,129 @@ public struct DJConnectRootView: View {
             DJConnectCanvasBackground()
             Group {
                 #if os(macOS)
-                NavigationSplitView {
-                    List {
+                NavigationSplitView(columnVisibility: $sidebarVisibility) {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 4) {
                         SidebarItem(
                             title: localizedKey(model.language, "ui.session.title"),
                             systemImage: "sparkles",
-                            isSelected: selectedSection == .djSession
+                            isSelected: selectedSection == .djSession,
+                            focusTarget: .section(.djSession),
+                            focus: $focusedSidebarItem
                         ) { selectSidebarSection(.djSession) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.now.playing"),
                             systemImage: "music.note",
-                            isSelected: selectedSection == .nowPlaying
+                            isSelected: selectedSection == .nowPlaying,
+                            focusTarget: .section(.nowPlaying),
+                            focus: $focusedSidebarItem
                         ) { selectSidebarSection(.nowPlaying) }
                         SidebarItem(
                             title: "Track Insight",
                             systemImage: "waveform.path.ecg",
-                            isSelected: selectedSection == .trackInsight
+                            isSelected: selectedSection == .trackInsight,
+                            focusTarget: .section(.trackInsight),
+                            focus: $focusedSidebarItem
                         ) { selectSidebarSection(.trackInsight) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.discover"),
                             systemImage: "wand.and.stars",
-                            isSelected: selectedSection == .discovery
+                            isSelected: selectedSection == .discovery,
+                            focusTarget: .section(.discovery),
+                            focus: $focusedSidebarItem
                         ) { selectDiscovery() }
                         SidebarItem(
                             title: "Ask DJ",
                             systemImage: "bubble.left.and.bubble.right",
-                            isSelected: selectedSection == .askDJ
+                            isSelected: selectedSection == .askDJ,
+                            focusTarget: .section(.askDJ),
+                            focus: $focusedSidebarItem
                         ) { selectSidebarSection(.askDJ) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.session.history.title"),
                             systemImage: "clock.arrow.circlepath",
-                            isSelected: selectedSection == .savedSessions
+                            isSelected: selectedSection == .savedSessions,
+                            focusTarget: .section(.savedSessions),
+                            focus: $focusedSidebarItem
                         ) { selectSidebarSection(.savedSessions) }
                         SidebarItem(
                             title: "Music DNA",
                             systemImage: "heart",
-                            isSelected: selectedSection == .musicDNA
+                            isSelected: selectedSection == .musicDNA,
+                            focusTarget: .section(.musicDNA),
+                            focus: $focusedSidebarItem
                         ) { selectSidebarSection(.musicDNA) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.queue"),
                             systemImage: "music.note.list",
-                            isSelected: selectedSection == .queue
+                            isSelected: selectedSection == .queue,
+                            focusTarget: .section(.queue),
+                            focus: $focusedSidebarItem
                         ) { selectSidebarSection(.queue) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.playlists"),
                             systemImage: "rectangle.stack",
-                            isSelected: selectedSection == .playlists
+                            isSelected: selectedSection == .playlists,
+                            focusTarget: .section(.playlists),
+                            focus: $focusedSidebarItem
                         ) { selectSidebarSection(.playlists) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.games"),
                             systemImage: "gamecontroller",
-                            isSelected: selectedSection == .games
+                            isSelected: selectedSection == .games,
+                            focusTarget: .section(.games),
+                            focus: $focusedSidebarItem
                         ) { selectSidebarSection(.games) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.settings"),
                             systemImage: "gearshape",
-                            isSelected: selectedSection == .settings
+                            isSelected: selectedSection == .settings,
+                            focusTarget: .section(.settings),
+                            focus: $focusedSidebarItem
                         ) { selectSidebarSection(.settings) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.logs"),
                             systemImage: "doc.text.magnifyingglass",
-                            isSelected: selectedSection == .logs
+                            isSelected: selectedSection == .logs,
+                            focusTarget: .section(.logs),
+                            focus: $focusedSidebarItem
                         ) { selectSidebarSection(.logs) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.about"),
                             systemImage: "info.circle",
-                            isSelected: selectedSection == .about
+                            isSelected: selectedSection == .about,
+                            focusTarget: .section(.about),
+                            focus: $focusedSidebarItem
                         ) { selectSidebarSection(.about) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.legal"),
                             systemImage: "doc.text",
-                            isSelected: selectedSection == .legal
+                            isSelected: selectedSection == .legal,
+                            focusTarget: .section(.legal),
+                            focus: $focusedSidebarItem
                         ) { selectSidebarSection(.legal) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.privacy"),
                             systemImage: "hand.raised",
-                            isSelected: selectedSection == .privacy
+                            isSelected: selectedSection == .privacy,
+                            focusTarget: .section(.privacy),
+                            focus: $focusedSidebarItem
                         ) { selectSidebarSection(.privacy) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.share.feedback"),
                             systemImage: "bubble.left.and.bubble.right",
-                            isSelected: false
+                            isSelected: false,
+                            focusTarget: .feedback,
+                            focus: $focusedSidebarItem
                         ) { openedSavedSessionID = nil; showingFeedback = true }
                     }
+                        }
+                        .padding(12)
                     .navigationTitle(screenTitle(model.language, key: "ui.djconnect", isDemoMode: model.isDemoMode))
                     .scrollContentBackgroundIfAvailable(.hidden)
                     .scrollIndicators(.hidden)
+                    .toolbar(removing: .sidebarToggle)
+                    .focusSection()
                     .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
                 } detail: {
                     GeometryReader { viewport in
@@ -824,11 +872,26 @@ public struct DJConnectRootView: View {
                     }
                     .animation(.snappy(duration: 0.22), value: shouldShowOfflineNetworkBanner)
                     }
+                    // Native chrome already occupies its own titlebar. Do not
+                    // add macOS's scroll-edge veil over the top of detail content.
+                    .scrollEdgeEffectHidden(true, for: .top)
+                    .toolbar(removing: .sidebarToggle)
+                    .focusSection()
                 }
+                .toolbar(removing: .sidebarToggle)
                 .toolbar {
-                    // Keep the system-owned toggle on the leading edge even
-                    // when the sidebar collapses into the detail-only layout.
-                    DefaultToolbarItem(kind: .sidebarToggle, placement: .navigation)
+                    ToolbarItem(placement: .navigation) {
+                        Button {
+                            sidebarVisibility = sidebarVisibility == .detailOnly ? .all : .detailOnly
+                        } label: {
+                            Image(systemName: "sidebar.left")
+                                .foregroundStyle(.primary)
+                                .frame(width: 36, height: 28)
+                        }
+                        .djConnectPlainButtonStyle()
+                        .accessibilityLabel(localizedKey(model.language, "ui.navigation.menu"))
+                        .accessibilityIdentifier("main-sidebar-toggle")
+                    }
                 }
                 .tint(Color(red: 0.74, green: 0.22, blue: 0.96))
                 .accentColor(Color(red: 0.74, green: 0.22, blue: 0.96))
@@ -1415,7 +1478,7 @@ private struct PermissionExplanationView: View {
                             Label(localizedKey(model.language, "ui.continue"), systemImage: "checkmark.shield")
                                 .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                         .controlSize(.large)
 
                         DJConnectNotNowLinkButton(language: model.language) {
@@ -1447,16 +1510,24 @@ private struct SidebarItem: View {
     let title: String
     let systemImage: String
     let isSelected: Bool
+    let focusTarget: DJConnectSidebarFocusTarget
+    let focus: FocusState<DJConnectSidebarFocusTarget?>.Binding
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Label {
-                Text(title).foregroundStyle(isSelected ? .white : .primary)
-            } icon: {
+        Button {
+            // A mouse click moves the same native keyboard focus as Tab.
+            // Otherwise macOS can keep its ring on the previous menu item.
+            focus.wrappedValue = focusTarget
+            action()
+        } label: {
+            HStack(spacing: 10) {
                 Image(systemName: systemImage)
                     .symbolRenderingMode(.monochrome)
                     .foregroundStyle(isSelected ? .white : djConnectAccent)
+                    .frame(width: 28, alignment: .center)
+                Text(title)
+                    .foregroundStyle(isSelected ? .white : .primary)
             }
                 .font(.body.weight(.semibold))
                 .lineLimit(1)
@@ -1468,7 +1539,8 @@ private struct SidebarItem: View {
                     selectionBackground
                 }
         }
-        .buttonStyle(.plain)
+        .djConnectPlainButtonStyle()
+        .focused(focus, equals: focusTarget)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
@@ -1645,7 +1717,7 @@ private struct PairingSheetView: View {
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                     }
-                    .buttonStyle(.plain)
+                    .djConnectPlainButtonStyle()
                     .accessibilityLabel(localizedKey(model.language, "ui.device.offline.enable.wifi"))
                 }
                 #endif
@@ -1668,7 +1740,7 @@ private struct PairingSheetView: View {
                         )
                         .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(DJConnectButtonStyle(emphasis: .secondary, expands: true))
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .secondary, expands: true))
                     .controlSize(.large)
                     .disabled(model.isPairing)
                 } else {
@@ -1681,7 +1753,7 @@ private struct PairingSheetView: View {
                         )
                         .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(DJConnectButtonStyle(emphasis: .secondary, expands: true))
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .secondary, expands: true))
                     .controlSize(.large)
                     .disabled(model.isPairing)
                 }
@@ -1725,7 +1797,7 @@ private struct PairingSheetView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
                 }
-                .buttonStyle(.plain)
+                .djConnectPlainButtonStyle()
                 .accessibilityLabel(localizedKey(model.language, "ui.manual.pairing"))
                 .accessibilityIdentifier("pairing-manual-toggle")
                 #endif
@@ -1760,7 +1832,7 @@ private struct PairingSheetView: View {
                     )
                     .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                 .controlSize(.large)
                 .disabled(model.isPairing || !canSubmitPairing)
                 .accessibilityIdentifier("pairing-submit-button")
@@ -1777,7 +1849,7 @@ private struct PairingSheetView: View {
                     )
                     .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(DJConnectButtonStyle(emphasis: .secondary, expands: true))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .secondary, expands: true))
                 .controlSize(.large)
                 .accessibilityIdentifier("pairing-start-demo-button")
             }
@@ -1791,7 +1863,7 @@ private struct PairingSheetView: View {
                         .font(.headline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.plain)
+                .djConnectPlainButtonStyle()
                 .foregroundStyle(.secondary)
                 .controlSize(.large)
                 .disabled(model.isPairing)
@@ -1808,7 +1880,7 @@ private struct PairingSheetView: View {
                 )
                 .frame(maxWidth: .infinity)
             }
-            .buttonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
+            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
             .controlSize(.large)
             #endif
         }
@@ -1858,7 +1930,7 @@ private struct PairingSheetView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
             .controlSize(.large)
         }
     }
@@ -2077,14 +2149,14 @@ private struct OfflineNetworkBanner: View {
                     .font(.caption.weight(.bold))
                     .lineLimit(1)
             }
-            .buttonStyle(.plain)
+            .djConnectPlainButtonStyle()
 
             Button(action: refreshAction) {
                 Image(systemName: "arrow.clockwise").foregroundStyle(.white)
                     .font(.system(size: 15, weight: .bold))
                     .frame(width: 32, height: 32)
             }
-            .buttonStyle(.plain)
+            .djConnectPlainButtonStyle()
             .accessibilityLabel(localizedKey(language, "ui.refresh.network"))
         }
         .foregroundStyle(.white)
@@ -2163,7 +2235,7 @@ private struct PairingEditableURLCard: View {
                             .font(.body)
                             .foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.plain)
+                    .djConnectPlainButtonStyle()
                     .accessibilityLabel(localizedKey(language, "ui.clear.home.assistant.url"))
                 }
 
@@ -2174,7 +2246,7 @@ private struct PairingEditableURLCard: View {
                         .font(.body.weight(.semibold))
                         .foregroundStyle(isValid ? .green : .secondary)
                 }
-                .buttonStyle(.plain)
+                .djConnectPlainButtonStyle()
                 .disabled(!isValid)
                 .accessibilityLabel(localizedKey(language, "ui.confirm.home.assistant.url"))
             }
@@ -2342,7 +2414,7 @@ private struct PairingCameraConsentSheet: View {
                         Label(primaryButtonTitle, systemImage: showsSettingsAction ? "gear" : "camera.fill")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                     .controlSize(.large)
 
                     DJConnectNotNowLinkButton(language: language) {
@@ -2710,7 +2782,7 @@ private struct WakeWordActivationPromptView: View {
                     Label(localizedKey(model.language, "ui.enable.voice.activation.321a28"), systemImage: "waveform")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                 .controlSize(.large)
                 DJConnectNotNowLinkButton(language: model.language, key: "ui.not.now.b1e535") {
                     model.dismissWakeWordActivationPrompt()
@@ -2753,7 +2825,7 @@ private struct UpdateRequiredView: View {
                 Label(localizedKey(model.language, "ui.open.djconnect.update.page"), systemImage: "safari")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
             .controlSize(.large)
         }
         .padding(28)
@@ -2787,7 +2859,7 @@ private struct CrashReportPromptView: View {
                     Label(localizedKey(model.language, "ui.open.github.issue"), systemImage: "arrow.up.forward.app")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                 DJConnectNotNowLinkButton(language: model.language, key: "ui.not.now.b1e535") {
                     model.dismissCrashReportPrompt()
                 }
@@ -2866,7 +2938,7 @@ private struct WelcomeView: View {
                                 Label(localizedKey(model.language, "ui.previous"), systemImage: "chevron.left")
                                     .frame(maxWidth: .infinity)
                             }
-                            .buttonStyle(DJConnectButtonStyle(emphasis: .secondary, expands: true))
+                            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .secondary, expands: true))
                             .controlSize(.large)
                             .disabled(selectedStepIndex == 0)
                             .opacity(selectedStepIndex == 0 ? 0.46 : 1)
@@ -2877,7 +2949,7 @@ private struct WelcomeView: View {
                                 Label(localizedKey(model.language, "ui.next"), systemImage: "chevron.right")
                                     .frame(maxWidth: .infinity)
                             }
-                            .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                             .controlSize(.large)
                             .disabled(isLastStep)
                             .opacity(isLastStep ? 0 : 1)
@@ -2895,7 +2967,7 @@ private struct WelcomeView: View {
                                     .frame(maxWidth: .infinity)
                             }
                         }
-                        .buttonStyle(DJConnectButtonStyle(emphasis: isLastStep ? .primary : .tertiary, expands: true))
+                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: isLastStep ? .primary : .tertiary, expands: true))
                         .controlSize(.large)
                         .accessibilityIdentifier("welcome-dismiss-button")
                     }
@@ -3094,7 +3166,7 @@ private struct WelcomeTourButton: View {
                 .scaleEffect(isSelected && isPulsing ? 1.06 : 1)
                 .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .djConnectPlainButtonStyle()
         .accessibilityLabel(step.title)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
@@ -3167,7 +3239,7 @@ private struct WhatsNewView: View {
                 Text(localizedKey(model.language, "ui.continue"))
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                 .controlSize(.large)
             }
             .padding(28)
@@ -3218,7 +3290,7 @@ private struct UpdateNotesView: View {
                     Text(localizedKey(model.language, "ui.done"))
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
                 .controlSize(.large)
             }
             .padding(28)
@@ -3388,7 +3460,7 @@ private struct AppleWatchPairingReminderButton: View {
                         .stroke(Color.orange.opacity(0.36), lineWidth: 1)
                 }
         }
-        .buttonStyle(.plain)
+        .djConnectPlainButtonStyle()
         .help(localizedKey(model.language, "ui.pair.apple.watch"))
         .accessibilityLabel(localizedKey(model.language, "ui.pair.apple.watch"))
     }
@@ -3440,6 +3512,7 @@ struct DJConnectButtonStyle: ButtonStyle {
     var expands = false
     var usesLiveGlass = true
     var iconDiameter: CGFloat = DJConnectButtonAppearance.iconSize
+    @Environment(\.isFocused) private var isFocused
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -3477,6 +3550,7 @@ struct DJConnectButtonStyle: ButtonStyle {
             }
             .overlay { outline.stroke(role == .selected ? djConnectAccent.opacity(0.55) : .white.opacity(role == .tertiary ? 0 : 0.12), lineWidth: 1).allowsHitTesting(false) }
             .overlay { outline.fill(.white.opacity(pressed ? 0.10 : 0)).allowsHitTesting(false) }
+            .overlay { outline.stroke(.white.opacity(isFocused ? 0.95 : 0), lineWidth: 3).allowsHitTesting(false) }
             .contentShape(outline)
             .opacity(isEnabled ? 1 : 0.40)
             .scaleEffect(pressed && !reduceMotion ? DJConnectButtonAppearance.pressedScale : 1)
@@ -3499,7 +3573,7 @@ private struct DJConnectNotNowLinkButton: View {
         Button(action: action) {
             Text(localizedKey(language, key))
         }
-        .buttonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
+        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
         .controlSize(.large)
     }
 }
@@ -4398,6 +4472,7 @@ private struct MusicDNAOptInPromptView: View {
                         localizedKey(model.language, "ui.you.can.clear.the.learned.profile.at.any"),
                         systemImage: "trash"
                     )
+                    .labelStyle(DJConnectRedTrashLabelStyle())
                     Label(
                         localizedKey(model.language, "ui.you.can.always.turn.music.dna.off.in"),
                         systemImage: "switch.2"
@@ -4422,7 +4497,7 @@ private struct MusicDNAOptInPromptView: View {
                         Label(localizedKey(model.language, "ui.enable.music.dna.1adf61"), systemImage: "sparkles")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                     .controlSize(.large)
                     .disabled(model.isUpdatingMusicDNA)
 
@@ -5002,7 +5077,7 @@ private struct MusicDNADisabledView: View {
                 Label(localizedKey(model.language, "ui.enable.music.dna.1adf61"), systemImage: "sparkles")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
             .controlSize(.large)
             .disabled(model.isUpdatingMusicDNA)
         }
@@ -5059,7 +5134,7 @@ private struct MusicDNAUnavailableView: View {
                 Label(localizedKey(model.language, "ui.try.again"), systemImage: "arrow.clockwise")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
             .disabled(model.isLoadingMusicDNA)
         }
         .padding(24)
@@ -6310,14 +6385,16 @@ private struct MusicDiscoveryCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            artwork
-                .contentShape(DJConnectCardAppearance.shape)
-                .onTapGesture {
+            Button {
                     #if os(iOS)
                     DJConnectHaptics.selection()
                     #endif
                     showDetail()
+                } label: {
+                    artwork.contentShape(DJConnectCardAppearance.shape)
                 }
+                .djConnectPlainButtonStyle()
+                .accessibilityLabel(item.title)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.title)
@@ -6452,7 +6529,7 @@ private struct MusicDiscoveryDetailView: View {
                         Label(localizedKey(model.language, "ui.play.now"), systemImage: "play.fill")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                     .disabled(model.playingMusicDiscoveryItemID == item.id)
                 }
 
@@ -6480,7 +6557,7 @@ private struct MusicDiscoveryDetailView: View {
                         Label(localizedKey(model.language, "ui.feedback"), systemImage: "hand.thumbsdown")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(DJConnectButtonStyle(emphasis: .secondary, expands: true))
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .secondary, expands: true))
                 }
 
                 Button {
@@ -6489,7 +6566,7 @@ private struct MusicDiscoveryDetailView: View {
                     Text(localizedKey(model.language, "ui.close"))
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
                 .padding(.top, -4)
             }
             .padding(22)
@@ -6672,7 +6749,7 @@ private struct MusicDiscoveryLockedState: View {
                 Label(localizedKey(model.language, "ui.enable.music.dna.1adf61"), systemImage: "sparkles")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
         }
         .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -8799,7 +8876,7 @@ private struct TrackInsightEmptyState: View {
                 }
                 .fixedSize(horizontal: true, vertical: false)
             }
-            .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
             .disabled(model.isLoadingTrackInsight)
         }
         .padding(24)
@@ -8972,7 +9049,11 @@ private struct DJSessionView: View {
                     ToolbarItem(placement: djConnectRefreshToolbarPlacement) { ActiveSessionMoodToolbar(model: model, session: session) }
                 }
                 if !history.available, model.activeDJSession != nil {
+                    #if os(macOS)
+                    ToolbarItem(placement: .confirmationAction) { SessionEndToolbarButton(model: model) }
+                    #else
                     ToolbarItem(placement: djConnectRefreshToolbarPlacement) { SessionEndToolbarButton(model: model) }
+                    #endif
                 }
             }
             .djUserNoticeToast(model: model, screenImage: "sparkles")
@@ -9080,7 +9161,7 @@ private struct IdleDJSessionView: View {
                     }
                     .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                 .disabled(model.isLoadingDJSession || (!model.isDemoMode && model.pairingStatus != .paired) || !model.canUsePlaybackFeatures)
                 .accessibilityIdentifier("session-welcome-start")
                 if model.isDemoMode {
@@ -9150,7 +9231,7 @@ private struct IdleDJSessionView: View {
             .foregroundStyle(.white.opacity(selected ? 1 : 0.78))
             .frame(maxWidth: .infinity, minHeight: 48)
         }
-        .buttonStyle(DJConnectButtonStyle(emphasis: selected ? .selected : .secondary, shape: .segmented, expands: true))
+        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: selected ? .selected : .secondary, shape: .segmented, expands: true))
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityLabel(localizedKey(model.language, "ui.session.mood." + mood))
         .accessibilityIdentifier("session-welcome-mood-" + mood)
@@ -9247,11 +9328,12 @@ struct ActiveDJSessionView: View {
         VStack(alignment: .leading, spacing: 18) {
             if showsMoments {
                 NativeSessionMomentsView(session: session, language: model.language, isRecovering: model.djSessionIsRecovering, isLiveUnavailable: model.djSessionLiveUnavailable, retryConnection: { Task { await model.retryDJSessionConnection() } }, artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL), returnToCurrent: returnToCurrent, playbackOutputName: model.sessionPlaybackOutputName, playbackModel: model)
+                Divider()
             }
-            Divider()
             Text(localizedKey(model.language, "ui.vibecast.handoff.title")).font(.headline)
             Text(localizedKey(model.language, "ui.vibecast.handoff.instructions"))
                 .font(.footnote).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             TextField(localizedKey(model.language, "ui.vibecast.handoff.code"), text: $vibeCastHandoffCode)
                 #if os(iOS)
                 .keyboardType(.numberPad)
@@ -9264,7 +9346,7 @@ struct ActiveDJSessionView: View {
             Button(localizedKey(model.language, "ui.vibecast.handoff.approve")) {
                 Task { await model.approveVibeCastHandoff(code: vibeCastHandoffCode) }
             }
-            .buttonStyle(DJConnectButtonStyle())
+            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
             .disabled(vibeCastHandoffCode.count != 6 || model.isLoadingVibeCastHandoff)
             .accessibilityIdentifier("vibecast-handoff-approve")
             if model.vibeCastHandoffApproved {
@@ -9280,7 +9362,7 @@ struct ActiveDJSessionView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 28)
+        .padding(.vertical, showsMoments ? 28 : 16)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("screen-active-dj-session")
     }
@@ -9665,7 +9747,7 @@ private struct IOSPlaybackSurface: View {
                 .frame(width: size, height: size)
                 .foregroundStyle(.white)
         }
-        .buttonStyle(DJConnectButtonStyle(emphasis: prominent ? .primary : .secondary, shape: .icon, iconDiameter: size))
+        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: prominent ? .primary : .secondary, shape: .icon, iconDiameter: size))
         .disabled(!canUsePlayback)
         .accessibilityLabel(accessibilityLabel)
     }
@@ -9685,7 +9767,7 @@ private struct QueueNavigationButton: View {
                 .foregroundStyle(.white.opacity(0.82))
                 .frame(width: 44, height: 44)
         }
-        .buttonStyle(DJConnectButtonStyle(shape: .icon))
+        .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
         .help(localizedKey(model.language, "ui.queue"))
         .accessibilityLabel(localizedKey(model.language, "ui.queue"))
     }
@@ -9950,7 +10032,7 @@ private struct SeekControlsView: View {
             .help(localizedKey(model.language, "ui.forward.15.seconds"))
             .accessibilityLabel(localizedKey(model.language, "ui.forward.15.seconds"))
         }
-        .buttonStyle(DJConnectButtonStyle(shape: .icon))
+        .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
         .disabled(!canSeek)
         .opacity(canSeek ? 1 : 0.45)
         .frame(maxWidth: .infinity, alignment: .center)
@@ -9986,7 +10068,7 @@ private struct TrackInsightIconButton: View {
                     .frame(width: 44, height: 44)
             }
         }
-        .buttonStyle(DJConnectButtonStyle(emphasis: model.currentTrackInsight != nil ? .selected : .secondary, shape: .icon))
+        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: model.currentTrackInsight != nil ? .selected : .secondary, shape: .icon))
         .disabled(model.isLoadingTrackInsight || !model.canStartTrackInsightAnalysis)
         .opacity(model.canStartTrackInsightAnalysis ? 1 : 0.45)
         .accessibilityLabel(localizedKey(model.language, "ui.open.track.insight"))
@@ -10028,7 +10110,7 @@ struct PlaybackControlsView: View {
                         .frame(width: 44, height: 44)
                         .foregroundStyle(.white)
                 }
-                .buttonStyle(DJConnectButtonStyle(shape: .icon))
+                .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
                 .help(localizedKey(model.language, "ui.previous.track"))
                 .accessibilityLabel(localizedKey(model.language, "ui.previous.track"))
                 .disabled(!canUsePlayback)
@@ -10042,7 +10124,7 @@ struct PlaybackControlsView: View {
                         .frame(width: 44, height: 44)
                         .foregroundStyle(.white)
                 }
-                .buttonStyle(DJConnectButtonStyle(emphasis: .primary, shape: .icon))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, shape: .icon))
                 .help(model.isPlaying ? localizedKey(model.language, "ui.pause") : localizedKey(model.language, "ui.play"))
                 .accessibilityLabel(model.isPlaying ? localizedKey(model.language, "ui.pause") : localizedKey(model.language, "ui.play"))
                 .disabled(!canUsePlayback)
@@ -10056,7 +10138,7 @@ struct PlaybackControlsView: View {
                         .frame(width: 44, height: 44)
                         .foregroundStyle(.white)
                 }
-                .buttonStyle(DJConnectButtonStyle(shape: .icon))
+                .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
                 .help(localizedKey(model.language, "ui.next.track"))
                 .accessibilityLabel(localizedKey(model.language, "ui.next.track"))
                 .disabled(!canUsePlayback)
@@ -10132,7 +10214,7 @@ struct FavoriteTrackButton: View {
                     .frame(width: 44, height: 44)
             }
         }
-        .buttonStyle(DJConnectButtonStyle(emphasis: isFavorite ? .selected : .secondary, shape: .icon, usesLiveGlass: false))
+        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: isFavorite ? .selected : .secondary, shape: .icon, usesLiveGlass: false))
         .tint(isFavorite ? djConnectAccent : .white)
         .help(helpText)
         .accessibilityLabel(label)
@@ -10283,7 +10365,7 @@ private struct OutputSelectorView: View {
                 Spacer()
                 if model.isLoadingOutputs { ProgressView() }
                 Button { model.loadOutputs() } label: { Image(systemName: "arrow.clockwise").foregroundStyle(.white) }
-                    .buttonStyle(DJConnectButtonStyle(shape: .icon))
+                    .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
                     .tint(.white)
                     .help(localizedKey(model.language, "ui.output.refresh"))
                     .disabled(!canUsePlayback || model.isLoadingOutputs)
@@ -10431,7 +10513,7 @@ private struct OutputDeviceChoiceRow: View {
             }
             .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .djConnectPlainButtonStyle()
         .disabled(!isEnabled)
         .accessibilityLabel(title)
         .accessibilityValue(subtitle)
@@ -10479,7 +10561,7 @@ private struct ShuffleModeButton: View {
                 .foregroundStyle(isShuffling ? djConnectAccent : .white.opacity(0.68))
                 .frame(width: 44, height: 44)
         }
-        .buttonStyle(DJConnectButtonStyle(emphasis: isShuffling ? .selected : .secondary, shape: .icon))
+        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: isShuffling ? .selected : .secondary, shape: .icon))
         .help(helpText)
         .accessibilityLabel(localizedKey(model.language, "ui.shuffle"))
         .accessibilityValue(isShuffling ? localizedKey(model.language, "ui.on") : localizedKey(model.language, "ui.off"))
@@ -10508,7 +10590,7 @@ private struct RepeatModeButton: View {
                 .foregroundStyle(repeatState == .off ? .white.opacity(0.68) : djConnectAccent)
                 .frame(width: 44, height: 44)
         }
-        .buttonStyle(DJConnectButtonStyle(emphasis: repeatState != .off ? .selected : .secondary, shape: .icon))
+        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: repeatState != .off ? .selected : .secondary, shape: .icon))
         .help(repeatHelpText)
         .accessibilityLabel(localizedKey(model.language, "ui.repeat"))
         .accessibilityValue(repeatState.localizedName(language: model.language))
@@ -10873,7 +10955,7 @@ private struct AskDJView: View {
                                                 .foregroundStyle(.white)
                                                 .frame(width: 44, height: 44)
                                         }
-                                        .buttonStyle(DJConnectButtonStyle(shape: .icon))
+                                        .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
                                         .padding(.trailing, djConnectScreenHorizontalPadding)
                                         .padding(.bottom, askDJScrollToBottomButtonBottomPadding + (usesFloatingComposer && !isSearchVisible ? floatingComposerHeight + 8 : 0))
                                         .help(localizedKey(model.language, "ui.scroll.to.bottom"))
@@ -11001,6 +11083,7 @@ private struct AskDJView: View {
                         showingClearConfirmation = true
                     } label: {
                         Image(systemName: model.isClearingAskDJHistory ? "hourglass" : "trash")
+                            .foregroundStyle(.red)
                     }
                     .disabled(model.askDJMessages.isEmpty || model.isClearingAskDJHistory)
                     .help(localizedKey(model.language, "ui.clear.chat"))
@@ -11022,6 +11105,7 @@ private struct AskDJView: View {
                         showingClearConfirmation = true
                     } label: {
                         Image(systemName: model.isClearingAskDJHistory ? "hourglass" : "trash")
+                            .foregroundStyle(.red)
                     }
                     .tint(.red)
                     .disabled(model.askDJMessages.isEmpty || model.isClearingAskDJHistory)
@@ -11241,7 +11325,7 @@ struct AskDJSearchBar: View {
             .help(localizedKey(language, "ui.close.search"))
             .accessibilityLabel(localizedKey(language, "ui.close.search"))
         }
-        .buttonStyle(.plain)
+        .djConnectPlainButtonStyle()
         .foregroundStyle(.white.opacity(0.86))
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
@@ -11349,7 +11433,7 @@ private struct AskDJEmptyState: View {
                                 .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
                         }
                     }
-                    .buttonStyle(.plain)
+                    .djConnectPlainButtonStyle()
                 }
             }
             .padding(.top, 2)
@@ -11736,7 +11820,7 @@ struct AskDJMessageBubble: View {
                                 .foregroundStyle(contextQuestionSelected ? djConnectAccent : .secondary)
                                 .frame(width: 44, height: 44).contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain).padding(.trailing, 4)
+                        .djConnectPlainButtonStyle().padding(.trailing, 4)
                         .accessibilityLabel(localizedKey(language, "ui.session.history.ask_entry"))
                         .accessibilityValue(contextQuestionSelected ? localizedKey(language, "ui.session.history.selected_context") : "")
                         .accessibilityIdentifier(contextQuestionID)
@@ -11762,7 +11846,7 @@ struct AskDJMessageBubble: View {
                             Label(localizedKey(language, "ui.retry"), systemImage: "arrow.clockwise")
                                 .font(.caption2.weight(.semibold))
                         }
-                        .buttonStyle(.plain)
+                        .djConnectPlainButtonStyle()
                         .foregroundStyle(.white.opacity(0.82))
                         .disabled(isRetryDisabled)
                     }
@@ -11774,7 +11858,7 @@ struct AskDJMessageBubble: View {
                             Label(localizedKey(language, "ui.feedback"), systemImage: "exclamationmark.bubble")
                                 .font(.caption2.weight(.semibold))
                         }
-                        .buttonStyle(.plain)
+                        .djConnectPlainButtonStyle()
                         .foregroundStyle(.white.opacity(0.58))
                         .help(localizedKey(language, "ui.report.this.ask.dj.answer"))
                         .accessibilityLabel(localizedKey(language, "ui.report.this.ask.dj.answer"))
@@ -11916,7 +12000,7 @@ private struct AskDJAudioReplayButton: View {
                     .stroke(.white.opacity(0.18), lineWidth: 1)
             }
         }
-        .buttonStyle(.plain)
+        .djConnectPlainButtonStyle()
         .disabled(isLoading)
     }
 
@@ -11970,7 +12054,7 @@ private struct AskDJTrackInsightButton: View {
                     .stroke(.white.opacity(0.18), lineWidth: 1)
             }
         }
-        .buttonStyle(.plain)
+        .djConnectPlainButtonStyle()
         .disabled(isLoading)
         .help(localizedKey(language, "ui.sends.the.current.track.to.the.backend.for.analysis.and"))
         .accessibilityLabel(localizedKey(language, "ui.open.track.insight"))
@@ -12197,7 +12281,7 @@ private struct AskDJPlaybackActionStack: View {
                     .foregroundColor(.white)
 
                 }
-                .buttonStyle(DJConnectButtonStyle(emphasis: action.responseValue?.lowercased() == "no" ? .tertiary : .primary))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: action.responseValue?.lowercased() == "no" ? .tertiary : .primary))
                 .disabled(playingActionID != nil)
             }
         }
@@ -12239,7 +12323,7 @@ private struct AskDJPlaybackActionStack: View {
             .foregroundColor(.white)
 
         }
-        .buttonStyle(DJConnectButtonStyle(emphasis: .secondary))
+        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .secondary))
         .disabled(playingActionID != nil || action.active == true)
     }
 
@@ -12284,7 +12368,7 @@ private struct AskDJPlaybackActionStack: View {
                         .foregroundStyle(.white)
 
                     }
-                    .buttonStyle(DJConnectButtonStyle(emphasis: .secondary))
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .secondary))
                     .disabled(playingActionID != nil || action.isActiveOutputAction)
                 }
                 .padding(.horizontal, 10)
@@ -12374,7 +12458,7 @@ private struct AskDJPlaybackActionStack: View {
                     .stroke(action.isActiveOutputAction ? Color.white.opacity(0.46) : .white.opacity(0.18), lineWidth: 1)
             }
         }
-        .buttonStyle(.plain)
+        .djConnectPlainButtonStyle()
         .disabled(playingActionID != nil)
     }
 
@@ -12628,7 +12712,7 @@ private struct AskDJLinkStack: View {
                             .stroke(.white.opacity(0.18), lineWidth: 1)
                     }
                 }
-                .buttonStyle(.plain)
+                .djConnectPlainButtonStyle()
             }
         }
     }
@@ -12655,7 +12739,7 @@ private struct AskDJSourcesStack: View {
                     } label: {
                         sourceRow(link: link, isInteractive: true)
                     }
-                    .buttonStyle(.plain)
+                    .djConnectPlainButtonStyle()
                 }
             }
         }
@@ -13004,7 +13088,7 @@ struct MoodModeControl: View {
                             .frame(maxWidth: .infinity, minHeight: 44)
                             .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .djConnectPlainButtonStyle()
                         .accessibilityIdentifier("session-mood-option-" + String(index))
                         .accessibilityAddTraits(index == selectedIndex ? .isSelected : [])
                     }
@@ -13158,17 +13242,7 @@ struct AskDJInputBar: View {
     }
 
     @ViewBuilder private var placeholderView: some View {
-        if let placeholderKey {
-            Text(localizedKey(model.language, placeholderKey))
-        } else {
-        HStack(spacing: 0) {
-            if model.language.lowercased().hasPrefix("nl") {
-                Text("Vraag ")
-            }
-            Text("Ask DJ").bold()
-            Text("...")
-        }
-        }
+        Text(localizedKey(model.language, placeholderKey ?? "ui.session.chat.placeholder"))
     }
 
     var body: some View {
@@ -13253,7 +13327,7 @@ struct AskDJInputBar: View {
                         .font(.system(size: 18, weight: .semibold))
                 }
             }
-            .buttonStyle(DJConnectButtonStyle(emphasis: .primary, shape: .icon))
+            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, shape: .icon))
             .disabled(!canSend)
             .help(localizedKey(model.language, "ui.send"))
             .accessibilityLabel(localizedKey(model.language, "ui.send"))
@@ -13280,6 +13354,11 @@ struct AskDJInputBar: View {
                             .stroke(.white.opacity(0.16), lineWidth: 1)
                     }
             } else {
+                #if os(macOS)
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .ignoresSafeArea(.container, edges: .bottom)
+                #else
                 ZStack(alignment: .top) {
                     Rectangle()
                         .fill(.ultraThinMaterial)
@@ -13302,6 +13381,7 @@ struct AskDJInputBar: View {
                 }
                 #if os(macOS)
                 .ignoresSafeArea(.container, edges: .bottom)
+                #endif
                 #endif
             }
         }
@@ -13453,7 +13533,7 @@ private struct AskDJVoiceInputButton: View {
                 }
             }
         }
-        .buttonStyle(DJConnectButtonStyle(emphasis: isActive ? .destructive : .secondary, shape: .icon))
+        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: isActive ? .destructive : .secondary, shape: .icon))
         .disabled(!isEnabled && !isActive)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
@@ -14326,6 +14406,28 @@ private enum LocalGameMode: String, CaseIterable, Identifiable {
     }
 }
 
+private struct DJConnectRedTrashLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack {
+            configuration.icon.foregroundStyle(.red)
+            configuration.title
+        }
+    }
+}
+
+private struct GameHeightPreferenceKey: PreferenceKey {
+    static let defaultValue: [String: CGFloat] = [:]
+    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, latest in latest })
+    }
+}
+
+private func gameHeightReader(_ component: String) -> some View {
+    GeometryReader { proxy in
+        Color.clear.preference(key: GameHeightPreferenceKey.self, value: [component: proxy.size.height])
+    }
+}
+
 private struct GamesView: View {
     let language: String
     let isDemoMode: Bool
@@ -14333,6 +14435,7 @@ private struct GamesView: View {
     @Environment(\.djConnectContentSizeClass) private var contentSizeClass
     private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @State private var selectedGame = LocalGameMode.pong
+    @State private var measuredGameHeights: [String: CGFloat] = [:]
 
     private func contentMaxWidth(for size: CGSize) -> CGFloat {
         #if os(macOS)
@@ -14348,7 +14451,13 @@ private struct GamesView: View {
 
     private func gameCanvasMaxHeight(for size: CGSize) -> CGFloat? {
         #if os(macOS)
-        nil
+        let pickerHeight = measuredGameHeights["picker"] ?? 60
+        let surfaceHeight = measuredGameHeights["surface"] ?? 0
+        let canvasHeight = measuredGameHeights["canvas"] ?? 0
+        let chromeHeight = surfaceHeight > 0 ? max(0, surfaceHeight - canvasHeight) : 180
+        // Measure the controls and localized help rather than estimating from width.
+        // Small windows retain scrolling so the game remains usable.
+        return max(170, size.height - pickerHeight - chromeHeight - 18 - 2 * djConnectScreenVerticalPadding - 2)
         #else
         guard horizontalSizeClass == .regular, size.width > size.height else {
             return nil
@@ -14366,6 +14475,7 @@ private struct GamesView: View {
                         GameModePicker(selection: $selectedGame)
                             .frame(maxWidth: pickerMaxWidth(for: proxy.size))
                             .frame(maxWidth: .infinity, alignment: .center)
+                            .background(gameHeightReader("picker"))
 
                         LocalGameSurface(
                             game: selectedGame,
@@ -14373,6 +14483,7 @@ private struct GamesView: View {
                             maxCanvasHeight: gameCanvasMaxHeight(for: proxy.size)
                         )
                             .frame(maxWidth: .infinity, alignment: .top)
+                            .background(gameHeightReader("surface"))
                     }
                     .djConnectScreenPadding()
                     .frame(maxWidth: contentMaxWidth)
@@ -14382,6 +14493,7 @@ private struct GamesView: View {
             }
             .navigationTitle(localizedKey(language, "ui.games"))
             .accessibilityIdentifier("screen-games")
+            .onPreferenceChange(GameHeightPreferenceKey.self) { measuredGameHeights = $0 }
         }
         .id("games-\(isDemoMode)-\(language)")
     }
@@ -14416,7 +14528,7 @@ private struct GameModePicker: View {
                         .frame(height: 44)
 
                 }
-                .buttonStyle(DJConnectButtonStyle(emphasis: selection == game ? .selected : .tertiary, shape: .segmented, expands: true))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: selection == game ? .selected : .tertiary, shape: .segmented, expands: true))
                 .contentShape(DJConnectCardAppearance.segmentedItemShape)
                 .accessibilityAddTraits(selection == game ? [.isSelected] : [])
             }
@@ -14575,13 +14687,14 @@ private struct LocalGameSurface: View {
                             .foregroundStyle(.white)
                             .frame(minWidth: 180)
                     }
-                    .buttonStyle(DJConnectButtonStyle(emphasis: .primary))
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary))
                     .controlSize(.large)
                 }
             }
             .aspectRatio(gameAspectRatio, contentMode: .fit)
             .frame(maxWidth: .infinity)
             .frame(maxHeight: maxCanvasHeight)
+            .background(gameHeightReader("canvas"))
             .background(.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
             .accessibilityIdentifier("games-surface")
             .accessibilityLabel(game.title)
@@ -14725,7 +14838,7 @@ private struct LocalGameSurface: View {
                 }
                 resetButton
             }
-            .buttonStyle(DJConnectButtonStyle(shape: .icon))
+            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
             .controlSize(.large)
         } else {
             LazyVGrid(columns: controlColumns(count: game == .pong ? 3 : 4), spacing: 10) {
@@ -14750,7 +14863,7 @@ private struct LocalGameSurface: View {
 
                 resetButton
             }
-            .buttonStyle(DJConnectButtonStyle(shape: .icon))
+            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
             .controlSize(.large)
         }
     }
@@ -15750,7 +15863,7 @@ private struct MoreView: View {
                         .padding(.horizontal, 18)
                         .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .djConnectPlainButtonStyle()
                 }
                 .background {
                     LinearGradient(
@@ -15834,7 +15947,7 @@ private struct MoreNavigationRow: View {
                     .padding(.leading, 62)
             }
         }
-        .buttonStyle(.plain)
+        .djConnectPlainButtonStyle()
         .tint(djConnectAccent)
     }
 }
@@ -15941,7 +16054,7 @@ private struct AskDJHistoryExportSheet: View {
                         Label(localizedKey(language, "ui.save.json"), systemImage: "square.and.arrow.down")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                     .controlSize(.large)
                     .disabled(!(status == .ready || status == .saved))
 
@@ -15952,7 +16065,7 @@ private struct AskDJHistoryExportSheet: View {
                             Text(localizedKey(language, "ui.done"))
                                 .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
+                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
                         .controlSize(.large)
                     } else {
                         DJConnectNotNowLinkButton(language: language) {
@@ -16051,7 +16164,7 @@ private struct MusicDNAExportSheet: View {
                         Label(localizedKey(language, "ui.save.json"), systemImage: "square.and.arrow.down")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                     .controlSize(.large)
                     .disabled(!canSave)
 
@@ -16062,7 +16175,7 @@ private struct MusicDNAExportSheet: View {
                             Text(localizedKey(language, "ui.done"))
                                 .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
+                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
                         .controlSize(.large)
                     } else {
                         DJConnectNotNowLinkButton(language: language) {
@@ -16179,7 +16292,7 @@ private struct MusicDNAImportSheet: View {
                                 .frame(maxWidth: .infinity)
                         }
                     }
-                    .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                     .controlSize(.large)
                     .disabled(!canUpload || status == .uploading || status == .uploaded)
 
@@ -16189,7 +16302,7 @@ private struct MusicDNAImportSheet: View {
                         Text(localizedKey(model.language, status == .uploaded ? "ui.done" : "ui.cancel"))
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
                     .controlSize(.large)
                 }
             }
@@ -16996,7 +17109,7 @@ struct SettingsView: View {
             .djConnectMacDetailContent()
             #endif
         }
-        .buttonStyle(DJConnectButtonStyle())
+        .djConnectButtonStyle(DJConnectButtonStyle())
         .tint(.white)
         .background(DJConnectCanvasBackground())
     }
@@ -17133,6 +17246,10 @@ private struct LogsView: View {
                     }
                 }
             }
+            .padding(.vertical, 12)
+            .djSessionFrostedSurface()
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
             .background(DJConnectCanvasBackground())
             .navigationTitle(localizedKey(model.language, "ui.logs"))
             .accessibilityIdentifier("screen-logs")
@@ -17147,9 +17264,13 @@ private struct LogsView: View {
                 ToolbarItemGroup(placement: .navigation) {
                     logToolbarButtons
                 }
+                ToolbarItem(placement: .confirmationAction) {
+                    clearLogToolbarButton
+                }
                 #else
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     logToolbarButtons
+                    clearLogToolbarButton
                 }
                 #endif
             }
@@ -17220,6 +17341,9 @@ private struct LogsView: View {
         .accessibilityLabel(localizedKey(model.language, "ui.copy.logs"))
         .disabled(model.diagnosticLogLines.isEmpty)
 
+    }
+
+    private var clearLogToolbarButton: some View {
         Button(role: .destructive) {
             showingClearConfirmation = true
         } label: {
@@ -17434,6 +17558,9 @@ private struct AboutView: View {
                             SelectableValue(model.identity.deviceID)
                         }
                     }
+                    .padding(24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .djSessionFrostedSurface()
 
                     SettingsSection(title: localizedKey(model.language, "ui.connection")) {
                         AboutStackedRow(label: localizedKey(model.language, "ui.connection.type")) {
@@ -17457,12 +17584,18 @@ private struct AboutView: View {
                             )
                         }
                     }
+                    .padding(24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .djSessionFrostedSurface()
 
                     SettingsSection(title: localizedKey(model.language, "ui.notices")) {
                         AboutStackedRow(label: "Copyright") {
                             SelectableValue("2026 Peter van Tol")
                         }
                     }
+                    .padding(24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .djSessionFrostedSurface()
                 }
                 #if os(macOS)
                 .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
@@ -17591,14 +17724,19 @@ private struct LegalNoticesView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         AboutBanner()
 
-                        SettingsSection(title: localizedKey(language, "ui.legal")) {
-                            SelectableValue(localizedKey(language, "ui.djconnect.is.not.affiliated.with.endorsed.by.or.sponsored.by"))
-                            SelectableValue(localizedKey(language, "ui.spotify.is.a.trademark.of.spotify.ab.home.assistant.is"))
-                        }
+                        VStack(alignment: .leading, spacing: 20) {
+                            SettingsSection(title: localizedKey(language, "ui.legal")) {
+                                SelectableValue(localizedKey(language, "ui.djconnect.is.not.affiliated.with.endorsed.by.or.sponsored.by"))
+                                SelectableValue(localizedKey(language, "ui.spotify.is.a.trademark.of.spotify.ab.home.assistant.is"))
+                            }
 
-                        SettingsSection(title: "OSS") {
-                            SelectableValue(localizedKey(language, "ui.djconnect.uses.apple.platform.frameworks.and.swift.package.manager.third"))
+                            SettingsSection(title: "OSS") {
+                                SelectableValue(localizedKey(language, "ui.djconnect.uses.apple.platform.frameworks.and.swift.package.manager.third"))
+                            }
                         }
+                        .padding(24)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .djSessionFrostedSurface()
                     }
                     #if os(macOS)
                     .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
@@ -17639,6 +17777,9 @@ private struct PrivacyView: View {
                         SelectableValue(localizedKey(language, "ui.music.playback.and.voice.requests.are.handled.through.your.own"))
                         SelectableValue(localizedKey(language, "ui.ai.and.assist.answers.can.be.incorrect.and.depend.on"))
                     }
+                    .padding(24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .djSessionFrostedSurface()
                 }
                 #if os(macOS)
                 .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
@@ -17789,7 +17930,7 @@ private struct AskDJFeedbackPromptView: View {
                 Label(localizedKey(model.language, "ui.open.github.issue"), systemImage: "arrow.up.right.square")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
             .controlSize(.large)
 
             DJConnectNotNowLinkButton(language: model.language) {
@@ -17844,7 +17985,7 @@ private struct FeedbackPromptView: View {
                         Label(localizedKey(model.language, "ui.open.github.issue"), systemImage: "arrow.up.right.square")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                     .controlSize(.large)
 
                     DJConnectNotNowLinkButton(language: model.language, key: "ui.not.now.b1e535") {

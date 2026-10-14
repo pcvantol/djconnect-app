@@ -1115,3 +1115,5 @@
 "ui.session.history.back_top" = "Naar boven";
 
 "ui.music.dna.hero.description" = "Music DNA leert van je muzieksmaak en luistergedrag om aanbevelingen op jou af te stemmen.";
+
+"ui.navigation.menu" = "Navigatiemenu tonen of verbergen";

@@ -62,7 +62,7 @@ struct TrackInsightSharePreviewView: View {
                             Label(shareButtonTitle, systemImage: "square.and.arrow.up")
                                 .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                         .controlSize(.large)
                     } else {
                         renderStatus
@@ -74,7 +74,7 @@ struct TrackInsightSharePreviewView: View {
                         Text(localizedKey("trackInsight.share.not.now"))
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .tertiary, expands: true))
                     .controlSize(.large)
                 }
                 .padding(.top, actionStackTopPadding)
@@ -151,7 +151,7 @@ struct TrackInsightSharePreviewView: View {
                         Label(localizedKey("trackInsight.share.cancel.export"), systemImage: "xmark.circle")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                     .controlSize(.large)
                     .disabled(!isRendering || renderTask == nil)
                 }
@@ -422,7 +422,7 @@ private struct TrackInsightShareSegmentControl<Option: Hashable & Identifiable>:
                             .lineLimit(1)
                             .minimumScaleFactor(0.74)
                     }
-                    .buttonStyle(DJConnectButtonStyle(
+                    .djConnectButtonStyle(DJConnectButtonStyle(
                         emphasis: option == selection ? .selected : .secondary,
                         shape: .segmented, expands: true, usesLiveGlass: false))
                     .accessibilityAddTraits(option == selection ? .isSelected : [])
