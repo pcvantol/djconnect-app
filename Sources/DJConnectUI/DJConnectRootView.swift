@@ -3611,8 +3611,8 @@ private struct AnimatedAlbumArtworkView: View {
         }
         .animation(reduceMotion ? .easeOut(duration: 0.18) : .spring(response: 0.42, dampingFraction: 0.82), value: trackKey)
         .aspectRatio(1, contentMode: .fit)
+        .djAlbumArtworkGlassCard()
         .frame(maxWidth: maxWidth)
-        .djArtworkStyle(cornerRadius: DJConnectCardAppearance.cornerRadius)
         .frame(maxWidth: .infinity, alignment: .center)
     }
 
