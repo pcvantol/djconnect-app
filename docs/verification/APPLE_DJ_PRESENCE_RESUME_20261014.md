@@ -103,3 +103,53 @@ No current source-main/artifact/installed/native PASS is inferred from local
 builds, older screenshots or an operational comment. Existing native acceptance
 must use the exact candidate and isolated app identity, preserving ordinary
 installed apps. New installation is not authorized by this resume instruction.
+
+
+## Current code qualification — 5e1b2db / build40056
+
+Product/test candidate5e1b2db8cccffbc18952b2e793f7271626536acf,
+tree535890d12a66549aaa326d2288cdfdcfc07f1c84; both independent technical
+and localized-copy reviews give bounded GO. The only delta from full-suite
+candidatef87d43f is five unsupported-state translations naming the DJConnect
+integration rather than the Home Assistant platform. Full519 tests PASS57.313s
+onf87d43f;18 targeted tests PASS2.031s; localization1090 keys PASS. Exact5e1b2db
+signed Mac/iOS40056 builds and unsigned native test builds PASS. No installation.
+
+All155 tracked Sources/Apps/Tests files in the temporary qualification input
+match the sole writer. Previous40054/40055 binaries and all original evidence
+are preserved. Private immutable input/evidence hash receipt:
+`/private/tmp/djc-resume-5e1b2db-qualification-receipt.json`.
+
+Connected isolated native proofs use the checksum-qualified frozen Core producer,
+real ordinary pairing/Profile/Session/CAS/Broadcast and synthetic music only:
+NL/DE/FR/ES on iPhone Simulator and EN on iPad Simulator with largest accessibility
+text all PASS, exercising five Presence positions, pending versus confirmation,
+paused changes and unchanged Session/Mood/playback/HA identity. This does not
+prove production deployment, physical-device installation or intra-track Moments.
+Native results are bound to5e1b2db; logs/xcresults remain private in `/private/tmp`.
+
+The first iPhone attempt failed before app interaction because fixture port18191
+was mapped as18213. Only the isolated fixture was corrected; the original failed
+result is retained. The subsequent connected proofs use18213 successfully.
+The first iPad app.screenshot() output has the known landscape/portrait-canvas
+capture defect. An additional exact-candidate connected iPad run PASS and captures
+unmodified full simulator display in landscape. Independent UX review gives
+bounded largest-text containment/readability GO. Capture filenames are timing
+labels only: fullscreen-presenter.png visibly shows Balanced after the test
+advanced, and placement is already partly scrolled. Neither is presented as
+exact-state screenshot proof; functional five-position assertions are separate.
+
+After explicit approval, exactly the new temporary Mac UITests runner and
+`djc-mac-presenceproof-5e1b2db.app` were ad-hoc signed and strict/deep verification
+passed. The authorized isolated Mac run fails BEFORE test execution: XCTest
+Code1000, “Timed out while enabling automation mode.” Mac native qualification
+therefore remains BLOCKED_HOST_AUTOMATION, not PASS or a Presence assertion
+failure. No permission database, system automation setting or ordinary app was
+changed. Ordinary Mac mini DJConnect PID58349 remains running40034.
+
+PR107 remote head remains2c19a42 at this checkpoint; code5e1b2db remains LOCAL.
+OwnerAuthorization is missing for the new exact source candidate; source merge
+and separate Finalization are not authorized by native-test signing approval.
+Core producer/current deployment reconciliation remains an installed acceptance
+blocker and was handed off at Core6168147619. No newer Core-owner delta was
+present on the readback following that handoff.
