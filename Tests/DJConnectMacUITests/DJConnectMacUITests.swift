@@ -383,9 +383,30 @@ final class DJConnectMacUITests: XCTestCase {
         let readback1 = try await activeID()
         XCTAssertEqual(readback1, sessionB)
         try saveHistoryScreenshot("mac-history-09-readonly-A-while-B-active")
+        for (label, screen) in [("Track Insight", "screen-track-insight"),
+                                ("Music DNA", "screen-music-dna"),
+                                ("Ask DJ", "screen-ask-dj")] {
+            app.buttons[label].firstMatch.tap()
+            XCTAssertTrue(app.descendants(matching: .any)[screen].firstMatch.waitForExistence(timeout: 10))
+            XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].firstMatch.waitForNonExistence(timeout: 5),
+                          "Sidebar selection must dismiss the pushed archive, not only change the highlight")
+            let activeAfterSidebar = try await activeID()
+            XCTAssertEqual(activeAfterSidebar, sessionB)
+            app.buttons["Eerdere sessies"].firstMatch.tap()
+            XCTAssertTrue(savedA.waitForExistence(timeout: 10))
+            savedA.tap()
+            XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].firstMatch.waitForExistence(timeout: 10))
+        }
+        // Selecting the same menu item must also return to its overview.
+        app.buttons["Eerdere sessies"].firstMatch.tap()
+        XCTAssertTrue(savedA.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].firstMatch.waitForNonExistence(timeout: 5))
+        savedA.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].firstMatch.waitForExistence(timeout: 10))
         let dj = app.buttons["DJ-sessie"].firstMatch
         dj.tap()
         XCTAssertTrue(app.descendants(matching: .any)["screen-session-conversation"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].firstMatch.waitForNonExistence(timeout: 5))
         let readback2 = try await activeID()
         XCTAssertEqual(readback2, sessionB)
         app.buttons["Speelt Nu"].firstMatch.tap()

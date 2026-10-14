@@ -25,10 +25,13 @@ struct SavedSessionsView: View {
     @State private var refreshing = false
     @State private var initialLoadFinished = false
     @State private var statusToast: DJConnectVisualNotice?
-    @State private var openedSessionID: String?
+    @State private var localOpenedSessionID: String?
+    private let externalOpenedSessionID: Binding<String?>?
+    private var openedSessionID: Binding<String?> { externalOpenedSessionID ?? $localOpenedSessionID }
     private let embedsNavigationStack: Bool
-    init(model: DJConnectAppModel, embedsNavigationStack: Bool = true) {
+    init(model: DJConnectAppModel, embedsNavigationStack: Bool = true, openedSessionID: Binding<String?>? = nil) {
         self.model = model; history = model.sessionHistory; self.embedsNavigationStack = embedsNavigationStack
+        externalOpenedSessionID = openedSessionID
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     @ViewBuilder var body: some View {
@@ -56,7 +59,7 @@ struct SavedSessionsView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                     ForEach(history.sessions) { session in
-                        Button { openedSessionID = session.id } label: {
+                        Button { openedSessionID.wrappedValue = session.id } label: {
                             HStack(spacing: 12) {
                                 Image(systemName: "clock.arrow.circlepath")
                                     .font(.title2.weight(.medium)).foregroundStyle(djConnectAccent)
@@ -110,7 +113,7 @@ struct SavedSessionsView: View {
                     .accessibilityIdentifier("saved-sessions-empty-state")
                 }
             }
-            .navigationDestination(item: $openedSessionID) { sessionID in
+            .navigationDestination(item: openedSessionID) { sessionID in
                 SessionTimelineScreen(model: model, sessionID: sessionID)
                     .navigationTitle(detailTitle(sessionID: sessionID))
             }

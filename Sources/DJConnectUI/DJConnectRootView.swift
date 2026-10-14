@@ -705,6 +705,7 @@ public struct DJConnectRootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedSection = DJConnectSection.djSession
+    @State private var openedSavedSessionID: String?
     @State private var moreResetID = UUID()
     @State private var showingFeedback = false
 
@@ -724,17 +725,17 @@ public struct DJConnectRootView: View {
                             title: localizedKey(model.language, "ui.session.title"),
                             systemImage: "sparkles",
                             isSelected: selectedSection == .djSession
-                        ) { selectedSection = .djSession }
+                        ) { selectSidebarSection(.djSession) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.now.playing"),
                             systemImage: "music.note",
                             isSelected: selectedSection == .nowPlaying
-                        ) { selectedSection = .nowPlaying }
+                        ) { selectSidebarSection(.nowPlaying) }
                         SidebarItem(
                             title: "Track Insight",
                             systemImage: "waveform.path.ecg",
                             isSelected: selectedSection == .trackInsight
-                        ) { selectedSection = .trackInsight }
+                        ) { selectSidebarSection(.trackInsight) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.discover"),
                             systemImage: "wand.and.stars",
@@ -744,62 +745,62 @@ public struct DJConnectRootView: View {
                             title: "Ask DJ",
                             systemImage: "bubble.left.and.bubble.right",
                             isSelected: selectedSection == .askDJ
-                        ) { selectedSection = .askDJ }
+                        ) { selectSidebarSection(.askDJ) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.session.history.title"),
                             systemImage: "clock.arrow.circlepath",
                             isSelected: selectedSection == .savedSessions
-                        ) { selectedSection = .savedSessions }
+                        ) { selectSidebarSection(.savedSessions) }
                         SidebarItem(
                             title: "Music DNA",
                             systemImage: "heart",
                             isSelected: selectedSection == .musicDNA
-                        ) { selectedSection = .musicDNA }
+                        ) { selectSidebarSection(.musicDNA) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.queue"),
                             systemImage: "music.note.list",
                             isSelected: selectedSection == .queue
-                        ) { selectedSection = .queue }
+                        ) { selectSidebarSection(.queue) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.playlists"),
                             systemImage: "rectangle.stack",
                             isSelected: selectedSection == .playlists
-                        ) { selectedSection = .playlists }
+                        ) { selectSidebarSection(.playlists) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.games"),
                             systemImage: "gamecontroller",
                             isSelected: selectedSection == .games
-                        ) { selectedSection = .games }
+                        ) { selectSidebarSection(.games) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.settings"),
                             systemImage: "gearshape",
                             isSelected: selectedSection == .settings
-                        ) { selectedSection = .settings }
+                        ) { selectSidebarSection(.settings) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.logs"),
                             systemImage: "doc.text.magnifyingglass",
                             isSelected: selectedSection == .logs
-                        ) { selectedSection = .logs }
+                        ) { selectSidebarSection(.logs) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.about"),
                             systemImage: "info.circle",
                             isSelected: selectedSection == .about
-                        ) { selectedSection = .about }
+                        ) { selectSidebarSection(.about) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.legal"),
                             systemImage: "doc.text",
                             isSelected: selectedSection == .legal
-                        ) { selectedSection = .legal }
+                        ) { selectSidebarSection(.legal) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.privacy"),
                             systemImage: "hand.raised",
                             isSelected: selectedSection == .privacy
-                        ) { selectedSection = .privacy }
+                        ) { selectSidebarSection(.privacy) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.share.feedback"),
                             systemImage: "bubble.left.and.bubble.right",
                             isSelected: false
-                        ) { showingFeedback = true }
+                        ) { openedSavedSessionID = nil; showingFeedback = true }
                     }
                     .navigationTitle(screenTitle(model.language, key: "ui.djconnect", isDemoMode: model.isDemoMode))
                     .scrollContentBackgroundIfAvailable(.hidden)
@@ -915,7 +916,9 @@ public struct DJConnectRootView: View {
             handleHomeScreenActionRequestIfNeeded()
         }
         .onChange(of: selectedSection) {
-            #if os(iOS)
+            #if os(macOS)
+            openedSavedSessionID = nil
+            #else
             if horizontalSizeClass != .regular, selectedSection == .more {
                 moreResetID = UUID()
             }
@@ -1301,8 +1304,15 @@ public struct DJConnectRootView: View {
     }
 
     private func selectDiscovery() {
-        selectedSection = .discovery
+        selectSidebarSection(.discovery)
         model.presentMusicDNAOptInPromptIfNeeded()
+    }
+
+    private func selectSidebarSection(_ section: DJConnectSection) {
+        // Withdraw the pushed archive before replacing its detail root, including
+        // a click on the already-selected Earlier Sessions overview.
+        openedSavedSessionID = nil
+        selectedSection = section
     }
 
     @ViewBuilder
@@ -1311,7 +1321,11 @@ public struct DJConnectRootView: View {
         case .djSession:
             DJSessionView(model: model) { selectedSection = .queue }
         case .savedSessions:
+            #if os(macOS)
+            SavedSessionsView(model: model, openedSessionID: $openedSavedSessionID)
+            #else
             SavedSessionsView(model: model)
+            #endif
         case .nowPlaying:
             NowPlayingView(model: model) {
                 selectedSection = .queue
