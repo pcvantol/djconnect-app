@@ -1122,7 +1122,7 @@
 
 "ui.session.presence.loading" = "DJ-Präsenz wird geprüft…";
 "ui.session.presence.temporarily_unavailable" = "DJ-Präsenz konnte nicht geladen werden. Öffne dieses Panel erneut, um es noch einmal zu versuchen.";
-"ui.session.presence.unsupported" = "Diese Home Assistant-Version unterstützt DJ-Präsenz nicht.";
+"ui.session.presence.unsupported" = "Die DJConnect-Integration in Home Assistant bietet DJ-Präsenz noch nicht an.";
 "ui.session.presence.no_active_session" = "Für diese Steuerung gibt es keine gültige aktive Session.";
 "ui.session.presence.invalid_state" = "Die Session hat keine gültige Einstellung für DJ-Präsenz zurückgegeben.";
 "ui.session.presence.incompatible_response" = "Der Server hat eine inkompatible Antwort für DJ-Präsenz zurückgegeben.";

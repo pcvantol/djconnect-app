@@ -1122,7 +1122,7 @@
 
 "ui.session.presence.loading" = "DJ-aanwezigheid controleren…";
 "ui.session.presence.temporarily_unavailable" = "DJ-aanwezigheid kon niet worden opgehaald. Open dit paneel opnieuw om het nogmaals te proberen.";
-"ui.session.presence.unsupported" = "Deze Home Assistant-versie ondersteunt DJ-aanwezigheid niet.";
+"ui.session.presence.unsupported" = "De DJConnect-integratie in Home Assistant biedt DJ-aanwezigheid nog niet aan.";
 "ui.session.presence.no_active_session" = "Er is geen geldige actieve sessie voor deze bediening.";
 "ui.session.presence.invalid_state" = "De sessie heeft geen geldige stand voor DJ-aanwezigheid teruggegeven.";
 "ui.session.presence.incompatible_response" = "De server gaf een incompatibel antwoord voor DJ-aanwezigheid.";
