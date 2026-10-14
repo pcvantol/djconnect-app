@@ -1119,3 +1119,10 @@
 "ui.navigation.menu" = "Show or hide navigation menu";
 
 "ui.track.insight.play.music.first" = "Play music to analyze a track.";
+
+"ui.session.presence.loading" = "Checking DJ presence…";
+"ui.session.presence.temporarily_unavailable" = "DJ presence could not be loaded. Reopen this panel to try again.";
+"ui.session.presence.unsupported" = "This Home Assistant version does not support DJ presence.";
+"ui.session.presence.no_active_session" = "There is no valid active session for this control.";
+"ui.session.presence.invalid_state" = "The session has not returned a valid DJ presence setting.";
+"ui.session.presence.incompatible_response" = "The server returned an incompatible DJ presence response.";

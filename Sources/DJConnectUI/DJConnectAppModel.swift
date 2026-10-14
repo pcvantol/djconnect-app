@@ -614,6 +614,10 @@ public struct DJConnectPushNotificationStatus: Equatable, Sendable {
     }
 }
 
+public enum DJConnectActivePresenceCapabilityStatus: Equatable, Sendable {
+    case notLoaded, loading, supported, unsupported, temporarilyUnavailable, incompatibleResponse
+}
+
 @MainActor
 public final class DJConnectAppModel: ObservableObject {
     public lazy var sessionHistory = DJConnectSessionHistoryModel(host: self)
@@ -713,6 +717,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var activeMoodPending = false
     @Published public private(set) var activeMoodError: String?
     @Published public private(set) var activePresenceAvailable = false
+    @Published public private(set) var activePresenceCapabilityStatus: DJConnectActivePresenceCapabilityStatus = .notLoaded
     @Published public private(set) var activePresenceDesired: DJConnectSessionPresenceValue?
     @Published public private(set) var activePresencePending = false
     @Published public private(set) var activePresenceRequiresDecision = false
@@ -4932,10 +4937,18 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func refreshActiveMoodCapability() async {
-        if isDemoMode { activeMoodAvailable = activeDJSession != nil; return }
+        if isDemoMode {
+            activeMoodAvailable = activeDJSession != nil
+            activePresenceCapabilityStatus = .unsupported
+            return
+        }
         activeMoodAvailable = false
         activePresenceAvailable = false
-        guard isAppInForeground, pairingStatus == .paired else { return }
+        guard isAppInForeground, pairingStatus == .paired else {
+            activePresenceCapabilityStatus = .notLoaded
+            return
+        }
+        activePresenceCapabilityStatus = .loading
         let generation = UUID(); moodCapabilityGeneration = generation
         let epoch = sessionHistory.responseEpoch
         do {
@@ -4943,9 +4956,19 @@ public final class DJConnectAppModel: ObservableObject {
             guard generation == moodCapabilityGeneration, epoch == sessionHistory.responseEpoch, isAppInForeground, pairingStatus == .paired else { return }
             activeMoodAvailable = caps.available
             activePresenceAvailable = caps.presenceAvailable
+            activePresenceCapabilityStatus = caps.presenceAvailable ? .supported : .unsupported
         } catch {
-            guard generation == moodCapabilityGeneration, epoch == sessionHistory.responseEpoch else { return }
-            _ = sessionHistory.withdrawAuthority(for: error)
+            guard generation == moodCapabilityGeneration, epoch == sessionHistory.responseEpoch,
+                  isAppInForeground, pairingStatus == .paired else { return }
+            if sessionHistory.withdrawAuthority(for: error) { return }
+            switch error {
+            case DJConnectError.decodingFailed, DJConnectError.invalidResponse, DJConnectError.versionMismatch:
+                activePresenceCapabilityStatus = .incompatibleResponse
+            case is DecodingError:
+                activePresenceCapabilityStatus = .incompatibleResponse
+            default:
+                activePresenceCapabilityStatus = .temporarilyUnavailable
+            }
         }
     }
 
@@ -5279,6 +5302,7 @@ public final class DJConnectAppModel: ObservableObject {
         presenceGeneration = UUID(); presenceIntent = UUID()
         presenceTask?.cancel(); presenceTask = nil
         activePresenceAvailable = false; activePresencePending = false
+        activePresenceCapabilityStatus = .notLoaded
         activePresenceDesired = nil; activePresenceRequiresDecision = false; activePresenceError = nil
         moodOperationGeneration = UUID(); moodCapabilityGeneration = UUID()
         activeMoodAvailable = false; activeMoodPending = false; activeMoodError = nil

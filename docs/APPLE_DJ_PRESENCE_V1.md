@@ -386,3 +386,15 @@ Owner requested removal of the misleading Retry action and correction of Mood av
 ## Music DNA main scrollbar policy
 
 Owner reported differing main-scrollbar visibility with the Mac sidebar shown/hidden. Music DNA main content opts into a scoped NSScrollView policy: legacy scroller style, vertical scroller enabled, autohide only when content fits. The marker configures its own enclosing scroll view after attachment/layout; equal-value guards avoid layout feedback. Nested card scrollers and system defaults remain untouched. Music DNA's content frame uses a maximum width instead of a fixed outer-proxy width so the reserved scrollbar gutter is respected during sidebar/window resizing. Source syntax/whitespace checks pass; native resizing/input-device behavior remains separately unqualified until the new build is installed.
+
+## Resumed Presence diagnosis and bounded status presentation
+
+The [resumed execution record](verification/APPLE_DJ_PRESENCE_RESUME_20261014.md)
+records the fully read owning comments, fresh admission, actual installed response
+and the exact capability/confirmed-state failures. A bounded capability status
+now distinguishes loading, read failure, unsupported and incompatible metadata;
+the native control additionally distinguishes invalid/no active Session. Opening
+performs guarded existing reads only. No capability/default is fabricated and
+no deployment, transport or dialogue adoption is implicitly started. The linked
+speaker/queue/safety/identity/timing and intra-track findings retain explicit
+acceptance/producer ownership and remain open separately.

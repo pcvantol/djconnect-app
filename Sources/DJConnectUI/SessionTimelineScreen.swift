@@ -1005,6 +1005,16 @@ struct ActiveSessionPresenceToolbar: View {
             #endif
             .presentationCompactAdaptation(.popover)
         }
+        .onChange(of: scope?.id) {
+            guard let captured = scope, scenePhase == .active, model.pairingStatus == .paired else { return }
+            Task {
+                await model.refreshActiveDJSession()
+                guard model.activeDJSession?.id == captured.sessionID,
+                      history.responseEpoch == captured.epoch, scope?.id == captured.id,
+                      scenePhase == .active else { return }
+                await model.refreshActiveMoodCapability()
+            }
+        }
         .onChange(of: session.id) { scope = nil }
         .onChange(of: history.responseEpoch) { scope = nil }
         .onChange(of: scenePhase) { if scenePhase != .active { scope = nil } }
@@ -1023,6 +1033,17 @@ struct ActiveSessionPresenceControl: View {
         model.activeDJSession?.id == sessionID ? model.activeDJSession?.confirmedPresence : nil
     }
     private var enabled: Bool { model.activePresenceAvailable && confirmed != nil && model.pairingStatus == .paired && model.sessionHistory.responseEpoch == epoch }
+    private var unavailableKey: String {
+        guard model.activeDJSession?.id == sessionID, model.pairingStatus == .paired,
+              model.sessionHistory.responseEpoch == epoch else { return "ui.session.presence.no_active_session" }
+        switch model.activePresenceCapabilityStatus {
+        case .notLoaded, .loading: return "ui.session.presence.loading"
+        case .temporarilyUnavailable: return "ui.session.presence.temporarily_unavailable"
+        case .incompatibleResponse: return "ui.session.presence.incompatible_response"
+        case .unsupported: return "ui.session.presence.unsupported"
+        case .supported: return "ui.session.presence.invalid_state"
+        }
+    }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     private func commit(_ index: Double) {
         let offset = min(values.count - 1, max(0, Int(index.rounded())))
@@ -1069,7 +1090,11 @@ struct ActiveSessionPresenceControl: View {
                     }
                 }
             } else {
-                Text(text("ui.session.presence.unavailable")).font(.body).foregroundStyle(.white.opacity(0.88))
+                if model.activePresenceCapabilityStatus == .loading || model.activePresenceCapabilityStatus == .notLoaded {
+                    ProgressView().tint(.white)
+                }
+                Text(text(unavailableKey)).font(.body).foregroundStyle(.white.opacity(0.88))
+                    .accessibilityIdentifier("session-presence-availability")
             }
             if let confirmed {
                 Text(text("ui.session.presence.confirmed") + ": " + text(confirmed.selectedPresence.localizationKey))

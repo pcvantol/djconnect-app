@@ -2393,3 +2393,74 @@ func sessionPlayNowFollowUpReadsDoNotApplyAfterWithdrawal(stage: String, fail: B
     #expect(askDJSearchResultIndex(preserving: nil, fallback: 0, in: results) == 0)
     #expect(askDJSearchResultIndex(preserving: oldB, fallback: 1, in: []) == 0)
 }
+
+@Test @MainActor func presenceCapabilityReadFailureIsTransientAndRetryRetainsRevisionZero() async throws {
+    let gate = HistoryAuthorityGate()
+    let runtime = try presenceRuntimeWire()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/session/active") { return (200, runtime, 0) }
+        if request.url!.path.hasSuffix("/capabilities") {
+            return gate.denied ? (503, Data(#"{"error":"temporarily_unavailable"}"#.utf8), 0) : (200, presenceCapsWire, 0)
+        }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.refreshActiveDJSession()
+    let initial = try #require(model.activeDJSession?.confirmedPresence)
+    #expect(initial.selectedPresence == .balanced && initial.presenceRevision == 0)
+    await model.refreshActiveMoodCapability()
+    #expect(model.activePresenceCapabilityStatus == .supported && model.activePresenceAvailable)
+    gate.denied = true
+    await model.refreshActiveMoodCapability()
+    #expect(model.activePresenceCapabilityStatus == .temporarilyUnavailable && !model.activePresenceAvailable)
+    #expect(model.activeDJSession?.confirmedPresence == initial)
+    gate.denied = false
+    await model.refreshActiveMoodCapability()
+    #expect(model.activePresenceCapabilityStatus == .supported && model.activePresenceAvailable)
+    #expect(model.activeDJSession?.confirmedPresence == initial)
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+}
+
+@Test @MainActor func presenceCapabilityLateReadCannotOverrideNewerUnsupportedState() async throws {
+    let gate = HistoryAuthorityGate()
+    let runtime = try presenceRuntimeWire()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/session/active") { return (200, runtime, 0) }
+        if request.url!.path.hasSuffix("/capabilities") {
+            return gate.denied ? (200, Data(#"{}"#.utf8), 0) : (200, presenceCapsWire, 0.2)
+        }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.refreshActiveDJSession()
+    let initial = model.activeDJSession?.confirmedPresence
+    let first = Task { await model.refreshActiveMoodCapability() }
+    for _ in 0..<100 where !fixture.requests.contains(where: { $0.url?.path.hasSuffix("/capabilities") == true }) {
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    #expect(model.activePresenceCapabilityStatus == .loading)
+    gate.denied = true
+    await model.refreshActiveMoodCapability()
+    #expect(model.activePresenceCapabilityStatus == .unsupported)
+    await first.value
+    #expect(model.activePresenceCapabilityStatus == .unsupported && !model.activePresenceAvailable)
+    #expect(model.activeDJSession?.confirmedPresence == initial)
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+}
+
+@Test @MainActor func presenceCapabilityMalformedResponseIsNotUnsupportedOrConfirmed() async throws {
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") {
+            return (200, Data(#"{"capabilities":{"active_session_presence":"yes"}}"#.utf8), 0)
+        }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.refreshActiveMoodCapability()
+    #expect(model.activePresenceCapabilityStatus == .incompatibleResponse)
+    #expect(!model.activePresenceAvailable && model.activeDJSession?.confirmedPresence == nil)
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+}

@@ -1119,3 +1119,10 @@
 "ui.navigation.menu" = "Afficher ou masquer le menu de navigation";
 
 "ui.track.insight.play.music.first" = "Lancez de la musique pour analyser un morceau.";
+
+"ui.session.presence.loading" = "Vérification de la présence du DJ…";
+"ui.session.presence.temporarily_unavailable" = "Impossible de charger la présence du DJ. Rouvrez ce panneau pour réessayer.";
+"ui.session.presence.unsupported" = "Cette version de Home Assistant ne prend pas en charge la présence du DJ.";
+"ui.session.presence.no_active_session" = "Aucune session active valide pour ce réglage.";
+"ui.session.presence.invalid_state" = "La session n’a pas renvoyé de réglage valide pour la présence du DJ.";
+"ui.session.presence.incompatible_response" = "Le serveur a renvoyé une réponse incompatible pour la présence du DJ.";
