@@ -17521,7 +17521,7 @@ private struct AboutView: View {
                 VStack(alignment: .leading, spacing: 28) {
                     AboutBanner()
 
-                    SettingsSection(title: localizedKey(model.language, "ui.app")) {
+                    SettingsSection(title: localizedKey(model.language, "ui.app"), showsDivider: false) {
                         AboutStackedRow(label: localizedKey(model.language, "ui.version")) {
                             SelectableValue(model.version)
                         }
@@ -17572,7 +17572,7 @@ private struct AboutView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .djSessionFrostedSurface()
 
-                    SettingsSection(title: localizedKey(model.language, "ui.connection")) {
+                    SettingsSection(title: localizedKey(model.language, "ui.connection"), showsDivider: false) {
                         AboutStackedRow(label: localizedKey(model.language, "ui.connection.type")) {
                             SelectableValue(connectionModeTitle, foregroundStyle: connectionModeColor)
                         }
@@ -17598,7 +17598,7 @@ private struct AboutView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .djSessionFrostedSurface()
 
-                    SettingsSection(title: localizedKey(model.language, "ui.notices")) {
+                    SettingsSection(title: localizedKey(model.language, "ui.notices"), showsDivider: false) {
                         AboutStackedRow(label: "Copyright") {
                             SelectableValue("2026 Peter van Tol")
                         }
@@ -18098,6 +18098,7 @@ private struct AboutBanner: View {
 
 private struct SettingsSection<Content: View>: View {
     let title: String
+    var showsDivider: Bool = true
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -18110,7 +18111,9 @@ private struct SettingsSection<Content: View>: View {
             VStack(alignment: .leading, spacing: 10) {
                 content
             }
-            Divider()
+            if showsDivider {
+                Divider()
+            }
         }
     }
 }
