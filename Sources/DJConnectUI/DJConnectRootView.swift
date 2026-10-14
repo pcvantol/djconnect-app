@@ -12415,30 +12415,49 @@ private struct AskDJPlaybackActionStack: View {
 
                 Spacer(minLength: 6)
 
-                HStack(spacing: 6) {
-                    if playingActionID == action.id {
-                        ProgressView()
-                            .controlSize(.small)
-                            .tint(.white)
-                    } else if action.isActiveOutputAction {
-                        Image(systemName: "checkmark")
-                            .font(.caption2.weight(.bold))
-                    } else {
-                        Image(systemName: action.isOutputAction ? "speaker.wave.2.fill" : "play.fill")
-                            .font(.caption2.weight(.bold))
+                if action.isOutputAction {
+                    HStack(spacing: 6) {
+                        if playingActionID == action.id {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(.white)
+                        } else if action.isActiveOutputAction {
+                            Image(systemName: "checkmark")
+                                .font(.caption2.weight(.bold))
+                        } else {
+                            Image(systemName: action.isOutputAction ? "speaker.wave.2.fill" : "play.fill")
+                                .font(.caption2.weight(.bold))
+                        }
+                        Text(buttonLabel(for: action))
+                            .font(.caption.weight(.bold))
+                            .lineLimit(1)
                     }
-                    Text(buttonLabel(for: action))
-                        .font(.caption.weight(.bold))
-                        .lineLimit(1)
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background {
-                    Capsule()
-                        .fill(
-                            DJConnectButtonAppearance.primaryGradient
-                        )
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background {
+                        Capsule()
+                            .fill(
+                                DJConnectButtonAppearance.primaryGradient
+                            )
+                    }
+                } else {
+                    ZStack {
+                        if playingActionID == action.id {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .offset(x: 1)
+                        }
+                    }
+                    .frame(width: 44, height: 44)
+                    .background(DJConnectButtonAppearance.primaryGradient, in: Circle())
+                    .fixedSize()
+                    .accessibilityHidden(true)
                 }
             }
             .padding(.horizontal, 10)
@@ -12454,6 +12473,8 @@ private struct AskDJPlaybackActionStack: View {
             }
         }
         .djConnectPlainButtonStyle()
+        .accessibilityLabel(action.title)
+        .accessibilityHint(action.isOutputAction ? buttonLabel(for: action) : localizedKey(language, "ui.play.now"))
         .disabled(playingActionID != nil)
     }
 
