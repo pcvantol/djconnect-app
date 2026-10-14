@@ -16723,8 +16723,8 @@ struct SettingsView: View {
         NavigationStack {
             ZStack {
                 DJConnectCanvasBackground()
-                List {
-                Section(localizedKey(model.language, "ui.app")) {
+                SettingsContentContainer {
+                SettingsGlassSection(title: localizedKey(model.language, "ui.app")) {
                     Picker(localizedKey(model.language, "ui.app.language"), selection: $model.appLanguageSelectionCode) {
                         Text(localizedKey(model.language, "ui.system.language")).tag("")
                         ForEach(DJConnectLocalization.supportedLanguageCodes, id: \.self) { code in
@@ -16791,7 +16791,7 @@ struct SettingsView: View {
                 }
                 .djSettingsListRowBackground()
 
-                Section("DJ-aankondigingen") {
+                SettingsGlassSection(title: "DJ-aankondigingen") {
                     Toggle(isOn: $model.localResponseAudioEnabled) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(localizedKey(model.language, "ui.auto.play.dj.answers"))
@@ -16843,10 +16843,9 @@ struct SettingsView: View {
                     }
                     .djCompactSettingsListRow()
                 }
-                .djSettingsSectionTopSpacing()
                 .djSettingsListRowBackground()
 
-                Section("Music DNA") {
+                SettingsGlassSection(title: "Music DNA") {
                     LabeledContent(localizedKey(model.language, "ui.how.it.works")) {
                         Text(musicDNAHowItWorksText)
                         .foregroundStyle(.secondary)
@@ -16915,11 +16914,10 @@ struct SettingsView: View {
                     }
                     .djMusicDNASettingsListRow()
                 }
-                .djSettingsSectionTopSpacing()
                 .djSettingsListRowBackground()
 
                 if canShowWebSocketFastPathToggle {
-                    Section(localizedKey(model.language, "ui.connection")) {
+                    SettingsGlassSection(title: localizedKey(model.language, "ui.connection")) {
                         Toggle(isOn: $model.webSocketFastPathEnabled) {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(localizedKey(model.language, "ui.websocket.fast.path"))
@@ -16938,11 +16936,10 @@ struct SettingsView: View {
                         }
                         .djCompactSettingsListRow()
                     }
-                    .djSettingsSectionTopSpacing()
                     .djSettingsListRowBackground()
                 }
 
-                Section(localizedKey(model.language, "ui.permissions")) {
+                SettingsGlassSection(title: localizedKey(model.language, "ui.permissions")) {
                     PermissionStatusRow(
                         title: localizedKey(model.language, "ui.notifications"),
                         detail: localizedKey(model.language, "ui.needed.for.server.push.notifications.when.ask.dj.answers"),
@@ -16988,16 +16985,11 @@ struct SettingsView: View {
                         .djCompactSettingsListRow()
                     }
                 }
-                .djSettingsSectionTopSpacing()
                 .djSettingsListRowBackground()
 
                 }
                 #if os(iOS)
                 .listStyle(.insetGrouped)
-                #else
-                .listStyle(.plain)
-                .contentMargins(.horizontal, 0, for: .scrollContent)
-                .contentMargins(.vertical, 0, for: .scrollContent)
                 #endif
                 .scrollContentBackgroundIfAvailable(.hidden)
                 .background(.clear)
@@ -18093,6 +18085,47 @@ private struct AboutBanner: View {
                 .stroke(.white.opacity(0.12), lineWidth: 1)
         )
         .clipShape(DJConnectCardAppearance.shape)
+    }
+}
+
+private struct SettingsContentContainer<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        #if os(macOS)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                content
+            }
+            .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
+        }
+        #else
+        List { content }
+        #endif
+    }
+}
+
+private struct SettingsGlassSection<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        #if os(macOS)
+        VStack(alignment: .leading, spacing: 20) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            VStack(alignment: .leading, spacing: 18) {
+                content
+            }
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .djSessionFrostedSurface()
+        #else
+        Section(title) { content }
+        #endif
     }
 }
 
