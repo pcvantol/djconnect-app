@@ -10086,10 +10086,10 @@ private struct TrackInsightIconButton: View {
                     .controlSize(.small)
                     .frame(width: 44, height: 44)
             } else {
-                TrackInsightPulseIcon()
-                    .stroke(style: StrokeStyle(lineWidth: 3.2, lineCap: .round, lineJoin: .round))
+                Image(systemName: "waveform.path.ecg")
+                    .symbolRenderingMode(.monochrome)
+                    .font(DJConnectButtonAppearance.iconFont)
                     .foregroundStyle(model.currentTrackInsight == nil ? .white.opacity(0.68) : djConnectAccent)
-                    .frame(width: 27, height: 23)
                     .frame(width: 44, height: 44)
             }
         }
@@ -10099,23 +10099,6 @@ private struct TrackInsightIconButton: View {
         .accessibilityLabel(localizedKey(model.language, "ui.open.track.insight"))
         .accessibilityHint(localizedKey(model.language, "ui.sends.the.current.track.to.the.backend.for.analysis.and"))
         .help(helpText)
-    }
-}
-
-private struct TrackInsightPulseIcon: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let midY = rect.midY
-        let width = rect.width
-        let height = rect.height
-        path.move(to: CGPoint(x: rect.minX + width * 0.02, y: midY))
-        path.addLine(to: CGPoint(x: rect.minX + width * 0.24, y: midY))
-        path.addLine(to: CGPoint(x: rect.minX + width * 0.34, y: rect.minY + height * 0.26))
-        path.addLine(to: CGPoint(x: rect.minX + width * 0.46, y: rect.maxY - height * 0.18))
-        path.addLine(to: CGPoint(x: rect.minX + width * 0.56, y: rect.minY + height * 0.38))
-        path.addLine(to: CGPoint(x: rect.minX + width * 0.66, y: midY))
-        path.addLine(to: CGPoint(x: rect.minX + width * 0.98, y: midY))
-        return path
     }
 }
 
