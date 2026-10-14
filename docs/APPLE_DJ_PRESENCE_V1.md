@@ -374,3 +374,7 @@ Owner-requested empty-state analysis button is disabled while playback.isPlaying
 ## Ask DJ newest-first presentation
 
 Owner requests newest items at the top in Ask DJ and active Session with an upward jump action. Ask DJ now reverses only the already normalized presentation sequence; the backend message model and exchange metadata remain untouched. Search result traversal matches the displayed order. Initial/show-newest targets move to a top sentinel, and the floating arrow/help/accessibility label use the existing localized back-top wording. Scroll geometry drives the near-top state instead of offscreen LazyVStack bottom/viewport preferences. SessionTimelineScreen already presents retained entries newest-first and uses an upward current/top jump; that behavior is retained. No replay, prompt send or playback mutation is introduced.
+
+## Newest-first search selection review correction
+
+Independent review identified positional search-selection drift when a newer matching response was prepended. Ask DJ now retains the selected message UUID across message updates and recomputes its displayed index. Navigation explicitly changes that UUID; query changes and closing search reset it. A focused regression covers prepending a reply, disappearing selected message, query reset and empty results. Earlier full-suite failures in unchanged Mood-replacement timing and shared widget-language defaults are retained separately, not labeled PASS or altered as part of the presentation scope.

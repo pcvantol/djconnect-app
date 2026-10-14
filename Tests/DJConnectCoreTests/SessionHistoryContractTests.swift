@@ -2373,3 +2373,14 @@ func sessionPlayNowFollowUpReadsDoNotApplyAfterWithdrawal(stage: String, fail: B
         #expect(try commands() == ["play_track", "status"])
     }
 }
+
+@Test func askDJNewestFirstSearchKeepsSelectedMessageWhenReplyIsPrepended() {
+    let oldA = UUID(), oldB = UUID(), newReply = UUID()
+    let results = [newReply, oldA, oldB]
+    let index = askDJSearchResultIndex(preserving: oldB, fallback: 1, in: results)
+    #expect(results[index] == oldB)
+    #expect(index == 2)
+    #expect(askDJSearchResultIndex(preserving: oldB, fallback: 1, in: [newReply, oldA]) == 1)
+    #expect(askDJSearchResultIndex(preserving: nil, fallback: 0, in: results) == 0)
+    #expect(askDJSearchResultIndex(preserving: oldB, fallback: 1, in: []) == 0)
+}

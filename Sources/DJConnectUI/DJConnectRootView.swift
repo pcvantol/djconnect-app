@@ -10645,6 +10645,7 @@ private struct AskDJView: View {
     @State private var isSearchVisible = false
     @State private var askDJSearchText = ""
     @State private var selectedSearchResultIndex = 0
+    @State private var selectedSearchResultID: UUID?
     @State private var isAskDJAtTop = true
     @State private var isAskDJScrollToTopButtonSuppressed = false
     @State private var didScrollAskDJToInitialTop = false
@@ -10672,6 +10673,7 @@ private struct AskDJView: View {
     }
 
     private var activeSearchResultID: UUID? {
+        if let selectedSearchResultID, searchResultIDs.contains(selectedSearchResultID) { return selectedSearchResultID }
         guard searchResultIDs.indices.contains(selectedSearchResultIndex) else {
             return nil
         }
@@ -10999,6 +11001,7 @@ private struct AskDJView: View {
                         }
                         .onChange(of: askDJSearchText) {
                             selectedSearchResultIndex = 0
+                            selectedSearchResultID = nil
                             scrollToActiveAskDJSearchResult(proxy: proxy)
                         }
                     }
@@ -11148,6 +11151,7 @@ private struct AskDJView: View {
         }
         askDJSearchText = ""
         selectedSearchResultIndex = 0
+        selectedSearchResultID = nil
         isSearchFocused = false
     }
 
@@ -11170,19 +11174,20 @@ private struct AskDJView: View {
     }
 
     private func normalizeAskDJSearchSelection() {
-        guard !searchResultIDs.isEmpty else {
-            selectedSearchResultIndex = 0
-            return
-        }
-        selectedSearchResultIndex = min(max(selectedSearchResultIndex, 0), searchResultIDs.count - 1)
+        let results = searchResultIDs
+        selectedSearchResultIndex = askDJSearchResultIndex(preserving: selectedSearchResultID,
+                                                          fallback: selectedSearchResultIndex, in: results)
+        selectedSearchResultID = results.indices.contains(selectedSearchResultIndex) ? results[selectedSearchResultIndex] : nil
     }
 
     private func moveAskDJSearchSelection(by delta: Int, proxy: ScrollViewProxy) {
         guard !searchResultIDs.isEmpty else {
             return
         }
+        normalizeAskDJSearchSelection()
         let count = searchResultIDs.count
         selectedSearchResultIndex = (selectedSearchResultIndex + delta + count) % count
+        selectedSearchResultID = searchResultIDs[selectedSearchResultIndex]
         scrollToActiveAskDJSearchResult(proxy: proxy)
     }
 
@@ -18358,4 +18363,10 @@ enum MusicDNAPrivacySummary {
         }
         return lines.isEmpty ? localized("ui.music.dna.privacy.unknown") : lines.joined(separator: "\n")
     }
+}
+
+// Search selection belongs to the visible message, not its shifting list position.
+func askDJSearchResultIndex(preserving selectedID: UUID?, fallback: Int, in results: [UUID]) -> Int {
+    if let selectedID, let index = results.firstIndex(of: selectedID) { return index }
+    return min(max(fallback, 0), max(results.count - 1, 0))
 }
