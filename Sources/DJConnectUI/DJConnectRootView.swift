@@ -18059,53 +18059,7 @@ private struct AboutBanner: View {
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.06, green: 0.04, blue: 0.12),
-                    Color(red: 0.25, green: 0.08, blue: 0.42),
-                    Color(red: 0.39, green: 0.12, blue: 0.62),
-                    Color(red: 0.08, green: 0.10, blue: 0.23)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .clipShape(DJConnectCardAppearance.shape)
-        )
-        .overlay {
-            DJConnectCardAppearance.shape
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            .black.opacity(0.34),
-                            .clear,
-                            .black.opacity(0.30)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .blendMode(.multiply)
-        }
-        .overlay {
-            DJConnectCardAppearance.shape
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            .clear,
-                            .black.opacity(0.22)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .blendMode(.multiply)
-        }
-        .overlay(
-            DJConnectCardAppearance.shape
-                .stroke(.white.opacity(0.12), lineWidth: 1)
-        )
-        .clipShape(DJConnectCardAppearance.shape)
+        .djSessionFrostedSurface()
     }
 }
 
