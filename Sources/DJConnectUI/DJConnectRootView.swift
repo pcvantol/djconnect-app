@@ -10983,10 +10983,16 @@ private struct AskDJView: View {
                                     nextAction: { moveAskDJSearchSelection(by: 1, proxy: proxy) },
                                     closeAction: { dismissAskDJSearch() }
                                 )
+                                #if os(macOS)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 10)
+                                .frame(maxWidth: .infinity, alignment: .top)
+                                #else
                                 .padding(.horizontal, djConnectScreenHorizontalPadding)
                                 .padding(.top, floatingControlTopPadding + 10)
                                 .frame(width: contentWidth, alignment: .top)
                                 .frame(maxWidth: .infinity, alignment: .top)
+                                #endif
                                 .transition(.move(edge: .top).combined(with: .opacity))
                             }
                         }
