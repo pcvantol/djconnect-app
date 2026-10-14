@@ -193,9 +193,6 @@ struct SessionTimelineScreen: View {
     @State private var query = ""
     @State private var searching = false
     @State private var showingHandoff = false
-    #if os(macOS)
-    @State private var handoffContentHeight: CGFloat = 240
-    #endif
     @State private var selectedMatchID: String?
     @State private var hasNewEntries = false
     @State private var positionUnavailable = false
@@ -441,28 +438,7 @@ struct SessionTimelineScreen: View {
                         .accessibilityIdentifier("session-handoff-toggle")
                         .help(text("ui.vibecast.handoff.title"))
                         .popover(isPresented: $showingHandoff) {
-                            #if os(macOS)
-                            let available = NSScreen.main?.visibleFrame.size ?? CGSize(width: 800, height: 640)
-                            ScrollView {
-                                ActiveDJSessionView(model: model, session: activeSession,
-                                                    openQueueAction: openQueueAction, showsMoments: false)
-                                    .background {
-                                        GeometryReader { content in
-                                            Color.clear.preference(key: HandoffContentHeightKey.self, value: content.size.height)
-                                        }
-                                    }
-                            }
-                            .scrollBounceBehavior(.basedOnSize)
-                            .frame(width: min(400, max(240, available.width - 48)),
-                                   height: min(handoffContentHeight, max(160, available.height - 160)))
-                            .onPreferenceChange(HandoffContentHeightKey.self) { handoffContentHeight = ceil($0) }
-                            #else
-                            ScrollView {
-                                ActiveDJSessionView(model: model, session: activeSession,
-                                                    openQueueAction: openQueueAction, showsMoments: false)
-                            }
-                            .frame(idealWidth: 400, idealHeight: 300)
-                            #endif
+                            VibeCastHandoffPopover(model: model, session: activeSession, openQueueAction: openQueueAction)
                             .presentationCompactAdaptation(.popover)
                         }
                     }
@@ -1399,3 +1375,37 @@ private struct HandoffContentHeightKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 #endif
+
+private struct VibeCastHandoffPopover: View {
+    @ObservedObject var model: DJConnectAppModel
+    let session: DJConnectSessionRuntime
+    let openQueueAction: () -> Void
+    #if os(macOS)
+    @State private var handoffContentHeight: CGFloat = 240
+    #endif
+
+    var body: some View {
+    #if os(macOS)
+    let available = NSScreen.main?.visibleFrame.size ?? CGSize(width: 800, height: 640)
+    ScrollView {
+        ActiveDJSessionView(model: model, session: session,
+                            openQueueAction: openQueueAction, showsMoments: false)
+            .background {
+                GeometryReader { content in
+                    Color.clear.preference(key: HandoffContentHeightKey.self, value: content.size.height)
+                }
+            }
+    }
+    .scrollBounceBehavior(.basedOnSize)
+    .frame(width: min(400, max(240, available.width - 48)),
+           height: min(handoffContentHeight, max(160, available.height - 160)))
+    .onPreferenceChange(HandoffContentHeightKey.self) { handoffContentHeight = ceil($0) }
+    #else
+    ScrollView {
+        ActiveDJSessionView(model: model, session: session,
+                            openQueueAction: openQueueAction, showsMoments: false)
+    }
+    .frame(idealWidth: 400, idealHeight: 300)
+    #endif
+    }
+}
