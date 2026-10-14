@@ -15,6 +15,7 @@ enum DJConnectVersionInfo {
 
 public struct DJConnectLaunchContainer<Content: View>: View {
     @State private var showLaunch = true
+    @State private var mainControlsVisible = false
     @State private var minimumLaunchTimeElapsed = false
     @State private var maximumLaunchTimeElapsed = false
     @State private var minimumLaunchTask: Task<Void, Never>?
@@ -30,12 +31,17 @@ public struct DJConnectLaunchContainer<Content: View>: View {
     public var body: some View {
         ZStack {
             content
+                .allowsHitTesting(!showLaunch)
+                .accessibilityHidden(showLaunch)
             if showLaunch {
                 DJConnectLaunchView()
                     .transition(.opacity)
                     .zIndex(1)
             }
         }
+        #if os(macOS)
+        .toolbar(mainControlsVisible ? .visible : .hidden, for: .windowToolbar)
+        #endif
         .onAppear {
             showLaunchOverlay()
         }
@@ -54,6 +60,7 @@ public struct DJConnectLaunchContainer<Content: View>: View {
         minimumLaunchTimeElapsed = false
         maximumLaunchTimeElapsed = false
         showLaunch = true
+        mainControlsVisible = false
 
         minimumLaunchTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.5))
@@ -74,8 +81,10 @@ public struct DJConnectLaunchContainer<Content: View>: View {
         guard showLaunch, minimumLaunchTimeElapsed, (!isBusy || maximumLaunchTimeElapsed) else {
             return
         }
-        withAnimation(.easeOut(duration: 0.28)) {
+        withAnimation(.easeOut(duration: 0.28), completionCriteria: .removed) {
             showLaunch = false
+        } completion: {
+            mainControlsVisible = true
         }
     }
 }

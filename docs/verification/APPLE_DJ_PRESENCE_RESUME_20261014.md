@@ -287,3 +287,54 @@ changes the shared About row to actual releaseVersion (CFBundleVersion), e.g.
 4.0.0 (40056). Swift build PASS14.53s. It is source-only; ordinary Mac mini still
 runs40034, no new app installation. This owner-requested presentation delta is
 separate from native proofapp00ba403 and is not inferred as runtime-tested there.
+
+
+## Native confirmation and owner-approved build40057 installation
+
+Mac isolated all-five Presence case finally PASS39.718s, one test, zero failures,
+using c076e16 AX-value/readiness runner and unchanged00ba403 proofapp. Pending,
+five confirmed choices/revisions and paused-session noninterference checked
+against frozen Core SDK fixture. Evidence retained in
+`/private/tmp/djc-presence-mac-c076e16-axvalue.{log,xcresult}`. This is isolated
+native qualification, not production Core acceptance. Existing restoration
+case PASS15.567s remains separately qualified.
+
+Owner explicitly approved latest installation on Mac mini, MacBook and iPhone.
+Signed Mac/iOS build40057 succeeded; full519 tests PASS57.233s on c076e16 input.
+All three actual installed bundle readbacks show4.0.0/40057. Both Macs opened
+with visible main windows; after owner unlocked iPhone, real devicectl launch
+succeeded (process3847), with no fixture arguments. App backups and preference
+exports retained under existing40057 backup roots. No uninstall, pairing reset,
+HA update or forced quit performed during these installs. MacBook transferred
+artifact SHA2564938a917b17e125789f1f7e790b1b80c059729547f729df4c9678c5732ecb386
+matched; mini installed payload36files/symlinks matched build. Preference
+backup does not imply independently verified pairing equality: standard-plist
+comparison had zero selected keys and supplies no such proof.
+
+MacBook desired-state verification reported required development-tooling drift;
+no repairs were made. It was an app-consumer install, with no source mutation
+or build there. Mini development host verification MATCH.
+
+Production Core Presence capability/selected_presence/revision absence remains
+a separate owner deployment dependency. No merge or Finalization is implied by
+private installation. Draft107 still has separate protected-delivery gates.
+
+## Mac presentation followup (owner requested)
+
+Hide native window toolbar throughout splashscreen and reveal only after splash
+fade removal completes. Keep root content mounted for startup work. Standardize
+Mac outer top inset to12points for playlist/queue rows, saved sessions, Ask DJ,
+settings, logs and active/idle session views; remove duplicate outer insets and
+move Ask DJ top anchor out of stack spacing. Existing hero screens, About,
+Legal, Privacy, Games and Now Playing already use12points. Card-internal
+padding remains intentional. Mac saved-session ScrollView removes native List
+header reservation; iOS List and its native refresh bridge remain mounted.
+Verification: Mac unsigned build40058 PASS; device installation remains40057.
+
+Final source verification for this presentation followup: unsigned Mac and iOS
+build40058 both BUILD SUCCEEDED;519 package tests PASS58.074s; git diff --check
+PASS. Independent technical source review GO, no concrete P1/P2. Native visual
+splash/padding, jump-top and archive keyboard-layout qualification has not
+been executed for this followup. Do not infer these checks from prior Presence
+native probes or installed40057. Installation checkpoint registered at Apple87
+comment6172022791.

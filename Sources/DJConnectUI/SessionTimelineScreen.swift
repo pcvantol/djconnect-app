@@ -40,8 +40,17 @@ struct SavedSessionsView: View {
         if embedsNavigationStack { NavigationStack { content } }
         else { content }
     }
+    private var showsListHeader: Bool {
+        #if os(macOS)
+        model.isDemoMode || !initialLoadFinished || history.listLoading || history.preparing
+        #else
+        // Keep the iOS native refresh bridge mounted even after loading.
+        true
+        #endif
+    }
     private var content: some View {
-            List {
+            savedSessionsContainer {
+                if showsListHeader {
                 VStack(alignment: .leading, spacing: 16) {
                     if model.isDemoMode { Label(text("demo.session.notice"), systemImage: "sparkles").font(.caption).accessibilityIdentifier("session-demo-notice") }
                     #if !os(iOS)
@@ -60,6 +69,7 @@ struct SavedSessionsView: View {
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
+                }
                     ForEach(history.sessions) { session in
                         Button { openedSessionID.wrappedValue = session.id } label: {
                             HStack(spacing: 12) {
@@ -147,6 +157,19 @@ struct SavedSessionsView: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("screen-saved-sessions")
     }
+    @ViewBuilder private func savedSessionsContainer<Rows: View>(@ViewBuilder rows: () -> Rows) -> some View {
+        #if os(macOS)
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 16) { rows() }
+                .padding(.horizontal, 20)
+                .padding(.vertical, djConnectScreenVerticalPadding)
+        }
+        .scrollIndicators(.visible)
+        #else
+        List { rows() }
+        #endif
+    }
+
     private func detailTitle(sessionID: String) -> String {
         savedSessionNavigationTitle(sessionID, history: history, language: model.language)
     }
@@ -348,7 +371,7 @@ struct SessionTimelineScreen: View {
                             Color.clear.frame(height: 1).id("tail")
                         }
                         .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity)
-                        .padding(.top, activeSession != nil ? 0 : 20).padding(.bottom, 20)
+                        .padding(.top, activeSession != nil ? 0 : archivedTopPadding).padding(.bottom, 20)
                         .scrollTargetLayout()
                         #if os(iOS)
                         .background(SessionRefreshIndicatorBridge(
@@ -593,12 +616,30 @@ struct SessionTimelineScreen: View {
             retryConnection: { Task { await model.retryDJSessionConnection() } },
             artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL),
             showsFlow: false, playbackOutputName: model.sessionPlaybackOutputName, playbackModel: model)
-        }.padding(20).fixedSize(horizontal: false, vertical: true)
+        }
+        #if os(macOS)
+        .padding(.horizontal, 20)
+        .padding(.top, djConnectScreenVerticalPadding)
+        .padding(.bottom, 20)
+        #else
+        .padding(20)
+        #endif
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var archivedTopPadding: CGFloat {
+        #if os(macOS)
+        djConnectScreenVerticalPadding
+        #else
+        20
+        #endif
     }
 
     private func scrollingCurrent(_ session: DJConnectSessionRuntime) -> some View {
         currentHeader(session)
+            #if !os(macOS)
             .padding(.top, 12)
+            #endif
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("session-pinned-current")
     }

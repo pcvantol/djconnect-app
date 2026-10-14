@@ -189,7 +189,7 @@ private let djConnectIconGradient = LinearGradient(
     endPoint: .bottomTrailing
 )
 private let djConnectScreenHorizontalPadding: CGFloat = 16
-private let djConnectScreenVerticalPadding: CGFloat = 12
+let djConnectScreenVerticalPadding: CGFloat = 12
 private let djConnectContentMaxWidth: CGFloat = 760
 private let djConnectCompactContentMaxWidth: CGFloat = 640
 private let djConnectMacDetailContentMaxWidth: CGFloat = 1_680
@@ -9203,7 +9203,9 @@ private struct IdleDJSessionView: View {
         .djConnectHeroCard()
         .frame(maxWidth: 960)
         .frame(maxWidth: .infinity, alignment: .top)
+        #if !os(macOS)
         .padding(.vertical, 12)
+        #endif
         .accessibilityIdentifier("screen-idle-dj-session")
     }
 
@@ -9387,7 +9389,12 @@ struct ActiveDJSessionView: View {
             }
         }
         .padding(.horizontal, 16)
+        #if os(macOS)
+        .padding(.top, showsMoments ? 0 : 16)
+        .padding(.bottom, showsMoments ? 28 : 16)
+        #else
         .padding(.vertical, showsMoments ? 28 : 16)
+        #endif
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("screen-active-dj-session")
     }
@@ -10818,7 +10825,9 @@ private struct AskDJView: View {
                         ZStack(alignment: .top) {
                             ScrollView {
                                 LazyVStack(spacing: 12) {
+                                    #if !os(macOS)
                                     Color.clear.frame(height: 1).id("ask-dj-top")
+                                    #endif
                                     if model.isCheckingAskDJHistoryState {
                                         ProgressView()
                                             .tint(.white)
@@ -10898,6 +10907,11 @@ private struct AskDJView: View {
                                     }
 
                                 }
+                                #if os(macOS)
+                                .background(alignment: .top) {
+                                    Color.clear.frame(height: 1).id("ask-dj-top")
+                                }
+                                #endif
                                 .padding(.horizontal, djConnectScreenHorizontalPadding)
                                 .padding(.top, chatTopPadding)
                                 .padding(.bottom, 16)
@@ -13818,7 +13832,7 @@ struct QueueView: View {
                 }
             }
             .padding(.horizontal, djConnectScreenHorizontalPadding)
-            .padding(.vertical, 6)
+            .padding(.vertical, djConnectScreenVerticalPadding)
         }
     }
     #endif
@@ -14126,7 +14140,7 @@ struct PlaylistsView: View {
                 }
             }
             .padding(.horizontal, djConnectScreenHorizontalPadding)
-            .padding(.vertical, 6)
+            .padding(.vertical, djConnectScreenVerticalPadding)
         }
     }
     #endif
@@ -17113,9 +17127,6 @@ struct SettingsView: View {
                 model.refreshPermissionStatuses()
                 model.startPairingWait()
             }
-            #if os(macOS)
-            .djConnectMacDetailContent()
-            #endif
         }
         .djConnectButtonStyle(DJConnectButtonStyle())
         .tint(.white)
@@ -17259,7 +17270,9 @@ private struct LogsView: View {
             .padding(.vertical, 12)
             .djSessionFrostedSurface()
             .padding(.horizontal, 20)
+            #if !os(macOS)
             .padding(.vertical, 16)
+            #endif
             .background(DJConnectCanvasBackground())
             .navigationTitle(localizedKey(model.language, "ui.logs"))
             .accessibilityIdentifier("screen-logs")
