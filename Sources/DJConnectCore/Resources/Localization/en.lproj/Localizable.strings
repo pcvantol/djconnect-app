@@ -1113,3 +1113,5 @@
 "ui.session.presence.music_only_help" = "Music only stops future proactive DJ contributions. You can still chat with the DJ and read previous contributions.";
 
 "ui.session.history.back_top" = "Back to top";
+
+"ui.music.dna.hero.description" = "Music DNA learns from your musical taste and listening habits to tailor recommendations to you.";

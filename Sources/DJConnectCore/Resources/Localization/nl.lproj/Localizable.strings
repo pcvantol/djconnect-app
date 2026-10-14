@@ -1113,3 +1113,5 @@
 "ui.session.presence.music_only_help" = "Alleen muziek stopt toekomstige spontane DJ-bijdragen. Je kunt nog met de DJ chatten en eerdere bijdragen lezen.";
 
 "ui.session.history.back_top" = "Naar boven";
+
+"ui.music.dna.hero.description" = "Music DNA leert van je muzieksmaak en luistergedrag om aanbevelingen op jou af te stemmen.";

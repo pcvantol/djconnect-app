@@ -4317,6 +4317,13 @@ private struct MusicDNAHeroView: View {
             MusicDNAHelixView(moodStepIndex: moodStepIndex)
                 .frame(height: 220)
                 .clipShape(DJConnectCardAppearance.shape)
+            Text(localizedKey(model.language, "ui.music.dna.hero.description"))
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.82))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity)
+                .accessibilityIdentifier("music-dna-hero-description")
         }
         .padding(24)
         .frame(maxWidth: .infinity, minHeight: 268, alignment: .center)

@@ -1113,3 +1113,5 @@
 "ui.session.presence.music_only_help" = "Solo música detiene las futuras intervenciones espontáneas del DJ. Puedes seguir chateando con el DJ y leer las intervenciones anteriores.";
 
 "ui.session.history.back_top" = "Volver arriba";
+
+"ui.music.dna.hero.description" = "Music DNA aprende de tus gustos musicales y hábitos de escucha para ofrecerte recomendaciones a tu medida.";

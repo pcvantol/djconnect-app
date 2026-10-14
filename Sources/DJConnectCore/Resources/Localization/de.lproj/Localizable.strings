@@ -1113,3 +1113,5 @@
 "ui.session.presence.music_only_help" = "Nur Musik stoppt zukünftige spontane DJ-Beiträge. Du kannst weiterhin mit dem DJ chatten und frühere Beiträge lesen.";
 
 "ui.session.history.back_top" = "Nach oben";
+
+"ui.music.dna.hero.description" = "Music DNA lernt aus deinem Musikgeschmack und Hörverhalten, um Empfehlungen auf dich abzustimmen.";
