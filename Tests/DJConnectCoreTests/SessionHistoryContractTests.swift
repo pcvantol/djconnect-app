@@ -682,8 +682,15 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
     await model.sessionHistory.prepare()
+    let selected = DJConnectSessionEntryReference(sessionID: "session-a", entryID: "entry-a")
+    model.sessionHistory.selectedEntry = selected
+    model.askDJDraft = "  "
+    model.sessionHistory.sendText()
+    #expect(model.sessionHistory.selectedEntry == selected)
     model.askDJDraft = "Queued before connection loss"
     model.sessionHistory.sendText()
+    #expect(model.sessionHistory.selectedEntry == nil)
+    #expect(model.sessionHistory.pendingTurns.first?.context.selectedEntry == selected)
     model.recordConnectionMode(.offline, baseURL: fixture.baseURL)
     try await Task.sleep(for: .milliseconds(100))
     #expect(fixture.requests.allSatisfy { $0.httpMethod != "POST" })
@@ -692,6 +699,8 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     #expect(turn.failed && !turn.contextChanged)
     model.recordConnectionMode(.local, baseURL: fixture.baseURL)
     model.sessionHistory.retry(turn)
+    #expect(model.sessionHistory.pendingTurns.first?.context.selectedEntry == selected)
+    #expect(model.sessionHistory.selectedEntry == nil)
     model.recordConnectionMode(.offline, baseURL: fixture.baseURL)
     try await Task.sleep(for: .milliseconds(100))
     #expect(fixture.requests.allSatisfy { $0.httpMethod != "POST" })
@@ -1792,4 +1801,666 @@ private final class MusicDNARecoveryAttempts: @unchecked Sendable {
     #expect(fixture.requests.count == 1)
     #expect(!model.musicDNAProfileNeedsRecovery && model.musicDNAProfileResponse == nil)
     #expect(model.musicDNAErrorMessage == DJConnectLocalization.localized(key: "ui.music.dna.profile_access", language: model.language))
+}
+
+// Pinned actual producer receipts. Scripted URLProtocol controller cases below are
+// software qualification; the connected native lab is qualified separately.
+private func presenceRuntimeWire(value: String = "balanced", revision: Int = 0, suffix: String = "") throws -> Data {
+    var object = try #require(JSONSerialization.jsonObject(with: activeMoodRuntimeWire()) as? [String: Any])
+    var runtime = try #require(object["session"] as? [String: Any])
+    runtime["selected_presence"] = value; runtime["presence_revision"] = revision
+    runtime["session_id"] = (runtime["session_id"] as! String) + suffix
+    var broadcast = runtime["broadcast"] as! [String: Any]
+    var session = broadcast["session"] as! [String: Any]
+    session["session_id"] = runtime["session_id"]
+    session["selected_presence"] = value; session["presence_revision"] = revision
+    broadcast["session"] = session; runtime["broadcast"] = broadcast; object["session"] = runtime
+    return try historyData(object)
+}
+private let presenceCapsWire = Data(#"{"capabilities":{"active_session_presence":true},"contract_versions":{"active_session_presence":1},"active_session_presence":{"available":true,"version":1,"path":"/api/djconnect/v1/session/presence","method":"POST","authentication":"paired_device_bearer","values":["music_only","occasional","balanced","talkative","presenter"],"default":"balanced","ordering":"expected_presence_revision","scope":"active_device_bound_owner_session"}}"#.utf8)
+
+@Test func presenceProducerPinAndExactSixFieldOwnerRequest() throws {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let bytes = try Data(contentsOf: root.appendingPathComponent("Fixtures/session-presence-core-b5c25f7-transport.json"))
+    #expect(SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined() == "e42956b4f544878e4a0840a4b54d5f6bbb3a5d70ab83da52c02127f74a8ae40e")
+    let entries = try #require(JSONSerialization.jsonObject(with: bytes) as? [[String: Any]])
+    #expect(entries.count == 34)
+    let fixture = HistoryWireFixture { _ in (200, Data(), 0) }; defer { fixture.close() }
+    for value in DJConnectSessionPresenceValue.allCases {
+        let request = try fixture.client().sessionPresenceRequest(sessionID: "exact", presence: value, expectedRevision: 8)
+        let body = try #require(JSONSerialization.jsonObject(with: request.httpBody!) as? [String: Any])
+        #expect(Set(body.keys) == ["contract_version", "client_type", "device_id", "session_id", "selected_presence", "expected_presence_revision"])
+        #expect(body["selected_presence"] as? String == value.rawValue && body["expected_presence_revision"] as? Int == 8)
+        #expect(request.url?.path == "/api/djconnect/v1/session/presence" && request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic-fixture-token")
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == "djconnect-ios-ABCDEF123456")
+    }
+    #expect(throws: DJConnectError.self) { try fixture.client().sessionPresenceRequest(sessionID: "exact", presence: .balanced, expectedRevision: -1) }
+    #expect(try JSONDecoder().decode(DJConnectActiveMoodCapabilities.self, from: presenceCapsWire).presenceAvailable)
+    for replacement in ["paired_live_bearer", "receiver", "expected_mood_revision", "active_profile", "/wrong"] {
+        let bad = String(decoding: presenceCapsWire, as: UTF8.self).replacingOccurrences(of: replacement == "/wrong" ? "/api/djconnect/v1/session/presence" : replacement == "expected_mood_revision" ? "expected_presence_revision" : replacement == "active_profile" ? "active_device_bound_owner_session" : "paired_device_bearer", with: replacement)
+        #expect(!(try JSONDecoder().decode(DJConnectActiveMoodCapabilities.self, from: Data(bad.utf8))).presenceAvailable)
+    }
+    #expect(!(try JSONDecoder().decode(DJConnectActiveMoodCapabilities.self, from: Data(#"{"capabilities":{"active_session_presence":true},"contract_versions":{"active_session_presence":1}}"#.utf8))).presenceAvailable)
+}
+
+@Test(arguments: [0,1,2,3,4,5,20,21,22,23,24,25,26,27,28,29,30,31,32,33])
+func presenceActualProducerResponses(_ index: Int) async throws {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let entries = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-presence-core-b5c25f7-transport.json"))) as? [[String: Any]])
+    let row = entries[index], request = row["request"] as! [String: Any]
+    let response = try historyData(row["response"]!), status = row["status"] as! Int
+    let fixture = HistoryWireFixture { _ in (status, response, 0) }; defer { fixture.close() }
+    do {
+        let value = try #require(DJConnectSessionPresenceValue(rawValue: request["selected_presence"] as! String))
+        let received = try await fixture.client().updateSessionPresence(sessionID: request["session_id"] as! String, presence: value, expectedRevision: request["expected_presence_revision"] as! Int)
+        #expect(status == 200 && received.presenceRevision == (row["response"] as! [String: Any])["presence_revision"] as? Int)
+    } catch let conflict as DJConnectSessionPresenceConflict {
+        #expect(status == 409 && conflict.current.sessionID == request["session_id"] as? String)
+    } catch let error as DJConnectError {
+        #expect(status == 401 || status == 404)
+        if status == 401 { #expect(error.invalidatesSessionAuthority) }
+    }
+}
+
+@Test func presenceReducerOrdersIndependentlyAndPreserves40021Projection() throws {
+    let runtime = try #require(JSONDecoder().decode(DJConnectSessionResponse.self, from: presenceRuntimeWire()).resolvedSession)
+    let original = runtime.broadcast
+    let newest = runtime.applying(presence: .init(sessionID: runtime.id, selectedPresence: .musicOnly, presenceRevision: 4))
+    #expect(newest.applying(presence: .init(sessionID: runtime.id, selectedPresence: .talkative, presenceRevision: 3)) == newest)
+    #expect(newest.applying(presence: .init(sessionID: runtime.id, selectedPresence: .presenter, presenceRevision: 4)) == newest)
+    #expect(newest.applying(presence: .init(sessionID: "old", selectedPresence: .presenter, presenceRevision: 99)) == newest)
+    let recovered = newest.applying(broadcastState: original)
+    #expect(recovered.confirmedPresence == newest.confirmedPresence)
+    #expect(recovered.selectedMood == runtime.selectedMood && recovered.moodRevision == runtime.moodRevision)
+    #expect(recovered.broadcast.sessionFlow == original.sessionFlow && recovered.broadcast.djMoments == original.djMoments)
+    #expect(recovered.broadcast.delivery == original.delivery && recovered.broadcast.playback == original.playback)
+    var newerEvent = original
+    newerEvent.session.selectedPresence = .occasional; newerEvent.session.presenceRevision = 5
+    #expect(newest.applying(broadcastState: newerEvent).confirmedPresence?.selectedPresence == .occasional)
+    var equalConflict = original
+    equalConflict.session.selectedPresence = .presenter; equalConflict.session.presenceRevision = 4
+    #expect(newest.applying(broadcastState: equalConflict).confirmedPresence == newest.confirmedPresence)
+    var partial = original; partial.session.selectedPresence = .presenter; partial.session.presenceRevision = nil
+    #expect(newest.applying(broadcastState: partial).confirmedPresence == newest.confirmedPresence)
+    var contradiction = newest
+    contradiction.broadcast.session.selectedPresence = .presenter
+    #expect(contradiction.confirmedPresence == nil && contradiction.presenceRevisionFloor == 4)
+    #expect(contradiction.applying(presence: .init(sessionID: runtime.id, selectedPresence: .talkative, presenceRevision: 3)) == contradiction)
+    #expect(contradiction.applying(broadcastState: original).confirmedPresence == nil)
+    #expect(contradiction.applying(broadcastState: original).presenceRevisionFloor == 4)
+    #expect(contradiction.applying(broadcastState: newerEvent).confirmedPresence?.presenceRevision == 5)
+}
+
+private final class PresenceScript: @unchecked Sendable {
+    private let lock = NSLock()
+    private var writeNumber = 0
+    func nextWrite() -> Int { lock.withLock { writeNumber += 1; return writeNumber } }
+    var writes: Int { lock.withLock { writeNumber } }
+}
+
+@Test @MainActor func presenceRapidIntentsHaveOnePendingWriteAndLatestQueue() async throws {
+    let runtime = try presenceRuntimeWire(), script = PresenceScript()
+    let firstReplyGate = DispatchSemaphore(value: 0)
+    defer { firstReplyGate.signal() }
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, presenceCapsWire, 0) }
+        if request.url!.path.hasSuffix("/session/active") { return (200, runtime, 0) }
+        if request.url!.path.hasSuffix("/session/presence") {
+            let number = script.nextWrite()
+            let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as! [String: Any]
+            #expect(body["expected_presence_revision"] as? Int == number - 1)
+            if number == 1 { _ = firstReplyGate.wait(timeout: .now() + 15) }
+            return (200, try historyData(["success":true,"contract_version":1,"session_id":body["session_id"]!,"selected_presence":body["selected_presence"]!,"presence_revision":number,"changed":true]), 0)
+        }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.refreshActiveDJSession(); await model.refreshActiveMoodCapability()
+    let id = try #require(model.activeDJSession?.id), epoch = model.sessionHistory.responseEpoch
+    model.selectActiveSessionPresence(.talkative, expectedSessionID: id, expectedEpoch: epoch)
+    for _ in 0..<120 where script.writes == 0 {
+        try await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(model.activePresencePending && model.activeDJSession?.confirmedPresence?.selectedPresence == .balanced)
+    model.selectActiveSessionPresence(.occasional, expectedSessionID: id, expectedEpoch: epoch)
+    model.selectActiveSessionPresence(.musicOnly, expectedSessionID: id, expectedEpoch: epoch)
+    model.selectActiveSessionPresence(.presenter, expectedSessionID: id, expectedEpoch: epoch)
+    #expect(script.writes == 1 && model.activePresenceDesired == .presenter)
+    firstReplyGate.signal()
+    for _ in 0..<50 { if !model.activePresencePending { break }; try await Task.sleep(for: .milliseconds(20)) }
+    #expect(script.writes == 2 && !model.activePresencePending && model.activePresenceDesired == nil)
+    #expect(model.activeDJSession?.confirmedPresence?.selectedPresence == .presenter && model.activeDJSession?.confirmedPresence?.presenceRevision == 2)
+    let writes = fixture.requests.filter { $0.url!.path.hasSuffix("/session/presence") }
+    #expect(writes.count == 2)
+    #expect(model.activeDJSession?.selectedMood == (try JSONDecoder().decode(DJConnectSessionResponse.self, from: runtime).resolvedSession?.selectedMood))
+}
+
+@Test(arguments: ["conflict", "lost", "denial", "background", "replacement"])
+@MainActor func presenceStopsAfterUnknownOrWithdrawnOutcome(_ scenario: String) async throws {
+    let runtime = try presenceRuntimeWire(), script = PresenceScript()
+    let after = try presenceRuntimeWire(value: "music_only", revision: 4, suffix: scenario == "replacement" ? "-new" : "")
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, presenceCapsWire, 0) }
+        if request.url!.path.hasSuffix("/session/active") { return (200, script.writes > 0 ? after : runtime, 0) }
+        if request.url!.path.hasSuffix("/session/presence") {
+            _ = script.nextWrite()
+            if scenario == "lost" { throw HistoryWireDelayedFailure(error: URLError(.networkConnectionLost), delay: 0.08) }
+            let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as! [String: Any]
+            if scenario == "denial" { return (401, Data(#"{"success":false,"error":"unauthorized"}"#.utf8), 0.08) }
+            if scenario == "conflict" { return (409, try historyData(["success":false,"error":"presence_revision_conflict","current":["session_id":body["session_id"]!,"selected_presence":"music_only","presence_revision":4]]), 0.08) }
+            return (200, try historyData(["success":true,"contract_version":1,"session_id":body["session_id"]!,"selected_presence":"presenter","presence_revision":1,"changed":true]), 0.08)
+        }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.refreshActiveDJSession(); await model.refreshActiveMoodCapability()
+    let id = try #require(model.activeDJSession?.id), epoch = model.sessionHistory.responseEpoch
+    model.selectActiveSessionPresence(.presenter, expectedSessionID: id, expectedEpoch: epoch)
+    try await Task.sleep(for: .milliseconds(20))
+    if scenario == "background" { model.markInactiveSession() }
+    if scenario == "replacement" { await model.refreshActiveDJSession() }
+    for _ in 0..<50 { if !model.activePresencePending { break }; try await Task.sleep(for: .milliseconds(20)) }
+    try await Task.sleep(for: .milliseconds(110))
+    #expect(script.writes == 1 && !model.activePresencePending)
+    if scenario == "denial" { #expect(model.activeDJSession == nil && !model.activePresenceAvailable && model.askDJMessages.isEmpty) }
+    if scenario == "conflict" || scenario == "lost" {
+        #expect(model.activePresenceRequiresDecision && model.activePresenceDesired == .presenter)
+        #expect(model.activeDJSession?.confirmedPresence?.presenceRevision == 4 && model.activeDJSession?.confirmedPresence?.selectedPresence == .musicOnly)
+        model.acceptCurrentSessionPresence(expectedSessionID: id, expectedEpoch: epoch)
+        #expect(!model.activePresenceRequiresDecision && model.activePresenceDesired == nil)
+    }
+    if scenario == "background" { #expect(!model.activePresenceAvailable && model.activePresenceDesired == nil) }
+    if scenario == "replacement" {
+        #expect(model.activeDJSession?.id == id + "-new" && model.activeDJSession?.confirmedPresence?.presenceRevision == 4)
+        #expect(model.activePresenceDesired == nil && !model.activePresenceRequiresDecision)
+        model.selectActiveSessionPresence(.talkative, expectedSessionID: id, expectedEpoch: epoch)
+        #expect(script.writes == 1)
+    }
+}
+
+private func presenceRequestBody(_ request: URLRequest) throws -> Data {
+    if let body = request.httpBody { return body }
+    guard let stream = request.httpBodyStream else { throw DJConnectError.invalidResponse }
+    stream.open(); defer { stream.close() }
+    var result = Data(), buffer = [UInt8](repeating: 0, count: 4096)
+    while true {
+        let count = stream.read(&buffer, maxLength: buffer.count)
+        if count < 0 { throw stream.streamError ?? DJConnectError.invalidResponse }
+        if count == 0 { return result }
+        result.append(buffer, count: count)
+    }
+}
+
+@Test @MainActor func presenceSingleAttemptDoesNotReplayMutationOnRemoteRoute() async throws {
+    let fixture = HistoryWireFixture { _ in (200, Data(), 0) }; defer { fixture.close() }
+    let manager = DJConnectHATransportManager(localURL: URL(string: "http://local.test"), remoteURL: URL(string: "https://remote.test"), allowsRemoteFallback: true, clientFactory: { _ in fixture.client() })
+    var attempts = 0
+    do {
+        _ = try await manager.perform(allowsOperationReplay: false) { _ -> Bool in attempts += 1; throw DJConnectError.network(message: "reply lost") }
+        Issue.record("Lost mutation must remain unknown")
+    } catch { #expect(attempts == 1) }
+    attempts = 0
+    let read = try await manager.perform { _ -> Bool in
+        attempts += 1
+        if attempts == 1 { throw DJConnectError.network(message: "LAN unavailable") }
+        return true
+    }
+    #expect(read && attempts == 2, "Ordinary recovery reads still retain the existing HTTP fallback")
+}
+
+@Test @MainActor func presenceActualActiveReadRetainsRevisionFloorThroughContradiction() async throws {
+    var first = try #require(JSONSerialization.jsonObject(with: presenceRuntimeWire(value: "balanced", revision: 4)) as? [String: Any])
+    var session = first["session"] as! [String: Any], broadcast = session["broadcast"] as! [String: Any]
+    var metadata = broadcast["session"] as! [String: Any]
+    metadata["selected_presence"] = "presenter"; broadcast["session"] = metadata; session["broadcast"] = broadcast; first["session"] = session
+    let contradiction = try historyData(first), older = try presenceRuntimeWire(value: "talkative", revision: 3), newer = try presenceRuntimeWire(value: "occasional", revision: 5)
+    let script = PresenceScript()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/session/active") {
+            let read = script.nextWrite()
+            return (200, read == 1 ? contradiction : read == 2 ? older : newer, 0)
+        }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.refreshActiveDJSession()
+    #expect(model.activeDJSession?.confirmedPresence == nil && model.activeDJSession?.presenceRevisionFloor == 4)
+    await model.refreshActiveDJSession()
+    #expect(model.activeDJSession?.confirmedPresence == nil && model.activeDJSession?.presenceRevisionFloor == 4)
+    await model.refreshActiveDJSession()
+    #expect(model.activeDJSession?.confirmedPresence?.selectedPresence == .occasional && model.activeDJSession?.presenceRevisionFloor == 5)
+}
+
+@Test @MainActor func presenceCompleteHTTPRuntimeCannotConfirmOneHalfOfNewerContradiction() async throws {
+    let first = try presenceRuntimeWire(value: "balanced", revision: 4)
+    var contradiction = try #require(JSONSerialization.jsonObject(with: presenceRuntimeWire(value: "talkative", revision: 5)) as? [String: Any])
+    var root = contradiction["session"] as! [String: Any], broadcast = root["broadcast"] as! [String: Any]
+    var tuple = broadcast["session"] as! [String: Any]; tuple["selected_presence"] = "presenter"
+    broadcast["session"] = tuple; root["broadcast"] = broadcast; contradiction["session"] = root
+    let conflictingBytes = try historyData(contradiction), last = try presenceRuntimeWire(value: "occasional", revision: 6)
+    let phase = PresenceReadPhase()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/session/active") {
+            let index = phase.value
+            return (200, index == 0 || index == 2 ? first : index == 1 ? conflictingBytes : last, 0)
+        }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.refreshActiveDJSession()
+    #expect(model.activeDJSession?.confirmedPresence?.presenceRevision == 4)
+    phase.value = 1; await model.refreshActiveDJSession()
+    #expect(model.activeDJSession?.confirmedPresence == nil && model.activeDJSession?.presenceRevisionFloor == 5)
+    phase.value = 2; await model.refreshActiveDJSession()
+    #expect(model.activeDJSession?.confirmedPresence == nil && model.activeDJSession?.presenceRevisionFloor == 5)
+    phase.value = 3; await model.refreshActiveDJSession()
+    #expect(model.activeDJSession?.confirmedPresence?.selectedPresence == .occasional && model.activeDJSession?.presenceRevisionFloor == 6)
+    // Same projection is forwarded by the existing HTTP Broadcast recovery.
+    let initial = try #require(JSONDecoder().decode(DJConnectSessionResponse.self, from: first).resolvedSession)
+    let incoming = try #require(JSONDecoder().decode(DJConnectSessionResponse.self, from: conflictingBytes).resolvedSession)
+    let recovery = initial.applying(broadcastState: incoming.presenceSafeBroadcast)
+    #expect(recovery.confirmedPresence == nil && recovery.presenceRevisionFloor == 5)
+    let encoded = try JSONSerialization.jsonObject(with: JSONEncoder().encode(recovery.broadcast)) as! [String: Any]
+    #expect(encoded["presenceConflictRevision"] == nil && encoded["presence_conflict_revision"] == nil)
+}
+
+private final class PresenceReadPhase: @unchecked Sendable {
+    private let lock = NSLock()
+    private var phase = 0
+    var value: Int {
+        get { lock.withLock { phase } }
+        set { lock.withLock { phase = newValue } }
+    }
+}
+
+private final class PresenceModes: @unchecked Sendable {
+    private let lock = NSLock()
+    private var modes: [DJConnectHAConnectionMode] = []
+    func record(_ value: DJConnectHAConnectionMode) { lock.withLock { modes.append(value) } }
+    var values: [DJConnectHAConnectionMode] { lock.withLock { modes } }
+}
+
+@Test(arguments: [DJConnectHAConnectionMode.local, .remote])
+@MainActor func presenceTypedCASConflictKeepsReachableRoute(_ mode: DJConnectHAConnectionMode) async throws {
+    let fixture = HistoryWireFixture { _ in (409, Data(#"{"success":false,"error":"presence_revision_conflict","current":{"session_id":"current","selected_presence":"music_only","presence_revision":4}}"#.utf8), 0) }
+    defer { fixture.close() }
+    let modes = PresenceModes()
+    let manager = DJConnectHATransportManager(localURL: mode == .local ? fixture.baseURL : nil, remoteURL: mode == .remote ? fixture.baseURL : URL(string: "https://remote.test"), allowsRemoteFallback: true, clientFactory: { _ in fixture.client() }, modeReporter: { value, _ in modes.record(value) })
+    do {
+        _ = try await manager.perform(allowsOperationReplay: false) { try await $0.updateSessionPresence(sessionID: "current", presence: .presenter, expectedRevision: 3) }
+        Issue.record("Expected authorized conflict")
+    } catch let conflict as DJConnectSessionPresenceConflict {
+        #expect(conflict.current.presenceRevision == 4)
+    }
+    #expect(modes.values == [mode] && fixture.requests.count == 1)
+}
+
+@Test @MainActor func presenceConflictRetainsOwnerGrantAndExplicitDecision() async throws {
+    var caps = try #require(JSONSerialization.jsonObject(with: activeMoodCapsWire) as? [String: Any])
+    let presence = try #require(JSONSerialization.jsonObject(with: presenceCapsWire) as? [String: Any])
+    var booleans = caps["capabilities"] as! [String: Bool], versions = caps["contract_versions"] as! [String: Int]
+    booleans["active_session_presence"] = true; versions["active_session_presence"] = 1
+    caps["capabilities"] = booleans; caps["contract_versions"] = versions; caps["active_session_presence"] = presence["active_session_presence"]
+    let capabilities = try historyData(caps), runtime = try presenceRuntimeWire()
+    let history = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, capabilities, 0) }
+        if request.url!.path.hasSuffix("/session/active") { return (200, runtime, 0) }
+        if request.url!.path.hasSuffix("ask_dj/history") { return (200, history, 0) }
+        if request.url!.path.hasSuffix("/session/presence") {
+            let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as! [String: Any]
+            return (409, try historyData(["success":false,"error":"presence_revision_conflict","current":["session_id":body["session_id"]!,"selected_presence":"music_only","presence_revision":4]]), 0)
+        }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare(); await model.refreshActiveDJSession(); await model.refreshActiveMoodCapability()
+    #expect(model.sessionHistory.hasAuthorizedOwner && model.activeMoodAvailable)
+    let epoch = model.sessionHistory.responseEpoch, id = try #require(model.activeDJSession?.id)
+    model.selectActiveSessionPresence(.presenter, expectedSessionID: id, expectedEpoch: epoch)
+    for _ in 0..<30 { if !model.activePresencePending { break }; try await Task.sleep(for: .milliseconds(20)) }
+    await Task.yield()
+    #expect(model.activePresenceRequiresDecision && model.activePresenceDesired == .presenter)
+    #expect(model.sessionHistory.hasAuthorizedOwner && model.sessionHistory.responseEpoch == epoch)
+    #expect(model.haConnectionMode == .local && model.pairingStatus == .paired && model.activeMoodAvailable)
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/presence") }.count == 1)
+}
+
+@Test @MainActor func queueSelectionRefreshesQueueWhileStatusRefreshIsBusy() async throws {
+    let wire = HistoryWireFixture { request in
+        let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
+        switch body?["command"] as? String {
+        case "play_context_at": return (200, Data(#"{"success":true}"#.utf8), 0)
+        case "queue": return (200, Data(#"{"success":true,"queue":[{"title":"Next track","uri":"spotify:track:next"}]}"#.utf8), 0)
+        default: return (404, Data(), 0)
+        }
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.isRefreshing = true
+    let selected = DJConnectQueueItem(title: "Selected track", uri: "spotify:track:selected")
+    model.queueItems = [selected]
+    model.startQueueItem(selected, at: 0)
+    for _ in 0..<100 {
+        if model.queueItems.first?.title == "Next track" { break }
+        try await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(model.queueItems.map(\.title) == ["Next track"])
+    #expect(model.loadingQueueItemIndex == nil)
+    let commands = try wire.requests.compactMap { request in
+        (try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])?["command"] as? String
+    }
+    #expect(commands == ["play_context_at", "queue"])
+    #expect(model.isRefreshing) // Queue refresh does not take over the status refresh.
+}
+
+@Test @MainActor func queueSelectionWaitsForOlderQueueReadThenFetchesFreshRows() async throws {
+    let counter = HTTPRecoveryActiveReadCounter()
+    let wire = HistoryWireFixture { request in
+        let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
+        switch body?["command"] as? String {
+        case "play_context_at": return (200, Data(#"{"success":true}"#.utf8), 0)
+        case "queue":
+            if counter.next() == 1 {
+                return (200, Data(#"{"success":true,"queue":[{"title":"Old queue","uri":"spotify:track:old"}]}"#.utf8), 1.6)
+            }
+            return (200, Data(#"{"success":true,"queue":[{"title":"Fresh queue","uri":"spotify:track:fresh"}]}"#.utf8), 0)
+        default: return (404, Data(), 0)
+        }
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.isRefreshing = true
+    let selected = DJConnectQueueItem(title: "Selected track", uri: "spotify:track:selected")
+    model.queueItems = [selected]
+    let olderRead = Task { await model.refreshQueue() }
+    for _ in 0..<30 {
+        if model.isLoadingQueue { break }
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(model.isLoadingQueue)
+    model.startQueueItem(selected, at: 0)
+    for _ in 0..<140 {
+        if model.queueItems.first?.title == "Fresh queue" { break }
+        try await Task.sleep(for: .milliseconds(25))
+    }
+    _ = await olderRead.value
+    #expect(model.queueItems.map(\.title) == ["Fresh queue"])
+    #expect(model.loadingQueueItemIndex == nil)
+    let commands = try wire.requests.compactMap { request in
+        (try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])?["command"] as? String
+    }
+    #expect(commands == ["queue", "play_context_at", "queue"])
+}
+
+@Test(arguments: ["track", "playlist"]) @MainActor
+func activeSessionProjectsLivePlayNowWithoutPromotingArchivedActions(kind: String) async throws {
+    let receipt = try historyObject()
+    let sessionID = try #require(receipt["session_id"] as? String)
+    let timelineData = try historyData(try #require(receipt["archived_timeline"]))
+    let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: timelineData)
+    let entry = try #require(page.entries.first { $0.kind == .conversationDJ })
+    var responseObject = try #require(receipt["text_turn"] as? [String: Any])
+    let playbackCommand = kind == "playlist" ? "start_playlist" : "play_track"
+    let actionObject: [String: Any] = ["id":"live-play-now", "title":"Play offered " + kind,
+        "kind":kind, "uri":"spotify:" + kind + ":0123456789abcdefghijkL", "command":playbackCommand]
+    var assistant = try #require(responseObject["assistant_message"] as? [String: Any])
+    assistant["playback_actions"] = [actionObject]
+    responseObject["assistant_message"] = assistant
+    responseObject["playback_actions"] = [actionObject]
+    responseObject["history_revision"] = 4
+    var confirmation = try #require(responseObject["conversation"] as? [String: Any])
+    confirmation["entry_ids"] = [] // This case tests live delivery independent of anchor opening.
+    confirmation["context"] = ["session_id": sessionID]
+    responseObject["conversation"] = confirmation
+    let responseData = try historyData(responseObject)
+    let profileHistory = try historyData(try #require(receipt["later_historical_answer"]))
+    var runtimeObject = try #require(JSONSerialization.jsonObject(with: activeMoodRuntimeWire()) as? [String: Any])
+    var runtime = try #require(runtimeObject["session"] as? [String: Any])
+    runtime["session_id"] = sessionID
+    var broadcast = try #require(runtime["broadcast"] as? [String: Any])
+    var broadcastSession = try #require(broadcast["session"] as? [String: Any])
+    broadcastSession["session_id"] = sessionID; broadcast["session"] = broadcastSession
+    runtime["broadcast"] = broadcast; runtimeObject["session"] = runtime
+    let runtimeData = try historyData(runtimeObject)
+    let wire = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, activeMoodCapsWire, 0) }
+        if request.url!.path.hasSuffix("/session/active") { return (200, runtimeData, 0) }
+        if request.url!.path.hasSuffix("/ask_dj/message") { return (200, responseData, 0) }
+        if request.url!.path.hasSuffix("/command") {
+            let command = (try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])?["command"] as? String
+            if command == "status" {
+                return (200, Data(#"{"success":true,"playback":{"track_name":"Offered track","is_playing":true}}"#.utf8), 0)
+            }
+            return (200, Data(#"{"success":true}"#.utf8), 0)
+        }
+        if request.url!.path.contains("session/history") { return (200, timelineData, 0) }
+        return (200, profileHistory, 0)
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    await model.refreshActiveDJSession()
+    #expect(model.sessionHistory.liveMessage(for: entry, activeSessionID: sessionID) == nil)
+    _ = try await model.sessionHistory.sendExistingText("Offer a track", clientMessageID: "question-0")
+    let projected = try #require(model.sessionHistory.liveMessage(for: entry, activeSessionID: sessionID))
+    let offered = try #require(projected.renderablePlaybackActions.first)
+    #expect(offered.id == "live-play-now" && offered.kind == kind && offered.isRecommendationAction)
+    #expect(model.sessionHistory.liveMessage(for: entry, activeSessionID: nil) == nil)
+    #expect(model.sessionHistory.liveMessage(for: entry, activeSessionID: "another-session") == nil)
+    var wrongText = entry; wrongText.text = "Unrelated answer"
+    #expect(model.sessionHistory.liveMessage(for: wrongText, activeSessionID: sessionID) == nil)
+    let capturedEpoch = model.sessionHistory.responseEpoch
+    var forged = offered; forged.uri = "spotify:track:another"
+    model.sessionHistory.playLiveAction(forged, for: entry, expectedEpoch: capturedEpoch)
+    #expect(model.playingAskDJActionID == nil)
+    model.sessionHistory.playLiveAction(offered, for: entry, expectedEpoch: UUID())
+    #expect(model.playingAskDJActionID == nil)
+    #expect(!wire.requests.contains { $0.url!.path.hasSuffix("/command") })
+    model.sessionHistory.playLiveAction(offered, for: entry, expectedEpoch: capturedEpoch)
+    #expect(model.playingAskDJActionID == offered.id)
+    for _ in 0..<120 {
+        if model.playingAskDJActionID == nil { break }
+        try await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(model.playingAskDJActionID == nil)
+    let commands = try wire.requests.filter { $0.url!.path.hasSuffix("/command") }.compactMap {
+        (try JSONSerialization.jsonObject(with: presenceRequestBody($0)) as? [String: Any])?["command"] as? String
+    }
+    #expect(commands.filter { $0 == playbackCommand }.count == 1)
+    #expect(commands.contains("status"))
+    let requestCount = wire.requests.count
+    model.markInactiveSession()
+    #expect(model.sessionHistory.liveMessage(for: entry, activeSessionID: sessionID) == nil)
+    model.sessionHistory.playLiveAction(offered, for: entry, expectedEpoch: capturedEpoch)
+    #expect(model.playingAskDJActionID == nil)
+    #expect(wire.requests.count == requestCount)
+    let archiveOnly = SessionTimelineRenderCache().snapshot([entry], sessionID: sessionID, epoch: UUID())
+    #expect(archiveOnly.first?.message.playbackActions.isEmpty == true)
+}
+
+@Test(arguments: [true, false]) @MainActor
+func sessionPlayNowWithdrawalFencesDispatchAndLateResponse(beforeDispatch: Bool) async throws {
+    let replyGate = DispatchSemaphore(value: 0)
+    defer { replyGate.signal() }
+    let wire = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/command") {
+            if !beforeDispatch { _ = replyGate.wait(timeout: .now() + 15) }
+            return (200, Data(#"{"success":true,"assistant_message":{"id":"late-answer","role":"assistant","text":"Stale playback answer","created_at":"2026-10-14T00:00:00Z"}}"#.utf8), 0)
+        }
+        return (404, Data(), 0)
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    let offered = try JSONDecoder().decode(DJConnectAskDJPlaybackAction.self,
+        from: Data(#"{"id":"scoped-play","title":"Play track","kind":"track","command":"play_track","uri":"spotify:track:0123456789abcdefghijkL"}"#.utf8))
+    model.playAskDJRecommendation(offered, isStillValid: { true })
+    if !beforeDispatch {
+        for _ in 0..<120 {
+            if wire.requests.contains(where: { $0.url!.path.hasSuffix("/command") }) { break }
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        #expect(wire.requests.contains { $0.url!.path.hasSuffix("/command") })
+    }
+    model.sessionHistory.suspend()
+    let newerResponse = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self,
+        from: Data(#"{"history_revision":1,"clear_revision":0,"assistant_message":{"id":"new-answer","role":"assistant","text":"New owner display","created_at":"2026-10-14T00:00:00Z"}}"#.utf8))
+    #expect(model.applyProfileConversationResponse(newerResponse, fallback: nil))
+    let newer = model.askDJMessages
+    #expect(newer.first?.text == "New owner display")
+    replyGate.signal()
+    try await Task.sleep(for: .milliseconds(250))
+    #expect(model.askDJMessages == newer)
+    #expect(model.playingAskDJActionID == nil)
+    #expect(model.askDJErrorMessage == nil)
+    #expect(wire.requests.filter { $0.url!.path.hasSuffix("/command") }.count == (beforeDispatch ? 0 : 1))
+}
+
+@Test(arguments: ["status", "devices"], [false, true]) @MainActor
+func sessionPlayNowFollowUpReadsDoNotApplyAfterWithdrawal(stage: String, fail: Bool) async throws {
+    let replyGate = DispatchSemaphore(value: 0)
+    defer { replyGate.signal() }
+    let wire = HistoryWireFixture { request in
+        let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
+        let command = body?["command"] as? String
+        if command == stage {
+            _ = replyGate.wait(timeout: .now() + 15)
+            if fail { return (503, Data(#"{"success":false,"error":"backend_unavailable"}"#.utf8), 0) }
+        }
+        if command == "status" {
+            return (200, Data(#"{"success":true,"playback":{"track_name":"Stale track","is_playing":true}}"#.utf8), 0)
+        }
+        if command == "devices" {
+            return (200, Data(#"{"success":true,"devices":[{"id":"old-output","name":"Old output"}]}"#.utf8), 0)
+        }
+        if command == "queue" { return (200, Data(#"{"success":true,"queue":[{"title":"Old queue"}]}"#.utf8), 0) }
+        if command == "playlists" { return (200, Data(#"{"success":true,"playlists":[]}"#.utf8), 0) }
+        return (200, Data(#"{"success":true}"#.utf8), 0)
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    let offered = try JSONDecoder().decode(DJConnectAskDJPlaybackAction.self,
+        from: Data(#"{"id":"followup-play","title":"Play track","kind":"track","command":"play_track","uri":"spotify:track:0123456789abcdefghijkL"}"#.utf8))
+    model.playAskDJRecommendation(offered, isStillValid: { true })
+    func commands() throws -> [String] {
+        try wire.requests.compactMap {
+            (try JSONSerialization.jsonObject(with: presenceRequestBody($0)) as? [String: Any])?["command"] as? String
+        }
+    }
+    for _ in 0..<120 {
+        if try commands().contains(stage) { break }
+        try await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(try commands().contains(stage))
+    model.sessionHistory.suspend()
+    let freshPlayback = try JSONDecoder().decode(DJConnectPlayback.self,
+        from: Data(#"{"track_name":"New owner track","is_playing":false}"#.utf8))
+    model.apply(playback: freshPlayback)
+    model.queueItems = [DJConnectQueueItem(title: "New owner queue")]
+    replyGate.signal()
+    try await Task.sleep(for: .milliseconds(250))
+    #expect(model.playback == freshPlayback)
+    #expect(model.queueItems.map(\.title) == ["New owner queue"])
+    #expect(model.pairingStatus == .paired && model.backendAvailable)
+    #expect(model.askDJErrorMessage == nil && model.playingAskDJActionID == nil)
+    if stage == "status" {
+        #expect(try commands() == ["play_track", "status"])
+    }
+}
+
+@Test func askDJNewestFirstSearchKeepsSelectedMessageWhenReplyIsPrepended() {
+    let oldA = UUID(), oldB = UUID(), newReply = UUID()
+    let results = [newReply, oldA, oldB]
+    let index = askDJSearchResultIndex(preserving: oldB, fallback: 1, in: results)
+    #expect(results[index] == oldB)
+    #expect(index == 2)
+    #expect(askDJSearchResultIndex(preserving: oldB, fallback: 1, in: [newReply, oldA]) == 1)
+    #expect(askDJSearchResultIndex(preserving: nil, fallback: 0, in: results) == 0)
+    #expect(askDJSearchResultIndex(preserving: oldB, fallback: 1, in: []) == 0)
+}
+
+@Test @MainActor func presenceCapabilityReadFailureIsTransientAndRetryRetainsRevisionZero() async throws {
+    let gate = HistoryAuthorityGate()
+    let runtime = try presenceRuntimeWire()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/session/active") { return (200, runtime, 0) }
+        if request.url!.path.hasSuffix("/capabilities") {
+            return gate.denied ? (503, Data(#"{"error":"temporarily_unavailable"}"#.utf8), 0) : (200, presenceCapsWire, 0)
+        }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.refreshActiveDJSession()
+    let initial = try #require(model.activeDJSession?.confirmedPresence)
+    #expect(initial.selectedPresence == .balanced && initial.presenceRevision == 0)
+    await model.refreshActiveMoodCapability()
+    #expect(model.activePresenceCapabilityStatus == .supported && model.activePresenceAvailable)
+    gate.denied = true
+    await model.refreshActiveMoodCapability()
+    #expect(model.activePresenceCapabilityStatus == .temporarilyUnavailable && !model.activePresenceAvailable)
+    #expect(model.activeDJSession?.confirmedPresence == initial)
+    gate.denied = false
+    await model.refreshActiveMoodCapability()
+    #expect(model.activePresenceCapabilityStatus == .supported && model.activePresenceAvailable)
+    #expect(model.activeDJSession?.confirmedPresence == initial)
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+}
+
+@Test @MainActor func presenceCapabilityLateReadCannotOverrideNewerUnsupportedState() async throws {
+    let gate = HistoryAuthorityGate()
+    let runtime = try presenceRuntimeWire()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/session/active") { return (200, runtime, 0) }
+        if request.url!.path.hasSuffix("/capabilities") {
+            return gate.denied ? (200, Data(#"{}"#.utf8), 0) : (200, presenceCapsWire, 0.2)
+        }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.refreshActiveDJSession()
+    let initial = model.activeDJSession?.confirmedPresence
+    let first = Task { await model.refreshActiveMoodCapability() }
+    for _ in 0..<100 where !fixture.requests.contains(where: { $0.url?.path.hasSuffix("/capabilities") == true }) {
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    #expect(model.activePresenceCapabilityStatus == .loading)
+    gate.denied = true
+    await model.refreshActiveMoodCapability()
+    #expect(model.activePresenceCapabilityStatus == .unsupported)
+    await first.value
+    #expect(model.activePresenceCapabilityStatus == .unsupported && !model.activePresenceAvailable)
+    #expect(model.activeDJSession?.confirmedPresence == initial)
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+}
+
+@Test @MainActor func presenceCapabilityMalformedResponseIsNotUnsupportedOrConfirmed() async throws {
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") {
+            return (200, Data(#"{"capabilities":{"active_session_presence":"yes"}}"#.utf8), 0)
+        }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.refreshActiveMoodCapability()
+    #expect(model.activePresenceCapabilityStatus == .incompatibleResponse)
+    #expect(!model.activePresenceAvailable && model.activeDJSession?.confirmedPresence == nil)
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
 }

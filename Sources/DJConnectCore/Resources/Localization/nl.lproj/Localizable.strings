@@ -1094,3 +1094,35 @@
 
 "ui.session.history.detail.label" = "Sessie";
 "ui.session.history.detail.title" = "Sessie %@";
+
+// Ephemeral active Session presence, Core v1.
+"ui.session.presence.music_only" = "Alleen muziek";
+"ui.session.presence.occasional" = "Af en toe";
+"ui.session.presence.balanced" = "Gebalanceerd";
+"ui.session.presence.talkative" = "Praatgraag";
+"ui.session.presence.presenter" = "Presentator";
+"ui.session.presence.title" = "DJ-aanwezigheid";
+"ui.session.presence.explanation" = "Hoeveel vertelt de DJ tijdens je sessie?";
+"ui.session.presence.confirmed" = "Bevestigd";
+"ui.session.presence.pending" = "Gekozen";
+"ui.session.presence.unavailable" = "DJ-aanwezigheid is niet beschikbaar via deze verbinding.";
+"ui.session.presence.conflict" = "De sessiestand is elders gewijzigd. Kies of je die behoudt of jouw keuze toepast.";
+"ui.session.presence.uncertain" = "De bevestiging kon niet worden opgehaald. Controleer de bevestigde stand voordat je jouw keuze opnieuw toepast.";
+"ui.session.presence.accept_current" = "Bevestigde stand behouden";
+"ui.session.presence.apply_choice" = "Mijn keuze toepassen";
+"ui.session.presence.music_only_help" = "Alleen muziek stopt toekomstige spontane DJ-bijdragen. Je kunt nog met de DJ chatten en eerdere bijdragen lezen.";
+
+"ui.session.history.back_top" = "Naar boven";
+
+"ui.music.dna.hero.description" = "Music DNA leert van je muzieksmaak en luistergedrag om aanbevelingen op jou af te stemmen.";
+
+"ui.navigation.menu" = "Navigatiemenu tonen of verbergen";
+
+"ui.track.insight.play.music.first" = "Start muziek om een nummer te analyseren.";
+
+"ui.session.presence.loading" = "DJ-aanwezigheid controleren…";
+"ui.session.presence.temporarily_unavailable" = "DJ-aanwezigheid kon niet worden opgehaald. Open dit paneel opnieuw om het nogmaals te proberen.";
+"ui.session.presence.unsupported" = "De DJConnect-integratie in Home Assistant biedt DJ-aanwezigheid nog niet aan.";
+"ui.session.presence.no_active_session" = "Er is geen geldige actieve sessie voor deze bediening.";
+"ui.session.presence.invalid_state" = "De sessie heeft geen geldige stand voor DJ-aanwezigheid teruggegeven.";
+"ui.session.presence.incompatible_response" = "De server gaf een incompatibel antwoord voor DJ-aanwezigheid.";

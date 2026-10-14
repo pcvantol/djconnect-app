@@ -291,6 +291,38 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request, using: sessionProjectionSession)
     }
 
+    public func sessionPresenceRequest(sessionID: String, presence: DJConnectSessionPresenceValue, expectedRevision: Int) throws -> URLRequest {
+        guard !sessionID.isEmpty, expectedRevision >= 0 else { throw DJConnectError.invalidResponse }
+        var request = try authenticatedRequest(path: Self.apiV1Path("session/presence"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "contract_version": 1, "client_type": identity.clientType.rawValue, "device_id": identity.deviceID,
+            "session_id": sessionID, "selected_presence": presence.rawValue, "expected_presence_revision": expectedRevision
+        ])
+        return request
+    }
+
+    public func updateSessionPresence(sessionID: String, presence: DJConnectSessionPresenceValue, expectedRevision: Int) async throws -> DJConnectSessionPresenceResponse {
+        let (data, status) = try await dataAndStatusCodeResponse(
+            for: sessionPresenceRequest(sessionID: sessionID, presence: presence, expectedRevision: expectedRevision),
+            using: sessionProjectionSession, acceptingStatuses: [409])
+        if status == 409 {
+            struct ConflictBody: Decodable { let success: Bool; let error: String; let current: DJConnectSessionPresenceSnapshot }
+            let conflict = try decoder.decode(ConflictBody.self, from: data)
+            guard !conflict.success, conflict.error == "presence_revision_conflict", conflict.current.sessionID == sessionID else {
+                throw DJConnectError.invalidResponse
+            }
+            throw DJConnectSessionPresenceConflict(current: conflict.current)
+        }
+        let result = try decoder.decode(DJConnectSessionPresenceResponse.self, from: data)
+        guard status == 200, result.success, result.contractVersion == 1, result.sessionID == sessionID,
+              result.selectedPresence == presence, result.presenceRevision >= expectedRevision,
+              result.presenceRevision - expectedRevision == (result.changed ? 1 : 0) else { throw DJConnectError.invalidResponse }
+        return result
+    }
+
     public func approveVibeCastHandoff(_ payload: DJConnectVibeCastHandoffApprovalRequest) async throws -> DJConnectVibeCastHandoffApprovalResponse {
         let request = try vibeCastHandoffApprovalRequest(payload)
         return try await decodedResponse(for: request)
@@ -1007,7 +1039,8 @@ public final class DJConnectClient: Sendable {
         return data
     }
 
-    private func dataAndStatusCodeResponse(for request: URLRequest, using requestSession: URLSession? = nil) async throws -> (Data, Int) {
+    private func dataAndStatusCodeResponse(for request: URLRequest, using requestSession: URLSession? = nil,
+                                          acceptingStatuses: Set<Int> = []) async throws -> (Data, Int) {
         let (data, response): (Data, URLResponse)
         do {
             (data, response) = try await (requestSession ?? session).data(for: request)
@@ -1025,7 +1058,7 @@ public final class DJConnectClient: Sendable {
         try DJConnectIncomingPayloadLimiter.validate(contentLength: httpResponse.expectedContentLength)
         try DJConnectIncomingPayloadLimiter.validate(data)
 
-        if let error = classify(statusCode: httpResponse.statusCode, body: data) {
+        if !acceptingStatuses.contains(httpResponse.statusCode), let error = classify(statusCode: httpResponse.statusCode, body: data) {
             let safeError = requestSession == nil ? error : Self.sessionProjectionError(error)
             logAPIFailure(request: request, statusCode: httpResponse.statusCode, body: requestSession == nil ? data : Data(), error: safeError)
             throw safeError

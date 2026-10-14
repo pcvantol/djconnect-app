@@ -105,7 +105,7 @@ public final class DJConnectHATransportManager: Sendable {
     }
 
     @MainActor
-    public func perform<T: Sendable>(_ operation: (DJConnectClient) async throws -> T) async throws -> T {
+    public func perform<T: Sendable>(allowsOperationReplay: Bool = true, _ operation: (DJConnectClient) async throws -> T) async throws -> T {
         try Task.checkCancellation()
         let candidates = candidates
         guard candidates.first?.mode != .offline else {
@@ -135,19 +135,24 @@ public final class DJConnectHATransportManager: Sendable {
                     modeReporter?(candidate.mode, baseURL)
                     throw error
                 }
-                let canRetry = index + 1 < candidates.count && Self.isRetryable(error)
+                let canRetry = allowsOperationReplay && index + 1 < candidates.count && Self.isRetryable(error)
                 if !canRetry {
                     if candidate.mode == .remote || index + 1 >= candidates.count {
                         modeReporter?(.offline, nil)
                     }
                     throw error
                 }
+            } catch let conflict as DJConnectSessionPresenceConflict {
+                // An authorized CAS conflict proves this route is reachable.
+                // Preserve connection health and never replay the mutation.
+                modeReporter?(candidate.mode, baseURL)
+                throw conflict
             } catch {
                 if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
                     throw CancellationError()
                 }
                 lastError = error
-                guard index + 1 < candidates.count else {
+                guard allowsOperationReplay, index + 1 < candidates.count else {
                     modeReporter?(.offline, nil)
                     throw error
                 }

@@ -5,7 +5,7 @@ final class DJConnectRefreshScheduler {
     private var pairedRefreshTask: Task<Void, Never>?
     private var backendRecoveryTask: Task<Void, Never>?
     private var commandRefreshTask: Task<Void, Never>?
-    private var pendingCommandRefreshIncludesCollections = false
+    private var pendingCommandRefreshIncludesQueue = false
     private var pendingCommandRefreshCleanup: (@MainActor () -> Void)?
     private var commandRefreshGeneration = 0
 
@@ -36,19 +36,19 @@ final class DJConnectRefreshScheduler {
         commandRefreshTask?.cancel()
         commandRefreshTask = nil
         commandRefreshGeneration += 1
-        pendingCommandRefreshIncludesCollections = false
+        pendingCommandRefreshIncludesQueue = false
         pendingCommandRefreshCleanup?()
         pendingCommandRefreshCleanup = nil
     }
 
     func scheduleCommandRefresh(
         delay: Duration = .milliseconds(850),
-        includeCollections: Bool = false,
+        includeQueue: Bool = false,
         cleanup: (@MainActor () -> Void)? = nil,
         isStillValid: @escaping @MainActor () -> Bool,
-        refresh: @escaping @MainActor (_ includeCollections: Bool) async -> Void
+        refresh: @escaping @MainActor (_ includeQueue: Bool) async -> Void
     ) {
-        pendingCommandRefreshIncludesCollections = pendingCommandRefreshIncludesCollections || includeCollections
+        pendingCommandRefreshIncludesQueue = pendingCommandRefreshIncludesQueue || includeQueue
         let previousCleanup = pendingCommandRefreshCleanup
         pendingCommandRefreshCleanup = {
             previousCleanup?()
@@ -63,19 +63,23 @@ final class DJConnectRefreshScheduler {
                 return
             }
             guard !Task.isCancelled, isStillValid() else {
-                self?.pendingCommandRefreshIncludesCollections = false
+                self?.pendingCommandRefreshIncludesQueue = false
                 self?.pendingCommandRefreshCleanup?()
                 self?.pendingCommandRefreshCleanup = nil
                 self?.commandRefreshTask = nil
                 return
             }
-            let includeCollections = self?.pendingCommandRefreshIncludesCollections ?? false
+            let includeQueue = self?.pendingCommandRefreshIncludesQueue ?? false
             let cleanup = self?.pendingCommandRefreshCleanup
-            self?.pendingCommandRefreshIncludesCollections = false
             self?.pendingCommandRefreshCleanup = nil
-            self?.commandRefreshTask = nil
-            await refresh(includeCollections)
+            // Keep the invalidation until completion so a later status-only
+            // command cannot cancel a waiting queue refresh and lose it.
+            await refresh(includeQueue)
             cleanup?()
+            if self?.commandRefreshGeneration == generation {
+                self?.pendingCommandRefreshIncludesQueue = false
+                self?.commandRefreshTask = nil
+            }
         }
     }
 

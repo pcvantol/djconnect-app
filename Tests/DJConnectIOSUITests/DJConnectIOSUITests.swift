@@ -1876,3 +1876,123 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(app.staticTexts["Een avond met de DJ"].firstMatch.waitForExistence(timeout: 10))
     }
 }
+
+extension DJConnectIOSUITests {
+    /// Connected immutable Core SDK/router/CAS/Broadcast qualification. Synthetic
+    /// music only; screenshots do not claim installed device or microphone proof.
+    func testActualPairedPresenceFivePositionsAndNativeConfirmation() async throws {
+        let base = URL(string: ProcessInfo.processInfo.environment["DJC_APPLE_PRESENCE_UI_BASE"] ?? "http://127.0.0.1:18213")!
+        func control(_ operation: String) async throws -> [String: Any] {
+            var request = URLRequest(url: base.appendingPathComponent("__apple_paired_fixture/" + operation))
+            request.httpMethod = "POST"
+            request.setValue("Bearer apple-paired-fixture-control", forHTTPHeaderField: "Authorization")
+            let (data, response) = try await URLSession.shared.data(for: request)
+            XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        }
+        _ = try await control("select_ios_pairing")
+        let before = try await control("start")
+        let original = try XCTUnwrap(before["active"] as? [String: Any])
+        let language = ProcessInfo.processInfo.environment["DJC_APPLE_PRESENCE_LANGUAGE"] ?? "nl"
+        if ProcessInfo.processInfo.environment["DJC_APPLE_PRESENCE_LANDSCAPE"] == "1" {
+            XCUIDevice.shared.orientation = .landscapeLeft
+        } else { XCUIDevice.shared.orientation = .portrait }
+        let app = XCUIApplication(); app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=paired_owner_contract", "-DJCONNECTRuntimeFixture", "paired_owner_contract", "-AppleLanguages", "(\(language))", "-AppleLocale", language]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "paired_owner_contract"
+        app.launch()
+        XCTAssertTrue(app.buttons["session-presence-toggle"].waitForExistence(timeout: 25))
+        app.buttons["session-presence-toggle"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["active-session-presence"].firstMatch.waitForExistence(timeout: 10))
+        let placement = XCTAttachment(screenshot: app.screenshot())
+        placement.name = "presence-native-placement-before-selection"
+        placement.lifetime = .keepAlways; add(placement)
+        let values = ["music_only", "occasional", "balanced", "talkative", "presenter"]
+        let anchors = ["nl":["Alleen muziek","Af en toe","Gebalanceerd","Praatgraag","Presentator"],"en":["Music only","Occasionally","Balanced","Talkative","Presenter"],"de":["Nur Musik","Gelegentlich","Ausgewogen","Gesprächig","Moderator"],"fr":["Musique uniquement","De temps en temps","Équilibré","Bavard","Présentateur"],"es":["Solo música","De vez en cuando","Equilibrado","Conversador","Presentador"]]
+        for (offset, value) in values.enumerated() {
+            let button = app.buttons["session-presence-choice-" + value]
+            let viewport = app.scrollViews["session-presence-scroll"]
+            // Inspect native bounds first: XCTest may throw when asking hittability
+            // for a wholly clipped activation point at accessibility text sizes.
+            for _ in 0..<10 {
+                if button.exists {
+                    let bounds = button.frame
+                    if bounds.height > 0 && viewport.frame.insetBy(dx: 0, dy: 8).contains(CGPoint(x: bounds.midX, y: bounds.midY)) { break }
+                }
+                // A full-page flick can skip an entire large-text option. Use a
+                // short deliberate native drag; do not bypass its hit target.
+                viewport.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65))
+                    .press(forDuration: 0.2, thenDragTo: viewport.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)),
+                           withVelocity: .slow, thenHoldForDuration: 0.2)
+            }
+            let reachable = XCTAttachment(screenshot: app.screenshot())
+            reachable.name = "presence-native-reachable-\(value)"
+            reachable.lifetime = .keepAlways; add(reachable)
+            XCTAssertTrue(button.exists && button.isEnabled && button.isHittable)
+            if offset == 0 { _ = try await control("presence_delay_once") }
+            button.tap()
+            if offset == 0 {
+                XCTAssertTrue(app.descendants(matching: .any)["session-presence-pending"].firstMatch.waitForExistence(timeout: 2))
+                XCTAssertTrue(app.staticTexts["session-presence-confirmed"].label.contains(anchors[language]![2]),
+                              "Pending intent must not replace the confirmed server value")
+                let pending = XCTAttachment(screenshot: app.screenshot())
+                pending.name = "presence-\(language)-pending-distinct-from-confirmed"
+                pending.lifetime = .keepAlways; add(pending)
+            }
+            var current: [String: Any] = [:]
+            for _ in 0..<40 {
+                let readback = try await control("state")
+                current = try XCTUnwrap(readback["active"] as? [String: Any])
+                if current["selected_presence"] as? String == value { break }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            XCTAssertEqual(current["selected_presence"] as? String, value)
+            XCTAssertEqual(current["presence_revision"] as? Int, offset + 1)
+            XCTAssertEqual(current["session_id"] as? String, original["session_id"] as? String)
+            XCTAssertEqual(current["selected_mood"] as? String, original["selected_mood"] as? String)
+            XCTAssertEqual(current["mood_revision"] as? Int, original["mood_revision"] as? Int)
+            XCTAssertEqual(current["now_playing"] as? NSDictionary, original["now_playing"] as? NSDictionary)
+            let confirmed = app.staticTexts["session-presence-confirmed"]
+            XCTAssertTrue(confirmed.waitForExistence(timeout: 10))
+            let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", anchors[language]![offset]), object: confirmed)
+            let visibleResult = await XCTWaiter.fulfillment(of: [visible], timeout: 10)
+            XCTAssertEqual(visibleResult, .completed, "The native label must confirm the actual server-selected position")
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "presence-\(language)-\(value)-confirmed"
+            screenshot.lifetime = .keepAlways; add(screenshot)
+        }
+        XCTAssertTrue(app.sliders["session-presence-slider"].exists, "Native adjustable control is exposed")
+        XCTAssertFalse(app.descendants(matching: .any)["session-presence-error"].firstMatch.exists)
+        let paused = try await control("pause")
+        let pausedRuntime = try XCTUnwrap(paused["active"] as? [String: Any])
+        let pausedChoice = app.buttons["session-presence-choice-balanced"]
+        let pausedViewport = app.scrollViews["session-presence-scroll"]
+        for _ in 0..<10 {
+            if pausedChoice.exists {
+                let bounds = pausedChoice.frame
+                if pausedViewport.frame.insetBy(dx: 0, dy: 8).contains(CGPoint(x: bounds.midX, y: bounds.midY)) { break }
+            }
+            pausedViewport.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
+                .press(forDuration: 0.2, thenDragTo: pausedViewport.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.65)),
+                       withVelocity: .slow, thenHoldForDuration: 0.2)
+        }
+        XCTAssertTrue(pausedChoice.isHittable)
+        pausedChoice.tap()
+        let pausedConfirmation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", anchors[language]![2]), object: app.staticTexts["session-presence-confirmed"])
+        let pausedResult = await XCTWaiter.fulfillment(of: [pausedConfirmation], timeout: 10)
+        XCTAssertEqual(pausedResult, .completed)
+        let final = try await control("state")
+        let finalRuntime = try XCTUnwrap(final["active"] as? [String: Any])
+        XCTAssertEqual(finalRuntime["presence_revision"] as? Int, 6)
+        XCTAssertEqual(finalRuntime["selected_presence"] as? String, "balanced")
+        XCTAssertEqual(finalRuntime["now_playing"] as? NSDictionary, pausedRuntime["now_playing"] as? NSDictionary,
+                       "Changing presence while paused must preserve actual playback")
+        let pausedScreenshot = XCTAttachment(screenshot: app.screenshot())
+        pausedScreenshot.name = "presence-\(language)-paused-confirmed"
+        pausedScreenshot.lifetime = .keepAlways; add(pausedScreenshot)
+        XCTAssertEqual(final["ha_refresh_tokens"] as? Int, final["initial_ha_refresh_tokens"] as? Int)
+        XCTAssertEqual(final["ha_users"] as? Int, final["initial_ha_users"] as? Int)
+        app.terminate()
+    }
+}

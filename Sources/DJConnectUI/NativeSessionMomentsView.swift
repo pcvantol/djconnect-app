@@ -11,6 +11,14 @@ extension View {
         modifier(DJSessionGlassSurface(cornerRadius: cornerRadius))
     }
 
+    func djAlbumArtworkGlassCard() -> some View {
+        let inset: CGFloat = 8
+        return self
+            .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius - inset, style: .continuous))
+            .padding(inset)
+            .djSessionFrostedSurface()
+    }
+
     @ViewBuilder func djSessionNavigationTitleStyle(compactPhone: Bool = false) -> some View {
         #if os(iOS)
         navigationBarTitleDisplayMode(compactPhone && UIDevice.current.userInterfaceIdiom == .phone ? .inline : .large)
@@ -107,7 +115,7 @@ struct NativeSessionMomentsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
                     }
-                    .buttonStyle(.plain)
+                    .djConnectPlainButtonStyle()
                     .accessibilityIdentifier("session-flow-\(moment.id)")
                     } else {
                         Text(item.label).font(.callout).foregroundStyle(.secondary)
@@ -235,8 +243,9 @@ struct NativeSessionMomentsView: View {
             if let url = musicArtworkURL {
                 SessionCurrentColumns(stacked: stacksCurrentOnPhone) {
                     AsyncImage(url: url) { image in image.resizable().scaledToFit() } placeholder: { Image(systemName: "music.note") }
-                        .frame(maxHeight: 180)
-                        .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
+                        .aspectRatio(1, contentMode: .fit)
+                        .djAlbumArtworkGlassCard()
+                        .frame(maxWidth: 180)
                         .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("session-music-artwork")
                     musicDetails

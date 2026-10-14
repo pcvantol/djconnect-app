@@ -49,6 +49,11 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     @Published public private(set) var searchNextCursor: String?
     @Published public private(set) var acceptedSearchQuery = ""
     @Published public private(set) var acceptedSearchSessionID = ""
+    private struct LiveResponse {
+        let sessionID: String
+        let message: DJConnectAskDJMessage
+    }
+    @Published private var liveResponses: [String: LiveResponse] = [:]
     private weak var host: DJConnectAppModel?
     private var epoch = UUID()
     private var ownerScope: String?
@@ -94,6 +99,57 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         return entry
     }
 
+    func discardLiveResponses() { liveResponses = [:] }
+
+    /// Only a directly accepted response supplies live actions; history reads never do.
+    func retainLiveResponse(_ response: DJConnectSessionConversationResponse) {
+        guard let host, ownerScope == response.ownerScope,
+              let sessionID = response.conversation.context.sessionID,
+              host.activeDJSession?.id == sessionID,
+              let assistant = response.base.assistantMessage, assistant.role == .assistant,
+              assistant.messageKind != .system else { return }
+        liveResponses = liveResponses.filter { $0.value.sessionID == sessionID }
+        liveResponses[assistant.id] = LiveResponse(sessionID: sessionID,
+            message: host.sessionResponseMessage(assistant))
+    }
+
+    func liveMessage(for entry: DJConnectHistoryEntry, activeSessionID: String?) -> DJConnectAskDJMessage? {
+        guard let host, host.canRefreshSessionHistory, ownerScope != nil,
+              let activeSessionID, activeSessionID == host.activeDJSession?.id,
+              entry.sessionID == activeSessionID, entry.kind == .conversationDJ,
+              entry.isContractValid, entry.isRetained(),
+              let origin = entry.originMessageID, let live = liveResponses[origin],
+              live.sessionID == activeSessionID,
+              live.message.clientMessageID == entry.clientMessageID,
+              live.message.text == entry.text else { return nil }
+        var message = live.message
+        message.playbackActions = message.playbackActions.filter {
+            !$0.isFavoriteCurrentTrackControlAction && !$0.isAskDJMessageAction
+        }
+        if let current = host.askDJMessages.first(where: { $0.serverID == origin }) {
+            message.playbackActions = message.playbackActions.map { original in
+                current.playbackActions.first(where: { $0.id == original.id }) ?? original
+            }
+        }
+        return message
+    }
+
+    func playLiveAction(_ action: DJConnectAskDJPlaybackAction, for entry: DJConnectHistoryEntry,
+                        expectedEpoch: UUID) {
+        guard expectedEpoch == epoch, let host,
+              let message = liveMessage(for: entry, activeSessionID: host.activeDJSession?.id),
+              message.playbackActions.contains(action) else { return }
+        host.playAskDJRecommendation(action, isStillValid: { [weak self] in
+            guard let self, self.epoch == expectedEpoch,
+                  let current = self.liveMessage(for: entry, activeSessionID: host.activeDJSession?.id) else { return false }
+            guard current.playbackActions.contains(where: { $0.id == action.id }),
+                  let offered = self.liveResponses[entry.originMessageID ?? ""]?.message.playbackActions.first(where: { $0.id == action.id }) else { return false }
+            var submitted = action
+            submitted.active = offered.active // Completion/output selection changes presentation only.
+            return offered == submitted
+        })
+    }
+
     init(host: DJConnectAppModel) { self.host = host }
 
     /// Explicit, ephemeral review examples; never an owner grant or backend history.
@@ -123,6 +179,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             let entries = try DJConnectDemoSessionData.turn(sessionID: id, order: next, question: question, answer: answer,
                                                           inputType: inputType, selected: selectedEntry, at: Date())
             timeline.entries += entries; timelines[id] = timeline
+            selectedEntry = nil
         } catch { return }
     }
 
@@ -179,7 +236,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func reset() {
+        host?.invalidateSessionPlaybackActions()
         preparationTask?.cancel(); preparationTask = nil; preparationID = UUID(); preparing = false
+        liveResponses = [:]
         epoch = UUID(); searchGeneration = UUID(); listGeneration = UUID(); navigationGeneration = UUID()
         searchTask?.cancel(); searchTask = nil
         available = false; searchAvailable = false; profileScopeActive = false; ownerScope = nil
@@ -191,7 +250,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func suspend() {
+        host?.invalidateSessionPlaybackActions()
         preparationTask?.cancel(); preparationTask = nil; preparationID = UUID(); preparing = false
+        liveResponses = [:]
         epoch = UUID(); ownerScope = nil
         listGeneration = UUID(); timelineGenerations = [:]; timelineNavigations = [:]; navigationGeneration = UUID()
         listLoading = false; listNextCursor = nil; listRevision = nil
@@ -397,6 +458,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         let turn = PendingTurn(id: id, text: text, context: context, localMessageID: localID,
             payload: host.profileConversationPayload(text: text, clientMessageID: id, context: context), requestEpoch: epoch, ownerScope: capturedOwner)
         pendingTurns.append(turn)
+        selectedEntry = nil
         Task { await submit(turn) }
     }
 
@@ -456,6 +518,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     public func uploadVoice(_ data: Data) async throws {
         guard let host, let context = voiceContext, let id = voiceClientID, let payload = voicePayload else { throw DJConnectError.invalidResponse }
         let captured = epoch
+        if selectedEntry == context.selectedEntry { selectedEntry = nil }
         do {
             defer { if voiceClientID == id { cancelVoiceContext() } }
             let response = try await host.withHomeAssistantClient {
@@ -512,6 +575,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         let captured = epoch
         do {
             let payload = host.profileConversationPayload(text: text, clientMessageID: clientMessageID, context: currentContext())
+            selectedEntry = nil
             let response = try await host.withHomeAssistantClient { try await $0.sendSessionConversation(payload) }
             guard captured == epoch else { throw CancellationError() }
             try await accept(response, fallback: nil, apply: false)
@@ -530,6 +594,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             throw DJConnectError.server(statusCode: 409, message: nil)
         }
         let acceptedEpoch = epoch
+        retainLiveResponse(response)
         for message in response.base.messages where message.role != .user {
             historicalMatches[message.id] = response.historicalMatches
         }

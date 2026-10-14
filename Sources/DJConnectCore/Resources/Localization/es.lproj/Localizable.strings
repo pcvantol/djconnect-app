@@ -1094,3 +1094,35 @@
 
 "ui.session.history.detail.label" = "Sesión";
 "ui.session.history.detail.title" = "Sesión %@";
+
+// Ephemeral active Session presence, Core v1.
+"ui.session.presence.music_only" = "Solo música";
+"ui.session.presence.occasional" = "De vez en cuando";
+"ui.session.presence.balanced" = "Equilibrado";
+"ui.session.presence.talkative" = "Conversador";
+"ui.session.presence.presenter" = "Presentador";
+"ui.session.presence.title" = "Presencia del DJ";
+"ui.session.presence.explanation" = "¿Cuánto cuenta el DJ durante tu sesión?";
+"ui.session.presence.confirmed" = "Confirmado";
+"ui.session.presence.pending" = "Elegido";
+"ui.session.presence.unavailable" = "La presencia del DJ no está disponible en esta conexión.";
+"ui.session.presence.conflict" = "El ajuste de la sesión cambió en otro lugar. Consérvalo o aplica tu elección.";
+"ui.session.presence.uncertain" = "No se pudo obtener la confirmación. Comprueba el ajuste confirmado antes de volver a aplicar tu elección.";
+"ui.session.presence.accept_current" = "Conservar el ajuste confirmado";
+"ui.session.presence.apply_choice" = "Aplicar mi elección";
+"ui.session.presence.music_only_help" = "Solo música detiene las futuras intervenciones espontáneas del DJ. Puedes seguir chateando con el DJ y leer las intervenciones anteriores.";
+
+"ui.session.history.back_top" = "Volver arriba";
+
+"ui.music.dna.hero.description" = "Music DNA aprende de tus gustos musicales y hábitos de escucha para ofrecerte recomendaciones a tu medida.";
+
+"ui.navigation.menu" = "Mostrar u ocultar el menú de navegación";
+
+"ui.track.insight.play.music.first" = "Reproduce música para analizar una canción.";
+
+"ui.session.presence.loading" = "Comprobando la presencia del DJ…";
+"ui.session.presence.temporarily_unavailable" = "No se pudo cargar la presencia del DJ. Vuelve a abrir este panel para intentarlo de nuevo.";
+"ui.session.presence.unsupported" = "La integración DJConnect en Home Assistant todavía no ofrece la presencia del DJ.";
+"ui.session.presence.no_active_session" = "No hay ninguna sesión activa válida para este control.";
+"ui.session.presence.invalid_state" = "La sesión no ha devuelto un ajuste válido de presencia del DJ.";
+"ui.session.presence.incompatible_response" = "El servidor ha devuelto una respuesta incompatible para la presencia del DJ.";

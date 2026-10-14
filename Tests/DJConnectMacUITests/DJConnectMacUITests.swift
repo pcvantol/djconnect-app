@@ -383,9 +383,30 @@ final class DJConnectMacUITests: XCTestCase {
         let readback1 = try await activeID()
         XCTAssertEqual(readback1, sessionB)
         try saveHistoryScreenshot("mac-history-09-readonly-A-while-B-active")
+        for (label, screen) in [("Track Insight", "screen-track-insight"),
+                                ("Music DNA", "screen-music-dna"),
+                                ("Ask DJ", "screen-ask-dj")] {
+            app.buttons[label].firstMatch.tap()
+            XCTAssertTrue(app.descendants(matching: .any)[screen].firstMatch.waitForExistence(timeout: 10))
+            XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].firstMatch.waitForNonExistence(timeout: 5),
+                          "Sidebar selection must dismiss the pushed archive, not only change the highlight")
+            let activeAfterSidebar = try await activeID()
+            XCTAssertEqual(activeAfterSidebar, sessionB)
+            app.buttons["Eerdere sessies"].firstMatch.tap()
+            XCTAssertTrue(savedA.waitForExistence(timeout: 10))
+            savedA.tap()
+            XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].firstMatch.waitForExistence(timeout: 10))
+        }
+        // Selecting the same menu item must also return to its overview.
+        app.buttons["Eerdere sessies"].firstMatch.tap()
+        XCTAssertTrue(savedA.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].firstMatch.waitForNonExistence(timeout: 5))
+        savedA.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].firstMatch.waitForExistence(timeout: 10))
         let dj = app.buttons["DJ-sessie"].firstMatch
         dj.tap()
         XCTAssertTrue(app.descendants(matching: .any)["screen-session-conversation"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["screen-history-timeline"].firstMatch.waitForNonExistence(timeout: 5))
         let readback2 = try await activeID()
         XCTAssertEqual(readback2, sessionB)
         app.buttons["Speelt Nu"].firstMatch.tap()
@@ -465,5 +486,224 @@ private extension XCUIElement {
         if exists && isHittable {
             tap()
         }
+    }
+}
+
+extension DJConnectMacUITests {
+    /// Connected immutable Core SDK/router/CAS/Broadcast qualification. Synthetic
+    /// music only; screenshots do not claim installed device or microphone proof.
+    func testActualPairedPresenceFivePositionsAndNativeConfirmation() async throws {
+        let base = URL(string: ProcessInfo.processInfo.environment["DJC_APPLE_PRESENCE_UI_BASE"] ?? "http://127.0.0.1:18213")!
+        func control(_ operation: String) async throws -> [String: Any] {
+            var request = URLRequest(url: base.appendingPathComponent("__apple_paired_fixture/" + operation))
+            request.httpMethod = "POST"
+            request.setValue("Bearer apple-paired-fixture-control", forHTTPHeaderField: "Authorization")
+            let (data, response) = try await URLSession.shared.data(for: request)
+            XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        }
+        _ = try await control("select_mac_pairing")
+        let before = try await control("start")
+        let original = try XCTUnwrap(before["active"] as? [String: Any])
+        let language = ProcessInfo.processInfo.environment["DJC_APPLE_PRESENCE_LANGUAGE"] ?? "nl"
+        let app = XCUIApplication(); app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=paired_owner_contract", "-DJCONNECTRuntimeFixture", "paired_owner_contract", "-AppleLanguages", "(\(language))", "-AppleLocale", language]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "paired_owner_contract"
+        app.launchEnvironment["DJCONNECT_PRESENCE_TRACE"] = "1"
+        app.launch()
+        guard app.windows["DJConnectMainWindow"].waitForExistence(timeout: 25) else {
+            let evidence = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            evidence.name = "presence-native-main-window-missing"; evidence.lifetime = .keepAlways; add(evidence)
+            XCTFail("Fixture relaunch must present the main window before Presence qualification")
+            app.terminate(); return
+        }
+        let toggle = app.buttons["session-presence-toggle"]
+        guard toggle.waitForExistence(timeout: 25), toggle.isEnabled, toggle.isHittable else {
+            XCTFail("Presence toggle must be enabled and hittable before native activation")
+            app.terminate(); return
+        }
+        toggle.click()
+        guard app.descendants(matching: .any)["active-session-presence"].firstMatch.waitForExistence(timeout: 10) else {
+            let evidence = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            evidence.name = "presence-native-popover-missing"; evidence.lifetime = .keepAlways; add(evidence)
+            XCTFail("Presence popover must remain visible after opening and guarded active/capability reads")
+            app.terminate(); return
+        }
+        func readyChoice(_ value: String) async throws -> XCUIElement? {
+            let button = app.popovers.firstMatch.buttons["session-presence-choice-" + value]
+            guard button.waitForExistence(timeout: 10) else { XCTFail("Presence choice must exist"); return nil }
+            for _ in 0..<20 where !button.isEnabled || !button.isHittable {
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            NSLog("%@", "[PresenceUITestDriver] choice=\(value) enabled=\(button.isEnabled) hittable=\(button.isHittable)")
+            guard button.isEnabled, button.isHittable else {
+                let evidence = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+                evidence.name = "presence-native-choice-not-ready-" + value; evidence.lifetime = .keepAlways; add(evidence)
+                XCTFail("Presence choice must be enabled and hittable before native mouse activation")
+                return nil
+            }
+            return button
+        }
+        let values = ["music_only", "occasional", "balanced", "talkative", "presenter"]
+        let anchors = ["nl":["Alleen muziek","Af en toe","Gebalanceerd","Praatgraag","Presentator"],"en":["Music only","Occasionally","Balanced","Talkative","Presenter"],"de":["Nur Musik","Gelegentlich","Ausgewogen","Gesprächig","Moderator"],"fr":["Musique uniquement","De temps en temps","Équilibré","Bavard","Présentateur"],"es":["Solo música","De vez en cuando","Equilibrado","Conversador","Presentador"]]
+        for (offset, value) in values.enumerated() {
+            guard let button = try await readyChoice(value) else { app.terminate(); return }
+            if offset == 0 { _ = try await control("presence_delay_once") }
+            button.click()
+            if offset == 0 {
+                XCTAssertTrue(app.descendants(matching: .any)["session-presence-pending"].firstMatch.waitForExistence(timeout: 2))
+                XCTAssertTrue(((app.staticTexts["session-presence-confirmed"].value as? String) ?? app.staticTexts["session-presence-confirmed"].label).contains(anchors[language]![2]),
+                              "Pending intent must not replace the confirmed server value")
+                let pending = XCTAttachment(screenshot: app.screenshot())
+                pending.name = "presence-\(language)-pending-distinct-from-confirmed"
+                pending.lifetime = .keepAlways; add(pending)
+            }
+            var current: [String: Any] = [:]
+            for _ in 0..<40 {
+                let readback = try await control("state")
+                current = try XCTUnwrap(readback["active"] as? [String: Any])
+                if current["selected_presence"] as? String == value { break }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            XCTAssertEqual(current["selected_presence"] as? String, value)
+            XCTAssertEqual(current["presence_revision"] as? Int, offset + 1)
+            XCTAssertEqual(current["session_id"] as? String, original["session_id"] as? String)
+            XCTAssertEqual(current["selected_mood"] as? String, original["selected_mood"] as? String)
+            XCTAssertEqual(current["mood_revision"] as? Int, original["mood_revision"] as? Int)
+            XCTAssertEqual(current["now_playing"] as? NSDictionary, original["now_playing"] as? NSDictionary)
+            let confirmed = app.staticTexts["session-presence-confirmed"]
+            XCTAssertTrue(confirmed.waitForExistence(timeout: 10))
+            let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@ OR label CONTAINS %@", anchors[language]![offset], anchors[language]![offset]), object: confirmed)
+            let visibleResult = await XCTWaiter.fulfillment(of: [visible], timeout: 10)
+            XCTAssertEqual(visibleResult, .completed, "The native label must confirm the actual server-selected position")
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "presence-\(language)-\(value)-confirmed"
+            screenshot.lifetime = .keepAlways; add(screenshot)
+        }
+        XCTAssertTrue(app.sliders["session-presence-slider"].exists, "Native adjustable control is exposed")
+        XCTAssertFalse(app.descendants(matching: .any)["session-presence-error"].firstMatch.exists)
+        let paused = try await control("pause")
+        let pausedRuntime = try XCTUnwrap(paused["active"] as? [String: Any])
+        guard let balanced = try await readyChoice("balanced") else { app.terminate(); return }
+        balanced.click()
+        let pausedConfirmation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@ OR label CONTAINS %@", anchors[language]![2], anchors[language]![2]), object: app.staticTexts["session-presence-confirmed"])
+        let pausedResult = await XCTWaiter.fulfillment(of: [pausedConfirmation], timeout: 10)
+        XCTAssertEqual(pausedResult, .completed)
+        let final = try await control("state")
+        let finalRuntime = try XCTUnwrap(final["active"] as? [String: Any])
+        XCTAssertEqual(finalRuntime["presence_revision"] as? Int, 6)
+        XCTAssertEqual(finalRuntime["selected_presence"] as? String, "balanced")
+        XCTAssertEqual(finalRuntime["now_playing"] as? NSDictionary, pausedRuntime["now_playing"] as? NSDictionary,
+                       "Changing presence while paused must preserve actual playback")
+        let pausedScreenshot = XCTAttachment(screenshot: app.screenshot())
+        pausedScreenshot.name = "presence-\(language)-paused-confirmed"
+        pausedScreenshot.lifetime = .keepAlways; add(pausedScreenshot)
+        XCTAssertEqual(final["ha_refresh_tokens"] as? Int, final["initial_ha_refresh_tokens"] as? Int)
+        XCTAssertEqual(final["ha_users"] as? Int, final["initial_ha_users"] as? Int)
+        app.typeKey(XCUIKeyboardKey.escape.rawValue, modifierFlags: [])
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.sliders["session-presence-slider"])
+        let closedResult = await XCTWaiter.fulfillment(of: [closed], timeout: 5)
+        XCTAssertEqual(closedResult, .completed, "Escape must close the native presence popover")
+        app.terminate()
+    }
+}
+
+
+extension DJConnectMacUITests {
+    /// Preserves legacy saved state; native New Window repairs only the isolated
+    /// fixture's window before checking ordinary quit/relaunch restoration.
+    func testNativeMainWindowRestorationWithoutDeletingSavedState() {
+        let app = XCUIApplication(); app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=paired_owner_contract", "-DJCONNECTRuntimeFixture", "paired_owner_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = "http://127.0.0.1:18213"
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "paired_owner_contract"
+        app.launchEnvironment["DJCONNECT_PRESENCE_TRACE"] = "1"
+        app.launch()
+        defer { app.terminate() }
+        let window = app.windows["DJConnectMainWindow"]
+        let initialWindowPresent = window.waitForExistence(timeout: 5)
+        NSLog("%@", "[WindowUITest] initialWindowPresent=\(initialWindowPresent)")
+        if !initialWindowPresent {
+            let file = app.menuBars.menuBarItems["Archief"]
+            guard file.waitForExistence(timeout: 5) else { XCTFail("Native File menu must exist"); return }
+            file.click()
+            let newWindow = app.menuItems["Nieuw venster"]
+            guard newWindow.waitForExistence(timeout: 5), newWindow.isEnabled else { XCTFail("Native New Window must be available"); return }
+            newWindow.click()
+        }
+        guard window.waitForExistence(timeout: 10) else { XCTFail("Native main window must be created without deleting saved state"); return }
+        let created = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        created.name = "restoration-native-main-window-before-quit"; created.lifetime = .keepAlways; add(created)
+        app.typeKey("q", modifierFlags: .command)
+        guard app.wait(for: .notRunning, timeout: 10) else { XCTFail("Isolated app must quit normally"); return }
+        app.launch()
+        guard window.waitForExistence(timeout: 15) else { XCTFail("Ordinary relaunch must restore the native main window"); return }
+        let restored = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        restored.name = "restoration-native-main-window-after-relaunch"; restored.lifetime = .keepAlways; add(restored)
+    }
+}
+
+
+extension DJConnectMacUITests {
+    func testNativeSplashToolbarAndDetailLayoutScreens() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--monkey-testing", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HOLD_SPLASH"] = "1"
+        app.launch()
+        defer { app.terminate() }
+        let window = app.windows["DJConnectMainWindow"]
+        guard window.waitForExistence(timeout: 4) else { XCTFail("Isolated native main window missing"); return }
+        let splash = app.descendants(matching: .any)["launch-splash"].firstMatch
+        XCTAssertTrue(splash.waitForExistence(timeout: 2), "Probe must observe splash, not infer it from source")
+        let menu = app.buttons["main-sidebar-toggle"].firstMatch
+        XCTAssertFalse(menu.exists && menu.isHittable, "Toolbar must not expose actions over splash")
+        let initial = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        initial.name = "layout-splash-controls-hidden"; initial.lifetime = .keepAlways; add(initial)
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND hittable == true"), object: menu)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 16), .completed)
+        XCTAssertFalse(splash.exists, "Toolbar may appear only after splash removal")
+        let screens = [("DJ-sessie", "screen-dj-session"), ("Speelt Nu", "screen-now-playing"),
+                       ("Track Insight", "screen-track-insight"), ("Ontdek", "screen-discovery"),
+                       ("Ask DJ", "screen-ask-dj"), ("Eerdere sessies", "screen-saved-sessions"),
+                       ("Music DNA", "screen-music-dna"), ("Wachtrij", "screen-queue"),
+                       ("Afspeellijsten", "screen-playlists"), ("Games", "screen-games"),
+                       ("Instellingen", "screen-settings"), ("Logs", "screen-logs"),
+                       ("Over", "screen-about"), ("Juridisch", "screen-legal"), ("Privacy", "screen-privacy")]
+        for (index, destinationInfo) in screens.enumerated() {
+            let (title, screenID) = destinationInfo
+            let destination = app.buttons[title].firstMatch
+            guard destination.waitForExistence(timeout: 3), destination.isEnabled, destination.isHittable else { XCTFail("Sidebar destination missing: \(title)"); return }
+            destination.click()
+            let screen = app.descendants(matching: .any)[screenID].firstMatch
+            guard screen.waitForExistence(timeout: 5) else { XCTFail("Destination did not open: \(screenID)"); return }
+            if title == "Music DNA" {
+                let optIn = app.descendants(matching: .any)["music-dna-opt-in-prompt"].firstMatch
+                if optIn.waitForExistence(timeout: 2) {
+                    let decline = app.buttons["Niet nu"].firstMatch
+                    guard decline.isEnabled && decline.isHittable else { XCTFail("Native opt-in dismissal unavailable"); return }
+                    decline.click()
+                    let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: optIn)
+                    XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 5), .completed)
+                }
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+            XCTAssertTrue(menu.exists && menu.isEnabled && menu.isHittable, "Toolbar lost on \(title)")
+            let capture = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            capture.name = "layout-\(index)-\(title)"; capture.lifetime = .keepAlways; add(capture)
+        }
+        // Exercise the actual archive destination and return, using demo-only data.
+        app.buttons["Eerdere sessies"].firstMatch.click()
+        let archive = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "saved-session-")).firstMatch
+        guard archive.waitForExistence(timeout: 5), archive.isHittable else { XCTFail("Demo archive row unavailable"); return }
+        archive.click()
+        let timeline = app.descendants(matching: .any)["screen-history-timeline"].firstMatch
+        XCTAssertTrue(timeline.waitForExistence(timeout: 5))
+        app.buttons["Eerdere sessies"].firstMatch.click()
+        XCTAssertTrue(archive.waitForExistence(timeout: 5))
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: timeline)
+        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed)
+        let returned = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        returned.name = "layout-archive-return"; returned.lifetime = .keepAlways; add(returned)
     }
 }

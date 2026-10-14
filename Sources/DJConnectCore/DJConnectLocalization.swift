@@ -4,7 +4,18 @@ public enum DJConnectLocalization {
     public static let supportedLanguageCodes = ["en", "nl", "de", "fr", "es"]
     public static let englishLanguageCode = "en"
     public static let appLanguageOverrideDefaultsKey = "DJConnectAppLanguageOverride"
-    public static let appGroupIdentifier = "group.dev.djconnect"
+    public static var appGroupIdentifier: String {
+        #if DEBUG
+        let process = ProcessInfo.processInfo
+        if process.arguments.contains("--uitesting") || process.processName.hasSuffix("PackageTests") ||
+            process.environment["XCTestConfigurationFilePath"] != nil {
+            // Native/Swift qualification must not publish fixture preferences or
+            // private widget projections into an installed first-party app.
+            return "dev.djconnect.qualification.shared"
+        }
+        #endif
+        return "group.dev.djconnect"
+    }
 
     public static func localized(key: String, arguments: CVarArg...) -> String {
         localizedFormat(

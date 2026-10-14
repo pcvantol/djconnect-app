@@ -1094,3 +1094,35 @@
 
 "ui.session.history.detail.label" = "Session";
 "ui.session.history.detail.title" = "Session %@";
+
+// Ephemeral active Session presence, Core v1.
+"ui.session.presence.music_only" = "Music only";
+"ui.session.presence.occasional" = "Occasionally";
+"ui.session.presence.balanced" = "Balanced";
+"ui.session.presence.talkative" = "Talkative";
+"ui.session.presence.presenter" = "Presenter";
+"ui.session.presence.title" = "DJ presence";
+"ui.session.presence.explanation" = "How much does the DJ tell you during your session?";
+"ui.session.presence.confirmed" = "Confirmed";
+"ui.session.presence.pending" = "Requested";
+"ui.session.presence.unavailable" = "DJ presence is unavailable on this connection.";
+"ui.session.presence.conflict" = "The session setting changed elsewhere. Choose whether to keep it or apply your choice.";
+"ui.session.presence.uncertain" = "Confirmation could not be retrieved. Check the confirmed setting before applying your choice again.";
+"ui.session.presence.accept_current" = "Keep confirmed setting";
+"ui.session.presence.apply_choice" = "Apply my choice";
+"ui.session.presence.music_only_help" = "Music only stops future proactive DJ contributions. You can still chat with the DJ and read previous contributions.";
+
+"ui.session.history.back_top" = "Back to top";
+
+"ui.music.dna.hero.description" = "Music DNA learns from your musical taste and listening habits to tailor recommendations to you.";
+
+"ui.navigation.menu" = "Show or hide navigation menu";
+
+"ui.track.insight.play.music.first" = "Play music to analyze a track.";
+
+"ui.session.presence.loading" = "Checking DJ presence…";
+"ui.session.presence.temporarily_unavailable" = "DJ presence could not be loaded. Reopen this panel to try again.";
+"ui.session.presence.unsupported" = "The DJConnect integration in Home Assistant does not offer DJ presence yet.";
+"ui.session.presence.no_active_session" = "There is no valid active session for this control.";
+"ui.session.presence.invalid_state" = "The session has not returned a valid DJ presence setting.";
+"ui.session.presence.incompatible_response" = "The server returned an incompatible DJ presence response.";
