@@ -377,3 +377,9 @@ Core dialogue producer delta is now published at7698961, superseding the earlier
 preliminary-baseline-only status; native Apple adoption remains separate. Downloaded
 final fixture bytes SHA2569be892d55c8aaee4871e54ac68ed04945fb0676ce5472e2091a83ee66b2151a8
 matches handoff; this read/checksum is not consumer acceptance or HA deployment.
+
+Remaining native visual review GO: Queue, Playlists, Games, Settings, Logs,
+About, Legal, Privacy and archive-return inspected from final captures. Narrow
+outer top inset consistent; no toolbar overlap/clipped first card. Long content
+continues inside scroll areas. This is native demo qualification at the tested
+window size, not physical-iPhone/production acceptance or VoiceOver traversal.
