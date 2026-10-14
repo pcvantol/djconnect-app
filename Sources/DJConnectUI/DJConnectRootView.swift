@@ -569,6 +569,31 @@ private extension View {
 }
 
 #if os(macOS)
+// Opt in only from main vertical content, never from nested card carousels.
+private struct DJConnectMacMainScrollPolicy: NSViewRepresentable {
+    func makeNSView(context: Context) -> MainScrollPolicyView { MainScrollPolicyView() }
+    func updateNSView(_ view: MainScrollPolicyView, context: Context) { view.scheduleConfiguration() }
+
+    final class MainScrollPolicyView: NSView {
+        override func viewDidMoveToSuperview() { super.viewDidMoveToSuperview(); scheduleConfiguration() }
+        override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); scheduleConfiguration() }
+        override func layout() { super.layout(); scheduleConfiguration() }
+
+        func scheduleConfiguration() {
+            DispatchQueue.main.async { [weak self] in self?.configureEnclosingScrollView() }
+        }
+
+        private func configureEnclosingScrollView() {
+            guard let scroll = enclosingScrollView else { return }
+            // Legacy bars stay visible for overflow, independent of input-device policy.
+            // Hide the bar only when all content fits; no application/global defaults change.
+            if scroll.scrollerStyle != .legacy { scroll.scrollerStyle = .legacy }
+            if !scroll.hasVerticalScroller { scroll.hasVerticalScroller = true }
+            if !scroll.autohidesScrollers { scroll.autohidesScrollers = true }
+        }
+    }
+}
+
 private struct DJConnectMacListBackgroundClearer: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
@@ -4245,8 +4270,11 @@ private struct MusicDNAView: View {
                         .padding(.horizontal, djConnectScreenHorizontalPadding)
                         .padding(.top, djConnectScreenVerticalPadding)
                         .padding(.bottom, djConnectScreenVerticalPadding + 28)
-                        .frame(width: contentWidth, alignment: .topLeading)
+                        .frame(maxWidth: contentWidth, alignment: .topLeading)
                         .frame(maxWidth: .infinity, alignment: .top)
+                        #if os(macOS)
+                        .background(DJConnectMacMainScrollPolicy())
+                        #endif
                     }
                 }
                 #if os(iOS)
