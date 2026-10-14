@@ -17523,7 +17523,7 @@ private struct AboutView: View {
 
                     SettingsSection(title: localizedKey(model.language, "ui.app"), showsDivider: false) {
                         AboutStackedRow(label: localizedKey(model.language, "ui.version")) {
-                            SelectableValue(model.version)
+                            SelectableValue("\(model.version) (\(DJConnectApplicationVersion.buildVersion))")
                         }
                         AboutStackedRow(label: localizedKey(model.language, "ui.device.name")) {
                             SelectableValue(model.identity.deviceName)
