@@ -17780,7 +17780,7 @@ private struct PrivacyView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     AboutBanner()
-                    SettingsSection(title: localizedKey(language, "ui.privacy")) {
+                    SettingsSection(title: localizedKey(language, "ui.privacy"), showsDivider: false) {
                         SelectableValue(localizedKey(language, "ui.djconnect.does.not.collect.sell.or.process.personal.data.in"))
                         SelectableValue(localizedKey(language, "ui.device.tokens.are.stored.locally.in.the.app.s.private"))
                         SelectableValue(localizedKey(language, "ui.push.notifications.are.only.used.for.djconnect.notifications.such.as"))
