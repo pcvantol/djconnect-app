@@ -510,10 +510,20 @@ extension DJConnectMacUITests {
         app.launchArguments = ["--uitesting", "--runtime-fixture=paired_owner_contract", "-DJCONNECTRuntimeFixture", "paired_owner_contract", "-AppleLanguages", "(\(language))", "-AppleLocale", language]
         app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
         app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "paired_owner_contract"
+        app.launchEnvironment["DJCONNECT_PRESENCE_TRACE"] = "1"
         app.launch()
-        XCTAssertTrue(app.buttons["session-presence-toggle"].waitForExistence(timeout: 25))
-        app.buttons["session-presence-toggle"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["active-session-presence"].firstMatch.waitForExistence(timeout: 10))
+        let toggle = app.buttons["session-presence-toggle"]
+        guard toggle.waitForExistence(timeout: 25), toggle.isEnabled, toggle.isHittable else {
+            XCTFail("Presence toggle must be enabled and hittable before native activation")
+            app.terminate(); return
+        }
+        toggle.tap()
+        guard app.descendants(matching: .any)["active-session-presence"].firstMatch.waitForExistence(timeout: 10) else {
+            let evidence = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            evidence.name = "presence-native-popover-missing"; evidence.lifetime = .keepAlways; add(evidence)
+            XCTFail("Presence popover must remain visible after opening and guarded active/capability reads")
+            app.terminate(); return
+        }
         let values = ["music_only", "occasional", "balanced", "talkative", "presenter"]
         let anchors = ["nl":["Alleen muziek","Af en toe","Gebalanceerd","Praatgraag","Presentator"],"en":["Music only","Occasionally","Balanced","Talkative","Presenter"],"de":["Nur Musik","Gelegentlich","Ausgewogen","Gesprächig","Moderator"],"fr":["Musique uniquement","De temps en temps","Équilibré","Bavard","Présentateur"],"es":["Solo música","De vez en cuando","Equilibrado","Conversador","Presentador"]]
         for (offset, value) in values.enumerated() {

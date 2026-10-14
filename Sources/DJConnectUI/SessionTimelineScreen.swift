@@ -976,10 +976,26 @@ struct ActiveSessionPresenceToolbar: View {
         self.model = model; self.session = session; history = model.sessionHistory
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
+    private func trace(_ event: String) {
+        #if DEBUG
+        guard ProcessInfo.processInfo.arguments.contains("--uitesting"),
+              ProcessInfo.processInfo.environment["DJCONNECT_PRESENCE_TRACE"] == "1" else { return }
+        let sessionMatches = scope.map { $0.sessionID == model.activeDJSession?.id } ?? false
+        let epochMatches = scope.map { $0.epoch == history.responseEpoch } ?? false
+        #if os(macOS)
+        let nativeActive = NSApp.isActive
+        #else
+        let nativeActive = scenePhase == .active
+        #endif
+        print("[PresenceUITest] event=\(event) scope=\(scope != nil) phase=\(scenePhase) nativeActive=\(nativeActive) foreground=\(model.isAppInForegroundForTests) sessionMatches=\(sessionMatches) epochMatches=\(epochMatches)")
+        #endif
+    }
     var body: some View {
         Button {
+            trace("toggle-before")
             if scope != nil { scope = nil }
             else { scope = Scope(sessionID: session.id, epoch: history.responseEpoch) }
+            trace("toggle-after")
         } label: {
             Image(systemName: "waveform.badge.mic").foregroundStyle(.white)
         }
@@ -1005,19 +1021,26 @@ struct ActiveSessionPresenceToolbar: View {
             #endif
             .presentationCompactAdaptation(.popover)
         }
+        .onAppear { trace("toolbar-appeared") }
+        .onDisappear { trace("toolbar-disappeared") }
         .onChange(of: scope?.id) {
+            trace("scope-changed")
             guard let captured = scope, scenePhase == .active, model.pairingStatus == .paired else { return }
             Task {
+                trace("active-read-start")
                 await model.refreshActiveDJSession()
+                trace("active-read-finished")
                 guard model.activeDJSession?.id == captured.sessionID,
                       history.responseEpoch == captured.epoch, scope?.id == captured.id,
                       scenePhase == .active else { return }
+                trace("capability-read-start")
                 await model.refreshActiveMoodCapability()
+                trace("capability-read-finished")
             }
         }
-        .onChange(of: session.id) { scope = nil }
-        .onChange(of: history.responseEpoch) { scope = nil }
-        .onChange(of: scenePhase) { if scenePhase != .active { scope = nil } }
+        .onChange(of: session.id) { trace("session-changed"); scope = nil }
+        .onChange(of: history.responseEpoch) { trace("owner-epoch-changed"); scope = nil }
+        .onChange(of: scenePhase) { trace("scene-changed"); if scenePhase != .active { scope = nil } }
     }
 }
 

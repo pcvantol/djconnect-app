@@ -153,3 +153,36 @@ and separate Finalization are not authorized by native-test signing approval.
 Core producer/current deployment reconciliation remains an installed acceptance
 blocker and was handed off at Core6168147619. No newer Core-owner delta was
 present on the readback following that handoff.
+
+
+## Authorized Mac host recovery and executed follow-up
+
+Owner explicitly approved only Developer Tools mode enable plus the same isolated
+Presence test. `DevToolsSecurity -enable` succeeds; fresh status enabled. Same
+signed5e1b2db temporary bundles are unchanged. XCTest now initializes and executes
+the actual native case; it finds/taps the balanced Presence toolbar button, but
+cannot find the popover or music_only choice. The run FAILS; no native PASS.
+Result: `/private/tmp/djc-resume-mac-nl-5e1b2db-devtools-enabled.xcresult`;
+log/evidence SHA recorded in `/private/tmp/djc-presence-mac-devtools-receipt.json`.
+Ordinary Mac mini app PID58349/build40034 unchanged. No TCC reset, installation,
+HA/pairing change or protected merge. Developer Tools mode stays enabled as
+explicitly authorized; this does not establish the later popover failure cause.
+
+Exported AX/video show no popup. Existing process-manager log confirms the test
+app came to foreground. Independent review cannot yet distinguish scene-phase
+withdrawal, toolbar reconstruction or action/presentation failure; none is
+asserted as root cause. Native CUA inspection also fails at its own symlinked
+writable-root bootstrap, without changing Codex configuration.
+
+A bounded diagnostic candidate adds payload-free lifecycle trace ONLY under
+DEBUG + --uitesting + explicit DJCONNECT_PRESENCE_TRACE=1. It records fixed
+events and booleans (scope, scene/native activity, foreground, Session/epoch
+matching), never IDs/credentials/private bodies. Existing actions/authority
+checks remain unchanged. The native regression checks enabled/hittable first,
+then captures full display and stops cleanly on the opening failure, preventing
+secondary missing-button crashes. Independent technical source review GO.
+Unsigned diagnostic Mac build-for-testing PASS; focused Presence/Mood tests are
+recorded separately. Initial diagnostic compile failure/private accessor and
+zero-match test-filter attempt are retained and do not count as tests passed.
+These are new temporary diagnostic bundles: prior exact signing grants are not
+reused; they are not run or signed without specific approval.
