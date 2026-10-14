@@ -253,3 +253,37 @@ mouse trial must qualify windowcreation, normal restoration and Presence as
 separate boundaries. It reuses the unchanged already-signed00ba403 proof app;
 only its new temporary runner needs signing authority. No new native PASS or
 expansion of an earlier exact-bundle grant is inferred.
+
+
+## Actual native mouse receipts and owner About-build request
+
+Exact approved8fad074 temporary runner signed/verified; unchanged signed00ba403
+proof app reused. Window case PASS15.567s: initialWindowPresent=false was recorded,
+native New Window successfully created it, normal Cmd-Q ended the app, ordinary
+relaunch restored the AX-marked main window. No saved-state deletion. This proves
+future restoration after native new-window creation, not automatic migration of
+existing production records. Earlier touch/menu timeout results remain retained.
+
+The actual mouse Presence case opens the popover and completes guarded active/
+capability reads. Structural trace keeps scope=true, scene/native/foreground
+active, Session/epoch matching throughout; the earlier dismissal/reconstruction
+hypothesis is not supported for this run. Real frozen Core confirms first
+music_only change/revision1 and native screenshot shows confirmed Alleen muziek.
+Full case nevertheless FAILS: Mac StaticText exposes confirmation in AX value,
+while test read label; subsequent element-readiness assertion and auto-scroll
+fail. No all-five native PASS is promoted from the first acknowledged choice.
+
+Successor test driver reads AX value (label fallback/OR predicate), scopes choices
+to the actual popover, waits for real enabled/hittable state, preserves the same
+Core/pending/invariance assertions and fails cleanly with full capture. The
+same readiness helper covers five choices and paused-balanced. Independent
+bounded source review GO; new unsigned native build PASS. No coordinates,
+activation bypass or product authority change. Only a new temporary test runner
+requires signing; the00ba403 proof app is unchanged. Current gate remains native
+all-five confirmation, separate from installed Core capability deployment.
+
+Owner additionally requested build number in Over→Versie. Separate commit5536693
+changes the shared About row to actual releaseVersion (CFBundleVersion), e.g.
+4.0.0 (40056). Swift build PASS14.53s. It is source-only; ordinary Mac mini still
+runs40034, no new app installation. This owner-requested presentation delta is
+separate from native proofapp00ba403 and is not inferred as runtime-tested there.

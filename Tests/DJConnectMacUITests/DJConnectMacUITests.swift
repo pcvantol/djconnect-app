@@ -530,16 +530,30 @@ extension DJConnectMacUITests {
             XCTFail("Presence popover must remain visible after opening and guarded active/capability reads")
             app.terminate(); return
         }
+        func readyChoice(_ value: String) async throws -> XCUIElement? {
+            let button = app.popovers.firstMatch.buttons["session-presence-choice-" + value]
+            guard button.waitForExistence(timeout: 10) else { XCTFail("Presence choice must exist"); return nil }
+            for _ in 0..<20 where !button.isEnabled || !button.isHittable {
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            NSLog("%@", "[PresenceUITestDriver] choice=\(value) enabled=\(button.isEnabled) hittable=\(button.isHittable)")
+            guard button.isEnabled, button.isHittable else {
+                let evidence = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+                evidence.name = "presence-native-choice-not-ready-" + value; evidence.lifetime = .keepAlways; add(evidence)
+                XCTFail("Presence choice must be enabled and hittable before native mouse activation")
+                return nil
+            }
+            return button
+        }
         let values = ["music_only", "occasional", "balanced", "talkative", "presenter"]
         let anchors = ["nl":["Alleen muziek","Af en toe","Gebalanceerd","Praatgraag","Presentator"],"en":["Music only","Occasionally","Balanced","Talkative","Presenter"],"de":["Nur Musik","Gelegentlich","Ausgewogen","Gesprächig","Moderator"],"fr":["Musique uniquement","De temps en temps","Équilibré","Bavard","Présentateur"],"es":["Solo música","De vez en cuando","Equilibrado","Conversador","Presentador"]]
         for (offset, value) in values.enumerated() {
-            let button = app.buttons["session-presence-choice-" + value]
-            XCTAssertTrue(button.waitForExistence(timeout: 10) && button.isEnabled && button.isHittable)
+            guard let button = try await readyChoice(value) else { app.terminate(); return }
             if offset == 0 { _ = try await control("presence_delay_once") }
             button.click()
             if offset == 0 {
                 XCTAssertTrue(app.descendants(matching: .any)["session-presence-pending"].firstMatch.waitForExistence(timeout: 2))
-                XCTAssertTrue(app.staticTexts["session-presence-confirmed"].label.contains(anchors[language]![2]),
+                XCTAssertTrue(((app.staticTexts["session-presence-confirmed"].value as? String) ?? app.staticTexts["session-presence-confirmed"].label).contains(anchors[language]![2]),
                               "Pending intent must not replace the confirmed server value")
                 let pending = XCTAttachment(screenshot: app.screenshot())
                 pending.name = "presence-\(language)-pending-distinct-from-confirmed"
@@ -560,7 +574,7 @@ extension DJConnectMacUITests {
             XCTAssertEqual(current["now_playing"] as? NSDictionary, original["now_playing"] as? NSDictionary)
             let confirmed = app.staticTexts["session-presence-confirmed"]
             XCTAssertTrue(confirmed.waitForExistence(timeout: 10))
-            let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", anchors[language]![offset]), object: confirmed)
+            let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@ OR label CONTAINS %@", anchors[language]![offset], anchors[language]![offset]), object: confirmed)
             let visibleResult = await XCTWaiter.fulfillment(of: [visible], timeout: 10)
             XCTAssertEqual(visibleResult, .completed, "The native label must confirm the actual server-selected position")
             let screenshot = XCTAttachment(screenshot: app.screenshot())
@@ -571,8 +585,9 @@ extension DJConnectMacUITests {
         XCTAssertFalse(app.descendants(matching: .any)["session-presence-error"].firstMatch.exists)
         let paused = try await control("pause")
         let pausedRuntime = try XCTUnwrap(paused["active"] as? [String: Any])
-        app.buttons["session-presence-choice-balanced"].click()
-        let pausedConfirmation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", anchors[language]![2]), object: app.staticTexts["session-presence-confirmed"])
+        guard let balanced = try await readyChoice("balanced") else { app.terminate(); return }
+        balanced.click()
+        let pausedConfirmation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@ OR label CONTAINS %@", anchors[language]![2], anchors[language]![2]), object: app.staticTexts["session-presence-confirmed"])
         let pausedResult = await XCTWaiter.fulfillment(of: [pausedConfirmation], timeout: 10)
         XCTAssertEqual(pausedResult, .completed)
         let final = try await control("state")
