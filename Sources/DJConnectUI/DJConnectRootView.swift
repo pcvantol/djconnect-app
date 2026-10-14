@@ -8864,6 +8864,7 @@ private struct TrackInsightEmptyState: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 420)
             Button {
+                guard model.isPlaying else { return }
                 model.analyzeCurrentTrack(open: false)
             } label: {
                 HStack(spacing: 10) {
@@ -8877,7 +8878,16 @@ private struct TrackInsightEmptyState: View {
                 .fixedSize(horizontal: true, vertical: false)
             }
             .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
-            .disabled(model.isLoadingTrackInsight)
+            .disabled(model.isLoadingTrackInsight || !model.isPlaying)
+            .accessibilityIdentifier("track-insight-analyze")
+            if !model.isPlaying {
+                Text(localizedKey(model.language, "ui.track.insight.play.music.first"))
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.62))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("track-insight-playback-required")
+            }
         }
         .padding(24)
         .frame(maxWidth: .infinity)

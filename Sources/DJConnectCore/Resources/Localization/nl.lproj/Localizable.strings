@@ -1117,3 +1117,5 @@
 "ui.music.dna.hero.description" = "Music DNA leert van je muzieksmaak en luistergedrag om aanbevelingen op jou af te stemmen.";
 
 "ui.navigation.menu" = "Navigatiemenu tonen of verbergen";
+
+"ui.track.insight.play.music.first" = "Start muziek om een nummer te analyseren.";

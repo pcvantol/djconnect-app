@@ -1117,3 +1117,5 @@
 "ui.music.dna.hero.description" = "Music DNA learns from your musical taste and listening habits to tailor recommendations to you.";
 
 "ui.navigation.menu" = "Show or hide navigation menu";
+
+"ui.track.insight.play.music.first" = "Play music to analyze a track.";
