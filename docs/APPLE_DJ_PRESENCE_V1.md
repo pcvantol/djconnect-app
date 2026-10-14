@@ -370,3 +370,7 @@ The tracked Xcode project now registers the existing focus helper in both Apple 
 ## Track Insight requires playing music
 
 Owner-requested empty-state analysis button is disabled while playback.isPlaying is false (including missing playback), with localized caption ui.track.insight.play.music.first below it. The ordinary primary style handles disabled appearance. Native playback observation re-enables the action when music resumes; the click closure also rejects a stopped playback race. This is bounded empty-state UI admission; existing backend analysis contracts and cached insight/refresh behavior remain unchanged. All five language keysets match1084 keys; Mac and physical-iPhone signed build40032 PASS.
+
+## Ask DJ newest-first presentation
+
+Owner requests newest items at the top in Ask DJ and active Session with an upward jump action. Ask DJ now reverses only the already normalized presentation sequence; the backend message model and exchange metadata remain untouched. Search result traversal matches the displayed order. Initial/show-newest targets move to a top sentinel, and the floating arrow/help/accessibility label use the existing localized back-top wording. Scroll geometry drives the near-top state instead of offscreen LazyVStack bottom/viewport preferences. SessionTimelineScreen already presents retained entries newest-first and uses an upward current/top jump; that behavior is retained. No replay, prompt send or playback mutation is introduced.

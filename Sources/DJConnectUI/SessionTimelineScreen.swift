@@ -312,6 +312,7 @@ struct SessionTimelineScreen: View {
                                 .padding(.horizontal, 20)
                                 .id("pending-" + turn.id)
                             }
+                            // Match Ask DJ: newest retained contribution first; current remains the top anchor.
                             ForEach(preparedEntries.reversed().filter { $0.isRetained(at: clock.date) }) { prepared in
                                 let entry = prepared.entry
                                 let liveMessage = history.liveMessage(for: entry, activeSessionID: activeSession?.id)

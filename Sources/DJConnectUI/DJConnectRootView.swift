@@ -294,22 +294,6 @@ private struct ScrollOffsetPreferenceKey: PreferenceKey {
     }
 }
 
-private struct AskDJBottomPreferenceKey: PreferenceKey {
-    static let defaultValue = CGFloat.greatestFiniteMagnitude
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
-private struct AskDJViewportHeightPreferenceKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
 private struct DJConnectLilacButtonModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
@@ -10661,10 +10645,9 @@ private struct AskDJView: View {
     @State private var isSearchVisible = false
     @State private var askDJSearchText = ""
     @State private var selectedSearchResultIndex = 0
-    @State private var isAskDJAtBottom = true
-    @State private var isAskDJScrollToBottomButtonSuppressed = false
-    @State private var askDJViewportHeight: CGFloat = 0
-    @State private var didScrollAskDJToInitialBottom = false
+    @State private var isAskDJAtTop = true
+    @State private var isAskDJScrollToTopButtonSuppressed = false
+    @State private var didScrollAskDJToInitialTop = false
     @State private var floatingComposerHeight: CGFloat = 96
     @State private var promptCaretRequest: UUID?
     @FocusState private var isInputFocused: Bool
@@ -10683,7 +10666,7 @@ private struct AskDJView: View {
         guard !query.isEmpty else {
             return []
         }
-        return model.askDJMessages.compactMap { message in
+        return model.askDJMessages.sorted(by: askDJTimelineMessagePrecedes).reversed().compactMap { message in
             message.text.localizedCaseInsensitiveContains(query) ? message.id : nil
         }
     }
@@ -10703,7 +10686,7 @@ private struct AskDJView: View {
         if let transientMessage = model.transientAskDJMoodMessage {
             messages.append(transientMessage)
         }
-        return messages.sorted(by: askDJTimelineMessagePrecedes)
+        return Array(messages.sorted(by: askDJTimelineMessagePrecedes).reversed())
     }
 
     private func askDJTimelineMessagePrecedes(_ lhs: DJConnectAskDJMessage, _ rhs: DJConnectAskDJMessage) -> Bool {
@@ -10785,11 +10768,11 @@ private struct AskDJView: View {
         #endif
     }
 
-    private var shouldShowAskDJScrollToBottomButton: Bool {
-        !askDJTimelineMessages.isEmpty && !isAskDJAtBottom && !isAskDJScrollToBottomButtonSuppressed
+    private var shouldShowAskDJScrollToTopButton: Bool {
+        !askDJTimelineMessages.isEmpty && !isAskDJAtTop && !isAskDJScrollToTopButtonSuppressed
     }
 
-    private var askDJScrollToBottomButtonBottomPadding: CGFloat {
+    private var askDJScrollToTopButtonBottomPadding: CGFloat {
         #if os(macOS)
         28
         #else
@@ -10823,6 +10806,7 @@ private struct AskDJView: View {
                         ZStack(alignment: .top) {
                             ScrollView {
                                 LazyVStack(spacing: 12) {
+                                    Color.clear.frame(height: 1).id("ask-dj-top")
                                     if model.isCheckingAskDJHistoryState {
                                         ProgressView()
                                             .tint(.white)
@@ -10900,17 +10884,7 @@ private struct AskDJView: View {
                                     if usesFloatingComposer && isAskDJHistoryStale {
                                         AskDJOfflineNotice(language: model.language)
                                     }
-                                    Color.clear
-                                        .frame(height: 1)
-                                        .id("ask-dj-bottom")
-                                        .background(
-                                            GeometryReader { geometry in
-                                                Color.clear.preference(
-                                                    key: AskDJBottomPreferenceKey.self,
-                                                    value: geometry.frame(in: .named("askDJScroll")).maxY
-                                                )
-                                            }
-                                        )
+
                                 }
                                 .padding(.horizontal, djConnectScreenHorizontalPadding)
                                 .padding(.top, chatTopPadding)
@@ -10922,23 +10896,11 @@ private struct AskDJView: View {
                             .contentMargins(.bottom, usesFloatingComposer && !isSearchVisible ? floatingComposerHeight + 16 : 0, for: .scrollContent)
                             .coordinateSpace(name: "askDJScroll")
                             .contentShape(Rectangle())
-                            .background(
-                                GeometryReader { geometry in
-                                    Color.clear.preference(
-                                        key: AskDJViewportHeightPreferenceKey.self,
-                                        value: geometry.size.height
-                                    )
-                                }
-                            )
-                            .onPreferenceChange(AskDJViewportHeightPreferenceKey.self) { height in
-                                askDJViewportHeight = height
-                            }
-                            .onPreferenceChange(AskDJBottomPreferenceKey.self) { bottomMaxY in
-                                let isAtBottom = bottomMaxY <= askDJViewportHeight + 140
-                                isAskDJAtBottom = isAtBottom
-                                if isAtBottom {
-                                    isAskDJScrollToBottomButtonSuppressed = false
-                                }
+                            .onScrollGeometryChange(for: Bool.self) { scroll in
+                                scroll.contentOffset.y + scroll.contentInsets.top <= 140
+                            } action: { _, isAtTop in
+                                isAskDJAtTop = isAtTop
+                                if isAtTop { isAskDJScrollToTopButtonSuppressed = false }
                             }
                             .refreshable {
                                 dismissAskDJKeyboard()
@@ -10950,25 +10912,27 @@ private struct AskDJView: View {
                             .overlay(alignment: .bottom) {
                                 HStack {
                                     Spacer()
-                                    if shouldShowAskDJScrollToBottomButton {
+                                    if shouldShowAskDJScrollToTopButton {
                                         Button {
                                             isInputFocused = false
                                             isSearchFocused = false
                                             withAnimation(.easeOut(duration: 0.22)) {
-                                                isAskDJScrollToBottomButtonSuppressed = true
-                                                isAskDJAtBottom = true
-                                                proxy.scrollTo("ask-dj-bottom", anchor: .bottom)
+                                                isAskDJScrollToTopButtonSuppressed = true
+                                                isAskDJAtTop = true
+                                                proxy.scrollTo("ask-dj-top", anchor: .top)
                                             }
                                         } label: {
-                                            Image(systemName: "arrow.down")
+                                            Image(systemName: "arrow.up")
                                                 .font(.system(size: 18, weight: .bold))
                                                 .foregroundStyle(.white)
                                                 .frame(width: 44, height: 44)
                                         }
                                         .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
                                         .padding(.trailing, djConnectScreenHorizontalPadding)
-                                        .padding(.bottom, askDJScrollToBottomButtonBottomPadding + (usesFloatingComposer && !isSearchVisible ? floatingComposerHeight + 8 : 0))
-                                        .help(localizedKey(model.language, "ui.scroll.to.bottom"))
+                                        .padding(.bottom, askDJScrollToTopButtonBottomPadding + (usesFloatingComposer && !isSearchVisible ? floatingComposerHeight + 8 : 0))
+                                        .help(localizedKey(model.language, "ui.session.history.back_top"))
+                                        .accessibilityLabel(localizedKey(model.language, "ui.session.history.back_top"))
+                                        .accessibilityIdentifier("ask-dj-jump-top")
                                     }
                                 }
                                 .frame(width: contentWidth, alignment: .trailing)
@@ -11003,22 +10967,22 @@ private struct AskDJView: View {
                         }
                         .contentShape(Rectangle())
                         .onChange(of: model.askDJMessages) {
-                            isAskDJScrollToBottomButtonSuppressed = false
+                            isAskDJScrollToTopButtonSuppressed = false
                             normalizeAskDJSearchSelection()
-                            scrollAskDJToInitialBottomIfNeeded(proxy: proxy)
+                            scrollAskDJToInitialTopIfNeeded(proxy: proxy)
                         }
                         .onAppear {
-                            didScrollAskDJToInitialBottom = false
-                            scrollAskDJToInitialBottomIfNeeded(proxy: proxy)
+                            didScrollAskDJToInitialTop = false
+                            scrollAskDJToInitialTopIfNeeded(proxy: proxy)
                         }
                         .onChange(of: model.isCheckingAskDJHistoryState) { _, isChecking in
                             guard !isChecking else {
                                 return
                             }
-                            scrollAskDJToInitialBottomIfNeeded(proxy: proxy)
+                            scrollAskDJToInitialTopIfNeeded(proxy: proxy)
                         }
                         .onDisappear {
-                            didScrollAskDJToInitialBottom = false
+                            didScrollAskDJToInitialTop = false
                         }
                         .onChange(of: model.askDJScrollRequestID) {
                             guard !isSearchVisible else {
@@ -11028,9 +10992,9 @@ private struct AskDJView: View {
                                 return
                             }
                             withAnimation(.easeOut(duration: 0.22)) {
-                                isAskDJScrollToBottomButtonSuppressed = true
-                                isAskDJAtBottom = true
-                                proxy.scrollTo("ask-dj-bottom", anchor: .bottom)
+                                isAskDJScrollToTopButtonSuppressed = true
+                                isAskDJAtTop = true
+                                proxy.scrollTo("ask-dj-top", anchor: .top)
                             }
                         }
                         .onChange(of: askDJSearchText) {
@@ -11232,21 +11196,21 @@ private struct AskDJView: View {
         }
     }
 
-    private func scrollAskDJToInitialBottomIfNeeded(proxy: ScrollViewProxy) {
-        guard !didScrollAskDJToInitialBottom else {
+    private func scrollAskDJToInitialTopIfNeeded(proxy: ScrollViewProxy) {
+        guard !didScrollAskDJToInitialTop else {
             return
         }
         guard !isSearchVisible, !askDJTimelineMessages.isEmpty else {
             return
         }
-        didScrollAskDJToInitialBottom = true
+        didScrollAskDJToInitialTop = true
         DispatchQueue.main.async {
-            isAskDJAtBottom = true
-            proxy.scrollTo("ask-dj-bottom", anchor: .bottom)
+            isAskDJAtTop = true
+            proxy.scrollTo("ask-dj-top", anchor: .top)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
-            isAskDJAtBottom = true
-            proxy.scrollTo("ask-dj-bottom", anchor: .bottom)
+            isAskDJAtTop = true
+            proxy.scrollTo("ask-dj-top", anchor: .top)
         }
     }
 
