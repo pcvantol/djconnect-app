@@ -925,6 +925,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let refreshScheduler = DJConnectRefreshScheduler()
     private let permissionCoordinator = DJConnectPermissionCoordinator()
     private var openPermissionSettingsTask: Task<Void, Never>?
+    private var outputSelectionGeneration = 0
     private var pendingSelectedOutput: String?
     private var pendingSelectedOutputIsCachedSpotify = false
     private var pendingVolumePercent: Int?
@@ -3067,7 +3068,8 @@ public final class DJConnectAppModel: ObservableObject {
     public func sendPlaybackCommand(
         _ command: String,
         value: DJConnectCommandValue? = nil,
-        play: Bool? = nil
+        play: Bool? = nil,
+        expectedOutputSelectionGeneration: Int? = nil
     ) {
         guard isRuntimeCompatible else {
             log(.warning, "Command \(command) blocked because an app/integration update is required")
@@ -3087,7 +3089,8 @@ public final class DJConnectAppModel: ObservableObject {
             }
         }
         Task {
-            await performCommand(command, value: value, play: play)
+            await performCommand(command, value: value, play: play,
+                                 expectedOutputSelectionGeneration: expectedOutputSelectionGeneration)
         }
     }
 
@@ -3235,6 +3238,8 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func selectOutput(_ output: DJConnectOutputDevice) {
         log(.debug, "User action: select output")
+        outputSelectionGeneration += 1
+        let selectionGeneration = outputSelectionGeneration
         selectedOutput = output.name
         pendingSelectedOutput = output.name
         pendingSelectedOutputIsCachedSpotify = output.isCachedSpotifyOutput
@@ -3250,7 +3255,8 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         log(.info, "Selecting output \(output.name)")
-        sendPlaybackCommand("set_output", value: .string(output.name), play: true)
+        sendPlaybackCommand("set_output", value: .string(output.name), play: true,
+                            expectedOutputSelectionGeneration: selectionGeneration)
     }
 
     public func startPlaylist(_ playlist: DJConnectPlaylist) {
@@ -4468,6 +4474,9 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func devicesApplyingCurrentPlayback(to devices: [DJConnectOutputDevice]) -> [DJConnectOutputDevice] {
+        // Explicit device flags belong to this response. An older playback
+        // snapshot must not reactivate the previously selected speaker.
+        guard !devices.contains(where: { $0.active != nil }) else { return devices }
         guard let playbackDevice = playback?.device else {
             return devices
         }
@@ -9902,8 +9911,11 @@ public final class DJConnectAppModel: ObservableObject {
         value: DJConnectCommandValue? = nil,
         play: Bool? = nil,
         notifyUserOnError: Bool = true,
-        applyErrorState: Bool = true
+        applyErrorState: Bool = true,
+        expectedOutputSelectionGeneration: Int? = nil
     ) async -> Bool {
+        let outputGeneration = expectedOutputSelectionGeneration ?? outputSelectionGeneration
+        if (command == "devices" || command == "set_output"), outputGeneration != outputSelectionGeneration { return false }
         if isDemoMode {
             applyDemoCommand(command, value: value, play: play)
             return true
@@ -9916,8 +9928,13 @@ public final class DJConnectAppModel: ObservableObject {
             log(.warning, "Command \(command) skipped because update is required")
             return false
         }
+        var refreshOutputsAfterAcceptance = false
         do {
             try await withHomeAssistantClient { client in
+                // This closure can be re-entered for transport fallback.
+                if (command == "devices" || command == "set_output"), outputGeneration != outputSelectionGeneration {
+                    throw CancellationError()
+                }
                 log(.debug, "Posting command \(command) to Home Assistant")
                 let response = try await client.sendCommandResponse(
                     DJConnectCommandPayload(
@@ -9931,7 +9948,17 @@ public final class DJConnectAppModel: ObservableObject {
                         musicDNAKey: askDJMusicDNAKey
                     )
                 )
+                if command == "devices" || command == "set_output" {
+                    guard outputGeneration == outputSelectionGeneration else { throw CancellationError() }
+                }
                 apply(commandResponse: response, command: command)
+                refreshOutputsAfterAcceptance = command == "set_output" && response.success != false
+            }
+            if refreshOutputsAfterAcceptance, outputGeneration == outputSelectionGeneration {
+                // Acceptance is not confirmation: read authoritative devices
+                // immediately instead of waiting for a full history refresh.
+                _ = await performCommand("devices", notifyUserOnError: false,
+                                         expectedOutputSelectionGeneration: outputGeneration)
             }
             if Self.shouldRefreshPlaybackAfterCommand(command) {
                 scheduleCommandRefresh(
@@ -9942,6 +9969,7 @@ public final class DJConnectAppModel: ObservableObject {
             log(.debug, "Command \(command) succeeded")
             return true
         } catch let error as DJConnectError {
+            if (command == "devices" || command == "set_output"), outputGeneration != outputSelectionGeneration { return false }
             log(.warning, "Command \(command) failed: \(Self.describe(error))")
             if applyErrorState {
                 apply(error: error)
@@ -9954,6 +9982,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
             return false
         } catch {
+            if (command == "devices" || command == "set_output"), outputGeneration != outputSelectionGeneration { return false }
             log(.error, "Command \(command) failed unexpectedly: \(error.localizedDescription)")
             pairingMessage = error.localizedDescription
             if notifyUserOnError {

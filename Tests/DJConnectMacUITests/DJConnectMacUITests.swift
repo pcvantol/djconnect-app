@@ -705,5 +705,15 @@ extension DJConnectMacUITests {
         XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed)
         let returned = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         returned.name = "layout-archive-return"; returned.lifetime = .keepAlways; add(returned)
+        // Context actions must withdraw the pushed archive before switching root.
+        archive.click()
+        XCTAssertTrue(timeline.waitForExistence(timeout: 5))
+        let ask = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ask-entry-")).firstMatch
+        guard ask.waitForExistence(timeout: 5), ask.isEnabled && ask.isHittable else { XCTFail("Archive context action unavailable"); return }
+        ask.click()
+        XCTAssertTrue(app.descendants(matching: .any)["screen-ask-dj"].firstMatch.waitForExistence(timeout: 5))
+        let contextDismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: timeline)
+        XCTAssertEqual(XCTWaiter.wait(for: [contextDismissed], timeout: 5), .completed)
+        XCTAssertTrue(app.descendants(matching: .any)["session-question-context"].firstMatch.waitForExistence(timeout: 5))
     }
 }

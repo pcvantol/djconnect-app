@@ -112,12 +112,13 @@ private final class HistoryWireFixture: @unchecked Sendable {
         let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [HistoryWireProtocol.self]
         return URLSession(configuration: config)
     }
-    @MainActor func model() -> (DJConnectAppModel, UserDefaults, String) {
+    @MainActor func model(remoteURL: URL? = nil) -> (DJConnectAppModel, UserDefaults, String) {
         let name = "session-history-" + UUID().uuidString
         let defaults = UserDefaults(suiteName: name)!
         defaults.set(baseURL.absoluteString, forKey: "DJConnectHomeAssistantURL")
         defaults.set(baseURL.absoluteString, forKey: "DJConnectHALocalURL")
         defaults.set("local", forKey: "DJConnectHAConnectionMode")
+        if let remoteURL { defaults.set(remoteURL.absoluteString, forKey: "DJConnectHARemoteURL") }
         return (DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-fixture-token"),
                                  urlSession: session(), startBackgroundTasks: false), defaults, name)
     }
@@ -1001,6 +1002,7 @@ private final class HTTPRecoveryActiveReadCounter: @unchecked Sendable {
     private let lock = NSLock()
     private var count = 0
     func next() -> Int { lock.withLock { count += 1; return count } }
+    var value: Int { lock.withLock { count } }
 }
 
 @Test(arguments: ["unauthorized", "invalid_profile"])
@@ -2194,7 +2196,9 @@ private final class PresenceModes: @unchecked Sendable {
     #expect(model.isLoadingQueue)
     model.startQueueItem(selected, at: 0)
     for _ in 0..<140 {
-        if model.queueItems.first?.title == "Fresh queue" { break }
+        // Rows publish before the command-refresh task finishes its cleanup.
+        // Observe completion as well; keep the final loading-state assertion.
+        if model.queueItems.first?.title == "Fresh queue", model.loadingQueueItemIndex == nil { break }
         try await Task.sleep(for: .milliseconds(25))
     }
     _ = await olderRead.value
@@ -2466,4 +2470,98 @@ func sessionPlayNowFollowUpReadsDoNotApplyAfterWithdrawal(stage: String, fail: B
     #expect(model.activePresenceCapabilityStatus == .incompatibleResponse)
     #expect(!model.activePresenceAvailable && model.activeDJSession?.confirmedPresence == nil)
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+}
+
+@Test(arguments: [false, true]) @MainActor
+func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIncludesOldDevices: Bool) async throws {
+    let wire = HistoryWireFixture { request in
+        let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
+        switch body?["command"] as? String {
+        case "set_output":
+            let reply = acceptanceIncludesOldDevices
+                ? #"{"success":true,"devices":[{"id":"old","name":"Old speaker","active":true}]}"#
+                : #"{"success":true}"#
+            return (200, Data(reply.utf8), 0)
+        case "devices": return (200, Data(#"{"success":true,"devices":[{"id":"old","name":"Old speaker","active":false},{"id":"new","name":"New speaker","active":true}]}"#.utf8), 0)
+        default: return (404, Data(), 0)
+        }
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.isRefreshing = true
+    model.apply(playback: DJConnectPlayback(device: DJConnectPlaybackDevice(id: "old", name: "Old speaker")))
+    model.selectOutput(DJConnectOutputDevice(id: "new", name: "New speaker"))
+    for _ in 0..<40 {
+        if model.availableOutputs.first(where: { $0.id == "new" })?.active == true { break }
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(model.availableOutputs.filter { $0.active == true }.map(\.id) == ["new"])
+    let commands = try wire.requests.compactMap { request in
+        (try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])?["command"] as? String
+    }
+    #expect(commands == ["set_output", "devices"])
+    #expect(model.isRefreshing) // Device confirmation is independent of a busy status refresh.
+}
+
+@Test @MainActor func lateOutputConfirmationCannotReplaceNewerSelection() async throws {
+    let reads = HTTPRecoveryActiveReadCounter()
+    let wire = HistoryWireFixture { request in
+        let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
+        switch body?["command"] as? String {
+        case "set_output": return (200, Data(#"{"success":true}"#.utf8), 0)
+        case "devices":
+            if reads.next() == 1 {
+                return (200, Data(#"{"success":true,"devices":[{"id":"a","name":"A","active":true},{"id":"b","name":"B","active":false}]}"#.utf8), 0.2)
+            }
+            return (200, Data(#"{"success":true,"devices":[{"id":"a","name":"A","active":false},{"id":"b","name":"B","active":true}]}"#.utf8), 0)
+        default: return (404, Data(), 0)
+        }
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.isRefreshing = true
+    model.selectOutput(DJConnectOutputDevice(id: "a", name: "A"))
+    for _ in 0..<40 {
+        if reads.value >= 1 { break }
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    #expect(reads.value == 1)
+    model.selectOutput(DJConnectOutputDevice(id: "b", name: "B"))
+    try await Task.sleep(for: .milliseconds(300))
+    #expect(reads.value == 2)
+    #expect(model.selectedOutput == "B")
+    #expect(model.availableOutputs.filter { $0.active == true }.map(\.id) == ["b"])
+}
+
+@Test @MainActor func supersededOutputSelectionCannotReplayOnRemoteFallback() async throws {
+    let attempts = HTTPRecoveryActiveReadCounter()
+    let local = HistoryWireFixture { request in
+        let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
+        if body?["command"] as? String == "set_output", body?["value"] as? String == "A" {
+            _ = attempts.next()
+            throw HistoryWireDelayedFailure(error: URLError(.cannotConnectToHost), delay: 0.15)
+        }
+        return (200, Data(#"{"success":true,"devices":[{"id":"b","name":"B","active":true}]}"#.utf8), 0)
+    }
+    let remote = HistoryWireFixture { _ in (200, Data(#"{"success":true}"#.utf8), 0) }
+    defer { local.close(); remote.close() }
+    let (model, defaults, name) = local.model(remoteURL: remote.baseURL)
+    defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.isRefreshing = true
+    model.selectOutput(DJConnectOutputDevice(id: "a", name: "A"))
+    for _ in 0..<40 {
+        if attempts.value > 0 { break }
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    #expect(attempts.value == 1)
+    model.selectOutput(DJConnectOutputDevice(id: "b", name: "B"))
+    try await Task.sleep(for: .milliseconds(250))
+    #expect(remote.requests.isEmpty)
+    #expect(model.selectedOutput == "B")
+    #expect(model.availableOutputs.filter { $0.active == true }.map(\.id) == ["b"])
 }
