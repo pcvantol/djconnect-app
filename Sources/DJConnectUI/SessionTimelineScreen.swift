@@ -1390,6 +1390,7 @@ private struct VibeCastHandoffPopover: View {
     ScrollView {
         ActiveDJSessionView(model: model, session: session,
                             openQueueAction: openQueueAction, showsMoments: false)
+            .fixedSize(horizontal: false, vertical: true)
             .background {
                 GeometryReader { content in
                     Color.clear.preference(key: HandoffContentHeightKey.self, value: content.size.height)
@@ -1398,8 +1399,13 @@ private struct VibeCastHandoffPopover: View {
     }
     .scrollBounceBehavior(.basedOnSize)
     .frame(width: min(400, max(240, available.width - 48)),
-           height: min(handoffContentHeight, max(160, available.height - 160)))
-    .onPreferenceChange(HandoffContentHeightKey.self) { handoffContentHeight = ceil($0) }
+           height: min(max(200, handoffContentHeight), max(160, available.height - 160)))
+    .onPreferenceChange(HandoffContentHeightKey.self) { height in
+        // Popover attachment/removal can briefly emit the preference default.
+        // Never feed that zero back into the form's available layout height.
+        guard height.isFinite, height > 0 else { return }
+        handoffContentHeight = ceil(height)
+    }
     #else
     ScrollView {
         ActiveDJSessionView(model: model, session: session,
