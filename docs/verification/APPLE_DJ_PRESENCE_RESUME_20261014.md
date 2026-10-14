@@ -186,3 +186,46 @@ recorded separately. Initial diagnostic compile failure/private accessor and
 zero-match test-filter attempt are retained and do not count as tests passed.
 These are new temporary diagnostic bundles: prior exact signing grants are not
 reused; they are not run or signed without specific approval.
+
+
+## Executed diagnostic proof and native restoration prerequisite
+
+Owner continued the prepared exact b03e232 two-bundle trace step. Those two
+bundles were ad-hoc signed/strict verified and the isolated native case executed.
+It FAILS before any Presence activation: AX process has MenuBar but no Window;
+fixture pair/capabilities/active responses all HTTP200. Result and28.016s failure
+remain in `/private/tmp/djc-presence-mac-b03e232-trace.xcresult`. No console trace
+was available; later diagnostic logging uses gated NSLog rather than stdout.
+
+A separate launch of the same exact proof executable confirms its PID/path.
+AppKit logs the savedIdentifier DJConnectMainWindow passed to the valid
+SwiftUI.AppWindowsController restorer; completion returns window0x0/errornull,
+then ordering is skipped because no restoredWindow exists. Source
+WindowConfigurator assigns that same custom value to NSWindow.identifier.
+This is concrete native restoration mismatch evidence, distinct from production
+Presence metadata absence and from the earlier popup-not-found result. It does
+not yet explain the latter popup lifecycle, which still needs its actual trace.
+
+Bounded Apple prerequisite repair: preserve SwiftUI's native restoration ID;
+assign DJConnectMainWindow only as accessibility identifier, and use that AX
+marker for About/Settings centering. No saved-state deletion or forced startup
+window, no Profile/intelligence/authority behavior changes. Independent source
+review GO for this prevention fix, explicitly not a legacy production-state
+migration receipt. Existing bad saved-state may still require native New Window;
+this patch cannot rewrite a record whose WindowConfigurator never executes.
+
+The independent native restoration case records initialWindowPresent, uses
+native New Window only when needed, then tests normal Cmd-Q and ordinary relaunch
+without deleting saved-state. It qualifies windowcreation/restoration only,
+without Session/toggle dependencies. Review found/fixed that initial test
+ordering assumption; final bounded source/test GO. The separate Presence case
+continues to initialize its own Mac owner/active Session and assert a main window
+before its five-position proof. New current unsigned Mac test build PASS;
+23 focused Presence/Mood tests PASS2.150s after gated NSLog change. No new native
+PASS, physical installation or automatic legacy-state migration is claimed.
+
+This prerequisite stays explicitly inside the existing Apple native acceptance
+work, not a new general audit or roadmap transport writer. Diagnostic code is
+local; remote draft107 remains25a5e92, protected delivery/Finalization remain
+separate. The ordinary Mac process58349/build40034 is unchanged. Only the manual
+isolated proof process was stopped after exact executable verification.

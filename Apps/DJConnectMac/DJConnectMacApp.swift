@@ -90,7 +90,7 @@ private func localizedAboutMenuTitle(for language: String) -> String {
     DJConnectLocalization.localized(key: "mac.about.djconnect", language: language)
 }
 
-private let mainWindowIdentifier = NSUserInterfaceItemIdentifier("DJConnectMainWindow")
+private let mainWindowAccessibilityIdentifier = "DJConnectMainWindow"
 
 @MainActor
 final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcurrency UNUserNotificationCenterDelegate {
@@ -223,7 +223,9 @@ private struct WindowConfigurator: NSViewRepresentable {
             window.backgroundColor = .windowBackgroundColor
             window.isOpaque = true
             window.toolbarStyle = .unifiedCompact
-            window.identifier = mainWindowIdentifier
+            // SwiftUI owns the restoration identifier. Replacing it makes saved
+            // windows unresolvable by SwiftUI.AppWindowsController on relaunch.
+            window.setAccessibilityIdentifier(mainWindowAccessibilityIdentifier)
             // Keep restored windows within the screen instead of centering oversized content.
             if let visible = (window.screen ?? NSScreen.main)?.visibleFrame {
                 var frame = window.frame
@@ -266,7 +268,7 @@ private struct MenuWindowCenteringConfigurator: NSViewRepresentable {
             }
 
             DispatchQueue.main.async {
-                guard let parentWindow = NSApp.windows.first(where: { $0.identifier == mainWindowIdentifier }) else {
+                guard let parentWindow = NSApp.windows.first(where: { $0.accessibilityIdentifier() == mainWindowAccessibilityIdentifier }) else {
                     return
                 }
                 window.center(in: parentWindow)

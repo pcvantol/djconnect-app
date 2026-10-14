@@ -512,6 +512,12 @@ extension DJConnectMacUITests {
         app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "paired_owner_contract"
         app.launchEnvironment["DJCONNECT_PRESENCE_TRACE"] = "1"
         app.launch()
+        guard app.windows["DJConnectMainWindow"].waitForExistence(timeout: 25) else {
+            let evidence = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            evidence.name = "presence-native-main-window-missing"; evidence.lifetime = .keepAlways; add(evidence)
+            XCTFail("Fixture relaunch must present the main window before Presence qualification")
+            app.terminate(); return
+        }
         let toggle = app.buttons["session-presence-toggle"]
         guard toggle.waitForExistence(timeout: 25), toggle.isEnabled, toggle.isHittable else {
             XCTFail("Presence toggle must be enabled and hittable before native activation")
@@ -585,5 +591,40 @@ extension DJConnectMacUITests {
         let closedResult = await XCTWaiter.fulfillment(of: [closed], timeout: 5)
         XCTAssertEqual(closedResult, .completed, "Escape must close the native presence popover")
         app.terminate()
+    }
+}
+
+
+extension DJConnectMacUITests {
+    /// Preserves legacy saved state; native New Window repairs only the isolated
+    /// fixture's window before checking ordinary quit/relaunch restoration.
+    func testNativeMainWindowRestorationWithoutDeletingSavedState() {
+        let app = XCUIApplication(); app.terminate()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=paired_owner_contract", "-DJCONNECTRuntimeFixture", "paired_owner_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = "http://127.0.0.1:18213"
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "paired_owner_contract"
+        app.launchEnvironment["DJCONNECT_PRESENCE_TRACE"] = "1"
+        app.launch()
+        defer { app.terminate() }
+        let window = app.windows["DJConnectMainWindow"]
+        let initialWindowPresent = window.waitForExistence(timeout: 5)
+        NSLog("%@", "[WindowUITest] initialWindowPresent=\(initialWindowPresent)")
+        if !initialWindowPresent {
+            let file = app.menuBars.menuBarItems["Archief"]
+            guard file.waitForExistence(timeout: 5) else { XCTFail("Native File menu must exist"); return }
+            file.tap()
+            let newWindow = app.menuItems["Nieuw venster"]
+            guard newWindow.waitForExistence(timeout: 5), newWindow.isEnabled else { XCTFail("Native New Window must be available"); return }
+            newWindow.tap()
+        }
+        guard window.waitForExistence(timeout: 10) else { XCTFail("Native main window must be created without deleting saved state"); return }
+        let created = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        created.name = "restoration-native-main-window-before-quit"; created.lifetime = .keepAlways; add(created)
+        app.typeKey("q", modifierFlags: .command)
+        guard app.wait(for: .notRunning, timeout: 10) else { XCTFail("Isolated app must quit normally"); return }
+        app.launch()
+        guard window.waitForExistence(timeout: 15) else { XCTFail("Ordinary relaunch must restore the native main window"); return }
+        let restored = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        restored.name = "restoration-native-main-window-after-relaunch"; restored.lifetime = .keepAlways; add(restored)
     }
 }

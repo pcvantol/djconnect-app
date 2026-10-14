@@ -987,7 +987,7 @@ struct ActiveSessionPresenceToolbar: View {
         #else
         let nativeActive = scenePhase == .active
         #endif
-        print("[PresenceUITest] event=\(event) scope=\(scope != nil) phase=\(scenePhase) nativeActive=\(nativeActive) foreground=\(model.isAppInForegroundForTests) sessionMatches=\(sessionMatches) epochMatches=\(epochMatches)")
+        NSLog("%@", "[PresenceUITest] event=\(event) scope=\(scope != nil) phase=\(scenePhase) nativeActive=\(nativeActive) foreground=\(model.isAppInForegroundForTests) sessionMatches=\(sessionMatches) epochMatches=\(epochMatches)")
         #endif
     }
     var body: some View {
