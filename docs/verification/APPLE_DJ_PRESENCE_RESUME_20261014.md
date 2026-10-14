@@ -338,3 +338,42 @@ splash/padding, jump-top and archive keyboard-layout qualification has not
 been executed for this followup. Do not infer these checks from prior Presence
 native probes or installed40057. Installation checkpoint registered at Apple87
 comment6172022791.
+
+
+## Mac layout native checkpoint (continuation)
+
+Fresh canonical host verify MATCH. Same writer; productbc280fd includes80639f8
+layout plus DEBUG/--uitesting-only6s observation hold and splash AX marker.
+Normal minimum stays1.5s. Native unsigned build-for-testing and iOS build PASS.
+Existing release/bundle regression PASS; prior519 full-suite remains bound to
+80639f8 layout, not inferred as a new full-suite run for the probe-only change.
+
+Initial test configuration failed before execution because __TESTROOT__ resolved
+relative to copied .xctestrun; fixed to absolute own build-product paths. First
+actual native route run captured correct splash and seven screens, then failed
+at Queue: actual hierarchy and screenshot prove Music DNA opt-in sheet remained
+open. No Queue product fix invented. Test driver now declines native opt-in via
+Niet nu and requires enabled/hittable controls; ordinary app/preferences untouched.
+
+Final isolated native test PASS79.616s, one test, zero failures. Confirms toolbar
+hidden during observed splash and visible only after removal; waits on each of
+15 real screen IDs before capture; opens readonly demo archive, returns and
+asserts archive timeline disappears. Proof app bc280fd unchanged; test-driver
+opt-in correction is separately tracked. Test-only synthetic demo data, no live
+HA/pairing/Profile mutation. Actual Mac window960x899. Evidence retained:
+`/private/tmp/djc-mac-layout-native-optin.{log,xcresult}` and attachment manifest
+`/private/tmp/djc-mac-layout-optin-captures/manifest.json`. No explicit Ask DJ
+search/jump-top assertion was performed; these are not promoted from route proof.
+
+Independent first-seven visual review GO: consistent narrow outer top gap,
+intentional demo headers, no clipped firstcard or toolbar overlap. Remaining
+captures submitted for visual review. Installed devices remain40057; no new
+installation or protected merge/Finalization performed during this followup.
+
+Actually read latest handoffs: Apple6171716530 pushfinding and6171961379 final
+Core dialogue pin; Core6171726870 matching pushownership audit. Keep push diagnosis
+separate from layout/Presence candidate, with no testpush or provisioning change.
+Core dialogue producer delta is now published at7698961, superseding the earlier
+preliminary-baseline-only status; native Apple adoption remains separate. Downloaded
+final fixture bytes SHA2569be892d55c8aaee4871e54ac68ed04945fb0676ce5472e2091a83ee66b2151a8
+matches handoff; this read/checksum is not consumer acceptance or HA deployment.

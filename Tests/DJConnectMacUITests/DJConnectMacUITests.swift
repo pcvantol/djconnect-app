@@ -673,12 +673,22 @@ extension DJConnectMacUITests {
         for (index, destinationInfo) in screens.enumerated() {
             let (title, screenID) = destinationInfo
             let destination = app.buttons[title].firstMatch
-            guard destination.waitForExistence(timeout: 3), destination.isHittable else { XCTFail("Sidebar destination missing: \(title)"); return }
+            guard destination.waitForExistence(timeout: 3), destination.isEnabled, destination.isHittable else { XCTFail("Sidebar destination missing: \(title)"); return }
             destination.click()
             let screen = app.descendants(matching: .any)[screenID].firstMatch
             guard screen.waitForExistence(timeout: 5) else { XCTFail("Destination did not open: \(screenID)"); return }
+            if title == "Music DNA" {
+                let optIn = app.descendants(matching: .any)["music-dna-opt-in-prompt"].firstMatch
+                if optIn.waitForExistence(timeout: 2) {
+                    let decline = app.buttons["Niet nu"].firstMatch
+                    guard decline.isEnabled && decline.isHittable else { XCTFail("Native opt-in dismissal unavailable"); return }
+                    decline.click()
+                    let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: optIn)
+                    XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 5), .completed)
+                }
+            }
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-            XCTAssertTrue(menu.exists && menu.isHittable, "Toolbar lost on \(title)")
+            XCTAssertTrue(menu.exists && menu.isEnabled && menu.isHittable, "Toolbar lost on \(title)")
             let capture = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
             capture.name = "layout-\(index)-\(title)"; capture.lifetime = .keepAlways; add(capture)
         }
