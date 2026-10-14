@@ -383,3 +383,52 @@ About, Legal, Privacy and archive-return inspected from final captures. Narrow
 outer top inset consistent; no toolbar overlap/clipped first card. Long content
 continues inside scroll areas. This is native demo qualification at the tested
 window size, not physical-iPhone/production acceptance or VoiceOver traversal.
+
+
+## Post-merge40058 receipt and bounded glass-banner followup
+
+Owner specifically authorized88fd6e9760b4c7fde4381593897c74d88bddf547 and protected
+merge. Owner Authorization38601665444 PASS artifact verified; mandatory checks
+PASS, no admin bypass. PR107 MERGED as e2f96120ae25cd975da3bb3ec7f77711cc2a9b0b.
+Signed40058 actually installed/readback/launched on mini, Book and physical
+iPhone. Both Macs matched42payload entries and retained four pairing fields;
+iPhone retained four configuration fields (Keychain equality not independently
+tested).155code/testinput files equal merged main. Backups/40057 originals kept;
+normal Mac quits, no force/uninstall/pairing reset/HA update. Source/DAG checkpoint
+registered Apple6173714222/Core6173714763. Finalization explicitly excluded.
+
+The post-merge coverage job of38601880410 FAILED one of519 tests while ordinary
+CI PASSED. Actual failure at SessionHistoryContractTests2033: an active-read
+fixture advanced contradiction4→older3→newer5 for every request. Broadcast HTTP
+recovery legitimately performs another active-read. Exact Xcode coverage red
+reproduction retained in `/private/tmp/djc-presence-coverage-diagnose.{log,xcresult}`:
+reads3, floor5, confirmedoccasional at the second assertion. Product correctly
+accepted the newer confirmed state; this is a fixture-readrace.
+
+Separate test-only fix62a0265 holds explicit server phases using existing
+PresenceReadPhase; original floor/confirmation assertions and real model/HTTP/
+recovery routes remain.25Xcode-coverage repetitions PASS, then full519coverage
+PASS53.263s (`/private/tmp/djc-presence-full-coverage-phase-fixed.{log,xcresult}`).
+No productguard, transport, workflow or threshold changed. Independent source
+review GO; old failed post-merge run remains FAILED, not rewritten as PASS.
+
+New owner request: put About banner in glass card. Separate a9809d1 replaces
+AboutBanner's opaque gradient/multiply overlays with shareddjSessionFrostedSurface;
+icon/text/padding/layout stay. Shared banner includes About and Privacy. Unsigned
+Mac/iOS40059 builds PASS; bounded technical source review GO.
+
+First native15route PASS70.138s is NOT new glass visual proof: inherited target
+DYLD_FRAMEWORK_PATH loaded old UI module from prior runner products. Independent
+visual review caught the still-dark banner. Old captures preserved/unqualified.
+Correct own test configuration now binds to proofapp's embeddedUI/Core modules;
+actual lsof loaded-image paths confirmed, retained in
+`/private/tmp/djc-about-glass-loaded-frameworks.log`. No product workaround.
+
+Correct bound native case PASS69.549s, one test0failures; actual About/Privacy
+captures independently reviewed visualGO: frosted fill, visibleborder, readable
+text and proper icon containment/spacing. Evidence:
+`/private/tmp/djc-about-glass-native-embedded-frameworks.{log,xcresult}`; correct
+attachment manifest `/private/tmp/djc-about-glass-native-correct-captures/manifest.json`.
+This is isolated native demo qualification;40059 not installed or protected
+merged. Existing writer integrated the already-protected main via ordinary
+merge, without resetting history/WIP. Two untracked projectcopies remain.
