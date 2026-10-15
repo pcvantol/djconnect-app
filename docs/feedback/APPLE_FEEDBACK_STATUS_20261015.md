@@ -1029,3 +1029,11 @@ Fresh physical iPhone inventory on Mac mini and existing MacBook SSH connection
 both report paired/unavailable. No physical iPhone installation claimed; pending
 until connectivity returns. Ordinary Mac installation stays40080 because this
 menu change is iOS-only. iPad installation receipt follows after actual readback.
+
+
+Build40081 installed readback (source29982f0): physical iPad install and ordinary
+launch PASS; app-only CoreDevice readback confirms bundleVersion40081. Receipts
+`/private/tmp/djc-white-menu-40081-ipad-{install,launch,readback}.log` and readback
+JSON. Physical iPhone remains paired/unavailable on both Mac mini and MacBook;
+its installation is still pending, not PASS. Mac mini stays40080 (iOS-only change).
+No source publication or change to existing pairing/permissions.
