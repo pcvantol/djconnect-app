@@ -6,13 +6,20 @@
     "/private/tmp/djc-vinyl-40116-mac-images/5A5973C7-7194-4BB8-899A-8F84B2463067.png",
     "/private/tmp/djc-vinyl-40116-mac-images/71B68C84-EBE7-4E9C-B3CA-BB4B51F858FF.png"
   ],
-  "ipad": "OPEN: two isolated ready-fixture launch attempts failed Fixture Track existence assertion. Actual inspected first image shows Niets speelt af, static vinyl and unavailable controls. This does not prove active playback rotation or an animation defect. No fixture playback or real-provider PASS claimed. Both probes terminate test launch and relaunch ordinary app; final Speelt Nu tab existence check passed.",
+  "ipad": "PASS bounded actual physical iPad installed40116 using isolated review_demo fixture. Midnight City playing with nil artwork, three native frames; first/last visually inspected: label and reflection rotate, surrounding player card stays fixed. Ordinary launch restored and Speelt Nu tab existence asserted afterward. No real playback command or pairing mutation.",
   "ipad_results": [
     "/private/tmp/djc-vinyl-40116-physical.xcresult",
     "/private/tmp/djc-vinyl-40116-physical2.xcresult"
   ],
   "iphone": "OPEN: fresh lockState passcodeRequired=true, no unlock attempted.",
-  "limits": "Mac native rendering with explicit local Demo data only, not Spotify/provider, physical iPad playback or FPS/hitch qualification. Particle continuity still open. No playback/network/pairing mutation, new installation or publication.",
+  "limits": "Actual installed Mac and iPad rendering with explicit local Demo data only. Not Spotify/provider playback or FPS/hitch qualification; particle continuity still open. No new source build/install/publication.",
   "cleanup": "One active writer; only main/current merged refs, none eligible. Untracked project directories and all results retained. Internal free space9.0GiB.",
-  "next": "Investigate why installed iPad test fixture is inactive without changing normal pairing; qualify actual active no-art playback before closing iPad spinning. LAN remains gated on source-preserving topology and coordinated shared-container restart window."
+  "next": "Do not repeat ready-fixture launch retries. Keep real provider and particle performance acceptance separate. LAN remains gated on genuine source-preserving topology and coordinated shared-container restart.",
+  "ipad_previous_attempts": "OPEN: two isolated ready-fixture launch attempts failed Fixture Track existence assertion. Actual inspected first image shows Niets speelt af, static vinyl and unavailable controls. This does not prove active playback rotation or an animation defect. No fixture playback or real-provider PASS claimed. Both probes terminate test launch and relaunch ordinary app; final Speelt Nu tab existence check passed.",
+  "ipad_demo_result": "/private/tmp/djc-vinyl-40116-ipad-demo.xcresult",
+  "ipad_demo_frames": [
+    "/private/tmp/djc-vinyl-40116-ipad-demo-images/499C0D54-4AAB-4256-B7E8-38C669F20625.png",
+    "/private/tmp/djc-vinyl-40116-ipad-demo-images/301E1EF9-7E4C-4959-8972-4462AA9BA219.png"
+  ],
+  "fixture_diagnosis": "Prior hierarchy confirms uitest-runtime-fixture-ready active despite cleared playback. The ready fixture was activated; launch arguments were not absent. Source markActiveSession schedules refreshActiveDJSession before its general debug-fixture guard. That path lacks a ready-fixture token and can clear runtime on authority failure; this is a source-supported explanation, not a traced request/runtime root-cause PASS. review_demo takes the existing isDemoMode early return and passed without product changes."
 }
