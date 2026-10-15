@@ -888,3 +888,12 @@ Signed iOS/macOS40077 builds PASS, logs
 `/private/tmp/djc-output-refresh-40077-{ios,mac}-build.log`; diff check PASS.
 No new tests for this reversible icon/loading-placement-only refinement; no live
 output-device refresh or physical interaction proof inferred. Publication paused.
+
+
+Build40077 installed readback (source6f25fb7): physical iPad install/ordinary
+launch PASS; CoreDevice app-only readback confirms bundleVersion40077. Receipts
+`/private/tmp/djc-output-refresh-40077-ipad-{install,launch,readback}.log` and
+readback JSON. Mac mini ordinary app build40077 launch PID92726, strict/deep
+signature, exact files, preferences/entitlements preservation PASS; receipt
+`/private/tmp/djc-output-refresh-40077-mac-install.json`. No physical refresh
+interaction acceptance inferred. MacBook/iPhone not installed in this update.
