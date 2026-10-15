@@ -11417,15 +11417,17 @@ private struct AskDJView: View {
 
                 }
                 ToolbarItemGroup(placement: .confirmationAction) {
-                    Button {
-                        isInputFocused = false
-                        showingClearConfirmation = true
-                    } label: {
-                        Image(systemName: model.isClearingAskDJHistory ? "hourglass" : "trash")
-                            .foregroundStyle(.red)
+                    if !model.askDJMessages.isEmpty {
+                        Button {
+                            isInputFocused = false
+                            showingClearConfirmation = true
+                        } label: {
+                            Image(systemName: model.isClearingAskDJHistory ? "hourglass" : "trash")
+                                .foregroundStyle(.red)
+                        }
+                        .disabled(model.isClearingAskDJHistory)
+                        .help(localizedKey(model.language, "ui.clear.chat"))
                     }
-                    .disabled(model.askDJMessages.isEmpty || model.isClearingAskDJHistory)
-                    .help(localizedKey(model.language, "ui.clear.chat"))
                     SessionConnectionToolbarButton(model: model)
                     askDJRefreshToolbarButton
                 }
@@ -11441,18 +11443,20 @@ private struct AskDJView: View {
                     .accessibilityLabel(localizedKey(model.language, "ui.search.ask.dj"))
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button {
-                        isInputFocused = false
-                        showingClearConfirmation = true
-                    } label: {
-                        Image(systemName: model.isClearingAskDJHistory ? "hourglass" : "trash")
-                            .foregroundStyle(.red)
-                    }
-                    .tint(.red)
-                    .disabled(model.askDJMessages.isEmpty || model.isClearingAskDJHistory)
-                    .help(localizedKey(model.language, "ui.clear.chat"))
-                    .accessibilityLabel(localizedKey(model.language, "ui.clear.chat"))
+                    if !model.askDJMessages.isEmpty {
+                        Button {
+                            isInputFocused = false
+                            showingClearConfirmation = true
+                        } label: {
+                            Image(systemName: model.isClearingAskDJHistory ? "hourglass" : "trash")
+                                .foregroundStyle(.red)
+                        }
+                        .tint(.red)
+                        .disabled(model.isClearingAskDJHistory)
+                        .help(localizedKey(model.language, "ui.clear.chat"))
+                        .accessibilityLabel(localizedKey(model.language, "ui.clear.chat"))
 
+                    }
                     SessionConnectionToolbarButton(model: model)
                     askDJRefreshToolbarButton
                 }
