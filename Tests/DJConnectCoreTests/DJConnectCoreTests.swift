@@ -13701,3 +13701,50 @@ private extension String {
     #expect(legacy)
     #expect(model.homeScreenActionRequest?.action == .askDJ)
 }
+
+@MainActor @Test func pushRegistrationRecoversOnceAfterForegroundOwnerEpochTransition() async throws {
+    let defaults = try testDefaults(), gate = PushReplyGate(), counter = RequestCounter()
+    let session = mockSession(host: "push-owner-transition.local") { request in
+        counter.increment()
+        let response = try httpResponse(for: request, statusCode: 200)
+        let data = Data(#"{"success":true,"push_registered":true,"push_environment":"sandbox"}"#.utf8)
+        if counter.count == 1 { throw DeferredPushReply(gate: gate, response: response, data: data) }
+        return (response, data)
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "push-owner-transition.local", session: session)
+    model.handleRemoteNotificationDeviceToken(Data([4, 5]))
+    await gate.waitForRequest()
+    model.sessionHistory.reset()
+    gate.release()
+    for _ in 0..<100 where !defaults.bool(forKey: "DJConnectPushRegistered") {
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(counter.count == 2)
+    #expect(defaults.bool(forKey: "DJConnectPushRegistered"))
+}
+
+@MainActor @Test func pushOwnerTransitionRecoveryIsBoundedAndDoesNotRetryInBackground() async throws {
+    for background in [false, true] {
+        let defaults = try testDefaults(), first = PushReplyGate(), second = PushReplyGate(), counter = RequestCounter()
+        let host = "push-owner-bounded-\(background).local"
+        let session = mockSession(host: host) { request in
+            counter.increment()
+            throw DeferredPushReply(gate: counter.count == 1 ? first : second,
+                                    response: try httpResponse(for: request, statusCode: 200),
+                                    data: Data(#"{"success":true,"push_registered":true,"push_environment":"sandbox"}"#.utf8))
+        }
+        let model = makePairedMusicDNAModel(defaults: defaults, host: host, session: session)
+        model.handleRemoteNotificationDeviceToken(Data([6, 7]))
+        await first.waitForRequest()
+        if background { model.markInactiveSession() } else { model.sessionHistory.reset() }
+        first.release()
+        if !background {
+            await second.waitForRequest()
+            model.sessionHistory.reset()
+            second.release()
+        }
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(counter.count == (background ? 1 : 2))
+        #expect(!defaults.bool(forKey: "DJConnectPushRegistered"))
+    }
+}

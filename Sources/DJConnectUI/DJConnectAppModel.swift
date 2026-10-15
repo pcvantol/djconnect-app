@@ -8871,7 +8871,7 @@ public final class DJConnectAppModel: ObservableObject {
         #endif
     }
 
-    private func registerStoredPushTokenIfPossible() {
+    private func registerStoredPushTokenIfPossible(recoveringOwnerTransition: Bool = false) {
         guard !isDemoMode,
               pairingStatus == .paired,
               let token = currentAPNsPushToken ?? defaults.string(forKey: legacyPushTokenKey),
@@ -8905,9 +8905,15 @@ public final class DJConnectAppModel: ObservableObject {
         pushRegistrationAttemptEpoch = sessionHistory.responseEpoch
         Task { @MainActor in
             defer {
+                let retryOwnerTransition = !recoveringOwnerTransition && isAppInForeground
+                    && pushRegistrationAttemptEpoch != sessionHistory.responseEpoch
+                    && isCurrentPushRegistration(registrationSignature, requiringCurrentOwnerEpoch: false)
                 if pushRegistrationInFlightSignature == registrationSignature {
                     pushRegistrationInFlightSignature = nil
                     pushRegistrationAttemptEpoch = nil
+                }
+                if retryOwnerTransition {
+                    registerStoredPushTokenIfPossible(recoveringOwnerTransition: true)
                 }
             }
             do {
@@ -9291,10 +9297,10 @@ public final class DJConnectAppModel: ObservableObject {
         logPush("bootstrap unavailable reason=bootstrap_proof_unavailable message=push_bootstrap_not_available_for_home_assistant_installation push_registered=false", level: .warning)
     }
 
-    private func isCurrentPushRegistration(_ signature: String) -> Bool {
+    private func isCurrentPushRegistration(_ signature: String, requiringCurrentOwnerEpoch: Bool = true) -> Bool {
         guard !Task.isCancelled, pairingStatus == .paired,
               pushRegistrationInFlightSignature == signature,
-              pushRegistrationAttemptEpoch == sessionHistory.responseEpoch,
+              (!requiringCurrentOwnerEpoch || pushRegistrationAttemptEpoch == sessionHistory.responseEpoch),
               let token = currentAPNsPushToken else { return false }
         return signature == pushRegistrationSignature(
             pushToken: token, pushEnvironment: Self.pushEnvironment,

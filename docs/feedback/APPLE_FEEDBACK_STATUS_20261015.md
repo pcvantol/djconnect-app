@@ -462,3 +462,38 @@ registration, APNs sandbox receipt in foreground/background/cold start, tap rout
 and production/TestFlight environment delivery remain OPEN; source and signing
 validation do not close those acceptance boundaries. Retained delivery/installation
 gates still apply after the earlier explicitly requested40060 installations.
+
+## Authorized40061 installation and real Pi session screenshots
+
+Owner explicitly lifted the installation/testpush pause. Build40061 installed and
+launched on iPad, MacBook and Mac mini with data/pairing retained; strict signature
+and exact-file verification PASS on both Macs, backups retained. Prior Mac build
+included XCTest-only absolute-read/mach-lookup exceptions;40061 removes only those,
+all other entitlements equal. Mac mini installer initially stopped before mutation
+because its process-name guard saw the separate launchscreen proof app. Replaced
+that check with exact installed executable path and completed safely; proof app
+was not terminated. iPhone installation failed CoreDevice4016 unavailable; not
+installed or claimed current.
+
+Actual Mac mini Session started through native app. Physical Pi code approved
+through native VibeCast UI; Pi changed to LIVE. Selected macmini-m6 via the real
+output picker; system audio readback identifies built-in Mac mini speaker as
+default output. Spotify playback/metadata reached Pi, with Editors album artwork
+and matching gold/brown palette. Physical screenshots:
+/private/tmp/djc-40061-screenshots/pi10-wachtscherm.png and
+/private/tmp/djc-40061-screenshots/pi10-actieve-sessie.png.
+This proves real Mac-to-Pi handoff/rendering, not iPad-origin handoff or Mood/
+Presence acceptance. The iPad autonomously discovered the Session but a retained
+possible-crash report sheet obscures its UI. Direct devicectl screenshot works;
+CUA still fails trusted Node startup. Asked owner to dismiss sheet for clean iPad
+capture; no fake/simulator/cropped replacement screenshot supplied.
+
+Live push40061:Mac APNs callbacks return tokens, but server registration has not
+completed; iPad reports permission_granted=false and does not start registration.
+No APNs delivery PASS. Source regression additionally reproduces a startup-owner
+response-epoch change discarding registration without resuming. Follow-up permits
+one foreground retry in current context only when identity/token/route remain
+unchanged, with no background retry or unbounded retry loop.560 tests PASS30.086s
+including recovery/background/bounded-repeat checks. One earlier parallel run had
+an unrelated timing failure in VibeCast successor-session refresh; final full
+rerun passed. Final log:/private/tmp/djc-push-owner-transition-tests-final.log.
