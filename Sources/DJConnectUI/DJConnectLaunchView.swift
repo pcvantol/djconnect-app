@@ -241,7 +241,7 @@ struct DJConnectLaunchBanner: View {
 
 /// Keep the recognizable brand artwork inside one shared, beveled glass tile.
 /// Launch, About and service sheets must not fall back to the bare app-icon image.
-private struct DJConnectGlassBrandIcon: View {
+struct DJConnectGlassBrandIcon: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 23, style: .continuous)
         DJConnectAppIconView()
@@ -492,7 +492,7 @@ private struct DJConnectLaunchSignalRings: Shape {
     }
 }
 
-struct DJConnectAppIconView: View {
+private struct DJConnectAppIconView: View {
     var body: some View {
         #if os(iOS)
         if let image = UIImage(named: "LaunchIcon") ?? UIImage(named: "AppIcon") {

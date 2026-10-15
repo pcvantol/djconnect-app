@@ -581,3 +581,18 @@ Physical iPad build40065 installed and launched. Screenshot
 and inset beveled glass logo in the actual crash prompt, with readable title and
 subtitle. The prompt remains present; no upload or pairing change was performed.
 Mac build40065 is signed/build-verified, not installed in this follow-up.
+
+## Integral logo/modal audit: build40066
+
+Source inventory of every DJConnect logo reference found16 AboutBanner users:
+all route through the shared glass launch banner. The remaining bare logo in the
+demo album placeholder and three Watch locations (pairing, Welcome sheet, About)
+now use their shared glass-logo wrappers. The phone/tablet/Mac bare asset loader
+is private, so another screen cannot accidentally bypass its wrapper.
+
+Native signed Mac and iOS builds40066 PASS, including Watch compilation/signing.
+Logs: /private/tmp/djc-brand-audit-mac-final.log and
+/private/tmp/djc-brand-audit-ios-watch-final.log. Source audit and scope inventory:
+APPLE_BRANDING_SURFACE_AUDIT_20261015.md. No claim of physical Watch acceptance or
+opening every modal on hardware. This build is not installed in this follow-up;
+physical iPad remains on visually checked40065 and Mac mini on40064.

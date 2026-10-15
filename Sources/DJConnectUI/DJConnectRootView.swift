@@ -3640,14 +3640,8 @@ private struct AnimatedAlbumArtworkView: View {
             )
             if isDemoMode {
                 VStack {
-                    DJConnectAppIconView()
+                    DJConnectGlassBrandIcon()
                         .frame(width: 132, height: 132)
-                        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-                        .shadow(color: Color.black.opacity(0.34), radius: 18, y: 10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                                .stroke(.white.opacity(0.16), lineWidth: 1)
-                        )
                 }
                 .padding(22)
                 .background(

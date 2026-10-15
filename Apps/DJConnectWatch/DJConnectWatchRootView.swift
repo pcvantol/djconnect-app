@@ -1704,12 +1704,7 @@ struct DJConnectWatchRootView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 11) {
                     HStack(alignment: .center, spacing: 9) {
-                        Image("LaunchIcon")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 34, height: 34)
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            .accessibilityHidden(true)
+                        DJConnectWatchGlassBrandIcon(size: 34)
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(watchLocalizedKey(model.language, "watch.pair.djconnect"))
@@ -1848,6 +1843,43 @@ struct DJConnectWatchRootView: View {
 
 }
 
+/// Watch has its own small-screen presentation target; keep its logo treatment
+/// aligned with DJConnectGlassBrandIcon without importing the full phone UI.
+private struct DJConnectWatchGlassBrandIcon: View {
+    let size: CGFloat
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        let corner = size * 0.25
+        let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
+        Image("LaunchIcon")
+            .resizable()
+            .scaledToFit()
+            .clipShape(RoundedRectangle(cornerRadius: corner - 2, style: .continuous))
+            .padding(3)
+            .frame(width: size, height: size)
+            .background {
+                if #available(watchOS 26, *), !reduceTransparency {
+                    shape.fill(.clear).glassEffect(.regular, in: shape)
+                } else if reduceTransparency {
+                    shape.fill(watchDeepNavy)
+                } else {
+                    shape.fill(.ultraThinMaterial)
+                }
+            }
+            .overlay {
+                shape.fill(LinearGradient(stops: [
+                    .init(color: .white.opacity(0.24), location: 0),
+                    .init(color: .white.opacity(0.04), location: 0.42),
+                    .init(color: .clear, location: 0.52)
+                ], startPoint: .topLeading, endPoint: .bottomTrailing))
+                shape.stroke(LinearGradient(colors: [.white.opacity(0.65), .white.opacity(0.08), .white.opacity(0.28)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+            }
+            .accessibilityHidden(true)
+    }
+}
+
 private struct DJConnectWatchWelcomeView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
 
@@ -1856,12 +1888,7 @@ private struct DJConnectWatchWelcomeView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 VStack(spacing: 11) {
-                    Image("LaunchIcon")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 44, height: 44)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .accessibilityHidden(true)
+                    DJConnectWatchGlassBrandIcon(size: 44)
 
                     Text(watchLocalizedKey(model.language, "watch.welcome.to.djconnect"))
                         .font(.headline.weight(.bold))
@@ -2048,12 +2075,7 @@ private struct DJConnectWatchAboutView: View {
             DJConnectWatchCanvas()
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
-                    Image("LaunchIcon")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 44, height: 44)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .accessibilityHidden(true)
+                    DJConnectWatchGlassBrandIcon(size: 44)
                         .frame(maxWidth: .infinity)
 
                     Text("DJConnect")
