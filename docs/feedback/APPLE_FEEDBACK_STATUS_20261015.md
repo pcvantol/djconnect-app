@@ -625,3 +625,14 @@ and iOS builds PASS. Ordinary Mac mini and physical iPad installed40068.
 OPEN: Core writer companion fix (messaging permission pending), MacBook/iPhone
 installation, and real APNs registration/delivery. Existing Mac mini was already
 unpaired; no token restoration, re-pair, Core source mutation or HA restart here.
+
+## Physical iPad WSS E2E request — preflight only
+
+Fresh route readback shows all three configured URLs use the public ngrok origin.
+The installed Hybrid implementation therefore uses external HTTPS for actions;
+local action WSS is not admitted for this hostname. Screenshot/log access works,
+but CUA initialization fails and one fresh physical XCTest attempt timed out
+while enabling automation. Actual all-screen/all-flow E2E remains NOT RUN.
+Matrix and exact evidence: IPAD_WEBSOCKET_E2E_20261015.md. Owner question for an
+existing trusted local HTTPS HA-dev address is pending. No TLS bypass, re-pair,
+server change or fake native PASS was introduced.
