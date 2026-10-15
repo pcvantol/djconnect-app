@@ -336,3 +336,44 @@ wide-Mac screenshot captured and visually inspected: banner, text, artwork and
 status fit cleanly. Isolated ad-hoc demo bundle dev.djconnect.mac.launchproof,
 not the installed personal app; probe stopped afterwards. Receipt:
 /private/tmp/djc-mac-premium-launch-receipt.json. Pending40061; no installation.
+
+## Apple transport queue readback and Pi10 initial diagnosis
+
+Fresh Apple #87 readback (222 comments) confirms selected dependent workpackage
+DJC-APPLE-HYBRID-TRANSPORT-ADOPTION-V1-20261013, comment6149955349. Follow the
+current bugs/corrective work using the same writer and route coordinator. The
+latest producer comment6185756317 is still an EARLY local/unpublished pin
+2c3734d0d336d64a125eeb35dfe7fade69e28126, not final consumer admission.
+Required consumer work: automatic trusted-local WS for Broadcast/supported
+actions; appropriate local HTTP fallback; external HTTPS/HTTP recovery away
+from home; automatic qualified LAN return. Remove normal-use WebSocket toggle
+and migrate old overrides. Validate endpoint/installation TLS identity before
+token release (foreign Wi-Fi is not home LAN). One demultiplexed receive loop,
+request/connection IDs, bounded pending/cancellation/late-response cleanup.
+Use original UUIDv7 operation_id and boot operation_epoch across routes,
+status reconciliation for uncertain sends, immutable 300-second lifetime and
+compact receipts; never blindly replay potentially executed mutations. New
+paired action audience paired_owner_actions and /api/djconnect/v1/actions/paired;
+Broadcast remains subscribe/recover-only, no /websocket/session issuer.
+Bounded liveness/lease/recovery distinguishes quiet playback from dead sockets
+and withdrawal from transport failure; coalesce probes and measure load/latency.
+Same DTO/authority/revision/source-expiry fences on HTTP and events; preserve
+Session, selected subject, draft, choices and scroll without resurrecting data.
+Qualify all feature categories and real Mac/iPhone/iPad LAN-cellular-LAN, foreign
+Wi-Fi, foreground, lease/restart and configuration-recovery transitions. Pin
+final Core schema/fixtures/artifact and compatibility before adoption; follow
+normal reviews/protected delivery/Finalization and existing installation gates.
+Lane links:
+https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6149955349
+https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6185756317
+No transport source adoption was started by this readback.
+
+Pi10 fresh read-only diagnosis: SSH alias djconnect-pi10 resolves to
+rbpi5-djconnect. Ordinary djconnect-client/api services active; actual
+djconnect-wall-kiosk and djconnect-wall-x11vnc both inactive/dead/MainPID0.
+Touch-app screenshot and actual DISPLAY=:0 root screenshot are both black.
+Prior Pi thread confirms the receiver had been started temporarily, with the
+ordinary touch client returning after reboot. No inference that a reboot was
+observed; only present service/screen state is proven. Request to reopen the
+existing kiosk services for E2E is pending; no service changes, update, pairing
+or reboot performed. Screenshots retained temporarily, not committed.
