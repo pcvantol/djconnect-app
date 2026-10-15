@@ -160,6 +160,7 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
         public var snapshotWatermark: Int?
         enum CodingKeys: String, CodingKey { case snapshotWatermark = "snapshot_watermark" }
     }
+    public var sessionMedia: [DJConnectSessionMedia] = []
     public var nativeDelivery: DJConnectNativeMomentDelivery? = nil
     public var djMoments: [DJConnectMoment] = []
     public var presentations: [DJConnectPresentation] = []
@@ -173,6 +174,7 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case session, planner
+        case sessionMedia = "session_media"
         case nativeDelivery = "native_delivery"
         case djMoments = "dj_moments", presentations, playback
         case delivery = "broadcast"
@@ -191,6 +193,7 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
         presentations = (try? c.decode([LossyBroadcastValue<DJConnectPresentation>].self, forKey: .presentations))?.compactMap(\.value) ?? []
         playback = try? c.decode(DJConnectSessionPlayback.self, forKey: .playback)
         delivery = try? c.decode(Delivery.self, forKey: .delivery)
+        sessionMedia = Array(((try? c.decode([LossyBroadcastValue<DJConnectSessionMedia>].self, forKey: .sessionMedia))?.compactMap(\.value) ?? []).prefix(64))
         nativeDelivery = try? c.decode(DJConnectNativeMomentDelivery.self, forKey: .nativeDelivery)
     }
     public init(session: Session, planner: Planner, sessionFlow: DJConnectSessionFlow) {
@@ -270,6 +273,7 @@ public struct DJConnectSessionBroadcastEvent: Codable, Equatable, Sendable {
         public var session: DJConnectBroadcastState.Session?
         public var planner: DJConnectBroadcastState.Planner?
         public var sessionFlow: DJConnectSessionFlow?
+        public var sessionMedia: [DJConnectSessionMedia] = []
         public var nativeDelivery: DJConnectNativeMomentDelivery? = nil
         public var djMoment: DJConnectMoment? = nil
         public var presentation: DJConnectPresentation? = nil
@@ -277,6 +281,7 @@ public struct DJConnectSessionBroadcastEvent: Codable, Equatable, Sendable {
 
         enum CodingKeys: String, CodingKey {
             case session, planner, playback, presentation
+            case sessionMedia = "session_media"
             case nativeDelivery = "native_delivery"
             case djMoment = "dj_moment"
             case sessionFlow = "session_flow"
@@ -287,6 +292,7 @@ public struct DJConnectSessionBroadcastEvent: Codable, Equatable, Sendable {
             session = try? c.decode(DJConnectBroadcastState.Session.self, forKey: .session)
             planner = try? c.decode(DJConnectBroadcastState.Planner.self, forKey: .planner)
             sessionFlow = try? c.decode(DJConnectSessionFlow.self, forKey: .sessionFlow)
+            sessionMedia = Array(((try? c.decode([LossyBroadcastValue<DJConnectSessionMedia>].self, forKey: .sessionMedia))?.compactMap(\.value) ?? []).prefix(64))
             nativeDelivery = try? c.decode(DJConnectNativeMomentDelivery.self, forKey: .nativeDelivery)
             djMoment = try? c.decode(DJConnectMoment.self, forKey: .djMoment)
             presentation = try? c.decode(DJConnectPresentation.self, forKey: .presentation)
@@ -360,6 +366,7 @@ public extension DJConnectSessionRuntime {
         }
         guard sequence > (broadcast.delivery?.snapshotWatermark ?? -1) else { return self }
         var state = broadcast
+        state.sessionMedia = broadcastEvent.payload.sessionMedia
         state.nativeDelivery = broadcastEvent.payload.nativeDelivery
         if let sequence = broadcastEvent.deliverySequence { state.delivery = .init(snapshotWatermark: sequence) }
         if let playback = broadcastEvent.payload.playback { state.playback = playback }

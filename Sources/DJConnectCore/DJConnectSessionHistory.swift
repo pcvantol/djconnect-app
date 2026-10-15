@@ -138,6 +138,8 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
     public var currentDisplayAllowed: Bool?
     public var requiresSpotifyAttribution: Bool?
     public var openAction: DJConnectSessionOpenAction?
+    private var optionalSessionMedia: DJConnectOptionalSessionMedia? = nil
+    public var sessionMedia: DJConnectSessionMedia? { optionalSessionMedia?.value }
     public var highlights: [DJConnectHistoryHighlight]?
     public var id: String { entryID }
     public var reference: DJConnectSessionEntryReference { .init(sessionID: sessionID, entryID: entryID) }
@@ -173,6 +175,7 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
         return fractional.date(from: text) ?? ISO8601DateFormatter().date(from: text)
     }
     enum CodingKeys: String, CodingKey {
+        case optionalSessionMedia = "session_media"
         case historicalViewOnly = "historical_view_only", currentDisplayAllowed = "current_display_allowed"
         case entryID = "entry_id", sessionID = "session_id", order, kind, occurredAt = "occurred_at", retainedUntil = "retained_until"
         case text, playback, turnID = "turn_id", clientMessageID = "client_message_id", originMessageID = "origin_message_id"

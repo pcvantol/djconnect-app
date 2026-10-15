@@ -1214,3 +1214,13 @@ or physical-device acceptance claimed. No physical install or source publication
 - Native ImageRenderer checks across all five mood palettes: `/private/tmp/djc-session-layout-40089-{small,medium,large,activity,island}.png`. Fixed premature contribution truncation found in the medium render. Native view renders are not installed widgets or live Activity/Island acceptance.
 - No new tests for presentation-only preparation. Final iOS Simulator and signed macOS builds PASS. Logs: `/private/tmp/djc-session-layout-40089-ios-final.log`, `/private/tmp/djc-session-layout-40089-mac-final.log`.
 - Full request remains OPEN: artwork/current Moment production adoption, background delivery, real native hosts and hardware acceptance await the Core producer. No physical install or publication.
+
+### Autonomous artwork continuation — 40090
+
+Same existing writer picked up the already admitted artwork consumer, without reordering Speech/Persona. Exact Core producer5c7ecb79/reconciled70c0a300. Implemented bounded authenticated temporary pixel loader, optional Broadcast/history integration and one scoped uncropped native card for current Moment/timeline rows. No pure read starts preparation. See APPLE_SESSION_ARTWORK_ADOPTION_20261015.md for full limits.
+
+- Nine focused tests PASS including late expiry; broad601-test regression PASS before that last additional test. Logs `/private/tmp/djc-artwork-40090-nine-tests.log`, `/private/tmp/djc-artwork-40090-regression.log`.
+- iOS/Watch compile and signed Mac build PASS. Final Mac log `/private/tmp/djc-artwork-40090-mac-final.log`.
+- Native **composed synthetic HTTP** iPhone/iPad pixel+expiry+text preservation tests PASS; final compact layout `/private/tmp/djc-artwork-40090-iphone-compact.xcresult`, `/private/tmp/djc-artwork-40090-ipad.xcresult`. Core's own synthetic PNGs imported from the pinned commit. This is not real HA/provider/WSS/hardware evidence.
+- Visually inspected ready/expired native screens. Earlier XCTest build error and two wrong-container assertions were corrected; failed artifacts retained. Full source no longer claims a JSON-only positive proof.
+- No installation/publication. Full artwork acceptance remains OPEN (explicit older-entry preparation, source/Profile/revision races, native accessibility/Mac/hardware). Next autonomous step is explicit bounded preparation on the existing contract; then broader qualification. Speech/Persona follows artwork, widgets still await separate passive grant.

@@ -397,6 +397,7 @@ struct SessionTimelineScreen: View {
                                     opensActiveComposer: activeSession != nil,
                                     allowsPlaybackActions: liveMessage != nil,
                                     playingActionID: model.playingAskDJActionID,
+                                    artworkModel: model,
                                     playAction: { action in history.playLiveAction(action, for: entry, expectedEpoch: actionEpoch) },
                                     highlights: matchMap[entry.id]?.text == entry.text ? (matchMap[entry.id]?.highlights ?? []) : [],
                                     isSelectedMatch: selectedMatchID == entry.id || initialAnchor == entry.id,
@@ -888,6 +889,7 @@ struct SessionEntryView: View, Equatable {
     var opensActiveComposer = false
     var allowsPlaybackActions = false
     var playingActionID: String? = nil
+    var artworkModel: DJConnectAppModel? = nil
     var playAction: (DJConnectAskDJPlaybackAction) -> Void = { _ in }
     var highlights: [DJConnectHistoryHighlight] = []
     var isSelectedMatch = false
@@ -897,7 +899,7 @@ struct SessionEntryView: View, Equatable {
         lhs.entry == rhs.entry && lhs.language == rhs.language && lhs.messageAdapter == rhs.messageAdapter &&
         lhs.contextEpoch == rhs.contextEpoch && lhs.opensActiveComposer == rhs.opensActiveComposer &&
         lhs.allowsPlaybackActions == rhs.allowsPlaybackActions && lhs.playingActionID == rhs.playingActionID &&
-        lhs.highlights == rhs.highlights && lhs.isSelectedMatch == rhs.isSelectedMatch && lhs.selected == rhs.selected
+        lhs.artworkModel === rhs.artworkModel && lhs.highlights == rhs.highlights && lhs.isSelectedMatch == rhs.isSelectedMatch && lhs.selected == rhs.selected
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
     var body: some View {
@@ -925,6 +927,11 @@ struct SessionEntryView: View, Equatable {
                     if entry.inputType == "voice" { Label(text("ui.session.history.voice"), systemImage: "mic.fill").font(.caption) }
                 } else {
                     VStack(alignment: .leading, spacing: 10) {
+                        if let media = entry.sessionMedia, let model = artworkModel {
+                            SessionArtworkView(media: media, target: .entry(entry.id),
+                                audience: media.artwork.historicalDisplayAllowed ? .history : .activeFlow,
+                                language: language, model: model)
+                        }
                         Label(text(entry.kind == .djMoment ? "ui.session.moment.generic" : "ui.session.history.playback"),
                               systemImage: entry.kind == .djMoment ? "sparkles" : "music.note")
                             .font(.caption.weight(.semibold)).padding(.trailing, 40)

@@ -165,7 +165,9 @@ struct NativeSessionMomentsView: View {
         } else if let moment {
             MomentCard(moment: moment, kind: kind(moment), presentation: presentation(for: moment), language: language,
                 navigationLabel: insightOffer(for: moment)?.label,
-                openInsight: { if let offer = insightOffer(for: moment) { playbackModel?.openMomentTrackInsight(offer) } })
+                openInsight: { if let offer = insightOffer(for: moment) { playbackModel?.openMomentTrackInsight(offer) } },
+                artworkMedia: session.broadcast.sessionMedia.first { $0.sessionID == session.id && $0.target == .moment(moment.id) },
+                artworkModel: playbackModel)
                 .id(moment.id)
                 .transition(.opacity)
                 .accessibilityIdentifier("session-current-moment")
@@ -311,8 +313,13 @@ struct MomentCard: View {
     let language: String
     var navigationLabel: String? = nil
     var openInsight: (() -> Void)? = nil
+    var artworkMedia: DJConnectSessionMedia? = nil
+    var artworkModel: DJConnectAppModel? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            if let media = artworkMedia, let model = artworkModel {
+                SessionArtworkView(media: media, target: .moment(moment.id), audience: .current, language: language, model: model)
+            }
             Text(kind).font(.caption.weight(.bold)).foregroundStyle(.secondary)
             if !moment.title.isEmpty { Text(moment.title).font(.title2.bold()).accessibilityAddTraits(.isHeader) }
             Text(moment.content).font(.title3).fixedSize(horizontal: false, vertical: true)

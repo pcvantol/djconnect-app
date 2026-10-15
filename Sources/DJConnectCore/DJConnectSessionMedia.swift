@@ -3,7 +3,7 @@ import Foundation
 /// Optional owner-only media. This projection and its grant must never be persisted.
 /// Unknown/invalid optional media is discarded independently of the original text.
 public struct DJConnectSessionMedia: Codable, Equatable, Sendable {
-    public enum Audience: Sendable { case current, activeFlow, history }
+    public enum Audience: Equatable, Sendable { case current, activeFlow, history }
     public enum Target: Equatable, Sendable { case moment(String), entry(String) }
     public enum State: String, Codable, Sendable {
         case ready, loading, missing, expired, withdrawn, unavailable
@@ -81,7 +81,7 @@ public struct DJConnectSessionMedia: Codable, Equatable, Sendable {
               let mediaRevision = artwork.mediaRevision, !mediaRevision.isEmpty, mediaRevision.utf8.count <= 128,
               let captured = artwork.capturedAt.flatMap(DJConnectHistoryEntry.date),
               let expires = artwork.expiresAt.flatMap(DJConnectHistoryEntry.date),
-              expires > now, expires > captured, expires.timeIntervalSince(captured) <= 300.001,
+              captured <= now, expires > now, expires > captured, expires.timeIntervalSince(captured) <= 300.001,
               let width = artwork.width, let height = artwork.height,
               width > 0, height > 0, width <= 4096, height <= 4096, width * height <= 16_000_000,
               let subject = artwork.subject, subject.provider == "spotify",
@@ -128,5 +128,15 @@ public struct DJConnectSessionMedia: Codable, Equatable, Sendable {
         let prefix = "/api/djconnect/v1/session/media/image/\(session)/"
         return raw.hasPrefix(prefix) && parts.count == 9 &&
             parts.last?.isEmpty == false && parts.last != "." && parts.last != ".."
+    }
+}
+
+/// Malformed optional media must not suppress an otherwise valid history row.
+struct DJConnectOptionalSessionMedia: Codable, Equatable, Sendable {
+    let value: DJConnectSessionMedia?
+    init(from decoder: Decoder) throws { value = try? DJConnectSessionMedia(from: decoder) }
+    func encode(to encoder: Encoder) throws {
+        if let value { try value.encode(to: encoder) }
+        else { var container = encoder.singleValueContainer(); try container.encodeNil() }
     }
 }

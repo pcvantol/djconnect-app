@@ -681,6 +681,30 @@ final class DJConnectIOSUITests: XCTestCase {
 
         XCTAssertTrue(app.state == .runningForeground)
     }
+    func testSessionArtworkPixelsExpireWithoutLosingMomentText() async throws {
+        let base = URL(string: "http://127.0.0.1:18788")!
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reset"))
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--runtime-fixture", "moment_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "moment_contract"
+        app.launch()
+        let art = app.images["session-authorized-artwork"].firstMatch
+        XCTAssertTrue(art.waitForExistence(timeout: 12))
+        XCTAssertTrue(app.staticTexts["A little date beside this edition of Test edition: Spotify lists 2001-03-04."].exists)
+        try saveMomentScreenshot(app, "session-artwork-ready-synthetic")
+        let absent = NSPredicate(format: "exists == false")
+        let expired = expectation(for: absent, evaluatedWith: art)
+        await fulfillment(of: [expired], timeout: 25)
+        XCTAssertTrue(app.staticTexts["A little date beside this edition of Test edition: Spotify lists 2001-03-04."].exists)
+        XCTAssertFalse(app.buttons["Koppelen"].exists)
+        try saveMomentScreenshot(app, "session-artwork-expired-synthetic")
+        let (metrics, _) = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/metrics"))
+        let values = try XCTUnwrap(JSONSerialization.jsonObject(with: metrics) as? [String: Int])
+        XCTAssertEqual(values["imageReads"], 1)
+        XCTAssertEqual(values["rejected"], 0)
+    }
+
     func testMomentFirstSessionAndIndependentPlayerNavigation() async throws {
         let base = URL(string: "http://127.0.0.1:18787")!
         _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/native_reset"))

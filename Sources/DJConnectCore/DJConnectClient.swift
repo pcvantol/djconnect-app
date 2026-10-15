@@ -19,6 +19,7 @@ public final class DJConnectClient: Sendable {
 
     private let session: URLSession
     private let hybridTransport: DJConnectHybridTransport?
+    private let sessionArtworkTransport: DJConnectSessionArtworkTransport
     private let sessionProjectionSession: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -50,6 +51,7 @@ public final class DJConnectClient: Sendable {
         projectionConfiguration.httpShouldSetCookies = false
         projectionConfiguration.urlCredentialStorage = nil
         self.sessionProjectionSession = URLSession(configuration: projectionConfiguration, delegate: session.delegate, delegateQueue: session.delegateQueue)
+        self.sessionArtworkTransport = DJConnectSessionArtworkTransport(configuration: session.configuration)
         self.encoder = JSONEncoder()
         self.decoder = JSONDecoder()
         self.webSocketFastPath = webSocketFastPath
@@ -368,6 +370,28 @@ public final class DJConnectClient: Sendable {
 
     public func sessionHistoryCapabilities() async throws -> DJConnectSessionHistoryCapabilities {
         try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
+    }
+
+    /// Owner-only optional media read. No preparation, provider lookup or retry
+    /// of an effectful operation. Resource absence never becomes pairing loss.
+    public func sessionArtwork(_ media: DJConnectSessionMedia, sessionID: String,
+                               target: DJConnectSessionMedia.Target,
+                               audience: DJConnectSessionMedia.Audience) async throws -> DJConnectSessionArtworkImage {
+        guard let artwork = media.admittedArtwork(session: sessionID, target: target, audience: audience),
+              let path = artwork.url, let width = artwork.width, let height = artwork.height else {
+            throw DJConnectError.invalidResponse
+        }
+        var request = try authenticatedRequest(path: path)
+        request.timeoutInterval = 8
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("image/png, image/jpeg", forHTTPHeaderField: "Accept")
+        let image = try await sessionArtworkTransport.load(request, width: width, height: height)
+        try Task.checkCancellation()
+        // Decode/transfer time cannot extend the original grant.
+        guard media.admittedArtwork(session: sessionID, target: target, audience: audience) != nil else {
+            throw DJConnectError.invalidResponse
+        }
+        return image
     }
 
     public func savedSessions(cursor: String? = nil) async throws -> DJConnectSessionHistoryPage {

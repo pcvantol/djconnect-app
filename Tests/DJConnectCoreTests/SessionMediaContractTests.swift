@@ -87,3 +87,143 @@ private func artworkDate(_ media: DJConnectSessionMedia) throws -> Date {
     let media = try decodeArtwork(object)
     #expect(media.admittedArtwork(session: media.sessionID, target: try #require(media.target), audience: .activeFlow, at: try artworkDate(media)) == nil)
 }
+
+private final class ArtworkURLProtocol: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        do {
+            #expect(request.httpMethod == "GET")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-artwork-token")
+            #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "ios")
+            #expect(request.cachePolicy == .reloadIgnoringLocalCacheData)
+            #expect(request.url?.path.contains("/session/media/image/session-fixture-1/") == true)
+            let status = Int(request.url?.host?.split(separator: ".").first ?? "") ?? 200
+            let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+                .appendingPathComponent("Fixtures/session-artwork-artist-core-5c7ecb79.png")
+            var data = try Data(contentsOf: file)
+            if status == 201 { data = Data(repeating: 0, count: 2 * 1024 * 1024 + 1) }
+            if status == 202 { data = Data("not an image".utf8) }
+            let code = [201, 202, 203].contains(status) ? 200 : status
+            let response = HTTPURLResponse(url: request.url!, statusCode: code, httpVersion: "HTTP/1.1",
+                                           headerFields: ["Content-Type": "image/png", "Cache-Control": "no-store"])!
+            if status == 203 {
+                let bytes = data
+                DispatchQueue.global().asyncAfter(deadline: .now() + 0.4) { [self] in
+                    client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+                    client?.urlProtocol(self, didLoad: bytes)
+                    client?.urlProtocolDidFinishLoading(self)
+                }
+            } else {
+                client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+                client?.urlProtocol(self, didLoad: data)
+                client?.urlProtocolDidFinishLoading(self)
+            }
+        } catch { client?.urlProtocol(self, didFailWithError: error) }
+    }
+    override func stopLoading() {}
+}
+
+private func liveArtworkExample() throws -> DJConnectSessionMedia {
+    var value = try artworkExample("artist_story")
+    var art = try #require(value["artwork"] as? [String: Any])
+    art["captured_at"] = ISO8601DateFormatter().string(from: Date())
+    art["expires_at"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(60))
+    value["artwork"] = art
+    return try decodeArtwork(value)
+}
+
+@Test func sessionMediaAuthenticatedPixelsAndResourceFailuresKeepPairing() async throws {
+    let media = try liveArtworkExample()
+    let token = DJConnectInMemoryTokenStore(token: "fixture-artwork-token")
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [ArtworkURLProtocol.self]
+    let session = URLSession(configuration: configuration)
+    defer { session.invalidateAndCancel() }
+    for status in [200, 401, 403, 404, 410, 302, 201, 202] {
+        let client = DJConnectClient(baseURL: URL(string: "https://\(status).artwork.invalid")!,
+                                    identity: .init(deviceID: "djconnect-ios-artwork-test", deviceName: "Fixture", clientType: .ios, firmware: "4.0.0", platform: .ios),
+                                    tokenStore: token, session: session)
+        do {
+            let pixels = try await client.sessionArtwork(media, sessionID: media.sessionID,
+                                                        target: try #require(media.target), audience: .activeFlow)
+            #expect(status == 200)
+            #expect(pixels.image.width == 64 && pixels.image.height == 64)
+        } catch let error as DJConnectError {
+            switch status {
+            case 401: #expect(error == .authStale(statusCode: 401, message: nil))
+            case 403: #expect(error == .profile(code: .profileAccessDenied, statusCode: 403, message: nil))
+            case 404, 410: #expect(error == .routeMissing(message: nil))
+            case 302: #expect(error == .server(statusCode: 302, message: nil))
+            case 201: if case .payloadTooLarge = error {} else { Issue.record("Expected bounded stream rejection") }
+            case 202: #expect(error == .invalidResponse)
+            default: Issue.record("Unexpected image failure: \(error)")
+            }
+        }
+        #expect(try token.loadToken() == "fixture-artwork-token")
+    }
+}
+
+@Test func sessionMediaDecoderRejectsMIMEGeometryAndContentMismatch() throws {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let data = try Data(contentsOf: root.appendingPathComponent("Fixtures/session-artwork-artist-core-5c7ecb79.png"))
+    for (mime, width, height) in [("image/jpeg", 64, 64), ("image/png", 65, 64), ("image/png", 4097, 64), ("image/png", 64, 0)] {
+        #expect(throws: DJConnectError.self) {
+            try DJConnectSessionArtworkTransport.decode(data, mime: mime, width: width, height: height)
+        }
+    }
+    #expect(throws: DJConnectError.self) {
+        try DJConnectSessionArtworkTransport.decode(Data(data.prefix(20)), mime: "image/png", width: 64, height: 64)
+    }
+}
+
+@Test func sessionMediaOptionalProjectionDoesNotDropMomentOrHistoryText() throws {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let raw = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/moment-contract-receipt.json"))) as! [String: Any]
+    var snapshot = try #require(raw["snapshot"] as? [String: Any])
+    let original = try JSONDecoder().decode(DJConnectBroadcastState.self, from: JSONSerialization.data(withJSONObject: snapshot))
+    snapshot["session_media"] = [try artworkExample("artist_story"), ["schema_version": "future", "artwork": true]]
+    let augmented = try JSONDecoder().decode(DJConnectBroadcastState.self, from: JSONSerialization.data(withJSONObject: snapshot))
+    #expect(augmented.djMoments == original.djMoments)
+    #expect(augmented.sessionFlow == original.sessionFlow)
+    #expect(augmented.sessionMedia.count == 1)
+    var withdrawn = augmented; withdrawn.clearNativeAuthority()
+    #expect(withdrawn.sessionMedia.isEmpty)
+
+    let history = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-history-producer-receipt.json"))) as! [String: Any]
+    let timeline = try #require(history["archived_timeline"] as? [String: Any])
+    var entry = try #require((timeline["entries"] as? [[String: Any]])?.first)
+    let originalEntry = try JSONDecoder().decode(DJConnectHistoryEntry.self, from: JSONSerialization.data(withJSONObject: entry))
+    entry["session_media"] = ["schema_version": "unknown", "artwork": false]
+    let optional = try JSONDecoder().decode(DJConnectHistoryEntry.self, from: JSONSerialization.data(withJSONObject: entry))
+    #expect(optional.sessionMedia == nil)
+    #expect(optional.text == originalEntry.text && optional.entryID == originalEntry.entryID)
+    #expect(optional.isContractValid == originalEntry.isContractValid)
+    entry["session_media"] = try artworkExample("older_entry_refresh")
+    let valid = try JSONDecoder().decode(DJConnectHistoryEntry.self, from: JSONSerialization.data(withJSONObject: entry))
+    #expect(valid.sessionMedia != nil)
+    #expect(valid.text == originalEntry.text && valid.order == originalEntry.order)
+}
+
+
+@Test func sessionMediaLateBytesCannotExtendOriginalExpiry() async throws {
+    var value = try artworkExample("artist_story")
+    var art = try #require(value["artwork"] as? [String: Any])
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    art["captured_at"] = formatter.string(from: Date())
+    art["expires_at"] = formatter.string(from: Date().addingTimeInterval(0.2))
+    value["artwork"] = art
+    let media = try decodeArtwork(value)
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [ArtworkURLProtocol.self]
+    let session = URLSession(configuration: configuration)
+    defer { session.invalidateAndCancel() }
+    let client = DJConnectClient(baseURL: URL(string: "https://203.artwork.invalid")!,
+        identity: .init(deviceID: "djconnect-ios-artwork-test", deviceName: "Fixture", clientType: .ios, firmware: "4.0.0", platform: .ios),
+        tokenStore: DJConnectInMemoryTokenStore(token: "fixture-artwork-token"), session: session)
+    await #expect(throws: DJConnectError.invalidResponse) {
+        try await client.sessionArtwork(media, sessionID: media.sessionID,
+            target: try #require(media.target), audience: .activeFlow)
+    }
+}
