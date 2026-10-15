@@ -962,16 +962,13 @@ struct SessionComposerContext: View {
                     Spacer()
                     Button { history.selectedEntry = nil } label: {
                         Image(systemName: "xmark")
-                            .symbolRenderingMode(.monochrome)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 32, height: 32)
-                            .background(.black.opacity(0.18), in: Circle())
-                            .overlay(Circle().stroke(.white.opacity(0.24), lineWidth: 1))
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
                     }
-                    .djConnectPlainButtonStyle()
+                    .djConnectButtonStyle(DJConnectButtonStyle(
+                        emphasis: .secondary,
+                        shape: .icon,
+                        usesLiveGlass: false,
+                        iconDiameter: 44
+                    ))
                     .tint(.white)
                     .foregroundStyle(.white)
                     .accessibilityLabel(text("ui.close"))
