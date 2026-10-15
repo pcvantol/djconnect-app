@@ -973,3 +973,13 @@ visually inspected: Kitchen has a distinct purple fill across the whole row whil
 Living Room keeps the ordinary glass surface. No new test for this low-impact
 styling refinement. Diff check PASS; no source publication or physical transfer
 acceptance inferred.
+
+
+Build40079 installed readback (sourcefc5d0fc): iPad install/ordinary launch PASS;
+app-only CoreDevice readback confirms bundleVersion40079, receipts
+`/private/tmp/djc-output-fill-40079-ipad-{install,launch,readback}.log` and JSON.
+Mac mini ordinary app build40079 launch PID25312, signature/exact files and
+preferences/entitlements preservation PASS; receipt
+`/private/tmp/djc-output-fill-40079-mac-install.json`. No physical speaker transfer
+inferred; MacBook/iPhone not installed in this bounded style update. Source
+publication pause and unrelated writer directories preserved.
