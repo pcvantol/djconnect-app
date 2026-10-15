@@ -3,6 +3,11 @@ import Combine
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// Shared feature identity across native tabs, sidebar, heroes and notices.
+enum DJConnectFeatureSymbols {
+    static let djSession = "opticaldisc"
+}
+
 /// Keep screen refresh at the platform's consistent action edge.
 /// Navigation chrome (back and sidebar controls) remains system-owned.
 var djConnectRefreshToolbarPlacement: ToolbarItemPlacement {
@@ -745,7 +750,7 @@ public struct DJConnectRootView: View {
                         VStack(alignment: .leading, spacing: 4) {
                         SidebarItem(
                             title: localizedKey(model.language, "ui.session.title"),
-                            systemImage: "sparkles",
+                            systemImage: DJConnectFeatureSymbols.djSession,
                             isSelected: selectedSection == .djSession,
                             focusTarget: .section(.djSession),
                             focus: $focusedSidebarItem
@@ -1135,7 +1140,7 @@ public struct DJConnectRootView: View {
                 .environment(\.djConnectContentSizeClass, horizontalSizeClass)
                 .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice }
                 .tabItem {
-                    Label(localizedKey(model.language, "ui.session.title"), systemImage: "sparkles")
+                    Label(localizedKey(model.language, "ui.session.title"), systemImage: DJConnectFeatureSymbols.djSession)
                 }
                 .tag(DJConnectSection.djSession)
             NowPlayingView(model: model) { selectedSection = .queue }
@@ -1211,7 +1216,7 @@ public struct DJConnectRootView: View {
             ],
             titles: [localizedKey(model.language, "ui.session.title"), localizedKey(model.language, "ui.now.playing"), "Track Insight",
                      localizedKey(model.language, "ui.discover"), localizedKey(model.language, "ui.more")],
-            symbols: ["sparkles", "music.note", "waveform.path.ecg", "wand.and.stars", "ellipsis"],
+            symbols: [DJConnectFeatureSymbols.djSession, "music.note", "waveform.path.ecg", "wand.and.stars", "ellipsis"],
             scenePhase: scenePhase, selection: selection)
     }
 
@@ -9163,7 +9168,7 @@ private struct DJSessionView: View {
                 }
                 }
             }
-            .djStatusToastOverlay(statusToast, screenImage: "sparkles")
+            .djStatusToastOverlay(statusToast, screenImage: DJConnectFeatureSymbols.djSession)
             .navigationTitle(sessionNavigationTitle)
             .djSessionNavigationTitleStyle(compactPhone: true)
             .toolbar {
@@ -9187,7 +9192,7 @@ private struct DJSessionView: View {
                 #endif
 
             }
-            .djUserNoticeToast(model: model, screenImage: "sparkles")
+            .djUserNoticeToast(model: model, screenImage: DJConnectFeatureSymbols.djSession)
         }
         .accessibilityIdentifier("screen-dj-session")
     }
@@ -9217,12 +9222,12 @@ private struct DJSessionView: View {
     }
 
     private func refreshNowPlayingWithToast() async {
-        statusToast = DJConnectVisualNotice(text: localizedKey(model.language, "ui.session.refresh.loading"), systemImage: "sparkles")
+        statusToast = DJConnectVisualNotice(text: localizedKey(model.language, "ui.session.refresh.loading"), systemImage: DJConnectFeatureSymbols.djSession)
         _ = await model.refreshNowPlaying()
         let didRefresh = await model.refreshActiveDJSession()
         showStatusToast(
             didRefresh ? localizedKey(model.language, "ui.session.refresh.updated") : localizedKey(model.language, "ui.session.unavailable"),
-            systemImage: "sparkles"
+            systemImage: DJConnectFeatureSymbols.djSession
         )
     }
 
@@ -9323,7 +9328,7 @@ private struct IdleDJSessionView: View {
     private func welcomeCopy(compactArtwork: Bool) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
-                Label(localizedKey(model.language, "ui.session.welcome.eyebrow"), systemImage: "sparkles")
+                Label(localizedKey(model.language, "ui.session.welcome.eyebrow"), systemImage: DJConnectFeatureSymbols.djSession)
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(Color(red: 0.89, green: 0.65, blue: 1))
                 if compactArtwork {
@@ -9389,7 +9394,7 @@ struct DJSessionWelcomeArtwork: View {
                     .frame(width: size * 0.85, height: size * 0.85)
                 animatedRecord(size: size)
                 Circle().fill(djConnectIconGradient).frame(width: size * 0.32, height: size * 0.32)
-                Image(systemName: "sparkles").font(.system(size: size * 0.15, weight: .medium)).foregroundStyle(.white)
+                Circle().fill(Color(red: 0.04, green: 0.03, blue: 0.10)).frame(width: size * 0.07, height: size * 0.07)
                 artworkGlyph("music.note", size: size).offset(x: size * 0.35, y: -size * 0.25)
                 artworkGlyph("bubble.left.and.bubble.right", size: size).offset(x: -size * 0.35, y: size * 0.13)
                 HStack(spacing: size * 0.02) {

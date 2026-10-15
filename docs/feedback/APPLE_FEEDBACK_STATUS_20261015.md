@@ -845,3 +845,22 @@ Build40075 installation readback (source e0cbed4):
 - Physical input/tap/live approval is NOT inferred; six-cell editing proof is
   from the native simulator tests above. MacBook/iPhone were not installed in
   this bounded update. Publication pause and unrelated writer files preserved.
+
+
+## General DJ-session identity becomes a vinyl record — build40076
+
+Shared `DJConnectFeatureSymbols.djSession` uses the native scalable `opticaldisc`
+symbol across iPhone tab, iPad native tab, Mac sidebar, welcome eyebrow, Session
+status/user/refresh notices and quiet-session placeholder. The existing large
+native vinyl welcome artwork now has a spindle hole instead of center sparkles.
+Content-kind, Mood and unrelated feature symbols retain their existing meaning.
+No backend contract, Profile data, dependency or bitmap asset changes.
+
+Signed Mac/iOS builds40076 PASS, logs `/private/tmp/djc-vinyl-40076-{mac,ios}-build.log`.
+Existing native iPad portrait/landscape toolbar regression PASS (one test, zero
+failures): `/private/tmp/djc-vinyl-40076-ipad.xcresult`. Exported actual screenshot
+`/private/tmp/djc-vinyl-40076-images/01DB5E64-9EC3-4B27-AFB1-7A3FFF2DADDC.png`
+visually inspected: selected DJ-session tab renders the purple record icon and
+keeps the existing label and glass styling. This is simulator Demo UI, not live
+Session/physical interaction acceptance. `git diff --check` PASS. No new tests
+written for this bounded icon-only change. Source publication remains paused.

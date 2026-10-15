@@ -171,7 +171,7 @@ struct NativeSessionMomentsView: View {
                 .accessibilityIdentifier("session-current-moment")
         } else {
             VStack(alignment: .leading, spacing: 12) {
-                Image(systemName: "sparkles").font(.title).accessibilityHidden(true)
+                Image(systemName: DJConnectFeatureSymbols.djSession).font(.title).accessibilityHidden(true)
                 Text(text("ui.session.quiet")).font(.title2.weight(.semibold))
             }
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)
