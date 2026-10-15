@@ -874,3 +874,17 @@ signed files, strict/deep signature, entitlements and preferences PASS; receipt
 `/private/tmp/djc-vinyl-40076-mac-install.json`. Existing pairing state preserved.
 No physical touch proof inferred; MacBook/iPhone installation not performed in
 this bounded update. Source publication pause preserved.
+
+
+## Output-device refresh spinner inside the button — build40077
+
+OutputSelectorView removes the separate leading purple ProgressView. Its existing
+refresh button conditionally displays a small white native ProgressView instead
+of arrow.clockwise while isLoadingOutputs is true, matching page toolbar behavior.
+The button retains its shared circular glass style, accessible label/identifier
+and existing disabled/loading admission. Existing loadOutputs owns the flag and
+clears it with defer; no playback/backend/action contract changes.
+Signed iOS/macOS40077 builds PASS, logs
+`/private/tmp/djc-output-refresh-40077-{ios,mac}-build.log`; diff check PASS.
+No new tests for this reversible icon/loading-placement-only refinement; no live
+output-device refresh or physical interaction proof inferred. Publication paused.

@@ -10667,8 +10667,13 @@ private struct OutputSelectorView: View {
                 Text(localizedKey(model.language, "ui.output.device"))
                     .font(.headline)
                 Spacer()
-                if model.isLoadingOutputs { ProgressView() }
-                Button { model.loadOutputs() } label: { Image(systemName: "arrow.clockwise").foregroundStyle(.white) }
+                Button { model.loadOutputs() } label: {
+                    if model.isLoadingOutputs {
+                        ProgressView().controlSize(.small).tint(.white)
+                    } else {
+                        Image(systemName: "arrow.clockwise").foregroundStyle(.white)
+                    }
+                }
                     .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
                     .tint(.white)
                     .help(localizedKey(model.language, "ui.output.refresh"))
