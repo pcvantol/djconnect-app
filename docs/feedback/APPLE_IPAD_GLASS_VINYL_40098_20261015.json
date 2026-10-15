@@ -30,5 +30,7 @@
       "/private/tmp/djc-vinyl-40097-b.png"
     ]
   },
-  "limits": "500 backend fault remains separate and is explicitly handed to current Core writer. No physical spinning proof while playback unavailable. No rich-widget or new Speech install claim."
+  "limits": "500 backend fault remains separate and is explicitly handed to current Core writer. No physical spinning proof while playback unavailable. No rich-widget or new Speech install claim.",
+  "extra_patch_commit": "497142e8e4ec46bd027a91aca675d5f1ace47c7a",
+  "reproduction": "Archive base, apply RootView-only patches from selected_code_commits, then RootView-only diff extra_patch_commit^..extra_patch_commit; regenerate project and override CURRENT_PROJECT_VERSION=40098."
 }

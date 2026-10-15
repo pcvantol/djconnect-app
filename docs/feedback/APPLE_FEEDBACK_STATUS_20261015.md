@@ -1347,3 +1347,69 @@ to avoid unneeded verbose failure data. No blanket process termination/deletion.
 Exact hashes/evidence: APPLE_IPAD_GLASS_VINYL_40098_20261015.json.
 Next installation build must exceed40098. Internal free space12GiB at last check;
 active builds, accepted screenshots and necessary failure evidence preserved.
+
+### Exact Core hotfix authorization forwarded
+
+Human explicitly answered “Ja, autoriseer deze exacte hotfix” for Core source
+94e531e4fde0b9fd58a19b85bf231f96ce3a132b: one hotfix PR, normal required checks,
+protected merge and existing internal artifactpublication; existing HA-dev install
+authorization retained. Forwarded exact question/answer to existing Core writer
+01a120e2-b557-76c3-8568-129dbce2f2d2. No claim of actual delivery/install yet.
+Prepared physical retest through existing djconnect://now-playing, /queue and
+/playlists deep links using CoreDevice --payload-url, so tests need not depend on
+the failed XCTest tab hitpoint. These are ordinary app flows, not new test-mode
+or pairing/credential changes. Revalidate only after exact HA-dev installreadback.
+
+### Actual iPad HTTP500 recovery — protected Core fe8c66a1
+
+Exact user94grant was carried out by the existing Core writer: PR1178 protected
+mergefe8c66a120a44faaeb49432729359e6a2055194e; qualified official artifact
+b6849b9f18bf479dcc410c2b612ff8234cebbac72b1b525a4e5d5ac2f2f5229d / formal
+697b23fb091555c027d2b16f26750aa940adc0730c593671ea5239bfd241d24c. Core reports
+164installedfiles/zero mismatches, backup/rollback, only api_handlers.py runtime
+replacement and HA-dev-only restart, preserved pairing/Profilefingerprints.
+Apple independently compared actual container api_handlers.py to protectedGit:
+SHA25693265188508bf0736801a7a02ad49a3d25fc590b12ea3e93c5f8d85c52114ffe MATCH;
+preinstall d461... was different.
+
+Real installed iPad40098 ordinary deep-link flows Now Playing, Queue, Playlists
+and Track Insight were captured with native read-only XCTest probes: all4exit0,
+all4screenshots visually inspected with actual content/no500. Now Playing has
+real loaded art/playing/progress; lists are populated. Track Insight shows real
+track plus explicit unavailable qualified music-analysis message, not invented
+analysis. No fixtures, pairing reset, token/Profile mutation or playback action.
+Fresh actual iPadlog since21:43:0newHTTP500. Actual container logs since restart
+19:41:18Z:0profile_connection_unavailable;76debugresultstatuses200. These counts
+are a bounded observed window, not a permanent guarantee or every-flow PASS.
+Native evidence /private/tmp/djc-http500-physical-fe8/{*xcresult,*-images,
+receipt.json,redacted-runtime-readback.json}. Exact redacted consumer receipt:
+APPLE_IPAD_HTTP500_FE8_20261015.json. Passed the bounded native result back to
+Core under the explicit user-authorized500handoff. Separate Core Finalization
+and unrelated Speech/widget qualification are not inferred.
+
+Physical Settings navigation retry after recovery still failed on inaccessible
+native More-tab hitpoint; recorded separately and did not enable verbose system
+diagnostics. This does not invalidate the4 ordinary deep-link flow screenshots
+and does not establish physical Settings visual acceptance.
+
+### Track Insight particle continuity — installed 40099
+
+Replaced absolute wall-clock multiplied by changing profile speed with a local
+monotonic, integrated motion clock. Rate changes retain travelled phase; inactive,
+background and Reduce Motion states freeze/resume. Particle wraps fade to zero at
+both sides of the seam. Fixed spark slots use fractional population opacity rather
+than integer-count pop-in. Decorative UI only; no durable intelligence or contract
+change. Five focused clock/seam/population tests PASS; signed iOS/Watch and Mac
+builds PASS. Physical iPad app install/readback confirms40099. Pending neutral
+widgets/Speech remain excluded through the selective40098 presentation baseline.
+
+Physical animation acceptance remains OPEN. Bounded native frame probes captured
+a feedback overlay, empty analysis start, and then Settings rather than an
+unobstructed loaded particle scene. Retained evidence, no fabricated smoothness or
+FPS claim. xctrace could not attach by process name or confirmed CoreDevice PID;
+no measured FPS/hitch result. Actual40099 Settings screenshot from the last failed
+animation probe WAS visually inspected and confirms glass cards/labels on physical
+iPad: /private/tmp/djc-particles-40099-ipad-loaded-images/
+1A354C85-C59F-4E19-8633-1187C519D32B.png. The enclosing test failed on wrong-screen
+assertions, not on the glass layout. Receipt:
+APPLE_TRACK_INSIGHT_PARTICLES_40099_20261015.json. Next install must exceed40099.

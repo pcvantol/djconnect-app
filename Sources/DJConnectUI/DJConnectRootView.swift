@@ -7395,6 +7395,15 @@ private struct TrackInsightHeroScene: View {
     let language: String
     var privateArtwork = false
     @State private var playbackAnchor = TrackVibePlaybackAnchor()
+    @State private var motionClock = TrackInsightMotionClock()
+    @Environment(\.scenePhase) private var scenePhase
+
+    private var clockRuns: Bool { isActive && !reduceMotion && scenePhase == .active }
+    private var motionRate: Double { TrackInsightLightField.motionRate(for: profile) }
+
+    private func updateMotionClock() {
+        motionClock.update(running: clockRuns, rate: motionRate, at: ProcessInfo.processInfo.systemUptime)
+    }
 
     private var playbackSignature: String {
         TrackVibePlaybackAnchor.signature(for: playback)
@@ -7402,7 +7411,7 @@ private struct TrackInsightHeroScene: View {
 
     var body: some View {
         Group {
-            if reduceMotion || !isActive {
+            if !clockRuns {
                 TimelineView(.periodic(from: .now, by: 60)) { timeline in
                     scene(date: timeline.date)
                 }
@@ -7413,8 +7422,11 @@ private struct TrackInsightHeroScene: View {
             }
         }
         .onAppear {
+            updateMotionClock()
             playbackAnchor.update(from: playback, at: Date())
         }
+        .onChange(of: clockRuns) { updateMotionClock() }
+        .onChange(of: motionRate) { updateMotionClock() }
         .onChange(of: playbackSignature) {
             playbackAnchor.update(from: playback, at: Date())
         }
@@ -7431,6 +7443,8 @@ private struct TrackInsightHeroScene: View {
 
     private func scene(date: Date) -> some View {
         let phase = TrackVibePlaybackPhase(playback: playback, anchor: playbackAnchor, date: date)
+        let motion = motionClock.frame(at: ProcessInfo.processInfo.systemUptime)
+        let motionDate = Date(timeIntervalSinceReferenceDate: motion.elapsed)
         return GeometryReader { geometry in
             let isCompact = geometry.size.width < 560 || geometry.size.width / max(geometry.size.height, 1) < 1.05
             let artworkSize = min(
@@ -7450,8 +7464,8 @@ private struct TrackInsightHeroScene: View {
             let spectrumHeight = max(isCompact ? 88 : 96, geometry.size.height * (isCompact ? 0.15 : 0.20))
             let spectrumY = geometry.size.height * (isCompact ? 0.88 : 0.86)
             ZStack {
-                TrackInsightPremiumBackground(profile: profile, phase: phase, date: date)
-                TrackInsightLightField(profile: profile, phase: phase, date: date)
+                TrackInsightPremiumBackground(profile: profile, phase: phase, date: motionDate)
+                TrackInsightLightField(profile: profile, phase: phase, date: motionDate, motionTravel: motion.travel)
                 TrackInsightHeroArtwork(
                     insight: insight,
                     profile: profile,
@@ -7529,23 +7543,26 @@ struct TrackInsightLightField: View {
     let profile: TrackVibeProfile
     let phase: TrackVibePlaybackPhase
     let date: Date
+    var motionTravel: Double? = nil
 
     var body: some View {
         Canvas(opaque: false, rendersAsynchronously: true) { context, size in
             let time = date.timeIntervalSinceReferenceDate
             let colors = profile.colors
             let density = min(max(profile.particleDensity, 0.12), 0.95)
-            let motionSpeed = styleSpeed * (0.32 + profile.particleVelocity * 0.72 + profile.pulseSpeed * 0.18)
+            let travel = motionTravel ?? time * Self.motionRate(for: profile)
             let circleCount = Int(10 + density * 22)
             let starCount = Int(3 + profile.waveform * 8 + profile.glow * 4)
-            let sparkCount = Int(4 + profile.pulseSpeed * 5 + phase.energyLift * 7)
+            let sparkCount = 24
+            let sparkPopulation = 4 + profile.pulseSpeed * 5 + phase.energyLift * 7
 
             for index in 0..<circleCount {
                 let seed = Double(index + 1)
                 let lane = noise(seed, 2)
-                let drift = time * motionSpeed * (0.018 + noise(seed, 3) * 0.038)
+                let drift = travel * (0.018 + noise(seed, 3) * 0.038)
                 let xPhase = noise(seed, 0) + drift + sin(time * 0.12 + seed) * 0.018
-                let x = wrap(CGFloat(xPhase)) * size.width
+                let seam = TrackInsightParticleWrap(xPhase)
+                let x = CGFloat(seam.position) * size.width
                 let yBase = noise(seed, 1)
                 let yDrift = sin(time * (0.18 + lane * 0.22) + seed * 0.71) * 0.035
                 let y = size.height * CGFloat(0.14 + yBase * 0.58 + yDrift)
@@ -7555,14 +7572,15 @@ struct TrackInsightLightField: View {
 
                 context.fill(
                     Path(ellipseIn: CGRect(x: x - radius, y: y - radius, width: radius * 2, height: radius * 2)),
-                    with: .color(color.opacity(opacity))
+                    with: .color(color.opacity(opacity * seam.opacity))
                 )
             }
 
             for index in 0..<starCount {
                 let seed = Double(index + 101)
-                let orbit = time * motionSpeed * (0.026 + noise(seed, 2) * 0.044)
-                let x = wrap(CGFloat(noise(seed, 0) + orbit)) * size.width
+                let orbit = travel * (0.026 + noise(seed, 2) * 0.044)
+                let seam = TrackInsightParticleWrap(noise(seed, 0) + orbit)
+                let x = CGFloat(seam.position) * size.width
                 let yPhase = 0.12 + noise(seed, 1) * 0.48
                 let yDrift = cos(time * 0.16 + seed) * 0.026
                 let y = size.height * CGFloat(yPhase + yDrift)
@@ -7570,17 +7588,22 @@ struct TrackInsightLightField: View {
                 let innerRatio = 0.34 + noise(seed, 4) * 0.14
                 let inner = outer * CGFloat(innerRatio)
                 let points = profile.motionStyle == .organic ? 5 : 4
-                let rotation = CGFloat(time * motionSpeed * 0.24 + seed)
+                let rotation = CGFloat(travel * 0.24 + seed)
                 let color = colors[safe: (index + 1) % max(colors.count, 1)] ?? djConnectAccent
                 let star = starPath(center: CGPoint(x: x, y: y), outerRadius: outer, innerRadius: inner, points: points, rotation: rotation)
-                context.fill(star, with: .color(color.opacity(0.10 + profile.glow * 0.16 + phase.energyLift * 0.10)))
+                context.fill(star, with: .color(color.opacity((0.10 + profile.glow * 0.16 + phase.energyLift * 0.10) * seam.opacity)))
             }
 
             for index in 0..<sparkCount {
+                let visibility = TrackInsightParticleWrap.populationOpacity(index: index, population: sparkPopulation)
+                guard visibility > 0 else { continue }
                 let seed = Double(index + 211)
-                let fall = time * motionSpeed * (0.05 + noise(seed, 2) * 0.08)
-                let x = wrap(CGFloat(noise(seed, 0) + fall * 0.52)) * size.width
-                let y = wrap(CGFloat(noise(seed, 1) + fall)) * size.height
+                let fall = travel * (0.05 + noise(seed, 2) * 0.08)
+                let seamX = TrackInsightParticleWrap(noise(seed, 0) + fall * 0.52)
+                let seamY = TrackInsightParticleWrap(noise(seed, 1) + fall)
+                let x = CGFloat(seamX.position) * size.width
+                let y = CGFloat(seamY.position) * size.height
+                let opacity = visibility * seamX.opacity * seamY.opacity
                 let sparkLength = 12 + profile.pulseSpeed * 10 + phase.energyLift * 18 + noise(seed, 3) * 18
                 let length = CGFloat(sparkLength)
                 let tilt = CGFloat(-0.7 + noise(seed, 4) * 1.4)
@@ -7595,7 +7618,7 @@ struct TrackInsightLightField: View {
                 context.stroke(
                     spark,
                     with: .linearGradient(
-                        Gradient(colors: [.clear, color.opacity(0.20 + phase.energyLift * 0.22), .clear]),
+                        Gradient(colors: [.clear, color.opacity((0.20 + phase.energyLift * 0.22) * opacity), .clear]),
                         startPoint: start,
                         endPoint: end
                     ),
@@ -7606,24 +7629,16 @@ struct TrackInsightLightField: View {
         .blur(radius: 0.3)
     }
 
-    private var styleSpeed: Double {
+    static func motionRate(for profile: TrackVibeProfile) -> Double {
+        let styleSpeed: Double
         switch profile.motionStyle {
-        case .dreamy:
-            return 0.58
-        case .energetic:
-            return 1.42
-        case .organic:
-            return 0.82
-        case .dark:
-            return 0.70
-        case .balanced:
-            return 1.0
+        case .dreamy: styleSpeed = 0.58
+        case .energetic: styleSpeed = 1.42
+        case .organic: styleSpeed = 0.82
+        case .dark: styleSpeed = 0.70
+        case .balanced: styleSpeed = 1.0
         }
-    }
-
-    private func wrap(_ value: CGFloat) -> CGFloat {
-        let remainder = value.truncatingRemainder(dividingBy: 1)
-        return remainder < 0 ? remainder + 1 : remainder
+        return styleSpeed * (0.32 + profile.particleVelocity * 0.72 + profile.pulseSpeed * 0.18)
     }
 
     private func noise(_ seed: Double, _ offset: Double) -> Double {
