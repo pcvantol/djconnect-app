@@ -62,8 +62,9 @@ struct NativeBottomTabBar: UIViewControllerRepresentable {
                   notification.userInfo?[UIResponder.keyboardIsLocalUserInfoKey] as? Bool != false,
                   let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
             let windowFrame = window.convert(frame, from: window.screen.coordinateSpace)
-            let localFrame = view.convert(windowFrame, from: window)
-            let overlap = view.bounds.intersection(localFrame)
+            // SwiftUI may already have reduced this controller's frame above
+            // the keyboard. The window still covers the complete scene.
+            let overlap = window.bounds.intersection(windowFrame)
             setTabBarHidden(!overlap.isNull && overlap.height > 1, animated: true)
         }
 
