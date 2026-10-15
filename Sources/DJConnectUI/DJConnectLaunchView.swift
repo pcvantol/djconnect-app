@@ -110,30 +110,59 @@ private struct DJConnectLaunchView: View {
 
             ZStack {
                 DJConnectLaunchCanvasBackground()
-                VStack(spacing: 24) {
-                    VStack(spacing: 10) {
-                        DJConnectLaunchBanner()
-                            .frame(width: bannerWidth)
+                #if os(macOS)
+                if proxy.size.width >= 880 {
+                    HStack(spacing: 44) {
+                        VStack(spacing: 28) {
+                            DJConnectLaunchBanner()
+                            launchStatus
+                        }
+                        .frame(width: 400)
+                        DJSessionWelcomeArtwork()
+                            .frame(width: 340, height: 340)
+                            .accessibilityHidden(true)
                     }
-                    DJSessionWelcomeArtwork()
-                        .frame(width: bannerWidth, height: bannerWidth * 0.72)
-                        .accessibilityHidden(true)
-                    Text("v\(DJConnectVersionInfo.displayVersion)")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.58))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.82)
-                    ProgressView()
-                        .controlSize(.regular)
-                        .tint(.white.opacity(0.86))
-                        .accessibilityLabel("DJConnect laden")
+                    .padding(36)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .accessibilityElement(children: .combine)
+                } else {
+                    compactLaunch(bannerWidth: bannerWidth, shortestSide: shortestSide)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .offset(y: -shortestSide * 0.04)
-                .accessibilityElement(children: .combine)
+                #else
+                compactLaunch(bannerWidth: bannerWidth, shortestSide: shortestSide)
+                #endif
             }
         }
     }
+
+    private var launchStatus: some View {
+        VStack(spacing: 16) {
+            Text("v\(DJConnectVersionInfo.displayVersion)")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.70))
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+            ProgressView()
+                .controlSize(.regular)
+                .tint(.white.opacity(0.86))
+                .accessibilityLabel("DJConnect laden")
+        }
+    }
+
+    private func compactLaunch(bannerWidth: CGFloat, shortestSide: CGFloat) -> some View {
+        VStack(spacing: 24) {
+            DJConnectLaunchBanner()
+                .frame(width: bannerWidth)
+            DJSessionWelcomeArtwork()
+                .frame(width: bannerWidth, height: bannerWidth * 0.72)
+                .accessibilityHidden(true)
+            launchStatus
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .offset(y: -shortestSide * 0.04)
+        .accessibilityElement(children: .combine)
+    }
+
 }
 
 private struct DJConnectLaunchCanvasBackground: View {
