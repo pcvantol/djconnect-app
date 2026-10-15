@@ -412,3 +412,14 @@ palette while artwork is present; actual live mood transition is NOT_RUN.
 
 Accumulated Apple40061 local regression suite552 PASS29.595s in
 /private/tmp/djc-40061-consolidated-tests.log. No new Apple installation.
+
+## Hybrid detailed Apple handoff reconciled
+
+Read the newer Core→Apple handoff6186713492, which supersedes the coarse early
+checkpoint details but still explicitly lacks a final qualified producer pin.
+Prepared HYBRID_TRANSPORT_APPLE_ADOPTION_V1.md with current-source gaps, bounded
+implementation order and separate Core/Swift/native/installed/joint acceptance.
+Existing route/replay/context fixes are preserved; no legacy toggle activation,
+new paired-action Swift implementation or mutable Core schema adoption yet.
+The setting/legacy issuer will be retired as part of actual automatic adoption,
+not represented as already implemented. No external ACK/comment was posted.
