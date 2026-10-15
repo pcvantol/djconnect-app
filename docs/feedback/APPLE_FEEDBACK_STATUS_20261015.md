@@ -864,3 +864,13 @@ visually inspected: selected DJ-session tab renders the purple record icon and
 keeps the existing label and glass styling. This is simulator Demo UI, not live
 Session/physical interaction acceptance. `git diff --check` PASS. No new tests
 written for this bounded icon-only change. Source publication remains paused.
+
+
+Build40076 installed readback (source e5d931f): physical iPad install and ordinary
+launch PASS; app-only CoreDevice readback confirms bundleVersion40076. Receipts
+`/private/tmp/djc-vinyl-40076-ipad-{install,launch,readback}.log` and readback JSON.
+Mac mini `/Applications/DJConnect.app` build40076 ordinary launch PID87869, exact
+signed files, strict/deep signature, entitlements and preferences PASS; receipt
+`/private/tmp/djc-vinyl-40076-mac-install.json`. Existing pairing state preserved.
+No physical touch proof inferred; MacBook/iPhone installation not performed in
+this bounded update. Source publication pause preserved.
