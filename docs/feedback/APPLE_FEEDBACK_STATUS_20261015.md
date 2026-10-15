@@ -997,3 +997,13 @@ PASS (one test, zero failures), `/private/tmp/djc-output-alphabetic-40080-ipad.x
 Signed iOS/macOS40080 builds PASS, logs
 `/private/tmp/djc-output-alphabetic-40080-{ios,mac}-build.log`; diff check PASS.
 No source publication or additional physical speaker-transfer claim.
+
+
+Build40080 installed readback (sourcedabe77d): iPad install/ordinary launch PASS;
+CoreDevice app-only readback confirms bundleVersion40080, receipts
+`/private/tmp/djc-output-alphabetic-40080-ipad-{install,launch,readback}.log` and
+readback JSON. Mac mini ordinary app build40080 launch PID30467, signature/exact
+files and preferences/entitlements preservation PASS; receipt
+`/private/tmp/djc-output-alphabetic-40080-mac-install.json`. No physical speaker
+transfer inferred; MacBook/iPhone not installed in this bounded sort update.
+Source publication pause and unrelated writer directories preserved.
