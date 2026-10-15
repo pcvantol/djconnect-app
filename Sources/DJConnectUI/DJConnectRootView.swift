@@ -9436,13 +9436,14 @@ struct DJSessionWelcomeArtwork: View {
                 Circle().fill(Color(red: 0.04, green: 0.03, blue: 0.10)).frame(width: size * 0.07, height: size * 0.07)
                 artworkGlyph("music.note", size: size).offset(x: size * 0.35, y: -size * 0.25)
                 artworkGlyph("bubble.left.and.bubble.right", size: size).offset(x: -size * 0.35, y: size * 0.13)
-                HStack(spacing: size * 0.02) {
+                HStack(spacing: size * 0.012) {
                     ForEach(Array([10.0, 18, 28, 15, 34, 23, 12, 27, 17].enumerated()), id: \.offset) { bar in
                         Capsule().fill(djConnectIconGradient)
-                            .frame(width: size * 0.025, height: size * 0.22 * bar.element / 34)
+                            .frame(width: size * 0.015, height: size * 0.10 * bar.element / 34)
                     }
                 }
-                .padding(.horizontal, size * 0.075).padding(.vertical, size * 0.045)
+                // Match the two square badges exactly in height.
+                .frame(width: size * 0.32, height: size * 0.18)
                 .background(.ultraThinMaterial, in: Capsule())
                 .overlay { Capsule().stroke(.white.opacity(0.2)) }
                 .offset(x: size * 0.16, y: size * 0.32)
