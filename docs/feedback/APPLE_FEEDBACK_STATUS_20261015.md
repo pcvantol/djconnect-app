@@ -703,3 +703,34 @@ and preferences preserved (/private/tmp/djc-artsize-40071-mac-install.json).
 No new low-impact layout tests; physical visual interaction remains unqualified.
 MacBook/iPhone have not been updated during this increment. Source publication
 pause preserved; artwork adoption continues separately from this size adjustment.
+
+
+## Open Session menu stability — iOS build40072
+
+Owner reports flickering VibeCast/Refresh rows in the open iPhone ellipsis menu.
+894023f extracts a native SessionMoreMenu behind an equality boundary containing
+only Session/authority epoch, language, actual action availability and permissions.
+It observes neither AppModel nor playback/status/timing itself. Background
+isRefreshing no longer toggles Refresh availability: overlapping refresh is still
+coalesced by the existing refresh owner. Real pairing/Session/authority changes
+still invalidate the menu; this is not a frozen authorization snapshot.
+
+Native isolated iPad simulator test PASS: menu stays open across8one-second
+playback ticks, same label/frame/disabled demo permission and normal dismissal.
+Actual screenshot playback advances0:53→1:02 while the menu stays stable. Before
+and after images were exported and visually inspected. Exact result
+/private/tmp/djc-session-menu-stable.xcresult. Demo has only Refresh, so this is
+not two-row real VibeCast/handoff acceptance or physical iPhone proof.
+
+Signed native iOS40072 build PASS. Physical iPhone unavailable in fresh CoreDevice
+inventory; no installation there is claimed. Mac menu uses a different toolbar
+and is unchanged (Mac mini stays40071). iPad installation receipt follows below.
+No source push/CI dispatch, new pairing, backend or Core changes. The selected
+artwork loader/card continuation remains separate from this targeted menu fix.
+
+Follow-up exact compact iPhone simulator test also PASS:
+/private/tmp/djc-session-menu-iphone.xcresult and .log. Same8tick native-menu
+stability assertions; no physical iPhone or two-item live handoff proof.
+Physical iPad40072 install and ordinary launch PASS, receipts
+/private/tmp/djc-session-menu-40072-ipad-install.log and -launch.log. No physical
+tapping claim. All unrelated writer WIP preserved; bounded source is894023f.
