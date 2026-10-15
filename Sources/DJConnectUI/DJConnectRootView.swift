@@ -13600,9 +13600,15 @@ struct AskDJInputBar: View {
         #endif
         .background {
             if floating {
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .opacity(reduceTransparency ? 1 : 0.65)
+                ZStack {
+                    if reduceTransparency {
+                        RoundedRectangle(cornerRadius: 26, style: .continuous).fill(.ultraThinMaterial)
+                    } else {
+                        Color.clear
+                            .glassEffect(.regular.tint(.black.opacity(0.04)),
+                                         in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+                    }
+                }
                     .overlay {
                         RoundedRectangle(cornerRadius: 26, style: .continuous)
                             .stroke(.white.opacity(0.16), lineWidth: 1)
@@ -13611,13 +13617,13 @@ struct AskDJInputBar: View {
                 #if os(macOS)
                 Rectangle()
                     .fill(.ultraThinMaterial)
-                    .opacity(reduceTransparency ? 1 : 0.65)
+                    .opacity(reduceTransparency ? 1 : 0.85)
                     .ignoresSafeArea(.container, edges: .bottom)
                 #else
                 ZStack(alignment: .top) {
                     Rectangle()
                         .fill(.ultraThinMaterial)
-                    .opacity(reduceTransparency ? 1 : 0.65)
+                    .opacity(reduceTransparency ? 1 : 0.85)
                     LinearGradient(
                         colors: [
                             Color(red: 0.06, green: 0.43, blue: 1.00).opacity(0.22),

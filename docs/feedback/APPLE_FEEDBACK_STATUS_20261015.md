@@ -1112,3 +1112,21 @@ Native Demo-fixture screenshot visually inspected:
 macOS build40084 PASS: /private/tmp/djc-translucent-composer-40084-mac.log.
 No physical-device installation or source publication; pending widget foundation
 remains uninstalled as recorded above.
+
+Translucency visual refinement (supersedes the65%alpha prototype above): lowering
+material opacity exposed readable unblurred background paragraphs. Native clear
+Glass also retained too much source text/refraction. Both prototype screenshots
+are retained, but neither is the final design or an installed acceptance claim.
+The final floating bar uses lightly tinted native regular Glass, which transmits
+backdrop colors while blurring underlying words; the compact editor keeps the
+lighter fills. Reduce Transparency retains the original material fallback;
+nonfloating desktop material uses85% rather than the prototype65%.
+
+Final iPhone native regression PASS(1executed,0failures):
+/private/tmp/djc-translucent-frosted-40084-iphone.xcresult.
+Final visual QA PASS for the Demo-fixture expanded composer, clear entered text
+and softened underlying paragraph:
+/private/tmp/djc-translucent-frosted-40084-images/297EE35C-1ACE-488E-B66B-DFEF2B8E7B11.png.
+Final macOS compile build40084 PASS:
+/private/tmp/djc-translucent-frosted-40084-mac.log.
+No installation or publication.
