@@ -13,7 +13,7 @@ struct NativeBottomTabBar: UIViewControllerRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(selection: $selection) }
 
     func makeUIViewController(context: Context) -> UITabBarController {
-        let controller = UITabBarController()
+        let controller = KeyboardAwareTabBarController()
         controller.overrideUserInterfaceStyle = .dark
         controller.mode = .tabBar
         controller.traitOverrides.horizontalSizeClass = .compact
@@ -42,6 +42,35 @@ struct NativeBottomTabBar: UIViewControllerRepresentable {
     private func hostedScreen(_ screen: AnyView) -> AnyView {
         AnyView(screen.environment(\.colorScheme, .dark)
             .environment(\.scenePhase, scenePhase).tint(djConnectAccent))
+    }
+
+    /// UIKit also updates the content safe area when hiding its tab bar, so
+    /// the composer moves down into the space released above the keyboard.
+    @MainActor final class KeyboardAwareTabBarController: UITabBarController {
+        override func viewDidLoad() {
+            super.viewDidLoad()
+            NotificationCenter.default.addObserver(self, selector: #selector(keyboardFrameChanged(_:)),
+                name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)),
+                name: UIResponder.keyboardWillHideNotification, object: nil)
+        }
+
+        deinit { NotificationCenter.default.removeObserver(self) }
+
+        @objc private func keyboardFrameChanged(_ notification: Notification) {
+            guard let window = viewIfLoaded?.window,
+                  notification.userInfo?[UIResponder.keyboardIsLocalUserInfoKey] as? Bool != false,
+                  let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+            let windowFrame = window.convert(frame, from: window.screen.coordinateSpace)
+            let localFrame = view.convert(windowFrame, from: window)
+            let overlap = view.bounds.intersection(localFrame)
+            setTabBarHidden(!overlap.isNull && overlap.height > 1, animated: true)
+        }
+
+        @objc private func keyboardWillHide(_ notification: Notification) {
+            guard viewIfLoaded?.window != nil else { return }
+            setTabBarHidden(false, animated: true)
+        }
     }
 
     @MainActor final class Coordinator: NSObject, UITabBarControllerDelegate {
