@@ -38,8 +38,11 @@ References checked during this investigation:
 
 Before any global restart, coordinate with the existing Core writer and other
 active container leases. Apple has requested the next natural idle window under
-the user's existing HTTP/WS handoff authorization. Do not interrupt live
-Speech/Persona labs or assume a response authorizes a new Core source scope.
+the user's existing HTTP/WS handoff authorization. Core subsequently confirmed its own Speech/hassfest lab containers have ended,
+but homeassistant, music-assistant-server, Wyoming and an existing Apple presence
+container remain active without a coordinated restart window. Core explicitly
+did not release those shared resources. Do not interrupt active leases or assume
+a response authorizes a new Core source scope.
 
 At a coordinated window: capture current settings and container health, use the
 supported Desktop setting, then repeat an isolated no-mount/read-only bounded
