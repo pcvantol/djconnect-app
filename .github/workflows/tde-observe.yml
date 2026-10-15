@@ -27,13 +27,8 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
 
-      - name: Set up supported TDE Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
-        with:
-          python-version: '3.14'
-
       - name: Verify runner Python
-        run: python3 --version
+        run: python3.14 --version
 
       - name: Generate canonical coverage input
         run: |
@@ -42,7 +37,7 @@ jobs:
 
       - name: Install published TDE runtime
         run: |
-          python_bin="$(command -v python3)"
+          python_bin="$(command -v python3.14)"
           "$python_bin" -S -m venv "$RUNNER_TEMP/tde-venv"
           echo "$RUNNER_TEMP/tde-venv/bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/tde-venv/bin/python" -m pip install --upgrade pip
