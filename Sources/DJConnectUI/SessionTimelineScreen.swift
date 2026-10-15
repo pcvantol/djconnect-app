@@ -844,13 +844,25 @@ private struct SessionMoreMenu: View, Equatable {
         Menu {
             if showsHandoff {
                 Button(action: openHandoff) {
-                    Label(text("ui.vibecast.handoff.title"), systemImage: "tv.badge.wifi")
+                    Label {
+                        Text(text("ui.vibecast.handoff.title"))
+                    } icon: {
+                        Image(systemName: "tv.badge.wifi")
+                            .renderingMode(.original)
+                            .foregroundStyle(.white)
+                    }
                 }
                 .accessibilityIdentifier("session-handoff-toggle")
             }
             if let refreshAction {
                 Button(action: refreshAction) {
-                    Label(text("ui.refresh"), systemImage: "arrow.clockwise")
+                    Label {
+                        Text(text("ui.refresh"))
+                    } icon: {
+                        Image(systemName: "arrow.clockwise")
+                            .renderingMode(.original)
+                            .foregroundStyle(.white)
+                    }
                 }
                 // Background polling is not an unavailable user action. The
                 // existing refresh owner already coalesces overlapping requests.
@@ -860,6 +872,7 @@ private struct SessionMoreMenu: View, Equatable {
         } label: {
             Image(systemName: "ellipsis").foregroundStyle(.white)
         }
+        .tint(.white)
         .accessibilityLabel(text("ui.more"))
         .accessibilityIdentifier("session-more-menu")
     }

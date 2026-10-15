@@ -1673,7 +1673,7 @@ extension DJConnectIOSUITests {
 
     func testSessionMoreMenuRemainsOpenAcrossPlaybackTicks() throws {
         guard UIDevice.current.userInterfaceIdiom == .phone else { throw XCTSkip("iPad exposes actions directly") }
-        let app = launchSessionUIDemo()
+        let app = launchSessionUIDemo(additionalArguments: ["--uitest-vibecast-dialog"])
         let menu = app.buttons["session-more-menu"]
         XCTAssertTrue(menu.waitForExistence(timeout: 10))
         let toolbarIDs = ["session-connection-toggle", "session-mood-toggle", "session-presence-toggle",
@@ -1686,6 +1686,7 @@ extension DJConnectIOSUITests {
         menu.tap()
         let refresh = app.buttons["screen-refresh"]
         XCTAssertTrue(refresh.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["session-handoff-toggle"].exists)
         let originalFrame = refresh.frame
         let initial = XCTAttachment(screenshot: app.screenshot())
         initial.name = "session-menu-open-before-playback-ticks"; initial.lifetime = .keepAlways; add(initial)

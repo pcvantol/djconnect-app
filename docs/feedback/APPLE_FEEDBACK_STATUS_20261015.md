@@ -1007,3 +1007,25 @@ files and preferences/entitlements preservation PASS; receipt
 `/private/tmp/djc-output-alphabetic-40080-mac-install.json`. No physical speaker
 transfer inferred; MacBook/iPhone not installed in this bounded sort update.
 Source publication pause and unrelated writer directories preserved.
+
+
+## White Session More-menu icons — iOS build40081
+
+VibeCast and Refresh icons inside the native Session More Menu explicitly render
+white original-mode SF Symbols rather than inheriting the purple application
+template tint. Menu tint is white; action labels, disabled admission and native
+menu semantics are retained. This menu is iOS-only; Mac has direct actions.
+Existing iPhone menu stability test now uses the existing DEBUG presentation flag
+to include both actions in Demo, without backend handoff authority. PASS: one
+executed test, zero failures, eight playback ticks with stable menu geometry and
+complete toolbar before/after. `/private/tmp/djc-white-menu-40081-iphone.xcresult`.
+Actual native simulator screenshot visually inspected: both icons are white,
+including after playback ticks; Refresh text remains disabled in Demo as expected.
+`/private/tmp/djc-white-menu-40081-images/B87C2A45-52B1-44A4-9A34-E6E85791222A.png`.
+Signed iOS40081 build PASS: `/private/tmp/djc-white-menu-40081-ios-build.log`.
+Diff check PASS. No new test added, no backend contract or source publication.
+
+Fresh physical iPhone inventory on Mac mini and existing MacBook SSH connection
+both report paired/unavailable. No physical iPhone installation claimed; pending
+until connectivity returns. Ordinary Mac installation stays40080 because this
+menu change is iOS-only. iPad installation receipt follows after actual readback.
