@@ -231,7 +231,6 @@ struct SessionTimelineScreen: View {
     @State private var priorSearchPosition: String?
     @State private var query = ""
     @State private var searching = false
-    @State private var showingHandoff = false
     @State private var selectedMatchID: String?
     @State private var positionUnavailable = false
     @State private var retryRefreshing = false
@@ -257,6 +256,16 @@ struct SessionTimelineScreen: View {
         false
         #endif
     }
+    private var allowsHandoffPresentation: Bool {
+        guard activeSession != nil else { return false }
+        #if DEBUG
+        // Native presentation proof uses the real button; Demo still cannot approve.
+        if model.isDemoMode, ProcessInfo.processInfo.arguments.contains("--uitesting"),
+           ProcessInfo.processInfo.arguments.contains("--uitest-vibecast-dialog") { return true }
+        #endif
+        return !model.isDemoMode
+    }
+
     private var usesExpandedToolbar: Bool {
         #if os(iOS)
         UIDevice.current.userInterfaceIdiom == .pad
@@ -502,23 +511,19 @@ struct SessionTimelineScreen: View {
                     if !usesExpandedToolbar { sessionSearchToolbarButton(proxy: proxy) }
                     #endif
                     #if os(macOS)
-                    if let activeSession, !model.isDemoMode {
-                        Button { showingHandoff.toggle() } label: {
+                    if allowsHandoffPresentation {
+                        Button { model.isShowingVibeCastSessionStart = true } label: {
                             Image(systemName: "tv.badge.wifi")
                                 .foregroundStyle(model.vibeCastHandoffApproved ? djConnectAccent : .white)
                         }
                         .accessibilityLabel(text("ui.vibecast.handoff.title"))
                         .accessibilityIdentifier("session-handoff-toggle")
                         .help(text("ui.vibecast.handoff.title"))
-                        .popover(isPresented: $showingHandoff) {
-                            VibeCastHandoffPopover(model: model, session: activeSession, openQueueAction: openQueueAction)
-                            .presentationCompactAdaptation(.popover)
-                        }
                     }
                     #else
                     if usesExpandedToolbar {
-                        if activeSession != nil && !model.isDemoMode {
-                            Button { showingHandoff = true } label: {
+                        if allowsHandoffPresentation {
+                            Button { model.isShowingVibeCastSessionStart = true } label: {
                                 Image(systemName: "tv.badge.wifi")
                                     .foregroundStyle(model.vibeCastHandoffApproved ? djConnectAccent : .white)
                             }
@@ -534,12 +539,12 @@ struct SessionTimelineScreen: View {
                             .accessibilityLabel(text("ui.refresh"))
                             .accessibilityIdentifier("screen-refresh")
                         }
-                    } else if (activeSession != nil && !model.isDemoMode) || refreshAction != nil {
+                    } else if allowsHandoffPresentation || refreshAction != nil {
                         SessionMoreMenu(
                             sessionID: sessionID, authorityEpoch: history.responseEpoch, language: model.language,
-                            showsHandoff: activeSession != nil && !model.isDemoMode,
+                            showsHandoff: allowsHandoffPresentation,
                             isRefreshEnabled: !model.isDemoMode && model.pairingStatus == .paired,
-                            openHandoff: { showingHandoff = true }, refreshAction: refreshAction
+                            openHandoff: { model.isShowingVibeCastSessionStart = true }, refreshAction: refreshAction
                         )
                         .equatable()
                     }
@@ -554,14 +559,6 @@ struct SessionTimelineScreen: View {
                 }
                 #endif
             }
-            #if os(iOS)
-            .sheet(isPresented: $showingHandoff) {
-                if let activeSession {
-                    VibeCastHandoffPopover(model: model, session: activeSession, openQueueAction: openQueueAction)
-                        .presentationDetents([.medium, .large])
-                }
-            }
-            #endif
             .onAppear {
                 guard activeSession != nil, initialAnchor == nil else { return }
                 Task { @MainActor in
@@ -591,8 +588,9 @@ struct SessionTimelineScreen: View {
                     try? await Task.sleep(for: .seconds(10))
                 }
             }
-            .onChange(of: activeSession?.id) { showingHandoff = false }
-            .onChange(of: history.profileScopeActive) { showingHandoff = false }
+            .onChange(of: activeSession?.id) { model.isShowingVibeCastSessionStart = false }
+            .onChange(of: history.profileScopeActive) { model.isShowingVibeCastSessionStart = false }
+            .onChange(of: history.responseEpoch) { model.isShowingVibeCastSessionStart = false }
             .onChange(of: query) { _, value in sceneRestoreTask?.cancel(); anchorGeneration = UUID(); history.search(sessionID: sessionID, query: value) }
             .onChange(of: history.searchMatches) {
                 guard searching, !matches.isEmpty else { return }
@@ -1620,48 +1618,3 @@ private struct SessionRefreshIndicatorBridge: UIViewRepresentable {
     }
 }
 #endif
-
-#if os(macOS)
-private struct HandoffContentHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
-}
-#endif
-
-private struct VibeCastHandoffPopover: View {
-    @ObservedObject var model: DJConnectAppModel
-    let session: DJConnectSessionRuntime
-    let openQueueAction: () -> Void
-    #if os(macOS)
-    @State private var handoffContentHeight: CGFloat = 240
-    #endif
-
-    var body: some View {
-    #if os(macOS)
-    let available = NSScreen.main?.visibleFrame.size ?? CGSize(width: 800, height: 640)
-    ScrollView {
-        VibeCastHandoffForm(model: model)
-            .fixedSize(horizontal: false, vertical: true)
-            .background {
-                GeometryReader { content in
-                    Color.clear.preference(key: HandoffContentHeightKey.self, value: content.size.height)
-                }
-            }
-    }
-    .scrollBounceBehavior(.basedOnSize)
-    .frame(width: min(400, max(240, available.width - 48)),
-           height: min(max(200, handoffContentHeight), max(160, available.height - 160)))
-    .onPreferenceChange(HandoffContentHeightKey.self) { height in
-        // Popover attachment/removal can briefly emit the preference default.
-        // Never feed that zero back into the form's available layout height.
-        guard height.isFinite, height > 0 else { return }
-        handoffContentHeight = ceil(height)
-    }
-    #else
-    ScrollView {
-        VibeCastHandoffForm(model: model)
-    }
-    .frame(idealWidth: 400, idealHeight: 300)
-    #endif
-    }
-}

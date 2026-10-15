@@ -1119,13 +1119,15 @@ extension DJConnectIOSUITests {
         let beforeMenu = try await control("state", method: "GET")
         let handoff = app.buttons["session-handoff-toggle"]
         XCTAssertTrue(handoff.isHittable); handoff.tap()
-        XCTAssertTrue(app.textFields["vibecast-handoff-code"].waitForExistence(timeout: 5))
-        try saveHistoryScreenshot("paired-ui-handoff-popover")
-        XCTAssertFalse(app.buttons["session-handoff-close"].exists)
+        XCTAssertTrue(app.textFields["vibecast-handoff-digit-0"].waitForExistence(timeout: 5))
+        try saveHistoryScreenshot("paired-ui-handoff-dialog")
+        XCTAssertTrue(app.buttons["session-handoff-not-now"].exists)
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.7)).tap()
+        XCTAssertTrue(app.textFields["vibecast-handoff-digit-0"].exists, "Backdrop does not dismiss the blocking dialog")
+        app.buttons["session-handoff-not-now"].tap()
         let handoffDismissed = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "exists == false"),
-            object: app.textFields["vibecast-handoff-code"])
+            object: app.textFields["vibecast-handoff-digit-0"])
         XCTAssertEqual(XCTWaiter.wait(for: [handoffDismissed], timeout: 5), .completed)
         let afterMenu = try await control("state", method: "GET")
         XCTAssertEqual((beforeMenu["active"] as? NSDictionary), (afterMenu["active"] as? NSDictionary))
@@ -1351,9 +1353,10 @@ extension DJConnectIOSUITests {
 }
 
 extension DJConnectIOSUITests {
-    private func launchSessionUIDemo() -> XCUIApplication {
+    private func launchSessionUIDemo(additionalArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-DJCONNECTRuntimeFixture", "review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchArguments.append(contentsOf: additionalArguments)
         app.launchEnvironment = ["DJCONNECT_UITEST_HA_URL": "", "DJCONNECT_UITEST_RUNTIME_FIXTURE": "review_demo"]
         app.terminate(); app.launch()
         RunLoop.current.run(until: Date().addingTimeInterval(0.4))
@@ -1720,6 +1723,59 @@ extension DJConnectIOSUITests {
             shot.name = orientation == .portrait ? "ipad-split-toolbar-portrait" : "ipad-split-toolbar-landscape"
             shot.lifetime = .keepAlways; add(shot)
         }
+    }
+
+    func testVibeCastCenteredBlockingDialogAndGenericCopy() {
+        let app = launchSessionUIDemo(additionalArguments: ["--uitest-vibecast-dialog"])
+        let handoff = app.buttons["session-handoff-toggle"]
+        if !handoff.exists {
+            app.buttons["session-more-menu"].tap()
+        }
+        XCTAssertTrue(handoff.waitForExistence(timeout: 5)); handoff.tap()
+        let dialog = app.descendants(matching: .any)["vibecast-session-start-dialog"].firstMatch
+        XCTAssertTrue(dialog.waitForExistence(timeout: 10))
+        if app.frame.width >= 700 {
+            XCTAssertEqual(dialog.frame.midY, app.frame.midY, accuracy: 36, "Native iPad sheet stays centered")
+        }
+        XCTAssertFalse(app.buttons["session-handoff-close"].exists)
+        XCTAssertEqual(app.buttons["session-handoff-not-now"].label, "Niet nu")
+        for index in 0..<6 {
+            XCTAssertTrue(app.textFields["vibecast-handoff-digit-\(index)"].exists)
+        }
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "VibeCast sessie starten")).firstMatch.exists)
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "op de Pi")).firstMatch.exists)
+        XCTAssertFalse(app.buttons["session-end-button"].isHittable)
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.name = "vibecast-centered-cast-hero"; screenshot.lifetime = .keepAlways; add(screenshot)
+        let outside = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
+        let code = app.textFields["vibecast-handoff-digit-0"]
+        XCTAssertTrue(code.isEnabled && code.isHittable)
+        code.tap()
+        app.typeText("123456")
+        RunLoop.current.run(until: Date().addingTimeInterval(4))
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        let inputScreenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        inputScreenshot.name = "vibecast-six-digits-numeric-keyboard"; inputScreenshot.lifetime = .keepAlways; add(inputScreenshot)
+        for index in 0..<6 {
+            let digit = app.textFields["vibecast-handoff-digit-\(index)"]
+            XCTAssertEqual(digit.value as? String, String(index + 1), "Typing advances focus to the next cell")
+            XCTAssertGreaterThanOrEqual(digit.frame.width, 44)
+            XCTAssertGreaterThanOrEqual(digit.frame.height, 60)
+        }
+        XCTAssertFalse(app.keyboards.firstMatch.keys["a"].exists, "Code uses the numeric keyboard")
+        app.typeText(XCUIKeyboardKey.delete.rawValue + XCUIKeyboardKey.delete.rawValue)
+        XCTAssertEqual(app.textFields["vibecast-handoff-digit-4"].value as? String, "")
+        app.typeText("56")
+        XCTAssertEqual(app.textFields["vibecast-handoff-digit-5"].value as? String, "6")
+        XCTAssertGreaterThan(app.buttons["session-handoff-not-now"].frame.minY,
+                             app.buttons["vibecast-handoff-approve"].frame.maxY)
+        XCTAssertFalse(app.buttons["vibecast-handoff-approve"].isEnabled, "Demo presentation grants no handoff authority")
+        outside.tap()
+        XCTAssertTrue(dialog.exists)
+        if !app.buttons["session-handoff-not-now"].isHittable { app.swipeDown() }
+        app.buttons["session-handoff-not-now"].tap()
+        XCTAssertTrue(dialog.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["session-end-button"].isHittable)
     }
 
     func testSessionMoodGlassChoicesAndSelection() {

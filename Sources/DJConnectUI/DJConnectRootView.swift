@@ -204,6 +204,7 @@ private enum DJConnectRootSheet: String, Identifiable {
     case whatsNew
     case wakeWordActivationPrompt
     case feedback
+    case vibeCastSessionStart
     case permissionExplanation
     case musicDNAOptIn
     case sessionHistory
@@ -1270,6 +1271,9 @@ public struct DJConnectRootView: View {
         if showingFeedback {
             return .feedback
         }
+        if model.isShowingVibeCastSessionStart, model.activeDJSession != nil {
+            return .vibeCastSessionStart
+        }
         if model.isShowingPermissionExplanation {
             return .permissionExplanation
         }
@@ -1327,6 +1331,8 @@ public struct DJConnectRootView: View {
             FeedbackPromptView(model: model)
                 .tint(djConnectAccent)
                 .accentColor(djConnectAccent)
+        case .vibeCastSessionStart:
+            VibeCastSessionStartDialog(model: model)
         case .permissionExplanation:
             PermissionExplanationView(model: model)
         case .musicDNAOptIn:
@@ -1371,6 +1377,8 @@ public struct DJConnectRootView: View {
             model.dismissWakeWordActivationPrompt()
         case .feedback:
             showingFeedback = false
+        case .vibeCastSessionStart:
+            model.isShowingVibeCastSessionStart = false
         case .permissionExplanation:
             model.cancelPermissionExplanation()
         case .musicDNAOptIn:
@@ -9446,30 +9454,69 @@ struct DJSessionWelcomeArtwork: View {
     }
 }
 
+/// Uses the same native sheet shell and standard secondary action as Feedback.
+struct VibeCastSessionStartDialog: View {
+    @ObservedObject var model: DJConnectAppModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack {
+            DJConnectCanvasBackground()
+            VStack(alignment: .leading, spacing: 22) {
+                VStack(spacing: 18) {
+                    DJConnectHeroGlyph(systemImage: "tv.badge.wifi")
+                    Text(localizedKey(model.language, "ui.vibecast.handoff.title"))
+                        .font(.title2.bold())
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+                .padding(.horizontal, 16)
+                .djConnectHeroCard()
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("vibecast-session-start-hero")
+                VibeCastHandoffForm(model: model)
+                DJConnectNotNowLinkButton(language: model.language, key: "ui.not.now.b1e535") {
+                    resignPlatformFirstResponder()
+                    dismiss()
+                }
+                .accessibilityIdentifier("session-handoff-not-now")
+                .keyboardShortcut(.cancelAction)
+            }
+            .padding(28)
+            .frame(minWidth: 360, idealWidth: 520, maxWidth: 620)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("vibecast-session-start-card")
+        }
+        .tint(djConnectAccent)
+        .accentColor(djConnectAccent)
+        .interactiveDismissDisabled(true)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("vibecast-session-start-dialog")
+    }
+}
+
 struct VibeCastHandoffForm: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var vibeCastHandoffCode = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text(localizedKey(model.language, "ui.vibecast.handoff.title")).font(.headline)
             Text(localizedKey(model.language, "ui.vibecast.handoff.instructions"))
-                .font(.footnote).foregroundStyle(.secondary)
+                .font(.callout).foregroundStyle(.white.opacity(0.82))
                 .fixedSize(horizontal: false, vertical: true)
-            TextField(localizedKey(model.language, "ui.vibecast.handoff.code"), text: $vibeCastHandoffCode)
-                #if os(iOS)
-                .keyboardType(.numberPad)
-                .textContentType(.oneTimeCode)
-                #endif
-                .accessibilityIdentifier("vibecast-handoff-code")
-                .onChange(of: vibeCastHandoffCode) { _, value in
-                    vibeCastHandoffCode = String(value.filter { $0.isASCII && $0.isNumber }.prefix(6))
-                }
+            VibeCastCodeEntry(code: $vibeCastHandoffCode,
+                              accessibilityLabel: localizedKey(model.language, "ui.vibecast.handoff.code"))
+                .frame(height: 64)
             Button(localizedKey(model.language, "ui.vibecast.handoff.approve")) {
+                resignPlatformFirstResponder()
                 Task { await model.approveVibeCastHandoff(code: vibeCastHandoffCode) }
             }
             .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
-            .disabled(vibeCastHandoffCode.count != 6 || model.isLoadingVibeCastHandoff)
+            .disabled(vibeCastHandoffCode.count != 6 || model.isLoadingVibeCastHandoff || model.isDemoMode || model.pairingStatus != .paired)
             .accessibilityIdentifier("vibecast-handoff-approve")
             if model.vibeCastHandoffApproved {
                 Text(localizedKey(model.language, "ui.vibecast.handoff.approved"))
@@ -9483,7 +9530,7 @@ struct VibeCastHandoffForm: View {
                 Text(error).font(.footnote).foregroundStyle(.red)
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 0)
         #if os(macOS)
         .padding(.top, 16)
         .padding(.bottom, 16)
@@ -9494,6 +9541,153 @@ struct VibeCastHandoffForm: View {
         .accessibilityIdentifier("vibecast-handoff-form")
     }
 }
+
+/// Six actual inputs, with one aggregate code for the existing backend command.
+#if os(iOS)
+private struct VibeCastCodeEntry: UIViewRepresentable {
+    @Binding var code: String
+    let accessibilityLabel: String
+
+    func makeCoordinator() -> Coordinator { Coordinator(code: $code) }
+
+    func makeUIView(context: Context) -> UIStackView {
+        let stack = UIStackView()
+        stack.axis = .horizontal
+        stack.distribution = .fillEqually
+        stack.spacing = 6
+        for index in 0..<6 {
+            let field = DigitField()
+            field.tag = index
+            field.delegate = context.coordinator
+            field.keyboardType = .numberPad
+            field.textContentType = index == 0 ? .oneTimeCode : nil
+            field.textAlignment = .center
+            field.font = .monospacedDigitSystemFont(ofSize: 26, weight: .semibold)
+            field.textColor = .white
+            field.tintColor = .systemPurple
+            field.layer.cornerRadius = 14
+            field.layer.borderWidth = 1
+            field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            field.accessibilityLabel = "\(accessibilityLabel), \(index + 1) / 6"
+            field.accessibilityIdentifier = "vibecast-handoff-digit-\(index)"
+            field.emptyDelete = { [weak coordinator = context.coordinator] in coordinator?.deleteBefore(index) }
+            stack.addArrangedSubview(field)
+            context.coordinator.fields.append(field)
+        }
+        context.coordinator.sync(code)
+        return stack
+    }
+
+    func updateUIView(_ uiView: UIStackView, context: Context) {
+        context.coordinator.code = $code
+        // Playback updates must not recreate inputs or move the first responder.
+        if code != context.coordinator.lastEmittedCode { context.coordinator.sync(code) }
+        for (index, field) in context.coordinator.fields.enumerated() {
+            field.accessibilityLabel = "\(accessibilityLabel), \(index + 1) / 6"
+        }
+    }
+
+    final class DigitField: UITextField {
+        var emptyDelete: (() -> Void)?
+        override func deleteBackward() {
+            if (text ?? "").isEmpty { emptyDelete?() }
+            else { super.deleteBackward() }
+        }
+    }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        var code: Binding<String>
+        var fields: [DigitField] = []
+        var digits = Array(repeating: "", count: 6)
+        var lastEmittedCode = ""
+        init(code: Binding<String>) { self.code = code }
+
+        func sync(_ value: String) {
+            let clean = Array(value.filter { $0.isASCII && $0.isNumber }.prefix(6)).map(String.init)
+            digits = (0..<6).map { $0 < clean.count ? clean[$0] : "" }
+            lastEmittedCode = value
+            refresh()
+        }
+        func refresh() {
+            for (index, field) in fields.enumerated() {
+                if field.text != digits[index] { field.text = digits[index] }
+                field.backgroundColor = UIColor.white.withAlphaComponent(field.isFirstResponder ? 0.18 : 0.10)
+                field.layer.borderColor = (field.isFirstResponder ? UIColor.systemPurple : UIColor.white.withAlphaComponent(0.28)).cgColor
+            }
+        }
+        func emit() {
+            lastEmittedCode = digits.joined()
+            code.wrappedValue = lastEmittedCode
+            refresh()
+        }
+        func deleteBefore(_ index: Int) {
+            guard index > 0 else { return }
+            digits[index - 1] = ""
+            fields[index - 1].becomeFirstResponder()
+            emit()
+        }
+        func textFieldDidBeginEditing(_ textField: UITextField) { refresh() }
+        func textFieldDidEndEditing(_ textField: UITextField) { refresh() }
+        func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+            let index = textField.tag
+            if string.isEmpty {
+                digits[index] = ""
+                emit()
+                return false
+            }
+            let clean = Array(string.filter { $0.isASCII && $0.isNumber }).map(String.init)
+            guard !clean.isEmpty else { return false }
+            // Full-code paste/autofill replaces all six, even from a later cell.
+            let start = clean.count >= 6 ? 0 : index
+            for (offset, digit) in clean.prefix(6 - start).enumerated() { digits[start + offset] = digit }
+            fields[min(5, start + clean.count)].becomeFirstResponder()
+            emit()
+            return false
+        }
+    }
+}
+#else
+private struct VibeCastCodeEntry: View {
+    @Binding var code: String
+    let accessibilityLabel: String
+    @State private var digits = Array(repeating: "", count: 6)
+    @FocusState private var focusedDigit: Int?
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<6, id: \.self) { index in
+                TextField("", text: Binding(get: { digits[index] }, set: { input in
+                    let clean = input.filter { $0.isASCII && $0.isNumber }
+                    if clean.count >= 6 {
+                        digits = clean.prefix(6).map(String.init)
+                        focusedDigit = 5
+                    } else {
+                        digits[index] = clean.last.map(String.init) ?? ""
+                        if !clean.isEmpty { focusedDigit = min(5, index + 1) }
+                    }
+                    code = digits.joined()
+                }))
+                .textFieldStyle(.plain)
+                .font(.title.monospacedDigit().weight(.semibold))
+                .multilineTextAlignment(.center)
+                .focused($focusedDigit, equals: index)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.white.opacity(focusedDigit == index ? 0.18 : 0.10), in: RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(focusedDigit == index ? Color.purple : .white.opacity(0.28)).allowsHitTesting(false))
+                .onKeyPress(.delete) {
+                    guard digits[index].isEmpty, index > 0 else { return .ignored }
+                    digits[index - 1] = ""
+                    code = digits.joined()
+                    focusedDigit = index - 1
+                    return .handled
+                }
+                .accessibilityLabel("\(accessibilityLabel), \(index + 1) / 6")
+                .accessibilityIdentifier("vibecast-handoff-digit-\(index)")
+            }
+        }
+    }
+}
+#endif
 
 #if os(iOS)
 private struct IOSNowPlayingView: View {

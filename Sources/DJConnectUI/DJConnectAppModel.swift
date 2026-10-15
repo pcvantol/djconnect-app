@@ -994,6 +994,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var isShowingWakeWordActivationPrompt = false
     @Published public var isShowingTokenStorageError = false
     @Published public var isShowingWhatsNew = false
+    @Published public var isShowingVibeCastSessionStart = false
     @Published public private(set) var whatsNewTitle = ""
     @Published public private(set) var whatsNewBody = ""
     @Published public private(set) var isLoadingWhatsNew = false

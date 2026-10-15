@@ -953,10 +953,10 @@
 "ui.ask.dj.history.export.failed" = "Ask DJ-geschiedenis kon niet worden geexporteerd.";
 "ui.output.recently.seen" = "Recent gezien";
 "appModel.cached.spotify.output.unavailable" = "Spotify toont deze speaker nu niet via de API. Open Spotify één keer op dat apparaat en probeer opnieuw.";
-"ui.vibecast.handoff.title" = "Sessie op VibeCast tonen";
-"ui.vibecast.handoff.instructions" = "Open VibeCast op de Pi en voer de getoonde code in. Alleen deze actieve sessie wordt gedeeld.";
+"ui.vibecast.handoff.title" = "VibeCast sessie starten";
+"ui.vibecast.handoff.instructions" = "Open VibeCast op het scherm waarop je de DJ-sessie wilt tonen. Vul de code van dat scherm hieronder in. Alleen je actieve DJ-sessie wordt gedeeld.";
 "ui.vibecast.handoff.code" = "Zescijferige code";
-"ui.vibecast.handoff.approve" = "Sessie tonen";
+"ui.vibecast.handoff.approve" = "VibeCast sessie starten";
 "ui.vibecast.handoff.approved" = "Code goedgekeurd. Wachten tot VibeCast verbinding maakt.";
 "ui.vibecast.handoff.failed" = "De code is verlopen of de overdracht is mislukt.";
 

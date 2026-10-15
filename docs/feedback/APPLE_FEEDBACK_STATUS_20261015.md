@@ -789,3 +789,44 @@ adds no product behavior. Physical iPad40074 installation PASS, receipt
 /private/tmp/djc-ipad-toolbar-40074-launch.log. No physical tapping proof or live
 VibeCast handoff inferred. Build includes the GitHub link from40073. Source
 publication remains paused and unrelated writer directories are preserved.
+
+
+## VibeCast native Feedback-sheet and six numeric cells — build40075
+
+Owner refinement supersedes the initial custom overlay/X proposal: use the
+central native root sheet presenter already used by Feedback, with the same
+canvas, content sizing/padding and standard `DJConnectNotNowLinkButton` below
+Start. No custom backdrop/card shell or full-screen cover remains. Title/action
+is “VibeCast sessie starten”; generic target-screen instructions replace Pi in
+all five languages. Hero reuses the native Track Insight glyph/card system with
+`tv.badge.wifi`. Six actual 64pt-high input cells replace the single text field;
+ASCII digits only, automatic advance, backspace into the previous empty cell,
+whole-code paste/autofill distribution, explicit Start (no auto-submit).
+
+The first nested Session presenter lost iPad native input focus during ongoing
+UI updates. Temporary non-personal native focus diagnostics confirmed touch and
+initial first-responder acquisition; subsequent cells were recreated. Moving
+presentation to the central root sheet fixed the reproduced failure without
+changing the shared tab controller or backend. Temporary diagnostics removed.
+Session/Profile/authority epoch changes dismiss the dialog. Demo presentation
+can be reached only through the DEBUG+uitesting flag and the real toolbar button;
+Demo/unpaired approval is disabled and confers no backend handoff authority.
+
+Native simulator proof PASS (one executed test, zero failures each):
+- `/private/tmp/djc-vibecast-six-final-ipad.xcresult`: actual native centered
+  iPad sheet, six inputs >=44x60pt, numeric keyboard, automatic advance, digits
+  retained across four seconds of playback updates, backspace/re-entry, standard
+  Not now below Start, backdrop blocking, explicit dismissal/return to Session.
+- `/private/tmp/djc-vibecast-six-final-iphone.xcresult`: same compact native flow.
+- Actual iPad images exported to `/private/tmp/djc-vibecast-six-final-ipad-images`;
+  `DD96D71B-0462-4E3E-8F8E-C2D2194AB869.png` visually inspected with all six filled
+  cells and native numeric-mode keyboard. iPadOS supplies its system numeric/
+  symbols layout; invalid characters are rejected by the input control. This is
+  a native simulator Demo screenshot, not a live approved VibeCast Session.
+- Five-language validation PASS1134keys; `git diff --check` PASS.
+- Signed iOS and macOS40075 builds PASS; logs
+  `/private/tmp/djc-vibecast-40075-{ios,mac}-ready.log`.
+
+No live claim, server call, re-pair, Profile/session change, source push, CI
+publication, or protected merge is inferred from these presentation tests.
+Physical installation receipts follow after actual installation verification.
