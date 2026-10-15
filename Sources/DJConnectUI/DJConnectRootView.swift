@@ -4046,8 +4046,6 @@ struct TrackInsightView: View {
                                         .frame(maxWidth: .infinity, alignment: .topLeading)
                                     TrackInsightMetricsGrid(insight: insight, language: model.language, moodStepIndex: moodStepIndex)
                                         .frame(maxWidth: .infinity, alignment: .topLeading)
-                                    TrackInsightPrivacyFooter(language: model.language)
-                                        .frame(maxWidth: .infinity, alignment: .top)
                                 } else if explicitMoment {
                                     VStack(alignment: .leading, spacing: 16) {
                                         if model.isLoadingMomentTrackInsight {
@@ -7896,19 +7894,6 @@ private struct TrackInsightHeroInfo: View {
         let minutes = totalSeconds / 60
         let seconds = totalSeconds % 60
         return "\(minutes):\(seconds < 10 ? "0" : "")\(seconds)"
-    }
-}
-
-private struct TrackInsightPrivacyFooter: View {
-    let language: String
-
-    var body: some View {
-        Label(localizedKey(language, "ui.rendered.privately.on.your.device"), systemImage: "lock.fill")
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(.white.opacity(0.46))
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.top, 2)
-            .padding(.bottom, 6)
     }
 }
 

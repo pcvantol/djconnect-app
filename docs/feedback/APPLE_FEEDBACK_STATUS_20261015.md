@@ -238,3 +238,12 @@ Unsigned Mac/iOS builds PASS: /private/tmp/djc-insight-mood-{mac,ios}.log.
 Full Swift regression suite: 552 tests PASS in 29.506s,
 /private/tmp/djc-insight-mood-tests.log. Localization validation PASS (1123 keys);
 git diff --check PASS. Pending40061, not installed; physical UI acceptance open.
+
+## Remove Track Insight private rendering label
+
+Removed the entire TrackInsightPrivacyFooter (lock icon, localized text and
+its layout space) from ordinary and pinned Track Insight. This is a presentation
+removal; missing qualified analysis remains an open diagnosis, not resolved by
+removing the footer. Pending40061; not installed. Validation recorded below.
+Unsigned Mac/iOS builds PASS: /private/tmp/djc-insight-footer-{mac,ios}.log.
+git diff --check PASS; no full regression rerun for this label-only removal.
