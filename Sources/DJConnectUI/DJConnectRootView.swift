@@ -9507,7 +9507,28 @@ struct VibeCastSessionStartDialog: View {
     var body: some View {
         ZStack {
             DJConnectCanvasBackground()
-            VStack(alignment: .leading, spacing: 22) {
+            #if os(iOS)
+            ScrollView {
+                dialogContent
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollDismissesKeyboard(.interactively)
+            .defaultScrollAnchor(.center, for: .alignment)
+            .frame(minWidth: 360, idealWidth: 520, maxWidth: 620, idealHeight: 620)
+            .accessibilityIdentifier("vibecast-session-start-scroll")
+            #else
+            dialogContent
+            #endif
+        }
+        .tint(djConnectAccent)
+        .accentColor(djConnectAccent)
+        .interactiveDismissDisabled(true)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("vibecast-session-start-dialog")
+    }
+
+    private var dialogContent: some View {
+        VStack(alignment: .leading, spacing: 22) {
                 VStack(spacing: 18) {
                     DJConnectHeroGlyph(systemImage: "tv.badge.wifi")
                     Text(localizedKey(model.language, "ui.vibecast.handoff.title"))
@@ -9535,12 +9556,6 @@ struct VibeCastSessionStartDialog: View {
             .frame(minWidth: 360, idealWidth: 520, maxWidth: 620)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("vibecast-session-start-card")
-        }
-        .tint(djConnectAccent)
-        .accentColor(djConnectAccent)
-        .interactiveDismissDisabled(true)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("vibecast-session-start-dialog")
     }
 }
 
