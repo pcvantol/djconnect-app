@@ -175,3 +175,10 @@ shared24-point section spacing and padding. Both section dividers are disabled;
 the localized legal text is unchanged. Both unsigned builds pass in
 /private/tmp/djc-legal-cards-{ios,mac}.log. Pending40061 presentation change only;
 no new installation or full regression rerun for this layout-only edit.
+
+Splash follow-up: the icon, DJConnect wordmark and slogan now share the standard
+glass-card surface. The old opaque branding gradient and dark multiply overlays
+are removed, while the existing layout, hero and startup timing stay intact.
+The shared surface supplies its normal border and Reduce Transparency fallback.
+Both unsigned builds pass in /private/tmp/djc-splash-glass-{ios,mac}.log.
+Pending40061 presentation change only; no further installation.

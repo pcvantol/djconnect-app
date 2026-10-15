@@ -207,53 +207,7 @@ private struct DJConnectLaunchBanner: View {
             }
         }
         .padding(18)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.06, green: 0.04, blue: 0.12),
-                    Color(red: 0.25, green: 0.08, blue: 0.42),
-                    Color(red: 0.39, green: 0.12, blue: 0.62),
-                    Color(red: 0.08, green: 0.10, blue: 0.23)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            .black.opacity(0.34),
-                            .clear,
-                            .black.opacity(0.30)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .blendMode(.multiply)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            .clear,
-                            .black.opacity(0.22)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .blendMode(.multiply)
-        }
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(.white.opacity(0.12), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .djSessionFrostedSurface()
     }
 }
 
