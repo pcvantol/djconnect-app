@@ -1,0 +1,15 @@
+{
+  "build": "40116 existing installed iPad; no new app build/install",
+  "fixture": "Isolated review_demo plus existing --uitest-vibecast-dialog presentation-only flag. Demo approve stays disabled. No handoff sent, real pairing remains untouched.",
+  "native_input": "PASS: all6 UITextFields exist/hittable, each width>40pt. First tapped, app-level sequential typing1..6 without individual field taps; each corresponding field equals its digit. Native keyboard exists,1 key exists,Q absent. Niet nu dismisses and fields disappear; ordinary app relaunched and Speelt Nu tab exists.",
+  "keyboard_limit": "Actual iPad .numberPad shows native numeric/symbol keyboard including ABC switch; do not claim only digit keys exist. Code entry is digit-filtered by existing delegate; no input filtering-negative native case tested.",
+  "layout_finding": "OPEN: landscape with keyboard shifts tall dialog so top of hero is clipped and Niet nu sits close to keyboard edge. Need keyboard-safe scroll/height behavior while retaining native sheet, six fields and editor focus identity. Do not mark full VibeCast layout accepted.",
+  "first_attempt": "Failed because presentation-only --uitest-vibecast-dialog flag was omitted; no actual dialog. Existing source explicitly requires it for demo. Not a product defect.",
+  "result": "/private/tmp/djc-vibecast-input-40116-ipad2.xcresult",
+  "images": [
+    "/private/tmp/djc-vibecast-input-40116-ipad2-images/52F508F1-C959-48E7-B6BC-68833B8CD2C6.png",
+    "/private/tmp/djc-vibecast-input-40116-ipad2-images/1B072C2B-26B8-403F-BCED-F77F1DFEA5D3.png"
+  ],
+  "visual_inspection": "Both actual screenshots viewed: six empty/filled boxes, generic no-Pi instructions, cast hero, primary action, Niet nu; keyboard clipping finding above.",
+  "cleanup": "Single active writer; no eligible stale refs. Preserve source/testresults/untracked projects. No new trace. Internal df7.7GiB before this bounded test."
+}
