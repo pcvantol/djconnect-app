@@ -1496,7 +1496,7 @@ struct SessionConnectionToolbarButton: View {
                         Label(text("ui.connection.details"), systemImage: "info.circle")
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(djConnectAccent)
+                    .foregroundStyle(.white)
                     .accessibilityIdentifier("connection-details-link")
                 }
             }
