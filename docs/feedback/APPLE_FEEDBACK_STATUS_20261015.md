@@ -942,3 +942,17 @@ Qualification:
   live credentials/read requests, re-pair, source push or publication.
 - Physical speaker transfer remains NOT_RUN; installed Mac is already unpaired,
   and simulator fixtures do not establish actual Spotify/speaker acceptance.
+
+
+Build40078 installed readback (source4f6739e): physical iPad install and ordinary
+launch PASS; CoreDevice app-only readback confirms bundleVersion40078. Receipts
+`/private/tmp/djc-output-transfer-40078-ipad-{install,launch,readback}.log` and
+readback JSON. Mac mini ordinary app build40078 launch PID16144, exact signed
+files, strict/deep signature and preferences/entitlements preservation PASS;
+receipt `/private/tmp/djc-output-transfer-40078-mac-install.json`, recoverable
+backup `~/Library/Application Support/DJConnect/InstallBackups/40078-output-transfer-20261015`.
+Normal installed launch may perform its ordinary app networking; no additional
+manual authenticated server diagnosis was issued. Physical speaker acceptance
+remains NOT_RUN; no actual transfer claim follows from installation. MacBook and
+physical iPhone were not installed in this bounded update. Source publication
+pause and unrelated writer directories remain preserved.
