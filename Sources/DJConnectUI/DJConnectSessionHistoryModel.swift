@@ -30,6 +30,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     @Published public private(set) var available = false
     @Published public private(set) var preparing = false
     @Published public private(set) var searchAvailable = false
+    @Published public private(set) var momentInsightAvailable = false
     @Published public private(set) var profileScopeActive = false
     @Published public private(set) var sessions: [DJConnectSavedSession] = []
     @Published public private(set) var listLoading = false
@@ -51,6 +52,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     @Published public private(set) var acceptedSearchSessionID = ""
     private struct LiveResponse {
         let sessionID: String
+        let deadline: Date?
         let message: DJConnectAskDJMessage
     }
     @Published private var liveResponses: [String: LiveResponse] = [:]
@@ -99,7 +101,11 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         return entry
     }
 
-    func discardLiveResponses() { liveResponses = [:] }
+    func discardLiveResponses() {
+        liveResponses = [:]
+        host?.withdrawLiveConversationPresentations()
+        host?.invalidateConversationResultLeases()
+    }
 
     /// Only a directly accepted response supplies live actions; history reads never do.
     func retainLiveResponse(_ response: DJConnectSessionConversationResponse) {
@@ -108,9 +114,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
               host.activeDJSession?.id == sessionID,
               let assistant = response.base.assistantMessage, assistant.role == .assistant,
               assistant.messageKind != .system else { return }
-        liveResponses = liveResponses.filter { $0.value.sessionID == sessionID }
+        liveResponses = [:]
         liveResponses[assistant.id] = LiveResponse(sessionID: sessionID,
-            message: host.sessionResponseMessage(assistant))
+            deadline: host.resolveConversationPresentationDeadline(response.base), message: host.sessionResponseMessage(assistant))
     }
 
     func liveMessage(for entry: DJConnectHistoryEntry, activeSessionID: String?) -> DJConnectAskDJMessage? {
@@ -119,7 +125,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
               entry.sessionID == activeSessionID, entry.kind == .conversationDJ,
               entry.isContractValid, entry.isRetained(),
               let origin = entry.originMessageID, let live = liveResponses[origin],
-              live.sessionID == activeSessionID,
+              live.sessionID == activeSessionID, live.deadline.map({ $0 > Date() }) ?? true,
               live.message.clientMessageID == entry.clientMessageID,
               live.message.text == entry.text else { return nil }
         var message = live.message
@@ -217,7 +223,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         do {
             let caps = try await host.withHomeAssistantClient { try await $0.sessionHistoryCapabilities() }
             guard captured == epoch, host.canRefreshSessionHistory, !Task.isCancelled else { return }
-            available = caps.available; searchAvailable = caps.searchAvailable
+            available = caps.available; searchAvailable = caps.searchAvailable; momentInsightAvailable = caps.momentInsightAvailable
             if available && !profileScopeActive {
                 while host.isSendingAskDJText || host.isRecordingVoice || host.voiceStatus == .processing {
                     try await Task.sleep(for: .milliseconds(50))
@@ -237,11 +243,14 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     public func reset() {
         host?.invalidateSessionPlaybackActions()
+        host?.withdrawLiveConversationPresentations()
+        host?.invalidateConversationResultLeases()
+        host?.dismissMomentTrackInsight()
         preparationTask?.cancel(); preparationTask = nil; preparationID = UUID(); preparing = false
         liveResponses = [:]
         epoch = UUID(); searchGeneration = UUID(); listGeneration = UUID(); navigationGeneration = UUID()
         searchTask?.cancel(); searchTask = nil
-        available = false; searchAvailable = false; profileScopeActive = false; ownerScope = nil
+        available = false; searchAvailable = false; momentInsightAvailable = false; profileScopeActive = false; ownerScope = nil
         sessions = []; timelines = [:]; historicalMatches = [:]; pendingTurns = []; readingAnchors = [:]
         host?.setProfileConversationSending(false)
         selectedEntry = nil; openTarget = nil; voiceContext = nil; voiceClientID = nil; voicePayload = nil
@@ -251,6 +260,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     public func suspend() {
         host?.invalidateSessionPlaybackActions()
+        host?.withdrawLiveConversationPresentations()
+        host?.invalidateConversationResultLeases()
+        host?.dismissMomentTrackInsight()
         preparationTask?.cancel(); preparationTask = nil; preparationID = UUID(); preparing = false
         liveResponses = [:]
         epoch = UUID(); ownerScope = nil
@@ -280,8 +292,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         } catch {
             guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
             guard captured == epoch else { return }
-            historicalMatches = [:]
-            host.clearProfileConversationDisplay()
+            // A transient history read must not erase a confirmed conversation
+            // or its still-valid presentation. Explicit authority errors revoke it.
             _ = withdrawAuthority(for: error)
         }
     }
@@ -308,7 +320,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return false }
             guard captured == epoch, generation == listGeneration else { return false }
             if withdrawAuthority(for: error) { return false }
-            sessions = []; listNextCursor = nil
+            // Keep the last confirmed readonly list on a transient read failure.
+            // Authority withdrawal above still removes all private projections.
             listErrorKey = errorKey(error)
             return false
         }

@@ -1126,3 +1126,45 @@
 "ui.session.presence.no_active_session" = "There is no valid active session for this control.";
 "ui.session.presence.invalid_state" = "The session has not returned a valid DJ presence setting.";
 "ui.session.presence.incompatible_response" = "The server returned an incompatible DJ presence response.";
+
+"ui.session.presence.level" = "Presence";
+
+"ui.connection.combined.demo" = "Demo mode";
+"ui.connection.combined.ready" = "Not paired";
+"ui.connection.combined.pairing" = "Pairing…";
+"ui.connection.combined.setupPending" = "Confirm in Home Assistant";
+"ui.connection.combined.stale" = "Pair again";
+"ui.connection.combined.networkUnavailable" = "No network";
+"ui.connection.combined.offline" = "Home Assistant unreachable";
+"ui.connection.combined.connecting" = "Reconnecting…";
+"ui.connection.combined.recovering" = "Connected · updating session";
+"ui.connection.combined.liveUnavailable" = "Connected · session unavailable";
+"ui.connection.combined.backendUnavailable" = "Connected · music unavailable";
+"ui.connection.combined.updateRequired" = "Update required";
+"ui.connection.combined.connected" = "Connected · local";
+"ui.connection.combined.remote" = "Connected · remote";
+
+"ui.push.configuration_needed" = "Configuration needed";
+"ui.push.registration_failed" = "Registration failed";
+"ui.push.registration_confirmed_detail" = "The server confirmed push registration. This does not prove that a notification was delivered.";
+"ui.push.registration_pending_detail" = "Push registration has not been confirmed for this device.";
+"ui.push.configuration_detail" = "Push cannot be registered because the trusted registration service or bootstrap proof is missing. DJConnect configuration needs repair; pairing again is not a general solution.";
+"ui.push.environment_detail" = "The app and server push environments do not match. The app configuration needs repair.";
+"ui.push.apns_detail" = "Registration with Apple failed. Check notification settings. If the problem persists, the app configuration needs review.";
+"ui.push.transport_detail" = "The registration service is unreachable. Retry when the connection is restored.";
+"ui.push.permission_detail" = "Notification permission has not been confirmed. Check settings for this app.";
+"ui.push.open_settings" = "Open notification settings";
+
+"ui.vibecast.handoff.unconfirmed" = "The handoff was not confirmed. Check the VibeCast screen before trying again.";
+"ui.vibecast.handoff.code_unavailable" = "This code is no longer available. Open VibeCast and use the current code.";
+
+"ui.session.insight.loading" = "Loading this track’s insight…";
+
+"ui.session.insight.unavailable" = "Insight for this contribution could not be loaded. Try again.";
+
+"ui.session.insight.expired" = "Insight for this contribution is no longer available.";
+
+"ui.session.insight.context_changed" = "The session settings changed. Load this insight again.";
+
+"ui.trackInsight.verified_credits" = "Verified credits";
+"ui.trackInsight.interpretation" = "Interpretation";

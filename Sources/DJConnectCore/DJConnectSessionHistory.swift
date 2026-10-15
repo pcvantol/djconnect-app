@@ -294,6 +294,9 @@ public struct DJConnectProfileConversationHistory: Decodable, Sendable {
 public struct DJConnectSessionHistoryCapabilities: Decodable, Sendable {
     public let capabilities: [String: Bool]?
     public let contractVersions: [String: Int]?
+    public var momentInsightAvailable: Bool {
+        capabilities?["moment_track_insight_navigation_v1"] == true && contractVersions?["moment_track_insight_navigation_v1"] == 1
+    }
     public var available: Bool {
         capabilities?["session_conversation_history"] == true && contractVersions?["session_conversation_history"] == 1
     }

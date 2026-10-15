@@ -1126,3 +1126,45 @@
 "ui.session.presence.no_active_session" = "Für diese Steuerung gibt es keine gültige aktive Session.";
 "ui.session.presence.invalid_state" = "Die Session hat keine gültige Einstellung für DJ-Präsenz zurückgegeben.";
 "ui.session.presence.incompatible_response" = "Der Server hat eine inkompatible Antwort für DJ-Präsenz zurückgegeben.";
+
+"ui.session.presence.level" = "Präsenz";
+
+"ui.connection.combined.demo" = "Demomodus";
+"ui.connection.combined.ready" = "Nicht gekoppelt";
+"ui.connection.combined.pairing" = "Koppeln…";
+"ui.connection.combined.setupPending" = "In Home Assistant bestätigen";
+"ui.connection.combined.stale" = "Erneut koppeln erforderlich";
+"ui.connection.combined.networkUnavailable" = "Kein Netzwerk";
+"ui.connection.combined.offline" = "Home Assistant nicht erreichbar";
+"ui.connection.combined.connecting" = "Verbindung wird wiederhergestellt…";
+"ui.connection.combined.recovering" = "Verbunden · Sitzung wird aktualisiert";
+"ui.connection.combined.liveUnavailable" = "Verbunden · Sitzung nicht verfügbar";
+"ui.connection.combined.backendUnavailable" = "Verbunden · Musik nicht verfügbar";
+"ui.connection.combined.updateRequired" = "Update erforderlich";
+"ui.connection.combined.connected" = "Verbunden · lokal";
+"ui.connection.combined.remote" = "Verbunden · extern";
+
+"ui.push.configuration_needed" = "Konfiguration erforderlich";
+"ui.push.registration_failed" = "Registrierung fehlgeschlagen";
+"ui.push.registration_confirmed_detail" = "Der Server hat die Push-Registrierung bestätigt. Dies belegt noch keine Zustellung einer Mitteilung.";
+"ui.push.registration_pending_detail" = "Die Push-Registrierung für dieses Gerät wurde noch nicht bestätigt.";
+"ui.push.configuration_detail" = "Der vertrauenswürdige Registrierungsdienst oder der Bootstrap-Nachweis fehlt. Die DJConnect-Konfiguration muss korrigiert werden; erneutes Koppeln ist keine allgemeine Lösung.";
+"ui.push.environment_detail" = "Die Push-Umgebungen von App und Server stimmen nicht überein. Die App-Konfiguration muss korrigiert werden.";
+"ui.push.apns_detail" = "Die Registrierung bei Apple ist fehlgeschlagen. Prüfe die Mitteilungseinstellungen. Bei anhaltendem Fehler muss die App-Konfiguration geprüft werden.";
+"ui.push.transport_detail" = "Der Registrierungsdienst ist nicht erreichbar. Versuche es erneut, sobald die Verbindung wiederhergestellt ist.";
+"ui.push.permission_detail" = "Die Berechtigung für Mitteilungen ist nicht bestätigt. Prüfe die Einstellungen dieser App.";
+"ui.push.open_settings" = "Mitteilungseinstellungen öffnen";
+
+"ui.vibecast.handoff.unconfirmed" = "Die Übergabe wurde nicht bestätigt. Prüfe den VibeCast-Bildschirm, bevor du es erneut versuchst.";
+"ui.vibecast.handoff.code_unavailable" = "Dieser Code ist nicht mehr verfügbar. Öffne VibeCast und verwende den aktuellen Code.";
+
+"ui.session.insight.loading" = "Track Insight für diesen Titel wird geladen…";
+
+"ui.session.insight.unavailable" = "Track Insight für diesen Beitrag konnte nicht geladen werden. Bitte erneut versuchen.";
+
+"ui.session.insight.expired" = "Track Insight für diesen Beitrag ist nicht mehr verfügbar.";
+
+"ui.session.insight.context_changed" = "Die Sitzungseinstellungen wurden geändert. Lade diesen Einblick erneut.";
+
+"ui.trackInsight.verified_credits" = "Verifizierte Credits";
+"ui.trackInsight.interpretation" = "Einordnung";

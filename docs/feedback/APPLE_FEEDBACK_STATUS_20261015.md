@@ -1,0 +1,154 @@
+# Apple feedback: current disposition — 2026-10-15
+
+This is the current view of the owner's complete feedback list and Apple lane #87.
+It supersedes the intermediate counts and candidate pins in
+[the chronological worklist](APPLE_FEEDBACK_20261014.md). A source correction is
+not an installed fix. The owner subsequently authorized installation on iPad, iPhone, MacBook and Mac mini.
+All four now run build40060. CI/merge/publication, HA/Pi updates and re-pair remain
+outside this authorization. Installation is not acceptance of every reported bug.
+
+Sole writer: `build/apple-40017-recovery/source`, branch
+`codex/apple-dj-presence-v1`, starting HEAD `3c89327`. Original root WIP and the
+extra untracked Xcode projects are preserved. The disposable `/private/tmp`
+checkout is byte-copied build input, not another source writer.
+
+## Per-report disposition
+
+| Owner report | Local correction / verified scope | Still required |
+| --- | --- | --- |
+| Output change delayed / two selected speakers | Exact pending/confirmed selection, obsolete-response fencing, immediate device readback | Real output-device acceptance |
+| Selected speaker says Actief | Current volume replaces the redundant word | Native/device acceptance |
+| Inconsistent About/Legal/Privacy gaps | Current source uses24-point outer section spacing and shared glass surfaces | Side-by-side acceptance on installed candidate |
+| Context speech balloon does not open Ask DJ on Mac | Native context/navigation route preserved and covered by source tests | Installed click-through |
+| Discover Play now does nothing | Await actual action outcome; retain sheet and visible failure on refusal | Actual playback/provider acceptance |
+| Missing Music DNA artist/track art | Safe relative URLs and exact same-Profile/URI/kind authorized Discovery references; numeric Unix expiry fixed | Producer must actually supply an eligible reference; no name inference |
+| Discover sections need own glass card | Separate Rediscover / Artists to explore section surfaces | Native acceptance |
+| Discover thumbnails disappear | Original image lease, bounded GET renewal and resume/generation fencing | Real asset/source acceptance |
+| Ask DJ speaker choices disappear | Current response RAM overlay survives reduced history, numeric timestamp decoding, frozen action identity and inherited original lifetime | Actual server choices and device acceptance |
+| Internal command appears in conversation | Never use the technical command as user-visible fallback text | Installed acceptance |
+| Ask DJ artwork briefly appears then disappears | Current response retains original image/action rights in RAM; expiry/scope withdrawal still removes it | Valid server grants and actual image acceptance |
+| DJ-session DJMoment artwork absent | Existing explicit subject-bound consumer design; no borrowed playback/Discover artwork | Core early schema, assets, real transport fixtures/checksums and exact pin remain missing |
+| Track Insight data absent | Explicit Moment→detail uses exact subject A; qualified CC0 credit and source shown separately; unknown measurements stay unknown | Qualified musical analysis/measurements from Core and joint acceptance |
+| Subtle hero animation | Shared subtle motion with Reduce Motion / inactive-scene handling | Native accessibility/visual acceptance |
+| Mood labels/icons/track need white | White unselected labels, glyphs, markers and rail | Installed visual acceptance |
+| Now Playing uses wrong background / Mac does not follow artwork | Actual image palette on both platforms; no Mood blend; neutral missing-art state | Physical album changes incl. brown/cream cover |
+| Presence UX should match Mood | Shared compact five-step control; no Confirmed row or explanatory footer; accessible adjustable value retained | Native interaction/accessibility acceptance |
+| Connection status is ambiguous | One14-state label/icon/colour mapping; no second health dot | Native/device state acceptance |
+| Connection indicator placement / requested pages | Trailing on DJ-session, Now Playing, Track Insight, Discover, Ask DJ, Music DNA, Queue and Playlists; omitted from Earlier Sessions | Native page/toolbar acceptance |
+| Saved Sessions refresh errors | Keep confirmed readonly rows on transient failure; superseded/cancelled read does not create false error; authority refusal still clears | Real history endpoint acceptance |
+| Session progress lags after seeking | Shared exact-track pending position, then confirmed server position | Actual seek and cross-screen acceptance |
+| Presenter / other modes only show observed playback | No fabricated DJMoments. Authorized one-shot projection had2Moments,2presentations,10admissions, but no current Moment/grant | Core planner/publication causality and actual contribution frequency remain unproven |
+| Cross-device Session only appears after refresh | Bounded foreground discovery via existing10-second coordinator, independent of known session/playback | Real Mac/iPhone/iPad start/end/successor acceptance; owner confirmed sharing after matching Profiles |
+| Splash lower image outdated | Reuses DJ-session welcome hero | Installed acceptance |
+| Strange Mac mini Sessieverloop and detail popups | Removed alternate legacy layout; normal Session screen plus honest history recovery | Limited isolated native proof exists; ordinary40060 layout acceptance still separate |
+| Pi VibeCast code fails | Approval never automatically replayed; exact Session acknowledgment; distinct unavailable-code/unconfirmed outcome | Current receiver code and actual handoff/Pi render |
+| Push Action needed | Distinguish missing issuer configuration, OS/APNs, transport and explicit registration; safe details and retry; receive/tap coalescing fixed | Authoritative trusted issuer configuration/deployment and real APNs delivery |
+| Music DNA fails after off/on | Exact409context refusal withdraws old data and retries boundedly; unknown state does not claim opt-out | Core must determine rejecting context predicate; no reset/re-pair bypass |
+| Current artist text/voice fails | Final exact Core private-response fixture adopted; older history revisions no longer reject current private reply as revision0 | Installed final Core and actual microphone/reply acceptance |
+
+## Lane #87 continuation
+
+Current lane comments were reread without posting or sending a message. The Core
+queue remains separately owned; do not duplicate its writer or substitute Apple
+for its Hybrid/artwork work.
+
+- Moment→Track Insight producer: Core #1166, exactmain
+  `7698961ec4fc7f93d1afa155aa73416a35604ac3`;
+  `Tests/Fixtures/moment-insight-core-producer.json` SHA256
+  `9be892d55c8aaee4871e54ac68ed04945fb0676ce5472e2091a83ee66b2151a8`.
+  Navigation is inert until click, capability/version gated, exact immutable
+  reference, no current-playback substitution. Detail is RAM/view scoped, no
+  widget/history/share storage, and original publication/source deadline cannot
+  be extended by retry. A valid successor, end, background, forbidden/expired
+  source, changed media identity and unavailable runtime are separate tests.
+- Frozen search/refinement/selection actions inherit their original result-set
+  deadline even when selection omits result_set. Repeat cannot extend it;
+  revoked/expired grants cannot be restored by subsequent response or scope change.
+- Current-artist producer: Core #1168 exactmain
+  `eeb1c7e763f72ee346ec8eabb52e1c7d87d39433`, fixture SHA256
+  `6fac84203cc3ce18c380895a5e59dcbcf93dc038034bc9f4be8f5c5ca8e14536`.
+  Final additive private_ephemeral metadata does not require the earlier optional
+  history_persisted=false marker. Ordinary history version/owner/epoch checks remain.
+- Session/Moment artwork assignment
+  `DJC-APPLE-SESSION-MOMENT-ARTWORK-V1-20261014` remains selected/queued pending
+  the explicit early Core inputs listed in
+  [the adoption design](SESSION_MOMENT_ARTWORK_ADOPTION.md). No DTO is invented.
+
+## New native findings and evidence
+
+A separately identified temporary Mac app used only synthetic loopback owner
+projections and the exact sanitized Core detail fixture. Native AX and screenshot
+confirmed: zero detail requests before click; one after click; A stays A while B
+plays; Close returns to the same Session; zero playback mutations. This is
+`SYNTHETIC_NATIVE_RENDERER_PROOF`, not real Core/provider/microphone/installed proof.
+Files: `/private/tmp/djc-insight-native-{before,detail,after-B,return}.txt`,
+`/private/tmp/djc-insight-native-detail.png`,
+`/private/tmp/djc-insight-native-receipt.json`. That app and its local fixture
+were stopped; the ordinary DJConnect process was not replaced or restarted.
+
+The native screenshot exposed Core summary/full_text strings containing serialized
+language dictionaries. Apple does not evaluate or extract prose from that debug
+representation. For the existing qualified_credit_and_interpretation_v1 contract,
+verified_context is rendered only with measured_audio=false plus valid HTTPS CC0
+source attribution; normal prose interpretation stays separate. A technical-only
+explicit detail without this qualified fallback is refused. Energy/danceability/
+intensity remain absent; no local analysis was created. The final updated native
+screenshot is recorded below after verification.
+
+Music DNA409 source tracing reaches capture_refresh_guard.valid() checks before
+and after profile/provider awaits. Relevant predicates cover exact record/manager,
+consent/generation, Profile/backend/account/runtime identity, paired entry/provider
+registration, privacy and authority. Existing installed diagnostics identify the
+error code but not which predicate failed. This read-only source trace does not
+establish a production root cause or justify disabling those checks.
+
+## Build40060 verification and requested device installation
+
+Owner explicitly expanded the earlier installation pause to the four named
+devices. No CI run, push, protected merge, HA/Pi update, pairing change or other
+installation was performed. Existing Mac app bundles were retained as backups;
+no UserDefaults, app container, token or Profile was reset.
+
+- Full Swift suite:550 tests PASS32.835s,
+  `/private/tmp/djc-40060-final-tests.log`.
+- Signed iOS generic/physical-device build: BUILD SUCCEEDED,
+  `/private/tmp/djc-40060-ios-signed.log`.
+- Signed macOS build-for-testing: TEST BUILD SUCCEEDED,
+  `/private/tmp/djc-40060-mac-signed.log`. Native XCTest execution is not claimed.
+- Localization:1123keys/five languages PASS; git diff --check PASS.
+- Exact iOS executable SHA256:
+  `33295c7c7b34707b6e24eb4d4d4dec7f12c0479beabc7f6150c41ed7f1c32dd9`.
+- Exact Mac executable SHA256:
+  `1a22cebb7b1e877595880f3c136b1fcaa4a1ecffdb841de10b53282a9af1c839`.
+
+| Device | Fresh pre-install read | Installed readback | Launch |
+| --- | --- | --- | --- |
+| Peter-iPadPro |40021|4.0.0/40060|devicectl success|
+| Peter-iPhone17Pro |40059|4.0.0/40060|devicectl success|
+| MacBook mbpro-peter |40059|4.0.0/40060 + exact Mac SHA|new ordinary process confirmed|
+| Mac mini macmini-m6 |40058|4.0.0/40060 + exact Mac SHA|new ordinary process confirmed|
+
+The fresh pre-install reads supersede older assumed installed-version statements.
+Build40060 avoids reusing40059 already found on the iPhone and MacBook. Device
+receipts are `/private/tmp/djc-{ipad,iphone}-40060-{install,after-app,launch}.json`;
+Mac mini receipt `/private/tmp/djc-macmini-40060-install-receipt.json`; MacBook
+receipt `/private/tmp/djc-macbook-40060-install-receipt.json` is on the MacBook.
+
+The late missing-optional-live-capability regression was first reproduced with a
+delayed capability reply after a successful authenticated HTTP detail. Production
+paired transport now keeps that HTTP snapshot and its original expiry, instead
+of clearing it solely because an optional WebSocket route is absent. Explicit
+legacy/test auth without HTTP recovery retains its unavailable-state behavior.
+Actual HTTP401/Profile refusal still withdraws private owner state.
+
+Final native40060 confirmation used the same isolated bundle/loopback fixture.
+AX checked exactly one status button on each of the eight requested live pages
+and zero on Earlier Sessions. The popover shows Verbonden · lokaal and no
+contradictory Gekoppeld/dot. Credit detail AX shows the exact verified context,
+MusicBrainz · CC0-1.0 and no serialized dictionary. Screenshots were inspected.
+Receipts: /private/tmp/djc-40060-native-page-receipt.json,
+/private/tmp/djc-40060-native-{connection-popover,credit-detail}.{txt,png}.
+All157 current Sources/Tests/Apps files match the build input byte-for-byte;
+hashes are in /private/tmp/djc-40060-source-manifest.json. The temporary app and
+fixture were stopped. These native fixture results are not live provider or
+whole-list end-user acceptance.

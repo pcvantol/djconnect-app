@@ -1934,7 +1934,7 @@ extension DJConnectIOSUITests {
             button.tap()
             if offset == 0 {
                 XCTAssertTrue(app.descendants(matching: .any)["session-presence-pending"].firstMatch.waitForExistence(timeout: 2))
-                XCTAssertTrue(app.staticTexts["session-presence-confirmed"].label.contains(anchors[language]![2]),
+                XCTAssertTrue(((app.descendants(matching: .any)["session-presence-slider"].firstMatch.value as? String) ?? "").contains(anchors[language]![2]),
                               "Pending intent must not replace the confirmed server value")
                 let pending = XCTAttachment(screenshot: app.screenshot())
                 pending.name = "presence-\(language)-pending-distinct-from-confirmed"
@@ -1953,16 +1953,16 @@ extension DJConnectIOSUITests {
             XCTAssertEqual(current["selected_mood"] as? String, original["selected_mood"] as? String)
             XCTAssertEqual(current["mood_revision"] as? Int, original["mood_revision"] as? Int)
             XCTAssertEqual(current["now_playing"] as? NSDictionary, original["now_playing"] as? NSDictionary)
-            let confirmed = app.staticTexts["session-presence-confirmed"]
+            let confirmed = app.descendants(matching: .any)["session-presence-slider"].firstMatch
             XCTAssertTrue(confirmed.waitForExistence(timeout: 10))
-            let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", anchors[language]![offset]), object: confirmed)
+            let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@", anchors[language]![offset]), object: confirmed)
             let visibleResult = await XCTWaiter.fulfillment(of: [visible], timeout: 10)
-            XCTAssertEqual(visibleResult, .completed, "The native label must confirm the actual server-selected position")
+            XCTAssertEqual(visibleResult, .completed, "The control value must confirm the actual server-selected position")
             let screenshot = XCTAttachment(screenshot: app.screenshot())
             screenshot.name = "presence-\(language)-\(value)-confirmed"
             screenshot.lifetime = .keepAlways; add(screenshot)
         }
-        XCTAssertTrue(app.sliders["session-presence-slider"].exists, "Native adjustable control is exposed")
+        XCTAssertTrue(app.descendants(matching: .any)["session-presence-slider"].firstMatch.exists, "The discrete accessible control is exposed")
         XCTAssertFalse(app.descendants(matching: .any)["session-presence-error"].firstMatch.exists)
         let paused = try await control("pause")
         let pausedRuntime = try XCTUnwrap(paused["active"] as? [String: Any])
@@ -1979,7 +1979,7 @@ extension DJConnectIOSUITests {
         }
         XCTAssertTrue(pausedChoice.isHittable)
         pausedChoice.tap()
-        let pausedConfirmation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", anchors[language]![2]), object: app.staticTexts["session-presence-confirmed"])
+        let pausedConfirmation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@", anchors[language]![2]), object: app.descendants(matching: .any)["session-presence-slider"].firstMatch)
         let pausedResult = await XCTWaiter.fulfillment(of: [pausedConfirmation], timeout: 10)
         XCTAssertEqual(pausedResult, .completed)
         let final = try await control("state")

@@ -1126,3 +1126,45 @@
 "ui.session.presence.no_active_session" = "Aucune session active valide pour ce réglage.";
 "ui.session.presence.invalid_state" = "La session n’a pas renvoyé de réglage valide pour la présence du DJ.";
 "ui.session.presence.incompatible_response" = "Le serveur a renvoyé une réponse incompatible pour la présence du DJ.";
+
+"ui.session.presence.level" = "Présence";
+
+"ui.connection.combined.demo" = "Mode démo";
+"ui.connection.combined.ready" = "Non associé";
+"ui.connection.combined.pairing" = "Association…";
+"ui.connection.combined.setupPending" = "Confirmer dans Home Assistant";
+"ui.connection.combined.stale" = "Nouvelle association requise";
+"ui.connection.combined.networkUnavailable" = "Aucun réseau";
+"ui.connection.combined.offline" = "Home Assistant inaccessible";
+"ui.connection.combined.connecting" = "Reconnexion…";
+"ui.connection.combined.recovering" = "Connecté · mise à jour de la session";
+"ui.connection.combined.liveUnavailable" = "Connecté · session indisponible";
+"ui.connection.combined.backendUnavailable" = "Connecté · musique indisponible";
+"ui.connection.combined.updateRequired" = "Mise à jour requise";
+"ui.connection.combined.connected" = "Connecté · local";
+"ui.connection.combined.remote" = "Connecté · distant";
+
+"ui.push.configuration_needed" = "Configuration requise";
+"ui.push.registration_failed" = "Échec de l’enregistrement";
+"ui.push.registration_confirmed_detail" = "Le serveur a confirmé l’enregistrement push. Cela ne prouve pas la réception d’une notification.";
+"ui.push.registration_pending_detail" = "L’enregistrement push de cet appareil n’est pas encore confirmé.";
+"ui.push.configuration_detail" = "Le service d’enregistrement de confiance ou la preuve d’amorçage manque. La configuration DJConnect doit être corrigée ; refaire l’association n’est pas une solution générale.";
+"ui.push.environment_detail" = "Les environnements push de l’app et du serveur ne correspondent pas. La configuration de l’app doit être corrigée.";
+"ui.push.apns_detail" = "L’enregistrement auprès d’Apple a échoué. Vérifiez les réglages de notification. Si le problème persiste, la configuration de l’app doit être vérifiée.";
+"ui.push.transport_detail" = "Le service d’enregistrement est inaccessible. Réessayez une fois la connexion rétablie.";
+"ui.push.permission_detail" = "L’autorisation des notifications n’est pas confirmée. Vérifiez les réglages de cette app.";
+"ui.push.open_settings" = "Ouvrir les réglages de notification";
+
+"ui.vibecast.handoff.unconfirmed" = "Le transfert n’est pas confirmé. Vérifiez l’écran VibeCast avant de réessayer.";
+"ui.vibecast.handoff.code_unavailable" = "Ce code n’est plus disponible. Ouvrez VibeCast et utilisez le code actuel.";
+
+"ui.session.insight.loading" = "Chargement de Track Insight pour ce titre…";
+
+"ui.session.insight.unavailable" = "Impossible de charger Track Insight pour cette contribution. Réessayez.";
+
+"ui.session.insight.expired" = "Track Insight pour cette contribution n’est plus disponible.";
+
+"ui.session.insight.context_changed" = "Les paramètres de la session ont changé. Rechargez cette analyse.";
+
+"ui.trackInsight.verified_credits" = "Crédits vérifiés";
+"ui.trackInsight.interpretation" = "Interprétation";

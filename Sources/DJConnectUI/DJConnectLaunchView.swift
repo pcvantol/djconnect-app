@@ -115,7 +115,7 @@ private struct DJConnectLaunchView: View {
                         DJConnectLaunchBanner()
                             .frame(width: bannerWidth)
                     }
-                    DJConnectLaunchHeroVisual(width: bannerWidth)
+                    DJSessionWelcomeArtwork()
                         .frame(width: bannerWidth, height: bannerWidth * 0.72)
                         .accessibilityHidden(true)
                     Text("v\(DJConnectVersionInfo.displayVersion)")

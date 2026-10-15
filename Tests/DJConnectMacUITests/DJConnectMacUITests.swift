@@ -106,6 +106,22 @@ final class DJConnectMacUITests: XCTestCase {
         XCTAssertTrue(app.windows.firstMatch.exists)
     }
 
+    func testConnectionStatusIsSharedAcrossLivePagesAndAbsentFromSavedSessions() {
+        let app = launchMonkeyApp()
+        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 12))
+        for title in ["DJ-sessie", "Speelt Nu", "Track Insight", "Ontdek", "Ask DJ", "Music DNA", "Wachtrij", "Afspeellijsten"] {
+            openScreen(title, in: app)
+            let status = app.buttons["session-connection-toggle"]
+            XCTAssertTrue(status.waitForExistence(timeout: 6), "Missing connection status on \(title)")
+            XCTAssertEqual(app.buttons.matching(identifier: "session-connection-toggle").count, 1)
+            XCTAssertGreaterThan(status.frame.midX, app.windows.firstMatch.frame.midX, "Status must remain trailing")
+        }
+        openScreen("Eerdere sessies", in: app)
+        let absent = NSPredicate(format: "exists == false")
+        expectation(for: absent, evaluatedWith: app.buttons["session-connection-toggle"])
+        waitForExpectations(timeout: 6)
+    }
+
     func testSettingsShowsRepairPairingAction() {
         let app = launchMonkeyApp()
 
@@ -184,6 +200,13 @@ final class DJConnectMacUITests: XCTestCase {
             return
         }
         XCTAssertTrue(app.staticTexts["Even meekijken in de credits: Nora Vale en Sam Reed zijn hier als producers gecrediteerd."].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["screen-session-conversation"].exists,
+                      "Missing history capability must keep the normal session screen")
+        XCTAssertTrue(app.descendants(matching: .any)["session-history-unavailable"].exists)
+        XCTAssertFalse(app.staticTexts["Sessieverloop"].exists)
+        XCTAssertFalse(app.textFields["vibecast-handoff-code"].exists,
+                       "VibeCast form belongs only in the explicit handoff popover")
+        XCTAssertFalse(app.buttons["Terug naar de actuele bijdrage"].exists)
         try saveMomentScreenshot(app, "mac-01-moment")
         _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/advance"))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", "Nora Vale kwamen we eerder tegen bij «Amber Lines», als producer. Bij «Slow Lanterns» staat die naam opnieuw in de producercredits.")).firstMatch.waitForExistence(timeout: 10))
@@ -553,7 +576,7 @@ extension DJConnectMacUITests {
             button.click()
             if offset == 0 {
                 XCTAssertTrue(app.descendants(matching: .any)["session-presence-pending"].firstMatch.waitForExistence(timeout: 2))
-                XCTAssertTrue(((app.staticTexts["session-presence-confirmed"].value as? String) ?? app.staticTexts["session-presence-confirmed"].label).contains(anchors[language]![2]),
+                XCTAssertTrue(((app.descendants(matching: .any)["session-presence-slider"].firstMatch.value as? String) ?? app.descendants(matching: .any)["session-presence-slider"].firstMatch.label).contains(anchors[language]![2]),
                               "Pending intent must not replace the confirmed server value")
                 let pending = XCTAttachment(screenshot: app.screenshot())
                 pending.name = "presence-\(language)-pending-distinct-from-confirmed"
@@ -572,22 +595,22 @@ extension DJConnectMacUITests {
             XCTAssertEqual(current["selected_mood"] as? String, original["selected_mood"] as? String)
             XCTAssertEqual(current["mood_revision"] as? Int, original["mood_revision"] as? Int)
             XCTAssertEqual(current["now_playing"] as? NSDictionary, original["now_playing"] as? NSDictionary)
-            let confirmed = app.staticTexts["session-presence-confirmed"]
+            let confirmed = app.descendants(matching: .any)["session-presence-slider"].firstMatch
             XCTAssertTrue(confirmed.waitForExistence(timeout: 10))
             let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@ OR label CONTAINS %@", anchors[language]![offset], anchors[language]![offset]), object: confirmed)
             let visibleResult = await XCTWaiter.fulfillment(of: [visible], timeout: 10)
-            XCTAssertEqual(visibleResult, .completed, "The native label must confirm the actual server-selected position")
+            XCTAssertEqual(visibleResult, .completed, "The control value must confirm the actual server-selected position")
             let screenshot = XCTAttachment(screenshot: app.screenshot())
             screenshot.name = "presence-\(language)-\(value)-confirmed"
             screenshot.lifetime = .keepAlways; add(screenshot)
         }
-        XCTAssertTrue(app.sliders["session-presence-slider"].exists, "Native adjustable control is exposed")
+        XCTAssertTrue(app.descendants(matching: .any)["session-presence-slider"].firstMatch.exists, "The discrete accessible control is exposed")
         XCTAssertFalse(app.descendants(matching: .any)["session-presence-error"].firstMatch.exists)
         let paused = try await control("pause")
         let pausedRuntime = try XCTUnwrap(paused["active"] as? [String: Any])
         guard let balanced = try await readyChoice("balanced") else { app.terminate(); return }
         balanced.click()
-        let pausedConfirmation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@ OR label CONTAINS %@", anchors[language]![2], anchors[language]![2]), object: app.staticTexts["session-presence-confirmed"])
+        let pausedConfirmation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@ OR label CONTAINS %@", anchors[language]![2], anchors[language]![2]), object: app.descendants(matching: .any)["session-presence-slider"].firstMatch)
         let pausedResult = await XCTWaiter.fulfillment(of: [pausedConfirmation], timeout: 10)
         XCTAssertEqual(pausedResult, .completed)
         let final = try await control("state")
@@ -602,7 +625,7 @@ extension DJConnectMacUITests {
         XCTAssertEqual(final["ha_refresh_tokens"] as? Int, final["initial_ha_refresh_tokens"] as? Int)
         XCTAssertEqual(final["ha_users"] as? Int, final["initial_ha_users"] as? Int)
         app.typeKey(XCUIKeyboardKey.escape.rawValue, modifierFlags: [])
-        let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.sliders["session-presence-slider"])
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.descendants(matching: .any)["session-presence-slider"].firstMatch)
         let closedResult = await XCTWaiter.fulfillment(of: [closed], timeout: 5)
         XCTAssertEqual(closedResult, .completed, "Escape must close the native presence popover")
         app.terminate()

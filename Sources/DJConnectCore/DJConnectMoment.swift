@@ -151,6 +151,7 @@ public struct DJConnectNativeMomentDelivery: Codable, Equatable, Sendable {
         public var displayExpiresAt: String?
         public var executableActions: [String]
         public var requiresSpotifyAttribution: Bool
+        public var navigationActions: [DJConnectMomentInsightNavigation] = []
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             guard c.contains(.sourceExpiresAt), c.contains(.displayExpiresAt) else { throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Incomplete native deadline authority")) }
@@ -162,11 +163,13 @@ public struct DJConnectNativeMomentDelivery: Codable, Equatable, Sendable {
             displayExpiresAt = try c.decodeIfPresent(String.self, forKey: .displayExpiresAt)
             executableActions = try c.decode([String].self, forKey: .executableActions)
             requiresSpotifyAttribution = try c.decode(Bool.self, forKey: .requiresSpotifyAttribution)
+            navigationActions = (try? c.decode([LossyBroadcastValue<DJConnectMomentInsightNavigation>].self, forKey: .navigationActions))?.compactMap(\.value) ?? []
         }
         enum CodingKeys: String, CodingKey {
             case momentID = "moment_id", qualification
             case currentDisplayAllowed = "current_display_allowed", activeFlowDisplayAllowed = "active_flow_display_allowed"
             case sourceExpiresAt = "source_expires_at", displayExpiresAt = "display_expires_at"
+            case navigationActions = "navigation_actions"
             case executableActions = "executable_actions", requiresSpotifyAttribution = "requires_spotify_attribution"
         }
     }
@@ -274,4 +277,74 @@ private func nativeDeadline(_ value: String) -> Date? {
     let parser = ISO8601DateFormatter()
     parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     return parser.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+}
+
+/// Inert reference to an already published subject. It grants no playback effects.
+public struct DJConnectMomentInsightReference: Codable, Equatable, Sendable, Identifiable {
+    public let schemaVersion: Int
+    public let sessionID: String
+    public let momentID: String
+    public let actionID: String
+    public var id: String { actionID }
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version", sessionID = "session_id", momentID = "moment_id", actionID = "action_id"
+    }
+    public var isValid: Bool {
+        schemaVersion == 1 && [sessionID, momentID, actionID].allSatisfy { !$0.isEmpty && $0.count <= 128 }
+            && actionID == "insight-" + momentID
+    }
+}
+
+public struct DJConnectMomentInsightNavigation: Codable, Equatable, Sendable {
+    public let schemaVersion: Int
+    public let kind: String
+    public let target: String
+    public let actionID: String
+    public let label: String
+    public let requiredCapability: String
+    public let reference: DJConnectMomentInsightReference
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version", kind, target, actionID = "action_id", label
+        case requiredCapability = "required_capability", reference
+    }
+    public var isValid: Bool {
+        schemaVersion == 1 && kind == "navigation" && target == "track_insight"
+            && requiredCapability == "moment_track_insight_navigation_v1" && reference.isValid
+            && actionID == reference.actionID && !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && label.count <= 256
+    }
+}
+
+public struct DJConnectMomentInsightSubject: Decodable, Equatable, Sendable {
+    public let mode: String
+    public let reference: DJConnectMomentInsightReference
+    public let mediaIdentity: String
+    public let expiresIn: Double
+    enum CodingKeys: String, CodingKey { case mode, reference, mediaIdentity = "media_identity", expiresIn = "expires_in" }
+    public func matches(_ requested: DJConnectMomentInsightReference) -> Bool {
+        mode == "explicit" && reference == requested && reference.isValid
+            && !mediaIdentity.isEmpty && mediaIdentity.count <= 512 && expiresIn.isFinite && expiresIn > 0 && expiresIn <= 600
+    }
+}
+
+public struct DJConnectMomentInsightDetail: Sendable {
+    public let insight: TrackInsight
+    public let subject: DJConnectMomentInsightSubject
+}
+
+public extension DJConnectBroadcastState {
+    func nativeCurrentInsightNavigation(at date: Date, spotifyAttributionAvailable: Bool = false) -> DJConnectMomentInsightNavigation? {
+        guard let current = nativeCurrentMoment(at: date, spotifyAttributionAvailable: spotifyAttributionAvailable), current.type == "track",
+              let admission = nativeDelivery?.admissions.first(where: { $0.momentID == current.id }) else { return nil }
+        let offers = admission.navigationActions.filter { $0.isValid && $0.reference.sessionID == session.sessionID && $0.reference.momentID == current.id }
+        return offers.count == 1 ? offers[0] : nil
+    }
+
+    func originalInsightDeadline(for reference: DJConnectMomentInsightReference) -> Date? {
+        guard reference.isValid, reference.sessionID == session.sessionID,
+              let moment = djMoments.first(where: { $0.id == reference.momentID }),
+              let published = nativeDeadline(moment.createdAt),
+              let admission = nativeDelivery?.admissions.first(where: { $0.momentID == moment.id }),
+              let source = admission.sourceExpiresAt.flatMap(nativeDeadline) else { return nil }
+        return min(published.addingTimeInterval(600), source)
+    }
 }

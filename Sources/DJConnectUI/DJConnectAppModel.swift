@@ -603,6 +603,35 @@ public struct DJConnectPushNotificationStatus: Equatable, Sendable {
     public var environment: DJConnectPushEnvironment?
     public var lastError: String?
 
+    public enum FailureKind: Equatable, Sendable { case configuration, environment, apns, transport, other }
+    public var failureKind: FailureKind {
+        let error = lastError?.lowercased() ?? ""
+        if error.contains("bootstrap") || error.contains("issuer") { return .configuration }
+        if error.contains("environment") { return .environment }
+        if error.contains("apns_registration") { return .apns }
+        if error.contains("network") || error.contains("route_unavailable") { return .transport }
+        return .other
+    }
+    public var titleKey: String {
+        switch state {
+        case .registered: "ui.registered"
+        case .unavailable: "ui.not.supported"
+        case .inactive: "ui.not.active"
+        case .actionNeeded: failureKind == .configuration ? "ui.push.configuration_needed" : "ui.push.registration_failed"
+        }
+    }
+    public var explanationKey: String {
+        if state == .registered { return "ui.push.registration_confirmed_detail" }
+        if state == .inactive { return "ui.push.registration_pending_detail" }
+        switch failureKind {
+        case .configuration: return "ui.push.configuration_detail"
+        case .environment: return "ui.push.environment_detail"
+        case .apns: return "ui.push.apns_detail"
+        case .transport: return "ui.push.transport_detail"
+        case .other: return "ui.push.registration_pending_detail"
+        }
+    }
+
     public init(
         state: State = .inactive,
         environment: DJConnectPushEnvironment? = nil,
@@ -704,6 +733,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var playback: DJConnectPlayback? { didSet { syncDemoSessionPlayback() } }
     @Published public private(set) var activeDJSession: DJConnectSessionRuntime? {
         didSet {
+            reconcileMomentTrackInsight()
             if oldValue?.id != activeDJSession?.id {
                 resetActiveMoodState()
                 invalidateSessionPlaybackActions()
@@ -733,6 +763,20 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var isLoadingVibeCastHandoff = false
     @Published public private(set) var vibeCastHandoffApproved = false
     @Published public private(set) var vibeCastHandoffFailed = false
+    @Published public private(set) var vibeCastHandoffErrorKey: String?
+    private var vibeCastHandoffGeneration = UUID()
+    @Published public private(set) var momentTrackInsightTarget: DJConnectMomentInsightReference?
+    @Published public private(set) var momentTrackInsight: TrackInsight?
+    @Published public private(set) var momentTrackInsightErrorMessage: String?
+    @Published public private(set) var isLoadingMomentTrackInsight = false
+    private var momentInsightGeneration = UUID()
+    private var momentInsightDeadline: Date?
+    private var momentInsightStyle = ""
+    private var momentInsightMediaIdentity: String?
+    private var momentInsightRetryAllowed = true
+    private var momentInsightTask: Task<Void, Never>?
+    private var momentInsightExpiryTask: Task<Void, Never>?
+
     @Published public private(set) var currentTrackInsight: TrackInsight?
     @Published public private(set) var trackInsightHistory: [TrackInsight] = []
     @Published public private(set) var isLoadingTrackInsight = false
@@ -926,6 +970,20 @@ public final class DJConnectAppModel: ObservableObject {
     private let permissionCoordinator = DJConnectPermissionCoordinator()
     private var openPermissionSettingsTask: Task<Void, Never>?
     private var outputSelectionGeneration = 0
+    private struct LiveConversationPresentation {
+        let epoch: UUID
+        let deadline: Date?
+        let message: DJConnectAskDJMessage
+        let isPrivateEphemeral: Bool
+    }
+    private struct ConversationResultLease {
+        let epoch: UUID
+        let deadline: Date
+    }
+    private var conversationResultLeases: [String: ConversationResultLease] = [:]
+    private var conversationResultLeaseOrder: [String] = []
+    private var liveConversationPresentations: [String: LiveConversationPresentation] = [:]
+    private var liveConversationExpiryTask: Task<Void, Never>?
     private var pendingSelectedOutput: String?
     private var pendingSelectedOutputIsCachedSpotify = false
     private var pendingVolumePercent: Int?
@@ -952,6 +1010,11 @@ public final class DJConnectAppModel: ObservableObject {
     private var currentAPNsPushToken: String?
     private var remoteNotificationRegistrationRequestedThisLaunch = false
     private var pushRegistrationInFlightSignature: String?
+    private var discoveryArtworkRenewalTask: Task<Void, Never>?
+    private var retriedExpiredDiscoveryArtwork = false
+    private var discoveryResponseGeneration = UUID()
+    private var discoveryLoadGeneration = UUID()
+    private var discoveryRefreshGeneration = UUID()
     private var musicDiscoveryPushRefreshes: [String: Date] = [:]
     private var webSocketFastPathCache: [String: any DJConnectWebSocketFastPathTransport] = [:]
     private var webSocketSessionAuthProviders: [String: DJConnectWebSocketSessionAuthProvider] = [:]
@@ -1825,6 +1888,11 @@ public final class DJConnectAppModel: ObservableObject {
         resumeWakeWordListeningIfNeeded()
         updatePlaybackProgressTimer()
         updateNowPlayingPollTimer()
+        if let discovery = musicDiscoveryResponse, pairingStatus == .paired, !isDemoMode {
+            if discovery.sections.flatMap(\.items).contains(where: { $0.imageURL != nil && ($0.imageExpiresAt.map { $0 <= Date() } ?? false) }) {
+                Task { await loadMusicDiscovery(force: true) }
+            } else { scheduleDiscoveryArtworkRenewal(discovery) }
+        }
         syncTrackInsightLiveActivity(reason: "App became active")
         if pairingStatus == .paired, !isDemoMode {
             Task {
@@ -1851,6 +1919,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func markInactiveSession(enteringBackground: Bool = true) {
+        dismissMomentTrackInsight()
         if enteringBackground && !isDemoMode {
             if sessionHistory.profileScopeActive {
                 cancelVoiceRecording()
@@ -1861,6 +1930,10 @@ public final class DJConnectAppModel: ObservableObject {
         invalidateSessionRequest()
         isLoadingDJSession = false
         isAppInForeground = false
+        discoveryArtworkRenewalTask?.cancel(); discoveryArtworkRenewalTask = nil
+        discoveryResponseGeneration = UUID()
+        discoveryLoadGeneration = UUID(); discoveryRefreshGeneration = UUID()
+        isLoadingMusicDiscovery = false; isRefreshingMusicDiscovery = false
         stopSessionBroadcast()
         scheduledPairingTask?.cancel()
         scheduledPairingTask = nil
@@ -3307,6 +3380,11 @@ public final class DJConnectAppModel: ObservableObject {
         return true
     }
 
+    func displayedSessionPositionMS(_ session: DJConnectSessionRuntime) -> Int? {
+        guard canToggleSessionFavorite(session) else { return session.broadcast.playback?.positionMS }
+        return pendingSeekTargetMS ?? playback?.progressMS ?? session.broadcast.playback?.positionMS
+    }
+
     func toggleSessionFavorite(_ session: DJConnectSessionRuntime) {
         guard canToggleSessionFavorite(session) else { return }
         toggleCurrentTrackFavorite(expectedSession: session)
@@ -3441,13 +3519,73 @@ public final class DJConnectAppModel: ObservableObject {
         isSendingAskDJText = false; askDJErrorMessage = localized(key: errorKey)
         if let id { updateAskDJMessageStatus(id: id, status: .failed) }
     }
+    /// Follow-up selections inherit the original frozen result lifetime. An
+    /// omitted result_set is not permission to mint a fresh or unlimited lease.
+    func resolveConversationPresentationDeadline(_ response: DJConnectAskDJMessageResponse, now: Date = Date()) -> Date? {
+        var actions = (response.playbackActions ?? []) + (response.confirmationActions ?? [])
+        for message in response.messages { actions += message.playbackActions + message.confirmationActions }
+        if let assistant = response.assistantMessage { actions += assistant.playbackActions + assistant.confirmationActions }
+        let frozen = actions.filter { $0.resultSetID != nil || $0.actionID != nil }
+        guard frozen.allSatisfy(\.hasConsistentResultIdentity) else { return .distantPast }
+        let ids = Set(frozen.compactMap(\.resultSetID))
+        let epoch = sessionHistory.responseEpoch
+        if let result = response.resultSet {
+            guard ids.isEmpty || ids == [result.resultSetID],
+                  let proposed = conversationPresentationDeadline(response, now: now), proposed > now else {
+                if !result.resultSetID.isEmpty, result.resultSetID.count <= 256 {
+                    recordConversationResultLease(id: result.resultSetID, deadline: .distantPast, epoch: epoch)
+                }
+                return .distantPast
+            }
+            var deadline = proposed
+            if let original = conversationResultLeases[result.resultSetID], original.epoch == epoch {
+                deadline = min(original.deadline, proposed)
+            }
+            recordConversationResultLease(id: result.resultSetID, deadline: deadline, epoch: epoch)
+            return deadline
+        }
+        guard !frozen.isEmpty else { return nil }
+        let known = ids.compactMap { conversationResultLeases[$0] }
+        guard known.count == ids.count, !known.isEmpty, known.allSatisfy({ $0.epoch == epoch }) else { return .distantPast }
+        return known.map(\.deadline).min()
+    }
+
+    private func recordConversationResultLease(id: String, deadline: Date, epoch: UUID) {
+        if conversationResultLeases[id] == nil { conversationResultLeaseOrder.append(id) }
+        conversationResultLeases[id] = .init(epoch: epoch, deadline: deadline)
+        while conversationResultLeaseOrder.count > 32 {
+            conversationResultLeases.removeValue(forKey: conversationResultLeaseOrder.removeFirst())
+        }
+    }
+
+    func invalidateConversationResultLeases() {
+        conversationResultLeases = [:]; conversationResultLeaseOrder = []
+    }
+
     @discardableResult func applyProfileConversationResponse(_ response: DJConnectAskDJMessageResponse, fallback: UUID?) -> Bool {
-        guard response.historyRevision >= profileConversationHistoryRevision,
-              response.clearRevision >= profileConversationClearRevision else { return false }
-        if response.clearRevision > profileConversationClearRevision {
+        guard response.isPrivateEphemeralResponse || (response.historyRevision >= profileConversationHistoryRevision
+              && response.clearRevision >= profileConversationClearRevision) else { return false }
+        if !response.isPrivateEphemeralResponse, response.clearRevision > profileConversationClearRevision {
             sessionHistory.suspend(); clearAskDJHistoryLocally()
         }
+        withdrawLiveConversationPresentations()
         applyAskDJMessageResponse(response, fallbackUserMessageID: fallback)
+        let deadline = resolveConversationPresentationDeadline(response)
+        for incoming in response.messages where incoming.role == .assistant {
+            guard let rendered = askDJMessages.first(where: { $0.serverID == incoming.id }) else { continue }
+            liveConversationPresentations[incoming.id] = .init(epoch: sessionHistory.responseEpoch, deadline: deadline, message: rendered,
+                isPrivateEphemeral: response.isPrivateEphemeralResponse)
+        }
+        if let deadline, deadline <= Date() {
+            withdrawLiveConversationPresentations()
+        } else if let deadline {
+            let epoch = sessionHistory.responseEpoch
+            liveConversationExpiryTask = Task { [weak self] in
+                do { try await Task.sleep(for: .seconds(max(0, deadline.timeIntervalSinceNow))) } catch { return }
+                guard let self, epoch == self.sessionHistory.responseEpoch else { return }
+                self.withdrawLiveConversationPresentations()
+            }
+        }
         isSendingAskDJText = false; askDJErrorMessage = nil
         djResponseText = userFacingDJResponseText(response.assistantMessage?.text ?? response.djText ?? response.text) ?? ""
         return true
@@ -3489,6 +3627,132 @@ public final class DJConnectAppModel: ObservableObject {
         let clientMessageID = UUID().uuidString
         let messageID = appendAskDJMessage(role: .user, text: text, clientMessageID: clientMessageID, status: .sending)
         submitAskDJText(text, userMessageID: messageID, clientMessageID: clientMessageID)
+    }
+
+    private var canReadMomentTrackInsight: Bool {
+        momentInsightRetryAllowed && momentTrackInsightTarget != nil && isRuntimeCompatible && !isOfflineModeActive
+            && isAppInForeground && pairingStatus == .paired && (momentInsightDeadline.map { $0 > Date() } ?? false)
+    }
+    public var canRetryMomentTrackInsight: Bool { canReadMomentTrackInsight && !isLoadingMomentTrackInsight }
+
+    private var currentMomentInsightStyle: String {
+        [language, activeDJSession?.selectedMood ?? "", String(activeDJSession?.moodRevision ?? -1),
+         activeDJSession?.selectedPresence?.rawValue ?? "", String(activeDJSession?.presenceRevision ?? -1)].joined(separator: "|")
+    }
+
+    public func openMomentTrackInsight(_ offer: DJConnectMomentInsightNavigation) {
+        guard !isDemoMode, pairingStatus == .paired, isAppInForeground, isRuntimeCompatible, !isOfflineModeActive,
+              sessionHistory.momentInsightAvailable,
+              let session = activeDJSession,
+              session.broadcast.nativeCurrentInsightNavigation(at: Date()) == offer,
+              let deadline = session.broadcast.originalInsightDeadline(for: offer.reference), deadline > Date() else { return }
+        dismissMomentTrackInsight()
+        momentTrackInsightTarget = offer.reference
+        momentInsightDeadline = deadline
+        momentInsightStyle = currentMomentInsightStyle
+        momentInsightRetryAllowed = true
+        isLoadingMomentTrackInsight = true
+        scheduleMomentInsightExpiry()
+        momentInsightTask = Task { [weak self] in _ = await self?.loadMomentTrackInsight(initial: true) }
+    }
+
+    @discardableResult public func refreshMomentTrackInsight() async -> Bool {
+        await loadMomentTrackInsight(initial: false)
+    }
+
+    private func loadMomentTrackInsight(initial: Bool) async -> Bool {
+        guard !Task.isCancelled else { return false }
+        guard canReadMomentTrackInsight, initial || !isLoadingMomentTrackInsight, let reference = momentTrackInsightTarget,
+              activeDJSession?.id == reference.sessionID, activeDJSession?.runtimeState == "active" else {
+            if initial, momentTrackInsightTarget != nil {
+                isLoadingMomentTrackInsight = false
+                momentTrackInsightErrorMessage = localized(key: "ui.session.insight.unavailable")
+            }
+            return false
+        }
+        let request = UUID(), epoch = sessionHistory.responseEpoch, source = musicDiscoveryPushCoalescingKey()
+        let style = currentMomentInsightStyle, started = Date()
+        momentInsightGeneration = request; momentInsightStyle = style
+        isLoadingMomentTrackInsight = true; momentTrackInsightErrorMessage = nil
+        // A retry withdraws the previous private rendering before reading again.
+        momentTrackInsight = nil
+        defer { if momentInsightGeneration == request { isLoadingMomentTrackInsight = false } }
+        let valid = { self.momentInsightGeneration == request && self.momentTrackInsightTarget == reference
+            && self.sessionHistory.responseEpoch == epoch && self.musicDiscoveryPushCoalescingKey() == source
+            && self.isAppInForeground && self.pairingStatus == .paired && self.isRuntimeCompatible && !self.isOfflineModeActive
+            && self.activeDJSession?.id == reference.sessionID
+            && self.activeDJSession?.runtimeState == "active" && self.currentMomentInsightStyle == style
+            && self.momentInsightDeadline.map({ $0 > Date() }) == true && !Task.isCancelled }
+        do {
+            let detail = try await withHomeAssistantClient(allowsOperationReplay: false) {
+                try await $0.momentTrackInsight(reference, language: self.language, mood: self.confirmedSessionMoodInt)
+            }
+            guard valid() else { return false }
+            guard momentInsightMediaIdentity == nil || momentInsightMediaIdentity == detail.subject.mediaIdentity else {
+                withdrawMomentTrackInsight(key: "ui.session.insight.unavailable", retryAllowed: false); return false
+            }
+            guard let originalDeadline = momentInsightDeadline else { return false }
+            let deadline = min(originalDeadline, started.addingTimeInterval(detail.subject.expiresIn))
+            guard deadline > Date() else {
+                withdrawMomentTrackInsight(key: "ui.session.insight.expired", retryAllowed: false); return false
+            }
+            momentInsightDeadline = deadline
+            momentInsightMediaIdentity = detail.subject.mediaIdentity
+            momentTrackInsight = detail.insight
+            scheduleMomentInsightExpiry()
+            return true
+        } catch {
+            guard valid() else { return false }
+            if Self.isCancellation(error) { return false }
+            if case let DJConnectError.server(status, _) = error, status == 403 || status == 410 {
+                withdrawMomentTrackInsight(key: "ui.session.insight.expired", retryAllowed: false)
+            } else if (error as? DJConnectError)?.invalidatesSessionAuthority == true {
+                dismissMomentTrackInsight()
+                _ = sessionHistory.withdrawAuthority(for: error)
+            } else {
+                momentTrackInsightErrorMessage = localized(key: "ui.session.insight.unavailable")
+            }
+            return false
+        }
+    }
+
+    public func dismissMomentTrackInsight() {
+        momentInsightGeneration = UUID()
+        momentInsightTask?.cancel(); momentInsightTask = nil
+        momentInsightExpiryTask?.cancel(); momentInsightExpiryTask = nil
+        momentTrackInsight = nil; momentTrackInsightTarget = nil; momentTrackInsightErrorMessage = nil
+        momentInsightDeadline = nil; momentInsightMediaIdentity = nil; isLoadingMomentTrackInsight = false
+    }
+
+    private func withdrawMomentTrackInsight(key: String, retryAllowed: Bool) {
+        momentInsightGeneration = UUID(); momentInsightRetryAllowed = retryAllowed
+        momentInsightTask?.cancel(); momentInsightTask = nil
+        momentTrackInsight = nil; isLoadingMomentTrackInsight = false
+        momentTrackInsightErrorMessage = localized(key: key)
+    }
+
+    private func scheduleMomentInsightExpiry() {
+        momentInsightExpiryTask?.cancel()
+        guard let deadline = momentInsightDeadline else { return }
+        let reference = momentTrackInsightTarget
+        momentInsightExpiryTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(max(0, deadline.timeIntervalSinceNow))) } catch { return }
+            guard let self, self.momentTrackInsightTarget == reference else { return }
+            self.withdrawMomentTrackInsight(key: "ui.session.insight.expired", retryAllowed: false)
+        }
+    }
+
+    private func reconcileMomentTrackInsight() {
+        guard let target = momentTrackInsightTarget else { return }
+        guard let session = activeDJSession, session.id == target.sessionID, session.runtimeState == "active",
+              session.broadcast.nativeDelivery != nil else { dismissMomentTrackInsight(); return }
+        if let admission = session.broadcast.nativeDelivery?.admissions.first(where: { $0.momentID == target.momentID }),
+           admission.qualification != "qualified" {
+            withdrawMomentTrackInsight(key: "ui.session.insight.expired", retryAllowed: false)
+        } else if currentMomentInsightStyle != momentInsightStyle {
+            momentInsightStyle = currentMomentInsightStyle
+            withdrawMomentTrackInsight(key: "ui.session.insight.context_changed", retryAllowed: true)
+        }
     }
 
     public func analyzeCurrentTrack(open: Bool = true, forceRefresh: Bool = false) {
@@ -3633,7 +3897,8 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func playAskDJRecommendation(_ action: DJConnectAskDJPlaybackAction,
                                         isStillValid: (@MainActor () -> Bool)? = nil) {
-        guard isStillValid?() != false, playingAskDJActionID == nil else {
+        guard isStillValid?() != false, playingAskDJActionID == nil, action.hasConsistentResultIdentity,
+              action.resultSetID == nil || liveConversationActionIsCurrent(action) else {
             return
         }
         if action.isFavoriteCurrentTrackControlAction {
@@ -3662,6 +3927,7 @@ public final class DJConnectAppModel: ObservableObject {
         askDJPlayIsSessionScoped = isStillValid != nil
         let valid: @MainActor () -> Bool = { [weak self] in
             self?.askDJPlayOperation == operation && !Task.isCancelled && isStillValid?() != false
+                && (action.resultSetID == nil || self?.liveConversationActionIsCurrent(action) == true)
         }
         playingAskDJActionID = action.id
         askDJErrorMessage = nil
@@ -4460,7 +4726,12 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func normalizedOutputDevices(_ devices: [DJConnectOutputDevice]) -> [DJConnectOutputDevice] {
-        let backendDevices = devices.filter { $0.id != Self.syntheticNoOutputID && $0.name != noOutputName() }
+        let backendDevices = devices.filter { $0.id != Self.syntheticNoOutputID && $0.name != noOutputName() }.map { output in
+            var result = output
+            if output.active == true, output.matchesPlaybackDevice(id: playback?.device?.id, name: playback?.device?.name),
+               let volume = playback?.volumePercent { result.volumePercent = volume }
+            return result
+        }
         let backendHasActiveDevice = backendDevices.contains { $0.active == true }
         var localNone = DJConnectOutputDevice(
             id: Self.syntheticNoOutputID,
@@ -5075,7 +5346,7 @@ public final class DJConnectAppModel: ObservableObject {
         activeMoodPending = true; activeMoodError = nil
         defer { if generation == moodOperationGeneration { activeMoodPending = false } }
         do {
-            let response = try await withHomeAssistantClient { try await $0.updateSessionMood(sessionID: current.id, mood: mood, expectedRevision: revision) }
+            let response = try await withHomeAssistantClient(allowsOperationReplay: false) { try await $0.updateSessionMood(sessionID: current.id, mood: mood, expectedRevision: revision) }
             guard generation == moodOperationGeneration, epoch == sessionHistory.responseEpoch, pairingStatus == .paired, isAppInForeground,
                   let latest = activeDJSession, latest.id == current.id else { return }
             activeDJSession = latest.applying(mood: response)
@@ -5099,7 +5370,7 @@ public final class DJConnectAppModel: ObservableObject {
         isLoadingDJSession = true
         defer { if request == sessionRequestGeneration { isLoadingDJSession = false } }
         do {
-            let response = try await withHomeAssistantClient { client in
+            let response = try await withHomeAssistantClient(allowsOperationReplay: false) { client in
                 try await client.startSession(
                     DJConnectSessionStartRequest(
                         mood: selectedSessionMood,
@@ -5141,7 +5412,7 @@ public final class DJConnectAppModel: ObservableObject {
         isLoadingDJSession = true
         defer { if request == sessionRequestGeneration { isLoadingDJSession = false } }
         do {
-            let response = try await withHomeAssistantClient { client in
+            let response = try await withHomeAssistantClient(allowsOperationReplay: false) { client in
                 try await client.endSession(DJConnectSessionEndRequest(sessionID: sessionID))
             }
             guard request == sessionRequestGeneration, activeDJSession?.id == sessionID else { return }
@@ -5159,29 +5430,42 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func approveVibeCastHandoff(code: String) async {
+        guard !isLoadingVibeCastHandoff else { return }
         let normalized = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard pairingStatus == .paired,
+        guard isAppInForeground, pairingStatus == .paired,
               let sessionID = activeDJSession?.sessionID,
               normalized.count == 6,
               normalized.unicodeScalars.allSatisfy({ $0.value >= 48 && $0.value <= 57 }) else {
-            vibeCastHandoffApproved = false
-            vibeCastHandoffFailed = true
+            vibeCastHandoffApproved = false; vibeCastHandoffFailed = true
+            vibeCastHandoffErrorKey = "ui.vibecast.handoff.failed"
             return
         }
+        let request = UUID(), epoch = sessionHistory.responseEpoch
+        vibeCastHandoffGeneration = request
+        let valid = { self.vibeCastHandoffGeneration == request && self.sessionHistory.responseEpoch == epoch
+            && self.activeDJSession?.id == sessionID && self.isAppInForeground && self.pairingStatus == .paired }
         isLoadingVibeCastHandoff = true
-        vibeCastHandoffApproved = false
-        vibeCastHandoffFailed = false
-        defer { isLoadingVibeCastHandoff = false }
+        vibeCastHandoffApproved = false; vibeCastHandoffFailed = false; vibeCastHandoffErrorKey = nil
+        defer { if vibeCastHandoffGeneration == request { isLoadingVibeCastHandoff = false } }
         do {
-            let response = try await withHomeAssistantClient { client in
+            // A code can be consumed before its response is lost. Never replay
+            // this approval automatically on another route.
+            let response = try await withHomeAssistantClient(allowsOperationReplay: false) { client in
                 try await client.approveVibeCastHandoff(
-                    DJConnectVibeCastHandoffApprovalRequest(sessionID: sessionID, code: normalized)
-                )
+                    DJConnectVibeCastHandoffApprovalRequest(sessionID: sessionID, code: normalized))
             }
-            vibeCastHandoffApproved = activeDJSession?.sessionID == sessionID && response.success && response.handoff == "approved"
+            guard valid() else { return }
+            vibeCastHandoffApproved = response.success && response.handoff == "approved" && response.sessionID == sessionID
             vibeCastHandoffFailed = !vibeCastHandoffApproved
+            if vibeCastHandoffFailed {
+                vibeCastHandoffErrorKey = response.error == "handoff_code_unavailable"
+                    ? "ui.vibecast.handoff.code_unavailable" : "ui.vibecast.handoff.unconfirmed"
+            }
         } catch {
+            guard valid() else { return }
             vibeCastHandoffFailed = true
+            vibeCastHandoffErrorKey = (error as? DJConnectError).map(Self.describe)?.contains("handoff_code_unavailable") == true
+                ? "ui.vibecast.handoff.code_unavailable" : "ui.vibecast.handoff.unconfirmed"
         }
     }
 
@@ -5262,10 +5546,19 @@ public final class DJConnectAppModel: ObservableObject {
                 onConnectionUnavailable: { [weak self] in
                     await MainActor.run {
                         guard let self, self.sessionBroadcastGeneration == generation else { return }
-                        self.activeDJSession?.broadcast.clearNativeAuthority()
-                        self.djSessionIsRecovering = false
-                        self.djSessionLiveUnavailable = self.activeDJSession != nil
-                        self.log(.warning, "Session live subscription unavailable before socket connection")
+                        // The optional live route is absent, not revoked. The
+                        // authenticated HTTP snapshot retains its original grants;
+                        // HTTP recovery still withdraws on actual owner refusal.
+                        if self.homeAssistantWebSocketAuth != nil {
+                            // Explicit legacy/test transport has no HTTP recovery.
+                            self.activeDJSession?.broadcast.clearNativeAuthority()
+                            self.djSessionIsRecovering = false
+                            self.djSessionLiveUnavailable = self.activeDJSession != nil
+                        } else {
+                            self.djSessionIsRecovering = self.activeDJSession != nil && self.activeDJSession?.broadcast.nativeDelivery == nil
+                            self.djSessionLiveUnavailable = false
+                            self.log(.info, "Optional session live subscription unavailable; using owner HTTP recovery")
+                        }
                     }
                 },
                 onAuthorityWithdrawn: { [weak self] code in
@@ -5832,7 +6125,7 @@ public final class DJConnectAppModel: ObservableObject {
                 guard !Task.isCancelled else {
                     return
                 }
-                await self?.refreshNowPlayingFromPollTimer()
+                await self?.refreshForegroundStateFromPollTimer()
             }
         }
     }
@@ -5872,7 +6165,18 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func refreshNowPlayingFromPollTimer() async {
+    // One foreground coordinator discovers profile-owned sessions even when this
+    // client has never started one. Session discovery must not depend on playback
+    // or music-backend availability; those are separate platform capabilities.
+    func refreshForegroundStateFromPollTimer() async {
+        guard isAppInForeground, pairingStatus == .paired, !isDemoMode,
+              !isOfflineModeActive, !isRefreshing else { return }
+        let previousSessionID = activeDJSession?.sessionID
+        let refreshed = await refreshActiveDJSession()
+        guard isAppInForeground, pairingStatus == .paired, !Task.isCancelled else { return }
+        if refreshed, activeDJSession != nil, previousSessionID != activeDJSession?.sessionID {
+            await refreshActiveMoodCapability()
+        }
         guard pairingStatus == .paired, !isDemoMode, !isRefreshing, isRuntimeCompatible, isConnected, backendAvailable, !isOfflineModeActive else {
             return
         }
@@ -6245,8 +6549,13 @@ public final class DJConnectAppModel: ObservableObject {
             } catch {
                 guard !Self.isCancellation(error), !Task.isCancelled, !isDemoMode,
                       musicDNARefreshGeneration == generation, epoch == sessionHistory.responseEpoch else { return }
+                // A context fence rejects the previous projection, not Music DNA consent.
+                // Withdraw its data before a bounded new read; never reuse its artwork.
+                let contextChanged = Self.isMusicDNAContextChanged(error)
+                if contextChanged { clearMusicDNADisplay(preservingRefreshGeneration: generation) }
                 let transient: Bool
-                if let error = error as? DJConnectError {
+                if contextChanged { transient = true }
+                else if let error = error as? DJConnectError {
                     switch error {
                     case .network, .backendUnavailable: transient = true
                     case let .server(code, _): transient = code == 408 || code == 429 || (500...599).contains(code)
@@ -6277,6 +6586,15 @@ public final class DJConnectAppModel: ObservableObject {
                 }
             }
         }
+    }
+
+    private static func isMusicDNAContextChanged(_ error: Error) -> Bool {
+        guard case let DJConnectError.server(statusCode, message) = error,
+              statusCode == 409, let message else { return false }
+        if message == "music_dna_context_changed" { return true }
+        guard let data = message.data(using: .utf8),
+              let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
+        return body["error"] as? String == "music_dna_context_changed"
     }
 
     private func showMusicDNAToast(_ text: String, systemImage: String) {
@@ -6481,6 +6799,7 @@ public final class DJConnectAppModel: ObservableObject {
             supportsMusicDiscoveryFeedback = demoMusicDNAEnabled
             return
         }
+        guard isAppInForeground else { return }
         guard pairingStatus == .paired, isRuntimeCompatible else {
             musicDiscoveryResponse = nil
             musicDiscoveryErrorMessage = nil
@@ -6488,27 +6807,38 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         if !force, let response = musicDiscoveryResponse, !isMusicDiscoveryExpired(response),
+           !response.sections.flatMap(\.items).contains(where: { $0.imageURL != nil && ($0.imageExpiresAt.map { $0 <= Date() } ?? false) }),
            !response.enabled || !response.visibleSections.isEmpty {
+            scheduleDiscoveryArtworkRenewal(response)
             return
         }
+        let request = UUID(), epoch = sessionHistory.responseEpoch, source = musicDiscoveryPushCoalescingKey()
+        discoveryResponseGeneration = request; discoveryLoadGeneration = request
+        let valid = { self.discoveryResponseGeneration == request && self.sessionHistory.responseEpoch == epoch
+            && self.musicDiscoveryPushCoalescingKey() == source && self.isAppInForeground && self.pairingStatus == .paired && !Task.isCancelled }
         isLoadingMusicDiscovery = true
+        defer { if discoveryLoadGeneration == request { isLoadingMusicDiscovery = false } }
         musicDiscoveryErrorMessage = nil
         do {
             let response = try await withHomeAssistantClient { client in
-                supportsMusicDiscoveryFeedback = await client.supportsMusicDiscoveryFeedback()
+                let supports = await client.supportsMusicDiscoveryFeedback()
+                guard valid() else { throw CancellationError() }
+                supportsMusicDiscoveryFeedback = supports
                 return try await client.musicDiscoveryFeed(musicDNAKey: askDJMusicDNAKey, language: language)
             }
+            guard valid() else { return }
             apply(musicDiscovery: response)
         } catch let error as DJConnectError {
+            guard valid() else { return }
             handleMusicDiscoveryError(error)
             if showToast {
                 showMusicDNAToast(messageForMusicDiscoveryFailure(error), systemImage: "exclamationmark.triangle.fill")
             }
         } catch {
+            guard valid() else { return }
             musicDiscoveryErrorMessage = localized(key: "ui.discovery.could.not.be.loaded")
             log(.warning, "Music Discovery load failed: \(error.localizedDescription)")
         }
-        isLoadingMusicDiscovery = false
     }
 
     @discardableResult
@@ -6518,7 +6848,14 @@ public final class DJConnectAppModel: ObservableObject {
 
     @discardableResult
     public func refreshMusicDiscoveryFromPush() async -> Bool {
-        await refreshMusicDiscovery(coalesce: true)
+        let source = musicDiscoveryPushCoalescingKey()
+        let refreshed = await refreshMusicDiscovery(coalesce: true)
+        // Receive and tap can straddle a slow request. Start the quiet window
+        // after completion too, so that one notification does not regenerate twice.
+        if refreshed, source == musicDiscoveryPushCoalescingKey(), isAppInForeground {
+            musicDiscoveryPushRefreshes[source] = Date()
+        }
+        return refreshed
     }
 
     @discardableResult
@@ -6528,36 +6865,48 @@ public final class DJConnectAppModel: ObservableObject {
             musicDiscoveryErrorMessage = nil
             return true
         }
-        guard pairingStatus == .paired, isRuntimeCompatible else {
+        guard isAppInForeground, pairingStatus == .paired, isRuntimeCompatible else {
             return false
         }
         if coalesce, shouldCoalesceMusicDiscoveryPushRefresh() {
             logPush("music_discovery_ready refresh coalesced")
             return true
         }
+        let request = UUID(), epoch = sessionHistory.responseEpoch, source = musicDiscoveryPushCoalescingKey()
+        discoveryResponseGeneration = request; discoveryRefreshGeneration = request
+        let valid = { self.discoveryResponseGeneration == request && self.sessionHistory.responseEpoch == epoch
+            && self.musicDiscoveryPushCoalescingKey() == source && self.isAppInForeground && self.pairingStatus == .paired && !Task.isCancelled }
         isRefreshingMusicDiscovery = true
         musicDiscoveryErrorMessage = nil
-        defer { isRefreshingMusicDiscovery = false }
+        defer { if discoveryRefreshGeneration == request { isRefreshingMusicDiscovery = false } }
         do {
             let refreshResponse = try await withHomeAssistantClient { client in
-                supportsMusicDiscoveryFeedback = await client.supportsMusicDiscoveryFeedback()
+                let supports = await client.supportsMusicDiscoveryFeedback()
+                guard valid() else { throw CancellationError() }
+                supportsMusicDiscoveryFeedback = supports
                 return try await client.refreshMusicDiscovery(musicDNAKey: askDJMusicDNAKey, language: language)
             }
-            try Task.checkCancellation()
+            guard valid() else { return false }
             apply(musicDiscovery: refreshResponse, preservesVisibleRecommendationsOnEmptyEnabledResponse: coalesce)
             return true
         } catch let error as DJConnectError {
+            guard valid() else { return false }
             if shouldLoadMusicDiscoveryFeedAfterRefreshError(error) {
                 do {
                     let response = try await withHomeAssistantClient { client in
-                        supportsMusicDiscoveryFeedback = await client.supportsMusicDiscoveryFeedback()
+                        let supports = await client.supportsMusicDiscoveryFeedback()
+                guard valid() else { throw CancellationError() }
+                supportsMusicDiscoveryFeedback = supports
                         return try await client.musicDiscoveryFeed(musicDNAKey: askDJMusicDNAKey, language: language)
                     }
+                    guard valid() else { return false }
                     apply(musicDiscovery: response, preservesVisibleRecommendationsOnEmptyEnabledResponse: coalesce)
                     return true
                 } catch let fallbackError as DJConnectError {
+                    guard valid() else { return false }
                     handleMusicDiscoveryError(fallbackError)
                 } catch {
+                    guard valid() else { return false }
                     musicDiscoveryErrorMessage = localized(key: "ui.discovery.could.not.be.loaded")
                     log(.warning, "Music Discovery refresh fallback feed failed: \(error.localizedDescription)")
                 }
@@ -6566,6 +6915,7 @@ public final class DJConnectAppModel: ObservableObject {
             handleMusicDiscoveryError(error)
         } catch is CancellationError {
         } catch {
+            guard valid() else { return false }
             musicDiscoveryErrorMessage = localized(key: "ui.discovery.could.not.be.loaded")
             log(.warning, "Music Discovery refresh failed: \(error.localizedDescription)")
         }
@@ -6602,17 +6952,18 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    public func playMusicDiscoveryItem(_ item: DJConnectMusicDiscoveryItem, sectionID: String) async {
-        guard item.isDisplayable, item.isPlayable else { return }
+    @discardableResult
+    public func playMusicDiscoveryItem(_ item: DJConnectMusicDiscoveryItem, sectionID: String) async -> Bool {
+        guard item.isDisplayable, item.isPlayable else { return false }
         if isDemoMode {
             playMusicDiscoveryStartHaptic()
             playingMusicDiscoveryItemID = item.id
             try? await Task.sleep(for: .milliseconds(120))
             playingMusicDiscoveryItemID = nil
-            return
+            return true
         }
         guard pairingStatus == .paired, isRuntimeCompatible else {
-            return
+            return false
         }
         playMusicDiscoveryStartHaptic()
         playingMusicDiscoveryItemID = item.id
@@ -6624,10 +6975,19 @@ public final class DJConnectAppModel: ObservableObject {
                 identity: identity,
                 musicDNAKey: askDJMusicDNAKey
             )
-            _ = try await withHomeAssistantClient { client in
+            let response = try await withHomeAssistantClient(allowsOperationReplay: false) { client in
                 try await client.playMusicDiscoveryItem(payload)
             }
+            apply(commandResponse: response, command: "music_discovery_play")
+            guard response.success else {
+                musicDiscoveryErrorMessage = response.message ?? localized(key: "appModel.this.recommendation.cannot.be.played.yet")
+                playingMusicDiscoveryItemID = nil
+                return false
+            }
+            scheduleCommandRefresh(reason: "Discovery play confirmation refresh completed", delay: .zero)
             _ = await refreshMusicDiscovery()
+            playingMusicDiscoveryItemID = nil
+            return true
         } catch let error as DJConnectError {
             handleMusicDiscoveryPlayError(error)
         } catch is CancellationError {
@@ -6636,6 +6996,7 @@ public final class DJConnectAppModel: ObservableObject {
             log(.warning, "Music Discovery play failed: \(error.localizedDescription)")
         }
         playingMusicDiscoveryItemID = nil
+        return false
     }
 
     public func sendMusicDiscoveryFeedback(
@@ -6704,12 +7065,37 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         musicDiscoveryResponse = response
+        scheduleDiscoveryArtworkRenewal(response)
         musicDiscoveryErrorMessage = nil
         let sectionCount = response.sections.count
         let itemCount = response.sections.reduce(0) { $0 + $1.items.count }
         let visibleSectionCount = response.visibleSections.count
         let visibleItemCount = response.visibleSections.reduce(0) { $0 + $1.visibleItems.count }
         log(.debug, "Music Discovery refreshed enabled=\(response.enabled) revision=\(response.revision ?? 0) sections=\(sectionCount) items=\(itemCount) visible_sections=\(visibleSectionCount) visible_items=\(visibleItemCount)")
+    }
+
+    private func scheduleDiscoveryArtworkRenewal(_ response: DJConnectMusicDiscoveryResponse) {
+        discoveryArtworkRenewalTask?.cancel()
+        guard response.enabled, isAppInForeground,
+              let deadline = response.visibleSections.flatMap(\.visibleItems)
+                .filter({ $0.imageURL != nil }).compactMap(\.imageExpiresAt).min() else { return }
+        // A short lease can expire while the feed is in flight. Renew once;
+        // repeatedly expired producer responses must not create a polling loop.
+        if deadline <= Date() {
+            guard !retriedExpiredDiscoveryArtwork else { return }
+            retriedExpiredDiscoveryArtwork = true
+        } else { retriedExpiredDiscoveryArtwork = false }
+        let key = musicDiscoveryPushCoalescingKey(), epoch = sessionHistory.responseEpoch
+        discoveryArtworkRenewalTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(max(1, deadline.timeIntervalSinceNow + 0.2))) }
+            catch { return }
+            guard let self, !Task.isCancelled, self.isAppInForeground,
+                  self.pairingStatus == .paired, self.musicDiscoveryPushCoalescingKey() == key,
+                  self.sessionHistory.responseEpoch == epoch else { return }
+            // Feed TTL is not artwork-lease TTL. Renew through the existing GET,
+            // once at the next deadline, never through a per-card polling loop.
+            await self.loadMusicDiscovery(force: true)
+        }
     }
 
     private func isMusicDiscoveryExpired(_ response: DJConnectMusicDiscoveryResponse) -> Bool {
@@ -7085,12 +7471,16 @@ public final class DJConnectAppModel: ObservableObject {
         )
     }
 
-    private func clearMusicDNADisplay() {
-        musicDNARefreshGeneration = UUID()
+    private func clearMusicDNADisplay(preservingRefreshGeneration generation: UUID? = nil) {
+        discoveryResponseGeneration = UUID()
+        retriedExpiredDiscoveryArtwork = false
+        discoveryArtworkRenewalTask?.cancel(); discoveryArtworkRenewalTask = nil
+        musicDiscoveryResponse = nil; supportsMusicDiscoveryFeedback = false
+        musicDNARefreshGeneration = generation ?? UUID()
         musicDNAProfileNeedsRecovery = false
         musicDNAProfileResponse = nil
         musicDNAErrorMessage = nil
-        isLoadingMusicDNA = false
+        isLoadingMusicDNA = generation != nil
         isUpdatingMusicDNA = false
         resolvedMusicDNAKey = nil
     }
@@ -7151,7 +7541,7 @@ public final class DJConnectAppModel: ObservableObject {
     private func playAskDJRecommendationWithFallback(_ action: DJConnectAskDJPlaybackAction,
                                                        isStillValid: @escaping @MainActor () -> Bool) async throws -> DJConnectCommandResponse {
         let command = action.command?.isEmpty == false ? action.command! : Self.defaultAskDJCommand(for: action)
-        return try await withHomeAssistantClient { client in
+        return try await withHomeAssistantClient(allowsOperationReplay: false) { client in
             guard isStillValid() else { throw CancellationError() }
             return try await client.sendCommandResponse(DJConnectCommandPayload(
                 identity: identity,
@@ -7486,7 +7876,9 @@ public final class DJConnectAppModel: ObservableObject {
         applyAskDJTrim(response.historyTrimmedBefore, to: &nextMessages)
         coalesceAskDJMessages(&nextMessages)
         askDJMessages = sortedAskDJMessages(nextMessages)
-        persistAskDJRevisions(historyRevision: response.historyRevision, clearRevision: response.clearRevision)
+        if !response.isPrivateEphemeralResponse {
+            persistAskDJRevisions(historyRevision: response.historyRevision, clearRevision: response.clearRevision)
+        }
         saveAskDJMessages()
         if fallbackUserMessageID != nil {
             requestAskDJScrollToBottom()
@@ -7518,7 +7910,11 @@ public final class DJConnectAppModel: ObservableObject {
             if response.clearRevision > profileConversationClearRevision { sessionHistory.suspend() }
             let allowed = Set(response.messages.map(\.id))
             askDJMessages.removeAll { message in
-                if let id = message.serverID { return !allowed.contains(id) }
+                if let id = message.serverID {
+                    if let live = liveConversationPresentations[id], live.isPrivateEphemeral,
+                       live.epoch == sessionHistory.responseEpoch, live.deadline.map({ $0 > Date() }) ?? true { return false }
+                    return !allowed.contains(id)
+                }
                 return message.status != .sending && message.status != .failed
             }
         }
@@ -7532,7 +7928,25 @@ public final class DJConnectAppModel: ObservableObject {
         }
         applyAskDJTrim(response.historyTrimmedBefore, to: &nextMessages)
         coalesceAskDJMessages(&nextMessages)
-        askDJMessages = sortedAskDJMessages(nextMessages)
+        askDJMessages = sortedAskDJMessages(nextMessages).map { original in
+            var message = original
+            if sessionHistory.profileScopeActive {
+                message.images = []; message.links = []; message.items = []; message.playbackActions = []
+                message.trackInsight = nil
+            }
+            guard let id = message.serverID, let live = liveConversationPresentations[id],
+                  live.epoch == sessionHistory.responseEpoch, live.deadline.map({ $0 > Date() }) ?? true,
+                  live.message.clientMessageID == message.clientMessageID,
+                  live.message.text == message.text else { return message }
+            var result = message
+            result.images = live.message.images; result.links = live.message.links
+            result.items = live.message.items; result.trackInsight = live.message.trackInsight
+            result.playbackActions = live.message.playbackActions
+            return result
+        }
+        liveConversationPresentations = liveConversationPresentations.filter { id, live in
+            askDJMessages.contains(where: { $0.serverID == id && $0.text == live.message.text })
+        }
         persistAskDJRevisions(historyRevision: response.historyRevision, clearRevision: response.clearRevision)
         saveAskDJMessages()
         if let newestInsight = askDJMessages.last(where: { $0.trackInsight != nil })?.trackInsight {
@@ -8461,6 +8875,7 @@ public final class DJConnectAppModel: ObservableObject {
                     registrationSignature: registrationSignature
                 )
             } catch {
+                recordPushRegistrationFailure("push_registration_failed")
                 logPush("registration failed error=\(error.localizedDescription)", level: .warning)
             }
         }
@@ -8508,8 +8923,8 @@ public final class DJConnectAppModel: ObservableObject {
         let responseEnvironment = response.pushEnvironment
         let canonicalEnvironment = responseEnvironment ?? pushEnvironment
         let environmentMatches = pushEnvironment.isCompatible(with: responseEnvironment)
-        guard response.success, response.pushRegistered != false, environmentMatches else {
-            let reason = response.error ?? response.lastPushError ?? response.message ?? "unknown"
+        guard response.success, response.pushRegistered == true, response.pushSupported != false, environmentMatches else {
+            let reason = response.error ?? response.lastPushError ?? (response.pushRegistered == nil ? "push_registration_unconfirmed" : response.message ?? "unknown")
             if Self.isMissingBootstrapProof(reason) {
                 try await retryPushRegistrationAfterBootstrap(
                     reason: reason,
@@ -8577,8 +8992,10 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         if case .routeMissing = error {
+            recordPushRegistrationFailure("push_route_unavailable")
             logPush("registration skipped route_missing=true")
         } else {
+            recordPushRegistrationFailure("push_registration_failed")
             logPush("registration failed error=\(reason)", level: .warning)
         }
     }
@@ -8661,8 +9078,8 @@ public final class DJConnectAppModel: ObservableObject {
         let responseEnvironment = response.pushEnvironment
         let canonicalEnvironment = responseEnvironment ?? pushEnvironment
         let environmentMatches = pushEnvironment.isCompatible(with: responseEnvironment)
-        guard response.success, response.pushRegistered != false, environmentMatches else {
-            let retryReason = response.error ?? response.lastPushError ?? response.message ?? "unknown"
+        guard response.success, response.pushRegistered == true, response.pushSupported != false, environmentMatches else {
+            let retryReason = response.error ?? response.lastPushError ?? (response.pushRegistered == nil ? "push_registration_unconfirmed" : response.message ?? "unknown")
             if Self.isBootstrapProofUnavailable(retryReason) {
                 markPushRegistrationBootstrapUnavailable()
             } else if Self.requiresBootstrapProof(retryReason) {
@@ -8686,6 +9103,7 @@ public final class DJConnectAppModel: ObservableObject {
         appBundleID: String
     ) async throws -> String? {
         guard let issuerBaseURL = trustedPairingIssuerBaseURL else {
+            recordPushRegistrationFailure("trusted_issuer_not_configured")
             logPush("bootstrap issuer unavailable reason=trusted_issuer_not_configured", level: .warning)
             return nil
         }
@@ -8838,6 +9256,31 @@ public final class DJConnectAppModel: ObservableObject {
         }
         refreshPushNotificationStatus()
         logPush("status push_supported=\(Self.optionalBoolForLog(response.pushSupported)) push_registered=\(Self.optionalBoolForLog(response.pushRegistered)) push_environment=\(response.pushEnvironment?.rawValue ?? "<missing>") last_push_error=\(Self.redactedPushFailureReason(response.lastPushError ?? "<missing>"))")
+    }
+
+    private func recordPushRegistrationFailure(_ code: String) {
+        defaults.set(false, forKey: pushRegisteredKey)
+        defaults.removeObject(forKey: registeredPushSignatureKey)
+        defaults.set(code, forKey: lastPushErrorKey)
+        refreshPushNotificationStatus()
+    }
+
+    public func retryPushNotificationRegistration() {
+        guard pairingStatus == .paired, !isDemoMode else { return }
+        defaults.removeObject(forKey: registeredPushSignatureKey)
+        requestRemoteNotificationRegistration(allowSystemPrompt: true)
+    }
+
+    public func openNotificationSettings() {
+        #if canImport(AppKit)
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") {
+            NSWorkspace.shared.open(url)
+        }
+        #elseif canImport(UIKit)
+        if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
+            Task { await UIApplication.shared.open(url) }
+        }
+        #endif
     }
 
     private func refreshPushNotificationStatus() {
@@ -9127,6 +9570,14 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    public func resolvedMusicDNAArtworkURL(_ imageURL: String?, uri: String?, artist: Bool) -> URL? {
+        let direct = imageURL?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let reference = direct?.isEmpty == false ? direct : currentMusicDNAArtworkReference(
+            discovery: musicDiscoveryResponse, profileID: musicDNAProfileResponse?.profileID,
+            uri: uri, artist: artist)
+        return resolvedMusicDiscoveryImageURL(reference)
+    }
+
     /// Discovery may reference public Spotify artwork, without sending app credentials.
     public func resolvedMusicDiscoveryImageURL(_ rawValue: String?) -> URL? {
         guard let raw = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -9234,7 +9685,32 @@ public final class DJConnectAppModel: ObservableObject {
         localized(key: "appModel.ask.dj.is.unreachable")
     }
 
+    private func liveConversationActionIsCurrent(_ action: DJConnectAskDJPlaybackAction) -> Bool {
+        liveConversationPresentations.values.contains {
+            $0.epoch == sessionHistory.responseEpoch && ($0.deadline.map { $0 > Date() } ?? true)
+                && $0.message.playbackActions.contains(action)
+        }
+    }
+
+    func withdrawLiveConversationPresentations() {
+        let ids = Set(liveConversationPresentations.keys)
+        let ephemeralIDs = Set(liveConversationPresentations.filter { $0.value.isPrivateEphemeral }.keys)
+        askDJMessages.removeAll { $0.serverID.map(ephemeralIDs.contains) ?? false }
+        liveConversationPresentations = [:]
+        liveConversationExpiryTask?.cancel(); liveConversationExpiryTask = nil
+        askDJMessages = askDJMessages.map { original in
+            guard let id = original.serverID, ids.contains(id) else { return original }
+            var message = original
+            message.images = []; message.links = []; message.items = []; message.playbackActions = []
+            message.trackInsight = nil
+            return message
+        }
+    }
+
     private func clearAskDJHistoryLocally() {
+        invalidateConversationResultLeases()
+        liveConversationPresentations = [:]
+        liveConversationExpiryTask?.cancel(); liveConversationExpiryTask = nil
         askDJMessages = []
         guard !isDemoMode else { return }
         defaults.removeObject(forKey: askDJMessagesKey)
@@ -9716,6 +10192,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func handleRemoteNotificationRegistrationError(_ error: Error) {
+        recordPushRegistrationFailure("apns_registration_failed")
         logPush("system remote notification registration failed error=\(error.localizedDescription)", level: .warning)
     }
 
@@ -12890,4 +13367,25 @@ public extension DJConnectAppModel {
             )
         )
     }
+}
+
+
+/// Reuse only an exact, current same-Profile identity; names never grant artwork.
+func currentMusicDNAArtworkReference(discovery: DJConnectMusicDiscoveryResponse?, profileID: String?,
+                                     uri: String?, artist: Bool, at date: Date = Date()) -> String? {
+    guard let discovery, discovery.success, let profileID, !profileID.isEmpty,
+          discovery.profileID == profileID, let uri, !uri.isEmpty else { return nil }
+    let references = Set(discovery.visibleSections.flatMap(\.visibleItems).filter {
+        $0.uri == uri && $0.kind == (artist ? .artist : .track)
+            && ($0.imageExpiresAt.map { $0 > date } ?? true)
+    }.compactMap { $0.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty })
+    return references.count == 1 ? references.first : nil
+}
+
+
+func conversationPresentationDeadline(_ response: DJConnectAskDJMessageResponse, now: Date = Date()) -> Date? {
+    guard let result = response.resultSet else { return nil }
+    guard result.schemaVersion == 1, !result.resultSetID.isEmpty, result.resultSetID.count <= 256,
+          result.expiresIn.isFinite, result.expiresIn > 0, result.expiresIn <= 600 else { return .distantPast }
+    return min(response.serverTime ?? now, now).addingTimeInterval(result.expiresIn)
 }

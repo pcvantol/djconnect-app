@@ -2730,6 +2730,11 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
             """.utf8))
         case "/api/djconnect/v1/music_discovery":
             return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"sections":[]}"#.utf8))
+        case "/api/djconnect/v1/command":
+            let body = try #require(try requestBodyData(request))
+            let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+            #expect(json["command"] as? String == "status", "Post-play refresh may read status but must not replay playback")
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"playback":{"is_playing":true}}"#.utf8))
         case "/api/djconnect/v1/music_discovery/play":
             return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true}"#.utf8))
         default:
@@ -2742,7 +2747,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
     let item = try #require(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first)
     await model.playMusicDiscoveryItem(item, sectionID: "fresh")
 
-    #expect(recorder.requests.map { $0.url?.path } == [
+    #expect(recorder.requests.filter { $0.url?.path.hasPrefix("/api/djconnect/v1/music_discovery/") == true }.map { $0.url?.path } == [
         "/api/djconnect/v1/music_discovery/refresh",
         "/api/djconnect/v1/music_discovery/play",
         "/api/djconnect/v1/music_discovery/refresh"
@@ -13538,4 +13543,35 @@ private extension String {
     ]))
     #expect(model.availableOutputs.filter { $0.active == true }.map(\.id) == ["new"])
     #expect(model.selectedOutput == "New speaker")
+}
+
+
+@MainActor @Test func pushAPNsFailureReplacesStaleRegisteredStatus() throws {
+    let defaults = try testDefaults()
+    defaults.set(true, forKey: "DJConnectPushRegistered")
+    let model = DJConnectAppModel(defaults: defaults, startBackgroundTasks: false)
+    model.handleRemoteNotificationRegistrationError(NSError(domain: "synthetic", code: 1))
+    #expect(model.pushNotificationStatus.state == .actionNeeded)
+    #expect(model.pushNotificationStatus.failureKind == .apns)
+    #expect(!defaults.bool(forKey: "DJConnectPushRegistered"))
+}
+
+@MainActor @Test func pushBootstrapFailureIsConfigurationNotPermission() {
+    let status = DJConnectPushNotificationStatus(state: .actionNeeded, lastError: "missing_bootstrap_proof")
+    #expect(status.failureKind == .configuration)
+    #expect(status.titleKey == "ui.push.configuration_needed")
+}
+
+@MainActor @Test func pushRegistrationRequiresExplicitServerConfirmation() async throws {
+    let defaults = try testDefaults()
+    let session = mockSession(host: "push-unconfirmed.local") { request in
+        (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"push_supported":true,"push_environment":"sandbox"}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "push-unconfirmed.local", session: session)
+    model.handleRemoteNotificationDeviceToken(Data([1, 2, 3, 4]))
+    for _ in 0..<50 where defaults.string(forKey: "DJConnectLastPushError") == nil {
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(!defaults.bool(forKey: "DJConnectPushRegistered"))
+    #expect(model.pushNotificationStatus.lastError == "push_registration_unconfirmed")
 }

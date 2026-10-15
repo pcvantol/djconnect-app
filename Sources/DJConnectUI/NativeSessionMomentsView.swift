@@ -65,12 +65,9 @@ struct NativeSessionMomentsView: View {
     var isLiveUnavailable = false
     var retryConnection: () -> Void = {}
     var artworkBaseURL: URL? = nil
-    var returnToCurrent: () -> Void = {}
-    var showsFlow = true
     var playbackOutputName: String? = nil
     var playbackModel: DJConnectAppModel? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var selectedMomentID: String?
 
     private func text(_ key: String) -> String {
         DJConnectLocalization.localized(key: key, language: language)
@@ -96,36 +93,19 @@ struct NativeSessionMomentsView: View {
                 .accessibilityElement(children: .contain)
                 .id("native-session-current")
                 .animation(djSessionReducedMotion(reduceMotion) ? nil : .easeInOut(duration: 0.2), value: current?.id)
-                if showsFlow {
-                Text(text("ui.session.flow")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
-                ForEach(flowItems) { item in
-                    if let moment = flowMoments.first(where: { $0.id == item.momentID }) {
-                    Button {
-                        selectedMomentID = moment.id
-                    } label: {
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text(kind(moment)).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                                Text(moment.title.isEmpty ? moment.summary : moment.title).multilineTextAlignment(.leading)
-                            }
-                            Spacer()
-                            Image(systemName: moment.id == current?.id ? "sparkles" : "chevron.right")
-                        }
-                        .padding(14)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
-                    }
-                    .djConnectPlainButtonStyle()
-                    .accessibilityIdentifier("session-flow-\(moment.id)")
-                    } else {
-                        Text(item.label).font(.callout).foregroundStyle(.secondary)
-                            .padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-                }
+
             }
             .frame(maxWidth: 1000, alignment: .leading)
             .frame(maxWidth: .infinity)
+        }
+        .sheet(isPresented: Binding(get: { playbackModel?.momentTrackInsightTarget != nil }, set: { if !$0 { playbackModel?.dismissMomentTrackInsight() } })) {
+            if let model = playbackModel {
+                #if os(macOS)
+                TrackInsightView(model: model, explicitMoment: true).frame(minWidth: 640, minHeight: 600)
+                #else
+                TrackInsightView(model: model, explicitMoment: true)
+                #endif
+            }
         }
         .accessibilityIdentifier("session-moment-content")
         #if DEBUG
@@ -135,42 +115,8 @@ struct NativeSessionMomentsView: View {
             }
         }
         #endif
-        .sheet(item: Binding(
-            get: { flowMoments.first { $0.id == selectedMomentID } },
-            set: { selectedMomentID = $0?.id }
-        )) { selected in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    TimelineView(.periodic(from: .now, by: 1)) { clock in
-                        if session.broadcast.nativeFlowMoments(at: clock.date).contains(where: { $0.id == selected.id }) {
-                            MomentCard(moment: selected, kind: kind(selected), presentation: presentation(for: selected), language: language)
-                        } else { Text(text("ui.session.quiet")) }
-                    }
-                    Button(text("ui.session.back_current")) {
-                        selectedMomentID = nil
-                        returnToCurrent()
-                    }
-                }
-                .padding(24)
-            }
-            #if os(macOS)
-            .frame(minWidth: 380, idealWidth: 600, minHeight: 400, idealHeight: 600)
-            #else
-            .presentationDetents([.medium, .large])
-            #endif
-        }
     }
 
-    private var flowMoments: [DJConnectMoment] { session.broadcast.nativeFlowMoments(at: Date()) }
-    private var flowItems: [DJConnectSessionFlowItem] {
-        guard let authority = session.broadcast.nativeDelivery, authority.schemaVersion == 1,
-              authority.sessionID == session.id, authority.revocationScope == "session",
-              session.runtimeState == "active", !authority.revision.isEmpty else { return [] }
-        let ids = Set(flowMoments.map(\.id))
-        return session.broadcast.sessionFlow.items.filter {
-            $0.itemType == "dj_moment" && (ids.contains($0.momentID ?? "") || $0.momentType == "silence")
-        }
-    }
     private func currentMoment(at date: Date) -> DJConnectMoment? { session.broadcast.nativeCurrentMoment(at: date, spotifyAttributionAvailable: spotifyAttributionLogo != nil) }
 
     private func kind(_ moment: DJConnectMoment) -> String {
@@ -217,7 +163,9 @@ struct NativeSessionMomentsView: View {
             .djSessionFrostedSurface()
             .accessibilityIdentifier("session-playback-paused")
         } else if let moment {
-            MomentCard(moment: moment, kind: kind(moment), presentation: presentation(for: moment), language: language)
+            MomentCard(moment: moment, kind: kind(moment), presentation: presentation(for: moment), language: language,
+                navigationLabel: insightOffer(for: moment)?.label,
+                openInsight: { if let offer = insightOffer(for: moment) { playbackModel?.openMomentTrackInsight(offer) } })
                 .id(moment.id)
                 .transition(.opacity)
                 .accessibilityIdentifier("session-current-moment")
@@ -229,6 +177,12 @@ struct NativeSessionMomentsView: View {
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)
             .djSessionFrostedSurface()
         }
+    }
+
+    private func insightOffer(for moment: DJConnectMoment) -> DJConnectMomentInsightNavigation? {
+        guard playbackModel?.sessionHistory.momentInsightAvailable == true,
+              let offer = session.broadcast.nativeCurrentInsightNavigation(at: Date()), offer.reference.momentID == moment.id else { return nil }
+        return offer
     }
 
     private var musicArtworkURL: URL? {
@@ -265,7 +219,7 @@ struct NativeSessionMomentsView: View {
                 Text(playback.title ?? text("ui.nothing.playing")).font(.headline)
                 if let artist = playback.artist { Text(artist).foregroundStyle(.secondary) }
                 if let album = playback.album { Text(album).font(.caption).foregroundStyle(.secondary) }
-                if let duration = playback.durationMS, duration > 0, let position = playback.positionMS {
+                if let duration = playback.durationMS, duration > 0, let position = playbackModel?.displayedSessionPositionMS(session) ?? playback.positionMS {
                     let current = max(0, min(position, duration))
                     ProgressView(value: Double(current), total: Double(duration))
                         .accessibilityLabel(text("ui.session.music_progress"))
@@ -355,6 +309,8 @@ struct MomentCard: View {
     let kind: String
     let presentation: DJConnectPresentation?
     let language: String
+    var navigationLabel: String? = nil
+    var openInsight: (() -> Void)? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(kind).font(.caption.weight(.bold)).foregroundStyle(.secondary)
@@ -364,6 +320,11 @@ struct MomentCard: View {
                 ForEach(speech.segments.filter { !(["dj", "primary_dj"].contains($0.speakerRole) && $0.text == moment.content) }.sorted { $0.ordinal < $1.ordinal }, id: \.ordinal) { segment in
                     Text(segment.text).fixedSize(horizontal: false, vertical: true)
                 }
+            }
+            if let label = navigationLabel, let openInsight {
+                Button(action: openInsight) { Label(label, systemImage: "waveform.path.ecg") }
+                    .tint(djConnectAccent)
+                    .accessibilityIdentifier("moment-open-track-insight")
             }
             if moment.sourceAttribution?["provider"] == "Spotify",
                let logo = spotifyAttributionLogo, let url = moment.nativeSourceURLs.first {

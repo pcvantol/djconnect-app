@@ -70,6 +70,17 @@ struct SavedSessionsView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 }
+                    if let error = history.listErrorKey, !history.sessions.isEmpty {
+                        HStack(spacing: 12) {
+                            Text(text(error)).font(.callout).foregroundStyle(.secondary)
+                            Spacer()
+                            Button(text("ui.retry")) { Task { await refresh() } }
+                                .disabled(refreshing || history.listLoading)
+                        }
+                        .padding(.horizontal, 20).padding(.vertical, 12)
+                        .listRowBackground(Color.clear).listRowSeparator(.hidden)
+                        .accessibilityIdentifier("saved-sessions-refresh-error")
+                    }
                     ForEach(history.sessions) { session in
                         Button { openedSessionID.wrappedValue = session.id } label: {
                             HStack(spacing: 12) {
@@ -184,8 +195,13 @@ struct SavedSessionsView: View {
         refreshing = true
         defer { refreshing = false }
         statusToast = DJConnectVisualNotice(text: text("ui.session.history.loading"), systemImage: "clock.arrow.circlepath")
+        let epoch = history.responseEpoch
         await history.prepare()
         let succeeded = await history.loadSessions()
+        guard !Task.isCancelled, epoch == history.responseEpoch else { statusToast = nil; return }
+        // A superseded/cancelled read has no authoritative failure. The current
+        // request owns the list indicator and any actual error presentation.
+        guard succeeded || !history.available || history.listErrorKey != nil else { statusToast = nil; return }
         let notice = DJConnectVisualNotice(text: text(succeeded ? "ui.session.history.updated" : "ui.session.history.unavailable"),
                                           systemImage: "clock.arrow.circlepath")
         statusToast = notice
@@ -299,6 +315,23 @@ struct SessionTimelineScreen: View {
                                     .frame(maxWidth: .infinity).padding(.horizontal, 20)
                             }
                             #endif
+                            if !history.available && activeSession != nil {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text(text("ui.session.history.unavailable"))
+                                        .foregroundStyle(.white.opacity(0.82))
+                                    Button(text("ui.retry")) {
+                                        Task {
+                                            await history.prepare()
+                                            await history.loadTimeline(sessionID, window: .tail)
+                                        }
+                                    }
+                                    .djConnectButtonStyle(DJConnectButtonStyle())
+                                    .disabled(history.preparing)
+                                }
+                                .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+                                .djSessionFrostedSurface().padding(.horizontal, 20)
+                                .accessibilityIdentifier("session-history-unavailable")
+                            }
                             if let key = timeline.errorKey {
                                 VStack(alignment: .leading, spacing: 16) {
                                     Text(text(key)).fixedSize(horizontal: false, vertical: true)
@@ -360,7 +393,7 @@ struct SessionTimelineScreen: View {
                                     .padding(.horizontal, 20)
                                     .id(entry.id).accessibilityElement(children: .contain).accessibilityIdentifier("session-entry-" + entry.id)
                             }
-                            if timeline.entries.isEmpty && !timeline.loading && timeline.errorKey == nil {
+                            if history.available && timeline.entries.isEmpty && !timeline.loading && timeline.errorKey == nil {
                                 Text(text(activeSession == nil ? "ui.session.history.no_entries" : "ui.session.history.no_entries_active")).padding(.horizontal, 20)
                             }
                             if timeline.loading && !timeline.entries.isEmpty && !pullRefreshing && !retryRefreshing {
@@ -615,7 +648,7 @@ struct SessionTimelineScreen: View {
             isLiveUnavailable: model.djSessionLiveUnavailable,
             retryConnection: { Task { await model.retryDJSessionConnection() } },
             artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL),
-            showsFlow: false, playbackOutputName: model.sessionPlaybackOutputName, playbackModel: model)
+            playbackOutputName: model.sessionPlaybackOutputName, playbackModel: model)
         }
         #if os(macOS)
         .padding(.horizontal, 20)
@@ -1050,7 +1083,7 @@ struct ActiveSessionPresenceToolbar: View {
                     .padding(16)
             }
             .accessibilityIdentifier("session-presence-scroll")
-            .frame(idealWidth: 360, idealHeight: 480)
+            .frame(idealWidth: 400)
             #if os(macOS)
             .focusable()
             .focusEffectDisabled()
@@ -1122,47 +1155,23 @@ struct ActiveSessionPresenceControl: View {
             Text(text("ui.session.presence.title")).font(.headline)
             Text(text("ui.session.presence.explanation")).font(.subheadline).foregroundStyle(.white.opacity(0.88))
             if enabled {
-                Text(text(values[min(4, max(0, Int(preview.rounded())))].localizationKey)).font(.body.weight(.semibold))
-                Slider(value: Binding(get: { preview }, set: { next in
-                    preview = next
-                    if !dragging { commit(next) }
-                }), in: 0...4, step: 1) { editing in
-                    dragging = editing
-                    if !editing { commit(preview) }
-                }
-                .tint(.white)
-                .accessibilityLabel(text("ui.session.presence.title"))
-                .accessibilityValue(text(values[min(4, max(0, Int(preview.rounded())))].localizationKey))
-                .accessibilityAdjustableAction { direction in
-                    switch direction {
-                    case .increment: preview = min(4, preview + 1)
-                    case .decrement: preview = max(0, preview - 1)
-                    @unknown default: return
-                    }
-                    commit(preview)
+                MoodModeControl(steps: values.enumerated().map { (text($0.element.localizationKey), $0.offset) },
+                                selectedIndex: min(values.count - 1, max(0, Int(preview.rounded()))),
+                                language: model.language, caption: "", selectableLabels: true,
+                                commitsOnDragEnd: true, showsCardBackground: false,
+                                glyphs: ["music.note", "bubble.left", "bubble.left.and.bubble.right", "waveform", "mic.fill"],
+                                selectionLabelKey: "ui.session.presence.level",
+                                optionIDs: values.map { "session-presence-choice-" + $0.rawValue }) { index in
+                    preview = Double(index); commit(preview)
                 }
                 .accessibilityIdentifier("session-presence-slider")
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 280 : 120), spacing: 8)], spacing: 8) {
-                    ForEach(Array(values.enumerated()), id: \.element) { index, value in
-                        Button { preview = Double(index); commit(preview) } label: {
-                            Text(text(value.localizationKey)).font(.caption).multilineTextAlignment(.center)
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                        }
-                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: Int(preview) == index ? .selected : .secondary))
-                        .accessibilityAddTraits(Int(preview) == index ? .isSelected : [])
-                        .accessibilityIdentifier("session-presence-choice-" + value.rawValue)
-                    }
-                }
+                .accessibilityValue(confirmed.map { text($0.selectedPresence.localizationKey) } ?? text("ui.session.presence.invalid_state"))
             } else {
                 if model.activePresenceCapabilityStatus == .loading || model.activePresenceCapabilityStatus == .notLoaded {
                     ProgressView().tint(.white)
                 }
                 Text(text(unavailableKey)).font(.body).foregroundStyle(.white.opacity(0.88))
                     .accessibilityIdentifier("session-presence-availability")
-            }
-            if let confirmed {
-                Text(text("ui.session.presence.confirmed") + ": " + text(confirmed.selectedPresence.localizationKey))
-                    .font(.caption).foregroundStyle(.white.opacity(0.88)).accessibilityIdentifier("session-presence-confirmed")
             }
             if model.activePresencePending, let desired = model.activePresenceDesired {
                 HStack { ProgressView().tint(.white); Text(text("ui.session.presence.pending") + ": " + text(desired.localizationKey)).font(.caption) }
@@ -1179,7 +1188,6 @@ struct ActiveSessionPresenceControl: View {
                         .djConnectButtonStyle(DJConnectButtonStyle())
                 }
             }
-            Text(text("ui.session.presence.music_only_help")).font(.caption).foregroundStyle(.white.opacity(0.88))
         }
         .onAppear { syncPreview() }
         .onChange(of: confirmed) { syncPreview() }
@@ -1342,22 +1350,29 @@ struct SessionEndToolbarButton: View {
     }
 }
 
+/// The same trailing status action on live product pages. Archive pages omit it.
+struct ConnectionStatusToolbar: ToolbarContent {
+    let model: DJConnectAppModel
+    var body: some ToolbarContent {
+        #if os(macOS)
+        ToolbarItem(placement: .confirmationAction) { SessionConnectionToolbarButton(model: model) }
+        #else
+        ToolbarItem(placement: .topBarTrailing) { SessionConnectionToolbarButton(model: model) }
+        #endif
+    }
+}
+
 struct SessionConnectionToolbarButton: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var showingStatus = false
     private func text(_ key: String) -> String {
         DJConnectLocalization.localized(key: key, language: model.language)
     }
-    private var status: SessionConnectionStatus {
-        .resolve(demo: model.isDemoMode, pairing: model.pairingStatus, mode: model.haConnectionMode,
-                 backendAvailable: model.backendAvailable, recovering: model.djSessionIsRecovering,
-                 liveUnavailable: model.djSessionLiveUnavailable)
-    }
+    private var status: SessionConnectionStatus { model.connectionPresentation }
     var body: some View {
         Button { showingStatus.toggle() } label: {
-            Circle().fill(status.color).frame(width: 12, height: 12)
-                .overlay { Circle().stroke(.white.opacity(0.35), lineWidth: 1) }
-                .frame(width: 44, height: 44)
+            Image(systemName: status.icon).font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(status.color).frame(width: 44, height: 44)
         }
         .accessibilityLabel(text("ui.connection.status"))
         .accessibilityValue(text(status.key))
@@ -1366,10 +1381,6 @@ struct SessionConnectionToolbarButton: View {
         .popover(isPresented: $showingStatus) {
             VStack(alignment: .leading, spacing: 12) {
                 Text(text("ui.connection.status")).font(.headline)
-                if [.offline, .recovering, .liveUnavailable, .backendUnavailable].contains(status) && !model.isDemoMode {
-                    Label(text(status.key), systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(status.color)
-                }
                 if model.isDemoMode {
                     Label(text(status.key), systemImage: "play.circle.fill")
                 } else {
@@ -1387,10 +1398,13 @@ struct SessionConnectionToolbarButton: View {
 }
 
 /// Presentation only: pairing is retained across outages, so it is not a health signal.
-enum SessionConnectionStatus: Equatable {
-    case demo, ready, pairing, setupPending, stale, offline, recovering, liveUnavailable, backendUnavailable, connected
+enum SessionConnectionStatus: String, CaseIterable, Equatable {
+    case demo, ready, pairing, setupPending, stale, networkUnavailable, offline, connecting
+    case recovering, liveUnavailable, backendUnavailable, updateRequired, connected, remote
     static func resolve(demo: Bool, pairing: DJConnectPairingStatus, mode: DJConnectHAConnectionMode,
-                        backendAvailable: Bool, recovering: Bool, liveUnavailable: Bool) -> Self {
+                        backendAvailable: Bool, recovering: Bool, liveUnavailable: Bool,
+                        connected: Bool = true, compatible: Bool = true, networkAvailable: Bool = true,
+                        reconnecting: Bool = false) -> Self {
         if demo { return .demo }
         switch pairing {
         case .unpaired: return .ready
@@ -1398,35 +1412,52 @@ enum SessionConnectionStatus: Equatable {
         case .waitingForHomeAssistantCompletion: return .setupPending
         case .stale: return .stale
         case .paired:
-            if mode == .offline { return .offline }
+            if !networkAvailable { return .networkUnavailable }
+            if !compatible { return .updateRequired }
+            if !connected || mode == .offline { return reconnecting ? .connecting : .offline }
             if !backendAvailable { return .backendUnavailable }
-            if recovering { return .recovering }
             if liveUnavailable { return .liveUnavailable }
-            return .connected
+            if recovering { return .recovering }
+            return mode == .remote ? .remote : .connected
         }
     }
-    var key: String {
+    var key: String { "ui.connection.combined." + rawValue }
+    var icon: String {
         switch self {
-        case .demo: "ui.app.store.preview.without.home.assistant"
-        case .ready: "ui.ready.to.pair"
-        case .pairing: "ui.pairing.with.home.assistant"
-        case .setupPending: "ui.finish.setup.in.home.assistant"
-        case .stale: "ui.not.connected.to.home.assistant"
-        case .offline: "ui.connection.offline"
-        case .recovering: "ui.connection.recovering"
-        case .liveUnavailable: "ui.session.unavailable"
-        case .backendUnavailable: "ui.connection.backend_unavailable"
-        case .connected: "ui.paired"
+        case .demo: "play.rectangle.fill"
+        case .ready: "link.badge.plus"
+        case .pairing, .connecting, .recovering: "arrow.triangle.2.circlepath"
+        case .setupPending: "person.crop.circle.badge.exclamationmark"
+        case .stale: "lock.trianglebadge.exclamationmark"
+        case .networkUnavailable: "wifi.slash"
+        case .offline: "wifi.exclamationmark"
+        case .backendUnavailable: "music.note.slash"
+        case .liveUnavailable: "exclamationmark.bubble.fill"
+        case .updateRequired: "arrow.down.app.fill"
+        case .connected: "house.fill"
+        case .remote: "globe"
         }
     }
     var color: Color {
         switch self {
         case .demo: .purple
         case .connected: .green
+        case .remote: .teal
         case .ready: .secondary
-        case .offline, .backendUnavailable: .red
-        case .pairing, .setupPending, .stale, .recovering, .liveUnavailable: .orange
+        case .offline, .networkUnavailable: .red
+        case .pairing, .connecting: .blue
+        case .setupPending, .stale, .recovering, .liveUnavailable, .backendUnavailable, .updateRequired: .orange
         }
+    }
+}
+
+extension DJConnectAppModel {
+    var connectionPresentation: SessionConnectionStatus {
+        .resolve(demo: isDemoMode, pairing: pairingStatus, mode: haConnectionMode,
+                 backendAvailable: backendAvailable, recovering: djSessionIsRecovering,
+                 liveUnavailable: djSessionLiveUnavailable, connected: isConnected,
+                 compatible: isRuntimeCompatible, networkAvailable: !isOfflineModeActive,
+                 reconnecting: isRefreshing)
     }
 }
 
@@ -1531,8 +1562,7 @@ private struct VibeCastHandoffPopover: View {
     #if os(macOS)
     let available = NSScreen.main?.visibleFrame.size ?? CGSize(width: 800, height: 640)
     ScrollView {
-        ActiveDJSessionView(model: model, session: session,
-                            openQueueAction: openQueueAction, showsMoments: false)
+        VibeCastHandoffForm(model: model)
             .fixedSize(horizontal: false, vertical: true)
             .background {
                 GeometryReader { content in
@@ -1551,8 +1581,7 @@ private struct VibeCastHandoffPopover: View {
     }
     #else
     ScrollView {
-        ActiveDJSessionView(model: model, session: session,
-                            openQueueAction: openQueueAction, showsMoments: false)
+        VibeCastHandoffForm(model: model)
     }
     .frame(idealWidth: 400, idealHeight: 300)
     #endif

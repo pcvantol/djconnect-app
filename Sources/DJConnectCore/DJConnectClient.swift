@@ -221,6 +221,18 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
+    /// Uses the same owner endpoint and backend service, without current-playback fallback.
+    public func momentTrackInsight(_ reference: DJConnectMomentInsightReference, language: String, mood: Int?) async throws -> DJConnectMomentInsightDetail {
+        guard reference.isValid else { throw DJConnectError.invalidResponse }
+        var payload = DJConnectTrackInsightRequest(locale: language, mood: mood)
+        payload.trackInsightTarget = reference
+        let response: TrackInsightEndpointResponse = try await decodedResponse(for: trackInsightRequest(payload))
+        guard response.success != false, let subject = response.subject, subject.matches(reference),
+              let insight = response.trackInsightValue,
+              TrackInsightVerifiedCredit.displayText(insight.summary) != nil else { throw DJConnectError.invalidResponse }
+        return .init(insight: insight, subject: subject)
+    }
+
     public func trackInsight(_ payload: DJConnectTrackInsightRequest) async throws -> TrackInsight {
         if let insight = try await webSocketTrackInsightIfSupported(payload) {
             return insight

@@ -1126,3 +1126,45 @@
 "ui.session.presence.no_active_session" = "No hay ninguna sesión activa válida para este control.";
 "ui.session.presence.invalid_state" = "La sesión no ha devuelto un ajuste válido de presencia del DJ.";
 "ui.session.presence.incompatible_response" = "El servidor ha devuelto una respuesta incompatible para la presencia del DJ.";
+
+"ui.session.presence.level" = "Presencia";
+
+"ui.connection.combined.demo" = "Modo demo";
+"ui.connection.combined.ready" = "Sin vincular";
+"ui.connection.combined.pairing" = "Vinculando…";
+"ui.connection.combined.setupPending" = "Confirma en Home Assistant";
+"ui.connection.combined.stale" = "Vuelve a vincular";
+"ui.connection.combined.networkUnavailable" = "Sin red";
+"ui.connection.combined.offline" = "Home Assistant no accesible";
+"ui.connection.combined.connecting" = "Reconectando…";
+"ui.connection.combined.recovering" = "Conectado · actualizando sesión";
+"ui.connection.combined.liveUnavailable" = "Conectado · sesión no disponible";
+"ui.connection.combined.backendUnavailable" = "Conectado · música no disponible";
+"ui.connection.combined.updateRequired" = "Actualización necesaria";
+"ui.connection.combined.connected" = "Conectado · local";
+"ui.connection.combined.remote" = "Conectado · remoto";
+
+"ui.push.configuration_needed" = "Se requiere configuración";
+"ui.push.registration_failed" = "Error de registro";
+"ui.push.registration_confirmed_detail" = "El servidor confirmó el registro push. Esto no demuestra que una notificación se haya entregado.";
+"ui.push.registration_pending_detail" = "El registro push de este dispositivo aún no se ha confirmado.";
+"ui.push.configuration_detail" = "Falta el servicio de registro de confianza o la prueba de arranque. Es necesario corregir la configuración de DJConnect; volver a vincular no es una solución general.";
+"ui.push.environment_detail" = "Los entornos push de la app y del servidor no coinciden. Es necesario corregir la configuración de la app.";
+"ui.push.apns_detail" = "El registro con Apple falló. Revisa los ajustes de notificaciones. Si el problema continúa, debe revisarse la configuración de la app.";
+"ui.push.transport_detail" = "El servicio de registro no está disponible. Reintenta cuando se restablezca la conexión.";
+"ui.push.permission_detail" = "El permiso para notificaciones no está confirmado. Revisa los ajustes de esta app.";
+"ui.push.open_settings" = "Abrir ajustes de notificaciones";
+
+"ui.vibecast.handoff.unconfirmed" = "La transferencia no se ha confirmado. Revisa la pantalla de VibeCast antes de volver a intentarlo.";
+"ui.vibecast.handoff.code_unavailable" = "Este código ya no está disponible. Abre VibeCast y usa el código actual.";
+
+"ui.session.insight.loading" = "Cargando Track Insight de esta pista…";
+
+"ui.session.insight.unavailable" = "No se pudo cargar Track Insight de esta contribución. Inténtalo de nuevo.";
+
+"ui.session.insight.expired" = "Track Insight de esta contribución ya no está disponible.";
+
+"ui.session.insight.context_changed" = "Los ajustes de la sesión han cambiado. Vuelve a cargar este análisis.";
+
+"ui.trackInsight.verified_credits" = "Créditos verificados";
+"ui.trackInsight.interpretation" = "Interpretación";

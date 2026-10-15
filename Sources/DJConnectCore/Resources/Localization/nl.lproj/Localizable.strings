@@ -1126,3 +1126,45 @@
 "ui.session.presence.no_active_session" = "Er is geen geldige actieve sessie voor deze bediening.";
 "ui.session.presence.invalid_state" = "De sessie heeft geen geldige stand voor DJ-aanwezigheid teruggegeven.";
 "ui.session.presence.incompatible_response" = "De server gaf een incompatibel antwoord voor DJ-aanwezigheid.";
+
+"ui.session.presence.level" = "Aanwezigheid";
+
+"ui.connection.combined.demo" = "Demomodus";
+"ui.connection.combined.ready" = "Niet gekoppeld";
+"ui.connection.combined.pairing" = "Koppelen…";
+"ui.connection.combined.setupPending" = "Bevestig in Home Assistant";
+"ui.connection.combined.stale" = "Opnieuw koppelen nodig";
+"ui.connection.combined.networkUnavailable" = "Geen netwerk";
+"ui.connection.combined.offline" = "Home Assistant niet bereikbaar";
+"ui.connection.combined.connecting" = "Verbinding herstellen…";
+"ui.connection.combined.recovering" = "Verbonden · sessie wordt bijgewerkt";
+"ui.connection.combined.liveUnavailable" = "Verbonden · sessie niet beschikbaar";
+"ui.connection.combined.backendUnavailable" = "Verbonden · muziek niet beschikbaar";
+"ui.connection.combined.updateRequired" = "Update nodig";
+"ui.connection.combined.connected" = "Verbonden · lokaal";
+"ui.connection.combined.remote" = "Verbonden · extern";
+
+"ui.push.configuration_needed" = "Configuratie nodig";
+"ui.push.registration_failed" = "Registratie mislukt";
+"ui.push.registration_confirmed_detail" = "De server heeft de pushregistratie bevestigd. Dit bewijst nog niet dat een melding is bezorgd.";
+"ui.push.registration_pending_detail" = "Er is nog geen bevestigde pushregistratie voor dit apparaat.";
+"ui.push.configuration_detail" = "Push kan nog niet worden geregistreerd omdat de vertrouwde registratiedienst of het bootstrapbewijs ontbreekt. Dit vereist herstel van de DJConnect-configuratie; opnieuw koppelen is geen standaardoplossing.";
+"ui.push.environment_detail" = "De pushomgeving van de app en de server komt niet overeen. De appconfiguratie moet worden hersteld.";
+"ui.push.apns_detail" = "De registratie bij Apple is mislukt. Controleer de notificatie-instellingen. Blijft dit gebeuren, dan moet de appconfiguratie worden gecontroleerd.";
+"ui.push.transport_detail" = "De registratiedienst is niet bereikbaar. Probeer opnieuw zodra de verbinding is hersteld.";
+"ui.push.permission_detail" = "Toestemming voor meldingen is niet bevestigd. Controleer de instellingen voor deze app.";
+"ui.push.open_settings" = "Open notificatie-instellingen";
+
+"ui.vibecast.handoff.unconfirmed" = "De overdracht is niet bevestigd. Controleer het VibeCast-scherm voordat je opnieuw probeert.";
+"ui.vibecast.handoff.code_unavailable" = "Deze code is niet meer beschikbaar. Open VibeCast en gebruik de huidige code.";
+
+"ui.session.insight.loading" = "Track Insight voor dit nummer laden…";
+
+"ui.session.insight.unavailable" = "Track Insight voor deze bijdrage kon niet worden geladen. Probeer opnieuw.";
+
+"ui.session.insight.expired" = "Track Insight voor deze bijdrage is niet meer beschikbaar.";
+
+"ui.session.insight.context_changed" = "De sessie-instellingen zijn gewijzigd. Laad dit inzicht opnieuw.";
+
+"ui.trackInsight.verified_credits" = "Geverifieerde credits";
+"ui.trackInsight.interpretation" = "Duiding";
