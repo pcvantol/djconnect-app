@@ -1185,3 +1185,6 @@
 "ui.connection.address.active" = "Dirección activa de Home Assistant";
 
 "ui.connection.address.unconfirmed" = "Ruta activa aún no confirmada";
+
+"ui.output.switching" = "Cambiando…";
+"ui.output.switch.unconfirmed" = "El cambio de altavoz aún no se ha confirmado. Actualiza los dispositivos de salida para comprobar su estado.";

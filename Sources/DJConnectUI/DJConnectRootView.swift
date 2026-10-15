@@ -3422,8 +3422,6 @@ struct NowPlayingView: View {
                     OutputSelectorView(model: model)
                 }
                 .djConnectScreenPadding()
-                .disabled(model.isRefreshing)
-                .allowsHitTesting(!model.isRefreshing)
                 .frame(maxWidth: djConnectContentMaxWidth)
                 .frame(maxWidth: .infinity)
             }
@@ -9711,8 +9709,6 @@ private struct IOSNowPlayingView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                    .disabled(model.isRefreshing)
-                    .allowsHitTesting(!model.isRefreshing)
                 }
                 .background(.clear)
                 .refreshable {
@@ -9988,7 +9984,7 @@ private struct IOSTrackHero: View {
 private struct IOSPlaybackSurface: View {
     @ObservedObject var model: DJConnectAppModel
     var openQueueAction: () -> Void
-    private var canUsePlayback: Bool { model.canUsePlaybackFeatures && !model.isRefreshing }
+    private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
 
     var body: some View {
         VStack(spacing: 18) {
@@ -10400,7 +10396,7 @@ private struct TrackInsightIconButton: View {
 
 struct PlaybackControlsView: View {
     @ObservedObject var model: DJConnectAppModel
-    private var canUsePlayback: Bool { model.canUsePlaybackFeatures && !model.isRefreshing }
+    private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
 
     var body: some View {
         VStack(spacing: 18) {
@@ -10699,6 +10695,7 @@ private struct OutputSelectorView: View {
                             output: output,
                             title: output.name,
                             isActive: output.active == true,
+                            isPending: model.pendingOutputSelectionID == output.id,
                             isEnabled: canUsePlayback,
                             action: {
                                 guard canUsePlayback else {
@@ -10732,6 +10729,7 @@ private struct OutputDeviceChoiceRow: View {
     let output: DJConnectOutputDevice?
     let title: String
     let isActive: Bool
+    var isPending: Bool = false
     let isEnabled: Bool
     let action: () -> Void
 
@@ -10749,6 +10747,7 @@ private struct OutputDeviceChoiceRow: View {
     }
 
     private var subtitle: String {
+        if isPending { return localizedKey(language, "ui.output.switching") }
         if output?.isCachedSpotifyOutput == true {
             return localizedKey(language, "ui.output.recently.seen")
         }
@@ -10792,7 +10791,9 @@ private struct OutputDeviceChoiceRow: View {
 
                 Spacer(minLength: 8)
 
-                if isActive {
+                if isPending {
+                    ProgressView().controlSize(.small).tint(activeColor)
+                } else if isActive {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(activeColor)
@@ -10807,7 +10808,7 @@ private struct OutputDeviceChoiceRow: View {
                     .allowsHitTesting(false)
             }
             .overlay {
-                if isActive {
+                if isActive || isPending {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .stroke(activeColor.opacity(0.65), lineWidth: 2)
                         .allowsHitTesting(false)
@@ -10816,9 +10817,11 @@ private struct OutputDeviceChoiceRow: View {
             .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .djConnectPlainButtonStyle()
-        .disabled(!isEnabled)
+        .disabled(!isEnabled || isPending)
         .accessibilityLabel(title)
         .accessibilityValue(subtitle)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
+        .accessibilityIdentifier("output-device-\(output?.id ?? "none")")
     }
 }
 

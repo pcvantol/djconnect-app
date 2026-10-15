@@ -1617,6 +1617,24 @@ extension DJConnectIOSUITests {
         attachment.name = "session-refresh-rightmost"; attachment.lifetime = .keepAlways; add(attachment)
     }
 
+    func testOneTapOutputChoiceUpdatesConfirmedRowAndKeepsControlsAvailable() {
+        let app = launchRuntimeFixtureApp("review_demo", screen: "now-playing")
+        XCTAssertTrue(app.descendants(matching: .any)["screen-now-playing"].waitForExistence(timeout: 10))
+        let kitchen = app.buttons["output-device-demo-kitchen"]
+        guard kitchen.waitForExistence(timeout: 10) else { XCTFail("Speaker row is missing on Now Playing"); return }
+        for _ in 0..<5 where !kitchen.isHittable { app.swipeUp() }
+        XCTAssertTrue(kitchen.isHittable)
+        XCTAssertFalse(kitchen.isSelected)
+        kitchen.tap()
+        let confirmed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "selected == true"), object: kitchen)
+        XCTAssertEqual(XCTWaiter.wait(for: [confirmed], timeout: 5), .completed)
+        XCTAssertTrue(kitchen.isEnabled)
+        XCTAssertTrue(app.buttons["output-devices-refresh"].isEnabled)
+        XCTAssertTrue(app.buttons["Pauze"].firstMatch.isEnabled)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "one-tap-confirmed-output-choice"; shot.lifetime = .keepAlways; add(shot)
+    }
+
     func testPrimaryNowPlayingTabAndAskDJInMore() {
         let app = launchRuntimeFixtureApp("review_demo")
         let bar = app.tabBars.firstMatch

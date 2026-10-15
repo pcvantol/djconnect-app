@@ -1185,3 +1185,6 @@
 "ui.connection.address.active" = "Active Home Assistant address";
 
 "ui.connection.address.unconfirmed" = "Active route not yet confirmed";
+
+"ui.output.switching" = "Switching…";
+"ui.output.switch.unconfirmed" = "The speaker change has not been confirmed yet. Refresh the output devices to check its status.";

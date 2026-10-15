@@ -1185,3 +1185,6 @@
 "ui.connection.address.active" = "Actief Home Assistant-adres";
 
 "ui.connection.address.unconfirmed" = "Actieve route nog niet bevestigd";
+
+"ui.output.switching" = "Bezig met wisselen…";
+"ui.output.switch.unconfirmed" = "De speakerwissel is nog niet bevestigd. Ververs de uitvoerapparaten om de status te controleren.";

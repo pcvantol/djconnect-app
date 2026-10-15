@@ -1185,3 +1185,6 @@
 "ui.connection.address.active" = "Adresse Home Assistant active";
 
 "ui.connection.address.unconfirmed" = "Route active pas encore confirmée";
+
+"ui.output.switching" = "Changement en cours…";
+"ui.output.switch.unconfirmed" = "Le changement d’enceinte n’est pas encore confirmé. Actualisez les appareils de sortie pour vérifier son état.";

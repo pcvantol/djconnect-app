@@ -897,3 +897,48 @@ readback JSON. Mac mini ordinary app build40077 launch PID92726, strict/deep
 signature, exact files, preferences/entitlements preservation PASS; receipt
 `/private/tmp/djc-output-refresh-40077-mac-install.json`. No physical refresh
 interaction acceptance inferred. MacBook/iPhone not installed in this update.
+
+
+## Output switch keeps Now Playing interactive and confirms one transfer — build40078
+
+Code diagnosis: set_output scheduled the common runRefresh, setting isRefreshing;
+Mac/iOS Now Playing disabled hit testing for their entire content and playback
+controls also gated on that flag. Meanwhile selectOutput only changed the
+requested name, while visible rows depended on returned active flags. A single
+immediate devices read could still show the old backend speaker. A pre-selection
+status response could subsequently overwrite newer output confirmation.
+
+Fix: selection publishes its pending device ID synchronously. Only that row gets
+“Switching…” and a small local spinner; confirmed active/checkmark remains backend
+owned. Duplicate taps on that pending ID do not replay set_output; a different
+choice supersedes the old generation. Transfer performs one write and up to four
+confirmation reads (350/700/1400ms backoff), with a quiet status snapshot only
+when needed after a stale first read. Backend-authored structured action values
+are preserved, with one confirmation read rather than inferred names. set_output
+no longer schedules a page-wide busy refresh. Now Playing contents and playback
+controls remain interactive during reads while capability/auth/offline gates
+remain in place. Old status snapshots are generation-checked; cancellation is
+not treated as lost connectivity. Runtime clear invalidates pending receipts.
+Rejected/unconfirmed transfers clear pending state, keep the confirmed speaker
+and show an appropriate translated notice (five languages). Pending is never
+shown as a successful transfer. Output rows now expose selected accessibility
+traits for confirmed devices.
+
+Qualification:
+- 46 output/playback regression tests PASS, including delayed backend activation,
+  duplicate tap -> one transfer write, stale status, rejection, bounded unconfirmed
+  outcome, newer selection/fallback and structured action value retention.
+  `/private/tmp/djc-output-transfer-40078-tests-final.log`.
+- Native one-tap output selection/control availability PASS on iPad and iPhone
+  simulators with Demo data: `/private/tmp/djc-output-choice-ipad-final.xcresult`
+  and `/private/tmp/djc-output-choice-iphone-final.xcresult`. The test uses the
+  real shared output view, starts directly on Now Playing using the existing
+  presentation fixture, taps Kitchen once, then asserts confirmed selected state
+  and available playback/output controls. This does not qualify physical transfer.
+  An initial harness attempt failed to navigate from Session and is not PASS;
+  final tests assert that Now Playing is open before interacting with output.
+- Signed Mac/iOS40078 builds PASS, `/private/tmp/djc-output-transfer-40078-{mac,ios}-ready.log`.
+- Localization PASS1136keys; diff check PASS. No backend/transport contract changes,
+  live credentials/read requests, re-pair, source push or publication.
+- Physical speaker transfer remains NOT_RUN; installed Mac is already unpaired,
+  and simulator fixtures do not establish actual Spotify/speaker acceptance.

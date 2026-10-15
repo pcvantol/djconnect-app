@@ -2513,6 +2513,148 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     #expect(model.isRefreshing) // Device confirmation is independent of a busy status refresh.
 }
 
+@Test @MainActor func outputTransferOneTapSurvivesDelayedConfirmationWithoutGlobalRefresh() async throws {
+    let reads = HTTPRecoveryActiveReadCounter()
+    let wire = HistoryWireFixture { request in
+        let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
+        switch body?["command"] as? String {
+        case "set_output": return (200, Data(#"{"success":true}"#.utf8), 0.1)
+        case "devices":
+            if reads.next() == 1 {
+                return (200, Data(#"{"success":true,"devices":[{"id":"old","name":"Old speaker","active":true},{"id":"new","name":"New speaker","active":false}]}"#.utf8), 0)
+            }
+            return (200, Data(#"{"success":true,"devices":[{"id":"old","name":"Old speaker","active":false},{"id":"new","name":"New speaker","active":true}]}"#.utf8), 0)
+        case "status": return (200, Data(#"{"success":true,"playback":{"device":{"id":"old","name":"Old speaker"}}}"#.utf8), 0)
+        default: return (404, Data(), 0)
+        }
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model(); defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.apply(commandResponse: DJConnectCommandResponse(success: true, devices: [
+        DJConnectOutputDevice(id: "old", name: "Old speaker", active: true),
+        DJConnectOutputDevice(id: "new", name: "New speaker", active: false)
+    ]))
+    let output = DJConnectOutputDevice(id: "new", name: "New speaker")
+    model.selectOutput(output)
+    #expect(model.pendingOutputSelectionID == "new") // Synchronous local feedback.
+    #expect(model.availableOutputs.first(where: { $0.id == "new" })?.active != true)
+    model.selectOutput(output) // Duplicate tap must never replay the transfer write.
+    for _ in 0..<150 {
+        #expect(!model.isRefreshing)
+        if model.pendingOutputSelectionID == nil { break }
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(model.pendingOutputSelectionID == nil)
+    #expect(model.selectedOutput == "New speaker")
+    #expect(model.availableOutputs.filter { $0.active == true }.map(\.id) == ["new"])
+    let commands = try wire.requests.compactMap { request in
+        (try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])?["command"] as? String
+    }
+    #expect(commands == ["set_output", "devices", "status", "devices"])
+}
+
+@Test @MainActor func rejectedOutputTransferClearsPendingAndKeepsConfirmedSpeaker() async throws {
+    let wire = HistoryWireFixture { _ in (200, Data(#"{"success":false,"error":"transfer_failed"}"#.utf8), 0.05) }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model(); defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.apply(commandResponse: DJConnectCommandResponse(success: true, devices: [
+        DJConnectOutputDevice(id: "old", name: "Old speaker", active: true),
+        DJConnectOutputDevice(id: "new", name: "New speaker", active: false)
+    ]))
+    model.selectOutput(DJConnectOutputDevice(id: "new", name: "New speaker"))
+    for _ in 0..<60 where model.pendingOutputSelectionID != nil { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(model.pendingOutputSelectionID == nil)
+    #expect(model.selectedOutput == "Old speaker")
+    #expect(model.availableOutputs.filter { $0.active == true }.map(\.id) == ["old"])
+    #expect(model.userNotice != nil)
+    #expect(!model.isRefreshing)
+    #expect(wire.requests.count == 1)
+}
+
+@Test @MainActor func unconfirmedOutputTransferStopsWaitingWithoutReplayingWrite() async throws {
+    let wire = HistoryWireFixture { request in
+        let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
+        if body?["command"] as? String == "set_output" { return (200, Data(#"{"success":true}"#.utf8), 0) }
+        return (200, Data(#"{"success":true,"playback":{"device":{"id":"old","name":"Old speaker"}},"devices":[{"id":"old","name":"Old speaker","active":true},{"id":"new","name":"New speaker","active":false}]}"#.utf8), 0)
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model(); defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.apply(commandResponse: DJConnectCommandResponse(success: true, devices: [
+        DJConnectOutputDevice(id: "old", name: "Old speaker", active: true)
+    ]))
+    model.selectOutput(DJConnectOutputDevice(id: "new", name: "New speaker"))
+    for _ in 0..<200 where model.pendingOutputSelectionID != nil {
+        #expect(!model.isRefreshing)
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(model.pendingOutputSelectionID == nil)
+    #expect(model.selectedOutput == "Old speaker")
+    #expect(model.userNotice?.text == DJConnectLocalization.localized(key: "ui.output.switch.unconfirmed", language: model.language))
+    let commands = try wire.requests.compactMap { request in
+        (try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])?["command"] as? String
+    }
+    #expect(commands.filter { $0 == "set_output" }.count == 1)
+    #expect(commands.filter { $0 == "devices" }.count == 4)
+}
+
+@Test @MainActor func outputTransferRejectsStatusSnapshotStartedBeforeSelection() async throws {
+    let reads = HTTPRecoveryActiveReadCounter()
+    let wire = HistoryWireFixture { request in
+        let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
+        switch body?["command"] as? String {
+        case "status":
+            _ = reads.next()
+            return (200, Data(#"{"success":true,"playback":{"device":{"id":"old","name":"Old speaker"}},"devices":[{"id":"old","name":"Old speaker","active":true}]}"#.utf8), 0.25)
+        case "set_output": return (200, Data(#"{"success":true}"#.utf8), 0)
+        case "devices": return (200, Data(#"{"success":true,"devices":[{"id":"new","name":"New speaker","active":true}]}"#.utf8), 0)
+        default: return (404, Data(), 0)
+        }
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model(); defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    let staleRefresh = Task { await model.refreshNowPlaying() }
+    for _ in 0..<40 where reads.value == 0 { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(reads.value == 1)
+    model.selectOutput(DJConnectOutputDevice(id: "new", name: "New speaker"))
+    for _ in 0..<60 where model.pendingOutputSelectionID != nil { try await Task.sleep(for: .milliseconds(5)) }
+    _ = await staleRefresh.value
+    #expect(model.selectedOutput == "New speaker")
+    #expect(model.availableOutputs.filter { $0.active == true }.map(\.id) == ["new"])
+    #expect(model.backendAvailable)
+    #expect(model.pairingStatus == .paired)
+    #expect(!model.isRefreshing)
+}
+
+@Test @MainActor func structuredOutputActionKeepsBackendTargetAndSingleConfirmationRead() async throws {
+    let wire = HistoryWireFixture { request in
+        let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
+        if body?["command"] as? String == "set_output" { return (200, Data(#"{"success":true}"#.utf8), 0) }
+        return (200, Data(#"{"success":true,"devices":[{"id":"new","name":"New speaker","active":true}]}"#.utf8), 0)
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model(); defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.apply(playback: DJConnectPlayback(device: DJConnectPlaybackDevice(id: "old", name: "Old speaker")))
+    model.sendPlaybackCommand("set_output", value: .object(["device_id": "new"]), play: true)
+    for _ in 0..<100 where model.availableOutputs.first(where: { $0.id == "new" })?.active != true {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(model.availableOutputs.first(where: { $0.id == "new" })?.active == true)
+    try await Task.sleep(for: .milliseconds(400))
+    let commands = try wire.requests.compactMap { request in
+        (try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])?["command"] as? String
+    }
+    #expect(commands == ["set_output", "devices"])
+    let request = try #require(wire.requests.first)
+    let payload = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
+    #expect((payload?["value"] as? [String: String])?["device_id"] == "new")
+    #expect(!model.isRefreshing)
+}
+
 @Test @MainActor func lateOutputConfirmationCannotReplaceNewerSelection() async throws {
     let reads = HTTPRecoveryActiveReadCounter()
     let wire = HistoryWireFixture { request in

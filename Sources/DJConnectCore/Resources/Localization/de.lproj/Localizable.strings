@@ -1185,3 +1185,6 @@
 "ui.connection.address.active" = "Aktive Home-Assistant-Adresse";
 
 "ui.connection.address.unconfirmed" = "Aktive Route noch nicht bestätigt";
+
+"ui.output.switching" = "Wechsel läuft…";
+"ui.output.switch.unconfirmed" = "Der Lautsprecherwechsel wurde noch nicht bestätigt. Aktualisiere die Ausgabegeräte, um den Status zu prüfen.";

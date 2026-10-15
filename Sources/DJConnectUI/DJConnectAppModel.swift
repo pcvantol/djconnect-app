@@ -766,6 +766,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var isPairing = false
     @Published public var isRefreshing = false
     @Published public private(set) var isLoadingOutputs = false
+    @Published public private(set) var pendingOutputSelectionID: String?
     @Published public private(set) var isLoadingQueue = false
     @Published public private(set) var isLoadingPlaylists = false
     @Published public var backendAvailable = true {
@@ -3094,6 +3095,9 @@ public final class DJConnectAppModel: ObservableObject {
                 emitUserConnectionNotice(for: error)
             }
             return false
+        } catch is CancellationError {
+            // A superseded snapshot is not a lost connection.
+            return false
         } catch {
             log(.error, "Refresh failed unexpectedly: \(error.localizedDescription)")
             applyConnectionUnavailableState(message: error.localizedDescription)
@@ -3384,6 +3388,9 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func selectOutput(_ output: DJConnectOutputDevice) {
+        // A pending choice already owns its one write; another tap is not a retry.
+        guard pendingOutputSelectionID != output.id else { return }
+        guard output.active != true || pendingOutputSelectionID != nil else { return }
         log(.debug, "User action: select output")
         outputSelectionGeneration += 1
         let selectionGeneration = outputSelectionGeneration
@@ -3391,9 +3398,9 @@ public final class DJConnectAppModel: ObservableObject {
         pendingSelectedOutput = output.name
         pendingSelectedOutputIsCachedSpotify = output.isCachedSpotifyOutput
         if Self.isSyntheticOutput(output) {
-            log(.info, "Selecting local output option \(output.name)")
             pendingSelectedOutput = nil
             pendingSelectedOutputIsCachedSpotify = false
+            pendingOutputSelectionID = nil
             availableOutputs = availableOutputs.map { candidate in
                 var updated = candidate
                 updated.active = candidate.id == output.id || candidate.name == output.name
@@ -3401,9 +3408,26 @@ public final class DJConnectAppModel: ObservableObject {
             }
             return
         }
-        log(.info, "Selecting output \(output.name)")
-        sendPlaybackCommand("set_output", value: .string(output.name), play: true,
-                            expectedOutputSelectionGeneration: selectionGeneration)
+        pendingOutputSelectionID = output.id
+        Task {
+            let accepted = await performCommand("set_output", value: .string(output.name), play: true,
+                                                expectedOutputSelectionGeneration: selectionGeneration)
+            guard selectionGeneration == outputSelectionGeneration else { return }
+            let confirmed = availableOutputs.contains { candidate in
+                candidate.active == true && (candidate.id == output.id || candidate.name == output.name)
+            }
+            pendingOutputSelectionID = nil
+            pendingSelectedOutput = nil
+            pendingSelectedOutputIsCachedSpotify = false
+            if let active = availableOutputs.first(where: { $0.active == true }) {
+                selectedOutput = active.name
+            } else if let name = playback?.device?.name {
+                selectedOutput = name
+            }
+            if accepted && !confirmed {
+                userNotice = DJConnectUserNotice(text: localized(key: "ui.output.switch.unconfirmed"))
+            }
+        }
     }
 
     public func startPlaylist(_ playlist: DJConnectPlaylist) {
@@ -6031,8 +6055,12 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func refreshPlaybackSnapshot(client: DJConnectClient, isStillValid: (@MainActor () -> Bool)? = nil) async throws {
+        let outputGeneration = outputSelectionGeneration
+        let acceptsSnapshot: @MainActor () -> Bool = { [weak self] in
+            self?.outputSelectionGeneration == outputGeneration && isStillValid?() != false
+        }
         do {
-            guard isStillValid?() != false else { throw CancellationError() }
+            guard acceptsSnapshot() else { throw CancellationError() }
             log(.debug, "Loading Now Playing snapshot")
             let response = try await client.sendCommandResponse(
                 DJConnectCommandPayload(
@@ -6043,14 +6071,14 @@ public final class DJConnectAppModel: ObservableObject {
                     musicDNAKey: askDJMusicDNAKey
                 )
             )
-            guard isStillValid?() != false else { throw CancellationError() }
+            guard acceptsSnapshot() else { throw CancellationError() }
             apply(commandResponse: response)
             if response.playback == nil {
-                try await refreshStatus(client: client, isStillValid: isStillValid)
+                try await refreshStatus(client: client, isStillValid: acceptsSnapshot)
             }
         } catch let error as DJConnectError {
             if case .routeMissing = error {
-                try await refreshStatus(client: client, isStillValid: isStillValid)
+                try await refreshStatus(client: client, isStillValid: acceptsSnapshot)
             } else {
                 throw error
             }
@@ -6089,6 +6117,8 @@ public final class DJConnectAppModel: ObservableObject {
         playbackProgressTask = nil
         volumeCommandTask?.cancel()
         volumeCommandTask = nil
+        outputSelectionGeneration += 1
+        pendingOutputSelectionID = nil
         pendingSelectedOutput = nil
         pendingSelectedOutputIsCachedSpotify = false
         pendingVolumePercent = nil
@@ -10631,6 +10661,7 @@ public final class DJConnectAppModel: ObservableObject {
             return false
         }
         var refreshOutputsAfterAcceptance = false
+        var outputAccepted = true
         do {
             try await withHomeAssistantClient { client in
                 // This closure can be re-entered for transport fallback.
@@ -10654,13 +10685,40 @@ public final class DJConnectAppModel: ObservableObject {
                     guard outputGeneration == outputSelectionGeneration else { throw CancellationError() }
                 }
                 apply(commandResponse: response, command: command)
-                refreshOutputsAfterAcceptance = command == "set_output" && response.success != false
+                outputAccepted = response.success != false
+                refreshOutputsAfterAcceptance = command == "set_output" && outputAccepted
+            }
+            if command == "set_output", !outputAccepted {
+                if userNotice == nil { userNotice = DJConnectUserNotice(text: playbackCommandFailureFallback(command: command)) }
+                return false
             }
             if refreshOutputsAfterAcceptance, outputGeneration == outputSelectionGeneration {
-                // Acceptance is not confirmation: read authoritative devices
-                // immediately instead of waiting for a full history refresh.
-                _ = await performCommand("devices", notifyUserOnError: false,
-                                         expectedOutputSelectionGeneration: outputGeneration)
+                // Transfer acceptance can precede the backend's active-device update.
+                // Retry only the read, never the playback-transfer command.
+                for attempt in 0..<4 {
+                    if attempt > 0 {
+                        try await Task.sleep(for: .milliseconds(350 * (1 << (attempt - 1))))
+                    }
+                    guard !Task.isCancelled, outputGeneration == outputSelectionGeneration else { return false }
+                    if attempt == 1 {
+                        // Some backends omit device flags and need a new playback
+                        // snapshot. Keep that read local and finish with devices.
+                        try? await refreshStatusWithFallback(isStillValid: { [weak self] in
+                            self?.outputSelectionGeneration == outputGeneration
+                        })
+                    }
+                    let read = await performCommand("devices", notifyUserOnError: false,
+                                                    expectedOutputSelectionGeneration: outputGeneration)
+                    if read {
+                        if case let .string(targetName) = value {
+                            if availableOutputs.contains(where: { $0.active == true && $0.name == targetName }) { break }
+                        } else {
+                            // Backend-authored structured actions keep their own
+                            // target contract; do not infer a speaker name locally.
+                            break
+                        }
+                    }
+                }
             }
             if Self.shouldRefreshPlaybackAfterCommand(command) {
                 scheduleCommandRefresh(
@@ -11250,7 +11308,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private static func shouldRefreshPlaybackAfterCommand(_ command: String) -> Bool {
         switch command {
-        case "play", "pause", "next", "previous", "set_output", "start_playlist", "start_liked_proxy", "play_context_at", "set_current_track_favorite", "save_current_track":
+        case "play", "pause", "next", "previous", "start_playlist", "start_liked_proxy", "play_context_at", "set_current_track_favorite", "save_current_track":
             true
         default:
             false
