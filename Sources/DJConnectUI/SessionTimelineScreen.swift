@@ -224,7 +224,7 @@ struct SessionTimelineScreen: View {
     var refreshAction: (() -> Void)?
     @StateObject private var renderCache = SessionTimelineRenderCache()
     @State private var currentHeaderVisible = true
-    @State private var phoneComposerHeight: CGFloat = 96
+    @State private var floatingComposerHeight: CGFloat = 96
     @State private var oldestEntriesVisible = false
     @State private var pagingTask: Task<Void, Never>?
     @State private var visibleEntry: String?
@@ -251,9 +251,9 @@ struct SessionTimelineScreen: View {
         self.activeSession = activeSession; self.initialAnchor = initialAnchor; self.openQueueAction = openQueueAction
         self.refreshAction = refreshAction
     }
-    private var floatsComposerOnPhone: Bool {
+    private var usesFloatingComposer: Bool {
         #if os(iOS)
-        UIDevice.current.userInterfaceIdiom == .phone && activeSession != nil
+        activeSession != nil
         #else
         false
         #endif
@@ -412,11 +412,12 @@ struct SessionTimelineScreen: View {
                         #endif
                         }
                     }
-                    .contentMargins(.bottom, floatsComposerOnPhone && !searching ? phoneComposerHeight + 16 : 0, for: .scrollContent)
+                    .contentMargins(.bottom, usesFloatingComposer && !searching ? floatingComposerHeight + 16 : 0, for: .scrollContent)
                     .overlay(alignment: .bottom) {
-                        if floatsComposerOnPhone && !searching {
+                        if usesFloatingComposer && !searching {
                             sessionComposer(proxy: proxy, floating: true)
-                                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { phoneComposerHeight = $0 }
+                                .frame(maxWidth: 1000)
+                                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { floatingComposerHeight = $0 }
                                 .padding(.horizontal, 12)
                                 .padding(.bottom, 8)
                         }
@@ -444,7 +445,7 @@ struct SessionTimelineScreen: View {
                             .help(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
                             .accessibilityIdentifier("session-jump-top")
                             .padding(16)
-                            .padding(.bottom, !searching && floatsComposerOnPhone ? phoneComposerHeight + 8 : 8)
+                            .padding(.bottom, !searching && usesFloatingComposer ? floatingComposerHeight + 8 : 8)
                         }
                     }
                     .scrollPosition(id: $visibleEntry, anchor: .top)
@@ -455,7 +456,7 @@ struct SessionTimelineScreen: View {
                         await history.refreshVisibleTimeline(sessionID, anchor: visibleEntry)
                     }
                 }
-                if activeSession != nil && !floatsComposerOnPhone && !searching {
+                if activeSession != nil && !usesFloatingComposer && !searching {
                     sessionComposer(proxy: proxy, floating: false)
                 }
             }

@@ -247,3 +247,16 @@ removal; missing qualified analysis remains an open diagnosis, not resolved by
 removing the footer. Pending40061; not installed. Validation recorded below.
 Unsigned Mac/iOS builds PASS: /private/tmp/djc-insight-footer-{mac,ios}.log.
 git diff --check PASS; no full regression rerun for this label-only removal.
+
+## iPad floating Ask DJ composer
+
+Removed the phone-only restriction from the iOS floating composer in both
+active DJ Session and Ask DJ. The existing rounded material input now overlays
+the bottom of the scroll surface on iPad too, with horizontal/bottom spacing
+and a centered content-width limit (1000 points on Session). Measured composer
+height still reserves scroll space and lifts the scroll-to-top control. Search
+hides the composer, archived Sessions remain without an active composer, and
+Mac retains its existing docked layout. Pending40061, not installed; physical
+iPad portrait/landscape/keyboard acceptance remains open.
+Unsigned iOS/Mac builds PASS: /private/tmp/djc-ipad-floating-{ios,mac}.log.
+git diff --check PASS; no full regression rerun for this layout-only change.

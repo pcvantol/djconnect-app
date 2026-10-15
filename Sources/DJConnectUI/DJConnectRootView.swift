@@ -10893,7 +10893,7 @@ private struct AskDJView: View {
 
     private var usesFloatingComposer: Bool {
         #if os(iOS)
-        UIDevice.current.userInterfaceIdiom == .phone
+        true
         #else
         false
         #endif
@@ -11084,6 +11084,7 @@ private struct AskDJView: View {
                         .overlay(alignment: .bottom) {
                             if usesFloatingComposer && !isSearchVisible {
                                 composer
+                                    .frame(maxWidth: contentWidth)
                                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { floatingComposerHeight = $0 }
                                     .padding(.horizontal, 12)
                                     .padding(.bottom, 8)
