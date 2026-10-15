@@ -169,3 +169,9 @@ refresh on iOS/iPadOS and macOS, while search remains at the navigation edge.
 The existing refresh action/disabled/accessibility behavior is reused by both
 platforms. Both unsigned builds pass in /private/tmp/djc-askdj-refresh-right-{ios,mac}.log.
 No further installation; this joins the pending40061 presentation changes.
+
+Legal page follow-up: Juridisch and OSS are now independent glass cards using
+shared24-point section spacing and padding. Both section dividers are disabled;
+the localized legal text is unchanged. Both unsigned builds pass in
+/private/tmp/djc-legal-cards-{ios,mac}.log. Pending40061 presentation change only;
+no new installation or full regression rerun for this layout-only edit.

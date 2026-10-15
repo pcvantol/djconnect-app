@@ -17822,15 +17822,16 @@ private struct LegalNoticesView: View {
                     VStack(alignment: .leading, spacing: 24) {
                         AboutBanner()
 
-                        VStack(alignment: .leading, spacing: 20) {
-                            SettingsSection(title: localizedKey(language, "ui.legal")) {
-                                SelectableValue(localizedKey(language, "ui.djconnect.is.not.affiliated.with.endorsed.by.or.sponsored.by"))
-                                SelectableValue(localizedKey(language, "ui.spotify.is.a.trademark.of.spotify.ab.home.assistant.is"))
-                            }
+                        SettingsSection(title: localizedKey(language, "ui.legal"), showsDivider: false) {
+                            SelectableValue(localizedKey(language, "ui.djconnect.is.not.affiliated.with.endorsed.by.or.sponsored.by"))
+                            SelectableValue(localizedKey(language, "ui.spotify.is.a.trademark.of.spotify.ab.home.assistant.is"))
+                        }
+                        .padding(24)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .djSessionFrostedSurface()
 
-                            SettingsSection(title: "OSS") {
-                                SelectableValue(localizedKey(language, "ui.djconnect.uses.apple.platform.frameworks.and.swift.package.manager.third"))
-                            }
+                        SettingsSection(title: "OSS", showsDivider: false) {
+                            SelectableValue(localizedKey(language, "ui.djconnect.uses.apple.platform.frameworks.and.swift.package.manager.third"))
                         }
                         .padding(24)
                         .frame(maxWidth: .infinity, alignment: .leading)
