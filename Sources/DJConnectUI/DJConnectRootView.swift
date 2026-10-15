@@ -272,10 +272,10 @@ private struct DJConnectHeroCardStyle: ViewModifier {
             .background {
                 DJConnectCardAppearance.shape.fill(
                     LinearGradient(
-                        colors: [Color(red: 0.09, green: 0.06, blue: 0.20),
-                                 Color(red: 0.17, green: 0.08, blue: 0.32),
-                                 Color(red: 0.08, green: 0.15, blue: 0.32)],
-                        startPoint: .topLeading, endPoint: .bottomTrailing)
+                        colors: [Color(red: 0.08, green: 0.15, blue: 0.32),
+                                 Color(red: 0.13, green: 0.09, blue: 0.27),
+                                 Color(red: 0.17, green: 0.08, blue: 0.32)],
+                        startPoint: .leading, endPoint: .trailing)
                 )
             }
             .modifier(DJConnectCardOutline())
@@ -4536,7 +4536,7 @@ private struct MusicDNAHeroView: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity, minHeight: 268, alignment: .center)
-        .djConnectGradientCard()
+        .djConnectHeroCard()
     }
 
     private var inactiveHero: some View {
@@ -4560,22 +4560,7 @@ private struct MusicDNAHeroView: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity, minHeight: 190)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.04, green: 0.03, blue: 0.13).opacity(0.98),
-                    Color(red: 0.10, green: 0.04, blue: 0.22).opacity(0.97),
-                    Color(red: 0.11, green: 0.06, blue: 0.26).opacity(0.94)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: DJConnectCardAppearance.shape
-        )
-        .overlay {
-            DJConnectCardAppearance.shape
-                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
-        }
+        .djConnectHeroCard()
     }
 }
 
@@ -6471,22 +6456,7 @@ private struct MusicDiscoveryView: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity, minHeight: 190)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.04, green: 0.03, blue: 0.13).opacity(0.98),
-                    Color(red: 0.10, green: 0.04, blue: 0.22).opacity(0.97),
-                    Color(red: 0.11, green: 0.06, blue: 0.26).opacity(0.94)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: DJConnectCardAppearance.shape
-        )
-        .overlay {
-            DJConnectCardAppearance.shape
-                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
-        }
+        .djConnectHeroCard()
     }
 }
 
@@ -11843,22 +11813,7 @@ private struct AskDJEmptyState: View {
         .padding(.horizontal, 28)
         .padding(.vertical, 34)
         .frame(maxWidth: .infinity, minHeight: 190)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.04, green: 0.03, blue: 0.13).opacity(0.98),
-                    Color(red: 0.10, green: 0.04, blue: 0.22).opacity(0.97),
-                    Color(red: 0.11, green: 0.06, blue: 0.26).opacity(0.94)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: DJConnectCardAppearance.shape
-        )
-        .overlay {
-            DJConnectCardAppearance.shape
-                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
-        }
+        .djConnectHeroCard()
     }
 }
 
