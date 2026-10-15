@@ -313,3 +313,13 @@ No re-pair, profile mutation, backend source edit, log-level change, deployment
 or restart. User permits iPad takeover today, but CUA failed initialization
 twice; no UI-control or native acceptance claimed. Core writer handoff awaits
 explicit messaging authorization. This diagnosis does not fix the running HA.
+
+## Remove New contributions button from DJ Session
+
+Removed the composer banner button and its unused new-entry tracking state
+from SessionTimelineScreen. Both floating iPhone/iPad and docked Mac composers
+now contain only AskDJInputBar. Timeline delivery, existing scroll-to-current
+button and reading/search position handling are unchanged. Pending40061, not
+installed. This is a layout-only removal; no full regression rerun.
+Unsigned iOS/Mac builds PASS: /private/tmp/djc-remove-new-contributions-{ios,mac}.log.
+git diff --check PASS.

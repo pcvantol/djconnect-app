@@ -233,7 +233,6 @@ struct SessionTimelineScreen: View {
     @State private var searching = false
     @State private var showingHandoff = false
     @State private var selectedMatchID: String?
-    @State private var hasNewEntries = false
     @State private var positionUnavailable = false
     @State private var retryRefreshing = false
     @State private var pullRefreshing = false
@@ -419,7 +418,7 @@ struct SessionTimelineScreen: View {
                     .contentMargins(.bottom, usesFloatingComposer && !searching ? floatingComposerHeight + 16 : 0, for: .scrollContent)
                     .overlay(alignment: .bottom) {
                         if usesFloatingComposer && !searching {
-                            sessionComposer(proxy: proxy, floating: true)
+                            sessionComposer(floating: true)
                                 .frame(maxWidth: 1000)
                                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { floatingComposerHeight = $0 }
                                 .padding(.horizontal, 12)
@@ -442,7 +441,6 @@ struct SessionTimelineScreen: View {
                         if !currentHeaderVisible {
                             Button {
                                 jump("current", proxy: proxy)
-                                hasNewEntries = false
                             } label: { Image(systemName: "arrow.up") }
                             .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
                             .accessibilityLabel(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
@@ -461,7 +459,7 @@ struct SessionTimelineScreen: View {
                     }
                 }
                 if activeSession != nil && !usesFloatingComposer && !searching {
-                    sessionComposer(proxy: proxy, floating: false)
+                    sessionComposer(floating: false)
                 }
             }
             .background(sessionBackground)
@@ -550,7 +548,6 @@ struct SessionTimelineScreen: View {
                     await Task.yield()
                     jump("current", proxy: proxy)
                     currentHeaderVisible = true
-                    hasNewEntries = false
                 }
             }
             .task(id: sessionID) {
@@ -583,9 +580,6 @@ struct SessionTimelineScreen: View {
                     selectedMatchID = matches.first?.id
                     if let id = selectedMatchID { Task { await selectAnchor(id, proxy: proxy, searchRequest: true) } }
                 }
-            }
-            .onChange(of: timeline.entries.last?.id) { old, new in
-                if old != nil, old != new, visibleEntry != "current", visibleEntry != new { hasNewEntries = true }
             }
             .onChange(of: timeline.nextCursor) { if oldestEntriesVisible { loadEarlierIfNeeded() } }
             .onChange(of: timeline.windowed) { if oldestEntriesVisible { loadEarlierIfNeeded() } }
@@ -727,19 +721,10 @@ struct SessionTimelineScreen: View {
         let id = matches[index].id
         Task { await selectAnchor(id, proxy: proxy, searchRequest: true) }
     }
-    @ViewBuilder private func sessionComposer(proxy: ScrollViewProxy, floating: Bool) -> some View {
-        VStack(spacing: 8) {
-            if hasNewEntries {
-                Button(text("ui.session.history.new_entries")) {
-                    jump(timeline.entries.last?.id ?? "current", proxy: proxy)
-                    hasNewEntries = false
-                }
-                .font(.footnote).padding(.horizontal, 20).padding(.vertical, 8)
-            }
-            AskDJInputBar(model: model, canSend: canSend,
-                          canUseVoiceInput: (model.isDemoMode || model.canUseProfileConversation) && model.voiceEnabled,
-                          isInputFocused: $inputFocused, floating: floating, placeholderKey: "ui.session.chat.placeholder")
-        }
+    private func sessionComposer(floating: Bool) -> some View {
+        AskDJInputBar(model: model, canSend: canSend,
+                      canUseVoiceInput: (model.isDemoMode || model.canUseProfileConversation) && model.voiceEnabled,
+                      isInputFocused: $inputFocused, floating: floating, placeholderKey: "ui.session.chat.placeholder")
     }
 
     @ViewBuilder private func searchBar(proxy: ScrollViewProxy) -> some View {
