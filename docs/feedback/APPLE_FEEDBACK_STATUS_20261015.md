@@ -596,3 +596,15 @@ Logs: /private/tmp/djc-brand-audit-mac-final.log and
 APPLE_BRANDING_SURFACE_AUDIT_20261015.md. No claim of physical Watch acceptance or
 opening every modal on hardware. This build is not installed in this follow-up;
 physical iPad remains on visually checked40065 and Mac mini on40064.
+
+## iPad floating Ask DJ width: build40067
+
+Owner requested25% narrower. Both Session and Ask DJ now use a shared iPad-only
+container-relative width of75% of their former capped available width, centered.
+Text size, microphone/send touch targets and height are unchanged. The calculation
+uses the actual container width for portrait/Split View; no screen-bound constant.
+Native signed iOS and Mac builds40067 PASS. Installed and launched on the physical
+iPad. Screenshot /private/tmp/djc-ipad-composer-75-40067.png visually confirms the
+Session composer is narrower and centered (visible behind the existing crash
+sheet). Typing/keyboard, rotation, Split View and the separate Ask DJ page were
+not physically exercised in this change. Mac/iPhone width behavior is unchanged.

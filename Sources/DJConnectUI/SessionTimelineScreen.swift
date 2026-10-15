@@ -419,7 +419,7 @@ struct SessionTimelineScreen: View {
                     .overlay(alignment: .bottom) {
                         if usesFloatingComposer && !searching {
                             sessionComposer(floating: true)
-                                .frame(maxWidth: 1000)
+                                .djFloatingAskDJWidth(maximum: 1000)
                                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { floatingComposerHeight = $0 }
                                 .padding(.horizontal, 12)
                                 .padding(.bottom, 8)

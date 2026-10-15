@@ -11081,7 +11081,7 @@ private struct AskDJView: View {
                         .overlay(alignment: .bottom) {
                             if usesFloatingComposer && !isSearchVisible {
                                 composer
-                                    .frame(maxWidth: contentWidth)
+                                    .djFloatingAskDJWidth(maximum: contentWidth)
                                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { floatingComposerHeight = $0 }
                                     .padding(.horizontal, 12)
                                     .padding(.bottom, 8)
@@ -13328,6 +13328,24 @@ func askDJMoodIcon(for index: Int) -> String {
 
 /// Shared native composer. A Session surface supplies context-bound actions;
 /// the general Ask DJ surface continues using the existing model actions.
+extension View {
+    /// Use the actual container width, including iPad portrait and Split View.
+    /// Scale the layout width, preserving readable text and44-point controls.
+    @ViewBuilder func djFloatingAskDJWidth(maximum: CGFloat) -> some View {
+        #if os(iOS)
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            self.containerRelativeFrame(.horizontal) { width, _ in
+                min(maximum, max(0, width - 24)) * 0.75
+            }
+        } else {
+            self.frame(maxWidth: maximum)
+        }
+        #else
+        self.frame(maxWidth: maximum)
+        #endif
+    }
+}
+
 struct AskDJInputBar: View {
     @ObservedObject var model: DJConnectAppModel
     #if os(macOS)
