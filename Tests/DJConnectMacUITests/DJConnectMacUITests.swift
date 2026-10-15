@@ -575,7 +575,7 @@ extension DJConnectMacUITests {
             if offset == 0 { _ = try await control("presence_delay_once") }
             button.click()
             if offset == 0 {
-                XCTAssertTrue(app.descendants(matching: .any)["session-presence-pending"].firstMatch.waitForExistence(timeout: 2))
+                XCTAssertFalse(app.descendants(matching: .any)["session-presence-pending"].firstMatch.exists, "Selection feedback stays in the selector; no duplicate pending footer")
                 XCTAssertTrue(((app.descendants(matching: .any)["session-presence-slider"].firstMatch.value as? String) ?? app.descendants(matching: .any)["session-presence-slider"].firstMatch.label).contains(anchors[language]![2]),
                               "Pending intent must not replace the confirmed server value")
                 let pending = XCTAttachment(screenshot: app.screenshot())

@@ -4256,11 +4256,9 @@ private struct TrackInsightVisualMoodToolbar: View {
         .accessibilityIdentifier("track-insight-visual-mood-toggle")
         .help(text("ui.session.select_mood"))
         .popover(isPresented: $isPresented) {
-            MoodModeControl(
+            SessionGlassChoiceSelector(
                 steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
-                selectedIndex: selectedIndex, language: language,
-                caption: text("ui.session.select_mood"), selectableLabels: true,
-                commitsOnDragEnd: true, showsCardBackground: false
+                selectedIndex: selectedIndex, language: language
             ) { selectedIndex = $0 }
             .padding(12)
             .frame(idealWidth: 360)
@@ -13114,202 +13112,52 @@ private struct AskDJImageCard: View {
     }
 }
 
-struct MoodModeControl: View {
+/// One native mood popover for every screen, including standalone Insight.
+/// Selection still belongs to the caller's existing Session/UI-state owner.
+struct SessionGlassChoiceSelector: View {
     let steps: [(label: String, value: Int)]
     let selectedIndex: Int
     let language: String
-    let caption: String
-    var selectableLabels = false
-    var commitsOnDragEnd = false
-    var showsCardBackground = true
-    var glyphs: [String]? = nil
-    var selectionLabelKey = "ui.mood"
+    var glyphs = ["moon.stars", "waveform", "bolt", "sparkles"]
+    var titleKey = "ui.session.welcome.mood"
+    var accessibilityLabelKey = "ui.session.select_mood"
     var optionIDs: [String]? = nil
     var onSelect: (Int) -> Void
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private func glyph(_ index: Int) -> String { glyphs?[safe: index] ?? askDJMoodIcon(for: index) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if !caption.isEmpty {
-                Text(caption).font(.headline).fixedSize(horizontal: false, vertical: true)
-            }
-            HStack(spacing: 8) {
-                Image(systemName: glyph(selectedIndex))
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(djConnectAccent)
-                    // SF Symbols have different intrinsic heights. Keep the
-                    // track below this row at the same vertical coordinate.
-                    .frame(width: 24, height: 24)
-                Text(localizedKey(language, selectionLabelKey))
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.primary)
-                Spacer()
-                Text(steps[selectedIndex].label)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(djConnectAccent)
-
-            }
-
-            GeometryReader { geometry in
-                let steps = steps
-                let selectedIndex = selectedIndex
-                let width = max(1, geometry.size.width)
-                let horizontalInset: CGFloat = 40
-                let usableWidth = max(1, width - horizontalInset * 2)
-                let slotWidth = usableWidth / CGFloat(max(steps.count - 1, 1))
-                let markerX = horizontalInset + CGFloat(selectedIndex) * slotWidth
-
-                ZStack(alignment: .topLeading) {
-                    Capsule()
-                        .fill(Color.white.opacity(0.65))
-                        .frame(height: 4)
-                        .padding(.horizontal, horizontalInset)
-                        .position(x: width / 2, y: 14)
-
-                    ForEach(steps.indices, id: \.self) { index in
-                        Circle()
-                            .fill(index == selectedIndex ? djConnectAccent : Color.white.opacity(0.85))
-                            .frame(width: 8, height: 8)
-                            .position(x: horizontalInset + CGFloat(index) * slotWidth, y: 14)
+        VStack(alignment: .leading, spacing: 16) {
+            Text(localizedKey(language, titleKey))
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 4) {
+                ForEach(steps.indices, id: \.self) { index in
+                    Button { onSelect(index) } label: {
+                        Image(systemName: glyphs[safe: index] ?? "sparkles")
+                            .font(.system(size: 22, weight: .semibold))
+                            .frame(maxWidth: .infinity, minHeight: 48)
                     }
-
-                    Circle()
-                        .fill(djConnectAccent)
-                        .frame(width: 28, height: 28)
-                        .overlay {
-                            Image(systemName: glyph(selectedIndex))
-                                .font(.system(size: 15, weight: .black))
-                                .foregroundStyle(.white)
-                                .transaction { $0.animation = nil }
-                        }
-                        .shadow(color: djConnectAccent.opacity(0.28), radius: 8, y: 3)
-                        // Animate only horizontal travel; changing SF Symbols must
-                        // not animate their different intrinsic baselines.
-                        .offset(x: max(14, min(width - 14, markerX)) - 14)
-                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: selectedIndex)
+                    .djConnectButtonStyle(DJConnectButtonStyle(
+                        emphasis: index == selectedIndex ? .selected : .secondary,
+                        shape: .segmented, expands: true, usesLiveGlass: false
+                    ))
+                    .accessibilityLabel(steps[index].label)
+                    .accessibilityAddTraits(index == selectedIndex ? .isSelected : [])
+                    .accessibilityIdentifier(optionIDs?[safe: index] ?? ("session-mood-option-" + String(index)))
                 }
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            if !commitsOnDragEnd { updateMood(from: value.location.x, width: width) }
-                        }
-                        .onEnded { value in
-                            updateMood(from: value.location.x, width: width)
-                        }
-                )
             }
-            .frame(height: 28)
-
-            if selectableLabels {
-                HStack(spacing: 0) {
-                    ForEach(steps.indices, id: \.self) { index in
-                        Button { onSelect(index) } label: {
-                            VStack(spacing: 3) {
-                                Image(systemName: glyph(index)).font(.title3)
-                                Text(steps[index].label).font(.subheadline.weight(.semibold))
-                            }
-                            .foregroundStyle(index == selectedIndex ? djConnectAccent : .white)
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                            .contentShape(Rectangle())
-                        }
-                        .djConnectPlainButtonStyle()
-                        .accessibilityIdentifier(optionIDs?[safe: index] ?? ("session-mood-option-" + String(index)))
-                        .accessibilityAddTraits(index == selectedIndex ? .isSelected : [])
-                    }
-                }
-            } else {
-                AskDJMoodLabelsView(steps: steps, selectedIndex: selectedIndex)
-            }
-
+            .padding(DJConnectCardAppearance.segmentedContentInset)
+            .djSessionFrostedSurface(cornerRadius: 32)
+            Text(steps[safe: selectedIndex]?.label ?? "")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.90))
+                .frame(maxWidth: .infinity)
+                .accessibilityIdentifier("session-popover-selected-mood")
         }
-        .padding(12)
-        .background {
-            if showsCardBackground {
-                RoundedRectangle(cornerRadius: 8, style: .continuous).fill(.regularMaterial)
-            }
-        }
-        .overlay {
-            if showsCardBackground {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(Color.primary.opacity(0.10), lineWidth: 1)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .frame(minHeight: 136)
-        .shadow(color: Color.black.opacity(0.18), radius: showsCardBackground ? 18 : 0, y: showsCardBackground ? 10 : 0)
+        .padding(16)
+        .djSessionFrostedSurface(cornerRadius: 24)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(localizedKey(language, selectionLabelKey))
-        .accessibilityValue(steps[selectedIndex].label)
-        .accessibilityAdjustableAction { direction in
-            switch direction {
-            case .increment: onSelect(min(steps.count - 1, selectedIndex + 1))
-            case .decrement: onSelect(max(0, selectedIndex - 1))
-            @unknown default: break
-            }
-        }
-    }
-
-    private func updateMood(from xPosition: CGFloat, width: CGFloat) {
-        let stepCount = max(steps.count, 1)
-        guard stepCount > 1 else {
-            onSelect(0)
-            return
-        }
-        let horizontalInset: CGFloat = 40
-        let usableWidth = max(1, width - horizontalInset * 2)
-        let clampedX = max(horizontalInset, min(width - horizontalInset, xPosition))
-        let ratio = (clampedX - horizontalInset) / usableWidth
-        let index = Int((ratio * CGFloat(stepCount - 1)).rounded())
-        onSelect(index)
-    }
-}
-
-private struct AskDJMoodLabelsView: View {
-    let steps: [(label: String, value: Int)]
-    let selectedIndex: Int
-
-    var body: some View {
-        GeometryReader { geometry in
-            let width = max(CGFloat(1), geometry.size.width)
-            let labelWidth = CGFloat(80)
-            let horizontalInset = labelWidth / 2
-            let usableWidth = max(CGFloat(1), width - horizontalInset * 2)
-            let slotWidth = usableWidth / CGFloat(max(steps.count - 1, 1))
-
-            ZStack(alignment: .topLeading) {
-                ForEach(Array(steps.enumerated()), id: \.offset) { item in
-                    label(for: item.element, index: item.offset, width: width, slotWidth: slotWidth, horizontalInset: horizontalInset, labelWidth: labelWidth)
-                }
-            }
-        }
-        .frame(height: 34)
-        .accessibilityHidden(true)
-    }
-
-    private func label(
-        for step: (label: String, value: Int),
-        index: Int,
-        width: CGFloat,
-        slotWidth: CGFloat,
-        horizontalInset: CGFloat,
-        labelWidth: CGFloat
-    ) -> some View {
-        let isSelected = selectedIndex == index
-        let markerX = horizontalInset + CGFloat(index) * slotWidth
-
-        return VStack(spacing: 3) {
-            Image(systemName: askDJMoodIcon(for: index))
-                .font(.caption2.weight(.bold))
-            Text(step.label)
-                .font(.caption2.weight(isSelected ? .bold : .semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
-        }
-        .foregroundStyle(isSelected ? djConnectAccent : .white)
-        .frame(width: labelWidth, height: 30)
-        .position(x: markerX, y: 16)
+        .accessibilityLabel(localizedKey(language, accessibilityLabelKey))
+        .accessibilityValue(steps[safe: selectedIndex]?.label ?? "")
     }
 }
 
@@ -13602,8 +13450,10 @@ private struct AskDJOutsideTapDismissal: UIViewRepresentable {
         }
 
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-            guard focus?.wrappedValue == true, let window, !isHidden,
-                  !convert(bounds, to: window).contains(touch.location(in: window)) else { return false }
+            guard let window,
+                  !convert(bounds, to: window).contains(touch.location(in: window)),
+                  let editor = firstResponder(in: window) as? UITextView,
+                  convert(bounds, to: window).intersects(editor.convert(editor.bounds, to: window)) else { return false }
             // Leave fields and native controls in charge of their own focus.
             var target = touch.view
             while let view = target {
@@ -13616,8 +13466,19 @@ private struct AskDJOutsideTapDismissal: UIViewRepresentable {
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                                shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }
 
+        private func firstResponder(in view: UIView) -> UIView? {
+            if view.isFirstResponder { return view }
+            for child in view.subviews {
+                if let responder = firstResponder(in: child) { return responder }
+            }
+            return nil
+        }
+
         @objc private func dismissInput() {
             focus?.wrappedValue = false
+            // The UIKit editor owns native focus; an unbound SwiftUI FocusState
+            // alone does not reliably resign it after a background tap.
+            observedWindow?.endEditing(true)
         }
     }
 }

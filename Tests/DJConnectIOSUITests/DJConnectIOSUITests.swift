@@ -1650,6 +1650,59 @@ extension DJConnectIOSUITests {
         XCTAssertFalse(input.exists)
     }
 
+    func testSessionMoodGlassChoicesAndSelection() {
+        let app = launchSessionUIDemo()
+        let toggle = app.buttons["session-mood-toggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10)); toggle.tap()
+        let labels = ["Rustig", "Groove", "Energie", "Feest"]
+        for (index, label) in labels.enumerated() {
+            let choice = app.buttons["session-mood-option-" + String(index)]
+            XCTAssertTrue(choice.waitForExistence(timeout: 5))
+            XCTAssertEqual(choice.label, label)
+            XCTAssertGreaterThanOrEqual(choice.frame.width, 44)
+            XCTAssertGreaterThanOrEqual(choice.frame.height, 44)
+        }
+        let party = app.buttons["session-mood-option-3"]
+        XCTAssertTrue(party.isEnabled); party.tap()
+        let selected = app.staticTexts["session-popover-selected-mood"]
+        let confirmation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "Feest"), object: selected)
+        XCTAssertEqual(XCTWaiter.wait(for: [confirmation], timeout: 5), .completed)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "ipad-mood-glass-choice-popover"; screenshot.lifetime = .keepAlways; add(screenshot)
+    }
+
+    func testAskDJOutsideTapDismissesKeyboardWithoutLosingDraft() {
+        let app = launchRuntimeFixtureApp("review_demo")
+        XCTAssertTrue(app.tabBars.buttons["Meer"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Meer"].tap()
+        let ask = app.buttons["Ask DJ"].firstMatch
+        XCTAssertTrue(ask.waitForExistence(timeout: 6)); ask.tap()
+        let consent = app.descendants(matching: .any)["music-dna-opt-in-prompt"].firstMatch
+        if consent.waitForExistence(timeout: 3) { app.buttons["Niet nu"].firstMatch.tap() }
+        assertOutsideTapDismissal(in: app)
+    }
+
+    func testSessionOutsideTapDismissesKeyboardWithoutLosingDraft() {
+        assertOutsideTapDismissal(in: launchSessionUIDemo())
+    }
+
+    private func assertOutsideTapDismissal(in app: XCUIApplication) {
+        let input = app.textViews["ask-dj-composer-input"].firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        input.tap()
+        input.typeText("Bewaar dit concept")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        input.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.exists, "Tapping inside the composer keeps editing active")
+        // Hit conversation/background above the composer, never a navigation control.
+        let point = CGVector(dx: 24, dy: max(160, input.frame.minY - 100))
+        app.coordinate(withNormalizedOffset: .zero).withOffset(point).tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(input.value as? String, "Bewaar dit concept")
+        input.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "Editing can resume after dismissal")
+    }
+
     func testIPhoneSessionFloatingComposerAndScopedSearch() throws {
         guard UIDevice.current.userInterfaceIdiom == .phone else { throw XCTSkip("iPhone floating composer") }
         let app = launchSessionUIDemo()
@@ -1933,7 +1986,7 @@ extension DJConnectIOSUITests {
             if offset == 0 { _ = try await control("presence_delay_once") }
             button.tap()
             if offset == 0 {
-                XCTAssertTrue(app.descendants(matching: .any)["session-presence-pending"].firstMatch.waitForExistence(timeout: 2))
+                XCTAssertFalse(app.descendants(matching: .any)["session-presence-pending"].firstMatch.exists, "Selection feedback stays in the selector; no duplicate pending footer")
                 XCTAssertTrue(((app.descendants(matching: .any)["session-presence-slider"].firstMatch.value as? String) ?? "").contains(anchors[language]![2]),
                               "Pending intent must not replace the confirmed server value")
                 let pending = XCTAttachment(screenshot: app.screenshot())

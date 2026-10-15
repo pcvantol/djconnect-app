@@ -1144,16 +1144,14 @@ struct ActiveSessionPresenceControl: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(text("ui.session.presence.title")).font(.headline)
-            Text(text("ui.session.presence.explanation")).font(.subheadline).foregroundStyle(.white.opacity(0.88))
             if enabled {
-                MoodModeControl(steps: values.enumerated().map { (text($0.element.localizationKey), $0.offset) },
-                                selectedIndex: min(values.count - 1, max(0, Int(preview.rounded()))),
-                                language: model.language, caption: "", selectableLabels: true,
-                                commitsOnDragEnd: true, showsCardBackground: false,
-                                glyphs: ["music.note", "bubble.left", "bubble.left.and.bubble.right", "waveform", "mic.fill"],
-                                selectionLabelKey: "ui.session.presence.level",
-                                optionIDs: values.map { "session-presence-choice-" + $0.rawValue }) { index in
+                SessionGlassChoiceSelector(steps: values.enumerated().map { (text($0.element.localizationKey), $0.offset) },
+                                           selectedIndex: min(values.count - 1, max(0, Int(preview.rounded()))),
+                                           language: model.language,
+                                           glyphs: ["music.note", "bubble.left", "bubble.left.and.bubble.right", "waveform", "mic.fill"],
+                                           titleKey: "ui.session.presence.title",
+                                           accessibilityLabelKey: "ui.session.presence.title",
+                                           optionIDs: values.map { "session-presence-choice-" + $0.rawValue }) { index in
                     preview = Double(index); commit(preview)
                 }
                 .accessibilityIdentifier("session-presence-slider")
@@ -1164,10 +1162,6 @@ struct ActiveSessionPresenceControl: View {
                 }
                 Text(text(unavailableKey)).font(.body).foregroundStyle(.white.opacity(0.88))
                     .accessibilityIdentifier("session-presence-availability")
-            }
-            if model.activePresencePending, let desired = model.activePresenceDesired {
-                HStack { ProgressView().tint(.white); Text(text("ui.session.presence.pending") + ": " + text(desired.localizationKey)).font(.caption) }
-                    .accessibilityIdentifier("session-presence-pending")
             }
             if let error = model.activePresenceError {
                 Text(error).font(.caption).accessibilityIdentifier("session-presence-error")
@@ -1228,11 +1222,8 @@ struct ActiveSessionMoodToolbar: View {
         .help(text("ui.session.select_mood"))
         .popover(item: $moodIntent) { intent in
             VStack(alignment: .leading, spacing: 12) {
-                MoodModeControl(steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
-                                selectedIndex: selectedIndex, language: model.language,
-                                caption: text("ui.session.select_mood"),
-                                selectableLabels: true,
-                                commitsOnDragEnd: true, showsCardBackground: false) { index in
+                SessionGlassChoiceSelector(steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
+                                         selectedIndex: selectedIndex, language: model.language) { index in
                     guard canChange, moods.indices.contains(index) else { return }
                     Task { await model.changeActiveSessionMood(moods[index], expectedSessionID: intent.sessionID, expectedEpoch: intent.epoch) }
                 }
