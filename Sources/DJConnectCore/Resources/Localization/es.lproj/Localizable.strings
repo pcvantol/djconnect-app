@@ -1188,3 +1188,8 @@
 
 "ui.output.switching" = "Cambiando…";
 "ui.output.switch.unconfirmed" = "El cambio de altavoz aún no se ha confirmado. Actualiza los dispositivos de salida para comprobar su estado.";
+
+"surface.session.active" = "Sesión DJ activa";
+"surface.session.open" = "Abrir sesión DJ";
+"surface.session.open.app" = "Abre DJConnect para ver tu sesión.";
+"surface.session.description" = "Tu sesión DJ con un estado compartido.";

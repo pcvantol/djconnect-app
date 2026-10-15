@@ -1,0 +1,52 @@
+{
+  "source_inputs_equal_build_copy": true,
+  "source_input_count": 16,
+  "input_hashes": {
+    "Apps/DJConnectTrackInsightWidgets/DJConnectTrackInsightWidgets.swift": "77b1bacb16e788a4a73dc7135fd96324a65dea542c9e3fdb1ca908a810540161",
+    "Apps/DJConnectTrackInsightWidgets/de.lproj/InfoPlist.strings": "c8d7eeceabb2604410e6ca07fdc3cbb0bd830f48ce14fa616333631b45ea9c3b",
+    "Apps/DJConnectTrackInsightWidgets/en.lproj/InfoPlist.strings": "c8d7eeceabb2604410e6ca07fdc3cbb0bd830f48ce14fa616333631b45ea9c3b",
+    "Apps/DJConnectTrackInsightWidgets/es.lproj/InfoPlist.strings": "c8d7eeceabb2604410e6ca07fdc3cbb0bd830f48ce14fa616333631b45ea9c3b",
+    "Apps/DJConnectTrackInsightWidgets/fr.lproj/InfoPlist.strings": "c8d7eeceabb2604410e6ca07fdc3cbb0bd830f48ce14fa616333631b45ea9c3b",
+    "Apps/DJConnectTrackInsightWidgets/nl.lproj/InfoPlist.strings": "c8d7eeceabb2604410e6ca07fdc3cbb0bd830f48ce14fa616333631b45ea9c3b",
+    "Apps/DJConnectWatchComplications/DJConnectWatchComplications.swift": "f0b651b39d6a9dd33cffa6f5b7048391698b166c28711f2b766c290687f058bc",
+    "Sources/DJConnectCore/DJConnectLiveActivities.swift": "56043b50c9071caab6636879d9f87efc2252d40d39716abe193c8e3777ec0601",
+    "Sources/DJConnectCore/Resources/Localization/de.lproj/Localizable.strings": "448f0d1e0cfa411572565a0d73dc8c0a6d8826dd19af7e17d9bdbe2dfed88628",
+    "Sources/DJConnectCore/Resources/Localization/en.lproj/Localizable.strings": "e849635b1571ed43e5fcf7e13442dcb3f2b98eeba6658f32be22d39c52516d3b",
+    "Sources/DJConnectCore/Resources/Localization/es.lproj/Localizable.strings": "589b2d36e29a4f013dd2933462b16060d9abea1680beb23b19fdb6cb4083ba0a",
+    "Sources/DJConnectCore/Resources/Localization/fr.lproj/Localizable.strings": "900d3865405e181fc0c64f795a2b470086ac84ad206690b00bd7cbfbe6341581",
+    "Sources/DJConnectCore/Resources/Localization/nl.lproj/Localizable.strings": "5cc0bb5d77536650ccacb03410734cf4f2939fb58b75f509e2a560216ed6b94f",
+    "Sources/DJConnectUI/DJConnectAppModel.swift": "e4a5b0697b848f3f3a9a247c9743852f6788e26b441470396f533951ae2e26b2",
+    "Sources/DJConnectUI/DJConnectRootView.swift": "dd89c9d07ad1398e5c272ff54fbb3bd3ceced9c13bb48170c0889e33fae208e5",
+    "Sources/DJConnectUI/TrackInsightLiveActivityController.swift": "13aaeaa5d0c7cb15df195cb12e2ef0d629f9197cb995eea60348439911b0147b"
+  },
+  "products": [
+    {
+      "app": "/private/tmp/djc-hybrid-ios/Build/Products/Debug-iphoneos/DJConnect.app",
+      "bundle": "dev.djconnect.ios",
+      "build": "40082",
+      "signature_exit": 0,
+      "signature_diagnostic": ""
+    },
+    {
+      "app": "/private/tmp/djc-hybrid-mac/Build/Products/Debug/DJConnect.app",
+      "bundle": "dev.djconnect.mac",
+      "build": "40082",
+      "signature_exit": 0,
+      "signature_diagnostic": ""
+    }
+  ],
+  "installed": false,
+  "published": false,
+  "rich_surface_producer": "OPEN",
+  "tests": 8,
+  "Core_handoff": "delivered and acknowledged; separate from current speech slice",
+  "source_inputs_equal_build_copy_scope": "16 changed source inputs only; not whole writer/snapshot equality",
+  "build_snapshot": "/private/tmp/djc-install-40029-source",
+  "base_commit": "80db003520b7138d1663e103f30415b7ba7d35b0",
+  "test_source_sha256": "a4bd258a831d00d07d84bed67c39acd91c5d70cc3ee02288ba9e7550d5eb1a58",
+  "log_hashes": {
+    "djc-session-surface-40082-tests-final.log": "23a8b28a05344e925e9bf993c743904e00de278811ff460e18aca2abd29860c3",
+    "djc-session-surface-40082-ios-final-build.log": "33098d6cc94c0a145bc6069b8ebabc921526fa2816004a38d193a04c820d2654",
+    "djc-session-surface-40082-mac-final-build.log": "436cd5c0c31dba06eb8354670f4603156e4838ea9689a3c1ffcdf608f818de1e"
+  }
+}

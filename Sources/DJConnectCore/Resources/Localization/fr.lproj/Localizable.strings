@@ -1188,3 +1188,8 @@
 
 "ui.output.switching" = "Changement en cours…";
 "ui.output.switch.unconfirmed" = "Le changement d’enceinte n’est pas encore confirmé. Actualisez les appareils de sortie pour vérifier son état.";
+
+"surface.session.active" = "Session DJ active";
+"surface.session.open" = "Ouvrir la session DJ";
+"surface.session.open.app" = "Ouvrez DJConnect pour voir votre session.";
+"surface.session.description" = "Votre session DJ avec un statut commun.";

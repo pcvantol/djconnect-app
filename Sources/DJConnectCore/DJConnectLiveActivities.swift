@@ -81,3 +81,87 @@ public extension TrackInsightLiveActivityAttributes.ContentState {
     }
 }
 #endif
+
+
+/// Passive surfaces deliberately carry only neutral runtime status until Core
+/// qualifies its separate locked-display/cache projection. Owner Moments and
+/// authenticated no-store artwork must never be copied into this store.
+public struct DJConnectSessionSurfaceSnapshot: Codable, Equatable, Hashable, Sendable {
+    public static let storageKey = "DJConnectSessionSurfaceSnapshot.v1"
+    public static let widgetKind = "DJConnectSessionWidget"
+    public static let legacyKinds = ["DJConnectNowPlayingWidget", "DJConnectQueueWidget", "DJConnectTrackInsightWidget", "DJConnectAskDJWidget"]
+    public static let maximumLifetime: TimeInterval = 120
+    public let observedAt: Date
+    public let expiresAt: Date
+
+    public init(observedAt: Date) {
+        self.observedAt = observedAt
+        self.expiresAt = observedAt.addingTimeInterval(Self.maximumLifetime)
+    }
+
+    public static func observe(runtimeState: String?, authorized: Bool, isDemo: Bool, at now: Date) -> Self? {
+        guard runtimeState == "active", authorized, !isDemo else { return nil }
+        // Deliberately independent of playback: pause/wait retains the Session.
+        return Self(observedAt: now)
+    }
+
+    public func isCurrent(at now: Date) -> Bool {
+        observedAt <= now && expiresAt > now && expiresAt > observedAt
+            && expiresAt.timeIntervalSince(observedAt) <= Self.maximumLifetime
+    }
+
+    public static func load(from defaults: UserDefaults, at now: Date = Date()) -> Self? {
+        guard let data = defaults.data(forKey: storageKey),
+              let snapshot = try? JSONDecoder().decode(Self.self, from: data), snapshot.isCurrent(at: now) else { return nil }
+        return snapshot
+    }
+
+    @discardableResult
+    public static func replace(_ snapshot: Self?, in defaults: UserDefaults) throws -> Bool {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let encoded = try snapshot.map { try encoder.encode($0) }
+        var changed = defaults.data(forKey: storageKey) != encoded
+        // Only retired transient rendering caches; never chat/history/settings.
+        for key in [DJConnectNowPlayingWidgetSnapshot.storageKey, DJConnectQueueWidgetSnapshot.storageKey,
+                    DJConnectTrackInsightWidgetSnapshot.storageKey, DJConnectAskDJWidgetSnapshot.storageKey,
+                    DJConnectPlaylistsWidgetSnapshot.storageKey] {
+            if defaults.object(forKey: key) != nil { changed = true; defaults.removeObject(forKey: key) }
+        }
+        if changed {
+            if let encoded { defaults.set(encoded, forKey: storageKey) }
+            else { defaults.removeObject(forKey: storageKey) }
+        }
+        return changed
+    }
+}
+
+#if os(iOS) && canImport(ActivityKit)
+@available(iOS 16.1, *)
+public struct DJConnectSessionLiveActivityAttributes: ActivityAttributes, Sendable {
+    public typealias ContentState = DJConnectSessionSurfaceSnapshot
+    // Random local runtime identity, never a Profile/session credential or text.
+    public let presentationID: String
+    public init(presentationID: String) { self.presentationID = presentationID }
+}
+#endif
+
+
+/// Device-private presentation bookkeeping, never the App Group projection.
+/// Keeping the random ID stable lets ActivityKit dismissal survive app restart.
+public enum DJConnectSessionSurfacePresentation {
+    public static func identity(for sessionID: String, in deviceDefaults: UserDefaults) -> String {
+        let bindingKey = "DJConnectSessionSurface.localBinding"
+        let identityKey = "DJConnectSessionSurface.localPresentation"
+        if deviceDefaults.string(forKey: bindingKey) == sessionID,
+           let existing = deviceDefaults.string(forKey: identityKey), UUID(uuidString: existing) != nil { return existing }
+        let identity = UUID().uuidString
+        deviceDefaults.set(sessionID, forKey: bindingKey)
+        deviceDefaults.set(identity, forKey: identityKey)
+        return identity
+    }
+    public static func end(in deviceDefaults: UserDefaults) {
+        deviceDefaults.removeObject(forKey: "DJConnectSessionSurface.localBinding")
+        deviceDefaults.removeObject(forKey: "DJConnectSessionSurface.localPresentation")
+    }
+}

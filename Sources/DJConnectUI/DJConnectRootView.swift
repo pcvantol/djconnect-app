@@ -1031,6 +1031,8 @@ public struct DJConnectRootView: View {
         }
         moreResetID = UUID()
         switch request.action {
+        case .djSession:
+            selectedSection = .djSession
         case .nowPlaying:
             selectedSection = .nowPlaying
         case .queue:

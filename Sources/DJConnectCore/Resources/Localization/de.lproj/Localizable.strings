@@ -1188,3 +1188,8 @@
 
 "ui.output.switching" = "Wechsel läuft…";
 "ui.output.switch.unconfirmed" = "Der Lautsprecherwechsel wurde noch nicht bestätigt. Aktualisiere die Ausgabegeräte, um den Status zu prüfen.";
+
+"surface.session.active" = "DJ-Sitzung aktiv";
+"surface.session.open" = "DJ-Sitzung öffnen";
+"surface.session.open.app" = "Öffne DJConnect, um deine Sitzung anzusehen.";
+"surface.session.description" = "Deine DJ-Sitzung mit einem gemeinsamen Status.";

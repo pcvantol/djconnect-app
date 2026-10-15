@@ -1037,3 +1037,24 @@ launch PASS; app-only CoreDevice readback confirms bundleVersion40081. Receipts
 JSON. Physical iPhone remains paired/unavailable on both Mac mini and MacBook;
 its installation is still pending, not PASS. Mac mini stays40080 (iOS-only change).
 No source publication or change to existing pairing/permissions.
+
+## Session widgets / Activity / Dynamic Island consolidation — 2026-10-15
+
+User asks one active-Session experience, artwork + current Moment, with
+track/artist/album on larger surfaces and updates on contribution arrival.
+Local consumer foundation consolidates neutral status/navigation and expiry,
+retires separate personal widget-cache publication, preserves configured kinds,
+and keys Activity lifetime to Session rather than playback. Full requested rich
+experience remains OPEN: purpose-specific passive display/cache/locked-display
+producer rights and background ActivityKit delivery are not yet qualified.
+
+The user explicitly approved transfer to existing Core task **Pak VibeCast shared
+renderer op**; concrete dependency and the two required Core doc amendments were
+sent successfully. No Core code was changed by this Apple writer. Handoff is not
+producer completion. Candidate40082 remains uninstalled pending the full consumer
+adoption. See APPLE_SESSION_SURFACE_CONSOLIDATION_20261015.md for exact boundaries.
+
+Final foundation validation:8focused tests PASS; signed iOS including Watch and
+macOS40082 builds PASS; ordinary-host deep/strict signature verification PASS.
+Core acknowledged the dependency and keeps it separate from active speech WIP.
+No installation or rich-surface/native/background acceptance claimed.

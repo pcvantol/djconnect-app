@@ -1188,3 +1188,8 @@
 
 "ui.output.switching" = "Bezig met wisselen…";
 "ui.output.switch.unconfirmed" = "De speakerwissel is nog niet bevestigd. Ververs de uitvoerapparaten om de status te controleren.";
+
+"surface.session.active" = "DJ-sessie actief";
+"surface.session.open" = "Open DJ-sessie";
+"surface.session.open.app" = "Open DJConnect om je sessie te bekijken.";
+"surface.session.description" = "Je DJ-sessie met één gezamenlijke status.";

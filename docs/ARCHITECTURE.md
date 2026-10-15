@@ -368,3 +368,21 @@ xcodegen generate
 
 The generated `DJConnectApp.xcodeproj` is committed so the repo opens directly
 in Xcode.
+
+## Session passive surface consolidation (2026-10-15, consumer foundation)
+
+The selected user request replaces the independent widget experiences with a
+single active-Session system. All passive consumers now share the neutral
+DJConnectSessionSurfaceSnapshot runtime contract; legacy configured identifiers
+are migration aliases. Activity lifecycle follows confirmed Session lifecycle,
+not playback. Standalone feature deep links remain unchanged. Watch's separate
+container does not receive implicit iPhone state or private content.
+
+Rich Moment/artwork/track metadata is still blocked on Core's explicit passive
+purpose/cache/locked-display projection. Foreground native_delivery and managed
+no-store owner media are not that grant. The candidate therefore contains only
+neutral status/navigation and retires owned legacy transient rich caches. It is
+not installed or the completed product request. See
+feedback/APPLE_SESSION_SURFACE_CONSOLIDATION_20261015.md for migration, producer
+handoff and proof boundaries. General APNs registration does not qualify
+ActivityKit push or real-time WidgetKit updates while suspended.

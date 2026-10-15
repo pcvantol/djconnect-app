@@ -341,6 +341,7 @@ private enum DJConnectPendingPermissionRequest {
 }
 
 public enum DJConnectHomeScreenAction: String, Equatable, Sendable {
+    case djSession = "dev.djconnect.action.dj-session"
     case nowPlaying = "dev.djconnect.action.now-playing"
     case queue = "dev.djconnect.action.queue"
     case askDJ = "dev.djconnect.action.ask-dj"
@@ -357,6 +358,8 @@ public enum DJConnectHomeScreenAction: String, Equatable, Sendable {
         let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")).lowercased()
         let target = path.isEmpty ? host : path
         switch target {
+        case "dj-session":
+            self = .djSession
         case "now-playing", "nowplaying", "speelt-nu":
             self = .nowPlaying
         case "queue", "wachtrij":
@@ -783,12 +786,17 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var playback: DJConnectPlayback? { didSet { syncDemoSessionPlayback() } }
     @Published public private(set) var activeDJSession: DJConnectSessionRuntime? {
         didSet {
+            if oldValue?.id != activeDJSession?.id {
+                sessionSurfaceIdentity = nil
+                sessionSurfaceSnapshot = nil
+            }
             reconcileMomentTrackInsight()
             if oldValue?.id != activeDJSession?.id {
                 resetActiveMoodState()
                 invalidateSessionPlaybackActions()
                 sessionHistory.discardLiveResponses()
             }
+            syncSessionSurfaces(observedSession: true)
         }
     }
     private var moodOperationGeneration = UUID()
@@ -1051,12 +1059,16 @@ public final class DJConnectAppModel: ObservableObject {
     private var lastFullRefreshAt: Date?
     private var lastBackendCollectionsRefreshAt: Date?
     private var lastBackendUnavailableNoticeAt: Date?
-    #if os(iOS) && canImport(ActivityKit)
-    private var lastLiveActivitySyncKey: String?
-    private var lastLiveActivitySyncAt: Date?
-    private let liveActivityProgressBucketMS = 15_000
-    private let minimumLiveActivitySyncInterval: TimeInterval = 12
-    #endif
+    private var sessionSurfaceSnapshot: DJConnectSessionSurfaceSnapshot?
+    private var sessionSurfaceIdentity: String?
+    private var sessionSurfaceGeneration = UUID()
+    private var sessionSurfaceActivityTask: Task<Void, Never>?
+    private var sessionSurfaceExpiryTask: Task<Void, Never>?
+    private var sessionSurfaceEpoch: UUID?
+    private var lastActivitySurfaceSnapshot: DJConnectSessionSurfaceSnapshot?
+    private var lastActivitySurfaceIdentity: String?
+    private var hasSyncedSessionSurfaceActivity = false
+    private var hasObservedSessionSurfaceAuthority = false
     #if os(iOS) && canImport(WatchConnectivity)
     @Published private var watchProxyRegistration: DJConnectWatchProxyRegistration?
     private var watchProxySessionDelegate: DJConnectWatchProxySessionDelegate?
@@ -3989,7 +4001,7 @@ public final class DJConnectAppModel: ObservableObject {
     public func performHomeScreenAction(_ action: DJConnectHomeScreenAction) {
         homeScreenActionRequest = DJConnectHomeScreenActionRequest(action: action)
         switch action {
-        case .nowPlaying, .queue, .discovery, .playlists, .about:
+        case .djSession, .nowPlaying, .queue, .discovery, .playlists, .about:
             break
         case .askDJ:
             prepareAskDJHistoryForDisplay()
@@ -8194,173 +8206,87 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func saveTrackInsightWidgetSnapshot(for insight: TrackInsight) {
-        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
-            log(.warning, "Track Insight widget snapshot skipped: App Group storage is unavailable.")
-            return
-        }
-        do {
-            let snapshot = DJConnectTrackInsightWidgetSnapshot(insight: insight)
-            try snapshot.save(to: defaults)
-            #if canImport(WidgetKit)
-            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectTrackInsightWidgetSnapshot.widgetKind)
-            #endif
-            Task { [snapshot] in
-                await updateTrackInsightWidgetSnapshotArtwork(snapshot: snapshot)
+    // Compatibility callers no longer publish separate personal snapshots.
+    private func saveTrackInsightWidgetSnapshot(for insight: TrackInsight) { syncSessionSurfaces() }
+    private func clearTrackInsightWidgetSnapshot(reason: String) { syncSessionSurfaces() }
+    private func updateNowPlayingWidgetSnapshot(playback: DJConnectPlayback?) { syncSessionSurfaces() }
+    private func clearNowPlayingWidgetSnapshot(reason: String) { syncSessionSurfaces() }
+    private func updateQueueWidgetSnapshot(items: [DJConnectQueueItem]) { syncSessionSurfaces() }
+    private func clearQueueWidgetSnapshot(reason: String) { syncSessionSurfaces() }
+    private func syncTrackInsightLiveActivity(reason: String) { syncSessionSurfaces() }
+
+    private func syncSessionSurfaces(observedSession: Bool = false) {
+        // Isolated fixtures/Demo must never touch the installed shared group.
+        guard startBackgroundTasks, !monkeyTestingMode,
+              !ProcessInfo.processInfo.arguments.contains("--uitesting") else { return }
+        if observedSession { hasObservedSessionSurfaceAuthority = true }
+        let now = Date()
+        let epoch = sessionHistory.responseEpoch
+        let changedSubject = sessionSurfaceEpoch != epoch
+        sessionSurfaceEpoch = epoch
+        if changedSubject { sessionSurfaceIdentity = nil; sessionSurfaceSnapshot = nil }
+        let confirmed = !isDemoMode && pairingStatus == .paired && activeDJSession?.runtimeState == "active"
+        if !confirmed {
+            sessionSurfaceSnapshot = nil
+            sessionSurfaceIdentity = nil
+            if observedSession { DJConnectSessionSurfacePresentation.end(in: defaults) }
+        } else if observedSession && isAppInForeground {
+            // Identity stays local. Neither Profile nor backend session IDs are
+            // exported to passive surfaces. A new subject gets a new marker.
+            if sessionSurfaceIdentity == nil {
+                if let sessionID = activeDJSession?.id {
+                    sessionSurfaceIdentity = DJConnectSessionSurfacePresentation.identity(for: sessionID, in: defaults)
+                }
             }
-        } catch {
-            log(.warning, "Track Insight widget snapshot failed: \(error.localizedDescription)")
+            sessionSurfaceSnapshot = .observe(runtimeState: activeDJSession?.runtimeState,
+                                               authorized: pairingStatus == .paired, isDemo: isDemoMode, at: now)
+        } else if sessionSurfaceSnapshot?.isCurrent(at: now) != true {
+            sessionSurfaceSnapshot = nil
         }
-    }
-
-    private func updateTrackInsightWidgetSnapshotArtwork(snapshot: DJConnectTrackInsightWidgetSnapshot) async {
-        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier),
-              let artworkURL = snapshot.artworkURL,
-              let artworkData = await widgetArtworkData(from: artworkURL) else {
-            return
-        }
-        guard var currentSnapshot = DJConnectTrackInsightWidgetSnapshot.load(from: defaults),
-              currentSnapshot.artworkURL == artworkURL,
-              currentSnapshot.title == snapshot.title,
-              currentSnapshot.artist == snapshot.artist else {
-            return
-        }
-        currentSnapshot.artworkData = artworkData
-        do {
-            try currentSnapshot.save(to: defaults)
-            #if canImport(WidgetKit)
-            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectTrackInsightWidgetSnapshot.widgetKind)
-            #endif
-        } catch {
-            log(.debug, "Track Insight widget artwork cache failed: \(error.localizedDescription)")
-        }
-    }
-
-    private func clearTrackInsightWidgetSnapshot(reason: String) {
-        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
-            return
-        }
-        DJConnectTrackInsightWidgetSnapshot.remove(from: defaults)
+        let snapshot = sessionSurfaceSnapshot
+        guard let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) else { return }
+        let previous = DJConnectSessionSurfaceSnapshot.load(from: shared, at: now)
+        let changed: Bool
+        do { changed = try DJConnectSessionSurfaceSnapshot.replace(snapshot, in: shared) }
+        catch { log(.warning, "Session surface snapshot could not be saved"); return }
         #if canImport(WidgetKit)
-        WidgetCenter.shared.reloadTimelines(ofKind: DJConnectTrackInsightWidgetSnapshot.widgetKind)
+        // No progress tick reloads. Freshness renewal is bounded; OS budgets
+        // still own actual rendering and background scheduling.
+        if (changed && snapshot == nil) || (previous == nil) != (snapshot == nil) ||
+            (snapshot != nil && (previous?.expiresAt.timeIntervalSince(now) ?? 0) < 60) {
+            for kind in [DJConnectSessionSurfaceSnapshot.widgetKind] + DJConnectSessionSurfaceSnapshot.legacyKinds {
+                WidgetCenter.shared.reloadTimelines(ofKind: kind)
+            }
+        }
         #endif
-        log(.debug, "Cleared Track Insight widget snapshot: \(reason)")
-    }
-
-    private func updateNowPlayingWidgetSnapshot(playback: DJConnectPlayback?) {
-        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
-            log(.warning, "Now Playing widget snapshot skipped: App Group storage is unavailable.")
-            return
-        }
-        guard let playback, let snapshot = DJConnectNowPlayingWidgetSnapshot(playback: playback) else {
-            DJConnectNowPlayingWidgetSnapshot.remove(from: defaults)
-            #if canImport(WidgetKit)
-            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectNowPlayingWidgetSnapshot.widgetKind)
-            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectAskDJWidgetSnapshot.widgetKind)
-            #endif
-            log(.debug, "Cleared Now Playing widget snapshot: empty playback")
-            return
-        }
-        do {
-            try snapshot.save(to: defaults)
-            #if canImport(WidgetKit)
-            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectNowPlayingWidgetSnapshot.widgetKind)
-            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectAskDJWidgetSnapshot.widgetKind)
-            #endif
-            Task { [snapshot] in
-                await updateNowPlayingWidgetSnapshotArtwork(snapshot: snapshot)
+        if !hasSyncedSessionSurfaceActivity || lastActivitySurfaceSnapshot != snapshot ||
+            lastActivitySurfaceIdentity != sessionSurfaceIdentity { sessionSurfaceGeneration = UUID() }
+        let generation = sessionSurfaceGeneration
+        sessionSurfaceExpiryTask?.cancel()
+        if let snapshot {
+            sessionSurfaceExpiryTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(max(0, snapshot.expiresAt.timeIntervalSinceNow)))
+                guard !Task.isCancelled, let self, self.sessionSurfaceGeneration == generation else { return }
+                self.syncSessionSurfaces()
             }
-        } catch {
-            log(.warning, "Now Playing widget snapshot failed: \(error.localizedDescription)")
         }
-    }
-
-    private func updateNowPlayingWidgetSnapshotArtwork(snapshot: DJConnectNowPlayingWidgetSnapshot) async {
-        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier),
-              let artworkURL = snapshot.artworkURL,
-              let artworkData = await widgetArtworkData(from: artworkURL) else {
-            return
-        }
-        guard var currentSnapshot = DJConnectNowPlayingWidgetSnapshot.load(from: defaults),
-              currentSnapshot.artworkURL == artworkURL,
-              currentSnapshot.title == snapshot.title,
-              currentSnapshot.artist == snapshot.artist else {
-            return
-        }
-        currentSnapshot.artworkData = artworkData
-        do {
-            try currentSnapshot.save(to: defaults)
-            #if canImport(WidgetKit)
-            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectNowPlayingWidgetSnapshot.widgetKind)
-            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectAskDJWidgetSnapshot.widgetKind)
-            #endif
-            syncTrackInsightLiveActivity(reason: "Now Playing widget artwork cached")
-        } catch {
-            log(.debug, "Now Playing widget artwork cache failed: \(error.localizedDescription)")
-        }
-    }
-
-    private func widgetArtworkData(from url: URL) async -> Data? {
-        guard let artworkURL = resolvedArtworkURL(url) else {
-            return nil
-        }
-        do {
-            let (data, response) = try await urlSession.data(from: artworkURL)
-            if let httpResponse = response as? HTTPURLResponse,
-               !(200..<300).contains(httpResponse.statusCode) {
-                return nil
+        #if os(iOS) && canImport(ActivityKit)
+        if #available(iOS 16.1, *),
+           hasObservedSessionSurfaceAuthority || pairingStatus != .paired || isDemoMode,
+           !hasSyncedSessionSurfaceActivity || lastActivitySurfaceSnapshot != snapshot || lastActivitySurfaceIdentity != sessionSurfaceIdentity {
+            hasSyncedSessionSurfaceActivity = true
+            lastActivitySurfaceSnapshot = snapshot
+            lastActivitySurfaceIdentity = sessionSurfaceIdentity
+            let previousTask = sessionSurfaceActivityTask
+            let identity = sessionSurfaceIdentity
+            let canStart = isAppInForeground
+            sessionSurfaceActivityTask = Task { [weak self] in
+                await previousTask?.value
+                guard let self, self.sessionSurfaceGeneration == generation else { return }
+                await DJConnectSessionSurfaceActivityController.sync(snapshot: snapshot, presentationID: identity,
+                                                                    canStart: canStart)
             }
-            guard let cachedData = normalizedWidgetArtworkData(data) else {
-                log(.debug, "Widget artwork cache skipped: image could not be decoded")
-                return nil
-            }
-            return cachedData
-        } catch {
-            log(.debug, "Widget artwork cache failed: \(error.localizedDescription)")
-            return nil
         }
-    }
-
-    private func normalizedWidgetArtworkData(_ data: Data) -> Data? {
-        guard data.count > Self.maxWidgetArtworkDataBytes else {
-            return data
-        }
-        #if canImport(UIKit)
-        guard let image = UIImage(data: data) else {
-            return nil
-        }
-        let maxDimension: CGFloat = 512
-        let longestSide = max(image.size.width, image.size.height)
-        let scale = longestSide > maxDimension ? maxDimension / longestSide : 1
-        let targetSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-        let renderer = UIGraphicsImageRenderer(size: targetSize)
-        let resized = renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: targetSize))
-        }
-        return resized.jpegData(compressionQuality: 0.78)
-            ?? resized.pngData()
-        #elseif canImport(AppKit)
-        guard let image = NSImage(data: data),
-              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            return nil
-        }
-        let maxDimension: CGFloat = 512
-        let longestSide = max(CGFloat(cgImage.width), CGFloat(cgImage.height))
-        let scale = longestSide > maxDimension ? maxDimension / longestSide : 1
-        let targetSize = CGSize(width: CGFloat(cgImage.width) * scale, height: CGFloat(cgImage.height) * scale)
-        let resized = NSImage(size: targetSize)
-        resized.lockFocus()
-        NSGraphicsContext.current?.imageInterpolation = .high
-        image.draw(in: CGRect(origin: .zero, size: targetSize))
-        resized.unlockFocus()
-        guard let tiff = resized.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff) else {
-            return nil
-        }
-        return bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.78])
-            ?? bitmap.representation(using: .png, properties: [:])
-        #else
-        return nil
         #endif
     }
 
@@ -8379,152 +8305,6 @@ public final class DJConnectAppModel: ObservableObject {
         }
         return URL(string: artworkURL.relativeString, relativeTo: baseURL)?.absoluteURL
     }
-
-    private func clearNowPlayingWidgetSnapshot(reason: String) {
-        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
-            return
-        }
-        DJConnectNowPlayingWidgetSnapshot.remove(from: defaults)
-        #if canImport(WidgetKit)
-        WidgetCenter.shared.reloadTimelines(ofKind: DJConnectNowPlayingWidgetSnapshot.widgetKind)
-        WidgetCenter.shared.reloadTimelines(ofKind: DJConnectAskDJWidgetSnapshot.widgetKind)
-        #endif
-        log(.debug, "Cleared Now Playing widget snapshot: \(reason)")
-    }
-
-    private func updateQueueWidgetSnapshot(items: [DJConnectQueueItem]) {
-        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
-            log(.warning, "Queue widget snapshot skipped: App Group storage is unavailable.")
-            return
-        }
-        guard !items.isEmpty else {
-            DJConnectQueueWidgetSnapshot.remove(from: defaults)
-            #if canImport(WidgetKit)
-            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectQueueWidgetSnapshot.widgetKind)
-            #endif
-            log(.debug, "Cleared Queue widget snapshot: empty queue")
-            return
-        }
-        do {
-            let snapshot = DJConnectQueueWidgetSnapshot(items: items)
-            try snapshot.save(to: defaults)
-            #if canImport(WidgetKit)
-            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectQueueWidgetSnapshot.widgetKind)
-            #endif
-            Task { [snapshot] in
-                await updateQueueWidgetSnapshotArtwork(snapshot: snapshot)
-            }
-        } catch {
-            log(.warning, "Queue widget snapshot failed: \(error.localizedDescription)")
-        }
-    }
-
-    private func updateQueueWidgetSnapshotArtwork(snapshot: DJConnectQueueWidgetSnapshot) async {
-        let artworkPairs = await withTaskGroup(of: (String, URL, Data)?.self) { group in
-            for item in snapshot.items {
-                guard let artworkURL = item.artworkURL else { continue }
-                let itemID = item.id
-                group.addTask {
-                    guard let artworkData = await self.widgetArtworkData(from: artworkURL) else {
-                        return nil
-                    }
-                    return (itemID, artworkURL, artworkData)
-                }
-            }
-
-            var pairs: [(String, URL, Data)] = []
-            for await pair in group {
-                if let pair {
-                    pairs.append(pair)
-                }
-            }
-            return pairs
-        }
-
-        guard !artworkPairs.isEmpty,
-              let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier),
-              var currentSnapshot = DJConnectQueueWidgetSnapshot.load(from: defaults),
-              currentSnapshot.items.map(\.id) == snapshot.items.map(\.id) else {
-            return
-        }
-
-        var didUpdateArtwork = false
-        for (itemID, artworkURL, artworkData) in artworkPairs {
-            guard let index = currentSnapshot.items.firstIndex(where: { $0.id == itemID && $0.artworkURL == artworkURL }) else {
-                continue
-            }
-            currentSnapshot.items[index].artworkData = artworkData
-            didUpdateArtwork = true
-        }
-
-        guard didUpdateArtwork else { return }
-        do {
-            try currentSnapshot.save(to: defaults)
-            #if canImport(WidgetKit)
-            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectQueueWidgetSnapshot.widgetKind)
-            #endif
-        } catch {
-            log(.debug, "Queue widget artwork cache failed: \(error.localizedDescription)")
-        }
-    }
-
-    private func clearQueueWidgetSnapshot(reason: String) {
-        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
-            return
-        }
-        DJConnectQueueWidgetSnapshot.remove(from: defaults)
-        #if canImport(WidgetKit)
-        WidgetCenter.shared.reloadTimelines(ofKind: DJConnectQueueWidgetSnapshot.widgetKind)
-        #endif
-        log(.debug, "Cleared Queue widget snapshot: \(reason)")
-    }
-
-    private func syncTrackInsightLiveActivity(reason: String) {
-        #if os(iOS) && canImport(ActivityKit)
-        guard #available(iOS 16.1, *) else {
-            return
-        }
-        if currentTrackInsight != nil, (!hasActiveNowPlaying || !currentTrackInsightMatchesPlayback()) {
-            currentTrackInsight = nil
-        }
-        let activityPlayback = hasPlayingNow ? playback : nil
-        let syncKey = liveActivitySyncKey(for: activityPlayback)
-        let now = Date()
-        if activityPlayback != nil,
-           syncKey == lastLiveActivitySyncKey,
-           let lastLiveActivitySyncAt,
-           now.timeIntervalSince(lastLiveActivitySyncAt) < minimumLiveActivitySyncInterval {
-            return
-        }
-        lastLiveActivitySyncKey = syncKey
-        lastLiveActivitySyncAt = now
-        Task {
-            let result = await TrackInsightLiveActivityController.sync(playback: activityPlayback)
-            await MainActor.run {
-                self.log(.debug, "Now Playing Live Activity sync result=\(result.logDescription) reason=\(reason) playback=\(activityPlayback == nil ? "none" : "present") is_playing=\(activityPlayback?.isPlaying == true)")
-            }
-        }
-        #endif
-    }
-
-    #if os(iOS) && canImport(ActivityKit)
-    private func liveActivitySyncKey(for playback: DJConnectPlayback?) -> String {
-        guard let playback, playback.isPlaying == true else {
-            return "ended"
-        }
-        let progressBucket = (playback.progressMS ?? 0) / liveActivityProgressBucketMS
-        let title = playback.trackName ?? ""
-        let artist = playback.artistName ?? ""
-        let deviceName = playback.device?.name ?? ""
-        let duration = String(playback.durationMS ?? 0)
-        let progress = String(progressBucket)
-        let volume = String(playback.volumePercent ?? playback.device?.volumePercent ?? -1)
-        let liked = String(playback.isLiked ?? playback.favoriteStatus ?? false)
-        let isPlaying = String(playback.isPlaying == true)
-        let components: [String] = [title, artist, deviceName, duration, progress, volume, liked, isPlaying]
-        return components.joined(separator: "|")
-    }
-    #endif
 
     private func currentTrackInsightMatchesPlayback() -> Bool {
         guard let insight = currentTrackInsight else {
@@ -10001,51 +9781,8 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func saveAskDJWidgetSnapshot() {
-        guard !isDemoMode, !sessionHistory.profileScopeActive else { return }
-        let latestPrompt = askDJMessages.last(where: { $0.role == .user })?.text
-        let latestResponse = askDJMessages.last(where: { $0.role == .dj && !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })?.text
-        guard latestPrompt != nil || latestResponse != nil else {
-            return
-        }
-        let trackTitle = currentTrackInsight?.title ?? playback?.trackName
-        let artist = currentTrackInsight?.artist ?? playback?.artistName
-        let context: String
-        if let trackTitle, !trackTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            context = artist?.isEmpty == false ? "\(trackTitle) - \(artist ?? "")" : trackTitle
-        } else {
-            context = localized(key: "appModel.private.music.dna.context")
-        }
-        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
-            log(.warning, "Ask DJ widget snapshot skipped: App Group storage is unavailable.")
-            return
-        }
-        do {
-            try DJConnectAskDJWidgetSnapshot(
-                prompt: latestPrompt ?? localized(key: "appModel.ask.dj"),
-                response: latestResponse ?? localized(key: "appModel.ask.dj.is.ready"),
-                context: context,
-                trackTitle: trackTitle,
-                artist: artist
-            ).save(to: defaults)
-            #if canImport(WidgetKit)
-            WidgetCenter.shared.reloadTimelines(ofKind: DJConnectAskDJWidgetSnapshot.widgetKind)
-            #endif
-        } catch {
-            log(.warning, "Ask DJ widget snapshot failed: \(error.localizedDescription)")
-        }
-    }
-
-    private func clearAskDJWidgetSnapshot(reason: String) {
-        guard let defaults = UserDefaults(suiteName: DJConnectTrackInsightWidgetSnapshot.appGroupIdentifier) else {
-            return
-        }
-        DJConnectAskDJWidgetSnapshot.remove(from: defaults)
-        #if canImport(WidgetKit)
-        WidgetCenter.shared.reloadTimelines(ofKind: DJConnectAskDJWidgetSnapshot.widgetKind)
-        #endif
-        log(.debug, "Cleared Ask DJ widget snapshot: \(reason)")
-    }
+    private func saveAskDJWidgetSnapshot() { syncSessionSurfaces() }
+    private func clearAskDJWidgetSnapshot(reason: String) { syncSessionSurfaces() }
 
     private static func loadAskDJMessages(defaults: UserDefaults, key: String) -> [DJConnectAskDJMessage] {
         guard let data = defaults.data(forKey: key) else {

@@ -1188,3 +1188,8 @@
 
 "ui.output.switching" = "Switching…";
 "ui.output.switch.unconfirmed" = "The speaker change has not been confirmed yet. Refresh the output devices to check its status.";
+
+"surface.session.active" = "DJ session active";
+"surface.session.open" = "Open DJ session";
+"surface.session.open.app" = "Open DJConnect to view your session.";
+"surface.session.description" = "Your DJ session at a glance.";
