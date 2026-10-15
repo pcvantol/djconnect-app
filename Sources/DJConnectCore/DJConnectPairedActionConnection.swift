@@ -4,6 +4,7 @@ import Foundation
 /// It never asks Home Assistant for an HA-wide access token.
 actor DJConnectPairedActionConnection {
     private let baseURL: URL
+    private let qualifiedLocalHTTP: Bool
     private let expectedInstallID: String
     private let identity: DJConnectIdentity
     private let tokenStore: DJConnectTokenStore
@@ -23,7 +24,9 @@ actor DJConnectPairedActionConnection {
 
     init(baseURL: URL, expectedInstallID: String, identity: DJConnectIdentity,
          tokenStore: DJConnectTokenStore, wire: any DJConnectHybridWire,
+         qualifiedLocalHTTP: Bool = false,
          reportClosed: (@Sendable (DJConnectHybridTransportError?) async -> Void)? = nil) {
+        self.qualifiedLocalHTTP = qualifiedLocalHTTP
         self.baseURL = baseURL; self.expectedInstallID = expectedInstallID
         self.identity = identity; self.tokenStore = tokenStore; self.wire = wire
         self.reportClosed = reportClosed
@@ -64,9 +67,9 @@ actor DJConnectPairedActionConnection {
         catch { if generation == epoch { await stop() }; throw DJConnectHybridTransportError.notSent }
     }
     private func open(epoch: UUID) async throws {
-        guard DJConnectHybridTransport.trustedOrigin(baseURL),
+        guard DJConnectHybridTransport.trustedOrigin(baseURL) || (qualifiedLocalHTTP && DJConnectHybridLocalPolicy.isLocalCandidate(baseURL)),
               var url = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else { throw DJConnectHybridTransportError.untrustedRoute }
-        url.scheme = "wss"; url.path = "/api/djconnect/v1/actions/paired"; url.query = nil; url.fragment = nil
+        url.scheme = baseURL.scheme == "http" ? "ws" : "wss"; url.path = "/api/djconnect/v1/actions/paired"; url.query = nil; url.fragment = nil
         let channel = try await wire.socket(url.url!)
         // Closing the socket is what makes a pending Foundation receive terminate.
         let deadline = Task { try? await Task.sleep(for: .seconds(5)); if !Task.isCancelled { await channel.close() } }
@@ -81,6 +84,10 @@ actor DJConnectPairedActionConnection {
         try await channel.send(JSONEncoder().encode(auth))
         let accepted = try await frame(channel)
         if Self.isRouteWithdrawal(accepted) { throw DJConnectHybridTransportError.routeWithdrawn }
+        if accepted["type"] == .string("auth_ok"),
+           !DJConnectHybridLocalPolicy.acceptsContext(accepted, origin: baseURL, pairedLocalOrigin: qualifiedLocalHTTP ? baseURL : nil) {
+            throw DJConnectHybridTransportError.routeWithdrawn
+        }
         guard epoch == generation, accepted["type"] == .string("auth_ok"), accepted["protocol_version"] == .int(1),
               accepted["audience"] == .string("paired_owner_actions"), accepted["lease_seconds"] == .int(300),
               accepted["ha_install_id"] == .string(expectedInstallID),

@@ -18011,8 +18011,8 @@ private struct AboutView: View {
     private var connectionTransportTitle: String {
         if model.isDemoMode { return localizedKey(model.language, "ui.demo") }
         guard actualConnectionMode != .offline else { return localizedKey(model.language, "ui.not.active") }
-        if model.hybridConnectionDiagnostics != nil {
-            return model.fastPathDiagnostics.websocketConnected ? "WSS · TLS" : "HTTPS · TLS"
+        if let hybrid = model.hybridConnectionDiagnostics {
+            return hybrid.transportDisplayName ?? localizedKey(model.language, "ui.not.active")
         }
         return model.fastPathDiagnostics.websocketConnected ? "WebSocket" : localizedKey(model.language, "ui.connection.address.unconfirmed")
     }

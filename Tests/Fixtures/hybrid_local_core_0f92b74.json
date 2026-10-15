@@ -1,6 +1,6 @@
 {
-  "producer_candidate": "6a0c3398f34f2281095b4ab7357aad55ffb2be23",
-  "delivery": "OPEN_PR_NOT_MERGED_NOT_INSTALLED",
+  "producer_source": "0f92b74e76ae055efdbf2b375d95c58e86328e27",
+  "delivery": "MERGED_SOURCE_INSTALLED_NATIVE_ACCEPTANCE_SEPARATE",
   "capability": {
     "available": true,
     "version": 1,
@@ -53,8 +53,8 @@
     "success": true,
     "contract_version": 1,
     "ha_install_id": "ha_owned_hybrid_fixture",
-    "operation_epoch": "f438a14648afa9f80ea70414a594b83b",
-    "server_time_ms": 1792097932638,
+    "operation_epoch": "651269b9d387c0bc84378cfdab94d94f",
+    "server_time_ms": 1792099311140,
     "operation_lifetime_ms": 300000,
     "requires_authenticated_tls": true,
     "action_operations": [
@@ -94,8 +94,8 @@
     "success": true,
     "contract_version": 1,
     "ha_install_id": "ha_owned_hybrid_fixture",
-    "operation_epoch": "f438a14648afa9f80ea70414a594b83b",
-    "server_time_ms": 1792097932693,
+    "operation_epoch": "651269b9d387c0bc84378cfdab94d94f",
+    "server_time_ms": 1792099311218,
     "operation_lifetime_ms": 300000,
     "requires_authenticated_tls": false,
     "action_operations": [

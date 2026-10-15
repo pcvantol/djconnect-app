@@ -26,6 +26,8 @@ private func hybridRequest(command: String = "next") throws -> URLRequest {
 }
 private actor HybridTestWire: DJConnectHybridWire {
     var requests: [URLRequest] = []
+    var socketURLs: [URL] = []
+    let localContext: HybridObject?
     let install: String
     let failExecute: Bool
     let unavailableBody: Bool
@@ -33,16 +35,20 @@ private actor HybridTestWire: DJConnectHybridWire {
     let withdrawExecute: Bool
     let socketValue: (any DJConnectHybridSocket)?
     init(install: String = "test-install", failExecute: Bool = false, unavailableBody: Bool = false,
-         failedLocal: Bool = false, socket: (any DJConnectHybridSocket)? = nil, withdrawExecute: Bool = false) {
+         failedLocal: Bool = false, socket: (any DJConnectHybridSocket)? = nil, withdrawExecute: Bool = false, localContext: HybridObject? = nil) {
         self.install = install; self.failExecute = failExecute; self.unavailableBody = unavailableBody
         self.withdrawExecute = withdrawExecute
+        self.localContext = localContext
         self.failedLocal = failedLocal; self.socketValue = socket
     }
     func http(_ request: URLRequest) async throws -> (Data, Int) {
         requests.append(request)
         if failedLocal, request.url?.host == "ha.local" { throw URLError(.cannotConnectToHost) }
         let body = try JSONDecoder().decode(HybridObject.self, from: request.httpBody ?? Data("{}".utf8))
-        if request.url!.path.hasSuffix("/context") { return (try JSONEncoder().encode(hybridContext(install: install)), 200) }
+        if request.url!.path.hasSuffix("/context") {
+            let context = request.url?.scheme == "http" ? localContext ?? hybridContext(install: install) : hybridContext(install: install)
+            return (try JSONEncoder().encode(context), 200)
+        }
         if request.url!.path.hasSuffix("/active") { return (Data(#"{"success":true}"#.utf8), 200) }
         if withdrawExecute, request.url?.host == "ha.local", request.url!.path.hasSuffix("/operation") {
             return (Data(#"{"error":"transport_security_required"}"#.utf8), 426)
@@ -54,18 +60,22 @@ private actor HybridTestWire: DJConnectHybridWire {
                                          "operation_receipt": .object(hybridReceipt(body, available: available))]), 200)
     }
     func socket(_ url: URL) async throws -> any DJConnectHybridSocket {
+        socketURLs.append(url)
         guard let socketValue else { throw URLError(.cannotConnectToHost) }; return socketValue
     }
     func recorded() -> [URLRequest] { requests }
+    func openedSockets() -> [URL] { socketURLs }
 }
 private actor HybridTestSocket: DJConnectHybridSocket {
     enum Mode { case reverseTwo, silent, wrongConnection, rejectRouteAuth, withdrawAfterSend }
     let mode: Mode
+    let localContext: HybridObject?
     var frames: [Data] = []
     var waiter: CheckedContinuation<Data, Error>?
     var sent: [HybridObject] = []
     var closed = false
-    init(_ mode: Mode) {
+    init(_ mode: Mode, localContext: HybridObject? = nil) {
+        self.localContext = localContext
         self.mode = mode
         frames = [try! JSONEncoder().encode(["type": DJConnectJSONValue.string("auth_required"), "protocol_version": .int(1), "audience": .string("paired_owner_actions")])]
     }
@@ -79,7 +89,7 @@ private actor HybridTestSocket: DJConnectHybridSocket {
             if mode == .rejectRouteAuth {
                 try enqueue(["type": .string("auth_invalid"), "code": .string("transport_security_required")]); return
             }
-            var context = hybridContext()
+            var context = localContext ?? hybridContext()
             context["type"] = .string("auth_ok"); context["protocol_version"] = .int(1)
             context["audience"] = .string("paired_owner_actions"); context["connection_id"] = .string("connection-A")
             context["lease_seconds"] = .int(300)
@@ -139,7 +149,7 @@ private func hybridCoordinator(_ wire: HybridTestWire, local: URL? = nil) -> DJC
         #expect(!DJConnectHybridTransport.trustedOrigin(URL(string: raw)!))
     }
     let wire = HybridTestWire()
-    let coordinator = DJConnectHybridTransport(localURL: URL(string: "http://ha.local"), remoteURL: nil,
+    let coordinator = DJConnectHybridTransport(localURL: nil, remoteURL: URL(string: "http://ha.local"),
         expectedInstallID: "test-install", identity: hybridIdentity(), tokenStore: DJConnectInMemoryTokenStore(token: "secret"), wire: wire)
     await #expect(throws: DJConnectHybridTransportError.self) { try await coordinator.perform(hybridRequest()) }
     #expect(await wire.recorded().isEmpty)
@@ -297,4 +307,61 @@ private func hybridCoordinator(_ wire: HybridTestWire, local: URL? = nil) -> DJC
     let mutations = requests.filter { $0.url?.path.hasSuffix("/operation") == true }
     #expect(reads.count == 1); #expect(reads.first?.url?.host == "remote.example")
     #expect(mutations.isEmpty); #expect(await socket.count() == 0)
+}
+
+private func hybridQualifiedLocalContext() -> HybridObject {
+    var context = hybridContext()
+    context["requires_authenticated_tls"] = .bool(false)
+    context["transport_security"] = .object([
+        "policy_version": .int(1), "deployment_qualification_required": .bool(true),
+        "external": .string("authenticated_tls"), "local_plaintext": .string("qualified_direct_only"),
+        "peer_policy": .string("enabled_interface_subnet_or_loopback"), "internal_origin_required": .bool(true),
+        "forwarded_plaintext": .string("forbidden"), "mode": .string("qualified_direct_http")])
+    return context
+}
+@Test func hybridQualifiedLocalHTTPContextAndAuthUseWSWithDemultiplexedReads() async throws {
+    let context = hybridQualifiedLocalContext()
+    let socket = HybridTestSocket(.reverseTwo, localContext: context)
+    let wire = HybridTestWire(socket: socket, localContext: context)
+    let coordinator = hybridCoordinator(wire, local: URL(string: "http://ha.local:8123"))
+    let request = URLRequest(url: URL(string: "http://ha.local:8123/api/djconnect/v1/session/active")!)
+    async let first = coordinator.perform(request)
+    async let second = coordinator.perform(request)
+    let results = try await [first, second]
+    #expect(results.count == 2)
+    let urls = await wire.openedSockets()
+    #expect(urls == [URL(string: "ws://ha.local:8123/api/djconnect/v1/actions/paired")!])
+    #expect(await coordinator.snapshot().state == .localReady)
+    await coordinator.lifecycle(foreground: false)
+}
+@Test func hybridUnqualifiedHTTPContextFallsBackOnlyToTrustedTLS() async throws {
+    let wire = HybridTestWire()
+    let coordinator = hybridCoordinator(wire, local: URL(string: "http://ha.local:8123"))
+    #expect(try await coordinator.authorizedBaseURL() == URL(string: "https://remote.example"))
+    #expect(await wire.openedSockets().isEmpty)
+}
+@Test func hybridSocketAuthCannotDowngradeAQualifiedContext() async throws {
+    let socket = HybridTestSocket(.reverseTwo)
+    let wire = HybridTestWire(socket: socket, localContext: hybridQualifiedLocalContext())
+    let coordinator = hybridCoordinator(wire, local: URL(string: "http://ha.local:8123"))
+    await #expect(throws: DJConnectHybridTransportError.routeWithdrawn) { try await coordinator.perform(hybridRequest()) }
+    #expect(await socket.count() == 0)
+    let requests = await wire.recorded()
+    let executes = requests.filter { $0.url?.path.hasSuffix("/operation") == true }
+    #expect(executes.isEmpty)
+}
+
+@Test func hybridDiagnosticsReportActualSchemeAndClearUnqualifiedOrigin() {
+    var status = DJConnectHybridDiagnostics()
+    #expect(status.transportDisplayName == nil)
+    status.activeOrigin = URL(string: "http://ha.local:8123")
+    #expect(status.transportDisplayName == "HTTP · LAN")
+    status.websocketConnected = true
+    #expect(status.transportDisplayName == "WS · LAN")
+    status.activeOrigin = URL(string: "https://remote.example")
+    #expect(status.transportDisplayName == "WSS · TLS")
+    status.websocketConnected = false
+    #expect(status.transportDisplayName == "HTTPS · TLS")
+    status.activeOrigin = nil
+    #expect(status.transportDisplayName == nil)
 }

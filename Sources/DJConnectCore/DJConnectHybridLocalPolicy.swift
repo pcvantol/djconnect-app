@@ -1,8 +1,8 @@
 import Foundation
 import Darwin
 
-/// Prepared consumer for Core PR1184. Not wired into route selection until the
-/// final producer pin and deployment qualification are delivered.
+/// Core source0f92b74e76ae055efdbf2b375d95c58e86328e27, PR1184.
+/// Local source qualification is separate from installed deployment acceptance.
 /// This validates a response, never grants permission to send credentials.
 enum DJConnectHybridLocalPolicy {
     static func acceptsContext(_ body: HybridObject, origin: URL, pairedLocalOrigin: URL?) -> Bool {

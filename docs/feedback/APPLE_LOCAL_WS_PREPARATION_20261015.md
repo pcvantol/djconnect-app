@@ -1,6 +1,6 @@
 # Apple direct HTTP/WS adoption preparation
 
-Status: PREPARED, NOT ACTIVATED. Existing sole Apple writer retained.
+Status: SOURCE IMPLEMENTED AGAINST MERGED CORE, NOT INSTALLED. Existing sole Apple writer retained.
 Installed Mac mini and iPad remain40113; no transport app installation here.
 
 Core sourcePR1184 is still open at candidate
@@ -81,3 +81,39 @@ route-withdrawal cases (before-send, after-send, HTTP426, active read recovery).
 Log:/private/tmp/djc-route-withdrawal-final4-tests.log.
 No real LAN/WS network transition or physical installed transport acceptance is
 claimed by these injected-wire tests. No new install or Core mutation performed.
+
+
+## Merged producer adoption update
+
+Core sourcePR1184 merged as0f92b74e76ae055efdbf2b375d95c58e86328e27.
+The earlier candidate/open/TLS-only preparation sections above are historical.
+The exact merged contexts/capability replace the candidate fixture in
+Tests/Fixtures/hybrid_local_core_0f92b74.json.
+
+The source route coordinator now admits only the already configured local HTTP
+candidate, validates the complete request-specific policy and installationID,
+and passes qualified-local permission to the paired-action socket. The socket
+maps HTTP to WS, HTTPS to WSS and independently validates auth_ok policy. A
+conflicting security mode withdraws the route before executing. Remote HTTP
+remains forbidden. IPv6 local candidates use the same qualified policy gate.
+App-model transport construction now includes paired localHTTP-only setups;
+About/diagnostics report actual HTTP/WS versus HTTPS/WSS and no active origin
+while offline. The global requires_authenticated_tls capability is unchanged.
+
+24 focused tests PASS, including HTTP/WS demultiplexed reads, unqualified local
+context -> trustedTLS fallback, mismatched socket policy -> no execute,
+route-only withdrawal/original-ID reconciliation and protocol display names.
+Log:/private/tmp/djc-local-ws-adoption-final3-tests.log.
+Signed native Mac and iOS/embeddedWatch build40114 PASS:
+/private/tmp/djc-local-ws-40114-mac-build.log,
+/private/tmp/djc-local-ws-40114-ipad-build.log.
+Built from the qualified selective snapshot with only exact transport/diagnostic
+patches; unrelated incomplete widget/Speech source excluded. Build40114 not yet
+installed. Actual ordinary apps remain40113.
+
+Fresh installedHA-dev still records62c8156d, internal_url=null, no ingress
+qualificationfile; actual LANcontext HTTP426. No fake qualification, gateway
+allowlist, pairing reset or parallel Core deployment. Final Core artifact/
+installation and real source-preserving ingress remain joint acceptance gates.
+The existing Core writer received this readback and exact consumer progress
+under the user's explicit HTTP/WS handoff authorization. No new Core scope.

@@ -1,6 +1,6 @@
 import Foundation
 
-// Producer: pcvantol/djconnect f0a7ff4bb878247db9ab25c4a22320f17d806cd6.
+// Producer: pcvantol/djconnect 0f92b74e76ae055efdbf2b375d95c58e86328e27 (local policy v1).
 // Transport state is ephemeral. No prompts, private results or media enter a journal.
 typealias HybridObject = [String: DJConnectJSONValue]
 extension DJConnectJSONValue {
@@ -47,6 +47,22 @@ public struct DJConnectHybridDiagnostics: Equatable, Sendable {
     public var probes = 0
     public var reconciliations = 0
     public var receivedSnapshotGap = false
+    public var transportName: String? {
+        switch activeOrigin?.scheme {
+        case "http": return websocketConnected ? "paired_ws" : "http"
+        case "https": return websocketConnected ? "paired_wss" : "https"
+        default: return nil
+        }
+    }
+    public var transportDisplayName: String? {
+        switch transportName {
+        case "paired_ws": return "WS · LAN"
+        case "http": return "HTTP · LAN"
+        case "paired_wss": return "WSS · TLS"
+        case "https": return "HTTPS · TLS"
+        default: return nil
+        }
+    }
     public init() {}
 }
 
@@ -207,6 +223,13 @@ public actor DJConnectHybridTransport {
         guard let c = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return false }
         return c.scheme == "https" && c.host?.isEmpty == false && c.user == nil && c.password == nil && c.query == nil && c.fragment == nil
     }
+    /// Classifies a configured local candidate; it does not grant transport authority.
+    public static func isLocalTransportCandidate(_ url: URL) -> Bool {
+        DJConnectHybridLocalPolicy.isLocalCandidate(url)
+    }
+    private func eligibleOrigin(_ url: URL) -> Bool {
+        Self.trustedOrigin(url) || (url == localURL && Self.isLocalTransportCandidate(url))
+    }
     public static func operation(for request: URLRequest) -> String? {
         guard request.httpMethod == "POST", let path = request.url?.path,
               let prefix = path.range(of: "/api/djconnect/v1/") else { return nil }
@@ -229,7 +252,7 @@ public actor DJConnectHybridTransport {
         report?(diagnostics)
     }
     private func protectedRequest(_ base: URL, path: String, body: HybridObject) throws -> URLRequest {
-        guard Self.trustedOrigin(base), !expectedInstallID.isEmpty else { throw DJConnectHybridTransportError.untrustedRoute }
+        guard eligibleOrigin(base), !expectedInstallID.isEmpty else { throw DJConnectHybridTransportError.untrustedRoute }
         var c = URLComponents(url: base, resolvingAgainstBaseURL: false)!
         c.path = path; c.query = nil; c.fragment = nil
         var request = URLRequest(url: c.url!); request.httpMethod = "POST"
@@ -261,10 +284,10 @@ public actor DJConnectHybridTransport {
         let body = try JSONDecoder().decode(HybridObject.self, from: data)
         try checkAuthority(body, status: status)
         guard status == 200, body["success"] == .bool(true), body["contract_version"] == .int(1),
-              body["requires_authenticated_tls"] == .bool(true), body["operation_lifetime_ms"] == .int(300_000),
+              DJConnectHybridLocalPolicy.acceptsContext(body, origin: url, pairedLocalOrigin: local ? localURL : nil), body["operation_lifetime_ms"] == .int(300_000),
               body["operation_epoch"]?.hybridString?.isEmpty == false, let clock = body["server_time_ms"]?.hybridInt else { throw DJConnectHybridTransportError.unavailable }
         guard body["ha_install_id"] == .string(expectedInstallID) else { throw DJConnectHybridTransportError.installationMismatch }
-        return Route(url: url, local: local && DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(url), context: body, clock: clock, anchor: ProcessInfo.processInfo.systemUptime)
+        return Route(url: url, local: local && (Self.isLocalTransportCandidate(url) || DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(url)), context: body, clock: clock, anchor: ProcessInfo.processInfo.systemUptime)
     }
     private func readyRoute() async throws -> Route {
         guard foreground else { throw CancellationError() }
@@ -286,7 +309,7 @@ public actor DJConnectHybridTransport {
     }
     private func selectRoute() async throws -> Route {
         var candidates: [(URL, Bool)] = []
-        if let localURL, Self.trustedOrigin(localURL) { candidates.append((localURL, true)) }
+        if let localURL, eligibleOrigin(localURL) { candidates.append((localURL, true)) }
         if let remoteURL, Self.trustedOrigin(remoteURL), remoteURL != localURL { candidates.append((remoteURL, false)) }
         for (url, local) in candidates {
             if (withdrawnOrigins[url] ?? 0) > ProcessInfo.processInfo.systemUptime { continue }
@@ -309,6 +332,7 @@ public actor DJConnectHybridTransport {
         let connectionEpoch = UUID(); actionGeneration = connectionEpoch
         let next = DJConnectPairedActionConnection(baseURL: route.url, expectedInstallID: expectedInstallID,
             identity: identity, tokenStore: tokenStore, wire: wire,
+            qualifiedLocalHTTP: route.url.scheme == "http" && DJConnectHybridLocalPolicy.acceptsContext(route.context, origin: route.url, pairedLocalOrigin: localURL),
             reportClosed: { [weak self] reason in await self?.actionClosed(connectionEpoch, reason: reason) })
         action = next; actionURL = route.url
         return next
@@ -327,7 +351,7 @@ public actor DJConnectHybridTransport {
         report?(diagnostics)
     }
     private func canUseActions(_ route: Route) -> Bool {
-        route.local && DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(route.url)
+        route.local
     }
     /// Returns the original handler body/status. Receipt-only acceptance is a typed outcome,
     /// never decoded as a second answer or converted to another execute request.

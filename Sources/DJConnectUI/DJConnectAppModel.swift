@@ -3047,7 +3047,7 @@ public final class DJConnectAppModel: ObservableObject {
         if let hybrid = sharedHybridTransport() {
             Task {
                 let snapshot = await hybrid.snapshot()
-                fastPathDiagnostics = DJConnectFastPathDiagnostics(fastPathTransport: snapshot.websocketConnected ? "paired_wss" : "https",
+                fastPathDiagnostics = DJConnectFastPathDiagnostics(fastPathTransport: snapshot.transportName ?? "offline",
                     websocketConnected: snapshot.websocketConnected, lastCapabilityRefresh: Date())
             }
             return
@@ -11162,7 +11162,8 @@ public final class DJConnectAppModel: ObservableObject {
               let install = defaults.string(forKey: haInstallIDKey), !install.isEmpty else { return nil }
         let local = Self.normalizedHomeAssistantURL(from: localHomeAssistantURL())
         let remote = Self.normalizedHomeAssistantURL(from: haRemoteURL)
-        guard [local, remote].compactMap({ $0 }).contains(where: DJConnectHybridTransport.trustedOrigin) else { return nil }
+        guard local.map({ DJConnectHybridTransport.trustedOrigin($0) || DJConnectHybridTransport.isLocalTransportCandidate($0) }) == true
+            || remote.map(DJConnectHybridTransport.trustedOrigin) == true else { return nil }
         let key = [local?.absoluteString ?? "", remote?.absoluteString ?? "", install, identity.deviceID].joined(separator: "|")
         if hybridTransportKey == key, let hybridTransport { return hybridTransport }
         if let old = hybridTransport { Task { await old.lifecycle(foreground: false) } }
@@ -11177,7 +11178,7 @@ public final class DJConnectAppModel: ObservableObject {
                    [.localReady, .remoteReady].contains(snapshot.state), self.sessionBroadcastTransport != nil {
                     self.stopSessionBroadcast(); self.startSessionBroadcastIfNeeded()
                 }
-                self.fastPathDiagnostics = DJConnectFastPathDiagnostics(fastPathTransport: snapshot.websocketConnected ? "paired_wss" : "https",
+                self.fastPathDiagnostics = DJConnectFastPathDiagnostics(fastPathTransport: snapshot.transportName ?? "offline",
                     websocketConnected: snapshot.websocketConnected, lastCapabilityRefresh: Date(),
                     websocketCommands: snapshot.websocketConnected ? ["djconnect/read", "djconnect/operation/execute", "djconnect/operation/status"] : [])
             } })

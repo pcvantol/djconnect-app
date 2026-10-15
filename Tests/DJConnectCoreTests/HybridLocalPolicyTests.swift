@@ -38,9 +38,9 @@ private func localContext() -> [String: DJConnectJSONValue] {
         #expect(!DJConnectHybridLocalPolicy.acceptsContext(["requires_authenticated_tls": .bool(false)], origin: url, pairedLocalOrigin: url))
     }
 }
-@Test func localPolicyReadsExactPublishedCandidateContextsWithoutTreatingCapabilityAsAdmission() throws {
+@Test func localPolicyReadsExactMergedCoreContextsWithoutTreatingCapabilityAsAdmission() throws {
     let path = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        .appendingPathComponent("Fixtures/hybrid_local_candidate_6a0c339.json")
+        .appendingPathComponent("Fixtures/hybrid_local_core_0f92b74.json")
     let fixture = try JSONDecoder().decode([String: DJConnectJSONValue].self, from: Data(contentsOf: path))
     let local = URL(string: "http://127.0.0.1:8123")!
     let tls = URL(string: "https://remote.example")!
