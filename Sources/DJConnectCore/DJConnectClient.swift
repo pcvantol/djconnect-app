@@ -372,6 +372,43 @@ public final class DJConnectClient: Sendable {
         try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
     }
 
+    /// Explicit user-authorized preparation only. Never call from a pure
+    /// timeline/search/open read, image failure or expiry callback.
+    public func prepareSessionArtwork(sessionID: String, targets: [DJConnectSessionMedia.Target]) async throws -> [DJConnectSessionMedia] {
+        let request = try sessionArtworkPreparationRequest(sessionID: sessionID, targets: targets)
+        let data = try await sessionArtworkTransport.prepare(request)
+        let response = try decoder.decode(DJConnectSessionMediaPrepareResponse.self, from: data)
+        guard response.success, response.contractVersion == 1, response.media.count <= targets.count else {
+            throw DJConnectError.invalidResponse
+        }
+        var seen = Set<DJConnectSessionMedia.Target>()
+        for media in response.media {
+            guard media.schemaVersion == 1, media.sessionID == sessionID, let target = media.target,
+                  targets.contains(target), seen.insert(target).inserted else { throw DJConnectError.invalidResponse }
+        }
+        return response.media
+    }
+
+    public func sessionArtworkPreparationRequest(sessionID: String, targets: [DJConnectSessionMedia.Target]) throws -> URLRequest {
+        func valid(_ value: String) -> Bool {
+            !value.isEmpty && value.utf8.count <= 512 && !value.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
+        }
+        guard valid(sessionID), !targets.isEmpty, targets.count <= 8, Set(targets).count == targets.count else {
+            throw DJConnectError.invalidResponse
+        }
+        let values: [[String: String]] = try targets.map { target in
+            switch target {
+            case .moment(let id): guard valid(id) else { throw DJConnectError.invalidResponse }; return ["moment_id": id]
+            case .entry(let id): guard valid(id) else { throw DJConnectError.invalidResponse }; return ["entry_id": id]
+            }
+        }
+        var request = try jsonRequest(path: "/api/djconnect/v1/session/media/prepare",
+            payload: DJConnectSessionMediaPrepareRequest(sessionID: sessionID, targets: values))
+        request.timeoutInterval = 22
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        return request
+    }
+
     /// Owner-only optional media read. No preparation, provider lookup or retry
     /// of an effectful operation. Resource absence never becomes pairing loss.
     public func sessionArtwork(_ media: DJConnectSessionMedia, sessionID: String,

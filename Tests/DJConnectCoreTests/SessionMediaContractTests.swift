@@ -1,4 +1,6 @@
 import Foundation
+import CoreGraphics
+import ImageIO
 import Testing
 @testable import DJConnectCore
 
@@ -17,6 +19,8 @@ private func decodeArtwork(_ object: [String: Any]) throws -> DJConnectSessionMe
 private func artworkDate(_ media: DJConnectSessionMedia) throws -> Date {
     try #require(media.artwork.capturedAt.flatMap(DJConnectHistoryEntry.date)).addingTimeInterval(1)
 }
+
+@Suite(.serialized) struct SessionMediaTests {
 
 @Test func sessionMediaDecodesActualPinnedCorePositiveProjections() throws {
     for name in ["playback_cover", "album_story", "artist_story", "late_artist_after_track_change", "older_entry_refresh"] {
@@ -93,6 +97,32 @@ private final class ArtworkURLProtocol: URLProtocol, @unchecked Sendable {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         do {
+            if request.url?.host?.hasPrefix("prepare") == true {
+                #expect(request.httpMethod == "POST")
+                #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-artwork-token")
+                var bodyData = request.httpBody ?? Data()
+                if bodyData.isEmpty, let stream = request.httpBodyStream {
+                    stream.open(); defer { stream.close() }
+                    var buffer = [UInt8](repeating: 0, count: 4096)
+                    while stream.hasBytesAvailable {
+                        let count = stream.read(&buffer, maxLength: buffer.count)
+                        if count <= 0 { break }
+                        bodyData.append(contentsOf: buffer.prefix(count))
+                    }
+                }
+                let body = try JSONSerialization.jsonObject(with: bodyData) as! [String: Any]
+                #expect(body["contract_version"] as? Int == 1)
+                #expect(body["session_id"] as? String == "session-fixture-1")
+                #expect(body["subject"] == nil && body["url"] == nil && body["text"] == nil)
+                var media = try artworkExample("older_entry_refresh")
+                if request.url?.host == "preparebad.artwork.invalid" { media["session_id"] = "another-owner-session" }
+                let data = try JSONSerialization.data(withJSONObject: ["success": true, "contract_version": 1, "session_media": [media]])
+                let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
+                client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+                client?.urlProtocol(self, didLoad: data)
+                client?.urlProtocolDidFinishLoading(self)
+                return
+            }
             #expect(request.httpMethod == "GET")
             #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-artwork-token")
             #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "ios")
@@ -211,7 +241,7 @@ private func liveArtworkExample() throws -> DJConnectSessionMedia {
     var art = try #require(value["artwork"] as? [String: Any])
     let formatter = ISO8601DateFormatter()
     formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    art["captured_at"] = formatter.string(from: Date())
+    art["captured_at"] = formatter.string(from: Date().addingTimeInterval(-1))
     art["expires_at"] = formatter.string(from: Date().addingTimeInterval(0.2))
     value["artwork"] = art
     let media = try decodeArtwork(value)
@@ -222,8 +252,53 @@ private func liveArtworkExample() throws -> DJConnectSessionMedia {
     let client = DJConnectClient(baseURL: URL(string: "https://203.artwork.invalid")!,
         identity: .init(deviceID: "djconnect-ios-artwork-test", deviceName: "Fixture", clientType: .ios, firmware: "4.0.0", platform: .ios),
         tokenStore: DJConnectInMemoryTokenStore(token: "fixture-artwork-token"), session: session)
+    #expect(media.admittedArtwork(session: media.sessionID, target: try #require(media.target), audience: .activeFlow) != nil)
+    let started = Date()
     await #expect(throws: DJConnectError.invalidResponse) {
         try await client.sessionArtwork(media, sessionID: media.sessionID,
             target: try #require(media.target), audience: .activeFlow)
     }
+    #expect(Date().timeIntervalSince(started) >= 0.3)
+}
+
+
+@Test func sessionMediaExplicitPreparationIsBoundedAndCannotSubstituteTargets() async throws {
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [ArtworkURLProtocol.self]
+    let session = URLSession(configuration: configuration)
+    defer { session.invalidateAndCancel() }
+    let original = try decodeArtwork(artworkExample("older_entry_refresh"))
+    let target = try #require(original.target)
+    func client(_ host: String) -> DJConnectClient {
+        DJConnectClient(baseURL: URL(string: "https://" + host)!,
+            identity: .init(deviceID: "djconnect-ios-artwork-test", deviceName: "Fixture", clientType: .ios, firmware: "4.0.0", platform: .ios),
+            tokenStore: DJConnectInMemoryTokenStore(token: "fixture-artwork-token"), session: session)
+    }
+    let valid = client("prepare.artwork.invalid")
+    let request = try valid.sessionArtworkPreparationRequest(sessionID: "session-fixture-1", targets: [target])
+    #expect(request.url?.path == "/api/djconnect/v1/session/media/prepare")
+    let result = try await valid.prepareSessionArtwork(sessionID: "session-fixture-1", targets: [target])
+    #expect(result == [original])
+    for targets: [DJConnectSessionMedia.Target] in [[], [target, target], (0..<9).map { .entry("entry-\($0)") }, [.entry("")]] {
+        #expect(throws: DJConnectError.invalidResponse) {
+            try valid.sessionArtworkPreparationRequest(sessionID: "session-fixture-1", targets: targets)
+        }
+    }
+    await #expect(throws: DJConnectError.invalidResponse) {
+        try await client("preparebad.artwork.invalid").prepareSessionArtwork(sessionID: "session-fixture-1", targets: [target])
+    }
+}
+
+@Test func sessionMediaLargePixelsAreDownsampledWithoutCropping() throws {
+    let context = try #require(CGContext(data: nil, width: 1024, height: 512, bitsPerComponent: 8,
+        bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+    let source = try #require(context.makeImage())
+    let data = NSMutableData()
+    let destination = try #require(CGImageDestinationCreateWithData(data, "public.png" as CFString, 1, nil))
+    CGImageDestinationAddImage(destination, source, nil)
+    #expect(CGImageDestinationFinalize(destination))
+    let decoded = try DJConnectSessionArtworkTransport.decode(data as Data, mime: "image/png", width: 1024, height: 512)
+    #expect(decoded.image.width == 512 && decoded.image.height == 256)
+}
+
 }

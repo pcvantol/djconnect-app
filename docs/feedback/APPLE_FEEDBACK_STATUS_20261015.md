@@ -1224,3 +1224,14 @@ Same existing writer picked up the already admitted artwork consumer, without re
 - Native **composed synthetic HTTP** iPhone/iPad pixel+expiry+text preservation tests PASS; final compact layout `/private/tmp/djc-artwork-40090-iphone-compact.xcresult`, `/private/tmp/djc-artwork-40090-ipad.xcresult`. Core's own synthetic PNGs imported from the pinned commit. This is not real HA/provider/WSS/hardware evidence.
 - Visually inspected ready/expired native screens. Earlier XCTest build error and two wrong-container assertions were corrected; failed artifacts retained. Full source no longer claims a JSON-only positive proof.
 - No installation/publication. Full artwork acceptance remains OPEN (explicit older-entry preparation, source/Profile/revision races, native accessibility/Mac/hardware). Next autonomous step is explicit bounded preparation on the existing contract; then broader qualification. Speech/Persona follows artwork, widgets still await separate passive grant.
+
+### Autonomous successor increment — explicit artwork refresh, 40091
+
+Continued from26eb8e2 without another start request. Exact paired prepare adapter plus capability-gated retained-row refresh, no automatic prepare from reads/expiry, per-target UI loading and epoch/entry fences. Denial clears only the still-matching image; full source text/order/pairing preserved.512px proportional decoding bounds display texture size without cropping. All five languages validated (1142keys).
+
+Full605 shared tests PASS (`/private/tmp/djc-artwork-40091-regression-verified.log`), including app/history-model explicit-action/403 withdrawal proof and actual paired preparation adapter/target bounds. Final Mac build PASS (`/private/tmp/djc-artwork-40091-mac-thumbnail.log`), final native composed-fixture iPhone pixel/expiry/text test PASS (`/private/tmp/djc-artwork-40091-iphone-verified.xcresult`). All11 changed Sources files match the isolated build. iPad rerun follows below.
+
+This advances the selected artwork consumer; it does not close real HA/provider/Mac/physical, older-entry native-button or full joint acceptance. No ordinary app install, push, PR, protected publication or source-pause change. Speech/Persona remains the approved successor after artwork. Rich passive widget/Activity content/background delivery remains dependent on a distinct Core contract.
+
+Final exact-build iPad native pixel/expiry/text retention rerun PASS:
+`/private/tmp/djc-artwork-40091-ipad-verified.xcresult`.

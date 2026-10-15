@@ -4,7 +4,7 @@ import Foundation
 /// Unknown/invalid optional media is discarded independently of the original text.
 public struct DJConnectSessionMedia: Codable, Equatable, Sendable {
     public enum Audience: Equatable, Sendable { case current, activeFlow, history }
-    public enum Target: Equatable, Sendable { case moment(String), entry(String) }
+    public enum Target: Hashable, Sendable { case moment(String), entry(String) }
     public enum State: String, Codable, Sendable {
         case ready, loading, missing, expired, withdrawn, unavailable
     }
@@ -134,9 +134,32 @@ public struct DJConnectSessionMedia: Codable, Equatable, Sendable {
 /// Malformed optional media must not suppress an otherwise valid history row.
 struct DJConnectOptionalSessionMedia: Codable, Equatable, Sendable {
     let value: DJConnectSessionMedia?
+    init(value: DJConnectSessionMedia?) { self.value = value }
     init(from decoder: Decoder) throws { value = try? DJConnectSessionMedia(from: decoder) }
     func encode(to encoder: Encoder) throws {
         if let value { try value.encode(to: encoder) }
         else { var container = encoder.singleValueContainer(); try container.encodeNil() }
+    }
+}
+
+
+struct DJConnectSessionMediaPrepareRequest: Encodable {
+    let sessionID: String
+    let targets: [[String: String]]
+    let contractVersion = 1
+    enum CodingKeys: String, CodingKey {
+        case sessionID = "session_id", targets, contractVersion = "contract_version"
+    }
+}
+struct DJConnectSessionMediaPrepareResponse: Decodable {
+    let success: Bool
+    let contractVersion: Int
+    let media: [DJConnectSessionMedia]
+    enum CodingKeys: String, CodingKey { case success, contractVersion = "contract_version", media = "session_media" }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        success = try c.decode(Bool.self, forKey: .success)
+        contractVersion = try c.decode(Int.self, forKey: .contractVersion)
+        media = (try c.decode([LossyBroadcastValue<DJConnectSessionMedia>].self, forKey: .media)).compactMap(\.value)
     }
 }

@@ -14,7 +14,7 @@ public struct DJConnectHistoryRevision: Codable, Equatable, Sendable {
     }
 }
 
-public struct DJConnectSessionEntryReference: Codable, Equatable, Sendable {
+public struct DJConnectSessionEntryReference: Codable, Hashable, Sendable {
     public var sessionID: String
     public var entryID: String
     public init(sessionID: String, entryID: String) { self.sessionID = sessionID; self.entryID = entryID }
@@ -139,7 +139,10 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
     public var requiresSpotifyAttribution: Bool?
     public var openAction: DJConnectSessionOpenAction?
     private var optionalSessionMedia: DJConnectOptionalSessionMedia? = nil
-    public var sessionMedia: DJConnectSessionMedia? { optionalSessionMedia?.value }
+    public var sessionMedia: DJConnectSessionMedia? {
+        get { optionalSessionMedia?.value }
+        set { optionalSessionMedia = newValue.map { DJConnectOptionalSessionMedia(value: $0) } }
+    }
     public var highlights: [DJConnectHistoryHighlight]?
     public var id: String { entryID }
     public var reference: DJConnectSessionEntryReference { .init(sessionID: sessionID, entryID: entryID) }
@@ -297,6 +300,9 @@ public struct DJConnectProfileConversationHistory: Decodable, Sendable {
 public struct DJConnectSessionHistoryCapabilities: Decodable, Sendable {
     public let capabilities: [String: Bool]?
     public let contractVersions: [String: Int]?
+    public var artworkAvailable: Bool {
+        capabilities?["session_artwork"] == true && contractVersions?["session_artwork"] == 1
+    }
     public var momentInsightAvailable: Bool {
         capabilities?["moment_track_insight_navigation_v1"] == true && contractVersions?["moment_track_insight_navigation_v1"] == 1
     }

@@ -3525,3 +3525,59 @@ func momentInsightCreditProvenanceDoesNotInventAnalysisOrParseDebugObjects(_ var
     await work.value
     #expect(model.pairingStatus == .paired && !model.isConnected)
 }
+
+private final class HistoryArtworkDenialSwitch: @unchecked Sendable {
+    private let lock = NSLock()
+    private var denied = false
+    func deny() { lock.withLock { denied = true } }
+    var isDenied: Bool { lock.withLock { denied } }
+}
+
+@Test @MainActor func sessionHistoryArtworkRefreshIsExplicitAndDenialClearsOnlyPixels() async throws {
+    let receipt = try historyObject()
+    let timelineData = try historyData(try #require(receipt["archived_timeline"]))
+    let timeline = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: timelineData)
+    let original = try #require(timeline.entries.first)
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let artFixture = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-artwork-core-5c7ecb79.json"))) as! [String: Any]
+    let examples = try #require(artFixture["examples"] as? [String: [String: Any]])
+    var projection = try #require(examples["older_entry_refresh"]?["projection"] as? [String: Any])
+    projection["session_id"] = original.sessionID; projection["entry_id"] = original.entryID
+    var art = try #require(projection["artwork"] as? [String: Any])
+    art["captured_at"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1))
+    art["expires_at"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(60))
+    art["url"] = "/api/djconnect/v1/session/media/image/\(original.sessionID)/synthetic-history-cover"
+    projection["artwork"] = art
+    let prepared = try historyData(["success": true, "contract_version": 1, "session_media": [projection]])
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_artwork":true},"contract_versions":{"session_conversation_history":1,"session_artwork":1}}"#.utf8)
+    let conversation = try historyData(try #require(receipt["later_historical_answer"]))
+    let denial = HistoryArtworkDenialSwitch()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/session/media/prepare") {
+            return denial.isDenied ? (403, Data(), 0) : (200, prepared, 0)
+        }
+        if request.url!.path.contains("/session/history/") { return (200, timelineData, 0) }
+        return (200, conversation, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    await model.sessionHistory.loadTimeline(original.sessionID)
+    #expect(model.sessionHistory.artworkAvailable)
+    #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/media/prepare") })
+    await model.sessionHistory.refreshArtwork(for: original)
+    let ready = try #require(model.sessionHistory.timelines[original.sessionID]?.entries.first)
+    #expect(ready.sessionMedia?.artwork.state == .ready)
+    #expect(ready.text == original.text && ready.order == original.order && ready.id == original.id)
+    denial.deny()
+    await model.sessionHistory.refreshArtwork(for: ready)
+    let withdrawn = try #require(model.sessionHistory.timelines[original.sessionID]?.entries.first)
+    #expect(withdrawn.sessionMedia == nil)
+    #expect(withdrawn.text == original.text && withdrawn.order == original.order)
+    #expect(model.pairingStatus == .paired)
+    #expect(model.sessionHistory.artworkFailed.contains(original.reference))
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/media/prepare") }.count == 2)
+    #expect(!fixture.requests.contains { $0.url!.path.contains("/command") || $0.url!.path.hasSuffix("/start") })
+}

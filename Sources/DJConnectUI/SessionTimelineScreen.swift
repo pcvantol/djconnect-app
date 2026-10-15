@@ -398,6 +398,9 @@ struct SessionTimelineScreen: View {
                                     allowsPlaybackActions: liveMessage != nil,
                                     playingActionID: model.playingAskDJActionID,
                                     artworkModel: model,
+                                    artworkPreparing: history.artworkPreparing.contains(entry.reference),
+                                    artworkFailed: history.artworkFailed.contains(entry.reference),
+                                    refreshArtwork: history.artworkAvailable ? { Task { await history.refreshArtwork(for: entry) } } : nil,
                                     playAction: { action in history.playLiveAction(action, for: entry, expectedEpoch: actionEpoch) },
                                     highlights: matchMap[entry.id]?.text == entry.text ? (matchMap[entry.id]?.highlights ?? []) : [],
                                     isSelectedMatch: selectedMatchID == entry.id || initialAnchor == entry.id,
@@ -890,6 +893,9 @@ struct SessionEntryView: View, Equatable {
     var allowsPlaybackActions = false
     var playingActionID: String? = nil
     var artworkModel: DJConnectAppModel? = nil
+    var artworkPreparing = false
+    var artworkFailed = false
+    var refreshArtwork: (() -> Void)? = nil
     var playAction: (DJConnectAskDJPlaybackAction) -> Void = { _ in }
     var highlights: [DJConnectHistoryHighlight] = []
     var isSelectedMatch = false
@@ -899,7 +905,8 @@ struct SessionEntryView: View, Equatable {
         lhs.entry == rhs.entry && lhs.language == rhs.language && lhs.messageAdapter == rhs.messageAdapter &&
         lhs.contextEpoch == rhs.contextEpoch && lhs.opensActiveComposer == rhs.opensActiveComposer &&
         lhs.allowsPlaybackActions == rhs.allowsPlaybackActions && lhs.playingActionID == rhs.playingActionID &&
-        lhs.artworkModel === rhs.artworkModel && lhs.highlights == rhs.highlights && lhs.isSelectedMatch == rhs.isSelectedMatch && lhs.selected == rhs.selected
+        lhs.artworkModel === rhs.artworkModel && lhs.artworkPreparing == rhs.artworkPreparing &&
+        lhs.artworkFailed == rhs.artworkFailed && (lhs.refreshArtwork == nil) == (rhs.refreshArtwork == nil) && lhs.highlights == rhs.highlights && lhs.isSelectedMatch == rhs.isSelectedMatch && lhs.selected == rhs.selected
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
     var body: some View {
@@ -935,6 +942,21 @@ struct SessionEntryView: View, Equatable {
                         Label(text(entry.kind == .djMoment ? "ui.session.moment.generic" : "ui.session.history.playback"),
                               systemImage: entry.kind == .djMoment ? "sparkles" : "music.note")
                             .font(.caption.weight(.semibold)).padding(.trailing, 40)
+                        if let refreshArtwork {
+                            Button(action: refreshArtwork) {
+                                HStack(spacing: 6) {
+                                    if artworkPreparing { ProgressView().controlSize(.small) }
+                                    else { Image(systemName: "arrow.clockwise") }
+                                    Text(text("ui.session.artwork.refresh"))
+                                }
+                            }
+                            .buttonStyle(.bordered).controlSize(.small)
+                            .disabled(artworkPreparing)
+                            .accessibilityIdentifier("session-artwork-refresh-" + entry.id)
+                            if artworkFailed {
+                                Text(text("ui.session.artwork.unavailable")).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
                         SessionHighlightedText(text: entry.text ?? "", highlights: highlights).font(.title3)
                         SessionTimestampText(value: entry.occurredAt, language: language).font(.caption).foregroundStyle(.secondary)
                         ForEach(sourceURLs, id: \.absoluteString) { url in

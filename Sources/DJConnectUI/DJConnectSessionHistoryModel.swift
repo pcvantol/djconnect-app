@@ -27,6 +27,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         public var contextChanged = false
     }
 
+    @Published public private(set) var artworkAvailable = false
+    @Published public private(set) var artworkPreparing: Set<DJConnectSessionEntryReference> = []
+    @Published public private(set) var artworkFailed: Set<DJConnectSessionEntryReference> = []
     @Published public private(set) var available = false
     @Published public private(set) var preparing = false
     @Published public private(set) var searchAvailable = false
@@ -223,6 +226,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         do {
             let caps = try await host.withHomeAssistantClient { try await $0.sessionHistoryCapabilities() }
             guard captured == epoch, host.canRefreshSessionHistory, !Task.isCancelled else { return }
+            artworkAvailable = caps.artworkAvailable
             available = caps.available; searchAvailable = caps.searchAvailable; momentInsightAvailable = caps.momentInsightAvailable
             if available && !profileScopeActive {
                 while host.isSendingAskDJText || host.isRecordingVoice || host.voiceStatus == .processing {
@@ -248,6 +252,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         host?.dismissMomentTrackInsight()
         preparationTask?.cancel(); preparationTask = nil; preparationID = UUID(); preparing = false
         liveResponses = [:]
+        artworkAvailable = false; artworkPreparing = []; artworkFailed = []
         epoch = UUID(); searchGeneration = UUID(); listGeneration = UUID(); navigationGeneration = UUID()
         searchTask?.cancel(); searchTask = nil
         available = false; searchAvailable = false; momentInsightAvailable = false; profileScopeActive = false; ownerScope = nil
@@ -265,6 +270,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         host?.dismissMomentTrackInsight()
         preparationTask?.cancel(); preparationTask = nil; preparationID = UUID(); preparing = false
         liveResponses = [:]
+        artworkAvailable = false; artworkPreparing = []; artworkFailed = []
         epoch = UUID(); ownerScope = nil
         listGeneration = UUID(); timelineGenerations = [:]; timelineNavigations = [:]; navigationGeneration = UUID()
         listLoading = false; listNextCursor = nil; listRevision = nil
@@ -295,6 +301,60 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             // A transient history read must not erase a confirmed conversation
             // or its still-valid presentation. Explicit authority errors revoke it.
             _ = withdrawAuthority(for: error)
+        }
+    }
+
+    /// Explicit older-row refresh only. Opening/reading/expiry never calls this.
+    public func refreshArtwork(for original: DJConnectHistoryEntry) async {
+        let ref = original.reference
+        guard artworkAvailable, let host, host.canRefreshSessionHistory,
+              [.playbackObserved, .djMoment].contains(original.kind), original.isRetained(),
+              artworkPreparing.count < 2, !artworkPreparing.contains(ref),
+              timelines[ref.sessionID]?.entries.contains(original) == true else { return }
+        let captured = epoch
+        artworkPreparing.insert(ref); artworkFailed.remove(ref)
+        defer { if captured == epoch { artworkPreparing.remove(ref) } }
+        do {
+            let response = try await host.withHomeAssistantClient(allowsOperationReplay: false) {
+                try await $0.prepareSessionArtwork(sessionID: ref.sessionID, targets: [.entry(ref.entryID)])
+            }
+            guard captured == epoch, host.canRefreshSessionHistory, !Task.isCancelled,
+                  timelines[ref.sessionID]?.entries.contains(original) == true, original.isRetained() else { return }
+            guard let media = response.first(where: { $0.target == .entry(ref.entryID) }) else {
+                artworkFailed.insert(ref); return
+            }
+            func patch(_ rows: [DJConnectHistoryEntry]) -> [DJConnectHistoryEntry] {
+                rows.map { row in
+                    guard row.reference == ref else { return row }
+                    var copy = row; copy.sessionMedia = media; return copy
+                }
+            }
+            if var timeline = timelines[ref.sessionID] {
+                timeline.entries = patch(timeline.entries); timelines[ref.sessionID] = timeline
+            }
+            historicalMatches = historicalMatches.mapValues(patch)
+            searchMatches = patch(searchMatches)
+            let audience: DJConnectSessionMedia.Audience = media.artwork.historicalDisplayAllowed ? .history : .activeFlow
+            if media.admittedArtwork(session: ref.sessionID, target: .entry(ref.entryID), audience: audience) == nil {
+                artworkFailed.insert(ref)
+            }
+        } catch {
+            guard captured == epoch, !Task.isCancelled, host.canRefreshSessionHistory,
+                  timelines[ref.sessionID]?.entries.contains(original) == true else { return }
+            // A failed explicit revalidation must not leave the old image shown.
+            // Clear only this still-matching target; preserve text and any newer grant.
+            func clear(_ rows: [DJConnectHistoryEntry]) -> [DJConnectHistoryEntry] {
+                rows.map { row in
+                    guard row.reference == ref else { return row }
+                    var copy = row; copy.sessionMedia = nil; return copy
+                }
+            }
+            if var timeline = timelines[ref.sessionID] {
+                timeline.entries = clear(timeline.entries); timelines[ref.sessionID] = timeline
+            }
+            historicalMatches = historicalMatches.mapValues(clear)
+            searchMatches = clear(searchMatches)
+            artworkFailed.insert(ref)
         }
     }
 

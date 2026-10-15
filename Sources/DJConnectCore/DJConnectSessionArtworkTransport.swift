@@ -29,6 +29,7 @@ private actor SessionArtworkBudget {
 final class DJConnectSessionArtworkTransport: Sendable {
     private static let budget = SessionArtworkBudget()
     private let session: URLSession
+    private let preparationSession: URLSession
     static let maximumBytes = 2 * 1024 * 1024
 
     init(configuration: URLSessionConfiguration) {
@@ -40,8 +41,11 @@ final class DJConnectSessionArtworkTransport: Sendable {
         configuration.timeoutIntervalForRequest = 8
         configuration.timeoutIntervalForResource = 8
         session = URLSession(configuration: configuration, delegate: SessionArtworkRedirectGuard(), delegateQueue: nil)
+        configuration.timeoutIntervalForRequest = 22
+        configuration.timeoutIntervalForResource = 22
+        preparationSession = URLSession(configuration: configuration, delegate: SessionArtworkRedirectGuard(), delegateQueue: nil)
     }
-    deinit { session.invalidateAndCancel() }
+    deinit { session.invalidateAndCancel(); preparationSession.invalidateAndCancel() }
 
     func load(_ request: URLRequest, width: Int, height: Int) async throws -> DJConnectSessionArtworkImage {
         try await Self.budget.acquire()
@@ -55,8 +59,28 @@ final class DJConnectSessionArtworkTransport: Sendable {
         }
     }
 
+    func prepare(_ request: URLRequest) async throws -> Data {
+        try await Self.budget.acquire()
+        do {
+            let (data, _) = try await responseData(request, using: preparationSession,
+                maximumBytes: 64 * 1024, allowedMIMEs: ["application/json"])
+            await Self.budget.release()
+            return data
+        } catch {
+            await Self.budget.release()
+            throw error
+        }
+    }
+
     private func download(_ request: URLRequest, width: Int, height: Int) async throws -> DJConnectSessionArtworkImage {
-        let (bytes, response) = try await session.bytes(for: request)
+        let (data, mime) = try await responseData(request, using: session,
+            maximumBytes: Self.maximumBytes, allowedMIMEs: ["image/png", "image/jpeg"])
+        return try Self.decode(data, mime: mime, width: width, height: height)
+    }
+
+    private func responseData(_ request: URLRequest, using transport: URLSession,
+                              maximumBytes: Int, allowedMIMEs: [String]) async throws -> (Data, String) {
+        let (bytes, response) = try await transport.bytes(for: request)
         defer { bytes.task.cancel() }
         guard let response = response as? HTTPURLResponse, response.url == request.url else { throw DJConnectError.invalidResponse }
         switch response.statusCode {
@@ -66,22 +90,21 @@ final class DJConnectSessionArtworkTransport: Sendable {
         case 404, 410: throw DJConnectError.routeMissing(message: nil)
         default: throw DJConnectError.server(statusCode: response.statusCode, message: nil)
         }
-        guard response.expectedContentLength <= Int64(Self.maximumBytes) else {
-            throw DJConnectError.payloadTooLarge(limitBytes: Self.maximumBytes, actualBytes: nil)
+        guard response.expectedContentLength <= Int64(maximumBytes) else {
+            throw DJConnectError.payloadTooLarge(limitBytes: maximumBytes, actualBytes: nil)
         }
-        let mime = response.mimeType?.lowercased()
-        guard mime == "image/png" || mime == "image/jpeg" else { throw DJConnectError.invalidResponse }
+        guard let mime = response.mimeType?.lowercased(), allowedMIMEs.contains(mime) else { throw DJConnectError.invalidResponse }
         var data = Data()
         for try await byte in bytes {
             try Task.checkCancellation()
-            guard data.count < Self.maximumBytes else {
-                throw DJConnectError.payloadTooLarge(limitBytes: Self.maximumBytes, actualBytes: data.count + 1)
+            guard data.count < maximumBytes else {
+                throw DJConnectError.payloadTooLarge(limitBytes: maximumBytes, actualBytes: data.count + 1)
             }
             data.append(byte)
         }
         try Task.checkCancellation()
         guard response.expectedContentLength < 0 || data.count == response.expectedContentLength else { throw DJConnectError.invalidResponse }
-        return try Self.decode(data, mime: mime!, width: width, height: height)
+        return (data, mime)
     }
 
     static func decode(_ data: Data, mime: String, width: Int, height: Int) throws -> DJConnectSessionArtworkImage {
@@ -95,7 +118,12 @@ final class DJConnectSessionArtworkTransport: Sendable {
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               properties[kCGImagePropertyPixelWidth] as? Int == width,
               properties[kCGImagePropertyPixelHeight] as? Int == height,
-              let image = CGImageSourceCreateImageAtIndex(source, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary)
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: 512,
+                kCGImageSourceShouldCacheImmediately: true
+              ] as CFDictionary)
         else { throw DJConnectError.invalidResponse }
         return .init(image: image)
     }

@@ -111,3 +111,54 @@ No source pixels are clipped. Explicit older-entry prepare/refresh, broader
 withdrawal/race/native-accessibility acceptance, actual artistA/currentB cards,
 real Mac pixels and hardware/joint acceptance remain OPEN. No physical install,
 source push, PR, CI dispatch, protected merge or publication occurred.
+
+## 40091 — explicit retained-entry preparation
+
+Continued autonomously from26eb8e2 on the same consumer/writer. Added the exact
+version1 paired `/session/media/prepare` adapter: explicit call only, one to eight
+unique exact targets, no caller subject/text/provider URL/account. A separate
+22s no-cache/no-cookie/no-redirect preparation transport bounds JSON to64KiB;
+the shared two-operation budget also covers this work. Responses must preserve
+Session and requested target bindings; duplicates/substitutions are rejected.
+Image transfer remains8s and2MiB, with source dimensions/type checked before
+proportional512px thumbnail decoding. This preserves the complete image area
+without large decoded source textures on the100pt native cards.
+
+The existing history model owns the explicit row action. It is shown only when
+Core advertises session_artwork contract1, uses the existing client with effectful
+replay disabled and retains the original owner epoch/entry. It patches only
+media, preserving text/order/identity/retention/counters/selection. Loading disables
+only that button. Unknown/unavailable results are compact; denied revalidation
+removes only the still-matching old image, never a newer grant or the pairing.
+Pure reads/open/search/expiry never call preparation. Copy is localized in all
+five existing languages. This is not a background widget grant.
+
+Source review caught a stale-image-on-refresh-denial path; fixed before commit.
+A separate app/history-model test verifies no prepare on reading, ready media on
+explicit action, then target-only removal on403 with text/order/pairing retained.
+Protocol tests cover exact request fields, max8/duplicates, target substitution,
+real synthetic image decode and late expiry; the late-byte test now also proves
+that it genuinely traverses the delayed request rather than failing early on
+submillisecond date rounding. These media tests are serialized to respect the
+production two-operation budget. A1024×512 fixture is decoded to512×256, proving
+proportional sizing without cropping.
+
+Full605-test regression PASS:
+`/private/tmp/djc-artwork-40091-regression-verified.log`.
+Focused history integration PASS:
+`/private/tmp/djc-artwork-40091-history-test.log`.
+Five-language1142-key validation PASS.
+Mac signed build PASS: `/private/tmp/djc-artwork-40091-mac-thumbnail.log`.
+Final native iPhone pixel/original-expiry/text preservation PASS:
+`/private/tmp/djc-artwork-40091-iphone-verified.xcresult`.
+All11 changed Sources inputs match the isolated build snapshot byte-for-byte.
+Final iPad rerun is recorded in the status ledger after completion.
+
+Explicit refresh is qualified through the app model and actual URLSession request
+adapter; its older-entry native button/real HA positive chain is still OPEN.
+Current-view native tests remain explicitly composed synthetic HTTP fixtures,
+not physical devices, live provider retrieval, WSS, actual licensed artist pixels
+or joint producer acceptance. Source/Profile ABA, broad VoiceOver/large-text/native
+Mac acceptance and the remaining lane/hardware matrix are not silently closed.
+Speech/Persona stays behind artwork qualification; passive widgets remain blocked
+on their separate Core producer. Existing source-publication pause remains.

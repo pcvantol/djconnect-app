@@ -1193,3 +1193,6 @@
 "surface.session.open" = "Ouvrir la session DJ";
 "surface.session.open.app" = "Ouvrez DJConnect pour voir votre session.";
 "surface.session.description" = "Votre session DJ avec un statut commun.";
+
+"ui.session.artwork.refresh" = "Actualiser l’image";
+"ui.session.artwork.unavailable" = "Aucune image n’est disponible pour le moment.";
