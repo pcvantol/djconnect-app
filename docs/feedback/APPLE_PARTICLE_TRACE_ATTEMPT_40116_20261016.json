@@ -10,5 +10,8 @@
   "physical_ipad_instruments": "xctrace list devices reports iPad offline; native UI tooling previously reachable. No iPad performance capture attempted.",
   "storage": "Fresh internal df unexpectedly dropped to991MiB; trace itself40KiB, cause not established. Removed643MiB allocated unused own compiler intermediates/index after lsof checks, products/source/screenshots/xcresults/logs preserved. Fresh df1.6GiB free.",
   "cleanup_receipt": "/private/tmp/djc-safe-cache-cleanup-20261016-0059.json",
-  "remaining": "Performance acceptance OPEN; avoid further large builds until disk stabilized. LAN topology unchanged, no shared Docker restart. No eligible stale branches/worktrees; active writer/untracked projects preserved."
+  "remaining": "Performance acceptance OPEN; avoid further large builds until disk stabilized. LAN topology unchanged, no shared Docker restart. No eligible stale branches/worktrees; active writer/untracked projects preserved.",
+  "storage_followup": "At01:11 located own failed Instruments temporary ktrace6,963,674,704bytes outside .trace folder, birth00:57:13 matches own capture. Sole handle orphanDTServiceHub75281 (recorded during original attempt). Terminated only that helper, verified lsof empty, removed exact failed temp file. Incomplete .trace/logs/xcresults/screenshots/source/products preserved. Fresh df8.1GiB internal, APFS CapacityFree8,685,969,408bytes. Cause of sudden drop now identified; no unrelated cleanup or Docker restart.",
+  "storage_followup_receipt": "/private/tmp/djc-failed-instruments-cleanup-20261016-0111.json",
+  "next": "Avoid repeating large Instruments captures without investigating failed finalization/temp bounds. Mac and iPad vinyl movement already qualified in Demo. Particle performance and LAN ingress remain OPEN; Core has received exact restored host-space readback."
 }
