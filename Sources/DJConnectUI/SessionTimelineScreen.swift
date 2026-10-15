@@ -257,6 +257,13 @@ struct SessionTimelineScreen: View {
         false
         #endif
     }
+    private var usesExpandedToolbar: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .pad
+        #else
+        false
+        #endif
+    }
     private var timeline: DJConnectSessionHistoryModel.Timeline { history.timelines[sessionID] ?? .init() }
     @ViewBuilder private var sessionBackground: some View {
         if let activeSession {
@@ -470,21 +477,29 @@ struct SessionTimelineScreen: View {
                     sessionSearchToolbarButton(proxy: proxy)
                 }
                 #endif
+                #if os(iOS)
+                if usesExpandedToolbar {
+                    ToolbarItemGroup(placement: .topBarLeading) {
+                        if activeSession != nil { SessionConnectionToolbarButton(model: model) }
+                        sessionSearchToolbarButton(proxy: proxy)
+                    }
+                }
+                #endif
                 ToolbarItemGroup(placement: djConnectRefreshToolbarPlacement) {
                     if let activeSession {
                         #if !os(macOS)
-                        SessionConnectionToolbarButton(model: model)
+                        if !usesExpandedToolbar { SessionConnectionToolbarButton(model: model) }
                         #endif
                         ActiveSessionMoodToolbar(model: model, session: activeSession)
                         ActiveSessionPresenceToolbar(model: model, session: activeSession)
                     }
                     #if !os(macOS)
-                    if activeSession != nil {
+                    if !usesExpandedToolbar, activeSession != nil {
                         SessionEndToolbarButton(model: model)
                     }
                     #endif
                     #if !os(macOS)
-                    sessionSearchToolbarButton(proxy: proxy)
+                    if !usesExpandedToolbar { sessionSearchToolbarButton(proxy: proxy) }
                     #endif
                     #if os(macOS)
                     if let activeSession, !model.isDemoMode {
@@ -501,7 +516,25 @@ struct SessionTimelineScreen: View {
                         }
                     }
                     #else
-                    if (activeSession != nil && !model.isDemoMode) || refreshAction != nil {
+                    if usesExpandedToolbar {
+                        if activeSession != nil && !model.isDemoMode {
+                            Button { showingHandoff = true } label: {
+                                Image(systemName: "tv.badge.wifi")
+                                    .foregroundStyle(model.vibeCastHandoffApproved ? djConnectAccent : .white)
+                            }
+                            .accessibilityLabel(text("ui.vibecast.handoff.title"))
+                            .accessibilityIdentifier("session-handoff-toggle")
+                        }
+                        if activeSession != nil { SessionEndToolbarButton(model: model) }
+                        if let refreshAction {
+                            Button(action: refreshAction) {
+                                Image(systemName: "arrow.clockwise").foregroundStyle(.white)
+                            }
+                            .disabled(model.isDemoMode || model.pairingStatus != .paired)
+                            .accessibilityLabel(text("ui.refresh"))
+                            .accessibilityIdentifier("screen-refresh")
+                        }
+                    } else if (activeSession != nil && !model.isDemoMode) || refreshAction != nil {
                         SessionMoreMenu(
                             sessionID: sessionID, authorityEpoch: history.responseEpoch, language: model.language,
                             showsHandoff: activeSession != nil && !model.isDemoMode,

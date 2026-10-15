@@ -1650,7 +1650,8 @@ extension DJConnectIOSUITests {
         XCTAssertFalse(input.exists)
     }
 
-    func testSessionMoreMenuRemainsOpenAcrossPlaybackTicks() {
+    func testSessionMoreMenuRemainsOpenAcrossPlaybackTicks() throws {
+        guard UIDevice.current.userInterfaceIdiom == .phone else { throw XCTSkip("iPad exposes actions directly") }
         let app = launchSessionUIDemo()
         let menu = app.buttons["session-more-menu"]
         XCTAssertTrue(menu.waitForExistence(timeout: 10))
@@ -1686,6 +1687,31 @@ extension DJConnectIOSUITests {
         }
         let toolbarAfter = XCTAttachment(screenshot: app.screenshot())
         toolbarAfter.name = "session-full-toolbar-after-closing-menu"; toolbarAfter.lifetime = .keepAlways; add(toolbarAfter)
+    }
+
+    func testIPadSessionToolbarSplitsActionsWithoutOverflow() throws {
+        guard UIDevice.current.userInterfaceIdiom == .pad else { throw XCTSkip("iPad toolbar layout") }
+        let app = launchSessionUIDemo()
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let identifiers = ["session-connection-toggle", "session-search-toggle", "session-mood-toggle",
+                           "session-presence-toggle", "session-end-button", "screen-refresh"]
+        for orientation in [UIDeviceOrientation.portrait, .landscapeLeft] {
+            XCUIDevice.shared.orientation = orientation
+            XCTAssertTrue(app.buttons["screen-refresh"].waitForExistence(timeout: 10))
+            for identifier in identifiers {
+                XCTAssertTrue(app.buttons[identifier].exists && app.buttons[identifier].isHittable, identifier)
+            }
+            XCTAssertFalse(app.buttons["session-more-menu"].exists)
+            let search = app.buttons["session-search-toggle"].frame
+            let mood = app.buttons["session-mood-toggle"].frame
+            let refresh = app.buttons["screen-refresh"].frame
+            XCTAssertLessThan(search.maxX, app.frame.midX)
+            XCTAssertGreaterThan(mood.minX, app.frame.midX)
+            XCTAssertGreaterThan(refresh.minX, app.buttons["session-end-button"].frame.minX)
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = orientation == .portrait ? "ipad-split-toolbar-portrait" : "ipad-split-toolbar-landscape"
+            shot.lifetime = .keepAlways; add(shot)
+        }
     }
 
     func testSessionMoodGlassChoicesAndSelection() {
