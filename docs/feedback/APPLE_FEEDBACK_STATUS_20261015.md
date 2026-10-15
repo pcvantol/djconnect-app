@@ -1130,3 +1130,17 @@ and softened underlying paragraph:
 Final macOS compile build40084 PASS:
 /private/tmp/djc-translucent-frosted-40084-mac.log.
 No installation or publication.
+
+## Feedback heading uses standard Hero card — 2026-10-15
+
+FeedbackPromptView now places the shared gradient speech-bubble Hero glyph and
+centered localized “Feedback delen” title together in djConnectHeroCard(), using
+the existing24ptpadding,16ptspacing and common card shape/outline. Removed the
+separate one-off FeedbackPromptIcon. Body guidance and native sheet actions stay
+outside the Hero card. No backend, issue creation, upload or navigation change.
+
+Both platform compiles PASS:
+/private/tmp/djc-feedback-hero-40085-ios.log (iOS Simulator build),
+/private/tmp/djc-feedback-hero-40085-mac.log (macOS40085 build).
+No new tests for this presentation-only modifier reuse, no physical/visual
+acceptance claim, no installation or source publication.

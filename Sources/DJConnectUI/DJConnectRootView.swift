@@ -18289,14 +18289,19 @@ private struct FeedbackPromptView: View {
             DJConnectCanvasBackground()
             VStack(alignment: .leading, spacing: 22) {
                 AboutBanner()
-                FeedbackPromptIcon()
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(spacing: 16) {
+                    DJConnectHeroGlyph(systemImage: "bubble.left.and.bubble.right")
                     Text(localizedKey(model.language, "ui.share.feedback"))
-                        .font(.title.bold())
-                    Text(localizedKey(model.language, "ui.open.a.github.issue.with.redacted.app.context.nothing.is"))
+                        .font(.title2.weight(.bold))
+                        .multilineTextAlignment(.center)
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity)
+                .djConnectHeroCard()
+
+                Text(localizedKey(model.language, "ui.open.a.github.issue.with.redacted.app.context.nothing.is"))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                }
 
                 VStack(spacing: 12) {
                     Button {
@@ -18319,17 +18324,6 @@ private struct FeedbackPromptView: View {
             .padding(28)
             .frame(minWidth: 360, idealWidth: 520, maxWidth: 620)
         }
-    }
-}
-
-private struct FeedbackPromptIcon: View {
-    var body: some View {
-        Image(systemName: "bubble.left.and.bubble.right")
-            .font(.system(size: 46, weight: .semibold))
-            .symbolRenderingMode(.hierarchical)
-            .foregroundStyle(djConnectIconGradient)
-            .frame(maxWidth: .infinity)
-            .accessibilityHidden(true)
     }
 }
 
