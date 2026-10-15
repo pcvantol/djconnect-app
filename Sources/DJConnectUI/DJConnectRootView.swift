@@ -10657,6 +10657,13 @@ private struct OutputSelectorView: View {
     @ObservedObject var model: DJConnectAppModel
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
 
+    private var sortedOutputs: [DJConnectOutputDevice] {
+        model.availableOutputs.sorted { left, right in
+            let order = left.name.localizedStandardCompare(right.name)
+            return order == .orderedSame ? left.id < right.id : order == .orderedAscending
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -10689,7 +10696,7 @@ private struct OutputSelectorView: View {
                 )
             } else {
                 VStack(spacing: 8) {
-                    ForEach(model.availableOutputs) { output in
+                    ForEach(sortedOutputs) { output in
                         OutputDeviceChoiceRow(
                             language: model.language,
                             output: output,

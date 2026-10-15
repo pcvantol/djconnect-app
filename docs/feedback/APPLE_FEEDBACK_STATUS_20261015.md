@@ -983,3 +983,17 @@ preferences/entitlements preservation PASS; receipt
 `/private/tmp/djc-output-fill-40079-mac-install.json`. No physical speaker transfer
 inferred; MacBook/iPhone not installed in this bounded style update. Source
 publication pause and unrelated writer directories preserved.
+
+
+## Alphabetic output-device list — build40080
+
+OutputSelectorView sorts its presentation copy by native localizedStandardCompare
+on the displayed device name, with stable device ID tie-breaking. Active/pending
+and cached/recently-seen devices participate in the same ordering; changing the
+active speaker does not promote its row. Backend/model collection order and
+command identities are unchanged. No new tests for this bounded presentation-only
+sort. Existing native iPad one-tap confirmed-selection/control-availability test
+PASS (one test, zero failures), `/private/tmp/djc-output-alphabetic-40080-ipad.xcresult`.
+Signed iOS/macOS40080 builds PASS, logs
+`/private/tmp/djc-output-alphabetic-40080-{ios,mac}-build.log`; diff check PASS.
+No source publication or additional physical speaker-transfer claim.
