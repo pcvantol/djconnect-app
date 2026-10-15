@@ -19,6 +19,7 @@ public final class DJConnectClient: Sendable {
 
     private let session: URLSession
     private let hybridTransport: DJConnectHybridTransport?
+    private let speechTransport: DJConnectSpeechTransport
     private let sessionArtworkTransport: DJConnectSessionArtworkTransport
     private let sessionProjectionSession: URLSession
     private let encoder: JSONEncoder
@@ -51,6 +52,7 @@ public final class DJConnectClient: Sendable {
         projectionConfiguration.httpShouldSetCookies = false
         projectionConfiguration.urlCredentialStorage = nil
         self.sessionProjectionSession = URLSession(configuration: projectionConfiguration, delegate: session.delegate, delegateQueue: session.delegateQueue)
+        self.speechTransport = DJConnectSpeechTransport(configuration: session.configuration)
         self.sessionArtworkTransport = DJConnectSessionArtworkTransport(configuration: session.configuration)
         self.encoder = JSONEncoder()
         self.decoder = JSONDecoder()
@@ -370,6 +372,66 @@ public final class DJConnectClient: Sendable {
 
     public func sessionHistoryCapabilities() async throws -> DJConnectSessionHistoryCapabilities {
         try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
+    }
+
+    public func speechVoiceOptions() async throws -> DJConnectSpeechVoiceOptions {
+        let request = try speechJSONRequest(path: "voice-options", payload: DJConnectSpeechContractRequest())
+        let response = try decoder.decode(DJConnectSpeechVoiceOptionsResponse.self, from: await speechTransport.data(for: request))
+        guard response.success, response.speech_voice_options.isValid else { throw DJConnectError.invalidResponse }
+        return response.speech_voice_options
+    }
+
+    public func prepareSpeech(_ original: DJConnectSessionSpeech, acceptedText: String,
+                              processor: DJConnectSpeechProcessor, preference: DJConnectVoicePreference = .default,
+                              voiceOptions: DJConnectSpeechVoiceOptions? = nil) async throws -> DJConnectSessionSpeech {
+        guard original.admits(reference: original.reference, text: acceptedText), original.processors.contains(processor),
+              preference == .default || voiceOptions?.supports(preference) == true else { throw DJConnectError.invalidResponse }
+        let request = try speechJSONRequest(path: "prepare", payload: DJConnectSpeechPrepareRequest(
+            reference: original.reference, processor: processor, voice_preference: preference))
+        let response = try decoder.decode(DJConnectSpeechResponse.self, from: await speechTransport.data(for: request))
+        let prepared = response.session_speech
+        guard response.success, prepared.schemaVersion == 1, prepared.reference == original.reference else { throw DJConnectError.invalidResponse }
+        if ["unavailable", "expired", "withdrawn"].contains(prepared.state), !prepared.manualAllowed, !prepared.autoplayEligible { return prepared }
+        guard prepared.admits(reference: original.reference, text: acceptedText),
+              prepared.processors.contains(processor),
+              prepared.textRevision == original.textRevision, prepared.presentationRevision == original.presentationRevision,
+              prepared.persona == original.persona, prepared.personaRevision == original.personaRevision,
+              prepared.locale == original.locale, prepared.attribution == original.attribution,
+              let expiry = prepared.expiresAt.flatMap(DJConnectHistoryEntry.date),
+              let originalExpiry = original.expiresAt.flatMap(DJConnectHistoryEntry.date),
+              expiry <= originalExpiry, expiry.timeIntervalSinceNow <= 300.001,
+              processor == .localOnDevice ? prepared.audioState == "renderer_pending" : prepared.audioState == "ready"
+        else { throw DJConnectError.invalidResponse }
+        if processor == .haConfigured {
+            guard prepared.effectiveVoice?.processor == processor, prepared.effectiveVoice?.locale == prepared.locale,
+                  preference == .default || prepared.effectiveVoice?.gender == preference.rawValue else { throw DJConnectError.invalidResponse }
+        } else {
+            guard prepared.audioReference == nil, prepared.effectiveVoice == nil, prepared.voicePreference == preference else { throw DJConnectError.invalidResponse }
+        }
+        return prepared
+    }
+
+    public func speechAudio(_ prepared: DJConnectSessionSpeech, acceptedText: String) async throws -> Data {
+        guard prepared.admits(reference: prepared.reference, text: acceptedText), prepared.audioState == "ready",
+              prepared.effectiveVoice?.processor == .haConfigured,
+              prepared.effectiveVoice?.locale == prepared.locale,
+              prepared.effectiveVoice?.voiceID.isEmpty == false,
+              let resource = prepared.audioReference, resource.isValid else { throw DJConnectError.invalidResponse }
+        let request = try speechJSONRequest(path: "audio", payload: DJConnectSpeechAudioRequest(asset_id: resource.assetID))
+        let bytes = try await speechTransport.data(for: request, audio: true)
+        guard prepared.admits(reference: prepared.reference, text: acceptedText) else { throw DJConnectError.invalidResponse }
+        return bytes
+    }
+
+    private func speechJSONRequest<T: Encodable>(path: String, payload: T) throws -> URLRequest {
+        _ = try makeDJConnectIdentity()
+        var request = try authenticatedRequest(path: "/api/djconnect/v1/speech/" + path)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(DJConnectSpeechIdentifiedRequest(
+            clientType: identity.clientType, deviceID: identity.deviceID, payload: payload))
+        request.cachePolicy = .reloadIgnoringLocalCacheData; request.timeoutInterval = 22
+        return request
     }
 
     /// Explicit user-authorized preparation only. Never call from a pure

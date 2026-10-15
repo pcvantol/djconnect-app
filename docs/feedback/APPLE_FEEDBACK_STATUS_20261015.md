@@ -1235,3 +1235,11 @@ This advances the selected artwork consumer; it does not close real HA/provider/
 
 Final exact-build iPad native pixel/expiry/text retention rerun PASS:
 `/private/tmp/djc-artwork-40091-ipad-verified.xcresult`.
+
+### Speech successor — initial bounded adapter, 40092
+
+Same Apple writer continues the directly requested next lane step. Exact local/unpublished Core6b26158a fixture SHA2568c2fb025... verified. Added typed ephemeral speech/reference/provider-options and bounded private paired prepare/audio adapters, with minimal strict request bodies, exact accepted text/revision/deadline checks and actual WAV validation. No production UI caller or JSON/WAV opt-in enabled; player/Persona/autoplay/native audible qualification remains OPEN.
+
+Seven focused tests PASS; full612 shared tests and iOS/Watch + Mac builds PASS. Logs `/private/tmp/djc-speech-40092-{contract-tests,seven-tests,regression,ios,mac}.log`. Source pause and no-install boundary preserved.
+
+Reported original-descriptor processor-list mismatch to Core. Core confirms it and reports a local producer correction (permitted prepare attempts plus processor_qualification_required:true),107 owning tests; exact new pin/HA fixture/re-review still pending. Apple retains the old fixture and conservative check until actual replacement arrives. See APPLE_SESSION_SPEECH_ADOPTION_20261015.md.
