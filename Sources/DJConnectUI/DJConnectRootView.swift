@@ -3976,9 +3976,23 @@ struct TrackInsightView: View {
     @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
     @Environment(\.djConnectContentSizeClass) private var contentSizeClass
     private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
+    // A visual preference only; Session mood remains confirmed backend state.
+    @State private var standaloneMoodStepIndex = 1
     @State private var isShowingShare = false
     @State private var isAnimationActive = false
     @State private var statusToast: DJConnectVisualNotice?
+
+    private var moodStepIndex: Int {
+        model.confirmedSessionMoodInt == nil ? standaloneMoodStepIndex : model.playbackMoodStepIndex
+    }
+
+    @ViewBuilder private var moodToolbarButton: some View {
+        if let session = model.activeDJSession {
+            ActiveSessionMoodToolbar(model: model, session: session)
+        } else {
+            TrackInsightVisualMoodToolbar(language: model.language, selectedIndex: $standaloneMoodStepIndex)
+        }
+    }
 
     private var insight: TrackInsight? {
         explicitMoment ? model.momentTrackInsight : model.currentTrackInsight
@@ -4022,7 +4036,7 @@ struct TrackInsightView: View {
                                     TrackInsightHero(
                                         model: model,
                                         insight: insight,
-                                        moodStepIndex: model.playbackMoodStepIndex,
+                                        moodStepIndex: moodStepIndex,
                                         isAnimationActive: isAnimationActive,
                                         isPinnedSubject: explicitMoment
                                     )
@@ -4030,7 +4044,7 @@ struct TrackInsightView: View {
                                         .frame(maxWidth: .infinity, alignment: .topLeading)
                                     TrackInsightAnalysisCard(insight: insight, language: model.language)
                                         .frame(maxWidth: .infinity, alignment: .topLeading)
-                                    TrackInsightMetricsGrid(insight: insight, language: model.language, moodStepIndex: model.playbackMoodStepIndex)
+                                    TrackInsightMetricsGrid(insight: insight, language: model.language, moodStepIndex: moodStepIndex)
                                         .frame(maxWidth: .infinity, alignment: .topLeading)
                                     TrackInsightPrivacyFooter(language: model.language)
                                         .frame(maxWidth: .infinity, alignment: .top)
@@ -4088,7 +4102,10 @@ struct TrackInsightView: View {
                         .help(localizedKey(model.language, "ui.share.insight"))
                     }
 
-                    if !explicitMoment { SessionConnectionToolbarButton(model: model) }
+                    if !explicitMoment {
+                        moodToolbarButton
+                        SessionConnectionToolbarButton(model: model)
+                    }
                     insightRefreshButton
                 }
                 #else
@@ -4106,7 +4123,10 @@ struct TrackInsightView: View {
 
                 }
                 ToolbarItemGroup(placement: .confirmationAction) {
-                    if !explicitMoment { SessionConnectionToolbarButton(model: model) }
+                    if !explicitMoment {
+                        moodToolbarButton
+                        SessionConnectionToolbarButton(model: model)
+                    }
                     insightRefreshButton
                 }
                 #endif
@@ -4116,7 +4136,7 @@ struct TrackInsightView: View {
                     TrackInsightSharePreviewView(
                         insight: insight,
                         language: model.language,
-                        moodStepIndex: model.playbackMoodStepIndex
+                        moodStepIndex: moodStepIndex
                     )
                 }
             }
@@ -4168,7 +4188,7 @@ struct TrackInsightView: View {
             insight.artist,
             insight.visualProfile?.motionStyle?.rawValue ?? "",
             insight.visualProfile?.palette.joined(separator: ",") ?? "",
-            String(model.playbackMoodStepIndex),
+            String(moodStepIndex),
             String(model.confirmedSessionMoodInt ?? 35)
         ].joined(separator: "|")
     }
@@ -4221,6 +4241,37 @@ struct TrackInsightView: View {
             return ""
         }
         return parts.joined(separator: "\u{1F}")
+    }
+}
+
+/// Standalone color selection is ephemeral UI state, never a Profile mood or
+/// an analysis input. An active Session uses ActiveSessionMoodToolbar instead.
+private struct TrackInsightVisualMoodToolbar: View {
+    let language: String
+    @Binding var selectedIndex: Int
+    @State private var isPresented = false
+    private let moods = ["chill", "groove", "energy", "party"]
+    private func text(_ key: String) -> String { localizedKey(language, key) }
+
+    var body: some View {
+        Button { isPresented.toggle() } label: {
+            Image(systemName: askDJMoodIcon(for: selectedIndex)).foregroundStyle(.white)
+        }
+        .accessibilityLabel(text("ui.session.select_mood"))
+        .accessibilityValue(text("ui.session.mood." + moods[selectedIndex]))
+        .accessibilityIdentifier("track-insight-visual-mood-toggle")
+        .help(text("ui.session.select_mood"))
+        .popover(isPresented: $isPresented) {
+            MoodModeControl(
+                steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
+                selectedIndex: selectedIndex, language: language,
+                caption: text("ui.session.select_mood"), selectableLabels: true,
+                commitsOnDragEnd: true, showsCardBackground: false
+            ) { selectedIndex = $0 }
+            .padding(12)
+            .frame(idealWidth: 360)
+            .presentationCompactAdaptation(.popover)
+        }
     }
 }
 

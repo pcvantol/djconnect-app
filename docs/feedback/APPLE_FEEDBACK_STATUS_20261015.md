@@ -224,3 +224,17 @@ Unsigned Mac and iOS builds PASS: /private/tmp/djc-mood-stable-{mac,ios}.log.
 Localization validation PASS (1123 keys); git diff --check PASS. Source/layout
 validation only: actual popover motion on installed hardware is not yet verified.
 Pending40061; these changes have not been installed over40060.
+
+## Track Insight mood toolbar and standalone color choice
+
+Ordinary Track Insight now offers the shared mood popover before connection
+status and refresh in the iOS/iPadOS and Mac toolbar. With an active Session it
+uses ActiveSessionMoodToolbar and its existing confirmed backend operation.
+Without a Session, a view-local visual choice drives the hero, metric palette
+and share preview. This ephemeral choice does not write a Profile, create a
+Session, alter analysis inputs or reuse the old Ask DJ preference. Pinned Moment
+details do not offer this selector. Refresh remains at the trailing edge.
+Unsigned Mac/iOS builds PASS: /private/tmp/djc-insight-mood-{mac,ios}.log.
+Full Swift regression suite: 552 tests PASS in 29.506s,
+/private/tmp/djc-insight-mood-tests.log. Localization validation PASS (1123 keys);
+git diff --check PASS. Pending40061, not installed; physical UI acceptance open.
