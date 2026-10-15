@@ -6,6 +6,31 @@ import Testing
 @preconcurrency import AVFoundation
 #endif
 
+private final class PushReplyGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var reply: (() -> Void)?
+    private var waiter: CheckedContinuation<Void, Never>?
+    func install(_ reply: @escaping () -> Void) {
+        let waiting = lock.withLock { self.reply = reply; let value = waiter; waiter = nil; return value }
+        waiting?.resume()
+    }
+    func waitForRequest() async {
+        await withCheckedContinuation { continuation in
+            let ready = lock.withLock { if reply != nil { return true }; waiter = continuation; return false }
+            if ready { continuation.resume() }
+        }
+    }
+    func release() {
+        let callback = lock.withLock { let value = reply; reply = nil; return value }
+        callback?()
+    }
+}
+private struct DeferredPushReply: Error {
+    let gate: PushReplyGate
+    let response: HTTPURLResponse
+    let data: Data
+}
+
 private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var handlers: [String: (URLRequest) throws -> (HTTPURLResponse, Data)] = [:]
     private static let lock = NSLock()
@@ -49,6 +74,12 @@ private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: data)
             client?.urlProtocolDidFinishLoading(self)
+        } catch let deferred as DeferredPushReply {
+            deferred.gate.install { [self] in
+                client?.urlProtocol(self, didReceive: deferred.response, cacheStoragePolicy: .notAllowed)
+                client?.urlProtocol(self, didLoad: deferred.data)
+                client?.urlProtocolDidFinishLoading(self)
+            }
         } catch {
             client?.urlProtocol(self, didFailWithError: error)
         }
@@ -13574,4 +13605,99 @@ private extension String {
     }
     #expect(!defaults.bool(forKey: "DJConnectPushRegistered"))
     #expect(model.pushNotificationStatus.lastError == "push_registration_unconfirmed")
+}
+
+@MainActor @Test func pushStartupRegistrationKeepsLatestCallbackAndDrainsOnce() {
+    var buffer = DJConnectPushStartupBuffer()
+    buffer.received(token: Data([1]))
+    buffer.failed(NSError(domain: "synthetic", code: 1))
+    var batch = buffer.drain()
+    #expect(batch.token == nil)
+    #expect(batch.error != nil)
+    buffer.failed(NSError(domain: "synthetic", code: 2))
+    buffer.received(token: Data([2]))
+    buffer.received(token: Data())
+    batch = buffer.drain()
+    #expect(batch.token == Data([2]))
+    #expect(batch.error == nil)
+    let emptyRegistration = buffer.drain()
+    #expect(emptyRegistration.token == nil)
+}
+
+@MainActor @Test func pushStartupPreservesDiscoveryTapWithoutRetainingNotificationContent() {
+    var buffer = DJConnectPushStartupBuffer()
+    let received = buffer.enqueue(["data": ["eventType": "music_discovery_ready"], "aps": ["alert": "private text"], "token": "not-retained"])
+    let tapped = buffer.enqueue(["event_type": "music_discovery_ready"], openedFromTap: true)
+    let askDJ = buffer.enqueue(["event_type": "ask_dj_response"])
+    let unknown = buffer.enqueue(["event_type": "unknown"])
+    #expect(received && tapped && askDJ && !unknown)
+    let batch = buffer.drain()
+    #expect(batch.deliveries.count == 2)
+    #expect(batch.deliveries[0].eventType == "music_discovery_ready")
+    #expect(batch.deliveries[0].openedFromTap)
+    #expect(batch.deliveries[0].userInfo.count == 1)
+    #expect(batch.deliveries[0].userInfo["aps"] == nil)
+    let empty = buffer.drain()
+    #expect(empty.deliveries.isEmpty)
+    let legacyTap = buffer.enqueue([:], openedFromTap: true)
+    let legacy = buffer.drain()
+    #expect(legacyTap)
+    #expect(legacy.deliveries.first?.eventType == "ask_dj_response")
+}
+
+@Test func appleAppBundlesShipCanonicalTrustedPushIssuer() throws {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    for app in ["DJConnectIOS", "DJConnectMac"] {
+        let data = try Data(contentsOf: root.appendingPathComponent("Apps/\(app)/Info.plist"))
+        let info = try #require(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
+        #expect(info["DJConnectTrustedPairingIssuerBaseURL"] as? String == "https://api.djconnect.dev")
+    }
+}
+
+@MainActor @Test func obsoletePushRegistrationCannotAcceptOrReportFailureAfterHARouteChange() async throws {
+    for fails in [false, true] {
+        let defaults = try testDefaults(), gate = PushReplyGate()
+        let host = "push-obsolete-\(fails).local"
+        let session = mockSession(host: host) { request in
+            throw DeferredPushReply(gate: gate, response: try httpResponse(for: request, statusCode: fails ? 500 : 200),
+                                    data: Data(#"{"success":true,"push_registered":true,"push_environment":"sandbox"}"#.utf8))
+        }
+        let model = makePairedMusicDNAModel(defaults: defaults, host: host, session: session)
+        model.handleRemoteNotificationDeviceToken(Data([1, 2]))
+        await gate.waitForRequest()
+        model.homeAssistantURL = "http://different-installation.local:8123"
+        gate.release()
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(!defaults.bool(forKey: "DJConnectPushRegistered"))
+        #expect(defaults.string(forKey: "DJConnectLastPushError") == nil)
+    }
+}
+
+@MainActor @Test func obsoletePushRegistrationCannotReconfirmAfterUnpairing() async throws {
+    let defaults = try testDefaults(), gate = PushReplyGate()
+    let session = mockSession(host: "push-unpaired.local") { request in
+        throw DeferredPushReply(gate: gate, response: try httpResponse(for: request, statusCode: 200),
+                                data: Data(#"{"success":true,"push_registered":true,"push_environment":"sandbox"}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "push-unpaired.local", session: session)
+    model.handleRemoteNotificationDeviceToken(Data([1, 2]))
+    await gate.waitForRequest()
+    model.pairingStatus = .unpaired
+    gate.release()
+    try await Task.sleep(for: .milliseconds(300))
+    #expect(!defaults.bool(forKey: "DJConnectPushRegistered"))
+    #expect(defaults.string(forKey: "DJConnectLastPushError") == nil)
+}
+
+@MainActor @Test func pushKnownAskDJEventsAndLegacyTapsRouteWithoutTreatingUnknownEventsAsReplies() async throws {
+    let model = DJConnectAppModel(defaults: try testDefaults(), startBackgroundTasks: false)
+    let unknown = await model.handleRemoteNotificationPayload(["event_type": "unrelated"])
+    #expect(!unknown)
+    #expect(model.homeScreenActionRequest == nil)
+    let reply = await model.handleRemoteNotificationPayload(["event_type": "ask_dj_response"], openedFromTap: true)
+    #expect(reply)
+    #expect(model.homeScreenActionRequest?.action == .askDJ)
+    let legacy = await model.handleRemoteNotificationPayload([:], openedFromTap: true)
+    #expect(legacy)
+    #expect(model.homeScreenActionRequest?.action == .askDJ)
 }

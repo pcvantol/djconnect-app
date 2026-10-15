@@ -590,6 +590,49 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
 
 }
 
+/// Only startup delivery metadata is buffered, never notification prose or secrets.
+/// Tokens/errors are RAM-only and latest-wins; known event kinds bound the queue.
+@MainActor
+public struct DJConnectPushStartupBuffer {
+    public struct Delivery {
+        public let eventType: String
+        public var openedFromTap: Bool
+        public var userInfo: [AnyHashable: Any] { ["event_type": eventType] }
+    }
+    public struct Batch {
+        public let token: Data?
+        public let error: Error?
+        public let deliveries: [Delivery]
+    }
+    private var token: Data?
+    private var error: Error?
+    private var deliveries: [Delivery] = []
+    public init() {}
+    public mutating func received(token: Data) {
+        guard !token.isEmpty else { return }
+        self.token = token; error = nil
+    }
+    public mutating func failed(_ error: Error) { self.error = error; token = nil }
+    @discardableResult
+    public mutating func enqueue(_ userInfo: [AnyHashable: Any], openedFromTap: Bool = false) -> Bool {
+        let nested = userInfo["data"] as? [String: Any]
+        let kind = userInfo["event_type"] as? String ?? userInfo["eventType"] as? String
+            ?? nested?["event_type"] as? String ?? nested?["eventType"] as? String
+            ?? (openedFromTap ? "ask_dj_response" : "")
+        guard ["ask_dj_response", "ask_dj_confirm", "music_discovery_ready"].contains(kind) else { return false }
+        let old = deliveries.firstIndex { $0.eventType == kind }
+        let tapped = openedFromTap || old.map { deliveries[$0].openedFromTap } == true
+        if let old { deliveries.remove(at: old) }
+        deliveries.append(Delivery(eventType: kind, openedFromTap: tapped))
+        return true
+    }
+    public mutating func drain() -> Batch {
+        let batch = Batch(token: token, error: error, deliveries: deliveries)
+        token = nil; error = nil; deliveries.removeAll()
+        return batch
+    }
+}
+
 @MainActor
 public struct DJConnectPushNotificationStatus: Equatable, Sendable {
     public enum State: Equatable, Sendable {
@@ -1010,6 +1053,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var currentAPNsPushToken: String?
     private var remoteNotificationRegistrationRequestedThisLaunch = false
     private var pushRegistrationInFlightSignature: String?
+    private var pushRegistrationAttemptEpoch: UUID?
     private var discoveryArtworkRenewalTask: Task<Void, Never>?
     private var retriedExpiredDiscoveryArtwork = false
     private var discoveryResponseGeneration = UUID()
@@ -8858,10 +8902,12 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         pushRegistrationInFlightSignature = registrationSignature
+        pushRegistrationAttemptEpoch = sessionHistory.responseEpoch
         Task { @MainActor in
             defer {
                 if pushRegistrationInFlightSignature == registrationSignature {
                     pushRegistrationInFlightSignature = nil
+                    pushRegistrationAttemptEpoch = nil
                 }
             }
             do {
@@ -8873,6 +8919,7 @@ public final class DJConnectAppModel: ObservableObject {
                     categories: categories,
                     bootstrapProof: nil
                 )
+                guard isCurrentPushRegistration(registrationSignature) else { return }
                 try await handlePushRegistrationResponse(
                     response,
                     token: token,
@@ -8884,6 +8931,7 @@ public final class DJConnectAppModel: ObservableObject {
                     registrationSignature: registrationSignature
                 )
             } catch let error as DJConnectError {
+                guard isCurrentPushRegistration(registrationSignature) else { return }
                 await handlePushRegistrationError(
                     error,
                     token: token,
@@ -8895,6 +8943,7 @@ public final class DJConnectAppModel: ObservableObject {
                     registrationSignature: registrationSignature
                 )
             } catch {
+                guard isCurrentPushRegistration(registrationSignature), !(error is CancellationError) else { return }
                 recordPushRegistrationFailure("push_registration_failed")
                 logPush("registration failed error=\(error.localizedDescription)", level: .warning)
             }
@@ -8979,6 +9028,7 @@ public final class DJConnectAppModel: ObservableObject {
         categories: [String],
         registrationSignature: String
     ) async {
+        guard isCurrentPushRegistration(registrationSignature) else { return }
         let reason = Self.describe(error)
         if Self.isStalePairingPushError(error) {
             logPush("registration stale_pairing=true error=\(reason)", level: .warning)
@@ -8998,6 +9048,7 @@ public final class DJConnectAppModel: ObservableObject {
                     registrationSignature: registrationSignature
                 )
             } catch let retryError as DJConnectError {
+                guard isCurrentPushRegistration(registrationSignature) else { return }
                 if Self.isStalePairingPushError(retryError) {
                     logPush("registration stale_pairing=true error=\(Self.describe(retryError))", level: .warning)
                     recoverFromStalePairing(message: localized(key: "appModel.pairing.is.stale.open.home.assistant.setup.and.enter"))
@@ -9007,6 +9058,7 @@ public final class DJConnectAppModel: ObservableObject {
                     markPushRegistrationBootstrapRecoveryFailed(reason: Self.describe(retryError))
                 }
             } catch {
+                guard isCurrentPushRegistration(registrationSignature), !(error is CancellationError) else { return }
                 markPushRegistrationBootstrapRecoveryFailed(reason: error.localizedDescription)
             }
             return
@@ -9030,6 +9082,7 @@ public final class DJConnectAppModel: ObservableObject {
         categories: [String],
         registrationSignature: String
     ) async throws {
+        guard isCurrentPushRegistration(registrationSignature) else { throw CancellationError() }
         defaults.set(false, forKey: pushRegisteredKey)
         defaults.removeObject(forKey: registeredPushSignatureKey)
         logPush("registration bootstrap_required=true reason=\(Self.bootstrapProofFailureCode(reason))", level: .warning)
@@ -9041,12 +9094,15 @@ public final class DJConnectAppModel: ObservableObject {
                 appBundleID: appBundleID
             )
         } catch let error as DJConnectError {
+            guard isCurrentPushRegistration(registrationSignature) else { throw CancellationError() }
             markPushRegistrationBootstrapRecoveryFailed(reason: Self.describe(error))
             return
         } catch {
+            guard isCurrentPushRegistration(registrationSignature), !(error is CancellationError) else { throw CancellationError() }
             markPushRegistrationBootstrapRecoveryFailed(reason: error.localizedDescription)
             return
         }
+        guard isCurrentPushRegistration(registrationSignature) else { throw CancellationError() }
         guard let bootstrapProof else {
             if let issuerError = defaults.string(forKey: lastPushErrorKey),
                issuerError != "missing_bootstrap_proof" {
@@ -9071,6 +9127,7 @@ public final class DJConnectAppModel: ObservableObject {
             categories: categories,
             bootstrapProof: bootstrapProof
         )
+        guard isCurrentPushRegistration(registrationSignature) else { throw CancellationError() }
         applyPushRegistrationStatus(from: retryResponse)
         let retryReason = retryResponse.error ?? retryResponse.lastPushError ?? retryResponse.message ?? ""
         if Self.isBootstrapProofUnavailable(retryReason) {
@@ -9122,6 +9179,8 @@ public final class DJConnectAppModel: ObservableObject {
         pushEnvironment: DJConnectPushEnvironment,
         appBundleID: String
     ) async throws -> String? {
+        guard let signature = pushRegistrationInFlightSignature,
+              isCurrentPushRegistration(signature) else { throw CancellationError() }
         guard let issuerBaseURL = trustedPairingIssuerBaseURL else {
             recordPushRegistrationFailure("trusted_issuer_not_configured")
             logPush("bootstrap issuer unavailable reason=trusted_issuer_not_configured", level: .warning)
@@ -9138,6 +9197,7 @@ public final class DJConnectAppModel: ObservableObject {
         )
         logPush("bootstrap issuer_request endpoint=/v1/pairing/bootstrap-proof issuer_host=\(Self.hostForLog(from: issuerBaseURL.absoluteString)) device_id_present=\(!identity.deviceID.isEmpty) client_type=\(identity.clientType.rawValue) env=\(pushEnvironment.rawValue) app_bundle_id=\(appBundleID)")
         let response = try await requestTrustedIssuerBootstrapProof(baseURL: issuerBaseURL, payload: payload)
+        guard isCurrentPushRegistration(signature) else { throw CancellationError() }
         guard response.success else {
             let reason = response.error ?? response.message ?? "bootstrap_proof_unavailable"
             logPush("bootstrap issuer_unavailable issuer_error_code=\(Self.bootstrapProofFailureCode(reason)) bootstrap_proof_present=false", level: .warning)
@@ -9173,7 +9233,6 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func logPushRegistrationResponse(_ response: DJConnectCommandResponse, expectedEnvironment: DJConnectPushEnvironment) {
-        applyPushRegistrationStatus(from: response)
         let responseError = Self.redactedPushFailureReason(response.lastPushError ?? response.error ?? "<missing>")
         let responseEnvironment = response.pushEnvironment
         let canonicalEnvironment = responseEnvironment ?? expectedEnvironment
@@ -9230,6 +9289,18 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.set("bootstrap_proof_unavailable", forKey: lastPushErrorKey)
         refreshPushNotificationStatus()
         logPush("bootstrap unavailable reason=bootstrap_proof_unavailable message=push_bootstrap_not_available_for_home_assistant_installation push_registered=false", level: .warning)
+    }
+
+    private func isCurrentPushRegistration(_ signature: String) -> Bool {
+        guard !Task.isCancelled, pairingStatus == .paired,
+              pushRegistrationInFlightSignature == signature,
+              pushRegistrationAttemptEpoch == sessionHistory.responseEpoch,
+              let token = currentAPNsPushToken else { return false }
+        return signature == pushRegistrationSignature(
+            pushToken: token, pushEnvironment: Self.pushEnvironment,
+            appBundleID: Bundle.main.bundleIdentifier ?? "dev.djconnect.\(identity.clientType.rawValue)",
+            locale: Locale.current.identifier
+        )
     }
 
     private func pushRegistrationSignature(
@@ -10218,9 +10289,12 @@ public final class DJConnectAppModel: ObservableObject {
 
     @discardableResult
     public func handleRemoteNotificationPayload(_ userInfo: [AnyHashable: Any], openedFromTap: Bool = false) async -> Bool {
-        guard Self.pushEventType(in: userInfo) == "music_discovery_ready" else {
+        let event = Self.pushEventType(in: userInfo)
+        guard event == "music_discovery_ready" else {
+            guard event == "ask_dj_response" || event == "ask_dj_confirm" || (event == nil && openedFromTap) else { return false }
+            if openedFromTap { performHomeScreenAction(.askDJ) }
             await refreshAskDJHistory()
-            return false
+            return true
         }
         logPush("received music_discovery_ready opened_from_tap=\(openedFromTap)")
         if openedFromTap {

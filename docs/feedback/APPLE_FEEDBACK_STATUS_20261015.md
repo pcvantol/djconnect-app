@@ -423,3 +423,42 @@ Existing route/replay/context fixes are preserved; no legacy toggle activation,
 new paired-action Swift implementation or mutable Core schema adoption yet.
 The setting/legacy issuer will be retired as part of actual automatic adoption,
 not represented as already implemented. No external ACK/comment was posted.
+
+## Integral Apple push repair: verified local build40061, live delivery open
+
+Fresh read-only installed Mac mini diagnosis found push_registered=false and
+last_push_error=trusted_issuer_not_configured. Its installed bundle lacked
+DJConnectTrustedPairingIssuerBaseURL. Both native app Info.plists and project.yml
+now ship the canonical public https://api.djconnect.dev issuer already documented
+by Core/API; no embedded credentials or backend contract changes were introduced.
+The relay public health check returned HTTP200; this is reachability only.
+
+Both delegates now retain early APNs token/error callbacks and compact recognized
+event metadata in a bounded RAM-only startup buffer. Cold discovery taps retain
+Discover routing instead of falling through to Ask DJ. Known Ask DJ events refresh
+canonical history and taps open Ask DJ; unknown events do not fetch private history.
+Notification prose is never cached or treated as authoritative personal content.
+
+Registration, bootstrap and retry continuations check current pairing, HA route,
+token/signature and owner-response epoch before applying status or reporting errors.
+Regression tests exposed an additional premature mutation inside the registration
+logging function; logging is now observational only, so obsolete replies cannot
+bypass the guards. Existing explicit server-confirmation/environment checks remain.
+
+Validation:558 Swift tests PASS29.621s, including six new configuration/startup/
+routing/late-response regressions. Localization1124keys/five languages PASS and
+git diff --check PASS. Final unsigned and existing-identity signed iOS/macOS builds
+both BUILD SUCCEEDED. Deep strict signature verification and packaged entitlements
+PASS:both carry development APNs entitlement and the canonical issuer URL.
+Evidence:/private/tmp/djc-push-integral-{tests,ios,mac,ios-signed,mac-signed}.log,
+/private/tmp/djc-push-integral-artifact-receipt.json. Unsandboxed codesign verified
+entitlements after the sandboxed inspector could not read the entitlement blob.
+
+iOS executable SHA256:283d7ed61bab6d6291aeaa3d3f8f6e25003d0913f6408f60cd42d4115fe11409.
+Mac executable SHA256:ff381b9f6e694f85483a7f8ccd5fdff4a0ffc23f735aeb16c0baf3d26f954649.
+No new app installation, authenticated issuer/registration request, test push,
+CI, push or merge performed. Existing ordinary apps remain40060. Actual server
+registration, APNs sandbox receipt in foreground/background/cold start, tap routing
+and production/TestFlight environment delivery remain OPEN; source and signing
+validation do not close those acceptance boundaries. Retained delivery/installation
+gates still apply after the earlier explicitly requested40060 installations.

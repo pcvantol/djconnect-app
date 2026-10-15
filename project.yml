@@ -95,6 +95,7 @@ targets:
     info:
       path: Apps/DJConnectIOS/Info.plist
       properties:
+        DJConnectTrustedPairingIssuerBaseURL: https://api.djconnect.dev
         CFBundleDisplayName: DJConnect
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
@@ -169,6 +170,7 @@ targets:
     info:
       path: Apps/DJConnectMac/Info.plist
       properties:
+        DJConnectTrustedPairingIssuerBaseURL: https://api.djconnect.dev
         CFBundleDisplayName: DJConnect
         CFBundleIconFile: AppIconMac
         CFBundleShortVersionString: $(MARKETING_VERSION)
