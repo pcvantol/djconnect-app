@@ -1,0 +1,14 @@
+{
+  "build": "40116 installed; no new app build/install/source behavior change",
+  "loaded_visualization": "Actual Mac screenshot visually inspected: Midnight City demo visualizer unobstructed, local sample metrics and particles. Initial probe used standalone mood toggle but active Demo Session exposes session-mood-toggle; assertion failed. Its readiness-file write was denied by runner sandbox. Neither failure is a product performance result.",
+  "image": "/private/tmp/djc-particles-40116-mac-images/2F9491AE-19F7-49DE-A4DE-2A3C40FABFB2.png",
+  "probe_result": "/private/tmp/djc-particles-40116-mac.xcresult",
+  "trace": "Animation Hitches attached to actual DJConnect PID74431 for15s; trace failed to finalize, export reported Document Missing Template. Own recording PID75268 received INT then TERM after hanging. 40KiB incomplete trace retained. No FPS/hitch or particle continuity PASS.",
+  "trace_log": "/private/tmp/djc-particles-40116-mac-trace.log",
+  "restoration": "Separate native test PASS: Settings -> settings-stop-demo -> pairing-start-demo-button exists; ordinary app restored.",
+  "restore_result": "/private/tmp/djc-particles-40116-mac-restore.xcresult",
+  "physical_ipad_instruments": "xctrace list devices reports iPad offline; native UI tooling previously reachable. No iPad performance capture attempted.",
+  "storage": "Fresh internal df unexpectedly dropped to991MiB; trace itself40KiB, cause not established. Removed643MiB allocated unused own compiler intermediates/index after lsof checks, products/source/screenshots/xcresults/logs preserved. Fresh df1.6GiB free.",
+  "cleanup_receipt": "/private/tmp/djc-safe-cache-cleanup-20261016-0059.json",
+  "remaining": "Performance acceptance OPEN; avoid further large builds until disk stabilized. LAN topology unchanged, no shared Docker restart. No eligible stale branches/worktrees; active writer/untracked projects preserved."
+}
