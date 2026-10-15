@@ -1,0 +1,18 @@
+{
+  "build": "40116, existing installed app; no new source/build/install",
+  "mac": "PASS bounded native temporary Demo Mode: Midnight City playing with no artwork, three frames captured. First/last actual images visually inspected; asymmetric white label and reflection rotate while surrounding card remains fixed. Demo stopped via Settings afterward.",
+  "mac_result": "/private/tmp/djc-vinyl-40116-mac.xcresult",
+  "mac_frames": [
+    "/private/tmp/djc-vinyl-40116-mac-images/5A5973C7-7194-4BB8-899A-8F84B2463067.png",
+    "/private/tmp/djc-vinyl-40116-mac-images/71B68C84-EBE7-4E9C-B3CA-BB4B51F858FF.png"
+  ],
+  "ipad": "OPEN: two isolated ready-fixture launch attempts failed Fixture Track existence assertion. Actual inspected first image shows Niets speelt af, static vinyl and unavailable controls. This does not prove active playback rotation or an animation defect. No fixture playback or real-provider PASS claimed. Both probes terminate test launch and relaunch ordinary app; final Speelt Nu tab existence check passed.",
+  "ipad_results": [
+    "/private/tmp/djc-vinyl-40116-physical.xcresult",
+    "/private/tmp/djc-vinyl-40116-physical2.xcresult"
+  ],
+  "iphone": "OPEN: fresh lockState passcodeRequired=true, no unlock attempted.",
+  "limits": "Mac native rendering with explicit local Demo data only, not Spotify/provider, physical iPad playback or FPS/hitch qualification. Particle continuity still open. No playback/network/pairing mutation, new installation or publication.",
+  "cleanup": "One active writer; only main/current merged refs, none eligible. Untracked project directories and all results retained. Internal free space9.0GiB.",
+  "next": "Investigate why installed iPad test fixture is inactive without changing normal pairing; qualify actual active no-art playback before closing iPad spinning. LAN remains gated on source-preserving topology and coordinated shared-container restart window."
+}
