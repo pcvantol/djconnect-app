@@ -13666,13 +13666,13 @@ struct AskDJInputBar: View {
                         RoundedRectangle(cornerRadius: 26, style: .continuous).fill(.ultraThinMaterial)
                     } else {
                         Color.clear
-                            .glassEffect(.regular.tint(.black.opacity(0.04)),
+                            .glassEffect(.clear,
                                          in: RoundedRectangle(cornerRadius: 26, style: .continuous))
                     }
                 }
                     .overlay {
                         RoundedRectangle(cornerRadius: 26, style: .continuous)
-                            .stroke(.white.opacity(0.16), lineWidth: 1)
+                            .stroke(.white.opacity(0.04), lineWidth: 0.75)
                     }
             } else {
                 #if os(macOS)
