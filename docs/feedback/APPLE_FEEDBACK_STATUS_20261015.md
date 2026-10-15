@@ -1270,3 +1270,14 @@ Final40094 validation:619 shared tests PASS, six coordinator cases included;
 iOS/Watch and signed Mac builds PASS. All three changed code/test files match the
 build snapshot. Logs `/private/tmp/djc-speech-40094-{regression,ios,mac}.log`.
 No installation, source push, PR or publication performed.
+
+### Widget continuation after status query — 40095
+
+Fresh Core readback: same writer actively delivering Speech; passive contract
+still not received. Followed up the existing human-authorized widget handoff in
+that task, preserving current delivery. Concrete joint acceptance matrix saved:
+APPLE_SESSION_PASSIVE_ACCEPTANCE_20261015.md. Reusable current-source render tool
+added; all15 synthetic native Mac renders/bounds PASS, representative small-long,
+medium-RTL and large-long visually inspected. Output4.1MiB:
+/private/tmp/djc-session-layout-40095. Temporary compiler source/binary removed
+automatically. No app runtime change, no install, no background/hardware PASS.

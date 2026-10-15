@@ -147,3 +147,27 @@ ledger. No physical installation, publishing or complete rich-surface claim.
 The next integration step remains the qualified Core contract/fixture/pin and
 its end/revocation/background-delivery semantics; no no-store owner data may
 be repurposed to unblock it.
+
+## 40095 — reproducible layout matrix and concrete joint acceptance handoff
+
+After the user's request to continue, fresh Core-task readback confirms that its
+existing writer is active on Speech delivery, without a delivered passive-content
+contract. Followed up the previously authorized producer handoff in that same
+task, asking for an explicit successor lane ID/order after valid current closure.
+No second writer, backend edits or interruption of Core's current slice.
+
+Added APPLE_SESSION_PASSIVE_ACCEPTANCE_20261015.md with concrete producer/consumer
+ownership and fourteen joint acceptance cases. This specifies required semantics,
+not speculative JSON fields or consumer-created rights.
+
+Added Tools/render_session_surface_layouts.py. It extracts current palette/layout
+source, compiles a temporary native macOS SwiftUI harness, renders fifteen normal,
+long-text and RTL cases across all five surface sizes, records original source
+SHA256 and image bounds, and automatically removes temporary source/executable.
+Final run PASS; source SHA256a7e436e3dc4a0444448ce1cc211063d85d0c86b3e9b10a7990a4d0e72a76ff85.
+Output /private/tmp/djc-session-layout-40095 (4.1MiB, qualification.json/renders.json).
+Small-long, medium-RTL and large-long were visually inspected without overlap.
+Other render bounds passed; that alone is not visual clipping proof. macOS native
+renders do not qualify iOS Dynamic Type, VoiceOver, installed widgets, ActivityKit,
+Island, passive rights or background updates. No runtime app code changed and no
+installation/publication occurred; no redundant full app rebuild was needed.
