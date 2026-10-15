@@ -347,6 +347,7 @@ public enum DJConnectHomeScreenAction: String, Equatable, Sendable {
     case trackInsight = "dev.djconnect.action.track-insight"
     case discovery = "dev.djconnect.action.discovery"
     case playlists = "dev.djconnect.action.playlists"
+    case about = "dev.djconnect.action.about"
 
     public init?(deepLinkURL url: URL) {
         guard url.scheme?.lowercased() == "djconnect" else {
@@ -740,6 +741,9 @@ public final class DJConnectAppModel: ObservableObject {
                 updateNowPlayingPollTimer()
                 refreshWebSocketFastPathStatus()
             } else if pairingStatus != .paired {
+                if let old = hybridTransport { Task { await old.lifecycle(foreground: false) } }
+                hybridTransport = nil; hybridTransportKey = nil
+                hybridConnectionDiagnostics = nil
                 invalidateSessionRequest()
                 activeDJSession = nil
                 stopSessionBroadcast()
@@ -802,6 +806,11 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var isLoadingDJSession = false
     @Published public private(set) var djSessionErrorMessage: String?
     @Published public private(set) var djSessionIsRecovering = false
+    @Published public private(set) var djSessionRecoveryGap = false
+    private var sessionRecoveryCursor: String?
+    private var sessionRecoveryCursorSessionID: String?
+    @Published public private(set) var hybridConnectionDiagnostics: DJConnectHybridDiagnostics?
+    private var lastHybridRouteState: DJConnectHybridDiagnostics.State?
     @Published public private(set) var djSessionLiveUnavailable = false
     @Published public private(set) var isLoadingVibeCastHandoff = false
     @Published public private(set) var vibeCastHandoffApproved = false
@@ -1063,6 +1072,8 @@ public final class DJConnectAppModel: ObservableObject {
     private var webSocketFastPathCache: [String: any DJConnectWebSocketFastPathTransport] = [:]
     private var webSocketSessionAuthProviders: [String: DJConnectWebSocketSessionAuthProvider] = [:]
     private var sessionBroadcastTransport: DJConnectSessionBroadcastTransport?
+    private var hybridTransport: DJConnectHybridTransport?
+    private var hybridTransportKey: String?
     private var localTransportProbeAfter: Date?
     private var sessionBroadcastGeneration = UUID()
     private var sessionBroadcastSessionID: String?
@@ -1448,7 +1459,8 @@ public final class DJConnectAppModel: ObservableObject {
         self.localResponseAudioEnabled = defaults.bool(forKey: localResponseAudioEnabledKey)
         self.djAnnouncementOutput = defaults.string(forKey: djAnnouncementOutputKey).flatMap(DJAnnouncementOutput.init(rawValue:)) ?? .clientDevice
         self.autoTrackInsightEnabled = defaults.bool(forKey: autoTrackInsightEnabledKey)
-        self.webSocketFastPathEnabled = defaults.bool(forKey: webSocketFastPathEnabledKey)
+        self.webSocketFastPathEnabled = false
+        defaults.removeObject(forKey: webSocketFastPathEnabledKey)
         self.demoMusicDNAEnabled = defaults.bool(forKey: demoMusicDNAEnabledKey)
         self.askDJMessages = Self.loadAskDJMessages(defaults: defaults, key: askDJMessagesKey)
         loadPersistentDiagnosticLog()
@@ -1926,6 +1938,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func markActiveSession() {
         isAppInForeground = true
+        if let hybridTransport { Task { await hybridTransport.lifecycle(foreground: true) } }
         localTransportProbeAfter = nil
         defaults.set(false, forKey: cleanShutdownKey)
         refreshPermissionStatuses()
@@ -1974,6 +1987,7 @@ public final class DJConnectAppModel: ObservableObject {
         invalidateSessionRequest()
         isLoadingDJSession = false
         isAppInForeground = false
+        if let hybridTransport { Task { await hybridTransport.lifecycle(foreground: false) } }
         discoveryArtworkRenewalTask?.cancel(); discoveryArtworkRenewalTask = nil
         discoveryResponseGeneration = UUID()
         discoveryLoadGeneration = UUID(); discoveryRefreshGeneration = UUID()
@@ -3000,6 +3014,14 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func refreshWebSocketFastPathStatus() {
+        if let hybrid = sharedHybridTransport() {
+            Task {
+                let snapshot = await hybrid.snapshot()
+                fastPathDiagnostics = DJConnectFastPathDiagnostics(fastPathTransport: snapshot.websocketConnected ? "paired_wss" : "https",
+                    websocketConnected: snapshot.websocketConnected, lastCapabilityRefresh: Date())
+            }
+            return
+        }
         guard webSocketFastPathEnabled, pairingStatus == .paired else {
             fastPathDiagnostics = DJConnectFastPathDiagnostics()
             return
@@ -3935,7 +3957,7 @@ public final class DJConnectAppModel: ObservableObject {
     public func performHomeScreenAction(_ action: DJConnectHomeScreenAction) {
         homeScreenActionRequest = DJConnectHomeScreenActionRequest(action: action)
         switch action {
-        case .nowPlaying, .queue, .discovery, .playlists:
+        case .nowPlaying, .queue, .discovery, .playlists, .about:
             break
         case .askDJ:
             prepareAskDJHistoryForDisplay()
@@ -4202,6 +4224,12 @@ public final class DJConnectAppModel: ObservableObject {
                     }
                 }
                 log(.warning, "Ask DJ text request failed: \(describedError)")
+            } catch let outcome as DJConnectHybridTransportError {
+                askDJErrorMessage = localized(key: outcome.localizationKey)
+                if case .outcome(let receipt) = outcome, receipt.phase == "confirmed" {
+                    if let userMessageID { updateAskDJMessageStatus(id: userMessageID, status: .sent) }
+                    await syncAskDJHistory(showErrors: false)
+                }
             } catch {
                 if isDeferredAskDJTimeout(error) {
                     askDJErrorMessage = nil
@@ -5545,6 +5573,16 @@ public final class DJConnectAppModel: ObservableObject {
         sessionBroadcastGeneration = UUID()
         let generation = sessionBroadcastGeneration
         sessionBroadcastSessionID = session.id
+        if sessionRecoveryCursorSessionID != session.id {
+            sessionRecoveryCursor = nil; djSessionRecoveryGap = false; sessionRecoveryCursorSessionID = session.id
+        }
+        Task { [self] in
+        var baseURL = baseURL
+        if let hybrid = sharedHybridTransport() {
+            do { baseURL = try await hybrid.authorizedBaseURL() }
+            catch { return }
+        }
+        guard sessionBroadcastGeneration == generation, isAppInForeground, pairingStatus == .paired else { return }
         let transport: DJConnectSessionBroadcastTransport
         if let auth = homeAssistantWebSocketAuth {
             // Explicit legacy/test HA credentials only; no automatic issuer fallback.
@@ -5556,6 +5594,16 @@ public final class DJConnectAppModel: ObservableObject {
                 discover: { try await client.pairedOwnerLiveCapability() }, pairedToken: { try store.loadToken() },
                 httpRecovery: { [weak self] in
                     guard let self else { throw CancellationError() }
+                    if let hybrid = await self.sharedHybridTransport(), let cursor = await self.sessionRecoveryCursor {
+                        let recovery = try await hybrid.broadcastRecovery(sessionID: session.sessionID, cursor: cursor)
+                        await MainActor.run {
+                            guard self.sessionBroadcastGeneration == generation else { return }
+                            self.sessionRecoveryCursor = recovery.recoveryCursor
+                            self.djSessionRecoveryGap = recovery.recovery == "snapshot_required"
+                            for event in recovery.events ?? [] { self.applySessionBroadcastEvent(event) }
+                        }
+                        if let snapshot = recovery.snapshot { return snapshot }
+                    }
                     let response = try await self.withHomeAssistantClient { try await $0.activeSession() }
                     guard response.success else { throw DJConnectError.invalidResponse }
                     return response.resolvedSession?.presenceSafeBroadcast
@@ -5565,7 +5613,6 @@ public final class DJConnectAppModel: ObservableObject {
         sessionBroadcastTransport = transport
         Task { await previousTransport?.stop() }
         let apiIdentity = DJConnectAPIIdentity(identity: identity, deviceToken: deviceToken)
-        Task { [self] in
             guard sessionBroadcastGeneration == generation else { return }
             await transport.start(
                 sessionID: session.sessionID,
@@ -5573,6 +5620,7 @@ public final class DJConnectAppModel: ObservableObject {
                 onSnapshot: { [weak self] subscription in
                     await MainActor.run {
                         guard let self, self.sessionBroadcastGeneration == generation else { return }
+                        self.sessionRecoveryCursor = subscription.recoveryCursor
                         self.applySessionBroadcastSnapshot(subscription.snapshot)
                     }
                 },
@@ -5683,6 +5731,7 @@ public final class DJConnectAppModel: ObservableObject {
     private func clearSessionProjection() {
         invalidateSessionRequest()
         activeDJSession = nil
+        sessionRecoveryCursor = nil; djSessionRecoveryGap = false
         vibeCastHandoffApproved = false
         vibeCastHandoffFailed = false
         stopSessionBroadcast()
@@ -7815,6 +7864,10 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func requestAskDJScrollToBottom() {
         askDJScrollRequestID = UUID()
+    }
+
+    func confirmProfileConversationText(id: UUID?) {
+        if let id { updateAskDJMessageStatus(id: id, status: .sent) }
     }
 
     private func updateAskDJMessageStatus(id: UUID, status: DJConnectAskDJMessageStatus) {
@@ -10562,6 +10615,11 @@ public final class DJConnectAppModel: ObservableObject {
                 userNotice = DJConnectUserNotice(text: playbackCommandFailureMessage(command: command, error: error))
             }
             return false
+        } catch let outcome as DJConnectHybridTransportError {
+            if (command == "devices" || command == "set_output"), outputGeneration != outputSelectionGeneration { return false }
+            userNotice = DJConnectUserNotice(text: localized(key: outcome.localizationKey))
+            if case .outcome(let receipt) = outcome, receipt.phase == "confirmed" { return true }
+            return false
         } catch {
             if (command == "devices" || command == "set_output"), outputGeneration != outputSelectionGeneration { return false }
             log(.error, "Command \(command) failed unexpectedly: \(error.localizedDescription)")
@@ -11154,6 +11212,7 @@ public final class DJConnectAppModel: ObservableObject {
             identity: identity,
             tokenStore: tokenStore,
             session: urlSession,
+            hybridTransport: sharedHybridTransport(),
             webSocketFastPath: webSocketFastPathIfLocal(baseURL),
             responseLogger: { [weak self] requestSummary, statusCode in
                 Task { @MainActor in
@@ -11200,27 +11259,41 @@ public final class DJConnectAppModel: ObservableObject {
     ) -> DJConnectTransportConfiguration {
         DJConnectTransportConfiguration(
             webSocketFastPathEnabled: webSocketFastPathEnabled,
-            homeAssistantWebSocketAuth: homeAssistantWebSocketAuth ?? webSocketBaseURL.map(webSocketSessionAuthProvider(for:))?.auth,
+            homeAssistantWebSocketAuth: homeAssistantWebSocketAuth,
             allowsRemoteHTTPFallback: allowsRemoteHTTPFallback
         )
     }
 
-    private func webSocketSessionAuthProvider(for baseURL: URL) -> DJConnectWebSocketSessionAuthProvider {
-        let key = DJConnectFastPathPolicy.cacheKey(for: baseURL)
-        if let provider = webSocketSessionAuthProviders[key] {
-            return provider
-        }
-        let provider = DJConnectWebSocketSessionAuthProvider(
-            baseURL: baseURL,
-            identity: identity,
-            tokenStore: tokenStore,
-            session: urlSession
-        )
-        webSocketSessionAuthProviders[key] = provider
-        return provider
+    private func sharedHybridTransport() -> DJConnectHybridTransport? {
+        guard !isDemoMode, pairingStatus == .paired,
+              let install = defaults.string(forKey: haInstallIDKey), !install.isEmpty else { return nil }
+        let local = Self.normalizedHomeAssistantURL(from: localHomeAssistantURL())
+        let remote = Self.normalizedHomeAssistantURL(from: haRemoteURL)
+        guard [local, remote].compactMap({ $0 }).contains(where: DJConnectHybridTransport.trustedOrigin) else { return nil }
+        let key = [local?.absoluteString ?? "", remote?.absoluteString ?? "", install, identity.deviceID].joined(separator: "|")
+        if hybridTransportKey == key, let hybridTransport { return hybridTransport }
+        if let old = hybridTransport { Task { await old.lifecycle(foreground: false) } }
+        let transport = DJConnectHybridTransport(localURL: local, remoteURL: remote, expectedInstallID: install,
+            identity: identity, tokenStore: tokenStore, wire: DJConnectHybridURLWire(session: urlSession),
+            report: { [weak self] snapshot in Task { @MainActor in
+                guard let self, self.hybridTransportKey == key else { return }
+                self.hybridConnectionDiagnostics = snapshot
+                let previous = self.lastHybridRouteState
+                self.lastHybridRouteState = snapshot.state
+                if previous != nil, previous != snapshot.state,
+                   [.localReady, .remoteReady].contains(snapshot.state), self.sessionBroadcastTransport != nil {
+                    self.stopSessionBroadcast(); self.startSessionBroadcastIfNeeded()
+                }
+                self.fastPathDiagnostics = DJConnectFastPathDiagnostics(fastPathTransport: snapshot.websocketConnected ? "paired_wss" : "https",
+                    websocketConnected: snapshot.websocketConnected, lastCapabilityRefresh: Date(),
+                    websocketCommands: snapshot.websocketConnected ? ["djconnect/read", "djconnect/operation/execute", "djconnect/operation/status"] : [])
+            } })
+        hybridTransportKey = key; hybridTransport = transport
+        return transport
     }
 
     private func updateFastPathDiagnostics(from client: DJConnectClient) async {
+        if hybridTransport != nil { return }
         fastPathDiagnostics = await client.fastPathDiagnostics
     }
 
@@ -11250,6 +11323,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
 
         let localFastPath = localURL.flatMap { webSocketFastPathIfLocal($0) }
+        let hybrid = sharedHybridTransport()
         let configuration = transportConfiguration(allowsRemoteHTTPFallback: identity.clientType != .watchos)
         // After an actual LAN failure, remote reads must not wait for the same
         // local timeout every two seconds. Periodically probe LAN again so
@@ -11264,13 +11338,14 @@ public final class DJConnectAppModel: ObservableObject {
             remoteURL: remoteURL,
             allowsRemoteFallback: configuration.allowsRemoteHTTPFallback,
             prefersRemote: prefersRemote,
-            clientFactory: { [weak self, identity, tokenStore, urlSession, localURL, localFastPath] baseURL in
+            clientFactory: { [weak self, identity, tokenStore, urlSession, localURL, localFastPath, hybrid] baseURL in
                 let fastPath = DJConnectFastPathPolicy.isEligible(baseURL: baseURL, localURL: localURL) ? localFastPath : nil
                 return DJConnectClient(
                     baseURL: baseURL,
                     identity: identity,
                     tokenStore: tokenStore,
                     session: urlSession,
+                    hybridTransport: hybrid,
                     webSocketFastPath: fastPath,
                     failureLogger: { details in
                         Task { @MainActor in
@@ -11285,6 +11360,7 @@ public final class DJConnectAppModel: ObservableObject {
                 }
             }
         )
+        do {
         return try await transport.perform(allowsOperationReplay: allowsOperationReplay) { client in
             do {
                 let result = try await operation(client)
@@ -11294,6 +11370,10 @@ public final class DJConnectAppModel: ObservableObject {
                 await updateFastPathDiagnostics(from: client)
                 throw error
             }
+        }
+        } catch let outcome as DJConnectHybridTransportError {
+            userNotice = DJConnectUserNotice(text: localized(key: outcome.localizationKey))
+            throw outcome
         }
     }
 

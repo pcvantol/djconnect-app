@@ -513,10 +513,19 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             guard captured == epoch, ownerScope == turn.ownerScope,
                   pendingTurns.contains(where: { $0.id == turn.id }) else { return }
             if withdrawAuthority(for: error) { return }
-            if let index = pendingTurns.firstIndex(where: { $0.id == turn.id }) {
-                pendingTurns[index].failed = true; pendingTurns[index].contextChanged = isConflict(error)
+            if case DJConnectHybridTransportError.outcome(let receipt) = error, receipt.phase == "confirmed" {
+                pendingTurns.removeAll { $0.id == turn.id }
+                host.confirmProfileConversationText(id: turn.localMessageID)
+                host.setProfileConversationSending(false)
+                await refreshConversation()
+                return
             }
-            host.failProfileConversationText(id: turn.localMessageID, errorKey: errorKey(error))
+            if let index = pendingTurns.firstIndex(where: { $0.id == turn.id }) {
+                pendingTurns[index].failed = true
+                pendingTurns[index].contextChanged = isConflict(error) || error is DJConnectHybridTransportError
+            }
+            host.failProfileConversationText(id: turn.localMessageID,
+                errorKey: (error as? DJConnectHybridTransportError)?.localizationKey ?? errorKey(error))
         }
     }
 

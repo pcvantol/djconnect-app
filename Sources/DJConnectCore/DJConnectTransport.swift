@@ -142,6 +142,10 @@ public final class DJConnectHATransportManager: Sendable {
                     }
                     throw error
                 }
+            } catch let hybrid as DJConnectHybridTransportError {
+                // The shared coordinator owns reconciliation. Never re-enter a closure
+                // and allocate a second intent after an uncertain/receipt-only result.
+                throw hybrid
             } catch let conflict as DJConnectSessionPresenceConflict {
                 // An authorized CAS conflict proves this route is reachable.
                 // Preserve connection health and never replay the mutation.

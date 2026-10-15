@@ -1037,6 +1037,8 @@ public struct DJConnectRootView: View {
             selectedSection = .discovery
         case .playlists:
             selectedSection = .playlists
+        case .about:
+            selectedSection = .about
         }
         model.clearHomeScreenActionRequest(request)
     }
@@ -16570,10 +16572,8 @@ struct SettingsView: View {
         return localizedKey(model.language, "ui.djconnect.is.still.checking.the.current.music.dna.status")
     }
 
-    private var canShowWebSocketFastPathToggle: Bool {
-        !model.isDemoMode
-            && model.pairingStatus == .paired
-            && model.haConnectionMode == .local
+    private var canShowAutomaticTransportStatus: Bool {
+        !model.isDemoMode && model.pairingStatus == .paired
     }
 
     private var connectionTransportTitle: String {
@@ -17017,19 +17017,11 @@ struct SettingsView: View {
                 }
                 .djSettingsListRowBackground()
 
-                if canShowWebSocketFastPathToggle {
+                if canShowAutomaticTransportStatus {
                     SettingsGlassSection(title: localizedKey(model.language, "ui.connection")) {
-                        Toggle(isOn: $model.webSocketFastPathEnabled) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(localizedKey(model.language, "ui.websocket.fast.path"))
-                                Text(localizedKey(model.language, "ui.use.websocket.fast.path.only.on.local.home.assistant"))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                        .tint(djConnectAccent)
-                        .djCompactSettingsListRow()
+                        Text(localizedKey(model.language, "ui.transport.automatic"))
+                            .font(.caption).foregroundStyle(.secondary)
+                            .djCompactSettingsListRow()
 
                         LabeledContent(localizedKey(model.language, "ui.connection.speed")) {
                             Text(connectionTransportTitle)
@@ -17668,14 +17660,19 @@ private struct AboutView: View {
                     .djSessionFrostedSurface()
 
                     SettingsSection(title: localizedKey(model.language, "ui.connection"), showsDivider: false) {
+                        AboutStackedRow(label: localizedKey(model.language, "ui.connection.status")) {
+                            Label(localizedKey(model.language, model.connectionPresentation.key),
+                                  systemImage: model.connectionPresentation.icon)
+                                .foregroundStyle(model.connectionPresentation.color)
+                        }
                         AboutStackedRow(label: localizedKey(model.language, "ui.connection.type")) {
                             SelectableValue(connectionModeTitle, foregroundStyle: connectionModeColor)
                         }
-                        AboutStackedRow(label: localizedKey(model.language, "ui.connection.speed")) {
+                        AboutStackedRow(label: localizedKey(model.language, "ui.connection.transport")) {
                             SelectableValue(connectionTransportTitle, foregroundStyle: connectionTransportColor)
                         }
-                        AboutStackedRow(label: localizedKey(model.language, "ui.home.assistant.address")) {
-                            SelectableValue(model.homeAssistantURL)
+                        AboutStackedRow(label: localizedKey(model.language, "ui.connection.address.active")) {
+                            SelectableValue(activeConnectionAddress)
                         }
                         AboutStackedRow(label: localizedKey(model.language, "ui.push.notifications")) {
                             Button { showingPushStatus.toggle() } label: {
@@ -17729,55 +17726,52 @@ private struct AboutView: View {
         }
     }
 
-    private var connectionModeTitle: String {
-        if model.isDemoMode {
-            return localizedKey(model.language, "ui.local.demo.mode")
-        }
-        switch model.haConnectionMode {
-        case .local:
-            return localizedKey(model.language, "ui.local.home.assistant")
-        case .remote:
-            return localizedKey(model.language, "ui.remote.home.assistant")
-        case .offline:
-            return localizedKey(model.language, "ui.offline")
+    private var actualConnectionMode: DJConnectHAConnectionMode {
+        guard model.pairingStatus == .paired, model.isConnected, !model.isOfflineModeActive else { return .offline }
+        switch model.hybridConnectionDiagnostics?.state {
+        case .localReady, .localDegraded: return .local
+        case .remoteReady: return .remote
+        case .recoveringOffline, .terminalAuthorityWithdrawn: return .offline
+        case nil: return model.haConnectionMode
         }
     }
 
-    private var connectionModeColor: Color {
-        if model.isDemoMode {
-            return djConnectAccent
+    private var connectionModeTitle: String {
+        if model.isDemoMode { return localizedKey(model.language, "ui.local.demo.mode") }
+        switch actualConnectionMode {
+        case .local: return localizedKey(model.language, "ui.local.home.assistant")
+        case .remote: return localizedKey(model.language, "ui.remote.home.assistant")
+        case .offline: return localizedKey(model.language, "ui.not.active")
         }
-        switch model.haConnectionMode {
-        case .local:
-            return .green
-        case .remote:
-            return djConnectAccent
-        case .offline:
-            return .red
+    }
+
+    private var connectionModeColor: Color { model.connectionPresentation.color }
+
+    private var activeConnectionAddress: String {
+        guard !model.isDemoMode, actualConnectionMode != .offline else {
+            return localizedKey(model.language, "ui.not.active")
         }
+        // Hybrid reports only an authenticated, installation-qualified origin.
+        // Legacy routes do not provide that proof; do not call a configured URL active.
+        guard let origin = model.hybridConnectionDiagnostics?.activeOrigin,
+              var components = URLComponents(url: origin, resolvingAgainstBaseURL: false) else {
+            return localizedKey(model.language, "ui.connection.address.unconfirmed")
+        }
+        components.user = nil; components.password = nil; components.query = nil; components.fragment = nil
+        return components.url?.absoluteString ?? localizedKey(model.language, "ui.not.active")
     }
 
     private var connectionTransportTitle: String {
-        if model.isDemoMode {
-            return localizedKey(model.language, "ui.demo")
+        if model.isDemoMode { return localizedKey(model.language, "ui.demo") }
+        guard actualConnectionMode != .offline else { return localizedKey(model.language, "ui.not.active") }
+        if model.hybridConnectionDiagnostics != nil {
+            return model.fastPathDiagnostics.websocketConnected ? "WSS · TLS" : "HTTPS · TLS"
         }
-        if model.haConnectionMode == .offline {
-            return localizedKey(model.language, "ui.not.active")
-        }
-        if model.fastPathDiagnostics.websocketConnected {
-            return localizedKey(model.language, "ui.fast.local.link.websocket")
-        }
-        return localizedKey(model.language, "ui.normal.link.http")
+        return model.fastPathDiagnostics.websocketConnected ? "WebSocket" : localizedKey(model.language, "ui.connection.address.unconfirmed")
     }
 
     private var connectionTransportColor: Color {
-        if model.isDemoMode {
-            return djConnectAccent
-        }
-        if model.haConnectionMode == .offline {
-            return .red
-        }
-        return model.fastPathDiagnostics.websocketConnected ? .green : .secondary
+        actualConnectionMode == .offline ? .secondary : model.connectionPresentation.color
     }
 
     private var pushNotificationStatusTitle: String {

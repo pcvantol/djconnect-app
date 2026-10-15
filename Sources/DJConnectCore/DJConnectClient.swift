@@ -18,6 +18,7 @@ public final class DJConnectClient: Sendable {
     public let tokenStore: DJConnectTokenStore
 
     private let session: URLSession
+    private let hybridTransport: DJConnectHybridTransport?
     private let sessionProjectionSession: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -30,6 +31,7 @@ public final class DJConnectClient: Sendable {
         identity: DJConnectIdentity,
         tokenStore: DJConnectTokenStore,
         session: URLSession = .shared,
+        hybridTransport: DJConnectHybridTransport? = nil,
         webSocketFastPath: (any DJConnectWebSocketFastPathTransport)? = nil,
         responseLogger: (@Sendable (_ requestSummary: String, _ statusCode: Int) -> Void)? = nil,
         failureLogger: (@Sendable (_ details: DJConnectAPIFailureLogDetails) -> Void)? = nil
@@ -38,6 +40,7 @@ public final class DJConnectClient: Sendable {
         self.identity = identity
         self.tokenStore = tokenStore
         self.session = session
+        self.hybridTransport = hybridTransport
         // Owner Session responses contain ephemeral Moment text. Keep this
         // transport out of URLCache/cookies even if a server omits no-store.
         let projectionConfiguration = session.configuration
@@ -1053,6 +1056,16 @@ public final class DJConnectClient: Sendable {
 
     private func dataAndStatusCodeResponse(for request: URLRequest, using requestSession: URLSession? = nil,
                                           acceptingStatuses: Set<Int> = []) async throws -> (Data, Int) {
+        if let hybridTransport, DJConnectHybridTransport.operation(for: request) != nil || DJConnectHybridTransport.isActiveRead(request) {
+            do {
+                let (data, status) = try await hybridTransport.perform(request)
+                if !acceptingStatuses.contains(status), let error = classify(statusCode: status, body: data) { throw error }
+                return (data, status)
+            } catch DJConnectHybridTransportError.authority(let code) {
+                if ["unauthorized", "pairing_revoked"].contains(code) { throw DJConnectError.authStale(statusCode: 401, message: code) }
+                throw DJConnectError.profile(code: .profileAccessDenied, statusCode: 403, message: code)
+            }
+        }
         let (data, response): (Data, URLResponse)
         do {
             (data, response) = try await (requestSession ?? session).data(for: request)
@@ -1060,6 +1073,7 @@ public final class DJConnectClient: Sendable {
             if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
                 throw CancellationError()
             }
+            if !DJConnectHybridTransport.canReplayLegacy(request) { throw DJConnectHybridTransportError.deliveryUnknown }
             throw DJConnectError.network(message: error.localizedDescription)
         }
 

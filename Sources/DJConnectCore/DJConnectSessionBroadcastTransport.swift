@@ -23,6 +23,7 @@ public actor DJConnectSessionBroadcastTransport {
     private let httpRecovery: HTTPRecovery?
     private var httpRecoveryTask: Task<Void, Never>?
     private var liveConnected = false
+    private var heartbeatTask: Task<Void, Never>?
 
     public init(
         baseURL: URL,
@@ -91,6 +92,7 @@ public actor DJConnectSessionBroadcastTransport {
         socket?.cancel(with: .goingAway, reason: nil)
         socket = nil
         liveConnected = false
+        heartbeatTask?.cancel(); heartbeatTask = nil
         httpRecoveryTask?.cancel()
         httpRecoveryTask = nil
     }
@@ -152,6 +154,7 @@ public actor DJConnectSessionBroadcastTransport {
         while shouldRun, !Task.isCancelled {
             do {
                 try await connect(identity: identity)
+                startHeartbeat()
                 let subscription = try await subscribe(sessionID: sessionID, identity: identity)
                 guard shouldRun, !Task.isCancelled else { return }
                 liveConnected = true
@@ -176,6 +179,7 @@ public actor DJConnectSessionBroadcastTransport {
             } catch {
                 guard shouldRun, !Task.isCancelled else { return }
                 let hadSocket = socket != nil
+                heartbeatTask?.cancel(); heartbeatTask = nil
                 socket?.cancel(with: .goingAway, reason: nil)
                 socket = nil
                 liveConnected = false
@@ -204,6 +208,27 @@ public actor DJConnectSessionBroadcastTransport {
                 }
                 try? await Task.sleep(nanoseconds: retryDelay)
                 retryDelay = min(retryDelay * 2, 15_000_000_000)
+            }
+        }
+    }
+
+    private func startHeartbeat() {
+        heartbeatTask?.cancel()
+        guard let channel = socket else { return }
+        heartbeatTask = Task {
+            let opened = ProcessInfo.processInfo.systemUptime
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(15)) } catch { return }
+                if ProcessInfo.processInfo.systemUptime - opened >= 285 {
+                    channel.cancel(with: .goingAway, reason: nil); return
+                }
+                let deadline = Task { try? await Task.sleep(for: .seconds(5)); if !Task.isCancelled { channel.cancel(with: .goingAway, reason: nil) } }
+                do {
+                    try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+                        channel.sendPing { error in if let error { c.resume(throwing: error) } else { c.resume() } }
+                    }
+                    deadline.cancel()
+                } catch { deadline.cancel(); channel.cancel(with: .goingAway, reason: nil); return }
             }
         }
     }
@@ -314,10 +339,11 @@ public actor DJConnectSessionBroadcastTransport {
         }
         try DJConnectIncomingPayloadLimiter.validate(data)
         if let authFrame = try? decoder.decode(DJConnectSessionBroadcastAuthMessage.self, from: data), authFrame.type == "auth_invalid" {
-            if authFrame.code == "auth_expired" || authFrame.code == "slow_consumer" {
-                throw DJConnectError.network(message: "Paired live connection expired")
+            if discover != nil, let code = authFrame.code,
+               ["unauthorized", "pairing_revoked", "profile_access_denied", "profile_unavailable", "operation_context_changed"].contains(code) {
+                throw DJConnectPairedOwnerAuthorityWithdrawnError(code: code)
             }
-            if discover != nil { throw DJConnectPairedOwnerAuthorityWithdrawnError(code: authFrame.code ?? "invalid_auth") }
+            if discover != nil { throw DJConnectError.network(message: "Paired live connection requires recovery") }
             throw DJConnectSessionBroadcastUnavailableError()
         }
         return try decoder.decode(T.self, from: data)

@@ -1169,3 +1169,19 @@
 "ui.trackInsight.verified_credits" = "Geverifieerde credits";
 "ui.trackInsight.interpretation" = "Duiding";
 "ui.refresh.page" = "Ververs pagina";
+
+"ui.transport.automatic" = "De app kiest automatisch de beschikbare verbinding en herstelt deze wanneer je netwerk verandert.";
+
+"ui.transport.confirmed_no_body" = "De actie is bevestigd. Het oorspronkelijke resultaat is niet meer beschikbaar; ververs de pagina.";
+"ui.transport.uncertain" = "De uitkomst van de actie is nog onzeker. Ververs de pagina om de actuele status te bekijken.";
+"ui.transport.untrusted" = "Deze verbinding hoort niet aantoonbaar bij je gekoppelde Home Assistant. Controleer het ingestelde adres.";
+"ui.transport.recovering" = "De verbinding wordt hersteld. Probeer de actie later opnieuw.";
+"ui.transport.snapshot_gap" = "De actuele sessie is bijgewerkt. Niet alle tussentijdse bijdragen konden worden hersteld.";
+
+"ui.connection.details" = "Details";
+
+"ui.connection.transport" = "Transport";
+
+"ui.connection.address.active" = "Actief Home Assistant-adres";
+
+"ui.connection.address.unconfirmed" = "Actieve route nog niet bevestigd";

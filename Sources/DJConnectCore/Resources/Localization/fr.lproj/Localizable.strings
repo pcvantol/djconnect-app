@@ -1169,3 +1169,19 @@
 "ui.trackInsight.verified_credits" = "Crédits vérifiés";
 "ui.trackInsight.interpretation" = "Interprétation";
 "ui.refresh.page" = "Actualiser la page";
+
+"ui.transport.automatic" = "L’app choisit automatiquement une connexion disponible et la rétablit lorsque le réseau change.";
+
+"ui.transport.confirmed_no_body" = "L’action est confirmée. Son résultat initial n’est plus disponible ; actualisez la page.";
+"ui.transport.uncertain" = "Le résultat reste incertain. Actualisez la page pour consulter l’état actuel.";
+"ui.transport.untrusted" = "Cette connexion n’a pas pu être vérifiée comme votre Home Assistant associé. Vérifiez l’adresse configurée.";
+"ui.transport.recovering" = "La connexion est en cours de rétablissement. Réessayez l’action plus tard.";
+"ui.transport.snapshot_gap" = "La session actuelle est à jour. Certaines contributions pendant l’interruption n’ont pas pu être récupérées.";
+
+"ui.connection.details" = "Détails";
+
+"ui.connection.transport" = "Transport";
+
+"ui.connection.address.active" = "Adresse Home Assistant active";
+
+"ui.connection.address.unconfirmed" = "Route active pas encore confirmée";

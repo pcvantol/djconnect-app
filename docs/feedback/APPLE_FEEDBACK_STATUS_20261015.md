@@ -4,13 +4,45 @@ This is the current view of the owner's complete feedback list and Apple lane #8
 It supersedes the intermediate counts and candidate pins in
 [the chronological worklist](APPLE_FEEDBACK_20261014.md). A source correction is
 not an installed fix. The owner subsequently authorized installation on iPad, iPhone, MacBook and Mac mini.
-All four now run build40060. CI/merge/publication, HA/Pi updates and re-pair remain
-outside this authorization. Installation is not acceptance of every reported bug.
+The initial installation checkpoint was build40060 on all four devices. See the
+latest checkpoint below for current device versions. Installation is not acceptance
+of every reported bug. Source publication/CI/merge and speculative re-pair remain
+outside the current authorization.
 
 Sole writer: `build/apple-40017-recovery/source`, branch
 `codex/apple-dj-presence-v1`, starting HEAD `3c89327`. Original root WIP and the
 extra untracked Xcode projects are preserved. The disposable `/private/tmp`
 checkout is byte-copied build input, not another source writer.
+
+## Latest checkpoint: Hybrid / About, build40064
+
+Owner explicitly requested the transportslice, accurate About connection details,
+and a Details → About action in every non-green connection popover.
+
+- Source: automatic paired Hybrid actions, original-operation recovery, separate
+  Broadcast cursor recovery, readonly automatic transport settings and About
+  route/transport/origin reporting. See HYBRID_TRANSPORT_APPLE_ADOPTION_V1.md.
+- Five-language localization validation:1134 keys PASS; diff whitespace PASS.
+- Native unsigned and Apple Development signed Mac/iOS builds40064 PASS.
+- Mac mini ordinary app40064 installed and launched PID46894. Strict/deep
+  signature, exact installed-file hashes, entitlement and preference preservation
+  PASS; receipt /private/tmp/djc-hybrid-mac-install3.json. Normal quit was blocked
+  by crash/setup sheets; optional crash sheet was dismissed with Niet nu, then
+  the app's own App afsluiten button completed normal termination. No force kill,
+  token restore or re-pair. It remains unpaired and shows the required setup sheet.
+- Physical iPad40064 installed and launched via devicectl. Screenshot
+  /private/tmp/djc-hybrid-ipad-40064.png shows the real active Session behind the
+  existing possible-crash sheet, with an external-route globe. This is installed
+  observation, not end-to-end proof of Details navigation or network transitions.
+- MacBook last verified40062; normal replacement was blocked by setup UI earlier.
+  iPhone last verified40060, currently unavailable in a fresh device inventory.
+- Final software regression:572 tests PASS in31.028s, including route-origin
+  selection and clearing on background. Log: /private/tmp/djc-hybrid-final-tests.log.
+  Native action/network-transition acceptance remains OPEN; the injected wire
+  tests cannot qualify physical TLS, LAN-to-external switching or energy use.
+
+The current Mac pairing401 issue and iPad crash overlay are not reported as fixed
+by this transport/About candidate. No APNs testpush is claimed.
 
 ## Per-report disposition
 

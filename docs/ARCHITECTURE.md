@@ -83,36 +83,46 @@ scene.
 Native macOS app target. It hosts the shared SwiftUI root view in a macOS app
 scene and exposes a native settings scene.
 
-Local Home Assistant transport can use a native `/api/websocket` fast path for
-latency-sensitive DJConnect command, Ask DJ, Music Discovery, Track Insight, and
-VibeCast actions when an explicit feature flag is enabled and the URL is local.
-The production Apple client does not persist a Home Assistant token. It
-re-evaluates the fast path on app start, resume, active transition, and pairing
-changes by calling `POST /api/djconnect/v1/websocket/session` with the existing
-DJConnect bearer token, caching the returned short-lived HA WebSocket token in
-memory only, authenticating `/api/websocket`, and then checking matching
-`djconnect/*` capabilities. The paired DJConnect `device_token` is not HA
-WebSocket auth; it is sent only inside DJConnect payloads after HA auth succeeds.
-This is deliberately optional: HTTP remains the canonical implementation,
-remote/Nabu Casa action requests use HTTP only. Missing capabilities and network
-failures fall back to the existing HTTP flow; cancellation and authoritative
-server, Profile or authentication errors propagate without replaying the request. WebSocket
-diagnostics must remain non-secret: route/capability state is fine, but HA
-tokens, DJConnect device tokens, raw prompts, Ask DJ history, raw audio, and
-Music DNA content are not.
+Apple Hybrid transport is automatic for an existing paired identity with a stored
+installation ID and a configured HTTPS endpoint. `DJConnectHybridTransport` owns
+one foreground route/context probe shared by clients. Normal certificate and
+hostname validation precedes credential release; the authenticated context must
+match the paired installation. No redirect, plaintext action route or certificate
+bypass is accepted. A remote route uses HTTPS; only a qualified local HTTPS
+endpoint uses the paired-owner `/api/djconnect/v1/actions/paired` WSS channel.
+The previous opt-in setting and automatic `/websocket/session` issuer dependency
+are removed. Explicit legacy authentication APIs remain compatibility-only.
 
-Active DJ Session delivery uses a separate paired-owner WebSocket contract,
-not the optional HA-credential action fast path. While that live subscription
-is disconnected, the foreground client automatically reads the existing
-owner-authorized active Session HTTP projection every two seconds. This uses
-the same Broadcast DTO, native admission checks, expiry and identity validation;
-it never synthesizes a Moment or replays a session mutation. A successful live
-snapshot pauses HTTP recovery. Session termination, authority withdrawal and
-leaving the foreground stop recovery. After a confirmed remote connection,
-ordinary requests prefer that route for up to fifteen seconds before probing
-LAN again; foreground resume resets the probe delay. HTTP offers snapshot
-delivery rather than WebSocket event latency. Session lifecycle, pinned mood,
-history, search and voice still use their existing HTTP contracts.
+`DJConnectPairedActionConnection` owns a single reader, connection-ID/request-ID
+demultiplexing and serialized writes. It bounds outstanding requests, frames and
+IDs, authenticates within five seconds, pings every fifteen seconds and closes
+before the five-minute lease expires. Socket closure updates UI diagnostics.
+Backgrounding closes connections and cancels foreground work.
+
+Supported mutations receive an original UUIDv7 and server operation epoch. After
+possible transmission, recovery queries status for that same identity instead
+of executing again. Confirmed receipts remain confirmed when the result body is
+unavailable. Only compact, bounded receipt metadata is retained in RAM; prompts,
+audio, personal responses and history are not journaled. Legacy effectful POSTs
+cannot be replayed after a network failure. Pure reads, history paging, voice,
+uploads, files, Discover and Music DNA retain their HTTP contracts.
+
+Active DJ Session delivery remains a separate paired-owner Broadcast connection.
+Its foreground HTTP recovery consumes opaque server recovery cursors, validates
+session identity and applies existing event sequence/watermark guards. A required
+snapshot exposes a coverage-gap notice instead of pretending missed events were
+replayed. Backgrounding, termination and authority withdrawal stop recovery.
+Route changes preserve the existing UI draft, selection, subject and scroll
+state; they do not start a session or transfer playback.
+
+The connection popover uses the combined health status. Every status other than
+green local-connected offers Details, opening About through the root navigation.
+About separates overall health, route, transport and the authenticated active
+origin. An inactive/unconfirmed origin is labelled as such; configured addresses
+are never presented as proof of an active authenticated route. Remote HTTPS is
+a working route even though its colour and icon differ from local connectivity.
+Native network-transition and installed hardware acceptance remain separate
+from source tests; see the Hybrid adoption report.
 
 `DJConnectWatch`
 

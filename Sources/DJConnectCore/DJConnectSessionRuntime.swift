@@ -253,12 +253,14 @@ public struct DJConnectSessionResponse: Codable, Equatable, Sendable {
 public struct DJConnectSessionBroadcastSubscription: Codable, Equatable, Sendable {
     public var success: Bool
     public var subscriptionID: String
+    public var recoveryCursor: String? = nil
     public var sessionID: String
     public var snapshot: DJConnectBroadcastState
 
     enum CodingKeys: String, CodingKey {
         case success, snapshot
         case subscriptionID = "subscription_id"
+        case recoveryCursor = "recovery_cursor"
         case sessionID = "session_id"
     }
 }
@@ -435,5 +437,19 @@ public extension DJConnectSessionRuntime {
         result.selectedMood = response.selectedMood; result.moodRevision = response.moodRevision
         result.broadcast.session.selectedMood = response.selectedMood; result.broadcast.session.moodRevision = response.moodRevision
         return result
+    }
+}
+
+/// Same owner recovery DTO as Broadcast. A snapshot gap is never a complete history claim.
+public struct DJConnectBroadcastRecovery: Decodable, Sendable {
+    public let success: Bool
+    public let sessionID: String
+    public let recovery: String
+    public let snapshot: DJConnectBroadcastState?
+    public let events: [DJConnectSessionBroadcastEvent]?
+    public let recoveryCursor: String?
+    enum CodingKeys: String, CodingKey {
+        case success, recovery, snapshot, events
+        case sessionID = "session_id", recoveryCursor = "recovery_cursor"
     }
 }

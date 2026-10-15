@@ -642,6 +642,11 @@ struct SessionTimelineScreen: View {
                     .font(.caption).frame(maxWidth: .infinity).padding(.bottom, 8)
                     .accessibilityIdentifier("session-demo-notice")
             }
+            if model.djSessionRecoveryGap {
+                Label(text("ui.transport.snapshot_gap"), systemImage: "arrow.clockwise")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .accessibilityIdentifier("session-recovery-coverage-gap")
+            }
             NativeSessionMomentsView(session: session, language: model.language,
             isRecovering: model.djSessionIsRecovering,
             isLiveUnavailable: model.djSessionLiveUnavailable,
@@ -1389,6 +1394,17 @@ struct SessionConnectionToolbarButton: View {
                     SetupStatusView(model: model)
                     #endif
                 }
+                if status.showsConnectionDetails {
+                    Button {
+                        showingStatus = false
+                        model.performHomeScreenAction(.about)
+                    } label: {
+                        Label(text("ui.connection.details"), systemImage: "info.circle")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(djConnectAccent)
+                    .accessibilityIdentifier("connection-details-link")
+                }
             }
             .padding(16).frame(idealWidth: 340, maxWidth: 420)
             .presentationCompactAdaptation(.popover)
@@ -1420,6 +1436,7 @@ enum SessionConnectionStatus: String, CaseIterable, Equatable {
             return mode == .remote ? .remote : .connected
         }
     }
+    var showsConnectionDetails: Bool { self != .connected }
     var key: String { "ui.connection.combined." + rawValue }
     var icon: String {
         switch self {
@@ -1452,7 +1469,15 @@ enum SessionConnectionStatus: String, CaseIterable, Equatable {
 
 extension DJConnectAppModel {
     var connectionPresentation: SessionConnectionStatus {
-        .resolve(demo: isDemoMode, pairing: pairingStatus, mode: haConnectionMode,
+        let hybrid = hybridConnectionDiagnostics
+        let effectiveMode: DJConnectHAConnectionMode
+        switch hybrid?.state {
+        case .localReady, .localDegraded: effectiveMode = .local
+        case .remoteReady: effectiveMode = .remote
+        case .recoveringOffline, .terminalAuthorityWithdrawn: effectiveMode = .offline
+        case nil: effectiveMode = haConnectionMode
+        }
+        return .resolve(demo: isDemoMode, pairing: pairingStatus, mode: effectiveMode,
                  backendAvailable: backendAvailable, recovering: djSessionIsRecovering,
                  liveUnavailable: djSessionLiveUnavailable, connected: isConnected,
                  compatible: isRuntimeCompatible, networkAvailable: !isOfflineModeActive,
