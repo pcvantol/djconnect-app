@@ -30,10 +30,12 @@ private actor HybridTestWire: DJConnectHybridWire {
     let failExecute: Bool
     let unavailableBody: Bool
     let failedLocal: Bool
+    let withdrawExecute: Bool
     let socketValue: (any DJConnectHybridSocket)?
     init(install: String = "test-install", failExecute: Bool = false, unavailableBody: Bool = false,
-         failedLocal: Bool = false, socket: (any DJConnectHybridSocket)? = nil) {
+         failedLocal: Bool = false, socket: (any DJConnectHybridSocket)? = nil, withdrawExecute: Bool = false) {
         self.install = install; self.failExecute = failExecute; self.unavailableBody = unavailableBody
+        self.withdrawExecute = withdrawExecute
         self.failedLocal = failedLocal; self.socketValue = socket
     }
     func http(_ request: URLRequest) async throws -> (Data, Int) {
@@ -42,6 +44,9 @@ private actor HybridTestWire: DJConnectHybridWire {
         let body = try JSONDecoder().decode(HybridObject.self, from: request.httpBody ?? Data("{}".utf8))
         if request.url!.path.hasSuffix("/context") { return (try JSONEncoder().encode(hybridContext(install: install)), 200) }
         if request.url!.path.hasSuffix("/active") { return (Data(#"{"success":true}"#.utf8), 200) }
+        if withdrawExecute, request.url?.host == "ha.local", request.url!.path.hasSuffix("/operation") {
+            return (Data(#"{"error":"transport_security_required"}"#.utf8), 426)
+        }
         if request.url!.path.hasSuffix("/operation"), failExecute { throw URLError(.networkConnectionLost) }
         let status = request.url!.path.hasSuffix("/status")
         let available = !status && !unavailableBody
@@ -54,7 +59,7 @@ private actor HybridTestWire: DJConnectHybridWire {
     func recorded() -> [URLRequest] { requests }
 }
 private actor HybridTestSocket: DJConnectHybridSocket {
-    enum Mode { case reverseTwo, silent, wrongConnection }
+    enum Mode { case reverseTwo, silent, wrongConnection, rejectRouteAuth, withdrawAfterSend }
     let mode: Mode
     var frames: [Data] = []
     var waiter: CheckedContinuation<Data, Error>?
@@ -71,6 +76,9 @@ private actor HybridTestSocket: DJConnectHybridSocket {
     func send(_ data: Data) async throws {
         let body = try JSONDecoder().decode(HybridObject.self, from: data)
         if body["type"] == .string("auth") {
+            if mode == .rejectRouteAuth {
+                try enqueue(["type": .string("auth_invalid"), "code": .string("transport_security_required")]); return
+            }
             var context = hybridContext()
             context["type"] = .string("auth_ok"); context["protocol_version"] = .int(1)
             context["audience"] = .string("paired_owner_actions"); context["connection_id"] = .string("connection-A")
@@ -79,6 +87,9 @@ private actor HybridTestSocket: DJConnectHybridSocket {
             try enqueue(context); return
         }
         sent.append(body)
+        if mode == .withdrawAfterSend {
+            try enqueue(["type": .string("auth_invalid"), "code": .string("transport_security_required")]); return
+        }
         func result(_ id: DJConnectJSONValue, connection: String = "connection-A") -> HybridObject {
             ["type": .string("result"), "connection_id": .string(connection), "id": id, "status": .int(200),
              "result": .object(["request": id])]
@@ -95,6 +106,7 @@ private actor HybridTestSocket: DJConnectHybridSocket {
     func ping() async throws { if closed { throw URLError(.networkConnectionLost) } }
     func close() async { closed = true; waiter?.resume(throwing: URLError(.networkConnectionLost)); waiter = nil }
     func count() -> Int { sent.count }
+    func operationEnvelope() -> HybridObject? { sent.first }
 }
 private func hybridCoordinator(_ wire: HybridTestWire, local: URL? = nil) -> DJConnectHybridTransport {
     DJConnectHybridTransport(localURL: local, remoteURL: URL(string: "https://remote.example"), expectedInstallID: "test-install",
@@ -226,4 +238,63 @@ private func hybridCoordinator(_ wire: HybridTestWire, local: URL? = nil) -> DJC
     let payload = try #require(body["payload"]?.hybridObject)
     #expect(payload["device_token"] == nil); #expect(payload["identity"] == nil)
     #expect(payload["command"] == .string("next"))
+}
+
+@Test func hybridRouteWithdrawalBeforeSendNeverDispatchesFallbackOrClearsToken() async throws {
+    let socket = HybridTestSocket(.rejectRouteAuth), wire = HybridTestWire(socket: socket)
+    let store = DJConnectInMemoryTokenStore(token: "paired-test-token")
+    let coordinator = DJConnectHybridTransport(localURL: URL(string: "https://ha.local"),
+        remoteURL: URL(string: "https://remote.example"), expectedInstallID: "test-install",
+        identity: hybridIdentity(), tokenStore: store, wire: wire)
+    await #expect(throws: DJConnectHybridTransportError.routeWithdrawn) { try await coordinator.perform(hybridRequest()) }
+    #expect(await socket.count() == 0)
+    #expect(await wire.recorded().filter { $0.url?.path.hasSuffix("/operation") == true }.isEmpty)
+    #expect(try store.loadToken() == "paired-test-token")
+    #expect(await coordinator.snapshot().state != .terminalAuthorityWithdrawn)
+    #expect(try await coordinator.authorizedBaseURL() == URL(string: "https://remote.example"))
+}
+@Test func hybridRouteWithdrawalAfterSendOnlyReconcilesOriginalIDOnTrustedTLS() async throws {
+    let socket = HybridTestSocket(.withdrawAfterSend), wire = HybridTestWire(socket: socket)
+    let coordinator = hybridCoordinator(wire, local: URL(string: "https://ha.local"))
+    do { _ = try await coordinator.perform(hybridRequest()); Issue.record("Expected receipt-only outcome") }
+    catch DJConnectHybridTransportError.outcome(let receipt) { #expect(receipt.phase == "confirmed") }
+    #expect(await socket.count() == 1)
+    let requests = await wire.recorded()
+    let blindExecutions = requests.filter { $0.url?.path.hasSuffix("/operation") == true }
+    #expect(blindExecutions.isEmpty)
+    let status = try #require(requests.first { $0.url?.path.hasSuffix("/status") == true })
+    #expect(status.url?.host == "remote.example")
+    let submitted = try #require(await socket.operationEnvelope())
+    let queried = try JSONDecoder().decode(HybridObject.self, from: #require(status.httpBody))
+    #expect(submitted["operation_id"] == queried["operation_id"])
+    #expect(submitted["operation_epoch"] == queried["operation_epoch"])
+}
+
+@Test func hybridHTTP426AfterDispatchReconcilesInsteadOfReexecutingOrResettingPairing() async throws {
+    let wire = HybridTestWire(withdrawExecute: true)
+    let coordinator = hybridCoordinator(wire, local: URL(string: "https://ha.local"))
+    do { _ = try await coordinator.perform(hybridRequest()); Issue.record("Expected receipt-only outcome") }
+    catch DJConnectHybridTransportError.outcome(let receipt) { #expect(receipt.phase == "confirmed") }
+    let requests = await wire.recorded()
+    let executes = requests.filter { $0.url?.path.hasSuffix("/operation") == true }
+    let statuses = requests.filter { $0.url?.path.hasSuffix("/status") == true }
+    #expect(executes.count == 1); #expect(statuses.count == 1)
+    #expect(statuses.first?.url?.host == "remote.example")
+    let first = try JSONDecoder().decode(HybridObject.self, from: #require(executes.first?.httpBody))
+    let recovered = try JSONDecoder().decode(HybridObject.self, from: #require(statuses.first?.httpBody))
+    #expect(first["operation_id"] == recovered["operation_id"])
+    #expect(first["operation_epoch"] == recovered["operation_epoch"])
+    #expect(await coordinator.snapshot().state != .terminalAuthorityWithdrawn)
+}
+@Test func hybridReadWithdrawalRecoversThroughTrustedTLSWithoutMutation() async throws {
+    let socket = HybridTestSocket(.rejectRouteAuth), wire = HybridTestWire(socket: socket)
+    let coordinator = hybridCoordinator(wire, local: URL(string: "https://ha.local"))
+    let request = URLRequest(url: URL(string: "https://ha.local/api/djconnect/v1/session/active")!)
+    let response = try await coordinator.perform(request)
+    #expect(response.1 == 200)
+    let requests = await wire.recorded()
+    let reads = requests.filter { $0.url?.path.hasSuffix("/active") == true }
+    let mutations = requests.filter { $0.url?.path.hasSuffix("/operation") == true }
+    #expect(reads.count == 1); #expect(reads.first?.url?.host == "remote.example")
+    #expect(mutations.isEmpty); #expect(await socket.count() == 0)
 }

@@ -57,3 +57,27 @@ certificate, pairing or Core configuration was changed by this preparation.
 
 Cleanup: one active writer worktree, no newly eligible merged stale branches;
 active/untracked project directories and evidence preserved.
+
+## Route-withdrawal implementation followup
+
+The source coordinator/socket now preserves routeWithdrawn separately from
+pairing authority and generic notSent. auth_invalid/transport_security_required
+at handshake or during a pending reply fails as route withdrawal. HTTP426 with
+that exact code uses the same path. Withdrawn origins are temporarily excluded
+from route selection; the paired token, Profile and UI state are not cleared.
+Before possible send no fallback execute is dispatched. After possible send,
+only original operationID/epoch status is queried through the remaining trusted
+TLS route. Active reads can recover on that trusted route without mutations.
+The existing TLS-only gate and installed40113 apps are still unchanged.
+
+Fresh CorePR1184 now has published candidate
+ a0714b44d22918cbefa5ed0dfe3fc21afff5160a after its manifest correction.
+It remains OPEN, so this is not a final producer/artifact or installed pin.
+Candidate fixture6a0c339 remains a preparation fixture; replace/reconcile it
+against the final delivered pin before activating HTTP/WS.
+
+Focused verification:20 local-policy/Hybrid tests PASS, including four explicit
+route-withdrawal cases (before-send, after-send, HTTP426, active read recovery).
+Log:/private/tmp/djc-route-withdrawal-final4-tests.log.
+No real LAN/WS network transition or physical installed transport acceptance is
+claimed by these injected-wire tests. No new install or Core mutation performed.

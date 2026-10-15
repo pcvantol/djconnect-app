@@ -34,6 +34,7 @@ public enum DJConnectHybridTransportError: Error, Equatable, Sendable {
     case invalidFrame
     case notSent
     case deliveryUnknown
+    case routeWithdrawn
     case outcome(DJConnectOperationReceipt)
     case authority(String)
 }
@@ -128,6 +129,7 @@ public actor DJConnectHybridTransport {
     private let report: (@Sendable (DJConnectHybridDiagnostics) -> Void)?
     private var diagnostics = DJConnectHybridDiagnostics()
     private var route: Route?
+    private var withdrawnOrigins: [URL: TimeInterval] = [:]
     private var routeTask: Task<Route, Error>?
     private var generation = UUID()
     private var retryLocalAfter: TimeInterval = 0
@@ -244,6 +246,9 @@ public actor DJConnectHybridTransport {
     }
     private func checkAuthority(_ body: HybridObject, status: Int) throws {
         let code = body["error"]?.hybridString ?? "transport_unavailable"
+        if status == 426, code == "transport_security_required" {
+            throw DJConnectHybridTransportError.routeWithdrawn
+        }
         if ["unauthorized", "pairing_revoked", "profile_unavailable", "profile_device_mismatch", "operation_context_changed"].contains(code), [401,403].contains(status) {
             state(.terminalAuthorityWithdrawn)
             throw DJConnectHybridTransportError.authority(code)
@@ -284,8 +289,10 @@ public actor DJConnectHybridTransport {
         if let localURL, Self.trustedOrigin(localURL) { candidates.append((localURL, true)) }
         if let remoteURL, Self.trustedOrigin(remoteURL), remoteURL != localURL { candidates.append((remoteURL, false)) }
         for (url, local) in candidates {
+            if (withdrawnOrigins[url] ?? 0) > ProcessInfo.processInfo.systemUptime { continue }
             do { return try await qualify(url, local: local) }
             catch let error as DJConnectHybridTransportError {
+                if case .routeWithdrawn = error { withdrawOrigin(url) }
                 if case .authority = error { throw error }
                 if error == .installationMismatch || error == .untrustedRoute { throw error }
             } catch is CancellationError { throw CancellationError() }
@@ -302,12 +309,20 @@ public actor DJConnectHybridTransport {
         let connectionEpoch = UUID(); actionGeneration = connectionEpoch
         let next = DJConnectPairedActionConnection(baseURL: route.url, expectedInstallID: expectedInstallID,
             identity: identity, tokenStore: tokenStore, wire: wire,
-            reportClosed: { [weak self] in await self?.actionClosed(connectionEpoch) })
+            reportClosed: { [weak self] reason in await self?.actionClosed(connectionEpoch, reason: reason) })
         action = next; actionURL = route.url
         return next
     }
-    private func actionClosed(_ epoch: UUID) {
+    private func withdrawOrigin(_ url: URL) {
+        withdrawnOrigins[url] = ProcessInfo.processInfo.systemUptime + 60
+        if route?.url == url { route = nil }
+        diagnostics.activeOrigin = nil
+        diagnostics.websocketConnected = false
+        state(.recoveringOffline)
+    }
+    private func actionClosed(_ epoch: UUID, reason: DJConnectHybridTransportError?) {
         guard actionGeneration == epoch else { return }
+        if reason == .routeWithdrawn, let url = actionURL { withdrawOrigin(url) }
         diagnostics.websocketConnected = false
         report?(diagnostics)
     }
@@ -341,6 +356,7 @@ public actor DJConnectHybridTransport {
         pendingIntents[id] = (operationEpoch, nowMS + 300_000)
         var response: (Data, Int)?
         var possibleSend = false
+        var routeWithdrawn = false
         if canUseActions(route), route.context["action_operations"]?.hybridStrings.contains(operation) == true {
             do {
                 let socket = try await connection(route)
@@ -349,10 +365,16 @@ public actor DJConnectHybridTransport {
                 possibleSend = true
                 response = try await socket.request(type: "djconnect/operation/execute", body: envelope)
                 diagnostics.websocketConnected = true; report?(diagnostics)
+            } catch DJConnectHybridTransportError.routeWithdrawn {
+                withdrawOrigin(route.url); routeWithdrawn = true
             } catch DJConnectHybridTransportError.notSent { possibleSend = false }
             catch DJConnectHybridTransportError.capacity { possibleSend = false }
             catch is CancellationError { throw CancellationError() }
             catch { if possibleSend { response = nil } }
+        }
+        if routeWithdrawn, !possibleSend {
+            pendingIntents.removeValue(forKey: id)
+            throw DJConnectHybridTransportError.routeWithdrawn
         }
         if response == nil, !possibleSend {
             guard epoch == generation, foreground, !Task.isCancelled else { throw CancellationError() }
@@ -365,6 +387,7 @@ public actor DJConnectHybridTransport {
         if let response {
             do { return try accept(response, id: id, operationEpoch: operationEpoch, epoch: epoch) }
             catch DJConnectHybridTransportError.outcome(let receipt) where ["accepted", "sent_unknown"].contains(receipt.phase) { }
+            catch DJConnectHybridTransportError.routeWithdrawn { withdrawOrigin(route.url) }
         }
         diagnostics.reconciliations += 1; diagnostics.websocketConnected = false
         await action?.stop(); action = nil; actionURL = nil; self.route = nil
@@ -411,6 +434,11 @@ public actor DJConnectHybridTransport {
                 diagnostics.websocketConnected = true; report?(diagnostics)
                 return result
             } catch is CancellationError { throw CancellationError() }
+            catch DJConnectHybridTransportError.routeWithdrawn {
+                withdrawOrigin(route.url)
+                let recovered = try await readyRoute()
+                return try await activeRead(original, route: recovered, epoch: epoch)
+            }
             catch { diagnostics.websocketConnected = false }
         }
         var r = try protectedRequest(route.url, path: "/api/djconnect/v1/session/active", body: [:])
@@ -420,6 +448,12 @@ public actor DJConnectHybridTransport {
         r.url = url.url
         let result = try await wire.http(r)
         guard epoch == generation, foreground, !Task.isCancelled else { throw CancellationError() }
+        if result.1 == 426, let body = try? JSONDecoder().decode(HybridObject.self, from: result.0),
+           body["error"] == .string("transport_security_required") {
+            withdrawOrigin(route.url)
+            let recovered = try await readyRoute()
+            return try await activeRead(original, route: recovered, epoch: epoch)
+        }
         return result
     }
 }

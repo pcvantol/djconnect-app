@@ -8,7 +8,7 @@ actor DJConnectPairedActionConnection {
     private let identity: DJConnectIdentity
     private let tokenStore: DJConnectTokenStore
     private let wire: any DJConnectHybridWire
-    private let reportClosed: (@Sendable () async -> Void)?
+    private let reportClosed: (@Sendable (DJConnectHybridTransportError?) async -> Void)?
     private var socket: (any DJConnectHybridSocket)?
     private var connectionID: String?
     private var generation = UUID()
@@ -23,20 +23,20 @@ actor DJConnectPairedActionConnection {
 
     init(baseURL: URL, expectedInstallID: String, identity: DJConnectIdentity,
          tokenStore: DJConnectTokenStore, wire: any DJConnectHybridWire,
-         reportClosed: (@Sendable () async -> Void)? = nil) {
+         reportClosed: (@Sendable (DJConnectHybridTransportError?) async -> Void)? = nil) {
         self.baseURL = baseURL; self.expectedInstallID = expectedInstallID
         self.identity = identity; self.tokenStore = tokenStore; self.wire = wire
         self.reportClosed = reportClosed
     }
-    func stop() async {
+    func stop(reason: DJConnectHybridTransportError? = nil) async {
         generation = UUID()
         connecting?.cancel(); connecting = nil
         reader?.cancel(); reader = nil; heartbeat?.cancel(); heartbeat = nil
         writer?.cancel(); writer = nil
         let old = socket; socket = nil; connectionID = nil; nextID = 1
-        failPending(DJConnectHybridTransportError.deliveryUnknown)
+        failPending(reason ?? DJConnectHybridTransportError.deliveryUnknown)
         await old?.close()
-        await reportClosed?()
+        await reportClosed?(reason)
     }
     func prepare() async throws {
         if let connecting { try await connecting.value; return }
@@ -57,6 +57,10 @@ actor DJConnectPairedActionConnection {
         connecting = task
         defer { if generation == epoch { connecting = nil } }
         do { try await task.value }
+        catch DJConnectHybridTransportError.routeWithdrawn {
+            if generation == epoch { await stop(reason: .routeWithdrawn) }
+            throw DJConnectHybridTransportError.routeWithdrawn
+        }
         catch { if generation == epoch { await stop() }; throw DJConnectHybridTransportError.notSent }
     }
     private func open(epoch: UUID) async throws {
@@ -76,6 +80,7 @@ actor DJConnectPairedActionConnection {
                                   "device_id": .string(identity.deviceID), "client_type": .string(identity.clientType.rawValue), "device_token": .string(token)]
         try await channel.send(JSONEncoder().encode(auth))
         let accepted = try await frame(channel)
+        if Self.isRouteWithdrawal(accepted) { throw DJConnectHybridTransportError.routeWithdrawn }
         guard epoch == generation, accepted["type"] == .string("auth_ok"), accepted["protocol_version"] == .int(1),
               accepted["audience"] == .string("paired_owner_actions"), accepted["lease_seconds"] == .int(300),
               accepted["ha_install_id"] == .string(expectedInstallID),
@@ -134,6 +139,7 @@ actor DJConnectPairedActionConnection {
             while epoch == generation, !Task.isCancelled {
                 let object = try await frame(channel)
                 guard epoch == generation else { return }
+                if Self.isRouteWithdrawal(object) { throw DJConnectHybridTransportError.routeWithdrawn }
                 guard object["type"] == .string("result"), object["connection_id"] == .string(connectionID ?? ""),
                       let id = object["id"]?.hybridInt, id > 0, id < nextID,
                       let status = object["status"]?.hybridInt, let result = object["result"] else {
@@ -146,8 +152,11 @@ actor DJConnectPairedActionConnection {
             }
         } catch {
             guard epoch == generation else { return }
-            await stop()
+            await stop(reason: error as? DJConnectHybridTransportError)
         }
+    }
+    private static func isRouteWithdrawal(_ frame: HybridObject) -> Bool {
+        frame["type"] == .string("auth_invalid") && frame["code"] == .string("transport_security_required")
     }
     private func keepAlive(_ channel: any DJConnectHybridSocket, epoch: UUID) async {
         while epoch == generation, !Task.isCancelled {
