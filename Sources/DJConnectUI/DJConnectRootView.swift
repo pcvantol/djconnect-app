@@ -17945,7 +17945,7 @@ private struct AboutView: View {
                             Link(destination: URL(string: "https://github.com/pcvantol/djconnect")!) {
                                 Label("pcvantol/djconnect", systemImage: "arrow.up.right.square")
                                     .font(.body)
-                                    .foregroundStyle(djConnectAccent)
+                                    .foregroundStyle(.white)
                             }
                             .djConnectLilacButton()
                             .accessibilityIdentifier("about-djconnect-github")
