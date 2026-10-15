@@ -497,3 +497,40 @@ unchanged, with no background retry or unbounded retry loop.560 tests PASS30.086
 including recovery/background/bounded-repeat checks. One earlier parallel run had
 an unrelated timing failure in VibeCast successor-session refresh; final full
 rerun passed. Final log:/private/tmp/djc-push-owner-transition-tests-final.log.
+
+## Live push bootstrap succeeded; authentication boundary remains open
+
+Further installed evidence corrects the earlier bootstrap-only uncertainty:
+HA-dev logs11:45:46 show the native retry including bootstrap_proof_present=True;
+11:45:47.090 central install-token bootstrap succeeded, HTTP200, token received.
+The same window contains46 successful device-token equality checks for the Mac
+mini before the app reports auth stale HTTP401 at11:45:47 and invokes existing
+pairing-withdrawal behavior. HA service registration repeats immediately after
+central token persistence. Runtime reload/in-flight-request interaction is a
+candidate, not a proven root cause. No invalid bearer token was established.
+MacBook40062 also reached the native re-pairing-required presentation. No manual
+re-pair, Profile change, credential restoration, Core edit/deploy/restart or
+security-bypass retry was performed. Do not call registration or APNs receipt PASS.
+Redacted evidence:/private/tmp/djc-push-live-auth-boundary-20261015.json. Raw local
+window retained privately; no tokens copied to reports. Asked owner permission to
+send this bounded finding to the existing Core writer; not sent without approval.
+
+Shared bootstrap helper now accepts its caller's context validator. The iOS Watch
+proxy validates its own pairing/route/owner epoch instead of incorrectly depending
+on a simultaneous phone APNs request.560 tests PASS29.977s; signed iOS (including
+Watch proxy compile path) and macOS40063 BUILD SUCCEEDED, strict/deep signatures
+verified. No physical Watch push acceptance is claimed.
+
+Latest installed:Mac mini40063 and iPad40063 (opened, existing state retained);
+MacBook40062, because normal quit is blocked/cancelled during its changed setup
+presentation. Installer stops before bundle replacement; no force-quit fallback.
+iPhone remains previous40060, CoreDevice4016 unavailable.40063 signed artifacts
+and hashes:/private/tmp/djc-push-40063-artifacts.json. Installation backups retained.
+
+Physical requested screenshots delivered as local links:Pi idle and active with
+Editors track metadata/artwork; latest iPad actual active Session/playback and
+DJ contributions, but still obscured by the possible-crash sheet. No crop/mock
+replacement supplied. iPad auto-discovery and floating composer are visible behind
+the sheet. Owner can dismiss Niet nu for a clean screenshot; native screen capture
+works, UI automation does not. Screenshots:/private/tmp/djc-40061-screenshots/.
+Temporary unified log stream stopped. No testpush sent before confirmed registration.

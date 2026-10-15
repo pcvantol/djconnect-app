@@ -9097,7 +9097,8 @@ public final class DJConnectAppModel: ObservableObject {
             bootstrapProof = try await fetchBootstrapProofForPushRegistration(
                 identity: identity,
                 pushEnvironment: pushEnvironment,
-                appBundleID: appBundleID
+                appBundleID: appBundleID,
+                isStillCurrent: { self.isCurrentPushRegistration(registrationSignature) }
             )
         } catch let error as DJConnectError {
             guard isCurrentPushRegistration(registrationSignature) else { throw CancellationError() }
@@ -9183,10 +9184,13 @@ public final class DJConnectAppModel: ObservableObject {
     private func fetchBootstrapProofForPushRegistration(
         identity: DJConnectIdentity,
         pushEnvironment: DJConnectPushEnvironment,
-        appBundleID: String
+        appBundleID: String,
+        isStillCurrent: () -> Bool
     ) async throws -> String? {
-        guard let signature = pushRegistrationInFlightSignature,
-              isCurrentPushRegistration(signature) else { throw CancellationError() }
+        guard isStillCurrent() else {
+            logPush("bootstrap cancelled current_context=false", level: .info)
+            throw CancellationError()
+        }
         guard let issuerBaseURL = trustedPairingIssuerBaseURL else {
             recordPushRegistrationFailure("trusted_issuer_not_configured")
             logPush("bootstrap issuer unavailable reason=trusted_issuer_not_configured", level: .warning)
@@ -9203,7 +9207,7 @@ public final class DJConnectAppModel: ObservableObject {
         )
         logPush("bootstrap issuer_request endpoint=/v1/pairing/bootstrap-proof issuer_host=\(Self.hostForLog(from: issuerBaseURL.absoluteString)) device_id_present=\(!identity.deviceID.isEmpty) client_type=\(identity.clientType.rawValue) env=\(pushEnvironment.rawValue) app_bundle_id=\(appBundleID)")
         let response = try await requestTrustedIssuerBootstrapProof(baseURL: issuerBaseURL, payload: payload)
-        guard isCurrentPushRegistration(signature) else { throw CancellationError() }
+        guard isStillCurrent() else { throw CancellationError() }
         guard response.success else {
             let reason = response.error ?? response.message ?? "bootstrap_proof_unavailable"
             logPush("bootstrap issuer_unavailable issuer_error_code=\(Self.bootstrapProofFailureCode(reason)) bootstrap_proof_present=false", level: .warning)
@@ -11865,7 +11869,12 @@ public final class DJConnectAppModel: ObservableObject {
         client: DJConnectClient
     ) async throws -> Data {
         let encoder = JSONEncoder()
+        let epoch = sessionHistory.responseEpoch
+        let route = localHomeAssistantURL()
+        let isStillCurrent = { !Task.isCancelled && self.pairingStatus == .paired
+            && self.sessionHistory.responseEpoch == epoch && self.localHomeAssistantURL() == route }
         let response = try await client.registerPushNotifications(payload)
+        guard isStillCurrent() else { throw CancellationError() }
         let responseEnvironment = response.pushEnvironment
         let environmentMatches = payload.pushEnvironment.isCompatible(with: responseEnvironment)
         guard !response.success || response.pushRegistered == false || !environmentMatches else {
@@ -11887,7 +11896,8 @@ public final class DJConnectAppModel: ObservableObject {
         guard let bootstrapProof = try await fetchBootstrapProofForPushRegistration(
             identity: watchIdentity,
             pushEnvironment: payload.pushEnvironment,
-            appBundleID: payload.appBundleID
+            appBundleID: payload.appBundleID,
+            isStillCurrent: isStillCurrent
         ) else {
             return try encoder.encode(DJConnectCommandResponse(
                 success: false,
@@ -11903,6 +11913,7 @@ public final class DJConnectAppModel: ObservableObject {
         retryPayload.bootstrapProof = bootstrapProof
         logPush("watch_proxy registration retry_with_bootstrap_proof=true device_id_present=\(!payload.deviceID.isEmpty) client_type=\(payload.clientType.rawValue) env=\(payload.pushEnvironment.rawValue)")
         let retryResponse = try await client.registerPushNotifications(retryPayload)
+        guard isStillCurrent() else { throw CancellationError() }
         return try encoder.encode(retryResponse)
     }
 
