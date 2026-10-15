@@ -17644,6 +17644,15 @@ private struct AboutView: View {
                         AboutStackedRow(label: "Copyright") {
                             SelectableValue("2026 Peter van Tol")
                         }
+                        AboutStackedRow(label: "GitHub") {
+                            Link(destination: URL(string: "https://github.com/pcvantol/djconnect")!) {
+                                Label("pcvantol/djconnect", systemImage: "arrow.up.right.square")
+                                    .font(.body)
+                                    .foregroundStyle(djConnectAccent)
+                            }
+                            .djConnectLilacButton()
+                            .accessibilityIdentifier("about-djconnect-github")
+                        }
                     }
                     .padding(24)
                     .frame(maxWidth: .infinity, alignment: .leading)

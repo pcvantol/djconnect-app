@@ -1653,7 +1653,15 @@ extension DJConnectIOSUITests {
     func testSessionMoreMenuRemainsOpenAcrossPlaybackTicks() {
         let app = launchSessionUIDemo()
         let menu = app.buttons["session-more-menu"]
-        XCTAssertTrue(menu.waitForExistence(timeout: 10)); menu.tap()
+        XCTAssertTrue(menu.waitForExistence(timeout: 10))
+        let toolbarIDs = ["session-connection-toggle", "session-mood-toggle", "session-presence-toggle",
+                          "session-end-button", "session-search-toggle", "session-more-menu"]
+        for identifier in toolbarIDs {
+            XCTAssertTrue(app.buttons[identifier].exists && app.buttons[identifier].isHittable, identifier)
+        }
+        let toolbarBefore = XCTAttachment(screenshot: app.screenshot())
+        toolbarBefore.name = "session-full-toolbar-before-opening-menu"; toolbarBefore.lifetime = .keepAlways; add(toolbarBefore)
+        menu.tap()
         let refresh = app.buttons["screen-refresh"]
         XCTAssertTrue(refresh.waitForExistence(timeout: 5))
         let originalFrame = refresh.frame
@@ -1673,6 +1681,11 @@ extension DJConnectIOSUITests {
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.65)).tap()
         XCTAssertTrue(refresh.waitForNonExistence(timeout: 5))
         XCTAssertTrue(menu.isHittable)
+        for identifier in toolbarIDs {
+            XCTAssertTrue(app.buttons[identifier].exists && app.buttons[identifier].isHittable, identifier)
+        }
+        let toolbarAfter = XCTAttachment(screenshot: app.screenshot())
+        toolbarAfter.name = "session-full-toolbar-after-closing-menu"; toolbarAfter.lifetime = .keepAlways; add(toolbarAfter)
     }
 
     func testSessionMoodGlassChoicesAndSelection() {
