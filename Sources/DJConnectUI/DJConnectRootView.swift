@@ -13417,6 +13417,7 @@ extension View {
 struct AskDJInputBar: View {
     @ObservedObject var model: DJConnectAppModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     #if os(macOS)
     @State private var promptSelection: TextSelection?
     #endif
@@ -13534,14 +13535,14 @@ struct AskDJInputBar: View {
             .background {
                 if !isExpanded {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(.white.opacity(0.12))
+                    .fill(.white.opacity(reduceTransparency ? 0.12 : 0.06))
                     .background {
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        Color(red: 0.06, green: 0.43, blue: 1.00).opacity(0.16),
-                                        Color(red: 0.84, green: 0.22, blue: 0.96).opacity(0.12)
+                                        Color(red: 0.06, green: 0.43, blue: 1.00).opacity(0.08),
+                                        Color(red: 0.84, green: 0.22, blue: 0.96).opacity(0.06)
                                     ],
                                     startPoint: .leading,
                                     endPoint: .trailing
@@ -13601,6 +13602,7 @@ struct AskDJInputBar: View {
             if floating {
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .fill(.ultraThinMaterial)
+                    .opacity(reduceTransparency ? 1 : 0.65)
                     .overlay {
                         RoundedRectangle(cornerRadius: 26, style: .continuous)
                             .stroke(.white.opacity(0.16), lineWidth: 1)
@@ -13609,11 +13611,13 @@ struct AskDJInputBar: View {
                 #if os(macOS)
                 Rectangle()
                     .fill(.ultraThinMaterial)
+                    .opacity(reduceTransparency ? 1 : 0.65)
                     .ignoresSafeArea(.container, edges: .bottom)
                 #else
                 ZStack(alignment: .top) {
                     Rectangle()
                         .fill(.ultraThinMaterial)
+                    .opacity(reduceTransparency ? 1 : 0.65)
                     LinearGradient(
                         colors: [
                             Color(red: 0.06, green: 0.43, blue: 1.00).opacity(0.22),
@@ -13629,7 +13633,7 @@ struct AskDJInputBar: View {
                 }
                 .background {
                     Rectangle()
-                        .fill(Color(red: 0.08, green: 0.06, blue: 0.14).opacity(0.70))
+                        .fill(Color(red: 0.08, green: 0.06, blue: 0.14).opacity(reduceTransparency ? 0.70 : 0.35))
                 }
                 #if os(macOS)
                 .ignoresSafeArea(.container, edges: .bottom)

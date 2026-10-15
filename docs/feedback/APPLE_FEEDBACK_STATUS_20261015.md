@@ -1096,3 +1096,19 @@ Screenshot inspected:
 /private/tmp/djc-two-row-composer-40083-ipad-images/87475FD7-C572-4942-ACB7-2FC8DD4C1029.png.
 Total4native fixture tests PASS across iPhone/iPad. These are simulator results,
 not installed physical-device acceptance. No source push or installation.
+
+## Ask DJ bar more translucent — 2026-10-15
+
+The shared composer background now uses65%of the ultra-thin material layer;
+compact editor white/blue/purple fills are halved. Only background layers change:
+text/buttons remain fully opaque, and OS Reduce Transparency retains the stronger
+material fallback. Applies to compact/expanded Session and general Ask DJ bars,
+including the Mac backdrop. Focus/height/draft behavior stays unchanged.
+
+Existing native Session focus/dismiss/draft regression PASS(1executed,0failures):
+/private/tmp/djc-translucent-composer-40084-iphone.xcresult.
+Native Demo-fixture screenshot visually inspected:
+/private/tmp/djc-translucent-composer-40084-images/B73CB92C-E5CB-4BEC-8A67-B8CE5951FFDF.png.
+macOS build40084 PASS: /private/tmp/djc-translucent-composer-40084-mac.log.
+No physical-device installation or source publication; pending widget foundation
+remains uninstalled as recorded above.
