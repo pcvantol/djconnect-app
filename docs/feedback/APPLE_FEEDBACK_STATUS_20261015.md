@@ -1281,3 +1281,69 @@ added; all15 synthetic native Mac renders/bounds PASS, representative small-long
 medium-RTL and large-long visually inspected. Output4.1MiB:
 /private/tmp/djc-session-layout-40095. Temporary compiler source/binary removed
 automatically. No app runtime change, no install, no background/hardware PASS.
+
+### Physical iPad missing-artwork correction — selective build40096
+
+User screenshot still showed the square music-note placeholder. Fresh CoreDevice
+readback confirmed physical iPad dev.djconnect.ios was still40081; the later
+08dbab1/fd0eb07 vinyl changes had not been installed. This was installation drift,
+not a newly discovered fallback-code branch.
+
+Built an isolated archive of exact installed source29982f0 with only the RootView
+code patches from08dbab1/fd0eb07. Compared every tracked file before regeneration:
+only Sources/DJConnectUI/DJConnectRootView.swift differs. Existing pending neutral
+widget foundation, new Speech and unrelated later changes are excluded. Generated
+the temporary Xcode project to include existing hybrid source files; signed iOS /
+Watch build40096 PASS. Installed and ordinary-launched on the authorized iPad;
+CoreDevice app-only readback confirms40096. Pairing/container not reset.
+
+Read-only physical native screenshot probe PASS; ordinary live app showed active
+session and genuine loaded artwork. Thus install/ordinary-runtime/artwork retention
+are physical proof; this is not new physical proof of missing-art rotation while
+playing. Do not label40096 as latest Apple-lane source or completed rich widgets.
+Exact base/selected patches/binary hash/evidence:
+APPLE_IPAD_VINYL_40096_20261015.json. Next install build number must exceed40096.
+
+### iPad runtime500, visible vinyl rotation and Settings glass — 40097/40098
+
+Fresh physical40096 Now Playing screenshot shows the new static vinyl and the
+real500 toast. The device log retains449 HTTP500-related lines; current failures
+are POST/api/djconnect/v1/command. A bounded actual homeassistant container tail
+contains five matching tracebacks: http.py2841 -> api_handlers.py832/2244 ->
+music_backend_metadata(None,runtime) -> use_cases642/610 -> profile_backend242 ->
+ProfileStorageValidationError(profile_connection_unavailable). Same six debug
+None-context calls remain in actual Core source. This confirms the prior diagnosis
+rather than a broken persisted Profile. Human explicitly authorized this concrete
+Core handoff; sent to the existing sole Core writer, who confirmed all six calls
+and is implementing a bounded logging-only hotfix. No Core edit, Profile reset,
+logging-level workaround or HA restart performed by Apple. Actual fix/install
+and real iPad command recovery remain OPEN until Core delivers.
+
+The placeholder was nearly rotationally symmetric. Added a subtle asymmetric
+groove reflection and a center-label mark so existing12second playback rotation
+is apparent. Two actual native Demo simulator frames40097 visually show different
+reflection/label angles with fixed parent frame/halo:
+/private/tmp/djc-vinyl-40097-{a,b}.png. Real500/no-playback keeps it stationary;
+no fake playing state or unconditional animation. Physical40097 install/readback
+then superseded by40098. No physical playing-animation PASS inferred.
+
+SettingsGlassSection previously used frosted VStack on Mac but plain Section on
+iOS, inside a grouped List. iOS now uses the same frosted card surface/radius with
+spaced ScrollView content, bounded readable width, header accessibility traits,
+44pt minimum rows and explicit native menu labels. All existing bindings, values,
+capability/disabled conditions, confirmation dialogs and actions preserved.
+No new backend model or behavior. Native iPhone and iPad Demo simulator screenshots
+visually reviewed: /private/tmp/djc-settings-40098-{iphone,ipad-sim}.png.
+
+Selective40098 snapshot is installed40081 base29982f0 plus the two existing
+vinyl-only code commits and the current RootView presentation patch. Pending
+widgets/Speech and unrelated source changes remain excluded from this install.
+Signed physical iOS/Watch, iOS simulator and Mac builds PASS. Physical app-only
+readback confirms40098. Native physical Settings navigation probe failed because
+XCTest computed hitpoint{-1,-1} for the More tab; not app/card visual acceptance.
+Stopped only that exact test's automatic600s CoreDevice diagnostics collection;
+retained failed result. Use -collect-test-diagnostics never on subsequent probes
+to avoid unneeded verbose failure data. No blanket process termination/deletion.
+Exact hashes/evidence: APPLE_IPAD_GLASS_VINYL_40098_20261015.json.
+Next installation build must exceed40098. Internal free space12GiB at last check;
+active builds, accepted screenshots and necessary failure evidence preserved.

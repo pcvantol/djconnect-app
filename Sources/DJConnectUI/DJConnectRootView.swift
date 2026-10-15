@@ -359,7 +359,7 @@ private extension View {
         #if os(macOS)
         self.listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
         #else
-        self
+        self.frame(minHeight: 44, alignment: .leading)
         #endif
     }
 
@@ -368,7 +368,7 @@ private extension View {
         #if os(macOS)
         self.listRowInsets(EdgeInsets(top: 14, leading: 0, bottom: 14, trailing: 0))
         #else
-        self
+        self.frame(minHeight: 44, alignment: .leading)
         #endif
     }
 }
@@ -3674,10 +3674,18 @@ private struct AlbumArtworkPlaceholder: View {
                             Circle().stroke(.white.opacity(0.045), lineWidth: 1)
                                 .frame(width: record * scale, height: record * scale)
                         }
+                        // An asymmetric reflection and label mark make the
+                        // rotation visible without spinning the surrounding halo.
+                        Circle().trim(from: 0.04, to: 0.18)
+                            .stroke(.white.opacity(0.14), style: StrokeStyle(lineWidth: record * 0.012, lineCap: .round))
+                            .frame(width: record * 0.84, height: record * 0.84)
                         Circle()
                             .fill(djConnectIconGradient)
                             .frame(width: record * 0.26, height: record * 0.26)
                             .opacity(0.85)
+                        Capsule().fill(.white.opacity(0.65))
+                            .frame(width: record * 0.07, height: record * 0.012)
+                            .offset(y: -record * 0.075)
                         Circle().fill(Color(red: 0.035, green: 0.04, blue: 0.09))
                             .frame(width: record * 0.045, height: record * 0.045)
                     }
@@ -17069,11 +17077,14 @@ struct SettingsView: View {
                 DJConnectCanvasBackground()
                 SettingsContentContainer {
                 SettingsGlassSection(title: localizedKey(model.language, "ui.app")) {
-                    Picker(localizedKey(model.language, "ui.app.language"), selection: $model.appLanguageSelectionCode) {
-                        Text(localizedKey(model.language, "ui.system.language")).tag("")
-                        ForEach(DJConnectLocalization.supportedLanguageCodes, id: \.self) { code in
-                            Text(DJConnectLocalization.nativeLanguageName(for: code)).tag(code)
+                    LabeledContent(localizedKey(model.language, "ui.app.language")) {
+                        Picker(localizedKey(model.language, "ui.app.language"), selection: $model.appLanguageSelectionCode) {
+                            Text(localizedKey(model.language, "ui.system.language")).tag("")
+                            ForEach(DJConnectLocalization.supportedLanguageCodes, id: \.self) { code in
+                                Text(DJConnectLocalization.nativeLanguageName(for: code)).tag(code)
+                            }
                         }
+                        .labelsHidden()
                     }
                     .djMusicDNASettingsListRow()
                     if model.isDemoMode {
@@ -17125,11 +17136,14 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                     .djMusicDNASettingsListRow()
-                    Picker(localizedKey(model.language, "ui.log.level"), selection: $model.logLevel) {
-                        Text("Debug").tag("debug")
-                        Text("Info").tag("info")
-                        Text(localizedKey(model.language, "ui.warning")).tag("warning")
-                        Text(localizedKey(model.language, "ui.error")).tag("error")
+                    LabeledContent(localizedKey(model.language, "ui.log.level")) {
+                        Picker(localizedKey(model.language, "ui.log.level"), selection: $model.logLevel) {
+                            Text("Debug").tag("debug")
+                            Text("Info").tag("info")
+                            Text(localizedKey(model.language, "ui.warning")).tag("warning")
+                            Text(localizedKey(model.language, "ui.error")).tag("error")
+                        }
+                        .labelsHidden()
                     }
                     .djMusicDNASettingsListRow()
                 }
@@ -17148,14 +17162,17 @@ struct SettingsView: View {
                     .tint(djConnectAccent)
                     .djCompactSettingsListRow()
 
-                    Picker("Output", selection: $model.djAnnouncementOutput) {
-                        ForEach(DJAnnouncementOutput.allCases, id: \.self) { output in
-                            Text(djAnnouncementOutputTitle(output))
-                                .tag(output)
-                                .disabled(!model.isDJAnnouncementOutputSelectable(output))
+                    LabeledContent("Output") {
+                        Picker("Output", selection: $model.djAnnouncementOutput) {
+                            ForEach(DJAnnouncementOutput.allCases, id: \.self) { output in
+                                Text(djAnnouncementOutputTitle(output))
+                                    .tag(output)
+                                    .disabled(!model.isDJAnnouncementOutputSelectable(output))
+                            }
                         }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
                     }
-                    .pickerStyle(.menu)
                     .djCompactSettingsListRow()
 
                     LabeledContent("Home Assistant speaker") {
@@ -17324,9 +17341,6 @@ struct SettingsView: View {
                 .djSettingsListRowBackground()
 
                 }
-                #if os(iOS)
-                .listStyle(.insetGrouped)
-                #endif
                 .scrollContentBackgroundIfAvailable(.hidden)
                 .background(.clear)
                 .safeAreaInset(edge: .bottom) {
@@ -18380,16 +18394,21 @@ private struct SettingsContentContainer<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        #if os(macOS)
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                content
+            #if os(macOS)
+            VStack(alignment: .leading, spacing: 28) { content }
+                .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
+            #else
+            DJSessionGlassGroup {
+                VStack(alignment: .leading, spacing: 20) { content }
             }
-            .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
+            .pickerStyle(.menu)
+            .frame(maxWidth: 960)
+            .padding(.horizontal, djConnectScreenHorizontalPadding)
+            .padding(.vertical, djConnectScreenVerticalPadding)
+            .frame(maxWidth: .infinity, alignment: .top)
+            #endif
         }
-        #else
-        List { content }
-        #endif
     }
 }
 
@@ -18398,22 +18417,17 @@ private struct SettingsGlassSection<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        #if os(macOS)
         VStack(alignment: .leading, spacing: 20) {
             Text(title)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
-            VStack(alignment: .leading, spacing: 18) {
-                content
-            }
+                .accessibilityAddTraits(.isHeader)
+            VStack(alignment: .leading, spacing: 18) { content }
         }
         .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
         .djSessionFrostedSurface()
-        #else
-        Section(title) { content }
-        #endif
     }
 }
 

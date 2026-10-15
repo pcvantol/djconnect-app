@@ -1,0 +1,34 @@
+{
+  "base": "29982f0bbd5a36bd6ec6941254eb5f17f14634f7",
+  "base_installed_build": "40081",
+  "selected_code_commits": [
+    "08dbab13e21ec4f9936d24a20866d3ade879572a",
+    "fd0eb071b1fd37ce03a3d6f2aa3be30182b59109"
+  ],
+  "changed_tracked_files": [
+    "Sources/DJConnectUI/DJConnectRootView.swift"
+  ],
+  "root_view_sha256": "0d55c581f6614d1c01c63961fbc84ce0aa07cc87b699c3b3d31d078ce119d5a5",
+  "build": "40098",
+  "scope": "ONLY_MISSING_ARTWORK_VINYL_AND_ROTATION_NO_PENDING_WIDGET_FOUNDATION",
+  "extra_patch": "Asymmetric vinyl reflection/label plus Settings glass container/cards and explicit menu labels",
+  "patch_sha256": "a0fe5712e7d4fa9a126f2eee0322f3721016fb1002885391aabcd7e9faf44c88",
+  "app_binary_sha256": "f1ab26a9f13d221214d6a967e86579644b7894f2bf5580432f5ec90795d76e84",
+  "installed_build": "40098",
+  "signed_ios_watch_build": "PASS",
+  "simulator_build": "PASS",
+  "mac_build": "PASS",
+  "ui_scope": "Settings glass presentation and readable vinyl rotation markers; existing setting values/bindings/actions preserved",
+  "evidence": {
+    "ipad_readback": "/private/tmp/djc-ui-40098-ipad-readback.json",
+    "physical_settings_probe": "/private/tmp/djc-ui-40098-settings-ipad.xcresult",
+    "physical_settings_probe_result": "FAIL_NAVIGATION_HITPOINT_MINUS1_NOT_VISUAL_PASS",
+    "iphone_settings": "/private/tmp/djc-settings-40098-iphone.png",
+    "ipad_simulator_settings": "/private/tmp/djc-settings-40098-ipad-sim.png",
+    "native_vinyl_frames": [
+      "/private/tmp/djc-vinyl-40097-a.png",
+      "/private/tmp/djc-vinyl-40097-b.png"
+    ]
+  },
+  "limits": "500 backend fault remains separate and is explicitly handed to current Core writer. No physical spinning proof while playback unavailable. No rich-widget or new Speech install claim."
+}
