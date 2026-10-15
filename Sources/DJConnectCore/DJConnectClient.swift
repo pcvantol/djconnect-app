@@ -384,16 +384,20 @@ public final class DJConnectClient: Sendable {
     public func prepareSpeech(_ original: DJConnectSessionSpeech, acceptedText: String,
                               processor: DJConnectSpeechProcessor, preference: DJConnectVoicePreference = .default,
                               voiceOptions: DJConnectSpeechVoiceOptions? = nil) async throws -> DJConnectSessionSpeech {
-        guard original.admits(reference: original.reference, text: acceptedText), original.processors.contains(processor),
+        guard original.admits(reference: original.reference, text: acceptedText), original.advertisesPreparationAttempt(processor),
               preference == .default || voiceOptions?.supports(preference) == true else { throw DJConnectError.invalidResponse }
         let request = try speechJSONRequest(path: "prepare", payload: DJConnectSpeechPrepareRequest(
             reference: original.reference, processor: processor, voice_preference: preference))
         let response = try decoder.decode(DJConnectSpeechResponse.self, from: await speechTransport.data(for: request))
         let prepared = response.session_speech
         guard response.success, prepared.schemaVersion == 1, prepared.reference == original.reference else { throw DJConnectError.invalidResponse }
-        if ["unavailable", "expired", "withdrawn"].contains(prepared.state), !prepared.manualAllowed, !prepared.autoplayEligible { return prepared }
+        if ["unavailable", "expired", "withdrawn"].contains(prepared.state), !prepared.manualAllowed, !prepared.autoplayEligible {
+            guard prepared.processors.isEmpty, prepared.segments.isEmpty, prepared.audioReference == nil else { throw DJConnectError.invalidResponse }
+            return prepared
+        }
         guard prepared.admits(reference: original.reference, text: acceptedText),
-              prepared.processors.contains(processor),
+              prepared.advertisesPreparationAttempt(processor),
+              (original.processorQualificationRequired != true || prepared.processorQualificationRequired == true),
               prepared.textRevision == original.textRevision, prepared.presentationRevision == original.presentationRevision,
               prepared.persona == original.persona, prepared.personaRevision == original.personaRevision,
               prepared.locale == original.locale, prepared.attribution == original.attribution,

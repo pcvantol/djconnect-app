@@ -1243,3 +1243,9 @@ Same Apple writer continues the directly requested next lane step. Exact local/u
 Seven focused tests PASS; full612 shared tests and iOS/Watch + Mac builds PASS. Logs `/private/tmp/djc-speech-40092-{contract-tests,seven-tests,regression,ios,mac}.log`. Source pause and no-install boundary preserved.
 
 Reported original-descriptor processor-list mismatch to Core. Core confirms it and reports a local producer correction (permitted prepare attempts plus processor_qualification_required:true),107 owning tests; exact new pin/HA fixture/re-review still pending. Apple retains the old fixture and conservative check until actual replacement arrives. See APPLE_SESSION_SPEECH_ADOPTION_20261015.md.
+
+### Speech producer correction adopted — 40093
+
+Exact local candidate323a3db4/runtime27c22afd, fixture SHA25691458a38cd1c13ecbefdb482a6068b45e1168771cd92b8ca4ead16812e06bfed verified; all143 fixture source hashes match runtime Git/zero mismatches. Decodes processor_qualification_required and permits only explicitly advertised preparation attempts. First HA prepare now uses corrected accepted_reply; old6b descriptor does not gain HA permission. Initial advertisement cannot download audio; denied states contain no executable segments/processors/resource. Original text/revisions/voice/expiry checks preserved.
+
+Eight focused speech tests and full613 shared tests PASS. iOS/Watch and signed Mac builds PASS: `/private/tmp/djc-speech-40093-{tests,regression,ios,mac}.log`. No UI/audio opt-in or install. Final protected-main producer pin and native/audible player/Persona/autoplay acceptance remain OPEN. Existing widgets passive-contract dependency is unaffected. Full detail: APPLE_SESSION_SPEECH_ADOPTION_20261015.md.

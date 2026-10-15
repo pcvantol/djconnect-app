@@ -60,3 +60,32 @@ qualified/denied prepared output. Do not reinterpret the old6b/c39 fixture or cl
 the new producer delivered. Core's separate documentary Finalization1176 does
 not constitute published Speech source. Continue shared native player only within
 these authority boundaries; no widget/passive/private-content rights follow.
+
+## 40093 — exact processor-advertisement correction adopted
+
+Received Core's exact independently reviewed LOCAL/UNPUBLISHED candidate
+323a3db47d98cc035a0d10ce3936edb3e01406f8, runtimefix
+27c22afdaca8a7a701ba839928c9d16ed8acd794. Imported its actual HTTP fixture as
+Tests/Fixtures/session-speech-processor-core-323a3db4.json; SHA256
+91458a38cd1c13ecbefdb482a6068b45e1168771cd92b8ca4ead16812e06bfed matches the
+handoff. All143 source hashes in that fixture match the exact runtime Git object,
+zero mismatches. This does not independently rerun Core's HA qualification.
+
+Canonical contract on this candidate explicitly defines processors as permitted
+prepare attempts and processor_qualification_required:true. Apple now decodes that
+field, distinguishes the advertised attempt from ready audio, and uses the new
+accepted descriptor for its HA-first-prepare transport test. Explicit preparation
+must still preserve exact text/revisions/Persona/locale/attribution/deadline and
+produce ready effective-voice/audio metadata before download. Denial has empty
+processors/segments and no audio reference. There is no automatic provider/voice
+fallback. Old6b descriptors still cannot attempt an unadvertised HA route; the
+historical fixture is retained unchanged. A previously advertised legacy route
+may receive the additive qualification-required flag in a prepared response;
+that never adds a route to the original descriptor.
+
+Eight focused tests PASS, including first HA preparation from the corrected
+accepted_reply, no audio download from an initial advertisement, no widening of
+old6b input and the exact provider-gender denial. Full-suite and native-target
+build results are recorded below/in the feedback status ledger. No UI caller,
+JSON/WAV opt-in, playback/autoplay or installation was enabled. Native/audible
+acceptance and the final protected-main producer pin remain OPEN.

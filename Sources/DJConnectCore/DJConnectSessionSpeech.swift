@@ -97,6 +97,8 @@ public struct DJConnectSessionSpeech: Codable, Equatable, Sendable {
     public let sourceExpiresAt: String?
     public let manualAllowed: Bool
     public let autoplayEligible: Bool
+    /// Advertised routes permit only an explicit server qualification attempt.
+    public let processorQualificationRequired: Bool?
     public let processors: [DJConnectSpeechProcessor]
     public let cachePolicy: String
     public let attribution: [Attribution]?
@@ -109,8 +111,14 @@ public struct DJConnectSessionSpeech: Codable, Equatable, Sendable {
         case schemaVersion = "schema_version", sourceKind = "source_kind", sourceID = "source_id", sessionID = "session_id"
         case textRevision = "text_revision", presentationRevision = "presentation_revision", personaRevision = "persona_revision"
         case expiresAt = "expires_at", sourceExpiresAt = "source_expires_at", manualAllowed = "manual_allowed", autoplayEligible = "autoplay_eligible"
+        case processorQualificationRequired = "processor_qualification_required"
         case cachePolicy = "cache_policy", audioState = "audio_state", audioReference = "audio_reference", effectiveVoice = "effective_voice", voicePreference = "voice_preference"
     }
+    public func advertisesPreparationAttempt(_ processor: DJConnectSpeechProcessor) -> Bool {
+        // Legacy omission never adds a route absent from its original list.
+        processors.contains(processor) && processorQualificationRequired != false
+    }
+
     /// Exact original accepted text and identity are supplied by the existing
     /// semantic UI owner, never inferred from current playback or new Persona.
     public func admits(reference expected: DJConnectSpeechReference, text: String, at now: Date = Date()) -> Bool {

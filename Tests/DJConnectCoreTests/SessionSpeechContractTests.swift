@@ -2,19 +2,19 @@ import Foundation
 import Testing
 @testable import DJConnectCore
 
-private func speechCases() throws -> [String: Any] {
+private func speechCases(_ corrected: Bool = false) throws -> [String: Any] {
     let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        .appendingPathComponent("Fixtures/session-speech-core-6b26158a.json")
+        .appendingPathComponent(corrected ? "Fixtures/session-speech-processor-core-323a3db4.json" : "Fixtures/session-speech-core-6b26158a.json")
     return try #require((JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])?["cases"] as? [String: Any])
 }
 private func speechDecode<T: Decodable>(_ value: Any, as: T.Type) throws -> T {
     try JSONDecoder().decode(T.self, from: JSONSerialization.data(withJSONObject: value))
 }
-private func speechDescriptor(_ name: String = "accepted_reply") throws -> [String: Any] {
-    try #require((speechCases()[name] as? [String: Any])?["session_speech"] as? [String: Any])
+private func speechDescriptor(_ name: String = "accepted_reply", corrected: Bool = false) throws -> [String: Any] {
+    try #require((speechCases(corrected)[name] as? [String: Any])?["session_speech"] as? [String: Any])
 }
-private func freshSpeech(_ name: String) throws -> DJConnectSessionSpeech {
-    var value = try speechDescriptor(name)
+private func freshSpeech(_ name: String, corrected: Bool = false) throws -> DJConnectSessionSpeech {
+    var value = try speechDescriptor(name, corrected: corrected)
     value["expires_at"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(30))
     return try speechDecode(value, as: DJConnectSessionSpeech.self)
 }
@@ -54,10 +54,10 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
             var mime = "application/json", bytes = Data()
             let status = Int(request.url!.host!.split(separator:".")[0]) ?? 200
             if path == "voice-options" {
-                bytes = try JSONSerialization.data(withJSONObject: try #require(speechCases()["provider_voice_options"]))
+                bytes = try JSONSerialization.data(withJSONObject: try #require(speechCases(true)["provider_voice_options"]))
             } else if path == "prepare" {
                 let name = body["processor"] as? String == "ha_configured" ? "ha_configured_audio" : "manual_after_never"
-                var descriptor = try speechDescriptor(name)
+                var descriptor = try speechDescriptor(name, corrected: true)
                 descriptor["expires_at"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(20))
                 if request.url!.host!.hasPrefix("wrongtext") {
                     descriptor["segments"] = [["ordinal":1,"speaker_role":"dj","text":"A different answer"]]
@@ -154,13 +154,13 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
                 identity:.init(deviceID:"djconnect-ios-speech-fixture",deviceName:"Fixture",clientType:.ios,firmware:"4.0.0",platform:.ios),
                 tokenStore:token,session:session)
         }
-        let original = try freshSpeech("accepted_reply")
+        let original = try freshSpeech("accepted_reply", corrected: true)
         let text = original.segments.map(\.text).joined()
         let options = try await client().speechVoiceOptions()
         #expect(!options.supports(.female))
         let local = try await client().prepareSpeech(original,acceptedText:text,processor:.localOnDevice)
         #expect(local.audioState == "renderer_pending" && local.effectiveVoice == nil && local.audioReference == nil)
-        let haOriginal = try freshSpeech("ha_configured_audio")
+        let haOriginal = original
         let ha = try await client().prepareSpeech(haOriginal,acceptedText:text,processor:.haConfigured)
         let audio = try await client().speechAudio(ha,acceptedText:text)
         #expect(audio == speechWAV())
@@ -187,6 +187,32 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
         }
         var bad = valid; bad[4] = 255
         #expect(throws:DJConnectError.invalidResponse) { try DJConnectSpeechTransport.validateWAV(bad) }
+    }
+
+    @Test func speechContractCorrectedAdvertisementPermitsAttemptWithoutGrantingAudio() async throws {
+        let old = try freshSpeech("accepted_reply")
+        let corrected = try freshSpeech("accepted_reply", corrected: true)
+        #expect(!old.advertisesPreparationAttempt(.haConfigured))
+        #expect(corrected.processorQualificationRequired == true)
+        #expect(corrected.advertisesPreparationAttempt(.haConfigured) && corrected.advertisesPreparationAttempt(.localOnDevice))
+        #expect(corrected.audioState == nil && corrected.effectiveVoice == nil && corrected.audioReference == nil)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [SpeechContractURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        let client = DJConnectClient(baseURL: URL(string:"https://200.speech.invalid")!,
+            identity:.init(deviceID:"djconnect-ios-speech-fixture",deviceName:"Fixture",clientType:.ios,firmware:"4.0.0",platform:.ios),
+            tokenStore:DJConnectInMemoryTokenStore(token:"synthetic-speech-token"),session:session)
+        let text = corrected.segments.map(\.text).joined()
+        await #expect(throws:DJConnectError.invalidResponse) { try await client.speechAudio(corrected,acceptedText:text) }
+        await #expect(throws:DJConnectError.invalidResponse) {
+            try await client.prepareSpeech(old,acceptedText:text,processor:.haConfigured)
+        }
+        let cases = try speechCases(true)
+        let deniedEnvelope = try #require(cases["ha_gender_unavailable"] as? [String:Any])
+        let denied = try speechDecode(try #require(deniedEnvelope["session_speech"]),as:DJConnectSessionSpeech.self)
+        #expect(denied.state == "unavailable" && denied.processors.isEmpty && denied.segments.isEmpty)
+        #expect(!denied.advertisesPreparationAttempt(.haConfigured))
     }
 
 }
