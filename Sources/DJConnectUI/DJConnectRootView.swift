@@ -11360,7 +11360,7 @@ private struct AskDJView: View {
                         .overlay(alignment: .bottom) {
                             if usesFloatingComposer && !isSearchVisible {
                                 composer
-                                    .djFloatingAskDJWidth(maximum: contentWidth)
+                                    .djFloatingAskDJWidth(maximum: min(contentWidth, 1000))
                                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { floatingComposerHeight = $0 }
                                     .padding(.horizontal, 12)
                                     .padding(.bottom, 8)
