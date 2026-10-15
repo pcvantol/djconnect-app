@@ -636,3 +636,55 @@ while enabling automation. Actual all-screen/all-flow E2E remains NOT RUN.
 Matrix and exact evidence: IPAD_WEBSOCKET_E2E_20261015.md. Owner question for an
 existing trusted local HTTPS HA-dev address is pending. No TLS bypass, re-pair,
 server change or fake native PASS was introduced.
+
+
+## Ask DJ keyboard / glass selector slice — build40070
+
+Owner's newest refinement supersedes the intermediate Presence slider requests:
+Mood and Presence both use shared segmented glass choice buttons, selected purple
+and one selected label beneath. Mood uses four options; Presence five. Session
+Mood and standalone Track Insight share the same renderer. Removed the duplicate
+Presence pending/selected footer and spinner. Original capability-loading/error
+and conflict handling remain; backend confirmation is not replaced with a local
+success claim. The selected-contribution close button uses shared press feedback.
+
+Keyboard first attempt49f602e was reproduced failing in both simulator cases.
+76ab190 fixes native UIKit responder dismissal rather than relying on unbound
+SwiftUI FocusState. Both Session and Ask DJ outside taps now PASS in native
+isolated iPad simulator: keyboard closes, draft retained, inside tap does not
+close it, editing resumes. Exact final UI rerun:2 tests PASS, log
+/private/tmp/djc-askdj-glass-final.log, resultbundle same stem.xcresult.
+
+New glass mood test initially failed because the simulator could not launch the
+app. After restarting only the isolated simulator, test-without-building PASS:
+four accessible44pt choices, selected Feest confirmation and actual screenshot
+exported/visually inspected. /private/tmp/djc-mood-glass-retry.xcresult;
+/private/tmp/djc-mood-glass-retry-attachments/391D8CD1-B4DC-462C-9FED-C632A17E34F1.png.
+These are demo-native visual/input proofs, not live backend or physical-iPad
+interaction acceptance. No separate live Presence click/confirmation proof.
+
+Signed native Mac and iOS40070 builds PASS. Physical iPad install/launch PASS;
+actual post-launch screenshot shows real current Session and same glass composer,
+with the existing possible-crash prompt still covering it. No assertion that the
+agent dismissed or tapped that physical UI. Device automation remains unavailable.
+Buildinput source equals bounded UIcommit76ab190; source publication remains
+paused. Mac mini install receipt is recorded in the closure note. MacBook/iPhone
+have not been updated during this increment.
+
+Next selected independently actionable lane increment started by the same writer:
+DJC-APPLE-SESSION-MOMENT-ARTWORK-V1-20261014, Corepin5c7ecb79. cfebbde commits
+exact imported transport fixtures, shared decoder/admission boundary and5 passing
+tests. See APPLE_SESSION_ARTWORK_ADOPTION_20261015.md. Full loader/card/native and
+joint acceptance remainOPEN. Hybrid physical E2E remains explicitlyOPEN; this
+continuation does not silently qualify it. Speech/Persona remains after artwork.
+
+Final installed Mac mini readback: ordinary/Applications/DJConnect.app40070,
+PID94954, strict/deep signaturePASS, exact installed files, entitlements and
+preferences preserved. Receipt/private/tmp/djc-ux-40070-mac-install.json;
+backup in Application Support/DJConnect/InstallBackups/40070-askdj-glass-final-20261015.
+Normal quit was first blocked by crash/setup sheets; closed only “Niet nu” and
+then the app's own “App afsluiten”, without upload, credential edits or forced
+termination. The app remains unpaired as before. Physical iPad40070 install
+receipt/private/tmp/djc-ux-40070-ipad-install.log; launch and actual screenshot
+/private/tmp/djc-ux-40070-ipad-ready.png. Implementation/build/install delivered;
+physical interaction and live Presence confirmation remain unqualified.
