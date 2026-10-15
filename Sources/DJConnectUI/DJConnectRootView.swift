@@ -10805,6 +10805,10 @@ private struct OutputDeviceChoiceRow: View {
             .background {
                 Color.clear
                     .djSessionFrostedSurface(cornerRadius: 14)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(activeColor.opacity(isActive ? 0.28 : (isPending ? 0.10 : 0)))
+                    }
                     .allowsHitTesting(false)
             }
             .overlay {

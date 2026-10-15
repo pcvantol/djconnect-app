@@ -956,3 +956,20 @@ manual authenticated server diagnosis was issued. Physical speaker acceptance
 remains NOT_RUN; no actual transfer claim follows from installation. MacBook and
 physical iPhone were not installed in this bounded update. Source publication
 pause and unrelated writer directories remain preserved.
+
+
+## Whole-row selected output tint — build40079
+
+Selected output rows now tint the entire existing glass background with the
+shared purple accent (28%); pending rows use a lighter 10% tint with their existing
+spinner. The active border/checkmark remain supplemental. Shape/radius, text,
+volume, routing and backend confirmation behavior are unchanged. The background
+remains non-hit-testing. Signed iOS/macOS40079 builds PASS, logs
+`/private/tmp/djc-output-fill-40079-{ios,mac}-build.log`. Existing native iPad
+one-tap selection/control-availability test PASS (one executed test, zero failures),
+`/private/tmp/djc-output-fill-40079-ipad.xcresult`. Actual simulator Demo screenshot
+`/private/tmp/djc-output-fill-40079-images/2AAC490F-389F-45BB-9E0B-506CA6FCBA99.png`
+visually inspected: Kitchen has a distinct purple fill across the whole row while
+Living Room keeps the ordinary glass surface. No new test for this low-impact
+styling refinement. Diff check PASS; no source publication or physical transfer
+acceptance inferred.
