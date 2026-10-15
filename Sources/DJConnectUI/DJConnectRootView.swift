@@ -18125,27 +18125,8 @@ private struct AboutBanner: View {
     }
 
     var body: some View {
-        HStack(spacing: 18) {
-            DJConnectAppIconView()
-                .frame(width: 84, height: 84)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .shadow(color: .black.opacity(0.24), radius: 14, y: 8)
-            VStack(alignment: .leading, spacing: 6) {
-                Text("DJConnect")
-                    .font(.system(.largeTitle, design: .default).weight(.bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-                Text(localizedKey(language, "ui.music.control.with.character"))
-                    .font(.headline)
-                    .foregroundStyle(.white.opacity(0.72))
-                    .lineLimit(2)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(22)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .djSessionFrostedSurface()
+        DJConnectLaunchBanner(subtitle: localizedKey(language, "ui.music.control.with.character"))
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

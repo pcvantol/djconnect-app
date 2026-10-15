@@ -566,3 +566,18 @@ replacement supplied. iPad auto-discovery and floating composer are visible behi
 the sheet. Owner can dismiss Niet nu for a clean screenshot; native screen capture
 works, UI automation does not. Screenshots:/private/tmp/djc-40061-screenshots/.
 Temporary unified log stream stopped. No testpush sent before confirmed registration.
+
+## Branding follow-up: build40065
+
+The crash prompt used a separate AboutBanner layout with the bare app-icon image.
+AboutBanner now delegates to the same DJConnectLaunchBanner used by the launch
+screen. Its shared icon has an inset glass tile, specular highlight and beveled
+outline; the recognizable brand artwork is retained. Other sheets and About
+inherit the same treatment. Native signed Mac and iOS build40065 PASS. This is
+appearance-only and does not claim to fix the separate crash-notice cause.
+
+Physical iPad build40065 installed and launched. Screenshot
+/private/tmp/djc-glass-brand-ipad-40065.png visually confirms the shared banner
+and inset beveled glass logo in the actual crash prompt, with readable title and
+subtitle. The prompt remains present; no upload or pairing change was performed.
+Mac build40065 is signed/build-verified, not installed in this follow-up.

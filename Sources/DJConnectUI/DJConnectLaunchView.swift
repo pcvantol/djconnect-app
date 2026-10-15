@@ -209,13 +209,12 @@ private struct DJConnectLaunchCanvasBackground: View {
     }
 }
 
-private struct DJConnectLaunchBanner: View {
+struct DJConnectLaunchBanner: View {
+    var subtitle: String = DJConnectLocalization.localized(key: "launch.music.control.with.character")
     var body: some View {
         HStack(spacing: 14) {
-            DJConnectAppIconView()
-                .frame(width: 76, height: 76)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .shadow(color: .black.opacity(0.24), radius: 14, y: 8)
+            DJConnectGlassBrandIcon()
+                .frame(width: 84, height: 84)
             VStack(alignment: .center, spacing: 7) {
                 Text("DJConnect")
                     .font(.system(size: 34, weight: .bold, design: .default))
@@ -225,7 +224,7 @@ private struct DJConnectLaunchBanner: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .layoutPriority(2)
-                Text(DJConnectLocalization.localized(key: "launch.music.control.with.character"))
+                Text(subtitle)
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.72))
                     .lineLimit(2)
@@ -237,6 +236,29 @@ private struct DJConnectLaunchBanner: View {
         }
         .padding(18)
         .djSessionFrostedSurface()
+    }
+}
+
+/// Keep the recognizable brand artwork inside one shared, beveled glass tile.
+/// Launch, About and service sheets must not fall back to the bare app-icon image.
+private struct DJConnectGlassBrandIcon: View {
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 23, style: .continuous)
+        DJConnectAppIconView()
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .padding(6)
+            .djSessionFrostedSurface(cornerRadius: 23)
+            .overlay {
+                shape.fill(LinearGradient(stops: [
+                    .init(color: .white.opacity(0.24), location: 0),
+                    .init(color: .white.opacity(0.04), location: 0.42),
+                    .init(color: .clear, location: 0.52)
+                ], startPoint: .topLeading, endPoint: .bottomTrailing))
+                shape.stroke(LinearGradient(colors: [.white.opacity(0.65), .white.opacity(0.08), .white.opacity(0.28)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.20), radius: 12, y: 6)
+            .accessibilityHidden(true)
     }
 }
 
