@@ -744,6 +744,7 @@ public final class DJConnectAppModel: ObservableObject {
                 updateNowPlayingPollTimer()
                 refreshWebSocketFastPathStatus()
             } else if pairingStatus != .paired {
+                stopResponsePlayback(clearText: false)
                 if let old = hybridTransport { Task { await old.lifecycle(foreground: false) } }
                 pairedIdentityRecoveryTask?.cancel(); pairedIdentityRecoveryTask = nil
                 pairedIdentityRecoveryGeneration = UUID()
@@ -786,6 +787,10 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var playback: DJConnectPlayback? { didSet { syncDemoSessionPlayback() } }
     @Published public private(set) var activeDJSession: DJConnectSessionRuntime? {
         didSet {
+            if oldValue?.id != activeDJSession?.id ||
+                (oldValue?.runtimeState == "active" && activeDJSession?.runtimeState != "active") {
+                stopResponsePlayback(clearText: false)
+            }
             if oldValue?.id != activeDJSession?.id {
                 sessionSurfaceIdentity = nil
                 sessionSurfaceSnapshot = nil
@@ -1117,6 +1122,9 @@ public final class DJConnectAppModel: ObservableObject {
     private var voiceRecorder: AVAudioRecorder?
     private var voiceRecordingURL: URL?
     private var voiceStartTask: Task<Void, Never>?
+    private lazy var responsePlaybackCoordinator = DJConnectAudioPlaybackCoordinator { [weak self] in
+        self?.clearResponsePlaybackOutput()
+    }
     private var responseAudioPlayer: AVPlayer?
     private var responseAudioPlaybackTask: Task<Void, Never>?
     private var responseSpeechSynthesizer: AVSpeechSynthesizer?
@@ -3606,6 +3614,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
     func clearProfileConversationDisplay() { clearAskDJHistoryLocally() }
     func revokeProfileConversationAuthority() {
+        stopResponsePlayback(clearText: false)
         cancelVoiceRecording()
         clearAskDJHistoryLocally()
         clearSessionProjection()
@@ -6169,6 +6178,12 @@ public final class DJConnectAppModel: ObservableObject {
             djResponseText = ""
         }
         #if canImport(AVFoundation)
+        responsePlaybackCoordinator.stop()
+        #endif
+    }
+
+    #if canImport(AVFoundation)
+    private func clearResponsePlaybackOutput() {
         responseAudioPlaybackTask?.cancel()
         responseAudioPlaybackTask = nil
         responseAudioPlayer?.pause()
@@ -6176,8 +6191,8 @@ public final class DJConnectAppModel: ObservableObject {
         askDJAudioPlaybackState = .idle
         responseSpeechSynthesizer?.stopSpeaking(at: .immediate)
         responseSpeechSynthesizer = nil
-        #endif
     }
+    #endif
 
     private func speakDemoResponse(_ text: String) {
         guard localResponseAudioEnabled else {
@@ -6185,23 +6200,31 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         #if canImport(AVFoundation)
-        #if os(iOS)
-        Task {
+        guard let ticket = responsePlaybackCoordinator.begin(deadline: Date().addingTimeInterval(120)) else { return }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             do {
+                #if os(iOS)
                 try await configureDJConnectAudioSession(category: .playback, mode: .spokenAudio, options: [.duckOthers])
+                guard responsePlaybackCoordinator.isCurrent(ticket) else { return }
+                guard !Task.isCancelled else { responsePlaybackCoordinator.finish(ticket); return }
                 try await setDJConnectAudioSessionActive(true)
+                #endif
+                guard responsePlaybackCoordinator.isCurrent(ticket) else { return }
+                guard !Task.isCancelled else { responsePlaybackCoordinator.finish(ticket); return }
+                let synthesizer = AVSpeechSynthesizer()
+                let utterance = AVSpeechUtterance(string: text)
+                utterance.voice = AVSpeechSynthesisVoice(language: Self.speechLocaleIdentifier(for: language))
+                utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+                responseSpeechSynthesizer = synthesizer
+                synthesizer.speak(utterance)
+                log(.info, "Playing demo DJ response audio")
             } catch {
-                log(.warning, "Demo DJ response audio session could not be configured: \(error.localizedDescription)")
+                guard responsePlaybackCoordinator.isCurrent(ticket) else { return }
+                responsePlaybackCoordinator.finish(ticket)
+                log(.warning, "Demo DJ response audio session could not be configured")
             }
         }
-        #endif
-        let synthesizer = AVSpeechSynthesizer()
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: Self.speechLocaleIdentifier(for: language))
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
-        responseSpeechSynthesizer = synthesizer
-        synthesizer.speak(utterance)
-        log(.info, "Playing demo DJ response audio")
         #else
         log(.warning, "Demo DJ response audio is not available on this platform")
         #endif
@@ -10134,10 +10157,14 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func replayAskDJAudio(_ audioURL: URL?) {
-        let resolvedURL = resolvedAudioURL(from: audioURL)
-        Task {
-            await playResponseAudio(resolvedURL)
-        }
+        guard let resolvedURL = resolvedAudioURL(from: audioURL), Self.isSupportedResponseAudioURL(resolvedURL) else { return }
+        #if canImport(AVFoundation)
+        // Claim ownership before scheduling: Stop can arrive before this Task starts.
+        guard let ticket = responsePlaybackCoordinator.begin(deadline: Date().addingTimeInterval(120)) else { return }
+        Task { await playResponseAudio(resolvedURL, ticket: ticket) }
+        #else
+        Task { await playResponseAudio(resolvedURL) }
+        #endif
     }
 
     public func requestRemoteNotificationRegistration(allowSystemPrompt: Bool = false) {
@@ -10308,7 +10335,7 @@ public final class DJConnectAppModel: ObservableObject {
         await playResponseAudio(audioURL)
     }
 
-    private func playResponseAudio(_ audioURL: URL?) async {
+    private func playResponseAudio(_ audioURL: URL?, ticket pendingTicket: DJConnectAudioPlaybackCoordinator.Ticket? = nil) async {
         guard let audioURL else {
             return
         }
@@ -10317,15 +10344,19 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         #if canImport(AVFoundation)
+        guard let ticket = pendingTicket ?? responsePlaybackCoordinator.begin(deadline: Date().addingTimeInterval(120)),
+              responsePlaybackCoordinator.isCurrent(ticket) else { return }
         do {
-            responseAudioPlaybackTask?.cancel()
-            responseAudioPlayer?.pause()
             askDJAudioPlaybackState = .loading(audioURL)
             log(.info, "Loading DJ response audio from Home Assistant")
             #if os(iOS)
             try await configureDJConnectAudioSession(category: .playback, mode: .spokenAudio, options: [.duckOthers])
+            guard responsePlaybackCoordinator.isCurrent(ticket) else { return }
+            guard !Task.isCancelled else { responsePlaybackCoordinator.finish(ticket); return }
             try await setDJConnectAudioSessionActive(true)
             #endif
+            guard responsePlaybackCoordinator.isCurrent(ticket) else { return }
+            guard !Task.isCancelled else { responsePlaybackCoordinator.finish(ticket); return }
             let item = AVPlayerItem(url: audioURL)
             let player = AVPlayer(playerItem: item)
             responseAudioPlayer = player
@@ -10358,16 +10389,12 @@ public final class DJConnectAppModel: ObservableObject {
                     await group.next()
                     group.cancelAll()
                 }
-                if case let .playing(currentURL) = self?.askDJAudioPlaybackState, currentURL == audioURL {
-                    self?.askDJAudioPlaybackState = .idle
-                    self?.responseAudioPlayer?.pause()
-                    self?.responseAudioPlayer = nil
-                    self?.responseAudioPlaybackTask = nil
-                    self?.log(.info, "DJ response audio playback ended")
-                }
+                guard !Task.isCancelled else { return }
+                self?.responsePlaybackCoordinator.finish(ticket)
             }
         } catch {
-            askDJAudioPlaybackState = .idle
+            guard responsePlaybackCoordinator.isCurrent(ticket) else { return }
+            responsePlaybackCoordinator.finish(ticket)
             log(.warning, "DJ response audio could not be played: \(error.localizedDescription)")
             showAskDJToast(localized(key: "appModel.audio.could.not.be.played.again"))
         }

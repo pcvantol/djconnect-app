@@ -89,3 +89,27 @@ old6b input and the exact provider-gender denial. Full-suite and native-target
 build results are recorded below/in the feedback status ledger. No UI caller,
 JSON/WAV opt-in, playback/autoplay or installation was enabled. Native/audible
 acceptance and the final protected-main producer pin remain OPEN.
+
+## Shared local playback ownership — 40094
+
+Added one device-local playback coordinator and connected both existing response
+AVPlayer and demo AVSpeechSynthesizer output to it. Every request owns a distinct
+ticket, including repeated requests for the same URL. Stop invalidates that ticket
+before clearing output. The manual replay action acquires ownership synchronously,
+before scheduling its Task. Checks after audio-session suspension suppress stopped
+or replaced requests; obsolete completion/error handlers cannot clear newer output
+or display a stale failure. Output replacement stops both engines. Pairing loss,
+Profile-conversation authority revocation and active-session replacement/end also
+invalidate ownership. An original optional deadline stops output automatically;
+legacy playback retains its 120-second safety bound. No content is persisted.
+
+This is actual integration with the existing player, not yet execution of the new
+private Speech adapter. Core qualification, prepared audio/local voice selection,
+new manual Listen UI, autoplay publication deduplication, Persona CAS and native
+or audible acceptance remain OPEN. No Speech opt-in, install or publication.
+
+Validation: all619 shared tests PASS, including six coordinator tests and the
+Stop-before-queued-task-start race. iOS/Watch and signed Mac builds PASS. Logs:
+`/private/tmp/djc-speech-40094-{regression,ios,mac}.log`. All three changed code/test
+files exactly match the isolated build snapshot. These are source/build and
+modeled scheduling results, not installed/audible acceptance.

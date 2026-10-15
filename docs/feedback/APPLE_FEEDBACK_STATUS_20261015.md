@@ -1249,3 +1249,24 @@ Reported original-descriptor processor-list mismatch to Core. Core confirms it a
 Exact local candidate323a3db4/runtime27c22afd, fixture SHA25691458a38cd1c13ecbefdb482a6068b45e1168771cd92b8ca4ead16812e06bfed verified; all143 fixture source hashes match runtime Git/zero mismatches. Decodes processor_qualification_required and permits only explicitly advertised preparation attempts. First HA prepare now uses corrected accepted_reply; old6b descriptor does not gain HA permission. Initial advertisement cannot download audio; denied states contain no executable segments/processors/resource. Original text/revisions/voice/expiry checks preserved.
 
 Eight focused speech tests and full613 shared tests PASS. iOS/Watch and signed Mac builds PASS: `/private/tmp/djc-speech-40093-{tests,regression,ios,mac}.log`. No UI/audio opt-in or install. Final protected-main producer pin and native/audible player/Persona/autoplay acceptance remain OPEN. Existing widgets passive-contract dependency is unaffected. Full detail: APPLE_SESSION_SPEECH_ADOPTION_20261015.md.
+
+### Shared playback ownership and overnight continuation — 40094
+
+Continued under the same Apple writer. Existing response-player and demo speech
+now share ticket-based ownership. Stop before Task start, Stop across suspension,
+replacement, stale completion and original deadline expiry have focused coverage.
+Pairing loss, Profile authority withdrawal and session replacement/end clear both
+outputs. This does not activate the unpublished Core Speech adapter or close
+manual/new Speech/Persona/autoplay/audible acceptance.
+
+Human explicitly requested autonomous overnight lane continuation, a 15-minute
+heartbeat and periodic safe internal-disk cleanup. Thread heartbeat
+`apple-lane-nachtelijke-voortgang` created ACTIVE, every15minutes until
+2026-10-16T06:00:00Z (08:00 Europe/Amsterdam). Current free internal space17GiB.
+Reuse the existing writer; preserve active builds/source and necessary acceptance
+evidence. Do not replay previous cleanup plans without fresh process/file checks.
+
+Final40094 validation:619 shared tests PASS, six coordinator cases included;
+iOS/Watch and signed Mac builds PASS. All three changed code/test files match the
+build snapshot. Logs `/private/tmp/djc-speech-40094-{regression,ios,mac}.log`.
+No installation, source push, PR or publication performed.
