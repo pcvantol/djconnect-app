@@ -830,3 +830,18 @@ Native simulator proof PASS (one executed test, zero failures each):
 No live claim, server call, re-pair, Profile/session change, source push, CI
 publication, or protected merge is inferred from these presentation tests.
 Physical installation receipts follow after actual installation verification.
+
+
+Build40075 installation readback (source e0cbed4):
+- Physical iPad install and ordinary launch PASS. CoreDevice app-only readback
+  confirms `dev.djconnect.ios`, version4.0.0, bundleVersion40075. Receipts:
+  `/private/tmp/djc-vibecast-40075-ipad-{install,launch,readback}.log` and
+  `/private/tmp/djc-vibecast-40075-ipad-readback.json`.
+- Mac mini ordinary `/Applications/DJConnect.app` install/launch PASS, PID74802.
+  Strict/deep signature, exact signed files, entitlements and preferences PASS;
+  existing pairing state retained, no re-pair. Receipt
+  `/private/tmp/djc-vibecast-40075-mac-install.json`, recoverable backup under
+  `~/Library/Application Support/DJConnect/InstallBackups/40075-vibecast-native-sheet-20261015`.
+- Physical input/tap/live approval is NOT inferred; six-cell editing proof is
+  from the native simulator tests above. MacBook/iPhone were not installed in
+  this bounded update. Publication pause and unrelated writer files preserved.
