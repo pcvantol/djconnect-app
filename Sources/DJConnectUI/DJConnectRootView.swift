@@ -4541,10 +4541,7 @@ private struct MusicDNAHeroView: View {
 
     private var inactiveHero: some View {
         VStack(spacing: 16) {
-            Image(systemName: "heart")
-                .font(.system(size: 50, weight: .semibold))
-                .foregroundStyle(djConnectIconGradient)
-                .frame(width: 72, height: 72)
+            DJConnectHeroGlyph(systemImage: "heart")
 
             Text("Music DNA")
                 .font(.title2.weight(.bold))
@@ -8993,21 +8990,23 @@ private extension TrackInsight {
     }
 }
 
-/// Decorative hero artwork. Keep the symbol sharp while its halo breathes.
+/// A quiet white highlight travels around the native glyph's contours.
+/// Only the light moves; the symbol itself keeps its position and scale.
 private struct DJConnectHeroGlyph: View {
     let systemImage: String
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+    @State private var startedAt = ProcessInfo.processInfo.systemUptime
 
     var body: some View {
         Group {
             if reduceMotion || scenePhase != .active {
-                artwork(glow: 0.22, scale: 1.06)
+                artwork(angle: nil)
             } else {
-                TimelineView(.animation(minimumInterval: 1.0 / 15.0)) { context in
-                    let phase = context.date.timeIntervalSinceReferenceDate * (2 * Double.pi / 6)
-                    let pulse = (sin(phase) + 1) / 2
-                    artwork(glow: 0.18 + pulse * 0.16, scale: 1.04 + pulse * 0.08)
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { _ in
+                    let elapsed = max(0, ProcessInfo.processInfo.systemUptime - startedAt)
+                    let turn = elapsed.truncatingRemainder(dividingBy: 12) / 12
+                    artwork(angle: turn * 360)
                 }
             }
         }
@@ -9016,22 +9015,31 @@ private struct DJConnectHeroGlyph: View {
         .allowsHitTesting(false)
     }
 
-    private func artwork(glow: Double, scale: Double) -> some View {
-        ZStack {
-            symbol
-                .scaleEffect(scale)
-                .blur(radius: 9)
-                .opacity(glow)
-            symbol
-                .offset(y: reduceMotion ? 0 : (scale - 1.08) * 20)
-                .rotationEffect(.degrees(reduceMotion ? 0 : (scale - 1.08) * 30))
-        }
+    private func artwork(angle: Double?) -> some View {
+        symbol.foregroundStyle(djConnectIconGradient)
+            .overlay {
+                if let angle {
+                    let light = AngularGradient(stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .clear, location: 0.70),
+                        .init(color: .white.opacity(0.04), location: 0.78),
+                        .init(color: .white.opacity(0.25), location: 0.90),
+                        .init(color: .white.opacity(0.82), location: 0.96),
+                        .init(color: .white.opacity(0.18), location: 0.985),
+                        .init(color: .clear, location: 1)
+                    ], center: .center, startAngle: .degrees(angle), endAngle: .degrees(angle + 360))
+                    ZStack {
+                        light.mask(symbol.foregroundStyle(.white))
+                            .blur(radius: 2).opacity(0.45)
+                        light.mask(symbol.foregroundStyle(.white))
+                    }
+                }
+            }
     }
 
     private var symbol: some View {
         Image(systemName: systemImage)
             .font(.system(size: 50, weight: .semibold))
-            .foregroundStyle(djConnectIconGradient)
     }
 }
 
