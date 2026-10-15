@@ -1697,6 +1697,14 @@ extension DJConnectIOSUITests {
                            "session-presence-toggle", "session-end-button", "screen-refresh"]
         for orientation in [UIDeviceOrientation.portrait, .landscapeLeft] {
             XCUIDevice.shared.orientation = orientation
+            let landscape = orientation == .landscapeLeft
+            let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                let frame = app.frame
+                return landscape ? frame.width > frame.height : frame.height > frame.width
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
+            // Accessibility geometry can settle before the screenshot compositor.
+            RunLoop.current.run(until: Date().addingTimeInterval(2))
             XCTAssertTrue(app.buttons["screen-refresh"].waitForExistence(timeout: 10))
             for identifier in identifiers {
                 XCTAssertTrue(app.buttons[identifier].exists && app.buttons[identifier].isHittable, identifier)
@@ -1708,7 +1716,7 @@ extension DJConnectIOSUITests {
             XCTAssertLessThan(search.maxX, app.frame.midX)
             XCTAssertGreaterThan(mood.minX, app.frame.midX)
             XCTAssertGreaterThan(refresh.minX, app.buttons["session-end-button"].frame.minX)
-            let shot = XCTAttachment(screenshot: app.screenshot())
+            let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
             shot.name = orientation == .portrait ? "ipad-split-toolbar-portrait" : "ipad-split-toolbar-landscape"
             shot.lifetime = .keepAlways; add(shot)
         }

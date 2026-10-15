@@ -734,3 +734,58 @@ stability assertions; no physical iPhone or two-item live handoff proof.
 Physical iPad40072 install and ordinary launch PASS, receipts
 /private/tmp/djc-session-menu-40072-ipad-install.log and -launch.log. No physical
 tapping claim. All unrelated writer WIP preserved; bounded source is894023f.
+
+
+## GitHub link and complete toolbar clarification — build40073
+
+fbf7eae adds a native link to https://github.com/pcvantol/djconnect beneath
+Copyright in About→Notices, styled like the existing website link. Labels are
+proper GitHub/repository identifiers and require no translated prose. Native
+Mac and iOS signed builds40073 PASS; no backend/contract/dependency changes.
+
+Owner questioned the previous open-menu Demo screenshot showing only text
+Refresh. Extended the native iPad regression to assert all6pill controls present
+and hittable both before opening and after closing the menu: connection, Mood,
+Presence, end, search, ellipsis. It PASSES, with the8tick open-menu checks intact.
+Actual closed-toolbar screenshots exported and visually inspected. The full pill
+is visible; text Refresh is the native submenu's sole Demo action, not a toolbar
+replacement. Ordinary non-demo VibeCast row remains conditional on active Session.
+Exact proof/private/tmp/djc-session-full-toolbar.xcresult; closed screenshot
+/private/tmp/djc-session-full-toolbar-attachments/1D4939D9-DC71-4017-BE18-25599FEF3A40.png.
+No live VibeCast/physical touch acceptance inferred from this Demo screenshot.
+Physical iPad40073 installed; Mac mini installation receipt follows below.
+
+Mac mini40073 install/ordinary launch PASS: PID54436, strict/deep signature,
+exact files, preferences and entitlements preserved. Receipt
+/private/tmp/djc-github-40073-mac-install.json. Physical iPad40073 install/launch
+PASS with receipts/private/tmp/djc-github-40073-ipad-{install,launch}.log.
+
+## Latest owner refinement — direct split iPad toolbar, build40074
+
+0eb4936 separates iPad toolbar navigation (connection/search) into topBarLeading;
+Mood/Presence/VibeCast/end/refresh remain trailing, refresh at the far right.
+iPad has no custom ellipsis menu. VibeCast retains its existing non-demo active
+Session admission and existing sheet/action; no invented Demo handoff. iPhone
+keeps the stable native compact menu; Mac toolbar remains unchanged.
+Native iPad test PASSES in portrait and landscape: all6Demo controls directly
+visible/hittable, left/right coordinates and refresh order, no ellipsis. The
+first landscape screenshot was captured in the rotation transition and clipped;
+it is NOT accepted as final visual proof. A compositor-settled screenshot retry
+is recorded below. /private/tmp/djc-ipad-split-toolbar.xcresult.
+Native iPhone regression with all6buttons before/after and8open-menu playback
+ticks also PASS: /private/tmp/djc-iphone-menu-retained.xcresult. Live VibeCast is
+not present in Demo, so no live handoff acceptance is claimed.
+Signed native iOS40074 build PASS. Mac mini stays40073, with GitHub link;
+physical iPhone remains unavailable. Source publication pause preserved.
+
+Final iPad screenshot retry PASS: explicit orientation geometry and compositor
+settling, full-screen capture; /private/tmp/djc-ipad-toolbar-settled.xcresult.
+Actual landscape image is complete and was visually inspected:
+/private/tmp/djc-ipad-toolbar-settled-attachments/006E38AE-8C75-44DC-8037-5A09E8E25373.png.
+Both toolbar halves are visible, no custom ellipsis, refresh icon rightmost.
+This supersedes the clipped rotation-transition image. Test-only capture fix
+adds no product behavior. Physical iPad40074 installation PASS, receipt
+/private/tmp/djc-ipad-toolbar-40074-install.log; normal launch recorded in
+/private/tmp/djc-ipad-toolbar-40074-launch.log. No physical tapping proof or live
+VibeCast handoff inferred. Build includes the GitHub link from40073. Source
+publication remains paused and unrelated writer directories are preserved.
