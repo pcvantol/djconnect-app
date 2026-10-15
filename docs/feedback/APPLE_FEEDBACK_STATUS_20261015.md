@@ -377,3 +377,38 @@ ordinary touch client returning after reboot. No inference that a reboot was
 observed; only present service/screen state is proven. Request to reopen the
 existing kiosk services for E2E is pending; no service changes, update, pairing
 or reboot performed. Screenshots retained temporarily, not committed.
+
+## Authorized Pi receiver activation, HA-dev alignment and waiting-page preview
+
+Owner approved reopening the existing Pi10 kiosk, then explicitly requested the
+Mac mini HA-dev URL. Stopped only ordinary touch/watchdog/touch-VNC and started
+the existing wall-kiosk/wall-x11vnc. Changed only RECEIVER_URL in the Pi startup
+script to the Apple app's configured HTTPS HA-dev origin, retaining backup
+/usr/local/bin/djconnect-wall-kiosk.before-ha-dev-20261015-101634. Receiver and
+VNC restarted and actual Pi screen now shows waiting state and a fresh code.
+The public HTTPS tunnel was read-only verified to target local127.0.0.1:8123,
+while the old Pi origin was physical HA192.168.1.13. No pairing was changed.
+
+Owner separately requested a djconnect branch and only HTML publication to
+HA-dev. Isolated Core worktree:/private/tmp/djc-vibecast-waiting/source, branch
+codex/vibecast-waiting-glass-v1, source723ba0438b6b999bd4eed6f3a1dba923b3c78b76
+on main9efd1977; documentary readback74fe5078. Existing Core Hybrid writer/WIP
+was preserved. Shared sources generate branded glass idle page with three
+localized instructions, the VibeCast monitor/Wi-Fi icon and code.11 tests PASS;
+only vibecast.html changed in HA-dev,156 other integration files hash-equal,
+no HA restart. Actual physical Pi waiting-page screenshot visually inspected.
+Owning report: docs/verification/VIBECAST_WAITING_GLASS_HA_DEV_20261015.md in
+that isolated Core worktree. No push/merge or production HA publication.
+
+Owner requests actual iPad-to-Pi Session/Mood/Presence E2E and permits Spotify
+playback on the Mac mini built-in speaker. A separately signed standalone UI
+test helper was built and installed; it references the existing DJConnect
+bundle without compiling/installing/resetting the main app. Runner launched
+but failed enabling automation mode (60-second timeout); CUA also fails startup.
+No iPad UI action, Session handoff, Mood/Presence mutation or Spotify/output
+command has therefore been tested; those cases remain OPEN, not fixture PASS.
+Read-only installed renderer inspection shows album-art tones override the mood
+palette while artwork is present; actual live mood transition is NOT_RUN.
+
+Accumulated Apple40061 local regression suite552 PASS29.595s in
+/private/tmp/djc-40061-consolidated-tests.log. No new Apple installation.
