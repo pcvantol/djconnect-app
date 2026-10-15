@@ -289,3 +289,27 @@ unavailability itself is not declared solved by this presentation change.
 Unsigned iOS/Mac builds PASS: /private/tmp/djc-ipad-session-refresh-{ios,mac}.log.
 Localization validation PASS (1124 keys); git diff --check PASS. Pending40061,
 not installed; physical iPad readability acceptance remains open.
+
+## iPad HTTP500 diagnosis — actual device and running HA
+
+Read only the iPad app diagnostic file (500 retained lines). It contains414
+HTTP500 failures on POST /api/djconnect/v1/command, including manual refresh and
+ongoing status polls. No extra API requests were made. The physical HAOS host
+log was checked first but had no matching traceback; the local homeassistant
+container supplied13 repeated matching tracebacks in its bounded recent tail.
+Device authentication succeeds before the fault. Installed api_handlers.py:802
+calls _debug_playback_request; line2214 calls music_backend_metadata(None,runtime).
+That reaches use_cases.py:642/610 and profile_backend.py:242, which raises
+ProfileStorageValidationError(profile_connection_unavailable) with no HA storage
+context. Debug logging therefore raises before normal command dispatch. This
+does not establish a bad persisted Profile mapping. Five other debug helper
+metadata calls in the installed file also pass None and require Core review.
+Running source was copied read-only and SHA256-bound in the redacted receipt:
+/private/tmp/djc-ipad-http500-diagnosis-20261015.json. Raw logs remain temporary
+local diagnostics, are not committed, and have not been sent externally.
+Now Playing command/status cause is confirmed; the retained iPad log has no
+direct Track Insight endpoint failure, so its independent cause stays open.
+No re-pair, profile mutation, backend source edit, log-level change, deployment
+or restart. User permits iPad takeover today, but CUA failed initialization
+twice; no UI-control or native acceptance claimed. Core writer handoff awaits
+explicit messaging authorization. This diagnosis does not fix the running HA.
