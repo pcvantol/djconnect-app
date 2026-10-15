@@ -260,3 +260,17 @@ Mac retains its existing docked layout. Pending40061, not installed; physical
 iPad portrait/landscape/keyboard acceptance remains open.
 Unsigned iOS/Mac builds PASS: /private/tmp/djc-ipad-floating-{ios,mac}.log.
 git diff --check PASS; no full regression rerun for this layout-only change.
+
+## More page glass navigation cards
+
+Replaced the single opaque gradient list and row separators with individual
+24-point rounded shared glass surfaces. Rows have 44-point purple icon badges,
+semibold white wrapping titles and a visible chevron; Feedback uses the same
+component. An adaptive grid (280-point minimum, 12-point gaps, 1000-point content
+limit) gives phone-width single-column rows and multiple columns on larger
+iPad windows. Existing destinations and feedback sheet actions are preserved.
+The shared surface supplies native glass/material and Reduce Transparency
+behavior. Unsigned iOS/Mac builds PASS in /private/tmp/djc-more-glass-{ios,mac}.log.
+Localization validation PASS (1123 keys); git diff --check PASS. Layout-only
+change, no full regression rerun. Pending40061; no installation or physical
+visual acceptance claimed.

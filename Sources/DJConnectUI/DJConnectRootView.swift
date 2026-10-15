@@ -15973,7 +15973,7 @@ private struct MoreView: View {
     private var moreList: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 12)], spacing: 12) {
                     MoreNavigationRow(title: "Ask DJ", systemImage: "bubble.left.and.bubble.right") { destinationSelection = .askDJ }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.session.history.title"), systemImage: "clock.arrow.circlepath") { destinationSelection = .savedSessions }
                     MoreNavigationRow(title: "Music DNA", systemImage: "heart") { destinationSelection = .musicDNA }
@@ -15985,43 +15985,12 @@ private struct MoreView: View {
                     MoreNavigationRow(title: localizedKey(model.language, "ui.about"), systemImage: "info.circle") { destinationSelection = .about }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.legal"), systemImage: "doc.text") { destinationSelection = .legal }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.privacy"), systemImage: "hand.raised") { destinationSelection = .privacy }
-                    Button {
-                        showingFeedback = true
-                    } label: {
-                        HStack(spacing: 14) {
-                            Image(systemName: "bubble.left.and.bubble.right")
-                                .font(.title3)
-                                .foregroundStyle(djConnectAccent)
-                                .frame(width: 30)
-                            Text(localizedKey(model.language, "ui.share.feedback"))
-                                .font(.body)
-                                .foregroundStyle(.primary)
-                            Spacer()
-                        }
-                        .padding(.vertical, 14)
-                        .padding(.horizontal, 18)
-                        .contentShape(Rectangle())
-                    }
-                    .djConnectPlainButtonStyle()
+                    MoreNavigationRow(title: localizedKey(model.language, "ui.share.feedback"), systemImage: "bubble.left.and.bubble.right") { showingFeedback = true }
                 }
-                .background {
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.09, green: 0.07, blue: 0.14).opacity(0.98),
-                            Color(red: 0.20, green: 0.09, blue: 0.32).opacity(0.96),
-                            Color(red: 0.10, green: 0.14, blue: 0.28).opacity(0.90)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(.white.opacity(0.10), lineWidth: 1)
-                }
+                .frame(maxWidth: 1000)
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, djConnectScreenHorizontalPadding)
-                .padding(.top, 12)
+                .padding(.vertical, djConnectScreenVerticalPadding)
             }
             .background(DJConnectCanvasBackground())
             .navigationTitle(screenTitle(model.language, key: "More", isDemoMode: model.isDemoMode))
@@ -16065,26 +16034,28 @@ private struct MoreNavigationRow: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: systemImage)
-                    .font(.title3)
+                    .font(.title3.weight(.semibold))
                     .foregroundStyle(djConnectAccent)
-                    .frame(width: 30)
+                    .frame(width: 44, height: 44)
+                    .background(djConnectAccent.opacity(0.14), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(.white.opacity(0.12), lineWidth: 1)
+                    }
                 Text(title)
-                    .font(.body)
-                    .foregroundStyle(.primary)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.8))
             }
             .padding(.vertical, 14)
             .padding(.horizontal, 18)
             .contentShape(Rectangle())
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(.white.opacity(0.18))
-                    .frame(height: 1)
-                    .padding(.leading, 62)
-            }
+            .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
+            .djSessionFrostedSurface(cornerRadius: 24)
         }
         .djConnectPlainButtonStyle()
         .tint(djConnectAccent)
