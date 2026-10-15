@@ -199,7 +199,7 @@ struct NativeSessionMomentsView: View {
                     AsyncImage(url: url) { image in image.resizable().scaledToFit() } placeholder: { Image(systemName: "music.note") }
                         .aspectRatio(1, contentMode: .fit)
                         .djAlbumArtworkGlassCard()
-                        .frame(maxWidth: 180)
+                        .frame(maxWidth: 270)
                         .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("session-music-artwork")
                     musicDetails
@@ -270,7 +270,7 @@ private struct SessionCurrentColumns: Layout {
     private func widths(_ proposal: ProposedViewSize) -> (CGFloat, CGFloat, CGFloat) {
         let width = max(0, proposal.width ?? 800)
         let gap: CGFloat = width < 600 ? 12 : 24
-        let music = min(180, width * 0.25)
+        let music = min(270, width * 0.375)
         return (music, max(0, width - music - gap), gap)
     }
 
