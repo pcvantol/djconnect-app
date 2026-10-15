@@ -3632,7 +3632,7 @@ private struct AnimatedAlbumArtworkView: View {
 
     private var artworkContent: some View {
         CachedArtworkImage(url: playback?.albumImageURL, mode: .fit, usesAlbumGlassFrame: true) {
-            AlbumArtworkPlaceholder(tint: artworkTintColor(for: playback))
+            AlbumArtworkPlaceholder(tint: artworkTintColor(for: playback), isPlaying: playback?.isPlaying == true)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -3642,6 +3642,15 @@ private struct AnimatedAlbumArtworkView: View {
 /// Its soft halo merges into the parent player card; it is not an album image.
 private struct AlbumArtworkPlaceholder: View {
     let tint: Color
+    let isPlaying: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var elapsedBeforePause: TimeInterval = 0
+    @State private var spinningSince: Date?
+
+    private var shouldSpin: Bool {
+        isPlaying && !reduceMotion && scenePhase == .active
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -3653,24 +3662,39 @@ private struct AlbumArtworkPlaceholder: View {
                                          center: .center, startRadius: 0, endRadius: side * 0.46))
                     .frame(width: side * 0.92, height: side * 0.92)
                     .blur(radius: side * 0.06)
-                Circle()
-                    .fill(LinearGradient(colors: [Color(red: 0.12, green: 0.13, blue: 0.20),
-                                                  Color(red: 0.025, green: 0.03, blue: 0.07)],
-                                         startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: record, height: record)
+                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !shouldSpin)) { context in
+                    let elapsed = elapsedBeforePause + (spinningSince.map { max(0, context.date.timeIntervalSince($0)) } ?? 0)
+                    ZStack {
+                        Circle()
+                            .fill(LinearGradient(colors: [Color(red: 0.12, green: 0.13, blue: 0.20),
+                                                          Color(red: 0.025, green: 0.03, blue: 0.07)],
+                                                 startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .frame(width: record, height: record)
+                        ForEach([0.78, 0.90], id: \.self) { scale in
+                            Circle().stroke(.white.opacity(0.045), lineWidth: 1)
+                                .frame(width: record * scale, height: record * scale)
+                        }
+                        Circle()
+                            .fill(djConnectIconGradient)
+                            .frame(width: record * 0.26, height: record * 0.26)
+                            .opacity(0.85)
+                        Circle().fill(Color(red: 0.035, green: 0.04, blue: 0.09))
+                            .frame(width: record * 0.045, height: record * 0.045)
+                    }
+                    .rotationEffect(.degrees(elapsed.truncatingRemainder(dividingBy: 12) * 30))
                     .shadow(color: .black.opacity(0.18), radius: side * 0.06, y: side * 0.035)
-                ForEach([0.78, 0.90], id: \.self) { scale in
-                    Circle().stroke(.white.opacity(0.045), lineWidth: 1)
-                        .frame(width: record * scale, height: record * scale)
                 }
-                Circle()
-                    .fill(djConnectIconGradient)
-                    .frame(width: record * 0.26, height: record * 0.26)
-                    .opacity(0.85)
-                Circle().fill(Color(red: 0.035, green: 0.04, blue: 0.09))
-                    .frame(width: record * 0.045, height: record * 0.045)
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
+        }
+        .onChange(of: shouldSpin, initial: true) { _, spinning in
+            let now = Date()
+            if spinning {
+                spinningSince = now
+            } else if let started = spinningSince {
+                elapsedBeforePause += max(0, now.timeIntervalSince(started))
+                spinningSince = nil
+            }
         }
         .accessibilityHidden(true)
         .allowsHitTesting(false)

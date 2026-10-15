@@ -1199,3 +1199,10 @@ existing isolated iPhone simulator after explicit fixture launch:
 No nested artwork square, inner logo tile or app logo remains in that state.
 No new tests for this low-impact presentation change; no loaded-network artwork
 or physical-device acceptance claimed. No physical install or source publication.
+
+### Local vinyl rotation — 40088
+
+- Missing-artwork vinyl now rotates locally once per 12 seconds while playback is playing and the scene is active. The halo and shadow stay fixed. Pausing/backgrounding/Reduce Motion suspends the animation clock; resuming preserves the accumulated angle. No playback progress or backend state drives this decoration.
+- iOS Simulator and signed macOS builds PASS: `/private/tmp/djc-vinyl-spin-40088-ios.log`, `/private/tmp/djc-vinyl-spin-40088-mac.log`.
+- Native isolated Demo simulator frames visually confirm record/label rotation with stationary layout: `/private/tmp/djc-vinyl-spin-40088-a.png`, `/private/tmp/djc-vinyl-spin-40088-b.png`. Pause/background/Reduce Motion gating inspected in source; not separately exercised on hardware.
+- No physical device install or publication. Existing incomplete rich-session widget acceptance remains open.
