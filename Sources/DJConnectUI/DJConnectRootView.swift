@@ -13397,8 +13397,6 @@ struct SessionGlassChoiceSelector: View {
                 .frame(maxWidth: .infinity)
                 .accessibilityIdentifier("session-popover-selected-mood")
         }
-        .padding(16)
-        .djSessionFrostedSurface(cornerRadius: 24)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(localizedKey(language, accessibilityLabelKey))
         .accessibilityValue(steps[safe: selectedIndex]?.label ?? "")
