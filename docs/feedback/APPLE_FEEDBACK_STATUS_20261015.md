@@ -209,3 +209,18 @@ paused/empty/failure and track change/background/cancellation. Full Swift suite:
 Both unsigned builds PASS in /private/tmp/djc-insight-auto-open-{ios,mac}.log;
 1123 localization keys/five languages PASS; git diff --check PASS. This joins the
 pending40061 changes and has not been installed on the four40060 devices.
+
+## Mood marker vertical jump follow-up
+
+The earlier horizontal-offset animation did not stabilize its parent popover.
+Mood changes inserted a progress row while awaiting confirmation and removed it
+afterwards, changing the anchored popover height. The status row now retains
+its layout space when idle (hidden visually and from accessibility); progress,
+errors and unavailable status share that slot. The header SF Symbol also has a
+fixed 24-point box so different symbol heights cannot shift the slider below.
+Marker travel remains the existing horizontal-only offset animation with Reduce
+Motion support. No backend selection or confirmation behavior changed.
+Unsigned Mac and iOS builds PASS: /private/tmp/djc-mood-stable-{mac,ios}.log.
+Localization validation PASS (1123 keys); git diff --check PASS. Source/layout
+validation only: actual popover motion on installed hardware is not yet verified.
+Pending40061; these changes have not been installed over40060.

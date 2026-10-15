@@ -1246,11 +1246,20 @@ struct ActiveSessionMoodToolbar: View {
                 }
                 .disabled(!canChange)
                 .accessibilityIdentifier("active-session-mood")
-                if model.activeMoodPending { ProgressView(text("ui.session.mood.updating")) }
-                if !canChange && !model.activeMoodPending {
-                    Text(text("ui.session.mood.unavailable")).font(.caption).foregroundStyle(.secondary)
+                // Keep the popover's height stable through request/confirmation.
+                // Inserting/removing the progress row recenters an anchored
+                // popover and makes even horizontal marker travel jump vertically.
+                ZStack(alignment: .leading) {
+                    ProgressView(text("ui.session.mood.updating"))
+                        .opacity(model.activeMoodPending ? 1 : 0)
+                        .accessibilityHidden(!model.activeMoodPending)
+                    if let error = model.activeMoodError {
+                        Text(error).font(.caption).foregroundStyle(.secondary)
+                    } else if !canChange && !model.activeMoodPending {
+                        Text(text("ui.session.mood.unavailable")).font(.caption).foregroundStyle(.secondary)
+                    }
                 }
-                if let error = model.activeMoodError { Text(error).font(.caption).foregroundStyle(.secondary) }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(12).frame(idealWidth: 360)
             #if os(macOS)

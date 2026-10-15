@@ -13104,6 +13104,9 @@ struct MoodModeControl: View {
                 Image(systemName: glyph(selectedIndex))
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(djConnectAccent)
+                    // SF Symbols have different intrinsic heights. Keep the
+                    // track below this row at the same vertical coordinate.
+                    .frame(width: 24, height: 24)
                 Text(localizedKey(language, selectionLabelKey))
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(.primary)
