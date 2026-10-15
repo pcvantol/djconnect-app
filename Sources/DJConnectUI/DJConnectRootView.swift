@@ -18322,32 +18322,32 @@ private struct FeedbackPromptView: View {
                     Text(localizedKey(model.language, "ui.share.feedback"))
                         .font(.title2.weight(.bold))
                         .multilineTextAlignment(.center)
+
+                    Text(localizedKey(model.language, "ui.open.a.github.issue.with.redacted.app.context.nothing.is"))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    VStack(spacing: 12) {
+                        Button {
+                            if let url = model.feedbackIssueURL() {
+                                openURL(url)
+                            }
+                            dismiss()
+                        } label: {
+                            Label(localizedKey(model.language, "ui.open.github.issue"), systemImage: "arrow.up.right.square")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                        .controlSize(.large)
+
+                        DJConnectNotNowLinkButton(language: model.language, key: "ui.not.now.b1e535") {
+                            dismiss()
+                        }
+                    }
                 }
                 .padding(24)
                 .frame(maxWidth: .infinity)
-                .djConnectHeroCard()
-
-                Text(localizedKey(model.language, "ui.open.a.github.issue.with.redacted.app.context.nothing.is"))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                VStack(spacing: 12) {
-                    Button {
-                        if let url = model.feedbackIssueURL() {
-                            openURL(url)
-                        }
-                        dismiss()
-                    } label: {
-                        Label(localizedKey(model.language, "ui.open.github.issue"), systemImage: "arrow.up.right.square")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
-                    .controlSize(.large)
-
-                    DJConnectNotNowLinkButton(language: model.language, key: "ui.not.now.b1e535") {
-                        dismiss()
-                    }
-                }
+                .djSessionFrostedSurface()
             }
             .padding(28)
             .frame(minWidth: 360, idealWidth: 520, maxWidth: 620)
