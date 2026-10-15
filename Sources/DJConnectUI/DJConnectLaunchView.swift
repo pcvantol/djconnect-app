@@ -254,8 +254,11 @@ struct DJConnectGlassBrandIcon: View {
                     .init(color: .white.opacity(0.04), location: 0.42),
                     .init(color: .clear, location: 0.52)
                 ], startPoint: .topLeading, endPoint: .bottomTrailing))
-                shape.stroke(LinearGradient(colors: [.white.opacity(0.65), .white.opacity(0.08), .white.opacity(0.28)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+                shape.strokeBorder(DJConnectCardAppearance.searchFocusGradient,
+                                   lineWidth: DJConnectCardAppearance.searchFocusWidth)
+                    .blur(radius: 2).opacity(0.40)
+                shape.strokeBorder(DJConnectCardAppearance.searchFocusGradient,
+                                   lineWidth: DJConnectCardAppearance.searchFocusWidth)
             }
             .shadow(color: .black.opacity(0.20), radius: 12, y: 6)
             .accessibilityHidden(true)
@@ -503,7 +506,7 @@ private struct DJConnectAppIconView: View {
             fallbackImage
         }
         #elseif os(macOS)
-        if let image = NSImage(named: NSImage.applicationIconName) {
+        if let image = NSImage(named: "LaunchIcon") ?? NSImage(named: NSImage.applicationIconName) {
             Image(nsImage: image)
                 .resizable()
                 .scaledToFit()

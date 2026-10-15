@@ -1873,8 +1873,13 @@ private struct DJConnectWatchGlassBrandIcon: View {
                     .init(color: .white.opacity(0.04), location: 0.42),
                     .init(color: .clear, location: 0.52)
                 ], startPoint: .topLeading, endPoint: .bottomTrailing))
-                shape.stroke(LinearGradient(colors: [.white.opacity(0.65), .white.opacity(0.08), .white.opacity(0.28)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+                let neon = LinearGradient(colors: [.white.opacity(0.92),
+                    Color(red: 0.16, green: 0.56, blue: 1.0),
+                    Color(red: 0.84, green: 0.22, blue: 0.96)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing)
+                let width = max(1.25, size * 3 / 84)
+                shape.strokeBorder(neon, lineWidth: width).blur(radius: 1).opacity(0.40)
+                shape.strokeBorder(neon, lineWidth: width)
             }
             .accessibilityHidden(true)
     }
