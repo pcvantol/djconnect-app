@@ -688,3 +688,18 @@ termination. The app remains unpaired as before. Physical iPad40070 install
 receipt/private/tmp/djc-ux-40070-ipad-install.log; launch and actual screenshot
 /private/tmp/djc-ux-40070-ipad-ready.png. Implementation/build/install delivered;
 physical interaction and live Presence confirmation remain unqualified.
+
+
+## DJ-session playback album art +50% — build40071
+
+Owner's requested size increase is isolated in38e9d40. Artwork maximum180→270pt;
+side-by-side column min(180,width*.25)→min(270,width*.375), so both capped and
+width-constrained layouts grow by exactly1.5. Phone stacked layout remains
+container-bounded; uncropped scaledToFit and glass wrapper are unchanged.
+Signed native iOS and Mac builds PASS. Physical iPad installation PASS
+(/private/tmp/djc-artsize-40071-ipad-install.log); Mac mini ordinary app40071
+installed and launched, strict/deep signature and exact files PASS, entitlements
+and preferences preserved (/private/tmp/djc-artsize-40071-mac-install.json).
+No new low-impact layout tests; physical visual interaction remains unqualified.
+MacBook/iPhone have not been updated during this increment. Source publication
+pause preserved; artwork adoption continues separately from this size adjustment.
