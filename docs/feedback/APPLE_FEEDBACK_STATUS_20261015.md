@@ -189,3 +189,23 @@ before applying its glass/border. Covers and text cannot paint outside the card;
 the same fix covers Rediscover and Artists to explore. Both unsigned builds pass
 in /private/tmp/djc-discover-clipping-{ios,mac}.log. Pending40061 presentation
 change only; no further installation or full regression rerun for this layout edit.
+
+## Track Insight automatic analysis on screen entry
+
+Opening ordinary Track Insight now requests the playing track through the
+existing service, without force_refresh or another navigation request. If status
+arrives after opening, the visible screen starts once playback is available.
+Existing matching analysis is reused, concurrent loading is guarded, and view
+redraws do not trigger another request. No playback/paused state starts no work;
+a failure remains visible with manual retry, without an automatic retry loop.
+The explicit Moment detail is excluded and remains pinned to its own subject.
+Automatic completion is fenced to the original playback/context/language/owner
+epoch and foreground lifetime. Late/cancelled results cannot populate current
+analysis, history or widgets after that context is gone.
+
+Seven new source scenarios cover playing/current reuse/in-flight overlap,
+paused/empty/failure and track change/background/cancellation. Full Swift suite:
+552 tests PASS29.740s in /private/tmp/djc-insight-auto-open-full-tests.log.
+Both unsigned builds PASS in /private/tmp/djc-insight-auto-open-{ios,mac}.log;
+1123 localization keys/five languages PASS; git diff --check PASS. This joins the
+pending40061 changes and has not been installed on the four40060 devices.

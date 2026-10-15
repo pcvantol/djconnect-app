@@ -3765,6 +3765,23 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    /// Screen entry is an explicit request; redraws and existing results do not regenerate.
+    public func loadTrackInsightOnOpen() async {
+        guard !Task.isCancelled, isAppInForeground, hasPlayingNow, canStartTrackInsightAnalysis,
+              momentTrackInsightTarget == nil,
+              currentTrackInsight == nil || !currentTrackInsightMatchesPlayback(),
+              beginTrackInsightRefresh(open: false) else { return }
+        let epoch = sessionHistory.responseEpoch, source = musicDiscoveryPushCoalescingKey()
+        let playbackID = Self.playbackAutoInsightIdentity(playback), requestedLanguage = language
+        defer { isLoadingTrackInsight = false }
+        await performTrackInsightRefresh(open: false, forceRefresh: false, canAccept: {
+            self.isAppInForeground && self.hasPlayingNow && self.canStartTrackInsightAnalysis
+                && self.sessionHistory.responseEpoch == epoch && self.musicDiscoveryPushCoalescingKey() == source
+                && Self.playbackAutoInsightIdentity(self.playback) == playbackID && self.language == requestedLanguage
+                && self.momentTrackInsightTarget == nil
+        })
+    }
+
     @discardableResult
     public func refreshTrackInsight(open: Bool = true, forceRefresh: Bool = false) async -> Bool {
         guard beginTrackInsightRefresh(open: open) else {
@@ -3787,7 +3804,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     @discardableResult
-    private func performTrackInsightRefresh(open: Bool, forceRefresh: Bool) async -> Bool {
+    private func performTrackInsightRefresh(open: Bool, forceRefresh: Bool, canAccept: () -> Bool = { true }) async -> Bool {
         do {
             let insight: TrackInsight
             if isDemoMode {
@@ -3822,13 +3839,16 @@ public final class DJConnectAppModel: ObservableObject {
                     try await client.trackInsight(payload)
                 }
             }
+            guard !Task.isCancelled, canAccept() else { return false }
             applyTrackInsight(insight, open: open)
             return true
         } catch let error as DJConnectError {
+            guard !Task.isCancelled, canAccept(), !Self.isCancellation(error) else { return false }
             trackInsightErrorMessage = trackInsightErrorMessage(for: error)
             log(.warning, "Track Insight failed: \(trackInsightFailureLogDetails(for: error))")
             return false
         } catch {
+            guard !Task.isCancelled, canAccept(), !Self.isCancellation(error) else { return false }
             trackInsightErrorMessage = trackInsightErrorMessage(for: error)
             log(.warning, "Track Insight failed: \(trackInsightFailureLogDetails(for: error))")
             return false

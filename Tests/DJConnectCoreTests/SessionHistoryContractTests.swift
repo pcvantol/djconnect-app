@@ -2923,6 +2923,58 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     #expect(decoded.resultSet?.expiresIn == 0.125)
 }
 
+@Test(arguments: ["playing", "paused", "empty", "failure"])
+@MainActor func trackInsightScreenEntryLoadsOnceAndReusesCurrentAnalysis(_ scenario: String) async throws {
+    let fixture = HistoryWireFixture { request in
+        #expect(request.url!.path.hasSuffix("/track_insight"))
+        let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
+        #expect(body?["force_refresh"] as? Bool != true)
+        if scenario == "failure" { return (503, Data(#"{"success":false,"error":"backend_unavailable"}"#.utf8), 0.1) }
+        return (200, Data(#"{"success":true,"track":{"title":"Track A","artist":"Artist A"},"analysis":{"summary":"Supplied analysis","full_text":"Supplied analysis"}}"#.utf8), 0.1)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.apply(playback: scenario == "empty" ? nil : DJConnectPlayback(isPlaying: scenario != "paused", trackName: "Track A", artistName: "Artist A"))
+    let first = Task { await model.loadTrackInsightOnOpen() }
+    for _ in 0..<100 where scenario != "paused" && scenario != "empty" && fixture.requests.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+    // Another appearance while the request is pending must join the visible load.
+    await model.loadTrackInsightOnOpen()
+    await first.value
+    let shouldLoad = scenario == "playing" || scenario == "failure"
+    #expect(fixture.requests.count == (shouldLoad ? 1 : 0))
+    #expect(!model.isLoadingTrackInsight && model.trackInsightNavigationRequestID == nil)
+    if scenario == "playing" {
+        #expect(model.currentTrackInsight?.title == "Track A")
+        await model.loadTrackInsightOnOpen()
+        #expect(fixture.requests.count == 1)
+    } else if scenario == "failure" {
+        #expect(model.currentTrackInsight == nil && model.trackInsightErrorMessage != nil)
+    } else { #expect(model.currentTrackInsight == nil) }
+}
+
+@Test(arguments: ["track-change", "background", "cancel"])
+@MainActor func trackInsightScreenEntryRejectsLateResultsAfterContextChanges(_ scenario: String) async throws {
+    let fixture = HistoryWireFixture { request in
+        #expect(request.url!.path.hasSuffix("/track_insight"))
+        return (200, Data(#"{"success":true,"track":{"title":"Track A","artist":"Artist A"},"analysis":{"summary":"Supplied analysis","full_text":"Supplied analysis"}}"#.utf8), 0.2)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.apply(playback: DJConnectPlayback(isPlaying: true, trackName: "Track A", artistName: "Artist A"))
+    let load = Task { await model.loadTrackInsightOnOpen() }
+    for _ in 0..<100 where fixture.requests.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(fixture.requests.count == 1)
+    if scenario == "track-change" { model.apply(playback: DJConnectPlayback(isPlaying: true, trackName: "Track B", artistName: "Artist B")) }
+    if scenario == "background" { model.markInactiveSession() }
+    if scenario == "cancel" { load.cancel() }
+    await load.value
+    #expect(model.currentTrackInsight == nil && model.trackInsightHistory.isEmpty)
+    #expect(model.trackInsightErrorMessage == nil && !model.isLoadingTrackInsight)
+    #expect(fixture.requests.count == 1)
+}
+
 private func momentInsightProducerCase() throws -> [String: Any] {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let bytes = try Data(contentsOf: root.appendingPathComponent("Fixtures/moment-insight-core-producer.json"))

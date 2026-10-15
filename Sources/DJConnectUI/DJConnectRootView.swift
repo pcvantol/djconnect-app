@@ -4137,6 +4137,10 @@ struct TrackInsightView: View {
         .onAppear {
             isAnimationActive = true
         }
+        .task(id: !explicitMoment && model.isPlaying && model.canStartTrackInsightAnalysis) {
+            guard !explicitMoment else { return }
+            await model.loadTrackInsightOnOpen()
+        }
         .onDisappear {
             isAnimationActive = false
             if explicitMoment { model.dismissMomentTrackInsight() }
