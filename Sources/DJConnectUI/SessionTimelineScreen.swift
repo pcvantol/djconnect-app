@@ -502,26 +502,13 @@ struct SessionTimelineScreen: View {
                     }
                     #else
                     if (activeSession != nil && !model.isDemoMode) || refreshAction != nil {
-                        Menu {
-                            if activeSession != nil && !model.isDemoMode {
-                                Button { showingHandoff = true } label: {
-                                    Label(text("ui.vibecast.handoff.title"), systemImage: "tv.badge.wifi")
-                                }
-                                .accessibilityIdentifier("session-handoff-toggle")
-                            }
-                            if let refreshAction {
-                                Button(action: refreshAction) {
-                                    Label(text("ui.refresh"), systemImage: "arrow.clockwise")
-                                }
-                                .disabled(model.isDemoMode || model.pairingStatus != .paired || model.isRefreshing)
-                                .accessibilityIdentifier("screen-refresh")
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .foregroundStyle(.white)
-                        }
-                        .accessibilityLabel(text("ui.more"))
-                        .accessibilityIdentifier("session-more-menu")
+                        SessionMoreMenu(
+                            sessionID: sessionID, authorityEpoch: history.responseEpoch, language: model.language,
+                            showsHandoff: activeSession != nil && !model.isDemoMode,
+                            isRefreshEnabled: !model.isDemoMode && model.pairingStatus == .paired,
+                            openHandoff: { showingHandoff = true }, refreshAction: refreshAction
+                        )
+                        .equatable()
                     }
                     #endif
                 }
@@ -801,6 +788,52 @@ struct SessionTimestampText: View {
         }
     }
 }
+
+#if os(iOS)
+/// A native open menu must not rebuild with every playback tick or background
+/// refresh. Only actual menu content/authority changes invalidate this boundary.
+private struct SessionMoreMenu: View, Equatable {
+    let sessionID: String
+    let authorityEpoch: UUID
+    let language: String
+    let showsHandoff: Bool
+    let isRefreshEnabled: Bool
+    var openHandoff: () -> Void
+    var refreshAction: (() -> Void)?
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.sessionID == rhs.sessionID && lhs.authorityEpoch == rhs.authorityEpoch &&
+        lhs.language == rhs.language && lhs.showsHandoff == rhs.showsHandoff &&
+        lhs.isRefreshEnabled == rhs.isRefreshEnabled &&
+        (lhs.refreshAction != nil) == (rhs.refreshAction != nil)
+    }
+
+    private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
+    var body: some View {
+        Menu {
+            if showsHandoff {
+                Button(action: openHandoff) {
+                    Label(text("ui.vibecast.handoff.title"), systemImage: "tv.badge.wifi")
+                }
+                .accessibilityIdentifier("session-handoff-toggle")
+            }
+            if let refreshAction {
+                Button(action: refreshAction) {
+                    Label(text("ui.refresh"), systemImage: "arrow.clockwise")
+                }
+                // Background polling is not an unavailable user action. The
+                // existing refresh owner already coalesces overlapping requests.
+                .disabled(!isRefreshEnabled)
+                .accessibilityIdentifier("screen-refresh")
+            }
+        } label: {
+            Image(systemName: "ellipsis").foregroundStyle(.white)
+        }
+        .accessibilityLabel(text("ui.more"))
+        .accessibilityIdentifier("session-more-menu")
+    }
+}
+#endif
 
 struct SessionEntryView: View, Equatable {
     @Environment(\.openURL) private var openURL

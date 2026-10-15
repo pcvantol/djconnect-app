@@ -1650,6 +1650,31 @@ extension DJConnectIOSUITests {
         XCTAssertFalse(input.exists)
     }
 
+    func testSessionMoreMenuRemainsOpenAcrossPlaybackTicks() {
+        let app = launchSessionUIDemo()
+        let menu = app.buttons["session-more-menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 10)); menu.tap()
+        let refresh = app.buttons["screen-refresh"]
+        XCTAssertTrue(refresh.waitForExistence(timeout: 5))
+        let originalFrame = refresh.frame
+        let initial = XCTAttachment(screenshot: app.screenshot())
+        initial.name = "session-menu-open-before-playback-ticks"; initial.lifetime = .keepAlways; add(initial)
+        // Demo uses the same one-second native playback-progress updates, with
+        // provider calls disabled. This is native UI stability, not live HA proof.
+        for _ in 0..<8 {
+            RunLoop.current.run(until: Date().addingTimeInterval(1))
+            XCTAssertTrue(refresh.exists)
+            XCTAssertEqual(refresh.label, "Vernieuwen")
+            XCTAssertFalse(refresh.isEnabled, "Demo permission remains stable while playback advances")
+            XCTAssertEqual(refresh.frame, originalFrame)
+        }
+        let settled = XCTAttachment(screenshot: app.screenshot())
+        settled.name = "session-menu-open-after-playback-ticks"; settled.lifetime = .keepAlways; add(settled)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.65)).tap()
+        XCTAssertTrue(refresh.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(menu.isHittable)
+    }
+
     func testSessionMoodGlassChoicesAndSelection() {
         let app = launchSessionUIDemo()
         let toggle = app.buttons["session-mood-toggle"]
