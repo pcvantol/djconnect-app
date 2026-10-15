@@ -323,3 +323,16 @@ button and reading/search position handling are unchanged. Pending40061, not
 installed. This is a layout-only removal; no full regression rerun.
 Unsigned iOS/Mac builds PASS: /private/tmp/djc-remove-new-contributions-{ios,mac}.log.
 git diff --check PASS.
+
+## Premium Mac launch layout
+
+Mac launch now uses a centered desktop composition at window widths >=880: a
+400-point shared glass icon/wordmark/slogan banner and version/loading column
+beside the 340-point Session hero on the shared blue/purple launch canvas.
+Narrow Mac windows retain the compact vertical layout used on iPhone/iPad.
+Startup bounds and transition behavior remain unchanged. Unsigned Mac/iOS
+builds PASS in /private/tmp/djc-mac-premium-launch-{mac,ios}.log. Actual native
+wide-Mac screenshot captured and visually inspected: banner, text, artwork and
+status fit cleanly. Isolated ad-hoc demo bundle dev.djconnect.mac.launchproof,
+not the installed personal app; probe stopped afterwards. Receipt:
+/private/tmp/djc-mac-premium-launch-receipt.json. Pending40061; no installation.
