@@ -6415,9 +6415,9 @@ private struct MusicDiscoverySectionView: View {
                 }
                 .padding(.vertical, 2)
             }
-            .scrollClipDisabled()
         }
         .padding(20)
+        .clipShape(DJConnectCardAppearance.shape)
         .djSessionFrostedSurface()
     }
 }

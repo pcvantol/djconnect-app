@@ -182,3 +182,10 @@ are removed, while the existing layout, hero and startup timing stay intact.
 The shared surface supplies its normal border and Reduce Transparency fallback.
 Both unsigned builds pass in /private/tmp/djc-splash-glass-{ios,mac}.log.
 Pending40061 presentation change only; no further installation.
+
+Discover clipping follow-up: restored the horizontal ScrollView's normal clip
+and explicitly clipped each padded section to the shared rounded card shape
+before applying its glass/border. Covers and text cannot paint outside the card;
+the same fix covers Rediscover and Artists to explore. Both unsigned builds pass
+in /private/tmp/djc-discover-clipping-{ios,mac}.log. Pending40061 presentation
+change only; no further installation or full regression rerun for this layout edit.
