@@ -18366,6 +18366,23 @@ private struct AboutBanner: View {
     }
 }
 
+#if os(macOS)
+/// Keep native controls on a common trailing edge across every settings card.
+private struct SettingsTrailingContentStyle: LabeledContentStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 24) {
+            configuration.label
+                .fixedSize(horizontal: true, vertical: true)
+            Spacer(minLength: 24)
+            configuration.content
+                .multilineTextAlignment(.trailing)
+                .layoutPriority(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+#endif
+
 private struct SettingsContentContainer<Content: View>: View {
     @ViewBuilder var content: Content
 
@@ -18373,6 +18390,8 @@ private struct SettingsContentContainer<Content: View>: View {
         ScrollView {
             #if os(macOS)
             VStack(alignment: .leading, spacing: 28) { content }
+                .labeledContentStyle(SettingsTrailingContentStyle())
+                .toggleStyle(.switch)
                 .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
             #else
             DJSessionGlassGroup {
@@ -18616,6 +18635,7 @@ private func wakeWordPhraseField(_ model: DJConnectAppModel) -> some View {
     LabeledContent(localizedKey(model.language, "ui.wake.word")) {
         TextField(localizedKey(model.language, "ui.wake.word"), text: phrase)
             .multilineTextAlignment(.trailing)
+            .frame(maxWidth: 320)
     }
     #endif
 }
