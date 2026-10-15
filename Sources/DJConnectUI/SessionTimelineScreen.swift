@@ -232,7 +232,6 @@ struct SessionTimelineScreen: View {
     @State private var query = ""
     @State private var searching = false
     @State private var selectedMatchID: String?
-    @State private var positionUnavailable = false
     @State private var retryRefreshing = false
     @State private var pullRefreshing = false
     @State private var resumePosition: String?
@@ -320,7 +319,6 @@ struct SessionTimelineScreen: View {
                                 .padding(.horizontal, 20)
                                 .id("current")
                             }
-                            if positionUnavailable { Text(text("ui.session.history.changed")).padding(.horizontal, 20) }
                             if let error = model.djSessionErrorMessage, activeSession != nil {
                                 Text(error).foregroundStyle(.red).padding(.horizontal, 20)
                             }
@@ -738,7 +736,7 @@ struct SessionTimelineScreen: View {
         if let priorSearchPosition {
             if ["current", "tail"].contains(priorSearchPosition) || timeline.entries.contains(where: { $0.id == priorSearchPosition && $0.isRetained() }) {
                 jump(priorSearchPosition, proxy: proxy)
-            } else { positionUnavailable = true }
+            } else { jump("current", proxy: proxy) }
         }
     }
     private func moveMatch(_ delta: Int, proxy: ScrollViewProxy) {
@@ -786,7 +784,7 @@ struct SessionTimelineScreen: View {
         }
         .onChange(of: matches.map(\.id)) {
             if let selectedMatchID, !matches.contains(where: { $0.id == selectedMatchID }) {
-                anchorGeneration = UUID(); self.selectedMatchID = nil; positionUnavailable = true
+                anchorGeneration = UUID(); self.selectedMatchID = nil
             }
         }
         .font(.callout).padding(.horizontal, 20).padding(.vertical, 10)
