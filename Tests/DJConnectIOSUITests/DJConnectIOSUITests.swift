@@ -1836,16 +1836,32 @@ extension DJConnectIOSUITests {
     private func assertOutsideTapDismissal(in app: XCUIApplication) {
         let input = app.textViews["ask-dj-composer-input"].firstMatch
         XCTAssertTrue(input.waitForExistence(timeout: 10))
+        let send = app.buttons["ask-dj-composer-send"]
+        let compactHeight = input.frame.height
+        XCTAssertLessThan(abs(send.frame.midY - input.frame.midY), 8, "Unfocused composer stays in one row")
         input.tap()
+        let expanded = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            input.frame.height > compactHeight + 12 && send.frame.minY >= input.frame.maxY - 2
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [expanded], timeout: 5), .completed, "Focus expands text above a separate action row")
         input.typeText("Bewaar dit concept")
+        let expandedShot = XCTAttachment(screenshot: app.screenshot())
+        expandedShot.name = "focused-two-row-ask-dj-composer"; expandedShot.lifetime = .keepAlways; add(expandedShot)
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         input.tap()
         XCTAssertTrue(app.keyboards.firstMatch.exists, "Tapping inside the composer keeps editing active")
-        // Hit conversation/background above the composer, never a navigation control.
-        let point = CGVector(dx: 24, dy: max(160, input.frame.minY - 100))
-        app.coordinate(withNormalizedOffset: .zero).withOffset(point).tap()
+        // Tap an inert heading; a suggested-question button intentionally
+        // replaces the draft and cannot stand in for an outside background tap.
+        let demoHeading = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Voorbeeldsessies")).firstMatch
+        let background = demoHeading.exists ? demoHeading : app.staticTexts["Ask DJ"].firstMatch
+        XCTAssertTrue(background.isHittable)
+        background.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
         XCTAssertEqual(input.value as? String, "Bewaar dit concept")
+        let collapsed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            abs(send.frame.midY - input.frame.midY) < 8
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [collapsed], timeout: 5), .completed, "Dismissal restores the compact action row")
         input.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "Editing can resume after dismissal")
     }

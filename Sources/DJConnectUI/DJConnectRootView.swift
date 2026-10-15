@@ -13416,6 +13416,7 @@ extension View {
 
 struct AskDJInputBar: View {
     @ObservedObject var model: DJConnectAppModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     #if os(macOS)
     @State private var promptSelection: TextSelection?
     #endif
@@ -13431,6 +13432,9 @@ struct AskDJInputBar: View {
     var floating = false
     var placeholderKey: String? = nil
     @State private var editorDraftValue: String
+    #if os(iOS)
+    @State private var isNativeEditorFocused = false
+    #endif
 
     init(model: DJConnectAppModel, canSend: Bool, canUseVoiceInput: Bool,
          isInputFocused: FocusState<Bool>.Binding, sendAction: (() -> Void)? = nil,
@@ -13465,26 +13469,42 @@ struct AskDJInputBar: View {
         Text(localizedKey(model.language, placeholderKey ?? "ui.session.chat.placeholder"))
     }
 
+    private var isExpanded: Bool {
+        #if os(iOS)
+        isNativeEditorFocused
+        #else
+        isInputFocused.wrappedValue
+        #endif
+    }
+    private var composerLayout: AnyLayout {
+        isExpanded
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 10))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SessionComposerContext(model: model)
-        HStack(spacing: 10) {
-            ZStack(alignment: .leading) {
+        // AnyLayout keeps the same native editor mounted during focus changes,
+        // preserving first responder, selection and the unsent draft.
+        composerLayout {
+            ZStack(alignment: isExpanded ? .topLeading : .leading) {
                 if model.askDJDraft.isEmpty {
                     placeholderView
                         .foregroundStyle(.white.opacity(0.58))
                         .padding(.horizontal, 14)
+                        .padding(.top, isExpanded ? 11 : 0)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
                 }
 
                 #if os(iOS)
                 AskDJPromptTextView(text: editorDraft, isInputFocused: isInputFocused,
-                                    replacementRevision: model.askDJDraftRevision, replacementText: model.askDJDraft)
+                                    isEditing: $isNativeEditorFocused, replacementRevision: model.askDJDraftRevision, replacementText: model.askDJDraft)
                     .frame(minHeight: 44)
                 #else
                 TextField("", text: editorDraft, selection: $promptSelection, axis: .vertical)
-                    .lineLimit(1...4)
+                    .lineLimit(isExpanded ? 2...4 : 1...4)
                     .textFieldStyle(.plain)
                     .accessibilityLabel("Ask DJ")
                     .focused(isInputFocused)
@@ -13509,7 +13529,10 @@ struct AskDJInputBar: View {
                 #endif
             }
             .accessibilityIdentifier("ask-dj-composer-input")
+            .frame(maxWidth: .infinity)
+            .layoutPriority(1)
             .background {
+                if !isExpanded {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(.white.opacity(0.12))
                     .background {
@@ -13525,12 +13548,15 @@ struct AskDJInputBar: View {
                                 )
                             )
                     }
+                }
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(.white.opacity(0.20), lineWidth: 1)
+                    .stroke(.white.opacity(isExpanded ? 0 : 0.20), lineWidth: 1)
             }
 
+            HStack(spacing: 10) {
+            if isExpanded { Spacer(minLength: 0) }
             AskDJVoiceInputButton(model: model, isEnabled: canUseVoiceInput,
                                  startAction: startVoiceAction, stopAction: stopVoiceAction,
                                  toggleAction: toggleVoiceAction, cancelAction: cancelVoiceAction)
@@ -13552,8 +13578,11 @@ struct AskDJInputBar: View {
             .help(localizedKey(model.language, "ui.send"))
             .accessibilityLabel(localizedKey(model.language, "ui.send"))
             .accessibilityIdentifier("ask-dj-composer-send")
+            }
+            .fixedSize(horizontal: !isExpanded, vertical: false)
         }
         }
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: isExpanded)
         .onChange(of: model.askDJDraftRevision) { _, _ in
             let value = model.askDJDraft
             if editorDraftValue != value { editorDraftValue = value }
@@ -13706,6 +13735,7 @@ private struct AskDJOutsideTapDismissal: UIViewRepresentable {
 private struct AskDJPromptTextView: UIViewRepresentable {
     @Binding var text: String
     var isInputFocused: FocusState<Bool>.Binding
+    @Binding var isEditing: Bool
     let replacementRevision: Int
     let replacementText: String
 
@@ -13754,22 +13784,27 @@ private struct AskDJPromptTextView: UIViewRepresentable {
         let width = proposal.width ?? 240
         let fittingSize = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
         let maximumHeight = max(104, (uiView.font?.lineHeight ?? 20) * 3 + uiView.textContainerInset.top + uiView.textContainerInset.bottom)
-        return CGSize(width: width, height: min(max(fittingSize.height, 44), maximumHeight))
+        let minimumHeight = isEditing
+            ? max(44, (uiView.font?.lineHeight ?? 20) * 2 + uiView.textContainerInset.top + uiView.textContainerInset.bottom)
+            : 44
+        return CGSize(width: width, height: min(max(fittingSize.height, minimumHeight), maximumHeight))
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, isInputFocused: isInputFocused)
+        Coordinator(text: $text, isInputFocused: isInputFocused, isEditing: $isEditing)
     }
 
     final class Coordinator: NSObject, UITextViewDelegate {
         @Binding var text: String
         var isInputFocused: FocusState<Bool>.Binding
+        @Binding var isEditing: Bool
         var lastRequestedFocus = false
         var lastReplacementRevision: Int?
 
-        init(text: Binding<String>, isInputFocused: FocusState<Bool>.Binding) {
+        init(text: Binding<String>, isInputFocused: FocusState<Bool>.Binding, isEditing: Binding<Bool>) {
             _text = text
             self.isInputFocused = isInputFocused
+            _isEditing = isEditing
         }
 
         func textViewDidChange(_ textView: UITextView) {
@@ -13792,10 +13827,9 @@ private struct AskDJPromptTextView: UIViewRepresentable {
 
         private func setInputFocus(_ isFocused: Bool) {
             DispatchQueue.main.async { [weak self] in
-                guard let self, self.isInputFocused.wrappedValue != isFocused else {
-                    return
-                }
-                self.isInputFocused.wrappedValue = isFocused
+                guard let self else { return }
+                if self.isEditing != isFocused { self.isEditing = isFocused }
+                if self.isInputFocused.wrappedValue != isFocused { self.isInputFocused.wrappedValue = isFocused }
             }
         }
     }

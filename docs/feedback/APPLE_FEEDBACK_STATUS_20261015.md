@@ -1058,3 +1058,41 @@ Final foundation validation:8focused tests PASS; signed iOS including Watch and
 macOS40082 builds PASS; ordinary-host deep/strict signature verification PASS.
 Core acknowledged the dependency and keeps it separate from active speech WIP.
 No installation or rich-surface/native/background acceptance claimed.
+
+## Ask DJ focus expands to two rows — 2026-10-15
+
+Shared AskDJInputBar now changes from an inline editor/action row to text above
+an action row when focused, for both general Ask DJ and the Session composer.
+The focused editor reserves two text lines; microphone and Send remain below
+inside the existing glass surface. Without focus the inline arrangement returns.
+The iPad75%-width constraint and selected-contribution context remain in place.
+
+AnyLayout retains the same native editor, draft and caret across arrangement
+changes. iOS follows actual UITextView editing callbacks through local view state;
+an unbound SwiftUI FocusState alone did not reflect native first-responder focus.
+No duplicate editor, new backend state, send semantics or chat persistence added.
+Reduce Motion suppresses the focus-transition animation.
+
+Native Demo-fixture iPhone regressions for Ask DJ and DJ-session PASS(2executed):
+focus expands geometry before typing, actions below editor, typing retains draft,
+inert outside-heading tap closes keyboard and restores inline layout, then focus
+can resume. Screenshot inspected:
+/private/tmp/djc-two-row-composer-40083-iphone-verified-images/B599B557-744B-40E7-9476-97AC2CF7FF49.png.
+Result: /private/tmp/djc-two-row-composer-40083-iphone-verified.xcresult.
+macOS compile/sign build40083 PASS:
+/private/tmp/djc-two-row-composer-40083-mac-final.log.
+
+Initial geometry failure exposed the missing native focus bridge and was fixed.
+A later test tapped a suggested question and intentionally replaced the draft;
+the final test targets an inert heading instead. Failed runs remain separate:
+/private/tmp/djc-two-row-composer-40083-iphone.xcresult and
+/private/tmp/djc-two-row-composer-40083-iphone-final.xcresult.
+No installation/publication: the writer still includes the separately uninstalled
+neutral widget foundation pending the qualified Core producer.
+Final iPad native Demo-fixture qualification PASS(2executed,0failures), same
+Ask DJ/Session geometry-focus/draft/dismissal regressions:
+/private/tmp/djc-two-row-composer-40083-ipad.xcresult.
+Screenshot inspected:
+/private/tmp/djc-two-row-composer-40083-ipad-images/87475FD7-C572-4942-ACB7-2FC8DD4C1029.png.
+Total4native fixture tests PASS across iPhone/iPad. These are simulator results,
+not installed physical-device acceptance. No source push or installation.
