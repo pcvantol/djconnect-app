@@ -3866,12 +3866,13 @@ private struct DJConnectSessionMoodPalette {
     let colors: [Color]
     let glow: Double
     init(stepIndex: Int) {
-        switch stepIndex {
-        case 1: colors = ["#06C7AD", "#169BC8", "#10B981"].compactMap(Color.init(hex:)); glow = 0.46
-        case 2: colors = ["#DDFF00", "#00B8FF", "#39FF78"].compactMap(Color.init(hex:)); glow = 0.58
-        case 3: colors = ["#FF287F", "#AA38F5", "#F43DCE"].compactMap(Color.init(hex:)); glow = 0.66
-        default: colors = MusicDNAHelixMoodPalette(stepIndex: 0).colors; glow = 0.36
+        let themes: [DJConnectSessionMoodTheme] = [.chill, .groove, .energy, .party]
+        let theme = themes.indices.contains(stepIndex) ? themes[stepIndex] : .chill
+        colors = theme.colorValues.map { value in
+            Color(red: Double((value >> 16) & 255) / 255,
+                  green: Double((value >> 8) & 255) / 255, blue: Double(value & 255) / 255)
         }
+        glow = theme.glow
     }
 }
 

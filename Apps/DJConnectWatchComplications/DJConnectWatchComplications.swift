@@ -31,6 +31,12 @@ private struct SessionComplicationView: View {
         DJConnectLocalization.localized(key: entry.snapshot?.isCurrent(at: entry.date) == true
                                         ? "surface.session.active" : "widget.open.djconnect")
     }
+    private var accent: Color {
+        let theme = entry.snapshot?.renderingTheme(at: entry.date) ?? .brand
+        let value = theme.colorValues[1]
+        return Color(red: Double((value >> 16) & 255) / 255,
+                     green: Double((value >> 8) & 255) / 255, blue: Double(value & 255) / 255)
+    }
     var body: some View {
         Group {
             if family == .accessoryRectangular {
@@ -41,6 +47,7 @@ private struct SessionComplicationView: View {
                 Image(systemName: "opticaldisc").accessibilityLabel(title)
             }
         }
+        .tint(accent)
         .containerBackground(.fill.tertiary, for: .widget)
         // Neutral launch, no fabricated native Watch Session route or mutation.
         .widgetURL(URL(string: "djconnect://"))

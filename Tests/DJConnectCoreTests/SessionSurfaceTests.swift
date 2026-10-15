@@ -84,3 +84,37 @@ import DJConnectUI
         }
     }
 }
+
+@Test func sessionSurfacePaletteFollowsConfirmedMoodAndExpiresWithoutChangingContentRights() throws {
+    let suite = "session-surface-theme-" + UUID().uuidString
+    let defaults = UserDefaults(suiteName: suite)!
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    for mood in ["chill", "groove", "energy", "party"] {
+        let snapshot = try #require(DJConnectSessionSurfaceSnapshot.observe(runtimeState: "active", authorized: true,
+            isDemo: false, confirmedMood: mood, at: now))
+        try DJConnectSessionSurfaceSnapshot.replace(snapshot, in: defaults)
+        let restored = try #require(DJConnectSessionSurfaceSnapshot.load(from: defaults, at: now))
+        #expect(restored.renderingTheme(at: now).rawValue == mood)
+        #expect(restored.renderingTheme(at: snapshot.expiresAt) == .brand)
+        #expect(restored.expiresAt == now.addingTimeInterval(120))
+        let object = try #require(JSONSerialization.jsonObject(with: defaults.data(forKey: DJConnectSessionSurfaceSnapshot.storageKey)!) as? [String: Any])
+        #expect(Set(object.keys) == ["observedAt", "expiresAt", "theme"], "Only a closed renderer palette token is added; no content or raw Profile data")
+    }
+    #expect(DJConnectSessionMoodTheme(sessionMood: "private arbitrary text") == .brand)
+    #expect(DJConnectSessionSurfaceSnapshot(observedAt: now).renderingTheme(at: now) == .brand)
+    #expect(DJConnectSessionSurfaceSnapshot.observe(runtimeState: "ended", authorized: true, isDemo: false, confirmedMood: "party", at: now) == nil)
+}
+
+@Test func sessionSurfaceMoodChangeRequestsImmediateReloadWithoutHeartbeatSpam() throws {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let previous = DJConnectSessionSurfaceSnapshot(observedAt: now, theme: .chill)
+    let heartbeat = DJConnectSessionSurfaceSnapshot(observedAt: now.addingTimeInterval(10), theme: .chill)
+    let changed = DJConnectSessionSurfaceSnapshot(observedAt: now.addingTimeInterval(10), theme: .party)
+    #expect(!DJConnectSessionSurfaceSnapshot.needsWidgetReload(current: heartbeat, previous: previous, lastReloadAt: now, at: now.addingTimeInterval(10)))
+    #expect(DJConnectSessionSurfaceSnapshot.needsWidgetReload(current: changed, previous: previous, lastReloadAt: now, at: now.addingTimeInterval(10)))
+    let repeatedlyRenewed = DJConnectSessionSurfaceSnapshot(observedAt: now.addingTimeInterval(60), theme: .chill)
+    #expect(DJConnectSessionSurfaceSnapshot.needsWidgetReload(current: repeatedlyRenewed, previous: heartbeat, lastReloadAt: now, at: now.addingTimeInterval(60)), "New cache observations must not postpone timeline renewal forever")
+    #expect(DJConnectSessionSurfaceSnapshot.needsWidgetReload(current: nil, previous: changed, lastReloadAt: now, at: now.addingTimeInterval(11)))
+    #expect(!DJConnectSessionSurfaceSnapshot.needsWidgetReload(current: nil, previous: nil, lastReloadAt: now, at: now.addingTimeInterval(61)))
+}

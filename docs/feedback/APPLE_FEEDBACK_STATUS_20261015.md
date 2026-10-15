@@ -1144,3 +1144,35 @@ Both platform compiles PASS:
 /private/tmp/djc-feedback-hero-40085-mac.log (macOS40085 build).
 No new tests for this presentation-only modifier reuse, no physical/visual
 acceptance claim, no installation or source publication.
+
+## Widgets / Live Activity / Island follow confirmed Session mood — 2026-10-15
+
+One shared closed renderer palette now supplies the exact Session UI color values
+and transient widget/Activity styling: Chill blue/purple, Groove turquoise/green,
+Energy yellow/cyan/green, Party pink/purple. Uses the already confirmed
+activeDJSession.selectedMood, not the separate Ask DJ UI slider or a pending
+selection. A palette token is added as optional bounded device UI state;
+date-only older snapshots still decode. No raw copy/Profile fields, new backend
+protocol, private content permission, Moment/artwork rights or push payload added.
+
+Widget and Lock Screen Activity gradients/glyphs, Island accents/keyline, and
+Watch's neutral-snapshot tint share the same Core palette values. Unknown,
+absent or expired Session state falls back to brand blue/purple. Watch still has
+no qualified Session producer in this change, so actual Watch Session color
+propagation is not claimed. System accent/monochrome modes remain OS-owned.
+
+A confirmed palette change requests widget reload without waiting for periodic
+freshness renewal. Fixed a related renewal bug: frequent cache observations
+could continually postpone the old expiry-based reload threshold. Reload timing
+now uses an independent last-request clock; no progress-tick reloads. These are
+reload requests, not an instant WidgetKit/background delivery guarantee.
+
+10focused tests PASS including four-mood cache roundtrip, expiry/unknown fallback,
+closed projection, immediate theme-change reload and bounded heartbeat cadence:
+/private/tmp/djc-session-mood-40086-tests.log.
+Signed iOS including Watch and macOS40086 builds PASS:
+/private/tmp/djc-session-mood-40086-ios.log,
+/private/tmp/djc-session-mood-40086-mac.log.
+No native widget visual/physical/background acceptance and no installation or
+publication. Rich surface producer dependency and its authorized handoff remain
+open as above; this adds presentation styling, not the missing rich contract.

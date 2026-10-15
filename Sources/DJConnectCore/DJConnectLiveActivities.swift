@@ -83,8 +83,35 @@ public extension TrackInsightLiveActivityAttributes.ContentState {
 #endif
 
 
-/// Passive surfaces deliberately carry only neutral runtime status until Core
-/// qualifies its separate locked-display/cache projection. Owner Moments and
+/// Shared renderer palette, not personal content or a new backend Mood model.
+/// Only closed color tokens are retained as bounded device UI state.
+public enum DJConnectSessionMoodTheme: String, Codable, CaseIterable, Sendable {
+    case brand, chill, groove, energy, party
+
+    public init(sessionMood: String?) {
+        self = sessionMood.flatMap(Self.init(rawValue:)) ?? .brand
+    }
+    public var colorValues: [UInt32] {
+        switch self {
+        case .brand: [0x3285FF, 0x843DF5, 0xCB27F5]
+        case .chill: [0x4DA3FF, 0x7B61FF, 0xD184FF]
+        case .groove: [0x06C7AD, 0x169BC8, 0x10B981]
+        case .energy: [0xDDFF00, 0x00B8FF, 0x39FF78]
+        case .party: [0xFF287F, 0xAA38F5, 0xF43DCE]
+        }
+    }
+    public var glow: Double {
+        switch self {
+        case .brand, .chill: 0.36
+        case .groove: 0.46
+        case .energy: 0.58
+        case .party: 0.66
+        }
+    }
+}
+
+/// Passive surfaces carry neutral runtime status and closed UI styling until
+/// Core qualifies its separate rich locked-display/cache projection. Owner Moments and
 /// authenticated no-store artwork must never be copied into this store.
 public struct DJConnectSessionSurfaceSnapshot: Codable, Equatable, Hashable, Sendable {
     public static let storageKey = "DJConnectSessionSurfaceSnapshot.v1"
@@ -93,16 +120,33 @@ public struct DJConnectSessionSurfaceSnapshot: Codable, Equatable, Hashable, Sen
     public static let maximumLifetime: TimeInterval = 120
     public let observedAt: Date
     public let expiresAt: Date
+    /// Optional for existing caches. This is a renderer-only palette token;
+    /// it never grants permission to export Moment/artwork or generated copy.
+    public let theme: DJConnectSessionMoodTheme?
 
-    public init(observedAt: Date) {
+    public init(observedAt: Date, theme: DJConnectSessionMoodTheme? = nil) {
         self.observedAt = observedAt
         self.expiresAt = observedAt.addingTimeInterval(Self.maximumLifetime)
+        self.theme = theme
     }
 
-    public static func observe(runtimeState: String?, authorized: Bool, isDemo: Bool, at now: Date) -> Self? {
+    public static func observe(runtimeState: String?, authorized: Bool, isDemo: Bool,
+                               confirmedMood: String? = nil, at now: Date) -> Self? {
         guard runtimeState == "active", authorized, !isDemo else { return nil }
         // Deliberately independent of playback: pause/wait retains the Session.
-        return Self(observedAt: now)
+        return Self(observedAt: now, theme: confirmedMood.map { DJConnectSessionMoodTheme(sessionMood: $0) })
+    }
+
+    public func renderingTheme(at now: Date) -> DJConnectSessionMoodTheme {
+        isCurrent(at: now) ? (theme ?? .brand) : .brand
+    }
+
+    public static func needsWidgetReload(current: Self?, previous: Self?, lastReloadAt: Date?, at now: Date) -> Bool {
+        if (current == nil) != (previous == nil) || current?.theme != previous?.theme { return true }
+        guard current != nil else { return false }
+        guard let lastReloadAt else { return true }
+        // Reload cadence is independent of fresh observations written to cache.
+        return now.timeIntervalSince(lastReloadAt) >= 60
     }
 
     public func isCurrent(at now: Date) -> Bool {

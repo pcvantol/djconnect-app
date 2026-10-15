@@ -386,3 +386,14 @@ not installed or the completed product request. See
 feedback/APPLE_SESSION_SURFACE_CONSOLIDATION_20261015.md for migration, producer
 handoff and proof boundaries. General APNs registration does not qualify
 ActivityKit push or real-time WidgetKit updates while suspended.
+
+
+The subsequent explicit user request adds Session-mood styling to this consumer
+foundation. The app's existing confirmed Core mood selects a closed renderer
+palette token with the same transient UI lifetime. A shared palette definition
+feeds Session UI, widgets and Activity/Island accents; no local Mood inference,
+new backend request/wire field, free text, personal identifiers or rich content
+rights are introduced. Missing/unknown/expired Session style uses brand colors.
+A changed palette requests reload promptly, while freshness renewals use a
+separate bounded reload clock. ActivityKit/background and rich-content producer
+qualification remain open; local style does not qualify either capability.

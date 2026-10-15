@@ -8,10 +8,37 @@ import ActivityKit
 private let sessionURL = URL(string: "djconnect://dj-session")!
 private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key) }
 
+private extension DJConnectSessionMoodTheme {
+    var colors: [Color] {
+        colorValues.map { value in
+            Color(red: Double((value >> 16) & 255) / 255,
+                  green: Double((value >> 8) & 255) / 255, blue: Double(value & 255) / 255)
+        }
+    }
+    var accent: Color { colors[1] }
+    var darkTint: Color {
+        let value = colorValues[0]
+        return Color(red: Double((value >> 16) & 255) / 255 * 0.22,
+                     green: Double((value >> 8) & 255) / 255 * 0.22,
+                     blue: Double(value & 255) / 255 * 0.22)
+    }
+}
+private struct SessionMoodBackground: View {
+    let theme: DJConnectSessionMoodTheme
+    var body: some View {
+        ZStack {
+            Color(red: 0.04, green: 0.04, blue: 0.12)
+            LinearGradient(colors: theme.colors.map { $0.opacity(0.34) },
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+        }
+    }
+}
+
 struct DJConnectSessionWidgetEntry: TimelineEntry {
     let date: Date
     let snapshot: DJConnectSessionSurfaceSnapshot?
     var isActive: Bool { snapshot?.isCurrent(at: date) == true }
+    var theme: DJConnectSessionMoodTheme { snapshot?.renderingTheme(at: date) ?? .brand }
 }
 
 struct DJConnectSessionWidgetProvider: TimelineProvider {
@@ -44,12 +71,13 @@ struct DJConnectSessionWidgetProvider: TimelineProvider {
 struct DJConnectSessionSurfaceView: View {
     let isActive: Bool
     var compact = false
+    var theme: DJConnectSessionMoodTheme = .brand
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 8 : 14) {
             HStack(spacing: 10) {
                 Image(systemName: "opticaldisc")
                     .font(compact ? .title2 : .largeTitle)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.accent)
                     .padding(compact ? 8 : 12)
                     .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
                 if !compact {
@@ -73,11 +101,9 @@ private struct DJConnectSessionWidgetView: View {
     let entry: DJConnectSessionWidgetEntry
     @Environment(\.widgetFamily) private var family
     var body: some View {
-        DJConnectSessionSurfaceView(isActive: entry.isActive, compact: family == .systemSmall)
+        DJConnectSessionSurfaceView(isActive: entry.isActive, compact: family == .systemSmall, theme: entry.theme)
             .containerBackground(for: .widget) {
-                LinearGradient(colors: [Color(red: 0.08, green: 0.17, blue: 0.40),
-                                        Color(red: 0.24, green: 0.06, blue: 0.39)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                SessionMoodBackground(theme: entry.theme)
             }
             .widgetURL(sessionURL)
     }
@@ -115,27 +141,28 @@ struct DJConnectAskDJWidget: Widget {
 struct DJConnectSessionActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: DJConnectSessionLiveActivityAttributes.self) { context in
-            DJConnectSessionSurfaceView(isActive: !context.isStale)
+            DJConnectSessionSurfaceView(isActive: !context.isStale, theme: context.isStale ? .brand : (context.state.theme ?? .brand))
                 .padding(16)
-                .activityBackgroundTint(Color(red: 0.11, green: 0.10, blue: 0.30))
+                .background { SessionMoodBackground(theme: context.isStale ? .brand : (context.state.theme ?? .brand)) }
+                .activityBackgroundTint((context.isStale ? DJConnectSessionMoodTheme.brand : (context.state.theme ?? .brand)).darkTint)
                 .activitySystemActionForegroundColor(.white)
                 .widgetURL(sessionURL)
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) { Image(systemName: "opticaldisc").foregroundStyle(.white) }
+                DynamicIslandExpandedRegion(.leading) { Image(systemName: "opticaldisc").foregroundStyle((context.isStale ? DJConnectSessionMoodTheme.brand : (context.state.theme ?? .brand)).accent) }
                 DynamicIslandExpandedRegion(.bottom) {
                     Text(text(context.isStale ? "surface.session.open" : "surface.session.active"))
                         .font(.headline).foregroundStyle(.white)
                 }
             } compactLeading: {
-                Image(systemName: "opticaldisc").foregroundStyle(.white)
+                Image(systemName: "opticaldisc").foregroundStyle((context.isStale ? DJConnectSessionMoodTheme.brand : (context.state.theme ?? .brand)).accent)
             } compactTrailing: {
                 Image(systemName: context.isStale ? "arrow.up.forward" : "music.note").foregroundStyle(.white)
             } minimal: {
-                Image(systemName: "opticaldisc").foregroundStyle(.white)
+                Image(systemName: "opticaldisc").foregroundStyle((context.isStale ? DJConnectSessionMoodTheme.brand : (context.state.theme ?? .brand)).accent)
             }
             .widgetURL(sessionURL)
-            .keylineTint(.purple)
+            .keylineTint((context.isStale ? DJConnectSessionMoodTheme.brand : (context.state.theme ?? .brand)).accent)
         }
     }
 }

@@ -1060,6 +1060,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var lastBackendCollectionsRefreshAt: Date?
     private var lastBackendUnavailableNoticeAt: Date?
     private var sessionSurfaceSnapshot: DJConnectSessionSurfaceSnapshot?
+    private var lastSessionWidgetReloadAt: Date?
     private var sessionSurfaceIdentity: String?
     private var sessionSurfaceGeneration = UUID()
     private var sessionSurfaceActivityTask: Task<Void, Never>?
@@ -8239,7 +8240,8 @@ public final class DJConnectAppModel: ObservableObject {
                 }
             }
             sessionSurfaceSnapshot = .observe(runtimeState: activeDJSession?.runtimeState,
-                                               authorized: pairingStatus == .paired, isDemo: isDemoMode, at: now)
+                                               authorized: pairingStatus == .paired, isDemo: isDemoMode,
+                                               confirmedMood: activeDJSession?.selectedMood, at: now)
         } else if sessionSurfaceSnapshot?.isCurrent(at: now) != true {
             sessionSurfaceSnapshot = nil
         }
@@ -8252,8 +8254,9 @@ public final class DJConnectAppModel: ObservableObject {
         #if canImport(WidgetKit)
         // No progress tick reloads. Freshness renewal is bounded; OS budgets
         // still own actual rendering and background scheduling.
-        if (changed && snapshot == nil) || (previous == nil) != (snapshot == nil) ||
-            (snapshot != nil && (previous?.expiresAt.timeIntervalSince(now) ?? 0) < 60) {
+        if (changed && snapshot == nil) || DJConnectSessionSurfaceSnapshot.needsWidgetReload(
+            current: snapshot, previous: previous, lastReloadAt: lastSessionWidgetReloadAt, at: now) {
+            lastSessionWidgetReloadAt = now
             for kind in [DJConnectSessionSurfaceSnapshot.widgetKind] + DJConnectSessionSurfaceSnapshot.legacyKinds {
                 WidgetCenter.shared.reloadTimelines(ofKind: kind)
             }

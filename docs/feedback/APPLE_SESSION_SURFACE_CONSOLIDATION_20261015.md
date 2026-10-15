@@ -11,7 +11,8 @@ Existing Apple sole writer: build/apple-40017-recovery/source,
 branch codex/apple-dj-presence-v1. No second writer or protected publication.
 
 DJConnectSessionSurfaceSnapshot is one bounded, neutral runtime projection for
-all passive consumers. It contains only observation/expiry dates: no Moment,
+all passive consumers. It contains observation/expiry dates and, after the user's
+follow-up, an optional closed UI palette token: no Moment,
 private question, history, track metadata, provider URL, Profile ID, image bytes,
 credential or executable action. Active status requires a confirmed authorized
 non-Demo active Session. Playback pause does not infer Session end. Local repaint,
