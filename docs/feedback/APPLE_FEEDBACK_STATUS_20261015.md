@@ -1176,3 +1176,26 @@ Signed iOS including Watch and macOS40086 builds PASS:
 No native widget visual/physical/background acceptance and no installation or
 publication. Rich surface producer dependency and its authorized handoff remain
 open as above; this adds presentation styling, not the missing rich contract.
+
+## Missing-artwork view simplified — 2026-10-15
+
+Replaced the Demo app-logo placeholder and nested square/glass backplates with
+one quiet, unframed vinyl silhouette, two subtle record grooves and a soft halo
+that merges into the existing player card. The same placeholder serves Demo and
+ordinary missing/loading/failed artwork. No synthetic album image or text added.
+
+The extra artwork glass frame is now applied only to a successfully loaded image
+via CachedArtworkImage's default-off usesAlbumGlassFrame presentation option.
+Other cached-image callers keep their existing presentation; image fetching,
+authorization, URL/state guards and decoder behavior are unchanged. Existing
+player controls and the outer player card remain unchanged.
+
+iOS Simulator and macOS40087 compiles PASS:
+/private/tmp/djc-empty-art-40087-ios.log,
+/private/tmp/djc-empty-art-40087-mac.log.
+Visually inspected the real native Now Playing Demo-fixture screen on the
+existing isolated iPhone simulator after explicit fixture launch:
+/private/tmp/djc-empty-art-40087-iphone.png.
+No nested artwork square, inner logo tile or app logo remains in that state.
+No new tests for this low-impact presentation change; no loaded-network artwork
+or physical-device acceptance claimed. No physical install or source publication.

@@ -3608,7 +3608,6 @@ private struct DJConnectNotNowLinkButton: View {
 
 private struct AnimatedAlbumArtworkView: View {
     let playback: DJConnectPlayback?
-    let isDemoMode: Bool
     let maxWidth: CGFloat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -3627,50 +3626,54 @@ private struct AnimatedAlbumArtworkView: View {
         }
         .animation(reduceMotion ? .easeOut(duration: 0.18) : .spring(response: 0.42, dampingFraction: 0.82), value: trackKey)
         .aspectRatio(1, contentMode: .fit)
-        .djAlbumArtworkGlassCard()
         .frame(maxWidth: maxWidth)
         .frame(maxWidth: .infinity, alignment: .center)
     }
 
-    @ViewBuilder
     private var artworkContent: some View {
-        CachedArtworkImage(url: playback?.albumImageURL, mode: .fit) {
-            artworkPlaceholder
+        CachedArtworkImage(url: playback?.albumImageURL, mode: .fit, usesAlbumGlassFrame: true) {
+            AlbumArtworkPlaceholder(tint: artworkTintColor(for: playback))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.opacity(0.22))
     }
+}
 
-    private var artworkPlaceholder: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    artworkTintColor(for: playback).opacity(0.52),
-                    Color(red: 0.02, green: 0.03, blue: 0.09)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            if isDemoMode {
-                VStack {
-                    DJConnectGlassBrandIcon()
-                        .frame(width: 132, height: 132)
+/// An unframed, quiet vinyl silhouette when artwork is absent or unavailable.
+/// Its soft halo merges into the parent player card; it is not an album image.
+private struct AlbumArtworkPlaceholder: View {
+    let tint: Color
+
+    var body: some View {
+        GeometryReader { geometry in
+            let side = min(geometry.size.width, geometry.size.height)
+            let record = side * 0.66
+            ZStack {
+                Circle()
+                    .fill(RadialGradient(colors: [tint.opacity(0.30), .clear],
+                                         center: .center, startRadius: 0, endRadius: side * 0.46))
+                    .frame(width: side * 0.92, height: side * 0.92)
+                    .blur(radius: side * 0.06)
+                Circle()
+                    .fill(LinearGradient(colors: [Color(red: 0.12, green: 0.13, blue: 0.20),
+                                                  Color(red: 0.025, green: 0.03, blue: 0.07)],
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: record, height: record)
+                    .shadow(color: .black.opacity(0.18), radius: side * 0.06, y: side * 0.035)
+                ForEach([0.78, 0.90], id: \.self) { scale in
+                    Circle().stroke(.white.opacity(0.045), lineWidth: 1)
+                        .frame(width: record * scale, height: record * scale)
                 }
-                .padding(22)
-                .background(
-                    RoundedRectangle(cornerRadius: 36, style: .continuous)
-                        .fill(.white.opacity(0.08))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 36, style: .continuous)
-                        .stroke(.white.opacity(0.10), lineWidth: 1)
-                )
-            } else {
-                Image(systemName: "music.note")
-                    .font(.system(size: 54, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.86))
+                Circle()
+                    .fill(djConnectIconGradient)
+                    .frame(width: record * 0.26, height: record * 0.26)
+                    .opacity(0.85)
+                Circle().fill(Color(red: 0.035, green: 0.04, blue: 0.09))
+                    .frame(width: record * 0.045, height: record * 0.045)
             }
+            .frame(width: geometry.size.width, height: geometry.size.height)
         }
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
     }
 }
 
@@ -3682,6 +3685,7 @@ enum CachedArtworkImageMode {
 struct CachedArtworkImage<Placeholder: View>: View {
     let url: URL?
     let mode: CachedArtworkImageMode
+    var usesAlbumGlassFrame = false
     @ViewBuilder var placeholder: () -> Placeholder
     @State private var loadedImage: Image?
     @State private var loadedURL: URL?
@@ -3689,9 +3693,18 @@ struct CachedArtworkImage<Placeholder: View>: View {
     var body: some View {
         Group {
             if let loadedImage, loadedURL == url {
-                loadedImage
-                    .resizable()
-                    .cachedArtworkContentMode(mode)
+                if usesAlbumGlassFrame {
+                    loadedImage
+                        .resizable()
+                        .cachedArtworkContentMode(mode)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.black.opacity(0.22))
+                        .djAlbumArtworkGlassCard()
+                } else {
+                    loadedImage
+                        .resizable()
+                        .cachedArtworkContentMode(mode)
+                }
             } else {
                 placeholder()
             }
@@ -9935,7 +9948,7 @@ private struct IOSTrackHero: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            AnimatedAlbumArtworkView(playback: playback, isDemoMode: model.isDemoMode, maxWidth: 300)
+            AnimatedAlbumArtworkView(playback: playback, maxWidth: 300)
 
             VStack(alignment: .leading, spacing: 5) {
                 HStack(alignment: .top, spacing: 12) {
@@ -10230,7 +10243,7 @@ struct TrackSummaryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            AnimatedAlbumArtworkView(playback: playback, isDemoMode: model.isDemoMode, maxWidth: 320)
+            AnimatedAlbumArtworkView(playback: playback, maxWidth: 320)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(playback?.trackName ?? localizedKey(model.language, "ui.nothing.playing.13ae37"))
