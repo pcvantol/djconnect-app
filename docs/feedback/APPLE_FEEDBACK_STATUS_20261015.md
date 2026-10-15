@@ -152,3 +152,14 @@ All157 current Sources/Tests/Apps files match the build input byte-for-byte;
 hashes are in /private/tmp/djc-40060-source-manifest.json. The temporary app and
 fixture were stopped. These native fixture results are not live provider or
 whole-list end-user acceptance.
+
+## Follow-up: Track Insight refresh at the far right
+
+Owner screenshot requested refresh after the connection indicator. The iOS/iPadOS
+trailing group now orders optional share, connection, refresh. macOS keeps share
+in navigation and orders connection, refresh at the trailing edge. Explicit
+Moment detail keeps its own retry at that edge without another connection icon.
+Unsigned iOS and Mac compile checks passed with local build number40061:
+/private/tmp/djc-refresh-right-{ios,mac}.log. No additional installation was made;
+the four installed apps remain40060. This presentation-only edit did not rerun
+the full550-test suite; that result above belongs to the40060 source checkpoint.

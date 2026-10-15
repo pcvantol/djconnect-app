@@ -4088,11 +4088,11 @@ struct TrackInsightView: View {
                         .help(localizedKey(model.language, "ui.share.insight"))
                     }
 
+                    if !explicitMoment { SessionConnectionToolbarButton(model: model) }
                     insightRefreshButton
                 }
                 #else
                 ToolbarItemGroup(placement: .navigation) {
-                    insightRefreshButton
                     if insight != nil && !explicitMoment {
                         Button {
                             isShowingShare = true
@@ -4105,8 +4105,11 @@ struct TrackInsightView: View {
                     }
 
                 }
+                ToolbarItemGroup(placement: .confirmationAction) {
+                    if !explicitMoment { SessionConnectionToolbarButton(model: model) }
+                    insightRefreshButton
+                }
                 #endif
-                if !explicitMoment { ConnectionStatusToolbar(model: model) }
             }
             .sheet(isPresented: $isShowingShare) {
                 if let insight {
