@@ -1052,7 +1052,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func notConfiguredClearsStalePairCodeAndReopensPairing() throws {
+@Test func notConfiguredDuringRuntimeReloadRetainsExistingPairedCredential() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -1069,11 +1069,11 @@ private func makePairedMusicDNAModel(
 
     model.apply(error: .notConfigured(message: "DJConnect is not configured."))
 
-    #expect(model.pairingStatus == .stale)
+    #expect(model.pairingStatus == .paired)
     #expect(model.isPairingScreenDismissed == false)
-    #expect(model.pairingToken.isEmpty)
-    #expect(defaults.string(forKey: "DJConnectPairingToken") == nil)
-    #expect(try tokenStore.loadToken() == nil)
+    #expect(model.pairingToken == "651161")
+    #expect(defaults.string(forKey: "DJConnectPairingToken") == "651161")
+    #expect(try tokenStore.loadToken() == "stale-token")
     #expect(model.pairingMessage == "DJConnect is not configured.")
 }
 
@@ -9222,7 +9222,17 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     let recorder = RequestPathRecorder()
     let session = mockSession(host: host) { request in
         recorder.append(request.url?.path ?? "")
-        #expect(request.url?.path == "/api/djconnect/v1/pair")
+        if request.url?.path != "/api/djconnect/v1/pair" {
+            // This production-style model schedules normal reads once paired.
+            #expect(["/api/djconnect/v1/status", "/api/djconnect/v1/command"].contains(request.url?.path ?? ""))
+            if request.url?.path.hasSuffix("/command") == true,
+               let bytes = request.httpBody,
+               let body = try JSONSerialization.jsonObject(with: bytes) as? [String: Any] {
+                #expect(["status", "devices", "queue", "playlists"].contains(body["command"] as? String ?? ""))
+            }
+            return (try httpResponse(for: request, statusCode: 200),
+                    Data(#"{"success":true,"music_backend_available":false,"playback":{"has_playback":false}}"#.utf8))
+        }
         return (
             try httpResponse(for: request, statusCode: 200),
             Data(
@@ -13747,4 +13757,31 @@ private extension String {
         #expect(counter.count == (background ? 1 : 2))
         #expect(!defaults.bool(forKey: "DJConnectPushRegistered"))
     }
+}
+
+@MainActor @Test(arguments: [503, 401])
+func pushFailureCannotWithdrawPairingWithoutIndependentHTTPRefusal(_ failure: Int) async throws {
+    let defaults = try testDefaults()
+    defaults.set(true, forKey: "DJConnectPushRegistered") // An earlier confirmation must not survive this failure.
+    let host = "push-reload-" + UUID().uuidString.lowercased() + ".local"
+    let counter = RequestCounter()
+    let session = mockSession(host: host) { request in
+        counter.increment()
+        if request.url!.path.hasSuffix("/push/register") {
+            return (try httpResponse(for: request, statusCode: failure),
+                    Data((failure == 503 ? #"{"success":false,"error":"not_configured"}"# : #"{"success":false,"error":"unauthorized"}"#).utf8))
+        }
+        #expect(request.url!.path.hasSuffix("/status"))
+        return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: host, session: session)
+    model.handleRemoteNotificationDeviceToken(Data([1,2,3,4]))
+    for _ in 0..<100 where counter.count < (failure == 401 ? 2 : 1) { try await Task.sleep(for: .milliseconds(10)) }
+    // Request capture precedes completion; wait until the registration failure is applied.
+    for _ in 0..<100 where defaults.bool(forKey: "DJConnectPushRegistered") { try await Task.sleep(for: .milliseconds(10)) }
+    // The validation response may be scheduled after the recorded HTTP request.
+    for _ in 0..<100 where failure == 401 && !model.isConnected { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(model.pairingStatus == .paired)
+    #expect(!defaults.bool(forKey: "DJConnectPushRegistered"))
+    #expect(counter.count == (failure == 401 ? 2 : 1))
 }

@@ -520,6 +520,24 @@ public final class DJConnectClient: Sendable {
         try await webSocketFastPath?.prepare()
     }
 
+    /// A live socket can lose its runtime during a config-entry reload. Verify
+    /// the existing paired identity through canonical HTTP before deleting it.
+    /// An HTML/proxy401 is not an authoritative DJConnect credential refusal.
+    public func validatePairedIdentity() async throws {
+        let request = try statusRequest(DJConnectStatusPayload(identity: identity, haPairingStatus: .paired))
+        let (data, status) = try await dataAndStatusCodeResponse(for: request, acceptingStatuses: [401, 403])
+        if status == 401 || status == 403 {
+            let body = try? JSONDecoder().decode([String: DJConnectJSONValue].self, from: data)
+            if body?["success"] == .bool(false),
+               body?["error"] == .string("unauthorized") || body?["error"] == .string("pairing_revoked") {
+                throw DJConnectError.authStale(statusCode: status, message: "Paired identity rejected by Home Assistant")
+            }
+            throw DJConnectError.server(statusCode: status, message: "Unqualified paired identity response")
+        }
+        let response = try JSONDecoder().decode(DJConnectEnvelope<DJConnectPlayback>.self, from: data)
+        guard response.success else { throw DJConnectError.invalidResponse }
+    }
+
     public func registerPushNotifications(_ payload: DJConnectPushRegistrationRequest) async throws -> DJConnectCommandResponse {
         let request = try pushRegisterRequest(payload)
         return try await decodedResponse(for: request)

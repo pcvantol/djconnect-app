@@ -1017,6 +1017,7 @@ private final class HTTPRecoveryActiveReadCounter: @unchecked Sendable {
     let historyCounter = HTTPRecoveryActiveReadCounter()
     let fixture = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/status") { return (401, Data(#"{"success":false,"error":"unauthorized"}"#.utf8), 0) }
         if request.url!.path.hasSuffix("/session/active") {
             if counter.next() == 1 { return (200, active, 0) }
             return (denial == "unauthorized" ? 401 : 403,
@@ -1046,7 +1047,8 @@ private final class HTTPRecoveryActiveReadCounter: @unchecked Sendable {
     _ = await lateHistory.value
     try await Task.sleep(for: .milliseconds(100))
     #expect(model.askDJMessages.isEmpty && model.activeDJSession == nil)
-    #expect(fixture.requests.allSatisfy { $0.httpMethod != "POST" })
+    #expect(fixture.requests.allSatisfy { $0.httpMethod != "POST" || $0.url!.path.hasSuffix("/status") })
+    if denial == "unauthorized" { #expect(model.pairingStatus == .stale) }
 }
 
 @Test func sessionBroadcastAutomaticallyRecoversHTTPWhenLocalWebSocketIsUnavailable() async throws {
@@ -2537,7 +2539,10 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     }
     #expect(reads.value == 1)
     model.selectOutput(DJConnectOutputDevice(id: "b", name: "B"))
-    try await Task.sleep(for: .milliseconds(300))
+    // Wait for completion, not merely the second read being dispatched.
+    for _ in 0..<100 where model.availableOutputs.filter({ $0.active == true }).map(\.id) != ["b"] {
+        try await Task.sleep(for: .milliseconds(20))
+    }
     #expect(reads.value == 2)
     #expect(model.selectedOutput == "B")
     #expect(model.availableOutputs.filter { $0.active == true }.map(\.id) == ["b"])
@@ -3291,4 +3296,90 @@ func momentInsightCreditProvenanceDoesNotInventAnalysisOrParseDebugObjects(_ var
     #expect(model.resolveConversationPresentationDeadline(valid, now: now.addingTimeInterval(3)) == .distantPast)
     model.sessionHistory.suspend()
     #expect(model.resolveConversationPresentationDeadline(selected, now: now.addingTimeInterval(4)) == .distantPast)
+}
+
+@Test @MainActor func liveRuntimeReplacementRevalidatesHTTPBeforeWithdrawingPairing() async throws {
+    let fixture = HistoryWireFixture { request in
+        #expect(request.url!.path.hasSuffix("/status"))
+        return (200, Data(#"{"success":true}"#.utf8), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    model.askDJDraft = "Keep this unsent draft"
+    await model.recoverAfterPairedAuthorityWithdrawal("pairing_revoked")
+    #expect(model.pairingStatus == .paired)
+    #expect(model.isConnected)
+    #expect(model.askDJDraft == "Keep this unsent draft")
+    #expect(fixture.requests.count == 1)
+    #expect(model.activeDJSession == nil && model.askDJMessages.isEmpty)
+}
+
+@Test @MainActor func liveRuntimeReplacementOnlyRevokesAfterQualifiedHTTPRefusal() async throws {
+    let fixture = HistoryWireFixture { _ in (401, Data(#"{"success":false,"error":"unauthorized"}"#.utf8), 0) }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.recoverAfterPairedAuthorityWithdrawal("pairing_revoked")
+    #expect(fixture.requests.count == 1)
+    #expect(model.pairingStatus == .stale)
+}
+
+@Test @MainActor func liveRuntimeReplacementPreservesPairingOnUnqualifiedProxy401() async throws {
+    let fixture = HistoryWireFixture { _ in (401, Data("<html>Proxy authentication required</html>".utf8), 0) }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.recoverAfterPairedAuthorityWithdrawal("pairing_revoked")
+    #expect(model.pairingStatus == .paired)
+    #expect(!model.isConnected)
+    #expect(fixture.requests.count == 1)
+    #expect(model.activeDJSession == nil)
+}
+
+@Test @MainActor func liveRuntimeReplacementCancelsValidationWhenBackgrounded() async throws {
+    let fixture = HistoryWireFixture { _ in (200, Data(#"{"success":true}"#.utf8), 0.2) }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    let work = Task { await model.recoverAfterPairedAuthorityWithdrawal("pairing_revoked") }
+    for _ in 0..<100 where fixture.requests.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+    model.markInactiveSession()
+    await work.value
+    #expect(model.pairingStatus == .paired)
+    #expect(!model.isConnected)
+    #expect(model.activeDJSession == nil)
+}
+
+@Test @MainActor func liveRuntimeReplacement503RecoveryIsBoundedAndRetainsPairing() async throws {
+    let fixture = HistoryWireFixture { _ in (503, Data(#"{"success":false,"error":"not_configured"}"#.utf8), 0) }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.recoverAfterPairedAuthorityWithdrawal("pairing_revoked")
+    #expect(model.pairingStatus == .paired && !model.isConnected)
+    #expect(fixture.requests.count == 3)
+    #expect(fixture.requests.allSatisfy { $0.url!.path.hasSuffix("/status") })
+}
+
+@Test @MainActor func obsoleteLiveRecoveryCannotWithdrawReplacementCredential() async throws {
+    let fixture = HistoryWireFixture { _ in (401, Data(#"{"success":false,"error":"unauthorized"}"#.utf8), 0.2) }
+    defer { fixture.close() }
+    let name = "paired-recovery-replacement-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name)); defer { defaults.removePersistentDomain(forName: name) }
+    defaults.set(fixture.baseURL.absoluteString, forKey: "DJConnectHomeAssistantURL")
+    let store = DJConnectInMemoryTokenStore(token: "old-synthetic-token")
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: store, urlSession: fixture.session(), startBackgroundTasks: false)
+    let work = Task { await model.recoverAfterPairedAuthorityWithdrawal("pairing_revoked") }
+    for _ in 0..<100 where fixture.requests.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+    try store.saveToken("replacement-synthetic-token")
+    await work.value
+    #expect(model.pairingStatus == .paired)
+    #expect(try store.loadToken() == "replacement-synthetic-token")
+}
+
+@Test @MainActor func obsoleteLiveRecoveryCannotWithdrawAfterHAConfigurationChange() async throws {
+    let fixture = HistoryWireFixture { _ in (401, Data(#"{"success":false,"error":"unauthorized"}"#.utf8), 0.2) }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    let work = Task { await model.recoverAfterPairedAuthorityWithdrawal("pairing_revoked") }
+    for _ in 0..<100 where fixture.requests.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+    model.homeAssistantURL = "https://replacement-installation.example"
+    await work.value
+    #expect(model.pairingStatus == .paired && !model.isConnected)
 }

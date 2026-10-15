@@ -742,6 +742,8 @@ public final class DJConnectAppModel: ObservableObject {
                 refreshWebSocketFastPathStatus()
             } else if pairingStatus != .paired {
                 if let old = hybridTransport { Task { await old.lifecycle(foreground: false) } }
+                pairedIdentityRecoveryTask?.cancel(); pairedIdentityRecoveryTask = nil
+                pairedIdentityRecoveryGeneration = UUID()
                 hybridTransport = nil; hybridTransportKey = nil
                 hybridConnectionDiagnostics = nil
                 invalidateSessionRequest()
@@ -1013,6 +1015,8 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var identity: DJConnectIdentity
 
     private let logger: Logger
+    private var pairedIdentityRecoveryTask: Task<Void, Never>?
+    private var pairedIdentityRecoveryGeneration = UUID()
     private var pairingTask: Task<Void, Never>?
     private var scheduledPairingTask: Task<Void, Never>?
     private var volumeCommandTask: Task<Void, Never>?
@@ -1976,6 +1980,8 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func markInactiveSession(enteringBackground: Bool = true) {
+        pairedIdentityRecoveryTask?.cancel(); pairedIdentityRecoveryTask = nil
+        pairedIdentityRecoveryGeneration = UUID()
         dismissMomentTrackInsight()
         if enteringBackground && !isDemoMode {
             if sessionHistory.profileScopeActive {
@@ -2503,6 +2509,7 @@ public final class DJConnectAppModel: ObservableObject {
         networkMonitor.cancel()
         scheduledPairingTask?.cancel()
         pairingTask?.cancel()
+        pairedIdentityRecoveryTask?.cancel()
         volumeCommandTask?.cancel()
         seekCommandTask?.cancel()
         playbackProgressTask?.cancel()
@@ -5064,6 +5071,12 @@ public final class DJConnectAppModel: ObservableObject {
             if isPairingFlowActive {
                 isConnected = false
                 pairingMessage = localized(key: "appModel.waiting.for.setup.to.be.completed.in.home.assistant")
+            } else if pairingStatus == .paired {
+                // An integration reload temporarily removes its runtime; it does
+                // not prove the persisted device credential was revoked.
+                clearRuntimeState(backendAvailableAfterClear: false)
+                isConnected = false
+                pairingMessage = message ?? localized(key: "appModel.not.connected.to.home.assistant")
             } else {
                 recoverFromStalePairing(message: message ?? localized(key: "appModel.not.connected.to.home.assistant"))
             }
@@ -5697,7 +5710,20 @@ public final class DJConnectAppModel: ObservableObject {
         clearRuntimeState(backendAvailableAfterClear: false)
         voiceErrorMessage = nil
         if ["invalid_auth", "invalid_identity", "unauthorized", "pairing_revoked"].contains(code) {
-            apply(error: .authStale(statusCode: 401, message: nil))
+            // Core currently also emits pairing_revoked on runtime replacement.
+            // Private projections are already withdrawn; retain the credential
+            // until an independent HTTP response proves it is invalid.
+            isConnected = false
+            guard canRefreshSessionHistory, let token = try? tokenStore.loadToken(), !token.isEmpty else { return }
+            pairedIdentityRecoveryTask?.cancel()
+            let generation = UUID(); pairedIdentityRecoveryGeneration = generation
+            let task = Task { @MainActor [weak self] in
+                guard let self else { return }
+                await self.revalidatePairedIdentity(expectedToken: token, generation: generation)
+            }
+            pairedIdentityRecoveryTask = task
+            await task.value
+            if pairedIdentityRecoveryGeneration == generation { pairedIdentityRecoveryTask = nil }
             return
         }
         guard code == "profile_changed", canRefreshSessionHistory else {
@@ -5710,6 +5736,46 @@ public final class DJConnectAppModel: ObservableObject {
         guard request == sessionRequestGeneration, epoch == sessionHistory.responseEpoch,
               canRefreshSessionHistory, !Task.isCancelled else { return }
         await refreshActiveDJSession()
+    }
+
+    private func revalidatePairedIdentity(expectedToken: String, generation: UUID) async {
+        let configuration = [homeAssistantURL, haRemoteURL, defaults.string(forKey: haInstallIDKey) ?? ""]
+        func current() -> Bool {
+            canRefreshSessionHistory && pairedIdentityRecoveryGeneration == generation &&
+            configuration == [homeAssistantURL, haRemoteURL, defaults.string(forKey: haInstallIDKey) ?? ""] &&
+            (try? tokenStore.loadToken()) == expectedToken && !Task.isCancelled
+        }
+        // Only bounded status reads; never repeat push registration or a mutation.
+        for attempt in 0..<3 {
+            guard current() else { return }
+            do {
+                try await withHomeAssistantClient { try await $0.validatePairedIdentity() }
+                guard current() else { return }
+                isConnected = true
+                log(.info, "Paired live withdrawal revalidated_http=true retained_pairing=true")
+                if startBackgroundTasks { schedulePairedRefresh(reason: "Paired live runtime replaced") }
+                return
+            } catch let error as DJConnectError {
+                guard current() else { return }
+                if case .authStale = error {
+                    log(.warning, "Paired identity rejected by canonical HTTP; withdrawing pairing")
+                    apply(error: error)
+                    return
+                }
+                let retryable: Bool
+                switch error {
+                case .network, .notConfigured: retryable = true
+                case .server(let status, _): retryable = status == 503
+                default: retryable = false
+                }
+                if !retryable || attempt == 2 { break }
+                do { try await Task.sleep(for: .milliseconds(attempt == 0 ? 250 : 750)) }
+                catch { return }
+            } catch { break }
+        }
+        guard current() else { return }
+        log(.warning, "Paired live recovery pending; credential retained and private state unavailable")
+        djSessionErrorMessage = localized(key: "ui.transport.recovering")
     }
 
     private func resetActiveMoodState() {
@@ -9090,8 +9156,9 @@ public final class DJConnectAppModel: ObservableObject {
         guard isCurrentPushRegistration(registrationSignature) else { return }
         let reason = Self.describe(error)
         if Self.isStalePairingPushError(error) {
-            logPush("registration stale_pairing=true error=\(reason)", level: .warning)
-            recoverFromStalePairing(message: localized(key: "appModel.pairing.is.stale.open.home.assistant.setup.and.enter"))
+            recordPushRegistrationFailure("push_registration_failed")
+            logPush("registration pairing_verification_required=true error=\(reason)", level: .warning)
+            await recoverAfterPairedAuthorityWithdrawal("unauthorized")
             return
         }
         if Self.isMissingBootstrapProof(reason) {
@@ -9109,8 +9176,8 @@ public final class DJConnectAppModel: ObservableObject {
             } catch let retryError as DJConnectError {
                 guard isCurrentPushRegistration(registrationSignature) else { return }
                 if Self.isStalePairingPushError(retryError) {
-                    logPush("registration stale_pairing=true error=\(Self.describe(retryError))", level: .warning)
-                    recoverFromStalePairing(message: localized(key: "appModel.pairing.is.stale.open.home.assistant.setup.and.enter"))
+                    logPush("registration pairing_verification_required=true error=\(Self.describe(retryError))", level: .warning)
+                    await recoverAfterPairedAuthorityWithdrawal("unauthorized")
                 } else if case .routeMissing = retryError {
                     logPush("bootstrap skipped route_missing=true", level: .warning)
                 } else {
@@ -9636,7 +9703,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private static func isStalePairingPushError(_ error: DJConnectError) -> Bool {
         switch error {
-        case .authStale, .notConfigured:
+        case .authStale:
             return true
         case let .server(statusCode, message):
             guard statusCode == 401 || statusCode == 403 else {

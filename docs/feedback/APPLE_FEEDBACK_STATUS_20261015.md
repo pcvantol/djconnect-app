@@ -608,3 +608,20 @@ iPad. Screenshot /private/tmp/djc-ipad-composer-75-40067.png visually confirms t
 Session composer is narrower and centered (visible behind the existing crash
 sheet). Typing/keyboard, rotation, Split View and the separate Ask DJ page were
 not physically exercised in this change. Mac/iPhone width behavior is unchanged.
+
+## Push false401/root-cause correction: build40068
+
+Reproduced Core push-persistence → runtime replacement → pairing_revoked → Apple
+syntheticHTTP401 → credential deletion. Both implicated installed HA-dev source
+functions match the investigated code. Detailed causal evidence and limitations:
+PUSH_BOOTSTRAP_RUNTIME_RELOAD_ROOT_CAUSE_20261015.md.
+
+Apple now withdraws private state immediately but independently validates the
+paired identity before deleting a credential. Temporary503, unqualified proxy401,
+changed token/configuration and background cancellation are covered. Push failures
+also clear old green registration confirmation.580 Swift tests PASS; signed Mac
+and iOS builds PASS. Ordinary Mac mini and physical iPad installed40068.
+
+OPEN: Core writer companion fix (messaging permission pending), MacBook/iPhone
+installation, and real APNs registration/delivery. Existing Mac mini was already
+unpaired; no token restoration, re-pair, Core source mutation or HA restart here.
