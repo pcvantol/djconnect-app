@@ -13497,6 +13497,9 @@ struct AskDJInputBar: View {
         #else
         .padding(.bottom, floating ? 12 : 18)
         #endif
+        #if os(iOS)
+        .background(AskDJOutsideTapDismissal(isInputFocused: isInputFocused))
+        #endif
         .background {
             if floating {
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
@@ -13554,6 +13557,71 @@ struct AskDJInputBar: View {
 }
 
 #if os(iOS)
+/// Observe taps without putting a hit-testing layer over the conversation.
+/// The window recognizer also covers empty space beside a narrow iPad composer.
+private struct AskDJOutsideTapDismissal: UIViewRepresentable {
+    var isInputFocused: FocusState<Bool>.Binding
+
+    func makeUIView(context: Context) -> OutsideTapView {
+        let view = OutsideTapView()
+        view.isUserInteractionEnabled = false
+        view.focus = isInputFocused
+        return view
+    }
+
+    func updateUIView(_ view: OutsideTapView, context: Context) {
+        view.focus = isInputFocused
+    }
+
+    static func dismantleUIView(_ view: OutsideTapView, coordinator: ()) {
+        view.detach()
+    }
+
+    final class OutsideTapView: UIView, UIGestureRecognizerDelegate {
+        var focus: FocusState<Bool>.Binding?
+        private weak var observedWindow: UIWindow?
+        private lazy var outsideTap: UITapGestureRecognizer = {
+            let gesture = UITapGestureRecognizer(target: self, action: #selector(dismissInput))
+            gesture.cancelsTouchesInView = false
+            gesture.delegate = self
+            return gesture
+        }()
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            detach()
+            if let window {
+                observedWindow = window
+                window.addGestureRecognizer(outsideTap)
+            }
+        }
+
+        func detach() {
+            observedWindow?.removeGestureRecognizer(outsideTap)
+            observedWindow = nil
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            guard focus?.wrappedValue == true, let window, !isHidden,
+                  !convert(bounds, to: window).contains(touch.location(in: window)) else { return false }
+            // Leave fields and native controls in charge of their own focus.
+            var target = touch.view
+            while let view = target {
+                if view is UIControl || view is UITextView { return false }
+                target = view.superview
+            }
+            return true
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }
+
+        @objc private func dismissInput() {
+            focus?.wrappedValue = false
+        }
+    }
+}
+
 private struct AskDJPromptTextView: UIViewRepresentable {
     @Binding var text: String
     var isInputFocused: FocusState<Bool>.Binding
