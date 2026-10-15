@@ -112,3 +112,38 @@ Moment push, background timing or cross-device acceptance is inferred.
   source push, publication or completion of the full artwork/Moment request.
 
 Durable metadata and hashes: APPLE_SESSION_SURFACE_40082_RECEIPT.json.
+
+## 40089 — rich layout preparation, producer still open
+
+The user requested continuation. Fresh readback of the existing Core task on
+2026-10-15 confirms speech/Persona work is still in progress; no qualified
+passive-content producer pin was delivered to Apple. The existing authorized
+handoff was followed up in that task, without a second writer or interruption.
+
+`SessionMomentLayout` in the widget extension is a pure SwiftUI layout, with
+explicit string inputs and an injected artwork view. It is not Codable, a wire
+contract or a publisher, and has no production caller. It introduces no
+App Group writes, ActivityKit payload fields, image fetching or private data
+export. DEBUG previews use explicitly synthetic text and a generated gradient
+vinyl tile, never live artwork or real DJ content.
+
+Prepared sizes: small contribution/artwork; medium contribution/artwork and
+track/artist/album; large expanded metadata/contribution; Lock Screen Activity;
+expanded Island. All five existing palette themes are represented. Compact and
+minimal Island content, source-required attribution layout and exact content
+sizing still need qualification against the eventual producer and real native
+hosts. These previews do not qualify background updates or OS presentation.
+
+Native SwiftUI ImageRenderer visual checks found premature single-line
+compression in the medium layout; vertical text sizing was corrected and the
+medium/Island renders reinspected. PNGs:
+`/private/tmp/djc-session-layout-40089-{small,medium,large,activity,island}.png`.
+The render harness is `/private/tmp/djc-session-layout-render.swift` and uses
+only the same layout code plus static fixture values. These are native view
+renders, not screenshots of installed widgets/ActivityKit/Dynamic Island.
+
+Final iOS Simulator and signed macOS build results are recorded in the status
+ledger. No physical installation, publishing or complete rich-surface claim.
+The next integration step remains the qualified Core contract/fixture/pin and
+its end/revocation/background-delivery semantics; no no-store owner data may
+be repurposed to unblock it.

@@ -1206,3 +1206,11 @@ or physical-device acceptance claimed. No physical install or source publication
 - iOS Simulator and signed macOS builds PASS: `/private/tmp/djc-vinyl-spin-40088-ios.log`, `/private/tmp/djc-vinyl-spin-40088-mac.log`.
 - Native isolated Demo simulator frames visually confirm record/label rotation with stationary layout: `/private/tmp/djc-vinyl-spin-40088-a.png`, `/private/tmp/djc-vinyl-spin-40088-b.png`. Pause/background/Reduce Motion gating inspected in source; not separately exercised on hardware.
 - No physical device install or publication. Existing incomplete rich-session widget acceptance remains open.
+
+### Session widgets continuation — 40089
+
+- Followed up the existing explicitly authorized Core handoff. Core remains on its speech slice; no qualified passive-content producer delivery was found.
+- Prepared a pure, unconnected rich SwiftUI layout for small/medium/large widgets, Lock Screen Activity and expanded Island. DEBUG samples only, with synthetic contribution/metadata and artwork placeholder; no speculative wire decoder, persistence, network, token or production publisher changes.
+- Native ImageRenderer checks across all five mood palettes: `/private/tmp/djc-session-layout-40089-{small,medium,large,activity,island}.png`. Fixed premature contribution truncation found in the medium render. Native view renders are not installed widgets or live Activity/Island acceptance.
+- No new tests for presentation-only preparation. Final iOS Simulator and signed macOS builds PASS. Logs: `/private/tmp/djc-session-layout-40089-ios-final.log`, `/private/tmp/djc-session-layout-40089-mac-final.log`.
+- Full request remains OPEN: artwork/current Moment production adoption, background delivery, real native hosts and hardware acceptance await the Core producer. No physical install or publication.

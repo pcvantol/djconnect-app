@@ -168,6 +168,114 @@ struct DJConnectSessionActivityWidget: Widget {
 }
 #endif
 
+// MARK: - Rich presentation preparation
+// Pure presentation only: not Codable, not a wire contract, no cache/network
+// reads and no production caller. Connect only after Core qualifies passive
+// content, artwork and locked-display lifetime/revocation rights.
+enum SessionMomentLayoutSize { case small, medium, large, activity, island }
+
+struct SessionMomentLayout<Artwork: View>: View {
+    typealias Size = SessionMomentLayoutSize
+    let size: Size
+    let moment: String
+    let track: String
+    let artist: String
+    let album: String
+    let attribution: String
+    @ViewBuilder let artwork: () -> Artwork
+
+    private var isSmall: Bool { size == .small }
+    private var isLarge: Bool { size == .large }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: isSmall ? 8 : 12) {
+            if isSmall {
+                artworkTile(side: 46)
+                contribution(lines: 3)
+            } else {
+                HStack(alignment: .top, spacing: 14) {
+                    artworkTile(side: isLarge ? 88 : (size == .island ? 40 : 64))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(text("ui.session.title"))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.75))
+                        if isLarge {
+                            Text(track).font(.headline).lineLimit(2)
+                            Text(artist).font(.subheadline).lineLimit(1)
+                            Text(album).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
+                        } else {
+                            contribution(lines: size == .medium ? 2 : 3)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if isLarge { contribution(lines: 5) }
+                if size == .medium {
+                    Text([track, artist, album].filter { !$0.isEmpty }.joined(separator: " · "))
+                        .font(.caption).foregroundStyle(.white.opacity(0.75)).lineLimit(1)
+                }
+            }
+            if !attribution.isEmpty {
+                Text(attribution)
+                    .font(.caption2).foregroundStyle(.white.opacity(0.65))
+                    .lineLimit(isLarge ? 2 : 1)
+            }
+        }
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func contribution(lines: Int) -> some View {
+        Text(moment).font(isSmall ? .subheadline.weight(.medium) : .headline)
+            .lineLimit(lines).multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func artworkTile(side: CGFloat) -> some View {
+        artwork()
+            .frame(width: side, height: side)
+            .clipShape(RoundedRectangle(cornerRadius: side * 0.22, style: .continuous))
+            .accessibilityHidden(true)
+    }
+}
+
+#if DEBUG
+// Synthetic visual fixtures only. Never serialized into App Group/ActivityKit.
+private struct SessionMomentLayoutPreview: View {
+    let size: SessionMomentLayoutSize
+    let theme: DJConnectSessionMoodTheme
+    var body: some View {
+        SessionMomentLayout(size: size, moment: "Een warme baslijn geeft dit nummer ruimte om te ademen.",
+                            track: "Nachtlicht", artist: "Voorbeeldartiest", album: "Onderweg",
+                            attribution: "Voorbeeldbijdrage · geen live sessie") {
+            ZStack {
+                LinearGradient(colors: theme.colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+                Image(systemName: "opticaldisc").font(.system(size: 34)).foregroundStyle(.white.opacity(0.9))
+            }
+        }
+        .padding(16)
+        .background { SessionMoodBackground(theme: theme) }
+    }
+}
+
+#Preview("Small · Chill") {
+    SessionMomentLayoutPreview(size: .small, theme: .chill).frame(width: 170, height: 170)
+}
+#Preview("Medium · Groove") {
+    SessionMomentLayoutPreview(size: .medium, theme: .groove).frame(width: 360, height: 170)
+}
+#Preview("Large · Party") {
+    SessionMomentLayoutPreview(size: .large, theme: .party).frame(width: 360, height: 360)
+}
+#Preview("Live Activity · Energy") {
+    SessionMomentLayoutPreview(size: .activity, theme: .energy).frame(width: 380, height: 170)
+}
+#Preview("Expanded Island · Brand") {
+    SessionMomentLayoutPreview(size: .island, theme: .brand).frame(width: 340, height: 150)
+}
+#endif
+
 @main
 struct DJConnectTrackInsightWidgetsBundle: WidgetBundle {
     var body: some Widget {
