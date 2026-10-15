@@ -1,0 +1,27 @@
+{
+  "build": "40108",
+  "source_commit": "f135b0328c62fac4c9d9034957c3d43b75d1d0d0",
+  "selective_source": "/private/tmp/djc-neon-brand-40108-source",
+  "change": "Shared square brand tile uses existing searchFocusGradient and searchFocusWidth, with subtle bloom. macOS prefers LaunchIcon artwork. Watch renderer and static launch banner use the same white-blue-purple border.",
+  "audit": "16 AboutBanner call sites, runtime launch banners, three Watch logo uses and static iOS launch storyboard covered. No other bare logo loaders found. OS app icon unchanged.",
+  "signed_builds": {
+    "ios_watch": "PASS",
+    "macos": "PASS"
+  },
+  "installed": {
+    "ipad": "40108",
+    "macmini": "40108",
+    "mac_binary_sha256": "9b5087cad527343326b23715e54cb2b89a8582d645a960f8ee92d2e7390b4813",
+    "mac_signature": "PASS"
+  },
+  "static_asset": "Visually inspected; native generator repeat render byte-identical.",
+  "ipad_visual": "PASS: actual Meer -> Over navigation, neon square logo inspected.",
+  "ipad_evidence": "/private/tmp/djc-neon-brand-40108-ipad-about.xcresult",
+  "mac_visual": "PASS: actual installed pairing screen and crash feedback banner neon logo inspected. Feedback dismissed via Niet nu; pairing data unchanged.",
+  "mac_evidence": "/private/tmp/djc-neon-brand-40108-mac-authorized.xcresult",
+  "mac_screenshot": "/private/tmp/djc-neon-brand-40108-mac-authorized-images/570D1FD6-2429-4154-A367-1CCDA8421CFE.png",
+  "mac_test": "PASS after user manually authorized XCTest. Earlier automation initialization timeout retained separately; not an app failure.",
+  "limits": "Not every audited sheet opened individually. Watch and iPhone physical visual checks not run.",
+  "cleanup": "Only active writer worktree; merged branches current writer and main. No eligible stale branch/worktree. Untracked project directories preserved. Internal free space 8.9GiB.",
+  "delivery": "Local source only; publication pause preserved. Next installation 40109 or higher."
+}
