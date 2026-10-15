@@ -84,14 +84,35 @@ Native macOS app target. It hosts the shared SwiftUI root view in a macOS app
 scene and exposes a native settings scene.
 
 Apple Hybrid transport is automatic for an existing paired identity with a stored
-installation ID and a configured HTTPS endpoint. `DJConnectHybridTransport` owns
-one foreground route/context probe shared by clients. Normal certificate and
-hostname validation precedes credential release; the authenticated context must
-match the paired installation. No redirect, plaintext action route or certificate
-bypass is accepted. A remote route uses HTTPS; only a qualified local HTTPS
-endpoint uses the paired-owner `/api/djconnect/v1/actions/paired` WSS channel.
-The previous opt-in setting and automatic `/websocket/session` issuer dependency
-are removed. Explicit legacy authentication APIs remain compatibility-only.
+installation ID and configured endpoints. `DJConnectHybridTransport` owns one
+foreground route/context probe shared by clients. Remote routes require HTTPS
+with normal certificate and hostname validation before credential release.
+A local HTTP candidate must exactly match the already configured paired local
+origin. Private-address syntax alone does not authorize plaintext transport.
+
+The authenticated request context must match the paired installation and the
+complete Core policy-version-1 contract. HTTP is admitted only for Core-qualified
+direct ingress with `mode: qualified_direct_http` and
+`requires_authenticated_tls: false`. The paired-owner action socket maps that
+route to WS and independently validates the `auth_ok` policy before executing;
+HTTPS maps to WSS. The global TLS-required capability is not a local exception.
+Missing qualification, conflicting socket policy, redirects and remote HTTP
+cannot authorize a downgrade. The old opt-in setting and automatic
+`/websocket/session` issuer dependency remain removed; explicit legacy APIs are
+compatibility-only.
+
+Core owns ingress qualification, including actual peer/interface evidence and
+the operator record. Apple does not infer that evidence from configured URLs,
+forwarded headers or a Docker NAT gateway. HTTP426 with
+`transport_security_required`, or its socket equivalent, withdraws only the
+route and temporarily excludes it for sixty seconds. Pairing, Profile and UI
+state remain intact. Before possible transmission there is no fallback execute;
+after possible transmission recovery uses only the original operation identity
+and status through an already trusted TLS route, never an execute replay.
+About reports the actual active HTTP/WS LAN or HTTPS/WSS TLS route and no active
+origin while offline. See
+[installed Core evidence](feedback/APPLE_CORE_INSTALLED_TRANSPORT_20261016.json)
+and [LAN qualification boundary](feedback/APPLE_LAN_TOPOLOGY_20261016.md).
 
 `DJConnectPairedActionConnection` owns a single reader, connection-ID/request-ID
 demultiplexing and serialized writes. It bounds outstanding requests, frames and
