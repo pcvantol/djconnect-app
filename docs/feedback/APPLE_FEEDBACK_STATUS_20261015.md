@@ -163,3 +163,9 @@ Unsigned iOS and Mac compile checks passed with local build number40061:
 /private/tmp/djc-refresh-right-{ios,mac}.log. No additional installation was made;
 the four installed apps remain40060. This presentation-only edit did not rerun
 the full550-test suite; that result above belongs to the40060 source checkpoint.
+
+Ask DJ follow-up: the same far-right refresh rule now orders trash, connection,
+refresh on iOS/iPadOS and macOS, while search remains at the navigation edge.
+The existing refresh action/disabled/accessibility behavior is reused by both
+platforms. Both unsigned builds pass in /private/tmp/djc-askdj-refresh-right-{ios,mac}.log.
+No further installation; this joins the pending40061 presentation changes.

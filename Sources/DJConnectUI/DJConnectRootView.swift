@@ -11112,21 +11112,6 @@ private struct AskDJView: View {
                 #if os(macOS)
                 ToolbarItemGroup(placement: .navigation) {
                     Button {
-                        isInputFocused = false
-                        Task {
-                            if !model.isDemoMode, model.pairingStatus == .paired {
-                                await model.refreshAskDJHistory(showToast: true)
-                            }
-                        }
-                    } label: {
-                        Image(systemName: model.isCheckingAskDJHistoryState ? "hourglass" : "arrow.clockwise")
-                            .foregroundStyle(.white.opacity(model.isDemoMode ? 0.4 : 1))
-                    }
-                    .tint(.white)
-                    .disabled(model.isDemoMode || model.pairingStatus != .paired || model.isClearingAskDJHistory || model.isCheckingAskDJHistoryState)
-                    .help(localizedKey(model.language, "ui.refresh.ask.dj"))
-                    .accessibilityLabel(localizedKey(model.language, "ui.refresh.ask.dj"))
-                    Button {
                         toggleAskDJSearch()
                     } label: {
                         Image(systemName: "magnifyingglass")
@@ -11136,7 +11121,7 @@ private struct AskDJView: View {
                     .accessibilityLabel(localizedKey(model.language, "ui.search.ask.dj"))
 
                 }
-                ToolbarItem(placement: .confirmationAction) {
+                ToolbarItemGroup(placement: .confirmationAction) {
                     Button {
                         isInputFocused = false
                         showingClearConfirmation = true
@@ -11146,6 +11131,8 @@ private struct AskDJView: View {
                     }
                     .disabled(model.askDJMessages.isEmpty || model.isClearingAskDJHistory)
                     .help(localizedKey(model.language, "ui.clear.chat"))
+                    SessionConnectionToolbarButton(model: model)
+                    askDJRefreshToolbarButton
                 }
                 #else
                 ToolbarItemGroup(placement: .topBarLeading) {
@@ -11171,24 +11158,10 @@ private struct AskDJView: View {
                     .help(localizedKey(model.language, "ui.clear.chat"))
                     .accessibilityLabel(localizedKey(model.language, "ui.clear.chat"))
 
-                    Button {
-                        isInputFocused = false
-                        Task {
-                            if !model.isDemoMode, model.pairingStatus == .paired {
-                                await model.refreshAskDJHistory(showToast: true)
-                            }
-                        }
-                    } label: {
-                        Image(systemName: model.isCheckingAskDJHistoryState ? "hourglass" : "arrow.clockwise")
-                            .foregroundStyle(.white.opacity(model.isDemoMode ? 0.4 : 1))
-                    }
-                    .tint(.white)
-                    .disabled(model.isDemoMode || model.pairingStatus != .paired || model.isClearingAskDJHistory || model.isCheckingAskDJHistoryState)
-                    .help(localizedKey(model.language, "ui.refresh.ask.dj"))
-                    .accessibilityLabel(localizedKey(model.language, "ui.refresh.ask.dj"))
+                    SessionConnectionToolbarButton(model: model)
+                    askDJRefreshToolbarButton
                 }
                 #endif
-                ConnectionStatusToolbar(model: model)
             }
             .alert(
                 localizedKey(model.language, "ui.clear.ask.dj.chat"),
@@ -11242,6 +11215,24 @@ private struct AskDJView: View {
         isInputFocused = false
         isSearchFocused = false
         resignPlatformFirstResponder()
+    }
+
+    private var askDJRefreshToolbarButton: some View {
+        Button {
+            isInputFocused = false
+            Task {
+                if !model.isDemoMode, model.pairingStatus == .paired {
+                    await model.refreshAskDJHistory(showToast: true)
+                }
+            }
+        } label: {
+            Image(systemName: model.isCheckingAskDJHistoryState ? "hourglass" : "arrow.clockwise")
+                .foregroundStyle(.white.opacity(model.isDemoMode ? 0.4 : 1))
+        }
+        .tint(.white)
+        .disabled(model.isDemoMode || model.pairingStatus != .paired || model.isClearingAskDJHistory || model.isCheckingAskDJHistoryState)
+        .help(localizedKey(model.language, "ui.refresh.ask.dj"))
+        .accessibilityLabel(localizedKey(model.language, "ui.refresh.ask.dj"))
     }
 
     private func toggleAskDJSearch() {
