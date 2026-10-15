@@ -985,7 +985,7 @@
 "ui.session.history.title" = "Sessions précédentes";
 "ui.session.history.coverage" = "Seules les contributions enregistrées autorisées sont affichées ; cet historique ne couvre pas toutes les écoutes.";
 "ui.session.history.loading" = "Chargement des sessions";
-"ui.session.history.unavailable" = "L’historique des sessions est indisponible. Réessayez.";
+"ui.session.history.unavailable" = "L’historique des sessions est temporairement indisponible.";
 "ui.session.history.empty" = "Aucune session enregistrée";
 "ui.session.history.ended" = "Terminée";
 "ui.session.history.interrupted" = "Interrompue";
@@ -1168,3 +1168,4 @@
 
 "ui.trackInsight.verified_credits" = "Crédits vérifiés";
 "ui.trackInsight.interpretation" = "Interprétation";
+"ui.refresh.page" = "Actualiser la page";

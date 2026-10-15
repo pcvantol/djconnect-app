@@ -9208,9 +9208,10 @@ private struct DJSessionView: View {
 
     private var sessionNavigationTitle: String {
         #if os(iOS)
-        if UIDevice.current.userInterfaceIdiom == .phone { return "" }
-        #endif
+        return ""
+        #else
         return localizedKey(model.language, "ui.session.title")
+        #endif
     }
 
     private func refreshNowPlayingWithToast() async {

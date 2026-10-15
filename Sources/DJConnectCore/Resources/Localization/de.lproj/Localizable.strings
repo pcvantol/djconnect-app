@@ -985,7 +985,7 @@
 "ui.session.history.title" = "Frühere Sitzungen";
 "ui.session.history.coverage" = "Nur erlaubte gespeicherte Beiträge werden angezeigt; dies ist kein vollständiger Hörverlauf.";
 "ui.session.history.loading" = "Sitzungen laden";
-"ui.session.history.unavailable" = "Der Sitzungsverlauf ist nicht verfügbar. Bitte erneut versuchen.";
+"ui.session.history.unavailable" = "Der Sitzungsverlauf ist vorübergehend nicht verfügbar.";
 "ui.session.history.empty" = "Keine gespeicherten Sitzungen";
 "ui.session.history.ended" = "Beendet";
 "ui.session.history.interrupted" = "Unterbrochen";
@@ -1168,3 +1168,4 @@
 
 "ui.trackInsight.verified_credits" = "Verifizierte Credits";
 "ui.trackInsight.interpretation" = "Einordnung";
+"ui.refresh.page" = "Seite aktualisieren";

@@ -985,7 +985,7 @@
 "ui.session.history.title" = "Sesiones anteriores";
 "ui.session.history.coverage" = "Solo se muestran aportaciones guardadas autorizadas; este historial no incluye todas las escuchas.";
 "ui.session.history.loading" = "Cargando sesiones";
-"ui.session.history.unavailable" = "El historial de sesiones no está disponible. Inténtalo de nuevo.";
+"ui.session.history.unavailable" = "El historial de sesiones no está disponible temporalmente.";
 "ui.session.history.empty" = "No hay sesiones guardadas";
 "ui.session.history.ended" = "Finalizada";
 "ui.session.history.interrupted" = "Interrumpida";
@@ -1168,3 +1168,4 @@
 
 "ui.trackInsight.verified_credits" = "Créditos verificados";
 "ui.trackInsight.interpretation" = "Interpretación";
+"ui.refresh.page" = "Actualizar página";

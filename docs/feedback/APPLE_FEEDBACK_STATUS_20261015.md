@@ -274,3 +274,18 @@ behavior. Unsigned iOS/Mac builds PASS in /private/tmp/djc-more-glass-{ios,mac}.
 Localization validation PASS (1123 keys); git diff --check PASS. Layout-only
 change, no full regression rerun. Pending40061; no installation or physical
 visual acceptance claimed.
+
+## iPad Session title and clear recovery action
+
+The DJ Session navigation title is now empty on both iPhone and iPad; Mac
+retains its title. Session-history unavailable and timeline-error panels now
+show an explicit arrow.clockwise + Refresh page button using the primary
+white-on-gradient style, avoiding the nested secondary live-glass background.
+The unavailable message no longer ends in a vague Try again instruction; Dutch
+now reads De sessiegeschiedenis is tijdelijk niet beschikbaar. All five
+localizations include the explicit action label (Ververs pagina in Dutch).
+Recovery operations and authority checks remain unchanged; backend history
+unavailability itself is not declared solved by this presentation change.
+Unsigned iOS/Mac builds PASS: /private/tmp/djc-ipad-session-refresh-{ios,mac}.log.
+Localization validation PASS (1124 keys); git diff --check PASS. Pending40061,
+not installed; physical iPad readability acceptance remains open.

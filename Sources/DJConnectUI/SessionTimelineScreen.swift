@@ -319,13 +319,15 @@ struct SessionTimelineScreen: View {
                                 VStack(alignment: .leading, spacing: 12) {
                                     Text(text("ui.session.history.unavailable"))
                                         .foregroundStyle(.white.opacity(0.82))
-                                    Button(text("ui.retry")) {
+                                    Button {
                                         Task {
                                             await history.prepare()
                                             await history.loadTimeline(sessionID, window: .tail)
                                         }
+                                    } label: {
+                                        Label(text("ui.refresh.page"), systemImage: "arrow.clockwise")
                                     }
-                                    .djConnectButtonStyle(DJConnectButtonStyle())
+                                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
                                     .disabled(history.preparing)
                                 }
                                 .padding(20).frame(maxWidth: .infinity, alignment: .leading)
@@ -336,15 +338,17 @@ struct SessionTimelineScreen: View {
                                 VStack(alignment: .leading, spacing: 16) {
                                     Text(text(key)).fixedSize(horizontal: false, vertical: true)
                                         .foregroundStyle(.white.opacity(0.82))
-                                    Button(text("ui.retry")) {
+                                    Button {
                                         guard !retryRefreshing else { return }
                                         Task { @MainActor in
                                             retryRefreshing = true
                                             defer { retryRefreshing = false }
                                             await history.loadTimeline(sessionID, window: .tail)
                                         }
+                                    } label: {
+                                        Label(text("ui.refresh.page"), systemImage: "arrow.clockwise")
                                     }
-                                    .djConnectButtonStyle(DJConnectButtonStyle())
+                                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
                                     .disabled(retryRefreshing || timeline.loading)
                                     .accessibilityIdentifier("session-timeline-retry")
                                 }

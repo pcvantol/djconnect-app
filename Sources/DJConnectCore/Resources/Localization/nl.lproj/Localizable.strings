@@ -985,7 +985,7 @@
 "ui.session.history.title" = "Eerdere sessies";
 "ui.session.history.coverage" = "Alleen toegestane bewaarde bijdragen worden getoond; dit is geen volledige luisterhistorie.";
 "ui.session.history.loading" = "Sessies laden";
-"ui.session.history.unavailable" = "De sessiehistorie is niet beschikbaar. Probeer opnieuw.";
+"ui.session.history.unavailable" = "De sessiegeschiedenis is tijdelijk niet beschikbaar.";
 "ui.session.history.empty" = "Geen bewaarde sessies";
 "ui.session.history.ended" = "Afgesloten";
 "ui.session.history.interrupted" = "Onderbroken";
@@ -1168,3 +1168,4 @@
 
 "ui.trackInsight.verified_credits" = "Geverifieerde credits";
 "ui.trackInsight.interpretation" = "Duiding";
+"ui.refresh.page" = "Ververs pagina";
