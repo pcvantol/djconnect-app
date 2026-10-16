@@ -1,0 +1,63 @@
+{
+  "status": "PLAN_ONLY; no host selection approval, installation, copy, HA stop or cutover performed",
+  "problem": "Docker Desktop published bridge masks LAN peer as gateway; officially enabled host mode masks real Pi as127.0.0.1. Current Core direct-ingress policy cannot safely qualify either.",
+  "candidate": {
+    "host": "Existing Pi10/rbpi5-djconnect192.168.1.129",
+    "architecture": "aarch64,4GiB total,~3.1GiB available,103GiB root free",
+    "interface": "wlan0 UP192.168.1.129/24,dynamicDHCP; eth0 no carrier",
+    "existing_role": "VibeCast kiosk active; preserve service/display/network configuration",
+    "missing_runtime": "Docker command absent; container runtime installation would be a new host change"
+  },
+  "current_ha_dev": {
+    "host": "Mac192.168.1.134:8123",
+    "ha_version": "2026.10.0",
+    "image": "ghcr.io/home-assistant/home-assistant@sha256:1b64d38f38d922bf9d59336451fd6453e1d614f934456af4ee3d2a51061be3a4",
+    "image_platform": "linux/arm64",
+    "installed_core": "58205056c235a73488591591dd3d83f80f7bf847",
+    "config_mount": "/Users/pcvantol/docker/homeassistant/config -> /config",
+    "config_allocated_KiB": 276804,
+    "authority": "Do not substitute stable/latest tag or later Speech main without separate delivery authority"
+  },
+  "dependencies": [
+    {
+      "service": "Music Assistant",
+      "current_endpoint": "http://172.18.0.4:8095",
+      "candidate_endpoint": "http://192.168.1.134:8095",
+      "pi_tcp_only": "PASS"
+    },
+    {
+      "service": "Wyoming Piper",
+      "current_endpoint": "wyoming-piper:10200",
+      "candidate_endpoint": "192.168.1.134:10200",
+      "pi_tcp_only": "PASS"
+    },
+    {
+      "service": "Wyoming Whisper",
+      "current_endpoint": "wyoming-whisper:10300",
+      "candidate_endpoint": "192.168.1.134:10300",
+      "pi_tcp_only": "PASS"
+    }
+  ],
+  "phases": [
+    "Choose and authorize target host plus a bounded HA-dev interruption. Pi receiver colocation is a scope change from exposing the existing Mac port. A dedicated Linux host/bridged VM is an alternative, not yet provisioned; Mac/EP_DATA currently lack room for an unplanned VM.",
+    "Before mutation coordinate Core/resource leases; pin exact existing HA OCI digest and installed Core artifact; record source container configuration and restart policy, client local/remote origins and provider endpoints without publishing secrets. Ensure a stable target LAN address and deliberate IPv4/IPv6 reachability policy; no blanket gateway allowlist.",
+    "Prepare consistent private backup of complete HA configuration/storage and data, including Profile/pairing fingerprints. Keep credentials only in private backup/SSH transfer, never Git/logs. Do not drop databases/history merely to reduce copied bytes. Verify archive/checksums and restore instructions before cutover.",
+    "Prepare target runtime/storage with kiosk resource limits and no automatic parallel HA startup. Reconfigure only the three HA dependency endpoints through supported HA configuration procedures, retaining entry identities/authentication; do not patch live .storage blindly. Existing Mac MA/Wyoming containers remain in place.",
+    "At cutover stop only Mac HA-dev cleanly and suppress its auto-restart for the agreed window, preserving original container/config and policy for rollback. Start exactly one target HA instance from the consistent copy and exact image. Do not run two live installations with the same pairing/Profile/provider identity. Repoint the existing external TLS tunnel and explicitly configured client local origin only through an agreed supported path preserving paired installation identity; no re-pair/reset or certificate bypass.",
+    "Before local actions require real iPad socket-peer/interface evidence and Core-owned operator qualification bound to exact installation/origin/interface/expiry; then independently validate HTTP context and WS auth_ok. Run real LAN/external/LAN, original-operation status, background and UI-state preservation checks. Qualify provider dependencies and kiosk responsiveness separately. TCP/health200 is not full acceptance."
+  ],
+  "rollback": "Stop target HA before any old instance resumes. Restore original remote tunnel/client configured origins and original Mac HA container restart policy; start original unchanged Mac config/runtime. Verify original paired installation/Profile fingerprints, HA health, dependencies and kiosk. Remove only newly created test resources after readback, preserving backup and receipts.",
+  "open_decisions": [
+    "Pi receiver colocation versus separate Linux host/bridged VM",
+    "Agreed downtime and target address/IPv6 exposure",
+    "Supported paired-client local-origin and external tunnel update path",
+    "Kiosk CPU/memory acceptance budget",
+    "Core operator qualification author and exact delivery pin"
+  ],
+  "sources": [
+    "https://www.home-assistant.io/installation/linux/",
+    "docs/feedback/APPLE_DOCKER_HOST_NETWORK_PROBE_20261016.json",
+    "docs/feedback/APPLE_DIRECT_LINUX_TOPOLOGY_20261016.json"
+  ],
+  "evidence_limits": "Linux host networking is documented by Home Assistant; current Pi peer/capacity and dependency TCP tests are actual. No HA on Pi, dependency functional/provider test, native iPad LAN or migration PASS. No install/config mutation this turn."
+}
