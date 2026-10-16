@@ -10957,7 +10957,6 @@ private struct OutputDeviceChoiceRow: View {
     }
 
     private var subtitle: String {
-        if isPending { return localizedKey(language, "ui.output.switching") }
         if output?.isCachedSpotifyOutput == true {
             return localizedKey(language, "ui.output.recently.seen")
         }
