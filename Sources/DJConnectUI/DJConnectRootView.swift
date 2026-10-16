@@ -10637,12 +10637,14 @@ struct DJConnectMediaRowSurface: ViewModifier {
 }
 
 struct DJConnectMediaRowButtonStyle: ButtonStyle {
+    var cornerRadius: CGFloat = DJConnectMediaRowSurface.cornerRadius
+    @Environment(\.isFocused) private var isFocused
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeBody(configuration: Configuration) -> some View {
-        let pressed = configuration.isPressed && isEnabled
-        let shape = RoundedRectangle(cornerRadius: DJConnectMediaRowSurface.cornerRadius, style: .continuous)
+        let pressed = (configuration.isPressed || isFocused) && isEnabled
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         configuration.label
             .contentShape(shape)
             .overlay { shape.fill(djConnectAccent.opacity(pressed ? 0.14 : 0)).allowsHitTesting(false) }
@@ -16360,7 +16362,7 @@ private struct MoreNavigationRow: View {
             .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
             .djSessionFrostedSurface(cornerRadius: 24)
         }
-        .djConnectPlainButtonStyle()
+        .buttonStyle(DJConnectMediaRowButtonStyle(cornerRadius: 24))
         .tint(djConnectAccent)
     }
 }
