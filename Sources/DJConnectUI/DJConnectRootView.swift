@@ -13815,7 +13815,7 @@ struct AskDJInputBar: View {
                     .frame(minHeight: 44)
                 #else
                 TextField("", text: editorDraft, selection: $promptSelection, axis: .vertical)
-                    .lineLimit(isExpanded ? 2...4 : 1...4)
+                    .lineLimit(isExpanded ? 2...4 : 1...1)
                     .textFieldStyle(.plain)
                     .accessibilityLabel("Ask DJ")
                     .focused(isInputFocused)
@@ -13840,6 +13840,7 @@ struct AskDJInputBar: View {
                         }
                         return .handled
                     }
+                    .background(AskDJMacOutsideClickDismissal(isInputFocused: isInputFocused))
                 #endif
             }
             .accessibilityIdentifier("ask-dj-composer-input")
@@ -13978,6 +13979,40 @@ struct AskDJInputBar: View {
         }
     }
 }
+
+#if os(macOS)
+/// Observe outside clicks without consuming them or changing the unsent draft.
+private struct AskDJMacOutsideClickDismissal: NSViewRepresentable {
+    var isInputFocused: FocusState<Bool>.Binding
+    func makeNSView(context: Context) -> ClickProbe { ClickProbe() }
+    func updateNSView(_ view: ClickProbe, context: Context) { view.inputFocus = isInputFocused }
+    static func dismantleNSView(_ view: ClickProbe, coordinator: ()) { view.stopObserving() }
+
+    final class ClickProbe: NSView {
+        var inputFocus: FocusState<Bool>.Binding?
+        private var monitor: Any?
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            stopObserving()
+            guard window != nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+                guard let self, let window = self.window, self.inputFocus?.wrappedValue == true else { return event }
+                if event.window === window, self.bounds.contains(self.convert(event.locationInWindow, from: nil)) {
+                    return event
+                }
+                window.makeFirstResponder(nil)
+                self.inputFocus?.wrappedValue = false
+                return event
+            }
+        }
+        func stopObserving() {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
+        }
+    }
+}
+#endif
 
 #if os(iOS)
 /// Observe taps without putting a hit-testing layer over the conversation.
