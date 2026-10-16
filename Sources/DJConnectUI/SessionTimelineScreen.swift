@@ -42,7 +42,7 @@ struct SavedSessionsView: View {
     }
     private var showsListHeader: Bool {
         #if os(macOS)
-        model.isDemoMode || !initialLoadFinished || history.listLoading || history.preparing
+        !initialLoadFinished || history.listLoading || history.preparing
         #else
         // Keep the iOS native refresh bridge mounted even after loading.
         true
@@ -52,7 +52,6 @@ struct SavedSessionsView: View {
             savedSessionsContainer {
                 if showsListHeader {
                 VStack(alignment: .leading, spacing: 16) {
-                    if model.isDemoMode { Label(text("demo.session.notice"), systemImage: "sparkles").font(.caption).accessibilityIdentifier("session-demo-notice") }
                     #if !os(iOS)
                     if !initialLoadFinished || history.listLoading || history.preparing {
                         ProgressView().controlSize(.large).tint(.white)
