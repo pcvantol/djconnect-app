@@ -40,16 +40,7 @@ struct ActiveSessionVoiceToolbar: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         Text(text("title")).font(.headline).accessibilityAddTraits(.isHeader)
-                        Toggle(isOn: $model.localResponseAudioEnabled) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(DJConnectLocalization.localized(key: "ui.auto.play.dj.answers", language: model.language))
-                                Text(DJConnectLocalization.localized(key: "ui.play.dj.answer.audio.as.soon.as.it.arrives", language: model.language))
-                                    .font(.caption).foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                        .frame(minHeight: 44)
-                        .accessibilityIdentifier("session-voice-autoplay")
+                        SessionVoiceAutoplayControl(model: model)
                         Divider()
                         Text(text("scope")).font(.caption).fixedSize(horizontal: false, vertical: true)
                         if model.activeVoicePreference.refreshing {
@@ -84,6 +75,7 @@ struct ActiveSessionVoiceToolbar: View {
                     }.padding(16)
                 }
                 .frame(idealWidth: 340, maxHeight: 500)
+                .presentationBackground(.ultraThinMaterial)
                 .presentationCompactAdaptation(.popover)
                 .task {
                     model.setActiveVoiceMenuOpen(true)

@@ -1,0 +1,58 @@
+{
+  "status": "MAC40118_INSTALLED_AUTOPLAY_ONLY_VOICE_MENU_VISUALLY_VERIFIED_IN_LOCAL_DEMO",
+  "scope": "Actual selective Mac installation contains Voice toolbar + existing autoplay preference moved from Settings. Concrete provider voice choice/gender/Persona/new Speech/widget work are NOT adopted into this build.",
+  "source_parent": "7f6a647",
+  "selective_source": "/private/tmp/djc-neon-brand-40108-source",
+  "baseline": "451 files independently matched verified selective40117 archive/manifest before patching; archiveSHA256040d25e4a3d327a5b25b75679cda56a12a5fd3ea0f6294cbfd88c347d2e6e9f3",
+  "patches": {
+    "path": "/Users/pcvantol/Documents/GitHub/djconnect-app/build/apple-40017-recovery/source/build/recovery/mac40118-autoplay-selective-patches-20261016.json",
+    "sha256": "37012916ea11caeced06edeacf82a3b49b05bc8342cc2e2ee9d4da0e3742df38",
+    "scope": "8 explicit source patches plus xcodegen regenerated project. AppModel/history/Core client and all other baseline source files unchanged; post-build hashes verified."
+  },
+  "shared_component": "SessionVoiceAutoplayControl.swift byte-identical writer/selective source; full future Voice menu also uses this component. Native popover uses explicit ultraThinMaterial background.",
+  "build": {
+    "version": "40118",
+    "signed_mac": "PASS",
+    "log": "/private/tmp/djc-mac-40118-selective-build-20261016.log",
+    "shared_source_mac_library": "PASS2.55s",
+    "shared_library_log": "/private/tmp/djc-voice-autoplay-shared-ui-build-20261016.log",
+    "localization": "1167 keys writer PASS; selective adds only5translated Voice titles",
+    "regression_basis": "652 tests PASS in preceding7f6a647 source step; this follow-up extracts unchanged toggle presentation, no model/preference change. Signed selective Mac application build and actual menu checked."
+  },
+  "installation": {
+    "installed_version": "40118",
+    "installed_executable_sha256": "b6a0119faf028acf861c8ab88e9747f5978bf9ca0f183a81bf86b0e5e5bbbf61",
+    "candidate_executable_sha256": "b6a0119faf028acf861c8ab88e9747f5978bf9ca0f183a81bf86b0e5e5bbbf61",
+    "backup": "/Users/pcvantol/Documents/GitHub/djconnect-app/build/apple-40017-recovery/source/build/recovery/installed-mac40116-before40118-20261016.app",
+    "backup_executable_sha256": "780f8623d7d1e03a6716f4506ac9636619a7e4a463fb77ee526a13d684a024fe",
+    "strict_codesign": "PASS",
+    "scope": "Selective autoplay-only Voice menu; no concrete voice/gender choices, no unfinished Speech/widgets adoption"
+  },
+  "physical_ui": {
+    "method": "Native System Events + screencapture; no XCTest/auth prompt bypass",
+    "state": "Original app was in local Demo. New app started with ordinary unpaired dialog; selected visible Demo modus starten, then exact session-voice-toggle AXidentifier. No pairing/reset/provider execution.",
+    "verified": "Native toolbar speaker opens Stem popover; screenshot title and full autoplay label/helper readable on material background; no gender or nonfunctional concrete choice exposed. Toggle unchanged.",
+    "screenshots": [
+      {
+        "path": "/Users/pcvantol/Documents/GitHub/djconnect-app/build/apple-40017-recovery/source/build/recovery/djc-mac-40118-stem-popover-20261016.png",
+        "sha256": "d17dd9dd11302228e6e850194cae05d4c728226f369e4f91484795b24edfeb93",
+        "viewed": true
+      },
+      {
+        "path": "/Users/pcvantol/Documents/GitHub/djconnect-app/build/apple-40017-recovery/source/build/recovery/djc-mac-40118-stem-screen-20261016.png",
+        "sha256": "190ba1ff0cca88c570230fc2634f5448ba739fbae78524dc2d323594931a5fd8",
+        "viewed": true
+      }
+    ],
+    "finder": "Earlier generic screen capture showed unrelated Finder iPad restore warning. It was not operated; only later identified DJConnect window/popover captures qualify."
+  },
+  "not_claimed": [
+    "No installed concrete voice selection or selected-voice audible acceptance",
+    "No native iPad/iPhone change; remain prior versions",
+    "No new provider/TLS/WS/LAN/APNs acceptance"
+  ],
+  "effects": "Only Mac40118 installation, local Demo UI, selective source patches and receipts. No autoplay preference toggle, playback/provider synthesis/send, HA config/deploy, push/PR/merge or cross-thread message.",
+  "timer": "PAUSED",
+  "cleanup": "Single existing writer/worktree; current/main only merged refs; no refs/cache deleted. Both unrelated untracked Xcode project directories preserved; old signed Mac40116 app retained in recovery.",
+  "storage": "Fresh df internal4.1GiB, EP_DATA1.1GiB available; no own cleanup gain claimed."
+}
