@@ -11769,7 +11769,7 @@ struct AskDJSearchBar: View {
         .padding(.vertical, 10)
         .background {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(red: 0.05, green: 0.05, blue: 0.13).opacity(0.82))
+                .fill(.regularMaterial)
         }
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
