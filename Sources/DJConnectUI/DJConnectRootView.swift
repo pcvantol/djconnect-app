@@ -11773,7 +11773,9 @@ struct AskDJSearchBar: View {
         }
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(djConnectAccent.opacity(isFocused.wrappedValue ? 0.80 : 0.40), lineWidth: 1)
+                .stroke(DJConnectCardAppearance.searchFocusGradient, lineWidth: 1)
+                .opacity(isFocused.wrappedValue ? 1 : 0.60)
+                .allowsHitTesting(false)
 
         }
         .shadow(color: .black.opacity(0.24), radius: 16, y: 8)
