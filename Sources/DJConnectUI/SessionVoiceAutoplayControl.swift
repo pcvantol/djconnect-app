@@ -14,6 +14,7 @@ struct SessionVoiceAutoplayControl: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .toggleStyle(.switch)
         .frame(minHeight: 44)
         .accessibilityIdentifier("session-voice-autoplay")
     }

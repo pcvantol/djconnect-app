@@ -1,0 +1,27 @@
+{
+  "status": "MAC40119_NATIVE_SWITCH_STYLE_INSTALLED_AND_VISUALLY_VERIFIED_IN_DEMO",
+  "source_parent": "62fdf7f",
+  "change": "One toggleStyle(.switch) modifier on SessionVoiceAutoplayControl. SettingsContentContainer already uses native switch style on Mac; autoplay had inherited checkbox style after moving into popover.",
+  "selective_patch": "/Users/pcvantol/Documents/GitHub/djconnect-app/build/apple-40017-recovery/source/build/recovery/mac40119-switch-selective-patch-20261016.json",
+  "installation": {
+    "version": "40119",
+    "installed_executable_sha256": "5d1243c6f5ad62d5b914367dc262aafa520aebf094a5dd035b5d5029cf3830fa",
+    "candidate_executable_sha256": "5d1243c6f5ad62d5b914367dc262aafa520aebf094a5dd035b5d5029cf3830fa",
+    "strict_codesign": "PASS",
+    "backup": "/Users/pcvantol/Documents/GitHub/djconnect-app/build/apple-40017-recovery/source/build/recovery/installed-mac40118-before40119-20261016.app",
+    "backup_executable_sha256": "b6a0119faf028acf861c8ab88e9747f5978bf9ca0f183a81bf86b0e5e5bbbf61",
+    "scope": "One presentation modifier: native switch style for autoplay; no preference change"
+  },
+  "build": "Signed selective Mac40119 BUILD SUCCEEDED; /private/tmp/djc-mac-40119-switch-build-20261016.log",
+  "visual": {
+    "path": "/Users/pcvantol/Documents/GitHub/djconnect-app/build/apple-40017-recovery/source/build/recovery/djc-mac-40119-stem-switch-20261016.png",
+    "sha256": "cc8cab2521342ae5ab5796b556e6f204ebb80568adb81bdb85677463632e6b0f",
+    "viewed": true,
+    "result": "Native slider switch trailing autoplay label on glass Voice popover; no checkbox. Off state unchanged. Local Demo only."
+  },
+  "startup_observation": "Possible-crash prompt appeared before pairing dialog; dismissed visible Niet nu, no sharing. Latest available DJConnect diagnostic report was Oct14, no fresh report found; no actual new crash asserted. Initial attempt to address pairing sheet stopped at invalid index before any click; read actual dialog before proceeding.",
+  "effects": "Only native presentation and Mac installation. No preference toggle, provider speech/playback, Profile/pairing action, HA/config/deploy, push/PR/merge or automation change. Prior40118 retained for rollback;40116 recovery retained.",
+  "not_delivered": "40119 remains autoplay-only Voice menu. Concrete voice/gender/audio integration still separate; no new iPad/iPhone install.",
+  "validation": "Strict codesign and candidate/installed executable hash equality PASS; viewed actual installed screenshot. No new logic tests for one presentation modifier; prior behavior regression unchanged.",
+  "cleanup": "Single existing writer/worktree; no Git locks, no refs/cache deletion. Unrelated untracked Xcode project directories preserved."
+}
