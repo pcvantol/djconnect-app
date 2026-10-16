@@ -267,24 +267,31 @@ private struct DJConnectGradientCardStyle: ViewModifier {
 }
 
 private struct DJConnectHeroCardStyle: ViewModifier {
+    var colors: [Color]? = nil
+
     func body(content: Content) -> some View {
         content
             .background {
-                DJConnectCardAppearance.shape.fill(
-                    LinearGradient(
-                        colors: [Color(red: 0.08, green: 0.15, blue: 0.32),
-                                 Color(red: 0.13, green: 0.09, blue: 0.27),
-                                 Color(red: 0.17, green: 0.08, blue: 0.32)],
-                        startPoint: .leading, endPoint: .trailing)
-                )
+                ZStack {
+                    if colors != nil {
+                        DJConnectCardAppearance.shape.fill(.black.opacity(0.60))
+                    }
+                    DJConnectCardAppearance.shape.fill(
+                        LinearGradient(
+                            colors: colors?.map { $0.opacity(0.42) } ?? [Color(red: 0.08, green: 0.15, blue: 0.32),
+                                     Color(red: 0.13, green: 0.09, blue: 0.27),
+                                     Color(red: 0.17, green: 0.08, blue: 0.32)],
+                            startPoint: .leading, endPoint: .trailing)
+                    )
+                }
             }
             .modifier(DJConnectCardOutline())
     }
 }
 
 private extension View {
-    func djConnectHeroCard() -> some View {
-        modifier(DJConnectHeroCardStyle())
+    func djConnectHeroCard(colors: [Color]? = nil) -> some View {
+        modifier(DJConnectHeroCardStyle(colors: colors))
     }
 
     func djConnectGradientCard() -> some View {
@@ -7354,7 +7361,7 @@ private struct TrackInsightHero: View {
         .padding(14)
         .frame(maxWidth: .infinity)
         .clipped()
-        .djConnectHeroCard()
+        .djConnectHeroCard(colors: profile.colors)
     }
 }
 
