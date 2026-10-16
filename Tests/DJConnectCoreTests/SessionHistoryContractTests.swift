@@ -2194,7 +2194,9 @@ private final class PresenceModes: @unchecked Sendable {
     model.queueItems = [selected]
     model.startQueueItem(selected, at: 0)
     for _ in 0..<100 {
-        if model.queueItems.first?.title == "Next track" { break }
+        // Rows publish before the scheduled refresh's completion callback clears
+        // loading. Wait for the operation we assert below, not its first effect.
+        if model.queueItems.first?.title == "Next track", model.loadingQueueItemIndex == nil { break }
         try await Task.sleep(for: .milliseconds(25))
     }
     #expect(model.queueItems.map(\.title) == ["Next track"])

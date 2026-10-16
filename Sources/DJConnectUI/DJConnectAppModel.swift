@@ -8986,8 +8986,9 @@ public final class DJConnectAppModel: ObservableObject {
         pushRegistrationInFlightSignature = registrationSignature
         pushRegistrationAttemptEpoch = sessionHistory.responseEpoch
         Task { @MainActor in
+            var handledCurrentRegistrationFailure = false
             defer {
-                let retryOwnerTransition = !recoveringOwnerTransition && isAppInForeground
+                let retryOwnerTransition = !handledCurrentRegistrationFailure && !recoveringOwnerTransition && isAppInForeground
                     && pushRegistrationAttemptEpoch != sessionHistory.responseEpoch
                     && isCurrentPushRegistration(registrationSignature, requiringCurrentOwnerEpoch: false)
                 if pushRegistrationInFlightSignature == registrationSignature {
@@ -9020,6 +9021,10 @@ public final class DJConnectAppModel: ObservableObject {
                 )
             } catch let error as DJConnectError {
                 guard isCurrentPushRegistration(registrationSignature) else { return }
+                // Error handling may itself withdraw private projections/advance
+                // the owner epoch before verifying pairing with read-only HTTP.
+                // That self-induced epoch is not a new registration opportunity.
+                handledCurrentRegistrationFailure = true
                 await handlePushRegistrationError(
                     error,
                     token: token,
