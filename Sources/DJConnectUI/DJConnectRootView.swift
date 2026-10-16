@@ -3540,6 +3540,7 @@ enum DJConnectButtonAppearance {
     static let textFont: Font = .headline.weight(.semibold)
     static let pressedScale: CGFloat = 0.98
     static let selectedFill = djConnectAccent.opacity(0.22)
+    static let selectedSegmentFill = djConnectAccent.opacity(0.85)
     static let primaryGradient = LinearGradient(colors: [djConnectButtonBlue, djConnectButtonPurple],
                                                 startPoint: .leading, endPoint: .trailing)
 }
@@ -3580,7 +3581,7 @@ struct DJConnectButtonStyle: ButtonStyle {
             .background {
                 switch role {
                 case .primary: outline.fill(DJConnectButtonAppearance.primaryGradient)
-                case .selected: outline.fill(DJConnectButtonAppearance.selectedFill)
+                case .selected: outline.fill(shape == .segmented ? DJConnectButtonAppearance.selectedSegmentFill : DJConnectButtonAppearance.selectedFill)
                 case .destructive: outline.fill(Color.red.opacity(0.12))
                 case .secondary:
                     if usesLiveGlass { outline.fill(.white.opacity(0.04)).glassEffect(.regular.interactive(), in: outline) }
@@ -3588,7 +3589,7 @@ struct DJConnectButtonStyle: ButtonStyle {
                 case .tertiary: Color.clear
                 }
             }
-            .overlay { outline.stroke(role == .selected ? djConnectAccent.opacity(0.55) : .white.opacity(role == .tertiary ? 0 : 0.12), lineWidth: 1).allowsHitTesting(false) }
+            .overlay { outline.stroke(role == .selected ? djConnectAccent.opacity(shape == .segmented ? 1 : 0.55) : .white.opacity(role == .tertiary ? 0 : 0.12), lineWidth: 1).allowsHitTesting(false) }
             .overlay { outline.fill(.white.opacity(pressed ? 0.10 : 0)).allowsHitTesting(false) }
             .overlay { outline.stroke(.white.opacity(isFocused ? 0.95 : 0), lineWidth: 3).allowsHitTesting(false) }
             .contentShape(outline)
