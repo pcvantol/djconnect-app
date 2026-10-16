@@ -18545,6 +18545,13 @@ private struct SettingsTrailingContentStyle: LabeledContentStyle {
 private struct SettingsContentContainer<Content: View>: View {
     @ViewBuilder var content: Content
 
+    private var maximumContentWidth: CGFloat {
+        #if os(iOS)
+        if UIDevice.current.userInterfaceIdiom == .pad { return .infinity }
+        #endif
+        return 960
+    }
+
     var body: some View {
         ScrollView {
             #if os(macOS)
@@ -18557,7 +18564,7 @@ private struct SettingsContentContainer<Content: View>: View {
                 VStack(alignment: .leading, spacing: 20) { content }
             }
             .pickerStyle(.menu)
-            .frame(maxWidth: 960)
+            .frame(maxWidth: maximumContentWidth)
             .padding(.horizontal, djConnectScreenHorizontalPadding)
             .padding(.vertical, djConnectScreenVerticalPadding)
             .frame(maxWidth: .infinity, alignment: .top)
