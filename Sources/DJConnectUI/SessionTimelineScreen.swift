@@ -402,6 +402,13 @@ struct SessionTimelineScreen: View {
                                 .padding(.horizontal, 20)
                                 .id("pending-" + turn.id)
                             }
+                            if activeSession != nil {
+                                ForEach(model.currentSessionConversationMessages(sessionID: sessionID, at: clock.date).reversed()) { message in
+                                    SessionCurrentConversationBubble(model: model, message: message)
+                                        .padding(.horizontal, 20)
+                                        .id("current-conversation-" + message.id.uuidString)
+                                }
+                            }
                             // Match Ask DJ: newest retained contribution first; current remains the top anchor.
                             ForEach(preparedEntries.reversed().filter { $0.isRetained(at: clock.date) }) { prepared in
                                 let entry = prepared.entry
@@ -1837,3 +1844,20 @@ private struct SessionRefreshIndicatorBridge: UIViewRepresentable {
     }
 }
 #endif
+
+/// A direct response is presentation state, separate from retained server entries.
+private struct SessionCurrentConversationBubble: View {
+    @ObservedObject var model: DJConnectAppModel
+    let message: DJConnectAskDJMessage
+    @Environment(\.openURL) private var openURL
+    var body: some View {
+        AskDJMessageBubble(message: message, language: model.language,
+            isStaleHistory: false, isAudioLoading: false, isAudioPlaying: false,
+            isRetryDisabled: true, playingActionID: model.playingAskDJActionID,
+            currentMood: model.confirmedSessionMoodInt, isSearchResult: false,
+            isActiveSearchResult: false, searchText: "", retryAction: {},
+            playAction: { model.playAskDJRecommendation($0) }, audioAction: {}, trackInsightAction: {},
+            openLink: { openURL($0.url) }, feedbackAction: { _ in },
+            setPromptAction: { model.askDJDraft = $0 }, isReadOnly: true, allowsSessionPlaybackActions: true)
+    }
+}

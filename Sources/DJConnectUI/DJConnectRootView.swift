@@ -12264,11 +12264,13 @@ struct AskDJMessageBubble: View {
 
     private var displayItems: [DJConnectAskDJHistoryItem] {
         guard canRenderPlaybackActions else { return message.items }
+        let playableTrackURIs = Set(renderablePlaybackActions.filter { $0.kind == "track" }.compactMap(\.uri))
         let outputs = renderablePlaybackActions.filter(\.isOutputAction)
         let ids = Set(outputs.compactMap(\.outputDeviceID).map { $0.lowercased() })
         let names = Set(outputs.flatMap { [$0.deviceName, Optional($0.title)] }
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
         return message.items.filter { item in
+            if let uri = item.uri, playableTrackURIs.contains(uri) { return false }
             if let value = item.value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), ids.contains(value) { return false }
             let kind = item.kind?.lowercased() ?? ""
             return !(["output", "output_device", "device", "speaker", "computer"].contains(kind)

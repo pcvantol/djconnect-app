@@ -582,7 +582,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             let response = try await host.withHomeAssistantClient { try await $0.sendSessionConversation(payload) }
             guard captured == epoch, ownerScope == turn.ownerScope, host.canUseProfileConversation,
                   pendingTurns.contains(where: { $0.id == turn.id }) else { return }
-            try await accept(response, fallback: turn.localMessageID)
+            try await accept(response, fallback: turn.localMessageID, requestContext: turn.context)
             pendingTurns.removeAll { $0.id == turn.id }
         } catch {
             guard captured == epoch, ownerScope == turn.ownerScope,
@@ -623,7 +623,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
                                               mood: payload.mood, djStyle: payload.djStyle, musicDNAKey: payload.musicDNAKey)
             }
             guard captured == epoch else { throw CancellationError() }
-            try await accept(response, fallback: nil)
+            try await accept(response, fallback: nil, requestContext: context)
         } catch {
             if captured == epoch { _ = withdrawAuthority(for: error) }
             throw error
@@ -683,11 +683,11 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
     }
 
-    private func accept(_ response: DJConnectSessionConversationResponse, fallback: UUID?, apply: Bool = true) async throws {
+    private func accept(_ response: DJConnectSessionConversationResponse, fallback: UUID?, apply: Bool = true, requestContext: DJConnectConversationContext? = nil) async throws {
         guard let host, ownerScope == response.ownerScope else {
             suspend(); await refreshConversation(); throw DJConnectError.invalidResponse
         }
-        if apply && !host.applyProfileConversationResponse(response.base, fallback: fallback) {
+        if apply && !host.applyProfileConversationResponse(response.base, fallback: fallback, sessionID: requestContext?.sessionID ?? response.conversation.context.sessionID) {
             throw DJConnectError.server(statusCode: 409, message: nil)
         }
         let acceptedEpoch = epoch

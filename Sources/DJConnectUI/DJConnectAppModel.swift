@@ -1058,6 +1058,8 @@ public final class DJConnectAppModel: ObservableObject {
         let deadline: Date?
         let message: DJConnectAskDJMessage
         let isPrivateEphemeral: Bool
+        let questionID: UUID?
+        let sessionID: String?
     }
     private struct ConversationResultLease {
         let epoch: UUID
@@ -3709,7 +3711,7 @@ public final class DJConnectAppModel: ObservableObject {
         conversationResultLeases = [:]; conversationResultLeaseOrder = []
     }
 
-    @discardableResult func applyProfileConversationResponse(_ response: DJConnectAskDJMessageResponse, fallback: UUID?) -> Bool {
+    @discardableResult func applyProfileConversationResponse(_ response: DJConnectAskDJMessageResponse, fallback: UUID?, sessionID: String? = nil) -> Bool {
         guard response.isPrivateEphemeralResponse || (response.historyRevision >= profileConversationHistoryRevision
               && response.clearRevision >= profileConversationClearRevision) else { return false }
         if !response.isPrivateEphemeralResponse, response.clearRevision > profileConversationClearRevision {
@@ -3721,7 +3723,7 @@ public final class DJConnectAppModel: ObservableObject {
         for incoming in response.messages where incoming.role == .assistant {
             guard let rendered = askDJMessages.first(where: { $0.serverID == incoming.id }) else { continue }
             liveConversationPresentations[incoming.id] = .init(epoch: sessionHistory.responseEpoch, deadline: deadline, message: rendered,
-                isPrivateEphemeral: response.isPrivateEphemeralResponse)
+                isPrivateEphemeral: response.isPrivateEphemeralResponse, questionID: fallback, sessionID: sessionID)
         }
         if let deadline, deadline <= Date() {
             withdrawLiveConversationPresentations()
@@ -8341,6 +8343,10 @@ public final class DJConnectAppModel: ObservableObject {
             if response.clearRevision > profileConversationClearRevision { sessionHistory.suspend() }
             let allowed = Set(response.messages.map(\.id))
             askDJMessages.removeAll { message in
+                if liveConversationPresentations.values.contains(where: {
+                    $0.isPrivateEphemeral && $0.questionID == message.id && $0.epoch == sessionHistory.responseEpoch
+                        && ($0.deadline.map { $0 > Date() } ?? true)
+                }) { return false }
                 if let id = message.serverID {
                     if let live = liveConversationPresentations[id], live.isPrivateEphemeral,
                        live.epoch == sessionHistory.responseEpoch, live.deadline.map({ $0 > Date() }) ?? true { return false }
@@ -9936,10 +9942,22 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    /// Current-only replies have no durable timeline entry. Render the directly
+    /// accepted turn in its request surface without manufacturing history IDs.
+    func currentSessionConversationMessages(sessionID: String, at date: Date = Date()) -> [DJConnectAskDJMessage] {
+        let live = liveConversationPresentations.values.filter {
+            $0.isPrivateEphemeral && $0.sessionID == sessionID && $0.epoch == sessionHistory.responseEpoch
+                && ($0.deadline.map { $0 > date } ?? true)
+        }
+        let ids = Set(live.flatMap { [$0.message.id] + [$0.questionID].compactMap { $0 } })
+        return askDJMessages.filter { ids.contains($0.id) }
+    }
+
     func withdrawLiveConversationPresentations() {
         let ids = Set(liveConversationPresentations.keys)
         let ephemeralIDs = Set(liveConversationPresentations.filter { $0.value.isPrivateEphemeral }.keys)
-        askDJMessages.removeAll { $0.serverID.map(ephemeralIDs.contains) ?? false }
+        let questionIDs = Set(liveConversationPresentations.values.filter { $0.isPrivateEphemeral }.compactMap(\.questionID))
+        askDJMessages.removeAll { questionIDs.contains($0.id) || ($0.serverID.map(ephemeralIDs.contains) ?? false) }
         liveConversationPresentations = [:]
         liveConversationExpiryTask?.cancel(); liveConversationExpiryTask = nil
         askDJMessages = askDJMessages.map { original in

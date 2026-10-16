@@ -4358,3 +4358,50 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     await relaunched.startDJSession()
     #expect(!relaunched.isSessionIntroductionPresented, "Completion/skip survives app relaunch for this installation")
 }
+
+@Test(arguments: [0, 6]) @MainActor func currentOnlyConversationKeepsQuestionAndSessionReplyAcrossHistoryRefresh(choiceCount: Int) async throws {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let data = try Data(contentsOf: root.appendingPathComponent("Fixtures/current-artist-identification-producer.json"))
+    let receipt = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    let cases = try #require(receipt["cases"] as? [[String: Any]])
+    var body = try #require(cases.first { $0["case"] as? String == "artist-session-0-text" }?["response"] as? [String: Any])
+    if choiceCount > 0 {
+        let producer = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/moment-insight-core-producer.json"))) as? [String: Any])
+        let choices = try #require(producer["fixtures"] as? [[String: Any]])
+        let choiceBody = try #require(choices.first { $0["case"] as? String == "standalone-refine" }?["body"] as? [String: Any])
+        let seed = try #require((choiceBody["playback_actions"] as? [[String: Any]])?.first)
+        let actions = (0..<choiceCount).map { index -> [String: Any] in
+            var action = seed
+            let uri = "spotify:track:" + String(repeating: String(index), count: 22)
+            action["id"] = uri; action["uri"] = uri; action["action_id"] = "synthetic-choice-\(index)"
+            action["title"] = "Synthetic recording \(index + 1)"
+            action["value"] = ["uri": uri, "title": "Synthetic recording \(index + 1)", "subtitle": "Synthetic performer"]
+            return action
+        }
+        body["items"] = actions; body["playback_actions"] = actions
+        var result = try #require(choiceBody["result_set"] as? [String: Any]); result["expires_in"] = 60
+        body["result_set"] = result
+        body["server_time"] = ISO8601DateFormatter().string(from: Date())
+    }
+    let response = try JSONDecoder().decode(DJConnectSessionConversationResponse.self, from: historyData(body))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true},"contract_versions":{"session_conversation_history":1}}"#.utf8)
+    let history = Data(#"{"success":true,"owner_profile_id":"profile-a","history_revision":42,"clear_revision":3,"messages":[]}"#.utf8)
+    let fixture = HistoryWireFixture { request in (200, request.url!.path.hasSuffix("/capabilities") ? caps : history, 0) }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    let question = try #require(model.beginProfileConversationText(text: "Welke artiest speelt er?", clientMessageID: "current-question"))
+    #expect(model.applyProfileConversationResponse(response.base, fallback: question, sessionID: "current-session"))
+    await model.sessionHistory.refreshConversation()
+    let visible = model.currentSessionConversationMessages(sessionID: "current-session")
+    #expect(visible.count == 2)
+    #expect(visible.contains { $0.id == question && $0.role == .user && $0.text == "Welke artiest speelt er?" })
+    #expect(visible.contains { $0.role == .dj && $0.text == response.base.djText })
+    #expect(visible.first { $0.role == .dj }?.items.count == choiceCount)
+    #expect(visible.first { $0.role == .dj }?.playbackActions.count == choiceCount)
+    #expect(model.currentSessionConversationMessages(sessionID: "another-session").isEmpty)
+    #expect(defaults.data(forKey: "DJConnectAskDJMessages") == nil)
+    model.sessionHistory.suspend()
+    #expect(model.currentSessionConversationMessages(sessionID: "current-session").isEmpty)
+    #expect(!model.askDJMessages.contains { $0.id == question })
+}

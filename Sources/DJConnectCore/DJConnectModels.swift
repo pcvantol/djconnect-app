@@ -3432,7 +3432,9 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
         kind = try container.decodeIfPresent(String.self, forKey: .kind)
         title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
         subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)
-        value = try container.decodeIfPresent(String.self, forKey: .value)
+        // Track choices may carry structured action metadata here. It is not
+        // display text; retain the row's title/URI instead of dropping the item.
+        value = container.decodeIfPresentIgnoringErrors(String.self, forKey: .value)
         source = try container.decodeIfPresent(String.self, forKey: .source)
         confidence = try container.decodeIfPresent(String.self, forKey: .confidence)
         uri = try container.decodeIfPresent(String.self, forKey: .uri)
