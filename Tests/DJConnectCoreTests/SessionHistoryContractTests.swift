@@ -3845,3 +3845,96 @@ func genericTTS6eceSafeNotificationsFailClosed(_ fault:String) throws {
 }
 
 }
+
+
+private func scopedVoiceOptions(removing voiceID: String? = nil) throws -> DJConnectSpeechVoiceOptions {
+    let rows = try #require(try genericTTS6eceFixture()["rows"] as? [[String: Any]])
+    let envelope = try #require(rows.first?["voice_options"] as? [String: Any])
+    var payload = try #require(envelope["speech_voice_options"] as? [String: Any])
+    if let voiceID {
+        let voices = try #require(payload["voices"] as? [[String: Any]])
+        payload["voices"] = voices.filter { $0["voice_id"] as? String != voiceID }
+    }
+    return try JSONDecoder().decode(DJConnectSpeechVoiceOptions.self, from: historyData(payload))
+}
+
+@Test func speechVoicePreferenceRequiresEveryConfirmedIdentity() throws {
+    for index in 0..<4 {
+        for invalid in ["", "   ", "a\nb", String(repeating: "x", count: 513)] {
+            var fields = ["ha", "profile", "session", "device"]
+            fields[index] = invalid
+            #expect(DJConnectSpeechVoiceScope(installationID: fields[0], profileID: fields[1],
+                sessionID: fields[2], deviceID: fields[3]) == nil)
+        }
+    }
+    var state = DJConnectSpeechVoicePreferenceState()
+    #expect({ state.beginRefresh() == nil }())
+    #expect({ !state.select("cedar") && state.resolution == .unavailable }())
+}
+
+@Test func speechVoicePreferenceDiscardsAcrossEveryScopeDimension() throws {
+    let base = try #require(DJConnectSpeechVoiceScope(installationID: "ha", profileID: "profile", sessionID: "session", deviceID: "device"))
+    let options = try scopedVoiceOptions()
+    for index in 0..<4 {
+        var state = DJConnectSpeechVoicePreferenceState()
+        state.bind(base)
+        let refresh = try #require({ state.beginRefresh() }())
+        #expect({ state.completeRefresh(refresh, options: options) }())
+        #expect({ state.select("cedar") && state.resolution == .selected("cedar") }())
+        state.bind(base)
+        #expect(state.resolution == .selected("cedar"))
+        var fields = ["ha", "profile", "session", "device"]
+        fields[index] += "-other"
+        state.bind(try #require(DJConnectSpeechVoiceScope(installationID: fields[0], profileID: fields[1], sessionID: fields[2], deviceID: fields[3])))
+        #expect(state.selectedVoiceID == nil && state.options == nil && state.resolution == .unavailable)
+        state.bind(base)
+        #expect(state.selectedVoiceID == nil && state.options == nil)
+        #expect({ !state.completeRefresh(refresh, options: options) }())
+    }
+    // Structured fields do not alias when opaque identifiers contain separators.
+    #expect(DJConnectSpeechVoiceScope(installationID: "a|b", profileID: "c", sessionID: "s", deviceID: "d") !=
+        DJConnectSpeechVoiceScope(installationID: "a", profileID: "b|c", sessionID: "s", deviceID: "d"))
+}
+
+@Test func speechVoicePreferenceRemovedVoiceNeverFallsBackSilently() throws {
+    var state = DJConnectSpeechVoicePreferenceState()
+    state.bind(try #require(DJConnectSpeechVoiceScope(installationID: "ha", profileID: "profile", sessionID: "session", deviceID: "device")))
+    let options = try scopedVoiceOptions()
+    let initialRefresh = try #require({ state.beginRefresh() }())
+    #expect({ state.completeRefresh(initialRefresh, options: options) }())
+    #expect(state.resolution == .configuredDefault)
+    #expect({ state.select("cedar") }())
+    let refresh = try #require({ state.beginRefresh() }())
+    #expect(state.resolution == .unavailable && state.selectedVoiceID == "cedar")
+    #expect({ !state.select("alloy") }())
+    let removedOptions = try scopedVoiceOptions(removing: "cedar")
+    #expect({ state.completeRefresh(refresh, options: removedOptions) }())
+    #expect(state.selectedVoiceID == "cedar" && state.resolution == .unavailable)
+    #expect({ !state.select("unknown") && state.selectedVoiceID == "cedar" }())
+    #expect({ state.select(nil) && state.resolution == .configuredDefault }())
+}
+
+@Test func speechVoicePreferenceRefreshFencesBackgroundAndSessionEnd() throws {
+    var state = DJConnectSpeechVoicePreferenceState()
+    let scope = try #require(DJConnectSpeechVoiceScope(installationID: "ha", profileID: "profile", sessionID: "session", deviceID: "device"))
+    state.bind(scope)
+    let options = try scopedVoiceOptions()
+    let first = try #require({ state.beginRefresh() }())
+    let second = try #require({ state.beginRefresh() }())
+    #expect({ !state.completeRefresh(first, options: options) && state.refreshing }())
+    #expect({ state.completeRefresh(second, options: options) }())
+    #expect({ !state.completeRefresh(second, options: options) }())
+    #expect({ state.select("cedar") }())
+    let background = try #require({ state.beginRefresh() }())
+    state.invalidateInventory()
+    #expect({ !state.completeRefresh(background, options: options) }())
+    #expect(state.selectedVoiceID == "cedar" && state.resolution == .unavailable)
+    let failed = try #require({ state.beginRefresh() }())
+    #expect({ !state.completeRefresh(failed, options: nil) }())
+    #expect(state.selectedVoiceID == "cedar" && state.resolution == .unavailable && !state.refreshing)
+    let ended = try #require({ state.beginRefresh() }())
+    state.discard()
+    state.bind(scope)
+    #expect({ !state.completeRefresh(ended, options: options) }())
+    #expect(state.selectedVoiceID == nil && state.options == nil)
+}
