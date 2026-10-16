@@ -66,3 +66,32 @@ passcode-locked, so physical iPhone UI qualification remains open. Worktree
 readback shows one active Apple writer; only main and the current branch are
 merged. No stale ref is eligible for removal. Untracked project directories and
 all source/evidence remain preserved. Current internal free space is about10GiB.
+
+## Completed official Desktop host-network experiment — 02:06 local
+
+This supersedes the earlier untested-hostnetwork/no-global-restart status above.
+After fresh Core no-active-lab/deploy readback, the existing user-authorized
+LAN/Docker experiment used the official Resources / Network / Enable host
+networking / Apply and restart flow on Desktop4.95.0. Settings backup and all five
+original container IDs/images/policies/networks were recorded beforehand.
+
+A30-second no-mount/read-only/cap-dropALL/64MiB ephemeral listener on18089 then
+received actual Mac loopback and actual Pi10 LAN requests. Both raw socket peers
+were127.0.0.1. Visible interfaces remained VM192.168.65.3 and internal bridges;
+no physical192.168.1.x interface. This is direct evidence that this Desktop host
+mode also masks the LAN source. It cannot meet the current direct-ingress
+contract; its loopback peer is not proof of local origin. No operator record or
+policy exception was created.
+
+Host networking was turned off again through the official UI and restarted.
+All five original containers are running with identical ID/image/restart policy/
+network; own presence lab with restart=no was explicitly restored after each
+restart. The ephemeral probe is absent. HA-dev frontend returns HTTP200.
+Persisted HostNetworkingEnabled=false replaces the previous absent/default-false
+key; no other settings key changed. Core received exact outcome and resource
+restoration. See APPLE_DOCKER_HOST_NETWORK_PROBE_20261016.json.
+
+No HA code/config/Profile/pairing, proxy/certificate, firewall, Pi service or
+producer qualification change. Native LAN/WS remains OPEN. A genuinely direct
+Linux network topology needs a separate concrete migration/rollback plan;
+repeating the Desktop host-mode experiment is not the next step.
