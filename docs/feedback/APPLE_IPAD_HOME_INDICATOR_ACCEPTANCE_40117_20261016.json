@@ -1,0 +1,228 @@
+{
+  "status": "INSTALLED_IPAD_EIGHT_LIVE_PAGE_INDICATOR_PRESENCE_AND_ARCHIVE_OMISSION_PASS",
+  "source_parent": "7645a45",
+  "device": "Physical iPad00008027-000211140231002E,installed DJConnect40117 confirmed via CoreDevice",
+  "preflight": "wired,paired,connected; user confirmed native UI automation prompt. Earlier CoreDevice sandbox initialization timeout resolved by normal host-access read, no trust or pairing mutation",
+  "native_results": [
+    {
+      "path": "/private/tmp/djc-ipad-home-readback-20261016.xcresult",
+      "result": "PASS initial installed app readback"
+    },
+    {
+      "path": "/private/tmp/djc-ipad-home-connection-pages-20261016.xcresult",
+      "result": "PASS five primary tabs, selected state and screen capture"
+    },
+    {
+      "path": "/private/tmp/djc-ipad-home-more-indicators-20261016.xcresult",
+      "result": "PASS four live More destinations indicator exists/hittable, archive indicator absent, returned Speelt Nu selected"
+    }
+  ],
+  "observations": {
+    "eight_live_pages": [
+      "Speelt Nu",
+      "DJ-sessie",
+      "Track Insight",
+      "Ontdek",
+      "Ask DJ",
+      "Music DNA",
+      "Wachtrij",
+      "Afspeellijsten"
+    ],
+    "status": "Each observed indicator value Verbonden \u00b7 extern; About separately reports Remote Home Assistant and HTTPS \u00b7 TLS",
+    "archive": "Eerdere sessies has no session-connection-toggle; More root also has no live indicator",
+    "geometry": "All observed AX buttons y46,size58x36pt. Six pages x1264; Queue/Playlists x1208 due extra Search between status and refresh. Identical x-position NOT qualified; no claim of44pt native AX height",
+    "visual_review": "11 screenshots actually viewed; ten settled full-screen captures. Initial app.screenshot used transition/portrait canvas with black area and is not used for geometry acceptance",
+    "current_state": "Speelt Nu selected at end; preexisting music playback left untouched"
+  },
+  "indicator_readback": [
+    {
+      "page": "Ontdek",
+      "AX": "Button, {{1264.0, 46.0}, {58.0, 36.0}}, identifier: 'session-connection-toggle', label: 'Verbindingsstatus', value: Verbonden \u00b7 extern"
+    },
+    {
+      "page": "Track Insight",
+      "AX": "Button, {{1264.0, 46.0}, {58.0, 36.0}}, identifier: 'session-connection-toggle', label: 'Verbindingsstatus', value: Verbonden \u00b7 extern"
+    },
+    {
+      "page": "DJ-sessie",
+      "AX": "Button, {{1264.0, 46.0}, {58.0, 36.0}}, identifier: 'session-connection-toggle', label: 'Verbindingsstatus', value: Verbonden \u00b7 extern"
+    },
+    {
+      "page": "Speelt Nu",
+      "AX": "Button, {{1264.0, 46.0}, {58.0, 36.0}}, identifier: 'session-connection-toggle', label: 'Verbindingsstatus', value: Verbonden \u00b7 extern"
+    },
+    {
+      "page": "Afspeellijsten",
+      "AX": "Button, {{1208.0, 46.0}, {58.0, 36.0}}, identifier: 'session-connection-toggle', label: 'Verbindingsstatus', value: Verbonden \u00b7 extern"
+    },
+    {
+      "page": "Wachtrij",
+      "AX": "Button, {{1208.0, 46.0}, {58.0, 36.0}}, identifier: 'session-connection-toggle', label: 'Verbindingsstatus', value: Verbonden \u00b7 extern"
+    },
+    {
+      "page": "Music DNA",
+      "AX": "Button, {{1264.0, 46.0}, {58.0, 36.0}}, identifier: 'session-connection-toggle', label: 'Verbindingsstatus', value: Verbonden \u00b7 extern"
+    },
+    {
+      "page": "Ask DJ",
+      "AX": "Button, {{1264.0, 46.0}, {58.0, 36.0}}, identifier: 'session-connection-toggle', label: 'Verbindingsstatus', value: Verbonden \u00b7 extern"
+    }
+  ],
+  "scope_limits": [
+    "Installed40117 only; newer Mac-only menu/Speech/gender source not installed on iPad",
+    "UI-reported external HTTPS state, no new LAN/WS/APNs delivery/provider/audible/FPS acceptance",
+    "No radio toggles, playback controls, message entry/send, synthesis, session start or settings changes. Page navigation may perform ordinary existing backend reads",
+    "No indicator popover interaction or all-layout/hit-size acceptance claimed"
+  ],
+  "probe_sources": [
+    "/private/tmp/djc-ipad-home-original-probe-20261016.swift",
+    "/private/tmp/djc-ipad-home-connection-pages-qualified-probe-20261016.swift",
+    "/private/tmp/djc-ipad-home-more-indicators-qualified-probe-20261016.swift"
+  ],
+  "restoration": "External Probe.swift restored byte-equal to saved initial source; no application source or installed app changed. Existing native probe runner rebuilt for read-only navigation",
+  "effects": "Evidence/receipt/local commit only; no app update, HA/Core deployment, publication, automation or trust configuration change",
+  "evidence": [
+    {
+      "name": "Installed iPad screenshot_0_26206317-012A-42B4-8CBB-8283915405BB.png",
+      "path": "/private/tmp/djc-ipad-home-readback-attachments-20261016/BA737CB7-5342-4EA1-8003-2EE2E91C7A87.png",
+      "sha256": "c9485ca12f2d5179dcb5cff4631425eb78e2875245a39fddc697d6837f586164",
+      "viewed": true
+    },
+    {
+      "name": "Installed iPad UI tree_0_344AA60D-CC90-41F3-85E6-D64CA1BFB59C.txt",
+      "path": "/private/tmp/djc-ipad-home-readback-attachments-20261016/5D0EE264-DF6C-42A8-9AF3-3B7F7E468C1F.txt",
+      "sha256": "4c2bd55d5e312e473174e15cb654534bc736bca1a0448e9341803aebef7b23aa",
+      "viewed": false
+    },
+    {
+      "name": "Meer connection screenshot_0_0002E7A8-FD2E-4F56-8D9A-F8E8DC82FAA5.png",
+      "path": "/private/tmp/djc-ipad-home-connection-pages-attachments-20261016/7250A47C-18E0-4386-A573-58A1FF1CA8B6.png",
+      "sha256": "9415ee4affcc088323c0c5531abdad32ae2d9afb3063cdcec8427e7ea80b3b51",
+      "viewed": true
+    },
+    {
+      "name": "Meer connection AX_0_4D1AD1F6-3260-4421-929B-A506357C4402.txt",
+      "path": "/private/tmp/djc-ipad-home-connection-pages-attachments-20261016/FE09F838-2575-4759-80EC-FDCB6722B1B4.txt",
+      "sha256": "ad16bcb3b56c56026a32a426627aac0a5c1aa3df1287f0cc214bd2855280c76a",
+      "viewed": false
+    },
+    {
+      "name": "Ontdek connection screenshot_0_96599785-3210-4DDA-9FEB-33169BAD1443.png",
+      "path": "/private/tmp/djc-ipad-home-connection-pages-attachments-20261016/731C782F-898D-45D7-ABF4-5266590B5CC0.png",
+      "sha256": "84f21e3b4d48a720021824fc79cd8abb400dea2f5f005cc75fb7945979e38934",
+      "viewed": true
+    },
+    {
+      "name": "Ontdek connection AX_0_2221E245-3B0A-4827-80B8-2844A0ACE6B7.txt",
+      "path": "/private/tmp/djc-ipad-home-connection-pages-attachments-20261016/CF5592F8-8402-4888-99B1-3B53AF1EF985.txt",
+      "sha256": "ddbb45e57e5dd4b00d506797b70f3ec13f3121295c3d0ef957733d61023c9b9e",
+      "viewed": false
+    },
+    {
+      "name": "Track Insight connection screenshot_0_C8C73FC3-83CA-4C04-983A-07AAC6FACE38.png",
+      "path": "/private/tmp/djc-ipad-home-connection-pages-attachments-20261016/517365CC-FACE-4CAC-8918-466AC4178A1D.png",
+      "sha256": "c663f8f7323c6c3b117b9ed39fd67793a6282a155f19fe4b49c091b2f3d91ecc",
+      "viewed": true
+    },
+    {
+      "name": "Track Insight connection AX_0_BBCCEB01-9DEB-4581-AFA1-CB9C77F3D204.txt",
+      "path": "/private/tmp/djc-ipad-home-connection-pages-attachments-20261016/F027EBAB-956E-4C5A-8297-9EB0104393A7.txt",
+      "sha256": "174d452c23b3e0f4b19cc7213d57090a24509b1ffc7735bcc99e4d2e3c423953",
+      "viewed": false
+    },
+    {
+      "name": "DJ-sessie connection screenshot_0_6C18A934-0FE1-4F9D-B5DF-23C3CECA5430.png",
+      "path": "/private/tmp/djc-ipad-home-connection-pages-attachments-20261016/11CF47D6-5984-444A-8C40-54E65895C590.png",
+      "sha256": "ed11a4fbb56b557f1e8cd647a84da848163988ecfaa4ee3b3a2a52a47181dbe4",
+      "viewed": true
+    },
+    {
+      "name": "DJ-sessie connection AX_0_711181B2-37B1-42A0-9CA6-015D4BB61446.txt",
+      "path": "/private/tmp/djc-ipad-home-connection-pages-attachments-20261016/B71735F6-5CA5-409A-8393-1AFC4EECB44C.txt",
+      "sha256": "cb07f89ec0dd6b222865ca2be075217f51b68667132d646cd27a1f4e4244bdda",
+      "viewed": false
+    },
+    {
+      "name": "Speelt Nu connection screenshot_0_915EABF2-08D8-4FB1-A6AA-26F201583CA9.png",
+      "path": "/private/tmp/djc-ipad-home-connection-pages-attachments-20261016/D1B8EC35-4AD2-4D21-BF8F-3C384F63CC2B.png",
+      "sha256": "f32a00008ff23e2173b7bc5cfeb812e797d0f5f7dc601d578f006260a8da4906",
+      "viewed": true
+    },
+    {
+      "name": "Speelt Nu connection AX_0_A7A44287-CA90-40EC-AF8C-8EC955470A50.txt",
+      "path": "/private/tmp/djc-ipad-home-connection-pages-attachments-20261016/1857DDC5-560A-412F-83CF-54C19619D491.txt",
+      "sha256": "914609d58a0be351423ec965027449b5bcd70d8fec7318607b6912ca4c757960",
+      "viewed": false
+    },
+    {
+      "name": "Eerdere sessies_0_FBEFF7BD-D215-4BCB-972C-281FF40EC686.png",
+      "path": "/private/tmp/djc-ipad-home-more-indicators-attachments-20261016/5C15EEFF-7617-4C45-A41C-F25A26313F23.png",
+      "sha256": "1a88da62a538b9ec88ddbde9e3461325a4fb9ac956fd8cce83ba1e2332ee57ca",
+      "viewed": true
+    },
+    {
+      "name": "Eerdere sessies AX_0_15A58B18-C4FB-4468-81C3-E4E5A6CAD4FB.txt",
+      "path": "/private/tmp/djc-ipad-home-more-indicators-attachments-20261016/5E4D29B6-87C9-4656-A30D-5E6096649756.txt",
+      "sha256": "157e527adad0b4c358d37888ccee099965df2b0dbbfeb6a41818964ac26037ac",
+      "viewed": false
+    },
+    {
+      "name": "Afspeellijsten_0_18994AA0-E9B6-4F54-9362-DE6E3A5263A5.png",
+      "path": "/private/tmp/djc-ipad-home-more-indicators-attachments-20261016/13F57AC0-25F9-407D-A794-8FDF7A544003.png",
+      "sha256": "55cd255bc77bc288098d18ffe1eaea1d56681965f6287ee27d209f4a0479f554",
+      "viewed": true
+    },
+    {
+      "name": "Afspeellijsten AX_0_5CDB86B6-F022-415B-B283-02B459744701.txt",
+      "path": "/private/tmp/djc-ipad-home-more-indicators-attachments-20261016/7EB8D5AA-F863-45FC-AFF2-D1F934EB69BF.txt",
+      "sha256": "2462176590c368de59fa772e49b572e06fdab63bdbb597b2ef33fdd67be56b42",
+      "viewed": false
+    },
+    {
+      "name": "Wachtrij_0_B554056C-4BF6-44CA-AB20-342AB1276AD4.png",
+      "path": "/private/tmp/djc-ipad-home-more-indicators-attachments-20261016/B8F3C099-C9B1-41FC-A14D-F801F9AD5B87.png",
+      "sha256": "72e4b14876b79d94edfb4403ea1f1c30fd0ae0065bd80287aaad9c654fdbe5d0",
+      "viewed": true
+    },
+    {
+      "name": "Wachtrij AX_0_98683EED-4D9B-41C6-9DC1-AE813F915907.txt",
+      "path": "/private/tmp/djc-ipad-home-more-indicators-attachments-20261016/E499E46E-8E39-4025-A27E-1274E2FAD606.txt",
+      "sha256": "c57fd7966f03ad83b70b673bec1f069101463c9290b75c3ec59f771190a11691",
+      "viewed": false
+    },
+    {
+      "name": "Music DNA_0_8D3FF540-C588-44C1-8ECC-B3B2084ABCEE.png",
+      "path": "/private/tmp/djc-ipad-home-more-indicators-attachments-20261016/92951EBD-FC68-4B2A-974D-588AA2047E84.png",
+      "sha256": "170b579cb5b217c8401f42e531075d8a947d28620dc092d9d5c85752752454d8",
+      "viewed": true
+    },
+    {
+      "name": "Music DNA AX_0_C0E0EF32-8915-4B2B-85BE-4445EC043B76.txt",
+      "path": "/private/tmp/djc-ipad-home-more-indicators-attachments-20261016/59BA4E4E-708A-4AE0-951C-84FB18463468.txt",
+      "sha256": "b36d8df1238ca4ce68f46a0373e16a0a1a3faffcf42bb5a8d1566b08662a40a8",
+      "viewed": false
+    },
+    {
+      "name": "Ask DJ_0_38776AD4-12B3-4B85-A366-43CF45E31267.png",
+      "path": "/private/tmp/djc-ipad-home-more-indicators-attachments-20261016/E8E34060-7B27-4AB9-AB08-17FD2A5CC3F0.png",
+      "sha256": "a353e0f438afe74b03cb022609ceed33a71713fa0d42576d47175bcc746955b1",
+      "viewed": true
+    },
+    {
+      "name": "Ask DJ AX_0_46B1B8D0-290C-4A20-9F71-DA17EF76FF2A.txt",
+      "path": "/private/tmp/djc-ipad-home-more-indicators-attachments-20261016/68C57A9F-EEBF-487A-8DD1-1C7A79535E69.txt",
+      "sha256": "130b063c85df4a0770e09c506a059192c1ee883d269ca76b3f3e26cdaace3b55",
+      "viewed": false
+    }
+  ],
+  "safety": {
+    "worktrees": "Single existing writer; current/main only merged refs; none deleted",
+    "locks": [],
+    "processes": "No remaining xcodebuild/swift-test/swift-build/xctrace in final readback",
+    "df_internal": "16GiB",
+    "df_EP_DATA": "965MiB",
+    "APFS_disk3_free_bytes": 17966399488,
+    "APFS_disk7_free_bytes": 2539106304,
+    "cleanup": "None. Internal free space changed during work; no own cleanup/free-space gain claim. Source/recovery/apps/evidence and untracked project directories preserved"
+  }
+}
