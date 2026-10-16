@@ -1196,3 +1196,12 @@
 
 "ui.session.artwork.refresh" = "Actualizar imagen";
 "ui.session.artwork.unavailable" = "No hay ninguna imagen disponible por ahora.";
+
+// Session speech recovery presentation; producer mapping remains separate.
+"ui.session.speech.recovery.title" = "La reproducción de voz no está disponible";
+"ui.session.speech.recovery.body" = "Puedes seguir leyendo la contribución. En Home Assistant, revisa el pipeline de Assist seleccionado en DJConnect: su proveedor TTS, la conexión y el acceso del proveedor, el idioma y la voz.";
+"ui.session.speech.recovery.help" = "Instrucciones de recuperación";
+"ui.session.speech.recovery.retry" = "Volver a escuchar";
+"ui.session.speech.recovery.checking" = "Comprobando la reproducción de voz…";
+"ui.session.speech.recovery.retry_later" = "Espera un momento antes de volver a escuchar.";
+"ui.session.speech.recovery.retained" = "Puedes seguir leyendo la contribución y usar los controles de la sesión.";

@@ -1196,3 +1196,12 @@
 
 "ui.session.artwork.refresh" = "Refresh artwork";
 "ui.session.artwork.unavailable" = "Artwork is currently unavailable.";
+
+// Session speech recovery presentation; producer mapping remains separate.
+"ui.session.speech.recovery.title" = "Speech is unavailable";
+"ui.session.speech.recovery.body" = "You can still read the contribution. In Home Assistant, check the Assist pipeline selected in DJConnect: its TTS provider, the provider connection and access, the language and the voice.";
+"ui.session.speech.recovery.help" = "Recovery instructions";
+"ui.session.speech.recovery.retry" = "Listen again";
+"ui.session.speech.recovery.checking" = "Checking speech status…";
+"ui.session.speech.recovery.retry_later" = "Wait a moment before listening again.";
+"ui.session.speech.recovery.retained" = "You can still read the contribution and use the session controls.";
