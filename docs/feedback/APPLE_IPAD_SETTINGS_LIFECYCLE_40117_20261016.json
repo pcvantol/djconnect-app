@@ -1,0 +1,27 @@
+{
+  "status": "PHYSICAL_IPAD_SETTINGS_LIFECYCLE_PASS; bounded UI acceptance",
+  "app": "Ordinary installed iPad40117, no fixture/new app build/install",
+  "tab_probe": {
+    "result": "PASS; initialDJ-sessie -> firstMeer tap selectsMeer; secondtapnotneeded; Instellingenbuttonexists",
+    "bundle": "/private/tmp/djc-ipad-tab-first-tap-40117-20261016-run2.xcresult",
+    "observation": "before=[DJ-sessie] firstSelected=true secondSelected=false settingsButtonExists=true",
+    "viewed_image": "/private/tmp/djc-ipad-tab-first-tap-40117-20261016-images/50BDC9CC-39CF-4089-9642-C33C658624CD.png",
+    "qualification": "Explicit app.runningForeground wait,1s settling and selected-state wait. Previous single failed navigation attempt is not confirmed as a structural tabbug; foreground/snapshot timing root cause not independently proven. No app fix made.",
+    "preflight_failure": "First external probe compilefailed on missing whitespace around ==; corrected only testsource; no device/product result."
+  },
+  "lifecycle_probe": {
+    "result": "PASS; More -> Settings -> four verticalscrolls -> Home2s -> foreground, sameSettings andMoreselected, microphone permission row hittable andminY770before/after, delta0points",
+    "bundle": "/private/tmp/djc-ipad-settings-lifecycle-40117-qualified.xcresult",
+    "log": "/private/tmp/djc-ipad-settings-lifecycle-40117-qualified.log",
+    "source": "/private/tmp/djc-ipad-settings-lifecycle-qualified-probe.swift",
+    "viewed_images": [
+      "/private/tmp/djc-ipad-settings-lifecycle-40117-qualified-images/B361858F-1BDA-46D4-9860-2EBD7E802691.png",
+      "/private/tmp/djc-ipad-settings-lifecycle-40117-qualified-images/B8F344A2-B13A-4932-A453-3CDAADD71549.png"
+    ],
+    "result_allocated": "5.6MiB; firsttapresult4.5MiB",
+    "method": "collect-test-diagnostics never, timeout-enabled60s, continueAfterFailure=false; both native invocations finalizednormally in17/32s."
+  },
+  "limits": "Only ordinary iPad Settings navigation/scroll and2sbackground retention; no LAN/WS transition, cellular, command operationstatus, provider, session history, focus/textselection, iPhone/Mac acceptance. Settings HTTP label is not actual qualified LANHTTP evidence. MusicDNA status stillpending inviewedimage, not providerPASS.",
+  "effects": "No settings toggles, export/import, permission requests, messages, sessionstart, pairing/Profile reset or HAchanges. Test ended by tappingSpeeltNu; that finalselectedstate not separatelyasserted. External probe restored.",
+  "cleanup": "Passed receipts/screenshots/source retained. Stale worktree/branch check remains solewriter/main+current only; no eligible ref."
+}
