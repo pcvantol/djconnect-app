@@ -59,5 +59,19 @@
     "docs/feedback/APPLE_DOCKER_HOST_NETWORK_PROBE_20261016.json",
     "docs/feedback/APPLE_DIRECT_LINUX_TOPOLOGY_20261016.json"
   ],
-  "evidence_limits": "Linux host networking is documented by Home Assistant; current Pi peer/capacity and dependency TCP tests are actual. No HA on Pi, dependency functional/provider test, native iPad LAN or migration PASS. No install/config mutation this turn."
+  "evidence_limits": "Linux host networking is documented by Home Assistant; current Pi peer/capacity and dependency TCP tests are actual. No HA on Pi, dependency functional/provider test, native iPad LAN or migration PASS. No install/config mutation this turn.",
+  "apple_origin_change_audit": {
+    "status": "SOURCE_READBACK_ONLY; no client configuration or runtime change",
+    "writer": "049a663e026d6fcd9fcbb7731fde6c3234a5c386",
+    "selective_app_model_sha256": "36311979124f7c0d6ecde42ff9c934301e0ded51b7235a05df43d7c8d3ff1749",
+    "findings": [
+      "apply(pairingResponse:fallbackBaseURL:) persists local and remote origins, but its only production call found is the pair operation.",
+      "localHomeAssistantURL() prioritizes persisted haLocalURL over editable homeAssistantURL; changing the latter alone cannot reliably rebind an existing paired client.",
+      "pinLocalHomeAssistantURLIfNeeded runs only after a local connection has already succeeded, so it cannot discover an unknown new local origin.",
+      "Command response application reads installation/bootstrap and backend summary but does not apply response.haLocalURL/haRemoteURL.",
+      "Existing hybrid coordinator is keyed by configured local/remote origins plus installation and device IDs. Do not bypass that trust boundary by injecting a new URL or editing app-private defaults."
+    ],
+    "required_before_cutover": "Confirm an existing supported paired-origin rebind path or separately deliver and qualify one preserving installID/Profile/token, trusted external recovery and operation reconciliation. Source inspection alone does not establish native migration acceptance.",
+    "alternative_to_evaluate": "Stable existing client hostname routed directly to chosen Linux host, if already configured and operator-controlled; current IP-based origins cannot be assumed to follow DNS. No DNS/IP takeover authorized or performed."
+  }
 }
