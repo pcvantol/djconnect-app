@@ -7938,13 +7938,25 @@ private struct TrackInsightHeroInfo: View {
         #endif
     }
 
+    private func titleLabel(size: CGFloat) -> some View {
+        Text(insight.title)
+            .font(.system(size: size, weight: .black, design: .rounded))
+            .foregroundStyle(.white)
+            .multilineTextAlignment(.center)
+    }
+
     var body: some View {
         VStack(spacing: 10) {
-            Text(insight.title)
-                .font(.system(size: titleFontSize, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.58)
+            ViewThatFits(in: .horizontal) {
+                titleLabel(size: titleFontSize).fixedSize()
+                titleLabel(size: titleFontSize * 0.9).fixedSize()
+                titleLabel(size: titleFontSize * 0.8).fixedSize()
+                titleLabel(size: titleFontSize * 0.9)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8 / 0.9)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity)
             Text(insight.artist)
                 .font(.system(size: artistFontSize, weight: .bold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.78))
