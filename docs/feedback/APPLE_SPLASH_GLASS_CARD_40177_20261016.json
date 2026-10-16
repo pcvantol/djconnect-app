@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-16",
+  "build": "40177",
+  "scope": "Launch splash content in separate glass card below existing DJConnect banner",
+  "implementation": [
+    "Adopt existing writer DJConnectLaunchView block into qualified selective source only.",
+    "Vinyl illustration, version and spinner share one padded djSessionFrostedSurface with banner-matching width.",
+    "Same vertical card grouping on Mac; existing thin brand-icon neon border preserved."
+  ],
+  "checks": {
+    "ios_build": "PASS",
+    "mac_build": "PASS",
+    "manifest": "452 hashes PASS",
+    "source_block_identity": "PASS",
+    "installed_readback": "iPhone/iPad/Mac mini40177 PASS",
+    "codesign": "strict deep PASS",
+    "physical_visual": "NOT_CONFIRMED: native test failed splash AX existence assertion; screenshot and sampled recording show subsequent pairing UI in isolated test mode. No splash visual PASS claimed.",
+    "mac_gui": "NOT_RUN"
+  },
+  "evidence": {
+    "manifest": "build/recovery/splash40177-selective-source-manifest-20261016.json",
+    "patch": "build/recovery/splash40177-glass-card-20261016.patch",
+    "ios_build": "/private/tmp/djc-ios-40177-splash-build.log",
+    "mac_build": "/private/tmp/djc-mac-40177-splash-build.log",
+    "native_result": "/private/tmp/djc-iphone-40177-splash-20261016.xcresult",
+    "attachments": "/private/tmp/djc-iphone-40177-splash-attachments"
+  },
+  "preservation": [
+    "Native probe restored; final test launch used ordinary arguments.",
+    "No pairing, playback commands, settings edits or feedback sent.",
+    "Previous Mac app retained in build/recovery/DJConnect-before40177.app.",
+    "Untracked alternate Xcode projects preserved."
+  ],
+  "publication": "Local only; no push/PR/merge"
+}
