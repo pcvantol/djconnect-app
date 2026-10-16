@@ -345,8 +345,8 @@ struct MomentCard: View {
             }
             ForEach(moment.nativeSourceURLs, id: \.absoluteString) { url in
                 Link(sourceLabel(url), destination: url)
-                    .foregroundStyle(djConnectAccent)
-                    .tint(djConnectAccent)
+                    .foregroundStyle(.white)
+                    .tint(.white)
                     .accessibilityValue(url.absoluteString)
                     .accessibilityIdentifier("moment-source-" + url.absoluteString)
             }

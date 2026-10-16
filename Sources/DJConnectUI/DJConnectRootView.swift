@@ -4047,6 +4047,10 @@ struct TrackInsightView: View {
     // A visual preference only; Session mood remains confirmed backend state.
     @State private var standaloneMoodStepIndex = 1
     @State private var isShowingShare = false
+    #if os(iOS)
+    @State private var menuIntent: SessionControlIntent?
+    @State private var menuFrames: [SessionControlIntent.Kind: CGRect] = [:]
+    #endif
     @State private var isAnimationActive = false
     @State private var statusToast: DJConnectVisualNotice?
 
@@ -4056,9 +4060,24 @@ struct TrackInsightView: View {
 
     @ViewBuilder private var moodToolbarButton: some View {
         if let session = model.activeDJSession {
+            #if os(iOS)
+            ActiveSessionMoodToolbar(model: model, session: session) {
+                menuIntent = SessionControlIntent(kind: .mood, sessionID: session.id, epoch: model.sessionHistory.responseEpoch, sourceRect: menuFrames[.mood] ?? .zero)
+            }
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.mood] = $0 }
+            #else
             ActiveSessionMoodToolbar(model: model, session: session)
+            #endif
         } else {
+            #if os(iOS)
+            TrackInsightVisualMoodToolbar(language: model.language, selectedIndex: $standaloneMoodStepIndex,
+                                         requestPresentation: {
+                                             menuIntent = SessionControlIntent(kind: .visualMood, sessionID: "", epoch: model.sessionHistory.responseEpoch, sourceRect: menuFrames[.visualMood] ?? .zero)
+                                         })
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.visualMood] = $0 }
+            #else
             TrackInsightVisualMoodToolbar(language: model.language, selectedIndex: $standaloneMoodStepIndex)
+            #endif
         }
     }
 
@@ -4170,7 +4189,10 @@ struct TrackInsightView: View {
 
                     if !explicitMoment {
                         moodToolbarButton
-                        SessionConnectionToolbarButton(model: model)
+                        SessionConnectionToolbarButton(model: model) {
+                            menuIntent = SessionControlIntent(kind: .connection, sessionID: model.activeDJSession?.id ?? "", epoch: model.sessionHistory.responseEpoch, sourceRect: menuFrames[.connection] ?? .zero)
+                        }
+                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.connection] = $0 }
                     }
                     insightRefreshButton
                 }
@@ -4197,6 +4219,12 @@ struct TrackInsightView: View {
                 }
                 #endif
             }
+            #if os(iOS)
+            // Own presentation in stable screen content, never in a replaceable toolbar item.
+            .overlay {
+                SessionControlPopoverHost(model: model, intent: $menuIntent, visualMoodSelection: $standaloneMoodStepIndex)
+            }
+            #endif
             .sheet(isPresented: $isShowingShare) {
                 if let insight {
                     TrackInsightSharePreviewView(
@@ -4315,12 +4343,16 @@ struct TrackInsightView: View {
 private struct TrackInsightVisualMoodToolbar: View {
     let language: String
     @Binding var selectedIndex: Int
+    var requestPresentation: (() -> Void)? = nil
     @State private var isPresented = false
     private let moods = ["chill", "groove", "energy", "party"]
     private func text(_ key: String) -> String { localizedKey(language, key) }
 
     var body: some View {
-        Button { isPresented.toggle() } label: {
+        Button {
+            if let requestPresentation { requestPresentation() }
+            else { isPresented.toggle() }
+        } label: {
             Image(systemName: askDJMoodIcon(for: selectedIndex)).foregroundStyle(.white)
         }
         .accessibilityLabel(text("ui.session.select_mood"))
@@ -13657,19 +13689,19 @@ struct AskDJInputBar: View {
         #endif
         .background {
             if floating {
-                ZStack {
-                    if reduceTransparency {
-                        RoundedRectangle(cornerRadius: 26, style: .continuous)
-                            .fill(Color(red: 0.08, green: 0.06, blue: 0.14))
-                    } else {
-                        Color.clear
-                            .glassEffect(.regular.tint(Color(red: 0.08, green: 0.06, blue: 0.14).opacity(0.30)),
-                                         in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-                    }
-                }
+                // Frost the content without the lens effect that magnifies text underneath.
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .fill(.thickMaterial)
                     .overlay {
                         RoundedRectangle(cornerRadius: 26, style: .continuous)
-                            .stroke(.white.opacity(0.14), lineWidth: 0.75)
+                            .fill(LinearGradient(colors: [
+                                Color(red: 0.16, green: 0.29, blue: 0.60).opacity(reduceTransparency ? 1 : 0.45),
+                                Color(red: 0.32, green: 0.16, blue: 0.49).opacity(reduceTransparency ? 1 : 0.45)
+                            ], startPoint: .leading, endPoint: .trailing))
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 26, style: .continuous)
+                            .stroke(.white.opacity(0.24), lineWidth: 0.75)
                     }
             } else {
                 #if os(macOS)

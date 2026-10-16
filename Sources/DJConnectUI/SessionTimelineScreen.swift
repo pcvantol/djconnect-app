@@ -235,6 +235,7 @@ struct SessionTimelineScreen: View {
     var refreshAction: (() -> Void)?
     @StateObject private var renderCache = SessionTimelineRenderCache()
     @State private var sessionControlIntent: SessionControlIntent?
+    @State private var menuFrames: [SessionControlIntent.Kind: CGRect] = [:]
     @State private var currentHeaderVisible = true
     @State private var floatingComposerHeight: CGFloat = 96
     @State private var oldestEntriesVisible = false
@@ -540,8 +541,8 @@ struct SessionTimelineScreen: View {
             }
             #if os(iOS)
             .overlay(alignment: .topTrailing) {
-                SessionControlPopoverHost(model: model, intent: $sessionControlIntent)
-                    .frame(width: 1, height: 1).padding(.trailing, 24)
+                SessionControlPopoverHost(model: model, intent: $sessionControlIntent, showsHandoff: allowsHandoffPresentation, refreshAction: refreshAction)
+
             }
             #endif
             .onAppear {
@@ -625,11 +626,13 @@ struct SessionTimelineScreen: View {
                 #endif
                 #if os(iOS)
                 ActiveSessionMoodToolbar(model: model, session: activeSession, requestPresentation: {
-                    sessionControlIntent = SessionControlIntent(kind: .mood, sessionID: activeSession.id, epoch: history.responseEpoch)
+                    sessionControlIntent = SessionControlIntent(kind: .mood, sessionID: activeSession.id, epoch: history.responseEpoch, sourceRect: menuFrames[.mood] ?? .zero)
                 })
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.mood] = $0 }
                 ActiveSessionPresenceToolbar(model: model, session: activeSession, requestPresentation: {
-                    sessionControlIntent = SessionControlIntent(kind: .presence, sessionID: activeSession.id, epoch: history.responseEpoch)
+                    sessionControlIntent = SessionControlIntent(kind: .presence, sessionID: activeSession.id, epoch: history.responseEpoch, sourceRect: menuFrames[.presence] ?? .zero)
                 })
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.presence] = $0 }
                 #else
                 ActiveSessionMoodToolbar(model: model, session: activeSession)
                 ActiveSessionPresenceToolbar(model: model, session: activeSession)
@@ -675,13 +678,14 @@ struct SessionTimelineScreen: View {
                     .accessibilityIdentifier("screen-refresh")
                 }
             } else if allowsHandoffPresentation || refreshAction != nil {
-                SessionMoreMenu(
-                    sessionID: sessionID, authorityEpoch: history.responseEpoch, language: model.language,
-                    showsHandoff: allowsHandoffPresentation,
-                    isRefreshEnabled: !model.isDemoMode && model.pairingStatus == .paired,
-                    openHandoff: { model.isShowingVibeCastSessionStart = true }, refreshAction: refreshAction
-                )
-                .equatable()
+                Button {
+                    sessionControlIntent = SessionControlIntent(kind: .more, sessionID: sessionID, epoch: history.responseEpoch, sourceRect: menuFrames[.more] ?? .zero)
+                } label: {
+                    Image(systemName: "ellipsis").foregroundStyle(.white)
+                }
+                .accessibilityLabel(text("ui.more"))
+                .accessibilityIdentifier("session-more-menu")
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.more] = $0 }
             }
             #endif
         }
@@ -875,64 +879,6 @@ struct SessionTimestampText: View {
     }
 }
 
-#if os(iOS)
-/// A native open menu must not rebuild with every playback tick or background
-/// refresh. Only actual menu content/authority changes invalidate this boundary.
-private struct SessionMoreMenu: View, Equatable {
-    let sessionID: String
-    let authorityEpoch: UUID
-    let language: String
-    let showsHandoff: Bool
-    let isRefreshEnabled: Bool
-    var openHandoff: () -> Void
-    var refreshAction: (() -> Void)?
-
-    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.sessionID == rhs.sessionID && lhs.authorityEpoch == rhs.authorityEpoch &&
-        lhs.language == rhs.language && lhs.showsHandoff == rhs.showsHandoff &&
-        lhs.isRefreshEnabled == rhs.isRefreshEnabled &&
-        (lhs.refreshAction != nil) == (rhs.refreshAction != nil)
-    }
-
-    private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
-    var body: some View {
-        Menu {
-            if showsHandoff {
-                Button(action: openHandoff) {
-                    Label {
-                        Text(text("ui.vibecast.handoff.title"))
-                    } icon: {
-                        Image(systemName: "tv.badge.wifi")
-                            .renderingMode(.original)
-                            .foregroundStyle(.white)
-                    }
-                }
-                .accessibilityIdentifier("session-handoff-toggle")
-            }
-            if let refreshAction {
-                Button(action: refreshAction) {
-                    Label {
-                        Text(text("ui.refresh"))
-                    } icon: {
-                        Image(systemName: "arrow.clockwise")
-                            .renderingMode(.original)
-                            .foregroundStyle(.white)
-                    }
-                }
-                // Background polling is not an unavailable user action. The
-                // existing refresh owner already coalesces overlapping requests.
-                .disabled(!isRefreshEnabled)
-                .accessibilityIdentifier("screen-refresh")
-            }
-        } label: {
-            Image(systemName: "ellipsis").foregroundStyle(.white)
-        }
-        .tint(.white)
-        .accessibilityLabel(text("ui.more"))
-        .accessibilityIdentifier("session-more-menu")
-    }
-}
-#endif
 
 struct SessionEntryView: View, Equatable {
     @Environment(\.openURL) private var openURL
@@ -1013,8 +959,8 @@ struct SessionEntryView: View, Equatable {
                         ForEach(sourceURLs, id: \.absoluteString) { url in
                             let key = url.absoluteString == entry.sourceAttribution?["url_previous"] ? "ui.session.source_previous" : "ui.session.source_current"
                             Link((entry.sourceAttribution?["provider"] ?? url.host ?? "") + " · " + text(key), destination: url)
-                                .foregroundStyle(djConnectAccent)
-                                .tint(djConnectAccent)
+                                .foregroundStyle(.white)
+                                .tint(.white)
                                 .accessibilityValue(url.absoluteString)
                         }
                         if entry.requiresSpotifyAttribution == true, let logo = spotifyAttributionLogo,
@@ -1181,26 +1127,57 @@ enum SessionArchiveSummary {
 }
 
 /// Native presentation only: all writes, pending intent and confirmation belong to AppModel.
-private struct SessionControlIntent: Identifiable {
-    enum Kind { case mood, presence }
+struct SessionControlIntent: Identifiable {
+    enum Kind: Hashable { case mood, presence, connection, more, visualMood }
     let id = UUID()
     let kind: Kind
     let sessionID: String
     let epoch: UUID
+    var sourceRect: CGRect = .zero
 }
 
 #if os(iOS)
-private struct SessionControlPopoverHost: View {
+struct SessionControlPopoverHost: View {
     @ObservedObject var model: DJConnectAppModel
     @Binding var intent: SessionControlIntent?
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var history: DJConnectSessionHistoryModel
-    init(model: DJConnectAppModel, intent: Binding<SessionControlIntent?>) {
+    let showsHandoff: Bool
+    let visualMoodSelection: Binding<Int>?
+    let refreshAction: (() -> Void)?
+    @State private var pendingAction: (SessionControlIntent, MoreAction)?
+    private enum MoreAction { case handoff, refresh }
+    init(model: DJConnectAppModel, intent: Binding<SessionControlIntent?>, showsHandoff: Bool = false, refreshAction: (() -> Void)? = nil, visualMoodSelection: Binding<Int>? = nil) {
         self.model = model; _intent = intent; history = model.sessionHistory
+        self.showsHandoff = showsHandoff; self.refreshAction = refreshAction; self.visualMoodSelection = visualMoodSelection
+    }
+    private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
+    private func queue(_ action: MoreAction, captured: SessionControlIntent) {
+        pendingAction = (captured, action)
+        intent = nil
+    }
+    private func finishDismissal(_ id: UUID) {
+        guard let (captured, action) = pendingAction, captured.id == id else { return }
+        pendingAction = nil
+        guard scenePhase == .active, captured.epoch == history.responseEpoch else { return }
+        switch action {
+        case .handoff:
+            guard showsHandoff, captured.sessionID == model.activeDJSession?.id else { return }
+            model.isShowingVibeCastSessionStart = true
+        case .refresh:
+            guard !model.isDemoMode, model.pairingStatus == .paired else { return }
+            refreshAction?()
+        }
     }
     var body: some View {
-        Color.clear
-            .popover(item: $intent) { captured in
+        GeometryReader { geometry in
+            let frame = geometry.frame(in: .global)
+            let source = intent?.sourceRect ?? .zero
+            let anchor = source.isEmpty
+                ? CGRect(x: max(0, geometry.size.width - 24), y: 0, width: 1, height: 1)
+                : CGRect(x: source.midX - frame.minX, y: source.maxY - frame.minY + 4, width: 1, height: 1)
+            Color.clear.frame(width: 1, height: 1)
+            .popover(item: $intent, attachmentAnchor: .rect(.rect(anchor)), arrowEdge: .top) { captured in
                 ScrollView {
                     Group {
                         switch captured.kind {
@@ -1208,14 +1185,42 @@ private struct SessionControlPopoverHost: View {
                             SessionMoodPopoverContent(model: model, sessionID: captured.sessionID, epoch: captured.epoch)
                         case .presence:
                             ActiveSessionPresenceControl(model: model, sessionID: captured.sessionID, epoch: captured.epoch)
+                        case .visualMood:
+                            if let visualMoodSelection {
+                                SessionGlassChoiceSelector(
+                                    steps: ["chill", "groove", "energy", "party"].enumerated().map {
+                                        (text("ui.session.mood." + $0.element), $0.offset)
+                                    }, selectedIndex: visualMoodSelection.wrappedValue, language: model.language
+                                ) { visualMoodSelection.wrappedValue = $0 }
+                            }
+                        case .connection:
+                            SessionConnectionPopoverContent(model: model) { intent = nil }
+                        case .more:
+                            VStack(alignment: .leading, spacing: 16) {
+                                if showsHandoff {
+                                    Button { queue(.handoff, captured: captured) } label: {
+                                        Label(text("ui.vibecast.handoff.title"), systemImage: "tv.badge.wifi")
+                                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                    }.accessibilityIdentifier("session-handoff-toggle")
+                                }
+                                if refreshAction != nil {
+                                    Button { queue(.refresh, captured: captured) } label: {
+                                        Label(text("ui.refresh"), systemImage: "arrow.clockwise")
+                                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                    }
+                                    .disabled(model.isDemoMode || model.pairingStatus != .paired)
+                                    .accessibilityIdentifier("screen-refresh")
+                                }
+                            }.buttonStyle(.plain).foregroundStyle(.white)
                         }
                     }.padding(16)
                 }
                 .frame(idealWidth: 360)
+                .background(SessionPopoverDismissalObserver { finishDismissal(captured.id) })
                 .presentationCompactAdaptation(.popover)
             }
             .task(id: intent?.id) {
-                guard let captured = intent, !Task.isCancelled, scenePhase == .active,
+                guard let captured = intent, captured.kind != .connection, captured.kind != .more, captured.kind != .visualMood, !Task.isCancelled, scenePhase == .active,
                       model.isDemoMode || model.pairingStatus == .paired else { return }
                 model.recordPresentationState("screen-menu-open")
                 await model.refreshActiveDJSession()
@@ -1224,11 +1229,30 @@ private struct SessionControlPopoverHost: View {
                 await model.refreshActiveMoodCapability()
             }
             .onChange(of: intent?.id) { if intent == nil { model.recordPresentationState("screen-menu-dismissed") } }
-            .onChange(of: history.responseEpoch) { intent = nil }
-            .onChange(of: model.activeDJSession?.id) { intent = nil }
-            .onChange(of: scenePhase) { if scenePhase != .active { intent = nil } }
-            .onDisappear { intent = nil }
+            .onChange(of: history.responseEpoch) { model.recordPresentationState("screen-menu-epoch-changed"); intent = nil; pendingAction = nil }
+            .onChange(of: model.activeDJSession?.id) { model.recordPresentationState("screen-menu-session-changed"); intent = nil; pendingAction = nil }
+            .onChange(of: scenePhase) { if scenePhase != .active { model.recordPresentationState("screen-menu-scene-inactive"); intent = nil; pendingAction = nil } }
+            .onDisappear { model.recordPresentationState("screen-menu-host-disappeared"); intent = nil; pendingAction = nil }
+        }
     }
+}
+
+// Wait for native dismissal completion before presenting the handoff sheet.
+private struct SessionPopoverDismissalObserver: UIViewControllerRepresentable {
+    let onDismiss: () -> Void
+    final class Controller: UIViewController {
+        var onDismiss: (() -> Void)?
+        override func viewDidDisappear(_ animated: Bool) {
+            super.viewDidDisappear(animated)
+            onDismiss?()
+        }
+    }
+    func makeUIViewController(context: Context) -> Controller {
+        let controller = Controller(); controller.onDismiss = onDismiss
+        controller.view.backgroundColor = .clear
+        return controller
+    }
+    func updateUIViewController(_ controller: Controller, context: Context) { controller.onDismiss = onDismiss }
 }
 
 private struct SessionMoodPopoverContent: View {
@@ -1591,13 +1615,18 @@ struct ConnectionStatusToolbar: ToolbarContent {
 
 struct SessionConnectionToolbarButton: View {
     @ObservedObject var model: DJConnectAppModel
+    var requestPresentation: (() -> Void)? = nil
     @State private var showingStatus = false
     private func text(_ key: String) -> String {
         DJConnectLocalization.localized(key: key, language: model.language)
     }
     private var status: SessionConnectionStatus { model.connectionPresentation }
     var body: some View {
-        Button { model.recordPresentationState("connection-toggle"); showingStatus.toggle() } label: {
+        Button {
+            model.recordPresentationState("connection-toggle")
+            if let requestPresentation { requestPresentation() }
+            else { showingStatus.toggle() }
+        } label: {
             Image(systemName: status.icon).font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(status.color).frame(width: 44, height: 44)
         }
@@ -1606,6 +1635,21 @@ struct SessionConnectionToolbarButton: View {
         .accessibilityIdentifier("session-connection-toggle")
         .help(text(status.key))
         .popover(isPresented: $showingStatus) {
+            SessionConnectionPopoverContent(model: model) { showingStatus = false }
+                .padding(16).frame(idealWidth: 340, maxWidth: 420)
+                .presentationCompactAdaptation(.popover)
+        }
+    }
+}
+
+struct SessionConnectionPopoverContent: View {
+    @ObservedObject var model: DJConnectAppModel
+    var dismiss: () -> Void
+    private var status: SessionConnectionStatus { model.connectionPresentation }
+    private func text(_ key: String) -> String {
+        DJConnectLocalization.localized(key: key, language: model.language)
+    }
+    var body: some View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(text("ui.connection.status")).font(.headline)
                 if model.isDemoMode {
@@ -1619,7 +1663,7 @@ struct SessionConnectionToolbarButton: View {
                 }
                 if status.showsConnectionDetails {
                     Button {
-                        showingStatus = false
+                        dismiss()
                         model.performHomeScreenAction(.about)
                     } label: {
                         Label(text("ui.connection.details"), systemImage: "info.circle")
@@ -1629,9 +1673,6 @@ struct SessionConnectionToolbarButton: View {
                     .accessibilityIdentifier("connection-details-link")
                 }
             }
-            .padding(16).frame(idealWidth: 340, maxWidth: 420)
-            .presentationCompactAdaptation(.popover)
-        }
     }
 }
 
