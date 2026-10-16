@@ -110,10 +110,21 @@ struct SavedSessionsView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                     }
-                    if history.listNextCursor != nil {
-                        Button(text("ui.session.history.more")) { Task { await history.loadSessions(more: true) } }
-                            .disabled(history.listLoading)
+                    if let cursor = history.listNextCursor {
+                        ZStack {
+                            Color.clear
+                            if history.listLoading {
+                                ProgressView().tint(.white)
+                                    .accessibilityLabel(text("ui.session.history.loading"))
+                            }
+                        }
+                            .frame(maxWidth: .infinity).frame(height: 44)
                             .listRowBackground(Color.clear).listRowSeparator(.hidden)
+                            .accessibilityIdentifier("saved-sessions-pagination")
+                            // A new footer belongs to the next cursor. Lazy List/
+                            // LazyVStack mounts it only when approaching the end.
+                            .task { await history.loadNextSessionsPage(expectedCursor: cursor) }
+                            .id(cursor)
                     }
             }
             .listStyle(.plain)

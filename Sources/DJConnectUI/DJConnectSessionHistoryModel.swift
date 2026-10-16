@@ -365,6 +365,14 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     @discardableResult
+    public func loadNextSessionsPage(expectedCursor: String) async -> Bool {
+        // A disappearing/replaced footer must not consume a newer page, and a
+        // failed page must not become an automatic retry loop on view updates.
+        guard listNextCursor == expectedCursor, listErrorKey == nil else { return false }
+        return await loadSessions(more: true)
+    }
+
+    @discardableResult
     public func loadSessions(more: Bool = false) async -> Bool {
         if host?.isDemoMode == true { return available }
         guard available, !(more && listLoading), let host, host.canRefreshSessionHistory else { return false }
@@ -378,6 +386,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             let page = try await host.withHomeAssistantClient { try await $0.savedSessions(cursor: cursor) }
             guard captured == epoch, generation == listGeneration else { return false }
             guard cursor == nil || listRevision == page.revision.value else { throw DJConnectError.invalidResponse }
+            guard cursor == nil || page.nextCursor != cursor else { throw DJConnectError.invalidResponse }
             let old = cursor == nil ? [] : sessions
             sessions = mergeSessions(old, page.sessions.filter { $0.readOnly })
             listRevision = page.revision.value; listNextCursor = page.nextCursor

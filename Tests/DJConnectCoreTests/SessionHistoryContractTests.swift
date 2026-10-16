@@ -4206,3 +4206,80 @@ private func providerGenderOptions(_ row: [String: Any]) throws -> DJConnectSpee
     }
 
 }
+
+@Test @MainActor func savedSessionsLazyPagingAppendsOnceAndStopsAtEnd() async throws {
+    let receipt = try historyObject()
+    let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
+    let original = try #require(timeline["session"] as? [String: Any])
+    var older = original; older["session_id"] = "older-session"
+    let revision = try #require(timeline["revision"])
+    let first = try historyData(["success":true,"schema_version":1,"sessions":[original],"revision":revision,"retention_days":30,"next_cursor":"page-two"])
+    let next = try historyData(["success":true,"schema_version":1,"sessions":[original,older],"revision":revision,"retention_days":30])
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    let gate = HistoryWireResponseGate(); defer { gate.release() }
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") {
+            return (200, Data(#"{"capabilities":{"session_conversation_history":true},"contract_versions":{"session_conversation_history":1}}"#.utf8), 0)
+        }
+        if request.url!.path.hasSuffix("/session/history") {
+            if URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.contains(where: { $0.name == "cursor" }) == true {
+                throw HistoryWireHeldResponse(data: next, gate: gate)
+            }
+            return (200, first, 0)
+        }
+        return (200, profile, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare()
+    #expect(await history.loadSessions())
+    let initialIDs = history.sessions.map(\.id)
+    #expect(initialIDs.count == 1)
+    #expect(!(await history.loadNextSessionsPage(expectedCursor: "stale-footer")))
+    let loading = Task { await history.loadNextSessionsPage(expectedCursor: "page-two") }
+    for _ in 0..<1000 where !history.listLoading { await Task.yield() }
+    #expect(history.listLoading)
+    #expect(!(await history.loadNextSessionsPage(expectedCursor: "page-two")))
+    gate.release()
+    #expect(await loading.value)
+    #expect(history.sessions.map(\.id) == initialIDs + ["older-session"])
+    #expect(history.listNextCursor == nil && !history.listLoading)
+    #expect(!(await history.loadNextSessionsPage(expectedCursor: "page-two")))
+    let reads = fixture.requests.filter { $0.url?.path.hasSuffix("/session/history") == true }
+    #expect(reads.count == 2)
+}
+
+@Test(arguments: ["transient", "repeated_cursor", "revision_change"])
+@MainActor func savedSessionsLazyPagingFailurePreservesRowsAndDoesNotRetry(_ failure: String) async throws {
+    let receipt = try historyObject()
+    let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
+    let original = try #require(timeline["session"] as? [String: Any])
+    let revision = try #require(timeline["revision"])
+    let first = try historyData(["success":true,"schema_version":1,"sessions":[original],"revision":revision,"retention_days":30,"next_cursor":"page-two"])
+    let next = try historyData(["success":true,"schema_version":1,"sessions":[],"revision":failure == "revision_change" ? "changed" : revision,"retention_days":30,"next_cursor":"page-two"])
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") {
+            return (200, Data(#"{"capabilities":{"session_conversation_history":true},"contract_versions":{"session_conversation_history":1}}"#.utf8), 0)
+        }
+        if request.url!.path.hasSuffix("/session/history") {
+            let more = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.contains(where: { $0.name == "cursor" }) == true
+            return more ? (failure == "transient" ? 503 : 200, next, 0) : (200, first, 0)
+        }
+        return (200, profile, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare()
+    #expect(await history.loadSessions())
+    let confirmed = history.sessions
+    #expect(!(await history.loadNextSessionsPage(expectedCursor: "page-two")))
+    #expect(history.sessions == confirmed && history.listErrorKey != nil && !history.listLoading)
+    #expect(!(await history.loadNextSessionsPage(expectedCursor: "page-two")))
+    #expect(fixture.requests.filter { $0.url?.path.hasSuffix("/session/history") == true }.count == 2)
+    // Explicit refresh clears the error and admits the new first-page cursor.
+    #expect(await history.loadSessions())
+    #expect(history.listErrorKey == nil && history.listNextCursor == "page-two")
+}
