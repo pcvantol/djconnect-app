@@ -2871,27 +2871,32 @@ private struct CrashReportPromptView: View {
             DJConnectCanvasBackground()
             VStack(alignment: .leading, spacing: 18) {
                 AboutBanner()
-                Label(localizedKey(model.language, "ui.the.app.may.have.crashed"), systemImage: "exclamationmark.triangle.fill")
-                    .font(.title2.bold())
-                    .foregroundStyle(.orange)
-                Text(localizedKey(model.language, "ui.you.can.share.redacted.diagnostics.by.opening.a.github.issue"))
-                .foregroundStyle(.secondary)
-                Text(localizedKey(model.language, "ui.version") + " \(DJConnectVersionInfo.displayVersion)")
-                    .font(.callout.weight(.semibold))
+                VStack(alignment: .leading, spacing: 18) {
+                    Label(localizedKey(model.language, "ui.the.app.may.have.crashed"), systemImage: "exclamationmark.triangle.fill")
+                        .font(.title2.bold())
+                        .foregroundStyle(.orange)
+                    Text(localizedKey(model.language, "ui.you.can.share.redacted.diagnostics.by.opening.a.github.issue"))
                     .foregroundStyle(.secondary)
-                Button {
-                    if let url = model.crashIssueURL() {
-                        openURL(url)
+                    Text(localizedKey(model.language, "ui.version") + " \(DJConnectVersionInfo.displayVersion)")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Button {
+                        if let url = model.crashIssueURL() {
+                            openURL(url)
+                        }
+                        model.dismissCrashReportPrompt()
+                    } label: {
+                        Label(localizedKey(model.language, "ui.open.github.issue"), systemImage: "arrow.up.forward.app")
+                            .frame(maxWidth: .infinity)
                     }
-                    model.dismissCrashReportPrompt()
-                } label: {
-                    Label(localizedKey(model.language, "ui.open.github.issue"), systemImage: "arrow.up.forward.app")
-                        .frame(maxWidth: .infinity)
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                    DJConnectNotNowLinkButton(language: model.language, key: "ui.not.now.b1e535") {
+                        model.dismissCrashReportPrompt()
+                    }
                 }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
-                DJConnectNotNowLinkButton(language: model.language, key: "ui.not.now.b1e535") {
-                    model.dismissCrashReportPrompt()
-                }
+                .padding(20)
+                .djSessionFrostedSurface()
+                .accessibilityIdentifier("crash-report-content-card")
             }
             .padding(28)
         }
