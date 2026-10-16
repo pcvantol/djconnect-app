@@ -9411,7 +9411,7 @@ private struct DJSessionView: View {
         #if os(iOS)
         return ""
         #else
-        return localizedKey(model.language, "ui.session.title")
+        return localizedKey(model.language, "ui.session.title") + (model.isDemoMode ? " (demo)" : "")
         #endif
     }
 
