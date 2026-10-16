@@ -790,6 +790,7 @@ public final class DJConnectAppModel: ObservableObject {
             if oldValue?.id != activeDJSession?.id ||
                 (oldValue?.runtimeState == "active" && activeDJSession?.runtimeState != "active") {
                 stopResponsePlayback(clearText: false)
+                resetActivePersonaState()
             }
             if oldValue?.id != activeDJSession?.id {
                 sessionSurfaceIdentity = nil
@@ -804,6 +805,10 @@ public final class DJConnectAppModel: ObservableObject {
             syncSessionSurfaces(observedSession: true)
         }
     }
+    private var personaOperationGeneration = UUID()
+    @Published public private(set) var activePersonaAvailable = false
+    @Published public private(set) var activePersonaPending = false
+    @Published public private(set) var activePersonaError: String?
     private var moodOperationGeneration = UUID()
     private var moodCapabilityGeneration = UUID()
     @Published public private(set) var activeMoodAvailable = false
@@ -5347,7 +5352,7 @@ public final class DJConnectAppModel: ObservableObject {
                 vibeCastHandoffFailed = false
             }
             if let old = activeDJSession, let incoming = response.resolvedSession, old.id == incoming.id {
-                activeDJSession = old.applying(broadcastState: incoming.presenceSafeBroadcast)
+                activeDJSession = old.applying(broadcastState: incoming.personaSafeBroadcast)
             } else {
                 activeDJSession = response.resolvedSession
             }
@@ -5370,11 +5375,13 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func refreshActiveMoodCapability() async {
         if isDemoMode {
+            activePersonaAvailable = false
             activeMoodAvailable = activeDJSession != nil
             activePresenceCapabilityStatus = .unsupported
             return
         }
         activeMoodAvailable = false
+        activePersonaAvailable = false
         activePresenceAvailable = false
         guard isAppInForeground, pairingStatus == .paired else {
             activePresenceCapabilityStatus = .notLoaded
@@ -5387,6 +5394,7 @@ public final class DJConnectAppModel: ObservableObject {
             let caps = try await withHomeAssistantClient { try await $0.activeSessionMoodCapabilities() }
             guard generation == moodCapabilityGeneration, epoch == sessionHistory.responseEpoch, isAppInForeground, pairingStatus == .paired else { return }
             activeMoodAvailable = caps.available
+            activePersonaAvailable = caps.personaAvailable
             activePresenceAvailable = caps.presenceAvailable
             activePresenceCapabilityStatus = caps.presenceAvailable ? .supported : .unsupported
         } catch {
@@ -5477,6 +5485,40 @@ public final class DJConnectAppModel: ObservableObject {
                 }
                 return
             }
+        }
+    }
+
+    public func changeActiveSessionPersona(_ persona: DJConnectSessionPersonaValue, expectedSessionID: String, expectedEpoch: UUID) async {
+        guard !isDemoMode, activePersonaAvailable, !activePersonaPending, isAppInForeground,
+              pairingStatus == .paired, sessionHistory.hasAuthorizedOwner,
+              expectedEpoch == sessionHistory.responseEpoch,
+              let current = activeDJSession, current.id == expectedSessionID, current.runtimeState == "active",
+              let confirmed = current.confirmedPersona else { return }
+        let generation = UUID(); personaOperationGeneration = generation
+        activePersonaPending = true; activePersonaError = nil
+        defer { if generation == personaOperationGeneration { activePersonaPending = false } }
+        func valid() -> Bool {
+            generation == personaOperationGeneration && expectedEpoch == sessionHistory.responseEpoch &&
+            pairingStatus == .paired && isAppInForeground && sessionHistory.hasAuthorizedOwner &&
+            activeDJSession?.id == expectedSessionID && activeDJSession?.runtimeState == "active"
+        }
+        do {
+            let response = try await withHomeAssistantClient(allowsOperationReplay: false) {
+                try await $0.updateSessionPersona(sessionID: expectedSessionID, persona: persona, expectedRevision: confirmed.personaRevision)
+            }
+            guard valid(), let latest = activeDJSession else { return }
+            activeDJSession = latest.applying(persona: response.snapshot)
+        } catch let conflict as DJConnectSessionPersonaConflict {
+            guard valid(), let latest = activeDJSession else { return }
+            activeDJSession = latest.applying(persona: conflict.current)
+            activePersonaError = localized(key: "ui.session.persona.conflict")
+        } catch {
+            guard valid() else { return }
+            if sessionHistory.withdrawAuthority(for: error) { return }
+            // A lost reply may follow a commit. Reread once; never repeat the write.
+            _ = await refreshActiveDJSession()
+            guard valid() else { return }
+            activePersonaError = localized(key: "ui.session.persona.failed")
         }
     }
 
@@ -5666,7 +5708,7 @@ public final class DJConnectAppModel: ObservableObject {
                     }
                     let response = try await self.withHomeAssistantClient { try await $0.activeSession() }
                     guard response.success else { throw DJConnectError.invalidResponse }
-                    return response.resolvedSession?.presenceSafeBroadcast
+                    return response.resolvedSession?.personaSafeBroadcast
                 })
         }
         let previousTransport = sessionBroadcastTransport
@@ -5825,12 +5867,18 @@ public final class DJConnectAppModel: ObservableObject {
         djSessionErrorMessage = localized(key: "ui.transport.recovering")
     }
 
+    private func resetActivePersonaState() {
+        personaOperationGeneration = UUID()
+        activePersonaAvailable = false; activePersonaPending = false; activePersonaError = nil
+    }
+
     private func resetActiveMoodState() {
         presenceGeneration = UUID(); presenceIntent = UUID()
         presenceTask?.cancel(); presenceTask = nil
         activePresenceAvailable = false; activePresencePending = false
         activePresenceCapabilityStatus = .notLoaded
         activePresenceDesired = nil; activePresenceRequiresDecision = false; activePresenceError = nil
+        resetActivePersonaState()
         moodOperationGeneration = UUID(); moodCapabilityGeneration = UUID()
         activeMoodAvailable = false; activeMoodPending = false; activeMoodError = nil
     }

@@ -3581,3 +3581,143 @@ private final class HistoryArtworkDenialSwitch: @unchecked Sendable {
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/media/prepare") }.count == 2)
     #expect(!fixture.requests.contains { $0.url!.path.contains("/command") || $0.url!.path.hasSuffix("/start") })
 }
+
+// Active Persona uses the already delivered Core8757 CAS route, not Profile defaults.
+private func activePersonaCapsWire() throws -> Data {
+    var caps = try #require(JSONSerialization.jsonObject(with: activeMoodCapsWire) as? [String: Any])
+    caps["capabilities"] = ["active_session_persona":true,"active_session_mood":true,"session_conversation_history":true]
+    caps["contract_versions"] = ["active_session_persona":1,"active_session_mood":1,"session_conversation_history":1]
+    caps["active_session_persona"] = ["available":true,"version":1,"path":"/api/djconnect/v1/session/persona",
+        "method":"POST","authentication":"paired_device_bearer","values":["home_dj","radio_dj","club_dj","festival_dj"],
+        "ordering":"expected_persona_revision","scope":"active_device_bound_owner_session"] as [String:Any]
+    return try historyData(caps)
+}
+private func activePersonaRuntimeWire() throws -> Data {
+    var response = try #require(JSONSerialization.jsonObject(with: activeMoodRuntimeWire()) as? [String:Any])
+    var runtime = try #require(response["session"] as? [String:Any])
+    runtime["dj_persona"] = "home_dj"; runtime["persona_revision"] = 0
+    var broadcast = try #require(runtime["broadcast"] as? [String:Any])
+    var session = try #require(broadcast["session"] as? [String:Any])
+    session["dj_persona"] = "home_dj"; session["persona_revision"] = 0
+    broadcast["session"] = session; runtime["broadcast"] = broadcast; response["session"] = runtime
+    return try historyData(response)
+}
+
+@Test func activePersonaExactRequestAndRealProducerResponses() throws {
+    let fixture = HistoryWireFixture { _ in (200,Data(),0) }; defer {fixture.close()}
+    let request = try fixture.client().sessionPersonaRequest(sessionID:"current",persona:.radioDJ,expectedRevision:0)
+    let requestBody = try #require(request.httpBody)
+    let body = try #require(JSONSerialization.jsonObject(with: requestBody) as? [String:Any])
+    #expect(Set(body.keys) == ["contract_version","client_type","device_id","session_id","selected_persona","expected_persona_revision"])
+    #expect(request.url?.path == "/api/djconnect/v1/session/persona" && request.httpMethod == "POST")
+    #expect(request.value(forHTTPHeaderField:"Authorization") == "Bearer synthetic-fixture-token")
+    #expect(request.value(forHTTPHeaderField:"Cache-Control") == "no-store")
+    #expect(throws:DJConnectError.invalidResponse) {try fixture.client().sessionPersonaRequest(sessionID:"",persona:.homeDJ,expectedRevision:0)}
+    #expect(throws:DJConnectError.invalidResponse) {try fixture.client().sessionPersonaRequest(sessionID:"current",persona:.homeDJ,expectedRevision:-1)}
+    let root = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let wire = try #require(JSONSerialization.jsonObject(with: Data(contentsOf:root.appendingPathComponent("Fixtures/session-persona-core8757.json"))) as? [String:Any])
+    let first = try JSONDecoder().decode(DJConnectSessionPersonaResponse.self,from:historyData(#require(wire["persona"])))
+    let next = try JSONDecoder().decode(DJConnectSessionPersonaResponse.self,from:historyData(#require(wire["persona_change"])))
+    #expect(first.success && first.selectedPersona == .radioDJ && first.personaRevision == 1)
+    #expect(next.selectedPersona == .festivalDJ && next.personaRevision == 2)
+    #expect(try JSONDecoder().decode(DJConnectActiveMoodCapabilities.self,from:activePersonaCapsWire()).personaAvailable)
+    #expect(!(try JSONDecoder().decode(DJConnectActiveMoodCapabilities.self,from:activeMoodCapsWire).personaAvailable))
+}
+
+@Test func activePersonaRejectsStaleAndConflictingRevisionsWithoutRewritingMoments() throws {
+    let runtime = try #require(JSONDecoder().decode(DJConnectSessionResponse.self,from:activePersonaRuntimeWire()).session)
+    let first = runtime.applying(persona:.init(sessionID:runtime.id,selectedPersona:.radioDJ,personaRevision:1))
+    var late = runtime.broadcast; late.delivery = .init(snapshotWatermark:999)
+    let unchanged = first.applying(broadcastState:late)
+    #expect(unchanged.confirmedPersona?.selectedPersona == .radioDJ)
+    #expect(unchanged.broadcast.djMoments == runtime.broadcast.djMoments && unchanged.broadcast.presentations == runtime.broadcast.presentations)
+    #expect(unchanged.selectedMood == runtime.selectedMood && unchanged.selectedPresence == runtime.selectedPresence)
+    let conflict = unchanged.applying(persona:.init(sessionID:runtime.id,selectedPersona:.clubDJ,personaRevision:1))
+    #expect(conflict.confirmedPersona == nil && conflict.personaRevisionFloor == 1)
+    let recovered = conflict.applying(persona:.init(sessionID:runtime.id,selectedPersona:.festivalDJ,personaRevision:2))
+    #expect(recovered.confirmedPersona?.selectedPersona == .festivalDJ)
+    #expect(recovered.applying(persona:.init(sessionID:"other",selectedPersona:.homeDJ,personaRevision:100)) == recovered)
+    var event = DJConnectSessionBroadcastEvent(eventType:"persona_changed",sessionID:runtime.id,payload:.init(session:.init(sessionID:runtime.id,runtimeState:"active",selectedMood:runtime.selectedMood,selectedPersona:.clubDJ,personaRevision:3)))
+    event.deliverySequence = 1000
+    #expect(recovered.applying(broadcastEvent:event).confirmedPersona?.selectedPersona == .clubDJ)
+}
+
+@Test(arguments:[200,409,403], [false,true]) @MainActor
+func activePersonaConfirmedConflictAndAuthorityHandling(_ status:Int, _ background:Bool) async throws {
+    let runtime = try activePersonaRuntimeWire(), caps = try activePersonaCapsWire()
+    let sessionID = try #require(JSONDecoder().decode(DJConnectSessionResponse.self,from:runtime).session).id
+    let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let reply = try historyData(status == 200 ? ["success":true,"contract_version":1,"session_id":sessionID,"selected_persona":"radio_dj","persona_revision":1,"changed":true] :
+        status == 409 ? ["success":false,"error":"persona_revision_conflict","current":["session_id":sessionID,"selected_persona":"club_dj","persona_revision":2]] : ["success":false,"error":"invalid_profile"])
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") {return(200,caps,0)}
+        if request.url!.path.hasSuffix("/session/active") {return(200,runtime,0)}
+        if request.url!.path.hasSuffix("ask_dj/history") {return(200,profile,0)}
+        if request.url!.path.hasSuffix("/session/persona") {return(status,reply,0.08)}
+        return(404,Data(#"{"success":false}"#.utf8),0)
+    };defer{fixture.close()}
+    let(model,defaults,name)=fixture.model();defer{defaults.removePersistentDomain(forName:name)}
+    await model.sessionHistory.prepare();await model.refreshActiveDJSession();await model.refreshActiveMoodCapability()
+    #expect(model.activePersonaAvailable && model.sessionHistory.hasAuthorizedOwner)
+    let pending = Task {await model.changeActiveSessionPersona(.radioDJ,expectedSessionID:sessionID,expectedEpoch:model.sessionHistory.responseEpoch)}
+    try await Task.sleep(for:.milliseconds(25))
+    #expect(model.activePersonaPending && model.activeDJSession?.confirmedPersona?.selectedPersona == .homeDJ)
+    if background {model.markInactiveSession()}
+    await pending.value
+    #expect(!model.activePersonaPending)
+    #expect(fixture.requests.filter{$0.url!.path.hasSuffix("/session/persona")}.count == 1)
+    if background {
+        #expect(model.activePersonaError == nil && !model.activePersonaAvailable)
+        #expect(model.activeDJSession?.confirmedPersona?.selectedPersona == .homeDJ)
+        return
+    }
+    if status == 200 {#expect(model.activeDJSession?.confirmedPersona?.selectedPersona == .radioDJ && model.activePersonaError == nil)}
+    if status == 409 {#expect(model.activeDJSession?.confirmedPersona?.selectedPersona == .clubDJ && model.activePersonaError != nil)}
+    if status == 403 {#expect(!model.sessionHistory.hasAuthorizedOwner && model.activeDJSession == nil && !model.activePersonaAvailable)}
+}
+
+@Test(arguments:["jump","wrong-session","wrong-value","false-success"])
+func activePersonaRejectsUnconfirmedMutationReplies(_ fault:String) async throws {
+    var body:[String:Any] = ["success":true,"contract_version":1,"session_id":"current","selected_persona":"radio_dj","persona_revision":1,"changed":true]
+    if fault == "jump" {body["persona_revision"] = 9}
+    if fault == "wrong-session" {body["session_id"] = "other"}
+    if fault == "wrong-value" {body["selected_persona"] = "club_dj"}
+    if fault == "false-success" {body["success"] = false}
+    let data = try historyData(body)
+    let fixture = HistoryWireFixture {_ in (200,data,0)};defer{fixture.close()}
+    await #expect(throws:DJConnectError.invalidResponse) {
+        try await fixture.client().updateSessionPersona(sessionID:"current",persona:.radioDJ,expectedRevision:0)
+    }
+    #expect(fixture.requests.count == 1)
+}
+
+@Test @MainActor func activePersonaSessionEndImmediatelyInvalidatesPendingReply() async throws {
+    let runtime = try activePersonaRuntimeWire(), caps = try activePersonaCapsWire()
+    let id = try #require(JSONDecoder().decode(DJConnectSessionResponse.self,from:runtime).session).id
+    var ended = try #require(JSONSerialization.jsonObject(with:runtime) as? [String:Any])
+    var session = try #require(ended["session"] as? [String:Any]);session["runtime_state"] = "ended"
+    var broadcast = try #require(session["broadcast"] as? [String:Any])
+    var state = try #require(broadcast["session"] as? [String:Any]);state["runtime_state"] = "ended"
+    broadcast["session"] = state;session["broadcast"] = broadcast;ended["session"] = session
+    let endedData = try historyData(ended)
+    let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let reply = try historyData(["success":true,"contract_version":1,"session_id":id,"selected_persona":"radio_dj","persona_revision":1,"changed":true])
+    let gate = HistoryAuthorityGate()
+    let fixture = HistoryWireFixture {request in
+        if request.url!.path.hasSuffix("/capabilities") {return(200,caps,0)}
+        if request.url!.path.hasSuffix("/session/active") {return(200,gate.denied ? endedData : runtime,0)}
+        if request.url!.path.hasSuffix("ask_dj/history") {return(200,profile,0)}
+        if request.url!.path.hasSuffix("/session/persona") {return(200,reply,0.15)}
+        return(404,Data(#"{"success":false}"#.utf8),0)
+    };defer{fixture.close()}
+    let(model,defaults,name)=fixture.model();defer{defaults.removePersistentDomain(forName:name)}
+    await model.sessionHistory.prepare();await model.refreshActiveDJSession();await model.refreshActiveMoodCapability()
+    let epoch=model.sessionHistory.responseEpoch
+    let pending=Task{await model.changeActiveSessionPersona(.radioDJ,expectedSessionID:id,expectedEpoch:epoch)}
+    try await Task.sleep(for:.milliseconds(25));#expect(model.activePersonaPending)
+    gate.denied=true;await model.refreshActiveDJSession()
+    #expect(model.activeDJSession?.runtimeState == "ended" && !model.activePersonaPending && !model.activePersonaAvailable)
+    await pending.value
+    #expect(model.activeDJSession?.confirmedPersona?.selectedPersona == .homeDJ && model.activePersonaError == nil)
+    #expect(fixture.requests.filter{$0.url!.path.hasSuffix("/session/persona")}.count == 1)
+}

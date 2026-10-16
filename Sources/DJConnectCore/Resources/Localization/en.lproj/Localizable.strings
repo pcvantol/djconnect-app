@@ -1205,3 +1205,15 @@
 "ui.session.speech.recovery.checking" = "Checking speech status…";
 "ui.session.speech.recovery.retry_later" = "Wait a moment before listening again.";
 "ui.session.speech.recovery.retained" = "You can still read the contribution and use the session controls.";
+
+// Confirmed active Session Persona; shared backend state.
+"ui.session.persona.title" = "Persona";
+"ui.session.persona.home_dj" = "Home DJ";
+"ui.session.persona.radio_dj" = "Radio DJ";
+"ui.session.persona.club_dj" = "Club DJ";
+"ui.session.persona.festival_dj" = "Festival DJ";
+"ui.session.persona.confirmed" = "Confirmed";
+"ui.session.persona.pending" = "Changing Persona…";
+"ui.session.persona.unavailable" = "Persona is currently unavailable.";
+"ui.session.persona.conflict" = "Persona changed on another device. Check the confirmed choice and choose again.";
+"ui.session.persona.failed" = "The change was not confirmed. Check the current Persona before trying again.";

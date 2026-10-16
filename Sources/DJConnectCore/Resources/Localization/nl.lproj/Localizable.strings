@@ -1205,3 +1205,15 @@
 "ui.session.speech.recovery.checking" = "Spraakstatus controleren…";
 "ui.session.speech.recovery.retry_later" = "Wacht even voordat je opnieuw luistert.";
 "ui.session.speech.recovery.retained" = "Je kunt de bijdrage blijven lezen en de sessie blijven bedienen.";
+
+// Confirmed active Session Persona; shared backend state.
+"ui.session.persona.title" = "Persona";
+"ui.session.persona.home_dj" = "Thuis-dj";
+"ui.session.persona.radio_dj" = "Radio-dj";
+"ui.session.persona.club_dj" = "Club-dj";
+"ui.session.persona.festival_dj" = "Festival-dj";
+"ui.session.persona.confirmed" = "Bevestigd";
+"ui.session.persona.pending" = "Persona wijzigen…";
+"ui.session.persona.unavailable" = "Persona is nu niet beschikbaar.";
+"ui.session.persona.conflict" = "De Persona is op een ander apparaat gewijzigd. Controleer de bevestigde keuze en kies opnieuw.";
+"ui.session.persona.failed" = "De wijziging is niet bevestigd. Controleer de actuele Persona voordat je opnieuw probeert.";

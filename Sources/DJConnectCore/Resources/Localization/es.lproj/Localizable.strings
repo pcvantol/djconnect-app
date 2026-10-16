@@ -1205,3 +1205,15 @@
 "ui.session.speech.recovery.checking" = "Comprobando la reproducción de voz…";
 "ui.session.speech.recovery.retry_later" = "Espera un momento antes de volver a escuchar.";
 "ui.session.speech.recovery.retained" = "Puedes seguir leyendo la contribución y usar los controles de la sesión.";
+
+// Confirmed active Session Persona; shared backend state.
+"ui.session.persona.title" = "Persona";
+"ui.session.persona.home_dj" = "DJ en casa";
+"ui.session.persona.radio_dj" = "DJ de radio";
+"ui.session.persona.club_dj" = "DJ de club";
+"ui.session.persona.festival_dj" = "DJ de festival";
+"ui.session.persona.confirmed" = "Confirmada";
+"ui.session.persona.pending" = "Cambiando Persona…";
+"ui.session.persona.unavailable" = "La Persona no está disponible en este momento.";
+"ui.session.persona.conflict" = "La Persona cambió en otro dispositivo. Revisa la opción confirmada y vuelve a elegir.";
+"ui.session.persona.failed" = "No se confirmó el cambio. Revisa la Persona actual antes de intentarlo de nuevo.";

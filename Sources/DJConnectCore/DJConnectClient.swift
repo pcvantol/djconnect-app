@@ -342,6 +342,38 @@ public final class DJConnectClient: Sendable {
         return result
     }
 
+    public func sessionPersonaRequest(sessionID: String, persona: DJConnectSessionPersonaValue, expectedRevision: Int) throws -> URLRequest {
+        guard !sessionID.isEmpty, expectedRevision >= 0 else { throw DJConnectError.invalidResponse }
+        var request = try authenticatedRequest(path: Self.apiV1Path("session/persona"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "contract_version": 1, "client_type": identity.clientType.rawValue, "device_id": identity.deviceID,
+            "session_id": sessionID, "selected_persona": persona.rawValue, "expected_persona_revision": expectedRevision
+        ])
+        return request
+    }
+
+    public func updateSessionPersona(sessionID: String, persona: DJConnectSessionPersonaValue, expectedRevision: Int) async throws -> DJConnectSessionPersonaResponse {
+        let (data, status) = try await dataAndStatusCodeResponse(
+            for: sessionPersonaRequest(sessionID: sessionID, persona: persona, expectedRevision: expectedRevision),
+            using: sessionProjectionSession, acceptingStatuses: [409])
+        if status == 409 {
+            struct ConflictBody: Decodable { let success: Bool; let error: String; let current: DJConnectSessionPersonaSnapshot }
+            let conflict = try decoder.decode(ConflictBody.self, from: data)
+            guard !conflict.success, conflict.error == "persona_revision_conflict", conflict.current.sessionID == sessionID else {
+                throw DJConnectError.invalidResponse
+            }
+            throw DJConnectSessionPersonaConflict(current: conflict.current)
+        }
+        let result = try decoder.decode(DJConnectSessionPersonaResponse.self, from: data)
+        guard status == 200, result.success, result.contractVersion == 1, result.sessionID == sessionID,
+              result.selectedPersona == persona, result.personaRevision >= expectedRevision,
+              result.personaRevision - expectedRevision == (result.changed ? 1 : 0) else { throw DJConnectError.invalidResponse }
+        return result
+    }
+
     public func approveVibeCastHandoff(_ payload: DJConnectVibeCastHandoffApprovalRequest) async throws -> DJConnectVibeCastHandoffApprovalResponse {
         let request = try vibeCastHandoffApprovalRequest(payload)
         return try await decodedResponse(for: request)

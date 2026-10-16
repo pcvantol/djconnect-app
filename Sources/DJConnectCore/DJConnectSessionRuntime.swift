@@ -116,6 +116,8 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
         public var moodRevision: Int? = nil
         public var selectedPresence: DJConnectSessionPresenceValue? = nil
         public var presenceRevision: Int? = nil
+        public var selectedPersona: DJConnectSessionPersonaValue? = nil
+        public var personaRevision: Int? = nil
         public var locale: String? = nil
 
         enum CodingKeys: String, CodingKey {
@@ -124,6 +126,7 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
             case selectedMood = "selected_mood"
             case locale, moodRevision = "mood_revision"
             case selectedPresence = "selected_presence", presenceRevision = "presence_revision"
+            case selectedPersona = "dj_persona", personaRevision = "persona_revision"
         }
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -135,12 +138,17 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
             selectedPresence = try c.decodeIfPresent(DJConnectSessionPresenceValue.self, forKey: .selectedPresence)
             presenceRevision = try c.decodeIfPresent(Int.self, forKey: .presenceRevision)
             if let presenceRevision, presenceRevision < 0 { throw DJConnectError.invalidResponse }
+            selectedPersona = try c.decodeIfPresent(DJConnectSessionPersonaValue.self, forKey: .selectedPersona)
+            personaRevision = try c.decodeIfPresent(Int.self, forKey: .personaRevision)
+            if let personaRevision, personaRevision < 0 { throw DJConnectError.invalidResponse }
             locale = try? c.decode(String.self, forKey: .locale)
         }
         public init(sessionID: String, runtimeState: String, selectedMood: String, locale: String? = nil, moodRevision: Int? = nil,
-                    selectedPresence: DJConnectSessionPresenceValue? = nil, presenceRevision: Int? = nil) {
+                    selectedPresence: DJConnectSessionPresenceValue? = nil, presenceRevision: Int? = nil,
+                    selectedPersona: DJConnectSessionPersonaValue? = nil, personaRevision: Int? = nil) {
             self.sessionID = sessionID; self.runtimeState = runtimeState; self.selectedMood = selectedMood; self.locale = locale; self.moodRevision = moodRevision
             self.selectedPresence = selectedPresence; self.presenceRevision = presenceRevision
+            self.selectedPersona = selectedPersona; self.personaRevision = personaRevision
         }
     }
 
@@ -168,6 +176,7 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
     public var delivery: Delivery? = nil
     // Local certainty fence, never decoded from or encoded onto the wire.
     var presenceConflictRevision: Int? = nil
+    var personaConflictRevision: Int? = nil
     public var session: Session
     public var planner: Planner
     public var sessionFlow: DJConnectSessionFlow
@@ -208,6 +217,8 @@ public struct DJConnectSessionRuntime: Codable, Equatable, Sendable, Identifiabl
     public var moodRevision: Int? = nil
     public var selectedPresence: DJConnectSessionPresenceValue? = nil
     public var presenceRevision: Int? = nil
+    public var selectedPersona: DJConnectSessionPersonaValue? = nil
+    public var personaRevision: Int? = nil
     public var musicBackend: String
     public var runtimeState: String
     public var startedAt: String
@@ -222,6 +233,7 @@ public struct DJConnectSessionRuntime: Codable, Equatable, Sendable, Identifiabl
         case selectedMood = "selected_mood"
         case moodRevision = "mood_revision"
         case selectedPresence = "selected_presence", presenceRevision = "presence_revision"
+        case selectedPersona = "dj_persona", personaRevision = "persona_revision"
         case musicBackend = "music_backend"
         case runtimeState = "runtime_state"
         case startedAt = "started_at"
@@ -348,6 +360,14 @@ public extension DJConnectSessionRuntime {
         if let value = broadcastState.session.selectedPresence, let revision = broadcastState.session.presenceRevision {
             runtime = runtime.applying(presence: .init(sessionID: sessionID, selectedPresence: value, presenceRevision: revision))
         }
+        // Persona has its own CAS revision, independent of Mood/Presence.
+        runtime.broadcast.personaConflictRevision = [broadcast.personaConflictRevision, broadcastState.personaConflictRevision].compactMap { $0 }.max()
+        runtime.selectedPersona = selectedPersona; runtime.personaRevision = personaRevision
+        runtime.broadcast.session.selectedPersona = broadcast.session.selectedPersona
+        runtime.broadcast.session.personaRevision = broadcast.session.personaRevision
+        if let value = broadcastState.session.selectedPersona, let revision = broadcastState.session.personaRevision {
+            runtime = runtime.applying(persona: .init(sessionID: sessionID, selectedPersona: value, personaRevision: revision))
+        }
         return runtime
     }
 
@@ -401,9 +421,14 @@ public struct DJConnectActiveMoodCapabilities: Decodable, Sendable {
     let contractVersions: [String: Int]?
     let contract: Contract?
     let presenceContract: DJConnectPresenceCapability?
+    let personaContract: DJConnectPersonaCapability?
     enum CodingKeys: String, CodingKey {
         case capabilities, contractVersions = "contract_versions", contract = "active_session_mood"
         case presenceContract = "active_session_presence"
+        case personaContract = "active_session_persona"
+    }
+    public var personaAvailable: Bool {
+        capabilities?["active_session_persona"] == true && contractVersions?["active_session_persona"] == 1 && personaContract?.isSupported == true
     }
     public var presenceAvailable: Bool {
         capabilities?["active_session_presence"] == true && contractVersions?["active_session_presence"] == 1 &&

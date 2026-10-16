@@ -503,6 +503,7 @@ struct SessionTimelineScreen: View {
                         #endif
                         ActiveSessionMoodToolbar(model: model, session: activeSession)
                         ActiveSessionPresenceToolbar(model: model, session: activeSession)
+                        ActiveSessionPersonaToolbar(model: model, session: activeSession)
                     }
                     #if !os(macOS)
                     if !usesExpandedToolbar, activeSession != nil {
