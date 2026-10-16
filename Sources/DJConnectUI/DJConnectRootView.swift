@@ -11209,7 +11209,11 @@ private struct AskDJView: View {
     }
 
     private func maxContentWidth(for size: CGSize) -> CGFloat {
-        shouldUseWideLayout(for: size) ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
+        #if os(iOS)
+        // Keyboard avoidance changes available height; it must not select a wider iPad chat column.
+        if UIDevice.current.userInterfaceIdiom == .pad { return djConnectContentMaxWidth }
+        #endif
+        return shouldUseWideLayout(for: size) ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
     }
 
     private var floatingControlTopPadding: CGFloat {
