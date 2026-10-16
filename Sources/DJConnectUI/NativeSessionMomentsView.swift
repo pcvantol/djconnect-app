@@ -67,6 +67,7 @@ struct NativeSessionMomentsView: View {
     var artworkBaseURL: URL? = nil
     var playbackOutputName: String? = nil
     var playbackModel: DJConnectAppModel? = nil
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private func text(_ key: String) -> String {
@@ -202,6 +203,11 @@ struct NativeSessionMomentsView: View {
                         .aspectRatio(1, contentMode: .fit)
                         .djAlbumArtworkGlassCard()
                         .frame(maxWidth: 270)
+                        .contentShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
+                        .gesture(artworkPlaybackGesture)
+                        .accessibilityAction(named: Text(text("ui.next.track"))) { sendArtworkCommand("next") }
+                        .accessibilityAction(named: Text(text("ui.previous.track"))) { sendArtworkCommand("previous") }
+                        .accessibilityAction(named: Text(text("ui.pause"))) { sendArtworkCommand("pause") }
                         .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("session-music-artwork")
                     musicDetails
@@ -213,6 +219,29 @@ struct NativeSessionMomentsView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("session-music-context")
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Only one recognizer wins: holding excludes taps, and a double tap excludes a single tap.
+    private var artworkPlaybackGesture: some Gesture {
+        LongPressGesture(minimumDuration: 0.5, maximumDistance: 12)
+            .exclusively(before: TapGesture(count: 2).exclusively(before: TapGesture(count: 1)))
+            .onEnded { result in
+                switch result {
+                case .first:
+                    sendArtworkCommand("pause")
+                case .second(.first):
+                    sendArtworkCommand("previous")
+                case .second(.second):
+                    sendArtworkCommand("next")
+                }
+            }
+    }
+
+    private func sendArtworkCommand(_ command: String) {
+        // Reject an obsolete artwork/Session or unavailable route when recognition finishes.
+        guard scenePhase == .active, let playbackModel,
+              playbackModel.canToggleSessionFavorite(session) else { return }
+        playbackModel.sendPlaybackCommand(command)
     }
 
     private var musicDetails: some View {

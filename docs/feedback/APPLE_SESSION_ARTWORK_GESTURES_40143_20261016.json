@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-16",
+  "source_parent": "b359ce4",
+  "build": "40143",
+  "request": "DJ-session album art: single tap next, double tap previous, long press pause.",
+  "implementation": "Exclusive LongPressGesture(0.5s,12pt) before exclusive double/single TapGesture; existing playback command path. Recognition completion requires active scene and same current Session/playback via existing favorite context guard. Named localized VoiceOver next/previous/pause actions. No backend contract changes.",
+  "source_file": "Sources/DJConnectUI/NativeSessionMomentsView.swift",
+  "source_build": {
+    "result": "PASS",
+    "log": "/private/tmp/djc-artwork-gestures-source-build-host.log",
+    "seconds": 19.32,
+    "notes": "Existing unrelated SessionTimelineScreen actor isolation warnings. Initial sandbox build blocked by module-cache permissions; host compile succeeded."
+  },
+  "localizations": "PASS 1174 keys; existing translated action labels reused",
+  "selective_build": {
+    "result": "PASS signed iOS/Watch",
+    "log": "/private/tmp/djc-ios-40143-artwork-gestures-build.log",
+    "baseline_files_verified": 452,
+    "manifest": "build/recovery/iphone40143-selective-source-manifest-20261016.json",
+    "strict_codesign": "PASS",
+    "executable_sha256": "ae5b056df20267e83aa0f2f4f04dbedb4e7ca19bfe801599bad8e5d8e7467457"
+  },
+  "installation": {
+    "device": "Peter-iPhone17Pro",
+    "version": "4.0.0/40143",
+    "install": "/private/tmp/djc-iphone-40143-install.json",
+    "readback": "/private/tmp/djc-iphone-40143-readback.json",
+    "other_devices_updated": false
+  },
+  "physical_gesture_dispatch": {
+    "result": "PASS bounded command dispatch only, not provider outcome",
+    "log": "/private/tmp/djc-artwork-40143-final-app.log",
+    "events": [
+      [
+        "20:28:23",
+        "next"
+      ],
+      [
+        "20:29:28",
+        "previous"
+      ],
+      [
+        "20:29:47",
+        "pause"
+      ]
+    ],
+    "extra_next_from_double_or_hold": false,
+    "assertion": "Extracted current test-window Sending playback command events exactly equal next/previous/pause."
+  },
+  "native_test_limits": [
+    "Initial isolated demo probe could not find artwork; no gesture executed. Following activate-only probe remained in demo. Explicit process termination and ordinary launch restored real app.",
+    "Ordinary single tap dispatched next once, but title did not change within five seconds; XCTest FAILED UI assertion. Bundle /private/tmp/djc-iphone-40143-artwork-gestures-normal-20261016.xcresult.",
+    "Double tap and long press dispatched previous and pause once, without next. UI pause state not found after eighteen seconds; XCTest FAILED. Bundle /private/tmp/djc-iphone-40143-artwork-double-hold-20261016.xcresult. Repeated-pause assertion was not reached.",
+    "No complete live playback/provider or UI update acceptance claimed; existing transition diagnosis remains separate. No new full suite. No visual screenshot inspection claimed."
+  ],
+  "probe_source_restored": true,
+  "publication": "Local only; no push/PR/merge/Core deployment. Source recovery and native evidence retained. No cleanup."
+}
