@@ -1,0 +1,40 @@
+{
+  "assignment": "DJC-APPLE-VIBECAST-OWNER-SCANNER-V1-20261016",
+  "local_review_commit": "6c21c15",
+  "result": "CONSUMER_REVIEW_DELIVERED",
+  "api_pin": "e6464e86cd214bd55661f14f238706332a53bd40",
+  "core_pin": "325aabc7205f1f18928bc2c809817956d91609f8",
+  "design_cases": 22,
+  "runtime_or_native_crypto_tests": "NOT_RUN",
+  "remaining_gates": [
+    "TRUST-1 risk disposition",
+    "KEY-STATE lifecycle and crash ordering",
+    "TRUST-2 exact crypto/verifier qualification",
+    "WIRE-1 schemas and interoperability",
+    "independent security/privacy/UX review"
+  ],
+  "comments": [
+    {
+      "url": "https://github.com/pcvantol/djconnect-api/pull/94#issuecomment-6226236839",
+      "body_sha256": "791a33e2df83b627702ee19290804637015c4821237a87363899426485b176c3",
+      "exact_body_readback": "PASS"
+    },
+    {
+      "url": "https://github.com/pcvantol/djconnect/pull/1197#issuecomment-6226241048",
+      "body_sha256": "2fb7678e44f3e29d81a36311cd9d49f6ef43c1bc346787b5d034acc6abe698d2",
+      "exact_body_readback": "PASS"
+    },
+    {
+      "url": "https://github.com/pcvantol/djconnect-api/issues/90#issuecomment-6226241268",
+      "body_sha256": "e3e232bb2ba21d0002a1b7042e209c5ffbea77e964297b88f98425f855c961a1",
+      "exact_body_readback": "PASS"
+    },
+    {
+      "url": "https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6226245321",
+      "body_sha256": "0ae6d394cc23b038d436fd756fc588cb635fe401a68060ffdf5bf7d81e02712c",
+      "exact_body_readback": "PASS"
+    }
+  ],
+  "source_push": false,
+  "runtime_or_installation_changes": false
+}
