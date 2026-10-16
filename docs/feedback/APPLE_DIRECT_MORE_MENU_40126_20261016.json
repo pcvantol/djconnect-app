@@ -1,0 +1,33 @@
+{
+  "status": "DIRECT_MORE_MENU_ONE_TAP_PASS_INSTALLED_IPHONE40126",
+  "parent": "b03e8c5",
+  "problem": "Native iPhone toolbar overflow wrapped SessionMoreMenu inside a second ellipsis submenu, requiring two taps before its actions appeared",
+  "change": "Compact iPhone session actions now occupy one native toolbar item with icon-only HStack, preserving the direct More Menu and its existing VibeCast/refresh actions and guards. Expanded iPad/macOS retain ToolbarItemGroup. Extracted shared action builder avoids divergent actions",
+  "validation": {
+    "source_ui_compile": "PASS15.95s /private/tmp/djc-direct-more-ui-build-20261016.log",
+    "signed_ios_build": "BUILD SUCCEEDED /private/tmp/djc-ios-40126-direct-more-build-20261016.log",
+    "codesign": "strict deep PASS",
+    "selective_source": "All452baseline40125hashes verified; exactly1toolbar-only file changed; all452finalhashes reverified after build; no Persona/Speech/widget/cosmetic imports",
+    "manifest": "build/recovery/iphone40126-selective-source-manifest-20261016.json",
+    "install": "Normal in-place iPhone install PASS; independent CoreDevice bundleVersion40126",
+    "readback": "/private/tmp/djc-iphone-40126-direct-more-readback-20261016.json",
+    "native": "PASS15.460s; selected DJ-sessie and waited runningForeground/selected/hittable; exact session-more-menu tapped ONCE; VibeCast and refresh both immediately found; no submenu tap, no action executed; outside dismissal only",
+    "result_bundle": "/private/tmp/djc-iphone-40126-direct-more-20261016.xcresult",
+    "ax_result": "ONE tap: handoff=true refresh=true",
+    "probe": "/private/tmp/djc-iphone-40126-direct-more-probe-20261016.swift",
+    "external_harness": "Original Probe.swift restored and cmp verified"
+  },
+  "screenshots": [
+    {
+      "path": "/private/tmp/djc-iphone-40126-direct-more-20261016-attachments/F3E55297-9270-4CB6-B0A2-A327E57FBC2C.png",
+      "sha256": "f6e037737f2eb3e0ac0e27987ec15db998a81bb2f93f0d766b4c3ee9e70b3e89",
+      "viewed": true
+    },
+    {
+      "path": "/private/tmp/djc-iphone-40126-direct-more-20261016-attachments/8F5A556B-AD0A-4E09-A719-0BFC1915718C.png",
+      "sha256": "977cd55f21ed61ef3d40ee278bc90def099a1978987e1c36fd85c75c99f61b4c",
+      "viewed": true
+    }
+  ],
+  "effects": "Only iPhone40126 installed; other apps unchanged; no VibeCast/refresh/playback/send/preferences action, Core change, publication or automation change. This closes the redundant More submenu check, not the separate intermittent presentation issue."
+}

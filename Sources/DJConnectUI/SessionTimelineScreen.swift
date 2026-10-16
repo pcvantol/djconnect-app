@@ -508,73 +508,27 @@ struct SessionTimelineScreen: View {
                     }
                 }
                 #endif
-                ToolbarItemGroup(placement: djConnectRefreshToolbarPlacement) {
-                    if let activeSession {
-                        #if !os(macOS)
-                        if !usesExpandedToolbar { SessionConnectionToolbarButton(model: model) }
-                        #endif
-                        #if os(iOS)
-                        ActiveSessionMoodToolbar(model: model, session: activeSession, requestPresentation: {
-                            sessionControlIntent = SessionControlIntent(kind: .mood, sessionID: activeSession.id, epoch: history.responseEpoch)
-                        })
-                        ActiveSessionPresenceToolbar(model: model, session: activeSession, requestPresentation: {
-                            sessionControlIntent = SessionControlIntent(kind: .presence, sessionID: activeSession.id, epoch: history.responseEpoch)
-                        })
-                        #else
-                        ActiveSessionMoodToolbar(model: model, session: activeSession)
-                        ActiveSessionPresenceToolbar(model: model, session: activeSession)
-                        #endif
-                        ActiveSessionPersonaToolbar(model: model, session: activeSession)
-                        ActiveSessionVoiceToolbar(model: model, session: activeSession)
+                #if os(iOS)
+                if usesExpandedToolbar {
+                    ToolbarItemGroup(placement: djConnectRefreshToolbarPlacement) {
+                        sessionToolbarActions(proxy: proxy)
                     }
-                    #if !os(macOS)
-                    if !usesExpandedToolbar, activeSession != nil {
-                        SessionEndToolbarButton(model: model)
-                    }
-                    #endif
-                    #if !os(macOS)
-                    if !usesExpandedToolbar { sessionSearchToolbarButton(proxy: proxy) }
-                    #endif
-                    #if os(macOS)
-                    if allowsHandoffPresentation {
-                        Button { model.isShowingVibeCastSessionStart = true } label: {
-                            Image(systemName: "tv.badge.wifi")
-                                .foregroundStyle(model.vibeCastHandoffApproved ? djConnectAccent : .white)
+                } else {
+                    // Keep our More menu directly on the bar: system overflow
+                    // must not wrap it inside another ellipsis submenu.
+                    ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
+                        HStack(spacing: 0) {
+                            sessionToolbarActions(proxy: proxy)
+                                .frame(minWidth: 40, minHeight: 44)
                         }
-                        .accessibilityLabel(text("ui.vibecast.handoff.title"))
-                        .accessibilityIdentifier("session-handoff-toggle")
-                        .help(text("ui.vibecast.handoff.title"))
+                        .labelStyle(.iconOnly)
                     }
-                    #else
-                    if usesExpandedToolbar {
-                        if allowsHandoffPresentation {
-                            Button { model.isShowingVibeCastSessionStart = true } label: {
-                                Image(systemName: "tv.badge.wifi")
-                                    .foregroundStyle(model.vibeCastHandoffApproved ? djConnectAccent : .white)
-                            }
-                            .accessibilityLabel(text("ui.vibecast.handoff.title"))
-                            .accessibilityIdentifier("session-handoff-toggle")
-                        }
-                        if activeSession != nil { SessionEndToolbarButton(model: model) }
-                        if let refreshAction {
-                            Button(action: refreshAction) {
-                                Image(systemName: "arrow.clockwise").foregroundStyle(.white)
-                            }
-                            .disabled(model.isDemoMode || model.pairingStatus != .paired)
-                            .accessibilityLabel(text("ui.refresh"))
-                            .accessibilityIdentifier("screen-refresh")
-                        }
-                    } else if allowsHandoffPresentation || refreshAction != nil {
-                        SessionMoreMenu(
-                            sessionID: sessionID, authorityEpoch: history.responseEpoch, language: model.language,
-                            showsHandoff: allowsHandoffPresentation,
-                            isRefreshEnabled: !model.isDemoMode && model.pairingStatus == .paired,
-                            openHandoff: { model.isShowingVibeCastSessionStart = true }, refreshAction: refreshAction
-                        )
-                        .equatable()
-                    }
-                    #endif
                 }
+                #else
+                ToolbarItemGroup(placement: djConnectRefreshToolbarPlacement) {
+                    sessionToolbarActions(proxy: proxy)
+                }
+                #endif
                 #if os(macOS)
                 if activeSession != nil {
                     ToolbarItemGroup(placement: .confirmationAction) {
@@ -660,6 +614,76 @@ struct SessionTimelineScreen: View {
             .onDisappear(perform: clearReadingState)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(activeSession == nil ? "screen-history-timeline" : "screen-session-conversation")
+        }
+    }
+
+    @ViewBuilder private func sessionToolbarActions(proxy: ScrollViewProxy) -> some View {
+        Group {
+            if let activeSession {
+                #if !os(macOS)
+                if !usesExpandedToolbar { SessionConnectionToolbarButton(model: model) }
+                #endif
+                #if os(iOS)
+                ActiveSessionMoodToolbar(model: model, session: activeSession, requestPresentation: {
+                    sessionControlIntent = SessionControlIntent(kind: .mood, sessionID: activeSession.id, epoch: history.responseEpoch)
+                })
+                ActiveSessionPresenceToolbar(model: model, session: activeSession, requestPresentation: {
+                    sessionControlIntent = SessionControlIntent(kind: .presence, sessionID: activeSession.id, epoch: history.responseEpoch)
+                })
+                #else
+                ActiveSessionMoodToolbar(model: model, session: activeSession)
+                ActiveSessionPresenceToolbar(model: model, session: activeSession)
+                #endif
+                ActiveSessionPersonaToolbar(model: model, session: activeSession)
+                ActiveSessionVoiceToolbar(model: model, session: activeSession)
+            }
+            #if !os(macOS)
+            if !usesExpandedToolbar, activeSession != nil {
+                SessionEndToolbarButton(model: model)
+            }
+            #endif
+            #if !os(macOS)
+            if !usesExpandedToolbar { sessionSearchToolbarButton(proxy: proxy) }
+            #endif
+            #if os(macOS)
+            if allowsHandoffPresentation {
+                Button { model.isShowingVibeCastSessionStart = true } label: {
+                    Image(systemName: "tv.badge.wifi")
+                        .foregroundStyle(model.vibeCastHandoffApproved ? djConnectAccent : .white)
+                }
+                .accessibilityLabel(text("ui.vibecast.handoff.title"))
+                .accessibilityIdentifier("session-handoff-toggle")
+                .help(text("ui.vibecast.handoff.title"))
+            }
+            #else
+            if usesExpandedToolbar {
+                if allowsHandoffPresentation {
+                    Button { model.isShowingVibeCastSessionStart = true } label: {
+                        Image(systemName: "tv.badge.wifi")
+                            .foregroundStyle(model.vibeCastHandoffApproved ? djConnectAccent : .white)
+                    }
+                    .accessibilityLabel(text("ui.vibecast.handoff.title"))
+                    .accessibilityIdentifier("session-handoff-toggle")
+                }
+                if activeSession != nil { SessionEndToolbarButton(model: model) }
+                if let refreshAction {
+                    Button(action: refreshAction) {
+                        Image(systemName: "arrow.clockwise").foregroundStyle(.white)
+                    }
+                    .disabled(model.isDemoMode || model.pairingStatus != .paired)
+                    .accessibilityLabel(text("ui.refresh"))
+                    .accessibilityIdentifier("screen-refresh")
+                }
+            } else if allowsHandoffPresentation || refreshAction != nil {
+                SessionMoreMenu(
+                    sessionID: sessionID, authorityEpoch: history.responseEpoch, language: model.language,
+                    showsHandoff: allowsHandoffPresentation,
+                    isRefreshEnabled: !model.isDemoMode && model.pairingStatus == .paired,
+                    openHandoff: { model.isShowingVibeCastSessionStart = true }, refreshAction: refreshAction
+                )
+                .equatable()
+            }
+            #endif
         }
     }
 
