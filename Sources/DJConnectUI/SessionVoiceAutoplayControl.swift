@@ -28,8 +28,13 @@ struct ActiveSessionAutoplayToolbar: View {
     @State private var showing = false
     private var title: String { DJConnectLocalization.localized(key: "ui.session.voice.title", language: model.language) }
     var body: some View {
-        Button { showing = true } label: { Label(title, systemImage: "speaker.wave.2") }
+        Button { showing = true } label: {
+            Label { Text(title) } icon: {
+                Image(systemName: "speaker.wave.2").foregroundStyle(.white)
+            }
+        }
             .foregroundStyle(.white)
+            .tint(.white)
             .accessibilityIdentifier("session-voice-toggle")
             .popover(isPresented: $showing) {
                 ScrollView {

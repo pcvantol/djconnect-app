@@ -37,8 +37,13 @@ struct ActiveSessionVoiceToolbar: View {
         menuEpoch = history.responseEpoch
     }
     var body: some View {
-        Button { showing = true } label: { Label(text("title"), systemImage: "speaker.wave.2") }
+        Button { showing = true } label: {
+            Label { Text(text("title")) } icon: {
+                Image(systemName: "speaker.wave.2").foregroundStyle(.white)
+            }
+        }
             .foregroundStyle(.white)
+            .tint(.white)
             .accessibilityIdentifier("session-voice-toggle")
             .popover(isPresented: $showing) {
                 ScrollView {
