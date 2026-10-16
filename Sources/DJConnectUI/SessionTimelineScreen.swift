@@ -847,7 +847,6 @@ struct SessionTimelineScreen: View {
             }
         }
         .font(.callout).padding(.horizontal, 20).padding(.vertical, 10)
-        .background(.ultraThinMaterial)
         .onKeyPress(.escape) { closeSearch(proxy: proxy); return .handled }
         .onKeyPress(.upArrow) { moveMatch(-1, proxy: proxy); return .handled }
         .onKeyPress(.downArrow) { moveMatch(1, proxy: proxy); return .handled }
