@@ -13449,6 +13449,7 @@ struct SessionGlassChoiceSelector: View {
                     Button { onSelect(index) } label: {
                         Image(systemName: glyphs[safe: index] ?? "sparkles")
                             .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(index == selectedIndex ? djConnectAccent : .white)
                             .frame(maxWidth: .infinity, minHeight: 48)
                     }
                     .djConnectButtonStyle(DJConnectButtonStyle(
