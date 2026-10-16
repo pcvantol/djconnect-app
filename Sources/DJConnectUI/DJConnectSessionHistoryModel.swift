@@ -61,7 +61,10 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     @Published private var liveResponses: [String: LiveResponse] = [:]
     private weak var host: DJConnectAppModel?
     private var epoch = UUID()
-    private var ownerScope: String?
+    private var ownerScope: String? {
+        didSet { if ownerScope != oldValue { host?.activeVoiceOwnerDidChange() } }
+    }
+    var authorizedProfileID: String? { ownerScope }
     private var listRevision: String?
     private var listGeneration = UUID()
     private var timelineGenerations: [String: UUID] = [:]
@@ -246,6 +249,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func reset() {
+        host?.discardActiveVoicePreference()
         host?.invalidateSessionPlaybackActions()
         host?.withdrawLiveConversationPresentations()
         host?.invalidateConversationResultLeases()
@@ -263,7 +267,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         clearSearch(); navigationErrorKey = nil; timelineGenerations = [:]; timelineNavigations = [:]
     }
 
-    public func suspend() {
+    public func suspend(preservingVoicePreference: Bool = false) {
+        if preservingVoicePreference { host?.invalidateActiveVoiceInventory() }
+        else { host?.discardActiveVoicePreference() }
         host?.invalidateSessionPlaybackActions()
         host?.withdrawLiveConversationPresentations()
         host?.invalidateConversationResultLeases()

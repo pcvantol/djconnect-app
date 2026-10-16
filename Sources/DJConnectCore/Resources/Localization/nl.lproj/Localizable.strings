@@ -1217,3 +1217,12 @@
 "ui.session.persona.unavailable" = "Persona is nu niet beschikbaar.";
 "ui.session.persona.conflict" = "De Persona is op een ander apparaat gewijzigd. Controleer de bevestigde keuze en kies opnieuw.";
 "ui.session.persona.failed" = "De wijziging is niet bevestigd. Controleer de actuele Persona voordat je opnieuw probeert.";
+
+"ui.session.voice.title" = "Stem";
+"ui.session.voice.scope" = "Je stemkeuze geldt voor jou in deze sessie op dit apparaat.";
+"ui.session.voice.loading" = "Stemmen laden…";
+"ui.session.voice.default" = "Standaard van Home Assistant";
+"ui.session.voice.configured" = "Ingestelde standaard";
+"ui.session.voice.unavailable" = "Stem niet beschikbaar. Controleer de spraakinstellingen in Home Assistant of vernieuw de beschikbare stemmen.";
+"ui.session.voice.refresh" = "Stemmen vernieuwen";
+"ui.session.voice.selected" = "Geselecteerd";

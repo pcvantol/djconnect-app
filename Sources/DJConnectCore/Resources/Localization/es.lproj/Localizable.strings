@@ -1217,3 +1217,12 @@
 "ui.session.persona.unavailable" = "La Persona no está disponible en este momento.";
 "ui.session.persona.conflict" = "La Persona cambió en otro dispositivo. Revisa la opción confirmada y vuelve a elegir.";
 "ui.session.persona.failed" = "No se confirmó el cambio. Revisa la Persona actual antes de intentarlo de nuevo.";
+
+"ui.session.voice.title" = "Voz";
+"ui.session.voice.scope" = "La voz elegida se aplica a ti en esta sesión en este dispositivo.";
+"ui.session.voice.loading" = "Cargando voces…";
+"ui.session.voice.default" = "Voz predeterminada de Home Assistant";
+"ui.session.voice.configured" = "Voz configurada por defecto";
+"ui.session.voice.unavailable" = "Voz no disponible. Revisa los ajustes de voz en Home Assistant o actualiza las voces disponibles.";
+"ui.session.voice.refresh" = "Actualizar voces";
+"ui.session.voice.selected" = "Seleccionada";

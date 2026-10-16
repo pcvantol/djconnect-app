@@ -17146,18 +17146,6 @@ struct SettingsView: View {
                 .djSettingsListRowBackground()
 
                 SettingsGlassSection(title: "DJ-aankondigingen") {
-                    Toggle(isOn: $model.localResponseAudioEnabled) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(localizedKey(model.language, "ui.auto.play.dj.answers"))
-                            Text(localizedKey(model.language, "ui.play.dj.answer.audio.as.soon.as.it.arrives"))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    .tint(djConnectAccent)
-                    .djCompactSettingsListRow()
-
                     LabeledContent("Output") {
                         Picker("Output", selection: $model.djAnnouncementOutput) {
                             ForEach(DJAnnouncementOutput.allCases, id: \.self) { output in

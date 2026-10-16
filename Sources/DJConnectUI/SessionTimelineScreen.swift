@@ -504,6 +504,7 @@ struct SessionTimelineScreen: View {
                         ActiveSessionMoodToolbar(model: model, session: activeSession)
                         ActiveSessionPresenceToolbar(model: model, session: activeSession)
                         ActiveSessionPersonaToolbar(model: model, session: activeSession)
+                        ActiveSessionVoiceToolbar(model: model, session: activeSession)
                     }
                     #if !os(macOS)
                     if !usesExpandedToolbar, activeSession != nil {

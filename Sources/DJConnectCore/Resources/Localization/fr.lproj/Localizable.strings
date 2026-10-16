@@ -1217,3 +1217,12 @@
 "ui.session.persona.unavailable" = "La Persona est actuellement indisponible.";
 "ui.session.persona.conflict" = "La Persona a changé sur un autre appareil. Vérifiez le choix confirmé et choisissez à nouveau.";
 "ui.session.persona.failed" = "La modification n’a pas été confirmée. Vérifiez la Persona actuelle avant de réessayer.";
+
+"ui.session.voice.title" = "Voix";
+"ui.session.voice.scope" = "Le choix de voix s’applique à vous dans cette session sur cet appareil.";
+"ui.session.voice.loading" = "Chargement des voix…";
+"ui.session.voice.default" = "Voix par défaut de Home Assistant";
+"ui.session.voice.configured" = "Voix configurée par défaut";
+"ui.session.voice.unavailable" = "Voix indisponible. Vérifiez les réglages vocaux de Home Assistant ou actualisez les voix disponibles.";
+"ui.session.voice.refresh" = "Actualiser les voix";
+"ui.session.voice.selected" = "Sélectionnée";

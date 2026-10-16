@@ -64,6 +64,10 @@ public struct DJConnectSpeechVoicePreferenceState: Sendable {
         return Refresh(generation: generation, scope: scope)
     }
 
+    public func isCurrentRefresh(_ refresh: Refresh) -> Bool {
+        refreshing && refresh.generation == generation && refresh.scope == scope
+    }
+
     @discardableResult
     public mutating func completeRefresh(_ refresh: Refresh, options response: DJConnectSpeechVoiceOptions?) -> Bool {
         guard refreshing, refresh.generation == generation, refresh.scope == scope else { return false }

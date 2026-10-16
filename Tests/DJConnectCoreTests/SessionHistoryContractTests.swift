@@ -135,6 +135,30 @@ private final class HistoryComposerOfflineSignal: @unchecked Sendable {
     func signal() { lock.withLock { callback }?() }
 }
 
+private final class HistoryWireResponseGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var released = false
+    private var deliveries: [@Sendable () -> Void] = []
+    func hold(_ delivery: @escaping @Sendable () -> Void) {
+        let deliverNow = lock.withLock {
+            if released { return true }
+            deliveries.append(delivery); return false
+        }
+        if deliverNow { delivery() }
+    }
+    func release() {
+        let pending = lock.withLock {
+            released = true
+            let pending = deliveries; deliveries = []; return pending
+        }
+        pending.forEach { $0() }
+    }
+}
+private struct HistoryWireHeldResponse: Error {
+    let data: Data
+    let gate: HistoryWireResponseGate
+}
+
 private final class HistoryWireProtocol: URLProtocol, @unchecked Sendable {
     private static let registryLock = NSLock()
     nonisolated(unsafe) private static var fixtures: [String: HistoryWireFixture] = [:]
@@ -154,6 +178,13 @@ private final class HistoryWireProtocol: URLProtocol, @unchecked Sendable {
                     headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"]) else { return }
                 client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
                 client?.urlProtocol(self, didLoad: data); client?.urlProtocolDidFinishLoading(self)
+            }
+        } catch let held as HistoryWireHeldResponse {
+            held.gate.hold { [self] in
+                guard !stateLock.withLock({ stopped }), let response = HTTPURLResponse(url: request.url!, statusCode: 200,
+                    httpVersion: nil, headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"]) else { return }
+                client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+                client?.urlProtocol(self, didLoad: held.data); client?.urlProtocolDidFinishLoading(self)
             }
         } catch let error as HistoryWireDelayedFailure {
             DispatchQueue.global().asyncAfter(deadline: .now() + error.delay) { [self] in
@@ -3937,4 +3968,97 @@ private func scopedVoiceOptions(removing voiceID: String? = nil) throws -> DJCon
     state.bind(scope)
     #expect({ !state.completeRefresh(ended, options: options) }())
     #expect(state.selectedVoiceID == nil && state.options == nil)
+}
+
+@Suite(.serialized) struct ActiveVoiceMenuIntegrationTests {
+@Test @MainActor func activeVoiceMenuReadsOnlyAndAutoplayKeepsExistingPreference() async throws {
+    let runtime = try activePersonaRuntimeWire(), caps = try activePersonaCapsWire()
+    let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let rows = try #require(try genericTTS6eceFixture()["rows"] as? [[String: Any]])
+    let voices = try historyData(try #require(rows.first?["voice_options"]))
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/session/active") { return (200, runtime, 0) }
+        if request.url!.path.hasSuffix("ask_dj/history") { return (200, profile, 0) }
+        if request.url!.path.hasSuffix("/voice-options") { return (200, voices, 0) }
+        return (404, Data(#"{"success":false}"#.utf8), 0)
+    }; defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    defaults.set("test-installation", forKey: "DJConnectHAInstallID")
+    await model.sessionHistory.prepare(); await model.refreshActiveDJSession()
+    await model.refreshActiveVoiceOptions()
+    let scope = try #require(model.activeVoicePreference.scope)
+    #expect(scope.profileID == model.sessionHistory.authorizedProfileID && model.activeVoiceIsCurrent)
+    #expect(model.activeVoicePreference.options?.selectableVoices.count == 13)
+    let count = fixture.requests.count, epoch = model.sessionHistory.responseEpoch
+    model.selectActiveVoice("cedar", expectedScope: scope, expectedEpoch: epoch)
+    #expect(model.activeVoicePreference.resolution == .selected("cedar"))
+    model.selectActiveVoice("alloy", expectedScope: scope, expectedEpoch: UUID())
+    #expect(model.activeVoicePreference.resolution == .selected("cedar"))
+    model.localResponseAudioEnabled = true
+    #expect(defaults.bool(forKey: "DJConnectLocalResponseAudioEnabled"))
+    model.localResponseAudioEnabled = false
+    #expect(!defaults.bool(forKey: "DJConnectLocalResponseAudioEnabled"))
+    #expect(fixture.requests.count == count)
+    #expect(fixture.requests.allSatisfy { !$0.url!.path.hasSuffix("/prepare") && !$0.url!.path.hasSuffix("/audio") && !$0.url!.path.contains("/operation/execute") })
+    model.sessionHistory.suspend(preservingVoicePreference: true)
+    #expect(model.activeVoicePreference.selectedVoiceID == "cedar" && model.activeVoicePreference.options == nil)
+    await model.sessionHistory.refreshConversation()
+    await model.refreshActiveVoiceOptions()
+    #expect(model.activeVoicePreference.resolution == .selected("cedar"))
+    model.sessionHistory.suspend()
+    #expect(model.activeVoicePreference.scope == nil && model.activeVoicePreference.selectedVoiceID == nil)
+}
+
+@Test(arguments: ["background", "owner", "installation", "end"])
+@MainActor func activeVoiceMenuRejectsLateInventory(_ change: String) async throws {
+    let runtime = try activePersonaRuntimeWire(), caps = try activePersonaCapsWire()
+    var profileObject = try #require(historyObject()["later_historical_answer"] as? [String: Any])
+    let profile = try historyData(profileObject)
+    profileObject["owner_profile_id"] = "other-confirmed-owner"
+    let otherProfile = try historyData(profileObject)
+    var ended = try #require(JSONSerialization.jsonObject(with: runtime) as? [String: Any])
+    var endedSession = try #require(ended["session"] as? [String: Any]); endedSession["runtime_state"] = "ended"
+    var endedBroadcast = try #require(endedSession["broadcast"] as? [String: Any])
+    var endedState = try #require(endedBroadcast["session"] as? [String: Any]); endedState["runtime_state"] = "ended"
+    endedBroadcast["session"] = endedState; endedSession["broadcast"] = endedBroadcast
+    ended["session"] = endedSession
+    let endedData = try historyData(ended)
+    let rows = try #require(try genericTTS6eceFixture()["rows"] as? [[String: Any]])
+    let voices = try historyData(try #require(rows.first?["voice_options"]))
+    let changed = HistoryAuthorityGate()
+    let replyGate = HistoryWireResponseGate()
+    defer { replyGate.release() }
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/session/active") { return (200, changed.denied && change == "end" ? endedData : runtime, 0) }
+        if request.url!.path.hasSuffix("ask_dj/history") { return (200, changed.denied && change == "owner" ? otherProfile : profile, 0) }
+        if request.url!.path.hasSuffix("/voice-options") {
+            throw HistoryWireHeldResponse(data: voices, gate: replyGate)
+        }
+        return (404, Data(#"{"success":false}"#.utf8), 0)
+    }; defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare(); await model.refreshActiveDJSession()
+    // No HA installation identity means no scoped voice read, even with an authorized owner.
+    await model.refreshActiveVoiceOptions()
+    #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/voice-options") })
+    defaults.set("test-installation", forKey: "DJConnectHAInstallID")
+    let pending = Task { await model.refreshActiveVoiceOptions() }
+    for _ in 0..<120 where !fixture.requests.contains(where: { $0.url!.path.hasSuffix("/voice-options") }) {
+        try await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(model.activeVoicePreference.refreshing)
+    changed.denied = true
+    switch change {
+    case "background": model.markInactiveSession()
+    case "owner": await model.sessionHistory.refreshConversation()
+    case "installation": defaults.set("other-installation", forKey: "DJConnectHAInstallID"); model.invalidateActiveVoiceInventory()
+    default: await model.refreshActiveDJSession()
+    }
+    replyGate.release()
+    await pending.value
+    #expect(model.activeVoicePreference.options == nil && model.activeVoiceError == nil)
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/voice-options") }.count == 1)
+}
 }

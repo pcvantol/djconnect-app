@@ -791,6 +791,7 @@ public final class DJConnectAppModel: ObservableObject {
                 (oldValue?.runtimeState == "active" && activeDJSession?.runtimeState != "active") {
                 stopResponsePlayback(clearText: false)
                 resetActivePersonaState()
+                discardActiveVoicePreference()
             }
             if oldValue?.id != activeDJSession?.id {
                 sessionSurfaceIdentity = nil
@@ -805,6 +806,11 @@ public final class DJConnectAppModel: ObservableObject {
             syncSessionSurfaces(observedSession: true)
         }
     }
+    @Published public private(set) var activeVoicePreference = DJConnectSpeechVoicePreferenceState()
+    @Published public private(set) var activeVoiceError: String?
+    private var activeVoiceMenuOpen = false
+    private var activeVoiceRetryAfter: Date?
+
     private var personaOperationGeneration = UUID()
     @Published public private(set) var activePersonaAvailable = false
     @Published public private(set) var activePersonaPending = false
@@ -2016,8 +2022,9 @@ public final class DJConnectAppModel: ObservableObject {
                 cancelVoiceRecording()
                 clearAskDJHistoryLocally()
             }
-            sessionHistory.suspend()
+            sessionHistory.suspend(preservingVoicePreference: true)
         }
+        invalidateActiveVoiceInventory()
         invalidateSessionRequest()
         isLoadingDJSession = false
         isAppInForeground = false
@@ -5486,6 +5493,71 @@ public final class DJConnectAppModel: ObservableObject {
                 return
             }
         }
+    }
+
+    private var currentVoiceScope: DJConnectSpeechVoiceScope? {
+        guard !isDemoMode, pairingStatus == .paired, isAppInForeground,
+              let profileID = sessionHistory.authorizedProfileID,
+              let session = activeDJSession, session.runtimeState == "active",
+              let installationID = defaults.string(forKey: haInstallIDKey) else { return nil }
+        return DJConnectSpeechVoiceScope(installationID: installationID, profileID: profileID,
+                                         sessionID: session.id, deviceID: identity.deviceID)
+    }
+
+    var activeVoiceIsCurrent: Bool {
+        currentVoiceScope != nil && activeVoicePreference.scope == currentVoiceScope
+    }
+
+    func discardActiveVoicePreference() {
+        activeVoicePreference.discard(); activeVoiceError = nil; activeVoiceRetryAfter = nil
+    }
+
+    func invalidateActiveVoiceInventory() {
+        activeVoicePreference.invalidateInventory(); activeVoiceError = nil
+    }
+
+    func activeVoiceOwnerDidChange() {
+        guard sessionHistory.hasAuthorizedOwner else { invalidateActiveVoiceInventory(); return }
+        if let scope = currentVoiceScope {
+            if activeVoicePreference.scope != scope { activeVoiceRetryAfter = nil }
+            activeVoicePreference.bind(scope)
+        }
+        if activeVoiceMenuOpen { Task { await refreshActiveVoiceOptions() } }
+    }
+
+    func setActiveVoiceMenuOpen(_ open: Bool) { activeVoiceMenuOpen = open }
+
+    public func refreshActiveVoiceOptions() async {
+        guard let scope = currentVoiceScope else { invalidateActiveVoiceInventory(); return }
+        if activeVoicePreference.scope != scope { activeVoiceRetryAfter = nil }
+        activeVoicePreference.bind(scope)
+        guard !activeVoicePreference.refreshing else { return }
+        guard activeVoiceRetryAfter.map({ $0 <= Date() }) ?? true else { return }
+        let epoch = sessionHistory.responseEpoch
+        guard let refresh = activeVoicePreference.beginRefresh() else { return }
+        activeVoiceError = nil
+        do {
+            let options = try await withHomeAssistantClient { try await $0.speechVoiceOptions() }
+            guard currentVoiceScope == scope, epoch == sessionHistory.responseEpoch,
+                  activeVoicePreference.isCurrentRefresh(refresh) else { return }
+            guard activeVoicePreference.completeRefresh(refresh, options: options) else {
+                activeVoiceError = localized(key: "ui.session.voice.unavailable"); return
+            }
+            let delay = max(options.providerStatus?.retryAfterSeconds ?? 0, options.notification?.retryAfterSeconds ?? 0)
+            activeVoiceRetryAfter = delay > 0 ? Date().addingTimeInterval(Double(delay)) : nil
+        } catch {
+            guard currentVoiceScope == scope, epoch == sessionHistory.responseEpoch,
+                  activeVoicePreference.isCurrentRefresh(refresh) else { return }
+            _ = activeVoicePreference.completeRefresh(refresh, options: nil)
+            if sessionHistory.withdrawAuthority(for: error) { return }
+            activeVoiceError = localized(key: "ui.session.voice.unavailable")
+        }
+    }
+
+    public func selectActiveVoice(_ voiceID: String?, expectedScope: DJConnectSpeechVoiceScope, expectedEpoch: UUID) {
+        guard currentVoiceScope == expectedScope, activeVoicePreference.scope == expectedScope,
+              expectedEpoch == sessionHistory.responseEpoch else { return }
+        _ = activeVoicePreference.select(voiceID)
     }
 
     public func changeActiveSessionPersona(_ persona: DJConnectSessionPersonaValue, expectedSessionID: String, expectedEpoch: UUID) async {
@@ -11222,6 +11294,12 @@ public final class DJConnectAppModel: ObservableObject {
                 self.hybridConnectionDiagnostics = snapshot
                 let previous = self.lastHybridRouteState
                 self.lastHybridRouteState = snapshot.state
+                if previous != snapshot.state {
+                    self.invalidateActiveVoiceInventory()
+                    if self.activeVoiceMenuOpen, [.localReady, .remoteReady].contains(snapshot.state) {
+                        Task { await self.refreshActiveVoiceOptions() }
+                    }
+                }
                 if previous != nil, previous != snapshot.state,
                    [.localReady, .remoteReady].contains(snapshot.state), self.sessionBroadcastTransport != nil {
                     self.stopSessionBroadcast(); self.startSessionBroadcastIfNeeded()
