@@ -6580,22 +6580,37 @@ private struct MusicDiscoveryView: View {
     }
 
     private var header: some View {
-        VStack(spacing: 16) {
-            DJConnectHeroGlyph(systemImage: "wand.and.stars")
+        DJConnectIntroductionCard(systemImage: "wand.and.stars",
+            title: localizedKey(model.language, "ui.discover"),
+            message: localizedKey(model.language, "ui.learn.from.your.taste.and.listening.behavior.to.shape.recommendations"))
+    }
 
-            Text(localizedKey(model.language, "ui.discover"))
+}
+
+/// Shared introductory geometry keeps sibling screens aligned while allowing
+/// longer translations and larger text to grow without clipping.
+private struct DJConnectIntroductionCard: View {
+    let systemImage: String
+    let title: String
+    let message: String
+
+    var body: some View {
+        VStack(spacing: 16) {
+            DJConnectHeroGlyph(systemImage: systemImage)
+            Text(title)
                 .font(.title2.weight(.bold))
                 .foregroundStyle(.white)
-
-            Text(localizedKey(model.language, "ui.learn.from.your.taste.and.listening.behavior.to.shape.recommendations"))
+                .multilineTextAlignment(.center)
+                .frame(minHeight: 28)
+            Text(message)
                 .font(.callout)
                 .foregroundStyle(.white.opacity(0.66))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-
+                .frame(minHeight: 44)
         }
         .padding(24)
-        .frame(maxWidth: .infinity, minHeight: 190)
+        .frame(maxWidth: .infinity, minHeight: 224)
         .djConnectHeroCard()
     }
 }
@@ -12036,22 +12051,11 @@ private struct AskDJEmptyState: View {
     }
 
     private var hero: some View {
-        VStack(spacing: 16) {
-            DJConnectHeroGlyph(systemImage: "bubble.left.and.bubble.right")
-            Text(localizedKey(language, "ui.ask.dj"))
-                .font(.title2.weight(.bold))
-                .foregroundStyle(.white)
-            Text(localizedKey(language, "ui.ask.about.the.music.or.give.your.dj.a.request"))
-                .font(.callout)
-                .foregroundStyle(.white.opacity(0.66))
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 480)
-        }
-        .padding(.horizontal, 28)
-        .padding(.vertical, 34)
-        .frame(maxWidth: .infinity, minHeight: 190)
-        .djConnectHeroCard()
+        DJConnectIntroductionCard(systemImage: "bubble.left.and.bubble.right",
+            title: localizedKey(language, "ui.ask.dj"),
+            message: localizedKey(language, "ui.ask.about.the.music.or.give.your.dj.a.request"))
     }
+
 }
 
 private struct AskDJOfflineNotice: View {
