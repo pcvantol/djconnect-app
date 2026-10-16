@@ -242,10 +242,10 @@ struct DJConnectGlassBrandIcon: View {
                     .init(color: .clear, location: 0.52)
                 ], startPoint: .topLeading, endPoint: .bottomTrailing))
                 shape.strokeBorder(DJConnectCardAppearance.searchFocusGradient,
-                                   lineWidth: DJConnectCardAppearance.searchFocusWidth)
+                                   lineWidth: DJConnectCardAppearance.borderWidth)
                     .blur(radius: 2).opacity(0.40)
                 shape.strokeBorder(DJConnectCardAppearance.searchFocusGradient,
-                                   lineWidth: DJConnectCardAppearance.searchFocusWidth)
+                                   lineWidth: DJConnectCardAppearance.borderWidth)
             }
             .shadow(color: .black.opacity(0.20), radius: 12, y: 6)
             .accessibilityHidden(true)

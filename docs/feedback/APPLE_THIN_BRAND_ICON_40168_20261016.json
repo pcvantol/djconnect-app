@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-16",
+  "build": "40168",
+  "scope": "Thin neon border for shared DJConnect glass brand icon everywhere",
+  "implementation": [
+    "Both visible neon outline and glow stroke use DJConnectCardAppearance.borderWidth1.25 instead of searchFocusWidth3.",
+    "Shared DJConnectGlassBrandIcon covers all its placements; colour gradient, icon, padding and search-result borders unchanged."
+  ],
+  "checks": {
+    "signed_ios_build": "PASS",
+    "signed_mac_build": "PASS",
+    "strict_deep_codesign": "iOS and installed Mac PASS",
+    "source_manifest": "452 file hashes PASS",
+    "diff_check": "PASS",
+    "installed_readback": "iPhone/iPad/Mac mini40168 PASS"
+  },
+  "evidence": {
+    "manifest": "build/recovery/apple40168-selective-source-manifest-20261016.json",
+    "ios_build": "/private/tmp/djc-ios-40168-thin-icon-build.log",
+    "mac_build": "/private/tmp/djc-mac-40168-thin-icon-build.log",
+    "iphone_apps": "/private/tmp/djc-iphone-40168-apps.json",
+    "ipad_apps": "/private/tmp/djc-ipad-40168-apps.json",
+    "mac_backup": "build/recovery/DJConnect-before40168.app",
+    "mac_executable_sha256": "36fc25877885f0046be73fe6d98659361ed71a164218c23accbb203450cd6140"
+  },
+  "limits": [
+    "No new physical screenshot for this two-line styling change.",
+    "MacBook and Watch not installed in this change."
+  ],
+  "publication": "Local only; no push/PR/merge"
+}
