@@ -6681,7 +6681,7 @@ private struct MusicDiscoveryCard: View {
                 MusicDiscoveryFitLabel(item: item)
                 Text(item.kind.rawValue.capitalized)
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(djConnectAccent)
+                    .foregroundStyle(.white)
                     .textCase(.uppercase)
             }
             .frame(width: 142, alignment: .leading)
@@ -6754,7 +6754,7 @@ private struct MusicDiscoveryDetailView: View {
                         }
                         Text(item.kind.rawValue.capitalized)
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(djConnectAccent)
+                            .foregroundStyle(.white)
                     }
                     Spacer()
                 }
