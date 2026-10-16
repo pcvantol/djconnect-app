@@ -1657,7 +1657,7 @@ struct SessionConnectionPopoverContent: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, alignment: .center)
                 if model.isDemoMode {
-                    Label(text(status.key), systemImage: "play.circle.fill")
+                    Label(text(status.key), systemImage: status.icon)
                 } else {
                     #if os(iOS)
                     IOSConnectionCard(model: model)
@@ -1708,7 +1708,7 @@ enum SessionConnectionStatus: String, CaseIterable, Equatable {
     var key: String { "ui.connection.combined." + rawValue }
     var icon: String {
         switch self {
-        case .demo: "play.rectangle.fill"
+        case .demo: "globe"
         case .ready: "link.badge.plus"
         case .pairing, .connecting, .recovering: "arrow.triangle.2.circlepath"
         case .setupPending: "person.crop.circle.badge.exclamationmark"
