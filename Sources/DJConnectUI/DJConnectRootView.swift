@@ -4117,7 +4117,10 @@ struct TrackInsightView: View {
     }
 
     private func maxContentWidth(for size: CGSize) -> CGFloat {
-        shouldUseWideLayout(for: size) ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
+        #if os(iOS)
+        if UIDevice.current.userInterfaceIdiom == .pad { return size.width }
+        #endif
+        return shouldUseWideLayout(for: size) ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
     }
 
     var body: some View {
@@ -4159,6 +4162,8 @@ struct TrackInsightView: View {
                                     TrackInsightEmptyState(model: model)
                                 }
                             }
+                            .accessibilityElement(children: .contain)
+                            .accessibilityIdentifier("track-insight-content")
                             .padding(.horizontal, djConnectScreenHorizontalPadding)
                             .padding(.vertical, djConnectScreenVerticalPadding)
                             .frame(width: contentWidth, alignment: .topLeading)
