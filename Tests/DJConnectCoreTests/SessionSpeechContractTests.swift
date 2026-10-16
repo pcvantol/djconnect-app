@@ -27,6 +27,10 @@ private func speechWAV() -> Data {
     little(2,bytes:2); little(16,bytes:2); data.append(Data("data".utf8)); little(32,bytes:4)
     data.append(Data(repeating: 0,count:32)); return data
 }
+private func speechMP3(_ version: String = "mpeg1") throws -> Data {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    return try Data(contentsOf: root.appendingPathComponent("Fixtures/speech-silence-" + version + ".mp3"))
+}
 private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -66,6 +70,9 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
             } else {
                 mime = "audio/wav"; bytes = speechWAV()
                 if request.url!.host!.hasPrefix("badwav") { bytes = Data(bytes.prefix(20)) }
+                if request.url!.host!.hasPrefix("mp3") { mime = "audio/mpeg"; bytes = try speechMP3() }
+                if request.url!.host!.hasPrefix("mp3wav") { bytes = speechWAV() }
+                if request.url!.host!.hasPrefix("wavmp3") { bytes = try speechMP3() }
             }
             let response = HTTPURLResponse(url:request.url!,statusCode:status,httpVersion:"HTTP/1.1",headerFields:["Content-Type":mime,"Cache-Control":"no-store"])!
             client?.urlProtocol(self,didReceive:response,cacheStoragePolicy:.notAllowed)
@@ -213,6 +220,70 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
         let denied = try speechDecode(try #require(deniedEnvelope["session_speech"]),as:DJConnectSessionSpeech.self)
         #expect(denied.state == "unavailable" && denied.processors.isEmpty && denied.segments.isEmpty)
         #expect(!denied.advertisesPreparationAttempt(.haConfigured))
+    }
+
+    @Test(arguments: ["mpeg1", "mpeg2", "mpeg25"])
+    func speechMP3IndependentNativeDecoderFixtures(_ version: String) throws {
+        let bytes = try speechMP3(version)
+        #expect(try DJConnectSpeechTransport.validateMP3(bytes) == bytes)
+    }
+
+    @Test func speechMP3StripsBoundedID3WithoutTreatingTagAsAudio() throws {
+        let frames = try speechMP3()
+        // Synthetic ID3v2.3 TIT2 frame containing only "x"; no actual metadata.
+        let tag = Data([0x49,0x44,0x33,3,0,0,0,0,0,13, 0x54,0x49,0x54,0x32,0,0,0,3,0,0,0,0x78,0])
+        #expect(try DJConnectSpeechTransport.validateMP3(tag + frames) == frames)
+        #expect(throws: DJConnectError.invalidResponse) { try DJConnectSpeechTransport.validateMP3(tag) }
+        let v1 = Data("TAG".utf8) + Data(repeating: 0, count: 125)
+        #expect(try DJConnectSpeechTransport.validateMP3(frames + v1) == frames)
+        var footerTag = tag; footerTag[3] = 4; footerTag[5] = 0x10
+        let footer = Data("3DI".utf8) + footerTag[3..<10]
+        #expect(try DJConnectSpeechTransport.validateMP3(footerTag + footer + frames) == frames)
+    }
+
+    @Test func speechMP3RejectsMalformedFramesAndUndeclaredTrailingBytes() throws {
+        let bytes = try speechMP3()
+        var faults = [Data(), Data(bytes.prefix(3)), Data(bytes.dropLast()), bytes + Data([0]), speechWAV()]
+        var bad = bytes; bad[1] = 0xef; faults.append(bad) // Reserved MPEG version.
+        bad = bytes; bad[2] = 0; faults.append(bad) // Unsupported free bitrate.
+        bad = bytes; bad[419] = 0x94; faults.append(bad) // Midstream rate change.
+        faults.append(Data([0x49,0x44,0x33,4,0,0,0xff,0,0,0]) + bytes)
+        for fault in faults {
+            #expect(throws: DJConnectError.invalidResponse) { try DJConnectSpeechTransport.validateMP3(fault) }
+        }
+    }
+
+    @Test func speechDurationIsBoundedIndependentlyOfByteLimit() throws {
+        let mp3 = try speechMP3()
+        var longMP3 = Data(); for _ in 0..<100 { longMP3.append(mp3) }
+        #expect(longMP3.count < 2 * 1024 * 1024)
+        #expect(throws: DJConnectError.invalidResponse) { try DJConnectSpeechTransport.validateMP3(longMP3) }
+        func wav(seconds: Int) -> Data {
+            var data = Data(speechWAV().prefix(44))
+            data.append(Data(repeating: 0, count: seconds * 32000))
+            for (offset, value) in [(4, data.count - 8), (40, seconds * 32000)] {
+                for byte in 0..<4 { data[offset + byte] = UInt8((value >> (byte * 8)) & 255) }
+            }
+            return data
+        }
+        try DJConnectSpeechTransport.validateWAV(wav(seconds: 20))
+        #expect(wav(seconds: 21).count < 2 * 1024 * 1024)
+        #expect(throws: DJConnectError.invalidResponse) { try DJConnectSpeechTransport.validateWAV(wav(seconds: 21)) }
+    }
+
+    @Test func speechPrivatePOSTAcceptsMP3AndRejectsMIMESpoofing() async throws {
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [SpeechContractURLProtocol.self]
+        let session = URLSession(configuration: config); defer { session.invalidateAndCancel() }
+        func client(_ host: String) -> DJConnectClient {
+            DJConnectClient(baseURL: URL(string: "https://" + host + ".speech.invalid")!,
+                identity: .init(deviceID: "djconnect-ios-speech-fixture", deviceName: "Fixture", clientType: .ios, firmware: "4.0.0", platform: .ios),
+                tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-speech-token"), session: session)
+        }
+        let prepared = try freshSpeech("ha_configured_audio", corrected: true), text = prepared.segments.map(\.text).joined()
+        #expect(try await client("mp3").speechAudio(prepared, acceptedText: text) == speechMP3())
+        for host in ["mp3wav", "wavmp3"] {
+            await #expect(throws: DJConnectError.invalidResponse) { try await client(host).speechAudio(prepared, acceptedText: text) }
+        }
     }
 
 }

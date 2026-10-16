@@ -46,7 +46,7 @@ final class DJConnectSpeechTransport: Sendable {
         guard response.expectedContentLength <= Int64(maximum) else {
             throw DJConnectError.payloadTooLarge(limitBytes: maximum, actualBytes: nil)
         }
-        let mimes = audio && !providerWithdrawal ? ["audio/wav", "audio/x-wav", "audio/wave"] : ["application/json"]
+        let mimes = audio && !providerWithdrawal ? ["audio/wav", "audio/x-wav", "audio/wave", "audio/mpeg"] : ["application/json"]
         guard let mime = response.mimeType?.lowercased(), mimes.contains(mime) else { throw DJConnectError.invalidResponse }
         var data = Data()
         for try await byte in bytes {
@@ -69,7 +69,10 @@ final class DJConnectSpeechTransport: Sendable {
             }
             throw DJConnectSpeechProviderIssue(notification: value.notification)
         }
-        if audio { try Self.validateWAV(data) }
+        if audio {
+            if mime == "audio/mpeg" { data = try Self.validateMP3(data) }
+            else { try Self.validateWAV(data) }
+        }
         return data
     }
     static func validateWAV(_ data: Data) throws {
@@ -78,7 +81,7 @@ final class DJConnectSpeechTransport: Sendable {
         guard data.count >= 44, data.count <= 2 * 1024 * 1024,
               data.prefix(4) == Data("RIFF".utf8), data[8..<12] == Data("WAVE".utf8),
               le(4, 4) + 8 == data.count else { throw DJConnectError.invalidResponse }
-        var cursor = 12, format = false, hasAudio = false, alignment = 0
+        var cursor = 12, format = false, hasAudio = false, alignment = 0, sampleRate = 0
         while cursor + 8 <= data.count {
             let size = le(cursor + 4, 4), start = cursor + 8
             guard size <= data.count - start else { throw DJConnectError.invalidResponse }
@@ -90,9 +93,10 @@ final class DJConnectSpeechTransport: Sendable {
                 guard le(start, 2) == 1, (1...2).contains(channels), (8000...96000).contains(rate),
                       [8, 16, 24, 32].contains(bits), alignment == channels * bits / 8,
                       le(start + 8, 4) == rate * alignment else { throw DJConnectError.invalidResponse }
+                sampleRate = rate
                 format = true
             } else if kind == Data("data".utf8) {
-                guard format, !hasAudio, size > 0, size % alignment == 0 else { throw DJConnectError.invalidResponse }
+                guard format, !hasAudio, size > 0, size % alignment == 0, size <= sampleRate * alignment * 20 else { throw DJConnectError.invalidResponse }
                 hasAudio = true
             }
             cursor = start + size + size % 2
