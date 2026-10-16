@@ -12047,6 +12047,7 @@ struct AskDJMessageBubble: View {
             if let serverHighlights { SessionHighlightedText(text: displayText, highlights: serverHighlights) }
             else { AskDJMarkdownText(text: displayText, highlight: searchText) }
         }
+        .padding(.trailing, contextQuestionAction != nil && !outputPlaybackActions.isEmpty ? 36 : 0)
         .contextMenu {
             if !isReadOnly && canSetPrompt && !isStaleHistory {
                 Button {
@@ -12174,6 +12175,24 @@ struct AskDJMessageBubble: View {
         message.playbackActions.filter(\.isOutputAction)
     }
 
+    private var canRenderPlaybackActions: Bool {
+        (!isReadOnly || allowsSessionPlaybackActions) && !isStaleHistory && !isUser
+    }
+
+    private var displayItems: [DJConnectAskDJHistoryItem] {
+        guard canRenderPlaybackActions else { return message.items }
+        let outputs = renderablePlaybackActions.filter(\.isOutputAction)
+        let ids = Set(outputs.compactMap(\.outputDeviceID).map { $0.lowercased() })
+        let names = Set(outputs.flatMap { [$0.deviceName, Optional($0.title)] }
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
+        return message.items.filter { item in
+            if let value = item.value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), ids.contains(value) { return false }
+            let kind = item.kind?.lowercased() ?? ""
+            return !(["output", "output_device", "device", "speaker", "computer"].contains(kind)
+                && names.contains(item.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()))
+        }
+    }
+
     private var shouldRenderOutputActionsAsList: Bool {
         !isUser
             && !outputPlaybackActions.isEmpty
@@ -12261,8 +12280,8 @@ struct AskDJMessageBubble: View {
                     if !isUser, let trackInsight = message.trackInsight {
                         AskDJTrackInsightSummary(insight: trackInsight, language: language)
                     }
-                    if !isUser, !message.items.isEmpty {
-                        AskDJItemList(items: message.items)
+                    if !isUser, !displayItems.isEmpty {
+                        AskDJItemList(items: displayItems)
                     }
                     ForEach(historicalMatches.filter { $0.isRetained() }) { match in
                         SessionHistoryMatchCard(entry: match, language: language) { action in openHistoryAction?(action) }
@@ -12276,7 +12295,7 @@ struct AskDJMessageBubble: View {
                     if !sourceLinks.isEmpty {
                         AskDJSourcesStack(links: sourceLinks, language: language, openLink: openLink)
                     }
-                    if (!isReadOnly || allowsSessionPlaybackActions), !isStaleHistory, !isUser, !renderablePlaybackActions.isEmpty {
+                    if canRenderPlaybackActions, !renderablePlaybackActions.isEmpty {
                         AskDJPlaybackActionStack(
                             actions: renderablePlaybackActions,
                             language: language,
@@ -12298,7 +12317,7 @@ struct AskDJMessageBubble: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .padding(.trailing, contextQuestionAction == nil ? 0 : 36)
+                .padding(.trailing, contextQuestionAction == nil || !outputPlaybackActions.isEmpty ? 0 : 36)
                 .frame(minHeight: contextQuestionAction == nil ? 0 : 44)
                 .overlay(alignment: .topTrailing) {
                     if let contextQuestionAction {
@@ -12584,6 +12603,11 @@ private struct AskDJTrackInsightSummary: View {
     }
 }
 
+private func askDJIsOpaqueIdentifier(_ value: String) -> Bool {
+    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    return trimmed.range(of: "^[0-9a-fA-F-]{24,}$", options: .regularExpression) != nil
+}
+
 private struct AskDJItemList: View {
     let items: [DJConnectAskDJHistoryItem]
 
@@ -12598,7 +12622,7 @@ private struct AskDJItemList: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.white)
                             .lineLimit(1)
-                        if let value = item.value, !value.isEmpty {
+                        if let value = item.value, !value.isEmpty, !askDJIsOpaqueIdentifier(value) {
                             Text(value)
                                 .font(.caption2.weight(.medium))
                                 .foregroundStyle(.white.opacity(0.82))
@@ -12840,28 +12864,24 @@ private struct AskDJPlaybackActionStack: View {
                     Button {
                         playAction(action)
                     } label: {
-                        HStack(spacing: 6) {
+                        ZStack {
                             if playingActionID == action.id {
-                                ProgressView()
-                                    .controlSize(.small)
-                                    .tint(.white)
-                            } else if action.isActiveOutputAction {
-                                Image(systemName: "checkmark")
-                                    .font(.caption2.weight(.bold))
+                                ProgressView().controlSize(.small).tint(.white)
+                            } else {
+                                Image(systemName: action.isActiveOutputAction ? "checkmark.circle.fill" : "arrow.right.circle.fill")
+                                    .font(.system(size: 23, weight: .semibold))
                             }
-                            Text(buttonLabel(for: action))
-                                .font(.caption.weight(.bold))
-                                .lineLimit(1)
                         }
                         .foregroundStyle(.white)
-
+                        .frame(width: 44, height: 44)
                     }
-                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .secondary))
+                    .djConnectPlainButtonStyle()
+                    .accessibilityLabel(buttonLabel(for: action) + " " + outputDisplayName(for: action))
                     .disabled(playingActionID != nil || action.isActiveOutputAction)
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 9)
-                .frame(maxWidth: 520, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .background {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(.white.opacity(0.10))
@@ -12997,8 +13017,8 @@ private struct AskDJPlaybackActionStack: View {
     }
 
     private func outputDisplayName(for action: DJConnectAskDJPlaybackAction) -> String {
-        for candidate in [action.deviceName, action.title, action.subtitle, action.outputDeviceID] {
-            if let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty {
+        for candidate in [action.deviceName, action.title, action.subtitle] {
+            if let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty, !askDJIsOpaqueIdentifier(trimmed) {
                 return trimmed
             }
         }

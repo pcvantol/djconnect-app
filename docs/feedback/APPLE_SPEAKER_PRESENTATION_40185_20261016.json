@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-16",
+  "build": "40185",
+  "scope": "Clean up duplicated speaker presentation, hide opaque IDs, use full bubble inner width and icon activation",
+  "finding": "AskDJMessageBubble rendered both generic message.items (including internal value IDs) and output playback actions. Output action rows had520pt cap and bubble reserved36pt context-button padding for every child. Activate text truncated.",
+  "implementation": [
+    "When current actions are renderable, omit generic items matching output device IDs or output-kind/name pairs; retain unmatched items and read-only fallback.",
+    "Hide UUID/hex-style technical values in generic result cards. Do not fall back to output device ID as display name.",
+    "Output action rows fill parent inner width. Reserve context-button space on intro text instead of all output rows.",
+    "Use fixed44pt arrow.right.circle.fill activate target; active output uses checkmark.circle.fill; progress/disabled guards retained. Accessible label combines Activate/Active with speaker name.",
+    "No backend contracts, IDs used by commands, action execution or durable profile data changed."
+  ],
+  "checks": {
+    "ios_build": "PASS",
+    "strict_deep_signature": "PASS",
+    "manifest": "452 hashes PASS",
+    "diff_check": "PASS",
+    "installed": "iPhone/iPad40185 confirmed",
+    "physical_response_visual": "NOT_RUN: exact historical rich speaker response from user screenshot was not recreated. No playback/output activation or new Ask DJ query issued."
+  },
+  "evidence": {
+    "manifest": "build/recovery/speakers40185-selective-source-manifest-20261016.json",
+    "patch": "build/recovery/speakers40185-presentation-20261016.patch",
+    "build": "/private/tmp/djc-ios-40185-speakers-build.log",
+    "iphone_readback": "/private/tmp/djc-iphone-40185-apps.json",
+    "ipad_readback": "/private/tmp/djc-ipad-40185-apps.json"
+  },
+  "preservation": [
+    "Prior margins, refresh stability and iPad bubble tint retained.",
+    "No timer restart or cross-thread Core messages.",
+    "Recovery/source/evidence and alternate untracked projects retained."
+  ],
+  "publication": "Local commit only; no push/PR/merge"
+}
