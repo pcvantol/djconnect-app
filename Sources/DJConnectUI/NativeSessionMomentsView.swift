@@ -11,12 +11,8 @@ extension View {
         modifier(DJSessionGlassSurface(cornerRadius: cornerRadius))
     }
 
-    func djAlbumArtworkGlassCard() -> some View {
-        let inset: CGFloat = 8
-        return self
-            .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius - inset, style: .continuous))
-            .padding(inset)
-            .djSessionFrostedSurface()
+    func djAlbumArtworkGlassCard(artworkURL: URL? = nil) -> some View {
+        modifier(DJAlbumArtworkGlassCard(artworkURL: artworkURL))
     }
 
     @ViewBuilder func djSessionNavigationTitleStyle(compactPhone: Bool = false) -> some View {
@@ -25,6 +21,44 @@ extension View {
         #else
         self
         #endif
+    }
+}
+
+/// Sample only the displayed cover, sharing the player's artwork cache.
+/// URL-bound state prevents a late previous-cover download from tinting the next cover.
+private struct DJAlbumArtworkGlassCard: ViewModifier {
+    let artworkURL: URL?
+    @State private var sampledTint: Color?
+    @State private var sampledURL: URL?
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        let inset: CGFloat = 8
+        let shape = RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous)
+        let tint = sampledURL == artworkURL ? sampledTint : nil
+        content
+            .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius - inset, style: .continuous))
+            .padding(inset)
+            .background { shape.fill(tint?.opacity(reduceTransparency ? 1 : 0.72) ?? .clear) }
+            .djSessionFrostedSurface()
+            .overlay {
+                if let tint {
+                    shape.stroke(tint.opacity(0.8), lineWidth: DJConnectCardAppearance.borderWidth)
+                        .allowsHitTesting(false)
+                }
+            }
+            .task(id: artworkURL) {
+                sampledTint = nil
+                sampledURL = nil
+                guard let requestedURL = artworkURL else { return }
+                let color = await DJConnectArtworkDataCache.shared.tint(for: requestedURL, fallback: Color(white: 0.22))
+                guard !Task.isCancelled, requestedURL == artworkURL else { return }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                    sampledURL = requestedURL
+                    sampledTint = color
+                }
+            }
     }
 }
 
@@ -264,7 +298,7 @@ struct NativeSessionMomentsView: View {
                             .zIndex(2)
                     }
                         .aspectRatio(1, contentMode: .fit)
-                        .djAlbumArtworkGlassCard()
+                        .djAlbumArtworkGlassCard(artworkURL: url)
                         .frame(maxWidth: 270)
                         .contentShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
                         .task(id: artworkFeedback?.id) {

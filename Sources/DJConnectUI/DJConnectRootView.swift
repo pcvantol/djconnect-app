@@ -3743,7 +3743,7 @@ struct CachedArtworkImage<Placeholder: View>: View {
                         .cachedArtworkContentMode(mode)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Color.black.opacity(0.22))
-                        .djAlbumArtworkGlassCard()
+                        .djAlbumArtworkGlassCard(artworkURL: url)
                 } else {
                     loadedImage
                         .resizable()
