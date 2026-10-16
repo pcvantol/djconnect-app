@@ -1,0 +1,162 @@
+{
+  "schema": "apple-scanner-design-cases/1",
+  "scope": "non-wire design expectations; no real crypto/native vectors",
+  "api_pin": "e6464e86cd214bd55661f14f238706332a53bd40",
+  "core_review_pin": "325aabc7205f1f18928bc2c809817956d91609f8",
+  "cases": [
+    {
+      "id": "paired-current-route",
+      "input": "fresh supported QR; explicit existing installation; current canonical HA context; valid proof",
+      "expected_state": "address_sent",
+      "required_behavior": "separate six-digit HA approval still required",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "camera-denied",
+      "input": "camera permission denied",
+      "expected_state": "unavailable",
+      "required_behavior": "offer settings or explicit retry; no submit",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "not-paired",
+      "input": "valid QR; no current HA pairing",
+      "expected_state": "unavailable",
+      "required_behavior": "do not promote guest to owner",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "multiple-installations",
+      "input": "two supported paired installations; none selected",
+      "expected_state": "choose_installation",
+      "required_behavior": "no last-used automatic selection",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "cached-route-only",
+      "input": "cached remote URL; current owner context unavailable",
+      "expected_state": "unavailable",
+      "required_behavior": "cached URL never grants scan-time release",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "wrong-installation",
+      "input": "transport context differs from selected install ID",
+      "expected_state": "cancelled",
+      "required_behavior": "discard prepared payload",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "raw-url-alias",
+      "input": "HTTP/IP/custom port/query/fragment/IDNA/escaped or slash alias",
+      "expected_state": "unavailable",
+      "required_behavior": "reject before normalization; no downgrade",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "pairing-aba",
+      "input": "pairing/Profile changes then returns while awaiting",
+      "expected_state": "cancelled",
+      "required_behavior": "monotone flow generation remains invalid",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "route-change",
+      "input": "owner context origin or issuer epoch changes after confirmation",
+      "expected_state": "confirm_destination",
+      "required_behavior": "discard proof and require fresh explicit confirmation",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "rotated-qr",
+      "input": "old submit callback after a new browser generation",
+      "expected_state": "cancelled",
+      "required_behavior": "never show old success or start HA admission",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "duplicate-scan",
+      "input": "same current QR scanned twice",
+      "expected_state": "same_flow",
+      "required_behavior": "one deliberate submission; no new consent",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "expiry",
+      "input": "original QR deadline reached while preparing",
+      "expected_state": "expired",
+      "required_behavior": "no renewed original deadline; explicit fresh scan",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "unknown-key-or-counter",
+      "input": "unknown/invalid key or equal/lower counter",
+      "expected_state": "unavailable",
+      "required_behavior": "no unsigned fallback; exact error privacy preserved",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "mac-or-unsupported",
+      "input": "Mac or isSupported false",
+      "expected_state": "unavailable",
+      "required_behavior": "use supported paired iPhone or existing non-A route",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "attestation-outage",
+      "input": "Apple request temporarily unavailable",
+      "expected_state": "unavailable",
+      "required_behavior": "bounded explicit retry inside original expiry",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "lost-submit-response",
+      "input": "submission may have committed; reply lost",
+      "expected_state": "uncertain",
+      "required_behavior": "only frozen safe recovery; no blind resubmit or remote recall claim",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "lost-consume-response",
+      "input": "TV lost one-time consume reply",
+      "expected_state": "restart_required",
+      "required_behavior": "fresh QR; no repeat secret collection",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "copied-qr-genuine-other-owner",
+      "input": "different genuine attested app with own valid paired HA wins first submit",
+      "expected_state": "risk_disposition_required",
+      "required_behavior": "app validity cannot prove intended TV owner; no invented reject capability",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "cancel-after-send",
+      "input": "user cancels while submit completion delayed",
+      "expected_state": "cancelled",
+      "required_behavior": "ignore local late callbacks; cannot promise address recall",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "no-external-route",
+      "input": "HA returns display_external_url_unavailable",
+      "expected_state": "unavailable",
+      "required_behavior": "do not use new internal LAN IP for A",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "ha-admission-denied",
+      "input": "A delivered address; six-digit HA admission denied/revoked",
+      "expected_state": "not_admitted",
+      "required_behavior": "no display content or Session grant",
+      "ha_display_admitted": false
+    },
+    {
+      "id": "explicit-b-approved",
+      "input": "separate actual HA claim/consent/approval/collection succeeded",
+      "expected_state": "display_approved",
+      "required_behavior": "only B authoritative response admits display",
+      "ha_display_admitted": true
+    }
+  ]
+}
