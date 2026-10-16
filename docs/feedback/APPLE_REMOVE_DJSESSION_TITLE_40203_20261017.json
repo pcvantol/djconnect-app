@@ -1,0 +1,13 @@
+{
+  "build": "40203",
+  "scope": "Remove displayed DJ-session navigation title per latest screenshot request",
+  "checks": [
+    "macOS build PASS",
+    "452 source hashes PASS",
+    "Mac40203 installed version/signature/executable verification PASS",
+    "diff check PASS"
+  ],
+  "ios": "Existing empty session navigation title retained; physical iPhone/iPad remain40201",
+  "visual": "NOT_RUN; bounded navigation title removal",
+  "preservation": "Timer paused; no Core messages or publication; previous app backed up."
+}

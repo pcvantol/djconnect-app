@@ -9363,7 +9363,7 @@ private struct DJSessionView: View {
                 }
             }
             .djStatusToastOverlay(statusToast, screenImage: DJConnectFeatureSymbols.djSession)
-            .navigationTitle(sessionNavigationTitle)
+            .navigationTitle("")
             .djSessionNavigationTitleStyle(compactPhone: true)
             .toolbar {
                 #if os(iOS)
@@ -9405,14 +9405,6 @@ private struct DJSessionView: View {
             ToolbarItem(placement: djConnectRefreshToolbarPlacement) { SessionConnectionToolbarButton(model: model) }
             #endif
         }
-    }
-
-    private var sessionNavigationTitle: String {
-        #if os(iOS)
-        return ""
-        #else
-        return localizedKey(model.language, "ui.session.title") + (model.isDemoMode ? " (demo)" : "")
-        #endif
     }
 
     private func refreshNowPlayingWithToast() async {
