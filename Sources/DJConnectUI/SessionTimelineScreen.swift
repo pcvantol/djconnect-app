@@ -150,7 +150,7 @@ struct SavedSessionsView: View {
                 SessionTimelineScreen(model: model, sessionID: sessionID)
                     .navigationTitle(detailTitle(sessionID: sessionID))
             }
-            .navigationTitle(text("ui.session.history.title"))
+            .navigationTitle(text("ui.session.history.title") + (model.isDemoMode ? " (demo)" : ""))
             .scrollBounceBehavior(.always)
             .refreshable { await refresh() }
             .toolbar {
