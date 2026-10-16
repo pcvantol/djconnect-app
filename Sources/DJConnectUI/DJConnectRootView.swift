@@ -3948,9 +3948,17 @@ struct DJSessionPinnedMoodBackground: View {
     var body: some View {
         let strength = stepIndex == 0 ? 0.20 : stepIndex == 2 ? 0.34 : 0.30
         ZStack {
-            DJConnectCanvasBackground()
+            if stepIndex == 2 {
+                // Energy shares Track Insight's lime/green palette without the blue brand canvas underneath.
+                LinearGradient(colors: [Color(red: 0.09, green: 0.29, blue: 0.21),
+                                        Color(red: 0.13, green: 0.35, blue: 0.22),
+                                        Color(red: 0.07, green: 0.18, blue: 0.15)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+            } else {
+                DJConnectCanvasBackground()
+            }
             LinearGradient(colors: [colors[0].opacity(strength),
-                                    colors[1].opacity(stepIndex == 0 ? 0.10 : strength * 0.65),
+                                    colors[1].opacity(stepIndex == 0 ? 0.10 : stepIndex == 2 ? 0.08 : strength * 0.65),
                                     colors[2].opacity(stepIndex == 0 ? 0.14 : strength * 0.85)],
                            startPoint: .topLeading, endPoint: .bottomTrailing)
             if stepIndex != 0 {
