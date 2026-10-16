@@ -13569,7 +13569,7 @@ struct AskDJInputBar: View {
     }
 
     private var composerSurfaceTint: Color {
-        surfaceColors?[safe: 1] ?? surfaceColors?.first ?? Color(red: 0.22, green: 0.25, blue: 0.40)
+        surfaceColors?[safe: 1] ?? surfaceColors?.first ?? Color(red: 0.40, green: 0.16, blue: 0.66)
     }
 
     private var editorDraft: Binding<String> {
@@ -13728,7 +13728,7 @@ struct AskDJInputBar: View {
                     .fill(.regularMaterial)
                     .overlay {
                         RoundedRectangle(cornerRadius: 26, style: .continuous)
-                            .fill(composerSurfaceTint.opacity(reduceTransparency ? 1 : 0.14))
+                            .fill(composerSurfaceTint.opacity(reduceTransparency ? 1 : (surfaceColors == nil ? 0.30 : 0.14)))
                     }
                     .overlay {
                         RoundedRectangle(cornerRadius: 26, style: .continuous)
