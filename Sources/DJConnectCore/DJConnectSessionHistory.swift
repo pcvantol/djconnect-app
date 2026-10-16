@@ -138,6 +138,9 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
     public var currentDisplayAllowed: Bool?
     public var requiresSpotifyAttribution: Bool?
     public var openAction: DJConnectSessionOpenAction?
+    private var optionalSessionSpeech: DJConnectOptionalSessionSpeech? = nil
+    /// Owner-only, response-lifetime data; encoding this entry drops the grant.
+    public var sessionSpeech: DJConnectSessionSpeech? { optionalSessionSpeech?.value }
     private var optionalSessionMedia: DJConnectOptionalSessionMedia? = nil
     public var sessionMedia: DJConnectSessionMedia? {
         get { optionalSessionMedia?.value }
@@ -178,6 +181,7 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
         return fractional.date(from: text) ?? ISO8601DateFormatter().date(from: text)
     }
     enum CodingKeys: String, CodingKey {
+        case optionalSessionSpeech = "session_speech"
         case optionalSessionMedia = "session_media"
         case historicalViewOnly = "historical_view_only", currentDisplayAllowed = "current_display_allowed"
         case entryID = "entry_id", sessionID = "session_id", order, kind, occurredAt = "occurred_at", retainedUntil = "retained_until"
@@ -186,6 +190,36 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
         case archiveBasis = "archive_basis", sourceAttribution = "source_attribution"
         case requiresSpotifyAttribution = "requires_spotify_attribution", openAction = "open_action", highlights
     }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(entryID, forKey: .entryID)
+        try c.encode(sessionID, forKey: .sessionID)
+        try c.encode(order, forKey: .order)
+        try c.encode(kind, forKey: .kind)
+        try c.encode(occurredAt, forKey: .occurredAt)
+        try c.encode(retainedUntil, forKey: .retainedUntil)
+        try c.encodeIfPresent(text, forKey: .text)
+        try c.encodeIfPresent(playback, forKey: .playback)
+        try c.encodeIfPresent(turnID, forKey: .turnID)
+        try c.encodeIfPresent(clientMessageID, forKey: .clientMessageID)
+        try c.encodeIfPresent(originMessageID, forKey: .originMessageID)
+        try c.encodeIfPresent(role, forKey: .role)
+        try c.encodeIfPresent(inputType, forKey: .inputType)
+        try c.encodeIfPresent(context, forKey: .context)
+        try c.encodeIfPresent(momentID, forKey: .momentID)
+        try c.encodeIfPresent(momentType, forKey: .momentType)
+        try c.encodeIfPresent(persona, forKey: .persona)
+        try c.encodeIfPresent(summary, forKey: .summary)
+        try c.encodeIfPresent(archiveBasis, forKey: .archiveBasis)
+        try c.encodeIfPresent(sourceAttribution, forKey: .sourceAttribution)
+        try c.encodeIfPresent(historicalViewOnly, forKey: .historicalViewOnly)
+        try c.encodeIfPresent(currentDisplayAllowed, forKey: .currentDisplayAllowed)
+        try c.encodeIfPresent(requiresSpotifyAttribution, forKey: .requiresSpotifyAttribution)
+        try c.encodeIfPresent(openAction, forKey: .openAction)
+        try c.encodeIfPresent(optionalSessionMedia, forKey: .optionalSessionMedia)
+        try c.encodeIfPresent(highlights, forKey: .highlights)
+    }
+
 }
 
 public struct DJConnectSessionHistoryPage: Decodable, Equatable, Sendable {

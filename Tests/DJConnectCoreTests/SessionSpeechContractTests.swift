@@ -286,4 +286,64 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
         }
     }
 
+    @Test func speechOptionalOwnerProjectionsDecodeWithoutPersistingGrants() throws {
+        let cases = try speechCases()
+        let reply = try #require(cases["accepted_reply"] as? [String: Any])
+        let expected = try speechDecode(try #require(reply["session_speech"]), as: DJConnectSessionSpeech.self)
+        let common = try speechDecode(reply, as: DJConnectAskDJMessageResponse.self)
+        let legacy = try speechDecode(reply, as: DJConnectAskDJResponse.self)
+        let scoped = try speechDecode(reply, as: DJConnectSessionConversationResponse.self)
+        #expect(common.sessionSpeech == expected && legacy.sessionSpeech == expected)
+        #expect(scoped.base.sessionSpeech == expected && scoped.ownerScope == reply["owner_profile_id"] as? String)
+        #expect(expected.reference == .turn(scoped.conversation.turnID))
+        let moments = try #require(cases["published_and_retained_moment_speech"] as? [String: Any])
+        let retained = try #require(moments["retained_entry"] as? [String: Any])
+        let entry = try speechDecode(retained, as: DJConnectHistoryEntry.self)
+        let descriptor = try #require(entry.sessionSpeech)
+        #expect(descriptor.reference == .entry(sessionID: entry.sessionID, entryID: entry.entryID))
+        let admittedAt = try #require(descriptor.expiresAt.flatMap(DJConnectHistoryEntry.date)).addingTimeInterval(-0.01)
+        #expect(descriptor.admits(reference: descriptor.reference, text: try #require(entry.text), at: admittedAt))
+        // An ordinary Codable cache/export round trip retains content but cannot
+        // persist provider metadata, asset IDs, or a grant that might be revived.
+        func assertAbsent<T: Encodable>(_ value: T) throws {
+            let object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as? [String: Any])
+            #expect(object["session_speech"] == nil)
+        }
+        try assertAbsent(common); try assertAbsent(legacy); try assertAbsent(entry)
+        let restored = try JSONDecoder().decode(DJConnectHistoryEntry.self, from: JSONEncoder().encode(entry))
+        #expect(restored.sessionSpeech == nil && restored.text == entry.text && restored.reference == entry.reference)
+        let restoredReply = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: JSONEncoder().encode(common))
+        #expect(restoredReply.sessionSpeech == nil && restoredReply.text == common.text)
+    }
+
+    @Test func speechOptionalUnknownOrMalformedProjectionKeepsAnswerAndHistoryUsable() throws {
+        let cases = try speechCases()
+        let original = try #require(cases["accepted_reply"] as? [String: Any])
+        let moments = try #require(cases["published_and_retained_moment_speech"] as? [String: Any])
+        let retained = try #require(moments["retained_entry"] as? [String: Any])
+        var future = try speechDescriptor(); future["schema_version"] = 2
+        var publicCache = try speechDescriptor(); publicCache["cache_policy"] = "public"
+        var mixed = try speechDescriptor(); mixed["reference"] = ["turn_id": "a", "entry_id": "b"]
+        for optional: Any in [NSNull(), "bad", [:], future, publicCache, mixed] {
+            var reply = original; reply["session_speech"] = optional
+            let decoded = try speechDecode(reply, as: DJConnectAskDJMessageResponse.self)
+            let legacy = try speechDecode(reply, as: DJConnectAskDJResponse.self)
+            let scoped = try speechDecode(reply, as: DJConnectSessionConversationResponse.self)
+            #expect(decoded.sessionSpeech == nil && decoded.text == original["text"] as? String)
+            #expect(legacy.sessionSpeech == nil && legacy.text == original["text"] as? String)
+            #expect(scoped.base.sessionSpeech == nil && scoped.conversation.turnID.isEmpty == false)
+            var row = retained; row["session_speech"] = optional
+            let entry = try speechDecode(row, as: DJConnectHistoryEntry.self)
+            #expect(entry.sessionSpeech == nil && entry.text == retained["text"] as? String)
+        }
+        // Existing history message codecs also discard any optional private grant
+        // on export. This modeled parent tests the privacy boundary, not a new
+        // producer advertisement on the message route.
+        let message: [String: Any] = ["id": "synthetic-message", "role": "assistant", "text": original["text"]!, "session_speech": original["session_speech"]!]
+        let decoded = try speechDecode(message, as: DJConnectAskDJHistoryMessage.self)
+        #expect(decoded.sessionSpeech != nil)
+        let encoded = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(decoded)) as? [String: Any])
+        #expect(encoded["session_speech"] == nil)
+    }
+
 }

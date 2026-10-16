@@ -241,3 +241,23 @@ struct DJConnectSpeechIdentifiedRequest<T: Encodable>: Encodable {
         try c.encode(clientType, forKey: .clientType); try c.encode(deviceID, forKey: .deviceID)
     }
 }
+
+/// Lossy optional projection: a future/malformed Speech extension must not reject
+/// an otherwise usable answer. Decoding does not admit playback; callers still
+/// need exact contribution, owner, epoch, source and deadline checks.
+struct DJConnectOptionalSessionSpeech: Codable, Equatable, Sendable {
+    let value: DJConnectSessionSpeech?
+    init(from decoder: Decoder) throws {
+        let decoded = try? DJConnectSessionSpeech(from: decoder)
+        value = decoded?.schemaVersion == 1 && decoded?.cachePolicy == "private,no-store" ? decoded : nil
+    }
+    // Even standalone wrapper encoding cannot export an ephemeral grant.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer(); try container.encodeNil()
+    }
+    private enum Key: String, CodingKey { case speech = "session_speech" }
+    static func projection(from decoder: Decoder) -> DJConnectSessionSpeech? {
+        guard let container = try? decoder.container(keyedBy: Key.self) else { return nil }
+        return (try? container.decodeIfPresent(Self.self, forKey: .speech))?.value
+    }
+}

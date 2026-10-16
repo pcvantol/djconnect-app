@@ -3611,6 +3611,9 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
     public var trackInsight: TrackInsight?
     public var items: [DJConnectAskDJHistoryItem]
 
+    /// Private response-only grant. Deliberately omitted from Codable output.
+    public private(set) var sessionSpeech: DJConnectSessionSpeech? = nil
+
     enum CodingKeys: String, CodingKey {
         case id
         case clientMessageID = "client_message_id"
@@ -3698,6 +3701,7 @@ public struct DJConnectAskDJHistoryMessage: Codable, Equatable, Identifiable, Se
     }
 
     public init(from decoder: Decoder) throws {
+        sessionSpeech = DJConnectOptionalSessionSpeech.projection(from: decoder)
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
         clientMessageID = try container.decodeIfPresent(String.self, forKey: .clientMessageID)
@@ -6147,6 +6151,9 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         enum CodingKeys: String, CodingKey { case schemaVersion = "schema_version", historyScope = "history_scope" }
     }
 
+    /// Private response-only grant. Deliberately omitted from Codable output.
+    public private(set) var sessionSpeech: DJConnectSessionSpeech? = nil
+
     enum CodingKeys: String, CodingKey {
         case resultSet = "result_set"
         case userMessage = "user_message"
@@ -6251,6 +6258,7 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
     }
 
     public init(from decoder: Decoder) throws {
+        sessionSpeech = DJConnectOptionalSessionSpeech.projection(from: decoder)
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let presentation = try decoder.container(keyedBy: PresentationKeys.self)
         let confirmation = try? presentation.decodeIfPresent(ConversationPresentation.self, forKey: .conversation)
@@ -6824,6 +6832,9 @@ public struct DJConnectAskDJResponse: Codable, Equatable, Sendable {
     public var items: [DJConnectAskDJHistoryItem]?
     public var musicDNAKey: String?
 
+    /// Private response-only grant. Deliberately omitted from Codable output.
+    public private(set) var sessionSpeech: DJConnectSessionSpeech? = nil
+
     enum CodingKeys: String, CodingKey {
         case success
         case text
@@ -6881,6 +6892,7 @@ public struct DJConnectAskDJResponse: Codable, Equatable, Sendable {
     }
 
     public init(from decoder: Decoder) throws {
+        sessionSpeech = DJConnectOptionalSessionSpeech.projection(from: decoder)
         let container = try decoder.container(keyedBy: CodingKeys.self)
         success = try container.decodeIfPresent(Bool.self, forKey: .success) ?? true
         text = try container.decodeIfPresent(String.self, forKey: .text)
