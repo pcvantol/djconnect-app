@@ -5,7 +5,6 @@ import Foundation
 public enum TrackInsightShareFormat: String, CaseIterable, Identifiable, Sendable {
     case story
     case square
-    case linkPreview
 
     public var id: String { rawValue }
 
@@ -15,8 +14,6 @@ public enum TrackInsightShareFormat: String, CaseIterable, Identifiable, Sendabl
             DJConnectLocalization.localized(key: "trackInsight.share.story", language: language)
         case .square:
             DJConnectLocalization.localized(key: "trackInsight.share.square", language: language)
-        case .linkPreview:
-            DJConnectLocalization.localized(key: "trackInsight.share.landscape", language: language)
         }
     }
 
@@ -26,8 +23,6 @@ public enum TrackInsightShareFormat: String, CaseIterable, Identifiable, Sendabl
             CGSize(width: 1080, height: 1920)
         case .square:
             CGSize(width: 1080, height: 1080)
-        case .linkPreview:
-            CGSize(width: 1200, height: 628)
         }
     }
 }

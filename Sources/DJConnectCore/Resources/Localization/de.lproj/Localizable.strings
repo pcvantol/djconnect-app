@@ -30,7 +30,6 @@
 "Home Assistant is unreachable." = "Home Assistant ist nicht erreichbar.";
 "trackInsight.share.story" = "Story";
 "trackInsight.share.square" = "Square";
-"trackInsight.share.landscape" = "Landscape";
 "trackInsight.share.static" = "Static";
 "trackInsight.share.animated" = "Animated";
 "appModel.what.s.new.in.djconnect.value" = "Neu in DJConnect %@";

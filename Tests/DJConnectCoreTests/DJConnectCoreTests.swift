@@ -13146,11 +13146,10 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 @Test func trackInsightShareFormatsExposeLocalizedTitlesAndCanonicalSizes() {
     let formats = TrackInsightShareFormat.allCases
 
-    #expect(formats.map(\.rawValue) == ["story", "square", "linkPreview"])
+    #expect(formats.map(\.rawValue) == ["story", "square"])
     #expect(formats.map { $0.title(language: "en") }.allSatisfy { !$0.isEmpty })
     #expect(TrackInsightShareFormat.story.size == CGSize(width: 1080, height: 1920))
     #expect(TrackInsightShareFormat.square.size == CGSize(width: 1080, height: 1080))
-    #expect(TrackInsightShareFormat.linkPreview.size == CGSize(width: 1200, height: 628))
     #expect(TrackInsightShareMediaKind.allCases.map(\.rawValue) == ["staticImage", "animatedVideo"])
     #expect(TrackInsightShareMediaKind.allCases.map { $0.title(language: "en") }.allSatisfy { !$0.isEmpty })
 }
