@@ -3659,6 +3659,63 @@ private struct AnimatedAlbumArtworkView: View {
     }
 }
 
+/// A fixed pivot, counterweight, bent metal arm and cartridge above the spinning record.
+private struct AlbumArtworkTonearm: View {
+    let recordDiameter: CGFloat
+
+    var body: some View {
+        Canvas { context, size in
+            let d = recordDiameter
+            let center = CGPoint(x: size.width / 2, y: size.height / 2)
+            func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+                CGPoint(x: center.x + x * d, y: center.y + y * d)
+            }
+            let pivot = point(0.44, -0.38)
+            let base = CGRect(x: pivot.x - d * 0.055, y: pivot.y - d * 0.055,
+                              width: d * 0.11, height: d * 0.11)
+            context.fill(Path(ellipseIn: base), with: .linearGradient(
+                Gradient(colors: [Color(white: 0.28), Color(white: 0.08)]),
+                startPoint: CGPoint(x: base.minX, y: base.minY), endPoint: CGPoint(x: base.maxX, y: base.maxY)))
+            context.stroke(Path(ellipseIn: base), with: .color(.white.opacity(0.35)), lineWidth: d * 0.004)
+
+            let weight = CGRect(x: pivot.x - d * 0.028, y: pivot.y - d * 0.105,
+                                width: d * 0.065, height: d * 0.07)
+            context.fill(Path(roundedRect: weight, cornerRadius: d * 0.012), with: .color(Color(white: 0.55)))
+            var arm = Path()
+            arm.move(to: point(0.45, -0.08 - 0.38))
+            arm.addLine(to: pivot)
+            arm.addLine(to: point(0.38, 0.035))
+            arm.addLine(to: point(0.18, 0.185))
+            var shadow = context
+            shadow.translateBy(x: d * 0.012, y: d * 0.014)
+            shadow.stroke(arm, with: .color(.black.opacity(0.45)),
+                          style: StrokeStyle(lineWidth: d * 0.028, lineCap: .round, lineJoin: .round))
+            context.stroke(arm, with: .color(Color(white: 0.18)),
+                           style: StrokeStyle(lineWidth: d * 0.028, lineCap: .round, lineJoin: .round))
+            context.stroke(arm, with: .linearGradient(Gradient(colors: [.white.opacity(0.95), Color(white: 0.48)]),
+                                                     startPoint: pivot, endPoint: point(0.18, 0.185)),
+                           style: StrokeStyle(lineWidth: d * 0.016, lineCap: .round, lineJoin: .round))
+            context.fill(Path(ellipseIn: CGRect(x: pivot.x - d * 0.022, y: pivot.y - d * 0.022,
+                                                width: d * 0.044, height: d * 0.044)), with: .color(Color(white: 0.7)))
+
+            var cartridge = Path()
+            cartridge.move(to: point(0.215, 0.17))
+            cartridge.addLine(to: point(0.177, 0.13))
+            cartridge.addLine(to: point(0.112, 0.207))
+            cartridge.addLine(to: point(0.15, 0.245))
+            cartridge.closeSubpath()
+            context.fill(cartridge, with: .color(Color(red: 0.18, green: 0.16, blue: 0.25)))
+            context.stroke(cartridge, with: .color(.white.opacity(0.55)), lineWidth: d * 0.004)
+            var stylus = Path()
+            stylus.move(to: point(0.13, 0.225))
+            stylus.addLine(to: point(0.113, 0.25))
+            context.stroke(stylus, with: .color(.white.opacity(0.9)),
+                           style: StrokeStyle(lineWidth: d * 0.006, lineCap: .round))
+        }
+        .allowsHitTesting(false)
+    }
+}
+
 /// An unframed, quiet vinyl silhouette when artwork is absent or unavailable.
 /// Its soft halo merges into the parent player card; it is not an album image.
 private struct AlbumArtworkPlaceholder: View {
@@ -3695,8 +3752,7 @@ private struct AlbumArtworkPlaceholder: View {
                             Circle().stroke(.white.opacity(0.045), lineWidth: 1)
                                 .frame(width: record * scale, height: record * scale)
                         }
-                        // An asymmetric reflection and label mark make the
-                        // rotation visible without spinning the surrounding halo.
+                        // The reflection turns with the record; the tonearm stays fixed.
                         Circle().trim(from: 0.04, to: 0.18)
                             .stroke(.white.opacity(0.14), style: StrokeStyle(lineWidth: record * 0.012, lineCap: .round))
                             .frame(width: record * 0.84, height: record * 0.84)
@@ -3704,15 +3760,13 @@ private struct AlbumArtworkPlaceholder: View {
                             .fill(djConnectIconGradient)
                             .frame(width: record * 0.26, height: record * 0.26)
                             .opacity(0.85)
-                        Capsule().fill(.white.opacity(0.65))
-                            .frame(width: record * 0.07, height: record * 0.012)
-                            .offset(y: -record * 0.075)
                         Circle().fill(Color(red: 0.035, green: 0.04, blue: 0.09))
                             .frame(width: record * 0.045, height: record * 0.045)
                     }
                     .rotationEffect(.degrees(elapsed.truncatingRemainder(dividingBy: 12) * 30))
                     .shadow(color: .black.opacity(0.18), radius: side * 0.06, y: side * 0.035)
                 }
+                AlbumArtworkTonearm(recordDiameter: record)
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
