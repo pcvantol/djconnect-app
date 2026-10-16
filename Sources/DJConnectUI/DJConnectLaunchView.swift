@@ -110,27 +110,7 @@ private struct DJConnectLaunchView: View {
 
             ZStack {
                 DJConnectLaunchCanvasBackground()
-                #if os(macOS)
-                if proxy.size.width >= 880 {
-                    HStack(spacing: 44) {
-                        VStack(spacing: 28) {
-                            DJConnectLaunchBanner()
-                            launchStatus
-                        }
-                        .frame(width: 400)
-                        DJSessionWelcomeArtwork()
-                            .frame(width: 340, height: 340)
-                            .accessibilityHidden(true)
-                    }
-                    .padding(36)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .accessibilityElement(children: .combine)
-                } else {
-                    compactLaunch(bannerWidth: bannerWidth, shortestSide: shortestSide)
-                }
-                #else
                 compactLaunch(bannerWidth: bannerWidth, shortestSide: shortestSide)
-                #endif
             }
         }
     }
@@ -153,10 +133,17 @@ private struct DJConnectLaunchView: View {
         VStack(spacing: 24) {
             DJConnectLaunchBanner()
                 .frame(width: bannerWidth)
-            DJSessionWelcomeArtwork()
-                .frame(width: bannerWidth, height: bannerWidth * 0.72)
-                .accessibilityHidden(true)
-            launchStatus
+            VStack(spacing: 24) {
+                DJSessionWelcomeArtwork()
+                    .frame(height: (bannerWidth - 36) * 0.72)
+                    .accessibilityHidden(true)
+                launchStatus
+            }
+            .frame(maxWidth: .infinity)
+            .padding(18)
+            .djSessionFrostedSurface()
+            .frame(width: bannerWidth)
+            .accessibilityIdentifier("launch-content-card")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .offset(y: -shortestSide * 0.04)
