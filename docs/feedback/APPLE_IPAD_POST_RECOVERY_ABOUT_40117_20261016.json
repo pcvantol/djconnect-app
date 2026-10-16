@@ -1,0 +1,47 @@
+{
+  "status": "POST_RECOVERY_INSTALLED_ABOUT_READBACK_PASS",
+  "previous_physical_recovery_receipt": "APPLE_IPAD_PHYSICAL_OFFLINE_RECOVERY_40117_20261016.json",
+  "observed": {
+    "version": "4.0.0 (40117)",
+    "status": "Verbonden \u00b7 extern",
+    "connection_type": "Remote Home Assistant",
+    "transport": "HTTPS \u00b7 TLS",
+    "active_address": "HTTPS origin rendered; retained privately in AX/screenshots",
+    "push": "Geregistreerd (Sandbox)",
+    "music": "Beschikbaar"
+  },
+  "physical_test": "/private/tmp/djc-ipad-post-recovery-about-20261016.xcresult",
+  "native_test_result": {
+    "passed": 1,
+    "failed": 0
+  },
+  "verification": "Both actual screenshots viewed; labels checked from current AX, not previous screenshots",
+  "effects": "Only connection Details navigation and About scroll; returned Speelt Nu selected; no radio changes, send/playback, install, HA config or Profile changes. Temporary external probe restored.",
+  "limits": "UI-reported HTTPS/TLS external recovery readback; not independent packet/WS handshake, APNs delivery, LAN/WS, provider-complete or original-operation status qualification.",
+  "evidence": [
+    {
+      "name": "Post recovery About transport_0_C17E81E8-CAD0-4604-BDBD-CFD890526FF9.png",
+      "path": "/private/tmp/djc-ipad-post-recovery-about-attachments/2CB6438C-029A-4FAF-B525-A1539628AB36.png",
+      "sha256": "0a59dab4349fc8a4ab97bdda8dba10eb581b6ec2bd6d687d5511fe303750858a",
+      "viewed": true
+    },
+    {
+      "name": "Post recovery About transport AX_0_8AE77FA7-2D64-417D-9122-04234DBBCCFC.txt",
+      "path": "/private/tmp/djc-ipad-post-recovery-about-attachments/3CEBB540-9449-4980-B881-A1BD7E5D0042.txt",
+      "sha256": "32523d533fac3df82677f29b282f77ed1393dbe9c7d4616f48c546571a3b46fa",
+      "viewed": false
+    },
+    {
+      "name": "Post recovery About top_0_994D97D8-6341-4EF6-98EF-4EBFA1B73F9B.png",
+      "path": "/private/tmp/djc-ipad-post-recovery-about-attachments/E443704E-86D4-458E-AEEF-F0ABC1F56351.png",
+      "sha256": "42b03da7cb728dced812928026ab5ed9a65eff0caf7e4064aa4dd4fc7d195a97",
+      "viewed": true
+    },
+    {
+      "name": "Post recovery About top AX_0_FDB1D6B8-E7D6-49B9-B0DB-F19A075EA239.txt",
+      "path": "/private/tmp/djc-ipad-post-recovery-about-attachments/27B0683E-CDCF-4577-8BCD-4692AB48C06B.txt",
+      "sha256": "3dad9479beae7f5bd1489ece005705a319c87f1c0d787bdef9851baa08fe5585",
+      "viewed": false
+    }
+  ]
+}
