@@ -3509,6 +3509,7 @@ private struct AppleWatchPairingReminderButton: View {
 struct RefreshButton: View {
     @ObservedObject var model: DJConnectAppModel
     var action: (() -> Void)?
+    var isLoading = false
 
     var body: some View {
         Button {
@@ -3518,18 +3519,26 @@ struct RefreshButton: View {
                 model.refresh()
             }
         } label: {
-            if model.isRefreshing {
-                ProgressView()
-                    .controlSize(.small)
-            } else {
-                Image(systemName: "arrow.clockwise").foregroundStyle(.white)
-            }
+            RefreshStatusIcon(isLoading: model.isRefreshing || isLoading)
         }
-        .disabled(model.isDemoMode || model.pairingStatus != .paired || model.isRefreshing)
+        .disabled(model.isDemoMode || model.pairingStatus != .paired || model.isRefreshing || isLoading)
         .tint(.white)
         .help(localizedKey(model.language, "ui.refresh"))
         .accessibilityLabel(localizedKey(model.language, "ui.refresh"))
         .accessibilityIdentifier("screen-refresh")
+    }
+}
+
+/// Keep the refresh hit target and toolbar geometry stable while loading.
+struct RefreshStatusIcon: View {
+    var isLoading: Bool
+    var body: some View {
+        ZStack {
+            Image(systemName: "arrow.clockwise").foregroundStyle(.white)
+                .opacity(isLoading ? 0 : 1)
+            if isLoading { ProgressView().controlSize(.small).tint(.white) }
+        }
+        .frame(width: 20, height: 20)
     }
 }
 

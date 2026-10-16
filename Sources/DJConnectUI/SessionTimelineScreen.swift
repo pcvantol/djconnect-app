@@ -343,12 +343,6 @@ struct SessionTimelineScreen: View {
                             if let error = model.djSessionErrorMessage, activeSession != nil {
                                 Text(error).foregroundStyle(.red).padding(.horizontal, 20)
                             }
-                            #if !os(iOS)
-                            if timeline.loading && timeline.entries.isEmpty {
-                                ProgressView().controlSize(.large).tint(.white)
-                                    .frame(maxWidth: .infinity).padding(.horizontal, 20)
-                            }
-                            #endif
                             if !history.available && activeSession != nil {
                                 VStack(alignment: .leading, spacing: 12) {
                                     Text(text("ui.session.history.unavailable"))
@@ -439,20 +433,12 @@ struct SessionTimelineScreen: View {
                             if history.available && timeline.entries.isEmpty && !timeline.loading && timeline.errorKey == nil {
                                 Text(text(activeSession == nil ? "ui.session.history.no_entries" : "ui.session.history.no_entries_active")).padding(.horizontal, 20)
                             }
-                            if timeline.loading && !timeline.entries.isEmpty && !pullRefreshing && !retryRefreshing {
-                                ProgressView().controlSize(.large).tint(.white)
-                                    .frame(maxWidth: .infinity).padding(.horizontal, 20)
-                                    .accessibilityLabel(text("ui.session.history.loading"))
-                            }
                             Color.clear.frame(height: 1).id("tail")
                         }
                         .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity)
                         .padding(.top, activeSession != nil ? 0 : archivedTopPadding).padding(.bottom, 20)
                         .scrollTargetLayout()
-                        #if os(iOS)
-                        .background(SessionRefreshIndicatorBridge(
-                            isRefreshing: retryRefreshing || (timeline.loading && timeline.entries.isEmpty)))
-                        #endif
+                        // Background updates never reveal pull-to-refresh or move the scroll offset.
                         }
                     }
                     .contentMargins(.bottom, usesFloatingComposer && !searching ? floatingComposerHeight + composerBottomPadding + 8 : 0, for: .scrollContent)
@@ -506,7 +492,7 @@ struct SessionTimelineScreen: View {
             .toolbar {
                 #if os(macOS)
                 ToolbarItemGroup(placement: djConnectRefreshToolbarPlacement) {
-                    if let refreshAction { RefreshButton(model: model, action: refreshAction) }
+                    if let refreshAction { RefreshButton(model: model, action: refreshAction, isLoading: timeline.loading || retryRefreshing) }
                     sessionSearchToolbarButton(proxy: proxy)
                 }
                 #endif
@@ -679,12 +665,7 @@ struct SessionTimelineScreen: View {
                 }
                 if activeSession != nil { SessionEndToolbarButton(model: model) }
                 if let refreshAction {
-                    Button(action: refreshAction) {
-                        Image(systemName: "arrow.clockwise").foregroundStyle(.white)
-                    }
-                    .disabled(model.isDemoMode || model.pairingStatus != .paired)
-                    .accessibilityLabel(text("ui.refresh"))
-                    .accessibilityIdentifier("screen-refresh")
+                    RefreshButton(model: model, action: refreshAction, isLoading: timeline.loading || retryRefreshing)
                 }
             } else if allowsHandoffPresentation || refreshAction != nil {
                 Button {
@@ -1214,8 +1195,11 @@ struct SessionControlPopoverHost: View {
                                 }
                                 if refreshAction != nil {
                                     Button { queue(.refresh, captured: captured) } label: {
-                                        Label(text("ui.refresh"), systemImage: "arrow.clockwise")
-                                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                        HStack {
+                                            RefreshStatusIcon(isLoading: model.isRefreshing || history.timelines[captured.sessionID]?.loading == true)
+                                            Text(text("ui.refresh"))
+                                        }
+                                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                                     }
                                     .disabled(model.isDemoMode || model.pairingStatus != .paired)
                                     .accessibilityIdentifier("screen-refresh")
