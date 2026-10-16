@@ -8902,9 +8902,9 @@ private struct TrackInsightAnalysisCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             MusicDNACompactPanelHeader(
-                title: localizedKey(language, insight.verifiedCredit == nil ? "watch.track.energy" : "ui.trackInsight.verified_credits"),
+                title: localizedKey(language, insight.verifiedCredit == nil ? (insight.hasUnavailableAnalysis ? "ui.trackInsight.analysis.title" : "watch.track.energy") : "ui.trackInsight.verified_credits"),
                 icon: insight.verifiedCredit == nil ? "bolt.fill" : "checkmark.seal")
-            Text(insight.verifiedCredit?.context ?? insight.summary)
+            Text(insight.verifiedCredit?.context ?? insight.displaySummary(language: language))
                 .font(.headline.weight(.semibold))
                 .lineSpacing(6)
                 .foregroundStyle(.white)
@@ -8915,11 +8915,11 @@ private struct TrackInsightAnalysisCard: View {
                     .font(.caption).tint(djConnectAccent)
                 if insight.summary != credit.context {
                     MusicDNACompactPanelHeader(title: localizedKey(language, "ui.trackInsight.interpretation"), icon: "text.bubble")
-                    Text(insight.summary).fixedSize(horizontal: false, vertical: true)
+                    Text(insight.displaySummary(language: language)).fixedSize(horizontal: false, vertical: true)
                 }
             }
 
-            let groups = insight.structuredAnalysisGroups(language: language)
+            let groups = insight.hasUnavailableAnalysis ? [] : insight.structuredAnalysisGroups(language: language)
             if !groups.isEmpty {
                 Divider().overlay(.white.opacity(0.16))
                 ForEach(groups.prefix(8)) { section in
@@ -12442,7 +12442,7 @@ private struct AskDJTrackInsightSummary: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
                 .lineLimit(1)
-            Text(insight.summary)
+            Text(insight.displaySummary(language: language))
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.68))
                 .lineLimit(3)

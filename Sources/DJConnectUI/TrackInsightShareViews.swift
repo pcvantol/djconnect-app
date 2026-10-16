@@ -506,7 +506,7 @@ struct TrackInsightShareCardView: View {
                         .multilineTextAlignment(.center)
                 }
                 TrackInsightShareMeters(insight: insight, profile: profile, format: format, language: language)
-                Text(insight.summary)
+                Text(insight.displaySummary(language: language))
                     .font(summaryFont)
                     .foregroundStyle(.white.opacity(0.78))
                     .multilineTextAlignment(.center)

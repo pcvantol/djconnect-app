@@ -1381,6 +1381,26 @@ public struct TrackInsightVerifiedCredit: Codable, Equatable, Sendable {
     }
 }
 
+enum TrackInsightSummaryPresentation {
+    private static let legacyUnavailable: Set<String> = [
+        "No qualified musical analysis is available for this recording. Playback metadata is shown separately; no audio was measured.",
+        "Er is geen gekwalificeerde muzikale analyse voor deze opname beschikbaar. Playbackmetadata staat apart; de audio is niet gemeten.",
+        "Für diese Aufnahme ist keine qualifizierte musikalische Analyse verfügbar. Wiedergabemetadaten stehen separat; das Audio wurde nicht gemessen.",
+        "Aucune analyse musicale qualifiée n’est disponible pour cet enregistrement. Les métadonnées de lecture sont séparées ; l’audio n’a pas été mesuré.",
+        "No hay un análisis musical cualificado para esta grabación. Los metadatos de reproducción se muestran aparte; no se ha medido el audio."
+    ]
+    static func isLegacyUnavailable(_ text: String) -> Bool {
+        legacyUnavailable.contains(text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+    static func unavailable(language: String? = nil) -> String {
+        if let language { return DJConnectLocalization.localized(key: "ui.trackInsight.analysis.unavailable", language: language) }
+        return DJConnectLocalization.localized(key: "ui.trackInsight.analysis.unavailable")
+    }
+    static func legacyDisplaySummary(_ text: String) -> String {
+        isLegacyUnavailable(text) ? unavailable() : text
+    }
+}
+
 public struct TrackInsight: Codable, Equatable, Sendable, Identifiable {
     public enum MusicDNALabel: String, Codable, Equatable, Sendable {
         case matchesMusicDNA = "matches_music_dna"
@@ -1425,6 +1445,16 @@ public struct TrackInsight: Codable, Equatable, Sendable, Identifiable {
     public var visualProfile: TrackInsightVisualProfile?
     public var sections: [TrackInsightSection]
     public var verifiedCredit: TrackInsightVerifiedCredit?
+    public var analysisBasis: String?
+
+    public var hasUnavailableAnalysis: Bool {
+        analysisBasis == "unmeasured_metadata_only_v1" ||
+        (verifiedCredit == nil && TrackInsightSummaryPresentation.isLegacyUnavailable(summary))
+    }
+
+    public func displaySummary(language: String? = nil) -> String {
+        hasUnavailableAnalysis ? TrackInsightSummaryPresentation.unavailable(language: language) : summary
+    }
 
     public init(
         id: String? = nil,
@@ -1463,7 +1493,8 @@ public struct TrackInsight: Codable, Equatable, Sendable, Identifiable {
         musicDNASummary: String? = nil,
         visualProfile: TrackInsightVisualProfile? = nil,
         sections: [TrackInsightSection] = [],
-        verifiedCredit: TrackInsightVerifiedCredit? = nil
+        verifiedCredit: TrackInsightVerifiedCredit? = nil,
+        analysisBasis: String? = nil
     ) {
         self.id = id ?? Self.makeStableID(title: title, artist: artist, album: album)
         self.timestamp = timestamp
@@ -1502,6 +1533,7 @@ public struct TrackInsight: Codable, Equatable, Sendable, Identifiable {
         self.visualProfile = visualProfile
         self.sections = sections
         self.verifiedCredit = verifiedCredit
+        self.analysisBasis = analysisBasis
     }
 
     private static func makeStableID(title: String, artist: String, album: String?) -> String {
@@ -1568,7 +1600,7 @@ public struct DJConnectTrackInsightWidgetSnapshot: Codable, Equatable, Sendable 
         self.duration = Self.normalizedTime(duration)
         self.artworkURL = artworkURL
         self.artworkData = artworkData
-        self.summary = Self.sanitizedPublic(summary, maxLength: 180) ?? ""
+        self.summary = Self.sanitizedPublic(TrackInsightSummaryPresentation.legacyDisplaySummary(summary), maxLength: 180) ?? ""
     }
 
     public init(insight: TrackInsight, updatedAt: Date = Date()) {
@@ -1586,7 +1618,7 @@ public struct DJConnectTrackInsightWidgetSnapshot: Codable, Equatable, Sendable 
             progress: insight.progress,
             duration: insight.duration,
             artworkURL: insight.artwork,
-            summary: insight.summary
+            summary: insight.displaySummary()
         )
     }
 
@@ -1603,7 +1635,9 @@ public struct DJConnectTrackInsightWidgetSnapshot: Codable, Equatable, Sendable 
         guard let data = defaults.data(forKey: storageKey) else {
             return nil
         }
-        return try? JSONDecoder().decode(DJConnectTrackInsightWidgetSnapshot.self, from: data)
+        guard var snapshot = try? JSONDecoder().decode(DJConnectTrackInsightWidgetSnapshot.self, from: data) else { return nil }
+        snapshot.summary = TrackInsightSummaryPresentation.legacyDisplaySummary(snapshot.summary)
+        return snapshot
     }
 
     private static func normalizedMetric(_ value: Double?) -> Double? {
@@ -2158,7 +2192,8 @@ public enum TrackInsightParser {
             musicDNASummary: nil,
             visualProfile: payload.visualProfile,
             sections: sections,
-            verifiedCredit: credit
+            verifiedCredit: credit,
+            analysisBasis: analysis?.basis
         )
     }
 

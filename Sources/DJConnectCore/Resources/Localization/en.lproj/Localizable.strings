@@ -1233,3 +1233,6 @@
 "ui.session.voice.gender" = "Gender";
 "ui.session.voice.male" = "Male";
 "ui.session.voice.female" = "Female";
+
+"ui.trackInsight.analysis.title" = "Music analysis";
+"ui.trackInsight.analysis.unavailable" = "Music analysis is not available for this track yet.";

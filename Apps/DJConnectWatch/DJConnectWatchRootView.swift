@@ -802,7 +802,7 @@ struct DJConnectWatchRootView: View {
                 Text(watchLocalizedKey(language, "watch.track.energy"))
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white)
-                Text(watchNonEmpty(insight.summary, fallback: watchLocalizedKey(language, "watch.not.enough.signals")))
+                Text(watchNonEmpty(insight.displaySummary(language: language), fallback: watchLocalizedKey(language, "watch.not.enough.signals")))
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.72))
                     .fixedSize(horizontal: false, vertical: true)

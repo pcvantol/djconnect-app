@@ -1233,3 +1233,6 @@
 "ui.session.voice.gender" = "Stemtype";
 "ui.session.voice.male" = "Man";
 "ui.session.voice.female" = "Vrouw";
+
+"ui.trackInsight.analysis.title" = "Muziekanalyse";
+"ui.trackInsight.analysis.unavailable" = "Voor dit nummer is nog geen muziekanalyse beschikbaar.";
