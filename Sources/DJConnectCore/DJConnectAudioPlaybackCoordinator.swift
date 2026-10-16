@@ -42,6 +42,23 @@ public final class DJConnectAudioPlaybackCoordinator {
         return true
     }
 
+    /// Preparation may shorten the original grant, but can never renew it.
+    @discardableResult
+    public func shortenDeadline(_ value: Date, for ticket: Ticket) -> Bool {
+        guard isCurrent(ticket), let deadline, value <= deadline, value > now() else {
+            finish(ticket)
+            return false
+        }
+        self.deadline = value
+        expiryTask?.cancel()
+        let remaining = value.timeIntervalSince(now())
+        expiryTask = Task { @MainActor [weak self] in
+            do { try await Task.sleep(for: .seconds(remaining)) } catch { return }
+            self?.finish(ticket)
+        }
+        return true
+    }
+
     public func finish(_ ticket: Ticket) {
         guard current == ticket else { return }
         stop()

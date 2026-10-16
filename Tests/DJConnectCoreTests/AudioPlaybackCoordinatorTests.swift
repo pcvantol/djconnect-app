@@ -78,4 +78,16 @@ struct AudioPlaybackCoordinatorTests {
         #expect(stops == 2)
         #expect(!coordinator.isCurrent(ticket))
     }
+
+    @Test func preparationMayShortenButNeverExtendOriginalDeadline() throws {
+        var now = Date(timeIntervalSince1970: 100)
+        let coordinator = DJConnectAudioPlaybackCoordinator(now: { now }, stopOutput: {})
+        let ticket = try #require(coordinator.begin(deadline: now.addingTimeInterval(30)))
+        #expect(coordinator.shortenDeadline(now.addingTimeInterval(10), for: ticket))
+        now = now.addingTimeInterval(11)
+        #expect(!coordinator.isCurrent(ticket))
+        let next = try #require(coordinator.begin(deadline: now.addingTimeInterval(20)))
+        #expect(!coordinator.shortenDeadline(now.addingTimeInterval(21), for: next))
+        #expect(!coordinator.isCurrent(next))
+    }
 }
