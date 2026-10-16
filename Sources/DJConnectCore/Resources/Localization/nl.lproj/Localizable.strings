@@ -1229,3 +1229,7 @@
 
 "ui.session.voice.choice" = "Kies stem";
 "ui.session.voice.selection_unavailable" = "Gekozen stem niet beschikbaar";
+
+"ui.session.voice.gender" = "Stemtype";
+"ui.session.voice.male" = "Man";
+"ui.session.voice.female" = "Vrouw";

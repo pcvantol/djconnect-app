@@ -2744,6 +2744,12 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     }
     #expect(attempts.value == 1)
     model.selectOutput(DJConnectOutputDevice(id: "b", name: "B"))
+    // Wait for accepted B output readback under parallel-suite load, rather than
+    // treating 250ms as proof its asynchronous transport has finished.
+    for _ in 0..<100 where model.availableOutputs.filter({ $0.active == true }).map(\.id) != ["b"] {
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    // Retain the original late-A failure settling interval and no-replay assertions.
     try await Task.sleep(for: .milliseconds(250))
     #expect(remote.requests.isEmpty)
     #expect(model.selectedOutput == "B")
@@ -4061,4 +4067,140 @@ private func scopedVoiceOptions(removing voiceID: String? = nil) throws -> DJCon
     #expect(model.activeVoicePreference.options == nil && model.activeVoiceError == nil)
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/voice-options") }.count == 1)
 }
+}
+
+private func providerGenderRows() throws -> [[String: Any]] {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let object = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/provider-voice-gender-coreff507c8.http.json"))) as? [String: Any])
+    return try #require(object["rows"] as? [[String: Any]])
+}
+private func providerGenderOptions(_ row: [String: Any]) throws -> DJConnectSpeechVoiceOptions {
+    try JSONDecoder().decode(DJConnectSpeechVoiceOptionsResponse.self, from: historyData(#require(row["options"]))).speech_voice_options
+}
+
+@Suite(.serialized) struct ProviderQualifiedVoiceGenderTests {
+    @Test func fiveLanguageProducerMappingsAdmitOnlyExplicitMetadata() throws {
+        let rows = try providerGenderRows()
+        #expect(rows.count == 5)
+        for row in rows {
+            let options = try providerGenderOptions(row)
+            #expect(options.isValid && Set(options.selectableGenders) == [.male, .female])
+            for gender in [DJConnectVoicePreference.male, .female] {
+                let voiceID = try #require(options.qualifiedGenderVoiceID(gender))
+                #expect(options.admitsGender(gender, voiceID: voiceID))
+                #expect(options.selectableVoices.contains { $0.voiceID == voiceID && $0.gender == gender.rawValue })
+                let opposite = try #require(options.qualifiedGenderVoiceID(gender == .male ? .female : .male))
+                #expect(!options.admitsGender(gender, voiceID: opposite))
+            }
+        }
+    }
+
+    @Test(arguments: ["missing-map", "wrong-target", "missing-voice", "unknown-key", "duplicate", "no-metadata", "disabled"])
+    func malformedOrWithdrawnGenderHidesButtonsWithoutInventingValues(_ fault: String) throws {
+        let row = try #require(providerGenderRows().first)
+        let envelope = try #require(row["options"] as? [String: Any])
+        var options = try #require(envelope["speech_voice_options"] as? [String: Any])
+        var gender = try #require(options["gender_selection"] as? [String: Any])
+        var targets = try #require(gender["voice_ids"] as? [String: String])
+        switch fault {
+        case "missing-map": gender.removeValue(forKey: "voice_ids")
+        case "wrong-target": targets["male"] = targets["female"]; gender["voice_ids"] = targets
+        case "missing-voice": targets["male"] = "not-in-current-inventory"; gender["voice_ids"] = targets
+        case "unknown-key": targets["guessed"] = "GuyNeural"; gender["voice_ids"] = targets
+        case "duplicate": gender["values"] = ["male", "male"]
+        case "disabled": gender["available"] = false
+        default:
+            var voices = try #require(options["voices"] as? [[String: Any]])
+            for index in voices.indices { voices[index]["gender"] = NSNull() }
+            options["voices"] = voices
+        }
+        options["gender_selection"] = gender
+        let decoded = try JSONDecoder().decode(DJConnectSpeechVoiceOptions.self, from: historyData(options))
+        #expect(decoded.isValid && !decoded.selectableVoices.isEmpty)
+        #expect(decoded.selectableGenders.isEmpty && !decoded.supports(.male) && !decoded.supports(.female))
+        #expect(decoded.qualifiedGenderVoiceID(.male) == nil)
+    }
+
+    @Test func localGenderIntentUsesProducerTargetAndSurvivesWithdrawalUntilExplicitReset() throws {
+        let options = try providerGenderOptions(#require(providerGenderRows().first))
+        let male = try #require(options.qualifiedGenderVoiceID(.male)), female = try #require(options.qualifiedGenderVoiceID(.female))
+        let scope = try #require(DJConnectSpeechVoiceScope(installationID: "ha", profileID: "profile", sessionID: "session", deviceID: "device"))
+        var state = DJConnectSpeechVoicePreferenceState(); state.bind(scope)
+        let refresh = try #require({ state.beginRefresh() }())
+        #expect({ state.completeRefresh(refresh, options: options) }())
+        #expect({ state.selectGender(.male) }())
+        #expect(state.selectedGender == .male && state.resolution == .selected(male))
+        #expect({ state.select(female) }())
+        #expect(state.selectedGender == .female && state.resolution == .selected(female))
+        #expect({ state.selectGender(.male) }())
+        #expect(state.selectedVoiceID == male && state.selectedGender == .male)
+        let unknownGenderOptions = try scopedVoiceOptions()
+        let withdrawn = try #require({ state.beginRefresh() }())
+        #expect({ state.completeRefresh(withdrawn, options: unknownGenderOptions) }())
+        #expect(state.selectedGender == .male && state.selectedVoiceID == male && state.resolution == .unavailable)
+        #expect({ !state.selectGender(.female) }())
+        #expect(state.selectedGender == .male && state.selectedVoiceID == male)
+        #expect({ state.select(nil) }())
+        #expect(state.selectedGender == .default && state.resolution == .configuredDefault)
+        let restored = try #require({ state.beginRefresh() }())
+        #expect({ state.completeRefresh(restored, options: options) }())
+        #expect({ state.selectGender(.female) }())
+        state.discard()
+        #expect(state.selectedGender == .default && state.selectedVoiceID == nil && state.scope == nil)
+    }
+
+    @Test func prepareRejectsConflictingGenderBeforeAnyRequest() async throws {
+        let row = try #require(providerGenderRows().first), options = try providerGenderOptions(row)
+        let renewed = try genericTTS6ecePrepared(row)
+        let original = try JSONDecoder().decode(DJConnectSpeechResponse.self, from: historyData(renewed)).session_speech
+        let fixture = HistoryWireFixture { _ in (200, Data(), 0) }; defer { fixture.close() }
+        let female = try #require(options.qualifiedGenderVoiceID(.female))
+        #expect(original.admits(reference: original.reference, text: original.segments.map(\.text).joined()) && original.advertisesPreparationAttempt(.haConfigured))
+        await #expect(throws: DJConnectError.invalidResponse) {
+            try await fixture.client().prepareSpeech(original, acceptedText: original.segments.map(\.text).joined(),
+                processor: .haConfigured, preference: .male, voiceOptions: options, selectedVoiceID: female)
+        }
+        #expect(fixture.requests.isEmpty)
+    }
+    @Test(arguments: ["valid", "unknown-voice", "different-qualified-voice"])
+    func prepareConfirmsExactAdvertisedGenderTarget(_ outcome: String) async throws {
+        let row = try #require(providerGenderRows().first)
+        var options = try providerGenderOptions(row)
+        let renewed = try genericTTS6ecePrepared(row)
+        let original = try JSONDecoder().decode(DJConnectSpeechResponse.self, from: historyData(renewed)).session_speech
+        let male = try #require(options.qualifiedGenderVoiceID(.male))
+        if outcome == "different-qualified-voice" {
+            // Explicit modeled provider metadata: this historical Cloud fixture has only one
+            // qualified male target. Model a second advertised male voice without changing its
+            // exact producer-default target. Canonical fixture bytes remain untouched.
+            let envelope = try #require(row["options"] as? [String: Any])
+            var payload = try #require(envelope["speech_voice_options"] as? [String: Any])
+            var voices = try #require(payload["voices"] as? [[String: Any]])
+            let index = try #require(voices.firstIndex { ($0["gender"] as? String) == nil })
+            voices[index]["gender"] = "male"; payload["voices"] = voices
+            options = try JSONDecoder().decode(DJConnectSpeechVoiceOptions.self, from: historyData(payload))
+        }
+        var reply = renewed
+        if outcome != "valid" {
+            var speech = try #require(reply["session_speech"] as? [String: Any])
+            var voice = try #require(speech["effective_voice"] as? [String: Any])
+            voice["voice_id"] = outcome == "unknown-voice" ? "not-in-inventory" :
+                try #require(options.selectableVoices.first { $0.gender == "male" && $0.voiceID != male }).voiceID
+            speech["effective_voice"] = voice; reply["session_speech"] = speech
+        }
+        let data = try historyData(reply)
+        let fixture = HistoryWireFixture { _ in (200, data, 0) }; defer { fixture.close() }
+        if outcome == "valid" {
+            let prepared = try await fixture.client().prepareSpeech(original, acceptedText: original.segments.map(\.text).joined(),
+                processor: .haConfigured, preference: .male, voiceOptions: options)
+            #expect(prepared.effectiveVoice?.voiceID == male && prepared.effectiveVoice?.gender == "male")
+        } else {
+            await #expect(throws: DJConnectError.invalidResponse) {
+                try await fixture.client().prepareSpeech(original, acceptedText: original.segments.map(\.text).joined(),
+                    processor: .haConfigured, preference: .male, voiceOptions: options)
+            }
+        }
+        #expect(fixture.requests.count == 1)
+    }
+
 }

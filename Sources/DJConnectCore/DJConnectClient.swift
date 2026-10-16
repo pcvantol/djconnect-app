@@ -417,7 +417,7 @@ public final class DJConnectClient: Sendable {
                               processor: DJConnectSpeechProcessor, preference: DJConnectVoicePreference = .default,
                               voiceOptions: DJConnectSpeechVoiceOptions? = nil, selectedVoiceID: String? = nil) async throws -> DJConnectSessionSpeech {
         guard original.admits(reference: original.reference, text: acceptedText), original.advertisesPreparationAttempt(processor),
-              preference == .default || voiceOptions?.supports(preference) == true,
+              preference == .default || voiceOptions?.admitsGender(preference, voiceID: selectedVoiceID) == true,
               selectedVoiceID == nil || (processor == .haConfigured && voiceOptions?.supportsVoice(selectedVoiceID!) == true)
         else { throw DJConnectError.invalidResponse }
         let request = try speechJSONRequest(path: "prepare", payload: DJConnectSpeechPrepareRequest(
@@ -444,6 +444,11 @@ public final class DJConnectClient: Sendable {
             guard prepared.effectiveVoice?.processor == processor, speechLocaleMatches(prepared.effectiveVoice?.locale, prepared.locale),
                   preference == .default || prepared.effectiveVoice?.gender == preference.rawValue,
                   selectedVoiceID == nil || prepared.effectiveVoice?.voiceID == selectedVoiceID else { throw DJConnectError.invalidResponse }
+            if preference != .default {
+                guard let expected = selectedVoiceID ?? voiceOptions?.qualifiedGenderVoiceID(preference),
+                      prepared.effectiveVoice?.voiceID == expected,
+                      voiceOptions?.admitsGender(preference, voiceID: expected) == true else { throw DJConnectError.invalidResponse }
+            }
         } else {
             guard prepared.audioReference == nil, prepared.effectiveVoice == nil, prepared.voicePreference == preference else { throw DJConnectError.invalidResponse }
         }

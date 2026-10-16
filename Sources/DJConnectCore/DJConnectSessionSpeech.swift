@@ -146,7 +146,9 @@ public struct DJConnectSpeechVoiceOptions: Decodable, Equatable, Sendable {
     public struct GenderSelection: Decodable, Equatable, Sendable {
         public let available: Bool
         public let values: [DJConnectVoicePreference]
+        public let voiceIDs: [String: String]?
         public let reason: String?
+        enum CodingKeys: String, CodingKey { case available, values, reason; case voiceIDs = "voice_ids" }
     }
     public struct VoiceSelection: Decodable, Equatable, Sendable {
         public let available: Bool
@@ -190,8 +192,24 @@ public struct DJConnectSpeechVoiceOptions: Decodable, Equatable, Sendable {
     }
     public func supportsVoice(_ id: String) -> Bool { selectableVoices.contains { $0.voiceID == id } }
     public var selectableGenders: [DJConnectVoicePreference] {
-        guard isValid, state == "available", genderSelection.available else { return [] }
-        return genderSelection.values.filter { $0 != .default && supportedPreferences.contains($0) }
+        let values = genderSelection.values
+        guard isValid, state == "available", genderSelection.available,
+              !values.isEmpty, values.count <= 2, Set(values).count == values.count,
+              values.allSatisfy({ $0 != .default && supportedPreferences.contains($0) }),
+              let targets = genderSelection.voiceIDs, Set(targets.keys) == Set(values.map(\.rawValue)),
+              values.allSatisfy({ preference in
+                  selectableVoices.contains { $0.voiceID == targets[preference.rawValue] && $0.gender == preference.rawValue }
+              }) else { return [] }
+        return values
+    }
+    public func qualifiedGenderVoiceID(_ preference: DJConnectVoicePreference) -> String? {
+        guard selectableGenders.contains(preference) else { return nil }
+        return genderSelection.voiceIDs?[preference.rawValue]
+    }
+    public func admitsGender(_ preference: DJConnectVoicePreference, voiceID: String?) -> Bool {
+        guard qualifiedGenderVoiceID(preference) != nil else { return false }
+        guard let voiceID else { return true }
+        return selectableVoices.contains { $0.voiceID == voiceID && $0.gender == preference.rawValue }
     }
     public func supports(_ preference: DJConnectVoicePreference) -> Bool {
         guard isValid, state == "available" else { return false }

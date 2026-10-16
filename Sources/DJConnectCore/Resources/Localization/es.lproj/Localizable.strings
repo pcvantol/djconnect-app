@@ -1229,3 +1229,7 @@
 
 "ui.session.voice.choice" = "Elegir voz";
 "ui.session.voice.selection_unavailable" = "Voz seleccionada no disponible";
+
+"ui.session.voice.gender" = "Tipo de voz";
+"ui.session.voice.male" = "Masculina";
+"ui.session.voice.female" = "Femenina";

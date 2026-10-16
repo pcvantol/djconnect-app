@@ -1229,3 +1229,7 @@
 
 "ui.session.voice.choice" = "Stimme wählen";
 "ui.session.voice.selection_unavailable" = "Gewählte Stimme nicht verfügbar";
+
+"ui.session.voice.gender" = "Stimmtyp";
+"ui.session.voice.male" = "Männlich";
+"ui.session.voice.female" = "Weiblich";

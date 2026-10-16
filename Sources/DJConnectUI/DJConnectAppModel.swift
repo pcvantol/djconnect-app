@@ -5560,6 +5560,12 @@ public final class DJConnectAppModel: ObservableObject {
         _ = activeVoicePreference.select(voiceID)
     }
 
+    public func selectActiveVoiceGender(_ preference: DJConnectVoicePreference, expectedScope: DJConnectSpeechVoiceScope, expectedEpoch: UUID) {
+        guard currentVoiceScope == expectedScope, activeVoicePreference.scope == expectedScope,
+              expectedEpoch == sessionHistory.responseEpoch else { return }
+        _ = activeVoicePreference.selectGender(preference)
+    }
+
     public func changeActiveSessionPersona(_ persona: DJConnectSessionPersonaValue, expectedSessionID: String, expectedEpoch: UUID) async {
         guard !isDemoMode, activePersonaAvailable, !activePersonaPending, isAppInForeground,
               pairingStatus == .paired, sessionHistory.hasAuthorizedOwner,

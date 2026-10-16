@@ -1,0 +1,37 @@
+{
+  "status": "SOURCE_QUALIFIED_GENDER_BUTTONS_AND_VOICE_CONSISTENCY_PASS; not installed/native/audible",
+  "source_parent": "e2f5d36",
+  "producer_source": "ff507c8999069791f3697d5cef2590dda43db243",
+  "producer_admission": "Exact merged source contract/fixture read locally; producer handoff says official artifact/formal/separate Finalization and dev/prod install were still pending at intake. No independent newer release/deployment claim.",
+  "fixture": {
+    "path": "Tests/Fixtures/provider-voice-gender-coreff507c8.http.json",
+    "sha256": "bf10ae0af49ecc9692dc5a6cb6d41ffc0805f798bbe880be9f3b55fc9075d133",
+    "binding": "Byte-equal to exact Core Git object examples/client_contracts/provider_voice_gender/qualified-cloud.http.json"
+  },
+  "changes": [
+    "Man/Vrouw buttons share Mood segmented DJConnectButtonStyle and frosted surface/selected styling, minimum48pt; localized5languages",
+    "Gender control absent unless current explicit gender_selection values/voice_ids exactly resolve into advertised voice entries with matching explicit gender; missing, duplicate, mismatched, withdrawn metadata hides gender while retaining concrete voice inventory",
+    "Gender action uses Core target; compatible explicit voice retained, incompatible choice replaced only by explicit gender action. Explicit voice action follows qualified metadata; provider-default reset clears gender explicitly",
+    "Gender and concrete voice intent remain scoped RAM-only; metadata withdrawal preserves intent but makes it unavailable. No silent default/fallback",
+    "Prepare rejects voice/gender conflict before dispatch; response must confirm exact selected or advertised gender target. No arbitrary text/provider/pipeline/Persona/Mood write added"
+  ],
+  "validation": {
+    "regression": "657 Swift tests in8suites PASS31.373s",
+    "regression_log": "/private/tmp/djc-voice-gender-regression-complete-20261016.log",
+    "ios_simulator_library": "DJConnectUI arm64 iOS26 compilation PASS33.05s",
+    "ios_log": "/private/tmp/djc-voice-gender-ios-build-20261016.log",
+    "localization": "1172 keys/5languages PASS",
+    "diff_check": "PASS",
+    "boundaries": "Historical isolated Core/HA Cloud fixture consumed; no live provider or native speech call. Clock renewal and additional explicitly advertised same-gender metadata in one response-fence case are modeled test data only; canonical fixture unchanged.",
+    "iteration": "New gender suite passed; full suite exposed repeated existing output-selection test checking after fixed250ms before B readback. Added same bounded completion wait used by adjacent test; retained original250ms late-A settling and all no-remote-replay assertions. No output runtime change. Final full suite passes."
+  },
+  "remaining": [
+    "Reference-bound prepare/playback owner integration and MP3 still open",
+    "Closed-menu foreground/reconnect/preparation refresh and provider observation/audio expiry must be completed before installation",
+    "Native gender/pulldown layout and audible/provider-switch/isolation acceptance not run"
+  ],
+  "installed": "Mac40119 readback unchanged; autoplay-only Voice menu. No new selective-source or app mutation this step; iPad/iPhone unchanged.",
+  "effects": "Source/tests/fixture/receipt/local commit only; no HA config/deploy, synth/audio/provider request, app install, publication, automation change or cross-thread message.",
+  "cleanup": "Single existing worktree/current/main only merged refs; no Git locks or remaining build/trace processes; no refs/cache deleted; unrelated untracked project directories preserved.",
+  "storage": "Snapshots differ: df internal5.6GiB and EP_DATA664MiB available; later diskutil APFS CapacityFree disk3=1024806912bytes,disk7=750084096bytes. No own cleanup or free-space gain claim; no further heavy build initiated."
+}

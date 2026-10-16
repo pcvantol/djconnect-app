@@ -26,6 +26,10 @@ struct ActiveSessionVoiceToolbar: View {
         guard current, let menuScope, let menuEpoch else { return }
         model.selectActiveVoice(voice, expectedScope: menuScope, expectedEpoch: menuEpoch)
     }
+    private func chooseGender(_ preference: DJConnectVoicePreference) {
+        guard current, let menuScope, let menuEpoch else { return }
+        model.selectActiveVoiceGender(preference, expectedScope: menuScope, expectedEpoch: menuEpoch)
+    }
     private func refresh() async {
         await model.refreshActiveVoiceOptions()
         guard showing, scenePhase == .active, model.activeDJSession?.id == session.id else { return }
@@ -45,6 +49,9 @@ struct ActiveSessionVoiceToolbar: View {
                             ProgressView(text("loading"))
                         }
                         if let options {
+                            SessionVoiceGenderSelector(language: model.language, values: options.selectableGenders,
+                                selected: model.activeVoicePreference.selectedGender,
+                                enabled: current && !model.activeVoicePreference.refreshing, onSelect: chooseGender)
                             voicePicker(options)
                             if let voice = options.providerVoice {
                                 Text(text("configured") + ": " + voice.voiceName + " · " + voice.locale)

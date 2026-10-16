@@ -34,6 +34,7 @@ public struct DJConnectSpeechVoicePreferenceState: Sendable {
 
     public private(set) var scope: DJConnectSpeechVoiceScope?
     public private(set) var selectedVoiceID: String?
+    public private(set) var selectedGender: DJConnectVoicePreference = .default
     public private(set) var options: DJConnectSpeechVoiceOptions?
     public private(set) var refreshing = false
     private var generation = UUID()
@@ -51,6 +52,7 @@ public struct DJConnectSpeechVoicePreferenceState: Sendable {
         generation = UUID()
         scope = nil
         selectedVoiceID = nil
+        selectedGender = .default
         options = nil
         refreshing = false
     }
@@ -95,11 +97,27 @@ public struct DJConnectSpeechVoicePreferenceState: Sendable {
             guard options.supports(.default) else { return false }
         }
         selectedVoiceID = voiceID
+        // Explicit concrete choice may replace prior gender intent, using current metadata only.
+        selectedGender = options.selectableGenders.first { preference in
+            options.selectableVoices.contains { $0.voiceID == voiceID && $0.gender == preference.rawValue }
+        } ?? .default
+        return true
+    }
+
+    @discardableResult
+    public mutating func selectGender(_ preference: DJConnectVoicePreference) -> Bool {
+        guard scope != nil, !refreshing, let options,
+              let target = options.qualifiedGenderVoiceID(preference) else { return false }
+        if !options.admitsGender(preference, voiceID: selectedVoiceID) || selectedVoiceID == nil {
+            selectedVoiceID = target
+        }
+        selectedGender = preference
         return true
     }
 
     public var resolution: Resolution {
         guard scope != nil, !refreshing, let options else { return .unavailable }
+        if selectedGender != .default && !options.admitsGender(selectedGender, voiceID: selectedVoiceID) { return .unavailable }
         if let selectedVoiceID {
             return options.supportsVoice(selectedVoiceID) ? .selected(selectedVoiceID) : .unavailable
         }
