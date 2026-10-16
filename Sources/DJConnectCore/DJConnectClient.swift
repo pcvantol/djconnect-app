@@ -415,14 +415,16 @@ public final class DJConnectClient: Sendable {
 
     public func prepareSpeech(_ original: DJConnectSessionSpeech, acceptedText: String,
                               processor: DJConnectSpeechProcessor, preference: DJConnectVoicePreference = .default,
-                              voiceOptions: DJConnectSpeechVoiceOptions? = nil) async throws -> DJConnectSessionSpeech {
+                              voiceOptions: DJConnectSpeechVoiceOptions? = nil, selectedVoiceID: String? = nil) async throws -> DJConnectSessionSpeech {
         guard original.admits(reference: original.reference, text: acceptedText), original.advertisesPreparationAttempt(processor),
-              preference == .default || voiceOptions?.supports(preference) == true else { throw DJConnectError.invalidResponse }
+              preference == .default || voiceOptions?.supports(preference) == true,
+              selectedVoiceID == nil || (processor == .haConfigured && voiceOptions?.supportsVoice(selectedVoiceID!) == true)
+        else { throw DJConnectError.invalidResponse }
         let request = try speechJSONRequest(path: "prepare", payload: DJConnectSpeechPrepareRequest(
-            reference: original.reference, processor: processor, voice_preference: preference))
+            reference: original.reference, processor: processor, voice_preference: preference, voice_id: selectedVoiceID))
         let response = try decoder.decode(DJConnectSpeechResponse.self, from: await speechTransport.data(for: request))
         let prepared = response.session_speech
-        guard response.success, prepared.schemaVersion == 1, prepared.reference == original.reference else { throw DJConnectError.invalidResponse }
+        guard response.success, prepared.schemaVersion == 1, prepared.reference == original.reference, prepared.notification?.isValid ?? true else { throw DJConnectError.invalidResponse }
         if ["unavailable", "expired", "withdrawn"].contains(prepared.state), !prepared.manualAllowed, !prepared.autoplayEligible {
             guard prepared.processors.isEmpty, prepared.segments.isEmpty, prepared.audioReference == nil else { throw DJConnectError.invalidResponse }
             return prepared
@@ -439,8 +441,9 @@ public final class DJConnectClient: Sendable {
               processor == .localOnDevice ? prepared.audioState == "renderer_pending" : prepared.audioState == "ready"
         else { throw DJConnectError.invalidResponse }
         if processor == .haConfigured {
-            guard prepared.effectiveVoice?.processor == processor, prepared.effectiveVoice?.locale == prepared.locale,
-                  preference == .default || prepared.effectiveVoice?.gender == preference.rawValue else { throw DJConnectError.invalidResponse }
+            guard prepared.effectiveVoice?.processor == processor, speechLocaleMatches(prepared.effectiveVoice?.locale, prepared.locale),
+                  preference == .default || prepared.effectiveVoice?.gender == preference.rawValue,
+                  selectedVoiceID == nil || prepared.effectiveVoice?.voiceID == selectedVoiceID else { throw DJConnectError.invalidResponse }
         } else {
             guard prepared.audioReference == nil, prepared.effectiveVoice == nil, prepared.voicePreference == preference else { throw DJConnectError.invalidResponse }
         }
@@ -450,7 +453,7 @@ public final class DJConnectClient: Sendable {
     public func speechAudio(_ prepared: DJConnectSessionSpeech, acceptedText: String) async throws -> Data {
         guard prepared.admits(reference: prepared.reference, text: acceptedText), prepared.audioState == "ready",
               prepared.effectiveVoice?.processor == .haConfigured,
-              prepared.effectiveVoice?.locale == prepared.locale,
+              speechLocaleMatches(prepared.effectiveVoice?.locale, prepared.locale),
               prepared.effectiveVoice?.voiceID.isEmpty == false,
               let resource = prepared.audioReference, resource.isValid else { throw DJConnectError.invalidResponse }
         let request = try speechJSONRequest(path: "audio", payload: DJConnectSpeechAudioRequest(asset_id: resource.assetID))

@@ -3721,3 +3721,127 @@ func activePersonaRejectsUnconfirmedMutationReplies(_ fault:String) async throws
     #expect(model.activeDJSession?.confirmedPersona?.selectedPersona == .homeDJ && model.activePersonaError == nil)
     #expect(fixture.requests.filter{$0.url!.path.hasSuffix("/session/persona")}.count == 1)
 }
+
+private func genericTTS6eceFixture() throws -> [String:Any] {
+    let root=URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent()
+    return try #require(JSONSerialization.jsonObject(with:Data(contentsOf:root.appendingPathComponent("Fixtures/generic-ha-tts-core6ece.http.json"))) as? [String:Any])
+}
+private func genericTTS6ecePrepared(_ row:[String:Any], voiceID:String? = nil) throws -> [String:Any] {
+    var envelope=try #require(row["prepared"] as? [String:Any])
+    var speech=try #require(envelope["session_speech"] as? [String:Any])
+    // Explicit modeled clock renewal for client scheduling tests only; canonical fixture remains byte-exact.
+    speech["expires_at"] = ISO8601DateFormatter().string(from:Date().addingTimeInterval(120))
+    if let voiceID {
+        var voice=try #require(speech["effective_voice"] as? [String:Any]);voice["voice_id"]=voiceID
+        speech["effective_voice"]=voice
+    }
+    envelope["session_speech"]=speech;return envelope
+}
+
+// Respect the production two-transfer budget; these independent fixture cases are serial.
+@Suite(.serialized) struct GenericTTS6eceContractTests {
+@Test func genericTTS6eceActualFiveLanguageInventoryAndReadiness() throws {
+    let rows=try #require(try genericTTS6eceFixture()["rows"] as? [[String:Any]])
+    #expect(rows.count == 5)
+    for row in rows {
+        let options=try JSONDecoder().decode(DJConnectSpeechVoiceOptionsResponse.self,from:historyData(#require(row["voice_options"]))).speech_voice_options
+        #expect(options.isValid && options.selectableVoices.count == 13)
+        #expect(options.preferenceContext?.isSupported == true && options.supportsVoice("cedar"))
+        #expect(options.selectableGenders.isEmpty && options.selectableVoices.allSatisfy{$0.gender == nil})
+        #expect(options.providerStatus?.configurationState == "ready" && options.providerStatus?.synthesisState == "not_tested")
+        #expect(options.providerStatus?.hasSuccessfulObservation == false)
+        let speech=try JSONDecoder().decode(DJConnectSpeechResponse.self,from:historyData(genericTTS6ecePrepared(row))).session_speech
+        #expect(speechLocaleMatches(speech.effectiveVoice?.locale,speech.locale))
+    }
+    #expect(!speechLocaleMatches("en//US","en") && !speechLocaleMatches("fr-FR","nl"))
+}
+
+@Test(arguments:["scope","duplicate","control","count"])
+func genericTTS6eceRejectsUnqualifiedVoiceInventory(_ fault:String) throws {
+    let rows=try #require(try genericTTS6eceFixture()["rows"] as? [[String:Any]])
+    var envelope=try #require(rows[0]["voice_options"] as? [String:Any])
+    var options=try #require(envelope["speech_voice_options"] as? [String:Any])
+    var voices=try #require(options["voices"] as? [[String:Any]])
+    if fault == "scope" {var c=try #require(options["preference_context"] as? [String:Any]);c["scope"]="global";options["preference_context"]=c}
+    if fault == "duplicate" {voices.append(voices[0])}
+    if fault == "control" {voices[0]["voice_id"]="injected\nvoice"}
+    if fault == "count" {voices=(0..<65).map{["voice_id":"v\($0)","name":"voice"]}}
+    options["voices"]=voices;envelope["speech_voice_options"]=options
+    let decoded=try JSONDecoder().decode(DJConnectSpeechVoiceOptionsResponse.self,from:historyData(envelope)).speech_voice_options
+    #expect(decoded.selectableVoices.isEmpty)
+}
+
+@Test(arguments:["code","action","repeat","backoff","version"])
+func genericTTS6eceSafeNotificationsFailClosed(_ fault:String) throws {
+    let fixture=try genericTTS6eceFixture()
+    let failure=try #require(fixture["runtime_failure_fixture"] as? [String:Any])
+    let change=try #require(failure["configuration_change_audio"] as? [String:Any])
+    var notice=try #require(change["notification"] as? [String:Any])
+    #expect(try JSONDecoder().decode(DJConnectSpeechNotification.self,from:historyData(notice)).isValid)
+    if fault == "code" {notice["code"]="raw_provider_exception"}
+    if fault == "action" {notice["actions"]=["execute_original_request"]}
+    if fault == "repeat" {notice["repeat_original_request"]=true}
+    if fault == "backoff" {notice["retry_after_seconds"]=300}
+    if fault == "version" {notice["schema_version"]=2}
+    #expect(!(try JSONDecoder().decode(DJConnectSpeechNotification.self,from:historyData(notice))).isValid)
+}
+
+@Test func genericTTS6eceRuntimeFailureAndPrivateAudio409RemainFunctional() async throws {
+    let wire=try genericTTS6eceFixture(), rows=try #require(wire["rows"] as? [[String:Any]])
+    let failure=try #require(wire["runtime_failure_fixture"] as? [String:Any])
+    let options=try JSONDecoder().decode(DJConnectSpeechVoiceOptionsResponse.self,from:historyData(#require(failure["provider_status"]))).speech_voice_options
+    #expect(options.isValid && options.providerStatus?.synthesisState == "failed" && options.providerStatus?.hasSuccessfulObservation == false)
+    #expect(options.notification?.retryAfterSeconds == 60 && options.notification?.repeatOriginalRequest == false)
+    let unavailable=try JSONDecoder().decode(DJConnectSpeechResponse.self,from:historyData(#require(failure["failed_prepare"]))).session_speech
+    #expect(unavailable.state == "unavailable" && unavailable.segments.isEmpty && unavailable.notification?.isValid == true)
+    let prepared=try JSONDecoder().decode(DJConnectSpeechResponse.self,from:historyData(genericTTS6ecePrepared(rows[0]))).session_speech
+    let data=try historyData(#require(failure["configuration_change_audio"]))
+    let fixture=HistoryWireFixture{_ in (409,data,0)};defer{fixture.close()}
+    do {
+        _=try await fixture.client().speechAudio(prepared,acceptedText:prepared.segments.map(\.text).joined())
+        Issue.record("Expected functional audio withdrawal")
+    } catch let issue as DJConnectSpeechProviderIssue {
+        #expect(issue.notification.code == "tts_configuration_changed" && issue.notification.isValid)
+    }
+    #expect(fixture.requests.count == 1)
+}
+
+@Test(arguments:[true,false]) func genericTTS6eceExplicitVoiceIsBoundToInventoryAndConfirmation(_ correctVoice:Bool) async throws {
+    let rows=try #require(try genericTTS6eceFixture()["rows"] as? [[String:Any]])
+    let row=rows[1]
+    let options=try JSONDecoder().decode(DJConnectSpeechVoiceOptionsResponse.self,from:historyData(#require(row["voice_options"]))).speech_voice_options
+    let originalEnvelope=try genericTTS6ecePrepared(row)
+    let original=try JSONDecoder().decode(DJConnectSpeechResponse.self,from:historyData(originalEnvelope)).session_speech
+    var responseEnvelope=originalEnvelope
+    var responseSpeech=try #require(responseEnvelope["session_speech"] as? [String:Any])
+    var responseVoice=try #require(responseSpeech["effective_voice"] as? [String:Any])
+    responseVoice["voice_id"]=correctVoice ? "cedar" : "alloy"
+    responseSpeech["effective_voice"]=responseVoice;responseEnvelope["session_speech"]=responseSpeech
+    let response=try historyData(responseEnvelope)
+    let fixture=HistoryWireFixture{_ in (200,response,0)};defer{fixture.close()}
+    let text=original.segments.map(\.text).joined()
+    #expect(original.admits(reference:original.reference,text:text) && original.advertisesPreparationAttempt(.haConfigured))
+    #expect(options.supportsVoice("cedar"))
+    if correctVoice {
+        do {
+            let prepared=try await fixture.client().prepareSpeech(original,acceptedText:text,processor:.haConfigured,voiceOptions:options,selectedVoiceID:"cedar")
+            #expect(prepared.effectiveVoice?.voiceID == "cedar")
+        } catch { Issue.record("Prepare phase rejected qualified modeled voice: \(error)");return }
+    } else {
+        await #expect(throws:DJConnectError.invalidResponse) {
+            try await fixture.client().prepareSpeech(original,acceptedText:text,processor:.haConfigured,voiceOptions:options,selectedVoiceID:"cedar")
+        }
+    }
+    let request=try #require(fixture.requests.first)
+    let requestBody=try presenceRequestBody(request)
+    let body=try #require(JSONSerialization.jsonObject(with:requestBody) as? [String:Any])
+    #expect(body["voice_id"] as? String == "cedar" && body["voice_preference"] as? String == "default")
+    #expect(body["engine"] == nil && body["provider"] == nil && body["text"] == nil)
+    let count=fixture.requests.count
+    await #expect(throws:DJConnectError.invalidResponse) {
+        try await fixture.client().prepareSpeech(original,acceptedText:text,processor:.haConfigured,voiceOptions:options,selectedVoiceID:"unknown")
+    }
+    #expect(fixture.requests.count == count)
+}
+
+}

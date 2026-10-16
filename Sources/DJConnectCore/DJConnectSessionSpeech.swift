@@ -106,8 +106,9 @@ public struct DJConnectSessionSpeech: Codable, Equatable, Sendable {
     public let audioReference: AudioReference?
     public let effectiveVoice: Voice?
     public let voicePreference: DJConnectVoicePreference?
+    public let notification: DJConnectSpeechNotification?
     enum CodingKeys: String, CodingKey {
-        case reference, persona, locale, segments, state, reason, processors, attribution
+        case reference, persona, locale, segments, state, reason, processors, attribution, notification
         case schemaVersion = "schema_version", sourceKind = "source_kind", sourceID = "source_id", sessionID = "session_id"
         case textRevision = "text_revision", presentationRevision = "presentation_revision", personaRevision = "persona_revision"
         case expiresAt = "expires_at", sourceExpiresAt = "source_expires_at", manualAllowed = "manual_allowed", autoplayEligible = "autoplay_eligible"
@@ -147,6 +148,16 @@ public struct DJConnectSpeechVoiceOptions: Decodable, Equatable, Sendable {
         public let values: [DJConnectVoicePreference]
         public let reason: String?
     }
+    public struct VoiceSelection: Decodable, Equatable, Sendable {
+        public let available: Bool
+        public let maximumVoices: Int
+        enum CodingKeys: String, CodingKey { case available, maximumVoices = "maximum_voices" }
+    }
+    public let voices: [DJConnectSpeechVoiceInventoryEntry]?
+    public let voiceSelection: VoiceSelection?
+    public let preferenceContext: DJConnectSpeechPreferenceContext?
+    public let providerStatus: DJConnectSpeechProviderStatus?
+    public let notification: DJConnectSpeechNotification?
     public let schemaVersion: Int
     public let authority: String
     public let preferenceScope: String
@@ -160,15 +171,24 @@ public struct DJConnectSpeechVoiceOptions: Decodable, Equatable, Sendable {
     public let reason: String?
     public let cachePolicy: String
     enum CodingKeys: String, CodingKey {
-        case authority, revision, state, reason
+        case authority, revision, state, reason, voices, notification
+        case voiceSelection = "voice_selection", preferenceContext = "preference_context", providerStatus = "provider_status"
         case schemaVersion = "schema_version", preferenceScope = "preference_scope", defaultPreference = "default_preference"
         case defaultAvailable = "default_available", supportedPreferences = "supported_preferences", genderSelection = "gender_selection"
         case providerVoice = "provider_voice", cachePolicy = "cache_policy"
     }
     public var isValid: Bool {
         schemaVersion == 1 && authority == "configured_ha_assist_pipeline_provider" && preferenceScope == "device_local" &&
-            defaultPreference == .default && cachePolicy == "private,no-store" && !revision.isEmpty && revision.utf8.count <= 128
+            defaultPreference == .default && cachePolicy == "private,no-store" && !revision.isEmpty && revision.utf8.count <= 128 &&
+            (notification?.isValid ?? true) && (providerStatus?.isValid ?? true) &&
+            (voices.map { $0.count <= 64 && Set($0.map(\.voiceID)).count == $0.count && $0.allSatisfy(\.isValid) } ?? true)
     }
+    public var selectableVoices: [DJConnectSpeechVoiceInventoryEntry] {
+        guard isValid, state == "available", voiceSelection?.available == true,
+              voiceSelection?.maximumVoices == 64, preferenceContext?.isSupported == true else { return [] }
+        return voices ?? []
+    }
+    public func supportsVoice(_ id: String) -> Bool { selectableVoices.contains { $0.voiceID == id } }
     public var selectableGenders: [DJConnectVoicePreference] {
         guard isValid, state == "available", genderSelection.available else { return [] }
         return genderSelection.values.filter { $0 != .default && supportedPreferences.contains($0) }
@@ -184,6 +204,7 @@ struct DJConnectSpeechPrepareRequest: Encodable {
     let reference: DJConnectSpeechReference
     let processor: DJConnectSpeechProcessor
     let voice_preference: DJConnectVoicePreference
+    let voice_id: String?
     let contract_version = 1
 }
 struct DJConnectSpeechAudioRequest: Encodable { let asset_id: String; let contract_version = 1 }

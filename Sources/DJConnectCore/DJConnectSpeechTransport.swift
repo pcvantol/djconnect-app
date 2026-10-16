@@ -33,18 +33,20 @@ final class DJConnectSpeechTransport: Sendable {
         let (bytes, response) = try await session.bytes(for: request)
         defer { bytes.task.cancel() }
         guard let response = response as? HTTPURLResponse, response.url == request.url else { throw DJConnectError.invalidResponse }
+        let providerWithdrawal = audio && response.statusCode == 409
         switch response.statusCode {
         case 200: break
+        case 409 where providerWithdrawal: break
         case 401: throw DJConnectError.authStale(statusCode: 401, message: nil)
         case 403: throw DJConnectError.profile(code: .profileAccessDenied, statusCode: 403, message: nil)
         case 404, 410: throw DJConnectError.routeMissing(message: nil)
         default: throw DJConnectError.server(statusCode: response.statusCode, message: nil)
         }
-        let maximum = audio ? 2 * 1024 * 1024 : 64 * 1024
+        let maximum = audio && !providerWithdrawal ? 2 * 1024 * 1024 : 64 * 1024
         guard response.expectedContentLength <= Int64(maximum) else {
             throw DJConnectError.payloadTooLarge(limitBytes: maximum, actualBytes: nil)
         }
-        let mimes = audio ? ["audio/wav", "audio/x-wav", "audio/wave"] : ["application/json"]
+        let mimes = audio && !providerWithdrawal ? ["audio/wav", "audio/x-wav", "audio/wave"] : ["application/json"]
         guard let mime = response.mimeType?.lowercased(), mimes.contains(mime) else { throw DJConnectError.invalidResponse }
         var data = Data()
         for try await byte in bytes {
@@ -54,6 +56,19 @@ final class DJConnectSpeechTransport: Sendable {
         }
         guard response.expectedContentLength < 0 || data.count == response.expectedContentLength else { throw DJConnectError.invalidResponse }
         try Task.checkCancellation()
+        if providerWithdrawal {
+            struct Withdrawal: Decodable {
+                let success: Bool
+                let error: String
+                let notification: DJConnectSpeechNotification
+            }
+            let value = try JSONDecoder().decode(Withdrawal.self, from: data)
+            guard !value.success, value.error == "speech_configuration_changed",
+                  value.notification.code == "tts_configuration_changed", value.notification.isValid else {
+                throw DJConnectError.invalidResponse
+            }
+            throw DJConnectSpeechProviderIssue(notification: value.notification)
+        }
         if audio { try Self.validateWAV(data) }
         return data
     }
