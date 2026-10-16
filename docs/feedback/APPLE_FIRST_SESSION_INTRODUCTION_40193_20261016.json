@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-16",
+  "build": "40193",
+  "scope": "One-time first explicit DJ-session introduction",
+  "implementation": [
+    "Show four-step modal overlay after first successful explicit session start; failed start, restoration and refresh do not consume it.",
+    "Highlight top menu, chat composer, artwork when available and bottom tabs; macOS uses sidebar navigation.",
+    "Explain one tap pause/play, double tap next, triple tap previous. No playback action is required.",
+    "Installation-local shown flag persists across relaunch; Back, Next, Done and Skip; Dutch, English, German, French and Spanish text.",
+    "Writer full-provider Voice toolbar receives anchor parity only; unqualified provider implementation excluded from installed selective source."
+  ],
+  "checks": {
+    "ios_build": "PASS",
+    "mac_build": "PASS",
+    "strict_signature": "PASS both candidates and installed Mac",
+    "manifest": "452 final source hashes PASS",
+    "installed": "iPhone/iPad/Mac mini40193; device readbacks and Mac installed executable SHA verified",
+    "model_test": "PASS sessionIntroductionOnlyFollowsFirstSuccessfulExplicitStart on selective40191; lifecycle source unchanged in40193",
+    "native_iphone": "PASS all four steps and no second-session reappearance in isolated review_demo",
+    "native_ipad": "PASS all four steps and no second-session reappearance in isolated review_demo",
+    "visual": "All eight final native screenshots actually viewed: readable cards, chat and navigation outlines align. Demo lacks artwork; gesture explanation uses centered card.",
+    "mac_visual": "NOT_RUN; build/signature/install only",
+    "limits": "Normal portrait tested on physical iPhone/iPad. Large Dynamic Type, rotation and actual artwork-target runtime not separately qualified."
+  },
+  "evidence": {
+    "manifest": "build/recovery/intro40193-selective-source-manifest-20261016.json",
+    "ios_build_log": "/private/tmp/djc-ios-40193-introduction-build.log",
+    "mac_build_log": "/private/tmp/djc-mac-40193-introduction-build.log",
+    "model_log": "/private/tmp/djc-intro40191-first-start-test.log",
+    "iphone_xcresult": "/private/tmp/djc-iphone-40193-introduction-20261016.xcresult",
+    "ipad_xcresult": "/private/tmp/djc-ipad-40193-introduction-20261016.xcresult",
+    "iphone_attachments": "/private/tmp/djc-iphone-40193-introduction-attachments",
+    "ipad_attachments": "/private/tmp/djc-ipad-40193-introduction-attachments",
+    "mac_backup": "build/recovery/DJConnect-before40193.app"
+  },
+  "preservation": [
+    "External probe restored after tests; ordinary app launch restored. Tests used isolated synthetic demo, no live playback/profile changes.",
+    "Timer remains paused; no Core messages; unrelated untracked Xcode projects retained."
+  ],
+  "publication": "Local commit only; no push/PR/merge"
+}

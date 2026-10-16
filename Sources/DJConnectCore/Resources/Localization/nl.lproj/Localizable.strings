@@ -1235,3 +1235,22 @@
 
 "ui.trackInsight.analysis.title" = "Muziekanalyse";
 "ui.trackInsight.analysis.unavailable" = "Voor dit nummer is nog geen muziekanalyse beschikbaar.";
+
+/* First DJ session navigation introduction */
+"ui.session.intro.skip" = "Overslaan";
+"ui.session.intro.back" = "Terug";
+"ui.session.intro.next" = "Volgende";
+"ui.session.intro.done" = "Aan de slag";
+"ui.session.intro.toolbar.title" = "Menu’s bovenaan";
+"ui.session.intro.toolbar.body" = "Kies hier je mood, DJ-aanwezigheid en stem. Via het verbindingsicoon bekijk je de status.";
+"ui.session.intro.chat.title" = "Chat met de DJ";
+"ui.session.intro.chat.body" = "Stel een vraag, vraag een nummer aan of gebruik de microfoon om met de DJ te praten.";
+"ui.session.intro.artwork.title" = "Bedien de albumhoes";
+"ui.session.intro.artwork.body" = "Zodra er een nummer speelt, bedien je de muziek met deze gebaren op de albumhoes. Je hoeft ze nu niet uit te voeren.";
+"ui.session.intro.gesture.1" = "1×: pauzeren of afspelen";
+"ui.session.intro.gesture.2" = "2×: volgend nummer";
+"ui.session.intro.gesture.3" = "3×: vorig nummer";
+"ui.session.intro.navigation.title" = "Navigatie onderin";
+"ui.session.intro.navigation.body" = "Wissel tussen DJ-sessie, Speelt Nu, Track Insight en Ontdek. Onder Meer staan onder andere je wachtrij en instellingen.";
+"ui.session.intro.sidebar.title" = "Navigatie links";
+"ui.session.intro.sidebar.body" = "Via de zijbalk wissel je tussen DJ-sessie, Speelt Nu, Track Insight, Ontdek en de andere schermen.";

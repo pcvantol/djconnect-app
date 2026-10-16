@@ -831,6 +831,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var presenceIntent = UUID()
     @Published public var selectedSessionMood = "groove"
     @Published public private(set) var isLoadingDJSession = false
+    @Published public private(set) var isSessionIntroductionPresented = false
     @Published public private(set) var djSessionErrorMessage: String?
     @Published public private(set) var djSessionIsRecovering = false
     @Published public private(set) var djSessionRecoveryGap = false
@@ -5673,7 +5674,11 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func startDJSession() async {
-        if isDemoMode { if activeDJSession == nil { applyDemoSessionExamples() }; return }
+        if isDemoMode {
+            if activeDJSession == nil { applyDemoSessionExamples() }
+            presentSessionIntroductionIfNeeded()
+            return
+        }
         guard pairingStatus == .paired, canUsePlaybackFeatures, !isLoadingDJSession else { return }
         let request = UUID()
         sessionRequestGeneration = request
@@ -5700,10 +5705,22 @@ public final class DJConnectAppModel: ObservableObject {
             activeDJSession = incoming
             djSessionErrorMessage = response.resolvedSession == nil ? localized(key: "ui.session.unavailable") : nil
             startSessionBroadcastIfNeeded()
+            presentSessionIntroductionIfNeeded()
         } catch {
             guard request == sessionRequestGeneration else { return }
             djSessionErrorMessage = localized(key: "ui.session.unavailable")
         }
+    }
+
+    private func presentSessionIntroductionIfNeeded() {
+        guard activeDJSession != nil, !defaults.bool(forKey: "DJConnectSessionIntroductionSeenV1") else { return }
+        // Client UI onboarding belongs to this installation, never to a profile.
+        defaults.set(true, forKey: "DJConnectSessionIntroductionSeenV1")
+        isSessionIntroductionPresented = true
+    }
+
+    public func dismissSessionIntroduction() {
+        isSessionIntroductionPresented = false
     }
 
     public func retryDJSessionConnection() async {

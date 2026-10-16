@@ -14,13 +14,14 @@ struct NativeBottomTabBar: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> UITabBarController {
         let controller = KeyboardAwareTabBarController()
+        controller.introductionAnchors = context.environment.sessionIntroductionAnchors
         controller.overrideUserInterfaceStyle = .dark
         controller.mode = .tabBar
         controller.traitOverrides.horizontalSizeClass = .compact
         controller.tabBar.tintColor = UIColor(djConnectAccent)
         controller.delegate = context.coordinator
         context.coordinator.hosts = screens.enumerated().map { index, screen in
-            let host = UIHostingController(rootView: hostedScreen(screen))
+            let host = UIHostingController(rootView: hostedScreen(screen, anchors: context.environment.sessionIntroductionAnchors))
             host.view.backgroundColor = .clear
             host.tabBarItem = UITabBarItem(title: titles[index], image: UIImage(systemName: symbols[index]), tag: index)
             return host
@@ -32,21 +33,24 @@ struct NativeBottomTabBar: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: UITabBarController, context: Context) {
         context.coordinator.selection = $selection
+        (controller as? KeyboardAwareTabBarController)?.introductionAnchors = context.environment.sessionIntroductionAnchors
+        controller.view.setNeedsLayout()
         for (index, host) in context.coordinator.hosts.enumerated() {
-            host.rootView = hostedScreen(screens[index])
+            host.rootView = hostedScreen(screens[index], anchors: context.environment.sessionIntroductionAnchors)
             host.tabBarItem.title = titles[index]
         }
         if controller.selectedIndex != selection { controller.selectedIndex = selection }
     }
 
-    private func hostedScreen(_ screen: AnyView) -> AnyView {
-        AnyView(screen.environment(\.colorScheme, .dark)
+    private func hostedScreen(_ screen: AnyView, anchors: SessionIntroductionAnchors?) -> AnyView {
+        AnyView(screen.environment(\.sessionIntroductionAnchors, anchors).environment(\.colorScheme, .dark)
             .environment(\.scenePhase, scenePhase).tint(djConnectAccent))
     }
 
     /// UIKit also updates the content safe area when hiding its tab bar, so
     /// the composer moves down into the space released above the keyboard.
     @MainActor final class KeyboardAwareTabBarController: UITabBarController {
+        weak var introductionAnchors: SessionIntroductionAnchors?
         override func viewDidLoad() {
             super.viewDidLoad()
             NotificationCenter.default.addObserver(self, selector: #selector(keyboardFrameChanged(_:)),

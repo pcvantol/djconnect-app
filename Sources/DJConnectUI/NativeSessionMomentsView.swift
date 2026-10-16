@@ -324,6 +324,7 @@ struct NativeSessionMomentsView: View {
                         .accessibilityAction(named: Text(text("ui.pause"))) { sendArtworkCommand("pause") }
                         .frame(maxWidth: .infinity)
                         .accessibilityIdentifier("session-music-artwork")
+                        .sessionIntroductionTarget("artwork")
                     musicDetails
                 }
             } else {
@@ -714,4 +715,202 @@ func djSessionReducedMotion(_ systemPreference: Bool) -> Bool {
 func sessionPlaybackTime(_ milliseconds: Int) -> String {
     let seconds = max(0, milliseconds) / 1000
     return "\(seconds / 60):\(String(format: "%02d", seconds % 60))"
+}
+
+// MARK: - One-time session navigation introduction
+
+@MainActor final class SessionIntroductionAnchors: ObservableObject {
+    @Published private(set) var frames: [String: CGRect] = [:]
+    func record(_ name: String, frame: CGRect) {
+        guard !frame.isEmpty, !frame.isInfinite, frames[name] != frame else { return }
+        frames[name] = frame
+    }
+}
+
+private struct SessionIntroductionAnchorsKey: EnvironmentKey {
+    static let defaultValue: SessionIntroductionAnchors? = nil
+}
+extension EnvironmentValues {
+    var sessionIntroductionAnchors: SessionIntroductionAnchors? {
+        get { self[SessionIntroductionAnchorsKey.self] }
+        set { self[SessionIntroductionAnchorsKey.self] = newValue }
+    }
+}
+extension View {
+    func sessionIntroductionTarget(_ name: String) -> some View {
+        background(SessionIntroductionTargetReader(name: name))
+    }
+}
+
+#if os(iOS)
+private struct SessionIntroductionTargetReader: UIViewRepresentable {
+    let name: String
+    @Environment(\.sessionIntroductionAnchors) private var anchors
+    func makeUIView(context: Context) -> Probe {
+        let view = Probe(); view.isUserInteractionEnabled = false; return view
+    }
+    func updateUIView(_ view: Probe, context: Context) {
+        view.name = name; view.anchors = anchors; view.publish()
+    }
+    final class Probe: UIView {
+        var name = ""
+        weak var anchors: SessionIntroductionAnchors?
+        override func didMoveToWindow() { super.didMoveToWindow(); publish() }
+        override func layoutSubviews() { super.layoutSubviews(); publish() }
+        func publish() {
+            guard let window, !bounds.isEmpty else { return }
+            let rect = convert(bounds, to: window)
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.window != nil else { return }
+                self.anchors?.record(self.name, frame: rect)
+                if self.name == "chat", let window = self.window {
+                    func descendants(_ view: UIView) -> [UIView] {
+                        view.subviews.flatMap { [$0] + descendants($0) }
+                    }
+                    if let bar = descendants(window).compactMap({ $0 as? UITabBar }).first(where: { !$0.isHidden }) {
+                        let buttons = descendants(bar).filter { $0 is UIControl && !$0.isHidden && $0.bounds.width > 20 }
+                        let frame = buttons.reduce(CGRect.null) { $0.union($1.convert($1.bounds, to: window)) }
+                        if !frame.isNull { self.anchors?.record("navigation", frame: frame.insetBy(dx: -8, dy: -4)) }
+                    }
+                }
+            }
+        }
+    }
+}
+#elseif os(macOS)
+private struct SessionIntroductionTargetReader: NSViewRepresentable {
+    let name: String
+    @Environment(\.sessionIntroductionAnchors) private var anchors
+    func makeNSView(context: Context) -> Probe { Probe() }
+    func updateNSView(_ view: Probe, context: Context) {
+        view.name = name; view.anchors = anchors; view.publish()
+    }
+    final class Probe: NSView {
+        var name = ""
+        weak var anchors: SessionIntroductionAnchors?
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); publish() }
+        override func layout() { super.layout(); publish() }
+        func publish() {
+            guard let content = window?.contentView, !bounds.isEmpty else { return }
+            var rect = convert(bounds, to: content)
+            if !content.isFlipped { rect.origin.y = content.bounds.height - rect.maxY }
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.window != nil else { return }
+                self.anchors?.record(self.name, frame: rect)
+            }
+        }
+    }
+}
+#else
+private struct SessionIntroductionTargetReader: View {
+    let name: String
+    var body: some View { Color.clear.allowsHitTesting(false) }
+}
+#endif
+
+struct SessionIntroductionOverlay: View {
+    @ObservedObject var anchors: SessionIntroductionAnchors
+    let language: String
+    let dismiss: () -> Void
+    @State private var step = 0
+    @AccessibilityFocusState private var titleFocused: Bool
+    private let targets = ["toolbar", "chat", "artwork", "navigation"]
+    private let symbols = ["slider.horizontal.3", "bubble.left.and.bubble.right", "hand.tap", "rectangle.bottomthird.inset.filled"]
+    private func text(_ suffix: String) -> String {
+        DJConnectLocalization.localized(key: "ui.session.intro." + suffix, language: language)
+    }
+    private var stepName: String {
+        #if os(macOS)
+        if step == 3 { return "sidebar" }
+        #endif
+        return targets[step]
+    }
+    private func target(in geometry: GeometryProxy) -> CGRect {
+        let frame: CGRect
+        if step == 0 {
+            frame = anchors.frames.filter { $0.key.hasPrefix("toolbar-") }.values.reduce(CGRect.null) { $0.union($1) }
+        } else { frame = anchors.frames[targets[step]] ?? .null }
+        guard !frame.isNull else { return .zero }
+        let origin = geometry.frame(in: .global).origin
+        return frame.offsetBy(dx: -origin.x, dy: -origin.y).insetBy(dx: -6, dy: -6)
+            .intersection(CGRect(origin: .zero, size: geometry.size).insetBy(dx: 4, dy: 4))
+    }
+    var body: some View {
+        GeometryReader { geometry in
+            let highlight = target(in: geometry)
+            let above = !highlight.isEmpty && highlight.midY > geometry.size.height / 2
+            ZStack {
+                Color.clear.contentShape(Rectangle()).onTapGesture { }
+                Path { path in
+                    path.addRect(CGRect(origin: .zero, size: geometry.size))
+                    if !highlight.isEmpty { path.addRoundedRect(in: highlight, cornerSize: CGSize(width: 24, height: 24)) }
+                }
+                .fill(.black.opacity(0.66), style: FillStyle(eoFill: true))
+                .allowsHitTesting(false).accessibilityHidden(true)
+                if !highlight.isEmpty {
+                    RoundedRectangle(cornerRadius: 24).stroke(.white.opacity(0.95), lineWidth: 2)
+                        .frame(width: highlight.width, height: highlight.height)
+                        .position(x: highlight.midX, y: highlight.midY)
+                        .allowsHitTesting(false).accessibilityHidden(true)
+                }
+                VStack(spacing: 0) {
+                    if above || highlight.isEmpty { Spacer(minLength: 16) }
+                    else { Spacer().frame(height: min(highlight.maxY + 18, geometry.size.height * 0.42)) }
+                    card
+                        .id(step)
+                        .transaction { $0.animation = nil }
+                        .frame(maxWidth: 460)
+                    if above { Spacer().frame(height: min(geometry.size.height - highlight.minY + 18, geometry.size.height * 0.42)) }
+                    else { Spacer(minLength: 16) }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isModal)
+        .accessibilityIdentifier("session-introduction")
+        .onAppear { titleFocused = true }
+        .onChange(of: step) { titleFocused = true }
+    }
+    private var card: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Text("\(step + 1) / 4").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Spacer()
+                Button(text("skip"), action: dismiss).frame(minHeight: 44)
+                    .accessibilityIdentifier("session-introduction-skip")
+            }
+            Label(text(stepName + ".title"), systemImage: symbols[step])
+                .font(.title2.weight(.bold)).accessibilityAddTraits(.isHeader)
+                .accessibilityFocused($titleFocused)
+                .accessibilityIdentifier("session-introduction-title")
+            Text(text(stepName + ".body"))
+                .font(.body).fixedSize(horizontal: false, vertical: true)
+            if step == 2 {
+                ForEach(Array(["playpause.fill", "forward.end.fill", "backward.end.fill"].enumerated()), id: \.offset) { index, symbol in
+                    Label(text("gesture.\(index + 1)"), systemImage: symbol)
+                        .font(.callout.weight(.medium))
+                }
+            }
+            HStack(spacing: 12) {
+                if step > 0 {
+                    Button(text("back")) { DJConnectHaptics.selection(); step -= 1 }
+                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .secondary, usesLiveGlass: false))
+                }
+                Spacer(minLength: 0)
+                Button(text(step == 3 ? "done" : "next")) {
+                    DJConnectHaptics.selection()
+                    if step == 3 { dismiss() } else { step += 1 }
+                }
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
+                .accessibilityIdentifier("session-introduction-next")
+            }
+        }
+        .padding(20)
+        .foregroundStyle(.white)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 26))
+        .overlay { RoundedRectangle(cornerRadius: 26).stroke(DJConnectCardAppearance.searchFocusGradient, lineWidth: 1.25).allowsHitTesting(false) }
+    }
 }

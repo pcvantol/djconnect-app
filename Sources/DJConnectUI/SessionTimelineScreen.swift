@@ -807,6 +807,7 @@ struct SessionTimelineScreen: View {
                       canUseVoiceInput: (model.isDemoMode || model.canUseProfileConversation) && model.voiceEnabled,
                       isInputFocused: $inputFocused, floating: floating, placeholderKey: "ui.session.chat.placeholder",
                       surfaceColors: activeSession.map { DJConnectSessionMoodPalette(mood: $0.selectedMood).colors })
+        .sessionIntroductionTarget("chat")
     }
 
     @ViewBuilder private func searchBar(proxy: ScrollViewProxy) -> some View {
@@ -1485,6 +1486,7 @@ struct ActiveSessionMoodToolbar: View {
         .accessibilityLabel(text("ui.session.select_mood"))
         .accessibilityValue(text("ui.session.mood." + moods[selectedIndex]))
         .accessibilityIdentifier("session-mood-toggle")
+        .sessionIntroductionTarget("toolbar-mood")
         .help(text("ui.session.select_mood"))
         .popover(item: $moodIntent) { intent in
             VStack(alignment: .leading, spacing: 12) {
@@ -1635,6 +1637,7 @@ struct SessionConnectionToolbarButton: View {
         .accessibilityLabel(text("ui.connection.status"))
         .accessibilityValue(text(status.key))
         .accessibilityIdentifier("session-connection-toggle")
+        .sessionIntroductionTarget("toolbar-connection")
         .help(text(status.key))
         .popover(isPresented: $showingStatus) {
             SessionConnectionPopoverContent(model: model) { showingStatus = false }

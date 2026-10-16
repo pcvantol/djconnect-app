@@ -1235,3 +1235,22 @@
 
 "ui.trackInsight.analysis.title" = "Musikanalyse";
 "ui.trackInsight.analysis.unavailable" = "Für diesen Titel ist noch keine Musikanalyse verfügbar.";
+
+/* First DJ session navigation introduction */
+"ui.session.intro.skip" = "Überspringen";
+"ui.session.intro.back" = "Zurück";
+"ui.session.intro.next" = "Weiter";
+"ui.session.intro.done" = "Los geht’s";
+"ui.session.intro.toolbar.title" = "Menüs oben";
+"ui.session.intro.toolbar.body" = "Wähle hier Stimmung, DJ-Präsenz und Stimme. Das Verbindungssymbol zeigt den Verbindungsstatus.";
+"ui.session.intro.chat.title" = "Chat mit dem DJ";
+"ui.session.intro.chat.body" = "Stelle eine Frage, wünsche dir einen Song oder sprich über das Mikrofon mit dem DJ.";
+"ui.session.intro.artwork.title" = "Albumcover bedienen";
+"ui.session.intro.artwork.body" = "Während ein Song spielt, kannst du diese Gesten auf dem Albumcover verwenden. Du musst sie jetzt nicht ausprobieren.";
+"ui.session.intro.gesture.1" = "1×: Pause oder Wiedergabe";
+"ui.session.intro.gesture.2" = "2×: nächster Song";
+"ui.session.intro.gesture.3" = "3×: vorheriger Song";
+"ui.session.intro.navigation.title" = "Navigation unten";
+"ui.session.intro.navigation.body" = "Wechsle zwischen DJ-Session, aktueller Wiedergabe, Track Insight und Entdecken. Unter Mehr findest du Warteschlange und Einstellungen.";
+"ui.session.intro.sidebar.title" = "Navigation links";
+"ui.session.intro.sidebar.body" = "Wechsle über die Seitenleiste zwischen DJ-Session, aktueller Wiedergabe, Track Insight, Entdecken und weiteren Ansichten.";

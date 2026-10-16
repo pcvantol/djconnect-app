@@ -1235,3 +1235,22 @@
 
 "ui.trackInsight.analysis.title" = "Análisis musical";
 "ui.trackInsight.analysis.unavailable" = "Todavía no hay un análisis musical disponible para esta canción.";
+
+/* First DJ session navigation introduction */
+"ui.session.intro.skip" = "Omitir";
+"ui.session.intro.back" = "Atrás";
+"ui.session.intro.next" = "Siguiente";
+"ui.session.intro.done" = "Empezar";
+"ui.session.intro.toolbar.title" = "Menús superiores";
+"ui.session.intro.toolbar.body" = "Elige el ambiente, la presencia del DJ y la voz. El icono de conexión muestra su estado.";
+"ui.session.intro.chat.title" = "Habla con el DJ";
+"ui.session.intro.chat.body" = "Haz una pregunta, pide una canción o usa el micrófono para hablar con el DJ.";
+"ui.session.intro.artwork.title" = "Controla la portada";
+"ui.session.intro.artwork.body" = "Cuando se reproduzca una canción, usa estos gestos sobre su portada. No hace falta probarlos ahora.";
+"ui.session.intro.gesture.1" = "1×: pausar o reproducir";
+"ui.session.intro.gesture.2" = "2×: siguiente canción";
+"ui.session.intro.gesture.3" = "3×: canción anterior";
+"ui.session.intro.navigation.title" = "Navegación inferior";
+"ui.session.intro.navigation.body" = "Cambia entre la sesión DJ, la reproducción actual, Track Insight y Descubrir. Más incluye la cola y los ajustes.";
+"ui.session.intro.sidebar.title" = "Navegación a la izquierda";
+"ui.session.intro.sidebar.body" = "Usa la barra lateral para cambiar entre la sesión DJ, la reproducción actual, Track Insight, Descubrir y las demás pantallas.";

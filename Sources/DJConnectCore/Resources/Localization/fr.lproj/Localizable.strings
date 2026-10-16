@@ -1235,3 +1235,22 @@
 
 "ui.trackInsight.analysis.title" = "Analyse musicale";
 "ui.trackInsight.analysis.unavailable" = "L’analyse musicale de ce titre n’est pas encore disponible.";
+
+/* First DJ session navigation introduction */
+"ui.session.intro.skip" = "Ignorer";
+"ui.session.intro.back" = "Retour";
+"ui.session.intro.next" = "Suivant";
+"ui.session.intro.done" = "Commencer";
+"ui.session.intro.toolbar.title" = "Menus en haut";
+"ui.session.intro.toolbar.body" = "Choisissez votre ambiance, la présence du DJ et sa voix. L’icône de connexion indique son état.";
+"ui.session.intro.chat.title" = "Discuter avec le DJ";
+"ui.session.intro.chat.body" = "Posez une question, demandez un morceau ou utilisez le microphone pour parler au DJ.";
+"ui.session.intro.artwork.title" = "Contrôler la pochette";
+"ui.session.intro.artwork.body" = "Lorsqu’un morceau joue, utilisez ces gestes sur sa pochette. Il n’est pas nécessaire de les essayer maintenant.";
+"ui.session.intro.gesture.1" = "1× : pause ou lecture";
+"ui.session.intro.gesture.2" = "2× : morceau suivant";
+"ui.session.intro.gesture.3" = "3× : morceau précédent";
+"ui.session.intro.navigation.title" = "Navigation en bas";
+"ui.session.intro.navigation.body" = "Passez entre la session DJ, la lecture en cours, Track Insight et Découvrir. Plus donne accès à la file d’attente et aux réglages.";
+"ui.session.intro.sidebar.title" = "Navigation à gauche";
+"ui.session.intro.sidebar.body" = "Utilisez la barre latérale pour passer entre la session DJ, la lecture en cours, Track Insight, Découvrir et les autres écrans.";

@@ -36,6 +36,7 @@ struct ActiveSessionAutoplayToolbar: View {
             .foregroundStyle(.white)
             .tint(.white)
             .accessibilityIdentifier("session-voice-toggle")
+            .sessionIntroductionTarget("toolbar-voice")
             .popover(isPresented: $showing) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {

@@ -733,6 +733,7 @@ public struct DJConnectRootView: View {
     @ObservedObject private var history: DJConnectSessionHistoryModel
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @StateObject private var introductionAnchors = SessionIntroductionAnchors()
     @State private var selectedSection = DJConnectSection.djSession
     @State private var openedSavedSessionID: String?
     #if os(macOS)
@@ -876,6 +877,7 @@ public struct DJConnectRootView: View {
                     .toolbar(removing: .sidebarToggle)
                     .focusSection()
                     .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
+                    .sessionIntroductionTarget("navigation")
                 } detail: {
                     GeometryReader { viewport in
                     ZStack(alignment: .bottom) {
@@ -967,6 +969,22 @@ public struct DJConnectRootView: View {
                 }
             }
             #endif
+        }
+        .environment(\.sessionIntroductionAnchors, introductionAnchors)
+        .accessibilityHidden(model.isSessionIntroductionPresented)
+        .overlay {
+            if model.isSessionIntroductionPresented {
+                SessionIntroductionOverlay(anchors: introductionAnchors, language: model.language,
+                                           dismiss: model.dismissSessionIntroduction)
+                    .ignoresSafeArea()
+                    .accessibilityHidden(false)
+            }
+        }
+        .onChange(of: model.isSessionIntroductionPresented) { _, showing in
+            if showing { selectedSection = .djSession }
+        }
+        .onChange(of: model.activeDJSession?.id) { _, sessionID in
+            if sessionID == nil { model.dismissSessionIntroduction() }
         }
         .sheet(item: rootSheetBinding) { sheet in
             rootSheetView(sheet)

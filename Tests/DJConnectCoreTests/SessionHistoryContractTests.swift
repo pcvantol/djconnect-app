@@ -4336,3 +4336,25 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     pending.cancel(); await pending.value
     #expect(!model.activePresenceAvailable && model.activePresenceCapabilityStatus == .unsupported)
 }
+
+@Test @MainActor func sessionIntroductionOnlyFollowsFirstSuccessfulExplicitStart() async throws {
+    let name = "session-introduction-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    #expect(!model.isSessionIntroductionPresented)
+    await model.startDJSession()
+    #expect(!model.isSessionIntroductionPresented, "An unpaired/failed start must not consume the introduction")
+    model.startDemoMode()
+    #expect(!model.isSessionIntroductionPresented, "Restoring or displaying a demo session is not an explicit start")
+    await model.startDJSession()
+    #expect(model.isSessionIntroductionPresented)
+    model.dismissSessionIntroduction()
+    await model.endDJSession()
+    await model.startDJSession()
+    #expect(!model.isSessionIntroductionPresented)
+    let relaunched = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    relaunched.startDemoMode()
+    await relaunched.startDJSession()
+    #expect(!relaunched.isSessionIntroductionPresented, "Completion/skip survives app relaunch for this installation")
+}
