@@ -1,0 +1,35 @@
+import json,hashlib,pathlib,datetime
+root=pathlib.Path('docs/feedback/scanner-review-20261017');p=root/'b-transport-actual-ha-v1.json';d=json.loads(p.read_bytes());e=d['examples'];checks=[]
+def check(name,ok):
+ if not ok:raise AssertionError(name)
+ checks.append(name)
+check('exact source provenance',d['producer_code_pin']=='951da5d0d7943aa672d60b93f5dfe1d32489b93c' and d['scope']=='actual_isolated_HA_B_transport')
+check('nonfunctional captured credentials',d['credentials']=='replaced_nonfunctional_examples_not_replayable')
+check('A explicitly unavailable',d['A']=='unavailable')
+check('21 captured examples',len(e)==21)
+http=[x for x in e if x['transport']=='HTTP'];check('HTTP reads/writes no-store',all(x['cache_control']=='no-store' for x in http))
+check('version1 requests and responses',all(x['request']['contract_version']==x['response']['contract_version']==1 for x in http))
+context=e[0];check('paired context permits absent native Origin',context['authentication']=='ordinary_paired_owner' and context['origin'] is None and context['status']==200)
+check('context contains route but no admission',context['response']['route_trust']=='paired_owner_response' and 'display_entry_url' in context['response'] and not {'grant_token','claim_secret','share_id'}&context['response'].keys())
+check('paired identity body excludes bearer',all(set(x['request']['identity'])=={'client_type','device_id'} for x in http if 'identity' in x['request']))
+check('browser Origin missing/foreign denied',all(e[i]['status']==403 and e[i]['response']['error']=='display_origin_denied' for i in [2,3]))
+claim=e[1]['response'];resolve=e[4]['response'];approve=e[5]['response'];collect=e[7]['response']
+check('claim resolve binding',all(claim[k]==resolve[k] for k in ['claim_id','browser_generation','issuer_epoch']))
+check('approval binds exact resolved generation and session',all(e[5]['request'][k]==resolve[k] for k in ['claim_id','browser_generation','issuer_epoch']) and e[5]['request']['session_id']==context['response']['session_id'])
+check('share creation uses explicit consent',e[5]['request']['share']=={'mode':'create','consent':True})
+check('repeated approval returns same display/share/generation',all(approve[k]==e[6]['response'][k] for k in ['display_id','share_id','share_generation','session_id']))
+check('only browser collects dedicated grant',e[7]['authentication']=='none' and e[7]['request']['claim_secret']==claim['claim_secret'] and collect['grant_token'].startswith('djcd_'))
+check('one-time collect failure captured',e[8]['status']==404 and e[8]['response']['error']=='display_claim_unavailable')
+check('display cannot become owner via copied identity',e[9]['authentication']=='dedicated_display' and e[9]['status']==401)
+check('read-only capability surface',collect['capabilities']=={'view_display':True,'owner_controls':False,'audience_signals':False,'ask_dj':False,'session_end':False,'share_close':False})
+snapshot=e[10]['response']['snapshot'];live=e[11]['frame']['snapshot']
+check('HTTP and WSS same subject bindings',all(snapshot[k]==live[k]==collect[k] for k in ['issuer_epoch','display_id','share_id','share_generation','session_id','lease_revision']))
+check('only compact current presentation labels',set(snapshot['session_presentation'])=={'mood','persona','presence'})
+check('renew retry same sequence/revision',e[12]['request']==e[13]['request'] and e[12]['response']['lease_revision']==e[13]['response']['lease_revision']==1)
+check('out-of-order renew denied',e[14]['request']['renew_sequence']==3 and e[14]['status']==409)
+check('revoked grant denied',e[16]['status']==401 and e[16]['response']['error']=='display_grant_invalid')
+check('existing share explicit and no consent creation',e[18]['request']['share']=={'mode':'existing','share_id':approve['share_id'],'share_generation':1})
+check('Session end invalidates display',e[20]['status']==401 and e[20]['response']['error']=='display_grant_invalid')
+c=json.loads((root/'native-copy.json').read_text());check('five language copy parity',c['languages']==['en','nl','de','fr','es'] and all(set(v)==set(c['languages']) and all(isinstance(t,str) and t.strip() for t in v.values()) for v in c['strings'].values()))
+report={'scope':'offline consumer inspection of producer-captured examples; no native/HTTP/WSS execution','fixture_commit':'0f3d64028eaa456f643d5fb7633f6741846663ca','producer_code_pin':d['producer_code_pin'],'fixture_sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'checks_passed':checks,'copy_strings':len(c['strings']),'languages':c['languages'],'unrepresented_cases':['expired claim','Profile/pairing ABA withdrawal','missing external configuration','owner permission denied','wrong six-digit code','cancel/rotate race','source withdrawal while awaiting','actual A App Attest/JWE wire'],'native_acceptance':'NOT_RUN','crypto_interoperability':'NOT_RUN','independent_ux_language_review':'OPEN'}
+(root/'inspection-result.json').write_text(json.dumps(report,indent=2)+'\n');print(len(checks),'offline corpus/copy checks PASS; native/crypto not run; missing cases recorded')
