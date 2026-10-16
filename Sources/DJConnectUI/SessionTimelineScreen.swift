@@ -1392,9 +1392,9 @@ struct ActiveSessionPresenceControl: View {
     private var confirmed: DJConnectSessionPresenceSnapshot? {
         model.activeDJSession?.id == sessionID ? model.activeDJSession?.confirmedPresence : nil
     }
-    private var enabled: Bool { model.activePresenceAvailable && confirmed != nil && model.pairingStatus == .paired && model.sessionHistory.responseEpoch == epoch }
+    private var enabled: Bool { model.activePresenceAvailable && confirmed != nil && (model.isDemoMode || model.pairingStatus == .paired) && model.sessionHistory.responseEpoch == epoch }
     private var unavailableKey: String {
-        guard model.activeDJSession?.id == sessionID, model.pairingStatus == .paired,
+        guard model.activeDJSession?.id == sessionID, model.isDemoMode || model.pairingStatus == .paired,
               model.sessionHistory.responseEpoch == epoch else { return "ui.session.presence.no_active_session" }
         switch model.activePresenceCapabilityStatus {
         case .notLoaded, .loading: return "ui.session.presence.loading"

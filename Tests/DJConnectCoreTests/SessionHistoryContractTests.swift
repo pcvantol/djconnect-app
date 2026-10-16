@@ -4405,3 +4405,22 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     #expect(model.currentSessionConversationMessages(sessionID: "current-session").isEmpty)
     #expect(!model.askDJMessages.contains { $0.id == question })
 }
+
+@Test @MainActor func demoPresenceChoicesStayLocalAndRespectSessionScope() async throws {
+    let fixture = HistoryWireFixture { _ in (500, Data(), 0) }; defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    model.startDemoMode()
+    let session = try #require(model.activeDJSession)
+    let epoch = model.sessionHistory.responseEpoch
+    #expect(model.activePresenceAvailable && session.confirmedPresence?.selectedPresence == .balanced)
+    await model.refreshActiveMoodCapability()
+    #expect(model.activePresenceCapabilityStatus == .supported)
+    for value in DJConnectSessionPresenceValue.allCases {
+        model.selectActiveSessionPresence(value, expectedSessionID: session.id, expectedEpoch: epoch)
+        #expect(model.activeDJSession?.confirmedPresence?.selectedPresence == value)
+    }
+    model.selectActiveSessionPresence(.musicOnly, expectedSessionID: "wrong-session", expectedEpoch: epoch)
+    model.selectActiveSessionPresence(.musicOnly, expectedSessionID: session.id, expectedEpoch: UUID())
+    #expect(model.activeDJSession?.confirmedPresence?.selectedPresence == .presenter)
+    #expect(!model.activePresencePending && fixture.requests.isEmpty)
+}

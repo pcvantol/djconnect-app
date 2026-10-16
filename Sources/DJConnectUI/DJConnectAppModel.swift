@@ -5407,7 +5407,8 @@ public final class DJConnectAppModel: ObservableObject {
         if isDemoMode {
             activePersonaAvailable = false
             activeMoodAvailable = activeDJSession != nil
-            activePresenceCapabilityStatus = .unsupported
+            activePresenceAvailable = activeDJSession?.confirmedPresence != nil
+            activePresenceCapabilityStatus = activePresenceAvailable ? .supported : .unsupported
             return
         }
         let previous = (mood: activeMoodAvailable, persona: activePersonaAvailable, presence: activePresenceAvailable, status: activePresenceCapabilityStatus)
@@ -5464,6 +5465,14 @@ public final class DJConnectAppModel: ObservableObject {
     /// Confirmation comes exclusively from the server projection, never from this queue.
     public func selectActiveSessionPresence(_ value: DJConnectSessionPresenceValue,
                                            expectedSessionID: String, expectedEpoch: UUID) {
+        if isDemoMode {
+            guard expectedSessionID == activeDJSession?.id, expectedEpoch == sessionHistory.responseEpoch,
+                  let current = activeDJSession, let confirmed = current.confirmedPresence else { return }
+            activeDJSession = current.applying(presence: .init(sessionID: current.id, selectedPresence: value,
+                presenceRevision: confirmed.presenceRevision + (confirmed.selectedPresence == value ? 0 : 1)))
+            activePresenceDesired = nil; activePresenceError = nil; activePresenceRequiresDecision = false
+            return
+        }
         guard expectedSessionID == activeDJSession?.id, expectedEpoch == sessionHistory.responseEpoch,
               activePresenceAvailable, isAppInForeground, pairingStatus == .paired,
               activeDJSession?.confirmedPresence != nil else { return }
@@ -10811,7 +10820,9 @@ public final class DJConnectAppModel: ObservableObject {
         guard isDemoMode else { return }
         do {
             let data = try DJConnectDemoSessionData.make(language: language, mood: selectedSessionMood)
-            activeDJSession = data.active
+            activeDJSession = data.active.applying(presence: .init(sessionID: data.active.id,
+                selectedPresence: .balanced, presenceRevision: 0))
+            activePresenceAvailable = true; activePresenceCapabilityStatus = .supported
             sessionHistory.installDemo(data, preservingArchives: true)
             syncDemoSessionPlayback()
             activeMoodAvailable = true
