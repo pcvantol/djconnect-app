@@ -13734,7 +13734,8 @@ struct AskDJInputBar: View {
                     }
                     .overlay {
                         RoundedRectangle(cornerRadius: 26, style: .continuous)
-                            .stroke(.white.opacity(0.24), lineWidth: 0.75)
+                            .stroke(DJConnectCardAppearance.searchFocusGradient, lineWidth: 0.75)
+                            .allowsHitTesting(false)
                     }
             } else {
                 #if os(macOS)
