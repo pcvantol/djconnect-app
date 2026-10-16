@@ -13534,7 +13534,7 @@ struct AskDJInputBar: View {
             ZStack(alignment: isExpanded ? .topLeading : .leading) {
                 if model.askDJDraft.isEmpty {
                     placeholderView
-                        .foregroundStyle(.white.opacity(0.58))
+                        .foregroundStyle(.white.opacity(0.74))
                         .padding(.horizontal, 14)
                         .padding(.top, isExpanded ? 11 : 0)
                         .allowsHitTesting(false)
@@ -13644,16 +13644,17 @@ struct AskDJInputBar: View {
             if floating {
                 ZStack {
                     if reduceTransparency {
-                        RoundedRectangle(cornerRadius: 26, style: .continuous).fill(.ultraThinMaterial)
+                        RoundedRectangle(cornerRadius: 26, style: .continuous)
+                            .fill(Color(red: 0.08, green: 0.06, blue: 0.14))
                     } else {
                         Color.clear
-                            .glassEffect(.clear,
+                            .glassEffect(.regular.tint(Color(red: 0.08, green: 0.06, blue: 0.14).opacity(0.30)),
                                          in: RoundedRectangle(cornerRadius: 26, style: .continuous))
                     }
                 }
                     .overlay {
                         RoundedRectangle(cornerRadius: 26, style: .continuous)
-                            .stroke(.white.opacity(0.04), lineWidth: 0.75)
+                            .stroke(.white.opacity(0.14), lineWidth: 0.75)
                     }
             } else {
                 #if os(macOS)
