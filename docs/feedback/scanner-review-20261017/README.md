@@ -92,3 +92,40 @@ another genuine paired scanner holding a copied active QR can win, or require
 independent intended-owner proof. No response/acceptance is inferred from elapsed
 time or from the prior no-extra-code product choice. All dependent runtime work
 stays unstarted while that and the other gates are unresolved.
+
+## Later continuation: owner disposition and refreshed B corpus
+
+The preceding pending-question paragraph records the earlier checkpoint. It is
+superseded for the owner's TRUST-1 product choice by the direct response recorded
+in [API94/6226306251](https://github.com/pcvantol/djconnect-api/pull/94#issuecomment-6226306251).
+Immediately after the explicit copied-QR/wrong-HA risk question, owner replied
+“ga verder”. This was read back as proceed authorization for the disclosed
+**limited address-transfer guarantee only**. No different owner wording is
+invented. The later HA six-digit approval remains separate, and is not claimed to
+repair A phishing. Independent security disposition and all other gates remain.
+Do not ask this same high-level product question again absent a material change.
+
+Core1197 head is now `b08c36402533d670d470adb8b4b39fe654705aa2`.
+Comparison against325aabc7 contains24 changed files, all under docs; runtime was
+not newly adopted or installed. It reconciles B_CORE_SOURCE_GO while A remains
+unavailable and source remains unmerged. The Core handoff comment was edited to
+identify runtime3cb9cf12 and actual-capture325aabc7 rather than its earlier pins.
+The earlier21-example evidence is retained as historical exact-pin evidence.
+
+The new26-example file `b-transport-325aabc7.json` is byte-identical to capture
+commit `325aabc7205f1f18928bc2c809817956d91609f8`, producer
+`3cb9cf129f31d419e8b2027e4dc1ba08fafdb9d8`. Run:
+
+```sh
+python3 docs/feedback/scanner-review-20261017/inspect_examples.py --current
+```
+
+31 offline assertions pass. Five added checks establish recorded continued
+lease revisions2/3/4, B discovery explicitly `rendezvous_a:false` with
+`availability:owner_context_required`, required paired route/HTTPS/read-only
+semantics, no concrete route/credential from discovery, and503
+`display_external_url_unavailable` with no released address. The absent external
+route case is consequently represented in the current corpus; other gaps remain
+listed in `inspection-current-result.json`. Original26 checks still pass against
+the retained21-example file. No fresh network/native/B runtime/crypto acceptance
+is inferred from these offline inspections.
