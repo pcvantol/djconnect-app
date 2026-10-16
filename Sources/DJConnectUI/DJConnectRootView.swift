@@ -18251,11 +18251,19 @@ private struct AskDJFeedbackPromptView: View {
     }
 
     private var contentMinWidth: CGFloat? {
-        isCompact ? nil : 760
+        #if os(macOS)
+        760
+        #else
+        nil
+        #endif
     }
 
     private var contentIdealWidth: CGFloat? {
-        isCompact ? nil : 920
+        #if os(macOS)
+        920
+        #else
+        nil
+        #endif
     }
 
     private var contentMaxWidth: CGFloat {
@@ -18340,6 +18348,8 @@ private struct AskDJFeedbackPromptView: View {
                     alignment: .leading
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("ask-dj-feedback-content")
             }
             .defaultScrollAnchor(.top)
         }
