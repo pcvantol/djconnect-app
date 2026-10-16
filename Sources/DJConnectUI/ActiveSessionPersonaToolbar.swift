@@ -35,6 +35,8 @@ struct ActiveSessionPersonaToolbar: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(text("ui.session.persona.title")).font(.headline).accessibilityAddTraits(.isHeader)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity, alignment: .center)
                     ForEach(DJConnectSessionPersonaValue.allCases, id: \.self) { value in
                         Button {
                             guard canChange else { return }

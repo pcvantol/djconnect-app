@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-16",
+  "source_parent": "94564b8",
+  "requests": [
+    "Center popout titles",
+    "Ask DJ matches page colors subtly without gradient, remains translucent",
+    "Send, Mood and Presence use Favorite brightness and translucency",
+    "Shared Mood/Presence tray slightly less transparent"
+  ],
+  "final_build": "40141",
+  "implementation": {
+    "composer": "Pass the same existing confirmed Session mood palette as the page; use its middle tint uniformly at14percent over native regularMaterial. No color gradient or lens refraction. Unpinned conversation retains neutral tint. Existing Reduce Transparency behavior retained.",
+    "controls": "Send and selected segmented buttons now share Favorite selectedFill22percent and border55percent. Send glyph uses existing purple accent. Removed now-unused primaryFill override. Disabled/pressed/focus guards retained.",
+    "selector_tray": "Shared selector only receives16percent neutral black backing inside native glass tray. Individual choice styles unchanged by this final increment.",
+    "titles": "See APPLE_CENTERED_POPOUT_TITLES_40135_20261016.json; unchanged title code retained in final selective candidate."
+  },
+  "qualification": {
+    "signed_selective_ios_watch_build": "PASS",
+    "log": "/private/tmp/djc-ios-40141-selector-bar-build.log",
+    "strict_deep_codesign": "PASS",
+    "manifest": "build/recovery/iphone40141-selective-source-manifest-20261016.json",
+    "file_count": 452,
+    "final_source_hashes_verified": true,
+    "candidate_executable_sha256": "05410255e596bab6ca851db82ccf7e86d12c6b7593b50b4c1bd719d00e7596f9"
+  },
+  "installation": {
+    "device": "Peter-iPhone17Pro",
+    "version": "4.0.0/40141",
+    "install": "/private/tmp/djc-iphone-40141-install.json",
+    "fresh_readback": "/private/tmp/djc-iphone-40141-readback.json",
+    "in_place": true,
+    "other_devices_not_updated": true,
+    "full_writer_not_installed": true
+  },
+  "physical_evidence": [
+    {
+      "build": "40136",
+      "xcresult": "/private/tmp/djc-iphone-40136-composer-colors-20261016.xcresult",
+      "seconds": 11.286,
+      "result": "Mechanical readback PASS, user rejected45percent palette gradient as too vivid and dense; superseded.",
+      "screenshots_viewed": [
+        "/private/tmp/djc-iphone-40136-composer-colors-attachments/307A1543-53C2-4145-A6C9-F734ED97D137.png",
+        "/private/tmp/djc-iphone-40136-composer-colors-attachments/90AFAAC6-5043-4EE9-AB69-6EAD1834AC59.png"
+      ]
+    },
+    {
+      "build": "40140",
+      "xcresult": "/private/tmp/djc-iphone-40140-controls-20261016.xcresult",
+      "seconds": 29.92,
+      "result": "Probe completed; screenshots actually viewed. Composer follows observed page color, uniform frosted tint, no magnified text through editor; Send in empty/disabled state. Mood rendered shared selected style. The broad Presence-labeled capture actually displayed Mood, so do not qualify Presence from that capture. Changing mood/keyboard states during readback mean it was not isolated lifecycle or write-free acceptance.",
+      "screenshots_viewed": [
+        "/private/tmp/djc-iphone-40140-controls-attachments/E063B7C9-0617-41CC-83A6-1A404E451B31.png",
+        "/private/tmp/djc-iphone-40140-controls-attachments/61858A8F-6B15-4ACB-88C1-1651B5A8976F.png",
+        "/private/tmp/djc-iphone-40140-controls-attachments/A9689D54-74D7-486A-BD47-A20167E32593.png",
+        "/private/tmp/djc-iphone-40140-controls-attachments/F44C492B-92C9-492E-85A3-0CE38DE27BEA.png"
+      ]
+    },
+    {
+      "build": "40140",
+      "xcresult": "/private/tmp/djc-iphone-40140-presence-readback-20261016.xcresult",
+      "seconds": 6.545,
+      "result": "PASS: explicit DJ-aanwezigheid title assertion and observed-frame coordinate tap. Correct five-choice Presence selector physically viewed.",
+      "screenshot_viewed": "/private/tmp/djc-iphone-40140-presence-readback-attachments/D420A468-67DC-401C-8547-D2A40C9996ED.png"
+    },
+    {
+      "build": "40141",
+      "xcresult": "/private/tmp/djc-iphone-40141-selector-bar-20261016.xcresult",
+      "seconds": 8.697,
+      "result": "PASS: explicit Presence title, coordinate tap, correct menu screenshot, outside dismissal. Final shared tray visibly darker/more restrained; icons and Favorite-like selection legible.",
+      "screenshot_actually_viewed": "/private/tmp/djc-iphone-40141-selector-bar-attachments/6337D040-AED2-46EF-B7F6-063C2E52A488.png"
+    }
+  ],
+  "intermediate_candidates": "40137,40138,40139 signed builds only; never installed. User steering incorporated before40140 installation.",
+  "limits": [
+    "No send action exercised; enabled Send brightness not separately physically qualified.",
+    "Native probes requested toolbar open/dismiss and right-edge scroll, no intentional option selection, draft entry, playback or sending. Transient state changes in broad40140 capture not attributed to an actor.",
+    "No provider, LAN, WS, APNs, FPS, Mac/iPad/Watch acceptance.",
+    "Persona/full Voice title preparations source only; their contracts/installation gates unchanged.",
+    "No new unit tests for reversible visual-only changes."
+  ],
+  "native_probe_restored": true,
+  "publication": "Local commit only. No push, PR, merge, backend or Core deploy. Incoming settingscontract3 notice remains context only; no adoption."
+}

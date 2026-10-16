@@ -3540,7 +3540,6 @@ enum DJConnectButtonAppearance {
     static let textFont: Font = .headline.weight(.semibold)
     static let pressedScale: CGFloat = 0.98
     static let selectedFill = djConnectAccent.opacity(0.22)
-    static let selectedSegmentFill = djConnectAccent.opacity(0.32)
     static let primaryGradient = LinearGradient(colors: [djConnectButtonBlue, djConnectButtonPurple],
                                                 startPoint: .leading, endPoint: .trailing)
 }
@@ -3553,7 +3552,6 @@ struct DJConnectButtonStyle: ButtonStyle {
     var expands = false
     var usesLiveGlass = true
     var iconDiameter: CGFloat = DJConnectButtonAppearance.iconSize
-    var primaryFill: Color? = nil
     @Environment(\.isFocused) private var isFocused
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -3581,10 +3579,8 @@ struct DJConnectButtonStyle: ButtonStyle {
             .frame(maxWidth: expands ? .infinity : nil)
             .background {
                 switch role {
-                case .primary:
-                    if let primaryFill { outline.fill(primaryFill) }
-                    else { outline.fill(DJConnectButtonAppearance.primaryGradient) }
-                case .selected: outline.fill(shape == .segmented ? DJConnectButtonAppearance.selectedSegmentFill : DJConnectButtonAppearance.selectedFill)
+                case .primary: outline.fill(DJConnectButtonAppearance.primaryGradient)
+                case .selected: outline.fill(DJConnectButtonAppearance.selectedFill)
                 case .destructive: outline.fill(Color.red.opacity(0.12))
                 case .secondary:
                     if usesLiveGlass { outline.fill(.white.opacity(0.04)).glassEffect(.regular.interactive(), in: outline) }
@@ -3592,7 +3588,7 @@ struct DJConnectButtonStyle: ButtonStyle {
                 case .tertiary: Color.clear
                 }
             }
-            .overlay { outline.stroke(role == .selected ? djConnectAccent.opacity(shape == .segmented ? 0.65 : 0.55) : .white.opacity(role == .tertiary ? 0 : 0.12), lineWidth: 1).allowsHitTesting(false) }
+            .overlay { outline.stroke(role == .selected ? djConnectAccent.opacity(0.55) : .white.opacity(role == .tertiary ? 0 : 0.12), lineWidth: 1).allowsHitTesting(false) }
             .overlay { outline.fill(.white.opacity(pressed ? 0.10 : 0)).allowsHitTesting(false) }
             .overlay { outline.stroke(.white.opacity(isFocused ? 0.95 : 0), lineWidth: 3).allowsHitTesting(false) }
             .contentShape(outline)
@@ -3923,9 +3919,12 @@ actor DJConnectArtworkDataCache {
 
 /// Shared ground tones for the current Session header and Now Playing card.
 /// Track-derived tint blending remains local to the player; Music DNA keeps its own palette.
-private struct DJConnectSessionMoodPalette {
+struct DJConnectSessionMoodPalette {
     let colors: [Color]
     let glow: Double
+    init(mood: String) {
+        self.init(stepIndex: ["chill", "groove", "energy", "party"].firstIndex(of: mood) ?? 0)
+    }
     init(stepIndex: Int) {
         let themes: [DJConnectSessionMoodTheme] = [.chill, .groove, .energy, .party]
         let theme = themes.indices.contains(stepIndex) ? themes[stepIndex] : .chill
@@ -13442,6 +13441,8 @@ struct SessionGlassChoiceSelector: View {
         VStack(alignment: .leading, spacing: 16) {
             Text(localizedKey(language, titleKey))
                 .font(.headline)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, alignment: .center)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 4) {
                 ForEach(steps.indices, id: \.self) { index in
@@ -13460,6 +13461,7 @@ struct SessionGlassChoiceSelector: View {
                 }
             }
             .padding(DJConnectCardAppearance.segmentedContentInset)
+            .background(.black.opacity(0.16), in: RoundedRectangle(cornerRadius: 32, style: .continuous))
             .djSessionFrostedSurface(cornerRadius: 32)
             Text(steps[safe: selectedIndex]?.label ?? "")
                 .font(.subheadline.weight(.semibold))
@@ -13524,6 +13526,7 @@ struct AskDJInputBar: View {
     var caretRequest: UUID? = nil
     var floating = false
     var placeholderKey: String? = nil
+    let surfaceColors: [Color]?
     @State private var editorDraftValue: String
     #if os(iOS)
     @State private var isNativeEditorFocused = false
@@ -13533,13 +13536,18 @@ struct AskDJInputBar: View {
          isInputFocused: FocusState<Bool>.Binding, sendAction: (() -> Void)? = nil,
          startVoiceAction: (() -> Void)? = nil, stopVoiceAction: (() -> Void)? = nil,
          toggleVoiceAction: (() -> Void)? = nil, cancelVoiceAction: (() -> Void)? = nil,
-         caretRequest: UUID? = nil, floating: Bool = false, placeholderKey: String? = nil) {
+         caretRequest: UUID? = nil, floating: Bool = false, placeholderKey: String? = nil, surfaceColors: [Color]? = nil) {
         self.model = model; self.canSend = canSend; self.canUseVoiceInput = canUseVoiceInput
         self.isInputFocused = isInputFocused; self.sendAction = sendAction
         self.startVoiceAction = startVoiceAction; self.stopVoiceAction = stopVoiceAction
         self.toggleVoiceAction = toggleVoiceAction; self.cancelVoiceAction = cancelVoiceAction
         self.caretRequest = caretRequest; self.floating = floating; self.placeholderKey = placeholderKey
+        self.surfaceColors = surfaceColors
         _editorDraftValue = State(initialValue: model.askDJDraft)
+    }
+
+    private var composerSurfaceTint: Color {
+        surfaceColors?[safe: 1] ?? surfaceColors?.first ?? Color(red: 0.22, green: 0.25, blue: 0.40)
     }
 
     private var editorDraft: Binding<String> {
@@ -13664,9 +13672,10 @@ struct AskDJInputBar: View {
                 } else {
                     Image(systemName: "paperplane.fill")
                         .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(djConnectAccent)
                 }
             }
-            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, shape: .icon, primaryFill: djConnectButtonPurple))
+            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .selected, shape: .icon, usesLiveGlass: false))
             .disabled(!canSend)
             .help(localizedKey(model.language, "ui.send"))
             .accessibilityLabel(localizedKey(model.language, "ui.send"))
@@ -13694,13 +13703,10 @@ struct AskDJInputBar: View {
             if floating {
                 // Frost the content without the lens effect that magnifies text underneath.
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .fill(.thickMaterial)
+                    .fill(.regularMaterial)
                     .overlay {
                         RoundedRectangle(cornerRadius: 26, style: .continuous)
-                            .fill(LinearGradient(colors: [
-                                Color(red: 0.16, green: 0.29, blue: 0.60).opacity(reduceTransparency ? 1 : 0.45),
-                                Color(red: 0.32, green: 0.16, blue: 0.49).opacity(reduceTransparency ? 1 : 0.45)
-                            ], startPoint: .leading, endPoint: .trailing))
+                            .fill(composerSurfaceTint.opacity(reduceTransparency ? 1 : 0.14))
                     }
                     .overlay {
                         RoundedRectangle(cornerRadius: 26, style: .continuous)

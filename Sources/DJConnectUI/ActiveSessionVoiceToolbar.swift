@@ -49,6 +49,8 @@ struct ActiveSessionVoiceToolbar: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         Text(text("title")).font(.headline).accessibilityAddTraits(.isHeader)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity, alignment: .center)
                         Text(text("scope")).font(.caption).fixedSize(horizontal: false, vertical: true)
                         if model.activeVoicePreference.refreshing {
                             ProgressView(text("loading"))

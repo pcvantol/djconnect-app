@@ -40,6 +40,8 @@ struct ActiveSessionAutoplayToolbar: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         Text(title).font(.headline).accessibilityAddTraits(.isHeader)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity, alignment: .center)
                         SessionVoiceAutoplayControl(model: model)
                     }.padding(16)
                 }

@@ -806,7 +806,8 @@ struct SessionTimelineScreen: View {
     private func sessionComposer(floating: Bool) -> some View {
         AskDJInputBar(model: model, canSend: canSend,
                       canUseVoiceInput: (model.isDemoMode || model.canUseProfileConversation) && model.voiceEnabled,
-                      isInputFocused: $inputFocused, floating: floating, placeholderKey: "ui.session.chat.placeholder")
+                      isInputFocused: $inputFocused, floating: floating, placeholderKey: "ui.session.chat.placeholder",
+                      surfaceColors: activeSession.map { DJConnectSessionMoodPalette(mood: $0.selectedMood).colors })
     }
 
     @ViewBuilder private func searchBar(proxy: ScrollViewProxy) -> some View {
@@ -1652,6 +1653,8 @@ struct SessionConnectionPopoverContent: View {
     var body: some View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(text("ui.connection.status")).font(.headline)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, alignment: .center)
                 if model.isDemoMode {
                     Label(text(status.key), systemImage: "play.circle.fill")
                 } else {
