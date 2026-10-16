@@ -3579,6 +3579,8 @@ struct DJConnectButtonStyle: ButtonStyle {
     var expands = false
     var usesLiveGlass = true
     var iconDiameter: CGFloat = DJConnectButtonAppearance.iconSize
+    var showsFocusIndicator = true
+    var foregroundColor: Color? = nil
     @Environment(\.isFocused) private var isFocused
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -3596,7 +3598,7 @@ struct DJConnectButtonStyle: ButtonStyle {
         let pressed = configuration.isPressed && isEnabled
         configuration.label
             .font(shape == .icon ? DJConnectButtonAppearance.iconFont : DJConnectButtonAppearance.textFont)
-            .foregroundStyle(role == .destructive ? Color.red : Color.white.opacity(role == .tertiary ? 0.72 : 1))
+            .foregroundStyle(foregroundColor ?? (role == .destructive ? Color.red : Color.white.opacity(role == .tertiary ? 0.72 : 1)))
             .symbolRenderingMode(.monochrome)
             .padding(.horizontal, shape == .icon ? 0 : 16)
             .padding(.vertical, shape == .capsule ? 10 : 0)
@@ -3617,7 +3619,7 @@ struct DJConnectButtonStyle: ButtonStyle {
             }
             .overlay { outline.stroke(role == .selected ? djConnectAccent.opacity(0.55) : .white.opacity(role == .tertiary ? 0 : 0.12), lineWidth: 1).allowsHitTesting(false) }
             .overlay { outline.fill(.white.opacity(pressed ? 0.10 : 0)).allowsHitTesting(false) }
-            .overlay { outline.stroke(.white.opacity(isFocused ? 0.95 : 0), lineWidth: 3).allowsHitTesting(false) }
+            .overlay { outline.stroke(.white.opacity(showsFocusIndicator && isFocused ? 0.95 : 0), lineWidth: 3).allowsHitTesting(false) }
             .contentShape(outline)
             .opacity(isEnabled ? 1 : 0.40)
             .scaleEffect(pressed && !reduceMotion ? DJConnectButtonAppearance.pressedScale : 1)
@@ -13622,6 +13624,7 @@ struct SessionGlassChoiceSelector: View {
     var titleKey = "ui.session.welcome.mood"
     var accessibilityLabelKey = "ui.session.select_mood"
     var optionIDs: [String]? = nil
+    @FocusState private var focusedOption: Int?
     var onSelect: (Int) -> Void
 
     var body: some View {
@@ -13641,8 +13644,16 @@ struct SessionGlassChoiceSelector: View {
                     }
                     .djConnectButtonStyle(DJConnectButtonStyle(
                         emphasis: index == selectedIndex ? .selected : .secondary,
-                        shape: .segmented, expands: true, usesLiveGlass: false
+                        shape: .segmented, expands: true, usesLiveGlass: false,
+                        showsFocusIndicator: false, foregroundColor: index == selectedIndex ? djConnectAccent : .white
                     ))
+                    .focused($focusedOption, equals: index)
+                    .focusEffectDisabled()
+                    .overlay {
+                        DJConnectCardAppearance.segmentedItemShape
+                            .stroke(djConnectAccent.opacity(focusedOption == index ? 0.75 : 0), lineWidth: 1)
+                            .allowsHitTesting(false)
+                    }
                     .accessibilityLabel(steps[index].label)
                     .accessibilityAddTraits(index == selectedIndex ? .isSelected : [])
                     .accessibilityIdentifier(optionIDs?[safe: index] ?? ("session-mood-option-" + String(index)))
