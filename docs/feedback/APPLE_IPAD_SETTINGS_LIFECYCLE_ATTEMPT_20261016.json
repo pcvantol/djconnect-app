@@ -1,0 +1,23 @@
+{
+  "status": "NATIVE_TEST_FAILED_BEFORE_SETTINGS; lifecycle acceptance not reached",
+  "target": "Real Peter-iPadPro00008027-000211140231002E, ordinary installed app, no fixture or relaunch",
+  "actual_test": "PhysicalProbe/testOrdinarySettingsScrollAndTabSurviveBackground()",
+  "failure": "10.7445s test: Probe.swift line10 Instellingen button wait failed; subsequent tap had no match. Meer tab existence and tap preceded failure. AX/video afterward still show DJ-sessie selected and idle welcome. This is a navigation observation; single attempt does not establish root cause or repeated user-tap failure.",
+  "claim_correction": "Initial commentary inferred runner never started from a later process snapshot. Final xcresult proves test DID run and fail before settings, then finalization hung. No-run inference withdrawn.",
+  "finalization": "xcodebuild awaited test-log cleanup; own PID92994 interrupted after~209s test operation. Session exit75/TEST INTERRUPTED. Product assertions did not exercise scroll/background/resume.",
+  "lock_readback": "iPad connected, passcodeRequired=false/unlockedSinceBoot=true. No unlock attempted. No app runner in process snapshot was after test failure.",
+  "evidence": {
+    "bundle": "/private/tmp/djc-ipad-settings-lifecycle-40117-20261016.xcresult",
+    "summary": "/private/tmp/djc-ipad-settings-lifecycle-40117-20261016-summary.json",
+    "tests": "/private/tmp/djc-ipad-settings-lifecycle-40117-20261016-tests.json",
+    "activities": "/private/tmp/djc-ipad-settings-lifecycle-40117-20261016-activities.json",
+    "hierarchy": "/private/tmp/djc-ipad-settings-lifecycle-40117-20261016-hierarchy",
+    "video": "/private/tmp/djc-ipad-settings-lifecycle-40117-20261016-video/9A948E42-0445-48A7-97A4-CD2C52A45FCE.mp4",
+    "viewed_frame": "/private/tmp/djc-ipad-lifecycle-failure-frame.png",
+    "log": "/private/tmp/djc-ipad-settings-lifecycle-40117-20261016.log"
+  },
+  "evidence_handling": "UI Snapshot attachments are binary AX property lists, not screenshot PNGs. Frame at5s extracted from existing9.9MiB native recording with AVFoundation and actually viewed. No new capture or provider call required for extraction. Failed bundle744MiB retained for now because new navigation failure needs diagnosis; summary/AX/activity/video exports are much smaller.",
+  "effects": "Only attempted navigation to Meer. No settings change, messages, session start, pairing/reset, HA mutation or new app installation. Previous external VibeCast probe source restored.",
+  "next": "Focused single-tab navigation reproduction with selected-state and screen assertions, fail-fast/continueAfterFailure=false and disabled automatic screen recording where supported. Do not call this lifecycle PASS or silently change app navigation before confirming cause. Avoid repeated long finalization.",
+  "cleanup": "One active writer; only main/current proven merged, no eligible stale ref. Source and unrelated untracked projects preserved. Fresh df internal5.9GiB, EP_DATA2.5GiB before video export; no deletion."
+}
