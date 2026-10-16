@@ -74,7 +74,16 @@ private struct DJSessionGlassSurface: ViewModifier {
         }
         if #available(iOS 26, macOS 26, watchOS 26, tvOS 26, *) {
             if reduceTransparency { bordered.background(.regularMaterial, in: shape) }
-            else { bordered.glassEffect(.regular, in: shape) }
+            else {
+                #if os(iOS)
+                if currentMomentBorder && UIDevice.current.userInterfaceIdiom == .pad {
+                    // Wide iPad bubbles need a visible frost tint over the page gradient.
+                    bordered.glassEffect(.regular.tint(.white.opacity(0.12)), in: shape)
+                } else { bordered.glassEffect(.regular, in: shape) }
+                #else
+                bordered.glassEffect(.regular, in: shape)
+                #endif
+            }
         } else { bordered.background(.ultraThinMaterial, in: shape) }
     }
 }
