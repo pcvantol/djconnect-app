@@ -13682,10 +13682,10 @@ struct AskDJInputBar: View {
                 } else {
                     Image(systemName: "paperplane.fill")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(djConnectAccent)
+                        .foregroundStyle(.white)
                 }
             }
-            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .selected, shape: .icon, usesLiveGlass: false))
+            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .secondary, shape: .icon))
             .disabled(!canSend)
             .help(localizedKey(model.language, "ui.send"))
             .accessibilityLabel(localizedKey(model.language, "ui.send"))

@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-16",
+  "build": "40164",
+  "scope": "White Ask DJ send button matching inactive microphone",
+  "implementation": [
+    "Paperplane foreground is white.",
+    "Send button uses the same secondary glass icon style as the inactive microphone, replacing purple selected fill.",
+    "Existing disabled opacity, send guards, actions and loading spinner retained."
+  ],
+  "checks": {
+    "signed_ios_build": "PASS",
+    "strict_deep_codesign": "PASS",
+    "manifest": "452 files PASS",
+    "diff_check": "PASS",
+    "installed_readback": "iPhone40164 PASS",
+    "launch": "PASS"
+  },
+  "evidence": {
+    "source_manifest": "build/recovery/iphone40164-selective-source-manifest-20261016.json",
+    "build": "/private/tmp/djc-ios-40164-white-send-build.log",
+    "install": "/private/tmp/djc-iphone-40164-install.json",
+    "apps": "/private/tmp/djc-iphone-40164-apps.json"
+  },
+  "limits": [
+    "No new visual screenshot or send action performed for this styling-only change.",
+    "Other devices not installed."
+  ],
+  "publication": "Local only; no push/PR/merge"
+}
