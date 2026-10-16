@@ -380,7 +380,7 @@ private extension View {
     }
 }
 
-private enum DJConnectHaptics {
+enum DJConnectHaptics {
     @MainActor
     static func impact() {
         #if os(iOS)
@@ -10812,9 +10812,6 @@ private struct OutputSelectorView: View {
                                 guard canUsePlayback else {
                                     return
                                 }
-                                if output.active != true {
-                                    DJConnectHaptics.selection()
-                                }
                                 model.selectOutput(output)
                             }
                         )
@@ -11484,6 +11481,7 @@ private struct AskDJView: View {
                         Button {
                             isInputFocused = false
                             model.recordPresentationState("ask-dj-clear-confirmation")
+                            DJConnectHaptics.selection()
                             showingClearConfirmation = true
                         } label: {
                             Image(systemName: model.isClearingAskDJHistory ? "hourglass" : "trash")
@@ -11511,6 +11509,7 @@ private struct AskDJView: View {
                         Button {
                             isInputFocused = false
                             model.recordPresentationState("ask-dj-clear-confirmation")
+                            DJConnectHaptics.selection()
                             showingClearConfirmation = true
                         } label: {
                             Image(systemName: model.isClearingAskDJHistory ? "hourglass" : "trash")
@@ -12216,7 +12215,7 @@ struct AskDJMessageBubble: View {
                 .frame(minHeight: contextQuestionAction == nil ? 0 : 44)
                 .overlay(alignment: .topTrailing) {
                     if let contextQuestionAction {
-                        Button(action: contextQuestionAction) {
+                        Button { DJConnectHaptics.selection(); contextQuestionAction() } label: {
                             Image(systemName: contextQuestionSelected ? "checkmark.bubble" : "bubble.left.and.bubble.right")
                                 .font(.system(size: 16))
                                 .foregroundStyle(contextQuestionSelected ? djConnectAccent : .secondary)
@@ -12244,7 +12243,7 @@ struct AskDJMessageBubble: View {
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.white.opacity(0.46))
                     if !isReadOnly, isUser, message.status == .failed {
-                        Button(action: retryAction) {
+                        Button { DJConnectHaptics.impact(); retryAction() } label: {
                             Label(localizedKey(language, "ui.retry"), systemImage: "arrow.clockwise")
                                 .font(.caption2.weight(.semibold))
                         }
@@ -12369,7 +12368,7 @@ private struct AskDJAudioReplayButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button { DJConnectHaptics.impact(); action() } label: {
             HStack(spacing: 9) {
                 ZStack {
                     Circle().fill(.white.opacity(0.18))
@@ -12423,7 +12422,7 @@ private struct AskDJTrackInsightButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button { DJConnectHaptics.impact(); action() } label: {
             HStack(spacing: 9) {
                 ZStack {
                     Circle().fill(.white.opacity(0.18))
@@ -13446,7 +13445,7 @@ struct SessionGlassChoiceSelector: View {
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 4) {
                 ForEach(steps.indices, id: \.self) { index in
-                    Button { onSelect(index) } label: {
+                    Button { DJConnectHaptics.selection(); onSelect(index) } label: {
                         Image(systemName: glyphs[safe: index] ?? "sparkles")
                             .font(.system(size: 22, weight: .semibold))
                             .foregroundStyle(index == selectedIndex ? djConnectAccent : .white)
@@ -14134,7 +14133,6 @@ struct QueueView: View {
                         } else {
                             ForEach(filteredQueueItems, id: \.item.id) { index, item in
                                 Button {
-                                    DJConnectHaptics.impact()
                                     showStatusToast(localizedKey(model.language, "ui.track.is.starting"), systemImage: "play.fill")
                                     model.startQueueItem(item, at: index)
                                 } label: {
@@ -14232,7 +14230,6 @@ struct QueueView: View {
                 } else {
                     ForEach(filteredQueueItems, id: \.item.id) { index, item in
                         Button {
-                            DJConnectHaptics.impact()
                             showStatusToast(localizedKey(model.language, "ui.track.is.starting"), systemImage: "play.fill")
                             model.startQueueItem(item, at: index)
                         } label: {
@@ -14446,7 +14443,6 @@ struct PlaylistsView: View {
                         } else {
                             ForEach(filteredPlaylistItems) { playlist in
                                 Button {
-                                    DJConnectHaptics.impact()
                                     showStatusToast(localizedKey(model.language, "ui.playlist.is.starting"), systemImage: "play.fill")
                                     model.startPlaylist(playlist)
                                 } label: {
@@ -14542,7 +14538,6 @@ struct PlaylistsView: View {
                 } else {
                     ForEach(filteredPlaylistItems) { playlist in
                         Button {
-                            DJConnectHaptics.impact()
                             showStatusToast(localizedKey(model.language, "ui.playlist.is.starting"), systemImage: "play.fill")
                             model.startPlaylist(playlist)
                         } label: {

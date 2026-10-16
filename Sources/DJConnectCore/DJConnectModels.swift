@@ -8435,6 +8435,8 @@ private extension KeyedDecodingContainer where Key == DJConnectPlaylist.CodingKe
 
 public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
     public var success: Bool
+    /// RAM-only decoding evidence for optional UI confirmation; legacy success defaults remain unchanged.
+    public private(set) var hasExplicitSuccess = false
     public var error: String?
     public var message: String?
     public var text: String?
@@ -8528,6 +8530,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         pairingSessionID: String? = nil
     ) {
         self.success = success
+        self.hasExplicitSuccess = success
         self.error = error
         self.message = message
         self.text = text
@@ -8573,6 +8576,7 @@ public struct DJConnectCommandResponse: Codable, Equatable, Sendable {
         let data = try? container.nestedContainer(keyedBy: CodingKeys.self, forKey: .data)
         let result = try? container.nestedContainer(keyedBy: CodingKeys.self, forKey: .result)
 
+        hasExplicitSuccess = try container.decodeIfPresent(Bool.self, forKey: .success) == true
         success = try container.decodeIfPresent(Bool.self, forKey: .success) ?? true
         error = try container.decodeIfPresent(String.self, forKey: .error)
         message = try container.decodeIfPresent(String.self, forKey: .message)

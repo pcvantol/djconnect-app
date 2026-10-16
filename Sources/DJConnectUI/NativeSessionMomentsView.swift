@@ -68,6 +68,26 @@ struct NativeSessionMomentsView: View {
     var playbackOutputName: String? = nil
     var playbackModel: DJConnectAppModel? = nil
     @Environment(\.scenePhase) private var scenePhase
+    @State private var artworkFeedback: ArtworkFeedback?
+    @State private var artworkActionGeneration = UUID()
+    @State private var artworkPausedOverride: Bool?
+    @State private var artworkPlaybackConfirmationID = UUID()
+    @State private var hidesArtworkPlayOnTouch = false
+    @State private var artworkTouchID = UUID()
+    @State private var hidesArtworkPlayDuringSkip = false
+    @State private var artworkSkipSettleID = UUID()
+    private struct ArtworkFeedback {
+        let id = UUID()
+        let command: String
+        var symbol: String {
+            switch command {
+            case "next": "forward.end.fill"
+            case "previous": "backward.end.fill"
+            case "play": "play.fill"
+            default: "pause.fill"
+            }
+        }
+    }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private func text(_ key: String) -> String {
@@ -108,6 +128,35 @@ struct NativeSessionMomentsView: View {
                 #endif
             }
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { clearArtworkFeedback() }
+        }
+        .onChange(of: session.id) { _, _ in clearArtworkFeedback() }
+        .onChange(of: session.broadcast.playback?.itemID) { _, _ in artworkPausedOverride = nil }
+        .onChange(of: session.broadcast.playback?.state) { _, state in
+            if let artworkPausedOverride,
+               (state == "paused" && artworkPausedOverride) || (state == "playing" && !artworkPausedOverride) {
+                self.artworkPausedOverride = nil
+            }
+        }
+        .task(id: artworkPlaybackConfirmationID) {
+            guard artworkPausedOverride != nil else { return }
+            do { try await Task.sleep(for: .seconds(20)) } catch { return }
+            artworkPausedOverride = nil
+        }
+        .task(id: artworkSkipSettleID) {
+            guard hidesArtworkPlayDuringSkip else { return }
+            let generation = artworkActionGeneration
+            do { try await Task.sleep(for: .seconds(3)) } catch { return }
+            guard artworkActionGeneration == generation else { return }
+            hidesArtworkPlayDuringSkip = false
+        }
+        .task(id: artworkTouchID) {
+            guard hidesArtworkPlayOnTouch else { return }
+            do { try await Task.sleep(for: .seconds(1)) } catch { return }
+            hidesArtworkPlayOnTouch = false
+        }
+        .onDisappear { clearArtworkFeedback() }
         .accessibilityIdentifier("session-moment-content")
         #if DEBUG
         .overlay(alignment: .bottomTrailing) {
@@ -199,12 +248,32 @@ struct NativeSessionMomentsView: View {
         Group {
             if let url = musicArtworkURL {
                 SessionCurrentColumns(stacked: stacksCurrentOnPhone) {
-                    AsyncImage(url: url) { image in image.resizable().scaledToFit() } placeholder: { Image(systemName: "music.note") }
+                    ZStack {
+                        AsyncImage(url: url) { image in image.resizable().scaledToFit() } placeholder: { Image(systemName: "music.note") }
+                            .aspectRatio(1, contentMode: .fit)
+                        artworkPlaybackOverlay
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .zIndex(1)
+                        SessionArtworkTapSurface(action: handleArtworkTap, touchBegan: {
+                            if artworkIsPaused, playbackModel?.canUsePlaybackFeatures == true {
+                                hidesArtworkPlayOnTouch = true
+                                artworkTouchID = UUID()
+                            }
+                        }, touchCancelled: { hidesArtworkPlayOnTouch = false })
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .zIndex(2)
+                    }
                         .aspectRatio(1, contentMode: .fit)
                         .djAlbumArtworkGlassCard()
                         .frame(maxWidth: 270)
                         .contentShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
-                        .gesture(artworkPlaybackGesture)
+                        .task(id: artworkFeedback?.id) {
+                            guard let feedback = artworkFeedback else { return }
+                            do { try await Task.sleep(for: feedback.command == "pause" ? .seconds(2) : .milliseconds(850)) } catch { return }
+                            guard artworkFeedback?.id == feedback.id else { return }
+                            withAnimation(.easeOut(duration: 0.2)) { artworkFeedback = nil }
+                        }
+                        .accessibilityAction { sendArtworkCommand(artworkIsPaused ? "play" : "pause") }
                         .accessibilityAction(named: Text(text("ui.next.track"))) { sendArtworkCommand("next") }
                         .accessibilityAction(named: Text(text("ui.previous.track"))) { sendArtworkCommand("previous") }
                         .accessibilityAction(named: Text(text("ui.pause"))) { sendArtworkCommand("pause") }
@@ -221,27 +290,96 @@ struct NativeSessionMomentsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Only one recognizer wins: holding excludes taps, and a double tap excludes a single tap.
-    private var artworkPlaybackGesture: some Gesture {
-        LongPressGesture(minimumDuration: 0.5, maximumDistance: 12)
-            .exclusively(before: TapGesture(count: 2).exclusively(before: TapGesture(count: 1)))
-            .onEnded { result in
-                switch result {
-                case .first:
-                    sendArtworkCommand("pause")
-                case .second(.first):
-                    sendArtworkCommand("previous")
-                case .second(.second):
-                    sendArtworkCommand("next")
-                }
-            }
+    private func handleArtworkTap(_ count: Int) {
+        switch count {
+        case 1: sendArtworkCommand(artworkIsPaused ? "play" : "pause")
+        case 2: sendArtworkCommand("next")
+        case 3: sendArtworkCommand("previous")
+        default: break
+        }
     }
 
     private func sendArtworkCommand(_ command: String) {
-        // Reject an obsolete artwork/Session or unavailable route when recognition finishes.
-        guard scenePhase == .active, let playbackModel,
-              playbackModel.canToggleSessionFavorite(session) else { return }
-        playbackModel.sendPlaybackCommand(command)
+        // Global playback controls remain usable while artwork/progress projections catch up.
+        guard scenePhase == .active, let playbackModel, playbackModel.canUsePlaybackFeatures,
+              !playbackModel.djSessionIsRecovering, !playbackModel.djSessionLiveUnavailable,
+              playbackModel.activeDJSession?.id == session.id,
+              playbackModel.activeDJSession?.runtimeState == "active" else {
+            hidesArtworkPlayOnTouch = false
+            return
+        }
+        let isSkip = command == "next" || command == "previous"
+        hidesArtworkPlayDuringSkip = isSkip
+        // Keep the paused affordance out of the track-transition feedback.
+        // Start the settle window only when the request finishes.
+        let generation = UUID()
+        artworkActionGeneration = generation
+        let epoch = playbackModel.sessionHistory.responseEpoch
+        // Acknowledge the gesture immediately. Resume hides Play while its request is pending.
+        playArtworkHaptic(command)
+        withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.25, dampingFraction: 0.8)) {
+            hidesArtworkPlayOnTouch = false
+            artworkFeedback = command == "play" ? nil : ArtworkFeedback(command: command)
+            if command == "play" {
+                artworkPausedOverride = false
+                artworkPlaybackConfirmationID = UUID()
+            }
+        }
+        playbackModel.recordPresentationState("artwork-gesture-feedback-\(command)")
+        playbackModel.sendPlaybackCommand(command, onConfirmed: {
+            playbackModel.recordPresentationState("artwork-callback-generation-\(artworkActionGeneration == generation)-epoch-\(playbackModel.sessionHistory.responseEpoch == epoch)-active-\(playbackModel.activeDJSession?.runtimeState == "active")")
+            guard artworkActionGeneration == generation,
+                  playbackModel.activeDJSession?.id == session.id,
+                  playbackModel.activeDJSession?.runtimeState == "active",
+                  playbackModel.sessionHistory.responseEpoch == epoch else { return }
+            withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.25, dampingFraction: 0.8)) {
+                artworkPausedOverride = command == "pause" ? true : command == "play" ? false : nil
+                artworkPlaybackConfirmationID = UUID()
+            }
+            if isSkip { artworkSkipSettleID = UUID() }
+            playbackModel.recordPresentationState("artwork-playback-confirmed-\(command)")
+        }, onUnconfirmed: {
+            guard artworkActionGeneration == generation,
+                  playbackModel.activeDJSession?.id == session.id,
+                  playbackModel.sessionHistory.responseEpoch == epoch else { return }
+            artworkPausedOverride = nil
+            if isSkip { artworkSkipSettleID = UUID() }
+        })
+    }
+
+    private func playArtworkHaptic(_ command: String) {
+        #if os(iOS)
+        if command == "pause" { UISelectionFeedbackGenerator().selectionChanged() }
+        else { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+        #elseif os(macOS)
+        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+        #endif
+    }
+
+    private func clearArtworkFeedback() {
+        artworkActionGeneration = UUID()
+        artworkFeedback = nil
+        hidesArtworkPlayDuringSkip = false
+        artworkSkipSettleID = UUID()
+        artworkPausedOverride = nil
+        hidesArtworkPlayOnTouch = false
+        artworkTouchID = UUID()
+        artworkPlaybackConfirmationID = UUID()
+    }
+
+    private var artworkIsPaused: Bool {
+        if let artworkPausedOverride { return artworkPausedOverride }
+        if let playbackModel, playbackModel.playback?.isPlaying != nil { return !playbackModel.isPlaying }
+        return session.broadcast.playback?.state == "paused"
+    }
+
+    @ViewBuilder private var artworkPlaybackOverlay: some View {
+        if let playbackModel {
+            SessionArtworkPlaybackOverlay(model: playbackModel, session: session,
+                                          feedbackSymbol: artworkFeedback?.symbol, feedbackID: artworkFeedback?.id,
+                                          pausedOverride: artworkPausedOverride,
+                                          hidesPlayOnTouch: hidesArtworkPlayOnTouch || hidesArtworkPlayDuringSkip)
+        }
     }
 
     private var musicDetails: some View {
@@ -290,6 +428,124 @@ struct NativeSessionMomentsView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("session-music-details")
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+#if os(iOS)
+/// Native failure dependencies arbitrate 1/2/3 taps without leaking a lower tap count.
+private struct SessionArtworkTapSurface: UIViewRepresentable {
+    var action: (Int) -> Void
+    var touchBegan: () -> Void
+    var touchCancelled: () -> Void
+    func makeCoordinator() -> Coordinator { Coordinator(action: action) }
+    func makeUIView(context: Context) -> UIView {
+        let view = TouchView()
+        view.touchBegan = touchBegan
+        view.touchCancelled = touchCancelled
+        view.backgroundColor = .clear
+        view.isOpaque = false
+        view.isAccessibilityElement = false
+        let recognizers = (1...3).map { count in
+            let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapped(_:)))
+            tap.numberOfTapsRequired = count
+            tap.cancelsTouchesInView = false
+            view.addGestureRecognizer(tap)
+            return tap
+        }
+        recognizers[0].require(toFail: recognizers[1])
+        recognizers[0].require(toFail: recognizers[2])
+        recognizers[1].require(toFail: recognizers[2])
+        return view
+    }
+    func updateUIView(_ view: UIView, context: Context) {
+        context.coordinator.action = action
+        if let view = view as? TouchView { view.touchBegan = touchBegan; view.touchCancelled = touchCancelled }
+    }
+    @MainActor final class TouchView: UIView {
+        var touchBegan: (() -> Void)?
+        var touchCancelled: (() -> Void)?
+        override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+            touchBegan?(); super.touchesBegan(touches, with: event)
+        }
+        override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+            touchCancelled?(); super.touchesCancelled(touches, with: event)
+        }
+    }
+    @MainActor final class Coordinator: NSObject {
+        var action: (Int) -> Void
+        init(action: @escaping (Int) -> Void) { self.action = action }
+        @objc func tapped(_ tap: UITapGestureRecognizer) {
+            if tap.state == .ended { action(tap.numberOfTapsRequired) }
+        }
+    }
+}
+#elseif os(macOS)
+private struct SessionArtworkTapSurface: NSViewRepresentable {
+    var action: (Int) -> Void
+    var touchBegan: () -> Void
+    var touchCancelled: () -> Void
+    func makeCoordinator() -> Coordinator { Coordinator(action: action) }
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        for count in 1...3 {
+            let click = NSClickGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.clicked(_:)))
+            click.numberOfClicksRequired = count
+            click.delegate = context.coordinator
+            view.addGestureRecognizer(click)
+        }
+        return view
+    }
+    func updateNSView(_ view: NSView, context: Context) { context.coordinator.action = action }
+    @MainActor final class Coordinator: NSObject, NSGestureRecognizerDelegate {
+        var action: (Int) -> Void
+        init(action: @escaping (Int) -> Void) { self.action = action }
+        @objc func clicked(_ click: NSClickGestureRecognizer) {
+            if click.state == .ended { action(click.numberOfClicksRequired) }
+        }
+        func gestureRecognizer(_ gestureRecognizer: NSGestureRecognizer,
+                               shouldRequireFailureOf otherGestureRecognizer: NSGestureRecognizer) -> Bool {
+            guard let first = gestureRecognizer as? NSClickGestureRecognizer,
+                  let other = otherGestureRecognizer as? NSClickGestureRecognizer else { return false }
+            return first.numberOfClicksRequired < other.numberOfClicksRequired
+        }
+    }
+}
+#endif
+
+/// Observe playback directly: the Session projection may arrive after the command's playback reply.
+private struct SessionArtworkPlaybackOverlay: View {
+    @ObservedObject var model: DJConnectAppModel
+    let session: DJConnectSessionRuntime
+    let feedbackSymbol: String?
+    let feedbackID: UUID?
+    let pausedOverride: Bool?
+    let hidesPlayOnTouch: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var isPaused: Bool {
+        if let pausedOverride { return pausedOverride }
+        if model.playback?.isPlaying != nil { return !model.isPlaying }
+        return session.broadcast.playback?.state == "paused"
+    }
+    var body: some View {
+        ZStack {
+            if let feedbackSymbol {
+                symbol(feedbackSymbol)
+                    .id(feedbackID)
+                    .transition(reduceMotion ? .opacity : .scale(scale: 0.8).combined(with: .opacity))
+            } else if isPaused && !hidesPlayOnTouch {
+                symbol("play.fill")
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+    private func symbol(_ name: String) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 72, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.78))
+            .frame(width: 124, height: 124)
+            .background(.black.opacity(0.28), in: Circle())
+            .shadow(color: .black.opacity(0.2), radius: 8, y: 2)
     }
 }
 
@@ -358,7 +614,7 @@ struct MomentCard: View {
                 }
             }
             if let label = navigationLabel, let openInsight {
-                Button(action: openInsight) { Label(label, systemImage: "waveform.path.ecg") }
+                Button { DJConnectHaptics.selection(); openInsight() } label: { Label(label, systemImage: "waveform.path.ecg") }
                     .tint(djConnectAccent)
                     .accessibilityIdentifier("moment-open-track-insight")
             }

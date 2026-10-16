@@ -13785,3 +13785,42 @@ func pushFailureCannotWithdrawPairingWithoutIndependentHTTPRefusal(_ failure: In
     #expect(!defaults.bool(forKey: "DJConnectPushRegistered"))
     #expect(counter.count == (failure == 401 ? 2 : 1))
 }
+
+/// A decorative success overlay must not interpret a transport-level HTTP 200 as action acceptance.
+@MainActor
+@Test func artworkPlaybackFeedbackRequiresExplicitAcceptance() async throws {
+    for success in [true, false, nil] as [Bool?] {
+        let defaults = try testDefaults()
+        let host = "artwork-feedback-\(UUID().uuidString.lowercased()).local"
+        let body: [String: Any] = success.map { ["success": $0] } ?? [:]
+        let data = try JSONSerialization.data(withJSONObject: body)
+        let session = mockSession(host: host) { request in
+            return (try httpResponse(for: request, statusCode: 200), data)
+        }
+        let model = makePairedMusicDNAModel(defaults: defaults, host: host, session: session)
+        var confirmations = 0
+        var unconfirmed = 0
+        model.sendPlaybackCommand("pause", onConfirmed: { confirmations += 1 }, onUnconfirmed: { unconfirmed += 1 })
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(confirmations == (success == true ? 1 : 0))
+        #expect(unconfirmed == (success == true ? 0 : 1))
+    }
+}
+
+
+@Test func sessionHeartbeatCompletionResumesOnlyOnce() async throws {
+    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+        let gate = DJConnectSessionPingCompletion(continuation)
+        gate.finish(error: nil)
+        gate.finish(error: URLError(.cancelled))
+        gate.finish(error: nil)
+    }
+    do {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let gate = DJConnectSessionPingCompletion(continuation)
+            gate.finish(error: URLError(.cancelled))
+            gate.finish(error: nil)
+        }
+        Issue.record("The first ping error must be preserved")
+    } catch { #expect((error as? URLError)?.code == .cancelled) }
+}

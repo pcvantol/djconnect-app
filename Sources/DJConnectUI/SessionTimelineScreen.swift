@@ -388,6 +388,7 @@ struct SessionTimelineScreen: View {
                                     if turn.failed {
                                         Text(text(turn.contextChanged ? "ui.session.history.changed" : "ui.session.history.unavailable"))
                                         Button(text(turn.contextChanged ? "ui.session.history.current_context" : "ui.retry")) {
+                                            DJConnectHaptics.impact()
                                             if turn.contextChanged { history.useCurrentContext(turn) }
                                             else { history.retry(turn) }
                                         }
@@ -992,7 +993,7 @@ struct SessionEntryView: View, Equatable {
         .padding(4)
     }
     private var askButton: some View {
-        Button(action: askAction) {
+        Button { DJConnectHaptics.selection(); askAction() } label: {
             Image(systemName: selected ? "checkmark.bubble" : "bubble.left.and.bubble.right")
                 .font(.system(size: 16))
                 .foregroundStyle(selected ? djConnectAccent : .secondary)
@@ -1034,7 +1035,7 @@ struct SessionHistoryMatchCard: View {
                         .accessibilityLabel("Spotify")
                 }
                 if let action = entry.openAction, action.reference == entry.reference {
-                    Button(text("ui.session.history.open")) { open(action) }
+                    Button(text("ui.session.history.open")) { DJConnectHaptics.selection(); open(action) }
                         .djConnectPlainButtonStyle()
                         .frame(minHeight: 44, alignment: .leading)
                         .contentShape(Rectangle())
@@ -1064,7 +1065,7 @@ struct SessionComposerContext: View {
                         }
                     }
                     Spacer()
-                    Button { history.selectedEntry = nil } label: {
+                    Button { DJConnectHaptics.selection(); history.selectedEntry = nil } label: {
                         Image(systemName: "xmark")
                     }
                     .djConnectButtonStyle(DJConnectButtonStyle(

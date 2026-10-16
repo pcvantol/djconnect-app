@@ -225,7 +225,8 @@ public actor DJConnectSessionBroadcastTransport {
                 let deadline = Task { try? await Task.sleep(for: .seconds(5)); if !Task.isCancelled { channel.cancel(with: .goingAway, reason: nil) } }
                 do {
                     try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
-                        channel.sendPing { error in if let error { c.resume(throwing: error) } else { c.resume() } }
+                        let completion = DJConnectSessionPingCompletion(c)
+                        channel.sendPing { error in completion.finish(error: error) }
                     }
                     deadline.cancel()
                 } catch { deadline.cancel(); channel.cancel(with: .goingAway, reason: nil); return }
@@ -385,3 +386,19 @@ private struct DJConnectSessionBroadcastResultEnvelope<Result: Decodable>: Decod
 private struct DJConnectSessionBroadcastEventEnvelope: Decodable { struct Event: Decodable { var eventType: String; var data: DJConnectSessionBroadcastEvent; enum CodingKeys: String, CodingKey { case eventType = "event_type"; case data } }; var type: String; var event: Event?; var eventType: String?; var data: DJConnectSessionBroadcastEvent?; enum CodingKeys: String, CodingKey { case type, event, data; case eventType = "event_type" } }
 
 private struct DJConnectPairedOwnerAuthorityWithdrawnError: Error { let code: String }
+
+/// URLSession may report ping completion again while a socket is being cancelled.
+/// Claim the continuation under a lock, then resume outside it, exactly once.
+final class DJConnectSessionPingCompletion: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Error>?
+    init(_ continuation: CheckedContinuation<Void, Error>) { self.continuation = continuation }
+    func finish(error: Error?) {
+        lock.lock()
+        let pending = continuation
+        continuation = nil
+        lock.unlock()
+        guard let pending else { return }
+        if let error { pending.resume(throwing: error) } else { pending.resume() }
+    }
+}

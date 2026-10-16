@@ -3253,15 +3253,19 @@ public final class DJConnectAppModel: ObservableObject {
         _ command: String,
         value: DJConnectCommandValue? = nil,
         play: Bool? = nil,
-        expectedOutputSelectionGeneration: Int? = nil
+        expectedOutputSelectionGeneration: Int? = nil,
+        onConfirmed: (@MainActor () -> Void)? = nil,
+        onUnconfirmed: (@MainActor () -> Void)? = nil
     ) {
         guard isRuntimeCompatible else {
             log(.warning, "Command \(command) blocked because an app/integration update is required")
+            onUnconfirmed?()
             return
         }
         if shouldBlockPlaybackStart(command: command, play: play) {
             log(.warning, "Command \(command) blocked because no output device is selected")
             userNotice = DJConnectUserNotice(text: localized(key: "appModel.select.an.output.device.first"))
+            onUnconfirmed?()
             return
         }
         log(.info, "Sending playback command: \(command)")
@@ -3273,8 +3277,16 @@ public final class DJConnectAppModel: ObservableObject {
             }
         }
         Task {
-            await performCommand(command, value: value, play: play,
-                                 expectedOutputSelectionGeneration: expectedOutputSelectionGeneration)
+            if onConfirmed == nil && onUnconfirmed == nil {
+                await performCommand(command, value: value, play: play,
+                                     expectedOutputSelectionGeneration: expectedOutputSelectionGeneration)
+            } else {
+                var confirmed = false
+                await performCommand(command, value: value, play: play,
+                                     expectedOutputSelectionGeneration: expectedOutputSelectionGeneration,
+                                     onConfirmed: { confirmed = true; onConfirmed?() })
+                if !confirmed, !Task.isCancelled { onUnconfirmed?() }
+            }
         }
     }
 
@@ -3424,6 +3436,7 @@ public final class DJConnectAppModel: ObservableObject {
         // A pending choice already owns its one write; another tap is not a retry.
         guard pendingOutputSelectionID != output.id else { return }
         guard output.active != true || pendingOutputSelectionID != nil else { return }
+        DJConnectHaptics.selection()
         log(.debug, "User action: select output")
         outputSelectionGeneration += 1
         let selectionGeneration = outputSelectionGeneration
@@ -3643,6 +3656,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     func beginProfileConversationText(text: String, clientMessageID: String) -> UUID? {
+        playAskDJSendHaptic()
         askDJDraft = ""; askDJErrorMessage = nil; isSendingAskDJText = true
         return appendAskDJMessage(role: .user, text: text, clientMessageID: clientMessageID, status: .sending)
     }
@@ -4230,6 +4244,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         playingAskDJActionID = action.id
         askDJErrorMessage = nil
+        playAskDJActionHaptic()
         log(.info, "Sending Ask DJ favorite-current-track control action")
         Task {
             defer { playingAskDJActionID = nil }
@@ -4321,6 +4336,7 @@ public final class DJConnectAppModel: ObservableObject {
         guard !isClearingAskDJHistory else {
             return
         }
+        DJConnectHaptics.selection()
         if isDemoMode {
             clearAskDJHistoryLocally()
             return
@@ -10564,12 +10580,14 @@ public final class DJConnectAppModel: ObservableObject {
         play: Bool? = nil,
         notifyUserOnError: Bool = true,
         applyErrorState: Bool = true,
-        expectedOutputSelectionGeneration: Int? = nil
+        expectedOutputSelectionGeneration: Int? = nil,
+        onConfirmed: (@MainActor () -> Void)? = nil
     ) async -> Bool {
         let outputGeneration = expectedOutputSelectionGeneration ?? outputSelectionGeneration
         if (command == "devices" || command == "set_output"), outputGeneration != outputSelectionGeneration { return false }
         if isDemoMode {
             applyDemoCommand(command, value: value, play: play)
+            if isAppInForeground { onConfirmed?() }
             return true
         }
         guard pairingStatus == .paired else {
@@ -10582,6 +10600,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         var refreshOutputsAfterAcceptance = false
         var outputAccepted = true
+        var explicitlyConfirmed = false
         do {
             try await withHomeAssistantClient { client in
                 // This closure can be re-entered for transport fallback.
@@ -10606,6 +10625,7 @@ public final class DJConnectAppModel: ObservableObject {
                 }
                 apply(commandResponse: response, command: command)
                 outputAccepted = response.success != false
+                explicitlyConfirmed = response.hasExplicitSuccess && response.success
                 refreshOutputsAfterAcceptance = command == "set_output" && outputAccepted
             }
             if command == "set_output", !outputAccepted {
@@ -10646,6 +10666,8 @@ public final class DJConnectAppModel: ObservableObject {
                     delay: Self.shouldRefreshPlaybackAgainAfterCommand(command) ? .milliseconds(850) : .milliseconds(350)
                 )
             }
+            if onConfirmed != nil { recordPresentationState("artwork-ack-explicit-\(explicitlyConfirmed)-foreground-\(isAppInForeground)") }
+            if explicitlyConfirmed, isAppInForeground, !Task.isCancelled { onConfirmed?() }
             log(.debug, "Command \(command) succeeded")
             return true
         } catch let error as DJConnectError {
@@ -10664,7 +10686,10 @@ public final class DJConnectAppModel: ObservableObject {
         } catch let outcome as DJConnectHybridTransportError {
             if (command == "devices" || command == "set_output"), outputGeneration != outputSelectionGeneration { return false }
             userNotice = DJConnectUserNotice(text: localized(key: outcome.localizationKey))
-            if case .outcome(let receipt) = outcome, receipt.phase == "confirmed" { return true }
+            if case .outcome(let receipt) = outcome, receipt.phase == "confirmed" {
+                if isAppInForeground, !Task.isCancelled { onConfirmed?() }
+                return true
+            }
             return false
         } catch {
             if (command == "devices" || command == "set_output"), outputGeneration != outputSelectionGeneration { return false }
