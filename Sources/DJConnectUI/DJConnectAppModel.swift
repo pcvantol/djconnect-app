@@ -5333,6 +5333,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     @discardableResult
     public func refreshActiveDJSession() async -> Bool {
+        guard !Task.isCancelled else { return false }
         if isDemoMode { return true }
         guard isAppInForeground, pairingStatus == .paired, !isLoadingDJSession else { return false }
         let request = UUID()
@@ -5343,7 +5344,7 @@ public final class DJConnectAppModel: ObservableObject {
             let response = try await withHomeAssistantClient { client in
                 try await client.activeSession()
             }
-            guard request == sessionRequestGeneration, pairingStatus == .paired else { return false }
+            guard !Task.isCancelled, request == sessionRequestGeneration, pairingStatus == .paired else { return false }
             guard response.success else {
                 clearSessionProjection()
                 djSessionErrorMessage = localized(key: "ui.session.unavailable")
@@ -5367,6 +5368,8 @@ public final class DJConnectAppModel: ObservableObject {
             startSessionBroadcastIfNeeded()
             return true
         } catch {
+            guard !Task.isCancelled, !(error is CancellationError),
+                  (error as? URLError)?.code != .cancelled else { return false }
             guard request == sessionRequestGeneration else { return false }
             if (error as? DJConnectError)?.invalidatesSessionAuthority == true {
                 _ = sessionHistory.withdrawAuthority(for: error)
@@ -5381,12 +5384,14 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func refreshActiveMoodCapability() async {
+        guard !Task.isCancelled else { return }
         if isDemoMode {
             activePersonaAvailable = false
             activeMoodAvailable = activeDJSession != nil
             activePresenceCapabilityStatus = .unsupported
             return
         }
+        let previous = (mood: activeMoodAvailable, persona: activePersonaAvailable, presence: activePresenceAvailable, status: activePresenceCapabilityStatus)
         activeMoodAvailable = false
         activePersonaAvailable = false
         activePresenceAvailable = false
@@ -5397,14 +5402,31 @@ public final class DJConnectAppModel: ObservableObject {
         activePresenceCapabilityStatus = .loading
         let generation = UUID(); moodCapabilityGeneration = generation
         let epoch = sessionHistory.responseEpoch
+        var cancelledRead = false
+        defer {
+            // Closing a menu cancels its GET, not the confirmed capability or owner.
+            // A newer read / owner transition always wins over this restoration.
+            if (Task.isCancelled || cancelledRead), generation == moodCapabilityGeneration,
+               epoch == sessionHistory.responseEpoch, isAppInForeground, pairingStatus == .paired {
+                activeMoodAvailable = previous.mood
+                activePersonaAvailable = previous.persona
+                activePresenceAvailable = previous.presence
+                activePresenceCapabilityStatus = previous.status == .loading ? .notLoaded : previous.status
+            }
+        }
         do {
             let caps = try await withHomeAssistantClient { try await $0.activeSessionMoodCapabilities() }
             guard generation == moodCapabilityGeneration, epoch == sessionHistory.responseEpoch, isAppInForeground, pairingStatus == .paired else { return }
+            guard !Task.isCancelled else { return }
             activeMoodAvailable = caps.available
             activePersonaAvailable = caps.personaAvailable
             activePresenceAvailable = caps.presenceAvailable
             activePresenceCapabilityStatus = caps.presenceAvailable ? .supported : .unsupported
         } catch {
+            if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
+                cancelledRead = true
+                return
+            }
             guard generation == moodCapabilityGeneration, epoch == sessionHistory.responseEpoch,
                   isAppInForeground, pairingStatus == .paired else { return }
             if sessionHistory.withdrawAuthority(for: error) { return }
@@ -12304,6 +12326,31 @@ public final class DJConnectAppModel: ObservableObject {
         default:
             log(.warning, "Pairing poll failed: \(Self.describe(error))")
         }
+    }
+
+    /// Local, bounded presentation metadata; never captures view text or account data.
+    func recordPresentationState(_ event: String) {
+        #if DEBUG && canImport(UIKit)
+        var rows: [String] = []
+        var seen = Set<ObjectIdentifier>()
+        func visit(_ controller: UIViewController) {
+            guard rows.count < 24, seen.insert(ObjectIdentifier(controller)).inserted else { return }
+            let name = String(describing: type(of: controller)).split(separator: "<", maxSplits: 1).first.map(String.init) ?? "UIViewController"
+            rows.append("\(name):presenting=\(controller.isBeingPresented),dismissing=\(controller.isBeingDismissed),visible=\(controller.viewIfLoaded?.window != nil)")
+            if let presented = controller.presentedViewController { visit(presented) }
+            for child in controller.children { visit(child) }
+        }
+        for scene in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }) where scene.activationState == .foregroundActive {
+            for window in scene.windows where !window.isHidden {
+                if let root = window.rootViewController { visit(root) }
+            }
+        }
+        // Do not publish diagnosticLogLines here: observing presentation must not
+        // cause another SwiftUI update while UIKit is presenting/dismissing.
+        let message = "Presentation \(event) " + rows.joined(separator: " | ")
+        logger.info("\(message, privacy: .public)")
+        appendPersistentDiagnosticLogLine(message)
+        #endif
     }
 
     private func log(_ level: DJConnectAppLogLevel, _ message: String) {

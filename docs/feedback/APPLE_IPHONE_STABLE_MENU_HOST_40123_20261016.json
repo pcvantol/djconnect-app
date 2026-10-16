@@ -1,0 +1,67 @@
+{
+  "status": "IPHONE40123_INSTALLED; MOOD_OUTSIDE_DISMISS_REGRESSION_PASS; LONGER_TERM_RECURRENCE_ACCEPTANCE_OPEN",
+  "writer_parent": "33e3585adfc74c0fa388ffef5e981866a97bb993",
+  "problem": "Recurring global native presentation failure after opening Mood/Presence and tapping outside. On40122 connection actual tap produced opened=false while enabled/hittable, same process; cancellation changes alone were insufficient",
+  "prior_receipt": "APPLE_IPHONE_MENU_PRESENTATION_40122_20261016.json",
+  "change": "iOS Mood and Presence toolbar buttons now request a captured Session/epoch intent; one stable screen-owned popover host presents both controls. No active native popover is owned by the rebuilding toolbar buttons on this path. Menu GETs follow intent cancellation, authority/generation guards remain; macOS retains toolbar presentation",
+  "scope": "Apple presentation/runtime only; fixed native mood/presence choices and backend ownership unchanged",
+  "source_qualification": "Qualified40120 baseline plus explicit40121,40122 and40123 menu patches. Final452file hashes verified before/after build. Exactly1additional UI file for stable host; no full writer, Persona/Speech/widget or previous cosmetic import",
+  "manifest": "build/recovery/iphone40123-menu-selective-source-manifest-20261016.json",
+  "patch": "build/recovery/iphone40123-menu-before-20261016/explicit-stable-menu-host.patch",
+  "validation": {
+    "full_suite": "682tests/9suites PASS84.062s",
+    "full_log": "/private/tmp/djc-menu-host-full-tests-20261016.log",
+    "signed_ios": "BUILD SUCCEEDED; strict deep codesign PASS",
+    "build_log": "/private/tmp/djc-ios-40123-menu-host-build-20261016.log",
+    "candidate_executable_sha256": "42d5d563cb35c4e8621d08505c46d4849ae3dbfd9cec3975cd98c75e0f272367"
+  },
+  "installation": {
+    "device": "Peter-iPhone17Pro / 00008150-001409183C07801C",
+    "build": "4.0.0/40123",
+    "install_result": "/private/tmp/djc-iphone-40123-menu-install-20261016.json",
+    "independent_coredevice_readback": "/private/tmp/djc-iphone-40123-menu-readback-20261016.json",
+    "device_executable_hash": "Not read; candidate hash is not installed-binary binding"
+  },
+  "physical_native": {
+    "bundle": "/private/tmp/djc-iphone-40123-mood-host-native-20261016.xcresult",
+    "result": "2 tests PASS,0failures,68.129s normalfinalization; eachtest60sallowance,collect-test-diagnostics never",
+    "mood": "Four repetitions Mood open -> native outside dismiss -> popover absent -> connection open -> outside dismiss. All succeeded, followed by Presence open/close",
+    "details_alert": "Connection Details navigation -> AskDJ -> trash confirmation visible -> Annuleren -> alert absent; no history cleared",
+    "source_probe": "/private/tmp/djc-iphone-40123-mood-host-native-probe-20261016.swift",
+    "external_harness": "Original /private/tmp/djc-ipad-pi-native-probe/Probe.swift restored and cmp verified after test"
+  },
+  "screenshots": [
+    {
+      "path": "/private/tmp/djc-iphone-40123-mood-host-native-20261016-attachments/E329FB9D-83AD-416F-8715-E7176A6FC76F.png",
+      "sha256": "bc6ecf6aa8a3dc3c7c14cdc5ce10af10670322736841c3d92c695904f8e6f398",
+      "viewed": true
+    },
+    {
+      "path": "/private/tmp/djc-iphone-40123-mood-host-native-20261016-attachments/0F02D692-0403-4014-B772-F89AF4C94640.png",
+      "sha256": "68e014a0db32e950cc2c753ee2c904a776da713ecc51025176ddc9ae7013e649",
+      "viewed": true
+    },
+    {
+      "path": "/private/tmp/djc-iphone-40123-mood-host-native-20261016-attachments/9AE1CD54-8076-4EDF-B6DC-7F022ABB78C7.png",
+      "sha256": "5953efa3645eab4023b64b606b5d0b152a6b13a48da6d65df2d663dd3c03059b",
+      "viewed": true
+    },
+    {
+      "path": "/private/tmp/djc-iphone-40123-mood-host-native-20261016-attachments/6560FB91-7245-4F74-86BB-5FB1119225F7.png",
+      "sha256": "46d42cc26ec3e6bb278d2e91eb749240d4cba6c62760c7b659eb7ba176c957af",
+      "viewed": true
+    }
+  ],
+  "evidence_boundary": [
+    "Stable-host candidate passes exact reported outside-dismiss sequence on physical iPhone; longer-term intermittent recurrence remains open",
+    "Original internal SwiftUI/UIKit root cause not proven; no private UIKit diagnosis or blanket fixed claim",
+    "No Mood/Presence choice clicked, playback/send/history deletion, HA/Core deploy/migration, trust edit or authorization bypass",
+    "Only iPhone40123 installed; Macmini/Macbook/iPad/Watch remain40120; next new build40124+",
+    "Apple publication paused; localcommit only; timer stayspaused; protected untracked2/3projects retained"
+  ],
+  "final_safety_readback": {
+    "storage": "df internal22GiB / EP_DATA18GiB; changed since earlier snapshots, no cleanup performed or own gain claimed",
+    "git": "One existing writer, only main/current merged; no eligible refs removed, no locks observed; protected untracked2/3projects untouched",
+    "processes": "No active xcodebuild/swift-test/swift-frontend/lldb at final check"
+  }
+}

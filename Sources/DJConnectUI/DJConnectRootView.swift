@@ -11448,6 +11448,7 @@ private struct AskDJView: View {
                     if !model.askDJMessages.isEmpty {
                         Button {
                             isInputFocused = false
+                            model.recordPresentationState("ask-dj-clear-confirmation")
                             showingClearConfirmation = true
                         } label: {
                             Image(systemName: model.isClearingAskDJHistory ? "hourglass" : "trash")
@@ -11474,6 +11475,7 @@ private struct AskDJView: View {
                     if !model.askDJMessages.isEmpty {
                         Button {
                             isInputFocused = false
+                            model.recordPresentationState("ask-dj-clear-confirmation")
                             showingClearConfirmation = true
                         } label: {
                             Image(systemName: model.isClearingAskDJHistory ? "hourglass" : "trash")

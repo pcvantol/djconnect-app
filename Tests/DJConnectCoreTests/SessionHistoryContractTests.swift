@@ -4283,3 +4283,56 @@ private func providerGenderOptions(_ row: [String: Any]) throws -> DJConnectSpee
     #expect(await history.loadSessions())
     #expect(history.listErrorKey == nil && history.listNextCursor == "page-two")
 }
+
+
+@Test(arguments: [false, true]) @MainActor
+func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) async throws {
+    let phase = HistoryAuthorityGate()
+    let runtime = try presenceRuntimeWire()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/session/active") {
+            return (200, phase.denied && !capabilityRead ? Data(#"{"success":false}"#.utf8) : runtime, phase.denied ? 0.2 : 0)
+        }
+        if request.url!.path.hasSuffix("/capabilities") {
+            return (200, phase.denied ? Data(#"{}"#.utf8) : presenceCapsWire, phase.denied ? 0.2 : 0)
+        }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.refreshActiveDJSession(); await model.refreshActiveMoodCapability()
+    let confirmed = try #require(model.activeDJSession?.confirmedPresence)
+    #expect(model.activePresenceAvailable && model.activePresenceCapabilityStatus == .supported)
+    let count = fixture.requests.count
+    phase.denied = true
+    let pending = Task {
+        if capabilityRead { await model.refreshActiveMoodCapability() }
+        else { await model.refreshActiveDJSession() }
+    }
+    for _ in 0..<100 where fixture.requests.count == count { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(fixture.requests.count > count)
+    pending.cancel()
+    await pending.value
+    #expect(model.activeDJSession?.confirmedPresence == confirmed)
+    #expect(model.djSessionErrorMessage == nil)
+    #expect(model.activePresenceAvailable && model.activePresenceCapabilityStatus == .supported)
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+}
+
+@Test @MainActor func cancelledPresenceMenuReadCannotRestoreOverNewerCapabilityRead() async throws {
+    let phase = PresenceReadPhase()
+    let fixture = HistoryWireFixture { request in
+        guard request.url!.path.hasSuffix("/capabilities") else { return (404, Data(), 0) }
+        return phase.value == 1 ? (200, presenceCapsWire, 0.2) : (200, Data(#"{}"#.utf8), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    phase.value = 1
+    let pending = Task { await model.refreshActiveMoodCapability() }
+    for _ in 0..<100 where fixture.requests.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(!fixture.requests.isEmpty)
+    phase.value = 2
+    await model.refreshActiveMoodCapability()
+    pending.cancel(); await pending.value
+    #expect(!model.activePresenceAvailable && model.activePresenceCapabilityStatus == .unsupported)
+}

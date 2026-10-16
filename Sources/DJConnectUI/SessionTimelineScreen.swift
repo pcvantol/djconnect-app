@@ -234,6 +234,7 @@ struct SessionTimelineScreen: View {
     var openQueueAction: () -> Void = {}
     var refreshAction: (() -> Void)?
     @StateObject private var renderCache = SessionTimelineRenderCache()
+    @State private var sessionControlIntent: SessionControlIntent?
     @State private var currentHeaderVisible = true
     @State private var floatingComposerHeight: CGFloat = 96
     @State private var oldestEntriesVisible = false
@@ -512,8 +513,17 @@ struct SessionTimelineScreen: View {
                         #if !os(macOS)
                         if !usesExpandedToolbar { SessionConnectionToolbarButton(model: model) }
                         #endif
+                        #if os(iOS)
+                        ActiveSessionMoodToolbar(model: model, session: activeSession, requestPresentation: {
+                            sessionControlIntent = SessionControlIntent(kind: .mood, sessionID: activeSession.id, epoch: history.responseEpoch)
+                        })
+                        ActiveSessionPresenceToolbar(model: model, session: activeSession, requestPresentation: {
+                            sessionControlIntent = SessionControlIntent(kind: .presence, sessionID: activeSession.id, epoch: history.responseEpoch)
+                        })
+                        #else
                         ActiveSessionMoodToolbar(model: model, session: activeSession)
                         ActiveSessionPresenceToolbar(model: model, session: activeSession)
+                        #endif
                         ActiveSessionPersonaToolbar(model: model, session: activeSession)
                         ActiveSessionVoiceToolbar(model: model, session: activeSession)
                     }
@@ -574,6 +584,12 @@ struct SessionTimelineScreen: View {
                 }
                 #endif
             }
+            #if os(iOS)
+            .overlay(alignment: .topTrailing) {
+                SessionControlPopoverHost(model: model, intent: $sessionControlIntent)
+                    .frame(width: 1, height: 1).padding(.trailing, 24)
+            }
+            #endif
             .onAppear {
                 guard activeSession != nil, initialAnchor == nil else { return }
                 Task { @MainActor in
@@ -1141,9 +1157,88 @@ enum SessionArchiveSummary {
 }
 
 /// Native presentation only: all writes, pending intent and confirmation belong to AppModel.
+private struct SessionControlIntent: Identifiable {
+    enum Kind { case mood, presence }
+    let id = UUID()
+    let kind: Kind
+    let sessionID: String
+    let epoch: UUID
+}
+
+#if os(iOS)
+private struct SessionControlPopoverHost: View {
+    @ObservedObject var model: DJConnectAppModel
+    @Binding var intent: SessionControlIntent?
+    @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var history: DJConnectSessionHistoryModel
+    init(model: DJConnectAppModel, intent: Binding<SessionControlIntent?>) {
+        self.model = model; _intent = intent; history = model.sessionHistory
+    }
+    var body: some View {
+        Color.clear
+            .popover(item: $intent) { captured in
+                ScrollView {
+                    Group {
+                        switch captured.kind {
+                        case .mood:
+                            SessionMoodPopoverContent(model: model, sessionID: captured.sessionID, epoch: captured.epoch)
+                        case .presence:
+                            ActiveSessionPresenceControl(model: model, sessionID: captured.sessionID, epoch: captured.epoch)
+                        }
+                    }.padding(16)
+                }
+                .frame(idealWidth: 360)
+                .presentationCompactAdaptation(.popover)
+            }
+            .task(id: intent?.id) {
+                guard let captured = intent, !Task.isCancelled, scenePhase == .active,
+                      model.isDemoMode || model.pairingStatus == .paired else { return }
+                model.recordPresentationState("screen-menu-open")
+                await model.refreshActiveDJSession()
+                guard !Task.isCancelled, intent?.id == captured.id,
+                      captured.epoch == history.responseEpoch, captured.sessionID == model.activeDJSession?.id else { return }
+                await model.refreshActiveMoodCapability()
+            }
+            .onChange(of: intent?.id) { if intent == nil { model.recordPresentationState("screen-menu-dismissed") } }
+            .onChange(of: history.responseEpoch) { intent = nil }
+            .onChange(of: model.activeDJSession?.id) { intent = nil }
+            .onChange(of: scenePhase) { if scenePhase != .active { intent = nil } }
+            .onDisappear { intent = nil }
+    }
+}
+
+private struct SessionMoodPopoverContent: View {
+    @ObservedObject var model: DJConnectAppModel
+    let sessionID: String
+    let epoch: UUID
+    private let moods = ["chill", "groove", "energy", "party"]
+    private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
+    private var session: DJConnectSessionRuntime? { model.activeDJSession?.id == sessionID ? model.activeDJSession : nil }
+    private var canChange: Bool {
+        epoch == model.sessionHistory.responseEpoch && (model.isDemoMode || model.sessionHistory.hasAuthorizedOwner) &&
+        model.activeMoodAvailable && !model.activeMoodPending && session?.confirmedMoodRevision != nil
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SessionGlassChoiceSelector(steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
+                                      selectedIndex: moods.firstIndex(of: session?.selectedMood ?? "") ?? 0,
+                                      language: model.language) { index in
+                guard canChange, moods.indices.contains(index) else { return }
+                Task { await model.changeActiveSessionMood(moods[index], expectedSessionID: sessionID, expectedEpoch: epoch) }
+            }
+            .disabled(!canChange)
+            .accessibilityIdentifier("active-session-mood")
+            if let error = model.activeMoodError { Text(error).font(.caption).foregroundStyle(.secondary) }
+            else if !canChange && !model.activeMoodPending { Text(text("ui.session.mood.unavailable")).font(.caption).foregroundStyle(.secondary) }
+        }
+    }
+}
+#endif
+
 struct ActiveSessionPresenceToolbar: View {
     @ObservedObject var model: DJConnectAppModel
     let session: DJConnectSessionRuntime
+    let requestPresentation: (() -> Void)?
     @ObservedObject private var history: DJConnectSessionHistoryModel
     @Environment(\.scenePhase) private var scenePhase
     private struct Scope: Identifiable {
@@ -1155,8 +1250,8 @@ struct ActiveSessionPresenceToolbar: View {
     #if os(macOS)
     @FocusState private var presencePopoverFocused: Bool
     #endif
-    init(model: DJConnectAppModel, session: DJConnectSessionRuntime) {
-        self.model = model; self.session = session; history = model.sessionHistory
+    init(model: DJConnectAppModel, session: DJConnectSessionRuntime, requestPresentation: (() -> Void)? = nil) {
+        self.model = model; self.session = session; self.requestPresentation = requestPresentation; history = model.sessionHistory
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     private func trace(_ event: String) {
@@ -1175,6 +1270,8 @@ struct ActiveSessionPresenceToolbar: View {
     }
     var body: some View {
         Button {
+            if let requestPresentation { requestPresentation(); return }
+            model.recordPresentationState("presence-toggle")
             trace("toggle-before")
             if scope != nil { scope = nil }
             else { scope = Scope(sessionID: session.id, epoch: history.responseEpoch) }
@@ -1191,6 +1288,8 @@ struct ActiveSessionPresenceToolbar: View {
                 ActiveSessionPresenceControl(model: model, sessionID: captured.sessionID, epoch: captured.epoch)
                     .padding(16)
             }
+            .onAppear { model.recordPresentationState("presence-appeared") }
+            .onDisappear { model.recordPresentationState("presence-disappeared") }
             .accessibilityIdentifier("session-presence-scroll")
             .frame(idealWidth: 400)
             #if os(macOS)
@@ -1205,22 +1304,19 @@ struct ActiveSessionPresenceToolbar: View {
             .presentationCompactAdaptation(.popover)
         }
         .onAppear { trace("toolbar-appeared") }
-        .onDisappear { trace("toolbar-disappeared") }
-        .onChange(of: scope?.id) {
-            trace("scope-changed")
-            guard let captured = scope, scenePhase == .active, model.pairingStatus == .paired else { return }
-            Task {
-                trace("active-read-start")
-                await model.refreshActiveDJSession()
-                trace("active-read-finished")
-                guard model.activeDJSession?.id == captured.sessionID,
-                      history.responseEpoch == captured.epoch, scope?.id == captured.id,
-                      scenePhase == .active else { return }
-                trace("capability-read-start")
-                await model.refreshActiveMoodCapability()
-                trace("capability-read-finished")
-            }
+        .onDisappear { trace("toolbar-disappeared"); scope = nil }
+        .task(id: scope?.id) {
+            guard let captured = scope else { return }
+            guard !Task.isCancelled, scenePhase == .active, model.pairingStatus == .paired else { return }
+            trace("active-read-start")
+            await model.refreshActiveDJSession()
+            trace("active-read-finished")
+            guard !Task.isCancelled, model.activeDJSession?.id == captured.sessionID,
+                  history.responseEpoch == captured.epoch, scope?.id == captured.id,
+                  scenePhase == .active else { return }
+            await model.refreshActiveMoodCapability()
         }
+
         .onChange(of: session.id) { trace("session-changed"); scope = nil }
         .onChange(of: history.responseEpoch) { trace("owner-epoch-changed"); scope = nil }
         .onChange(of: scenePhase) { trace("scene-changed"); if scenePhase != .active { scope = nil } }
@@ -1303,6 +1399,7 @@ struct ActiveSessionPresenceControl: View {
 struct ActiveSessionMoodToolbar: View {
     @ObservedObject var model: DJConnectAppModel
     let session: DJConnectSessionRuntime
+    let requestPresentation: (() -> Void)?
     @Environment(\.scenePhase) private var scenePhase
     private struct MoodIntent: Identifiable {
         let id = UUID()
@@ -1319,8 +1416,8 @@ struct ActiveSessionMoodToolbar: View {
     @FocusState private var moodPopoverFocused: Bool
     #endif
     @ObservedObject private var history: DJConnectSessionHistoryModel
-    init(model: DJConnectAppModel, session: DJConnectSessionRuntime) {
-        self.model = model; self.session = session; history = model.sessionHistory
+    init(model: DJConnectAppModel, session: DJConnectSessionRuntime, requestPresentation: (() -> Void)? = nil) {
+        self.model = model; self.session = session; self.requestPresentation = requestPresentation; history = model.sessionHistory
     }
     private let moods = ["chill", "groove", "energy", "party"]
     private var selectedIndex: Int { moods.firstIndex(of: session.selectedMood) ?? 0 }
@@ -1328,6 +1425,8 @@ struct ActiveSessionMoodToolbar: View {
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     var body: some View {
         Button {
+            if let requestPresentation { requestPresentation(); return }
+            model.recordPresentationState("mood-toggle")
             if moodIntent != nil { moodIntent = nil }
             else { moodIntent = MoodIntent(sessionID: session.id, epoch: history.responseEpoch) }
         } label: {
@@ -1368,14 +1467,18 @@ struct ActiveSessionMoodToolbar: View {
         .task(id: CapabilityScope(sessionID: session.id, epoch: history.responseEpoch, authorized: model.pairingStatus == .paired)) {
             if model.isDemoMode || model.pairingStatus == .paired { await model.refreshActiveMoodCapability() }
         }
-        .onChange(of: moodIntent?.id) { _, id in
-            guard id != nil, scenePhase == .active,
+        .onDisappear { moodIntent = nil }
+        .task(id: moodIntent?.id) {
+            guard let intent = moodIntent else { return }
+            guard !Task.isCancelled, scenePhase == .active,
                   model.isDemoMode || model.pairingStatus == .paired else { return }
-            Task {
-                _ = await model.refreshActiveDJSession()
-                await model.refreshActiveMoodCapability()
-            }
+            await model.refreshActiveDJSession()
+            guard !Task.isCancelled, moodIntent?.id == intent.id,
+                  model.activeDJSession?.id == intent.sessionID,
+                  history.responseEpoch == intent.epoch, scenePhase == .active else { return }
+            await model.refreshActiveMoodCapability()
         }
+
         .onChange(of: session.id) { moodIntent = nil }
         .onChange(of: history.responseEpoch) { moodIntent = nil }
         .onChange(of: scenePhase) { _, phase in
@@ -1470,7 +1573,7 @@ struct SessionConnectionToolbarButton: View {
     }
     private var status: SessionConnectionStatus { model.connectionPresentation }
     var body: some View {
-        Button { showingStatus.toggle() } label: {
+        Button { model.recordPresentationState("connection-toggle"); showingStatus.toggle() } label: {
             Image(systemName: status.icon).font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(status.color).frame(width: 44, height: 44)
         }
