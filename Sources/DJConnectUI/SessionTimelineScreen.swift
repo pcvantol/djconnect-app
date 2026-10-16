@@ -237,13 +237,14 @@ struct SessionTimelineScreen: View {
     @State private var sessionControlIntent: SessionControlIntent?
     @State private var menuFrames: [SessionControlIntent.Kind: CGRect] = [:]
     @State private var currentHeaderVisible = true
+    @State private var composerKeyboardVisible = false
     private var composerBottomPadding: CGFloat {
         #if os(iOS)
-        // Match the 21pt visible gap below the iPhone floating tab bar.
-        UIDevice.current.userInterfaceIdiom == .phone && !inputFocused ? 21 : 8
-        #else
-        8
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            return composerKeyboardVisible ? 6 : 21
+        }
         #endif
+        return 8
     }
     @State private var floatingComposerHeight: CGFloat = 96
     @State private var oldestEntriesVisible = false
@@ -489,6 +490,14 @@ struct SessionTimelineScreen: View {
                 }
             }
             .background(sessionBackground)
+        #if os(iOS)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            composerKeyboardVisible = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            composerKeyboardVisible = false
+        }
+        #endif
             .toolbar {
                 #if os(macOS)
                 ToolbarItemGroup(placement: djConnectRefreshToolbarPlacement) {

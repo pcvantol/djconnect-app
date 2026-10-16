@@ -11137,13 +11137,14 @@ private struct AskDJView: View {
     @State private var isAskDJAtTop = true
     @State private var isAskDJScrollToTopButtonSuppressed = false
     @State private var didScrollAskDJToInitialTop = false
+    @State private var composerKeyboardVisible = false
     private var composerBottomPadding: CGFloat {
         #if os(iOS)
-        // Match the 21pt visible gap below the iPhone floating tab bar.
-        UIDevice.current.userInterfaceIdiom == .phone && !isInputFocused ? 21 : 8
-        #else
-        8
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            return composerKeyboardVisible ? 6 : 21
+        }
         #endif
+        return 8
     }
     @State private var floatingComposerHeight: CGFloat = 96
     @State private var promptCaretRequest: UUID?
@@ -11628,6 +11629,14 @@ private struct AskDJView: View {
     var body: some View {
         navigationContent
         .background(DJConnectCanvasBackground())
+        #if os(iOS)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            composerKeyboardVisible = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            composerKeyboardVisible = false
+        }
+        #endif
         .onAppear {
             model.presentMusicDNAOptInPromptIfNeeded()
         }
