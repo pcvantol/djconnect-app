@@ -3553,6 +3553,7 @@ struct DJConnectButtonStyle: ButtonStyle {
     var expands = false
     var usesLiveGlass = true
     var iconDiameter: CGFloat = DJConnectButtonAppearance.iconSize
+    var primaryFill: Color? = nil
     @Environment(\.isFocused) private var isFocused
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -3580,7 +3581,9 @@ struct DJConnectButtonStyle: ButtonStyle {
             .frame(maxWidth: expands ? .infinity : nil)
             .background {
                 switch role {
-                case .primary: outline.fill(DJConnectButtonAppearance.primaryGradient)
+                case .primary:
+                    if let primaryFill { outline.fill(primaryFill) }
+                    else { outline.fill(DJConnectButtonAppearance.primaryGradient) }
                 case .selected: outline.fill(shape == .segmented ? DJConnectButtonAppearance.selectedSegmentFill : DJConnectButtonAppearance.selectedFill)
                 case .destructive: outline.fill(Color.red.opacity(0.12))
                 case .secondary:
@@ -13663,7 +13666,7 @@ struct AskDJInputBar: View {
                         .font(.system(size: 18, weight: .semibold))
                 }
             }
-            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, shape: .icon))
+            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, shape: .icon, primaryFill: djConnectButtonPurple))
             .disabled(!canSend)
             .help(localizedKey(model.language, "ui.send"))
             .accessibilityLabel(localizedKey(model.language, "ui.send"))
