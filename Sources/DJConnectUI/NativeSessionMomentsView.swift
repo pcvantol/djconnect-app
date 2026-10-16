@@ -7,8 +7,8 @@ import AppKit
 #endif
 
 extension View {
-    func djSessionFrostedSurface(cornerRadius: CGFloat = DJConnectCardAppearance.cornerRadius) -> some View {
-        modifier(DJSessionGlassSurface(cornerRadius: cornerRadius))
+    func djSessionFrostedSurface(cornerRadius: CGFloat = DJConnectCardAppearance.cornerRadius, currentMomentBorder: Bool = false) -> some View {
+        modifier(DJSessionGlassSurface(cornerRadius: cornerRadius, currentMomentBorder: currentMomentBorder))
     }
 
     func djAlbumArtworkGlassCard(artworkURL: URL? = nil) -> some View {
@@ -64,11 +64,13 @@ private struct DJAlbumArtworkGlassCard: ViewModifier {
 
 private struct DJSessionGlassSurface: ViewModifier {
     let cornerRadius: CGFloat
+    var currentMomentBorder = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @ViewBuilder func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         let bordered = content.overlay {
-            shape.stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
+            shape.stroke(currentMomentBorder ? AnyShapeStyle(DJConnectCardAppearance.searchFocusGradient) : AnyShapeStyle(Color.white.opacity(DJConnectCardAppearance.borderOpacity)),
+                         lineWidth: DJConnectCardAppearance.borderWidth)
         }
         if #available(iOS 26, macOS 26, watchOS 26, tvOS 26, *) {
             if reduceTransparency { bordered.background(.regularMaterial, in: shape) }
@@ -222,7 +224,7 @@ struct NativeSessionMomentsView: View {
                 Button(text("ui.retry"), action: retryConnection)
             }
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-            .djSessionFrostedSurface()
+            .djSessionFrostedSurface(currentMomentBorder: true)
         } else if isRecovering {
             VStack(alignment: .leading, spacing: 12) {
                 ProgressView()
@@ -230,7 +232,7 @@ struct NativeSessionMomentsView: View {
                     .accessibilityAddTraits(.isHeader)
             }
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-            .djSessionFrostedSurface()
+            .djSessionFrostedSurface(currentMomentBorder: true)
         } else if session.runtimeState == "active", session.broadcast.playback?.state == "paused" {
             VStack(alignment: .leading, spacing: 12) {
                 Image(systemName: "pause.circle.fill")
@@ -244,7 +246,7 @@ struct NativeSessionMomentsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-            .djSessionFrostedSurface()
+            .djSessionFrostedSurface(currentMomentBorder: true)
             .accessibilityIdentifier("session-playback-paused")
         } else if let moment {
             MomentCard(moment: moment, kind: kind(moment), presentation: presentation(for: moment), language: language,
@@ -261,7 +263,7 @@ struct NativeSessionMomentsView: View {
                 Text(text("ui.session.quiet")).font(.title2.weight(.semibold))
             }
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-            .djSessionFrostedSurface()
+            .djSessionFrostedSurface(currentMomentBorder: true)
         }
     }
 
@@ -671,7 +673,7 @@ struct MomentCard: View {
             }
         }
         .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-        .djSessionFrostedSurface()
+        .djSessionFrostedSurface(currentMomentBorder: true)
         .accessibilityElement(children: .contain)
     }
     private func sourceLabel(_ url: URL) -> String {
