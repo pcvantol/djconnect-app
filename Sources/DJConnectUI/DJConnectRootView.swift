@@ -13762,6 +13762,20 @@ struct AskDJInputBar: View {
         if let sendAction { sendAction() } else { model.sendAskDJText() }
     }
 
+    #if os(macOS)
+    private func insertPromptNewline() {
+        var draft = editorDraftValue
+        let selected: Range<String.Index>
+        if let promptSelection, case .selection(let range) = promptSelection.indices {
+            selected = range
+        } else { selected = draft.endIndex..<draft.endIndex }
+        let offset = draft.distance(from: draft.startIndex, to: selected.lowerBound)
+        draft.replaceSubrange(selected, with: "\n")
+        editorDraft.wrappedValue = draft
+        promptSelection = TextSelection(insertionPoint: draft.index(draft.startIndex, offsetBy: offset + 1))
+    }
+    #endif
+
     @ViewBuilder private var placeholderView: some View {
         Text(localizedKey(model.language, placeholderKey ?? "ui.session.chat.placeholder"))
     }
@@ -13818,10 +13832,13 @@ struct AskDJInputBar: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 11)
-                    .onSubmit {
-                        if canSend {
-                            send()
+                    .onKeyPress(.return, phases: .down) { key in
+                        if key.modifiers.intersection([.control, .command, .option, .shift]) == .control {
+                            if canSend { send() }
+                        } else {
+                            insertPromptNewline()
                         }
+                        return .handled
                     }
                 #endif
             }
@@ -13876,6 +13893,9 @@ struct AskDJInputBar: View {
             .help(localizedKey(model.language, "ui.send"))
             .accessibilityLabel(localizedKey(model.language, "ui.send"))
             .accessibilityIdentifier("ask-dj-composer-send")
+            #if os(macOS)
+            .keyboardShortcut(.return, modifiers: .control)
+            #endif
             }
             .fixedSize(horizontal: !isExpanded, vertical: false)
         }
