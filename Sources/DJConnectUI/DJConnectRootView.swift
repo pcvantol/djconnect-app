@@ -11099,6 +11099,14 @@ private struct AskDJView: View {
     @State private var isAskDJAtTop = true
     @State private var isAskDJScrollToTopButtonSuppressed = false
     @State private var didScrollAskDJToInitialTop = false
+    private var composerBottomPadding: CGFloat {
+        #if os(iOS)
+        // Match the 21pt visible gap below the iPhone floating tab bar.
+        UIDevice.current.userInterfaceIdiom == .phone && !isInputFocused ? 21 : 8
+        #else
+        8
+        #endif
+    }
     @State private var floatingComposerHeight: CGFloat = 96
     @State private var promptCaretRequest: UUID?
     @FocusState private var isInputFocused: Bool
@@ -11356,7 +11364,7 @@ private struct AskDJView: View {
                                 .frame(maxWidth: .infinity, alignment: .top)
                                 .contentShape(Rectangle())
                             }
-                            .contentMargins(.bottom, usesFloatingComposer && !isSearchVisible ? floatingComposerHeight + 16 : 0, for: .scrollContent)
+                            .contentMargins(.bottom, usesFloatingComposer && !isSearchVisible ? floatingComposerHeight + composerBottomPadding + 8 : 0, for: .scrollContent)
                             .coordinateSpace(name: "askDJScroll")
                             .contentShape(Rectangle())
                             .onScrollGeometryChange(for: Bool.self) { scroll in
@@ -11432,7 +11440,7 @@ private struct AskDJView: View {
                                     .djFloatingAskDJWidth(maximum: min(contentWidth, 1000))
                                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { floatingComposerHeight = $0 }
                                     .padding(.horizontal, 12)
-                                    .padding(.bottom, 8)
+                                    .padding(.bottom, composerBottomPadding)
                             }
                         }
                         .contentShape(Rectangle())

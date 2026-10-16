@@ -237,6 +237,14 @@ struct SessionTimelineScreen: View {
     @State private var sessionControlIntent: SessionControlIntent?
     @State private var menuFrames: [SessionControlIntent.Kind: CGRect] = [:]
     @State private var currentHeaderVisible = true
+    private var composerBottomPadding: CGFloat {
+        #if os(iOS)
+        // Match the 21pt visible gap below the iPhone floating tab bar.
+        UIDevice.current.userInterfaceIdiom == .phone && !inputFocused ? 21 : 8
+        #else
+        8
+        #endif
+    }
     @State private var floatingComposerHeight: CGFloat = 96
     @State private var oldestEntriesVisible = false
     @State private var pagingTask: Task<Void, Never>?
@@ -447,14 +455,14 @@ struct SessionTimelineScreen: View {
                         #endif
                         }
                     }
-                    .contentMargins(.bottom, usesFloatingComposer && !searching ? floatingComposerHeight + 16 : 0, for: .scrollContent)
+                    .contentMargins(.bottom, usesFloatingComposer && !searching ? floatingComposerHeight + composerBottomPadding + 8 : 0, for: .scrollContent)
                     .overlay(alignment: .bottom) {
                         if usesFloatingComposer && !searching {
                             sessionComposer(floating: true)
                                 .djFloatingAskDJWidth(maximum: 1000)
                                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { floatingComposerHeight = $0 }
                                 .padding(.horizontal, 12)
-                                .padding(.bottom, 8)
+                                .padding(.bottom, composerBottomPadding)
                         }
                     }
                     .safeAreaInset(edge: .top, spacing: 0) {
