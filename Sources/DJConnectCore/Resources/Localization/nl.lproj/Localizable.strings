@@ -1226,3 +1226,6 @@
 "ui.session.voice.unavailable" = "Stem niet beschikbaar. Controleer de spraakinstellingen in Home Assistant of vernieuw de beschikbare stemmen.";
 "ui.session.voice.refresh" = "Stemmen vernieuwen";
 "ui.session.voice.selected" = "Geselecteerd";
+
+"ui.session.voice.choice" = "Kies stem";
+"ui.session.voice.selection_unavailable" = "Gekozen stem niet beschikbaar";

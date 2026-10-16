@@ -1226,3 +1226,6 @@
 "ui.session.voice.unavailable" = "Stimme nicht verfügbar. Prüfe die Spracheinstellungen in Home Assistant oder aktualisiere die verfügbaren Stimmen.";
 "ui.session.voice.refresh" = "Stimmen aktualisieren";
 "ui.session.voice.selected" = "Ausgewählt";
+
+"ui.session.voice.choice" = "Stimme wählen";
+"ui.session.voice.selection_unavailable" = "Gewählte Stimme nicht verfügbar";

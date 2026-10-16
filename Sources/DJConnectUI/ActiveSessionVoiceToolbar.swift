@@ -40,19 +40,12 @@ struct ActiveSessionVoiceToolbar: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         Text(text("title")).font(.headline).accessibilityAddTraits(.isHeader)
-                        SessionVoiceAutoplayControl(model: model)
-                        Divider()
                         Text(text("scope")).font(.caption).fixedSize(horizontal: false, vertical: true)
                         if model.activeVoicePreference.refreshing {
                             ProgressView(text("loading"))
                         }
                         if let options {
-                            voiceRow(text("default"), selected: model.activeVoicePreference.selectedVoiceID == nil,
-                                     enabled: options.supports(.default), identifier: "default") { choose(nil) }
-                            ForEach(options.selectableVoices, id: \.voiceID) { voice in
-                                voiceRow(voice.name, selected: model.activeVoicePreference.selectedVoiceID == voice.voiceID,
-                                         enabled: true, identifier: voice.voiceID) { choose(voice.voiceID) }
-                            }
+                            voicePicker(options)
                             if let voice = options.providerVoice {
                                 Text(text("configured") + ": " + voice.voiceName + " · " + voice.locale)
                                     .font(.caption).fixedSize(horizontal: false, vertical: true)
@@ -67,6 +60,8 @@ struct ActiveSessionVoiceToolbar: View {
                             Text(model.activeVoiceError ?? text("unavailable"))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
+                        Divider()
+                        SessionVoiceAutoplayControl(model: model)
                         Button { Task { await refresh() } } label: {
                             Label(text("refresh"), systemImage: "arrow.clockwise").frame(minHeight: 44)
                         }
@@ -88,17 +83,26 @@ struct ActiveSessionVoiceToolbar: View {
             .onChange(of: history.responseEpoch) { showing = false }
             .onChange(of: scenePhase) { _, phase in if phase != .active { showing = false } }
     }
-    private func voiceRow(_ title: String, selected: Bool, enabled: Bool, identifier: String,
-                          action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack {
-                Text(title).fixedSize(horizontal: false, vertical: true)
-                Spacer()
-                if selected { Image(systemName: "checkmark") }
-            }.frame(minHeight: 44).contentShape(Rectangle())
+    private func voicePicker(_ options: DJConnectSpeechVoiceOptions) -> some View {
+        Picker(text("choice"), selection: Binding<String?>(
+            get: { model.activeVoicePreference.selectedVoiceID },
+            set: { choose($0) }
+        )) {
+            Text(text("default")).tag(Optional<String>.none)
+                .disabled(!options.supports(.default))
+            ForEach(options.selectableVoices, id: \.voiceID) { voice in
+                Text(voice.name).tag(Optional(voice.voiceID))
+            }
+            // Keep unavailable intent represented. SwiftUI must not display the
+            // default as if a removed voice had been silently replaced.
+            if let selected = model.activeVoicePreference.selectedVoiceID, !options.supportsVoice(selected) {
+                Text(text("selection_unavailable")).tag(Optional(selected)).disabled(true)
+            }
         }
-        .disabled(!current || !enabled || model.activeVoicePreference.refreshing)
-        .accessibilityValue(selected ? text("selected") : "")
-        .accessibilityIdentifier("session-voice-" + identifier)
+        .pickerStyle(.menu)
+        .frame(minHeight: 44)
+        .disabled(!current || model.activeVoicePreference.refreshing ||
+                  (!options.supports(.default) && options.selectableVoices.isEmpty))
+        .accessibilityIdentifier("session-voice-picker")
     }
 }
