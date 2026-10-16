@@ -46,7 +46,6 @@ struct ActiveSessionAutoplayToolbar: View {
                     }.padding(16)
                 }
                 .frame(width: 340, height: 180)
-                .presentationBackground(.ultraThinMaterial)
                 .presentationCompactAdaptation(.popover)
             }
             .onChange(of: model.activeDJSession?.id) { showing = false }

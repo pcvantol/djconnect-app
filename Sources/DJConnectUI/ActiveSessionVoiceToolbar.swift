@@ -84,7 +84,6 @@ struct ActiveSessionVoiceToolbar: View {
                     }.padding(16)
                 }
                 .frame(idealWidth: 340, maxHeight: 500)
-                .presentationBackground(.ultraThinMaterial)
                 .presentationCompactAdaptation(.popover)
                 .task {
                     model.setActiveVoiceMenuOpen(true)
