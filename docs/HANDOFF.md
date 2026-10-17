@@ -1,3 +1,19 @@
+# Current local Apple follow-up — iPad40283
+
+Protected consolidation PR111/112 are merged; main is f6b0a71b. Current local
+follow-up branch `codex/apple-history-row-play-launch` contains98eda79:
+Ask DJ clear preserves the admitted Profile; neutral system launch; explicit
+history actions render inline. Full786Swift tests/10suites PASS87.359s. Signed
+ordinary iOS build/signatures PASS; only iPad installed/read back40283 and
+launched. Real-user chat clear was not repeated; no physical replay acceptance.
+Core must still supply history replay actions. Public source merge and formal
+source Finalization for this follow-up are not claimed. Original369-file source
+formal evidence remains dependent on the named central collector pagination fix.
+
+See [clear recovery](feedback/APPLE_CHAT_CLEAR_RECOVERY_20261017.md) and
+[history/launch](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md). Previous
+handoff snapshots below retain their original evidence bindings.
+
 # DJConnect iOS/macOS/watchOS App Handoff
 
 Actuele Apple-lanestatus (17okt2026): [integrale open-werk- en acceptatiematrix](feedback/APPLE_OPEN_WORK_20261017.md) en [requirementniveau/afmeldingen](feedback/APPLE_REQUIREMENT_ACCEPTANCE_20261017.md). Historische done-notities hieronder sluiten nieuwe Session/Speech/Settings/Watch-acceptatie niet af.

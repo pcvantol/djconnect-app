@@ -5,7 +5,7 @@ logo and DJConnect on the initial OS launch screen, followed by the existing
 localized tagline in the app.
 
 Base: protected main f6b0a71b3d8a2076539a2aea5e853626558b04ad. Work branch:
-`codex/apple-history-row-play-launch`. Not merged or installed.
+`codex/apple-history-row-play-launch`. Not merged. Included in ordinary iPad40283 installed/read back after the clear-state correction; source98eda79. The history replay producer dependency remains open, so physical replay is not qualified.
 
 The history row now displays a trailing44pt play control only when that same
 message supplies one matching, consistently identified backend track action.

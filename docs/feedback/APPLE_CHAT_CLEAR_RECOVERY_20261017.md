@@ -28,3 +28,14 @@ remain a separate named producer dependency. No backend change is needed for
 the clear-state correction. Device installation is recorded separately after
 actual success/readback; public merge and formal source Finalization are not
 claimed by this document.
+
+## Installed iPad readback
+
+Source commit98eda79, ordinary signed Debug build40283 (4.0.0), bundle
+`dev.djconnect.ios`. Native iOS build including embedded Watch/widgets PASS;
+strict deep signatures and ordinary-product inspection PASS. devicectl install
+succeeded; independent device-info apps readback confirms40283; process launch
+succeeded. Private JSON receipts/logs are under `/private/tmp/djc-chat-clear-*`.
+Only iPad was updated. No actual user chat was deleted for verification, so the
+physical clear/new-question UI acceptance remains unclaimed; fixture behavior
+and actual installation/launch are separate observed results.
