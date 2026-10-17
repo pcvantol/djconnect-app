@@ -1,4 +1,10 @@
-# Current local Apple follow-up — iPad40283
+# Current local Apple follow-up — iPad40286
+
+Latest ordinary iPad build40286 is installed/read back/launched, following
+Discover width40284, fixed Logs title40285 and games available-space40286.
+Each has its own signed native build receipt in the history/launch report below;
+physical viewport acceptance is not claimed. The786test result below binds
+the earlier clear-state source, not these later presentation changes.
 
 Protected consolidation PR111/112 are merged; main is f6b0a71b. Current local
 follow-up branch `codex/apple-history-row-play-launch` contains98eda79:

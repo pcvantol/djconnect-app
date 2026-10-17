@@ -14679,7 +14679,7 @@ private struct GamesView: View {
         #if os(macOS)
         size.width >= 1_000 ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
         #else
-        horizontalSizeClass == .regular && size.width > size.height ? 1_320 : djConnectContentMaxWidth
+        horizontalSizeClass == .regular ? size.width : djConnectContentMaxWidth
         #endif
     }
 
@@ -14688,7 +14688,9 @@ private struct GamesView: View {
     }
 
     private func gameCanvasMaxHeight(for size: CGSize) -> CGFloat? {
-        #if os(macOS)
+        #if os(iOS)
+        guard horizontalSizeClass == .regular else { return nil }
+        #endif
         let pickerHeight = measuredGameHeights["picker"] ?? 60
         let surfaceHeight = measuredGameHeights["surface"] ?? 0
         let canvasHeight = measuredGameHeights["canvas"] ?? 0
@@ -14696,12 +14698,6 @@ private struct GamesView: View {
         // Measure the controls and localized help rather than estimating from width.
         // Small windows retain scrolling so the game remains usable.
         return max(170, size.height - pickerHeight - chromeHeight - 18 - 2 * djConnectScreenVerticalPadding - 2)
-        #else
-        guard horizontalSizeClass == .regular, size.width > size.height else {
-            return nil
-        }
-        return min(560, max(360, size.height * 0.42))
-        #endif
     }
 
     var body: some View {
@@ -14802,6 +14798,7 @@ private struct LocalGameSurface: View {
     @AppStorage("djconnect.app.game.asteroids.high") private var asteroidsHighScore = 0
     @AppStorage("djconnect.app.game.fly.high") private var flyHighScore = 0
     @AppStorage("djconnect.app.game.pacman.high") private var pacmanHighScore = 0
+    @State private var canvasSize = CGSize(width: 320, height: 170)
     @State private var score = 0
     @State private var paddleY: CGFloat = 86
     @State private var ballX: CGFloat = 160
@@ -14855,6 +14852,14 @@ private struct LocalGameSurface: View {
     private let gameAspectRatio: CGFloat = 320.0 / 170.0
     private var isCompactLayout: Bool { horizontalSizeClass == .compact }
 
+    private var fillsAvailableCanvas: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .regular
+        #else
+        false
+        #endif
+    }
+
     private var highScore: Int {
         switch game {
         case .pong:
@@ -14905,33 +14910,17 @@ private struct LocalGameSurface: View {
                     .minimumScaleFactor(0.76)
             }
 
-            ZStack {
-                Canvas { context, size in
-                    let rect = CGRect(origin: .zero, size: size)
-                    context.fill(Path(roundedRect: rect, cornerRadius: 8), with: .color(Color.black.opacity(0.62)))
-                    context.stroke(Path(roundedRect: rect.insetBy(dx: 1, dy: 1), cornerRadius: 8), with: .color(.white.opacity(0.10)), lineWidth: 1)
-                    drawGame(in: &context, size: size, isPlaying: isPlaying)
-                    if Date() < flashUntil {
-                        context.stroke(Path(roundedRect: rect.insetBy(dx: 3, dy: 3), cornerRadius: 8), with: .color(.red), lineWidth: 3)
-                    }
-                }
-
-                if !isPlaying {
-                    Button {
-                        startGame()
-                    } label: {
-                        Label(localizedKey(language, "ui.tap.to.play"), systemImage: "play.fill")
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                            .frame(minWidth: 180)
-                    }
-                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary))
-                    .controlSize(.large)
+            Group {
+                if fillsAvailableCanvas, let maxCanvasHeight {
+                    gameCanvas.frame(height: maxCanvasHeight)
+                } else {
+                    gameCanvas
+                        .aspectRatio(gameAspectRatio, contentMode: .fit)
+                        .frame(maxHeight: maxCanvasHeight)
                 }
             }
-            .aspectRatio(gameAspectRatio, contentMode: .fit)
             .frame(maxWidth: .infinity)
-            .frame(maxHeight: maxCanvasHeight)
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { canvasSize = $0 }
             .background(gameHeightReader("canvas"))
             .background(.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
             .accessibilityIdentifier("games-surface")
@@ -15013,6 +15002,33 @@ private struct LocalGameSurface: View {
             isPlaying = false
             isGameFocused = false
             reset()
+        }
+    }
+
+    private var gameCanvas: some View {
+        ZStack {
+            Canvas { context, size in
+                let rect = CGRect(origin: .zero, size: size)
+                context.fill(Path(roundedRect: rect, cornerRadius: 8), with: .color(Color.black.opacity(0.62)))
+                context.stroke(Path(roundedRect: rect.insetBy(dx: 1, dy: 1), cornerRadius: 8), with: .color(.white.opacity(0.10)), lineWidth: 1)
+                drawGame(in: &context, size: size, isPlaying: isPlaying)
+                if Date() < flashUntil {
+                    context.stroke(Path(roundedRect: rect.insetBy(dx: 3, dy: 3), cornerRadius: 8), with: .color(.red), lineWidth: 3)
+                }
+            }
+
+            if !isPlaying {
+                Button {
+                    startGame()
+                } label: {
+                    Label(localizedKey(language, "ui.tap.to.play"), systemImage: "play.fill")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(minWidth: 180)
+                }
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary))
+                .controlSize(.large)
+            }
         }
     }
 
@@ -15650,16 +15666,20 @@ private struct LocalGameSurface: View {
     }
 
     private func handleDrag(_ location: CGPoint) {
+        let location = CGPoint(
+            x: location.x * 320 / max(1, canvasSize.width),
+            y: location.y * 170 / max(1, canvasSize.height)
+        )
         if !isPlaying {
             startGame()
         }
         switch game {
         case .pong:
-            paddleY = min(max(location.y / 1.0, 42), 126)
+            paddleY = min(max(location.y, 42), 126)
         case .asteroids:
-            shipX = min(max(location.x / 1.0, 24), 296)
+            shipX = min(max(location.x, 24), 296)
         case .fly:
-            planeY = min(max(location.y / 1.0, 52), 138)
+            planeY = min(max(location.y, 52), 138)
         case .pacman:
             let dx = location.x - pacmanX
             let dy = location.y - pacmanY

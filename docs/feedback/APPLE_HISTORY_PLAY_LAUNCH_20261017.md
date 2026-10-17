@@ -68,3 +68,24 @@ read back40285 and launched. Private logs/receipts:
 `/private/tmp/djc-logs-title-*`. No physical scrolled viewport was captured;
 installation proof is not visual acceptance. No new test was added for this
 small presentation-only change.
+
+## Games available-space layout — ordinary40286
+
+Owner requested larger game cards in iPad portrait/landscape while retaining
+standard edge margins. Regular iOS layouts now use the container width. Canvas
+height uses the remaining viewport after measured picker, card controls/help,
+spacing and screen padding; removed the portrait760pt width cap and landscape
+42%-height cap. The actual Canvas fills that measured rectangle instead of
+letterboxing inside a fixed320:170 view. Compact/Mac aspect-fit presentation is
+retained. A minimum playable height allows small viewports to scroll.
+
+Touch positions are converted from the actual resized canvas to the existing
+320x170 game coordinate space; controls and score storage keep their semantics.
+The Canvas was extracted as a shared view to avoid duplicating game drawing.
+Geometry state updates only when the canvas size changes.
+
+Signed iOS40286 build including embedded targets PASS; strict deep signatures/
+ordinary-product inspection PASS. Only iPad installed, independently read back
+40286 and launched. Private logs/receipts: `/private/tmp/djc-games-space-*`.
+Actual portrait/landscape viewport and physical touch acceptance were not
+captured. No new broad Swift PASS is inferred from the preceding786test run.
