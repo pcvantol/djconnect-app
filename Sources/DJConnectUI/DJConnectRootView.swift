@@ -17233,7 +17233,6 @@ private struct LogsView: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var showingClearConfirmation = false
     @State private var statusToast: String?
-    @State private var showsCompactTitle = false
     @State private var isSearchVisible = false
     @State private var logSearchText = ""
     @State private var selectedSearchResultIndex = 0
@@ -17307,13 +17306,6 @@ private struct LogsView: View {
                             }
 
                             ScrollView {
-                                GeometryReader { geometry in
-                                    Color.clear.preference(
-                                        key: ScrollOffsetPreferenceKey.self,
-                                        value: geometry.frame(in: .named("LogsScrollView")).minY
-                                    )
-                                }
-                                .frame(height: 0)
                                 VStack(alignment: .leading, spacing: 0) {
                                     ForEach(Array(displayedLogLines.enumerated()), id: \.element.id) { index, line in
                                         LogSearchText(
@@ -17334,7 +17326,6 @@ private struct LogsView: View {
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 8)
                             }
-                            .coordinateSpace(name: "LogsScrollView")
                             .scrollIndicators(.visible)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .djTransparentMacListBackground()
@@ -17345,9 +17336,6 @@ private struct LogsView: View {
                                 if logSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                                     scrollLogsToTop(proxy)
                                 }
-                            }
-                            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
-                                showsCompactTitle = offset < -36
                             }
                         }
                         .onChange(of: logSearchText) {
@@ -17374,7 +17362,7 @@ private struct LogsView: View {
             .djConnectMacDetailContent()
             #endif
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 #if os(macOS)
@@ -17390,22 +17378,6 @@ private struct LogsView: View {
                     clearLogToolbarButton
                 }
                 #endif
-            }
-            .overlay(alignment: .top) {
-                ZStack(alignment: .top) {
-                    #if os(iOS)
-                    if showsCompactTitle {
-                        Text(localizedKey(model.language, "ui.logs"))
-                            .font(.headline.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.top, 2)
-                            .frame(maxWidth: .infinity)
-                            .allowsHitTesting(false)
-                            .transition(.opacity)
-                    }
-                    #endif
-
-                }
             }
             .djStatusToastOverlay(text: statusToast, systemImage: "doc.on.doc")
             .alert(localizedKey(model.language, "ui.clear.logs.1489bd"), isPresented: $showingClearConfirmation) {

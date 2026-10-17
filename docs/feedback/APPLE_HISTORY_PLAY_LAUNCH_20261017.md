@@ -54,3 +54,17 @@ readback40284 and process launch PASS. Private receipts/log:
 `/private/tmp/djc-discovery-width-*`. No new physical viewport screenshot was
 captured, so visual acceptance remains distinct from installation. Prior786test
 result binds the preceding shared-state change; it is not a new layout test.
+
+## Persistent centered Logs title — ordinary40285
+
+Owner requested that Logs remains centered in the top bar when scrolling. The
+iOS Logs screen now uses the native inline navigation title. Removed its custom
+scroll-offset title overlay/state/geometry observer. Title visibility no longer
+depends on the log scroll position; search/copy/clear actions are preserved.
+
+Incremental signed iOS40285 build including embedded targets PASS; strict deep
+signatures and ordinary-product inspection PASS. Only iPad installed, independently
+read back40285 and launched. Private logs/receipts:
+`/private/tmp/djc-logs-title-*`. No physical scrolled viewport was captured;
+installation proof is not visual acceptance. No new test was added for this
+small presentation-only change.
