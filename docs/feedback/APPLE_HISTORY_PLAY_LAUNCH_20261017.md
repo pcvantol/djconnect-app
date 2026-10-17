@@ -248,3 +248,22 @@ failed receipts remain preserved; this is not a claim of parallel-suite stabilit
 
 iPhone40296 install, independent version readback and launch PASS. iPad/MacBook
 were not updated, per the owner's standing iPhone-only installation direction.
+
+## Session-start metadata bubble — 40297
+
+Active and archived Session timelines now include a neutral glass metadata bubble
+at the oldest end of their descending list: Dutch example, “DJ-sessie gestart om
+17:30 op 10 oktober 2026”. It reads the matching Session's backend started_at;
+never the screen opening time, first loaded entry or created_at fallback. The
+formatter uses the device time zone and a localized full date in all five app
+languages. Missing/invalid started_at produces no invented timestamp. This is
+native presentation, not a new locally persisted history entry or backend write.
+
+Regression coverage checks all five translations, the exact Dutch example,
+summer/winter time and invalid/missing timestamps. Five-language key parity and
+duplicate-key checks PASS. One parameterized regression test/5 language cases
+PASS0.078s. Native signed iOS40297 build, strict deep signature and ordinary-
+product checks PASS. iPhone installed/read back40297 and launched; iPad and
+MacBook not updated. Private receipts: `/private/tmp/djc-session-metadata-40297/`
+and `/private/tmp/djc-session-metadata-40297-ios-build.log`. Physical timeline
+placement remains separate from source proof; no new full-suite PASS is claimed.

@@ -303,6 +303,12 @@ struct SessionTimelineScreen: View {
         #endif
     }
     private var timeline: DJConnectSessionHistoryModel.Timeline { history.timelines[sessionID] ?? .init() }
+    private var startMetadata: String? {
+        let startedAt = activeSession.flatMap { $0.id == sessionID ? $0.startedAt : nil }
+            ?? timeline.session.flatMap { $0.id == sessionID ? $0.startedAt : nil }
+            ?? history.sessions.first(where: { $0.id == sessionID })?.startedAt
+        return startedAt.flatMap { SessionStartMetadata.text(startedAt: $0, language: model.language) }
+    }
     @ViewBuilder private var sessionBackground: some View {
         if let activeSession {
             DJSessionPinnedMoodBackground(mood: activeSession.selectedMood).ignoresSafeArea(.container)
@@ -445,6 +451,15 @@ struct SessionTimelineScreen: View {
                             }
                             if history.available && timeline.entries.isEmpty && !timeline.loading && timeline.errorKey == nil {
                                 Text(text(activeSession == nil ? "ui.session.history.no_entries" : "ui.session.history.no_entries_active")).padding(.horizontal, 20)
+                            }
+                            if let startMetadata {
+                                Label(startMetadata, systemImage: "clock")
+                                    .font(.callout).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                                    .djSessionFrostedSurface()
+                                    .padding(.horizontal, 20)
+                                    .accessibilityIdentifier("session-start-metadata")
                             }
                             Color.clear.frame(height: 1).id("tail")
                         }
@@ -1141,6 +1156,20 @@ struct SessionComposerContext: View {
 
 
 /// Display only server-confirmed timestamps; never infer an end from playback or last entry.
+enum SessionStartMetadata {
+    static func text(startedAt: String, language: String, timeZone: TimeZone = .current) -> String? {
+        guard let start = DJConnectHistoryEntry.date(startedAt) else { return nil }
+        let locale = Locale(identifier: language)
+        let date = DateFormatter()
+        date.locale = locale; date.timeZone = timeZone
+        date.setLocalizedDateFormatFromTemplate("d MMMM yyyy")
+        let time = DateFormatter()
+        time.locale = locale; time.timeZone = timeZone; time.dateFormat = "HH:mm"
+        return String(format: DJConnectLocalization.localized(key: "ui.session.start_metadata", language: language),
+                      locale: locale, time.string(from: start), date.string(from: start))
+    }
+}
+
 enum SessionArchiveSummary {
     static func text(_ session: DJConnectSavedSession, language: String,
                      timeZone: TimeZone = .current, compact: Bool = false) -> String {

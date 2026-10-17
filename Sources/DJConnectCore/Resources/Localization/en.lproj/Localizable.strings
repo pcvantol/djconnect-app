@@ -1332,3 +1332,5 @@
 
 "ui.app.glass.effects" = "Glass effects";
 "ui.app.glass.effects.description" = "Turn off for a simpler appearance with fewer graphical effects.";
+
+"ui.session.start_metadata" = "DJ session started at %1$@ on %2$@";

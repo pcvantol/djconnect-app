@@ -1332,3 +1332,5 @@
 
 "ui.app.glass.effects" = "Efectos de cristal";
 "ui.app.glass.effects.description" = "Desactívalos para una apariencia más sencilla con menos efectos gráficos.";
+
+"ui.session.start_metadata" = "Sesión de DJ iniciada a las %1$@ el %2$@";

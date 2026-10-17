@@ -4999,3 +4999,16 @@ func profileConversationClearPreservesSendingAndRejectsOldHistory(_ remoteClear:
     #expect(model.sessionResponseMessage(rejected).images.isEmpty)
     #expect(fixture.requests.isEmpty)
 }
+
+@Test(arguments: ["nl", "en", "de", "fr", "es"])
+func sessionStartMetadataUsesServerStartLocalTimeAndTranslatedFullDate(language: String) throws {
+    let zone = try #require(TimeZone(identifier: "Europe/Amsterdam"))
+    let text = try #require(SessionStartMetadata.text(startedAt: "2026-10-10T15:30:00Z", language: language, timeZone: zone))
+    #expect(text.contains("17:30") && text.contains("2026"))
+    #expect(!text.contains("ui.session.") && !text.contains("%@"))
+    if language == "nl" { #expect(text == "DJ-sessie gestart om 17:30 op 10 oktober 2026") }
+    #expect(SessionStartMetadata.text(startedAt: "", language: language, timeZone: zone) == nil)
+    #expect(SessionStartMetadata.text(startedAt: "unknown", language: language, timeZone: zone) == nil)
+    let winter = try #require(SessionStartMetadata.text(startedAt: "2026-12-10T16:30:00Z", language: language, timeZone: zone))
+    #expect(winter.contains("17:30"))
+}

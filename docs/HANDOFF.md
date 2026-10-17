@@ -1,4 +1,14 @@
-# Latest installed follow-up — iPhone40296 Ask DJ artwork
+# Latest installed follow-up — iPhone40297 session metadata
+
+Active/archived timelines show a start metadata bubble at their oldest end,
+using the matching backend Session started_at, local time and a full localized
+date. Five-language regression cases including DST/invalid timestamps PASS;
+native signed iOS40297, strict signature/ordinary-product checks and iPhone
+install/independent40297 readback/launch PASS. No physical viewport acceptance
+or new full-suite claim. iPad40290/MacBook40292 unchanged. See
+[UI evidence](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md).
+
+# Earlier installed follow-up — iPhone40296 Ask DJ artwork
 
 Rich Ask DJ images/history/action thumbnails now share the artwork cache and
 response projection follows the confirmed HA origin for public image_proxy URLs.
