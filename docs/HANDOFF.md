@@ -1,4 +1,15 @@
-# Latest installed follow-up — iPhone40298 queue diagnostics
+# Latest installed follow-up — iPhone40299 stable artwork border tint
+
+Session/Now Playing album glass frames seed their first frame from a shared
+synchronous URL-bound color cache. Removed per-mount tint clearing/animation and
+the nil URL gate while the image loads. Entries inherit HTTP cache expiry and
+exclude no-store/no-cache/max-age=0, bounded to180 colors without decoded images.
+Four tests/six cases PASS0.043s; native signed iOS40299/strict signature/ordinary-
+product checks PASS. iPhone installed/read back40299 and launched; no physical
+screen-switch acceptance inferred. iPad40290/MacBook40292 unchanged. See
+[UI evidence](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md).
+
+# Earlier installed follow-up — iPhone40298 queue diagnostics
 
 Owner's single-item/duplicated Volbeat Queue report is explicitly HA-dev and
 remains OPEN: current Core receipt has20distinct positions/repeat off, without

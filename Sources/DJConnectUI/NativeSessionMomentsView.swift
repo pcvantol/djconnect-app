@@ -31,8 +31,14 @@ private struct DJAlbumArtworkGlassCard: ViewModifier {
     @State private var sampledTint: Color?
     @State private var sampledURL: URL?
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
+
+    init(artworkURL: URL?) {
+        self.artworkURL = artworkURL
+        let cached = artworkURL.flatMap { DJConnectArtworkTintCache.shared.value(for: $0) }
+        _sampledTint = State(initialValue: cached?.color)
+        _sampledURL = State(initialValue: cached == nil ? nil : artworkURL)
+    }
 
     func body(content: Content) -> some View {
         let inset: CGFloat = 8
@@ -50,15 +56,21 @@ private struct DJAlbumArtworkGlassCard: ViewModifier {
                 }
             }
             .task(id: artworkURL) {
-                sampledTint = nil
-                sampledURL = nil
-                guard let requestedURL = artworkURL else { return }
+                guard let requestedURL = artworkURL else {
+                    sampledTint = nil; sampledURL = nil; return
+                }
+                if let cached = DJConnectArtworkTintCache.shared.value(for: requestedURL) {
+                    sampledTint = cached.color; sampledURL = requestedURL
+                    return
+                }
                 let color = await DJConnectArtworkDataCache.shared.tint(for: requestedURL, fallback: Color(white: 0.22))
                 guard !Task.isCancelled, requestedURL == artworkURL else { return }
-                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
-                    sampledURL = requestedURL
-                    sampledTint = color
+                if let cached = await DJConnectArtworkDataCache.shared.cachedTint(for: requestedURL) {
+                    DJConnectArtworkTintCache.shared.store(cached, for: requestedURL)
                 }
+                guard !Task.isCancelled, requestedURL == artworkURL else { return }
+                sampledURL = requestedURL
+                sampledTint = color
             }
     }
 }

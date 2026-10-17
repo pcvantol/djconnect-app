@@ -267,3 +267,33 @@ product checks PASS. iPhone installed/read back40297 and launched; iPad and
 MacBook not updated. Private receipts: `/private/tmp/djc-session-metadata-40297/`
 and `/private/tmp/djc-session-metadata-40297-ios-build.log`. Physical timeline
 placement remains separate from source proof; no new full-suite PASS is claimed.
+
+## Stable album-art glass color across Session/Now Playing — 40299
+
+Owner reports a roughly1s default-color flash when switching between the two
+screens. The glass modifier formerly began with empty tint state on every mount,
+cleared it again in its task, then animated in the asynchronously fetched tint.
+It also received nil until the separate image-loading task completed.
+
+The shared album-art frame now receives the artwork URL from its first frame.
+A bounded synchronous presentation cache seeds each new modifier with the exact
+URL's previously sampled color. Cache hits neither clear nor animate the color;
+new samples remain URL-bound so late previous-cover work cannot recolor a newer
+cover. The presentation cache inherits the image cache's existing HTTP expiry;
+no-store/no-cache responses cannot populate it, and remounting does not extend
+expiry. It retains colors only, with at most180 entries, not decoded cover images.
+
+Regression coverage checks immediate independent screen reads, URL isolation,
+expiry without renewal and no-store exclusion. Physical screen-switch acceptance
+is separate from source/test proof. Build/test/install receipts:
+`/private/tmp/djc-border-tint-40299/` and
+`/private/tmp/djc-border-tint-40299-ios-build.log`.
+
+Four targeted tests/six cases PASS0.043s: real fixture download to cached tint,
+two synchronous screen lookups, exact expiry inherited from HTTP max-age,
+different-cover isolation, no-store/no-cache/max-age=0 exclusions. Native signed
+iOS40299, strict deep signature and ordinary-product checks PASS. No new full-
+suite PASS or physical screen-switch acceptance is inferred.
+
+iPhone40299 installed, independently read back and launched. iPad/MacBook not
+updated, respecting the existing device installation scope.

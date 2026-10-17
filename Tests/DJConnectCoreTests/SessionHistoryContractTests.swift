@@ -97,9 +97,10 @@ private final class HistoryWireFixture: @unchecked Sendable {
     var baseURL: URL { URL(string: "http://" + hostname + ":8123")! }
     private let lock = NSLock()
     private var captured: [URLRequest] = []
+    let cacheControl: String
     let reply: @Sendable (URLRequest) throws -> (Int, Data, TimeInterval)
-    init(reply: @escaping @Sendable (URLRequest) throws -> (Int, Data, TimeInterval)) {
-        self.reply = reply; HistoryWireProtocol.register(self)
+    init(cacheControl: String = "no-store", reply: @escaping @Sendable (URLRequest) throws -> (Int, Data, TimeInterval)) {
+        self.cacheControl = cacheControl; self.reply = reply; HistoryWireProtocol.register(self)
     }
     func close() { HistoryWireProtocol.unregister(hostname) }
     func record(_ request: URLRequest) { lock.withLock { captured.append(request) } }
@@ -175,7 +176,7 @@ private final class HistoryWireProtocol: URLProtocol, @unchecked Sendable {
             let (status, data, delay) = try fixture.reply(request)
             DispatchQueue.global().asyncAfter(deadline: .now() + delay) { [self] in
                 guard !stateLock.withLock({ stopped }), let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil,
-                    headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"]) else { return }
+                    headerFields: ["Content-Type": "application/json", "Cache-Control": fixture.cacheControl]) else { return }
                 client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
                 client?.urlProtocol(self, didLoad: data); client?.urlProtocolDidFinishLoading(self)
             }
@@ -5011,4 +5012,51 @@ func sessionStartMetadataUsesServerStartLocalTimeAndTranslatedFullDate(language:
     #expect(SessionStartMetadata.text(startedAt: "unknown", language: language, timeZone: zone) == nil)
     let winter = try #require(SessionStartMetadata.text(startedAt: "2026-12-10T16:30:00Z", language: language, timeZone: zone))
     #expect(winter.contains("17:30"))
+}
+
+@Test @MainActor func albumBorderTintIsImmediatelyReusableAcrossScreensWithoutExtendingLifetime() throws {
+    let cache = DJConnectArtworkTintCache()
+    let now = Date(timeIntervalSince1970: 1000)
+    let cover = try #require(URL(string: "https://paired.example/api/djconnect/v1/image_proxy/cover-a"))
+    let nextCover = try #require(URL(string: "https://paired.example/api/djconnect/v1/image_proxy/cover-b"))
+    let tint = DJConnectArtworkTintSnapshot(color: .purple, expiresAt: now.addingTimeInterval(10))
+    cache.store(tint, for: cover, at: now)
+    // Separate synchronous reads model initial state on two independently mounted screens.
+    let session = try #require(cache.value(for: cover, at: now.addingTimeInterval(1)))
+    let player = try #require(cache.value(for: cover, at: now.addingTimeInterval(2)))
+    #expect(session.color == player.color && session.expiresAt == player.expiresAt)
+    #expect(player.expiresAt == tint.expiresAt)
+    #expect(cache.value(for: nextCover, at: now) == nil, "A previous cover must not tint the next track")
+    #expect(cache.value(for: cover, at: tint.expiresAt) == nil)
+    cache.store(tint, for: cover, at: tint.expiresAt)
+    #expect(cache.value(for: cover, at: tint.expiresAt) == nil, "Remounting cannot renew expired tint")
+}
+
+@Test(arguments: ["no-store", "no-cache", "public, max-age=0"])
+func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) async throws {
+    let fixture = HistoryWireFixture(cacheControl: cacheControl) { _ in (200, Data([1, 2, 3]), 0) }
+    defer { fixture.close() }
+    let cache = DJConnectArtworkDataCache(session: fixture.session())
+    let url = fixture.baseURL.appendingPathComponent("artwork")
+    _ = await cache.tint(for: url, fallback: .purple)
+    #expect(await cache.cachedTint(for: url) == nil, "The synchronous border cache may only inherit retained HTTP lifetime")
+    #expect(fixture.requests.count == 1)
+}
+
+@Test @MainActor func albumBorderTintWarmDownloadIsImmediatelyAvailableOnBothScreens() async throws {
+    let png = try #require(Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII="))
+    let fixture = HistoryWireFixture(cacheControl: "public, max-age=60") { _ in (200, png, 0) }
+    defer { fixture.close() }
+    let imageCache = DJConnectArtworkDataCache(session: fixture.session())
+    let presentation = DJConnectArtworkTintCache()
+    let url = fixture.baseURL.appendingPathComponent("album")
+    let color = await imageCache.tint(for: url, fallback: .purple)
+    let sample = try #require(await imageCache.cachedTint(for: url))
+    presentation.store(sample, for: url)
+    #expect(try #require(presentation.value(for: url)).color == color)
+    #expect(try #require(presentation.value(for: url)).color == color)
+    #expect(sample.expiresAt.timeIntervalSinceNow <= 60)
+    #expect(presentation.value(for: url, at: sample.expiresAt) == nil)
+    #expect(await imageCache.cachedTint(for: url, at: sample.expiresAt) == nil)
+    #expect(fixture.requests.count == 1, "Opening another screen must not refetch or resample the cover")
 }

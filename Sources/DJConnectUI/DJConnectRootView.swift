@@ -3623,7 +3623,7 @@ struct CachedArtworkImage<Placeholder: View>: View {
                 artworkContent
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.black.opacity(0.22))
-                    .djAlbumArtworkGlassCard(artworkURL: loadedImage != nil && loadedURL == url ? url : nil)
+                    .djAlbumArtworkGlassCard(artworkURL: url)
             } else {
                 artworkContent
             }
@@ -3690,6 +3690,35 @@ func makeArtworkImage(from data: Data) -> Image? {
     #else
     return nil
     #endif
+}
+
+struct DJConnectArtworkTintSnapshot: Sendable {
+    let color: Color
+    let expiresAt: Date
+}
+
+/// A synchronous presentation lookup prevents a neutral first frame on remount.
+/// Entries inherit the image cache's HTTP lifetime; protected/no-store art is absent.
+@MainActor final class DJConnectArtworkTintCache {
+    static let shared = DJConnectArtworkTintCache()
+    private var entries: [URL: DJConnectArtworkTintSnapshot] = [:]
+
+    func value(for url: URL, at now: Date = Date()) -> DJConnectArtworkTintSnapshot? {
+        guard let entry = entries[url], entry.expiresAt > now else {
+            entries[url] = nil
+            return nil
+        }
+        return entry
+    }
+
+    func store(_ entry: DJConnectArtworkTintSnapshot, for url: URL, at now: Date = Date()) {
+        entries = entries.filter { $0.value.expiresAt > now }
+        guard entry.expiresAt > now else { entries[url] = nil; return }
+        entries[url] = entry
+        if entries.count > 180, let oldest = entries.min(by: { $0.value.expiresAt < $1.value.expiresAt })?.key {
+            entries[oldest] = nil
+        }
+    }
 }
 
 actor DJConnectArtworkDataCache {
@@ -3781,6 +3810,11 @@ actor DJConnectArtworkDataCache {
         } catch {
             return fallback
         }
+    }
+
+    func cachedTint(for url: URL, at now: Date = Date()) -> DJConnectArtworkTintSnapshot? {
+        guard let entry = entries[url], entry.expiresAt > now, let color = entry.tint else { return nil }
+        return DJConnectArtworkTintSnapshot(color: color, expiresAt: entry.expiresAt)
     }
 
     private func trimIfNeeded() {
