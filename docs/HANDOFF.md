@@ -1,10 +1,28 @@
-# Latest source follow-up — iPad saved-session row width
+# Latest installed follow-up — iPhone40296 Ask DJ artwork
+
+Rich Ask DJ images/history/action thumbnails now share the artwork cache and
+response projection follows the confirmed HA origin for public image_proxy URLs.
+Existing no-store/expiry/authority boundaries remain intact. Signed iOS40296
+build/strict signature/ordinary-product checks PASS; iPhone installed/read back
+40296 and launched. Full788tests/10suites PASS89.528s with explicit no-parallel;
+initial concurrent failures retained, not a parallel-suite PASS. Physical reopen
+acceptance and the original runtime HTTP cause remain unproven. iPad40290 and
+MacBook40292 unchanged. See [UI evidence](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md).
+
+Open existing-lane follow-up: Ask DJ submit currently mislabels generic failures
+as history unavailable. Correct five-language question/connection wording with
+HTTP502/503/decode/transport/pre-HTTP scope tests, preserving authority withdrawal,
+409 context, frozen client_message_id and uncertain-effect/retry rules. No claim
+that wording correction establishes the original Armin transport cause. This
+follow-up is queued; no implementation or new Core writer in the artwork fix.
+
+# Earlier source follow-up — iPad saved-session row width
 
 Saved-session rows now fill the iPad List width, retaining20pt edge insets;
 removed the1000pt cap on iPad only. See the40295 entry in
 [UI follow-up evidence](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md).
 No iPad installation/physical landscape acceptance; latest installed versions
-remain iPhone40294, iPad40290, MacBook40292.
+at that snapshot were iPhone40294, iPad40290, MacBook40292.
 
 # Latest installed follow-up — iPhone40294
 

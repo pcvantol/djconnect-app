@@ -12296,25 +12296,8 @@ private struct AskDJItemList: View {
     @ViewBuilder
     private func itemArtwork(for item: DJConnectAskDJHistoryItem) -> some View {
         if let url = item.thumbnailURL ?? item.imageURL {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case let .success(image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                case .failure:
-                    fallbackIcon(for: item)
-                case .empty:
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(.white.opacity(0.14))
-                        ProgressView()
-                            .controlSize(.small)
-                            .tint(.white)
-                    }
-                @unknown default:
-                    fallbackIcon(for: item)
-                }
+            CachedArtworkImage(url: url, mode: .fill) {
+                fallbackIcon(for: item)
             }
             .frame(width: 42, height: 42)
             .clipped()
@@ -12675,25 +12658,8 @@ private struct AskDJPlaybackActionStack: View {
     @ViewBuilder
     private func artwork(url: URL?, action: DJConnectAskDJPlaybackAction) -> some View {
         if let url {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case let .success(image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                case .failure:
-                    fallbackIcon(for: action)
-                case .empty:
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(.white.opacity(0.14))
-                        ProgressView()
-                            .controlSize(.small)
-                            .tint(.white)
-                    }
-                @unknown default:
-                    fallbackIcon(for: action)
-                }
+            CachedArtworkImage(url: url, mode: .fill) {
+                fallbackIcon(for: action)
             }
             .frame(width: 42, height: 42)
             .clipped()
@@ -13104,24 +13070,11 @@ private struct AskDJImageCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            AsyncImage(url: displayURL) { phase in
-                switch phase {
-                case let .success(image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                case .failure:
-                    Image(systemName: "photo")
-                        .font(.title2)
-                        .foregroundStyle(.white.opacity(0.78))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                case .empty:
-                    ProgressView()
-                        .tint(.white)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                @unknown default:
-                    Color.white.opacity(0.10)
-                }
+            CachedArtworkImage(url: displayURL, mode: .fill) {
+                Image(systemName: "photo")
+                    .font(.title2)
+                    .foregroundStyle(.white.opacity(0.78))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .frame(width: width, height: width)
             .clipped()

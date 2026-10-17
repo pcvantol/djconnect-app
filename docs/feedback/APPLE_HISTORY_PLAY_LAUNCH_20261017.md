@@ -216,3 +216,35 @@ signature verification PASS. Build verification is recorded in
 `/private/tmp/djc-saved-sessions-40295-build.log`. No iPad installation or physical
 landscape acceptance is implied; the owner's iPhone-only installation direction
 remains in effect.
+
+## Ask DJ artwork after reopening — 40296
+
+Owner saw artwork on the initial answer and image-failure placeholders after
+reopening Ask DJ. Source review found local-first response image resolution even
+with a confirmed remote connection, plus separate AsyncImage loaders for rich
+images, history thumbnails and action thumbnails. These views now share the
+existing artwork cache/retry path. Response projection uses the confirmed
+artwork route, covering versioned and legacy public image_proxy paths. No-store,
+no-cache and max-age cache restrictions remain enforced; no expired response,
+owner grant or playback action is renewed or synthesized.
+
+Regression checks re-decode a history message, resolve relative/absolute image
+and thumbnail links over confirmed remote HA, and verify all action fields other
+than the image URL remain exact. New restoration test, existing Session cover
+route test and no-store cache test PASS (3 tests,0.121s). Native signed iOS40296
+build and strict deep signature/ordinary-product checks PASS. Private evidence:
+`/private/tmp/djc-ask-artwork-40296/` and
+`/private/tmp/djc-ask-artwork-40296-ios-build.log`.
+
+Screenshot alone does not establish the failing HTTP response or server expiry;
+no personal question was replayed. Physical reopen acceptance remains separate
+from source/test evidence. Core lane received this finding and evidence boundary.
+
+Full788-test/10-suite run PASS89.528s with explicit `--no-parallel`. The initial
+concurrent run reported7 issues across5 unrelated speech/widget/connection
+tests; their smaller isolation passed4 of5, with the speech-transfer budget case
+still failing under concurrency. All pass in the sequential full run. Both
+failed receipts remain preserved; this is not a claim of parallel-suite stability.
+
+iPhone40296 install, independent version readback and launch PASS. iPad/MacBook
+were not updated, per the owner's standing iPhone-only installation direction.

@@ -12,7 +12,7 @@ public enum DJConnectArtworkRoute {
         }
         guard ["http", "https"].contains(artwork.scheme?.lowercased() ?? ""),
               artwork.user == nil, artwork.password == nil else { return nil }
-        guard artwork.path.hasPrefix("/api/djconnect/v1/image_proxy/"),
+        guard ["/api/djconnect/v1/image_proxy/", "/api/djconnect/image_proxy/"].contains(where: artwork.path.hasPrefix),
               knownOrigins.contains(where: { sameOrigin($0, artwork) }),
               let preferredOrigin, knownOrigins.contains(where: { sameOrigin($0, preferredOrigin) }),
               preferredOrigin.user == nil, preferredOrigin.password == nil,

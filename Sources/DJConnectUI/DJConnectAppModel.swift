@@ -10674,12 +10674,13 @@ public final class DJConnectAppModel: ObservableObject {
             guard let host = url.host?.lowercased(), allowedHosts.contains(host) else {
                 return nil
             }
-            return url
+            return resolvedArtworkURL(url)
         }
         guard url.host == nil else {
             return nil
         }
-        return URL(string: url.relativeString, relativeTo: baseURL)?.absoluteURL
+        guard url.scheme == nil else { return nil }
+        return resolvedArtworkURL(url)
     }
 
     private func safeResponseLinks(_ links: [DJConnectResponseLink]?) -> [DJConnectResponseLink] {

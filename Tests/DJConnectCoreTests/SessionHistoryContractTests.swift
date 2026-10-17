@@ -4959,3 +4959,43 @@ func profileConversationClearPreservesSendingAndRejectsOldHistory(_ remoteClear:
     }
     #expect(fixture.requests.isEmpty)
 }
+
+@Test @MainActor func askDJArtworkRestorationUsesConfirmedRouteAndPreservesResponseIdentity() throws {
+    let remote = try #require(URL(string: "https://paired.example"))
+    let fixture = HistoryWireFixture { _ in (500, Data(), 0) }; defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(remoteURL: remote)
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    for prefix in ["/api/djconnect/v1/image_proxy/", "/api/djconnect/image_proxy/"] {
+        let path = prefix + "album/cover?size=600"
+        let local = try #require(URL(string: path, relativeTo: fixture.baseURL)?.absoluteURL)
+        let relative = try #require(URL(string: path))
+        let action = try JSONDecoder().decode(DJConnectAskDJPlaybackAction.self, from: historyData([
+            "id":"replay", "title":"Your House", "kind":"track", "command":"play_uri",
+            "uri":"spotify:track:fixture", "image_url":local.absoluteString,
+            "result_set_id":"set-a", "action_id":"action-a"
+        ]))
+        let wire = DJConnectAskDJHistoryMessage(id: "answer", role: .assistant, text: "Your House",
+            createdAt: Date(timeIntervalSince1970: 1000),
+            images: [.init(url: relative, title: "Your House", thumbnailURL: local)],
+            playbackActions: [action], items: [.init(title: "Your House", imageURL: local, thumbnailURL: relative)])
+        model.recordConnectionMode(.local, baseURL: fixture.baseURL)
+        #expect(model.sessionResponseMessage(wire).images.first?.url == local)
+        model.recordConnectionMode(.remote, baseURL: remote)
+        // Re-decoding represents a fresh history read after leaving/reopening the screen.
+        let restored = try JSONDecoder().decode(DJConnectAskDJHistoryMessage.self, from: JSONEncoder().encode(wire))
+        let projected = model.sessionResponseMessage(restored)
+        let expected = try #require(URL(string: path, relativeTo: remote)?.absoluteURL)
+        #expect(projected.images.first?.url == expected)
+        #expect(projected.images.first?.thumbnailURL == expected)
+        #expect(projected.items.first?.imageURL == expected)
+        #expect(projected.items.first?.thumbnailURL == expected)
+        #expect(projected.playbackActions.first?.imageURL == expected)
+        var expectedAction = action; expectedAction.imageURL = expected
+        #expect(projected.playbackActions == [expectedAction], "Artwork routing must preserve action authority and identity")
+        #expect(projected.serverID == wire.id && projected.text == wire.text)
+    }
+    let rejected = DJConnectAskDJHistoryMessage(id: "unsafe", role: .assistant, text: "No untrusted art", createdAt: Date(),
+        images: [.init(url: URL(string: "file:///tmp/cover")!), .init(url: URL(string: "https://unpaired.example/cover")!)])
+    #expect(model.sessionResponseMessage(rejected).images.isEmpty)
+    #expect(fixture.requests.isEmpty)
+}
