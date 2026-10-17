@@ -1,3 +1,15 @@
+# Latest installed follow-up — iPhone40293
+
+Only iPhone updated for now, per the owner's explicit latest direction. Signed
+ordinary40293 build/signatures/install/independent version readback/launch PASS.
+Ask DJ composer with Glass effects off or Reduce Transparency now uses the dark
+opaque surface/subtle border; removed full-opacity mood color. No physical
+viewport acceptance or new full-suite PASS is inferred. iPad last40290, MacBook
+40292; no further update attempted on either. See the40293 entry in
+[UI follow-up evidence](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md).
+
+Earlier source/install snapshots retain their evidence bindings below.
+
 # Latest installed follow-up — 40292
 
 MacBook (mbpro-peter) and iPhone ordinary40292 installed, independently version-

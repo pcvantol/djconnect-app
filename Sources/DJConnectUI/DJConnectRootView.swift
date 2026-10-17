@@ -13289,6 +13289,8 @@ struct AskDJInputBar: View {
         _editorDraftValue = State(initialValue: model.askDJDraft)
     }
 
+    private var usesOpaqueSurface: Bool { reduceTransparency || !glassEnabled }
+
     private var composerSurfaceTint: Color {
         surfaceColors?[safe: 1] ?? surfaceColors?.first ?? Color(red: 0.40, green: 0.16, blue: 0.66)
     }
@@ -13469,12 +13471,15 @@ struct AskDJInputBar: View {
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .fill(DJConnectMaterial(.regular))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 26, style: .continuous)
-                            .fill(composerSurfaceTint.opacity(reduceTransparency || !glassEnabled ? 1 : (surfaceColors == nil ? 0.30 : 0.14)))
+                        if !usesOpaqueSurface {
+                            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                                .fill(composerSurfaceTint.opacity(surfaceColors == nil ? 0.30 : 0.14))
+                        }
                     }
                     .overlay {
                         RoundedRectangle(cornerRadius: 26, style: .continuous)
-                            .stroke(DJConnectCardAppearance.searchFocusGradient, lineWidth: 0.75)
+                            .stroke(usesOpaqueSurface ? AnyShapeStyle(Color.white.opacity(0.18))
+                                : AnyShapeStyle(DJConnectCardAppearance.searchFocusGradient), lineWidth: 0.75)
                             .allowsHitTesting(false)
                     }
             } else {
@@ -13488,6 +13493,7 @@ struct AskDJInputBar: View {
                     Rectangle()
                         .fill(DJConnectMaterial(.ultraThin))
                     .opacity(reduceTransparency || !glassEnabled ? 1 : 0.85)
+                    if !usesOpaqueSurface {
                     LinearGradient(
                         colors: [
                             Color(red: 0.06, green: 0.43, blue: 1.00).opacity(0.22),
@@ -13497,6 +13503,7 @@ struct AskDJInputBar: View {
                         startPoint: .leading,
                         endPoint: .trailing
                     )
+                    }
                     Rectangle()
                         .fill(.white.opacity(0.12))
                         .frame(height: 1)
@@ -13512,7 +13519,7 @@ struct AskDJInputBar: View {
             }
         }
         .overlay(alignment: .top) {
-            if !floating {
+            if !floating && !usesOpaqueSurface {
                 LinearGradient(
                     colors: [
                         Color(red: 0.06, green: 0.43, blue: 1.00).opacity(0.36),

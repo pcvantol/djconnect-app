@@ -175,3 +175,20 @@ and ordinary-product checks PASS. iPhone installed/read back40291 and launched;
 iPad remains40290. Private logs/receipts: `/private/tmp/djc-iphone-leading-tools-*`.
 No physical narrow-width toolbar viewport was captured; installed/version proof
 is not visual acceptance. No stored pairing/Profile/playback setting was changed.
+
+## Restrained composer with Glass effects off — ordinary40293
+
+Owner reported a very bright purple Ask DJ floating composer with Glass effects
+disabled. The fallback previously overlaid the mood tint at full opacity over
+the opaque material. Floating and docked composers now omit color overlays when
+Glass effects is disabled or Reduce Transparency is enabled. Floating fallback
+uses the existing dark opaque surface and subtle white border; glass-enabled
+appearance retains its existing tint/border. Draft, focus, voice and send logic
+are unchanged.
+
+Signed native iOS40293 including embedded targets PASS; strict deep signatures
+and ordinary-product checks PASS. iPhone installed/read back40293 and launched.
+iPad was unavailable; owner explicitly directed: update only iPhone for now.
+No further iPad attempt or MacBook update was made. Private receipts/logs:
+`/private/tmp/djc-opaque-composer-*`. No actual physical glass-off viewport was
+captured; prior787test proof remains bound to the preceding source9d54967.
