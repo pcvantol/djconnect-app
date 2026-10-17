@@ -89,3 +89,18 @@ ordinary-product inspection PASS. Only iPad installed, independently read back
 40286 and launched. Private logs/receipts: `/private/tmp/djc-games-space-*`.
 Actual portrait/landscape viewport and physical touch acceptance were not
 captured. No new broad Swift PASS is inferred from the preceding786test run.
+
+## Connection popover while searching — ordinary40287
+
+Owner reported an oversized connection popup while Queue search/keyboard was
+open. Opening the shared connection toolbar action now resigns the iOS first
+responder while retaining search text. Its popover fits intrinsic content height
+and ignores keyboard safe-area inflation. The Session-control connection route
+also presents compact content directly, bypassing the expanding menu ScrollView.
+No timed presentation delay or backend/connection-state change is introduced.
+
+Signed native iOS40287 including embedded targets PASS; strict deep signatures
+and ordinary-product checks PASS. Only iPad installed/read back40287 and app
+launched. Private build/install/readback logs: `/private/tmp/djc-connection-keyboard-*`.
+The exact physical keyboard-open landscape viewport was not replayed/captured;
+source and installation proof are not physical visual acceptance.

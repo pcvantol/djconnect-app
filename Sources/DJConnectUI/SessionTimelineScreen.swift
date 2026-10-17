@@ -1228,6 +1228,11 @@ struct SessionControlPopoverHost: View {
                 Group {
                     if captured.kind == .voice {
                         ProfileDJSettingsEditor(model: model).equatable().frame(idealWidth: 360)
+                    } else if captured.kind == .connection {
+                        SessionConnectionPopoverContent(model: model) { intent = nil }
+                            .padding(16).frame(idealWidth: 360, maxWidth: 420)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .ignoresSafeArea(.keyboard)
                     } else {
                 ScrollView {
                     Group {
@@ -1249,7 +1254,7 @@ struct SessionControlPopoverHost: View {
                         case .voice:
                             EmptyView()
                         case .connection:
-                            SessionConnectionPopoverContent(model: model) { intent = nil }
+                            EmptyView() // Presented above without the expanding menu ScrollView.
                         case .more:
                             VStack(alignment: .leading, spacing: 16) {
                                 if captured.sessionID == model.activeDJSession?.id {
@@ -1694,6 +1699,10 @@ struct SessionConnectionToolbarButton: View {
     private var status: SessionConnectionStatus { model.connectionPresentation }
     var body: some View {
         Button {
+            #if os(iOS)
+            // Preserve the search query, but release keyboard focus before presenting.
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            #endif
             model.recordPresentationState("connection-toggle")
             if let requestPresentation { requestPresentation() }
             else { showingStatus.toggle() }
@@ -1709,6 +1718,8 @@ struct SessionConnectionToolbarButton: View {
         .popover(isPresented: $showingStatus) {
             SessionConnectionPopoverContent(model: model) { showingStatus = false }
                 .padding(16).frame(idealWidth: 340, maxWidth: 420)
+                .fixedSize(horizontal: false, vertical: true)
+                .ignoresSafeArea(.keyboard)
                 .presentationCompactAdaptation(.popover)
                 .djConnectPresentationSurface()
         }
