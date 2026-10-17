@@ -147,3 +147,17 @@ Private logs/receipts: `/private/tmp/djc-ipad-all-toolbar-*`. No physical toolba
 viewport or voice interaction acceptance was captured. Untracked duplicate
 source/test/fixture/tool files appearing during work remain preserved and unstaged;
 they were not regenerated into the Xcode project or included in this change.
+
+## iPhone catch-up after vinyl-card report — ordinary40290
+
+Owner reported the bare vinyl in DJ Session, then explicitly authorized installing
+the ready40290 build on iPhone as well. Fresh preinstall app readback showed
+40267. Current source already wraps both the loaded image and vinyl placeholder
+in CachedArtworkImage's shared djAlbumArtworkGlassCard for Session musicContext;
+no duplicate wrapper or extra source change was introduced for this report.
+
+Reverified the existing signed ordinary40290 product supports device families
+1and2 and passes strict deep signature validation. iPhone installation succeeded;
+independent apps readback confirms4.0.0/40290; process launch succeeded. iPad also
+remains40290. Private receipts: `/private/tmp/djc-40290-iphone-*`.
+This is installed/version/launch proof, not a captured physical vinyl viewport.
