@@ -681,6 +681,30 @@ final class DJConnectIOSUITests: XCTestCase {
 
         XCTAssertTrue(app.state == .runningForeground)
     }
+    func testSessionArtworkPixelsExpireWithoutLosingMomentText() async throws {
+        let base = URL(string: "http://127.0.0.1:18788")!
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reset"))
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--runtime-fixture", "moment_contract", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = base.absoluteString
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "moment_contract"
+        app.launch()
+        let art = app.images["session-authorized-artwork"].firstMatch
+        XCTAssertTrue(art.waitForExistence(timeout: 12))
+        XCTAssertTrue(app.staticTexts["A little date beside this edition of Test edition: Spotify lists 2001-03-04."].exists)
+        try saveMomentScreenshot(app, "session-artwork-ready-synthetic")
+        let absent = NSPredicate(format: "exists == false")
+        let expired = expectation(for: absent, evaluatedWith: art)
+        await fulfillment(of: [expired], timeout: 25)
+        XCTAssertTrue(app.staticTexts["A little date beside this edition of Test edition: Spotify lists 2001-03-04."].exists)
+        XCTAssertFalse(app.buttons["Koppelen"].exists)
+        try saveMomentScreenshot(app, "session-artwork-expired-synthetic")
+        let (metrics, _) = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/metrics"))
+        let values = try XCTUnwrap(JSONSerialization.jsonObject(with: metrics) as? [String: Int])
+        XCTAssertEqual(values["imageReads"], 1)
+        XCTAssertEqual(values["rejected"], 0)
+    }
+
     func testMomentFirstSessionAndIndependentPlayerNavigation() async throws {
         let base = URL(string: "http://127.0.0.1:18787")!
         _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/native_reset"))
@@ -1119,13 +1143,15 @@ extension DJConnectIOSUITests {
         let beforeMenu = try await control("state", method: "GET")
         let handoff = app.buttons["session-handoff-toggle"]
         XCTAssertTrue(handoff.isHittable); handoff.tap()
-        XCTAssertTrue(app.textFields["vibecast-handoff-code"].waitForExistence(timeout: 5))
-        try saveHistoryScreenshot("paired-ui-handoff-popover")
-        XCTAssertFalse(app.buttons["session-handoff-close"].exists)
+        XCTAssertTrue(app.textFields["vibecast-handoff-digit-0"].waitForExistence(timeout: 5))
+        try saveHistoryScreenshot("paired-ui-handoff-dialog")
+        XCTAssertTrue(app.buttons["session-handoff-not-now"].exists)
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.7)).tap()
+        XCTAssertTrue(app.textFields["vibecast-handoff-digit-0"].exists, "Backdrop does not dismiss the blocking dialog")
+        app.buttons["session-handoff-not-now"].tap()
         let handoffDismissed = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "exists == false"),
-            object: app.textFields["vibecast-handoff-code"])
+            object: app.textFields["vibecast-handoff-digit-0"])
         XCTAssertEqual(XCTWaiter.wait(for: [handoffDismissed], timeout: 5), .completed)
         let afterMenu = try await control("state", method: "GET")
         XCTAssertEqual((beforeMenu["active"] as? NSDictionary), (afterMenu["active"] as? NSDictionary))
@@ -1351,9 +1377,10 @@ extension DJConnectIOSUITests {
 }
 
 extension DJConnectIOSUITests {
-    private func launchSessionUIDemo() -> XCUIApplication {
+    private func launchSessionUIDemo(additionalArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-DJCONNECTRuntimeFixture", "review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchArguments.append(contentsOf: additionalArguments)
         app.launchEnvironment = ["DJCONNECT_UITEST_HA_URL": "", "DJCONNECT_UITEST_RUNTIME_FIXTURE": "review_demo"]
         app.terminate(); app.launch()
         RunLoop.current.run(until: Date().addingTimeInterval(0.4))
@@ -1614,6 +1641,24 @@ extension DJConnectIOSUITests {
         attachment.name = "session-refresh-rightmost"; attachment.lifetime = .keepAlways; add(attachment)
     }
 
+    func testOneTapOutputChoiceUpdatesConfirmedRowAndKeepsControlsAvailable() {
+        let app = launchRuntimeFixtureApp("review_demo", screen: "now-playing")
+        XCTAssertTrue(app.descendants(matching: .any)["screen-now-playing"].waitForExistence(timeout: 10))
+        let kitchen = app.buttons["output-device-demo-kitchen"]
+        guard kitchen.waitForExistence(timeout: 10) else { XCTFail("Speaker row is missing on Now Playing"); return }
+        for _ in 0..<5 where !kitchen.isHittable { app.swipeUp() }
+        XCTAssertTrue(kitchen.isHittable)
+        XCTAssertFalse(kitchen.isSelected)
+        kitchen.tap()
+        let confirmed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "selected == true"), object: kitchen)
+        XCTAssertEqual(XCTWaiter.wait(for: [confirmed], timeout: 5), .completed)
+        XCTAssertTrue(kitchen.isEnabled)
+        XCTAssertTrue(app.buttons["output-devices-refresh"].isEnabled)
+        XCTAssertTrue(app.buttons["Pauze"].firstMatch.isEnabled)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "one-tap-confirmed-output-choice"; shot.lifetime = .keepAlways; add(shot)
+    }
+
     func testPrimaryNowPlayingTabAndAskDJInMore() {
         let app = launchRuntimeFixtureApp("review_demo")
         let bar = app.tabBars.firstMatch
@@ -1648,6 +1693,201 @@ extension DJConnectIOSUITests {
         search.tap()
         XCTAssertTrue(app.textFields.firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(input.exists)
+    }
+
+    func testSessionMoreMenuRemainsOpenAcrossPlaybackTicks() throws {
+        guard UIDevice.current.userInterfaceIdiom == .phone else { throw XCTSkip("iPad exposes actions directly") }
+        let app = launchSessionUIDemo(additionalArguments: ["--uitest-vibecast-dialog"])
+        let menu = app.buttons["session-more-menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 10))
+        let toolbarIDs = ["session-connection-toggle", "session-mood-toggle", "session-presence-toggle",
+                          "session-end-button", "session-search-toggle", "session-more-menu"]
+        for identifier in toolbarIDs {
+            XCTAssertTrue(app.buttons[identifier].exists && app.buttons[identifier].isHittable, identifier)
+        }
+        let toolbarBefore = XCTAttachment(screenshot: app.screenshot())
+        toolbarBefore.name = "session-full-toolbar-before-opening-menu"; toolbarBefore.lifetime = .keepAlways; add(toolbarBefore)
+        menu.tap()
+        let refresh = app.buttons["screen-refresh"]
+        XCTAssertTrue(refresh.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["session-handoff-toggle"].exists)
+        let originalFrame = refresh.frame
+        let initial = XCTAttachment(screenshot: app.screenshot())
+        initial.name = "session-menu-open-before-playback-ticks"; initial.lifetime = .keepAlways; add(initial)
+        // Demo uses the same one-second native playback-progress updates, with
+        // provider calls disabled. This is native UI stability, not live HA proof.
+        for _ in 0..<8 {
+            RunLoop.current.run(until: Date().addingTimeInterval(1))
+            XCTAssertTrue(refresh.exists)
+            XCTAssertEqual(refresh.label, "Vernieuwen")
+            XCTAssertFalse(refresh.isEnabled, "Demo permission remains stable while playback advances")
+            XCTAssertEqual(refresh.frame, originalFrame)
+        }
+        let settled = XCTAttachment(screenshot: app.screenshot())
+        settled.name = "session-menu-open-after-playback-ticks"; settled.lifetime = .keepAlways; add(settled)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.65)).tap()
+        XCTAssertTrue(refresh.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(menu.isHittable)
+        for identifier in toolbarIDs {
+            XCTAssertTrue(app.buttons[identifier].exists && app.buttons[identifier].isHittable, identifier)
+        }
+        let toolbarAfter = XCTAttachment(screenshot: app.screenshot())
+        toolbarAfter.name = "session-full-toolbar-after-closing-menu"; toolbarAfter.lifetime = .keepAlways; add(toolbarAfter)
+    }
+
+    func testIPadSessionToolbarSplitsActionsWithoutOverflow() throws {
+        guard UIDevice.current.userInterfaceIdiom == .pad else { throw XCTSkip("iPad toolbar layout") }
+        let app = launchSessionUIDemo()
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let identifiers = ["session-connection-toggle", "session-search-toggle", "session-mood-toggle",
+                           "session-presence-toggle", "session-end-button", "screen-refresh"]
+        for orientation in [UIDeviceOrientation.portrait, .landscapeLeft] {
+            XCUIDevice.shared.orientation = orientation
+            let landscape = orientation == .landscapeLeft
+            let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                let frame = app.frame
+                return landscape ? frame.width > frame.height : frame.height > frame.width
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
+            // Accessibility geometry can settle before the screenshot compositor.
+            RunLoop.current.run(until: Date().addingTimeInterval(2))
+            XCTAssertTrue(app.buttons["screen-refresh"].waitForExistence(timeout: 10))
+            for identifier in identifiers {
+                XCTAssertTrue(app.buttons[identifier].exists && app.buttons[identifier].isHittable, identifier)
+            }
+            XCTAssertFalse(app.buttons["session-more-menu"].exists)
+            let search = app.buttons["session-search-toggle"].frame
+            let mood = app.buttons["session-mood-toggle"].frame
+            let refresh = app.buttons["screen-refresh"].frame
+            XCTAssertLessThan(search.maxX, app.frame.midX)
+            XCTAssertGreaterThan(mood.minX, app.frame.midX)
+            XCTAssertGreaterThan(refresh.minX, app.buttons["session-end-button"].frame.minX)
+            let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            shot.name = orientation == .portrait ? "ipad-split-toolbar-portrait" : "ipad-split-toolbar-landscape"
+            shot.lifetime = .keepAlways; add(shot)
+        }
+    }
+
+    func testVibeCastCenteredBlockingDialogAndGenericCopy() {
+        let app = launchSessionUIDemo(additionalArguments: ["--uitest-vibecast-dialog"])
+        let handoff = app.buttons["session-handoff-toggle"]
+        if !handoff.exists {
+            app.buttons["session-more-menu"].tap()
+        }
+        XCTAssertTrue(handoff.waitForExistence(timeout: 5)); handoff.tap()
+        let dialog = app.descendants(matching: .any)["vibecast-session-start-dialog"].firstMatch
+        XCTAssertTrue(dialog.waitForExistence(timeout: 10))
+        if app.frame.width >= 700 {
+            XCTAssertEqual(dialog.frame.midY, app.frame.midY, accuracy: 36, "Native iPad sheet stays centered")
+        }
+        XCTAssertFalse(app.buttons["session-handoff-close"].exists)
+        XCTAssertEqual(app.buttons["session-handoff-not-now"].label, "Niet nu")
+        for index in 0..<6 {
+            XCTAssertTrue(app.textFields["vibecast-handoff-digit-\(index)"].exists)
+        }
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "VibeCast sessie starten")).firstMatch.exists)
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "op de Pi")).firstMatch.exists)
+        XCTAssertFalse(app.buttons["session-end-button"].isHittable)
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.name = "vibecast-centered-cast-hero"; screenshot.lifetime = .keepAlways; add(screenshot)
+        let outside = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
+        let code = app.textFields["vibecast-handoff-digit-0"]
+        XCTAssertTrue(code.isEnabled && code.isHittable)
+        code.tap()
+        app.typeText("123456")
+        RunLoop.current.run(until: Date().addingTimeInterval(4))
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        let inputScreenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        inputScreenshot.name = "vibecast-six-digits-numeric-keyboard"; inputScreenshot.lifetime = .keepAlways; add(inputScreenshot)
+        for index in 0..<6 {
+            let digit = app.textFields["vibecast-handoff-digit-\(index)"]
+            XCTAssertEqual(digit.value as? String, String(index + 1), "Typing advances focus to the next cell")
+            XCTAssertGreaterThanOrEqual(digit.frame.width, 44)
+            XCTAssertGreaterThanOrEqual(digit.frame.height, 60)
+        }
+        XCTAssertFalse(app.keyboards.firstMatch.keys["a"].exists, "Code uses the numeric keyboard")
+        app.typeText(XCUIKeyboardKey.delete.rawValue + XCUIKeyboardKey.delete.rawValue)
+        XCTAssertEqual(app.textFields["vibecast-handoff-digit-4"].value as? String, "")
+        app.typeText("56")
+        XCTAssertEqual(app.textFields["vibecast-handoff-digit-5"].value as? String, "6")
+        XCTAssertGreaterThan(app.buttons["session-handoff-not-now"].frame.minY,
+                             app.buttons["vibecast-handoff-approve"].frame.maxY)
+        XCTAssertFalse(app.buttons["vibecast-handoff-approve"].isEnabled, "Demo presentation grants no handoff authority")
+        outside.tap()
+        XCTAssertTrue(dialog.exists)
+        if !app.buttons["session-handoff-not-now"].isHittable { app.swipeDown() }
+        app.buttons["session-handoff-not-now"].tap()
+        XCTAssertTrue(dialog.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["session-end-button"].isHittable)
+    }
+
+    func testSessionMoodGlassChoicesAndSelection() {
+        let app = launchSessionUIDemo()
+        let toggle = app.buttons["session-mood-toggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10)); toggle.tap()
+        let labels = ["Rustig", "Groove", "Energie", "Feest"]
+        for (index, label) in labels.enumerated() {
+            let choice = app.buttons["session-mood-option-" + String(index)]
+            XCTAssertTrue(choice.waitForExistence(timeout: 5))
+            XCTAssertEqual(choice.label, label)
+            XCTAssertGreaterThanOrEqual(choice.frame.width, 44)
+            XCTAssertGreaterThanOrEqual(choice.frame.height, 44)
+        }
+        let party = app.buttons["session-mood-option-3"]
+        XCTAssertTrue(party.isEnabled); party.tap()
+        let selected = app.staticTexts["session-popover-selected-mood"]
+        let confirmation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "Feest"), object: selected)
+        XCTAssertEqual(XCTWaiter.wait(for: [confirmation], timeout: 5), .completed)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "ipad-mood-glass-choice-popover"; screenshot.lifetime = .keepAlways; add(screenshot)
+    }
+
+    func testAskDJOutsideTapDismissesKeyboardWithoutLosingDraft() {
+        let app = launchRuntimeFixtureApp("review_demo")
+        XCTAssertTrue(app.tabBars.buttons["Meer"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Meer"].tap()
+        let ask = app.buttons["Ask DJ"].firstMatch
+        XCTAssertTrue(ask.waitForExistence(timeout: 6)); ask.tap()
+        let consent = app.descendants(matching: .any)["music-dna-opt-in-prompt"].firstMatch
+        if consent.waitForExistence(timeout: 3) { app.buttons["Niet nu"].firstMatch.tap() }
+        assertOutsideTapDismissal(in: app)
+    }
+
+    func testSessionOutsideTapDismissesKeyboardWithoutLosingDraft() {
+        assertOutsideTapDismissal(in: launchSessionUIDemo())
+    }
+
+    private func assertOutsideTapDismissal(in app: XCUIApplication) {
+        let input = app.textViews["ask-dj-composer-input"].firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        let send = app.buttons["ask-dj-composer-send"]
+        let compactHeight = input.frame.height
+        XCTAssertLessThan(abs(send.frame.midY - input.frame.midY), 8, "Unfocused composer stays in one row")
+        input.tap()
+        let expanded = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            input.frame.height > compactHeight + 12 && send.frame.minY >= input.frame.maxY - 2
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [expanded], timeout: 5), .completed, "Focus expands text above a separate action row")
+        input.typeText("Bewaar dit concept")
+        let expandedShot = XCTAttachment(screenshot: app.screenshot())
+        expandedShot.name = "focused-two-row-ask-dj-composer"; expandedShot.lifetime = .keepAlways; add(expandedShot)
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        input.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.exists, "Tapping inside the composer keeps editing active")
+        // Tap an inert heading; a suggested-question button intentionally
+        // replaces the draft and cannot stand in for an outside background tap.
+        let demoHeading = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Voorbeeldsessies")).firstMatch
+        let background = demoHeading.exists ? demoHeading : app.staticTexts["Ask DJ"].firstMatch
+        XCTAssertTrue(background.isHittable)
+        background.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(input.value as? String, "Bewaar dit concept")
+        let collapsed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            abs(send.frame.midY - input.frame.midY) < 8
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [collapsed], timeout: 5), .completed, "Dismissal restores the compact action row")
+        input.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "Editing can resume after dismissal")
     }
 
     func testIPhoneSessionFloatingComposerAndScopedSearch() throws {
@@ -1796,7 +2036,7 @@ extension DJConnectIOSUITests {
         let sessionTab = app.tabBars.buttons["DJ-sessie"]
         if sessionTab.exists { sessionTab.tap() }
         XCTAssertTrue(app.staticTexts["Een avond met de DJ"].firstMatch.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.descendants(matching: .any)["session-demo-notice"].firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any)["session-demo-notice"].firstMatch.exists)
         XCTAssertTrue(app.staticTexts["Midnight City"].firstMatch.exists)
         let overviewBeforeTyping = XCTAttachment(screenshot: app.screenshot()); overviewBeforeTyping.name = "demo-native-overview-before-keyboard"; overviewBeforeTyping.lifetime = .keepAlways; add(overviewBeforeTyping)
         let composer = app.textViews.firstMatch
@@ -1933,8 +2173,8 @@ extension DJConnectIOSUITests {
             if offset == 0 { _ = try await control("presence_delay_once") }
             button.tap()
             if offset == 0 {
-                XCTAssertTrue(app.descendants(matching: .any)["session-presence-pending"].firstMatch.waitForExistence(timeout: 2))
-                XCTAssertTrue(app.staticTexts["session-presence-confirmed"].label.contains(anchors[language]![2]),
+                XCTAssertFalse(app.descendants(matching: .any)["session-presence-pending"].firstMatch.exists, "Selection feedback stays in the selector; no duplicate pending footer")
+                XCTAssertTrue(((app.descendants(matching: .any)["session-presence-slider"].firstMatch.value as? String) ?? "").contains(anchors[language]![2]),
                               "Pending intent must not replace the confirmed server value")
                 let pending = XCTAttachment(screenshot: app.screenshot())
                 pending.name = "presence-\(language)-pending-distinct-from-confirmed"
@@ -1953,16 +2193,16 @@ extension DJConnectIOSUITests {
             XCTAssertEqual(current["selected_mood"] as? String, original["selected_mood"] as? String)
             XCTAssertEqual(current["mood_revision"] as? Int, original["mood_revision"] as? Int)
             XCTAssertEqual(current["now_playing"] as? NSDictionary, original["now_playing"] as? NSDictionary)
-            let confirmed = app.staticTexts["session-presence-confirmed"]
+            let confirmed = app.descendants(matching: .any)["session-presence-slider"].firstMatch
             XCTAssertTrue(confirmed.waitForExistence(timeout: 10))
-            let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", anchors[language]![offset]), object: confirmed)
+            let visible = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@", anchors[language]![offset]), object: confirmed)
             let visibleResult = await XCTWaiter.fulfillment(of: [visible], timeout: 10)
-            XCTAssertEqual(visibleResult, .completed, "The native label must confirm the actual server-selected position")
+            XCTAssertEqual(visibleResult, .completed, "The control value must confirm the actual server-selected position")
             let screenshot = XCTAttachment(screenshot: app.screenshot())
             screenshot.name = "presence-\(language)-\(value)-confirmed"
             screenshot.lifetime = .keepAlways; add(screenshot)
         }
-        XCTAssertTrue(app.sliders["session-presence-slider"].exists, "Native adjustable control is exposed")
+        XCTAssertTrue(app.descendants(matching: .any)["session-presence-slider"].firstMatch.exists, "The discrete accessible control is exposed")
         XCTAssertFalse(app.descendants(matching: .any)["session-presence-error"].firstMatch.exists)
         let paused = try await control("pause")
         let pausedRuntime = try XCTUnwrap(paused["active"] as? [String: Any])
@@ -1979,7 +2219,7 @@ extension DJConnectIOSUITests {
         }
         XCTAssertTrue(pausedChoice.isHittable)
         pausedChoice.tap()
-        let pausedConfirmation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", anchors[language]![2]), object: app.staticTexts["session-presence-confirmed"])
+        let pausedConfirmation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value CONTAINS %@", anchors[language]![2]), object: app.descendants(matching: .any)["session-presence-slider"].firstMatch)
         let pausedResult = await XCTWaiter.fulfillment(of: [pausedConfirmation], timeout: 10)
         XCTAssertEqual(pausedResult, .completed)
         let final = try await control("state")

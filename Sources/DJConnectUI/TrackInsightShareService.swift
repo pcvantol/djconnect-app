@@ -5,7 +5,6 @@ import Foundation
 public enum TrackInsightShareFormat: String, CaseIterable, Identifiable, Sendable {
     case story
     case square
-    case linkPreview
 
     public var id: String { rawValue }
 
@@ -15,8 +14,6 @@ public enum TrackInsightShareFormat: String, CaseIterable, Identifiable, Sendabl
             DJConnectLocalization.localized(key: "trackInsight.share.story", language: language)
         case .square:
             DJConnectLocalization.localized(key: "trackInsight.share.square", language: language)
-        case .linkPreview:
-            DJConnectLocalization.localized(key: "trackInsight.share.landscape", language: language)
         }
     }
 
@@ -26,8 +23,6 @@ public enum TrackInsightShareFormat: String, CaseIterable, Identifiable, Sendabl
             CGSize(width: 1080, height: 1920)
         case .square:
             CGSize(width: 1080, height: 1080)
-        case .linkPreview:
-            CGSize(width: 1200, height: 628)
         }
     }
 }
@@ -58,7 +53,7 @@ public struct TrackInsightSharePayload: Identifiable, Equatable, Sendable {
 
 @MainActor
 public enum TrackInsightShareService {
-    public static func shareText(for insight: TrackInsight) -> String {
+    public static func shareText(for insight: TrackInsight, language: String? = nil) -> String {
         let descriptors = [insight.mood, insight.vibe, insight.genre]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -68,7 +63,7 @@ public enum TrackInsightShareService {
         return """
         Currently vibing to \(insight.title) by \(insight.artist).
 
-        DJConnect says: \(descriptorText) - \(insight.summary)
+        DJConnect says: \(descriptorText) - \(insight.displaySummary(language: language))
 
         #DJConnect #TrackInsight
         """
@@ -105,7 +100,7 @@ public enum TrackInsightShareService {
             format: format,
             mediaKind: mediaKind,
             mediaURL: mediaURL,
-            text: shareText(for: insight)
+            text: shareText(for: insight, language: language)
         )
     }
 }

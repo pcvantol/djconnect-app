@@ -1,0 +1,178 @@
+import DJConnectCore
+import SwiftUI
+
+/// The visible Watch Session belongs to its own paired backend identity. This
+/// view has no AppGroup, history cache, passive grant or local intelligence.
+struct DJConnectWatchSessionView: View {
+    @EnvironmentObject private var model: DJConnectWatchModel
+    @ObservedObject var state: DJConnectWatchForegroundSession
+    @ObservedObject var settings: ProfileDJSettingsModel
+
+    private func text(_ key: String) -> String {
+        DJConnectLocalization.localized(key: key, language: model.language)
+    }
+
+    var body: some View {
+        TimelineView(.explicit(([Date()] + state.displayDeadlines).sorted())) { clock in
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Label(text("ui.session.title"), systemImage: "opticaldisc")
+                        .font(.headline)
+                    Spacer(minLength: 2)
+                    Button {
+                        Task { await model.refreshForegroundSession(force: true) }
+                    } label: { Image(systemName: "arrow.clockwise") }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(text("ui.refresh"))
+                }
+                if let snapshot = state.current(at: clock.date) {
+                    if let session = snapshot.session {
+                        let current = session.broadcast.nativeCurrentMoment(at: clock.date, spotifyAttributionAvailable: true)
+                        if let current { momentCard(current) }
+                        else { Text(text("watch.session.waiting")).font(.callout) }
+                        let flow = session.broadcast.nativeFlowMoments(at: clock.date).filter { $0.id != current?.id }
+                        if !flow.isEmpty {
+                            Text(text("ui.session.flow")).font(.caption.weight(.semibold))
+                            ForEach(flow) { moment in momentCard(moment) }
+                        }
+                    } else { Text(text("ui.session.idle")).font(.callout) }
+                    NavigationLink {
+                        DJConnectWatchSharedDJSettingsView(settings: settings)
+                    } label: {
+                        Label(text("watch.session.settings"), systemImage: "slider.horizontal.3")
+                            .font(.footnote)
+                    }
+                } else {
+                    Text(text(state.unavailable ? "watch.session.unavailable" : "watch.session.loading"))
+                        .font(.callout)
+                }
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            .background(DJConnectMaterial(.regular), in: RoundedRectangle(cornerRadius: 16))
+            .accessibilityIdentifier("watch-current-session")
+        }
+        .task { await model.refreshForegroundSession() }
+    }
+
+    private func momentCard(_ moment: DJConnectMoment) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            // Complete producer copy, never a local summary or future plan label.
+            Text(moment.content).font(.callout).fixedSize(horizontal: false, vertical: true)
+            if moment.sourceAttribution?["provider"] == "Spotify",
+               let source = moment.nativeSourceURLs.first(where: { $0.host == "open.spotify.com" }) {
+                Link(destination: source) {
+                    Image("SpotifyAttribution").resizable().scaledToFit().frame(width: 72, height: 24)
+                        .accessibilityLabel("Spotify")
+                }
+            }
+            ForEach(moment.nativeSourceURLs.filter { $0.host != "open.spotify.com" }, id: \.absoluteString) { source in
+                Link(source.host ?? text("ui.session.flow"), destination: source).font(.caption2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(8)
+        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+private struct DJConnectWatchSharedDJSettingsView: View {
+    @EnvironmentObject private var model: DJConnectWatchModel
+    @ObservedObject var settings: ProfileDJSettingsModel
+    @State private var draft = DJConnectProfileDJSettings.Patch()
+    private func text(_ key: String) -> String {
+        DJConnectLocalization.localized(key: key, language: model.language)
+    }
+    private func label(_ field: String, _ value: String) -> String {
+        let prefix = ["persona", "mood", "presence"].contains(field) ? "ui.session." : "ui.dj_settings."
+        return text(prefix + field + "." + value)
+    }
+    private func choose(_ patch: DJConnectProfileDJSettings.Patch) {
+        if settings.response?.requiresSelection == true {
+            if let x = patch.persona { draft.persona = x }
+            if let x = patch.mood { draft.mood = x }
+            if let x = patch.presence { draft.presence = x }
+            if let x = patch.voice { draft.voice = x }
+            if let x = patch.gender { draft.gender = x }
+            if let x = patch.announcement_output { draft.announcement_output = x }
+        } else { Task { await model.changeSharedDJSettings(patch) } }
+    }
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if settings.active, let r = settings.response {
+                    let e = r.snapshot.effective
+                    let review = r.requiresSelection
+                    if review { Text(text("ui.dj_settings.review_choices")).font(.caption) }
+                    choices("persona", r.allowed_values.persona, selected: (review ? draft.persona ?? e.persona : e.persona).rawValue) {
+                        choose(.init(persona: DJConnectSessionPersonaValue(rawValue: $0)))
+                    }
+                    choices("mood", r.allowed_values.mood, selected: review ? draft.mood ?? e.mood : e.mood) { choose(.init(mood: $0)) }
+                    choices("presence", r.allowed_values.presence, selected: (review ? draft.presence ?? e.presence : e.presence).rawValue) {
+                        choose(.init(presence: DJConnectSessionPresenceValue(rawValue: $0)))
+                    }
+                    let output = review ? draft.announcement_output ?? e.announcement_output : e.announcement_output
+                    choices("output", r.allowed_values.announcement_output, selected: output.rawValue) { choose(.init(output: DJAnnouncementOutput(rawValue: $0))) }
+                    if output != .textOnly {
+                        let voice = review ? draft.voice ?? e.voice : e.voice
+                        let gender = review ? draft.gender ?? e.gender : e.gender
+                        Picker(text("ui.dj_settings.voice"), selection: Binding(get: { voiceTag(voice) }, set: { tag in
+                            if tag == "default" { choose(.init(voice: .init())) }
+                            else if let item = r.allowed_values.voice.voices.first(where: {
+                                voiceTag(.init(kind: .providerVoice, providerID: r.allowed_values.voice.provider_id, voiceID: $0.voice_id)) == tag
+                            }) { choose(.init(voice: .init(kind: .providerVoice, providerID: r.allowed_values.voice.provider_id, voiceID: item.voice_id))) }
+                        })) {
+                            Text(text("ui.dj_settings.provider_default")).tag("default")
+                            ForEach(r.allowed_values.voice.voices.filter { gender == .default || $0.gender == gender.rawValue }, id: \.voice_id) { item in
+                                Text(item.name).tag(voiceTag(.init(kind: .providerVoice, providerID: r.allowed_values.voice.provider_id, voiceID: item.voice_id)))
+                            }
+                            if voice.kind == .providerVoice && (voice.provider_id != r.allowed_values.voice.provider_id ||
+                                !r.allowed_values.voice.voices.contains(where: { $0.voice_id == voice.voice_id && (gender == .default || $0.gender == gender.rawValue) })) {
+                                Text(text("ui.dj_settings.selection_unavailable")).tag(voiceTag(voice)).disabled(true)
+                            }
+                        }
+                        if r.allowed_values.gender.contains("male") || r.allowed_values.gender.contains("female") {
+                            choices("gender", r.allowed_values.gender, selected: gender.rawValue) { raw in
+                                // A provider-default voice can resolve the chosen gender.
+                                choose(.init(voice: .init(), gender: DJConnectVoicePreference(rawValue: raw)))
+                            }
+                        }
+                    } else {
+                        Text(text("ui.dj_settings.voice_preserved_text_only")).font(.caption).foregroundStyle(.white)
+                    }
+                    if review {
+                        Button(text("ui.dj_settings.confirm_six")) {
+                            Task { await model.changeSharedDJSettings(.init(persona: draft.persona ?? e.persona,
+                                voice: draft.voice ?? e.voice, gender: draft.gender ?? e.gender,
+                                mood: draft.mood ?? e.mood, presence: draft.presence ?? e.presence,
+                                output: draft.announcement_output ?? e.announcement_output)) }
+                        }
+                    }
+                } else { Text(text("ui.dj_settings.unavailable")) }
+                if [.conflict, .uncertain, .unavailable].contains(settings.phase) {
+                    Text(text("ui.dj_settings." + settings.phase.rawValue)).font(.caption)
+                }
+                if settings.hasUncertainOperation {
+                    Button(text("ui.dj_settings.check_outcome")) { Task { await settings.reconcile(model.sharedSettingsServices) } }
+                    Button(text("ui.dj_settings.use_current")) { Task { await settings.useCurrentSettings(model.sharedSettingsServices) } }
+                }
+            }.padding(8).foregroundStyle(.white)
+        }
+        .navigationTitle(text("watch.session.settings"))
+        .onChange(of: settings.response?.binding) { draft = .init() }
+        .onChange(of: settings.response?.requiresSelection) { draft = .init() }
+        .task { await model.refreshForegroundSession(force: true) }
+    }
+    private func voiceTag(_ voice: DJConnectProfileDJSettings.Voice) -> String {
+        voice.kind == .providerDefault ? "default" : "voice/\((voice.provider_id ?? "").utf8.count):\(voice.provider_id ?? "")/\(voice.voice_id ?? "")"
+    }
+    private func choices(_ field: String, _ values: [String], selected: String, change: @escaping (String) -> Void) -> some View {
+        Picker(text("ui.dj_settings." + field), selection: Binding(get: { selected }, set: change)) {
+            ForEach(values, id: \.self) { value in
+                Text(label(field, value)).tag(value)
+                    .disabled(field == "output" && settings.response?.announcement_output.outputs.first(where: { $0.value == value })?.available != true)
+            }
+        }
+    }
+}

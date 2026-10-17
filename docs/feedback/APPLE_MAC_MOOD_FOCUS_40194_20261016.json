@@ -1,0 +1,15 @@
+{
+  "build": "40194",
+  "scope": "Mood/presence selector macOS inherited focus correction",
+  "cause": "Container focus inherited through isFocused drew3pt white rings on every choice; shared style also overrode selected glyph color.",
+  "fix": "Selector disables inherited style ring and tracks individual focused option with1pt accent ring; selected glyph explicitly accent. Other button styles retain existing behavior.",
+  "checks": [
+    "macOS build PASS",
+    "iOS build PASS",
+    "452 source hashes PASS",
+    "Mac candidate/staged/installed strict signature PASS",
+    "Mac installed version40194"
+  ],
+  "limits": "Mac GUI automation kernel unavailable; no installed visual PASS claimed. iPhone/iPad remain40193.",
+  "publication": "Local commit only; no push/PR/merge"
+}

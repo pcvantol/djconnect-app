@@ -1,0 +1,36 @@
+{
+  "status": "CURRENT_SELECTIVE_SOURCE_AUDIT_ONLY; no new build/install/native acceptance",
+  "writer_parent": "ef82ed9f878b1282ade49ebd952a1f967a772c38",
+  "snapshot": "/private/tmp/djc-neon-brand-40108-source",
+  "root_file_sha256": "6d9778361896281feaffeef4d56eb805bd3b16fa0820be79a6687f48a15fe550",
+  "composer_region": {
+    "method": "UTF8 substring from struct AskDJInputBar: View { up to but excluding private struct AskDJPromptTextView; includes intervening helpers",
+    "bytes": 13998,
+    "sha256": "03be564d1b9be1610b9af5407443206bf44d39555da22a0deb5438ec4e9d00c8",
+    "writer_equal": true
+  },
+  "files": {
+    "Sources/DJConnectUI/TrackInsightMotionClock.swift": {
+      "snapshot_sha256": "723932d5fe56515e7081ec154fad58047f96b05edd33f64ff62ca2987f04b70b",
+      "writer_equal": true
+    },
+    "Sources/DJConnectCore/DJConnectHybridLocalPolicy.swift": {
+      "snapshot_sha256": "d21286daed3e6b649d4121f77635bd7cce42434bba80a8a2505ef65b80d20a9f",
+      "writer_equal": true
+    },
+    "Sources/DJConnectCore/DJConnectHybridTransport.swift": {
+      "snapshot_sha256": "4c0c9bd75e4bf503ac94b2d57384abd5d4dad036b773feac5f844cf78934b443",
+      "writer_equal": true
+    },
+    "Sources/DJConnectCore/DJConnectPairedActionConnection.swift": {
+      "snapshot_sha256": "85cef3464ca9d4dcadf4af59a5d0da1412bc44000719c98dfdbc35eadc465902",
+      "writer_equal": true
+    }
+  },
+  "historical_digest_limit": "APPLE_ASK_DJ_TWO_ROW_40116_20261016.json exact_selective_blocks AskDJInputBar digest was not reproduced by simple balanced-brace extraction, with or without trailing newlines. Preserve original receipt; do not treat its digest as an independently verified current-source binding. Native editor digest was reproduced. This audit supplies an explicit reproducible region instead.",
+  "composer_composition": "Current writer and selective composer region are byte-identical. Relative to original840ba implementation, current composer also retains reduceTransparency-aware clear-glass surface/low-opacity border and input fills documented in40101. Thus840ba is a behavior provenance reference, not the complete exact composite composer source.",
+  "qualification_limit": "Source equality and current file hashes do not bind an installed Mach-O to these inputs or replace signed build receipts/native tests. Full writer remains ineligible for installation because incomplete widget/Speech work is outside selective qualification.",
+  "native_gate": "Latest particle sampling receipt ef82ed9: Mac XCTest requires attended OS authorization. Do not repeat overnight. iPhone passcode lock and docked iPad keyboard limits unchanged.",
+  "storage": "Fresh df internal7.2GiB, EP_DATA2.4GiB; no deletion or net-recovery claim.",
+  "cleanup": "Sole active writer; only current/main proven merged, neither eligible. Untracked project folders preserved."
+}

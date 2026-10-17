@@ -46,7 +46,7 @@ def parse_strings(path: Path) -> dict[str, str]:
     values: dict[str, str] = {}
     for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         stripped = line.strip()
-        if not stripped or stripped.startswith("//"):
+        if not stripped or stripped.startswith("//") or (stripped.startswith("/*") and stripped.endswith("*/")):
             continue
         match = STRING_RE.match(line)
         if not match:

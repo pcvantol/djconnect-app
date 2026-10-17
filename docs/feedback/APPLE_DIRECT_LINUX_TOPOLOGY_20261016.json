@@ -1,0 +1,16 @@
+{
+  "probe": "20s in-memory Python HTTP listener bound192.168.1.129:18089 on existing Pi, no files/install/config/service changes",
+  "mac_request": {
+    "raw_peer": "192.168.1.134",
+    "bound_lan": "192.168.1.129",
+    "probe_only": true
+  },
+  "raw_peer": "192.168.1.134",
+  "contrast": "Desktop host-network listener received the same real-LAN class of request as127.0.0.1; Pi direct listener preserves actual Mac address. Different direction/endpoint, not iPad\u2192HA acceptance.",
+  "capacity": "Pi aarch64,4GiB total,~3196MiB available,103GiB root free; docker command absent. Existing kiosk active before/after. Capacity is point-in-time readback, not HA workload qualification.",
+  "cleanup": "PI_PROBE_CLOSED, ss shows no listener18089, kiosk remains active",
+  "not_done": "No HA installation/migration, no Docker installation, no operator record, no iPad route/settings/pairing or firewall changes.",
+  "plan": "A direct Linux host is technically a candidate. Do not relocate HA-dev implicitly onto the production receiver: first pin runtime/artifact, capture consistent backup and Profile/pairing fingerprints, define separate port/config and exact rollback, account for kiosk CPU/memory and Mac-hosted MA/Wyoming dependencies. Native acceptance and operator qualification only after actual installation on a chosen approved topology.",
+  "evidence": "/private/tmp/djc-pi-direct-peer-20261016.log",
+  "automation": "Existing heartbeat prompt refreshed through automation tool; same15-minute schedule and08:00local end preserved, independently read back."
+}

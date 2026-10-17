@@ -96,11 +96,10 @@ private let mainWindowAccessibilityIdentifier = "DJConnectMainWindow"
 final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcurrency UNUserNotificationCenterDelegate {
     weak var model: DJConnectAppModel? {
         didSet {
-            flushPendingRemoteNotificationRegistration()
+            flushPendingPushCallbacks()
         }
     }
-    private var pendingRemoteNotificationDeviceToken: Data?
-    private var pendingRemoteNotificationRegistrationError: Error?
+    private var pendingPush = DJConnectPushStartupBuffer()
 
     override init() {
         super.init()
@@ -118,8 +117,7 @@ final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcur
         if let model {
             model.handleRemoteNotificationDeviceToken(deviceToken)
         } else {
-            pendingRemoteNotificationDeviceToken = deviceToken
-            pendingRemoteNotificationRegistrationError = nil
+            pendingPush.received(token: deviceToken)
         }
     }
 
@@ -130,8 +128,7 @@ final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcur
         if let model {
             model.handleRemoteNotificationRegistrationError(error)
         } else {
-            pendingRemoteNotificationRegistrationError = error
-            pendingRemoteNotificationDeviceToken = nil
+            pendingPush.failed(error)
         }
     }
 
@@ -140,7 +137,9 @@ final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcur
         didReceiveRemoteNotification userInfo: [String: Any]
     ) {
         Task { @MainActor in
-            _ = await model?.handleRemoteNotificationPayload(userInfo.reduce(into: [AnyHashable: Any]()) { $0[AnyHashable($1.key)] = $1.value })
+            let payload = userInfo.reduce(into: [AnyHashable: Any]()) { $0[AnyHashable($1.key)] = $1.value }
+            if let model { _ = await model.handleRemoteNotificationPayload(payload) }
+            else { pendingPush.enqueue(payload) }
         }
     }
 
@@ -150,7 +149,9 @@ final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcur
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         Task { @MainActor in
-            _ = await model?.handleRemoteNotificationPayload(notification.request.content.userInfo)
+            let payload = notification.request.content.userInfo
+            if let model { _ = await model.handleRemoteNotificationPayload(payload) }
+            else { pendingPush.enqueue(payload) }
             completionHandler([.banner, .list, .sound])
         }
     }
@@ -162,25 +163,31 @@ final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcur
     ) {
         NSApp.activate(ignoringOtherApps: true)
         Task { @MainActor [weak self] in
-            let handled = await self?.model?.handleRemoteNotificationPayload(response.notification.request.content.userInfo, openedFromTap: true) ?? false
+            guard let self else { completionHandler(); return }
+            let payload = response.notification.request.content.userInfo
+            let handled: Bool
+            if let model { handled = await model.handleRemoteNotificationPayload(payload, openedFromTap: true) }
+            else { handled = pendingPush.enqueue(payload, openedFromTap: true) }
             if !handled {
-                self?.model?.performHomeScreenAction(.askDJ)
+                self.model?.performHomeScreenAction(.askDJ)
             }
             completionHandler()
         }
     }
 
-    private func flushPendingRemoteNotificationRegistration() {
-        guard let model else {
-            return
-        }
-        if let pendingRemoteNotificationDeviceToken {
-            self.pendingRemoteNotificationDeviceToken = nil
-            model.handleRemoteNotificationDeviceToken(pendingRemoteNotificationDeviceToken)
-        }
-        if let pendingRemoteNotificationRegistrationError {
-            self.pendingRemoteNotificationRegistrationError = nil
-            model.handleRemoteNotificationRegistrationError(pendingRemoteNotificationRegistrationError)
+
+
+    private func flushPendingPushCallbacks() {
+        guard let model else { return }
+        let batch = pendingPush.drain()
+        if let token = batch.token { model.handleRemoteNotificationDeviceToken(token) }
+        if let error = batch.error { model.handleRemoteNotificationRegistrationError(error) }
+        guard !batch.deliveries.isEmpty else { return }
+        Task { @MainActor [weak model] in
+            for delivery in batch.deliveries {
+                guard let model else { return }
+                _ = await model.handleRemoteNotificationPayload(delivery.userInfo, openedFromTap: delivery.openedFromTap)
+            }
         }
     }
 }

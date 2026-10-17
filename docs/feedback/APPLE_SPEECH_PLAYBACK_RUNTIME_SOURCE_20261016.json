@@ -1,0 +1,50 @@
+{
+  "status": "SOURCE_MANUAL_SPEECH_PLAYBACK_ORCHESTRATION_PASS; not UI-bound or installed",
+  "source_parent": "6a27124855a6f705b563b7264d8fc97994477c29",
+  "producer_contract_pin": "9faffe533d4a117eb8ad362e73809d126bdcc9d7",
+  "changes": [
+    "RAM-only explicit Listen runtime with one replacement slot; production Services use the existing bounded authenticated DJConnectClient Speech routes",
+    "Confirmed installation/Profile/Session/device scope, response epoch, selection generation, concrete voice and gender form current context; UI owner must update it on every relevant change and pass nil on background/withdrawal",
+    "Fresh read-only voice inventory before each explicit preparation; disappeared or unsupported selection fails closed without default/local TTS fallback",
+    "Stop claims/invalidation precede queued work; owner/context/ticket/cancellation/deadline rechecked after options, prepare and audio await",
+    "Preparation cannot substitute original Session/text/presentation/persona/locale/attribution or renew the original deadline; coordinator can shorten an active ticket deadline",
+    "No automatic retries; 60-second failure backoff survives context invalidation/background; old output completion cannot stop a replacement",
+    "Output adapter receives bounded in-memory bytes and completion callback, never a provider URL or disk file"
+  ],
+  "validation": {
+    "focused": "35 tests in 3 suites PASS0.192s, including parameterized stop at every await, identity/deadline substitution, background/owner/epoch/voice/selection changes, no hidden fallback, no automatic retry, fresh options on each Listen and byte bounds",
+    "focused_log": "/private/tmp/djc-speech-playback-runtime-focused-final-20261016.log",
+    "full": "678 tests in 9 suites PASS85.308s; explicit --no-parallel",
+    "full_log": "/private/tmp/djc-speech-playback-runtime-all-20261016.log",
+    "ios": "DJConnectUI arm64 iOS26 deployment-target library compile PASS34.06s with installed iPhoneSimulator27.0 SDK; existing SwiftUI isolation and native-build-system deprecation warnings",
+    "ios_log": "/private/tmp/djc-speech-playback-runtime-ios-20261016.log",
+    "diff_check": "PASS"
+  },
+  "evidence_boundaries": [
+    "Runtime tests use pinned producer descriptor/inventory fixtures with explicitly refreshed modeled expiry and injected gates/output; no claim of actual provider/audio acceptance",
+    "Injected output uses synthetic bytes to test orchestration only; production adapter retains existing DJConnectSpeechTransport WAV/MP3 validation and bounded no-store fetch",
+    "The new runtime is not yet connected to AppModel, visible Listen/Stop controls, Broadcast Moment collection or native RAM audio output",
+    "No autoplay admission/deduplication implementation or local-on-device Speech qualification is supplied by this step",
+    "No live provider, synthesis, audio playback, native UI test, app launch/install, radio change, Core deployment or publication"
+  ],
+  "remaining": [
+    "Bind exact accepted turn/retained-entry/published-Moment descriptors to transient current UI owner state; never infer identity from text or legacy URLs",
+    "Connect owner/background/route/selection/source withdrawal hooks and visible manual Listen/Stop to this runtime and native RAM-only output",
+    "Implement separately qualified once-only new-publication autoplay and preserve manual Listen when audio_response is never",
+    "Qualify selective source changes before build40121+ and physical/audible acceptance"
+  ],
+  "installed": "Unchanged: qualified autoplay-only40120 on iPad, Mac mini, MacBook, iPhone and Watch; full voice/gender/Speech not installed",
+  "effects": "Sole-writer local source/tests/receipt only; no push/PR/merge, Core message/deploy, automation change or cleanup",
+  "safety": {
+    "worktrees": "One current writer worktree; only current/main merged refs; WIP retained, no deletion eligible",
+    "agents": "Existing UX/technical review agents completed; no new agent spawned",
+    "locks": "No Git *.lock files found",
+    "processes": "Observed own Swift test/build processes; test process gone on immediate readback, iOS build then completed normally; no process terminated",
+    "preserved": "Untracked DJConnectApp 2/3.xcodeproj and all source/recovery/screenshots/xcresults/logs preserved",
+    "df_internal": "13GiB",
+    "df_EP_DATA": "878MiB",
+    "APFS_disk3_capacity_free_bytes": 14223654912,
+    "APFS_disk7_capacity_free_bytes": 0,
+    "storage_note": "Fresh df and APFS snapshots report different availability; no deletion or own storage gain claimed"
+  }
+}

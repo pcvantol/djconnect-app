@@ -10,6 +10,7 @@ struct DJConnectWatchApp: App {
         WindowGroup {
             DJConnectWatchRootView()
                 .environmentObject(model)
+                .djConnectGlassPreferences()
                 .onAppear {
                     applicationDelegate.model = model
                 }

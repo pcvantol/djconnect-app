@@ -1,0 +1,20 @@
+{
+  "status": "PHYSICAL_IPAD_TEXT_SELECTION_LIFECYCLE_PASS",
+  "target": "Ordinary installed iPadapp40117; no fixture/apprebuild/install, no existingdraftatstart",
+  "method": "More -> existingBackButtonwhenneeded -> AskDJ. Emptydraftguard, nativeUITextView, temporaryASCIItext, nativeSelecteeralles, Home2s, foreground. Assert exactdraftvalue/keyboardpresent, typeVwithoutrefocusing, assert entireselecteddraftreplacedwithV; deleteV andassertempty. HidekeyboardbynativeVerbergtoetsenbord, waittabsreturn, selectSpeeltNuandassertselected.",
+  "result": "run3Passed,1test,0failures,0skips,38snormalfinalization; collect-test-diagnosticsnever, continueAfterFailurefalse,60sallowance.",
+  "bundle": "/private/tmp/djc-ipad-selection-lifecycle-40117-20261016-run3.xcresult",
+  "summary": "/private/tmp/djc-ipad-selection-lifecycle-40117-run3-summary.json",
+  "source": "/private/tmp/djc-ipad-selection-lifecycle-qualified-probe.swift",
+  "images_viewed": [
+    "/private/tmp/djc-ipad-selection-lifecycle-40117-run3-images/724A98C6-FF20-4912-9EDD-AB23BAD07F4E.png",
+    "/private/tmp/djc-ipad-selection-lifecycle-40117-run3-images/4547C1A7-FAB2-42E6-885F-3E9A8A7E660E.png",
+    "/private/tmp/djc-ipad-selection-lifecycle-40117-run3-images/C2AAB149-1491-4AFF-8B64-976047CAEBEA.png"
+  ],
+  "visual": "Actualbefore/afterimages show wholetemporarytextselectedwithhandlesandnativekeyboard. Thirdimage confirms emptyplaceholder. Nativeeditmenuposition changesafterforeground, selectionitselfpreserved. Notaclaimofpixelidenticalsystemmenuposition.",
+  "earlier_probes": "FirstfailedbeforetypingbecauseMorecorrectlyretainedSettingssubpage; fixtureadjustedtonativeBackButton. Run2passedselection/replacement/emptyassertionsbutfailedfinalSpeeltNutapwhilekeyboardcorrectlyhidtabs. Run3explicitlyhideskeyboardandcompletesrestoration. Noappbehaviorfixrequired.",
+  "effects": "NoSend/microphone/copy/cut/pastebuttonsused; clipboardunchangedbytestactions. Temporarytextremoved, originaldraftempty, finalSpeeltNuselected. NoHA/Profile/pairing/provider/settingsmutation. Externalprobesourcerestored.",
+  "limits": "OnlynativeAskDJwhole-textselection/draft/focusacross2sHome. Notnetworktransition/cellular/LANWS/operationreconciliation, arbitrarypartialselection, Mac/iPhone, providerorFPSacceptance.",
+  "storage": "Passingxcresult6.2MiB; source/screenshots/logsretained. Noheavytrace/sysdiagnose.",
+  "cleanup": "Solewriter,main/currentonlyprovenmerged,norefeligible; unrelateduntrackedprojectspreserved."
+}

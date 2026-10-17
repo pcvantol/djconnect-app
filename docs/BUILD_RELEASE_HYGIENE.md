@@ -82,3 +82,15 @@ Before release, beta distribution, or a maintainer-facing workflow change:
 ## Emergency Skip
 
 `DJCONNECT_SKIP_THIRDPARTY_UPDATE=1` may be used only when the package registry or local toolchain is unavailable. Add a follow-up issue before publishing a production release.
+
+
+## Ordinary macOS developer installations
+
+Use `Tools/qualification/install_ordinary_macos.py --source <signed-app>
+--expected-build <build> --execute` after ordinary native qualification. The helper
+checks app identity/build, strict signatures, no diagnostic bundles/resource-fork
+files, executable modes and framework symlinks. It preserves an existing app as
+recovery and refuses to replace a running app. `copyfile` alone loses executable
+modes; `copytree` without `symlinks=True` flattens versioned frameworks. The two
+filesystem regressions run in CI without installing or signing anything. This
+helper does not grant publication or protected-release authority.

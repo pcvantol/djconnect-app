@@ -1,0 +1,18 @@
+{
+  "build": "40113",
+  "source_commit": "75ccbe77752d88768e8b56d553cc9e71404f96e6",
+  "change": "Shared DJSessionWelcomeArtwork waveform badge now explicit height size*0.18, exactly matching both square companion badges; width size*0.32, max waveform bar size*0.10, smaller spacing/bar width. Previously badge height size*0.31 from content+padding.",
+  "signed_builds": "Mac and iOS/Watch PASS",
+  "installed": "40113 Mac mini and physical iPad; selective qualified UI snapshot",
+  "native_visual": "PASS: both actual-device splash screenshots inspected; waveform glass capsule same height as music-note/chat badges. Test-only splash hold6s and isolated offline fixture used for capture, then normal app relaunched. No backend/session acceptance implied.",
+  "evidence": [
+    "/private/tmp/djc-wave-badge-40113-mac.xcresult",
+    "/private/tmp/djc-wave-badge-40113-ipad.xcresult"
+  ],
+  "screenshots": [
+    "/private/tmp/djc-wave-badge-40113-mac-images/540E9B71-AC76-4D42-ADD0-4AD10AFF5487.png",
+    "/private/tmp/djc-wave-badge-40113-ipad-images/18704FB9-CAC3-4AEA-AF33-231CF9EC3CFF.png"
+  ],
+  "cleanup": "Only active writer/main proven merged; no eligible stale worktree/branch, unrelated untracked projects retained.",
+  "delivery": "Local only; publication pause preserved. Next build40114+."
+}

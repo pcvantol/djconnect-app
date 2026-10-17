@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-16",
+  "build": "40159",
+  "scope": "DJ Session artwork gestures, immediate visual feedback and control haptics",
+  "writer": "codex/apple-dj-presence-v1",
+  "publication": "local only; no push/PR/merge",
+  "gesture_mapping": {
+    "single": "pause/play",
+    "double": "next",
+    "triple": "previous",
+    "long_press": "none"
+  },
+  "implementation": [
+    "Native UITapGestureRecognizer failure dependencies prevent lower tap counts from firing on multi-taps; matching NSClickGestureRecognizers for Mac source.",
+    "Global player gestures no longer depend on favorite-current-track artwork identity equality; active Session and runtime capability guards retained.",
+    "Pause/skip/previous overlay and haptic begin on recognized gesture. Pause overlay lasts 2 seconds; skip/previous 850ms.",
+    "Persistent paused Play hides at first iOS touch; resume emits no transient Play. Unconfirmed command restores actual playback state.",
+    "Hide persistent Play during skip request and 3-second completion settle window; an older timer cannot clear a newer action generation.",
+    "No playback commands retried or replayed. Explicit success evidence is RAM-only and preserves legacy response success defaults.",
+    "Mood/presence, Ask DJ/feed actions and output selection have haptics. Existing queue/playlist haptics retained with duplicate UI emissions removed.",
+    "Physical test exposed duplicate WebSocket ping continuation resume crash. Lock-protected exactly-once completion added; heartbeat policy unchanged."
+  ],
+  "source": {
+    "selective": "/private/tmp/djc-neon-brand-40108-source",
+    "manifest": "build/recovery/iphone40159-selective-source-manifest-20261016.json",
+    "verified_files": 452,
+    "excluded": "Unqualified full writer Speech/widgets/SessionMedia; no full writer install"
+  },
+  "installed": {
+    "device": "Peter-iPhone17Pro",
+    "bundle": "dev.djconnect.ios",
+    "build": "40159",
+    "executable_sha256": "2a20ab1376d6ea41b710aff8dbe5cc938214daa95f374592cea10b2c37919017",
+    "receipt": "/private/tmp/djc-iphone-40159-install.json",
+    "codesign": "strict deep PASS"
+  },
+  "checks": {
+    "focused_tests": {
+      "count": 2,
+      "result": "PASS",
+      "log": "/private/tmp/djc-native-artwork-feedback-final-tests.log"
+    },
+    "command_response_regression": {
+      "count": 17,
+      "result": "PASS",
+      "log": "/private/tmp/djc-artwork-command-response-regression.log"
+    },
+    "localization": "1174 keys PASS",
+    "mac_source_build": "40157-source PASS; no Mac physical gesture acceptance",
+    "signed_ios_build": "40159 PASS",
+    "diff_check": "PASS"
+  },
+  "physical_evidence_40158": {
+    "native_tests": "2 PASS; log confirms exactly previous,next,pause,play in harness sequence",
+    "log": "/private/tmp/djc-artwork-40158-app.log",
+    "bundle": "/private/tmp/djc-iphone-40158-native-taps-20261016.xcresult",
+    "viewed": "After double clean artwork; settled paused Play centered; immediate resume Play absent",
+    "skip_frames": "7 screenshots actually viewed as contact sheet: next overlay then clean artwork, no Play in sampled frames",
+    "contact_sheet": "/private/tmp/djc-iphone-40158-skip-contact-sheet.png"
+  },
+  "limits": [
+    "Sampled screenshots do not prove every video frame or every network condition.",
+    "Haptic dispatch source verified; tactile sensation not claimed from automation.",
+    "Other devices not updated in this task. No new LAN/WS/APNs/provider/Speech acceptance.",
+    "No general backend track-update latency fix or Core deployment."
+  ],
+  "recovery": {
+    "probe": "build/recovery/iphone40159-final-gesture-probe-20261016/Probe.swift",
+    "original_probe": "/private/tmp/djc-artwork-gestures-probe-original.swift",
+    "storage": "fresh df/APFS retained; no cleanup/deletions; untracked Xcode projects preserved"
+  },
+  "physical_evidence_40159": {
+    "runner": "3 tests PASS, zero failures",
+    "xcresult": "/private/tmp/djc-iphone-40159-native-taps-20261016.xcresult",
+    "log": "/private/tmp/djc-artwork-40159-app.log",
+    "command_sequence": [
+      "21:26:10 previous",
+      "21:26:29 next",
+      "21:26:39 pause",
+      "21:26:43 play",
+      "21:26:51 next"
+    ],
+    "command_check": "Exactly the expected commands, no extra pause/play from multi-taps.",
+    "installed_readback": "/private/tmp/djc-iphone-40159-apps.json confirms bundleVersion40159",
+    "viewed": "Seven skip frames, settled paused Play, immediate resume without Play actually viewed in contact sheet.",
+    "contact_sheet": "/private/tmp/djc-iphone-40159-contact-sheet.png",
+    "skip_result": "Next overlay then clean artwork, no Play in sampled frames."
+  }
+}

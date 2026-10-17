@@ -84,11 +84,13 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
     weak var model: DJConnectAppModel? {
         didSet {
             Task { @MainActor in
+                flushPendingPushCallbacks()
                 flushPendingHomeScreenAction()
             }
         }
     }
     private var pendingHomeScreenAction: DJConnectHomeScreenAction?
+    private var pendingPush = DJConnectPushStartupBuffer()
 
     override init() {
         super.init()
@@ -114,14 +116,16 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
     ) {
-        model?.handleRemoteNotificationDeviceToken(deviceToken)
+        if let model { model.handleRemoteNotificationDeviceToken(deviceToken) }
+        else { pendingPush.received(token: deviceToken) }
     }
 
     func application(
         _ application: UIApplication,
         didFailToRegisterForRemoteNotificationsWithError error: Error
     ) {
-        model?.handleRemoteNotificationRegistrationError(error)
+        if let model { model.handleRemoteNotificationRegistrationError(error) }
+        else { pendingPush.failed(error) }
     }
 
     func application(
@@ -130,8 +134,13 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
         Task { @MainActor in
-            _ = await model?.handleRemoteNotificationPayload(userInfo)
-            completionHandler(.newData)
+            guard let model else {
+                pendingPush.enqueue(userInfo)
+                completionHandler(.noData)
+                return
+            }
+            let handled = await model.handleRemoteNotificationPayload(userInfo)
+            completionHandler(handled ? .newData : .noData)
         }
     }
 
@@ -141,7 +150,9 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         Task { @MainActor in
-            _ = await model?.handleRemoteNotificationPayload(notification.request.content.userInfo)
+            let payload = notification.request.content.userInfo
+            if let model { _ = await model.handleRemoteNotificationPayload(payload) }
+            else { pendingPush.enqueue(payload) }
             completionHandler([.banner, .list, .sound])
         }
     }
@@ -152,7 +163,10 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         Task { @MainActor in
-            let handled = await model?.handleRemoteNotificationPayload(response.notification.request.content.userInfo, openedFromTap: true) ?? false
+            let payload = response.notification.request.content.userInfo
+            let handled: Bool
+            if let model { handled = await model.handleRemoteNotificationPayload(payload, openedFromTap: true) }
+            else { handled = pendingPush.enqueue(payload, openedFromTap: true) }
             if !handled {
                 pendingHomeScreenAction = .askDJ
             }
@@ -215,6 +229,20 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
         model.performHomeScreenAction(action)
     }
 
+
+    private func flushPendingPushCallbacks() {
+        guard let model else { return }
+        let batch = pendingPush.drain()
+        if let token = batch.token { model.handleRemoteNotificationDeviceToken(token) }
+        if let error = batch.error { model.handleRemoteNotificationRegistrationError(error) }
+        guard !batch.deliveries.isEmpty else { return }
+        Task { @MainActor [weak model] in
+            for delivery in batch.deliveries {
+                guard let model else { return }
+                _ = await model.handleRemoteNotificationPayload(delivery.userInfo, openedFromTap: delivery.openedFromTap)
+            }
+        }
+    }
 }
 
 final class DJConnectIOSSceneDelegate: NSObject, UIWindowSceneDelegate {

@@ -1,0 +1,22 @@
+{
+  "status": "BRIGHT_MAGENTA_SEGMENT_SELECTION_INSTALLED_IPHONE40125_VISUALLY_VERIFIED",
+  "parent": "98d7dfc",
+  "change": "Selected segmented control fill magenta opacity0.22->0.85; selected border0.55->1. Other button shapes retain prior appearance. Shared Mood/Presence selector uses this style",
+  "validation": {
+    "source_ui_compile": "PASS19.94s /private/tmp/djc-magenta-selection-ui-build-20261016.log",
+    "signed_ios": "BUILD SUCCEEDED /private/tmp/djc-ios-40125-magenta-build-20261016.log",
+    "codesign": "strict deep PASS",
+    "selective": "452baseline40124file hashes verified; exactly1color-only file patched;452finalhashes verified after build",
+    "manifest": "build/recovery/iphone40125-selective-source-manifest-20261016.json",
+    "install": "iPhone normal in-place install PASS; independent CoreDevice bundleVersion40125",
+    "readback": "/private/tmp/djc-iphone-40125-magenta-readback-20261016.json",
+    "first_probe": "Failed8.495s because Mood option identifier did not appear after initial tap; no screenshot color PASS from this probe. Do not infer root cause or recurring-menu acceptance",
+    "first_bundle": "/private/tmp/djc-iphone-40125-magenta-20261016.xcresult",
+    "final_probe": "Existing foreground app, Mood tap/readback PASS5.178s; popover actually visible, bright selected Groove button visually confirmed; native outside dismissal performed without choosing mood",
+    "final_bundle": "/private/tmp/djc-iphone-40125-magenta-readback-20261016.xcresult",
+    "screenshot": "/private/tmp/djc-iphone-40125-magenta-readback-20261016-attachments/45DBDA59-0030-4ABE-B9A2-2BB6BA6D965D.png",
+    "screenshot_sha256": "014ce72d93eabfa967b2a533b3e12aace4d827c6efe98b57486d34ad61184442",
+    "viewed": true
+  },
+  "effects": "Only iPhone40125 installed. No Mood/Presence choice, preference, send or playback action. ExternalProbe.swift restored and cmp verified. No new unit tests for color-only change. Localcommit only, no push/PR/merge. Recurrent-menu issue acceptance remains separate/open; no automation/Core/trust change"
+}

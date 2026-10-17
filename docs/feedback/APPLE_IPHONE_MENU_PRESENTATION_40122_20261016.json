@@ -1,0 +1,96 @@
+{
+  "status": "RECURRENCE_CONFIRMED_ON_IPHONE40122_AFTER_MOOD_OUTSIDE_DISMISS; STABLE_SCREEN_HOST_CANDIDATE_PENDING",
+  "writer_parent": "33e3585adfc74c0fa388ffef5e981866a97bb993",
+  "reported": "Recurring iPhone presentation failure after Presence dismissal: connection/popovers/trash confirmation fail; refresh/search/back continue",
+  "confirmed_before_restart": {
+    "installed": "4.0.0/40120",
+    "read_only_capture": "/private/tmp/djc-iphone-menu-initial-20261016.xcresult",
+    "native_connection_tap": "/private/tmp/djc-iphone-menu-connection-tap-20261016.xcresult",
+    "finding": "Enabled/hittable connection button tapped; no popover appeared; normal app screen remained visible"
+  },
+  "debugger_incident": {
+    "result": "An LLDB batch import failed and the attached app exited; no useful UIKit controller state collected. User informed; normal relaunch afterward. Do not treat this as spontaneous app crash or successful inspection.",
+    "logs": [
+      "/private/tmp/djc-iphone-menu-uikit-state-20261016.log",
+      "/private/tmp/djc-iphone-menu-uikit-state-final-20261016.log"
+    ],
+    "crash_prompt": "After relaunch observed prompt dismissed with Niet nu; no upload/issue"
+  },
+  "before_patch_native": {
+    "presence_cycles": "3 outside dismiss/reopen cycles and connection opened; /private/tmp/djc-iphone-menu-presence-cycles-run2-20261016.xcresult normal33.753s",
+    "rapid_tab_bursts": "3 double tap outside-dismiss/tab-switch bursts and connection opened; /private/tmp/djc-iphone-menu-tab-burst-20261016.xcresult normal53.236s; XCTest idle synchronization limits race coverage",
+    "details_and_alert": "Connection Details navigation and AskDJ trash confirmation opened/cancelled, history retained; /private/tmp/djc-iphone-menu-details-alert-20261016.xcresult normal17.623s",
+    "failed_probe": "First cycles precondition incorrectly assumed a previous popover remained open between tests; separate retry passed; no product defect inferred"
+  },
+  "source_changes": [
+    "Presence/Mood GETs owned by stable toolbar .task(id: menuIntentID); dismissal cancels, captured owner/session/intent checked after await; toolbar disappearance clears intent",
+    "Cancelled session/capability GETs cannot apply late snapshots/errors; confirmed capability restored only for current generation/owner/foreground. Newer read and authority transition win",
+    "DEBUG local public UIKit class names (generic details omitted) and presentation/dismissal/visibility flags at relevant taps and Presence lifecycle; bounded24controllers; directly records to existing bounded redacted persistent log without publishing observable UI state or upload"
+  ],
+  "validation": {
+    "targeted": "5 tests (7 parameter cases) PASS0.788s",
+    "full": "Final refinement:682 tests/9suites PASS82.237s",
+    "logs": [
+      "/private/tmp/djc-menu-cancellation-tests-20261016.log",
+      "/private/tmp/djc-menu-full-tests-20261016.log",
+      "/private/tmp/djc-menu-final-full-tests-20261016.log"
+    ],
+    "signed_ios": "40121 and final40122 signed BUILD SUCCEEDED; /private/tmp/djc-ios-40122-menu-patched-build-20261016.log",
+    "first_full": "682 tests/9suites PASS82.558s"
+  },
+  "selective_candidate": {
+    "source": "/private/tmp/djc-neon-brand-40108-source",
+    "qualification": "All452baseline40120manifest files verified before patch; exactly3UI/model files changed by explicit patch; all452manifest hashes verified after build; retains presenceSafeBroadcast, no Persona/Speech/widget import",
+    "manifest": "build/recovery/iphone40122-menu-selective-source-manifest-20261016.json",
+    "patch": "build/recovery/iphone40121-menu-before-20261016/explicit-menu.patch",
+    "initial_attempt": "Source assertion detected personaSafeBroadcast vs installed presenceSafeBroadcast before modifying source. Shell still ran baseline-only40121build; not installed. Corrected selective adapter then rebuilt and verified before installation",
+    "codesign": "strict deep host verification PASS",
+    "executable_sha256": "cf9938ac0e3cb893755347b7d0d9d7d5e1331fefc8103968ce1e3572fae98f7c",
+    "install": "Normal in-place iPhone40122 install; CoreDevice readback and final native result checked below",
+    "install_result": "/private/tmp/djc-iphone-40122-menu-install-20261016.json",
+    "readback": "/private/tmp/djc-iphone-40122-menu-readback-20261016.json",
+    "refinement_patch": "build/recovery/iphone40122-menu-before-20261016/explicit-menu-refinement.patch"
+  },
+  "candidate_native": {
+    "status": "2tests PASS0failures48.218s; does not cover subsequently reported recurrence",
+    "bundle": "/private/tmp/djc-iphone-40122-menu-native-20261016.xcresult",
+    "viewed_screenshots": [
+      "7FE35388-E0FC-4B92-976E-A6E718431852.png",
+      "B5B88E10-13EF-413E-8F15-DE30526094D2.png",
+      "0C3E1CAE-AAA0-4E8D-843F-EE622D42D35E.png",
+      "3D501F68-0866-4A28-9E85-6B3555947415.png"
+    ]
+  },
+  "limits": [
+    "Specific menu-owned task race repaired; global UIKit freeze cause not proven",
+    "Restart recovery and passing cycles do not establish recurring freeze resolved",
+    "No settings/session choice/playback/send/history deletion, Core deploy/migration, trust edit, automation change, push/PR/merge",
+    "Only iPhone40122 installed; other apps remain40120; previous source-only cosmetics not bundled"
+  ],
+  "safety": {
+    "storage_snapshot": "df internal11GiB / EP_DATA28GiB; no cleanup performed",
+    "git": "Single existing writer, protected untracked2/3projects preserved; main/current only merged refs; none eligible for removal; no Git lock observed",
+    "external_probe": "Original Probe.swift restored after each finished run, saved bounded probes retained under private/tmp"
+  },
+  "intermediate40121": {
+    "native": "2tests PASS0failures;47.580s normal finalization; /private/tmp/djc-iphone-40121-menu-native-20261016.xcresult",
+    "finding": "Diagnostics revealed unnecessary repeated appear/disappear events during test. Further refinement moved task to stable toolbar intent and avoids diagnostic publishing; no global-freeze cause inferred",
+    "screenshots_viewed": [
+      "25251697-3C93-4A9D-93A4-44E89BEABCD0.png",
+      "1768181F-0527-469F-9361-4C53169C97C2.png",
+      "E1FD5654-6E22-4C5A-A86C-51B6480EA7B0.png",
+      "506809E5-E360-4DD5-99C5-350C1E16A498.png"
+    ],
+    "app_log": "/private/tmp/djc-iphone-40121-menu-app-20261016.log"
+  },
+  "recurrence40122": {
+    "user_trigger": "Mood opened, then tap outside to close; global menus fail again",
+    "read_only_bundle": "/private/tmp/djc-iphone-40122-mood-freeze-20261016.xcresult",
+    "read_only_screenshot_viewed": "64614C52-F107-4B11-A8CF-0FC9B9D9FF0E.png; no visible popover overlay",
+    "connection_native_tap": "/private/tmp/djc-iphone-40122-frozen-connection-20261016.xcresult; opened=false enabled=true hittable=true; same PID10056",
+    "local_log": "/private/tmp/djc-iphone-40122-mood-freeze-app-20261016.log",
+    "interactive_debugger": "LLDB initially target state connected; process attach crashed host LLDB DynamicLoaderDarwin::DidAttach. No useful expression result, no native-cause claim. CoreDevice independently confirmed same app PID10056 still running; no restart",
+    "lldb_diagnostics": "/private/var/folders/_n/qsj267k164z7m4cjwdnhry0h0000gn/T/diagnostics-61f584",
+    "conclusion": "Cancellation repair and normal native cycles did not fix global presentation failure. Do not mark40122 accepted."
+  }
+}

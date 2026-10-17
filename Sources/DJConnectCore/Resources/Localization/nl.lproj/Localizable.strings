@@ -30,7 +30,6 @@
 "Home Assistant is unreachable." = "Home Assistant is niet bereikbaar.";
 "trackInsight.share.story" = "Verhaal";
 "trackInsight.share.square" = "Vierkant";
-"trackInsight.share.landscape" = "Liggend";
 "trackInsight.share.static" = "Statisch";
 "trackInsight.share.animated" = "Geanimeerd";
 "appModel.what.s.new.in.djconnect.value" = "Wat is er nieuw in DJConnect %@";
@@ -431,7 +430,6 @@
 "ui.update" = "Bijwerken";
 "ui.update.draft.context" = "Werk conceptcontext bij";
 "ui.open.github.draft" = "Open GitHub concept";
-"ui.music.control.with.character" = "Muziekbediening met karakter";
 "ui.wake.word" = "Wake word";
 "ui.pair.home.assistant.first" = "Koppel eerst met Home Assistant";
 "ui.playback.backend.unavailable" = "Playback backend niet beschikbaar";
@@ -558,7 +556,6 @@
 "watch.voice.activation.only.listens.for.hey.dj.while" = "Stemactivatie luistert alleen naar Hey DJ zolang de Watch app zichtbaar en open is.";
 "watch.apple.will.ask.for.permission.next" = "Hierna vraagt Apple om toestemming.";
 "watch.no.wake.word.outside.the.app.apple.will" = "Geen wake word buiten de app. Hierna vraagt Apple om microfoon- en spraakherkenningstoestemming.";
-"watch.music.control.with.character" = "Muziekbediening met karakter.";
 "watch.version" = "Versie";
 "watch.device.name" = "Apparaatnaam";
 "watch.connection" = "Connectie";
@@ -767,7 +764,6 @@
 "appModel.home.assistant.recognized.apple.watch.finish.setup.in.home" = "Home Assistant heeft Apple Watch herkend. Rond de setup af in Home Assistant.";
 "appModel.home.assistant.did.not.accept.the.apple.watch.pair" = "Home Assistant accepteerde de Apple Watch koppelcode niet.";
 "appModel.apple.watch.paired.with.home.assistant" = "Apple Watch gekoppeld met Home Assistant.";
-"launch.music.control.with.character" = "Muziekbediening met karakter.";
 "widget.run.track.insight.in.the.app.to.update.this" = "Open Track Insight in de app om deze widget bij te werken.";
 "widget.ask.dj.in.the.app.to.update.this.widget" = "Gebruik Ask DJ in de app om deze widget bij te werken.";
 "watch.server.side.taste.profile.for.ask.dj.context.and.recommendations" = "Server-side smaakprofiel voor Ask DJ-context en aanbevelingen.";
@@ -933,6 +929,7 @@
 "ui.session.flow" = "Sessieverloop";
 "ui.session.queue" = "Afspeelwachtrij";
 "ui.session.end" = "Sessie beëindigen";
+"ui.session.history.saved_notice" = "Sessie '%@' opgeslagen onder Eerdere sessies";
 "ui.refresh.discover" = "Ververs Ontdek";
 "ui.discovery.could.not.be.loaded" = "Ontdek kon niet worden geladen";
 "ui.no.discovery.recommendations" = "Nog geen aanbevelingen";
@@ -953,10 +950,10 @@
 "ui.ask.dj.history.export.failed" = "Ask DJ-geschiedenis kon niet worden geexporteerd.";
 "ui.output.recently.seen" = "Recent gezien";
 "appModel.cached.spotify.output.unavailable" = "Spotify toont deze speaker nu niet via de API. Open Spotify één keer op dat apparaat en probeer opnieuw.";
-"ui.vibecast.handoff.title" = "Sessie op VibeCast tonen";
-"ui.vibecast.handoff.instructions" = "Open VibeCast op de Pi en voer de getoonde code in. Alleen deze actieve sessie wordt gedeeld.";
+"ui.vibecast.handoff.title" = "VibeCast sessie starten";
+"ui.vibecast.handoff.instructions" = "Open VibeCast op het scherm waarop je de DJ-sessie wilt tonen. Vul de code van dat scherm hieronder in. Alleen je actieve DJ-sessie wordt gedeeld.";
 "ui.vibecast.handoff.code" = "Zescijferige code";
-"ui.vibecast.handoff.approve" = "Sessie tonen";
+"ui.vibecast.handoff.approve" = "VibeCast sessie starten";
 "ui.vibecast.handoff.approved" = "Code goedgekeurd. Wachten tot VibeCast verbinding maakt.";
 "ui.vibecast.handoff.failed" = "De code is verlopen of de overdracht is mislukt.";
 
@@ -985,7 +982,7 @@
 "ui.session.history.title" = "Eerdere sessies";
 "ui.session.history.coverage" = "Alleen toegestane bewaarde bijdragen worden getoond; dit is geen volledige luisterhistorie.";
 "ui.session.history.loading" = "Sessies laden";
-"ui.session.history.unavailable" = "De sessiehistorie is niet beschikbaar. Probeer opnieuw.";
+"ui.session.history.unavailable" = "De sessiegeschiedenis is tijdelijk niet beschikbaar.";
 "ui.session.history.empty" = "Geen bewaarde sessies";
 "ui.session.history.ended" = "Afgesloten";
 "ui.session.history.interrupted" = "Onderbroken";
@@ -1126,3 +1123,212 @@
 "ui.session.presence.no_active_session" = "Er is geen geldige actieve sessie voor deze bediening.";
 "ui.session.presence.invalid_state" = "De sessie heeft geen geldige stand voor DJ-aanwezigheid teruggegeven.";
 "ui.session.presence.incompatible_response" = "De server gaf een incompatibel antwoord voor DJ-aanwezigheid.";
+
+"ui.session.presence.level" = "Aanwezigheid";
+
+"ui.connection.combined.demo" = "Demomodus";
+"ui.connection.combined.ready" = "Niet gekoppeld";
+"ui.connection.combined.pairing" = "Koppelen…";
+"ui.connection.combined.setupPending" = "Bevestig in Home Assistant";
+"ui.connection.combined.stale" = "Opnieuw koppelen nodig";
+"ui.connection.combined.networkUnavailable" = "Geen netwerk";
+"ui.connection.combined.offline" = "Home Assistant niet bereikbaar";
+"ui.connection.combined.connecting" = "Verbinding herstellen…";
+"ui.connection.combined.recovering" = "Verbonden · sessie wordt bijgewerkt";
+"ui.connection.combined.liveUnavailable" = "Verbonden · sessie niet beschikbaar";
+"ui.connection.combined.backendUnavailable" = "Verbonden · muziek niet beschikbaar";
+"ui.connection.combined.updateRequired" = "Update nodig";
+"ui.connection.combined.connected" = "Verbonden · lokaal";
+"ui.connection.combined.remote" = "Verbonden · extern";
+
+"ui.push.configuration_needed" = "Configuratie nodig";
+"ui.push.registration_failed" = "Registratie mislukt";
+"ui.push.registration_confirmed_detail" = "De server heeft de pushregistratie bevestigd. Dit bewijst nog niet dat een melding is bezorgd.";
+"ui.push.registration_pending_detail" = "Er is nog geen bevestigde pushregistratie voor dit apparaat.";
+"ui.push.configuration_detail" = "Push kan nog niet worden geregistreerd omdat de vertrouwde registratiedienst of het bootstrapbewijs ontbreekt. Dit vereist herstel van de DJConnect-configuratie; opnieuw koppelen is geen standaardoplossing.";
+"ui.push.environment_detail" = "De pushomgeving van de app en de server komt niet overeen. De appconfiguratie moet worden hersteld.";
+"ui.push.apns_detail" = "De registratie bij Apple is mislukt. Controleer de notificatie-instellingen. Blijft dit gebeuren, dan moet de appconfiguratie worden gecontroleerd.";
+"ui.push.transport_detail" = "De registratiedienst is niet bereikbaar. Probeer opnieuw zodra de verbinding is hersteld.";
+"ui.push.permission_detail" = "Toestemming voor meldingen is niet bevestigd. Controleer de instellingen voor deze app.";
+"ui.push.open_settings" = "Open notificatie-instellingen";
+
+"ui.vibecast.handoff.unconfirmed" = "De overdracht is niet bevestigd. Controleer het VibeCast-scherm voordat je opnieuw probeert.";
+"ui.vibecast.handoff.code_unavailable" = "Deze code is niet meer beschikbaar. Open VibeCast en gebruik de huidige code.";
+
+"ui.session.insight.loading" = "Track Insight voor dit nummer laden…";
+
+"ui.session.insight.unavailable" = "Track Insight voor deze bijdrage kon niet worden geladen. Probeer opnieuw.";
+
+"ui.session.insight.expired" = "Track Insight voor deze bijdrage is niet meer beschikbaar.";
+
+"ui.session.insight.context_changed" = "De sessie-instellingen zijn gewijzigd. Laad dit inzicht opnieuw.";
+
+"ui.trackInsight.verified_credits" = "Geverifieerde credits";
+"ui.trackInsight.interpretation" = "Duiding";
+"ui.refresh.page" = "Ververs pagina";
+
+"ui.transport.automatic" = "De app kiest automatisch de beschikbare verbinding en herstelt deze wanneer je netwerk verandert.";
+
+"ui.transport.confirmed_no_body" = "Je actie is uitgevoerd. De weergave is nog niet bijgewerkt.";
+"ui.transport.uncertain" = "We kunnen nog niet bevestigen of je actie is gelukt.";
+"ui.transport.untrusted" = "Deze verbinding hoort niet aantoonbaar bij je gekoppelde Home Assistant. Controleer het ingestelde adres.";
+"ui.transport.recovering" = "De verbinding wordt hersteld. Probeer de actie later opnieuw.";
+"ui.transport.snapshot_gap" = "De actuele sessie is bijgewerkt. Niet alle tussentijdse bijdragen konden worden hersteld.";
+
+"ui.connection.details" = "Details";
+
+"ui.connection.transport" = "Transport";
+
+"ui.connection.address.active" = "Home Assistant-adres";
+
+"ui.connection.address.unconfirmed" = "Actieve route nog niet bevestigd";
+
+"ui.output.switching" = "Bezig met wisselen…";
+"ui.output.switch.unconfirmed" = "De speakerwissel is nog niet bevestigd. Ververs de uitvoerapparaten om de status te controleren.";
+
+"surface.session.active" = "DJ-sessie actief";
+"surface.session.open" = "Open DJ-sessie";
+"surface.session.open.app" = "Open DJConnect om je sessie te bekijken.";
+"surface.session.description" = "Je DJ-sessie met één gezamenlijke status.";
+
+"ui.session.artwork.refresh" = "Ververs afbeelding";
+"ui.session.artwork.unavailable" = "Er is nu geen afbeelding beschikbaar.";
+
+// Session speech recovery presentation; producer mapping remains separate.
+"ui.session.speech.recovery.title" = "Spraak is niet beschikbaar";
+"ui.session.speech.recovery.body" = "Je kunt de bijdrage blijven lezen. Controleer in Home Assistant de Assist-pipeline die in DJConnect is gekozen: de TTS-provider, de verbinding en toegang van die provider, de taal en de stem.";
+"ui.session.speech.recovery.help" = "Herstelinstructies";
+"ui.session.speech.recovery.retry" = "Opnieuw luisteren";
+"ui.session.speech.recovery.checking" = "Spraakstatus controleren…";
+"ui.session.speech.recovery.retry_later" = "Wacht even voordat je opnieuw luistert.";
+"ui.session.speech.recovery.retained" = "Je kunt de bijdrage blijven lezen en de sessie blijven bedienen.";
+
+// Confirmed active Session Persona; shared backend state.
+"ui.session.persona.title" = "Persona";
+"ui.session.persona.home_dj" = "Thuis-dj";
+"ui.session.persona.radio_dj" = "Radio-dj";
+"ui.session.persona.club_dj" = "Club-dj";
+"ui.session.persona.festival_dj" = "Festival-dj";
+"ui.session.persona.confirmed" = "Bevestigd";
+"ui.session.persona.pending" = "Persona wijzigen…";
+"ui.session.persona.unavailable" = "Persona is nu niet beschikbaar.";
+"ui.session.persona.conflict" = "De Persona is op een ander apparaat gewijzigd. Controleer de bevestigde keuze en kies opnieuw.";
+"ui.session.persona.failed" = "De wijziging is niet bevestigd. Controleer de actuele Persona voordat je opnieuw probeert.";
+
+"ui.session.voice.title" = "Stem";
+"ui.session.voice.scope" = "Je stemkeuze geldt voor jou in deze sessie op dit apparaat.";
+"ui.session.voice.loading" = "Stemmen laden…";
+"ui.session.voice.default" = "Standaard van Home Assistant";
+"ui.session.voice.configured" = "Ingestelde standaard";
+"ui.session.voice.unavailable" = "Stem niet beschikbaar. Controleer de spraakinstellingen in Home Assistant of vernieuw de beschikbare stemmen.";
+"ui.session.voice.refresh" = "Stemmen vernieuwen";
+"ui.session.voice.selected" = "Geselecteerd";
+
+"ui.session.voice.choice" = "Kies stem";
+"ui.session.voice.selection_unavailable" = "Gekozen stem niet beschikbaar";
+
+"ui.session.voice.gender" = "Stemtype";
+"ui.session.voice.male" = "Man";
+"ui.session.voice.female" = "Vrouw";
+
+"ui.trackInsight.analysis.title" = "Muziekanalyse";
+"ui.trackInsight.analysis.unavailable" = "Voor dit nummer is nog geen muziekanalyse beschikbaar.";
+
+/* First DJ session navigation introduction */
+"ui.session.intro.skip" = "Overslaan";
+"ui.session.intro.back" = "Terug";
+"ui.session.intro.next" = "Volgende";
+"ui.session.intro.done" = "Aan de slag";
+"ui.session.intro.toolbar.title" = "Menu’s bovenaan";
+"ui.session.intro.toolbar.body" = "Kies hier je mood, DJ-aanwezigheid en stem. Via het verbindingsicoon bekijk je de status.";
+"ui.session.intro.chat.title" = "Chat met de DJ";
+"ui.session.intro.chat.body" = "Stel een vraag, vraag een nummer aan of gebruik de microfoon om met de DJ te praten.";
+"ui.session.intro.artwork.title" = "Bedien de albumhoes";
+"ui.session.intro.artwork.body" = "Zodra er een nummer speelt, bedien je de muziek met deze gebaren op de albumhoes. Je hoeft ze nu niet uit te voeren.";
+"ui.session.intro.gesture.1" = "1×: pauzeren of afspelen";
+"ui.session.intro.gesture.2" = "2×: volgend nummer";
+"ui.session.intro.gesture.3" = "3×: vorig nummer";
+"ui.session.intro.navigation.title" = "Navigatie onderin";
+"ui.session.intro.navigation.body" = "Wissel tussen DJ-sessie, Speelt Nu, Track Insight en Ontdek. Onder Meer staan onder andere je wachtrij en instellingen.";
+"ui.session.intro.sidebar.title" = "Navigatie links";
+"ui.session.intro.sidebar.body" = "Via de zijbalk wissel je tussen DJ-sessie, Speelt Nu, Track Insight, Ontdek en de andere schermen.";
+
+// Shared main brand tagline: launch, About, setup and Watch About.
+"brand.tagline" = "Zet je muziek aan. DJConnect brengt die tot leven.";
+
+// Shared Profile and Session DJ settings contract3.
+"ui.dj_settings.profile" = "Profiel";
+"ui.dj_settings.title" = "DJ stem";
+"ui.dj_settings.persona" = "Persona";
+"ui.dj_settings.voice" = "Stemvoorkeur";
+"ui.dj_settings.gender" = "Stemgender";
+"ui.dj_settings.mood" = "Stemming";
+"ui.dj_settings.presence" = "Aanwezigheid";
+"ui.dj_settings.output" = "Afspeelvoorkeur";
+"ui.dj_settings.defaults_scope" = "Startinstellingen voor je volgende sessie.";
+"ui.dj_settings.session_scope" = "Geldt nu en wordt onthouden voor je volgende sessie.";
+"ui.dj_settings.review_choices" = "Controleer alle zes voorgestelde keuzes voordat je ze activeert. Er is niets automatisch overgenomen.";
+"ui.dj_settings.confirm_six" = "Bevestig deze zes keuzes";
+"ui.dj_settings.selection_unavailable" = "Opgeslagen keuze niet beschikbaar";
+"ui.dj_settings.voice_unavailable" = "Je opgeslagen stem is niet beschikbaar. Behoud hem of kies expliciet een andere stem.";
+"ui.dj_settings.provider_default" = "Providerstandaard";
+"ui.dj_settings.reset_voice" = "Gebruik providerstandaard zonder gendervoorkeur";
+"ui.dj_settings.voice_preserved_text_only" = "Je stemkeuzes blijven bewaard. Alleen tekst maakt geen gesproken audio.";
+"ui.dj_settings.speaker_unavailable" = "De HA-speaker is nu niet beschikbaar. Configureer hem in Home Assistant.";
+"ui.dj_settings.device_local" = "Automatisch uitspreken, apparaatoutput en app-toestemmingen blijven lokaal op dit apparaat.";
+"ui.dj_settings.demo_unavailable" = "Persoonlijke instellingen zijn niet beschikbaar in demomodus.";
+"ui.dj_settings.unavailable" = "Jouw DJ-instellingen zijn niet beschikbaar. Controleer de verbinding en Home Assistant-versie.";
+"ui.dj_settings.loading" = "Bevestigde keuzes laden…";
+"ui.dj_settings.saving" = "Je keuze opslaan…";
+"ui.dj_settings.saved" = "Opgeslagen voor dit profiel.";
+"ui.dj_settings.conflict" = "De instellingen zijn gewijzigd of deze keuze is geweigerd. Controleer de huidige keuzes voordat je opnieuw kiest.";
+"ui.dj_settings.uncertain" = "De uitkomst is onbekend. Je wijziging wordt niet automatisch opnieuw verstuurd.";
+"ui.dj_settings.check_outcome" = "Controleer uitkomst";
+"ui.dj_settings.use_current" = "Gebruik huidige bevestigde keuzes";
+"ui.dj_settings.refresh" = "Vernieuwen";
+"ui.dj_settings.gender.default" = "Geen voorkeur";
+"ui.dj_settings.gender.female" = "Vrouwelijk";
+"ui.dj_settings.gender.male" = "Mannelijk";
+"ui.dj_settings.output.client_device" = "Mijn DJConnect-apparaten";
+"ui.dj_settings.output.both" = "Mijn DJConnect-apparaten + HA-speaker";
+"ui.dj_settings.output.ha_speaker" = "Alleen HA-speaker";
+"ui.dj_settings.output.text_only" = "Alleen tekst (geen spraak)";
+
+// Target-aware manual speech.
+"ui.dj_settings.listen_local" = "Luister op dit apparaat";
+"ui.dj_settings.stop_local" = "Stop op dit apparaat";
+"ui.dj_settings.target.local" = "Dit apparaat";
+"ui.dj_settings.target.ha_speaker" = "HA-speaker";
+"ui.dj_settings.target.both" = "Beide";
+"ui.dj_settings.target.choose" = "Afspelen op…";
+"ui.dj_settings.delivery.preparing" = "Voorbereiden";
+"ui.dj_settings.delivery.ready" = "Gereed";
+"ui.dj_settings.delivery.queued" = "In wachtrij, hoorbaar afspelen niet bevestigd";
+"ui.dj_settings.delivery.accepted" = "Geaccepteerd, hoorbaar afspelen niet bevestigd";
+"ui.dj_settings.delivery.playing" = "Lokaal aan het afspelen";
+"ui.dj_settings.delivery.finished" = "Lokale weergave beëindigd";
+"ui.dj_settings.delivery.failed" = "Mislukt";
+"ui.dj_settings.delivery.unavailable" = "Niet beschikbaar";
+"ui.dj_settings.delivery.unknown" = "Uitkomst onbekend; niet opnieuw verstuurd";
+
+"ui.dj_settings.replay_local" = "Opnieuw afspelen op dit apparaat";
+
+"ui.dj_settings.delivery.stopped" = "Gestopt";
+
+"appModel.device.volume.control.unavailable" = "Het volume van dit apparaat kun je alleen op het apparaat zelf aanpassen.";
+
+"ui.output.name.unavailable" = "Naam niet beschikbaar";
+"surface.consent.title" = "Weergave buiten de app";
+"surface.consent.explanation" = "Toon korte DJ-bijdragen, muziekgegevens en toegestane hoezen van deze sessie buiten de app, ook als het apparaat vergrendeld is.";
+"surface.consent.widget" = "Bijdragen op widgets";
+"surface.consent.activity" = "Bijdragen op toegangsscherm";
+"surface.consent.unavailable" = "Deze weergave is nu niet beschikbaar.";
+"surface.consent.failed" = "De weergave kon niet worden bevestigd. Probeer opnieuw.";
+"surface.consent.expiry" = "Geldt voor deze sessie. Inhoud vervalt binnen twee minuten. Na een app-herstart is opnieuw toestemming nodig. Het besturingssysteem kan eerder gemaakte afbeeldingen langer bewaren.";
+"watch.session.loading" = "Je DJ-sessie wordt geladen…";
+"watch.session.unavailable" = "De DJ-sessie is tijdelijk niet beschikbaar. Open DJConnect op je iPhone.";
+"watch.session.waiting" = "De DJ luistert met je mee.";
+"watch.session.settings" = "DJ-instellingen";
+
+"ui.app.glass.effects" = "Glaseffecten";
+"ui.app.glass.effects.description" = "Schakel uit voor een eenvoudigere weergave met minder grafische effecten.";

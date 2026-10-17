@@ -1,0 +1,20 @@
+{
+  "status": "WHITE_VOICE_ICON_INSTALLED_IPHONE40124_VISUALLY_VERIFIED",
+  "parent": "b6d2775",
+  "change": "Explicit white speaker image foreground and white button tint in full Voice toolbar and selective autoplay toolbar",
+  "scope": "Color only; no preferences or menu behavior changed",
+  "validation": {
+    "source_ui_build": "PASS2.23s /private/tmp/djc-white-voice-ui-build-20261016.log",
+    "signed_ios_build": "PASS /private/tmp/djc-ios-40124-white-voice-build-20261016.log",
+    "codesign": "strict deep PASS",
+    "selective_source": "452baseline40123hashes verified; exactly1color-only selective file changed; all452finalhashes verified after build",
+    "manifest": "build/recovery/iphone40124-selective-source-manifest-20261016.json",
+    "install": "Normal iPhone install PASS; independent CoreDevice bundleVersion40124",
+    "readback": "/private/tmp/djc-iphone-40124-white-voice-readback-20261016.json",
+    "native": "Screenshot capture PASS5.381s; speaker icon actually viewed and white",
+    "bundle": "/private/tmp/djc-iphone-40124-white-voice-20261016.xcresult",
+    "screenshot": "/private/tmp/djc-iphone-40124-white-voice-20261016-attachments/C919BB12-DF14-47B5-BDF0-A6ECEE8BB863.png",
+    "screenshot_sha256": "7dd165a8a3f9c2c488915e21fc49f45781152c1df710a1b718a5d3dc52068741"
+  },
+  "effects": "Only iPhone40124 installed, other apps unchanged; no preference/send/playback action; original externalProbe.swift restored; localcommit only, no publication; previous intermittent menu acceptance not expanded"
+}

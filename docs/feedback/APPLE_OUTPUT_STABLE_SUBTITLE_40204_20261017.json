@@ -1,0 +1,14 @@
+{
+  "build": "40204",
+  "scope": "Remove transient switching text from output-device row subtitle",
+  "change": "Keep normal volume/recently-seen/type subtitle while selection pending; pending icon/state and backend selection logic unchanged.",
+  "checks": [
+    "iOS/macOS builds PASS",
+    "452 source hashes PASS",
+    "iPhone/iPad40204 readback PASS",
+    "Mac40204 install/signature/executable verification PASS",
+    "diff check PASS"
+  ],
+  "visual": "NOT_RUN; bounded one-line subtitle condition removal",
+  "preservation": "Timer paused; no Core messages or publication; previous app backed up."
+}

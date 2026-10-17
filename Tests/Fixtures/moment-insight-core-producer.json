@@ -1,0 +1,3900 @@
+{
+  "schema_version": "djconnect-ask-dj-transport-fixtures/1",
+  "runtime_sha": "c21dc3375ba57d19beeeda6fbb6dd3590de8431c",
+  "agent_model": "gpt-6-luna",
+  "origin": "actual ordinary-paired isolated HA HTTP responses; synthetic music/provider-boundary fixtures; real model responses",
+  "projection": "Bodies and requests retain observed values; image/audio/capability URLs, raw input and credential fields are omitted recursively. No live credential or executable production choice is provided. Optional user-facing action prompt strings are also omitted; prompt_bytes is only a numeric size metric.",
+  "source_proof_sha256": "19e16cff713c5f3f70016fee8a711ade41c26d4b4adb9ed41077c57ba4622c24",
+  "native_acceptance": "NOT_RUN",
+  "installed_acceptance": "NOT_RUN",
+  "fixtures": [
+    {
+      "case": "standalone-credit",
+      "path": "ask_dj/message",
+      "request": {
+        "client_message_id": "standalone-credit",
+        "text": "Who is that composer?",
+        "language": "en",
+        "audio_response": "never",
+        "conversation_context": {
+          "selected_entry": {
+            "session_id": "session-9d60b660662147b68132d2b547826678",
+            "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+          }
+        }
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "latency_ms": 1573,
+      "body": {
+        "success": true,
+        "text": "The composer is Brian Eno. The recording’s composition credit names him.",
+        "dj_text": "The composer is Brian Eno. The recording’s composition credit names him.",
+        "message": "The composer is Brian Eno. The recording’s composition credit names him.",
+        "text_source": "generated",
+        "is_generated_text": true,
+        "model_processing_basis": "qualified_dialogue_v1",
+        "knowledge_basis": "source_context_plus_general_knowledge",
+        "links": [
+          {
+            "url": "https://musicbrainz.org/work/22222222-2222-2222-2222-222222222222",
+            "title": "MusicBrainz",
+            "kind": "source",
+            "source": "MusicBrainz",
+            "license": "CC0-1.0",
+            "claim_scope": "qualified_credit_only"
+          }
+        ],
+        "sources": [
+          {
+            "source": "MusicBrainz",
+            "title": "MusicBrainz",
+            "kind": "source",
+            "provider": "MusicBrainz",
+            "license": "CC0-1.0",
+            "claim_scope": "qualified_credit_only",
+            "url": "https://musicbrainz.org/work/22222222-2222-2222-2222-222222222222"
+          }
+        ],
+        "playback_actions": [],
+        "confirmation_actions": [],
+        "error": null,
+        "intent": {
+          "category": "informational",
+          "intent": "ask_music_info"
+        },
+        "items": [],
+        "action": null,
+        "music_dna_key": "profile:profile-a",
+        "assistant_message": {
+          "id": "server-838cc880-30d2-4b3f-afe7-7ff32951e0e6",
+          "client_message_id": "standalone-credit",
+          "role": "assistant",
+          "message_kind": "assistant",
+          "text": "The composer is Brian Eno. The recording’s composition credit names him.",
+          "created_at": "2026-10-14T14:37:33.254538Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [
+            {
+              "url": "https://musicbrainz.org/work/22222222-2222-2222-2222-222222222222",
+              "title": "MusicBrainz",
+              "kind": "source",
+              "source": "MusicBrainz",
+              "license": "CC0-1.0",
+              "claim_scope": "qualified_credit_only"
+            }
+          ],
+          "sources": [
+            {
+              "source": "MusicBrainz",
+              "title": "MusicBrainz",
+              "kind": "source",
+              "provider": "MusicBrainz",
+              "license": "CC0-1.0",
+              "claim_scope": "qualified_credit_only",
+              "url": "https://musicbrainz.org/work/22222222-2222-2222-2222-222222222222"
+            }
+          ],
+          "playback_actions": [],
+          "intent": {
+            "category": "informational",
+            "intent": "ask_music_info"
+          },
+          "session_turn": {
+            "turn_id": "turn-78281de9dde35fa0850f83a19b138c99",
+            "request_digest": "d20680687a0f2aa295f6bd830c12d5c3c0dbd17aad854651082c23255046d854",
+            "profile_id": "profile-a",
+            "context": {
+              "selected_entry": {
+                "session_id": "session-9d60b660662147b68132d2b547826678",
+                "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+              }
+            },
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": [
+              {
+                "session_id": "session-9d60b660662147b68132d2b547826678",
+                "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+              }
+            ]
+          },
+          "historical_entry_references": [
+            {
+              "session_id": "session-9d60b660662147b68132d2b547826678",
+              "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+            },
+            {
+              "session_id": "session-9d60b660662147b68132d2b547826678",
+              "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+            }
+          ],
+          "exchange_id": "standalone-credit",
+          "exchange_order": 1,
+          "confirmation_actions": [],
+          "items": [],
+          "origin": "",
+          "text_source": "generated",
+          "is_generated_text": true
+        },
+        "announcement": {
+          "output": "client_device",
+          "delivery": "client_device",
+          "audio_response_effective": "unavailable",
+          "audio_type": null,
+          "target": null,
+          "warnings": []
+        },
+        "user_id": null,
+        "user_message": {
+          "id": "server-f3bfa210-d8f7-42e0-a8f7-d1a00006da09",
+          "client_message_id": "standalone-credit",
+          "role": "user",
+          "text": "Who is that composer?",
+          "created_at": "2026-10-14T14:37:33.254453Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "session_turn": {
+            "turn_id": "turn-78281de9dde35fa0850f83a19b138c99",
+            "request_digest": "d20680687a0f2aa295f6bd830c12d5c3c0dbd17aad854651082c23255046d854",
+            "profile_id": "profile-a",
+            "context": {
+              "selected_entry": {
+                "session_id": "session-9d60b660662147b68132d2b547826678",
+                "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+              }
+            },
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": [
+              {
+                "session_id": "session-9d60b660662147b68132d2b547826678",
+                "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+              }
+            ]
+          },
+          "historical_entry_references": [
+            {
+              "session_id": "session-9d60b660662147b68132d2b547826678",
+              "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+            },
+            {
+              "session_id": "session-9d60b660662147b68132d2b547826678",
+              "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+            }
+          ],
+          "exchange_id": "standalone-credit",
+          "exchange_order": 0
+        },
+        "messages": [
+          {
+            "id": "server-f3bfa210-d8f7-42e0-a8f7-d1a00006da09",
+            "client_message_id": "standalone-credit",
+            "role": "user",
+            "text": "Who is that composer?",
+            "created_at": "2026-10-14T14:37:33.254453Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [],
+            "session_turn": {
+              "turn_id": "turn-78281de9dde35fa0850f83a19b138c99",
+              "request_digest": "d20680687a0f2aa295f6bd830c12d5c3c0dbd17aad854651082c23255046d854",
+              "profile_id": "profile-a",
+              "context": {
+                "selected_entry": {
+                  "session_id": "session-9d60b660662147b68132d2b547826678",
+                  "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+                }
+              },
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": [
+                {
+                  "session_id": "session-9d60b660662147b68132d2b547826678",
+                  "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+                }
+              ]
+            },
+            "historical_entry_references": [
+              {
+                "session_id": "session-9d60b660662147b68132d2b547826678",
+                "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+              },
+              {
+                "session_id": "session-9d60b660662147b68132d2b547826678",
+                "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+              }
+            ],
+            "exchange_id": "standalone-credit",
+            "exchange_order": 0
+          },
+          {
+            "id": "server-838cc880-30d2-4b3f-afe7-7ff32951e0e6",
+            "client_message_id": "standalone-credit",
+            "role": "assistant",
+            "message_kind": "assistant",
+            "text": "The composer is Brian Eno. The recording’s composition credit names him.",
+            "created_at": "2026-10-14T14:37:33.254538Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [
+              {
+                "url": "https://musicbrainz.org/work/22222222-2222-2222-2222-222222222222",
+                "title": "MusicBrainz",
+                "kind": "source",
+                "source": "MusicBrainz",
+                "license": "CC0-1.0",
+                "claim_scope": "qualified_credit_only"
+              }
+            ],
+            "sources": [
+              {
+                "source": "MusicBrainz",
+                "title": "MusicBrainz",
+                "kind": "source",
+                "provider": "MusicBrainz",
+                "license": "CC0-1.0",
+                "claim_scope": "qualified_credit_only",
+                "url": "https://musicbrainz.org/work/22222222-2222-2222-2222-222222222222"
+              }
+            ],
+            "playback_actions": [],
+            "intent": {
+              "category": "informational",
+              "intent": "ask_music_info"
+            },
+            "session_turn": {
+              "turn_id": "turn-78281de9dde35fa0850f83a19b138c99",
+              "request_digest": "d20680687a0f2aa295f6bd830c12d5c3c0dbd17aad854651082c23255046d854",
+              "profile_id": "profile-a",
+              "context": {
+                "selected_entry": {
+                  "session_id": "session-9d60b660662147b68132d2b547826678",
+                  "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+                }
+              },
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": [
+                {
+                  "session_id": "session-9d60b660662147b68132d2b547826678",
+                  "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+                }
+              ]
+            },
+            "historical_entry_references": [
+              {
+                "session_id": "session-9d60b660662147b68132d2b547826678",
+                "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+              },
+              {
+                "session_id": "session-9d60b660662147b68132d2b547826678",
+                "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+              }
+            ],
+            "exchange_id": "standalone-credit",
+            "exchange_order": 1,
+            "confirmation_actions": [],
+            "items": [],
+            "origin": "",
+            "text_source": "generated",
+            "is_generated_text": true
+          }
+        ],
+        "history_revision": 2,
+        "clear_revision": 1,
+        "history_limit": 1000,
+        "history_trimmed_before": null,
+        "history_trimmed_count": 0,
+        "server_time": "2026-10-14T14:37:33.257800Z",
+        "media_delivery_basis": "current_response_only",
+        "owner_profile_id": "profile-a",
+        "client_message_id": "standalone-credit",
+        "conversation": {
+          "schema_version": 1,
+          "turn_id": "turn-78281de9dde35fa0850f83a19b138c99",
+          "thread_id": "default",
+          "context": {
+            "selected_entry": {
+              "session_id": "session-9d60b660662147b68132d2b547826678",
+              "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+            }
+          },
+          "entry_ids": [],
+          "history_scope": "profile",
+          "input_type": "text",
+          "style": {
+            "persona": "home_dj",
+            "mood": "groove",
+            "mood_basis": "profile_or_default",
+            "language": "en",
+            "response_style": "balanced"
+          },
+          "model_source_basis": "cc0_normalized_fields_v1",
+          "metrics": {
+            "agent_calls": 1,
+            "lookup_calls": 0,
+            "prompt_bytes": 5565
+          }
+        }
+      }
+    },
+    {
+      "case": "standalone-pronoun",
+      "path": "ask_dj/message",
+      "request": {
+        "client_message_id": "standalone-pronoun",
+        "text": "What influenced his ambient approach?",
+        "language": "en",
+        "audio_response": "never"
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "latency_ms": 4718,
+      "body": {
+        "success": true,
+        "text": "As general musical knowledge, Brian Eno’s ambient approach drew on Erik Satie’s idea of music that could function as part of an environment, as well as minimalist music’s use of repetition and gradual change. John Cage’s interest in chance and in sounds beyond conventional music is another commonly noted influence.",
+        "dj_text": "As general musical knowledge, Brian Eno’s ambient approach drew on Erik Satie’s idea of music that could function as part of an environment, as well as minimalist music’s use of repetition and gradual change. John Cage’s interest in chance and in sounds beyond conventional music is another commonly noted influence.",
+        "message": "As general musical knowledge, Brian Eno’s ambient approach drew on Erik Satie’s idea of music that could function as part of an environment, as well as minimalist music’s use of repetition and gradual change. John Cage’s interest in chance and in sounds beyond conventional music is another commonly noted influence.",
+        "text_source": "generated",
+        "is_generated_text": true,
+        "model_processing_basis": "qualified_dialogue_v1",
+        "knowledge_basis": "general_model_knowledge",
+        "links": [],
+        "sources": [],
+        "playback_actions": [],
+        "confirmation_actions": [],
+        "error": null,
+        "intent": {
+          "category": "informational",
+          "intent": "ask_music_info"
+        },
+        "items": [],
+        "action": null,
+        "music_dna_key": "profile:profile-a",
+        "assistant_message": {
+          "id": "server-531510bf-47f4-4dcb-857c-c3404dabb2c3",
+          "client_message_id": "standalone-pronoun",
+          "role": "assistant",
+          "message_kind": "assistant",
+          "text": "As general musical knowledge, Brian Eno’s ambient approach drew on Erik Satie’s idea of music that could function as part of an environment, as well as minimalist music’s use of repetition and gradual change. John Cage’s interest in chance and in sounds beyond conventional music is another commonly noted influence.",
+          "created_at": "2026-10-14T14:37:37.973003Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "intent": {
+            "category": "informational",
+            "intent": "ask_music_info"
+          },
+          "session_turn": {
+            "turn_id": "turn-04ea97415591536e98361ca5ba8d10db",
+            "request_digest": "aec6592f3a86d1e770521d9827ee2123cb7ff3122473297048b8d016f69cc15b",
+            "profile_id": "profile-a",
+            "context": {},
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": [
+              {
+                "session_id": "session-9d60b660662147b68132d2b547826678",
+                "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+              }
+            ]
+          },
+          "historical_entry_references": [
+            {
+              "session_id": "session-9d60b660662147b68132d2b547826678",
+              "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+            }
+          ],
+          "exchange_id": "standalone-pronoun",
+          "exchange_order": 1,
+          "confirmation_actions": [],
+          "items": [],
+          "origin": "",
+          "text_source": "generated",
+          "is_generated_text": true
+        },
+        "announcement": {
+          "output": "client_device",
+          "delivery": "client_device",
+          "audio_response_effective": "unavailable",
+          "audio_type": null,
+          "target": null,
+          "warnings": []
+        },
+        "user_id": null,
+        "user_message": {
+          "id": "server-709fd9c5-4330-4c23-bf1b-96e4f4ce7bf4",
+          "client_message_id": "standalone-pronoun",
+          "role": "user",
+          "text": "What influenced his ambient approach?",
+          "created_at": "2026-10-14T14:37:37.972949Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "session_turn": {
+            "turn_id": "turn-04ea97415591536e98361ca5ba8d10db",
+            "request_digest": "aec6592f3a86d1e770521d9827ee2123cb7ff3122473297048b8d016f69cc15b",
+            "profile_id": "profile-a",
+            "context": {},
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": [
+              {
+                "session_id": "session-9d60b660662147b68132d2b547826678",
+                "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+              }
+            ]
+          },
+          "historical_entry_references": [
+            {
+              "session_id": "session-9d60b660662147b68132d2b547826678",
+              "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+            }
+          ],
+          "exchange_id": "standalone-pronoun",
+          "exchange_order": 0
+        },
+        "messages": [
+          {
+            "id": "server-709fd9c5-4330-4c23-bf1b-96e4f4ce7bf4",
+            "client_message_id": "standalone-pronoun",
+            "role": "user",
+            "text": "What influenced his ambient approach?",
+            "created_at": "2026-10-14T14:37:37.972949Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [],
+            "session_turn": {
+              "turn_id": "turn-04ea97415591536e98361ca5ba8d10db",
+              "request_digest": "aec6592f3a86d1e770521d9827ee2123cb7ff3122473297048b8d016f69cc15b",
+              "profile_id": "profile-a",
+              "context": {},
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": [
+                {
+                  "session_id": "session-9d60b660662147b68132d2b547826678",
+                  "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+                }
+              ]
+            },
+            "historical_entry_references": [
+              {
+                "session_id": "session-9d60b660662147b68132d2b547826678",
+                "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+              }
+            ],
+            "exchange_id": "standalone-pronoun",
+            "exchange_order": 0
+          },
+          {
+            "id": "server-531510bf-47f4-4dcb-857c-c3404dabb2c3",
+            "client_message_id": "standalone-pronoun",
+            "role": "assistant",
+            "message_kind": "assistant",
+            "text": "As general musical knowledge, Brian Eno’s ambient approach drew on Erik Satie’s idea of music that could function as part of an environment, as well as minimalist music’s use of repetition and gradual change. John Cage’s interest in chance and in sounds beyond conventional music is another commonly noted influence.",
+            "created_at": "2026-10-14T14:37:37.973003Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [],
+            "intent": {
+              "category": "informational",
+              "intent": "ask_music_info"
+            },
+            "session_turn": {
+              "turn_id": "turn-04ea97415591536e98361ca5ba8d10db",
+              "request_digest": "aec6592f3a86d1e770521d9827ee2123cb7ff3122473297048b8d016f69cc15b",
+              "profile_id": "profile-a",
+              "context": {},
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": [
+                {
+                  "session_id": "session-9d60b660662147b68132d2b547826678",
+                  "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+                }
+              ]
+            },
+            "historical_entry_references": [
+              {
+                "session_id": "session-9d60b660662147b68132d2b547826678",
+                "entry_id": "entry-dbb7e78271e0531ba5a0023d69fa887a"
+              }
+            ],
+            "exchange_id": "standalone-pronoun",
+            "exchange_order": 1,
+            "confirmation_actions": [],
+            "items": [],
+            "origin": "",
+            "text_source": "generated",
+            "is_generated_text": true
+          }
+        ],
+        "history_revision": 3,
+        "clear_revision": 1,
+        "history_limit": 1000,
+        "history_trimmed_before": null,
+        "history_trimmed_count": 0,
+        "server_time": "2026-10-14T14:37:37.977526Z",
+        "media_delivery_basis": "current_response_only",
+        "owner_profile_id": "profile-a",
+        "client_message_id": "standalone-pronoun",
+        "conversation": {
+          "schema_version": 1,
+          "turn_id": "turn-04ea97415591536e98361ca5ba8d10db",
+          "thread_id": "default",
+          "context": {},
+          "entry_ids": [],
+          "history_scope": "profile",
+          "input_type": "text",
+          "style": {
+            "persona": "home_dj",
+            "mood": "groove",
+            "mood_basis": "profile_or_default",
+            "language": "en",
+            "response_style": "balanced"
+          },
+          "model_source_basis": null,
+          "metrics": {
+            "agent_calls": 1,
+            "lookup_calls": 0,
+            "prompt_bytes": 5465
+          }
+        }
+      }
+    },
+    {
+      "case": "standalone-topic",
+      "path": "ask_dj/message",
+      "request": {
+        "client_message_id": "standalone-topic",
+        "text": "Who is Miles Davis?",
+        "language": "en",
+        "audio_response": "never"
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "latency_ms": 1661,
+      "body": {
+        "success": true,
+        "text": "Miles Davis was an American jazz trumpeter, composer, and bandleader, widely regarded as one of the most influential figures in jazz. Across a career spanning several decades, he helped shape styles including cool jazz, hard bop, modal jazz, and jazz fusion.",
+        "dj_text": "Miles Davis was an American jazz trumpeter, composer, and bandleader, widely regarded as one of the most influential figures in jazz. Across a career spanning several decades, he helped shape styles including cool jazz, hard bop, modal jazz, and jazz fusion.",
+        "message": "Miles Davis was an American jazz trumpeter, composer, and bandleader, widely regarded as one of the most influential figures in jazz. Across a career spanning several decades, he helped shape styles including cool jazz, hard bop, modal jazz, and jazz fusion.",
+        "text_source": "generated",
+        "is_generated_text": true,
+        "model_processing_basis": "qualified_dialogue_v1",
+        "knowledge_basis": "general_model_knowledge",
+        "links": [],
+        "sources": [],
+        "playback_actions": [],
+        "confirmation_actions": [],
+        "error": null,
+        "intent": {
+          "category": "informational",
+          "intent": "ask_music_info"
+        },
+        "items": [],
+        "action": null,
+        "music_dna_key": "profile:profile-a",
+        "assistant_message": {
+          "id": "server-3a64f9d2-2faf-474c-bdf8-b32762ee57f0",
+          "client_message_id": "standalone-topic",
+          "role": "assistant",
+          "message_kind": "assistant",
+          "text": "Miles Davis was an American jazz trumpeter, composer, and bandleader, widely regarded as one of the most influential figures in jazz. Across a career spanning several decades, he helped shape styles including cool jazz, hard bop, modal jazz, and jazz fusion.",
+          "created_at": "2026-10-14T14:37:39.635345Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "intent": {
+            "category": "informational",
+            "intent": "ask_music_info"
+          },
+          "session_turn": {
+            "turn_id": "turn-dc7f8eb8f3ec55459b5113f8a9b99f43",
+            "request_digest": "479c8651440523ad06d1c8caa70b943bc8a22ce8e50a85aecc70e3e069b0e328",
+            "profile_id": "profile-a",
+            "context": {},
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "standalone-topic",
+          "exchange_order": 1,
+          "confirmation_actions": [],
+          "items": [],
+          "origin": "",
+          "text_source": "generated",
+          "is_generated_text": true
+        },
+        "announcement": {
+          "output": "client_device",
+          "delivery": "client_device",
+          "audio_response_effective": "unavailable",
+          "audio_type": null,
+          "target": null,
+          "warnings": []
+        },
+        "user_id": null,
+        "user_message": {
+          "id": "server-02ae5ed4-8d3c-4941-ab3a-e9c40a590f64",
+          "client_message_id": "standalone-topic",
+          "role": "user",
+          "text": "Who is Miles Davis?",
+          "created_at": "2026-10-14T14:37:39.635268Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "session_turn": {
+            "turn_id": "turn-dc7f8eb8f3ec55459b5113f8a9b99f43",
+            "request_digest": "479c8651440523ad06d1c8caa70b943bc8a22ce8e50a85aecc70e3e069b0e328",
+            "profile_id": "profile-a",
+            "context": {},
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "standalone-topic",
+          "exchange_order": 0
+        },
+        "messages": [
+          {
+            "id": "server-02ae5ed4-8d3c-4941-ab3a-e9c40a590f64",
+            "client_message_id": "standalone-topic",
+            "role": "user",
+            "text": "Who is Miles Davis?",
+            "created_at": "2026-10-14T14:37:39.635268Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [],
+            "session_turn": {
+              "turn_id": "turn-dc7f8eb8f3ec55459b5113f8a9b99f43",
+              "request_digest": "479c8651440523ad06d1c8caa70b943bc8a22ce8e50a85aecc70e3e069b0e328",
+              "profile_id": "profile-a",
+              "context": {},
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "standalone-topic",
+            "exchange_order": 0
+          },
+          {
+            "id": "server-3a64f9d2-2faf-474c-bdf8-b32762ee57f0",
+            "client_message_id": "standalone-topic",
+            "role": "assistant",
+            "message_kind": "assistant",
+            "text": "Miles Davis was an American jazz trumpeter, composer, and bandleader, widely regarded as one of the most influential figures in jazz. Across a career spanning several decades, he helped shape styles including cool jazz, hard bop, modal jazz, and jazz fusion.",
+            "created_at": "2026-10-14T14:37:39.635345Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [],
+            "intent": {
+              "category": "informational",
+              "intent": "ask_music_info"
+            },
+            "session_turn": {
+              "turn_id": "turn-dc7f8eb8f3ec55459b5113f8a9b99f43",
+              "request_digest": "479c8651440523ad06d1c8caa70b943bc8a22ce8e50a85aecc70e3e069b0e328",
+              "profile_id": "profile-a",
+              "context": {},
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "standalone-topic",
+            "exchange_order": 1,
+            "confirmation_actions": [],
+            "items": [],
+            "origin": "",
+            "text_source": "generated",
+            "is_generated_text": true
+          }
+        ],
+        "history_revision": 4,
+        "clear_revision": 1,
+        "history_limit": 1000,
+        "history_trimmed_before": null,
+        "history_trimmed_count": 0,
+        "server_time": "2026-10-14T14:37:39.638733Z",
+        "media_delivery_basis": "current_response_only",
+        "owner_profile_id": "profile-a",
+        "client_message_id": "standalone-topic",
+        "conversation": {
+          "schema_version": 1,
+          "turn_id": "turn-dc7f8eb8f3ec55459b5113f8a9b99f43",
+          "thread_id": "default",
+          "context": {},
+          "entry_ids": [],
+          "history_scope": "profile",
+          "input_type": "text",
+          "style": {
+            "persona": "home_dj",
+            "mood": "groove",
+            "mood_basis": "profile_or_default",
+            "language": "en",
+            "response_style": "balanced"
+          },
+          "model_source_basis": null,
+          "metrics": {
+            "agent_calls": 1,
+            "lookup_calls": 0,
+            "prompt_bytes": 5248
+          }
+        }
+      }
+    },
+    {
+      "case": "standalone-volume",
+      "path": "ask_dj/message",
+      "request": {
+        "client_message_id": "standalone-volume",
+        "text": "Turn the volume down",
+        "language": "en",
+        "audio_response": "never"
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "latency_ms": 13,
+      "body": {
+        "success": true,
+        "text": "Volume change requested.",
+        "dj_text": "Volume change requested.",
+        "message": "Volume change requested.",
+        "action_outcome": {
+          "state": "dispatched",
+          "readback_confirmed": true
+        },
+        "links": [],
+        "sources": [],
+        "playback_actions": [
+          {
+            "id": "djconnect:control:volume:-10",
+            "kind": "control",
+            "action_style": "control",
+            "command": "volume_delta",
+            "value": -10,
+            "title": "Zachter",
+            "label": "Zachter",
+            "button_label": "Zachter",
+            "reason": "Volume zachter zetten vanuit Ask DJ."
+          },
+          {
+            "id": "djconnect:control:volume:+10",
+            "kind": "control",
+            "action_style": "control",
+            "command": "volume_delta",
+            "value": 10,
+            "title": "Harder",
+            "label": "Harder",
+            "button_label": "Harder",
+            "reason": "Volume harder zetten vanuit Ask DJ."
+          }
+        ],
+        "confirmation_actions": [],
+        "error": null,
+        "intent": {
+          "category": "action",
+          "intent": "playback_control",
+          "action": "volume_delta"
+        },
+        "items": [],
+        "action": "volume_delta",
+        "music_dna_key": "profile:profile-a",
+        "assistant_message": {
+          "id": "server-097c5149-8a42-44cd-8935-22c223bfa82f",
+          "client_message_id": "standalone-volume",
+          "role": "assistant",
+          "message_kind": "assistant",
+          "text": "Volume change requested.",
+          "created_at": "2026-10-14T14:37:39.651364Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [
+            {
+              "id": "djconnect:control:volume:-10",
+              "kind": "control",
+              "action_style": "control",
+              "command": "volume_delta",
+              "value": -10,
+              "title": "Zachter",
+              "label": "Zachter",
+              "button_label": "Zachter",
+              "reason": "Volume zachter zetten vanuit Ask DJ."
+            },
+            {
+              "id": "djconnect:control:volume:+10",
+              "kind": "control",
+              "action_style": "control",
+              "command": "volume_delta",
+              "value": 10,
+              "title": "Harder",
+              "label": "Harder",
+              "button_label": "Harder",
+              "reason": "Volume harder zetten vanuit Ask DJ."
+            }
+          ],
+          "intent": {
+            "category": "action",
+            "intent": "playback_control",
+            "action": "volume_delta"
+          },
+          "action": "volume_delta",
+          "session_turn": {
+            "turn_id": "turn-8cd040c044145f648c78207316853099",
+            "request_digest": "8ecaa6e20b0b51fdd5a22b4a349f96ff3412b8b9f4aebb57cea2c0238ac113f9",
+            "profile_id": "profile-a",
+            "context": {},
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": true,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "standalone-volume",
+          "exchange_order": 1,
+          "confirmation_actions": [],
+          "items": [],
+          "origin": "",
+          "action_outcome": {
+            "state": "dispatched",
+            "readback_confirmed": true
+          }
+        },
+        "announcement": {
+          "output": "client_device",
+          "delivery": "client_device",
+          "audio_response_effective": "unavailable",
+          "audio_type": null,
+          "target": null,
+          "warnings": []
+        },
+        "user_id": null,
+        "user_message": {
+          "id": "server-e3b4c6bd-57a9-4951-807b-f6befe43e821",
+          "client_message_id": "standalone-volume",
+          "role": "user",
+          "text": "Turn the volume down",
+          "created_at": "2026-10-14T14:37:39.651321Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "session_turn": {
+            "turn_id": "turn-8cd040c044145f648c78207316853099",
+            "request_digest": "8ecaa6e20b0b51fdd5a22b4a349f96ff3412b8b9f4aebb57cea2c0238ac113f9",
+            "profile_id": "profile-a",
+            "context": {},
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": true,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "standalone-volume",
+          "exchange_order": 0
+        },
+        "messages": [
+          {
+            "id": "server-e3b4c6bd-57a9-4951-807b-f6befe43e821",
+            "client_message_id": "standalone-volume",
+            "role": "user",
+            "text": "Turn the volume down",
+            "created_at": "2026-10-14T14:37:39.651321Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [],
+            "session_turn": {
+              "turn_id": "turn-8cd040c044145f648c78207316853099",
+              "request_digest": "8ecaa6e20b0b51fdd5a22b4a349f96ff3412b8b9f4aebb57cea2c0238ac113f9",
+              "profile_id": "profile-a",
+              "context": {},
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": true,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "standalone-volume",
+            "exchange_order": 0
+          },
+          {
+            "id": "server-097c5149-8a42-44cd-8935-22c223bfa82f",
+            "client_message_id": "standalone-volume",
+            "role": "assistant",
+            "message_kind": "assistant",
+            "text": "Volume change requested.",
+            "created_at": "2026-10-14T14:37:39.651364Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [
+              {
+                "id": "djconnect:control:volume:-10",
+                "kind": "control",
+                "action_style": "control",
+                "command": "volume_delta",
+                "value": -10,
+                "title": "Zachter",
+                "label": "Zachter",
+                "button_label": "Zachter",
+                "reason": "Volume zachter zetten vanuit Ask DJ."
+              },
+              {
+                "id": "djconnect:control:volume:+10",
+                "kind": "control",
+                "action_style": "control",
+                "command": "volume_delta",
+                "value": 10,
+                "title": "Harder",
+                "label": "Harder",
+                "button_label": "Harder",
+                "reason": "Volume harder zetten vanuit Ask DJ."
+              }
+            ],
+            "intent": {
+              "category": "action",
+              "intent": "playback_control",
+              "action": "volume_delta"
+            },
+            "action": "volume_delta",
+            "session_turn": {
+              "turn_id": "turn-8cd040c044145f648c78207316853099",
+              "request_digest": "8ecaa6e20b0b51fdd5a22b4a349f96ff3412b8b9f4aebb57cea2c0238ac113f9",
+              "profile_id": "profile-a",
+              "context": {},
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": true,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "standalone-volume",
+            "exchange_order": 1,
+            "confirmation_actions": [],
+            "items": [],
+            "origin": "",
+            "action_outcome": {
+              "state": "dispatched",
+              "readback_confirmed": true
+            }
+          }
+        ],
+        "history_revision": 5,
+        "clear_revision": 1,
+        "history_limit": 1000,
+        "history_trimmed_before": null,
+        "history_trimmed_count": 0,
+        "server_time": "2026-10-14T14:37:39.652778Z",
+        "media_delivery_basis": "current_response_only",
+        "owner_profile_id": "profile-a",
+        "client_message_id": "standalone-volume",
+        "conversation": {
+          "schema_version": 1,
+          "turn_id": "turn-8cd040c044145f648c78207316853099",
+          "thread_id": "default",
+          "context": {},
+          "entry_ids": [],
+          "history_scope": "profile",
+          "input_type": "text",
+          "style": {
+            "persona": "home_dj",
+            "mood": "groove",
+            "mood_basis": "profile_or_default",
+            "language": "en",
+            "response_style": "balanced"
+          },
+          "model_source_basis": null,
+          "metrics": {
+            "agent_calls": 0,
+            "lookup_calls": 0,
+            "prompt_bytes": 0
+          }
+        }
+      }
+    },
+    {
+      "case": "standalone-search",
+      "path": "ask_dj/message",
+      "request": {
+        "client_message_id": "standalone-search",
+        "text": "Suggest acoustic jazz songs to search for, keeping playback unchanged.",
+        "language": "en",
+        "audio_response": "never"
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "latency_ms": 3352,
+      "body": {
+        "success": true,
+        "text": "Found 3 tracks for acoustic jazz songs.",
+        "dj_text": "Found 3 tracks for acoustic jazz songs.",
+        "text_source": "qualified_catalog_result",
+        "is_generated_text": false,
+        "knowledge_basis": "qualified_provider_result_fields",
+        "query_basis": "model_assisted_user_request",
+        "items": [
+          {
+            "id": "spotify:track:0000000000000000000000",
+            "kind": "track",
+            "label": "Play Now",
+            "button_label": "Play Now",
+            "action_style": "play_now",
+            "title": "Synthetic studio recording",
+            "subtitle": "Synthetic performer",
+            "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+            "backend": "spotify_direct",
+            "provider": "spotify",
+            "music_backend_revision": 0,
+            "value": {
+              "uri": "spotify:track:0000000000000000000000",
+              "title": "Synthetic studio recording",
+              "subtitle": "Synthetic performer"
+            },
+            "uri": "spotify:track:0000000000000000000000",
+            "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+            "action_id": "6601cb8de54f6e24677056e3db098104"
+          },
+          {
+            "id": "spotify:track:1111111111111111111111",
+            "kind": "track",
+            "label": "Play Now",
+            "button_label": "Play Now",
+            "action_style": "play_now",
+            "title": "Synthetic live recording",
+            "subtitle": "Synthetic performer",
+            "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+            "backend": "spotify_direct",
+            "provider": "spotify",
+            "music_backend_revision": 0,
+            "value": {
+              "uri": "spotify:track:1111111111111111111111",
+              "title": "Synthetic live recording",
+              "subtitle": "Synthetic performer"
+            },
+            "uri": "spotify:track:1111111111111111111111",
+            "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+            "action_id": "e5abc138ab7e64d8b7613f59c056b2fc"
+          },
+          {
+            "id": "spotify:track:2222222222222222222222",
+            "kind": "track",
+            "label": "Play Now",
+            "button_label": "Play Now",
+            "action_style": "play_now",
+            "title": "Synthetic acoustic recording",
+            "subtitle": "Synthetic performer",
+            "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+            "backend": "spotify_direct",
+            "provider": "spotify",
+            "music_backend_revision": 0,
+            "value": {
+              "uri": "spotify:track:2222222222222222222222",
+              "title": "Synthetic acoustic recording",
+              "subtitle": "Synthetic performer"
+            },
+            "uri": "spotify:track:2222222222222222222222",
+            "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+            "action_id": "6d5d3be790368fe0d240e59790320866"
+          }
+        ],
+        "playback_actions": [
+          {
+            "id": "spotify:track:0000000000000000000000",
+            "kind": "track",
+            "label": "Play Now",
+            "button_label": "Play Now",
+            "action_style": "play_now",
+            "title": "Synthetic studio recording",
+            "subtitle": "Synthetic performer",
+            "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+            "backend": "spotify_direct",
+            "provider": "spotify",
+            "music_backend_revision": 0,
+            "value": {
+              "uri": "spotify:track:0000000000000000000000",
+              "title": "Synthetic studio recording",
+              "subtitle": "Synthetic performer"
+            },
+            "uri": "spotify:track:0000000000000000000000",
+            "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+            "action_id": "6601cb8de54f6e24677056e3db098104"
+          },
+          {
+            "id": "spotify:track:1111111111111111111111",
+            "kind": "track",
+            "label": "Play Now",
+            "button_label": "Play Now",
+            "action_style": "play_now",
+            "title": "Synthetic live recording",
+            "subtitle": "Synthetic performer",
+            "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+            "backend": "spotify_direct",
+            "provider": "spotify",
+            "music_backend_revision": 0,
+            "value": {
+              "uri": "spotify:track:1111111111111111111111",
+              "title": "Synthetic live recording",
+              "subtitle": "Synthetic performer"
+            },
+            "uri": "spotify:track:1111111111111111111111",
+            "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+            "action_id": "e5abc138ab7e64d8b7613f59c056b2fc"
+          },
+          {
+            "id": "spotify:track:2222222222222222222222",
+            "kind": "track",
+            "label": "Play Now",
+            "button_label": "Play Now",
+            "action_style": "play_now",
+            "title": "Synthetic acoustic recording",
+            "subtitle": "Synthetic performer",
+            "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+            "backend": "spotify_direct",
+            "provider": "spotify",
+            "music_backend_revision": 0,
+            "value": {
+              "uri": "spotify:track:2222222222222222222222",
+              "title": "Synthetic acoustic recording",
+              "subtitle": "Synthetic performer"
+            },
+            "uri": "spotify:track:2222222222222222222222",
+            "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+            "action_id": "6d5d3be790368fe0d240e59790320866"
+          }
+        ],
+        "sources": [
+          {
+            "source": "spotify_track_search",
+            "title": "Spotify",
+            "kind": "source"
+          }
+        ],
+        "result_set": {
+          "schema_version": 1,
+          "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+          "expires_in": 600.0,
+          "items": [
+            {
+              "id": "spotify:track:0000000000000000000000",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic studio recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:0000000000000000000000",
+                "title": "Synthetic studio recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:0000000000000000000000",
+              "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+              "action_id": "6601cb8de54f6e24677056e3db098104"
+            },
+            {
+              "id": "spotify:track:1111111111111111111111",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic live recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:1111111111111111111111",
+                "title": "Synthetic live recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:1111111111111111111111",
+              "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+              "action_id": "e5abc138ab7e64d8b7613f59c056b2fc"
+            },
+            {
+              "id": "spotify:track:2222222222222222222222",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic acoustic recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:2222222222222222222222",
+                "title": "Synthetic acoustic recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:2222222222222222222222",
+              "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+              "action_id": "6d5d3be790368fe0d240e59790320866"
+            }
+          ]
+        },
+        "user_id": null,
+        "user_message": {
+          "id": "server-9478a788-666e-4ff2-bf86-d89c8df1c3a4",
+          "client_message_id": "standalone-search",
+          "role": "user",
+          "text": "Suggest acoustic jazz songs to search for, keeping playback unchanged.",
+          "created_at": "2026-10-14T14:37:44.459078Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "session_turn": {
+            "turn_id": "turn-835360a0f4e456a297a213c76a4fd9bf",
+            "request_digest": "6f9c4b75c4a83ef341d5f86ccd7882e7874c69be640f84cc720db3f4499bc528",
+            "profile_id": "profile-a",
+            "context": {},
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "standalone-search",
+          "exchange_order": 0
+        },
+        "assistant_message": {
+          "id": "server-ed4521f2-d617-470a-b955-e0ac99975e42",
+          "client_message_id": "standalone-search",
+          "role": "assistant",
+          "message_kind": "assistant",
+          "text": "Found 3 tracks for acoustic jazz songs.",
+          "created_at": "2026-10-14T14:37:44.459126Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [
+            {
+              "source": "spotify_track_search",
+              "title": "Spotify",
+              "kind": "source"
+            }
+          ],
+          "playback_actions": [
+            {
+              "id": "spotify:track:0000000000000000000000",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic studio recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:0000000000000000000000",
+                "title": "Synthetic studio recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:0000000000000000000000",
+              "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+              "action_id": "6601cb8de54f6e24677056e3db098104"
+            },
+            {
+              "id": "spotify:track:1111111111111111111111",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic live recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:1111111111111111111111",
+                "title": "Synthetic live recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:1111111111111111111111",
+              "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+              "action_id": "e5abc138ab7e64d8b7613f59c056b2fc"
+            },
+            {
+              "id": "spotify:track:2222222222222222222222",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic acoustic recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:2222222222222222222222",
+                "title": "Synthetic acoustic recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:2222222222222222222222",
+              "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+              "action_id": "6d5d3be790368fe0d240e59790320866"
+            }
+          ],
+          "session_turn": {
+            "turn_id": "turn-835360a0f4e456a297a213c76a4fd9bf",
+            "request_digest": "6f9c4b75c4a83ef341d5f86ccd7882e7874c69be640f84cc720db3f4499bc528",
+            "profile_id": "profile-a",
+            "context": {},
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "standalone-search",
+          "exchange_order": 1,
+          "items": [
+            {
+              "id": "spotify:track:0000000000000000000000",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic studio recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:0000000000000000000000",
+                "title": "Synthetic studio recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:0000000000000000000000",
+              "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+              "action_id": "6601cb8de54f6e24677056e3db098104"
+            },
+            {
+              "id": "spotify:track:1111111111111111111111",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic live recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:1111111111111111111111",
+                "title": "Synthetic live recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:1111111111111111111111",
+              "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+              "action_id": "e5abc138ab7e64d8b7613f59c056b2fc"
+            },
+            {
+              "id": "spotify:track:2222222222222222222222",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic acoustic recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:2222222222222222222222",
+                "title": "Synthetic acoustic recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:2222222222222222222222",
+              "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+              "action_id": "6d5d3be790368fe0d240e59790320866"
+            }
+          ],
+          "text_source": "qualified_catalog_result",
+          "is_generated_text": false
+        },
+        "messages": [
+          {
+            "id": "server-9478a788-666e-4ff2-bf86-d89c8df1c3a4",
+            "client_message_id": "standalone-search",
+            "role": "user",
+            "text": "Suggest acoustic jazz songs to search for, keeping playback unchanged.",
+            "created_at": "2026-10-14T14:37:44.459078Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [],
+            "session_turn": {
+              "turn_id": "turn-835360a0f4e456a297a213c76a4fd9bf",
+              "request_digest": "6f9c4b75c4a83ef341d5f86ccd7882e7874c69be640f84cc720db3f4499bc528",
+              "profile_id": "profile-a",
+              "context": {},
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "standalone-search",
+            "exchange_order": 0
+          },
+          {
+            "id": "server-ed4521f2-d617-470a-b955-e0ac99975e42",
+            "client_message_id": "standalone-search",
+            "role": "assistant",
+            "message_kind": "assistant",
+            "text": "Found 3 tracks for acoustic jazz songs.",
+            "created_at": "2026-10-14T14:37:44.459126Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [
+              {
+                "source": "spotify_track_search",
+                "title": "Spotify",
+                "kind": "source"
+              }
+            ],
+            "playback_actions": [
+              {
+                "id": "spotify:track:0000000000000000000000",
+                "kind": "track",
+                "label": "Play Now",
+                "button_label": "Play Now",
+                "action_style": "play_now",
+                "title": "Synthetic studio recording",
+                "subtitle": "Synthetic performer",
+                "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+                "backend": "spotify_direct",
+                "provider": "spotify",
+                "music_backend_revision": 0,
+                "value": {
+                  "uri": "spotify:track:0000000000000000000000",
+                  "title": "Synthetic studio recording",
+                  "subtitle": "Synthetic performer"
+                },
+                "uri": "spotify:track:0000000000000000000000",
+                "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+                "action_id": "6601cb8de54f6e24677056e3db098104"
+              },
+              {
+                "id": "spotify:track:1111111111111111111111",
+                "kind": "track",
+                "label": "Play Now",
+                "button_label": "Play Now",
+                "action_style": "play_now",
+                "title": "Synthetic live recording",
+                "subtitle": "Synthetic performer",
+                "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+                "backend": "spotify_direct",
+                "provider": "spotify",
+                "music_backend_revision": 0,
+                "value": {
+                  "uri": "spotify:track:1111111111111111111111",
+                  "title": "Synthetic live recording",
+                  "subtitle": "Synthetic performer"
+                },
+                "uri": "spotify:track:1111111111111111111111",
+                "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+                "action_id": "e5abc138ab7e64d8b7613f59c056b2fc"
+              },
+              {
+                "id": "spotify:track:2222222222222222222222",
+                "kind": "track",
+                "label": "Play Now",
+                "button_label": "Play Now",
+                "action_style": "play_now",
+                "title": "Synthetic acoustic recording",
+                "subtitle": "Synthetic performer",
+                "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+                "backend": "spotify_direct",
+                "provider": "spotify",
+                "music_backend_revision": 0,
+                "value": {
+                  "uri": "spotify:track:2222222222222222222222",
+                  "title": "Synthetic acoustic recording",
+                  "subtitle": "Synthetic performer"
+                },
+                "uri": "spotify:track:2222222222222222222222",
+                "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+                "action_id": "6d5d3be790368fe0d240e59790320866"
+              }
+            ],
+            "session_turn": {
+              "turn_id": "turn-835360a0f4e456a297a213c76a4fd9bf",
+              "request_digest": "6f9c4b75c4a83ef341d5f86ccd7882e7874c69be640f84cc720db3f4499bc528",
+              "profile_id": "profile-a",
+              "context": {},
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "standalone-search",
+            "exchange_order": 1,
+            "items": [
+              {
+                "id": "spotify:track:0000000000000000000000",
+                "kind": "track",
+                "label": "Play Now",
+                "button_label": "Play Now",
+                "action_style": "play_now",
+                "title": "Synthetic studio recording",
+                "subtitle": "Synthetic performer",
+                "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+                "backend": "spotify_direct",
+                "provider": "spotify",
+                "music_backend_revision": 0,
+                "value": {
+                  "uri": "spotify:track:0000000000000000000000",
+                  "title": "Synthetic studio recording",
+                  "subtitle": "Synthetic performer"
+                },
+                "uri": "spotify:track:0000000000000000000000",
+                "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+                "action_id": "6601cb8de54f6e24677056e3db098104"
+              },
+              {
+                "id": "spotify:track:1111111111111111111111",
+                "kind": "track",
+                "label": "Play Now",
+                "button_label": "Play Now",
+                "action_style": "play_now",
+                "title": "Synthetic live recording",
+                "subtitle": "Synthetic performer",
+                "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+                "backend": "spotify_direct",
+                "provider": "spotify",
+                "music_backend_revision": 0,
+                "value": {
+                  "uri": "spotify:track:1111111111111111111111",
+                  "title": "Synthetic live recording",
+                  "subtitle": "Synthetic performer"
+                },
+                "uri": "spotify:track:1111111111111111111111",
+                "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+                "action_id": "e5abc138ab7e64d8b7613f59c056b2fc"
+              },
+              {
+                "id": "spotify:track:2222222222222222222222",
+                "kind": "track",
+                "label": "Play Now",
+                "button_label": "Play Now",
+                "action_style": "play_now",
+                "title": "Synthetic acoustic recording",
+                "subtitle": "Synthetic performer",
+                "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+                "backend": "spotify_direct",
+                "provider": "spotify",
+                "music_backend_revision": 0,
+                "value": {
+                  "uri": "spotify:track:2222222222222222222222",
+                  "title": "Synthetic acoustic recording",
+                  "subtitle": "Synthetic performer"
+                },
+                "uri": "spotify:track:2222222222222222222222",
+                "result_set_id": "choices-684b91a84a5447ef87dfce11de4d2e81",
+                "action_id": "6d5d3be790368fe0d240e59790320866"
+              }
+            ],
+            "text_source": "qualified_catalog_result",
+            "is_generated_text": false
+          }
+        ],
+        "history_revision": 7,
+        "clear_revision": 1,
+        "history_limit": 1000,
+        "history_trimmed_before": null,
+        "history_trimmed_count": 0,
+        "server_time": "2026-10-14T14:37:44.460422Z",
+        "media_delivery_basis": "current_response_only",
+        "owner_profile_id": "profile-a",
+        "client_message_id": "standalone-search",
+        "conversation": {
+          "schema_version": 1,
+          "turn_id": "turn-835360a0f4e456a297a213c76a4fd9bf",
+          "thread_id": "default",
+          "context": {},
+          "entry_ids": [],
+          "history_scope": "profile",
+          "input_type": "text",
+          "style": {
+            "persona": "home_dj",
+            "mood": "groove",
+            "mood_basis": "profile_or_default",
+            "language": "en",
+            "response_style": "balanced"
+          },
+          "model_source_basis": null,
+          "metrics": {
+            "agent_calls": 1,
+            "lookup_calls": 1,
+            "prompt_bytes": 5167
+          }
+        }
+      }
+    },
+    {
+      "case": "standalone-refine",
+      "path": "ask_dj/message",
+      "request": {
+        "client_message_id": "standalone-refine",
+        "text": "Rather a live version; search for one, do not play yet.",
+        "language": "en",
+        "audio_response": "never"
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "latency_ms": 2208,
+      "body": {
+        "success": true,
+        "text": "Found 3 tracks for live acoustic jazz songs.",
+        "dj_text": "Found 3 tracks for live acoustic jazz songs.",
+        "text_source": "qualified_catalog_result",
+        "is_generated_text": false,
+        "knowledge_basis": "qualified_provider_result_fields",
+        "query_basis": "model_assisted_user_request",
+        "items": [
+          {
+            "id": "spotify:track:0000000000000000000000",
+            "kind": "track",
+            "label": "Play Now",
+            "button_label": "Play Now",
+            "action_style": "play_now",
+            "title": "Synthetic studio recording",
+            "subtitle": "Synthetic performer",
+            "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+            "backend": "spotify_direct",
+            "provider": "spotify",
+            "music_backend_revision": 0,
+            "value": {
+              "uri": "spotify:track:0000000000000000000000",
+              "title": "Synthetic studio recording",
+              "subtitle": "Synthetic performer"
+            },
+            "uri": "spotify:track:0000000000000000000000",
+            "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+            "action_id": "d89622dfb92edd81760cfd514556e5fa"
+          },
+          {
+            "id": "spotify:track:1111111111111111111111",
+            "kind": "track",
+            "label": "Play Now",
+            "button_label": "Play Now",
+            "action_style": "play_now",
+            "title": "Synthetic live recording",
+            "subtitle": "Synthetic performer",
+            "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+            "backend": "spotify_direct",
+            "provider": "spotify",
+            "music_backend_revision": 0,
+            "value": {
+              "uri": "spotify:track:1111111111111111111111",
+              "title": "Synthetic live recording",
+              "subtitle": "Synthetic performer"
+            },
+            "uri": "spotify:track:1111111111111111111111",
+            "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+            "action_id": "8fd7ed24ce09d88218d8ff03a40cd6e1"
+          },
+          {
+            "id": "spotify:track:2222222222222222222222",
+            "kind": "track",
+            "label": "Play Now",
+            "button_label": "Play Now",
+            "action_style": "play_now",
+            "title": "Synthetic acoustic recording",
+            "subtitle": "Synthetic performer",
+            "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+            "backend": "spotify_direct",
+            "provider": "spotify",
+            "music_backend_revision": 0,
+            "value": {
+              "uri": "spotify:track:2222222222222222222222",
+              "title": "Synthetic acoustic recording",
+              "subtitle": "Synthetic performer"
+            },
+            "uri": "spotify:track:2222222222222222222222",
+            "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+            "action_id": "2474f5703844f2a7d5df5065ec6f1635"
+          }
+        ],
+        "playback_actions": [
+          {
+            "id": "spotify:track:0000000000000000000000",
+            "kind": "track",
+            "label": "Play Now",
+            "button_label": "Play Now",
+            "action_style": "play_now",
+            "title": "Synthetic studio recording",
+            "subtitle": "Synthetic performer",
+            "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+            "backend": "spotify_direct",
+            "provider": "spotify",
+            "music_backend_revision": 0,
+            "value": {
+              "uri": "spotify:track:0000000000000000000000",
+              "title": "Synthetic studio recording",
+              "subtitle": "Synthetic performer"
+            },
+            "uri": "spotify:track:0000000000000000000000",
+            "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+            "action_id": "d89622dfb92edd81760cfd514556e5fa"
+          },
+          {
+            "id": "spotify:track:1111111111111111111111",
+            "kind": "track",
+            "label": "Play Now",
+            "button_label": "Play Now",
+            "action_style": "play_now",
+            "title": "Synthetic live recording",
+            "subtitle": "Synthetic performer",
+            "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+            "backend": "spotify_direct",
+            "provider": "spotify",
+            "music_backend_revision": 0,
+            "value": {
+              "uri": "spotify:track:1111111111111111111111",
+              "title": "Synthetic live recording",
+              "subtitle": "Synthetic performer"
+            },
+            "uri": "spotify:track:1111111111111111111111",
+            "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+            "action_id": "8fd7ed24ce09d88218d8ff03a40cd6e1"
+          },
+          {
+            "id": "spotify:track:2222222222222222222222",
+            "kind": "track",
+            "label": "Play Now",
+            "button_label": "Play Now",
+            "action_style": "play_now",
+            "title": "Synthetic acoustic recording",
+            "subtitle": "Synthetic performer",
+            "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+            "backend": "spotify_direct",
+            "provider": "spotify",
+            "music_backend_revision": 0,
+            "value": {
+              "uri": "spotify:track:2222222222222222222222",
+              "title": "Synthetic acoustic recording",
+              "subtitle": "Synthetic performer"
+            },
+            "uri": "spotify:track:2222222222222222222222",
+            "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+            "action_id": "2474f5703844f2a7d5df5065ec6f1635"
+          }
+        ],
+        "sources": [
+          {
+            "source": "spotify_track_search",
+            "title": "Spotify",
+            "kind": "source"
+          }
+        ],
+        "result_set": {
+          "schema_version": 1,
+          "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+          "expires_in": 600.0,
+          "items": [
+            {
+              "id": "spotify:track:0000000000000000000000",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic studio recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:0000000000000000000000",
+                "title": "Synthetic studio recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:0000000000000000000000",
+              "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+              "action_id": "d89622dfb92edd81760cfd514556e5fa"
+            },
+            {
+              "id": "spotify:track:1111111111111111111111",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic live recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:1111111111111111111111",
+                "title": "Synthetic live recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:1111111111111111111111",
+              "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+              "action_id": "8fd7ed24ce09d88218d8ff03a40cd6e1"
+            },
+            {
+              "id": "spotify:track:2222222222222222222222",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic acoustic recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:2222222222222222222222",
+                "title": "Synthetic acoustic recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:2222222222222222222222",
+              "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+              "action_id": "2474f5703844f2a7d5df5065ec6f1635"
+            }
+          ]
+        },
+        "user_id": null,
+        "user_message": {
+          "id": "server-c376a2a1-c81b-4202-99d3-910f62794c36",
+          "client_message_id": "standalone-refine",
+          "role": "user",
+          "text": "Rather a live version; search for one, do not play yet.",
+          "created_at": "2026-10-14T14:37:46.667257Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "session_turn": {
+            "turn_id": "turn-0283c9e8c43d583fae96d2782916d712",
+            "request_digest": "5f59488b81aa662a078137a7d1ca04904bc55882a5b8efafb728a9d8357c0769",
+            "profile_id": "profile-a",
+            "context": {},
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "standalone-refine",
+          "exchange_order": 0
+        },
+        "assistant_message": {
+          "id": "server-f17dd6cb-fe30-478b-b298-d47998030f4f",
+          "client_message_id": "standalone-refine",
+          "role": "assistant",
+          "message_kind": "assistant",
+          "text": "Found 3 tracks for live acoustic jazz songs.",
+          "created_at": "2026-10-14T14:37:46.667297Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [
+            {
+              "source": "spotify_track_search",
+              "title": "Spotify",
+              "kind": "source"
+            }
+          ],
+          "playback_actions": [
+            {
+              "id": "spotify:track:0000000000000000000000",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic studio recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:0000000000000000000000",
+                "title": "Synthetic studio recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:0000000000000000000000",
+              "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+              "action_id": "d89622dfb92edd81760cfd514556e5fa"
+            },
+            {
+              "id": "spotify:track:1111111111111111111111",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic live recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:1111111111111111111111",
+                "title": "Synthetic live recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:1111111111111111111111",
+              "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+              "action_id": "8fd7ed24ce09d88218d8ff03a40cd6e1"
+            },
+            {
+              "id": "spotify:track:2222222222222222222222",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic acoustic recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:2222222222222222222222",
+                "title": "Synthetic acoustic recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:2222222222222222222222",
+              "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+              "action_id": "2474f5703844f2a7d5df5065ec6f1635"
+            }
+          ],
+          "session_turn": {
+            "turn_id": "turn-0283c9e8c43d583fae96d2782916d712",
+            "request_digest": "5f59488b81aa662a078137a7d1ca04904bc55882a5b8efafb728a9d8357c0769",
+            "profile_id": "profile-a",
+            "context": {},
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "standalone-refine",
+          "exchange_order": 1,
+          "items": [
+            {
+              "id": "spotify:track:0000000000000000000000",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic studio recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:0000000000000000000000",
+                "title": "Synthetic studio recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:0000000000000000000000",
+              "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+              "action_id": "d89622dfb92edd81760cfd514556e5fa"
+            },
+            {
+              "id": "spotify:track:1111111111111111111111",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic live recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:1111111111111111111111",
+                "title": "Synthetic live recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:1111111111111111111111",
+              "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+              "action_id": "8fd7ed24ce09d88218d8ff03a40cd6e1"
+            },
+            {
+              "id": "spotify:track:2222222222222222222222",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic acoustic recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:2222222222222222222222",
+                "title": "Synthetic acoustic recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:2222222222222222222222",
+              "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+              "action_id": "2474f5703844f2a7d5df5065ec6f1635"
+            }
+          ],
+          "text_source": "qualified_catalog_result",
+          "is_generated_text": false
+        },
+        "messages": [
+          {
+            "id": "server-c376a2a1-c81b-4202-99d3-910f62794c36",
+            "client_message_id": "standalone-refine",
+            "role": "user",
+            "text": "Rather a live version; search for one, do not play yet.",
+            "created_at": "2026-10-14T14:37:46.667257Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [],
+            "session_turn": {
+              "turn_id": "turn-0283c9e8c43d583fae96d2782916d712",
+              "request_digest": "5f59488b81aa662a078137a7d1ca04904bc55882a5b8efafb728a9d8357c0769",
+              "profile_id": "profile-a",
+              "context": {},
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "standalone-refine",
+            "exchange_order": 0
+          },
+          {
+            "id": "server-f17dd6cb-fe30-478b-b298-d47998030f4f",
+            "client_message_id": "standalone-refine",
+            "role": "assistant",
+            "message_kind": "assistant",
+            "text": "Found 3 tracks for live acoustic jazz songs.",
+            "created_at": "2026-10-14T14:37:46.667297Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [
+              {
+                "source": "spotify_track_search",
+                "title": "Spotify",
+                "kind": "source"
+              }
+            ],
+            "playback_actions": [
+              {
+                "id": "spotify:track:0000000000000000000000",
+                "kind": "track",
+                "label": "Play Now",
+                "button_label": "Play Now",
+                "action_style": "play_now",
+                "title": "Synthetic studio recording",
+                "subtitle": "Synthetic performer",
+                "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+                "backend": "spotify_direct",
+                "provider": "spotify",
+                "music_backend_revision": 0,
+                "value": {
+                  "uri": "spotify:track:0000000000000000000000",
+                  "title": "Synthetic studio recording",
+                  "subtitle": "Synthetic performer"
+                },
+                "uri": "spotify:track:0000000000000000000000",
+                "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+                "action_id": "d89622dfb92edd81760cfd514556e5fa"
+              },
+              {
+                "id": "spotify:track:1111111111111111111111",
+                "kind": "track",
+                "label": "Play Now",
+                "button_label": "Play Now",
+                "action_style": "play_now",
+                "title": "Synthetic live recording",
+                "subtitle": "Synthetic performer",
+                "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+                "backend": "spotify_direct",
+                "provider": "spotify",
+                "music_backend_revision": 0,
+                "value": {
+                  "uri": "spotify:track:1111111111111111111111",
+                  "title": "Synthetic live recording",
+                  "subtitle": "Synthetic performer"
+                },
+                "uri": "spotify:track:1111111111111111111111",
+                "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+                "action_id": "8fd7ed24ce09d88218d8ff03a40cd6e1"
+              },
+              {
+                "id": "spotify:track:2222222222222222222222",
+                "kind": "track",
+                "label": "Play Now",
+                "button_label": "Play Now",
+                "action_style": "play_now",
+                "title": "Synthetic acoustic recording",
+                "subtitle": "Synthetic performer",
+                "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+                "backend": "spotify_direct",
+                "provider": "spotify",
+                "music_backend_revision": 0,
+                "value": {
+                  "uri": "spotify:track:2222222222222222222222",
+                  "title": "Synthetic acoustic recording",
+                  "subtitle": "Synthetic performer"
+                },
+                "uri": "spotify:track:2222222222222222222222",
+                "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+                "action_id": "2474f5703844f2a7d5df5065ec6f1635"
+              }
+            ],
+            "session_turn": {
+              "turn_id": "turn-0283c9e8c43d583fae96d2782916d712",
+              "request_digest": "5f59488b81aa662a078137a7d1ca04904bc55882a5b8efafb728a9d8357c0769",
+              "profile_id": "profile-a",
+              "context": {},
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "standalone-refine",
+            "exchange_order": 1,
+            "items": [
+              {
+                "id": "spotify:track:0000000000000000000000",
+                "kind": "track",
+                "label": "Play Now",
+                "button_label": "Play Now",
+                "action_style": "play_now",
+                "title": "Synthetic studio recording",
+                "subtitle": "Synthetic performer",
+                "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+                "backend": "spotify_direct",
+                "provider": "spotify",
+                "music_backend_revision": 0,
+                "value": {
+                  "uri": "spotify:track:0000000000000000000000",
+                  "title": "Synthetic studio recording",
+                  "subtitle": "Synthetic performer"
+                },
+                "uri": "spotify:track:0000000000000000000000",
+                "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+                "action_id": "d89622dfb92edd81760cfd514556e5fa"
+              },
+              {
+                "id": "spotify:track:1111111111111111111111",
+                "kind": "track",
+                "label": "Play Now",
+                "button_label": "Play Now",
+                "action_style": "play_now",
+                "title": "Synthetic live recording",
+                "subtitle": "Synthetic performer",
+                "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+                "backend": "spotify_direct",
+                "provider": "spotify",
+                "music_backend_revision": 0,
+                "value": {
+                  "uri": "spotify:track:1111111111111111111111",
+                  "title": "Synthetic live recording",
+                  "subtitle": "Synthetic performer"
+                },
+                "uri": "spotify:track:1111111111111111111111",
+                "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+                "action_id": "8fd7ed24ce09d88218d8ff03a40cd6e1"
+              },
+              {
+                "id": "spotify:track:2222222222222222222222",
+                "kind": "track",
+                "label": "Play Now",
+                "button_label": "Play Now",
+                "action_style": "play_now",
+                "title": "Synthetic acoustic recording",
+                "subtitle": "Synthetic performer",
+                "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+                "backend": "spotify_direct",
+                "provider": "spotify",
+                "music_backend_revision": 0,
+                "value": {
+                  "uri": "spotify:track:2222222222222222222222",
+                  "title": "Synthetic acoustic recording",
+                  "subtitle": "Synthetic performer"
+                },
+                "uri": "spotify:track:2222222222222222222222",
+                "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+                "action_id": "2474f5703844f2a7d5df5065ec6f1635"
+              }
+            ],
+            "text_source": "qualified_catalog_result",
+            "is_generated_text": false
+          }
+        ],
+        "history_revision": 8,
+        "clear_revision": 1,
+        "history_limit": 1000,
+        "history_trimmed_before": null,
+        "history_trimmed_count": 0,
+        "server_time": "2026-10-14T14:37:46.668535Z",
+        "media_delivery_basis": "current_response_only",
+        "owner_profile_id": "profile-a",
+        "client_message_id": "standalone-refine",
+        "conversation": {
+          "schema_version": 1,
+          "turn_id": "turn-0283c9e8c43d583fae96d2782916d712",
+          "thread_id": "default",
+          "context": {},
+          "entry_ids": [],
+          "history_scope": "profile",
+          "input_type": "text",
+          "style": {
+            "persona": "home_dj",
+            "mood": "groove",
+            "mood_basis": "profile_or_default",
+            "language": "en",
+            "response_style": "balanced"
+          },
+          "model_source_basis": null,
+          "metrics": {
+            "agent_calls": 1,
+            "lookup_calls": 1,
+            "prompt_bytes": 5264
+          }
+        }
+      }
+    },
+    {
+      "case": "standalone-select",
+      "path": "ask_dj/message",
+      "request": {
+        "client_message_id": "standalone-select",
+        "text": "The second",
+        "language": "en",
+        "audio_response": "never",
+        "conversation_context": {
+          "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989"
+        }
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "latency_ms": 7,
+      "body": {
+        "success": true,
+        "text": "Selected; playback is unchanged.",
+        "dj_text": "Selected; playback is unchanged.",
+        "selected_action_id": "8fd7ed24ce09d88218d8ff03a40cd6e1",
+        "playback_actions": [
+          {
+            "id": "spotify:track:1111111111111111111111",
+            "kind": "track",
+            "label": "Play Now",
+            "button_label": "Play Now",
+            "action_style": "play_now",
+            "title": "Synthetic live recording",
+            "subtitle": "Synthetic performer",
+            "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+            "backend": "spotify_direct",
+            "provider": "spotify",
+            "music_backend_revision": 0,
+            "value": {
+              "uri": "spotify:track:1111111111111111111111",
+              "title": "Synthetic live recording",
+              "subtitle": "Synthetic performer"
+            },
+            "uri": "spotify:track:1111111111111111111111",
+            "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+            "action_id": "8fd7ed24ce09d88218d8ff03a40cd6e1"
+          }
+        ],
+        "items": [
+          {
+            "id": "spotify:track:1111111111111111111111",
+            "kind": "track",
+            "label": "Play Now",
+            "button_label": "Play Now",
+            "action_style": "play_now",
+            "title": "Synthetic live recording",
+            "subtitle": "Synthetic performer",
+            "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+            "backend": "spotify_direct",
+            "provider": "spotify",
+            "music_backend_revision": 0,
+            "value": {
+              "uri": "spotify:track:1111111111111111111111",
+              "title": "Synthetic live recording",
+              "subtitle": "Synthetic performer"
+            },
+            "uri": "spotify:track:1111111111111111111111",
+            "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+            "action_id": "8fd7ed24ce09d88218d8ff03a40cd6e1"
+          }
+        ],
+        "user_id": null,
+        "user_message": {
+          "id": "server-1d9aa6c9-40c1-49c6-9c46-92e5c6ab599d",
+          "client_message_id": "standalone-select",
+          "role": "user",
+          "text": "The second",
+          "created_at": "2026-10-14T14:37:46.673205Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "session_turn": {
+            "turn_id": "turn-9a99341ce65f514abc72d297086048f5",
+            "request_digest": "89a9f23e1ae3c609e939bcc7622b13e5a07ce6f0f4e32191bb582eb6b0920a72",
+            "profile_id": "profile-a",
+            "context": {
+              "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989"
+            },
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "standalone-select",
+          "exchange_order": 0
+        },
+        "assistant_message": {
+          "id": "server-f88efb95-a33d-4d53-ac84-b08a64d3e449",
+          "client_message_id": "standalone-select",
+          "role": "assistant",
+          "message_kind": "assistant",
+          "text": "Selected; playback is unchanged.",
+          "created_at": "2026-10-14T14:37:46.673243Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [
+            {
+              "id": "spotify:track:1111111111111111111111",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic live recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:1111111111111111111111",
+                "title": "Synthetic live recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:1111111111111111111111",
+              "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+              "action_id": "8fd7ed24ce09d88218d8ff03a40cd6e1"
+            }
+          ],
+          "session_turn": {
+            "turn_id": "turn-9a99341ce65f514abc72d297086048f5",
+            "request_digest": "89a9f23e1ae3c609e939bcc7622b13e5a07ce6f0f4e32191bb582eb6b0920a72",
+            "profile_id": "profile-a",
+            "context": {
+              "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989"
+            },
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "standalone-select",
+          "exchange_order": 1,
+          "items": [
+            {
+              "id": "spotify:track:1111111111111111111111",
+              "kind": "track",
+              "label": "Play Now",
+              "button_label": "Play Now",
+              "action_style": "play_now",
+              "title": "Synthetic live recording",
+              "subtitle": "Synthetic performer",
+              "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+              "backend": "spotify_direct",
+              "provider": "spotify",
+              "music_backend_revision": 0,
+              "value": {
+                "uri": "spotify:track:1111111111111111111111",
+                "title": "Synthetic live recording",
+                "subtitle": "Synthetic performer"
+              },
+              "uri": "spotify:track:1111111111111111111111",
+              "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+              "action_id": "8fd7ed24ce09d88218d8ff03a40cd6e1"
+            }
+          ]
+        },
+        "messages": [
+          {
+            "id": "server-1d9aa6c9-40c1-49c6-9c46-92e5c6ab599d",
+            "client_message_id": "standalone-select",
+            "role": "user",
+            "text": "The second",
+            "created_at": "2026-10-14T14:37:46.673205Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [],
+            "session_turn": {
+              "turn_id": "turn-9a99341ce65f514abc72d297086048f5",
+              "request_digest": "89a9f23e1ae3c609e939bcc7622b13e5a07ce6f0f4e32191bb582eb6b0920a72",
+              "profile_id": "profile-a",
+              "context": {
+                "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989"
+              },
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "standalone-select",
+            "exchange_order": 0
+          },
+          {
+            "id": "server-f88efb95-a33d-4d53-ac84-b08a64d3e449",
+            "client_message_id": "standalone-select",
+            "role": "assistant",
+            "message_kind": "assistant",
+            "text": "Selected; playback is unchanged.",
+            "created_at": "2026-10-14T14:37:46.673243Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [
+              {
+                "id": "spotify:track:1111111111111111111111",
+                "kind": "track",
+                "label": "Play Now",
+                "button_label": "Play Now",
+                "action_style": "play_now",
+                "title": "Synthetic live recording",
+                "subtitle": "Synthetic performer",
+                "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+                "backend": "spotify_direct",
+                "provider": "spotify",
+                "music_backend_revision": 0,
+                "value": {
+                  "uri": "spotify:track:1111111111111111111111",
+                  "title": "Synthetic live recording",
+                  "subtitle": "Synthetic performer"
+                },
+                "uri": "spotify:track:1111111111111111111111",
+                "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+                "action_id": "8fd7ed24ce09d88218d8ff03a40cd6e1"
+              }
+            ],
+            "session_turn": {
+              "turn_id": "turn-9a99341ce65f514abc72d297086048f5",
+              "request_digest": "89a9f23e1ae3c609e939bcc7622b13e5a07ce6f0f4e32191bb582eb6b0920a72",
+              "profile_id": "profile-a",
+              "context": {
+                "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989"
+              },
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "standalone-select",
+            "exchange_order": 1,
+            "items": [
+              {
+                "id": "spotify:track:1111111111111111111111",
+                "kind": "track",
+                "label": "Play Now",
+                "button_label": "Play Now",
+                "action_style": "play_now",
+                "title": "Synthetic live recording",
+                "subtitle": "Synthetic performer",
+                "reason": "Aanbevolen op basis van je Ask DJ vraag.",
+                "backend": "spotify_direct",
+                "provider": "spotify",
+                "music_backend_revision": 0,
+                "value": {
+                  "uri": "spotify:track:1111111111111111111111",
+                  "title": "Synthetic live recording",
+                  "subtitle": "Synthetic performer"
+                },
+                "uri": "spotify:track:1111111111111111111111",
+                "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989",
+                "action_id": "8fd7ed24ce09d88218d8ff03a40cd6e1"
+              }
+            ]
+          }
+        ],
+        "history_revision": 9,
+        "clear_revision": 1,
+        "history_limit": 1000,
+        "history_trimmed_before": null,
+        "history_trimmed_count": 0,
+        "server_time": "2026-10-14T14:37:46.675790Z",
+        "media_delivery_basis": "current_response_only",
+        "owner_profile_id": "profile-a",
+        "client_message_id": "standalone-select",
+        "conversation": {
+          "schema_version": 1,
+          "turn_id": "turn-9a99341ce65f514abc72d297086048f5",
+          "thread_id": "default",
+          "context": {
+            "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989"
+          },
+          "entry_ids": [],
+          "history_scope": "profile",
+          "input_type": "text",
+          "style": {
+            "persona": "home_dj",
+            "mood": "groove",
+            "mood_basis": "profile_or_default",
+            "language": "en",
+            "response_style": "balanced"
+          },
+          "model_source_basis": null,
+          "metrics": {
+            "agent_calls": 0,
+            "lookup_calls": 0,
+            "prompt_bytes": 0
+          }
+        }
+      }
+    },
+    {
+      "case": "standalone-play",
+      "path": "ask_dj/message",
+      "request": {
+        "client_message_id": "standalone-play",
+        "text": "Play that",
+        "language": "en",
+        "audio_response": "never",
+        "conversation_context": {
+          "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989"
+        }
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "latency_ms": 8,
+      "body": {
+        "success": true,
+        "message": "Here is Synthetic live recording by Synthetic performer · Synthetic release.",
+        "text": "Here is Synthetic live recording by Synthetic performer · Synthetic release.",
+        "dj_text": "Here is Synthetic live recording by Synthetic performer · Synthetic release.",
+        "text_source": "fallback",
+        "is_generated_text": false,
+        "action": "spotify_start_recommendation",
+        "action_outcome": {
+          "state": "confirmed",
+          "readback_confirmed": true
+        },
+        "playback": {
+          "has_playback": true,
+          "is_playing": true,
+          "title": "Synthetic live recording",
+          "track_name": "Synthetic live recording",
+          "uri": "spotify:track:1111111111111111111111",
+          "current_uri": "spotify:track:1111111111111111111111",
+          "context": {
+            "type": "",
+            "uri": "",
+            "href": ""
+          },
+          "context_uri": "",
+          "queue_context": "",
+          "artist": "Synthetic performer",
+          "artist_name": "Synthetic performer",
+          "artist_ids": [
+            "aaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          "album_name": "Synthetic release",
+          "album_uri": "",
+          "release_date": "",
+          "release_date_precision": "",
+          "isrc": "NLABC2600001",
+          "album_image_url": "",
+          "media_image_url": "",
+          "progress_ms": 0,
+          "duration_ms": 300000,
+          "volume_percent": 20,
+          "shuffle": false,
+          "repeat_state": "off",
+          "device": {
+            "id": "own-speaker",
+            "name": "Owned fixture speaker",
+            "type": "",
+            "active": true,
+            "supports_volume": true,
+            "volume_percent": 20
+          },
+          "is_liked": false,
+          "favorite_status": false,
+          "genres": [
+            "rock"
+          ]
+        },
+        "dj_response": {
+          "success": true,
+          "delivered": false,
+          "displayed": false,
+          "spoken": false,
+          "audio_url_value": null,
+          "audio_type": null
+        },
+        "audio_type": null,
+        "assistant_message": {
+          "id": "server-8a44a62e-55ba-4671-a44e-2fddee0f098b",
+          "client_message_id": "standalone-play",
+          "role": "assistant",
+          "message_kind": "assistant",
+          "text": "Here is Synthetic live recording by Synthetic performer · Synthetic release.",
+          "created_at": "2026-10-14T14:37:46.690029Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "action": "spotify_start_recommendation",
+          "session_turn": {
+            "turn_id": "turn-a90281dc9ebd5b868cd6d68c4e27e1b3",
+            "request_digest": "0ea716aee1ff3f0176e015eb978f7d2afb90dc929970c789cfd037970f1981f9",
+            "profile_id": "profile-a",
+            "context": {
+              "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989"
+            },
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": true,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "standalone-play",
+          "exchange_order": 1,
+          "items": [],
+          "origin": "play_now",
+          "text_source": "fallback",
+          "is_generated_text": false,
+          "action_outcome": {
+            "state": "confirmed",
+            "readback_confirmed": true
+          }
+        },
+        "recommendation": {
+          "uri": "spotify:track:1111111111111111111111",
+          "kind": "track",
+          "title": "Synthetic live recording",
+          "subtitle": "Synthetic performer",
+          "reason": "Aanbevolen op basis van je Ask DJ vraag."
+        },
+        "music_backend": "spotify_direct",
+        "music_backend_name": "Spotify Direct",
+        "music_backend_available": true,
+        "music_backend_revision": 0,
+        "music_backend_capabilities": {
+          "supports_search": true,
+          "supports_playlists": true,
+          "supports_queue": true,
+          "supports_outputs": true,
+          "supports_volume": true,
+          "supports_favorites": true,
+          "supports_recently_played": true,
+          "supports_top_items": true,
+          "supports_recommendations": true,
+          "supports_library_profile": true,
+          "supports_shuffle": true,
+          "supports_repeat": true,
+          "supports_seek": true,
+          "supports_transfer_or_output_selection": true
+        },
+        "music_backend_observation_capabilities": {
+          "supports_current_playback_status": true,
+          "supports_media_change_observation": true,
+          "observation_mode_event": false,
+          "observation_mode_polling": true,
+          "supports_playback_instance_identity": false,
+          "supports_continue_stage2": false
+        },
+        "music_target_player": {},
+        "music_backend_error": null,
+        "selected_action_id": "8fd7ed24ce09d88218d8ff03a40cd6e1",
+        "user_id": null,
+        "user_message": {
+          "id": "server-a68b7c63-3d94-4433-9f7e-b07fb405ecde",
+          "client_message_id": "standalone-play",
+          "role": "user",
+          "text": "Play that",
+          "created_at": "2026-10-14T14:37:46.689992Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "session_turn": {
+            "turn_id": "turn-a90281dc9ebd5b868cd6d68c4e27e1b3",
+            "request_digest": "0ea716aee1ff3f0176e015eb978f7d2afb90dc929970c789cfd037970f1981f9",
+            "profile_id": "profile-a",
+            "context": {
+              "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989"
+            },
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": true,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "standalone-play",
+          "exchange_order": 0
+        },
+        "messages": [
+          {
+            "id": "server-a68b7c63-3d94-4433-9f7e-b07fb405ecde",
+            "client_message_id": "standalone-play",
+            "role": "user",
+            "text": "Play that",
+            "created_at": "2026-10-14T14:37:46.689992Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [],
+            "session_turn": {
+              "turn_id": "turn-a90281dc9ebd5b868cd6d68c4e27e1b3",
+              "request_digest": "0ea716aee1ff3f0176e015eb978f7d2afb90dc929970c789cfd037970f1981f9",
+              "profile_id": "profile-a",
+              "context": {
+                "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989"
+              },
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": true,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "standalone-play",
+            "exchange_order": 0
+          },
+          {
+            "id": "server-8a44a62e-55ba-4671-a44e-2fddee0f098b",
+            "client_message_id": "standalone-play",
+            "role": "assistant",
+            "message_kind": "assistant",
+            "text": "Here is Synthetic live recording by Synthetic performer · Synthetic release.",
+            "created_at": "2026-10-14T14:37:46.690029Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [],
+            "action": "spotify_start_recommendation",
+            "session_turn": {
+              "turn_id": "turn-a90281dc9ebd5b868cd6d68c4e27e1b3",
+              "request_digest": "0ea716aee1ff3f0176e015eb978f7d2afb90dc929970c789cfd037970f1981f9",
+              "profile_id": "profile-a",
+              "context": {
+                "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989"
+              },
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": true,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "standalone-play",
+            "exchange_order": 1,
+            "items": [],
+            "origin": "play_now",
+            "text_source": "fallback",
+            "is_generated_text": false,
+            "action_outcome": {
+              "state": "confirmed",
+              "readback_confirmed": true
+            }
+          }
+        ],
+        "history_revision": 11,
+        "clear_revision": 1,
+        "history_limit": 1000,
+        "history_trimmed_before": null,
+        "history_trimmed_count": 0,
+        "server_time": "2026-10-14T14:37:46.691404Z",
+        "media_delivery_basis": "current_response_only",
+        "owner_profile_id": "profile-a",
+        "client_message_id": "standalone-play",
+        "conversation": {
+          "schema_version": 1,
+          "turn_id": "turn-a90281dc9ebd5b868cd6d68c4e27e1b3",
+          "thread_id": "default",
+          "context": {
+            "result_set_id": "choices-bde225599e494e04ac32d6b50b2d6989"
+          },
+          "entry_ids": [],
+          "history_scope": "profile",
+          "input_type": "text",
+          "style": {
+            "persona": "home_dj",
+            "mood": "groove",
+            "mood_basis": "profile_or_default",
+            "language": "en",
+            "response_style": "balanced"
+          },
+          "model_source_basis": null,
+          "metrics": {
+            "agent_calls": 0,
+            "lookup_calls": 0,
+            "prompt_bytes": 0
+          }
+        }
+      }
+    },
+    {
+      "case": "active-credit",
+      "path": "ask_dj/message",
+      "request": {
+        "client_message_id": "active-credit",
+        "text": "Who is that composer?",
+        "language": "en",
+        "audio_response": "never",
+        "conversation_context": {
+          "session_id": "session-4d9e744ebf9d47e5ab6d9cf72b2de311",
+          "selected_moment": {
+            "session_id": "session-4d9e744ebf9d47e5ab6d9cf72b2de311",
+            "moment_id": "moment-0bc67373d4374c17ade4430fdcae5d72"
+          }
+        }
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "latency_ms": 2256,
+      "body": {
+        "success": true,
+        "text": "The composer is Brian Eno, according to the MusicBrainz credit for this recording’s composition. That identifies him as the writer of the composition, not necessarily as its performer.",
+        "dj_text": "The composer is Brian Eno, according to the MusicBrainz credit for this recording’s composition. That identifies him as the writer of the composition, not necessarily as its performer.",
+        "message": "The composer is Brian Eno, according to the MusicBrainz credit for this recording’s composition. That identifies him as the writer of the composition, not necessarily as its performer.",
+        "text_source": "generated",
+        "is_generated_text": true,
+        "model_processing_basis": "qualified_dialogue_v1",
+        "knowledge_basis": "source_context_plus_general_knowledge",
+        "links": [
+          {
+            "url": "https://musicbrainz.org/work/22222222-2222-2222-2222-222222222222",
+            "title": "MusicBrainz",
+            "kind": "source",
+            "source": "MusicBrainz",
+            "license": "CC0-1.0",
+            "claim_scope": "qualified_credit_only"
+          }
+        ],
+        "sources": [
+          {
+            "source": "MusicBrainz",
+            "title": "MusicBrainz",
+            "kind": "source",
+            "provider": "MusicBrainz",
+            "license": "CC0-1.0",
+            "claim_scope": "qualified_credit_only",
+            "url": "https://musicbrainz.org/work/22222222-2222-2222-2222-222222222222"
+          }
+        ],
+        "playback_actions": [],
+        "confirmation_actions": [],
+        "error": null,
+        "intent": {
+          "category": "informational",
+          "intent": "ask_music_info"
+        },
+        "items": [],
+        "action": null,
+        "music_dna_key": "profile:profile-a",
+        "assistant_message": {
+          "role": "assistant",
+          "message_kind": "assistant",
+          "origin": "",
+          "text": "The composer is Brian Eno, according to the MusicBrainz credit for this recording’s composition. That identifies him as the writer of the composition, not necessarily as its performer.",
+          "text_source": "generated",
+          "is_generated_text": true,
+          "links": [
+            {
+              "url": "https://musicbrainz.org/work/22222222-2222-2222-2222-222222222222",
+              "title": "MusicBrainz",
+              "kind": "source",
+              "source": "MusicBrainz",
+              "license": "CC0-1.0",
+              "claim_scope": "qualified_credit_only"
+            }
+          ],
+          "sources": [
+            {
+              "source": "MusicBrainz",
+              "title": "MusicBrainz",
+              "kind": "source",
+              "provider": "MusicBrainz",
+              "license": "CC0-1.0",
+              "claim_scope": "qualified_credit_only",
+              "url": "https://musicbrainz.org/work/22222222-2222-2222-2222-222222222222"
+            }
+          ],
+          "items": [],
+          "playback_actions": [],
+          "confirmation_actions": [],
+          "announcement": {
+            "output": "client_device",
+            "delivery": "client_device",
+            "audio_response_effective": "unavailable",
+            "audio_type": null,
+            "target": null,
+            "warnings": []
+          }
+        },
+        "announcement": {
+          "output": "client_device",
+          "delivery": "client_device",
+          "audio_response_effective": "unavailable",
+          "audio_type": null,
+          "target": null,
+          "warnings": []
+        },
+        "history_persisted": false,
+        "user_id": null,
+        "owner_profile_id": "profile-a",
+        "client_message_id": "active-credit",
+        "conversation": {
+          "schema_version": 1,
+          "turn_id": "turn-dec6441f586e5320aad7d42a03e2a0f6",
+          "thread_id": "default",
+          "context": {
+            "session_id": "session-4d9e744ebf9d47e5ab6d9cf72b2de311",
+            "selected_moment": {
+              "session_id": "session-4d9e744ebf9d47e5ab6d9cf72b2de311",
+              "moment_id": "moment-0bc67373d4374c17ade4430fdcae5d72"
+            }
+          },
+          "entry_ids": [],
+          "history_scope": "private_ephemeral",
+          "input_type": "text",
+          "style": {
+            "persona": "radio_dj",
+            "mood": "groove",
+            "mood_basis": "confirmed_session",
+            "language": "en",
+            "response_style": "balanced"
+          },
+          "model_source_basis": "cc0_normalized_fields_v1",
+          "metrics": {
+            "agent_calls": 1,
+            "lookup_calls": 0,
+            "prompt_bytes": 5555
+          }
+        }
+      }
+    },
+    {
+      "case": "active-detail-miss",
+      "path": "track_insight",
+      "request": {
+        "track_insight_target": {
+          "schema_version": 1,
+          "session_id": "session-4d9e744ebf9d47e5ab6d9cf72b2de311",
+          "moment_id": "moment-0bc67373d4374c17ade4430fdcae5d72",
+          "action_id": "insight-moment-0bc67373d4374c17ade4430fdcae5d72"
+        },
+        "language": "en"
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "latency_ms": 5371,
+      "body": {
+        "id": "track_insight_c36a1d4bc78eee2b136e639c",
+        "created_at": "2026-10-14T14:38:47.300294+00:00",
+        "source": "moment_detail",
+        "language": "en",
+        "mood_context": {
+          "value": null,
+          "zone": "groove",
+          "basis": "confirmed_session"
+        },
+        "track": {
+          "title": "Synthetic live recording",
+          "artist": "Synthetic performer",
+          "album": "Synthetic release",
+          "duration_ms": 300000,
+          "uri": "spotify:track:1111111111111111111111",
+          "media_identity": "spotify:track:1111111111111111111111",
+          "backend": "spotify_direct",
+          "subject_mode": "explicit",
+          "is_playing": false,
+          "progress_ms": null
+        },
+        "analysis": {
+          "summary": "{'en': 'The composition behind this recording credits Brian Eno as composer.'}",
+          "full_text": "{'en': 'The qualified credit identifies Brian Eno as the composer of the composition behind this recording. A composer credit points to authorship of the composition; by itself, it does not identify who performs this recording or describe how it sounds. The supplied mood is “groove.” Any connection between that mood and the composition’s meaning is an interpretation, not something established by the credit.'}",
+          "listening_cues": [],
+          "genre": null,
+          "subgenre": null,
+          "mood": null,
+          "vibe": null,
+          "texture": null,
+          "emotional_tone": null,
+          "energy": null,
+          "danceability": null,
+          "intensity": null,
+          "confidence": null,
+          "production_notes": [],
+          "instrumentation": [],
+          "arrangement_notes": [],
+          "similar_tracks": [],
+          "basis": "qualified_credit_and_interpretation_v1",
+          "measured_audio": false,
+          "verified_context": "The composition behind this recording credits Brian Eno.",
+          "source_attribution": {
+            "provider": "MusicBrainz",
+            "url": "https://musicbrainz.org/work/22222222-2222-2222-2222-222222222222",
+            "license": "CC0-1.0"
+          }
+        },
+        "visual_profile": {
+          "palette": [
+            "#2a2f2e",
+            "#69365f",
+            "#b9e515"
+          ],
+          "motion_style": "flowing",
+          "pulse_speed": 0.625,
+          "wave_amplitude": 0.6,
+          "particle_density": 0.575,
+          "glow_strength": 0.6,
+          "spectrum_bias": "balanced",
+          "seed": "2a2f2e69365fb9e515572bfd9883bc83da2efadf92f7c9fe7be350a8147a74dc",
+          "basis": "decorative_unmeasured_v1",
+          "audio_reactive": false
+        },
+        "cache": {
+          "hit": false,
+          "key": "c36a1d4bc78eee2b136e639c"
+        },
+        "subject": {
+          "mode": "explicit",
+          "reference": {
+            "schema_version": 1,
+            "session_id": "session-4d9e744ebf9d47e5ab6d9cf72b2de311",
+            "moment_id": "moment-0bc67373d4374c17ade4430fdcae5d72",
+            "action_id": "insight-moment-0bc67373d4374c17ade4430fdcae5d72"
+          },
+          "media_identity": "spotify:track:1111111111111111111111",
+          "expires_in": 581
+        }
+      }
+    },
+    {
+      "case": "voice-followup",
+      "path": "voice",
+      "request": {
+        "input": "synthetic_wav"
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "body": {
+        "success": true,
+        "text": "Miles Davis’s trumpet phrasing was often spare and economical: he used space, short motifs, and subtle shifts in timing rather than filling every measure with notes. His muted tone and restrained vibrato also gave his lines a distinctive, understated character.",
+        "dj_text": "Miles Davis’s trumpet phrasing was often spare and economical: he used space, short motifs, and subtle shifts in timing rather than filling every measure with notes. His muted tone and restrained vibrato also gave his lines a distinctive, understated character.",
+        "message": "Miles Davis’s trumpet phrasing was often spare and economical: he used space, short motifs, and subtle shifts in timing rather than filling every measure with notes. His muted tone and restrained vibrato also gave his lines a distinctive, understated character.",
+        "text_source": "generated",
+        "is_generated_text": true,
+        "model_processing_basis": "qualified_dialogue_v1",
+        "knowledge_basis": "general_model_knowledge",
+        "links": [],
+        "sources": [],
+        "playback_actions": [],
+        "confirmation_actions": [],
+        "error": null,
+        "intent": {
+          "category": "informational",
+          "intent": "ask_music_info"
+        },
+        "items": [],
+        "action": null,
+        "music_dna_key": "profile:profile-a",
+        "assistant_message": {
+          "id": "server-d3a7241c-9caa-4b84-8747-707f37eba3af",
+          "client_message_id": "voice-followup",
+          "role": "assistant",
+          "message_kind": "assistant",
+          "text": "Miles Davis’s trumpet phrasing was often spare and economical: he used space, short motifs, and subtle shifts in timing rather than filling every measure with notes. His muted tone and restrained vibrato also gave his lines a distinctive, understated character.",
+          "created_at": "2026-10-14T14:40:50.501944Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "intent": {
+            "category": "informational",
+            "intent": "ask_music_info"
+          },
+          "session_turn": {
+            "turn_id": "turn-04ea25a23eb556c6a8b310d04915a01a",
+            "request_digest": "065b27faf9c919e667d01de0774fc12efc7b2246870e617f765fba7a184aae47",
+            "profile_id": "profile-a",
+            "context": {
+              "session_id": null
+            },
+            "captured_playback_item_id": "",
+            "input_type": "voice",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "voice-followup",
+          "exchange_order": 1,
+          "confirmation_actions": [],
+          "items": [],
+          "origin": "",
+          "text_source": "generated",
+          "is_generated_text": true
+        },
+        "announcement": {
+          "output": "client_device",
+          "delivery": "client_device",
+          "audio_response_effective": "unavailable",
+          "audio_type": null,
+          "target": null,
+          "warnings": []
+        },
+        "user_id": null,
+        "user_message": {
+          "id": "server-913a745a-972b-48cc-a7fd-7b28b7f2be49",
+          "client_message_id": "voice-followup",
+          "role": "user",
+          "text": "What distinguished his trumpet phrasing?",
+          "created_at": "2026-10-14T14:40:50.501898Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "session_turn": {
+            "turn_id": "turn-04ea25a23eb556c6a8b310d04915a01a",
+            "request_digest": "065b27faf9c919e667d01de0774fc12efc7b2246870e617f765fba7a184aae47",
+            "profile_id": "profile-a",
+            "context": {
+              "session_id": null
+            },
+            "captured_playback_item_id": "",
+            "input_type": "voice",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "voice-followup",
+          "exchange_order": 0
+        },
+        "messages": [
+          {
+            "id": "server-913a745a-972b-48cc-a7fd-7b28b7f2be49",
+            "client_message_id": "voice-followup",
+            "role": "user",
+            "text": "What distinguished his trumpet phrasing?",
+            "created_at": "2026-10-14T14:40:50.501898Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [],
+            "session_turn": {
+              "turn_id": "turn-04ea25a23eb556c6a8b310d04915a01a",
+              "request_digest": "065b27faf9c919e667d01de0774fc12efc7b2246870e617f765fba7a184aae47",
+              "profile_id": "profile-a",
+              "context": {
+                "session_id": null
+              },
+              "captured_playback_item_id": "",
+              "input_type": "voice",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "voice-followup",
+            "exchange_order": 0
+          },
+          {
+            "id": "server-d3a7241c-9caa-4b84-8747-707f37eba3af",
+            "client_message_id": "voice-followup",
+            "role": "assistant",
+            "message_kind": "assistant",
+            "text": "Miles Davis’s trumpet phrasing was often spare and economical: he used space, short motifs, and subtle shifts in timing rather than filling every measure with notes. His muted tone and restrained vibrato also gave his lines a distinctive, understated character.",
+            "created_at": "2026-10-14T14:40:50.501944Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [],
+            "intent": {
+              "category": "informational",
+              "intent": "ask_music_info"
+            },
+            "session_turn": {
+              "turn_id": "turn-04ea25a23eb556c6a8b310d04915a01a",
+              "request_digest": "065b27faf9c919e667d01de0774fc12efc7b2246870e617f765fba7a184aae47",
+              "profile_id": "profile-a",
+              "context": {
+                "session_id": null
+              },
+              "captured_playback_item_id": "",
+              "input_type": "voice",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "voice-followup",
+            "exchange_order": 1,
+            "confirmation_actions": [],
+            "items": [],
+            "origin": "",
+            "text_source": "generated",
+            "is_generated_text": true
+          }
+        ],
+        "history_revision": 75,
+        "clear_revision": 3,
+        "history_limit": 1000,
+        "history_trimmed_before": null,
+        "history_trimmed_count": 0,
+        "server_time": "2026-10-14T14:40:50.504467Z",
+        "media_delivery_basis": "current_response_only",
+        "owner_profile_id": "profile-a",
+        "client_message_id": "voice-followup",
+        "conversation": {
+          "schema_version": 1,
+          "turn_id": "turn-04ea25a23eb556c6a8b310d04915a01a",
+          "thread_id": "default",
+          "context": {
+            "session_id": null
+          },
+          "entry_ids": [],
+          "history_scope": "profile",
+          "input_type": "voice",
+          "style": {
+            "persona": "home_dj",
+            "mood": "groove",
+            "mood_basis": "profile_or_default",
+            "language": "en",
+            "response_style": "balanced"
+          },
+          "model_source_basis": null,
+          "metrics": {
+            "agent_calls": 1,
+            "lookup_calls": 0,
+            "prompt_bytes": 5656
+          }
+        },
+        "transcript": "What distinguished his trumpet phrasing?",
+        "recognized_text": "What distinguished his trumpet phrasing?"
+      }
+    },
+    {
+      "case": "voice-provider-failure",
+      "path": "voice",
+      "request": {
+        "input": "synthetic_wav"
+      },
+      "status": 422,
+      "cache_control": "no-store",
+      "body": {
+        "success": false,
+        "error": "stt_failed",
+        "message": "Explicit speech-provider failure fixture"
+      }
+    },
+    {
+      "case": "foreign-profile",
+      "path": "ask_dj/message",
+      "request": {
+        "text": "Who is Brian Eno?",
+        "client_message_id": "foreign-profile",
+        "profile_id": "profile-b"
+      },
+      "status": 403,
+      "cache_control": "no-store",
+      "latency_ms": 1,
+      "body": {
+        "success": false,
+        "error": "profile_device_mismatch",
+        "message": "profile_device_mismatch"
+      }
+    },
+    {
+      "case": "model-clear-race",
+      "path": "ask_dj/message",
+      "request": {
+        "text": "Who is Brian Eno?",
+        "client_message_id": "model-clear-race",
+        "audio_response": "never"
+      },
+      "status": 409,
+      "cache_control": "no-store",
+      "latency_ms": 1366,
+      "body": {
+        "success": false,
+        "error": "conversation_history_changed",
+        "message": "conversation_history_changed"
+      }
+    },
+    {
+      "case": "real-duplicate-first",
+      "path": "ask_dj/message",
+      "request": {
+        "text": "Who is Miles Davis?",
+        "client_message_id": "real-duplicate",
+        "audio_response": "never"
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "latency_ms": 1604,
+      "body": {
+        "success": true,
+        "text": "Miles Davis was an American jazz trumpeter, composer and bandleader, widely regarded as one of jazz’s most influential musicians. Across a career spanning several decades, he helped shape styles including bebop, cool jazz, modal jazz and jazz fusion.",
+        "dj_text": "Miles Davis was an American jazz trumpeter, composer and bandleader, widely regarded as one of jazz’s most influential musicians. Across a career spanning several decades, he helped shape styles including bebop, cool jazz, modal jazz and jazz fusion.",
+        "message": "Miles Davis was an American jazz trumpeter, composer and bandleader, widely regarded as one of jazz’s most influential musicians. Across a career spanning several decades, he helped shape styles including bebop, cool jazz, modal jazz and jazz fusion.",
+        "text_source": "generated",
+        "is_generated_text": true,
+        "model_processing_basis": "qualified_dialogue_v1",
+        "knowledge_basis": "general_model_knowledge",
+        "links": [],
+        "sources": [],
+        "playback_actions": [],
+        "confirmation_actions": [],
+        "error": null,
+        "intent": {
+          "category": "informational",
+          "intent": "ask_music_info"
+        },
+        "items": [],
+        "action": null,
+        "music_dna_key": "profile:profile-a",
+        "assistant_message": {
+          "id": "server-9eee74bb-36a7-4dc5-95d4-0f3096ebe1ef",
+          "client_message_id": "real-duplicate",
+          "role": "assistant",
+          "message_kind": "assistant",
+          "text": "Miles Davis was an American jazz trumpeter, composer and bandleader, widely regarded as one of jazz’s most influential musicians. Across a career spanning several decades, he helped shape styles including bebop, cool jazz, modal jazz and jazz fusion.",
+          "created_at": "2026-10-14T14:40:53.490584Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "intent": {
+            "category": "informational",
+            "intent": "ask_music_info"
+          },
+          "session_turn": {
+            "turn_id": "turn-27a57f83000f592a989d7064cdd70350",
+            "request_digest": "13b132d0590a2c4af39fc1c0f8eec6deff40576d0c80cfc6d64389f3ad58cca0",
+            "profile_id": "profile-a",
+            "context": {},
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "real-duplicate",
+          "exchange_order": 1,
+          "confirmation_actions": [],
+          "items": [],
+          "origin": "",
+          "text_source": "generated",
+          "is_generated_text": true
+        },
+        "announcement": {
+          "output": "client_device",
+          "delivery": "client_device",
+          "audio_response_effective": "unavailable",
+          "audio_type": null,
+          "target": null,
+          "warnings": []
+        },
+        "user_id": null,
+        "user_message": {
+          "id": "server-5386ac02-d844-47ce-8b5e-55b3121be51d",
+          "client_message_id": "real-duplicate",
+          "role": "user",
+          "text": "Who is Miles Davis?",
+          "created_at": "2026-10-14T14:40:53.490539Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "session_turn": {
+            "turn_id": "turn-27a57f83000f592a989d7064cdd70350",
+            "request_digest": "13b132d0590a2c4af39fc1c0f8eec6deff40576d0c80cfc6d64389f3ad58cca0",
+            "profile_id": "profile-a",
+            "context": {},
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "real-duplicate",
+          "exchange_order": 0
+        },
+        "messages": [
+          {
+            "id": "server-5386ac02-d844-47ce-8b5e-55b3121be51d",
+            "client_message_id": "real-duplicate",
+            "role": "user",
+            "text": "Who is Miles Davis?",
+            "created_at": "2026-10-14T14:40:53.490539Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [],
+            "session_turn": {
+              "turn_id": "turn-27a57f83000f592a989d7064cdd70350",
+              "request_digest": "13b132d0590a2c4af39fc1c0f8eec6deff40576d0c80cfc6d64389f3ad58cca0",
+              "profile_id": "profile-a",
+              "context": {},
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "real-duplicate",
+            "exchange_order": 0
+          },
+          {
+            "id": "server-9eee74bb-36a7-4dc5-95d4-0f3096ebe1ef",
+            "client_message_id": "real-duplicate",
+            "role": "assistant",
+            "message_kind": "assistant",
+            "text": "Miles Davis was an American jazz trumpeter, composer and bandleader, widely regarded as one of jazz’s most influential musicians. Across a career spanning several decades, he helped shape styles including bebop, cool jazz, modal jazz and jazz fusion.",
+            "created_at": "2026-10-14T14:40:53.490584Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [],
+            "intent": {
+              "category": "informational",
+              "intent": "ask_music_info"
+            },
+            "session_turn": {
+              "turn_id": "turn-27a57f83000f592a989d7064cdd70350",
+              "request_digest": "13b132d0590a2c4af39fc1c0f8eec6deff40576d0c80cfc6d64389f3ad58cca0",
+              "profile_id": "profile-a",
+              "context": {},
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "real-duplicate",
+            "exchange_order": 1,
+            "confirmation_actions": [],
+            "items": [],
+            "origin": "",
+            "text_source": "generated",
+            "is_generated_text": true
+          }
+        ],
+        "history_revision": 77,
+        "clear_revision": 4,
+        "history_limit": 1000,
+        "history_trimmed_before": null,
+        "history_trimmed_count": 0,
+        "server_time": "2026-10-14T14:40:53.491933Z",
+        "media_delivery_basis": "current_response_only",
+        "owner_profile_id": "profile-a",
+        "client_message_id": "real-duplicate",
+        "conversation": {
+          "schema_version": 1,
+          "turn_id": "turn-27a57f83000f592a989d7064cdd70350",
+          "thread_id": "default",
+          "context": {},
+          "entry_ids": [],
+          "history_scope": "profile",
+          "input_type": "text",
+          "style": {
+            "persona": "home_dj",
+            "mood": "groove",
+            "mood_basis": "profile_or_default",
+            "language": "en",
+            "response_style": "balanced"
+          },
+          "model_source_basis": null,
+          "metrics": {
+            "agent_calls": 1,
+            "lookup_calls": 0,
+            "prompt_bytes": 5248
+          }
+        }
+      }
+    },
+    {
+      "case": "real-duplicate-joined",
+      "path": "ask_dj/message",
+      "request": {
+        "text": "Who is Miles Davis?",
+        "client_message_id": "real-duplicate",
+        "audio_response": "never"
+      },
+      "status": 200,
+      "cache_control": "no-store",
+      "latency_ms": 1184,
+      "body": {
+        "success": true,
+        "text": "Miles Davis was an American jazz trumpeter, composer and bandleader, widely regarded as one of jazz’s most influential musicians. Across a career spanning several decades, he helped shape styles including bebop, cool jazz, modal jazz and jazz fusion.",
+        "dj_text": "Miles Davis was an American jazz trumpeter, composer and bandleader, widely regarded as one of jazz’s most influential musicians. Across a career spanning several decades, he helped shape styles including bebop, cool jazz, modal jazz and jazz fusion.",
+        "message": "Miles Davis was an American jazz trumpeter, composer and bandleader, widely regarded as one of jazz’s most influential musicians. Across a career spanning several decades, he helped shape styles including bebop, cool jazz, modal jazz and jazz fusion.",
+        "text_source": "generated",
+        "is_generated_text": true,
+        "model_processing_basis": "qualified_dialogue_v1",
+        "knowledge_basis": "general_model_knowledge",
+        "links": [],
+        "sources": [],
+        "playback_actions": [],
+        "confirmation_actions": [],
+        "error": null,
+        "intent": {
+          "category": "informational",
+          "intent": "ask_music_info"
+        },
+        "items": [],
+        "action": null,
+        "music_dna_key": "profile:profile-a",
+        "assistant_message": {
+          "id": "server-9eee74bb-36a7-4dc5-95d4-0f3096ebe1ef",
+          "client_message_id": "real-duplicate",
+          "role": "assistant",
+          "message_kind": "assistant",
+          "text": "Miles Davis was an American jazz trumpeter, composer and bandleader, widely regarded as one of jazz’s most influential musicians. Across a career spanning several decades, he helped shape styles including bebop, cool jazz, modal jazz and jazz fusion.",
+          "created_at": "2026-10-14T14:40:53.490584Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "intent": {
+            "category": "informational",
+            "intent": "ask_music_info"
+          },
+          "session_turn": {
+            "turn_id": "turn-27a57f83000f592a989d7064cdd70350",
+            "request_digest": "13b132d0590a2c4af39fc1c0f8eec6deff40576d0c80cfc6d64389f3ad58cca0",
+            "profile_id": "profile-a",
+            "context": {},
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "real-duplicate",
+          "exchange_order": 1,
+          "confirmation_actions": [],
+          "items": [],
+          "origin": "",
+          "text_source": "generated",
+          "is_generated_text": true
+        },
+        "announcement": {
+          "output": "client_device",
+          "delivery": "client_device",
+          "audio_response_effective": "unavailable",
+          "audio_type": null,
+          "target": null,
+          "warnings": []
+        },
+        "user_id": null,
+        "user_message": {
+          "id": "server-5386ac02-d844-47ce-8b5e-55b3121be51d",
+          "client_message_id": "real-duplicate",
+          "role": "user",
+          "text": "Who is Miles Davis?",
+          "created_at": "2026-10-14T14:40:53.490539Z",
+          "client_id": "djconnect-ios-ABCDEF123456",
+          "client_type": "ios",
+          "status": "delivered",
+          "links": [],
+          "sources": [],
+          "playback_actions": [],
+          "session_turn": {
+            "turn_id": "turn-27a57f83000f592a989d7064cdd70350",
+            "request_digest": "13b132d0590a2c4af39fc1c0f8eec6deff40576d0c80cfc6d64389f3ad58cca0",
+            "profile_id": "profile-a",
+            "context": {},
+            "captured_playback_item_id": "",
+            "input_type": "text",
+            "explicit_playback_request": false,
+            "implicit_playback_entry": null,
+            "dependency_entries": []
+          },
+          "historical_entry_references": [],
+          "exchange_id": "real-duplicate",
+          "exchange_order": 0
+        },
+        "messages": [
+          {
+            "id": "server-5386ac02-d844-47ce-8b5e-55b3121be51d",
+            "client_message_id": "real-duplicate",
+            "role": "user",
+            "text": "Who is Miles Davis?",
+            "created_at": "2026-10-14T14:40:53.490539Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [],
+            "session_turn": {
+              "turn_id": "turn-27a57f83000f592a989d7064cdd70350",
+              "request_digest": "13b132d0590a2c4af39fc1c0f8eec6deff40576d0c80cfc6d64389f3ad58cca0",
+              "profile_id": "profile-a",
+              "context": {},
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "real-duplicate",
+            "exchange_order": 0
+          },
+          {
+            "id": "server-9eee74bb-36a7-4dc5-95d4-0f3096ebe1ef",
+            "client_message_id": "real-duplicate",
+            "role": "assistant",
+            "message_kind": "assistant",
+            "text": "Miles Davis was an American jazz trumpeter, composer and bandleader, widely regarded as one of jazz’s most influential musicians. Across a career spanning several decades, he helped shape styles including bebop, cool jazz, modal jazz and jazz fusion.",
+            "created_at": "2026-10-14T14:40:53.490584Z",
+            "client_id": "djconnect-ios-ABCDEF123456",
+            "client_type": "ios",
+            "status": "delivered",
+            "links": [],
+            "sources": [],
+            "playback_actions": [],
+            "intent": {
+              "category": "informational",
+              "intent": "ask_music_info"
+            },
+            "session_turn": {
+              "turn_id": "turn-27a57f83000f592a989d7064cdd70350",
+              "request_digest": "13b132d0590a2c4af39fc1c0f8eec6deff40576d0c80cfc6d64389f3ad58cca0",
+              "profile_id": "profile-a",
+              "context": {},
+              "captured_playback_item_id": "",
+              "input_type": "text",
+              "explicit_playback_request": false,
+              "implicit_playback_entry": null,
+              "dependency_entries": []
+            },
+            "historical_entry_references": [],
+            "exchange_id": "real-duplicate",
+            "exchange_order": 1,
+            "confirmation_actions": [],
+            "items": [],
+            "origin": "",
+            "text_source": "generated",
+            "is_generated_text": true
+          }
+        ],
+        "history_revision": 77,
+        "clear_revision": 4,
+        "history_limit": 1000,
+        "history_trimmed_before": null,
+        "history_trimmed_count": 0,
+        "server_time": "2026-10-14T14:40:53.491933Z",
+        "media_delivery_basis": "current_response_only",
+        "owner_profile_id": "profile-a",
+        "client_message_id": "real-duplicate",
+        "conversation": {
+          "schema_version": 1,
+          "turn_id": "turn-27a57f83000f592a989d7064cdd70350",
+          "thread_id": "default",
+          "context": {},
+          "entry_ids": [],
+          "history_scope": "profile",
+          "input_type": "text",
+          "style": {
+            "persona": "home_dj",
+            "mood": "groove",
+            "mood_basis": "profile_or_default",
+            "language": "en",
+            "response_style": "balanced"
+          },
+          "model_source_basis": null,
+          "metrics": {
+            "agent_calls": 1,
+            "lookup_calls": 0,
+            "prompt_bytes": 5248
+          }
+        }
+      }
+    }
+  ]
+}

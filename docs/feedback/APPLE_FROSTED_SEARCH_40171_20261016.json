@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-16",
+  "build": "40171",
+  "scope": "Frosted material background for shared search bars",
+  "implementation": [
+    "Replace near-black0.82-opacity fill with native regularMaterial inside existing rounded rectangle.",
+    "Preserve1pt neon gradient border, focus opacity, field behavior and geometry.",
+    "Shared component serves DJ Session, Ask DJ and existing queue/playlist/log searches."
+  ],
+  "checks": {
+    "signed_ios_build": "PASS",
+    "signed_mac_build": "PASS",
+    "strict_deep_codesign": "iOS candidate and installed Mac PASS",
+    "manifest": "452 hashes PASS",
+    "diff_check": "PASS",
+    "installed_readback": "iPhone/iPad/Mac mini40171 PASS",
+    "physical_probe": "iPhone both search fields opened, screenshots captured and searches closed; no text/send/playback action"
+  },
+  "evidence": {
+    "manifest": "build/recovery/apple40171-selective-source-manifest-20261016.json",
+    "ios_build": "/private/tmp/djc-ios-40171-frosted-search-build.log",
+    "mac_build": "/private/tmp/djc-mac-40171-frosted-search-build.log",
+    "xcresult": "/private/tmp/djc-iphone-40171-frosted-search-20261016.xcresult",
+    "screenshots_actually_viewed": [
+      "/private/tmp/djc-iphone-40171-frosted-search-attachments/8B5CD3B8-1732-4545-8B20-54A72829A74E.png",
+      "/private/tmp/djc-iphone-40171-frosted-search-attachments/6EE0BE5D-CE75-4E7D-B998-76581AA095BE.png"
+    ],
+    "visual": "Ask DJ neutral frosted surface and green mood-tinted DJ Session surface; both retain thin white-blue-purple border.",
+    "mac_executable_sha256": "d568b1f2d24fbd82619fd6651d648cd5f01904e8e2cd7a872049245023f03850",
+    "mac_backup": "build/recovery/DJConnect-before40171.app"
+  },
+  "limits": [
+    "New physical visuals verified on iPhone only; iPad/Mac installation/build checks do not claim physical UI acceptance.",
+    "MacBook and Watch not installed in this change."
+  ],
+  "publication": "Local only; no push/PR/merge"
+}

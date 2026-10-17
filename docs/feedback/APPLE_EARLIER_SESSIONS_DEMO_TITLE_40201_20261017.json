@@ -1,0 +1,13 @@
+{
+  "build": "40201",
+  "scope": "Earlier sessions title appends (demo) only in demo mode",
+  "checks": [
+    "iOS/macOS builds PASS",
+    "452 source hashes PASS",
+    "iPhone/iPad40201 readback PASS",
+    "Mac40201 install/signature/executable verification PASS",
+    "diff check PASS"
+  ],
+  "visual": "NOT_RUN; bounded one-line conditional title change",
+  "preservation": "Timer paused; no Core messages; no push/PR/merge; unrelated projects retained."
+}

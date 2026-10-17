@@ -13,14 +13,19 @@ struct NativeBottomTabBar: UIViewControllerRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(selection: $selection) }
 
     func makeUIViewController(context: Context) -> UITabBarController {
-        let controller = UITabBarController()
+        let controller = KeyboardAwareTabBarController()
+        controller.introductionAnchors = context.environment.sessionIntroductionAnchors
         controller.overrideUserInterfaceStyle = .dark
         controller.mode = .tabBar
         controller.traitOverrides.horizontalSizeClass = .compact
         controller.tabBar.tintColor = UIColor(djConnectAccent)
+        context.coordinator.originalAppearance = controller.tabBar.standardAppearance.copy() as? UITabBarAppearance
+        context.coordinator.originalScrollAppearance = controller.tabBar.scrollEdgeAppearance?.copy() as? UITabBarAppearance
+        context.coordinator.applyGlassAppearance(to: controller, enabled: context.environment.djConnectGlassEffectsEnabled && !context.environment.accessibilityReduceTransparency)
         controller.delegate = context.coordinator
         context.coordinator.hosts = screens.enumerated().map { index, screen in
-            let host = UIHostingController(rootView: hostedScreen(screen))
+            let host = UIHostingController(rootView: hostedScreen(screen, anchors: context.environment.sessionIntroductionAnchors,
+                glassEnabled: context.environment.djConnectGlassEffectsEnabled))
             host.view.backgroundColor = .clear
             host.tabBarItem = UITabBarItem(title: titles[index], image: UIImage(systemName: symbols[index]), tag: index)
             return host
@@ -32,19 +37,73 @@ struct NativeBottomTabBar: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: UITabBarController, context: Context) {
         context.coordinator.selection = $selection
+        (controller as? KeyboardAwareTabBarController)?.introductionAnchors = context.environment.sessionIntroductionAnchors
+        controller.view.setNeedsLayout()
+        context.coordinator.applyGlassAppearance(to: controller, enabled: context.environment.djConnectGlassEffectsEnabled && !context.environment.accessibilityReduceTransparency)
         for (index, host) in context.coordinator.hosts.enumerated() {
-            host.rootView = hostedScreen(screens[index])
+            host.rootView = hostedScreen(screens[index], anchors: context.environment.sessionIntroductionAnchors,
+                glassEnabled: context.environment.djConnectGlassEffectsEnabled)
             host.tabBarItem.title = titles[index]
         }
         if controller.selectedIndex != selection { controller.selectedIndex = selection }
     }
 
-    private func hostedScreen(_ screen: AnyView) -> AnyView {
-        AnyView(screen.environment(\.colorScheme, .dark)
+    private func hostedScreen(_ screen: AnyView, anchors: SessionIntroductionAnchors?, glassEnabled: Bool) -> AnyView {
+        AnyView(screen.environment(\.sessionIntroductionAnchors, anchors).environment(\.colorScheme, .dark)
+            .environment(\.djConnectGlassEffectsEnabled, glassEnabled)
             .environment(\.scenePhase, scenePhase).tint(djConnectAccent))
     }
 
+    /// UIKit also updates the content safe area when hiding its tab bar, so
+    /// the composer moves down into the space released above the keyboard.
+    @MainActor final class KeyboardAwareTabBarController: UITabBarController {
+        weak var introductionAnchors: SessionIntroductionAnchors?
+        override func viewDidLoad() {
+            super.viewDidLoad()
+            NotificationCenter.default.addObserver(self, selector: #selector(keyboardFrameChanged(_:)),
+                name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)),
+                name: UIResponder.keyboardWillHideNotification, object: nil)
+        }
+
+        deinit { NotificationCenter.default.removeObserver(self) }
+
+        @objc private func keyboardFrameChanged(_ notification: Notification) {
+            guard let window = viewIfLoaded?.window,
+                  notification.userInfo?[UIResponder.keyboardIsLocalUserInfoKey] as? Bool != false,
+                  let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+            let windowFrame = window.convert(frame, from: window.screen.coordinateSpace)
+            // SwiftUI may already have reduced this controller's frame above
+            // the keyboard. The window still covers the complete scene.
+            let overlap = window.bounds.intersection(windowFrame)
+            setTabBarHidden(!overlap.isNull && overlap.height > 1, animated: true)
+        }
+
+        @objc private func keyboardWillHide(_ notification: Notification) {
+            guard viewIfLoaded?.window != nil else { return }
+            setTabBarHidden(false, animated: true)
+        }
+    }
+
     @MainActor final class Coordinator: NSObject, UITabBarControllerDelegate {
+        var originalAppearance: UITabBarAppearance?
+        var originalScrollAppearance: UITabBarAppearance?
+        private var lastGlassEnabled: Bool?
+
+        func applyGlassAppearance(to controller: UITabBarController, enabled: Bool) {
+            guard lastGlassEnabled != enabled else { return }
+            lastGlassEnabled = enabled
+            if enabled {
+                if let originalAppearance { controller.tabBar.standardAppearance = originalAppearance }
+                controller.tabBar.scrollEdgeAppearance = originalScrollAppearance
+            } else {
+                let appearance = UITabBarAppearance()
+                appearance.configureWithOpaqueBackground()
+                appearance.backgroundColor = UIColor(DJConnectGlassAppearance.opaqueSurface)
+                controller.tabBar.standardAppearance = appearance
+                controller.tabBar.scrollEdgeAppearance = appearance
+            }
+        }
         var selection: Binding<Int>
         var hosts: [UIHostingController<AnyView>] = []
         init(selection: Binding<Int>) { self.selection = selection }

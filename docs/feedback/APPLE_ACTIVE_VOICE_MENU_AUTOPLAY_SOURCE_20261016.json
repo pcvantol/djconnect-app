@@ -1,0 +1,34 @@
+{
+  "status": "SOURCE_ACTIVE_VOICE_MENU_AND_AUTOPLAY_MOVE_PASS; not installed or audible acceptance",
+  "source_parent": "44da838",
+  "producer_fixture_pin": "6ececb1b5327c5f3456dbb7d466b8763951cb61c",
+  "producer_installed_handoff": "Core reports f04fc578d11252f48324a22cb6f71039bdcc59d5 installed on HA-dev/prod; this Apple step makes no independent installed readback claim.",
+  "changes": [
+    "Active Session toolbar adds localized scrollable Voice popover with configured default, current provider inventory and locally selected intent; rows have minimum44pt targets",
+    "Autoplay toggle moved from Settings/DJ announcements to Voice popover using the exact existing localResponseAudioEnabled binding and DJConnectLocalResponseAudioEnabled preference; output/speaker settings retained",
+    "No gender control rendered. Current qualified provider explicitly lacks gender selection; no inference from voice names, pitch or other metadata",
+    "Voice preference binds backend-confirmed owner_profile_id plus known HA installation, active Session and actual client device identity",
+    "Menu open/explicit refresh use voice-options only; local selection has no network/preparation/audio/playback/shared Persona write",
+    "Scope/epoch/generation fences reject late inventory; background retains intent but invalidates inventory; Session end and authority withdrawal discard preference",
+    "Hybrid route transitions invalidate inventory; ready transition and confirmed owner changes refresh an open menu only; provider backoff respected",
+    "Validated locale-matching provider notice can appear inline; unavailable choice never silently selects default"
+  ],
+  "validation": {
+    "regression": "652 Swift tests in7suites PASS31.840s",
+    "regression_log": "/private/tmp/djc-active-voice-menu-regression-final-20261016.log",
+    "focused": "2 integration tests including4 late-response cases PASS0.407s",
+    "focused_log": "/private/tmp/djc-active-voice-menu-focused-20261016.log",
+    "ios_library": "DJConnectUI arm64 iOS26 simulator compilation PASS38.47s; no application install",
+    "ios_log": "/private/tmp/djc-active-voice-menu-ios-build-20261016.log",
+    "localization": "1167 keys across5languages PASS",
+    "diff_check": "PASS",
+    "test_iteration": "Initial test delays raced dispatch; blocking response gate also held unrelated protocol reads. Replaced with asynchronous deferred URLProtocol response and request-start wait. Final focused/full runs pass. An earlier full run also had an existing Presence timing assertion failure; final full run passes unchanged Presence code/tests."
+  },
+  "remaining": [
+    "Voice intent is not yet connected to reference-bound prepare/audio playback; do not install or claim chosen voice audible",
+    "Closed-menu foreground/reconnect preparation owner refresh, provider observation expiry and actual reference-bound retry remain separate integration work",
+    "MP3 validation/playback, native popover layout, physical and audible acceptance remain open"
+  ],
+  "effects": "Local source/tests/receipt only. No provider synthesis, live HA read/config/deploy, app install, physical device test, push/PR/merge or cross-thread message. Timer independently readPAUSED.",
+  "cleanup": "Single existing writer/worktree, current/main merged refs only, no Git locks; no refs or caches deleted. Preserved both untracked Xcode project directories."
+}

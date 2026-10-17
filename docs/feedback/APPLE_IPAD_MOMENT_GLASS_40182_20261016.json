@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-16",
+  "build": "40182",
+  "scope": "Make iPad current DJMoment glass background visible",
+  "finding": "Both platforms used native regular glass already; physical/user screenshots showed broad iPad bubble rendered much darker/flatter than iPhone.",
+  "implementation": [
+    "Use native regular glass with white12-percent tint for iPad currentMomentBorder surfaces, including quiet/current/paused/recovery bubbles.",
+    "Preserve native frosted glass, existing neon gradient and1.25pt stroke.",
+    "iPhone/macOS and reduced-transparency fallback unchanged."
+  ],
+  "checks": {
+    "ios_build": "PASS",
+    "strict_deep_codesign": "PASS",
+    "manifest": "452 hashes PASS",
+    "installed": "iPad40182 confirmed",
+    "native_probe": "PASS",
+    "visual": "Physical portrait screenshot actually viewed, full frame: current quiet bubble now visibly lighter/tinted against purple page. No captured landscape visual claim.",
+    "iphone": "Not reinstalled; remains40181; guarded source branch unchanged."
+  },
+  "evidence": {
+    "manifest": "build/recovery/ipad40182-selective-source-manifest-20261016.json",
+    "patch": "build/recovery/ipad40182-moment-glass-20261016.patch",
+    "xcresult": "/private/tmp/djc-ipad-40182-moment-glass-20261016.xcresult",
+    "screenshot": "/private/tmp/djc-ipad-40182-moment-glass-attachments/346A2CD9-C2B3-431A-BDE2-3A726D9A8A00.png"
+  },
+  "preservation": [
+    "External probe restored; no playback, profile/settings, message or feedback action.",
+    "Prior refresh layout fix retained; source/evidence/recovery retained."
+  ],
+  "publication": "Local commit only; no push/PR/merge"
+}

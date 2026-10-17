@@ -13,45 +13,54 @@
                         <rect key="frame" x="0.0" y="0.0" width="1024" height="1366"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <view userInteractionEnabled="NO" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="hero-panel">
-                                <rect key="frame" x="0.0" y="0.0" width="1024" height="1366"/>
+                            <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" alignment="center" spacing="14" translatesAutoresizingMaskIntoConstraints="NO" id="launch-brand-stack">
+                                <rect key="frame" x="232" y="539" width="560" height="288"/>
                                 <subviews>
-                                    <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchBanner" translatesAutoresizingMaskIntoConstraints="NO" id="launch-banner">
-                                        <rect key="frame" x="112" y="548" width="800" height="210"/>
+                                    <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchIcon" translatesAutoresizingMaskIntoConstraints="NO" id="launch-brand-icon">
+                                        <rect key="frame" x="238" y="0.0" width="84" height="84"/>
                                         <constraints>
-                                            <constraint firstAttribute="width" constant="800" id="launch-banner-width"/>
-                                            <constraint firstAttribute="height" constant="210" id="launch-banner-height"/>
+                                            <constraint firstAttribute="width" constant="84" id="launch-icon-width"/>
+                                            <constraint firstAttribute="height" constant="84" id="launch-icon-height"/>
                                         </constraints>
                                     </imageView>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="DJConnect" textAlignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="launch-brand-name">
+                                        <rect key="frame" x="0.0" y="98" width="560" height="41"/>
+                                        <fontDescription key="fontDescription" type="boldSystem" pointSize="34"/>
+                                        <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    </label>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="Play your music. DJConnect brings it to life." textAlignment="center" lineBreakMode="wordWrap" numberOfLines="0" adjustsFontForContentSizeCategory="YES" translatesAutoresizingMaskIntoConstraints="NO" id="launch-tagline">
+                                        <rect key="frame" x="0.0" y="153" width="560" height="42"/>
+                                        <fontDescription key="fontDescription" style="UICTFontTextStyleHeadline"/>
+                                        <color key="textColor" white="1" alpha="0.72" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    </label>
                                     <activityIndicatorView opaque="NO" userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" style="medium" animating="YES" translatesAutoresizingMaskIntoConstraints="NO" id="launch-spinner">
-                                        <rect key="frame" x="502" y="786" width="20" height="20"/>
+                                        <rect key="frame" x="270" y="209" width="20" height="20"/>
                                         <color key="color" white="1" alpha="0.86" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                     </activityIndicatorView>
                                 </subviews>
-                                <color key="backgroundColor" red="0.090196078431372548" green="0.070588235294117646" blue="0.12156862745098039" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                                 <constraints>
-                                    <constraint firstItem="launch-banner" firstAttribute="centerX" secondItem="hero-panel" secondAttribute="centerX" id="launch-banner-center-x"/>
-                                    <constraint firstItem="launch-banner" firstAttribute="centerY" secondItem="hero-panel" secondAttribute="centerY" constant="-30" id="launch-banner-center-y"/>
-                                    <constraint firstItem="launch-spinner" firstAttribute="centerX" secondItem="hero-panel" secondAttribute="centerX" id="launch-spinner-center-x"/>
-                                    <constraint firstItem="launch-spinner" firstAttribute="top" secondItem="launch-banner" secondAttribute="bottom" constant="28" id="launch-spinner-top"/>
+                                    <constraint firstItem="launch-brand-name" firstAttribute="width" secondItem="launch-brand-stack" secondAttribute="width" id="launch-name-width"/>
+                                    <constraint firstItem="launch-tagline" firstAttribute="width" secondItem="launch-brand-stack" secondAttribute="width" id="launch-tagline-width"/>
+                                    <constraint firstAttribute="width" relation="lessThanOrEqual" constant="560" id="launch-brand-max-width"/>
                                 </constraints>
-                            </view>
+                            </stackView>
                         </subviews>
+                        <viewLayoutGuide key="safeArea" id="launch-safe-area"/>
                         <color key="backgroundColor" red="0.090196078431372548" green="0.070588235294117646" blue="0.12156862745098039" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
-                            <constraint firstItem="hero-panel" firstAttribute="top" secondItem="launch-view" secondAttribute="top" id="hero-top"/>
-                            <constraint firstItem="hero-panel" firstAttribute="leading" secondItem="launch-view" secondAttribute="leading" id="hero-leading"/>
-                            <constraint firstAttribute="trailing" secondItem="hero-panel" secondAttribute="trailing" id="hero-trailing"/>
-                            <constraint firstAttribute="bottom" secondItem="hero-panel" secondAttribute="bottom" id="hero-bottom"/>
+                            <constraint firstItem="launch-brand-stack" firstAttribute="centerX" secondItem="launch-safe-area" secondAttribute="centerX" id="launch-brand-center-x"/>
+                            <constraint firstItem="launch-brand-stack" firstAttribute="centerY" secondItem="launch-safe-area" secondAttribute="centerY" id="launch-brand-center-y"/>
+                            <constraint firstItem="launch-brand-stack" firstAttribute="width" secondItem="launch-safe-area" secondAttribute="width" constant="-48" priority="750" id="launch-brand-width"/>
+                            <constraint firstItem="launch-brand-stack" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="launch-safe-area" secondAttribute="leading" constant="24" id="launch-brand-leading"/>
+                            <constraint firstItem="launch-safe-area" firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="launch-brand-stack" secondAttribute="trailing" constant="24" id="launch-brand-trailing"/>
                         </constraints>
                     </view>
                 </viewController>
-                <placeholder placeholderIdentifier="IBFirstResponder" id="launch-responder" userLabel="First Responder" sceneMemberID="firstResponder"/>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="launch-first-responder" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="48" y="5"/>
         </scene>
     </scenes>
     <resources>
-        <image name="LaunchBanner" width="1600" height="420"/>
+        <image name="LaunchIcon" width="1024" height="1024"/>
     </resources>
 </document>

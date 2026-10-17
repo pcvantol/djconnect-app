@@ -1,0 +1,18 @@
+{
+  "status": "SOURCE_PUSH_ERROR_SELF_EPOCH_RETRY_GUARD_PASS; no installation",
+  "source_parent": "d2f7469a39ad99f4e4420bcddc77b1186e14da31",
+  "problem": "Push401 handling advances private owner epoch before independent read-only pairing verification. Registration defer mistook this self-induced change for an external owner transition and registered again. Existing isolated test observed3 requests/serial full observed4 instead of2",
+  "change": "After admitting a current registration error, defer no longer uses epoch changes from that error handler as a fresh registration opportunity. External owner transitions while original registration awaits still get the existing one bounded recovery; independent HTTP refusal remains required before withdrawing pairing",
+  "queue_test_only": "Existing queue test could observe fresh rows before completion callback cleared loading. Bounded wait now waits for both outcomes; all assertions retained, no queue runtime change",
+  "validation": {
+    "focused": "19 tests PASS2.128s, including push401/503, real owner epoch recovery, bounded recovery/background, queue completion and Speech suite",
+    "focused_log": "/private/tmp/djc-speech-owner-push-fix-focused-20261016.log",
+    "full_serial": "664 tests in8suites PASS83.144s",
+    "full_log": "/private/tmp/djc-speech-owner-projection-all-final-20261016.log",
+    "ios": "DJConnectUI arm64 iOS26 simulator library PASS5.66s final incremental compile",
+    "ios_log": "/private/tmp/djc-speech-owner-projection-ios-final-20261016.log",
+    "boundary": "Local modeled HTTP tests, no APNs registration/delivery or live provider acceptance"
+  },
+  "effects": "AppModel/test/receipt only; no install, HA/Core change, notification send, push/PR/merge or automation change",
+  "safety": "No Git locks/build/trace processes; one writer/worktree,current/main only merged; no refs/cache deleted; untracked project directories preserved"
+}

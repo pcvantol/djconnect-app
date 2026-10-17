@@ -42,7 +42,7 @@ struct SavedSessionsView: View {
     }
     private var showsListHeader: Bool {
         #if os(macOS)
-        model.isDemoMode || !initialLoadFinished || history.listLoading || history.preparing
+        !initialLoadFinished || history.listLoading || history.preparing
         #else
         // Keep the iOS native refresh bridge mounted even after loading.
         true
@@ -52,7 +52,6 @@ struct SavedSessionsView: View {
             savedSessionsContainer {
                 if showsListHeader {
                 VStack(alignment: .leading, spacing: 16) {
-                    if model.isDemoMode { Label(text("demo.session.notice"), systemImage: "sparkles").font(.caption).accessibilityIdentifier("session-demo-notice") }
                     #if !os(iOS)
                     if !initialLoadFinished || history.listLoading || history.preparing {
                         ProgressView().controlSize(.large).tint(.white)
@@ -70,6 +69,17 @@ struct SavedSessionsView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 }
+                    if let error = history.listErrorKey, !history.sessions.isEmpty {
+                        HStack(spacing: 12) {
+                            Text(text(error)).font(.callout).foregroundStyle(.secondary)
+                            Spacer()
+                            Button(text("ui.retry")) { Task { await refresh() } }
+                                .disabled(refreshing || history.listLoading)
+                        }
+                        .padding(.horizontal, 20).padding(.vertical, 12)
+                        .listRowBackground(Color.clear).listRowSeparator(.hidden)
+                        .accessibilityIdentifier("saved-sessions-refresh-error")
+                    }
                     ForEach(history.sessions) { session in
                         Button { openedSessionID.wrappedValue = session.id } label: {
                             HStack(spacing: 12) {
@@ -99,10 +109,21 @@ struct SavedSessionsView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                     }
-                    if history.listNextCursor != nil {
-                        Button(text("ui.session.history.more")) { Task { await history.loadSessions(more: true) } }
-                            .disabled(history.listLoading)
+                    if let cursor = history.listNextCursor {
+                        ZStack {
+                            Color.clear
+                            if history.listLoading {
+                                ProgressView().tint(.white)
+                                    .accessibilityLabel(text("ui.session.history.loading"))
+                            }
+                        }
+                            .frame(maxWidth: .infinity).frame(height: 44)
                             .listRowBackground(Color.clear).listRowSeparator(.hidden)
+                            .accessibilityIdentifier("saved-sessions-pagination")
+                            // A new footer belongs to the next cursor. Lazy List/
+                            // LazyVStack mounts it only when approaching the end.
+                            .task { await history.loadNextSessionsPage(expectedCursor: cursor) }
+                            .id(cursor)
                     }
             }
             .listStyle(.plain)
@@ -129,7 +150,7 @@ struct SavedSessionsView: View {
                 SessionTimelineScreen(model: model, sessionID: sessionID)
                     .navigationTitle(detailTitle(sessionID: sessionID))
             }
-            .navigationTitle(text("ui.session.history.title"))
+            .navigationTitle(text("ui.session.history.title") + (model.isDemoMode ? " (demo)" : ""))
             .scrollBounceBehavior(.always)
             .refreshable { await refresh() }
             .toolbar {
@@ -184,8 +205,13 @@ struct SavedSessionsView: View {
         refreshing = true
         defer { refreshing = false }
         statusToast = DJConnectVisualNotice(text: text("ui.session.history.loading"), systemImage: "clock.arrow.circlepath")
+        let epoch = history.responseEpoch
         await history.prepare()
         let succeeded = await history.loadSessions()
+        guard !Task.isCancelled, epoch == history.responseEpoch else { statusToast = nil; return }
+        // A superseded/cancelled read has no authoritative failure. The current
+        // request owns the list indicator and any actual error presentation.
+        guard succeeded || !history.available || history.listErrorKey != nil else { statusToast = nil; return }
         let notice = DJConnectVisualNotice(text: text(succeeded ? "ui.session.history.updated" : "ui.session.history.unavailable"),
                                           systemImage: "clock.arrow.circlepath")
         statusToast = notice
@@ -207,18 +233,28 @@ struct SessionTimelineScreen: View {
     var openQueueAction: () -> Void = {}
     var refreshAction: (() -> Void)?
     @StateObject private var renderCache = SessionTimelineRenderCache()
+    @State private var sessionControlIntent: SessionControlIntent?
+    @State private var showingDJVoice = false
+    @State private var menuFrames: [SessionControlIntent.Kind: CGRect] = [:]
     @State private var currentHeaderVisible = true
-    @State private var phoneComposerHeight: CGFloat = 96
+    @State private var composerKeyboardVisible = false
+    private var composerBottomPadding: CGFloat {
+        #if os(iOS)
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            return composerKeyboardVisible ? 6 : 21
+        }
+        #endif
+        return 8
+    }
+    @State private var floatingComposerHeight: CGFloat = 96
     @State private var oldestEntriesVisible = false
+    @State private var artworkVisibleIDs: Set<String> = []
     @State private var pagingTask: Task<Void, Never>?
     @State private var visibleEntry: String?
     @State private var priorSearchPosition: String?
     @State private var query = ""
     @State private var searching = false
-    @State private var showingHandoff = false
     @State private var selectedMatchID: String?
-    @State private var hasNewEntries = false
-    @State private var positionUnavailable = false
     @State private var retryRefreshing = false
     @State private var pullRefreshing = false
     @State private var resumePosition: String?
@@ -235,9 +271,26 @@ struct SessionTimelineScreen: View {
         self.activeSession = activeSession; self.initialAnchor = initialAnchor; self.openQueueAction = openQueueAction
         self.refreshAction = refreshAction
     }
-    private var floatsComposerOnPhone: Bool {
+    private var usesFloatingComposer: Bool {
         #if os(iOS)
-        UIDevice.current.userInterfaceIdiom == .phone && activeSession != nil
+        activeSession != nil
+        #else
+        false
+        #endif
+    }
+    private var allowsHandoffPresentation: Bool {
+        guard activeSession != nil else { return false }
+        #if DEBUG
+        // Native presentation proof uses the real button; Demo still cannot approve.
+        if model.isDemoMode, ProcessInfo.processInfo.arguments.contains("--uitesting"),
+           ProcessInfo.processInfo.arguments.contains("--uitest-vibecast-dialog") { return true }
+        #endif
+        return !model.isDemoMode
+    }
+
+    private var usesExpandedToolbar: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .pad
         #else
         false
         #endif
@@ -260,12 +313,12 @@ struct SessionTimelineScreen: View {
 
     var body: some View {
         let retentionDeadlines = renderCache.snapshot(timeline.entries, sessionID: sessionID, epoch: history.responseEpoch).compactMap(\.deadline)
+            + timeline.entries.compactMap { $0.sessionMedia?.artwork.expiresAt.flatMap(DJConnectHistoryEntry.date) }
         let matchMap = matches.reduce(into: [String: DJConnectHistoryEntry]()) { result, entry in
             if result[entry.id] == nil { result[entry.id] = entry }
         }
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
-                if model.isDemoMode && activeSession == nil { Label(text("demo.session.notice"), systemImage: "sparkles").font(.caption).padding(8).accessibilityIdentifier("session-demo-notice") }
                 TimelineView(SessionEntryRefreshSchedule(deadlines: retentionDeadlines)) { clock in
                     let preparedEntries = renderCache.snapshot(timeline.entries, sessionID: sessionID, epoch: history.responseEpoch, at: clock.date)
                     ScrollView {
@@ -289,29 +342,43 @@ struct SessionTimelineScreen: View {
                                 .padding(.horizontal, 20)
                                 .id("current")
                             }
-                            if positionUnavailable { Text(text("ui.session.history.changed")).padding(.horizontal, 20) }
                             if let error = model.djSessionErrorMessage, activeSession != nil {
                                 Text(error).foregroundStyle(.red).padding(.horizontal, 20)
                             }
-                            #if !os(iOS)
-                            if timeline.loading && timeline.entries.isEmpty {
-                                ProgressView().controlSize(.large).tint(.white)
-                                    .frame(maxWidth: .infinity).padding(.horizontal, 20)
+                            if !history.available && activeSession != nil {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text(text("ui.session.history.unavailable"))
+                                        .foregroundStyle(.white.opacity(0.82))
+                                    Button {
+                                        Task {
+                                            await history.prepare()
+                                            await history.loadTimeline(sessionID, window: .tail)
+                                        }
+                                    } label: {
+                                        Label(text("ui.refresh.page"), systemImage: "arrow.clockwise")
+                                    }
+                                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
+                                    .disabled(history.preparing)
+                                }
+                                .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+                                .djSessionFrostedSurface().padding(.horizontal, 20)
+                                .accessibilityIdentifier("session-history-unavailable")
                             }
-                            #endif
                             if let key = timeline.errorKey {
                                 VStack(alignment: .leading, spacing: 16) {
                                     Text(text(key)).fixedSize(horizontal: false, vertical: true)
                                         .foregroundStyle(.white.opacity(0.82))
-                                    Button(text("ui.retry")) {
+                                    Button {
                                         guard !retryRefreshing else { return }
                                         Task { @MainActor in
                                             retryRefreshing = true
                                             defer { retryRefreshing = false }
                                             await history.loadTimeline(sessionID, window: .tail)
                                         }
+                                    } label: {
+                                        Label(text("ui.refresh.page"), systemImage: "arrow.clockwise")
                                     }
-                                    .djConnectButtonStyle(DJConnectButtonStyle())
+                                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
                                     .disabled(retryRefreshing || timeline.loading)
                                     .accessibilityIdentifier("session-timeline-retry")
                                 }
@@ -325,6 +392,7 @@ struct SessionTimelineScreen: View {
                                     if turn.failed {
                                         Text(text(turn.contextChanged ? "ui.session.history.changed" : "ui.session.history.unavailable"))
                                         Button(text(turn.contextChanged ? "ui.session.history.current_context" : "ui.retry")) {
+                                            DJConnectHaptics.impact()
                                             if turn.contextChanged { history.useCurrentContext(turn) }
                                             else { history.retry(turn) }
                                         }
@@ -334,6 +402,13 @@ struct SessionTimelineScreen: View {
                                 .djSessionFrostedSurface()
                                 .padding(.horizontal, 20)
                                 .id("pending-" + turn.id)
+                            }
+                            if activeSession != nil {
+                                ForEach(model.currentSessionConversationMessages(sessionID: sessionID, at: clock.date).reversed()) { message in
+                                    SessionCurrentConversationBubble(model: model, message: message)
+                                        .padding(.horizontal, 20)
+                                        .id("current-conversation-" + message.id.uuidString)
+                                }
                             }
                             // Match Ask DJ: newest retained contribution first; current remains the top anchor.
                             ForEach(preparedEntries.reversed().filter { $0.isRetained(at: clock.date) }) { prepared in
@@ -345,6 +420,7 @@ struct SessionTimelineScreen: View {
                                     opensActiveComposer: activeSession != nil,
                                     allowsPlaybackActions: liveMessage != nil,
                                     playingActionID: model.playingAskDJActionID,
+                                    artworkModel: model,
                                     playAction: { action in history.playLiveAction(action, for: entry, expectedEpoch: actionEpoch) },
                                     highlights: matchMap[entry.id]?.text == entry.text ? (matchMap[entry.id]?.highlights ?? []) : [],
                                     isSelectedMatch: selectedMatchID == entry.id || initialAnchor == entry.id,
@@ -360,32 +436,25 @@ struct SessionTimelineScreen: View {
                                     .padding(.horizontal, 20)
                                     .id(entry.id).accessibilityElement(children: .contain).accessibilityIdentifier("session-entry-" + entry.id)
                             }
-                            if timeline.entries.isEmpty && !timeline.loading && timeline.errorKey == nil {
+                            if history.available && timeline.entries.isEmpty && !timeline.loading && timeline.errorKey == nil {
                                 Text(text(activeSession == nil ? "ui.session.history.no_entries" : "ui.session.history.no_entries_active")).padding(.horizontal, 20)
-                            }
-                            if timeline.loading && !timeline.entries.isEmpty && !pullRefreshing && !retryRefreshing {
-                                ProgressView().controlSize(.large).tint(.white)
-                                    .frame(maxWidth: .infinity).padding(.horizontal, 20)
-                                    .accessibilityLabel(text("ui.session.history.loading"))
                             }
                             Color.clear.frame(height: 1).id("tail")
                         }
                         .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity)
                         .padding(.top, activeSession != nil ? 0 : archivedTopPadding).padding(.bottom, 20)
                         .scrollTargetLayout()
-                        #if os(iOS)
-                        .background(SessionRefreshIndicatorBridge(
-                            isRefreshing: retryRefreshing || (timeline.loading && timeline.entries.isEmpty)))
-                        #endif
+                        // Background updates never reveal pull-to-refresh or move the scroll offset.
                         }
                     }
-                    .contentMargins(.bottom, floatsComposerOnPhone && !searching ? phoneComposerHeight + 16 : 0, for: .scrollContent)
+                    .contentMargins(.bottom, usesFloatingComposer && !searching ? floatingComposerHeight + composerBottomPadding + 8 : 0, for: .scrollContent)
                     .overlay(alignment: .bottom) {
-                        if floatsComposerOnPhone && !searching {
-                            sessionComposer(proxy: proxy, floating: true)
-                                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { phoneComposerHeight = $0 }
+                        if usesFloatingComposer && !searching {
+                            sessionComposer(floating: true)
+                                .djFloatingAskDJWidth(maximum: 1000)
+                                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { floatingComposerHeight = $0 }
                                 .padding(.horizontal, 12)
-                                .padding(.bottom, 8)
+                                .padding(.bottom, composerBottomPadding)
                         }
                     }
                     .safeAreaInset(edge: .top, spacing: 0) {
@@ -396,24 +465,37 @@ struct SessionTimelineScreen: View {
                         }
                     }
                     .onScrollTargetVisibilityChange(idType: String.self, threshold: 0.01) { visibleIDs in
+                        artworkVisibleIDs = Set(visibleIDs)
+                        history.prefetchArtwork(sessionID: sessionID, visibleIDs: artworkVisibleIDs)
                         currentHeaderVisible = visibleIDs.contains("current")
                         oldestEntriesVisible = visibleIDs.contains("tail") || timeline.entries.first.map { visibleIDs.contains($0.id) } == true
                         if oldestEntriesVisible { loadEarlierIfNeeded() }
+                    }
+                    .onChange(of: history.artworkAvailable) { _, _ in
+                        history.prefetchArtwork(sessionID: sessionID, visibleIDs: artworkVisibleIDs)
+                    }
+                    .onChange(of: clock.date) { _, _ in
+                        history.prefetchArtwork(sessionID: sessionID, visibleIDs: artworkVisibleIDs)
+                    }
+                    .onScrollPhaseChange { _, phase in
+                        if phase.isScrolling {
+                            history.prefetchArtwork(sessionID: sessionID, visibleIDs: artworkVisibleIDs)
+                        }
                     }
                     .overlay(alignment: .bottomTrailing) {
                         if !currentHeaderVisible {
                             Button {
                                 jump("current", proxy: proxy)
-                                hasNewEntries = false
                             } label: { Image(systemName: "arrow.up") }
                             .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
                             .accessibilityLabel(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
                             .help(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
                             .accessibilityIdentifier("session-jump-top")
                             .padding(16)
-                            .padding(.bottom, !searching && floatsComposerOnPhone ? phoneComposerHeight + 8 : 8)
+                            .padding(.bottom, !searching && usesFloatingComposer ? floatingComposerHeight + 8 : 8)
                         }
                     }
+                    .defaultScrollAnchor(.top, for: .initialOffset)
                     .scrollPosition(id: $visibleEntry, anchor: .top)
                     .refreshable {
                         pullRefreshing = true
@@ -422,73 +504,55 @@ struct SessionTimelineScreen: View {
                         await history.refreshVisibleTimeline(sessionID, anchor: visibleEntry)
                     }
                 }
-                if activeSession != nil && !floatsComposerOnPhone && !searching {
-                    sessionComposer(proxy: proxy, floating: false)
+                if activeSession != nil && !usesFloatingComposer && !searching {
+                    sessionComposer(floating: false)
                 }
             }
             .background(sessionBackground)
+        #if os(iOS)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            composerKeyboardVisible = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            composerKeyboardVisible = false
+        }
+        #endif
             .toolbar {
                 #if os(macOS)
                 ToolbarItemGroup(placement: djConnectRefreshToolbarPlacement) {
-                    if let refreshAction { RefreshButton(model: model, action: refreshAction) }
+                    if let refreshAction { RefreshButton(model: model, action: refreshAction, isLoading: timeline.loading || retryRefreshing) }
                     sessionSearchToolbarButton(proxy: proxy)
                 }
                 #endif
-                ToolbarItemGroup(placement: djConnectRefreshToolbarPlacement) {
-                    if let activeSession {
-                        #if !os(macOS)
-                        SessionConnectionToolbarButton(model: model)
-                        #endif
-                        ActiveSessionMoodToolbar(model: model, session: activeSession)
-                        ActiveSessionPresenceToolbar(model: model, session: activeSession)
+                #if os(iOS)
+                if usesExpandedToolbar {
+                    ToolbarItemGroup(placement: .topBarLeading) {
+                        if activeSession != nil { SessionConnectionToolbarButton(model: model) }
+                        sessionSearchToolbarButton(proxy: proxy)
                     }
-                    #if !os(macOS)
-                    if activeSession != nil {
-                        SessionEndToolbarButton(model: model)
-                    }
-                    #endif
-                    #if !os(macOS)
-                    sessionSearchToolbarButton(proxy: proxy)
-                    #endif
-                    #if os(macOS)
-                    if let activeSession, !model.isDemoMode {
-                        Button { showingHandoff.toggle() } label: {
-                            Image(systemName: "tv.badge.wifi")
-                                .foregroundStyle(model.vibeCastHandoffApproved ? djConnectAccent : .white)
-                        }
-                        .accessibilityLabel(text("ui.vibecast.handoff.title"))
-                        .accessibilityIdentifier("session-handoff-toggle")
-                        .help(text("ui.vibecast.handoff.title"))
-                        .popover(isPresented: $showingHandoff) {
-                            VibeCastHandoffPopover(model: model, session: activeSession, openQueueAction: openQueueAction)
-                            .presentationCompactAdaptation(.popover)
-                        }
-                    }
-                    #else
-                    if (activeSession != nil && !model.isDemoMode) || refreshAction != nil {
-                        Menu {
-                            if activeSession != nil && !model.isDemoMode {
-                                Button { showingHandoff = true } label: {
-                                    Label(text("ui.vibecast.handoff.title"), systemImage: "tv.badge.wifi")
-                                }
-                                .accessibilityIdentifier("session-handoff-toggle")
-                            }
-                            if let refreshAction {
-                                Button(action: refreshAction) {
-                                    Label(text("ui.refresh"), systemImage: "arrow.clockwise")
-                                }
-                                .disabled(model.isDemoMode || model.pairingStatus != .paired || model.isRefreshing)
-                                .accessibilityIdentifier("screen-refresh")
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .foregroundStyle(.white)
-                        }
-                        .accessibilityLabel(text("ui.more"))
-                        .accessibilityIdentifier("session-more-menu")
-                    }
-                    #endif
                 }
+                #endif
+                #if os(iOS)
+                if usesExpandedToolbar {
+                    ToolbarItemGroup(placement: djConnectRefreshToolbarPlacement) {
+                        sessionToolbarActions(proxy: proxy)
+                    }
+                } else {
+                    // Keep our More menu directly on the bar: system overflow
+                    // must not wrap it inside another ellipsis submenu.
+                    ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
+                        HStack(spacing: 0) {
+                            sessionToolbarActions(proxy: proxy)
+                                .frame(minWidth: 40, minHeight: 44)
+                        }
+                        .labelStyle(.iconOnly)
+                    }
+                }
+                #else
+                ToolbarItemGroup(placement: djConnectRefreshToolbarPlacement) {
+                    sessionToolbarActions(proxy: proxy)
+                }
+                #endif
                 #if os(macOS)
                 if activeSession != nil {
                     ToolbarItemGroup(placement: .confirmationAction) {
@@ -499,28 +563,22 @@ struct SessionTimelineScreen: View {
                 #endif
             }
             #if os(iOS)
-            .sheet(isPresented: $showingHandoff) {
-                if let activeSession {
-                    VibeCastHandoffPopover(model: model, session: activeSession, openQueueAction: openQueueAction)
-                        .presentationDetents([.medium, .large])
-                }
+            .overlay(alignment: .topTrailing) {
+                SessionControlPopoverHost(model: model, intent: $sessionControlIntent, showsHandoff: allowsHandoffPresentation, refreshAction: refreshAction)
+
             }
             #endif
             .onAppear {
                 guard activeSession != nil, initialAnchor == nil else { return }
-                Task { @MainActor in
-                    await Task.yield()
-                    jump("current", proxy: proxy)
-                    currentHeaderVisible = true
-                    hasNewEntries = false
-                }
+                positionCurrentWithoutAnimation()
             }
             .task(id: sessionID) {
+                if activeSession != nil, initialAnchor == nil { positionCurrentWithoutAnimation() }
                 let restoreGeneration = anchorGeneration
                 await history.prepare(); await history.loadTimeline(sessionID, window: .tail)
                 guard !Task.isCancelled, restoreGeneration == anchorGeneration else { return }
                 if let initialAnchor { await selectAnchor(initialAnchor, proxy: proxy, restoreRequest: true) }
-                else if activeSession != nil { jump("current", proxy: proxy) }
+                else if activeSession != nil { return } // Content refresh never repositions the active screen.
                 else if let anchor = history.readingAnchor(sessionID: sessionID) {
                     if ["current", "tail"].contains(anchor) { jump(anchor, proxy: proxy) }
                     else { await selectAnchor(anchor, proxy: proxy, restoreRequest: true) }
@@ -529,15 +587,17 @@ struct SessionTimelineScreen: View {
             .task(id: activeSession?.id) {
                 guard activeSession != nil else { return }
                 while !Task.isCancelled {
-                    if model.canRefreshSessionHistory {
+                    if scenePhase == .active, model.canRefreshSessionHistory {
                         await history.refreshConversation()
+                        guard !Task.isCancelled, scenePhase == .active else { continue }
                         await history.refreshVisibleTimeline(sessionID, anchor: visibleEntry)
                     }
                     try? await Task.sleep(for: .seconds(10))
                 }
             }
-            .onChange(of: activeSession?.id) { showingHandoff = false }
-            .onChange(of: history.profileScopeActive) { showingHandoff = false }
+            .onChange(of: activeSession?.id) { model.isShowingVibeCastSessionStart = false }
+            .onChange(of: history.profileScopeActive) { model.isShowingVibeCastSessionStart = false }
+            .onChange(of: history.responseEpoch) { model.isShowingVibeCastSessionStart = false }
             .onChange(of: query) { _, value in sceneRestoreTask?.cancel(); anchorGeneration = UUID(); history.search(sessionID: sessionID, query: value) }
             .onChange(of: history.searchMatches) {
                 guard searching, !matches.isEmpty else { return }
@@ -546,39 +606,134 @@ struct SessionTimelineScreen: View {
                     if let id = selectedMatchID { Task { await selectAnchor(id, proxy: proxy, searchRequest: true) } }
                 }
             }
-            .onChange(of: timeline.entries.last?.id) { old, new in
-                if old != nil, old != new, visibleEntry != "current", visibleEntry != new { hasNewEntries = true }
-            }
             .onChange(of: timeline.nextCursor) { if oldestEntriesVisible { loadEarlierIfNeeded() } }
             .onChange(of: timeline.windowed) { if oldestEntriesVisible { loadEarlierIfNeeded() } }
             .onChange(of: timeline.revision) {
                 if searching && !query.isEmpty { history.search(sessionID: sessionID, query: query) }
             }
             .onChange(of: scenePhase) {
-                if scenePhase == .inactive { resumePosition = visibleEntry }
-                if scenePhase == .active {
+                if scenePhase != .active {
+                    sceneRestoreTask?.cancel(); sceneRestoreTask = nil
+                    anchorGeneration = UUID()
+                    if activeSession != nil {
+                        pagingTask?.cancel(); pagingTask = nil
+                        searching = false; searchFocused = false; query = ""; selectedMatchID = nil
+                        history.clearSearch()
+                        resumePosition = "current"
+                        positionCurrentWithoutAnimation()
+                    } else if scenePhase == .inactive { resumePosition = visibleEntry }
+                } else {
                     sceneRestoreTask?.cancel()
+                    let active = activeSession != nil
+                    // Position before networking. There is deliberately no active
+                    // Session jump/open after the background read completes.
+                    if active { positionCurrentWithoutAnimation() }
                     let restoreGeneration = anchorGeneration
                     sceneRestoreTask = Task {
-                        await history.restoreVisibleTimeline(sessionID, active: activeSession != nil, anchor: resumePosition)
-                        guard !Task.isCancelled, restoreGeneration == anchorGeneration else { return }
+                        await history.restoreVisibleTimeline(sessionID, active: active, anchor: active ? nil : resumePosition)
+                        guard !Task.isCancelled, restoreGeneration == anchorGeneration, !active else { return }
                         guard let resumePosition else {
                             if let initialAnchor { await selectAnchor(initialAnchor, proxy: proxy, restoreRequest: true) }
-                            else if activeSession != nil { jump("current", proxy: proxy) }
                             return
                         }
-                        if resumePosition.hasPrefix("pending-") {
-                            if history.pendingTurns.contains(where: { "pending-" + $0.id == resumePosition }) { jump(resumePosition, proxy: proxy) }
-                            else if activeSession != nil { jump("current", proxy: proxy) }
-                        } else if !["current", "tail"].contains(resumePosition) {
+                        if !["current", "tail"].contains(resumePosition), !resumePosition.hasPrefix("pending-") {
                             await selectAnchor(resumePosition, proxy: proxy, restoreRequest: true)
-                        } else if activeSession != nil { jump("current", proxy: proxy) }
+                        }
                     }
                 }
             }
-            .onDisappear(perform: clearReadingState)
+            .onDisappear { clearReadingState(); history.cancelArtworkQueue() }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(activeSession == nil ? "screen-history-timeline" : "screen-session-conversation")
+        }
+    }
+
+    @ViewBuilder private func sessionToolbarActions(proxy: ScrollViewProxy) -> some View {
+        Group {
+            if let activeSession {
+                #if !os(macOS)
+                if !usesExpandedToolbar { SessionConnectionToolbarButton(model: model) }
+                #endif
+                #if os(iOS)
+                ActiveSessionMoodToolbar(model: model, session: activeSession, requestPresentation: {
+                    sessionControlIntent = SessionControlIntent(kind: .mood, sessionID: activeSession.id, epoch: history.responseEpoch, sourceRect: menuFrames[.mood] ?? .zero)
+                })
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.mood] = $0 }
+                ActiveSessionPresenceToolbar(model: model, session: activeSession, requestPresentation: {
+                    sessionControlIntent = SessionControlIntent(kind: .presence, sessionID: activeSession.id, epoch: history.responseEpoch, sourceRect: menuFrames[.presence] ?? .zero)
+                })
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.presence] = $0 }
+                #else
+                ActiveSessionMoodToolbar(model: model, session: activeSession)
+                ActiveSessionPresenceToolbar(model: model, session: activeSession)
+                #endif
+                #if os(iOS)
+                ActiveSessionPersonaToolbar(model: model, session: activeSession, requestPresentation: {
+                    sessionControlIntent = SessionControlIntent(kind: .persona, sessionID: activeSession.id, epoch: history.responseEpoch, sourceRect: menuFrames[.persona] ?? .zero)
+                })
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.persona] = $0 }
+                #else
+                ActiveSessionPersonaToolbar(model: model, session: activeSession)
+                #endif
+            }
+            #if !os(macOS)
+            if !usesExpandedToolbar, activeSession != nil {
+                SessionEndToolbarButton(model: model)
+            }
+            #endif
+            #if !os(macOS)
+            if !usesExpandedToolbar { sessionSearchToolbarButton(proxy: proxy) }
+            #endif
+            #if os(macOS)
+            Menu {
+                if activeSession != nil {
+                    Button { showingDJVoice = true } label: {
+                        Label(text("ui.dj_settings.title"), systemImage: "speaker.wave.2")
+                    }.accessibilityIdentifier("session-voice-toggle")
+                }
+            } label: { Image(systemName: "ellipsis").foregroundStyle(.white) }
+            .accessibilityIdentifier("session-more-menu")
+            .popover(isPresented: $showingDJVoice) {
+                ProfileDJSettingsEditor(model: model).equatable().frame(idealWidth: 360)
+            }
+            .onChange(of: activeSession?.id) { showingDJVoice = false }
+            .onChange(of: history.responseEpoch) { showingDJVoice = false }
+            .onChange(of: scenePhase) { if scenePhase != .active { showingDJVoice = false } }
+            if allowsHandoffPresentation {
+                Button { model.isShowingVibeCastSessionStart = true } label: {
+                    Image(systemName: "tv.badge.wifi")
+                        .foregroundStyle(model.vibeCastHandoffApproved ? djConnectAccent : .white)
+                }
+                .accessibilityLabel(text("ui.vibecast.handoff.title"))
+                .accessibilityIdentifier("session-handoff-toggle")
+                .help(text("ui.vibecast.handoff.title"))
+            }
+            #else
+            if usesExpandedToolbar {
+                if allowsHandoffPresentation {
+                    Button { model.isShowingVibeCastSessionStart = true } label: {
+                        Image(systemName: "tv.badge.wifi")
+                            .foregroundStyle(model.vibeCastHandoffApproved ? djConnectAccent : .white)
+                    }
+                    .accessibilityLabel(text("ui.vibecast.handoff.title"))
+                    .accessibilityIdentifier("session-handoff-toggle")
+                }
+                if activeSession != nil { SessionEndToolbarButton(model: model) }
+                if let refreshAction {
+                    RefreshButton(model: model, action: refreshAction, isLoading: timeline.loading || retryRefreshing)
+                }
+            }
+            if activeSession != nil || allowsHandoffPresentation || refreshAction != nil {
+                Button {
+                    sessionControlIntent = SessionControlIntent(kind: .more, sessionID: sessionID, epoch: history.responseEpoch, sourceRect: menuFrames[.more] ?? .zero)
+                } label: {
+                    Image(systemName: "ellipsis").foregroundStyle(.white)
+                }
+                .accessibilityLabel(text("ui.more"))
+                .accessibilityIdentifier("session-more-menu")
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.more] = $0 }
+            }
+            #endif
         }
     }
 
@@ -605,17 +760,12 @@ struct SessionTimelineScreen: View {
 
     private func currentHeader(_ session: DJConnectSessionRuntime) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            if model.isDemoMode {
-                Label(text("demo.session.notice"), systemImage: "sparkles")
-                    .font(.caption).frame(maxWidth: .infinity).padding(.bottom, 8)
-                    .accessibilityIdentifier("session-demo-notice")
-            }
             NativeSessionMomentsView(session: session, language: model.language,
             isRecovering: model.djSessionIsRecovering,
             isLiveUnavailable: model.djSessionLiveUnavailable,
             retryConnection: { Task { await model.retryDJSessionConnection() } },
             artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL),
-            showsFlow: false, playbackOutputName: model.sessionPlaybackOutputName, playbackModel: model)
+            playbackOutputName: model.sessionPlaybackOutputName, playbackModel: model)
         }
         #if os(macOS)
         .padding(.horizontal, 20)
@@ -654,6 +804,17 @@ struct SessionTimelineScreen: View {
         }
     }
 
+    private func positionCurrentWithoutAnimation() {
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            visibleEntry = "current"
+            currentHeaderVisible = true
+            oldestEntriesVisible = false
+            artworkVisibleIDs = []
+        }
+    }
+
     private func jump(_ id: String, proxy: ScrollViewProxy) {
         sceneRestoreTask?.cancel()
         anchorGeneration = UUID()
@@ -679,7 +840,7 @@ struct SessionTimelineScreen: View {
         if let priorSearchPosition {
             if ["current", "tail"].contains(priorSearchPosition) || timeline.entries.contains(where: { $0.id == priorSearchPosition && $0.isRetained() }) {
                 jump(priorSearchPosition, proxy: proxy)
-            } else { positionUnavailable = true }
+            } else { jump("current", proxy: proxy) }
         }
     }
     private func moveMatch(_ delta: Int, proxy: ScrollViewProxy) {
@@ -689,19 +850,12 @@ struct SessionTimelineScreen: View {
         let id = matches[index].id
         Task { await selectAnchor(id, proxy: proxy, searchRequest: true) }
     }
-    @ViewBuilder private func sessionComposer(proxy: ScrollViewProxy, floating: Bool) -> some View {
-        VStack(spacing: 8) {
-            if hasNewEntries {
-                Button(text("ui.session.history.new_entries")) {
-                    jump(timeline.entries.last?.id ?? "current", proxy: proxy)
-                    hasNewEntries = false
-                }
-                .font(.footnote).padding(.horizontal, 20).padding(.vertical, 8)
-            }
-            AskDJInputBar(model: model, canSend: canSend,
-                          canUseVoiceInput: (model.isDemoMode || model.canUseProfileConversation) && model.voiceEnabled,
-                          isInputFocused: $inputFocused, floating: floating, placeholderKey: "ui.session.chat.placeholder")
-        }
+    private func sessionComposer(floating: Bool) -> some View {
+        AskDJInputBar(model: model, canSend: canSend,
+                      canUseVoiceInput: (model.isDemoMode || model.canUseProfileConversation) && model.voiceEnabled,
+                      isInputFocused: $inputFocused, floating: floating, placeholderKey: "ui.session.chat.placeholder",
+                      surfaceColors: activeSession.map { DJConnectSessionMoodPalette(mood: $0.selectedMood).colors })
+        .sessionIntroductionTarget("chat")
     }
 
     @ViewBuilder private func searchBar(proxy: ScrollViewProxy) -> some View {
@@ -736,11 +890,10 @@ struct SessionTimelineScreen: View {
         }
         .onChange(of: matches.map(\.id)) {
             if let selectedMatchID, !matches.contains(where: { $0.id == selectedMatchID }) {
-                anchorGeneration = UUID(); self.selectedMatchID = nil; positionUnavailable = true
+                anchorGeneration = UUID(); self.selectedMatchID = nil
             }
         }
         .font(.callout).padding(.horizontal, 20).padding(.vertical, 10)
-        .background(.ultraThinMaterial)
         .onKeyPress(.escape) { closeSearch(proxy: proxy); return .handled }
         .onKeyPress(.upArrow) { moveMatch(-1, proxy: proxy); return .handled }
         .onKeyPress(.downArrow) { moveMatch(1, proxy: proxy); return .handled }
@@ -774,6 +927,7 @@ struct SessionTimestampText: View {
     }
 }
 
+
 struct SessionEntryView: View, Equatable {
     @Environment(\.openURL) private var openURL
     let entry: DJConnectHistoryEntry
@@ -783,6 +937,7 @@ struct SessionEntryView: View, Equatable {
     var opensActiveComposer = false
     var allowsPlaybackActions = false
     var playingActionID: String? = nil
+    var artworkModel: DJConnectAppModel? = nil
     var playAction: (DJConnectAskDJPlaybackAction) -> Void = { _ in }
     var highlights: [DJConnectHistoryHighlight] = []
     var isSelectedMatch = false
@@ -792,7 +947,7 @@ struct SessionEntryView: View, Equatable {
         lhs.entry == rhs.entry && lhs.language == rhs.language && lhs.messageAdapter == rhs.messageAdapter &&
         lhs.contextEpoch == rhs.contextEpoch && lhs.opensActiveComposer == rhs.opensActiveComposer &&
         lhs.allowsPlaybackActions == rhs.allowsPlaybackActions && lhs.playingActionID == rhs.playingActionID &&
-        lhs.highlights == rhs.highlights && lhs.isSelectedMatch == rhs.isSelectedMatch && lhs.selected == rhs.selected
+        lhs.artworkModel === rhs.artworkModel && lhs.highlights == rhs.highlights && lhs.isSelectedMatch == rhs.isSelectedMatch && lhs.selected == rhs.selected
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
     var body: some View {
@@ -816,26 +971,36 @@ struct SessionEntryView: View, Equatable {
                             openURL(url)
                         }, feedbackAction: { _ in }, setPromptAction: { _ in }, isReadOnly: true, allowsSessionPlaybackActions: allowsPlaybackActions,
                         serverHighlights: highlights, contextQuestionAction: askAction,
-                        contextQuestionSelected: selected, contextQuestionID: "ask-entry-" + entry.id)
+                        contextQuestionSelected: selected, contextQuestionID: "ask-entry-" + entry.id,
+                        sharedSpeechActions: artworkModel.map { model in
+                            { AnyView(SharedDJSpeechActions(model: model, speech: entry.sessionSpeech, acceptedText: entry.text ?? "", retainedEntry: entry)) }
+                        })
                     if entry.inputType == "voice" { Label(text("ui.session.history.voice"), systemImage: "mic.fill").font(.caption) }
                 } else {
                     VStack(alignment: .leading, spacing: 10) {
+                        if let media = entry.sessionMedia, let model = artworkModel {
+                            SessionArtworkView(media: media, target: .entry(entry.id),
+                                audience: media.artwork.historicalDisplayAllowed ? .history : .activeFlow,
+                                language: language, model: model)
+                        }
                         Label(text(entry.kind == .djMoment ? "ui.session.moment.generic" : "ui.session.history.playback"),
                               systemImage: entry.kind == .djMoment ? "sparkles" : "music.note")
                             .font(.caption.weight(.semibold)).padding(.trailing, 40)
                         SessionHighlightedText(text: entry.text ?? "", highlights: highlights).font(.title3)
                         SessionTimestampText(value: entry.occurredAt, language: language).font(.caption).foregroundStyle(.secondary)
                         ForEach(sourceURLs, id: \.absoluteString) { url in
-                            let key = url.absoluteString == entry.sourceAttribution?["url_previous"] ? "ui.session.source_previous" : "ui.session.source_current"
-                            Link((entry.sourceAttribution?["provider"] ?? url.host ?? "") + " · " + text(key), destination: url)
-                                .foregroundStyle(djConnectAccent)
-                                .tint(djConnectAccent)
+                            Link(entry.sourceAttribution?["provider"] ?? url.host ?? "", destination: url)
+                                .foregroundStyle(.white)
+                                .tint(.white)
                                 .accessibilityValue(url.absoluteString)
                         }
                         if entry.requiresSpotifyAttribution == true, let logo = spotifyAttributionLogo,
                            let url = sourceURLs.first {
                             Link(destination: url) { logo.resizable().scaledToFit().frame(width: 70, height: 20).padding(10).frame(minHeight: 44).contentShape(Rectangle()) }
                                 .accessibilityLabel("Spotify")
+                        }
+                        if let model = artworkModel {
+                            SharedDJSpeechActions(model: model, speech: entry.sessionSpeech, acceptedText: entry.text ?? "", retainedEntry: entry)
                         }
                     }
                     .padding(20)
@@ -860,7 +1025,7 @@ struct SessionEntryView: View, Equatable {
         .padding(4)
     }
     private var askButton: some View {
-        Button(action: askAction) {
+        Button { DJConnectHaptics.selection(); askAction() } label: {
             Image(systemName: selected ? "checkmark.bubble" : "bubble.left.and.bubble.right")
                 .font(.system(size: 16))
                 .foregroundStyle(selected ? djConnectAccent : .secondary)
@@ -902,7 +1067,7 @@ struct SessionHistoryMatchCard: View {
                         .accessibilityLabel("Spotify")
                 }
                 if let action = entry.openAction, action.reference == entry.reference {
-                    Button(text("ui.session.history.open")) { open(action) }
+                    Button(text("ui.session.history.open")) { DJConnectHaptics.selection(); open(action) }
                         .djConnectPlainButtonStyle()
                         .frame(minHeight: 44, alignment: .leading)
                         .contentShape(Rectangle())
@@ -932,18 +1097,15 @@ struct SessionComposerContext: View {
                         }
                     }
                     Spacer()
-                    Button { history.selectedEntry = nil } label: {
+                    Button { DJConnectHaptics.selection(); history.selectedEntry = nil } label: {
                         Image(systemName: "xmark")
-                            .symbolRenderingMode(.monochrome)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 32, height: 32)
-                            .background(.black.opacity(0.18), in: Circle())
-                            .overlay(Circle().stroke(.white.opacity(0.24), lineWidth: 1))
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
                     }
-                    .djConnectPlainButtonStyle()
+                    .djConnectButtonStyle(DJConnectButtonStyle(
+                        emphasis: .secondary,
+                        shape: .icon,
+                        usesLiveGlass: false,
+                        iconDiameter: 44
+                    ))
                     .tint(.white)
                     .foregroundStyle(.white)
                     .accessibilityLabel(text("ui.close"))
@@ -965,7 +1127,7 @@ struct SessionComposerContext: View {
 /// Display only server-confirmed timestamps; never infer an end from playback or last entry.
 enum SessionArchiveSummary {
     static func text(_ session: DJConnectSavedSession, language: String,
-                     timeZone: TimeZone = .current) -> String {
+                     timeZone: TimeZone = .current, compact: Bool = false) -> String {
         guard let created = DJConnectHistoryEntry.date(session.createdAt) else { return "" }
         let locale = Locale(identifier: language)
         let date = DateFormatter()
@@ -993,15 +1155,205 @@ enum SessionArchiveSummary {
         let length = elapsed < 60
             ? DJConnectLocalization.localized(key: "ui.session.history.less_than_minute", language: language)
             : duration.string(from: floor(elapsed / 60) * 60) ?? ""
+        if compact { return date.string(from: start) + " – " + length }
         let endLabel = calendar.isDate(start, inSameDayAs: end) ? time.string(from: end) : date.string(from: end) + " " + time.string(from: end)
         return date.string(from: start) + " – " + length + " (" + time.string(from: start) + " – " + endLabel + ")"
+    }
+
+    static func savedNotice(_ session: DJConnectSavedSession, language: String,
+                            timeZone: TimeZone = .current) -> String? {
+        guard session.isContractValid, session.readOnly, session.lifecycleStatus == "ENDED",
+              let start = DJConnectHistoryEntry.date(session.startedAt),
+              let end = DJConnectHistoryEntry.date(session.endedAt), end >= start else { return nil }
+        return String(format: DJConnectLocalization.localized(key: "ui.session.history.saved_notice", language: language),
+                      locale: Locale(identifier: language), text(session, language: language, timeZone: timeZone, compact: true))
     }
 }
 
 /// Native presentation only: all writes, pending intent and confirmation belong to AppModel.
+struct SessionControlIntent: Identifiable {
+    enum Kind: Hashable { case mood, presence, persona, voice, connection, more, visualMood }
+    let id = UUID()
+    let kind: Kind
+    let sessionID: String
+    let epoch: UUID
+    var sourceRect: CGRect = .zero
+}
+
+#if os(iOS)
+struct SessionControlPopoverHost: View {
+    @ObservedObject var model: DJConnectAppModel
+    @Binding var intent: SessionControlIntent?
+    @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var history: DJConnectSessionHistoryModel
+    let showsHandoff: Bool
+    let visualMoodSelection: Binding<Int>?
+    let refreshAction: (() -> Void)?
+    @State private var pendingAction: (SessionControlIntent, MoreAction)?
+    private enum MoreAction { case handoff, refresh, voice }
+    init(model: DJConnectAppModel, intent: Binding<SessionControlIntent?>, showsHandoff: Bool = false, refreshAction: (() -> Void)? = nil, visualMoodSelection: Binding<Int>? = nil) {
+        self.model = model; _intent = intent; history = model.sessionHistory
+        self.showsHandoff = showsHandoff; self.refreshAction = refreshAction; self.visualMoodSelection = visualMoodSelection
+    }
+    private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
+    private func queue(_ action: MoreAction, captured: SessionControlIntent) {
+        pendingAction = (captured, action)
+        intent = nil
+    }
+    private func finishDismissal(_ id: UUID) {
+        guard let (captured, action) = pendingAction, captured.id == id else { return }
+        pendingAction = nil
+        guard scenePhase == .active, captured.epoch == history.responseEpoch else { return }
+        switch action {
+        case .handoff:
+            guard showsHandoff, captured.sessionID == model.activeDJSession?.id else { return }
+            model.isShowingVibeCastSessionStart = true
+        case .voice:
+            guard captured.sessionID == model.activeDJSession?.id else { return }
+            intent = SessionControlIntent(kind: .voice, sessionID: captured.sessionID, epoch: captured.epoch, sourceRect: captured.sourceRect)
+        case .refresh:
+            guard !model.isDemoMode, model.pairingStatus == .paired else { return }
+            refreshAction?()
+        }
+    }
+    var body: some View {
+        GeometryReader { geometry in
+            let frame = geometry.frame(in: .global)
+            let source = intent?.sourceRect ?? .zero
+            let anchor = source.isEmpty
+                ? CGRect(x: max(0, geometry.size.width - 24), y: 0, width: 1, height: 1)
+                : CGRect(x: source.midX - frame.minX, y: source.maxY - frame.minY + 4, width: 1, height: 1)
+            Color.clear.frame(width: 1, height: 1)
+            .popover(item: $intent, attachmentAnchor: .rect(.rect(anchor)), arrowEdge: .top) { captured in
+                Group {
+                    if captured.kind == .voice {
+                        ProfileDJSettingsEditor(model: model).equatable().frame(idealWidth: 360)
+                    } else {
+                ScrollView {
+                    Group {
+                        switch captured.kind {
+                        case .mood:
+                            SessionMoodPopoverContent(model: model, sessionID: captured.sessionID, epoch: captured.epoch)
+                        case .persona:
+                            ActiveSessionPersonaControl(model: model, sessionID: captured.sessionID, epoch: captured.epoch)
+                        case .presence:
+                            ActiveSessionPresenceControl(model: model, sessionID: captured.sessionID, epoch: captured.epoch)
+                        case .visualMood:
+                            if let visualMoodSelection {
+                                SessionGlassChoiceSelector(
+                                    steps: ["chill", "groove", "energy", "party"].enumerated().map {
+                                        (text("ui.session.mood." + $0.element), $0.offset)
+                                    }, selectedIndex: visualMoodSelection.wrappedValue, language: model.language
+                                ) { visualMoodSelection.wrappedValue = $0 }
+                            }
+                        case .voice:
+                            EmptyView()
+                        case .connection:
+                            SessionConnectionPopoverContent(model: model) { intent = nil }
+                        case .more:
+                            VStack(alignment: .leading, spacing: 16) {
+                                if captured.sessionID == model.activeDJSession?.id {
+                                    Button { queue(.voice, captured: captured) } label: {
+                                        Label(text("ui.dj_settings.title"), systemImage: "speaker.wave.2")
+                                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                    }.accessibilityIdentifier("session-voice-toggle")
+                                }
+                                if showsHandoff {
+                                    Button { queue(.handoff, captured: captured) } label: {
+                                        Label(text("ui.vibecast.handoff.title"), systemImage: "tv.badge.wifi")
+                                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                    }.accessibilityIdentifier("session-handoff-toggle")
+                                }
+                                if refreshAction != nil {
+                                    Button { queue(.refresh, captured: captured) } label: {
+                                        HStack {
+                                            RefreshStatusIcon(isLoading: model.isRefreshing || history.timelines[captured.sessionID]?.loading == true)
+                                            Text(text("ui.refresh"))
+                                        }
+                                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                    }
+                                    .disabled(model.isDemoMode || model.pairingStatus != .paired)
+                                    .accessibilityIdentifier("screen-refresh")
+                                }
+                            }.buttonStyle(.plain).foregroundStyle(.white)
+                        }
+                    }.padding(captured.kind == .voice ? 0 : 16)
+                }
+                .frame(idealWidth: 360, maxHeight: 620)
+                    }
+                }
+                .background(SessionPopoverDismissalObserver { finishDismissal(captured.id) })
+                .presentationCompactAdaptation(.popover)
+                .djConnectPresentationSurface()
+            }
+            .task(id: intent?.id) {
+                guard let captured = intent, captured.kind != .connection, captured.kind != .more, captured.kind != .visualMood, !Task.isCancelled, scenePhase == .active,
+                      model.isDemoMode || model.pairingStatus == .paired else { return }
+                model.recordPresentationState("screen-menu-open")
+                await model.refreshActiveDJSession()
+                guard !Task.isCancelled, intent?.id == captured.id,
+                      captured.epoch == history.responseEpoch, captured.sessionID == model.activeDJSession?.id else { return }
+                await model.refreshActiveMoodCapability()
+            }
+            .onChange(of: intent?.id) { if intent == nil { model.recordPresentationState("screen-menu-dismissed") } }
+            .onChange(of: history.responseEpoch) { model.recordPresentationState("screen-menu-epoch-changed"); intent = nil; pendingAction = nil }
+            .onChange(of: model.activeDJSession?.id) { model.recordPresentationState("screen-menu-session-changed"); intent = nil; pendingAction = nil }
+            .onChange(of: scenePhase) { if scenePhase != .active { model.recordPresentationState("screen-menu-scene-inactive"); intent = nil; pendingAction = nil } }
+            .onDisappear { model.recordPresentationState("screen-menu-host-disappeared"); intent = nil; pendingAction = nil }
+        }
+    }
+}
+
+// Wait for native dismissal completion before presenting the handoff sheet.
+private struct SessionPopoverDismissalObserver: UIViewControllerRepresentable {
+    let onDismiss: () -> Void
+    final class Controller: UIViewController {
+        var onDismiss: (() -> Void)?
+        override func viewDidDisappear(_ animated: Bool) {
+            super.viewDidDisappear(animated)
+            onDismiss?()
+        }
+    }
+    func makeUIViewController(context: Context) -> Controller {
+        let controller = Controller(); controller.onDismiss = onDismiss
+        controller.view.backgroundColor = .clear
+        return controller
+    }
+    func updateUIViewController(_ controller: Controller, context: Context) { controller.onDismiss = onDismiss }
+}
+
+private struct SessionMoodPopoverContent: View {
+    @ObservedObject var model: DJConnectAppModel
+    let sessionID: String
+    let epoch: UUID
+    private let moods = ["chill", "groove", "energy", "party"]
+    private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
+    private var session: DJConnectSessionRuntime? { model.activeDJSession?.id == sessionID ? model.activeDJSession : nil }
+    private var canChange: Bool {
+        epoch == model.sessionHistory.responseEpoch && (model.isDemoMode || model.sessionHistory.hasAuthorizedOwner) &&
+        model.activeMoodAvailable && !model.activeMoodPending && session?.confirmedMoodRevision != nil
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SessionGlassChoiceSelector(steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
+                                      selectedIndex: moods.firstIndex(of: session?.selectedMood ?? "") ?? 0,
+                                      language: model.language, preservesAppearanceWhileDisabled: model.activeMoodPending) { index in
+                guard canChange, moods.indices.contains(index) else { return }
+                Task { await model.changeActiveSessionMood(moods[index], expectedSessionID: sessionID, expectedEpoch: epoch) }
+            }
+            .disabled(!canChange)
+            .accessibilityIdentifier("active-session-mood")
+            if let error = model.activeMoodError { Text(error).font(.caption).foregroundStyle(.secondary) }
+            else if !canChange && !model.activeMoodPending { Text(text("ui.session.mood.unavailable")).font(.caption).foregroundStyle(.secondary) }
+        }
+    }
+}
+#endif
+
 struct ActiveSessionPresenceToolbar: View {
     @ObservedObject var model: DJConnectAppModel
     let session: DJConnectSessionRuntime
+    let requestPresentation: (() -> Void)?
     @ObservedObject private var history: DJConnectSessionHistoryModel
     @Environment(\.scenePhase) private var scenePhase
     private struct Scope: Identifiable {
@@ -1013,8 +1365,8 @@ struct ActiveSessionPresenceToolbar: View {
     #if os(macOS)
     @FocusState private var presencePopoverFocused: Bool
     #endif
-    init(model: DJConnectAppModel, session: DJConnectSessionRuntime) {
-        self.model = model; self.session = session; history = model.sessionHistory
+    init(model: DJConnectAppModel, session: DJConnectSessionRuntime, requestPresentation: (() -> Void)? = nil) {
+        self.model = model; self.session = session; self.requestPresentation = requestPresentation; history = model.sessionHistory
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     private func trace(_ event: String) {
@@ -1033,6 +1385,8 @@ struct ActiveSessionPresenceToolbar: View {
     }
     var body: some View {
         Button {
+            if let requestPresentation { requestPresentation(); return }
+            model.recordPresentationState("presence-toggle")
             trace("toggle-before")
             if scope != nil { scope = nil }
             else { scope = Scope(sessionID: session.id, epoch: history.responseEpoch) }
@@ -1049,8 +1403,10 @@ struct ActiveSessionPresenceToolbar: View {
                 ActiveSessionPresenceControl(model: model, sessionID: captured.sessionID, epoch: captured.epoch)
                     .padding(16)
             }
+            .onAppear { model.recordPresentationState("presence-appeared") }
+            .onDisappear { model.recordPresentationState("presence-disappeared") }
             .accessibilityIdentifier("session-presence-scroll")
-            .frame(idealWidth: 360, idealHeight: 480)
+            .frame(idealWidth: 400)
             #if os(macOS)
             .focusable()
             .focusEffectDisabled()
@@ -1061,24 +1417,22 @@ struct ActiveSessionPresenceToolbar: View {
             .onExitCommand { scope = nil }
             #endif
             .presentationCompactAdaptation(.popover)
+                .djConnectPresentationSurface()
         }
         .onAppear { trace("toolbar-appeared") }
-        .onDisappear { trace("toolbar-disappeared") }
-        .onChange(of: scope?.id) {
-            trace("scope-changed")
-            guard let captured = scope, scenePhase == .active, model.pairingStatus == .paired else { return }
-            Task {
-                trace("active-read-start")
-                await model.refreshActiveDJSession()
-                trace("active-read-finished")
-                guard model.activeDJSession?.id == captured.sessionID,
-                      history.responseEpoch == captured.epoch, scope?.id == captured.id,
-                      scenePhase == .active else { return }
-                trace("capability-read-start")
-                await model.refreshActiveMoodCapability()
-                trace("capability-read-finished")
-            }
+        .onDisappear { trace("toolbar-disappeared"); scope = nil }
+        .task(id: scope?.id) {
+            guard let captured = scope else { return }
+            guard !Task.isCancelled, scenePhase == .active, model.pairingStatus == .paired else { return }
+            trace("active-read-start")
+            await model.refreshActiveDJSession()
+            trace("active-read-finished")
+            guard !Task.isCancelled, model.activeDJSession?.id == captured.sessionID,
+                  history.responseEpoch == captured.epoch, scope?.id == captured.id,
+                  scenePhase == .active else { return }
+            await model.refreshActiveMoodCapability()
         }
+
         .onChange(of: session.id) { trace("session-changed"); scope = nil }
         .onChange(of: history.responseEpoch) { trace("owner-epoch-changed"); scope = nil }
         .onChange(of: scenePhase) { trace("scene-changed"); if scenePhase != .active { scope = nil } }
@@ -1096,9 +1450,9 @@ struct ActiveSessionPresenceControl: View {
     private var confirmed: DJConnectSessionPresenceSnapshot? {
         model.activeDJSession?.id == sessionID ? model.activeDJSession?.confirmedPresence : nil
     }
-    private var enabled: Bool { model.activePresenceAvailable && confirmed != nil && model.pairingStatus == .paired && model.sessionHistory.responseEpoch == epoch }
+    private var enabled: Bool { model.activePresenceAvailable && confirmed != nil && (model.isDemoMode || model.pairingStatus == .paired) && model.sessionHistory.responseEpoch == epoch }
     private var unavailableKey: String {
-        guard model.activeDJSession?.id == sessionID, model.pairingStatus == .paired,
+        guard model.activeDJSession?.id == sessionID, model.isDemoMode || model.pairingStatus == .paired,
               model.sessionHistory.responseEpoch == epoch else { return "ui.session.presence.no_active_session" }
         switch model.activePresenceCapabilityStatus {
         case .notLoaded, .loading: return "ui.session.presence.loading"
@@ -1119,54 +1473,24 @@ struct ActiveSessionPresenceControl: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(text("ui.session.presence.title")).font(.headline)
-            Text(text("ui.session.presence.explanation")).font(.subheadline).foregroundStyle(.white.opacity(0.88))
             if enabled {
-                Text(text(values[min(4, max(0, Int(preview.rounded())))].localizationKey)).font(.body.weight(.semibold))
-                Slider(value: Binding(get: { preview }, set: { next in
-                    preview = next
-                    if !dragging { commit(next) }
-                }), in: 0...4, step: 1) { editing in
-                    dragging = editing
-                    if !editing { commit(preview) }
-                }
-                .tint(.white)
-                .accessibilityLabel(text("ui.session.presence.title"))
-                .accessibilityValue(text(values[min(4, max(0, Int(preview.rounded())))].localizationKey))
-                .accessibilityAdjustableAction { direction in
-                    switch direction {
-                    case .increment: preview = min(4, preview + 1)
-                    case .decrement: preview = max(0, preview - 1)
-                    @unknown default: return
-                    }
-                    commit(preview)
+                SessionGlassChoiceSelector(steps: values.enumerated().map { (text($0.element.localizationKey), $0.offset) },
+                                           selectedIndex: min(values.count - 1, max(0, Int(preview.rounded()))),
+                                           language: model.language,
+                                           glyphs: ["music.note", "bubble.left", "bubble.left.and.bubble.right", "waveform", "mic.fill"],
+                                           titleKey: "ui.session.presence.title",
+                                           accessibilityLabelKey: "ui.session.presence.title",
+                                           optionIDs: values.map { "session-presence-choice-" + $0.rawValue }) { index in
+                    preview = Double(index); commit(preview)
                 }
                 .accessibilityIdentifier("session-presence-slider")
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 280 : 120), spacing: 8)], spacing: 8) {
-                    ForEach(Array(values.enumerated()), id: \.element) { index, value in
-                        Button { preview = Double(index); commit(preview) } label: {
-                            Text(text(value.localizationKey)).font(.caption).multilineTextAlignment(.center)
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                        }
-                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: Int(preview) == index ? .selected : .secondary))
-                        .accessibilityAddTraits(Int(preview) == index ? .isSelected : [])
-                        .accessibilityIdentifier("session-presence-choice-" + value.rawValue)
-                    }
-                }
+                .accessibilityValue(confirmed.map { text($0.selectedPresence.localizationKey) } ?? text("ui.session.presence.invalid_state"))
             } else {
                 if model.activePresenceCapabilityStatus == .loading || model.activePresenceCapabilityStatus == .notLoaded {
                     ProgressView().tint(.white)
                 }
                 Text(text(unavailableKey)).font(.body).foregroundStyle(.white.opacity(0.88))
                     .accessibilityIdentifier("session-presence-availability")
-            }
-            if let confirmed {
-                Text(text("ui.session.presence.confirmed") + ": " + text(confirmed.selectedPresence.localizationKey))
-                    .font(.caption).foregroundStyle(.white.opacity(0.88)).accessibilityIdentifier("session-presence-confirmed")
-            }
-            if model.activePresencePending, let desired = model.activePresenceDesired {
-                HStack { ProgressView().tint(.white); Text(text("ui.session.presence.pending") + ": " + text(desired.localizationKey)).font(.caption) }
-                    .accessibilityIdentifier("session-presence-pending")
             }
             if let error = model.activePresenceError {
                 Text(error).font(.caption).accessibilityIdentifier("session-presence-error")
@@ -1179,7 +1503,6 @@ struct ActiveSessionPresenceControl: View {
                         .djConnectButtonStyle(DJConnectButtonStyle())
                 }
             }
-            Text(text("ui.session.presence.music_only_help")).font(.caption).foregroundStyle(.white.opacity(0.88))
         }
         .onAppear { syncPreview() }
         .onChange(of: confirmed) { syncPreview() }
@@ -1192,6 +1515,7 @@ struct ActiveSessionPresenceControl: View {
 struct ActiveSessionMoodToolbar: View {
     @ObservedObject var model: DJConnectAppModel
     let session: DJConnectSessionRuntime
+    let requestPresentation: (() -> Void)?
     @Environment(\.scenePhase) private var scenePhase
     private struct MoodIntent: Identifiable {
         let id = UUID()
@@ -1208,8 +1532,8 @@ struct ActiveSessionMoodToolbar: View {
     @FocusState private var moodPopoverFocused: Bool
     #endif
     @ObservedObject private var history: DJConnectSessionHistoryModel
-    init(model: DJConnectAppModel, session: DJConnectSessionRuntime) {
-        self.model = model; self.session = session; history = model.sessionHistory
+    init(model: DJConnectAppModel, session: DJConnectSessionRuntime, requestPresentation: (() -> Void)? = nil) {
+        self.model = model; self.session = session; self.requestPresentation = requestPresentation; history = model.sessionHistory
     }
     private let moods = ["chill", "groove", "energy", "party"]
     private var selectedIndex: Int { moods.firstIndex(of: session.selectedMood) ?? 0 }
@@ -1217,6 +1541,8 @@ struct ActiveSessionMoodToolbar: View {
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     var body: some View {
         Button {
+            if let requestPresentation { requestPresentation(); return }
+            model.recordPresentationState("mood-toggle")
             if moodIntent != nil { moodIntent = nil }
             else { moodIntent = MoodIntent(sessionID: session.id, epoch: history.responseEpoch) }
         } label: {
@@ -1225,24 +1551,23 @@ struct ActiveSessionMoodToolbar: View {
         .accessibilityLabel(text("ui.session.select_mood"))
         .accessibilityValue(text("ui.session.mood." + moods[selectedIndex]))
         .accessibilityIdentifier("session-mood-toggle")
+        .sessionIntroductionTarget("toolbar-mood")
         .help(text("ui.session.select_mood"))
         .popover(item: $moodIntent) { intent in
             VStack(alignment: .leading, spacing: 12) {
-                MoodModeControl(steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
-                                selectedIndex: selectedIndex, language: model.language,
-                                caption: text("ui.session.select_mood"),
-                                selectableLabels: true,
-                                commitsOnDragEnd: true, showsCardBackground: false) { index in
+                SessionGlassChoiceSelector(steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
+                                         selectedIndex: selectedIndex, language: model.language,
+                                         preservesAppearanceWhileDisabled: model.activeMoodPending) { index in
                     guard canChange, moods.indices.contains(index) else { return }
                     Task { await model.changeActiveSessionMood(moods[index], expectedSessionID: intent.sessionID, expectedEpoch: intent.epoch) }
                 }
                 .disabled(!canChange)
                 .accessibilityIdentifier("active-session-mood")
-                if model.activeMoodPending { ProgressView(text("ui.session.mood.updating")) }
-                if !canChange && !model.activeMoodPending {
+                if let error = model.activeMoodError {
+                    Text(error).font(.caption).foregroundStyle(.secondary)
+                } else if !canChange && !model.activeMoodPending {
                     Text(text("ui.session.mood.unavailable")).font(.caption).foregroundStyle(.secondary)
                 }
-                if let error = model.activeMoodError { Text(error).font(.caption).foregroundStyle(.secondary) }
             }
             .padding(12).frame(idealWidth: 360)
             #if os(macOS)
@@ -1256,18 +1581,23 @@ struct ActiveSessionMoodToolbar: View {
             .onExitCommand { moodIntent = nil }
             #endif
             .presentationCompactAdaptation(.popover)
+                .djConnectPresentationSurface()
         }
         .task(id: CapabilityScope(sessionID: session.id, epoch: history.responseEpoch, authorized: model.pairingStatus == .paired)) {
             if model.isDemoMode || model.pairingStatus == .paired { await model.refreshActiveMoodCapability() }
         }
-        .onChange(of: moodIntent?.id) { _, id in
-            guard id != nil, scenePhase == .active,
+        .onDisappear { moodIntent = nil }
+        .task(id: moodIntent?.id) {
+            guard let intent = moodIntent else { return }
+            guard !Task.isCancelled, scenePhase == .active,
                   model.isDemoMode || model.pairingStatus == .paired else { return }
-            Task {
-                _ = await model.refreshActiveDJSession()
-                await model.refreshActiveMoodCapability()
-            }
+            await model.refreshActiveDJSession()
+            guard !Task.isCancelled, moodIntent?.id == intent.id,
+                  model.activeDJSession?.id == intent.sessionID,
+                  history.responseEpoch == intent.epoch, scenePhase == .active else { return }
+            await model.refreshActiveMoodCapability()
         }
+
         .onChange(of: session.id) { moodIntent = nil }
         .onChange(of: history.responseEpoch) { moodIntent = nil }
         .onChange(of: scenePhase) { _, phase in
@@ -1342,55 +1672,129 @@ struct SessionEndToolbarButton: View {
     }
 }
 
+/// The same trailing status action on live product pages. Archive pages omit it.
+struct ConnectionStatusToolbar: ToolbarContent {
+    let model: DJConnectAppModel
+    var body: some ToolbarContent {
+        #if os(macOS)
+        ToolbarItem(placement: .confirmationAction) { SessionConnectionToolbarButton(model: model) }
+        #else
+        ToolbarItem(placement: .topBarTrailing) { SessionConnectionToolbarButton(model: model) }
+        #endif
+    }
+}
+
 struct SessionConnectionToolbarButton: View {
     @ObservedObject var model: DJConnectAppModel
+    var requestPresentation: (() -> Void)? = nil
     @State private var showingStatus = false
     private func text(_ key: String) -> String {
         DJConnectLocalization.localized(key: key, language: model.language)
     }
-    private var status: SessionConnectionStatus {
-        .resolve(demo: model.isDemoMode, pairing: model.pairingStatus, mode: model.haConnectionMode,
-                 backendAvailable: model.backendAvailable, recovering: model.djSessionIsRecovering,
-                 liveUnavailable: model.djSessionLiveUnavailable)
-    }
+    private var status: SessionConnectionStatus { model.connectionPresentation }
     var body: some View {
-        Button { showingStatus.toggle() } label: {
-            Circle().fill(status.color).frame(width: 12, height: 12)
-                .overlay { Circle().stroke(.white.opacity(0.35), lineWidth: 1) }
-                .frame(width: 44, height: 44)
+        Button {
+            model.recordPresentationState("connection-toggle")
+            if let requestPresentation { requestPresentation() }
+            else { showingStatus.toggle() }
+        } label: {
+            Image(systemName: status.icon).font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(status.color).frame(width: 44, height: 44)
         }
         .accessibilityLabel(text("ui.connection.status"))
         .accessibilityValue(text(status.key))
         .accessibilityIdentifier("session-connection-toggle")
+        .sessionIntroductionTarget("toolbar-connection")
         .help(text(status.key))
         .popover(isPresented: $showingStatus) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(text("ui.connection.status")).font(.headline)
-                if [.offline, .recovering, .liveUnavailable, .backendUnavailable].contains(status) && !model.isDemoMode {
-                    Label(text(status.key), systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(status.color)
-                }
-                if model.isDemoMode {
-                    Label(text(status.key), systemImage: "play.circle.fill")
-                } else {
-                    #if os(iOS)
-                    IOSConnectionCard(model: model)
-                    #else
-                    SetupStatusView(model: model)
-                    #endif
-                }
-            }
-            .padding(16).frame(idealWidth: 340, maxWidth: 420)
-            .presentationCompactAdaptation(.popover)
+            SessionConnectionPopoverContent(model: model) { showingStatus = false }
+                .padding(16).frame(idealWidth: 340, maxWidth: 420)
+                .presentationCompactAdaptation(.popover)
+                .djConnectPresentationSurface()
         }
     }
 }
 
+struct SessionConnectionPopoverContent: View {
+    @ObservedObject var model: DJConnectAppModel
+    var dismiss: () -> Void
+    private func text(_ key: String) -> String {
+        DJConnectLocalization.localized(key: key, language: model.language)
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(text("ui.connection.status")).font(.headline)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, alignment: .center)
+            if model.isDemoMode {
+                SessionConnectionAboutLink(model: model, action: openAbout)
+            } else {
+                #if os(iOS)
+                IOSConnectionCard(model: model, openAbout: openAbout)
+                #else
+                SetupStatusView(model: model, openAbout: openAbout)
+                #endif
+            }
+        }
+    }
+
+    private func openAbout() {
+        dismiss()
+        model.performHomeScreenAction(.about)
+    }
+}
+
+/// One full-width navigation target, including its trailing information icon.
+struct SessionConnectionAboutLink: View {
+    @ObservedObject var model: DJConnectAppModel
+    var subtitle: String? = nil
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: model.connectionPresentation.icon)
+                    .font(.headline)
+                    .foregroundStyle(model.connectionPresentation.color)
+                    .frame(width: 28, height: 28)
+                    .background(model.connectionPresentation.color.opacity(0.12), in: Circle())
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(DJConnectLocalization.localized(key: model.connectionPresentation.key, language: model.language))
+                        .font(.headline)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .layoutPriority(1)
+                Spacer(minLength: 12)
+                Image(systemName: "info.circle")
+                    .font(.headline)
+                    .frame(width: 28, height: 28)
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.white)
+        .accessibilityHint(DJConnectLocalization.localized(key: "ui.about", language: model.language))
+        .accessibilityIdentifier("connection-about-link")
+    }
+}
+
 /// Presentation only: pairing is retained across outages, so it is not a health signal.
-enum SessionConnectionStatus: Equatable {
-    case demo, ready, pairing, setupPending, stale, offline, recovering, liveUnavailable, backendUnavailable, connected
+enum SessionConnectionStatus: String, CaseIterable, Equatable {
+    case demo, ready, pairing, setupPending, stale, networkUnavailable, offline, connecting
+    case recovering, liveUnavailable, backendUnavailable, updateRequired, connected, remote
     static func resolve(demo: Bool, pairing: DJConnectPairingStatus, mode: DJConnectHAConnectionMode,
-                        backendAvailable: Bool, recovering: Bool, liveUnavailable: Bool) -> Self {
+                        backendAvailable: Bool, recovering: Bool, liveUnavailable: Bool,
+                        connected: Bool = true, compatible: Bool = true, networkAvailable: Bool = true,
+                        reconnecting: Bool = false) -> Self {
         if demo { return .demo }
         switch pairing {
         case .unpaired: return .ready
@@ -1398,35 +1802,72 @@ enum SessionConnectionStatus: Equatable {
         case .waitingForHomeAssistantCompletion: return .setupPending
         case .stale: return .stale
         case .paired:
-            if mode == .offline { return .offline }
+            if !networkAvailable { return .networkUnavailable }
+            if !compatible { return .updateRequired }
+            if !connected || mode == .offline { return reconnecting ? .connecting : .offline }
             if !backendAvailable { return .backendUnavailable }
-            if recovering { return .recovering }
             if liveUnavailable { return .liveUnavailable }
-            return .connected
+            if recovering { return .recovering }
+            return mode == .remote ? .remote : .connected
         }
     }
-    var key: String {
+    var key: String { "ui.connection.combined." + rawValue }
+    var icon: String {
         switch self {
-        case .demo: "ui.app.store.preview.without.home.assistant"
-        case .ready: "ui.ready.to.pair"
-        case .pairing: "ui.pairing.with.home.assistant"
-        case .setupPending: "ui.finish.setup.in.home.assistant"
-        case .stale: "ui.not.connected.to.home.assistant"
-        case .offline: "ui.connection.offline"
-        case .recovering: "ui.connection.recovering"
-        case .liveUnavailable: "ui.session.unavailable"
-        case .backendUnavailable: "ui.connection.backend_unavailable"
-        case .connected: "ui.paired"
+        case .demo: "globe"
+        case .ready: "link.badge.plus"
+        case .pairing, .connecting, .recovering: "arrow.triangle.2.circlepath"
+        case .setupPending: "person.crop.circle.badge.exclamationmark"
+        case .stale: "lock.trianglebadge.exclamationmark"
+        case .networkUnavailable: "wifi.slash"
+        case .offline: "wifi.exclamationmark"
+        case .backendUnavailable: "music.note.slash"
+        case .liveUnavailable: "exclamationmark.bubble.fill"
+        case .updateRequired: "arrow.down.app.fill"
+        case .connected: "house.fill"
+        case .remote: "globe"
         }
     }
     var color: Color {
         switch self {
         case .demo: .purple
         case .connected: .green
+        case .remote: .teal
         case .ready: .secondary
-        case .offline, .backendUnavailable: .red
-        case .pairing, .setupPending, .stale, .recovering, .liveUnavailable: .orange
+        case .offline, .networkUnavailable: .red
+        case .pairing, .connecting: .blue
+        case .setupPending, .stale, .recovering, .liveUnavailable, .backendUnavailable, .updateRequired: .orange
         }
+    }
+}
+
+extension DJConnectAppModel {
+    static func resolvedConnectionMode(statusMode: DJConnectHAConnectionMode, hybrid: DJConnectHybridDiagnostics?) -> DJConnectHAConnectionMode {
+        switch hybrid?.state {
+        case .localReady: return .local
+        case .remoteReady: return .remote
+        case .terminalAuthorityWithdrawn: return .offline
+        // Session WS recovery is independent of a successful authenticated HTTP
+        // status read; it cannot withdraw the working general HA connection.
+        case .recoveringOffline, .localDegraded, nil: return statusMode
+        }
+    }
+    var actualConnectionMode: DJConnectHAConnectionMode {
+        guard pairingStatus == .paired, isConnected, !isOfflineModeActive else { return .offline }
+        let statusMode: DJConnectHAConnectionMode
+        if let origin = authenticatedStatusOrigin {
+            statusMode = (DJConnectHybridTransport.isLocalTransportCandidate(origin) ||
+                DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(origin)) ? .local : .remote
+        } else { statusMode = hybridConnectionDiagnostics == nil ? haConnectionMode : .offline }
+        return Self.resolvedConnectionMode(statusMode: statusMode, hybrid: hybridConnectionDiagnostics)
+    }
+    var connectionPresentation: SessionConnectionStatus {
+        let effectiveMode = actualConnectionMode
+        return .resolve(demo: isDemoMode, pairing: pairingStatus, mode: effectiveMode,
+                 backendAvailable: backendAvailable, recovering: djSessionIsRecovering,
+                 liveUnavailable: djSessionLiveUnavailable, connected: isConnected,
+                 compatible: isRuntimeCompatible, networkAvailable: !isOfflineModeActive,
+                 reconnecting: isRefreshing)
     }
 }
 
@@ -1512,49 +1953,21 @@ private struct SessionRefreshIndicatorBridge: UIViewRepresentable {
 }
 #endif
 
-#if os(macOS)
-private struct HandoffContentHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
-}
-#endif
-
-private struct VibeCastHandoffPopover: View {
+/// A direct response is presentation state, separate from retained server entries.
+private struct SessionCurrentConversationBubble: View {
     @ObservedObject var model: DJConnectAppModel
-    let session: DJConnectSessionRuntime
-    let openQueueAction: () -> Void
-    #if os(macOS)
-    @State private var handoffContentHeight: CGFloat = 240
-    #endif
-
+    let message: DJConnectAskDJMessage
+    @Environment(\.openURL) private var openURL
     var body: some View {
-    #if os(macOS)
-    let available = NSScreen.main?.visibleFrame.size ?? CGSize(width: 800, height: 640)
-    ScrollView {
-        ActiveDJSessionView(model: model, session: session,
-                            openQueueAction: openQueueAction, showsMoments: false)
-            .fixedSize(horizontal: false, vertical: true)
-            .background {
-                GeometryReader { content in
-                    Color.clear.preference(key: HandoffContentHeightKey.self, value: content.size.height)
-                }
-            }
-    }
-    .scrollBounceBehavior(.basedOnSize)
-    .frame(width: min(400, max(240, available.width - 48)),
-           height: min(max(200, handoffContentHeight), max(160, available.height - 160)))
-    .onPreferenceChange(HandoffContentHeightKey.self) { height in
-        // Popover attachment/removal can briefly emit the preference default.
-        // Never feed that zero back into the form's available layout height.
-        guard height.isFinite, height > 0 else { return }
-        handoffContentHeight = ceil(height)
-    }
-    #else
-    ScrollView {
-        ActiveDJSessionView(model: model, session: session,
-                            openQueueAction: openQueueAction, showsMoments: false)
-    }
-    .frame(idealWidth: 400, idealHeight: 300)
-    #endif
+        AskDJMessageBubble(message: message, language: model.language,
+            isStaleHistory: false, isAudioLoading: false, isAudioPlaying: false,
+            isRetryDisabled: true, playingActionID: model.playingAskDJActionID,
+            currentMood: model.confirmedSessionMoodInt, isSearchResult: false,
+            isActiveSearchResult: false, searchText: "", retryAction: {},
+            playAction: { model.playAskDJRecommendation($0) }, audioAction: {}, trackInsightAction: {},
+            openLink: { openURL($0.url) }, feedbackAction: { _ in },
+            setPromptAction: { model.askDJDraft = $0 }, isReadOnly: true, allowsSessionPlaybackActions: true,
+            speechEnabled: model.sharedDJSpeechAllowed,
+            sharedSpeechActions: { AnyView(SharedDJSpeechActions(model: model, speech: message.sessionSpeech, acceptedText: message.text)) })
     }
 }

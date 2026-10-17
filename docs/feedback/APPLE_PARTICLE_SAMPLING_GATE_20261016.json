@@ -1,0 +1,15 @@
+{
+  "status": "MEASUREMENT_BLOCKED_BY_NATIVE_XCTEST_AUTH; no performance PASS",
+  "installed_mac_build": "40116; version read back before probe",
+  "instruments_options_readback": "xctrace record --template Animation Hitches --show-recording-options completed without recording. Exposed Hangs threshold/priority inversions and Time Profiler sampling flags; no byte cap in these options. --time-limit/--window are duration bounds, not established temporary storage bounds. No new Instruments recording started.",
+  "sampling_plan": "At most eight app screenshots, per-image6MB and total40MB assertions, isolated review_demo and ordinary launch restoration in defer. This bounds screenshot payload only, not xcresult diagnostics or build output; not an FPS measurement.",
+  "native_outcome": "Runner failed before test initialized: Timed out while enabling automation mode. System displayed XCTest Enable UI Automation password dialog. Escape sent to dismiss it; foreground subsequently Docker Desktop. No credentials entered, no privilege setting or trust configuration changed. No sample-loop/product assertion executed.",
+  "log": "/private/tmp/djc-particle-samples-40116-20261016.log",
+  "result": "/private/tmp/djc-particle-samples-40116-20261016.xcresult",
+  "result_allocated": "68MiB including runner diagnostics; retained as failure evidence",
+  "probe_restoration": "Temporary external probe source restored from /private/tmp/djc-particle-sampling-restore-probe.swift; no app source change/build/install or shared service change.",
+  "process_readback": "No own xcodebuild, MacBrandProbe runner or xctrace process in final process readback; Instruments service helpers are not recording proof and were left intact.",
+  "next_gate": "Do not repeatedly start Mac native UI tests overnight while XCTest requires human OS password authorization. Await user completion of the native prompt in an attended session; never collect or enter the password. Particle continuity/FPS remains OPEN.",
+  "storage": "Fresh df: internal5.8GiB, EP_DATA2.4GiB. No storage deletion this turn; active writer and both untracked project folders preserved.",
+  "cleanup": "One active worktree; main/current are only proven merged refs, neither eligible for cleanup. No stale-ref deletion."
+}

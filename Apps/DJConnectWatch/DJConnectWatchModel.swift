@@ -350,7 +350,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @AppStorage("stableInstallID") private var stableInstallID = DJConnectWatchModel.makeStableInstallID()
     @AppStorage("paired") private var paired = false
     @AppStorage("demoMode") private var storedDemoMode = false
-    @AppStorage("askDJMood") var askDJMood = 50.0
+    @AppStorage("DJConnectWatchDemoMood") var askDJMood = 50.0
     @AppStorage("watchLogLevel") var watchLogLevel = DJConnectWatchLogLevel.info.rawValue
     @AppStorage("askDJHistoryRevision") private var askDJHistoryRevision = 0
     @AppStorage("askDJClearRevision") private var askDJClearRevision = 0
@@ -378,6 +378,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var connectionState: ConnectionState = .unpaired
     @Published private(set) var voiceState: VoiceState = .idle
     @Published private(set) var playback: DJConnectPlayback?
+    let foregroundSession = DJConnectWatchForegroundSession()
+    let profileDJSettings = ProfileDJSettingsModel()
     @Published private(set) var currentTrackInsight: TrackInsight?
     @Published private(set) var isRefreshingStatus = false
     @Published private(set) var isRefreshingTrackInsight = false
@@ -480,7 +482,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private var companionPairingRegistrationRetryTask: Task<Void, Never>?
     private var companionPairingRegistrationWatchdogTask: Task<Void, Never>?
     private var hasReceivedCompanionPairingReady = false
-    private var pendingWatchProxyHARequests: [String: CheckedContinuation<DJConnectWatchProxyResponse, Never>] = [:]
+    private let companionRequests = DJConnectWatchProxyRequests()
     #endif
     #if canImport(Speech)
     private var voiceActivationRecognitionRequest: SFSpeechAudioBufferRecognitionRequest?
@@ -490,6 +492,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     init(monkeyTestingMode: Bool = false) {
         self.monkeyTestingMode = monkeyTestingMode
         super.init()
+        UserDefaults.standard.removeObject(forKey: "askDJMood") // Retired device-local personal preference.
         pushNotificationStatus = Self.pushNotificationStatus()
         syncAppLanguageOverrideToSharedDefaults()
         demoMusicDNAEnabled = storedDemoMusicDNAEnabled
@@ -664,6 +667,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return
         }
         isAppForeground = foreground
+        foregroundSession.bind(owner: canUseBackend && !isDemoMode ? stableInstallID : nil, active: foreground)
+        profileDJSettings.bind(owner: profileDJSettings.response?.binding, active: foreground && canUseBackend)
+        if !foreground { companionRequests.cancelAll() }
         if foreground {
             if !isDemoMode {
                 startNetworkMonitor()
@@ -718,6 +724,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     return
                 }
                 self?.sampleRuntimeDiagnostics()
+                if let self, self.isAppForeground { await self.refreshForegroundSession() }
             }
         }
     }
@@ -857,6 +864,52 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     var currentPlaybackVolumePercent: Int? {
         DJConnectVolumeNormalizer.validBackendPercent(playback?.volumePercent)
             ?? DJConnectVolumeNormalizer.validBackendPercent(playback?.device?.volumePercent)
+    }
+
+    private var backendMoodHint: Int? { isDemoMode ? askDJMoodInt : nil }
+
+    var sharedSettingsServices: ProfileDJSettingsModel.Services {
+        .init(read: { [unowned self] in try await sendCompanionHARequest(.profileDJSettings) },
+            update: { [unowned self] current, patch, operationID in
+                try await sendCompanionHARequest(.updateProfileDJSettings,
+                    payload: DJConnectWatchSettingsUpdate(current: current, patch: patch, operationID: operationID))
+            }, receipt: { [unowned self] binding, operationID in
+                try await sendCompanionHARequest(.profileDJSettingsOperation,
+                    payload: DJConnectWatchSettingsReceipt(binding: binding, operationID: operationID))
+            })
+    }
+
+    func refreshForegroundSession(force: Bool = false) async {
+        let active = isAppForeground && canUseBackend && !isDemoMode
+        foregroundSession.bind(owner: active ? stableInstallID : nil, active: active)
+        guard active else { return }
+        await foregroundSession.refresh(force: force) { [unowned self] in
+            try await sendCompanionHARequest(.foregroundSession)
+        }
+        guard isAppForeground, let current = foregroundSession.current() else {
+            profileDJSettings.bind(owner: profileDJSettings.response?.binding, active: false)
+            return
+        }
+        profileDJSettings.bind(owner: current.settings.binding, active: true)
+        if profileDJSettings.hasUncertainOperation {
+            await profileDJSettings.reconcile(sharedSettingsServices)
+        } else {
+            let services = ProfileDJSettingsModel.Services(read: { current.settings },
+                update: { [unowned self] response, patch, id in
+                    try await sendCompanionHARequest(.updateProfileDJSettings,
+                        payload: DJConnectWatchSettingsUpdate(current: response, patch: patch, operationID: id))
+                }, receipt: { [unowned self] binding, id in
+                    try await sendCompanionHARequest(.profileDJSettingsOperation,
+                        payload: DJConnectWatchSettingsReceipt(binding: binding, operationID: id))
+                })
+            await profileDJSettings.refresh(services)
+        }
+    }
+
+    func changeSharedDJSettings(_ patch: DJConnectProfileDJSettings.Patch) async {
+        guard isAppForeground, canUseBackend, !isDemoMode else { return }
+        await profileDJSettings.change(patch, using: sharedSettingsServices)
+        await refreshForegroundSession(force: true)
     }
 
     var askDJMoodInt: Int {
@@ -1119,15 +1172,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func handleCompanionHAResponse(_ message: [String: Any]) {
-        #if canImport(WatchConnectivity)
-        guard let correlationID = message["correlation_id"] as? String,
-              let continuation = pendingWatchProxyHARequests.removeValue(forKey: correlationID),
-              let data = message["response"] as? Data,
-              let response = try? JSONDecoder().decode(DJConnectWatchProxyResponse.self, from: data) else {
-            return
-        }
-        continuation.resume(returning: response)
-        #endif
+        guard let correlationID = message["correlation_id"] as? String else { return }
+        companionRequests.receive(id: correlationID, data: message["response"] as? Data)
     }
 
     private func sendCompanionHARequest<Response: Decodable>(
@@ -1148,35 +1194,27 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
         let request = DJConnectWatchProxyRequest(operation: operation, payload: payloadData)
         let requestData = try JSONEncoder().encode(request)
+        guard isAppForeground, !Task.isCancelled else { throw CancellationError() }
         if operation == .voice, requestData.count > maxInteractiveWatchProxyRequestBytes {
             appendDiagnosticLog("Stemverzoek te groot voor iPhone proxy: \(requestData.count) bytes", level: .warning)
             throw DJConnectError.invalidConfiguration("Opname is te lang. Probeer een kortere Ask DJ opname.")
         }
-        let correlationID = UUID().uuidString
-        let response = await withCheckedContinuation { continuation in
-            pendingWatchProxyHARequests[correlationID] = continuation
-            WCSession.default.sendMessage(
-                [
-                    "type": "watch_proxy_ha_request",
-                    "correlation_id": correlationID,
-                    "request": requestData
-                ],
-                replyHandler: nil
-            ) { [weak self] error in
-                DispatchQueue.main.async { [weak self] in
-                    guard let self,
-                          let continuation = self.pendingWatchProxyHARequests.removeValue(forKey: correlationID) else {
-                        return
-                    }
-                    let message = Self.watchProxySendFailureMessage(for: error)
-                    self.appendDiagnosticLog("iPhone proxy niet bereikbaar: \(error.localizedDescription)", level: .warning)
-                    continuation.resume(returning: DJConnectWatchProxyResponse(
-                        success: false,
-                        error: Self.watchProxySendFailureCode(for: error),
-                        message: message
-                    ))
+        guard requestData.count < 42_000 else {
+            throw DJConnectError.payloadTooLarge(limitBytes: 42_000, actualBytes: requestData.count)
+        }
+        let response = await companionRequests.request { correlationID in
+            WCSession.default.sendMessage([
+                "type": "watch_proxy_ha_request", "correlation_id": correlationID, "request": requestData
+            ], replyHandler: nil) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.companionRequests.complete(id: correlationID,
+                        response: .init(success: false, error: "iphone_unreachable"))
                 }
             }
+        }
+        if response.error == "settings_rejected", let data = response.payload,
+           let rejection = try? JSONDecoder().decode(DJConnectProfileDJSettingsFailure.self, from: data) {
+            throw rejection
         }
         guard response.success, let data = response.payload else {
             throw Self.errorFromCompanionProxy(response)
@@ -1185,28 +1223,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         #else
         throw DJConnectError.invalidConfiguration("Open DJConnect op je iPhone.")
         #endif
-    }
-
-    private static func watchProxySendFailureCode(for error: Error) -> String {
-        let nsError = error as NSError
-        #if canImport(WatchConnectivity)
-        if nsError.domain == WCError.errorDomain,
-           nsError.code == WCError.Code.payloadTooLarge.rawValue {
-            return "payload_too_large"
-        }
-        #endif
-        return "iphone_unreachable"
-    }
-
-    private static func watchProxySendFailureMessage(for error: Error) -> String {
-        let nsError = error as NSError
-        #if canImport(WatchConnectivity)
-        if nsError.domain == WCError.errorDomain,
-           nsError.code == WCError.Code.payloadTooLarge.rawValue {
-            return "Opname is te lang. Probeer een kortere Ask DJ opname."
-        }
-        #endif
-        return "Open DJConnect op je iPhone."
     }
 
     private struct AnyEncodable: Encodable {
@@ -1271,6 +1287,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func startDemoMode() {
+        foregroundSession.bind(owner: nil, active: false)
+        profileDJSettings.bind(owner: nil, active: false)
+        companionRequests.cancelAll()
         appendDiagnosticLog("Demo modus starten")
         cancelVoiceActivationScheduledTasks()
         stopVoiceActivationListening(status: .paused)
@@ -1345,6 +1364,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             statusMessage = "Bijgewerkt"
             appendDiagnosticLog("Status vernieuwd")
             registerStoredPushTokenIfPossible()
+            await refreshForegroundSession()
         } catch {
             statusMessage = Self.userMessage(for: error)
             appendDiagnosticLog("Status vernieuwen mislukt: \(statusMessage)", level: .error)
@@ -1392,7 +1412,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 clientType: identity.clientType.rawValue,
                 forceRefresh: true,
                 locale: language,
-                mood: askDJMoodInt,
+                mood: backendMoodHint,
                 includeVisualProfile: true,
                 includeRawResponse: true
             )
@@ -1435,7 +1455,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: command, language: currentRequestLocale, mood: askDJMoodInt)
+                payload: DJConnectCommandPayload(identity: identity, command: command, language: currentRequestLocale, mood: backendMoodHint)
             )
             applyBackendSummary(response.musicBackendSummary)
             if !Self.shouldDeferPlaybackSnapshotUntilRefresh(command) {
@@ -1486,7 +1506,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     command: "set_current_track_favorite",
                     value: .bool(shouldFavorite),
                     language: currentRequestLocale,
-                    mood: askDJMoodInt
+                    mood: backendMoodHint
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1538,7 +1558,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     value: .int(value),
                     play: true,
                     language: currentRequestLocale,
-                    mood: askDJMoodInt
+                    mood: backendMoodHint
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1578,7 +1598,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: "playlists", limit: 100, language: currentRequestLocale, mood: askDJMoodInt)
+                payload: DJConnectCommandPayload(identity: identity, command: "playlists", limit: 100, language: currentRequestLocale, mood: backendMoodHint)
             )
             applyBackendSummary(response.musicBackendSummary)
             playlistItems = normalizedPlaylists(response.playlists ?? [])
@@ -1609,7 +1629,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: "queue", limit: 100, language: currentRequestLocale, mood: askDJMoodInt)
+                payload: DJConnectCommandPayload(identity: identity, command: "queue", limit: 100, language: currentRequestLocale, mood: backendMoodHint)
             )
             applyBackendSummary(response.musicBackendSummary)
             queueItems = normalizedQueueItems(response.queue ?? [])
@@ -1680,7 +1700,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectCommandResponse = try await sendCompanionHARequest(
                 .command,
-                payload: DJConnectCommandPayload(identity: identity, command: "devices", language: currentRequestLocale, mood: askDJMoodInt)
+                payload: DJConnectCommandPayload(identity: identity, command: "devices", language: currentRequestLocale, mood: backendMoodHint)
             )
             applyBackendSummary(response.musicBackendSummary)
             applyOutputs(response.devices ?? [])
@@ -1693,16 +1713,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func selectOutput(_ output: DJConnectOutputDevice) async {
+        guard !Self.isSyntheticOutput(output), output.name != Self.noOutputName else { return }
         appendDiagnosticLog("Uitvoer geselecteerd: \(output.name)")
         selectedOutput = output.name
-        if Self.isSyntheticOutput(output) {
-            availableOutputs = availableOutputs.map { candidate in
-                var updated = candidate
-                updated.active = candidate.id == output.id || candidate.name == output.name
-                return updated
-            }
-            return
-        }
         if isDemoMode {
             loadingOutputID = output.id
             applyDemoCommand("set_output", value: .string(output.name))
@@ -1722,10 +1735,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 payload: DJConnectCommandPayload(
                     identity: identity,
                     command: "set_output",
-                    value: .string(output.name),
+                    value: .string(output.id),
                     play: true,
                     language: currentRequestLocale,
-                    mood: askDJMoodInt
+                    mood: backendMoodHint
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1777,7 +1790,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     value: .object(queueStartPayload(for: item, uri: uri, index: index)),
                     play: true,
                     language: currentRequestLocale,
-                    mood: askDJMoodInt
+                    mood: backendMoodHint
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1817,7 +1830,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     value: .string(playlist.commandValue),
                     play: true,
                     language: currentRequestLocale,
-                    mood: askDJMoodInt
+                    mood: backendMoodHint
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -1842,6 +1855,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func resetPairing() {
+        foregroundSession.bind(owner: nil, active: false)
+        profileDJSettings.bind(owner: nil, active: false)
+        companionRequests.cancelAll()
         appendDiagnosticLog("Koppeling resetten")
         cancelVoiceActivationScheduledTasks()
         stopVoiceActivationListening(status: .paused)
@@ -1906,15 +1922,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     private func normalizedOutputDevices(_ devices: [DJConnectOutputDevice]) -> [DJConnectOutputDevice] {
         let backendDevices = devices.filter { $0.id != Self.syntheticNoOutputID && $0.name != Self.noOutputName }
-        let backendHasActiveDevice = backendDevices.contains { $0.active == true }
-        var localNone = DJConnectOutputDevice(
-            id: Self.syntheticNoOutputID,
-            name: Self.noOutputName,
-            type: "local",
-            active: !backendHasActiveDevice && selectedOutput == Self.noOutputName
-        )
-        localNone.supportsVolume = false
-        return [localNone] + backendDevices
+        return backendDevices
     }
 
     private func devicesApplyingCurrentPlayback(to devices: [DJConnectOutputDevice]) -> [DJConnectOutputDevice] {
@@ -2259,7 +2267,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(
                 .musicDNAProfile,
-                payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: askDJMoodInt)
+                payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: backendMoodHint)
             )
             applyMusicDNAProfile(response)
             if response.enabled {
@@ -2289,7 +2297,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(
                 .musicDNAProfile,
-                payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: askDJMoodInt)
+                payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: backendMoodHint)
             )
             applyMusicDNAProfile(response)
             if response.enabled {
@@ -2347,7 +2355,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(
                 .musicDNASettings,
-                payload: DJConnectMusicDNASettingsRequest(identity: identity, enabled: enabled, mood: askDJMoodInt)
+                payload: DJConnectMusicDNASettingsRequest(identity: identity, enabled: enabled, mood: backendMoodHint)
             )
             applyMusicDNAProfile(response)
             musicDNAOptInPromptSeen = true
@@ -2373,7 +2381,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         do {
             let response: DJConnectMusicDNAProfileResponse = try await sendCompanionHARequest(
                 .clearMusicDNA,
-                payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: askDJMoodInt)
+                payload: DJConnectMusicDNAIdentityRequest(identity: identity, mood: backendMoodHint)
             )
             applyMusicDNAProfile(response)
             showAskDJToast("Music DNA gewist")
@@ -2436,7 +2444,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 .musicDiscovery,
                 payload: DJConnectMusicDNAIdentityRequest(
                     identity: identity,
-                    mood: askDJMoodInt,
+                    mood: backendMoodHint,
                     musicDNAKey: musicDNAKey,
                     language: language,
                     locale: currentRequestLocale
@@ -2467,7 +2475,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 .musicDiscoveryRefresh,
                 payload: DJConnectMusicDNAIdentityRequest(
                     identity: identity,
-                    mood: askDJMoodInt,
+                    mood: backendMoodHint,
                     musicDNAKey: musicDNAKey,
                     language: language,
                     locale: currentRequestLocale
@@ -2587,7 +2595,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     play: command == "ask_dj_play_recommendation",
                     musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision,
                     language: currentRequestLocale,
-                    mood: askDJMoodInt,
+                    mood: backendMoodHint,
                     djAnnouncementOutput: .clientDevice
                 )
             )
@@ -2633,7 +2641,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     text: text,
                     clientMessageID: clientMessageID,
                     inputType: "text",
-                    mood: askDJMoodInt,
+                    mood: backendMoodHint,
                     djStyle: djStyle,
                     musicDNAKey: musicDNAKey,
                     audioResponse: .auto,
@@ -2664,7 +2672,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     value: value,
                     musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision,
                     language: currentRequestLocale,
-                    mood: askDJMoodInt
+                    mood: backendMoodHint
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -2718,7 +2726,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     value: Self.askDJCommandValue(for: action, command: command),
                     musicBackendRevision: action.musicBackendRevision ?? musicBackendSummary.musicBackendRevision,
                     language: currentRequestLocale,
-                    mood: askDJMoodInt
+                    mood: backendMoodHint
                 )
             )
             applyBackendSummary(response.musicBackendSummary)
@@ -2846,7 +2854,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 payload: DJConnectAskDJIdleSuggestionRequest(
                     identity: identity,
                     clientMessageID: UUID().uuidString,
-                    mood: askDJMoodInt,
+                    mood: backendMoodHint,
                     djStyle: djStyle,
                     musicDNAKey: musicDNAKey
                 )
@@ -2971,13 +2979,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return
         }
         currentTrackInsight = insight
-    }
-
-    private static func redactedDeviceID(_ deviceID: String) -> String {
-        guard deviceID.count > 6 else {
-            return "..."
-        }
-        return "...\(deviceID.suffix(6))"
     }
 
     private func applyDemoState() {
@@ -3215,7 +3216,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             wakewordEnabled: storedVoiceActivationEnabled,
             wakewordPhrase: "Hey DJ",
             wakewordStatus: "foreground_only_\(voiceActivationStatusText.lowercased().replacingOccurrences(of: " ", with: "_"))",
-            mood: askDJMoodInt,
+            mood: backendMoodHint,
             djStyle: djStyle,
             musicDNAKey: musicDNAKey
         )
@@ -3337,7 +3338,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     .voice,
                     payload: DJConnectWatchProxyVoicePayload(
                         wavData: data,
-                        mood: askDJMoodInt,
+                        mood: backendMoodHint,
                         djStyle: djStyle,
                         musicDNAKey: musicDNAKey,
                         language: currentRequestLocale

@@ -442,11 +442,15 @@ App name:
 DJConnect
 ```
 
-Subtitle:
+Main brand tagline (Dutch):
 
 ```text
-Muziekbediening met karakter
+Zet je muziek aan. DJConnect brengt die tot leven.
 ```
+
+Use the complete localized `brand.tagline` in the app. Store subtitle metadata
+is a separate length-constrained field: choose it separately during submission;
+do not truncate this approved brand sentence into a new slogan.
 
 Short description / promotional text:
 

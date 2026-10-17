@@ -18,6 +18,10 @@ public final class DJConnectClient: Sendable {
     public let tokenStore: DJConnectTokenStore
 
     private let session: URLSession
+    private let hybridTransport: DJConnectHybridTransport?
+    private let settingsTransport: DJConnectProfileDJSettingsTransport
+    private let speechTransport: DJConnectSpeechTransport
+    private let sessionArtworkTransport: DJConnectSessionArtworkTransport
     private let sessionProjectionSession: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -30,6 +34,7 @@ public final class DJConnectClient: Sendable {
         identity: DJConnectIdentity,
         tokenStore: DJConnectTokenStore,
         session: URLSession = .shared,
+        hybridTransport: DJConnectHybridTransport? = nil,
         webSocketFastPath: (any DJConnectWebSocketFastPathTransport)? = nil,
         responseLogger: (@Sendable (_ requestSummary: String, _ statusCode: Int) -> Void)? = nil,
         failureLogger: (@Sendable (_ details: DJConnectAPIFailureLogDetails) -> Void)? = nil
@@ -38,6 +43,7 @@ public final class DJConnectClient: Sendable {
         self.identity = identity
         self.tokenStore = tokenStore
         self.session = session
+        self.hybridTransport = hybridTransport
         // Owner Session responses contain ephemeral Moment text. Keep this
         // transport out of URLCache/cookies even if a server omits no-store.
         let projectionConfiguration = session.configuration
@@ -47,6 +53,9 @@ public final class DJConnectClient: Sendable {
         projectionConfiguration.httpShouldSetCookies = false
         projectionConfiguration.urlCredentialStorage = nil
         self.sessionProjectionSession = URLSession(configuration: projectionConfiguration, delegate: session.delegate, delegateQueue: session.delegateQueue)
+        self.speechTransport = DJConnectSpeechTransport(configuration: session.configuration)
+        self.settingsTransport = DJConnectProfileDJSettingsTransport(configuration: session.configuration)
+        self.sessionArtworkTransport = DJConnectSessionArtworkTransport(configuration: session.configuration)
         self.encoder = JSONEncoder()
         self.decoder = JSONDecoder()
         self.webSocketFastPath = webSocketFastPath
@@ -67,6 +76,7 @@ public final class DJConnectClient: Sendable {
         guard response.success, let token = response.resolvedDeviceToken, !token.isEmpty else {
             throw DJConnectError.pairingFailed(message: response.message)
         }
+        try Task.checkCancellation()
         try tokenStore.saveToken(token)
         return response
     }
@@ -221,6 +231,18 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
+    /// Uses the same owner endpoint and backend service, without current-playback fallback.
+    public func momentTrackInsight(_ reference: DJConnectMomentInsightReference, language: String, mood: Int?) async throws -> DJConnectMomentInsightDetail {
+        guard reference.isValid else { throw DJConnectError.invalidResponse }
+        var payload = DJConnectTrackInsightRequest(locale: language, mood: mood)
+        payload.trackInsightTarget = reference
+        let response: TrackInsightEndpointResponse = try await decodedResponse(for: trackInsightRequest(payload))
+        guard response.success != false, let subject = response.subject, subject.matches(reference),
+              let insight = response.trackInsightValue,
+              TrackInsightVerifiedCredit.displayText(insight.summary) != nil else { throw DJConnectError.invalidResponse }
+        return .init(insight: insight, subject: subject)
+    }
+
     public func trackInsight(_ payload: DJConnectTrackInsightRequest) async throws -> TrackInsight {
         if let insight = try await webSocketTrackInsightIfSupported(payload) {
             return insight
@@ -323,6 +345,38 @@ public final class DJConnectClient: Sendable {
         return result
     }
 
+    public func sessionPersonaRequest(sessionID: String, persona: DJConnectSessionPersonaValue, expectedRevision: Int) throws -> URLRequest {
+        guard !sessionID.isEmpty, expectedRevision >= 0 else { throw DJConnectError.invalidResponse }
+        var request = try authenticatedRequest(path: Self.apiV1Path("session/persona"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "contract_version": 1, "client_type": identity.clientType.rawValue, "device_id": identity.deviceID,
+            "session_id": sessionID, "selected_persona": persona.rawValue, "expected_persona_revision": expectedRevision
+        ])
+        return request
+    }
+
+    public func updateSessionPersona(sessionID: String, persona: DJConnectSessionPersonaValue, expectedRevision: Int) async throws -> DJConnectSessionPersonaResponse {
+        let (data, status) = try await dataAndStatusCodeResponse(
+            for: sessionPersonaRequest(sessionID: sessionID, persona: persona, expectedRevision: expectedRevision),
+            using: sessionProjectionSession, acceptingStatuses: [409])
+        if status == 409 {
+            struct ConflictBody: Decodable { let success: Bool; let error: String; let current: DJConnectSessionPersonaSnapshot }
+            let conflict = try decoder.decode(ConflictBody.self, from: data)
+            guard !conflict.success, conflict.error == "persona_revision_conflict", conflict.current.sessionID == sessionID else {
+                throw DJConnectError.invalidResponse
+            }
+            throw DJConnectSessionPersonaConflict(current: conflict.current)
+        }
+        let result = try decoder.decode(DJConnectSessionPersonaResponse.self, from: data)
+        guard status == 200, result.success, result.contractVersion == 1, result.sessionID == sessionID,
+              result.selectedPersona == persona, result.personaRevision >= expectedRevision,
+              result.personaRevision - expectedRevision == (result.changed ? 1 : 0) else { throw DJConnectError.invalidResponse }
+        return result
+    }
+
     public func approveVibeCastHandoff(_ payload: DJConnectVibeCastHandoffApprovalRequest) async throws -> DJConnectVibeCastHandoffApprovalResponse {
         let request = try vibeCastHandoffApprovalRequest(payload)
         return try await decodedResponse(for: request)
@@ -353,6 +407,244 @@ public final class DJConnectClient: Sendable {
 
     public func sessionHistoryCapabilities() async throws -> DJConnectSessionHistoryCapabilities {
         try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
+    }
+
+    public func profileDJSettings() async throws -> DJConnectProfileDJSettingsResponse {
+        var request = try profileDJSettingsRequest()
+        request.httpMethod = "GET"
+        var components = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "contract_version", value: "3"),
+            URLQueryItem(name: "device_id", value: identity.deviceID),
+            URLQueryItem(name: "client_type", value: identity.clientType.rawValue)]
+        request.url = components.url
+        return try await profileDJSettingsResponse(request)
+    }
+
+    public func updateProfileDJSettings(_ current: DJConnectProfileDJSettingsResponse,
+        patch: DJConnectProfileDJSettings.Patch, operationID: String) async throws -> DJConnectProfileDJSettingsResponse {
+        guard current.isValid, patch.isValid, !current.requiresSelection || patch.isComplete,
+              UUID(uuidString: operationID) != nil else { throw DJConnectError.invalidResponse }
+        var request = try profileDJSettingsRequest()
+        request.httpMethod = "PATCH"
+        let patchJSON = try JSONSerialization.jsonObject(with: encoder.encode(patch))
+        let expected: Any = current.snapshot.session.map {
+            ["session_id": $0.session_id, "generation": $0.generation, "revision": $0.revision] as [String: Any]
+        } ?? NSNull()
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "contract_version": 3, "device_id": identity.deviceID, "client_type": identity.clientType.rawValue,
+            "binding": current.binding, "operation_id": operationID, "patch": patchJSON,
+            "expected_defaults_revision": current.snapshot.defaults_revision, "expected_session": expected])
+        let response = try await profileDJSettingsResponse(request)
+        guard response.accepted == true, response.operation_id == operationID,
+              response.binding == current.binding else { throw DJConnectError.invalidResponse }
+        return response
+    }
+
+    public func profileDJSettingsOperation(binding: String, operationID: String) async throws -> DJConnectProfileDJSettingsOperation {
+        var request = try profileDJSettingsRequest(suffix: "/operation")
+        request.httpMethod = "POST"
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["contract_version": 3,
+            "device_id": identity.deviceID, "client_type": identity.clientType.rawValue,
+            "binding": binding, "operation_id": operationID])
+        let (data, status) = try await settingsTransport.read(request)
+        if status != 200 {
+            if [400, 409, 426].contains(status) { throw try decoder.decode(DJConnectProfileDJSettingsFailure.self, from: data) }
+            throw classify(statusCode: status, body: nil) ?? DJConnectError.invalidResponse
+        }
+        let result = try decoder.decode(DJConnectProfileDJSettingsOperation.self, from: data)
+        guard result.validates(operationID: operationID) else { throw DJConnectError.invalidResponse }
+        return result
+    }
+
+    private func profileDJSettingsRequest(suffix: String = "") throws -> URLRequest {
+        _ = try makeDJConnectIdentity()
+        var request = try authenticatedRequest(path: "/api/djconnect/v1/profile/settings" + suffix)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 15
+        return request
+    }
+
+    private func profileDJSettingsResponse(_ request: URLRequest) async throws -> DJConnectProfileDJSettingsResponse {
+        let (data, status) = try await settingsTransport.read(request)
+        if status != 200 {
+            if [400, 409, 426].contains(status) { throw try decoder.decode(DJConnectProfileDJSettingsFailure.self, from: data) }
+            throw classify(statusCode: status, body: nil) ?? DJConnectError.invalidResponse
+        }
+        let response = try decoder.decode(DJConnectProfileDJSettingsResponse.self, from: data)
+        guard response.isValid else { throw DJConnectError.invalidResponse }
+        return response
+    }
+
+    public func prepareSharedDJSpeech(reference: DJConnectSpeechReference, acceptedText: String,
+        settings: DJConnectProfileDJSettingsResponse, target: DJConnectSharedSpeechTarget = .local,
+        automatic: Bool = false) async throws -> DJConnectSharedSpeechResult {
+        guard reference.isValid, settings.allowsSpeech(target),
+              !automatic || (target == .local && settings.snapshot.effective.announcement_output.allowsClientAudio) else { throw DJConnectError.invalidResponse }
+        struct SharedPrepare: Encodable {
+            let contract_version = 3
+            let processor = "ha_configured"
+            let intent: String
+            let reference: DJConnectSpeechReference
+            let target: DJConnectSharedSpeechTarget
+        }
+        let payload = SharedPrepare(intent: automatic ? "automatic" : "manual", reference: reference, target: target)
+        let result: DJConnectSharedSpeechResult
+        if target == .local {
+            let request = try speechJSONRequest(path: "prepare", payload: payload)
+            result = try decoder.decode(DJConnectSharedSpeechResult.self, from: await speechTransport.data(for: request))
+        } else {
+            guard case .moment = reference, hybridTransport != nil else { throw DJConnectError.invalidResponse }
+            var request = try authenticatedRequest(path: "/api/djconnect/v1/session/speech/play")
+            request.httpMethod = "POST"; request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try encoder.encode(DJConnectSpeechIdentifiedRequest(clientType: identity.clientType, deviceID: identity.deviceID, payload: payload))
+            result = try await decodedResponse(for: request, using: sessionProjectionSession)
+        }
+        guard result.success, result.session_speech.reference == reference else { throw DJConnectError.invalidResponse }
+        let prepared = result.session_speech
+        if ["unavailable", "withdrawn", "expired"].contains(prepared.state) && !prepared.manualAllowed && prepared.audioReference == nil { return result }
+        guard prepared.admits(reference: reference, text: acceptedText), prepared.audioState == "ready",
+              prepared.settingsContractVersion == 3, prepared.settingsRevision == settings.speechFence,
+              prepared.effectiveVoice?.hasQualifiedSelection == true,
+              prepared.effectiveVoice?.processor == .haConfigured,
+              speechLocaleMatches(prepared.effectiveVoice?.locale, prepared.locale),
+              prepared.audioReference?.isValid == true else { throw DJConnectError.invalidResponse }
+        if settings.snapshot.effective.voice.kind == .providerVoice {
+            guard prepared.effectiveVoice?.engine == settings.snapshot.effective.voice.provider_id,
+                  prepared.effectiveVoice?.voiceID == settings.snapshot.effective.voice.voice_id else { throw DJConnectError.invalidResponse }
+        }
+        return result
+    }
+
+    public func speechVoiceOptions() async throws -> DJConnectSpeechVoiceOptions {
+        let request = try speechJSONRequest(path: "voice-options", payload: DJConnectSpeechContractRequest())
+        let response = try decoder.decode(DJConnectSpeechVoiceOptionsResponse.self, from: await speechTransport.data(for: request))
+        guard response.success, response.speech_voice_options.isValid else { throw DJConnectError.invalidResponse }
+        return response.speech_voice_options
+    }
+
+    public func prepareSpeech(_ original: DJConnectSessionSpeech, acceptedText: String,
+                              processor: DJConnectSpeechProcessor, preference: DJConnectVoicePreference = .default,
+                              voiceOptions: DJConnectSpeechVoiceOptions? = nil, selectedVoiceID: String? = nil) async throws -> DJConnectSessionSpeech {
+        guard original.admits(reference: original.reference, text: acceptedText), original.advertisesPreparationAttempt(processor),
+              preference == .default || voiceOptions?.admitsGender(preference, voiceID: selectedVoiceID) == true,
+              selectedVoiceID == nil || (processor == .haConfigured && voiceOptions?.supportsVoice(selectedVoiceID!) == true)
+        else { throw DJConnectError.invalidResponse }
+        let request = try speechJSONRequest(path: "prepare", payload: DJConnectSpeechPrepareRequest(
+            reference: original.reference, processor: processor, voice_preference: preference, voice_id: selectedVoiceID))
+        let response = try decoder.decode(DJConnectSpeechResponse.self, from: await speechTransport.data(for: request))
+        let prepared = response.session_speech
+        guard response.success, prepared.schemaVersion == 1, prepared.reference == original.reference, prepared.notification?.isValid ?? true else { throw DJConnectError.invalidResponse }
+        if ["unavailable", "expired", "withdrawn"].contains(prepared.state), !prepared.manualAllowed, !prepared.autoplayEligible {
+            guard prepared.processors.isEmpty, prepared.segments.isEmpty, prepared.audioReference == nil else { throw DJConnectError.invalidResponse }
+            return prepared
+        }
+        guard prepared.admits(reference: original.reference, text: acceptedText),
+              prepared.advertisesPreparationAttempt(processor),
+              (original.processorQualificationRequired != true || prepared.processorQualificationRequired == true),
+              prepared.textRevision == original.textRevision, prepared.presentationRevision == original.presentationRevision,
+              prepared.persona == original.persona, prepared.personaRevision == original.personaRevision,
+              prepared.locale == original.locale, prepared.attribution == original.attribution,
+              let expiry = prepared.expiresAt.flatMap(DJConnectHistoryEntry.date),
+              let originalExpiry = original.expiresAt.flatMap(DJConnectHistoryEntry.date),
+              expiry <= originalExpiry, expiry.timeIntervalSinceNow <= 300.001,
+              processor == .localOnDevice ? prepared.audioState == "renderer_pending" : prepared.audioState == "ready"
+        else { throw DJConnectError.invalidResponse }
+        if processor == .haConfigured {
+            guard prepared.effectiveVoice?.processor == processor, speechLocaleMatches(prepared.effectiveVoice?.locale, prepared.locale),
+                  preference == .default || prepared.effectiveVoice?.gender == preference.rawValue,
+                  selectedVoiceID == nil || prepared.effectiveVoice?.voiceID == selectedVoiceID else { throw DJConnectError.invalidResponse }
+            if preference != .default {
+                guard let expected = selectedVoiceID ?? voiceOptions?.qualifiedGenderVoiceID(preference),
+                      prepared.effectiveVoice?.voiceID == expected,
+                      voiceOptions?.admitsGender(preference, voiceID: expected) == true else { throw DJConnectError.invalidResponse }
+            }
+        } else {
+            guard prepared.audioReference == nil, prepared.effectiveVoice == nil, prepared.voicePreference == preference else { throw DJConnectError.invalidResponse }
+        }
+        return prepared
+    }
+
+    public func speechAudio(_ prepared: DJConnectSessionSpeech, acceptedText: String) async throws -> Data {
+        guard prepared.admits(reference: prepared.reference, text: acceptedText), prepared.audioState == "ready",
+              prepared.effectiveVoice?.processor == .haConfigured,
+              speechLocaleMatches(prepared.effectiveVoice?.locale, prepared.locale),
+              prepared.effectiveVoice?.hasQualifiedSelection == true,
+              let resource = prepared.audioReference, resource.isValid else { throw DJConnectError.invalidResponse }
+        let request = try speechJSONRequest(path: "audio", payload: DJConnectSpeechAudioRequest(asset_id: resource.assetID))
+        let bytes = try await speechTransport.data(for: request, audio: true)
+        guard prepared.admits(reference: prepared.reference, text: acceptedText) else { throw DJConnectError.invalidResponse }
+        return bytes
+    }
+
+    private func speechJSONRequest<T: Encodable>(path: String, payload: T) throws -> URLRequest {
+        _ = try makeDJConnectIdentity()
+        var request = try authenticatedRequest(path: "/api/djconnect/v1/speech/" + path)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(DJConnectSpeechIdentifiedRequest(
+            clientType: identity.clientType, deviceID: identity.deviceID, payload: payload))
+        request.cachePolicy = .reloadIgnoringLocalCacheData; request.timeoutInterval = 22
+        return request
+    }
+
+    /// Explicit user-authorized preparation only. Never call from a pure
+    /// timeline/search/open read, image failure or expiry callback.
+    public func prepareSessionArtwork(sessionID: String, targets: [DJConnectSessionMedia.Target]) async throws -> [DJConnectSessionMedia] {
+        let request = try sessionArtworkPreparationRequest(sessionID: sessionID, targets: targets)
+        let data = try await sessionArtworkTransport.prepare(request)
+        let response = try decoder.decode(DJConnectSessionMediaPrepareResponse.self, from: data)
+        guard response.success, response.contractVersion == 1, response.media.count <= targets.count else {
+            throw DJConnectError.invalidResponse
+        }
+        var seen = Set<DJConnectSessionMedia.Target>()
+        for media in response.media {
+            guard media.schemaVersion == 1, media.sessionID == sessionID, let target = media.target,
+                  targets.contains(target), seen.insert(target).inserted else { throw DJConnectError.invalidResponse }
+        }
+        return response.media
+    }
+
+    public func sessionArtworkPreparationRequest(sessionID: String, targets: [DJConnectSessionMedia.Target]) throws -> URLRequest {
+        func valid(_ value: String) -> Bool {
+            !value.isEmpty && value.utf8.count <= 512 && !value.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
+        }
+        guard valid(sessionID), !targets.isEmpty, targets.count <= 8, Set(targets).count == targets.count else {
+            throw DJConnectError.invalidResponse
+        }
+        let values: [[String: String]] = try targets.map { target in
+            switch target {
+            case .moment(let id): guard valid(id) else { throw DJConnectError.invalidResponse }; return ["moment_id": id]
+            case .entry(let id): guard valid(id) else { throw DJConnectError.invalidResponse }; return ["entry_id": id]
+            }
+        }
+        var request = try jsonRequest(path: "/api/djconnect/v1/session/media/prepare",
+            payload: DJConnectSessionMediaPrepareRequest(sessionID: sessionID, targets: values))
+        request.timeoutInterval = 22
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        return request
+    }
+
+    /// Owner-only optional media read. No preparation, provider lookup or retry
+    /// of an effectful operation. Resource absence never becomes pairing loss.
+    public func sessionArtwork(_ media: DJConnectSessionMedia, sessionID: String,
+                               target: DJConnectSessionMedia.Target,
+                               audience: DJConnectSessionMedia.Audience) async throws -> DJConnectSessionArtworkImage {
+        guard let artwork = media.admittedArtwork(session: sessionID, target: target, audience: audience),
+              let path = artwork.url, let width = artwork.width, let height = artwork.height else {
+            throw DJConnectError.invalidResponse
+        }
+        var request = try pairedOwnerReadRequest(path: path)
+        request.timeoutInterval = 8
+        request.setValue("image/png, image/jpeg", forHTTPHeaderField: "Accept")
+        let image = try await sessionArtworkTransport.load(request, width: width, height: height)
+        try Task.checkCancellation()
+        // Decode/transfer time cannot extend the original grant.
+        guard media.admittedArtwork(session: sessionID, target: target, audience: audience) != nil else {
+            throw DJConnectError.invalidResponse
+        }
+        return image
     }
 
     public func savedSessions(cursor: String? = nil) async throws -> DJConnectSessionHistoryPage {
@@ -459,11 +751,18 @@ public final class DJConnectClient: Sendable {
     public func sessionHistoryReadRequest(route: String, cursor: String? = nil,
                                          queryItems: [URLQueryItem] = [], limit: Int = 20) throws -> URLRequest {
         guard (1...50).contains(limit) else { throw DJConnectError.invalidResponse }
-        var components = URLComponents(url: endpoint(path: Self.apiV1Path(route)), resolvingAgainstBaseURL: false)!
+        var items = queryItems
+        if route != "capabilities" { items.append(URLQueryItem(name: "limit", value: String(limit))) }
+        if let cursor { items.append(URLQueryItem(name: "cursor", value: cursor)) }
+        return try pairedOwnerReadRequest(path: Self.apiV1Path(route), queryItems: items)
+    }
+
+    /// Resource and projection GETs share the complete paired request identity.
+    /// Identity headers alone do not satisfy the Core profile-context contract.
+    private func pairedOwnerReadRequest(path: String, queryItems: [URLQueryItem] = []) throws -> URLRequest {
+        var components = URLComponents(url: endpoint(path: path), resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "device_id", value: identity.deviceID),
                                  URLQueryItem(name: "client_type", value: identity.clientType.rawValue)] + queryItems
-        if route != "capabilities" { components.queryItems?.append(URLQueryItem(name: "limit", value: String(limit))) }
-        if let cursor { components.queryItems?.append(URLQueryItem(name: "cursor", value: cursor)) }
         var request = try authenticatedRequest(url: components.url!)
         request.httpMethod = "GET"
         request.cachePolicy = .reloadIgnoringLocalCacheData
@@ -505,6 +804,24 @@ public final class DJConnectClient: Sendable {
         try await webSocketFastPath?.prepare()
     }
 
+    /// A live socket can lose its runtime during a config-entry reload. Verify
+    /// the existing paired identity through canonical HTTP before deleting it.
+    /// An HTML/proxy401 is not an authoritative DJConnect credential refusal.
+    public func validatePairedIdentity() async throws {
+        let request = try statusRequest(DJConnectStatusPayload(identity: identity, haPairingStatus: .paired))
+        let (data, status) = try await dataAndStatusCodeResponse(for: request, acceptingStatuses: [401, 403])
+        if status == 401 || status == 403 {
+            let body = try? JSONDecoder().decode([String: DJConnectJSONValue].self, from: data)
+            if body?["success"] == .bool(false),
+               body?["error"] == .string("unauthorized") || body?["error"] == .string("pairing_revoked") {
+                throw DJConnectError.authStale(statusCode: status, message: "Paired identity rejected by Home Assistant")
+            }
+            throw DJConnectError.server(statusCode: status, message: "Unqualified paired identity response")
+        }
+        let response = try JSONDecoder().decode(DJConnectEnvelope<DJConnectPlayback>.self, from: data)
+        guard response.success else { throw DJConnectError.invalidResponse }
+    }
+
     public func registerPushNotifications(_ payload: DJConnectPushRegistrationRequest) async throws -> DJConnectCommandResponse {
         let request = try pushRegisterRequest(payload)
         return try await decodedResponse(for: request)
@@ -528,7 +845,12 @@ public final class DJConnectClient: Sendable {
     }
 
     public func statusRequest(_ payload: DJConnectStatusPayload) throws -> URLRequest {
-        try jsonRequest(path: Self.apiV1Path("status"), payload: payload)
+        var request = try jsonRequest(path: Self.apiV1Path("status"), payload: payload)
+        // Status is a replayable reachability read. An unreachable LAN must not
+        // hold startup/resume behind the generic API timeout before TLS fallback.
+        request.timeoutInterval = (DJConnectHybridTransport.isLocalTransportCandidate(baseURL) ||
+            DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(baseURL)) ? 2 : 8
+        return request
     }
 
     public func pairingRequest(_ payload: DJConnectPairingPayload) throws -> URLRequest {
@@ -983,12 +1305,14 @@ public final class DJConnectClient: Sendable {
             return .authStale(statusCode: statusCode, message: message)
         }
 
-        if statusCode == 404 {
-            return .routeMissing(message: message)
+        // A typed backend failure can carry an upstream device/resource 404.
+        // It does not mean that the Home Assistant API route is absent.
+        if envelope?.error == "backend_unavailable" || envelope?.error == "playback_backend_unavailable" || envelope?.backendAvailable == false {
+            return .backendUnavailable(message: message)
         }
 
-        if envelope?.error == "backend_unavailable" || envelope?.backendAvailable == false {
-            return .backendUnavailable(message: message)
+        if statusCode == 404 {
+            return .routeMissing(message: message)
         }
 
         if envelope?.error == "not_configured" {
@@ -1041,6 +1365,16 @@ public final class DJConnectClient: Sendable {
 
     private func dataAndStatusCodeResponse(for request: URLRequest, using requestSession: URLSession? = nil,
                                           acceptingStatuses: Set<Int> = []) async throws -> (Data, Int) {
+        if let hybridTransport, DJConnectHybridTransport.operation(for: request) != nil || DJConnectHybridTransport.isActiveRead(request) {
+            do {
+                let (data, status) = try await hybridTransport.perform(request)
+                if !acceptingStatuses.contains(status), let error = classify(statusCode: status, body: data) { throw error }
+                return (data, status)
+            } catch DJConnectHybridTransportError.authority(let code) {
+                if ["unauthorized", "pairing_revoked"].contains(code) { throw DJConnectError.authStale(statusCode: 401, message: code) }
+                throw DJConnectError.profile(code: .profileAccessDenied, statusCode: 403, message: code)
+            }
+        }
         let (data, response): (Data, URLResponse)
         do {
             (data, response) = try await (requestSession ?? session).data(for: request)
@@ -1048,6 +1382,7 @@ public final class DJConnectClient: Sendable {
             if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
                 throw CancellationError()
             }
+            if !DJConnectHybridTransport.canReplayLegacy(request) { throw DJConnectHybridTransportError.deliveryUnknown }
             throw DJConnectError.network(message: error.localizedDescription)
         }
 
@@ -1368,5 +1703,85 @@ public final class DJConnectClient: Sendable {
 
     private static func apiV1Path(_ route: String) -> String {
         "/api/djconnect/v1/" + route.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+}
+
+// MARK: - Explicit passive Session presentation (frozen v1)
+public extension DJConnectClient {
+    func passiveSurfaceAvailable() async throws -> Bool {
+        struct Capability: Decodable {
+            struct Descriptor: Decodable {
+                let version: Int
+                let owner_only: Bool
+                let authentication: String
+                let authorize_path: String
+                let read_path: String
+                let surfaces: [String]
+                let explicit_consent_required: Bool
+                let max_cache_seconds: Int
+                let read_side_effects: Bool
+                let background_delivery: Bool
+                let watch_replication: Bool
+            }
+            let success: Bool
+            let passive_session_surface: Descriptor?
+        }
+        let request = try sessionHistoryReadRequest(route: "capabilities")
+        let response = try decoder.decode(Capability.self, from: await sessionArtworkTransport.prepare(request))
+        guard response.success, let c = response.passive_session_surface else { return false }
+        return c.version == 1 && c.owner_only && c.authentication == "paired_device_bearer" &&
+            c.authorize_path == "/api/djconnect/v1/session/surface/authorize" &&
+            c.read_path == "/api/djconnect/v1/session/surface/read" &&
+            Set(c.surfaces) == Set(DJConnectPassiveSurface.allCases.map(\.rawValue)) && c.explicit_consent_required &&
+            c.max_cache_seconds == 120 && !c.read_side_effects && !c.background_delivery && !c.watch_replication
+    }
+
+    /// Call only for an explicit foreground choice bound to the current Session.
+    /// A lost authorize response must not be replayed: it replaces the generation.
+    func authorizePassiveSurface(sessionID: String, surface: DJConnectPassiveSurface, enabled: Bool) async throws -> DJConnectPassiveSurfaceResponse? {
+        guard DJConnectPassiveSession.identifier(sessionID), [.ios, .macos].contains(identity.clientType) else { throw DJConnectError.invalidResponse }
+        let body: [String: Any] = ["contract_version": 1, "device_id": identity.deviceID, "client_type": identity.clientType.rawValue,
+            "session_id": sessionID, "surface": surface.rawValue, "enabled": enabled,
+            "os_snapshot_cache": enabled, "locked_display": enabled]
+        let request = try passiveSurfacePOST(path: "authorize", body: body)
+        let data = try await sessionArtworkTransport.prepare(request)
+        if !enabled {
+            struct Disabled: Decodable { let success: Bool; let contract_version: Int; let state: String }
+            let r = try decoder.decode(Disabled.self, from: data)
+            guard r.success, r.contract_version == 1, r.state == "disabled" else { throw DJConnectError.invalidResponse }
+            return nil
+        }
+        let r = try decoder.decode(DJConnectPassiveSurfaceResponse.self, from: data)
+        guard r.validates(sessionID: sessionID, surface: surface) else { throw DJConnectError.invalidResponse }
+        return r
+    }
+
+    func readPassiveSurface(sessionID: String, surface: DJConnectPassiveSurface, grantID: String) async throws -> DJConnectPassiveSurfaceResponse {
+        guard DJConnectPassiveSession.identifier(sessionID), DJConnectPassiveSession.identifier(grantID) else { throw DJConnectError.invalidResponse }
+        let request = try passiveSurfacePOST(path: "read", body: ["contract_version": 1, "device_id": identity.deviceID,
+            "client_type": identity.clientType.rawValue, "session_id": sessionID, "surface": surface.rawValue, "grant_id": grantID])
+        let r = try decoder.decode(DJConnectPassiveSurfaceResponse.self, from: await sessionArtworkTransport.prepare(request))
+        guard r.validates(sessionID: sessionID, surface: surface), r.grant_id == grantID else { throw DJConnectError.invalidResponse }
+        return r
+    }
+
+    func passiveSurfaceImage(_ artwork: DJConnectPassiveSession.Artwork, response: DJConnectPassiveSurfaceResponse) async throws -> DJConnectSessionArtworkImage {
+        let p = response.passive_session
+        guard response.validates(sessionID: p.session_id, surface: p.surface), p.isCurrent(at: Date()),
+              p.currentArtwork(slot: artwork.slot, at: Date()) == artwork else { throw DJConnectError.invalidResponse }
+        let request = try pairedOwnerReadRequest(path: artwork.image_path, queryItems: [
+            .init(name: "contract_version", value: "1"), .init(name: "surface", value: p.surface.rawValue),
+            .init(name: "grant_id", value: response.grant_id)])
+        return try await sessionArtworkTransport.load(request, width: artwork.width, height: artwork.height)
+    }
+
+    private func passiveSurfacePOST(path: String, body: [String: Any]) throws -> URLRequest {
+        var request = try authenticatedRequest(path: "/api/djconnect/v1/session/surface/" + path)
+        request.httpMethod = "POST"
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        return request
     }
 }

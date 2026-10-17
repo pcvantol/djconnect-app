@@ -1,0 +1,12 @@
+{
+  "build": "40115",
+  "source_commit": "b2b9415c68cc94e38b63439d656360e82910b4b4",
+  "change": "About GitHub Link Label foregroundStyle white, covering text and external-link symbol. URL unchanged.",
+  "signed_builds": "Mac and iOS/embeddedWatch PASS",
+  "installed": "40115 Mac mini, iPad and iPhone; all installations completed. iPhone UI not run (previous lock boundary).",
+  "physical_visual": "PASS actual iPad About scrolled to notices: link text and glyph white, version40115 visible. Link not opened.",
+  "evidence": "/private/tmp/djc-about-white-40115-ipad.xcresult",
+  "screenshot": "/private/tmp/djc-about-white-40115-ipad-images/79466DB7-EECF-4DAF-A4A8-5893A855A0B2.png",
+  "cleanup": "One active writer, current/main only proven merged; no eligible stale worktree/branch, unrelated untracked projects preserved.",
+  "delivery": "Local only; publication pause preserved. Next build40116+."
+}

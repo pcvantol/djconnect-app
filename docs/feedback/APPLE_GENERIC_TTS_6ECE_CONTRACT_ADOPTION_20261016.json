@@ -1,0 +1,37 @@
+{
+  "status": "BOUNDED_CONSUMER_CONTRACT_ADOPTION_SOURCE_PASS; not complete Speech integration",
+  "producer_main": "6ececb1b5327c5f3456dbb7d466b8763951cb61c",
+  "producer_delivery": "Protected release qualification reported by Core owner; local exact commit/fixture read verified. No independent Apple CI/artifact/deployment claim in this step.",
+  "fixture": {
+    "path": "Tests/Fixtures/generic-ha-tts-core6ece.http.json",
+    "sha256": "1d0f23e981d40272c07ebbf726ef834fc827ee377e0d0f80c07e03ad58f4f0c5",
+    "binding": "Byte-exact Git object examples/client_contracts/session_speech/generic-ha-tts-real.http.json; canonical historical times unchanged."
+  },
+  "changes": [
+    "Typed bounded version1 safe notifications and configuration/synthesis status, keeping ready separate from not_tested/succeeded/failed",
+    "Bounded unique max64 voice inventory, exact owner_session_device preference-context metadata, no gender inference",
+    "Optional prepare voice_id only from current advertised inventory for ha_configured; response must confirm selected voice; no provider/engine/text injection",
+    "Actual Core language-qualified regional voice locales accepted only within exact admitted reference language; reference/text/revision/persona/expiry guards preserved",
+    "Private audio409 accepts bounded JSON speech_configuration_changed with validated safe notification; no stale audio or original-request replay; 401/403/404/410 remain opaque existing authority outcomes"
+  ],
+  "validation": {
+    "regression": "646 Swift tests in6suites PASS29.453s; existing gated skips retained in log",
+    "regression_log": "/private/tmp/djc-generic-tts6ece-regression-20261016.log",
+    "mac_library": "DJConnectUI native Swift build PASS",
+    "ios_library": "arm64 iOS26 simulator DJConnectUI build PASS27.46s",
+    "ios_log": "/private/tmp/djc-tts6ece-ios-library-build-20261016.log",
+    "diff_check": "PASS"
+  },
+  "test_boundaries": [
+    "Published five-language real-provider fixture is consumed without fresh live requests",
+    "Clock renewal/selected voice envelope in client scheduling tests is explicit modeled data, not a fresh server/provider result",
+    "Initial parallel testcases exceeded existing production two-transfer budget; serialize new fixture suite rather than weaken budget. Budget retained."
+  ],
+  "not_delivered": [
+    "MP3 binary validation/playback remains WAV-only and must be completed before generic provider installation",
+    "Composite preference-key store and active Voice menu still require integration",
+    "Foreground/reconnect/status refresh, original observation expiry and actual reference-bound retry/audio owner integration still require source/native validation",
+    "No installed/native/audible/HA-dev/prod acceptance inferred"
+  ],
+  "effects": "Local source/tests/fixture/receipt only. No app install, provider synthesis, physical device test, HA config/deployment, push/PR/merge or cross-thread message. Timer staysPAUSED; attended work deferred by owner."
+}

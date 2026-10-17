@@ -134,8 +134,6 @@ struct TrackInsightSharePreviewView: View {
             #else
             8
             #endif
-        case .linkPreview:
-            12
         }
     }
 
@@ -362,8 +360,6 @@ private struct TrackInsightShareScaledPreview<Content: View>: View {
             #else
             return isCompact ? 380 : 620
             #endif
-        case .linkPreview:
-            return isCompact ? 240 : 360
         }
     }
 
@@ -379,8 +375,6 @@ private struct TrackInsightShareScaledPreview<Content: View>: View {
             #else
             return min(horizontalSizeClass == .compact ? 380 : 620, max(320, responsiveHeight))
             #endif
-        case .linkPreview:
-            return min(horizontalSizeClass == .compact ? 260 : 420, max(180, responsiveHeight))
         }
     }
 }
@@ -392,8 +386,6 @@ extension TrackInsightShareFormat {
             CGSize(width: 540, height: 960)
         case .square:
             CGSize(width: 540, height: 540)
-        case .linkPreview:
-            CGSize(width: 600, height: 314)
         }
     }
 }
@@ -501,12 +493,12 @@ struct TrackInsightShareCardView: View {
                     Text(vibeLine)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.white.opacity(0.78))
-                        .lineLimit(format == .linkPreview ? 1 : 2)
+                        .lineLimit(2)
                         .minimumScaleFactor(0.72)
                         .multilineTextAlignment(.center)
                 }
                 TrackInsightShareMeters(insight: insight, profile: profile, format: format, language: language)
-                Text(insight.summary)
+                Text(insight.displaySummary(language: language))
                     .font(summaryFont)
                     .foregroundStyle(.white.opacity(0.78))
                     .multilineTextAlignment(.center)
@@ -544,8 +536,6 @@ struct TrackInsightShareCardView: View {
             .largeTitle.weight(.bold)
         case .square:
             .title2.weight(.bold)
-        case .linkPreview:
-            .headline.weight(.bold)
         }
     }
 
@@ -555,8 +545,6 @@ struct TrackInsightShareCardView: View {
             .title3.weight(.medium)
         case .square:
             .caption.weight(.medium)
-        case .linkPreview:
-            .caption2.weight(.medium)
         }
     }
 
@@ -566,8 +554,6 @@ struct TrackInsightShareCardView: View {
             5
         case .square:
             3
-        case .linkPreview:
-            2
         }
     }
 
@@ -577,8 +563,6 @@ struct TrackInsightShareCardView: View {
             16
         case .square:
             10
-        case .linkPreview:
-            8
         }
     }
 
@@ -588,8 +572,6 @@ struct TrackInsightShareCardView: View {
             38
         case .square:
             20
-        case .linkPreview:
-            18
         }
     }
 
@@ -599,8 +581,6 @@ struct TrackInsightShareCardView: View {
             360
         case .square:
             220
-        case .linkPreview:
-            220
         }
     }
 
@@ -608,7 +588,7 @@ struct TrackInsightShareCardView: View {
         switch format {
         case .story:
             .callout.weight(.semibold)
-        case .square, .linkPreview:
+        case .square:
             .caption.weight(.semibold)
         }
     }
@@ -619,8 +599,6 @@ struct TrackInsightShareCardView: View {
             470
         case .square:
             500
-        case .linkPreview:
-            560
         }
     }
 
@@ -630,8 +608,6 @@ struct TrackInsightShareCardView: View {
             .subheadline.weight(.bold)
         case .square:
             .caption.weight(.bold)
-        case .linkPreview:
-            .caption2.weight(.bold)
         }
     }
 
@@ -641,8 +617,6 @@ struct TrackInsightShareCardView: View {
             14
         case .square:
             11
-        case .linkPreview:
-            10
         }
     }
 
@@ -652,8 +626,6 @@ struct TrackInsightShareCardView: View {
             7
         case .square:
             5
-        case .linkPreview:
-            4
         }
     }
 
@@ -776,37 +748,6 @@ private struct TrackInsightShareHeartbeatLine: Shape {
     }
 }
 
-private struct TrackInsightShareBackground: View {
-    let profile: TrackVibeProfile
-    let animationPhase: Double
-
-    var body: some View {
-        Canvas { context, size in
-            draw(context: &context, size: size)
-        }
-    }
-
-    private func draw(context: inout GraphicsContext, size: CGSize) {
-        let rect = CGRect(origin: .zero, size: size)
-        context.fill(Path(rect), with: .linearGradient(
-            Gradient(colors: profile.colors),
-            startPoint: CGPoint(x: 0, y: 0),
-            endPoint: CGPoint(x: size.width, y: size.height)
-        ))
-        for index in 0..<5 {
-            var path = Path()
-            let baseY = size.height * (0.42 + CGFloat(index) * 0.08)
-            path.move(to: CGPoint(x: -40, y: baseY))
-            for step in 0...18 {
-                let x = size.width * CGFloat(step) / 18
-                let y = baseY + sin(CGFloat(step) * 0.8 + CGFloat(index) + CGFloat(animationPhase) * 1.4) * 22 * profile.waveform
-                path.addLine(to: CGPoint(x: x, y: y))
-            }
-            context.stroke(path, with: .color(.white.opacity(0.05 + Double(index) * 0.018)), lineWidth: 2)
-        }
-        context.fill(Path(rect), with: .color(.black.opacity(0.30)))
-    }
-}
 
 private struct TrackInsightShareMeters: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -888,8 +829,6 @@ private struct TrackInsightShareMeters: View {
             92
         case .square:
             52
-        case .linkPreview:
-            44
         }
     }
 
@@ -899,8 +838,6 @@ private struct TrackInsightShareMeters: View {
             128
         case .square:
             74
-        case .linkPreview:
-            64
         }
     }
 
@@ -910,8 +847,6 @@ private struct TrackInsightShareMeters: View {
             34
         case .square:
             18
-        case .linkPreview:
-            12
         }
     }
 
@@ -919,7 +854,7 @@ private struct TrackInsightShareMeters: View {
         switch format {
         case .story:
             10
-        case .square, .linkPreview:
+        case .square:
             6
         }
     }
@@ -930,8 +865,6 @@ private struct TrackInsightShareMeters: View {
             .title3.weight(.bold)
         case .square:
             .caption.weight(.bold)
-        case .linkPreview:
-            .caption2.weight(.bold)
         }
     }
 
@@ -939,7 +872,7 @@ private struct TrackInsightShareMeters: View {
         switch format {
         case .story:
             .callout.weight(.semibold)
-        case .square, .linkPreview:
+        case .square:
             .caption2.weight(.semibold)
         }
     }

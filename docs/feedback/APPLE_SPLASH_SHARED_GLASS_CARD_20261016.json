@@ -1,0 +1,24 @@
+{
+  "status": "SOURCE_SPLASH_SHARED_CONTENT_GLASS_CARD; iOS/macOS compile PASS; native visual/install acceptance pending",
+  "source_parent": "06086d895c5ba96e7cf0f91d313cbfd9d81c9856",
+  "request": "All splash content below the DJConnect logo in one shared glass card",
+  "changes": [
+    "Launch banner stays above the content card",
+    "Vinyl/welcome illustration, version label and loading indicator share one VStack with18pt padding and the existing djSessionFrostedSurface",
+    "Content card width equals banner width; artwork is sized within the padded content area",
+    "Wide macOS layout also uses the same above/below arrangement rather than separating artwork and status horizontally",
+    "Launch minimum/maximum timing, dismissal logic, accessibility loading label and artwork animations unchanged"
+  ],
+  "validation": {
+    "macOS": "DJConnectUI compile PASS2.15s",
+    "macOS_log": "/private/tmp/djc-splash-shared-glass-mac-20261016.log",
+    "iOS": "DJConnectUI arm64 iOS26 target compile PASS2.15s with installed simulator SDK",
+    "iOS_log": "/private/tmp/djc-splash-shared-glass-ios-20261016.log",
+    "preview": "Standalone ImageRenderer link/run completed using current package link-list objects, but output showed background only: native glass compositor content unsupported. PNG actually inspected; no visual PASS claimed",
+    "preview_notes": "Initial ad hoc link included stale numbered object files and failed; corrected current package link list linked successfully. Attempted reduced-transparency environment override is read-only and did not compile. No app source or OS accessibility change from preview attempts",
+    "diff_check": "PASS",
+    "tests": "No new behavioral tests for this reversible layout-only change"
+  },
+  "evidence_boundaries": "No app build number changed, installation, native UI test or physical splash verification. Qualified selective launch source matched pre-change writer; selective source itself was not changed or installed",
+  "effects": "Only launch source and local receipt; no backend/config/provider/credential/automation changes, push/PR/merge or cleanup"
+}

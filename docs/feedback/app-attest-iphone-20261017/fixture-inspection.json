@@ -1,0 +1,116 @@
+{
+  "scope": "genuine fixture structural and assertion-signature self-consistency; not qualified server verifier",
+  "app_id": "ZEML4LPXH4.dev.djconnect.ios",
+  "slots": {
+    "active": {
+      "format": "apple-appattest",
+      "aaguid_hex": "617070617474657374646576656c6f70",
+      "aaguid_ascii": "appattestdevelop",
+      "attestation_counter": 0,
+      "assertion_counters": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "assertion_signatures_verified_against_leaf": true,
+      "tampered_client_data_rejected": true,
+      "credential_matches_leaf_and_saved_handle": true,
+      "attestation_extension_fields": {
+        "apple_bundle_version_01": "40227",
+        "apple_validation_category_01": {
+          "type": "bytes",
+          "hex": "03000000"
+        }
+      },
+      "assertion_extension_fields": [
+        {
+          "apple_bundle_version_01": "40227",
+          "apple_validation_category_01": {
+            "type": "bytes",
+            "hex": "03000000"
+          }
+        },
+        {
+          "apple_bundle_version_01": "40227",
+          "apple_validation_category_01": {
+            "type": "bytes",
+            "hex": "03000000"
+          }
+        },
+        {
+          "apple_bundle_version_01": "40228",
+          "apple_validation_category_01": {
+            "type": "bytes",
+            "hex": "03000000"
+          }
+        },
+        {
+          "apple_bundle_version_01": "40228",
+          "apple_validation_category_01": {
+            "type": "bytes",
+            "hex": "03000000"
+          }
+        }
+      ],
+      "certificate_count": 2,
+      "initial_receipt_present": true
+    },
+    "replacement": {
+      "format": "apple-appattest",
+      "aaguid_hex": "617070617474657374646576656c6f70",
+      "aaguid_ascii": "appattestdevelop",
+      "attestation_counter": 0,
+      "assertion_counters": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "assertion_signatures_verified_against_leaf": true,
+      "tampered_client_data_rejected": true,
+      "credential_matches_leaf_and_saved_handle": true,
+      "attestation_extension_fields": {
+        "apple_bundle_version_01": "40227",
+        "apple_validation_category_01": {
+          "type": "bytes",
+          "hex": "03000000"
+        }
+      },
+      "assertion_extension_fields": [
+        {
+          "apple_bundle_version_01": "40227",
+          "apple_validation_category_01": {
+            "type": "bytes",
+            "hex": "03000000"
+          }
+        },
+        {
+          "apple_bundle_version_01": "40227",
+          "apple_validation_category_01": {
+            "type": "bytes",
+            "hex": "03000000"
+          }
+        },
+        {
+          "apple_bundle_version_01": "40228",
+          "apple_validation_category_01": {
+            "type": "bytes",
+            "hex": "03000000"
+          }
+        },
+        {
+          "apple_bundle_version_01": "40228",
+          "apple_validation_category_01": {
+            "type": "bytes",
+            "hex": "03000000"
+          }
+        }
+      ],
+      "certificate_count": 2,
+      "initial_receipt_present": true
+    }
+  },
+  "server_chain_receipt_policy": "NOT_QUALIFIED_API_LANE_OWNS",
+  "replacement_is_distinct": true
+}

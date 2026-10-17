@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-16",
+  "build": "40176",
+  "scope": "Stable iPad Ask DJ chat column across keyboard and orientation changes",
+  "root_cause": "Wide layout was selected from available width>height. Keyboard avoidance reduced portrait height enough to activate the landscape/desktop1680pt cap. Landscape always used that larger cap.",
+  "implementation": [
+    "On iPad, AskDJView now always uses the original760pt portrait content cap, clamped to actual window width.",
+    "Timeline and floating composer share this stable cap. Existing16pt inner margins and message geometry retained.",
+    "iPhone/macOS width policy unchanged. Final source does not add an accessibility measurement container."
+  ],
+  "checks": {
+    "signed_ios_build": "PASS",
+    "strict_deep_codesign": "PASS",
+    "manifest": "452 hashes PASS",
+    "diff_check": "PASS",
+    "installed_readback": "iPad/iPhone40176 PASS",
+    "portrait_geometry_40175": "Both keyboard states: window970x1389, leadingX135, trailingMaxX835, normalized inset30pt each side. Width helper unchanged in40176; only extra AX measurement grouping removed.",
+    "portrait_visual": "Both40175 screenshots actually viewed: chat margin and column width preserved with keyboard open.",
+    "landscape_geometry_40176": "Final native test PASS; window1389x970, normalized insets30pt each side with keyboard closed and open.",
+    "landscape_visual": "LIMITED: both screenshots actually viewed but capture remains portrait-shaped/cropped. Do not claim complete landscape visual acceptance. The AX position checks passed."
+  },
+  "evidence": {
+    "manifest": "build/recovery/ipad40176-selective-source-manifest-20261016.json",
+    "build": "/private/tmp/djc-ios-40176-stable-chat-width-build.log",
+    "portrait_xcresult": "/private/tmp/djc-ipad-40175-chat-anchors-20261016.xcresult",
+    "portrait_screenshots_actually_viewed": [
+      "/private/tmp/djc-ipad-40175-chat-anchors-attachments/635A6068-E63C-4EA7-A86E-7B6EF08EF367.png",
+      "/private/tmp/djc-ipad-40175-chat-anchors-attachments/6A2FCFA9-2994-45E1-B038-22396E600FDF.png"
+    ],
+    "final_landscape_xcresult": "/private/tmp/djc-ipad-40176-landscape-chat-20261016.xcresult",
+    "landscape_screenshots_actually_viewed": [
+      "/private/tmp/djc-ipad-40176-landscape-chat-attachments/4A812FA1-7FE1-408E-A6F1-A3FD137AE683.png",
+      "/private/tmp/djc-ipad-40176-landscape-chat-attachments/D32B3BB5-DFDB-409C-8813-B945E025BBF8.png"
+    ]
+  },
+  "earlier_attempts": [
+    "Initial40175 test incorrectly compared the full-width accessibility container to inner width728; corrected measurement to real message text anchors.",
+    "Combined40175 probe captured and passed portrait anchor checks, then timed out while rotating with keyboard open. Overall test not PASS.",
+    "Separate40175 landscape probe also timed out; evidence retained.",
+    "Final40176 probe used fresh install, rotated on Home before activating app, then tested keyboard states without rotating mid-focus. Overall native test PASS."
+  ],
+  "preservation": [
+    "No text entered, draft changed, messages sent, playback commands executed or system preferences changed.",
+    "Portrait restored; ordinary app relaunched. External test probe restored. Source, screenshots, xcresults and previous failure evidence retained.",
+    "Mac remains40173; other platform layout unchanged."
+  ],
+  "publication": "Local only; no push/PR/merge"
+}

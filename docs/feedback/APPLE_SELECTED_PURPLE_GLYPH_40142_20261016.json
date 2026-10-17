@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-16",
+  "source_parent": "3e6ae0b",
+  "request": "Color selected menu item bright purple like the Favorite heart.",
+  "change": "Selected glyph in shared SessionGlassChoiceSelector uses exact djConnectAccent, same as FavoriteTrackButton selected heart; unselected glyphs remain white. Existing subdued fill, border and16percent tray backing retained. Applies to Mood and Presence with no selection action changes.",
+  "build": "40142",
+  "manifest": "build/recovery/iphone40142-selective-source-manifest-20261016.json",
+  "baseline_files_verified": 452,
+  "signed_ios_watch_build": "PASS",
+  "build_log": "/private/tmp/djc-ios-40142-purple-glyph-build.log",
+  "strict_deep_codesign": "PASS",
+  "candidate_executable_sha256": "6ad0621d1f268c0f9d5797b3455de197af8bcc4e4105641375aa19bf10102d7a",
+  "installation": {
+    "device": "Peter-iPhone17Pro",
+    "version": "4.0.0/40142",
+    "install": "/private/tmp/djc-iphone-40142-install.json",
+    "fresh_readback": "/private/tmp/djc-iphone-40142-readback.json",
+    "other_devices_not_updated": true
+  },
+  "physical_test": {
+    "result": "PASS",
+    "seconds": 16.121,
+    "xcresult": "/private/tmp/djc-iphone-40142-purple-glyph-20261016.xcresult",
+    "screenshots_actually_viewed": [
+      "/private/tmp/djc-iphone-40142-purple-glyph-attachments/83DB884A-AAC5-45BB-A21D-031C6EED7F64.png",
+      "/private/tmp/djc-iphone-40142-purple-glyph-attachments/5DF62D28-6B1D-4262-9180-B30E00331D6A.png"
+    ],
+    "observations": "Explicit title assertions confirmed Mood and Presence. Selected moon and selected speech bubble visibly bright purple like heart; other icons white. Native outside dismissal completed."
+  },
+  "limits": "Probe only requested toolbar opens and outside dismissals. No intentional option change, send, draft entry, playback or provider action. No unit tests for reversible one-line color-only change.",
+  "native_probe_restored": true,
+  "publication": "Local commit only; no push, PR, merge or Core changes."
+}

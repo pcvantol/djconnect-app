@@ -1,0 +1,22 @@
+{
+  "build": "40205",
+  "scope": "Match Discovery and AskDJ introduction card sizing and spacing",
+  "implementation": "Both call shared DJConnectIntroductionCard:72pt glyph box,16pt gaps,28pt minimum title slot,44pt minimum description slot,24pt padding,224pt minimum card height. Text can grow without clipping. Removed AskDJ-only480pt description width cap.",
+  "checks": [
+    "iOS/macOS builds PASS",
+    "452 source hashes PASS",
+    "iPhone/iPad40205 readback PASS",
+    "Mac40205 install/signature/executable verification PASS",
+    "diff check PASS"
+  ],
+  "visual": "Actual shared SwiftUI source extracted into standalone ImageRenderer harness. All4 PNGs actually viewed.700pt and358pt widths both return224pt height for each card; headings/descriptions align. Source-render evidence only; installed GUI not separately tested.",
+  "evidence": [
+    "build/recovery/hero40205-preview.swift",
+    "/private/tmp/djc-hero40205-preview.log",
+    "/private/tmp/djc-hero40205-700-0.png",
+    "/private/tmp/djc-hero40205-700-1.png",
+    "/private/tmp/djc-hero40205-358-0.png",
+    "/private/tmp/djc-hero40205-358-1.png"
+  ],
+  "preservation": "Timer paused; no Core messages or publication; previous app backed up."
+}

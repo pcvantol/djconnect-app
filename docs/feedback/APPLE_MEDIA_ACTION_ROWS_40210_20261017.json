@@ -1,0 +1,30 @@
+{
+  "build": "40210",
+  "scope": "Shared Ask DJ / Session track and album action rows fill bubble inner width; white circular play symbol matches speaker action size and styling. Context icon reserves text space only.",
+  "changes": [
+    "Remove media row maxWidth520 cap",
+    "Use bubble-wide media rows with existing inner margins",
+    "Replace gradient play disc with white play.circle.fill at23pt in44pt target",
+    "Preserve action callback, disabled/loading behavior and localized accessibility labels"
+  ],
+  "validation": {
+    "mac_build": "PASS",
+    "ios_ipados_watch_build": "PASS",
+    "both_strict_deep_signatures": "PASS",
+    "diff_check": "PASS",
+    "native_Mac_NSHostingView_fixture_renders": "PASS at320pt and700pt; inspected both",
+    "selective_source": "Only RootView changed; other458 inputs unchanged"
+  },
+  "limits": [
+    "No physical-device UI acceptance",
+    "Not installed, pushed or merged",
+    "Rendered fixture uses fallback artwork; no network artwork or playback operation performed"
+  ],
+  "evidence": [
+    "/private/tmp/djc-media40210-mac-qualified.log",
+    "/private/tmp/djc-media40210-ios-qualified.log",
+    "build/recovery/media40210/",
+    "build/recovery/media40210-selective-manifest-20261017.json"
+  ],
+  "lane_tagline_delivery": "https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6230243101"
+}

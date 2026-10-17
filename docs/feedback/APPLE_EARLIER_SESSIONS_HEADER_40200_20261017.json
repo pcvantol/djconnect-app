@@ -1,0 +1,13 @@
+{
+  "build": "40200",
+  "scope": "Remove requested demo notice from Earlier sessions list",
+  "checks": [
+    "iOS/macOS builds PASS",
+    "452 final source hashes PASS",
+    "iPhone/iPad40200 readback PASS",
+    "Mac40200 install/signature/executable verification PASS",
+    "diff check PASS"
+  ],
+  "preservation": "iOS native refresh bridge retained; demo disclosure elsewhere unchanged; timer paused; no Core messages or publication.",
+  "visual": "NOT_RUN; bounded label removal"
+}

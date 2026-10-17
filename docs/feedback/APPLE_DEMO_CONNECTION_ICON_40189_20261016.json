@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-16",
+  "build": "40189",
+  "scope": "Use recognizable globe for demo connection status",
+  "finding": "SessionConnectionStatus.demo selected play.rectangle.fill; demo popover separately selected play.circle.fill. This looked like playback UI in the connection slot.",
+  "implementation": [
+    "Map demo status icon to globe and reuse status.icon in demo popover.",
+    "Retain explicit Demomodus status text/accessibility value and purple demo tint; no connectivity/pairing semantics changed."
+  ],
+  "checks": {
+    "ios_build": "PASS",
+    "mac_build": "PASS",
+    "signature": "strict deep PASS",
+    "manifest": "452 hashes PASS",
+    "installed": "iPhone/iPad/Mac mini40189 confirmed; Mac executable hash equal signed candidate",
+    "physical_visual": "NOT_RUN; no Mac GUI or physical demo screenshot claim."
+  },
+  "evidence": {
+    "manifest": "build/recovery/demo40189-selective-source-manifest-20261016.json",
+    "patch": "build/recovery/demo40189-connection-icon-20261016.patch",
+    "ios_build": "/private/tmp/djc-ios-40189-demo-icon-build.log",
+    "mac_build": "/private/tmp/djc-mac-40189-demo-icon-build.log",
+    "mac_backup": "build/recovery/DJConnect-before40189.app"
+  },
+  "preservation": [
+    "Previous Mac app retained for recovery.",
+    "No mode switch, account/profile/settings changes, playback commands or messages.",
+    "Timer remains paused; no Core messages or publication."
+  ],
+  "publication": "Local commit only; no push/PR/merge"
+}

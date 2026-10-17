@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-16",
+  "build": "40184",
+  "scope": "Use available iPad Settings width with standard16pt side margins",
+  "implementation": [
+    "Remove960pt SettingsContentContainer cap on iPad only; use infinity constrained by ScrollView/window.",
+    "Retain16pt external horizontal padding and24pt glass-section inner padding.",
+    "iPhone/macOS policy and settings behavior unchanged."
+  ],
+  "checks": {
+    "ios_build": "PASS",
+    "signature": "strict deep PASS",
+    "manifest": "452 hashes PASS",
+    "installed": "iPad40184 confirmed",
+    "native_landscape_test": "PASS: window1389x970; App header x40 and App language row x40 width1309 => right edge1349,40pt inset both sides. Removing24pt inner padding yields16pt external margin.",
+    "visual": "Screenshot actually viewed but landscape capture remains clipped/portrait-shaped with black upper area; full landscape visual acceptance not claimed."
+  },
+  "evidence": {
+    "manifest": "build/recovery/ipad40184-selective-source-manifest-20261016.json",
+    "patch": "build/recovery/ipad40184-settings-width-20261016.patch",
+    "xcresult": "/private/tmp/djc-ipad-40184-settings-width-20261016.xcresult",
+    "screenshot": "/private/tmp/djc-ipad-40184-settings-width-attachments/F1F74026-0219-4AAC-9CA5-6405B18205C9.png",
+    "geometry": "/private/tmp/djc-ipad-40184-settings-width-attachments/9C932308-CF71-4117-8BF5-13E6750557BB.txt"
+  },
+  "preservation": [
+    "Settings only opened; no values/toggles/actions changed.",
+    "External probe restored; recovery/evidence retained.",
+    "No timer restart or Core messages."
+  ],
+  "publication": "Local commit only; no push/PR/merge"
+}

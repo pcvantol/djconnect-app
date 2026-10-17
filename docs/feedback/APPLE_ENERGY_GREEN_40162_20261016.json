@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-16",
+  "build": "40162",
+  "scope": "Greener Energy mood background in DJ Session",
+  "implementation": [
+    "Energy retains the same lime/cyan/green palette values as Track Insight.",
+    "Energy alone replaces the blue/purple brand base with a dark green gradient.",
+    "Energy cyan overlay reduced to0.08; lime and green overlays retained. Other moods unchanged.",
+    "Rendering only; no mood preference or backend state changed."
+  ],
+  "checks": {
+    "signed_ios_build": "PASS",
+    "strict_deep_codesign": "PASS",
+    "source_manifest": "452 file hashes PASS",
+    "diff_check": "PASS",
+    "installed_readback": "iPhone40162 PASS"
+  },
+  "evidence": {
+    "source_manifest": "build/recovery/iphone40162-selective-source-manifest-20261016.json",
+    "build": "/private/tmp/djc-ios-40162-energy-green-build.log",
+    "install": "/private/tmp/djc-iphone-40162-install.json",
+    "apps": "/private/tmp/djc-iphone-40162-apps.json"
+  },
+  "limits": [
+    "No new physical screenshot of Energy selected; no backend mood change performed.",
+    "Only iPhone installed; full unqualified writer not installed."
+  ],
+  "publication": "Local only; no push/PR/merge"
+}

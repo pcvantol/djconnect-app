@@ -25,12 +25,8 @@ screencapture -x -l "$proof_window" build/moment-first/screenshots/mac-02-curren
 wait_native 'Slow Lanterns'
 screencapture -x -l "$proof_window" build/moment-first/screenshots/mac-03-player-active-session.png
 "$proof_ui" "$proof_pid" press 'DJ-sessie'
-"$proof_ui" "$proof_pid" press 'Trackverhaal, Even de credits erbij'
-wait_native 'Even meekijken in de credits'
-cp build/moment-first/mac-proof-state.txt build/moment-first/mac-flow-detail.txt
-screencapture -x -l "$proof_window" build/moment-first/screenshots/mac-02b-flow-detail.png
-"$proof_ui" "$proof_pid" press 'Terug naar de actuele bijdrage'
-wait_native 'Nora Vale kwamen we eerder'
+"$proof_ui" "$proof_pid" read > build/moment-first/mac-normal-session.txt
+if rg -q 'Sessieverloop|Terug naar de actuele bijdrage|Zescijferige code' build/moment-first/mac-normal-session.txt; then exit 4; fi
 curl --fail --max-time 5 -s http://127.0.0.1:18787/fixture/metrics > build/moment-first/mac-navigation-metrics.json
 curl --fail --max-time 5 -s http://127.0.0.1:18787/fixture/expire > /private/tmp/djc-mac-fixture-expire.json
 sleep 0.5

@@ -2,86 +2,73 @@ import DJConnectCore
 import Foundation
 
 #if os(iOS) && canImport(ActivityKit)
-import ActivityKit
+// The SDK's Activity reference predates Sendable annotations. Our bookkeeping
+// and state observation stay on MainActor; lifecycle calls are serialized by
+// the app model and await ActivityKit's own asynchronous implementation.
+@preconcurrency import ActivityKit
 
+/// Called serially by the app model. Widget, Lock Screen and Island consume
+/// exactly the same admitted snapshot. Playback alone can never start it.
 @available(iOS 16.1, *)
-enum TrackInsightLiveActivityController {
-    private static let staleInterval: TimeInterval = 12 * 60
-    private static let nowPlayingSessionID = "djconnect-now-playing"
-
-    enum SyncResult: Sendable {
-        case ended(reason: String)
-        case updated
-        case requested
-        case activitiesDisabled
-        case requestFailed(String)
-
-        var logDescription: String {
-            switch self {
-            case let .ended(reason):
-                "ended(\(reason))"
-            case .updated:
-                "updated"
-            case .requested:
-                "requested"
-            case .activitiesDisabled:
-                "activities_disabled"
-            case let .requestFailed(message):
-                "request_failed(\(message))"
+@MainActor
+enum DJConnectSessionSurfaceActivityController {
+    private static var stateObservers: [String: Task<Void, Never>] = [:]
+    private static func observe(_ activity: Activity<DJConnectSessionLiveActivityAttributes>) {
+        guard stateObservers[activity.id] == nil else { return }
+        stateObservers[activity.id] = Task {
+            for await state in activity.activityStateUpdates {
+                if state == .dismissed {
+                    DJConnectSessionSurfacePresentation.userDismissed(activity.attributes.presentationID, activityID: activity.id, in: .standard)
+                    break
+                }
+                if state == .ended { break }
             }
+            stateObservers[activity.id] = nil
         }
     }
-
-    static func sync(playback: DJConnectPlayback?) async -> SyncResult {
-        guard let playback, playback.isPlaying == true else {
-            await endAll()
-            return .ended(reason: playback == nil ? "no_playback" : "not_playing")
+    static func sync(snapshot: DJConnectSessionSurfaceSnapshot?, presentationID: String?,
+                     canStart: Bool, endReason: String) async -> String? {
+        let defaults = UserDefaults.standard
+        // Retire the old fixed playback-only activity, including after upgrade.
+        for old in Activity<TrackInsightLiveActivityAttributes>.activities {
+            await old.end(nil, dismissalPolicy: .immediate)
         }
-        return await update(with: playback)
-    }
-
-    static func update(with playback: DJConnectPlayback) async -> SyncResult {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
-            await endAll()
-            return .activitiesDisabled
+        let activities = Activity<DJConnectSessionLiveActivityAttributes>.activities
+        for activity in activities { observe(activity) }
+        guard let snapshot, snapshot.isCurrent(at: Date()), let presentationID else {
+            for activity in activities {
+                DJConnectSessionSurfacePresentation.applicationEnded(activity.attributes.presentationID,
+                    wasDismissed: activity.activityState == .dismissed, activityID: activity.id, in: defaults)
+                await activity.end(nil, dismissalPolicy: .immediate)
+            }
+            return activities.isEmpty ? nil : "Session Live Activity ended by app; reason=\(endReason)"
         }
-
-        let sessionID = nowPlayingSessionID
-        let content = content(for: playback)
-        let result: SyncResult
-        if let activity = Activity<TrackInsightLiveActivityAttributes>.activities.first(where: { $0.attributes.sessionID == sessionID }) {
-            await activity.update(content)
-            result = .updated
-        } else {
+        for activity in activities where activity.attributes.presentationID != presentationID {
+            DJConnectSessionSurfacePresentation.applicationEnded(activity.attributes.presentationID,
+                wasDismissed: activity.activityState == .dismissed, activityID: activity.id, in: defaults)
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+        let content = ActivityContent(state: snapshot, staleDate: snapshot.expiresAt)
+        if let current = activities.first(where: { $0.attributes.presentationID == presentationID && $0.activityState != .ended && $0.activityState != .dismissed }) {
+            await current.update(content)
+        } else if canStart, ActivityAuthorizationInfo().areActivitiesEnabled,
+                  DJConnectSessionSurfacePresentation.canRequest(presentationID,
+                    build: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown", in: defaults) {
+            // Persist only a random local marker. Respect user/OS dismissal
+            // across app resumes; do not create an activity on every live tick.
             do {
-                _ = try Activity.request(
-                    attributes: TrackInsightLiveActivityAttributes(sessionID: sessionID),
-                    content: content,
-                    pushType: nil
-                )
-                result = .requested
+                let activity = try Activity.request(attributes: DJConnectSessionLiveActivityAttributes(presentationID: presentationID),
+                                         content: content, pushType: nil)
+                observe(activity)
+                DJConnectSessionSurfacePresentation.requested(presentationID,
+                    build: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown", activityID: activity.id, in: defaults)
+                return "Session Live Activity started; state=\(activity.activityState); count=\(Activity<DJConnectSessionLiveActivityAttributes>.activities.count)"
             } catch {
-                return .requestFailed(error.localizedDescription)
+                let error = error as NSError
+                return "Session Live Activity request failed; domain=\(error.domain); code=\(error.code)"
             }
         }
-
-        for activity in Activity<TrackInsightLiveActivityAttributes>.activities where activity.attributes.sessionID != sessionID {
-            await activity.end(nil, dismissalPolicy: .immediate)
-        }
-        return result
-    }
-
-    static func endAll() async {
-        for activity in Activity<TrackInsightLiveActivityAttributes>.activities {
-            await activity.end(nil, dismissalPolicy: .immediate)
-        }
-    }
-
-    private static func content(for playback: DJConnectPlayback) -> ActivityContent<TrackInsightLiveActivityAttributes.ContentState> {
-        ActivityContent(
-            state: TrackInsightLiveActivityAttributes.ContentState(playback: playback),
-            staleDate: Date().addingTimeInterval(staleInterval)
-        )
+        return nil
     }
 }
 #endif

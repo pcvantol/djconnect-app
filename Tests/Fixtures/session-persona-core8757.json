@@ -1,0 +1,22 @@
+{
+  "producer_main": "8757ecd38a5fe31254a36aba5e0cbe5852edfa7e",
+  "original_fixture": "examples/client_contracts/session_speech/integrated-main582.http.json",
+  "original_sha256": "e629511ee034d738a8f6e9173074d3298dc66ddcdc9a132b3e77ea24f064f767",
+  "scope": "EARLY_CORE_TRANSPORT_ONLY_NOT_FULL_SLICE_OR_NATIVE_AUDIO",
+  "persona": {
+    "success": true,
+    "contract_version": 1,
+    "session_id": "session-390ad89e5c684b298fceaa10b81c2047",
+    "selected_persona": "radio_dj",
+    "persona_revision": 1,
+    "changed": true
+  },
+  "persona_change": {
+    "success": true,
+    "contract_version": 1,
+    "session_id": "session-390ad89e5c684b298fceaa10b81c2047",
+    "selected_persona": "festival_dj",
+    "persona_revision": 2,
+    "changed": true
+  }
+}

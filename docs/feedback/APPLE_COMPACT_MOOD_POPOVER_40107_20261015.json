@@ -1,0 +1,21 @@
+{
+  "build": "40107",
+  "selective_base": "/private/tmp/djc-hero-glow-40106-source",
+  "source_commit": "7cab4ef1711469964c166930755877bae913557e",
+  "installed_source_hashes": {
+    "Sources/DJConnectUI/DJConnectRootView.swift": "dcfe28ef0c531c72a1d767b0368c6d6ac882d7a9e17d2bd47ac5f41620999813",
+    "Sources/DJConnectUI/SessionTimelineScreen.swift": "6c739194ccdd06874009460f7a7801ff9147546e03df2228be85970f91f5b0c1"
+  },
+  "changes": "Remove extra outer frosted card/outline and16ptinnerpadding from sharedselector. Remove moodupdating spinner and reserved progressrow; real errors/unavailable reason remain conditional. Nativepopover and innersegmentedpill retained.",
+  "signed_ios_watch_build": "PASS",
+  "physical_install_readback": "40107",
+  "physical_native_probe": "PASS: actual TrackInsight activeSession moodpopover opened, titlefound/updatinglabelabsent, no moodselectionchanged",
+  "physical_visual_inspection": "PASS: single nativepopover with title,segmentedchoices,selectedlabel; no nested outercustomcard/progressrow. Genuine current connectionunavailablemessage visible, not concealed.",
+  "evidence": "/private/tmp/djc-mood-popover-40107-physical.xcresult",
+  "screenshot": "/private/tmp/djc-mood-popover-40107-physical-images/258386D5-2E29-4677-A376-98C5A9C79B50.png",
+  "cleanup": "Oneactivewriterworktree; onlycurrentlane/mainmerged. Noeligible stale artifact; otherrefs/untrackedprojects preserved.",
+  "presence_separate_physical_check": "PASS: normal DJ-session tab, actual DJpresencepopover with5choices andGebalanceerd selectedlabel; no extra nestedoutercard. No presence choice changed.",
+  "presence_screenshot": "/private/tmp/djc-presence-popover-40107-session-physical-images/1D698DAE-FD27-49BC-9BBD-6DAD1E912FF0.png",
+  "presence_native_probe": "/private/tmp/djc-presence-popover-40107-session-physical.xcresult",
+  "presence_first_probe": "Wrong screen TrackInsight lacks presencecontrol; failed boundedprobe retained. Retried via actualnativeDJsessiontab andPASS."
+}

@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-16",
+  "status": "INSTALLED_IPHONE_VISUAL_PASS_CURRENT_ENERGY_MOOD",
+  "source_commit": "33e3585adfc74c0fa388ffef5e981866a97bb993",
+  "writer_parent": "7caf3f0",
+  "cause": "The qualified palette-only source change had not been included in the installed selective candidate. Build40131 still called djConnectHeroCard without resolved profile colors.",
+  "change": "Apply only the existing optional colors parameter, tinted hero-card background and TrackInsightHero profile.colors call from33e3585 to the verified40131 selective source. No writer logic change.",
+  "build": "40132",
+  "manifest": "build/recovery/iphone40132-selective-source-manifest-20261016.json",
+  "baseline_files_verified": 452,
+  "build_log": "/private/tmp/djc-ios-40132-mood-card-build.log",
+  "signed_ios_watch_build": "PASS",
+  "codesign_deep_strict": "PASS",
+  "candidate_executable_sha256": "38a82076973f6ead2861ebb41a3485b77ea35ea8f9b33a6f73818653a5e6df0a",
+  "install": "/private/tmp/djc-iphone-40132-install.json",
+  "installed_readback": "/private/tmp/djc-iphone-40132-readback.json",
+  "device": "Peter-iPhone17Pro",
+  "version": "4.0.0/40132",
+  "physical_test": {
+    "xcresult": "/private/tmp/djc-iphone-40132-mood-card-20261016.xcresult",
+    "result": "PASS",
+    "seconds": 12.017,
+    "mood": "Energie",
+    "screenshot_actually_viewed": "/private/tmp/djc-iphone-40132-mood-card-attachments/0C7EE2AC-21DA-46A0-B3BF-130C0DD93EA9.png",
+    "observation": "Outer card visibly uses green/teal/yellow gradient, matching the resolved Energy palette of the inner hero; former fixed purple outer frame absent."
+  },
+  "limits": "Current Energy mood visually qualified; other mood palettes/pinned historical cases not changed or physically tested. No backend/mood writes, playback commands, sending, provider or FPS acceptance. Other devices not installed.",
+  "native_probe_restored": true,
+  "publication": "Local receipt commit only; no push, PR, merge or Core deploy."
+}

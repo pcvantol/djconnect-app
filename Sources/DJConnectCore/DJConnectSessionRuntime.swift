@@ -116,6 +116,8 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
         public var moodRevision: Int? = nil
         public var selectedPresence: DJConnectSessionPresenceValue? = nil
         public var presenceRevision: Int? = nil
+        public var selectedPersona: DJConnectSessionPersonaValue? = nil
+        public var personaRevision: Int? = nil
         public var locale: String? = nil
 
         enum CodingKeys: String, CodingKey {
@@ -124,6 +126,7 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
             case selectedMood = "selected_mood"
             case locale, moodRevision = "mood_revision"
             case selectedPresence = "selected_presence", presenceRevision = "presence_revision"
+            case selectedPersona = "dj_persona", personaRevision = "persona_revision"
         }
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -135,12 +138,17 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
             selectedPresence = try c.decodeIfPresent(DJConnectSessionPresenceValue.self, forKey: .selectedPresence)
             presenceRevision = try c.decodeIfPresent(Int.self, forKey: .presenceRevision)
             if let presenceRevision, presenceRevision < 0 { throw DJConnectError.invalidResponse }
+            selectedPersona = try c.decodeIfPresent(DJConnectSessionPersonaValue.self, forKey: .selectedPersona)
+            personaRevision = try c.decodeIfPresent(Int.self, forKey: .personaRevision)
+            if let personaRevision, personaRevision < 0 { throw DJConnectError.invalidResponse }
             locale = try? c.decode(String.self, forKey: .locale)
         }
         public init(sessionID: String, runtimeState: String, selectedMood: String, locale: String? = nil, moodRevision: Int? = nil,
-                    selectedPresence: DJConnectSessionPresenceValue? = nil, presenceRevision: Int? = nil) {
+                    selectedPresence: DJConnectSessionPresenceValue? = nil, presenceRevision: Int? = nil,
+                    selectedPersona: DJConnectSessionPersonaValue? = nil, personaRevision: Int? = nil) {
             self.sessionID = sessionID; self.runtimeState = runtimeState; self.selectedMood = selectedMood; self.locale = locale; self.moodRevision = moodRevision
             self.selectedPresence = selectedPresence; self.presenceRevision = presenceRevision
+            self.selectedPersona = selectedPersona; self.personaRevision = personaRevision
         }
     }
 
@@ -160,6 +168,8 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
         public var snapshotWatermark: Int?
         enum CodingKeys: String, CodingKey { case snapshotWatermark = "snapshot_watermark" }
     }
+    public var sessionSpeech: [DJConnectSessionSpeech] = []
+    public var sessionMedia: [DJConnectSessionMedia] = []
     public var nativeDelivery: DJConnectNativeMomentDelivery? = nil
     public var djMoments: [DJConnectMoment] = []
     public var presentations: [DJConnectPresentation] = []
@@ -167,12 +177,14 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
     public var delivery: Delivery? = nil
     // Local certainty fence, never decoded from or encoded onto the wire.
     var presenceConflictRevision: Int? = nil
+    var personaConflictRevision: Int? = nil
     public var session: Session
     public var planner: Planner
     public var sessionFlow: DJConnectSessionFlow
 
     enum CodingKeys: String, CodingKey {
         case session, planner
+        case sessionMedia = "session_media"
         case nativeDelivery = "native_delivery"
         case djMoments = "dj_moments", presentations, playback
         case delivery = "broadcast"
@@ -191,7 +203,20 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
         presentations = (try? c.decode([LossyBroadcastValue<DJConnectPresentation>].self, forKey: .presentations))?.compactMap(\.value) ?? []
         playback = try? c.decode(DJConnectSessionPlayback.self, forKey: .playback)
         delivery = try? c.decode(Delivery.self, forKey: .delivery)
+        sessionMedia = Array(((try? c.decode([LossyBroadcastValue<DJConnectSessionMedia>].self, forKey: .sessionMedia))?.compactMap(\.value) ?? []).prefix(64))
         nativeDelivery = try? c.decode(DJConnectNativeMomentDelivery.self, forKey: .nativeDelivery)
+        struct PrivateSpeech: Decodable { let schema_version: Int; let moments: [DJConnectOptionalSessionSpeech] }
+        struct SpeechKey: CodingKey {
+            let stringValue: String; let intValue: Int? = nil
+            init?(stringValue: String) { self.stringValue = stringValue }
+            init?(intValue: Int) { return nil }
+        }
+        if let privateContainer = try? decoder.container(keyedBy: SpeechKey.self),
+           let key = SpeechKey(stringValue: "session_speech"),
+           let grant = try? privateContainer.decode(PrivateSpeech.self, forKey: key), grant.schema_version == 1 {
+            sessionSpeech = Array(grant.moments.compactMap(\.value).prefix(64))
+        }
+
     }
     public init(session: Session, planner: Planner, sessionFlow: DJConnectSessionFlow) {
         self.session = session; self.planner = planner; self.sessionFlow = sessionFlow
@@ -205,6 +230,8 @@ public struct DJConnectSessionRuntime: Codable, Equatable, Sendable, Identifiabl
     public var moodRevision: Int? = nil
     public var selectedPresence: DJConnectSessionPresenceValue? = nil
     public var presenceRevision: Int? = nil
+    public var selectedPersona: DJConnectSessionPersonaValue? = nil
+    public var personaRevision: Int? = nil
     public var musicBackend: String
     public var runtimeState: String
     public var startedAt: String
@@ -219,6 +246,7 @@ public struct DJConnectSessionRuntime: Codable, Equatable, Sendable, Identifiabl
         case selectedMood = "selected_mood"
         case moodRevision = "mood_revision"
         case selectedPresence = "selected_presence", presenceRevision = "presence_revision"
+        case selectedPersona = "dj_persona", personaRevision = "persona_revision"
         case musicBackend = "music_backend"
         case runtimeState = "runtime_state"
         case startedAt = "started_at"
@@ -253,13 +281,25 @@ public struct DJConnectSessionResponse: Codable, Equatable, Sendable {
 public struct DJConnectSessionBroadcastSubscription: Codable, Equatable, Sendable {
     public var success: Bool
     public var subscriptionID: String
+    public var recoveryCursor: String? = nil
     public var sessionID: String
     public var snapshot: DJConnectBroadcastState
 
     enum CodingKeys: String, CodingKey {
         case success, snapshot
         case subscriptionID = "subscription_id"
+        case recoveryCursor = "recovery_cursor"
         case sessionID = "session_id"
+    }
+}
+
+public struct DJConnectPassiveSurfaceInvalidation: Codable, Equatable, Sendable {
+    public let version: Int
+    public let session_id: String
+    public let delivery_sequence: Int
+    public let invalidation_only: Bool
+    public func validates(sessionID: String) -> Bool {
+        version == 1 && session_id == sessionID && delivery_sequence >= 0 && invalidation_only
     }
 }
 
@@ -268,13 +308,19 @@ public struct DJConnectSessionBroadcastEvent: Codable, Equatable, Sendable {
         public var session: DJConnectBroadcastState.Session?
         public var planner: DJConnectBroadcastState.Planner?
         public var sessionFlow: DJConnectSessionFlow?
+        public var sessionMedia: [DJConnectSessionMedia] = []
         public var nativeDelivery: DJConnectNativeMomentDelivery? = nil
         public var djMoment: DJConnectMoment? = nil
         public var presentation: DJConnectPresentation? = nil
         public var playback: DJConnectSessionPlayback? = nil
+        /// Private owner grant: decoded for local playback, never re-encoded.
+        public var sessionSpeech: [DJConnectSessionSpeech] = []
+        /// Owner-only invalidation: not encoded into other client projections.
+        public var passiveSurfaceInvalidation: DJConnectPassiveSurfaceInvalidation? = nil
 
         enum CodingKeys: String, CodingKey {
             case session, planner, playback, presentation
+            case sessionMedia = "session_media"
             case nativeDelivery = "native_delivery"
             case djMoment = "dj_moment"
             case sessionFlow = "session_flow"
@@ -285,10 +331,26 @@ public struct DJConnectSessionBroadcastEvent: Codable, Equatable, Sendable {
             session = try? c.decode(DJConnectBroadcastState.Session.self, forKey: .session)
             planner = try? c.decode(DJConnectBroadcastState.Planner.self, forKey: .planner)
             sessionFlow = try? c.decode(DJConnectSessionFlow.self, forKey: .sessionFlow)
+            sessionMedia = Array(((try? c.decode([LossyBroadcastValue<DJConnectSessionMedia>].self, forKey: .sessionMedia))?.compactMap(\.value) ?? []).prefix(64))
             nativeDelivery = try? c.decode(DJConnectNativeMomentDelivery.self, forKey: .nativeDelivery)
             djMoment = try? c.decode(DJConnectMoment.self, forKey: .djMoment)
             presentation = try? c.decode(DJConnectPresentation.self, forKey: .presentation)
             playback = try? c.decode(DJConnectSessionPlayback.self, forKey: .playback)
+            struct Grant: Decodable { let schema_version: Int; let moments: [DJConnectOptionalSessionSpeech] }
+            struct Key: CodingKey {
+                let stringValue: String; let intValue: Int? = nil
+                init?(stringValue: String) { self.stringValue = stringValue }
+                init?(intValue: Int) { return nil }
+            }
+            if let container = try? decoder.container(keyedBy: Key.self),
+               let key = Key(stringValue: "passive_surface") {
+                passiveSurfaceInvalidation = try? container.decode(DJConnectPassiveSurfaceInvalidation.self, forKey: key)
+            }
+            if let container = try? decoder.container(keyedBy: Key.self),
+               let key = Key(stringValue: "session_speech"),
+               let grant = try? container.decode(Grant.self, forKey: key), grant.schema_version == 1 {
+                sessionSpeech = Array(grant.moments.compactMap(\.value).prefix(64))
+            }
         }
         public init(session: DJConnectBroadcastState.Session? = nil, planner: DJConnectBroadcastState.Planner? = nil, sessionFlow: DJConnectSessionFlow? = nil) {
             self.session = session; self.planner = planner; self.sessionFlow = sessionFlow
@@ -340,6 +402,14 @@ public extension DJConnectSessionRuntime {
         if let value = broadcastState.session.selectedPresence, let revision = broadcastState.session.presenceRevision {
             runtime = runtime.applying(presence: .init(sessionID: sessionID, selectedPresence: value, presenceRevision: revision))
         }
+        // Persona has its own CAS revision, independent of Mood/Presence.
+        runtime.broadcast.personaConflictRevision = [broadcast.personaConflictRevision, broadcastState.personaConflictRevision].compactMap { $0 }.max()
+        runtime.selectedPersona = selectedPersona; runtime.personaRevision = personaRevision
+        runtime.broadcast.session.selectedPersona = broadcast.session.selectedPersona
+        runtime.broadcast.session.personaRevision = broadcast.session.personaRevision
+        if let value = broadcastState.session.selectedPersona, let revision = broadcastState.session.personaRevision {
+            runtime = runtime.applying(persona: .init(sessionID: sessionID, selectedPersona: value, personaRevision: revision))
+        }
         return runtime
     }
 
@@ -358,6 +428,8 @@ public extension DJConnectSessionRuntime {
         }
         guard sequence > (broadcast.delivery?.snapshotWatermark ?? -1) else { return self }
         var state = broadcast
+        state.sessionSpeech = broadcastEvent.payload.sessionSpeech
+        state.sessionMedia = broadcastEvent.payload.sessionMedia
         state.nativeDelivery = broadcastEvent.payload.nativeDelivery
         if let sequence = broadcastEvent.deliverySequence { state.delivery = .init(snapshotWatermark: sequence) }
         if let playback = broadcastEvent.payload.playback { state.playback = playback }
@@ -390,11 +462,17 @@ public struct DJConnectActiveMoodCapabilities: Decodable, Sendable {
     }
     let capabilities: [String: Bool]?
     let contractVersions: [String: Int]?
+    public var sharedSettingsAvailable: Bool { capabilities?["profile_session_settings"] == true && contractVersions?["profile_session_settings"] == 3 }
     let contract: Contract?
     let presenceContract: DJConnectPresenceCapability?
+    let personaContract: DJConnectPersonaCapability?
     enum CodingKeys: String, CodingKey {
         case capabilities, contractVersions = "contract_versions", contract = "active_session_mood"
         case presenceContract = "active_session_presence"
+        case personaContract = "active_session_persona"
+    }
+    public var personaAvailable: Bool {
+        capabilities?["active_session_persona"] == true && contractVersions?["active_session_persona"] == 1 && personaContract?.isSupported == true
     }
     public var presenceAvailable: Bool {
         capabilities?["active_session_presence"] == true && contractVersions?["active_session_presence"] == 1 &&
@@ -435,5 +513,19 @@ public extension DJConnectSessionRuntime {
         result.selectedMood = response.selectedMood; result.moodRevision = response.moodRevision
         result.broadcast.session.selectedMood = response.selectedMood; result.broadcast.session.moodRevision = response.moodRevision
         return result
+    }
+}
+
+/// Same owner recovery DTO as Broadcast. A snapshot gap is never a complete history claim.
+public struct DJConnectBroadcastRecovery: Decodable, Sendable {
+    public let success: Bool
+    public let sessionID: String
+    public let recovery: String
+    public let snapshot: DJConnectBroadcastState?
+    public let events: [DJConnectSessionBroadcastEvent]?
+    public let recoveryCursor: String?
+    enum CodingKeys: String, CodingKey {
+        case success, recovery, snapshot, events
+        case sessionID = "session_id", recoveryCursor = "recovery_cursor"
     }
 }

@@ -1,0 +1,101 @@
+{
+  "status": "APPLE_SPEECH_PREPARATION_ONLY_NOT_IMPLEMENTED_OR_INSTALLED",
+  "scope": "User selected Apple-spraak voorbereiden; reconcile incoming Core recovery-notice UX handoff in existing sole writer.",
+  "producer_gate": "Core66ee0cc1 was superseded by added recovery-notice scope. Require new exact reviewed producer pin, schema, safe machinecodes, voice-options/prepare/audio fixtures and qualified delivery before contract implementation. Do not reuse old exact review/publication grant.",
+  "current_consumer_findings": [
+    "DJConnectSpeechTransport accepts PCM WAV only; MP3 requires MIME and actual bounded binary validation, not MIME-only relaxation.",
+    "No prepareSpeech/speechAudio calls found in DJConnectUI. New private speech must be integrated with reference-bound output ownership.",
+    "Legacy replayAskDJAudio uses AVPlayer URL; do not feed new paired private POST assets through legacy public URL playback.",
+    "speakDemoResponse is explicitly Demo speech and cannot become silent fallback for configured HA provider failure."
+  ],
+  "presentation": {
+    "placement": "Inline within DJ-sessie near affected contribution/listen control; retain contribution text and other session controls. No global blocking alert.",
+    "functional_categories": [
+      "missing provider",
+      "invalid provider configuration",
+      "provider unavailable",
+      "prepare failure",
+      "private audio retrieval failure",
+      "provider settings changed during request"
+    ],
+    "mapping": "Functional categories are planning labels, not invented wire machinecodes. Bind to exact future versioned producer codes; preserve existing expiry/access-denial distinctions.",
+    "help_action": "Open an accessible in-app instruction panel naming selected HA Assist pipeline and TTS provider connection/access/language/voice checks. Do not mutate HA or invent an unverified deep link.",
+    "retry_action": "Explicit user tap only, same accepted speechreference, current authority/expiry/provider revision and server backoff; never replay original AskDJ execute or playback action.",
+    "refresh_triggers": [
+      "foreground",
+      "reconnect",
+      "voice settings opened",
+      "before explicit preparation"
+    ],
+    "runtime_status": "Pairing-time capability is not current provider health. A failed voice-options refresh does not establish availability. Unknown version/code gives safe generic notice and no silent retry.",
+    "accessibility": [
+      "Localized title/body/help/retry labels",
+      "Native accessible text and buttons, semantic grouping and Dynamic Type",
+      "Announce newly changed functional failure once; no repeating polling announcements or focus stealing",
+      "Retry disabled during in-flight request/backoff; error/help must remain reachable",
+      "Long German/French copy at accessibility sizes and narrow layout must remain scrollable"
+    ]
+  },
+  "draft_localized_copy": {
+    "nl": {
+      "title": "Spraak is niet beschikbaar",
+      "body": "Je kunt de bijdrage blijven lezen. Controleer in Home Assistant de Assist-pipeline die in DJConnect is gekozen: de TTS-provider, de verbinding en toegang van die provider, de taal en de stem.",
+      "help": "Herstelinstructies",
+      "retry": "Opnieuw luisteren",
+      "checking": "Spraakstatus controleren…",
+      "retry_later": "Wacht even voordat je opnieuw luistert."
+    },
+    "en": {
+      "title": "Speech is unavailable",
+      "body": "You can still read the contribution. In Home Assistant, check the Assist pipeline selected in DJConnect: its TTS provider, the provider connection and access, the language and the voice.",
+      "help": "Recovery instructions",
+      "retry": "Listen again",
+      "checking": "Checking speech status…",
+      "retry_later": "Wait a moment before listening again."
+    },
+    "de": {
+      "title": "Sprachausgabe ist nicht verfügbar",
+      "body": "Du kannst den Beitrag weiterhin lesen. Prüfe in Home Assistant die in DJConnect ausgewählte Assist-Pipeline: den TTS-Anbieter, dessen Verbindung und Zugriffsrechte sowie die Sprache und Stimme.",
+      "help": "Anleitung zur Wiederherstellung",
+      "retry": "Erneut anhören",
+      "checking": "Sprachstatus wird geprüft…",
+      "retry_later": "Warte einen Moment, bevor du den Beitrag erneut anhörst."
+    },
+    "fr": {
+      "title": "La lecture vocale est indisponible",
+      "body": "Vous pouvez toujours lire la contribution. Dans Home Assistant, vérifiez le pipeline Assist sélectionné dans DJConnect : son fournisseur TTS, la connexion et les autorisations du fournisseur, la langue et la voix.",
+      "help": "Instructions de dépannage",
+      "retry": "Écouter à nouveau",
+      "checking": "Vérification de la lecture vocale…",
+      "retry_later": "Patientez un instant avant de réécouter."
+    },
+    "es": {
+      "title": "La reproducción de voz no está disponible",
+      "body": "Puedes seguir leyendo la contribución. En Home Assistant, revisa el pipeline de Assist seleccionado en DJConnect: su proveedor TTS, la conexión y el acceso del proveedor, el idioma y la voz.",
+      "help": "Instrucciones de recuperación",
+      "retry": "Volver a escuchar",
+      "checking": "Comprobando la reproducción de voz…",
+      "retry_later": "Espera un momento antes de volver a escuchar."
+    }
+  },
+  "implementation_sequence": [
+    "Import exact producer fixtures and map versioned status/notice codes with no raw provider errors or secret logging",
+    "Bound typed WAV/MP3 response validation and memory-only audio output, preserving redirect/size/time/privacy guards",
+    "Integrate one reference-bound Session speech owner; recheck ticket/authority after every suspension and before output",
+    "Render scoped inline recovery notice and accessible help/retry in five languages",
+    "Run focused contract/authority/format tests; then selective signed candidate and actual iPad qualification only after complete implementation"
+  ],
+  "acceptance_matrix": [
+    "Missing/invalid/unavailable TTS: text and session controls retained; helpful localized notice",
+    "voice-options availability changes after pairing and after foreground/reconnect",
+    "provider change during prepare and private audio download rejects stale output",
+    "HTTP auth/expiry/session end/stop/Profile change cancel pending output and prohibit retry without authority",
+    "WAV and MP3 real valid bytes accepted; MIME mismatch/truncated/oversize/corrupt/redirect rejected",
+    "backoff prevents duplicate preparation; explicit retry retains original reference; no original execute replay",
+    "no silent Piper/provider/pipeline/on-device/Demo fallback",
+    "five language long-copy and VoiceOver/DynamicType qualification",
+    "actual installed private-audio playback and interruption tests remain separate from source/model tests"
+  ],
+  "effects": "Preparation document only. No product code, app install, audio/provider request, HA configuration, publication or new permission request.",
+  "validation": "Five language key sets and required acceptance cases checked locally; no runtime/audio PASS claimed."
+}

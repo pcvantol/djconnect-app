@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "build": "40282",
+  "application": "dev.djconnect.ios",
+  "device_class": "physical iPad Pro",
+  "scenario": "ordinary app, active Session, foreground idle; no playback or preference commands",
+  "collection_result": "PASS",
+  "performance_acceptance": "NOT_QUALIFIED",
+  "threshold_or_comparison": null,
+  "warmup_iterations": 1,
+  "recorded_iterations": 3,
+  "requested_interval_seconds": 5,
+  "runner_elapsed_seconds": 23.457,
+  "metrics": [
+    {
+      "identifier": "com.apple.dt.XCTMetric_Memory-dev.djconnect.ios.physical_peak",
+      "displayName": "Memory Peak Physical (ios)",
+      "unitOfMeasurement": "kB",
+      "measurements": [
+        58213.896,
+        57099.784,
+        56739.336
+      ]
+    },
+    {
+      "identifier": "com.apple.dt.XCTMetric_Clock.time.monotonic",
+      "displayName": "Clock Monotonic Time",
+      "unitOfMeasurement": "s",
+      "measurements": [
+        4.922174968,
+        4.929270756,
+        4.9240292750000005
+      ]
+    },
+    {
+      "identifier": "com.apple.dt.XCTMetric_CPU-dev.djconnect.ios.instructions_retired",
+      "displayName": "CPU Instructions Retired (ios)",
+      "unitOfMeasurement": "kI",
+      "measurements": [
+        55001.455,
+        1751237.842,
+        52882.688
+      ]
+    },
+    {
+      "identifier": "com.apple.dt.XCTMetric_Memory-dev.djconnect.ios.physical_absolute",
+      "displayName": "Absolute Memory Physical (ios)",
+      "unitOfMeasurement": "kB",
+      "measurements": [
+        57099.784,
+        56739.336,
+        56542.728
+      ]
+    },
+    {
+      "identifier": "com.apple.dt.XCTMetric_CPU-dev.djconnect.ios.cycles",
+      "displayName": "CPU Cycles (ios)",
+      "unitOfMeasurement": "kC",
+      "measurements": [
+        93961.415,
+        959384.291,
+        90863.348
+      ]
+    },
+    {
+      "identifier": "com.apple.dt.XCTMetric_Memory-dev.djconnect.ios.physical",
+      "displayName": "Memory Physical (ios)",
+      "unitOfMeasurement": "kB",
+      "measurements": [
+        -1114.112,
+        -360.448,
+        -196.608
+      ]
+    },
+    {
+      "identifier": "com.apple.dt.XCTMetric_CPU-dev.djconnect.ios.time",
+      "displayName": "CPU Time (ios)",
+      "unitOfMeasurement": "s",
+      "measurements": [
+        0.11617624700000001,
+        0.557223251,
+        0.11309932
+      ]
+    }
+  ],
+  "limits": [
+    "Three short idle samples only; no cold/resume/scroll/playback/soak qualification.",
+    "Glass preference and hardware generations are not compared.",
+    "No crash-free, leak-free, energy or p95 claim."
+  ],
+  "source_sha256": "2ab2e684b9717795fb08ad14d0c3fd16bd80e33d1318a3e1326d32e77c3f9677",
+  "measured_ordinary_bundle_manifest_sha256": "f6202263c6c96309a7c8e3ed4d3c53b824082ac9c63487d55ccd10e7d78c797e",
+  "later_artifact_change": "Only a trailing blank line in SessionVoiceAutoplayControl was removed after this collection; final 40282 was rebuilt. Measurements identify the preserved pre-format ordinary candidate, not the relinked final bytes."
+}

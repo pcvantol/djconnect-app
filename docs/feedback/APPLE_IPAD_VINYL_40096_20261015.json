@@ -1,0 +1,27 @@
+{
+  "base": "29982f0bbd5a36bd6ec6941254eb5f17f14634f7",
+  "base_installed_build": "40081",
+  "selected_code_commits": [
+    "08dbab13e21ec4f9936d24a20866d3ade879572a",
+    "fd0eb071b1fd37ce03a3d6f2aa3be30182b59109"
+  ],
+  "changed_tracked_files": [
+    "Sources/DJConnectUI/DJConnectRootView.swift"
+  ],
+  "root_view_sha256": "447655c76cbda2e8cdc68bc3b3f86481c76645f0c0dfe64219eb4a16a3f898aa",
+  "build": "40096",
+  "scope": "ONLY_MISSING_ARTWORK_VINYL_AND_ROTATION_NO_PENDING_WIDGET_FOUNDATION",
+  "app_binary_sha256": "3da13c3d9117ba7280550f81697415c55a9135cfc17540db6389d1d0958c314d",
+  "bundle_identifier": "dev.djconnect.ios",
+  "signed_physical_build": "PASS",
+  "installed_readback": "40096",
+  "private_pairing_state": "PRESERVED; ordinary foreground app showed active session and genuine artwork",
+  "evidence": {
+    "build": "/private/tmp/djc-vinyl-40096-ipad-build.log",
+    "install": "/private/tmp/djc-vinyl-40096-ipad-install.json",
+    "readback": "/private/tmp/djc-vinyl-40096-ipad-readback.json",
+    "native_probe": "/private/tmp/djc-vinyl-40096-ipad.xcresult",
+    "native_nowplaying_probe": "/private/tmp/djc-vinyl-40096-nowplaying.xcresult"
+  },
+  "limits": "Physical Now Playing screenshot confirms static vinyl fallback alongside the real HTTP500. Physical rotation is not proven while backend playback is unavailable."
+}

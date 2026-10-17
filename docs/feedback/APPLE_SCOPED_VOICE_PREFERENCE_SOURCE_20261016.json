@@ -1,0 +1,28 @@
+{
+  "status": "SOURCE_PREFERENCE_STATE_PASS; runtime/menu integration pending",
+  "source_parent": "f27ef32ae630710ac5be04e1bf91e9c183763dc3",
+  "producer_contract": "6ececb1b5327c5f3456dbb7d466b8763951cb61c",
+  "changes": [
+    "Ephemeral structured installation/Profile/Session/device scope; no serialized delimiter key, no defaults or disk persistence",
+    "Changing any confirmed identity discards old intent; same-scope refresh retains choice; Session end/authority withdrawal exposes explicit discard",
+    "Refresh tokens fence overlapping, background-invalidated and old-scope responses; inventory invalidated before refresh",
+    "Removed or unavailable selected voice remains unavailable; configured default requires explicit user selection to replace an existing choice",
+    "Component makes no network, preparation, synthesis, playback, provider or shared Persona/Session writes"
+  ],
+  "validation": {
+    "swift_regression": "650 tests in 6 suites PASS30.182s; includes 4 new scope/identity/inventory/race tests using published Core fixture",
+    "regression_log": "/private/tmp/djc-voice-preference-regression-20261016.log",
+    "ios_simulator_library": "DJConnectUI arm64 iOS26 simulator build PASS35.21s; compilation only",
+    "ios_log": "/private/tmp/djc-voice-preference-ios-build-20261016.log",
+    "diff_check": "PASS",
+    "initial_attempts": "Sandbox compiler cache denied, then corrected Swift Testing mutating-value macro calls. One intermediate build detected my test-file edit during compilation; final immutable-source rerun passed."
+  },
+  "remaining": [
+    "Bind actual AppModel confirmed owner_profile_id and lifecycle to preference component",
+    "Active Session Voice menu and readonly options refresh; explicit prepare must revalidate current scope/inventory",
+    "MP3/audio owner integration, provider observation expiry/backoff, installed/native/audible qualification remain separate"
+  ],
+  "effects": "Local source/tests/receipt only; no install, physical test, provider request, HA change/deploy, push/PR/merge or cross-thread message. Automation independently read PAUSED.",
+  "storage": "df snapshot: internal4.5GiB, EP_DATA1.2GiB available. Nothing deleted.",
+  "cleanup": "One worktree; only current/main merged refs. No eligible deletion; untracked Xcode project directories preserved; no Git locks."
+}

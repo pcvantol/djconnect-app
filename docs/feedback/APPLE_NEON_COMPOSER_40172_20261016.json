@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-16",
+  "build": "40172",
+  "scope": "Neon outside border on floating Ask DJ composer",
+  "implementation": [
+    "Outer rounded26pt composer outline now uses existing white-blue-purple searchFocusGradient instead of translucent white.",
+    "Existing0.75pt width retained. Decorative border cannot intercept touches.",
+    "Approved purple frosted surface, inner editor outline, white buttons and input/send behavior preserved."
+  ],
+  "checks": {
+    "signed_ios_build": "PASS",
+    "signed_mac_build": "PASS",
+    "strict_deep_codesign": "iOS candidate and installed Mac PASS",
+    "manifest": "452 hashes PASS",
+    "diff_check": "PASS",
+    "installed_readback": "iPhone/iPad/Mac mini40172 PASS",
+    "mac_executable_sha256": "e17e297b2e52cc356a3a09f404f498c630adacd2f897ce04cc56499f590b66b0"
+  },
+  "evidence": {
+    "manifest": "build/recovery/apple40172-selective-source-manifest-20261016.json",
+    "ios_build": "/private/tmp/djc-ios-40172-neon-composer-build.log",
+    "mac_build": "/private/tmp/djc-mac-40172-neon-composer-build.log",
+    "iphone_apps": "/private/tmp/djc-iphone-40172-apps.json",
+    "ipad_apps": "/private/tmp/djc-ipad-40172-apps.json",
+    "mac_backup": "build/recovery/DJConnect-before40172.app"
+  },
+  "limits": [
+    "No new physical screenshot for this border-only change.",
+    "Nonfloating docked composer uses its existing separator treatment; new outside outline applies to floating composer instances.",
+    "MacBook and Watch not installed in this change."
+  ],
+  "publication": "Local only; no push/PR/merge"
+}

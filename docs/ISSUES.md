@@ -1,5 +1,7 @@
 # Issues
 
+Actuele Apple-lanestatus (17okt2026): [integrale open-werk- en acceptatiematrix](feedback/APPLE_OPEN_WORK_20261017.md) en [requirementniveau/afmeldingen40258](feedback/APPLE_REQUIREMENT_ACCEPTANCE_20261017.md). Historische done-notities hieronder sluiten nieuwe Session/Speech/Settings/Watch-acceptatie niet af.
+
 This document tracks concrete follow-up issues that are not yet represented as
 GitHub Issues. Use it as the local backlog until items are promoted to GitHub.
 

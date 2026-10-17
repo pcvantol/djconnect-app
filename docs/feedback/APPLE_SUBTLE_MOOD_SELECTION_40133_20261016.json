@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-16",
+  "source_parent": "2b9ab1c",
+  "request": "Undo vivid purple selected mood buttons; slightly brighter than original only.",
+  "change": {
+    "selected_segment_fill": {
+      "original": 0.22,
+      "rejected_vivid": 0.85,
+      "new": 0.32
+    },
+    "selected_segment_border": {
+      "original": 0.55,
+      "rejected_vivid": 1.0,
+      "new": 0.65
+    },
+    "scope": "Existing shared segmented-button selection style; no mood, capability or backend changes."
+  },
+  "build": "40133",
+  "manifest": "build/recovery/iphone40133-selective-source-manifest-20261016.json",
+  "files_verified": 452,
+  "signed_ios_watch_build": "PASS",
+  "build_log": "/private/tmp/djc-ios-40133-subtle-mood-build.log",
+  "strict_deep_codesign": "PASS",
+  "candidate_executable_sha256": "b8d8c6ae5f9103a136785c370de91c4eb360fcfa37048833c53a5808b9323c9b",
+  "installed_device": "Peter-iPhone17Pro",
+  "install": "/private/tmp/djc-iphone-40133-install.json",
+  "fresh_readback": "/private/tmp/djc-iphone-40133-readback.json",
+  "installed_version": "4.0.0/40133",
+  "physical_test": {
+    "result": "PASS",
+    "seconds": 13.446,
+    "xcresult": "/private/tmp/djc-iphone-40133-subtle-mood-settled-20261016.xcresult",
+    "screenshot_actually_viewed": "/private/tmp/djc-iphone-40133-subtle-mood-settled-attachments/4502FFB7-BB64-4FC7-A1A3-FB709D6D4D4E.png",
+    "observation": "Selected Energy segment now lightly tinted and translucent with restrained magenta border instead of solid vivid magenta. White glyph readable. Menu dismissed normally by outside tap.",
+    "earlier_attempt": "/private/tmp/djc-iphone-40133-subtle-mood-20261016.xcresult failed before mood menu, at initial tab selection after app startup; not visual acceptance."
+  },
+  "limits": "Current mood only visually checked; no mood selections changed, provider calls, playback commands or sends. Other devices not updated. No new unit tests for two reversible color constants.",
+  "probe_restored": true,
+  "publication": "Local source/receipt commit only; no push, PR, merge or Core changes."
+}

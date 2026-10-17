@@ -1,0 +1,30 @@
+{
+  "base": "29982f0bbd5a36bd6ec6941254eb5f17f14634f7",
+  "base_installed_build": "40081",
+  "selected_code_commits": [
+    "08dbab13e21ec4f9936d24a20866d3ade879572a",
+    "fd0eb071b1fd37ce03a3d6f2aa3be30182b59109"
+  ],
+  "changed_tracked_files": [
+    "Sources/DJConnectUI/DJConnectRootView.swift",
+    "Sources/DJConnectUI/TrackInsightMotionClock.swift"
+  ],
+  "root_view_sha256": "d5de1ebd14e8ebdeeaa7ae9458d5bb3052408a83c93a09f147e007e768f1f455",
+  "build": "40099",
+  "scope": "Only local particle clock, seam fade and spark population fade on previous accepted UI source; no pending widget/Speech install",
+  "extra_patch": "Asymmetric vinyl reflection/label plus Settings glass container/cards and explicit menu labels",
+  "patch_sha256": "a0fe5712e7d4fa9a126f2eee0322f3721016fb1002885391aabcd7e9faf44c88",
+  "previous_selective_build": "40098",
+  "particle_patch_sha256": "de9f26048bc863915276ba1b8f82f928d1b612d39ff677e4339c4bf1e7da1001",
+  "motion_clock_sha256": "723932d5fe56515e7081ec154fad58047f96b05edd33f64ff62ca2987f04b70b",
+  "app_binary_sha256": "bd5d07d0f530c05dab77abc12c30c9f69f7dd13afa1c1cee1f1d5c376969b276",
+  "installed_build": "40099",
+  "focused_tests": "5PASS",
+  "ios_watch_build": "PASS",
+  "mac_build": "PASS",
+  "fps_benchmark": "NOT_AVAILABLE: xctrace could not attach by name or CoreDevice-reported PID; no measured FPS claim",
+  "source_scope": "Decorative local motion only; no backend facts/profile ownership or new wire contract",
+  "physical_animation_visual_acceptance": "OPEN: bounded native frame probes captured feedback overlay, empty analysis start, then Settings; none qualifies as unobstructed particle continuity proof",
+  "physical_settings_visual_acceptance": "PASS: actual installed 40099 Settings glass cards visually inspected in 1A354C85-C59F-4E19-8633-1187C519D32B.png; enclosing animation probe failed because wrong screen",
+  "physical_evidence_root": "/private/tmp/djc-particles-40099-ipad-loaded-images"
+}

@@ -1,0 +1,19 @@
+{
+  "core_final_main": "58205056c235a73488591591dd3d83f80f7bf847",
+  "ha_dev_independent_readback": {
+    "source": "58205056c235a73488591591dd3d83f80f7bf847",
+    "target": "HA-dev",
+    "expected_files": 166,
+    "actual_files": 166,
+    "mismatches": [],
+    "extra_files": []
+  },
+  "core_report": "Existing Core writer independently reports166files0mismatch HA-prod and dev, preserved pairing/Profile hashes, backups and qualified final artifact. Apple did not deploy Core.",
+  "actual_ipad_post_core": "Build40115 five read-only native main tabs + About smoke PASS after Core installation. About image visually inspected: externally connected HTTPS TLS, push sandbox registered and music available. No500text seen. Not full command/provider or APNs delivery proof.",
+  "evidence": "/private/tmp/djc-core58205056-ipad-40115.xcresult",
+  "screenshot": "/private/tmp/djc-core58205056-ipad-40115-images/9E39D10D-DEAC-4F2E-9B09-FB5264434D67.png",
+  "lan": "Actual LANcontext426transport_security_required, qualificationfileabsent. Docker Desktop source masking unresolved. No source_preserved record fabricated and gateway not allowed.",
+  "isolated_probe": "Temporary no-mount/read-only/cap-dropALL/memory64MiB host-network probe on18089 using already-local HA image,25s lifetime. PROBE_READY but Mac127.0.0.1 and real Pi10->192.168.1.134 both connection-refused. Docker ps confirms auto-removed. No global Docker, HA, proxy, certificate, firewall or Pi configuration changes. This does not prove whether enabling Desktop host networking would preserve client IP.",
+  "reference": "https://docs.docker.com/engine/network/drivers/host/",
+  "remaining": "Qualify a supported actual source-preserving ingress before native localWS/LAN-to-external transitions. Do not report loopback/source/installed Core qualification as physical LAN PASS."
+}

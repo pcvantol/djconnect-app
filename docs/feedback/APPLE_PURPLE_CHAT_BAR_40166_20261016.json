@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-16",
+  "build": "40166",
+  "scope": "Less grey Ask DJ composer surface",
+  "implementation": [
+    "Default composer tint changed from grey-blue to muted purple.",
+    "Default floating tint opacity increased0.14 to0.30 over the existing regular material; no new gradient.",
+    "Explicit mood-provided surface colors retain existing opacity; blur/readability and white controls retained."
+  ],
+  "checks": {
+    "signed_ios_build": "PASS",
+    "strict_deep_codesign": "PASS",
+    "source_manifest": "452 files PASS",
+    "diff_check": "PASS",
+    "installed_readback": "iPhone40166 PASS",
+    "native_screenshot_probe": "PASS"
+  },
+  "evidence": {
+    "manifest": "build/recovery/iphone40166-selective-source-manifest-20261016.json",
+    "build": "/private/tmp/djc-ios-40166-purple-chat-build.log",
+    "install": "/private/tmp/djc-iphone-40166-install.json",
+    "apps": "/private/tmp/djc-iphone-40166-apps.json",
+    "xcresult": "/private/tmp/djc-iphone-40166-purple-chat-20261016.xcresult",
+    "screenshot_actually_viewed": "/private/tmp/djc-iphone-40166-purple-chat-attachments/BB0F3865-8A51-4101-B3C3-D0AECB22F32C.png",
+    "visual": "Purple tinted frosted bar, readable placeholder and white microphone.",
+    "user_acceptance": "User: ja zo beter!"
+  },
+  "limits": [
+    "Only iPhone installed; no messages sent or playback changed by probe."
+  ],
+  "publication": "Local only; no push/PR/merge"
+}

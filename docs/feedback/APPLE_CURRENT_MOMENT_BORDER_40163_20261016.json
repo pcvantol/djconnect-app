@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-16",
+  "build": "40163",
+  "scope": "Current DJ Moment thin search-colour gradient border",
+  "implementation": [
+    "Current Moment card and its current quiet/paused/recovery/unavailable variants opt into the existing searchFocusGradient.",
+    "Exact white-blue-accent gradient reused. Existing borderWidth1.25pt retained; searchFocusWidth3pt not used.",
+    "Other glass surfaces retain default white border; no playback or content model change."
+  ],
+  "checks": {
+    "signed_ios_build": "PASS",
+    "strict_deep_codesign": "PASS",
+    "source_manifest": "452 hashes PASS",
+    "diff_check": "PASS",
+    "installed_readback": "iPhone40163 PASS",
+    "native_screenshot_probe": "PASS"
+  },
+  "evidence": {
+    "manifest": "build/recovery/iphone40163-selective-source-manifest-20261016.json",
+    "build": "/private/tmp/djc-ios-40163-current-border-build.log",
+    "install": "/private/tmp/djc-iphone-40163-install.json",
+    "apps": "/private/tmp/djc-iphone-40163-apps.json",
+    "xcresult": "/private/tmp/djc-iphone-40163-current-border-20261016.xcresult",
+    "screenshot_actually_viewed": "/private/tmp/djc-iphone-40163-current-border-attachments/C815B80A-CC78-4991-8C0A-0248E39ABF22.png",
+    "visual": "Quiet current DJ bubble displays thin white-blue-purple border; neighbouring historical bubbles retain normal outlines. Energy green background also visible."
+  },
+  "limits": [
+    "Physical screenshot shows current quiet state; content-bearing current Moment uses same opt-in in source.",
+    "Only iPhone installed; no full unqualified writer install."
+  ],
+  "publication": "Local only; no push/PR/merge"
+}

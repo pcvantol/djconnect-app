@@ -1,0 +1,71 @@
+{
+  "status": "INSTALLED_BUILD40120_VERIFIED_MACMINI_MACBOOK_IPHONE_WATCH",
+  "writer_parent": "71da91652e937e5e03549cce5e52c5cc4a235a36",
+  "source": "Qualified selective /private/tmp/djc-neon-brand-40108-source; all452files unchanged from ipad40120-selective-source-manifest; no full unfinished writer imported",
+  "scope": "Latest qualified autoplay-only Voice menu/native switch and Settings removal. Full voice/gender/Persona/new Speech/widgets and newer writer-only push fix not adopted",
+  "mac_build": "Signed DJConnectMac40120 BUILD SUCCEEDED; same qualified presentation as Mac40119 with version40120 override",
+  "mac_build_log": "/private/tmp/djc-mac-40120-selective-build-20261016.log",
+  "mac_candidate_executable_sha256": "b594aa965a684388e6991edd4da86b496b6ce07d50653b0feae53dc1a05219fe",
+  "mac_transfer_zip_sha256": "5a979f138a53d4add046129ab92a33eb37620fdcb6954b54cf7c79c535b24ea5",
+  "macmini": {
+    "previous_version": "40119",
+    "installed_version": "40120",
+    "backup": "/Users/pcvantol/Documents/GitHub/djconnect-app/build/apple-40017-recovery/source/build/recovery/installed-mac40119-before40120-20261016.app",
+    "candidate_executable_sha256": "b594aa965a684388e6991edd4da86b496b6ce07d50653b0feae53dc1a05219fe",
+    "installed_executable_sha256": "b594aa965a684388e6991edd4da86b496b6ce07d50653b0feae53dc1a05219fe",
+    "strict_codesign": "PASS",
+    "launch": "Not attempted: console owner root"
+  },
+  "macbook": {
+    "previous_version": "40062",
+    "installed_version": "40120",
+    "backup": "/Users/pcvantol/.djconnect-recovery/20261016-mac40120/DJConnect-before40120.app",
+    "candidate_executable_sha256": "b594aa965a684388e6991edd4da86b496b6ce07d50653b0feae53dc1a05219fe",
+    "installed_executable_sha256": "b594aa965a684388e6991edd4da86b496b6ce07d50653b0feae53dc1a05219fe",
+    "strict_codesign": "PASS",
+    "launch": "Not attempted: console owner root"
+  },
+  "macbook_readback": "Established SSH alias host verified live as mbpro-peter,arm64,macOS27.0.1. Transferred archive SHA verified before extraction; installed plist40120/executable SHA/strict deep codesign independently re-read after replacement",
+  "iphone": {
+    "device": "00008150-001409183C07801C",
+    "preflight": "connected/paired,localNetwork",
+    "installed_version": "40120",
+    "install": "CoreDevice normal in-place install PASS",
+    "apps_readback": "dev.djconnect.ios4.0.0/40120",
+    "candidate_executable_sha256": "43fc5aa5bf6f6fe2e0a3c516d85a761b681c4c4047ff30e56a967d4f92760739",
+    "evidence": [
+      "/private/tmp/djc-iphone-40120-install-20261016.json",
+      "/private/tmp/djc-iphone-40120-apps-readback.json"
+    ],
+    "limits": "No independent installed executable hash or iPhone UI qualification; no unlock/code entry attempted"
+  },
+  "watch": {
+    "device": "00008310-0004ADA13C40E01E",
+    "initial": "Details timed out; after user confirmed awake/unlocked, connected/paired/localNetwork confirmed",
+    "installed_version": "40120",
+    "install": "CoreDevice direct install of signed embedded Watch companion PASS after iPhone40120 install",
+    "apps_readback": "dev.djconnect.ios.watch4.0.0/40120",
+    "candidate_executable_sha256": "96ed6ffcfb276138dc0a5dbe8d7953ef1854208d1fde0c7dc436e4f2d434239b",
+    "candidate_architectures": "arm64 + arm64_32",
+    "evidence": [
+      "/private/tmp/djc-watch-40120-awake.json",
+      "/private/tmp/djc-watch-40120-install-20261016.json",
+      "/private/tmp/djc-watch-40120-apps-readback.json"
+    ],
+    "limits": "Installed readback only; no Watch UI/audible/replication acceptance"
+  },
+  "launch_boundary": "Both Mac console-owner readbacks were root,so no user-desktop launch attempted. Installation/version/signature are verified,GUI/product acceptance not claimed. User can open DJConnect after login",
+  "preservation": "Old Mac apps retained as recovery copies; normal in-place iPhone/Watch installs. No appcontainer/defaults/Profile/pairing or trust configuration deliberately changed; no credentials entered/copied",
+  "effects": "Local signed builds and requested four device installations only. No HA/Core deploy,migration,provider synthesis,AskDJ/playback send,APNs delivery proof,push/PR/merge or automation change",
+  "current_apps": "iPad40120 retained; Macmini40120,Macbook40120,iPhone40120,Watch40120 confirmed. Next new build40121+",
+  "safety": {
+    "worktree": "One existing writer; current/main only merged refs; none eligible/deleted",
+    "locks": [],
+    "processes": "No remaining xcodebuild/swift-test/swift-build/xctrace in final readback",
+    "df_internal": "14GiB",
+    "df_EP_DATA": "883MiB",
+    "APFS_disk3_free_bytes": 15054831616,
+    "APFS_disk7_free_bytes": 2477047808,
+    "cleanup": "None. Source/recovery/apps/evidence and untracked DJConnectApp2/3.xcodeproj preserved; no free-space gain claimed"
+  }
+}

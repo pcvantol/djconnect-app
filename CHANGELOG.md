@@ -4,6 +4,12 @@ All notable changes to DJConnect App are documented here.
 
 ## Unreleased
 
+### Changed
+
+- Share one translated brand tagline across launch, setup, About and Watch About
+  in Dutch, English, German, French and Spanish; adapt compact banners to retain
+  the complete text and localize the system launch screen without baked-in copy.
+
 ## 4.0.0-rc.1 - 2026-08-06
 
 ### Changed
