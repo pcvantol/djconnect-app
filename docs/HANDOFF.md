@@ -1,6 +1,7 @@
 # Current local Apple follow-up — iPad40290
 
-Latest ordinary iPad and iPhone build40290 are installed/read back/launched.
+Current ordinary versions: iPad40290 and iPhone40291, installed/read back/launched.
+The iPhone active-Session connection/search group now sits separately at leading.
 The owner explicitly approved the iPhone catch-up from40267 after the vinyl-card
 report; the same existing shared artwork glass wrapper covers the placeholder.
 The build includes all iPad

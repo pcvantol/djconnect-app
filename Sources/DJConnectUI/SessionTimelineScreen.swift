@@ -525,7 +525,7 @@ struct SessionTimelineScreen: View {
                 }
                 #endif
                 #if os(iOS)
-                if usesExpandedToolbar {
+                if usesExpandedToolbar || activeSession != nil {
                     ToolbarItemGroup(placement: .topBarLeading) {
                         if activeSession != nil { SessionConnectionToolbarButton(model: model) }
                         sessionSearchToolbarButton(proxy: proxy)
@@ -651,9 +651,6 @@ struct SessionTimelineScreen: View {
     @ViewBuilder private func sessionToolbarActions(proxy: ScrollViewProxy) -> some View {
         Group {
             if let activeSession {
-                #if !os(macOS)
-                if !usesExpandedToolbar { SessionConnectionToolbarButton(model: model) }
-                #endif
                 #if os(iOS)
                 ActiveSessionMoodToolbar(model: model, session: activeSession, requestPresentation: {
                     sessionControlIntent = SessionControlIntent(kind: .mood, sessionID: activeSession.id, epoch: history.responseEpoch, sourceRect: menuFrames[.mood] ?? .zero)
@@ -682,7 +679,7 @@ struct SessionTimelineScreen: View {
             }
             #endif
             #if !os(macOS)
-            if !usesExpandedToolbar { sessionSearchToolbarButton(proxy: proxy) }
+            if !usesExpandedToolbar, activeSession == nil { sessionSearchToolbarButton(proxy: proxy) }
             #endif
             #if os(macOS)
             Menu {

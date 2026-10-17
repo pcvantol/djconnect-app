@@ -161,3 +161,17 @@ Reverified the existing signed ordinary40290 product supports device families
 independent apps readback confirms4.0.0/40290; process launch succeeded. iPad also
 remains40290. Private receipts: `/private/tmp/djc-40290-iphone-*`.
 This is installed/version/launch proof, not a captured physical vinyl viewport.
+
+## Separate iPhone connection/search group — ordinary40291
+
+Owner requested the connection and search controls in their own leading toolbar
+block on iPhone, matching iPad. The leading iOS toolbar group is now also used
+for active Sessions on phone. Removed connection/search from its trailing group;
+other Session controls and compact More remain. Archived-phone search placement
+and existing iPad/Mac behavior are retained.
+
+Signed native iOS40291 including embedded targets PASS; strict deep signatures
+and ordinary-product checks PASS. iPhone installed/read back40291 and launched;
+iPad remains40290. Private logs/receipts: `/private/tmp/djc-iphone-leading-tools-*`.
+No physical narrow-width toolbar viewport was captured; installed/version proof
+is not visual acceptance. No stored pairing/Profile/playback setting was changed.
