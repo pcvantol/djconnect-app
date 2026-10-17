@@ -13013,14 +13013,23 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(timeline.contains("struct ActiveSessionMoodToolbar: View"))
 }
 
-@Test func gamesCanvasIsCappedOnIPadLandscapeOnly() throws {
-    let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
-
-    #expect(source.contains("private func gameCanvasMaxHeight(for size: CGSize) -> CGFloat?"))
-    #expect(source.contains("guard horizontalSizeClass == .regular, size.width > size.height else"))
-    #expect(source.contains("return min(560, max(360, size.height * 0.42))"))
-    #expect(source.contains("maxCanvasHeight: gameCanvasMaxHeight(for: proxy.size)"))
-    #expect(source.contains(".frame(maxHeight: maxCanvasHeight)"))
+@Test func gamesViewportUsesAvailableHeightAndKeepsControlsReachable() {
+    let picker: CGFloat = 60
+    let controls: CGFloat = 180
+    for viewport: CGFloat in [320, 600, 834, 1194] {
+        let canvas = DJConnectGameViewport.canvasHeight(viewportHeight: viewport, pickerHeight: picker,
+                                                       chromeHeight: controls, verticalPadding: 12)
+        #expect(canvas >= 170)
+        let occupied = canvas + picker + controls + 24 + 18
+        if viewport >= 454 {
+            #expect(occupied <= viewport && viewport - occupied <= 2)
+        } else {
+            // Small windows deliberately scroll instead of crushing the game/controls.
+            #expect(occupied > viewport)
+        }
+    }
+    #expect(DJConnectGameViewport.canvasHeight(viewportHeight: 1194, pickerHeight: picker,
+                                              chromeHeight: controls, verticalPadding: 12) > 560)
 }
 
 @Test func publicReleaseWorkflowPublishesFiveLocalizedReleaseNoteJSONFiles() throws {

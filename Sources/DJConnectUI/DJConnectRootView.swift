@@ -14655,6 +14655,14 @@ private struct DJConnectRedTrashLabelStyle: LabelStyle {
     }
 }
 
+enum DJConnectGameViewport {
+    static func canvasHeight(viewportHeight: CGFloat, pickerHeight: CGFloat, chromeHeight: CGFloat,
+                             verticalPadding: CGFloat) -> CGFloat {
+        // Leave room for the picker, measured controls/help and ordinary edge spacing.
+        max(170, viewportHeight - pickerHeight - chromeHeight - 18 - 2 * verticalPadding - 2)
+    }
+}
+
 private struct GameHeightPreferenceKey: PreferenceKey {
     static let defaultValue: [String: CGFloat] = [:]
     static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
@@ -14699,7 +14707,8 @@ private struct GamesView: View {
         let chromeHeight = surfaceHeight > 0 ? max(0, surfaceHeight - canvasHeight) : 180
         // Measure the controls and localized help rather than estimating from width.
         // Small windows retain scrolling so the game remains usable.
-        return max(170, size.height - pickerHeight - chromeHeight - 18 - 2 * djConnectScreenVerticalPadding - 2)
+        return DJConnectGameViewport.canvasHeight(viewportHeight: size.height, pickerHeight: pickerHeight,
+                                                  chromeHeight: chromeHeight, verticalPadding: djConnectScreenVerticalPadding)
     }
 
     var body: some View {
