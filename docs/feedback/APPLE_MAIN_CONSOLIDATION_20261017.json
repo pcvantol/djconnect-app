@@ -29,7 +29,7 @@
   ],
   "ordinary_launch_packaging": "Qualified root-level 40282 launch storyboard retained; experiment preserved in original writer/backups",
   "upstream_conflict_policy": "Current implementation retained where newer; upstream dependency pins preserved and output/context regressions retained exactly once",
-  "source_delivery": "candidate; protected merge and exact-main evidence pending",
+  "source_delivery": "PR111 protected merged b47d17a3; exact candidate/main tree422cf117; formal reconciliation pending central pagination correction",
   "functional_acceptance": "Open requirements remain open; no product-wide completion inferred",
   "qualification": {
     "swift_tests": 784,
@@ -50,7 +50,18 @@
     "input_files": 291,
     "input_manifest_sha256": "dd0f708141f8a4eb98d9465acad3aea222caf463b6263656fe0bf3376d00f7c8",
     "physical_device_acceptance": "No new claim; installed iPad40282 preserved",
-    "protected_merge": "PENDING"
+    "protected_merge": "PASS PR111; exact-main evidence pending",
+    "latest_portable_tests": {
+      "tests": 784,
+      "suites": 10,
+      "seconds": 89.368
+    },
+    "latest_native_tests": {
+      "tests": 784,
+      "suites": 10,
+      "seconds": 82.596,
+      "workflow_run": 39060662445
+    }
   },
   "source_pr": "https://github.com/pcvantol/djconnect-app/pull/111",
   "initial_publication_approved_head": "664c8aad5820c443d8126c01c3112fbd14479c4f",
@@ -79,7 +90,48 @@
       "targeted_test": "PASS",
       "repeated_executions": 10,
       "production_code_changed": false,
-      "full_protected_checks": "PENDING"
+      "full_protected_checks": "PASS native784, portable784 and unsigned iOS/macOS builds"
     }
+  },
+  "reviewed_head": "0688cf6529358ba72660cb5c0da28d296df84463",
+  "source_main": "b47d17a3bd7aade005787206785578bee585096b",
+  "source_main_tree": "422cf1173bc48e660931b0a5beb5f4264a03b973",
+  "cleanup": {
+    "original_checkouts": "Both clean main b47d17a3",
+    "wip": "18/155paths in verified archives and stashes",
+    "local_branches_deleted": 3,
+    "worktrees_deleted": 0,
+    "excluded_experiments": "Retained in recovery archives/stash",
+    "remote_branches_after_source_merge": [
+      "main"
+    ],
+    "active_finalization_branch": "codex/apple-main-consolidation-finalization-20261017; only while PR112 open",
+    "temporary_qualified_branches_archived_and_removed": 2,
+    "durable_recovery": "Three complete bundles moved atomically on same volume into ignored workspace build/recovery; original private paths remain symlinks. WIP archives/manifests copied and verified; all18/155stash file hashes verified."
+  },
+  "source_main_ci": {
+    "run": 39061192756,
+    "result": "PASS including native coverage",
+    "coverage_sha256": "84fe8e7de53f0b3672f7ea916c1b1dd495c1c9d288e08ccdd8b90bd328f651da",
+    "runner_sha256": "913d81286931a2373fdbc08bd61df53e426dec9312e9d673d1ab6c5f30a8013d",
+    "artifact_digests_independently_verified": true,
+    "coverage_main_sha_verified": true
+  },
+  "formal_reconciliation": {
+    "run": 39061762379,
+    "result": "FAILED before publication",
+    "cause": "Unpaginated central commit file set is300; actual PR/commit/local sets all369 and identical",
+    "durable_record_published": false,
+    "producer_fix": "Existing Core-writer notified; minimal proposal kept private; no Core mutation or manual green status"
+  },
+  "finalization_ci_fix": {
+    "initial_draft_head": "9f684e391e0210ee5067e18e39269989ab73e89d",
+    "initial_run": 39062016112,
+    "failure": "Voice-menu test whole-fixture count6 versus5 while independent session recovery can run",
+    "fix": "Count every non-recovery request; explicitly whitelist only known recovery GET paths. Force an independent active-session GET and prove total count changes while menu count remains unchanged. Retain inventory/selection/epoch/persistence/scope and no-prepare/audio/execute checks; forbid new POSTs after original inventory read. Cancel model work at cleanup.",
+    "initial_local_revision": "FAILED because it also forbade the contract-defined original POST inventory read; corrected to check only requests after original inventory read",
+    "app_code_changed": false,
+    "local_validation": "PASS targeted2tests/1suite0.395s; ten repeated suites PASS; full Swift784tests/10suites89.048s",
+    "protected_checks": "PENDING; source-main existing proof unchanged"
   }
 }

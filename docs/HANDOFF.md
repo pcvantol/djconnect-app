@@ -2,6 +2,47 @@
 
 Actuele Apple-lanestatus (17okt2026): [integrale open-werk- en acceptatiematrix](feedback/APPLE_OPEN_WORK_20261017.md) en [requirementniveau/afmeldingen](feedback/APPLE_REQUIREMENT_ACCEPTANCE_20261017.md). Historische done-notities hieronder sluiten nieuwe Session/Speech/Settings/Watch-acceptatie niet af.
 
+## Mainconsolidatie — 17 oktober 2026
+
+[Bron-PR111](https://github.com/pcvantol/djconnect-app/pull/111) is beschermd
+gemerged als `b47d17a3bd7aade005787206785578bee585096b`; kandidaat
+`0688cf6529358ba72660cb5c0da28d296df84463` heeft exact dezelfde tree
+`422cf1173bc48e660931b0a5beb5f4264a03b973`. Alle premergechecks en officiële
+Owner Authorization PASS. Nieuwe portable784tests/10suites PASS89.368s; native
+784tests/10suites PASS82.596s; unsigned iOS/macOS inclusief Watch/widgets PASS.
+Drie CI-testcorrecties veranderen geen appgedrag en behouden alle assertions.
+
+Beide oorspronkelijke checkouts staan schoon op dit main. Hun18/155WIPpaden
+zijn behouden in stashes en onafhankelijk hashgecontroleerde herstelarchieven;
+Gitbundles bewaren alle oorspronkelijke refs. Drie exact bewezen oude lokale
+branches zijn verwijderd, nul worktrees. Oude remote branches zijn weg; de
+tijdelijke Finalizationbranch blijft apart open zolang PR112 draft is. Het
+ongeïnstalleerde Base-launchscreenexperiment en twee dubbele Xcodeprojecten
+blijven herstelbaar buiten de merge. Gewone iPad40282/iPhone40267/Mac40266
+blijven ongewijzigd; geen nieuwe installatie, HA-deployment of distributie.
+
+Main CI39061192756 inclusief native coverage PASS. Coverage- en runnerartefacten
+zijn onafhankelijk gehasht; coverage noemt exact bron-mainb47d17a3. Formele
+reconciliatie39061762379 FAILED vóór publicatie door een concrete centrale
+producerfout: de ongepagineerde commitread levert300 van369bestanden. Alle
+369bestanden komen bij volledige gepagineerde GitHub- en lokale Gitreadbacks
+exact overeen. De bestaande Core-writer heeft de collectorcorrectie ontvangen;
+geen status of bewijs wordt omzeild. Aparte documentaire Finalization blijft
+pending totdat de juiste exact-main evidence is gelezen. De poging deze run te
+stoppen was te laat; de duurzame builder had het niet-gekwalificeerde rapport
+al terecht geweigerd. Er is geen ongeldig rapport gepubliceerd.
+
+TDE-observeworkflow PASS, maar de analyse zelf FAIL/repositoryqualification
+FAILED met3CRITICAL/174HIGHcomplexiteitsbevindingen. Deze blijven open voor
+triage/refactor; geen baseline-regressie- of runtime/crashconclusie. Nieuwe
+onafhankelijke volledige technische/UXreview op deze gehele kandidaat is niet
+uitgevoerd. De23actieve functionele/acceptatiepunten blijven open; bounded
+source-inclusie sluit geen LAN/WS, TTS, Profile, VibeCast, OS-surfaces, Watch,
+productiepush, performance of fysieke acceptatie af.
+
+Zie [bronconsolidatie](feedback/APPLE_MAIN_CONSOLIDATION_20261017.md) en
+[exacte bronreadback](verification/apple-main-consolidation/source-main-readback.json).
+
 ## Opruiming40282 — 34 ongebruikte componenten verwijderd
 
 Alle 28 concrete roots uit het legacyassessment plus zes transitieve helpers zijn

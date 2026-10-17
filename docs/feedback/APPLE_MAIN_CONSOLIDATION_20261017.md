@@ -118,3 +118,61 @@ revision and selected mood, zero stale-A writes and exactly one valid B write.
 Fixture cleanup cancels the model's background work. No app code or assertion
 was removed. Targeted test PASS; ten repeated executions PASS. Full updated
 protected Swift/native coverage checks remain required.
+
+## Protected source merged; exact-main qualification
+
+[PR111](https://github.com/pcvantol/djconnect-app/pull/111) merged as
+`b47d17a3bd7aade005787206785578bee585096b`, reviewed head
+`0688cf6529358ba72660cb5c0da28d296df84463`, exact common tree
+`422cf1173bc48e660931b0a5beb5f4264a03b973`. All premerge checks and official
+Owner Authorization39060691226 PASS. Latest portable784tests PASS89.368s and
+native784tests PASS82.596s. Main CI39061192756, native coverage and unsigned
+Apple builds PASS. Coverage/runner artifact digests and embedded main SHA were
+independently read and verified; see the portable source-main receipt.
+
+Both original checkouts now clean main;18/155WIP paths preserved in stashes,
+hash-verified archives and complete Git bundles. Three exact-proven local
+branches removed, zero worktrees; remote only main. Excluded experiments remain
+recoverable. Only the completed temporary Swift cache was removed after open-file
+inspection; build products/logs/recovery were preserved.
+
+Formal reconciliation39061762379 failed before durable publication. The pinned
+central collector reads commit.data.files without pagination:300 paths versus
+369 in the PR, full paginated commit API and local Git. Complete sets are equal.
+The durable builder correctly refused the unqualified record; cancellation was
+too late and no invalid record was published. Existing Core-writer owns the
+collector fix and immutable producer pin. No Core modification or manual green
+status by Apple. Documentary Finalization cannot substitute for corrected
+exact-main formal evidence.
+
+TDE observe ran successfully but its assessment and repository qualification
+failed:3CRITICAL/174HIGH complexity findings, no regression baseline. These are
+registered for triage/refactor, not suppressed. No new independent full
+technical/UX review was run for this complete candidate.23 active functional/
+acceptance requirements and all installed/hardware/provider boundaries remain
+open as stated; this merge closes only the source inclusion.
+
+## Finalization follow-up: voice-menu fixture concurrency
+
+Draft PR112's first full Swift run39062016112 reported one issue: the menu test
+compared whole-fixture request counts6 versus5 while independent Session recovery
+was still allowed. The test now excludes only exact known recovery GET routes
+from that menu counter and forces an independent active-session GET as a positive
+control. Total fixture count must increase; all other request counts stay fixed.
+Only the original POST voice-inventory read is outside recovery GETs; new
+requests after that baseline must be GETs. Existing no-prepare/audio/execute,
+voice selection, stale epoch, autoplay persistence and scope invalidation
+assertions remain. Model background work is cancelled at cleanup. No app code
+changes. The first local revision also rejected the original POST inventory
+read; that failed run is retained and its contract expectation corrected.
+
+Three original branches and two temporary qualification branches are archived
+and removed; only main in the original checkouts and the active PR112 branch in
+the temporary clone remain. All18/155stash file hashes were verified. Complete
+bundles now live in stable ignored workspace recovery storage; original private
+paths are preserved as symlinks, without duplicating1.3GB on the shared disk.
+
+Fresh follow-up validation: targeted2tests/1suite PASS0.395s; ten repeated
+voice-menu suites PASS; full Swift784tests/10suites PASS89.048s. Updated
+protected native/build checks remain pending. Source-mainb47d17a3 evidence
+retains its original binding.
