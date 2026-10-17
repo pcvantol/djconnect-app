@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "source_writer_head": "4fa911527eb02fed8bed71397ee4c95fff2b2daa",
+  "original_checkout_head": "2fc7fdf173d9ddb9c309e5837f1c7a449e170be9",
+  "recovery_head": "ffc658845b13d1927f4df787b30e5db73041cbee",
+  "upstream_main": "be7e63609193561bfd37ee144ecbd8dad04d5609",
+  "writer_commits_not_in_upstream_main": 296,
+  "original_wip_paths_reviewed": 18,
+  "recovery_commits_reviewed": 7,
+  "original_work_disposition": {
+    "moment_contract_and_fixture": "Current decoder, renderer, fixture server/generator and contract tests supersede original copies; all old named Core/test/fixture declarations present.",
+    "source_admission_helpers": "Moved to current shared native admission/lifetime/source checks; older permissive helpers not reintroduced.",
+    "session_lifecycle": "Current request/session/operation fences supersede old local generations.",
+    "UI_navigation_and_test_fixture": "Current independent player/session navigation and Mac runtime fixture preserve older behavior; obsolete hardcoded UI assertions not restored.",
+    "project_and_localization": "Regenerate current project; current five-locale source retained."
+  },
+  "recovery_disposition": {
+    "current_tree_retained": true,
+    "reason": "Recovery predates current pinned layouts, white controls, artwork, profile/settings, TTS and private-helper retirement. Its features are represented or intentionally superseded in current qualified implementation.",
+    "intentionally_obsolete_tests": [
+      "outputDevicesIncludeNoOutputBeforeBackendDevices: dummy output was explicitly removed",
+      "notConfiguredClearsStalePairCodeAndReopensPairing: current token-bound recovery avoids spurious re-pairing",
+      "testSessionCurrentMusicStaysLeftOfDJCard: current responsive header/full-width-phone layouts supersede fixed layout assertion"
+    ]
+  },
+  "excluded_from_merge": [
+    "Untracked duplicate DJConnectApp 2.xcodeproj and DJConnectApp 3.xcodeproj: recovery copies, not canonical project",
+    "Uninstalled Base LaunchScreen experiment and associated strict packaging-validator change: owner choice/physical acceptance still open"
+  ],
+  "ordinary_launch_packaging": "Qualified root-level 40282 launch storyboard retained; experiment preserved in original writer/backups",
+  "upstream_conflict_policy": "Current implementation retained where newer; upstream dependency pins preserved and output/context regressions retained exactly once",
+  "source_delivery": "candidate; protected merge and exact-main evidence pending",
+  "functional_acceptance": "Open requirements remain open; no product-wide completion inferred",
+  "qualification": {
+    "swift_tests": 784,
+    "swift_suites": 10,
+    "duration_seconds": 93.044,
+    "mode": "--no-parallel",
+    "native_ios_including_watch_widgets": "PASS unsigned",
+    "native_macos": "PASS unsigned",
+    "websocket_messages": 18,
+    "websocket_routes": 16,
+    "http_routes": 29,
+    "fixture_security": "PASS",
+    "localization_keys": 1257,
+    "languages": 5,
+    "brand_tagline": "PASS qualified ordinary launch layout",
+    "ordinary_install_hygiene_tests": 2,
+    "work_registers": "PASS",
+    "input_files": 291,
+    "input_manifest_sha256": "dd0f708141f8a4eb98d9465acad3aea222caf463b6263656fe0bf3376d00f7c8",
+    "physical_device_acceptance": "No new claim; installed iPad40282 preserved",
+    "protected_merge": "PENDING"
+  }
+}
