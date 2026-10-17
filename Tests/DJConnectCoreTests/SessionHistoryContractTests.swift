@@ -4082,14 +4082,27 @@ private func scopedVoiceOptions(removing voiceID: String? = nil) throws -> DJCon
         if request.url!.path.hasSuffix("/voice-options") { return (200, voices, 0) }
         return (404, Data(#"{"success":false}"#.utf8), 0)
     }; defer { fixture.close() }
-    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    let (model, defaults, name) = fixture.model(); defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
     defaults.set("test-installation", forKey: "DJConnectHAInstallID")
     await model.sessionHistory.prepare(); await model.refreshActiveDJSession()
     await model.refreshActiveVoiceOptions()
     let scope = try #require(model.activeVoicePreference.scope)
     #expect(scope.profileID == model.sessionHistory.authorizedProfileID && model.activeVoiceIsCurrent)
     #expect(model.activeVoicePreference.options?.selectableVoices.count == 13)
-    let count = fixture.requests.count, epoch = model.sessionHistory.responseEpoch
+    let sessionID = try #require(model.activeDJSession?.id)
+    let recoveryPaths: Set<String> = [
+        "/api/djconnect/v1/capabilities", "/api/djconnect/v1/session/active",
+        "/api/djconnect/v1/ask_dj/history", "/api/djconnect/v1/session/history/" + sessionID
+    ]
+    func menuRequestCount() -> Int {
+        fixture.requests.filter { !($0.httpMethod == "GET" && recoveryPaths.contains($0.url!.path)) }.count
+    }
+    let count = menuRequestCount(), epoch = model.sessionHistory.responseEpoch
+    #expect(count == 1, "Only the original POST voice-inventory read is outside recovery GETs")
+    let requestOffset = fixture.requests.count
+    // Force a concurrent, permitted recovery read through the same fixture.
+    // Whole-fixture counts incorrectly attributed this independent work to UI actions.
+    let concurrentRead = Task { try await fixture.client().activeSession() }
     model.selectActiveVoice("cedar", expectedScope: scope, expectedEpoch: epoch)
     #expect(model.activeVoicePreference.resolution == .selected("cedar"))
     model.selectActiveVoice("alloy", expectedScope: scope, expectedEpoch: UUID())
@@ -4098,7 +4111,10 @@ private func scopedVoiceOptions(removing voiceID: String? = nil) throws -> DJCon
     #expect(defaults.bool(forKey: "DJConnectLocalResponseAudioEnabled"))
     model.localResponseAudioEnabled = false
     #expect(!defaults.bool(forKey: "DJConnectLocalResponseAudioEnabled"))
-    #expect(fixture.requests.count == count)
+    _ = try await concurrentRead.value
+    #expect(menuRequestCount() == count)
+    #expect(fixture.requests.count > requestOffset, "Positive control: independent recovery changed the whole-fixture count")
+    #expect(fixture.requests.dropFirst(requestOffset).allSatisfy { $0.httpMethod == "GET" })
     #expect(fixture.requests.allSatisfy { !$0.url!.path.hasSuffix("/prepare") && !$0.url!.path.hasSuffix("/audio") && !$0.url!.path.contains("/operation/execute") })
     model.sessionHistory.suspend(preservingVoicePreference: true)
     #expect(model.activeVoicePreference.selectedVoiceID == "cedar" && model.activeVoicePreference.options == nil)

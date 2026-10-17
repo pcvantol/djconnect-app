@@ -57,8 +57,15 @@
     "wip_archive_hash_mismatches": 0,
     "local_branches_deleted": 3,
     "worktrees_deleted": 0,
-    "remote_only_main": true,
-    "excluded_experiments_preserved": true
+    "excluded_experiments_preserved": true,
+    "remote_only_main_after_source_merge": true,
+    "current_exception": "Temporary PR112 Finalization branch while draft open",
+    "temporary_merged_branches_archived_removed": 2,
+    "stash_hashes_verified": [
+      18,
+      155
+    ],
+    "bundles_storage": "Stable ignored workspace build/recovery; original private paths preserved as symlinks"
   },
   "post_merge_run": 39061762379,
   "source_main_artifacts": {

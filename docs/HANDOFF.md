@@ -15,7 +15,8 @@ Drie CI-testcorrecties veranderen geen appgedrag en behouden alle assertions.
 Beide oorspronkelijke checkouts staan schoon op dit main. Hun18/155WIPpaden
 zijn behouden in stashes en onafhankelijk hashgecontroleerde herstelarchieven;
 Gitbundles bewaren alle oorspronkelijke refs. Drie exact bewezen oude lokale
-branches zijn verwijderd, nul worktrees. Remote heeft alleen main. Het
+branches zijn verwijderd, nul worktrees. Oude remote branches zijn weg; de
+tijdelijke Finalizationbranch blijft apart open zolang PR112 draft is. Het
 ongeïnstalleerde Base-launchscreenexperiment en twee dubbele Xcodeprojecten
 blijven herstelbaar buiten de merge. Gewone iPad40282/iPhone40267/Mac40266
 blijven ongewijzigd; geen nieuwe installatie, HA-deployment of distributie.

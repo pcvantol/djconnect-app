@@ -101,10 +101,13 @@
     "wip": "18/155paths in verified archives and stashes",
     "local_branches_deleted": 3,
     "worktrees_deleted": 0,
-    "remote_branches": [
+    "excluded_experiments": "Retained in recovery archives/stash",
+    "remote_branches_after_source_merge": [
       "main"
     ],
-    "excluded_experiments": "Retained in recovery archives/stash"
+    "active_finalization_branch": "codex/apple-main-consolidation-finalization-20261017; only while PR112 open",
+    "temporary_qualified_branches_archived_and_removed": 2,
+    "durable_recovery": "Three complete bundles moved atomically on same volume into ignored workspace build/recovery; original private paths remain symlinks. WIP archives/manifests copied and verified; all18/155stash file hashes verified."
   },
   "source_main_ci": {
     "run": 39061192756,
@@ -120,5 +123,15 @@
     "cause": "Unpaginated central commit file set is300; actual PR/commit/local sets all369 and identical",
     "durable_record_published": false,
     "producer_fix": "Existing Core-writer notified; minimal proposal kept private; no Core mutation or manual green status"
+  },
+  "finalization_ci_fix": {
+    "initial_draft_head": "9f684e391e0210ee5067e18e39269989ab73e89d",
+    "initial_run": 39062016112,
+    "failure": "Voice-menu test whole-fixture count6 versus5 while independent session recovery can run",
+    "fix": "Count every non-recovery request; explicitly whitelist only known recovery GET paths. Force an independent active-session GET and prove total count changes while menu count remains unchanged. Retain inventory/selection/epoch/persistence/scope and no-prepare/audio/execute checks; forbid new POSTs after original inventory read. Cancel model work at cleanup.",
+    "initial_local_revision": "FAILED because it also forbade the contract-defined original POST inventory read; corrected to check only requests after original inventory read",
+    "app_code_changed": false,
+    "local_validation": "PASS targeted2tests/1suite0.395s; ten repeated suites PASS; full Swift784tests/10suites89.048s",
+    "protected_checks": "PENDING; source-main existing proof unchanged"
   }
 }

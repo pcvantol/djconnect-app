@@ -151,3 +151,28 @@ registered for triage/refactor, not suppressed. No new independent full
 technical/UX review was run for this complete candidate.23 active functional/
 acceptance requirements and all installed/hardware/provider boundaries remain
 open as stated; this merge closes only the source inclusion.
+
+## Finalization follow-up: voice-menu fixture concurrency
+
+Draft PR112's first full Swift run39062016112 reported one issue: the menu test
+compared whole-fixture request counts6 versus5 while independent Session recovery
+was still allowed. The test now excludes only exact known recovery GET routes
+from that menu counter and forces an independent active-session GET as a positive
+control. Total fixture count must increase; all other request counts stay fixed.
+Only the original POST voice-inventory read is outside recovery GETs; new
+requests after that baseline must be GETs. Existing no-prepare/audio/execute,
+voice selection, stale epoch, autoplay persistence and scope invalidation
+assertions remain. Model background work is cancelled at cleanup. No app code
+changes. The first local revision also rejected the original POST inventory
+read; that failed run is retained and its contract expectation corrected.
+
+Three original branches and two temporary qualification branches are archived
+and removed; only main in the original checkouts and the active PR112 branch in
+the temporary clone remain. All18/155stash file hashes were verified. Complete
+bundles now live in stable ignored workspace recovery storage; original private
+paths are preserved as symlinks, without duplicating1.3GB on the shared disk.
+
+Fresh follow-up validation: targeted2tests/1suite PASS0.395s; ten repeated
+voice-menu suites PASS; full Swift784tests/10suites PASS89.048s. Updated
+protected native/build checks remain pending. Source-mainb47d17a3 evidence
+retains its original binding.
