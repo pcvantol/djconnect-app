@@ -1,4 +1,18 @@
-# Latest installed follow-up — iPhone40301 inline listening status
+# Latest installed follow-up — iPhone40302 submitted-question positioning
+
+Session and standalone Ask DJ now position a submitted question immediately above
+the measured input-bar safe-area reservation. Session uses one bottom-anchored
+scroll controller and follows pending/retained/current-only identity; standalone
+Ask DJ follows the submitted UUID instead of generic feed-top requests. Added
+leading scroll room for short feeds; manual scrolling/search/navigation release
+automatic question following. No backend request/replay or payload change.
+Identity regression PASS0.007s; native signed iOS40302/strict signature/ordinary-
+product checks PASS. iPhone installed/read back40302 and launched. Physical
+viewport/keyboard acceptance and a new full-suite PASS are not claimed.
+iPad40290/MacBook40292 unchanged. See
+[scroll evidence](feedback/APPLE_SUBMITTED_QUESTION_SCROLL_20261017.md).
+
+# Earlier installed follow-up — iPhone40301 inline listening status
 
 Quiet Session status now places the static icon and text in one horizontal row,
 wrapping text when needed instead of truncating. Recovery spinner remains absent.

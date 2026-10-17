@@ -258,6 +258,10 @@ struct SessionTimelineScreen: View {
     @State private var artworkVisibleIDs: Set<String> = []
     @State private var pagingTask: Task<Void, Never>?
     @State private var visibleEntry: String?
+    @State private var scrollAnchor: UnitPoint = .top
+    @State private var submittedQuestion: SessionSubmittedQuestion?
+    @State private var questionLeadingRoom: CGFloat = 0
+    @State private var scrollViewportHeight: CGFloat = 0
     @State private var priorSearchPosition: String?
     @State private var query = ""
     @State private var searching = false
@@ -303,6 +307,10 @@ struct SessionTimelineScreen: View {
         #endif
     }
     private var timeline: DJConnectSessionHistoryModel.Timeline { history.timelines[sessionID] ?? .init() }
+    private var submittedQuestionTarget: String? {
+        submittedQuestion?.target(sessionID: sessionID, pending: history.pendingTurns,
+            entries: timeline.entries, current: model.currentSessionConversationMessages(sessionID: sessionID))
+    }
     private var startMetadata: String? {
         let startedAt = activeSession.flatMap { $0.id == sessionID ? $0.startedAt : nil }
             ?? timeline.session.flatMap { $0.id == sessionID ? $0.startedAt : nil }
@@ -464,12 +472,21 @@ struct SessionTimelineScreen: View {
                             Color.clear.frame(height: 1).id("tail")
                         }
                         .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity)
-                        .padding(.top, activeSession != nil ? 0 : archivedTopPadding).padding(.bottom, 20)
+                        .padding(.top, (activeSession != nil ? 0 : archivedTopPadding) + questionLeadingRoom).padding(.bottom, 20)
                         .scrollTargetLayout()
                         // Background updates never reveal pull-to-refresh or move the scroll offset.
                         }
                     }
-                    .contentMargins(.bottom, usesFloatingComposer && !searching ? floatingComposerHeight + composerBottomPadding + 8 : 0, for: .scrollContent)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                        scrollViewportHeight = height
+                        if submittedQuestion != nil { questionLeadingRoom = height }
+                    }
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        if usesFloatingComposer && !searching {
+                            Color.clear.frame(height: floatingComposerHeight + composerBottomPadding + 8)
+                                .allowsHitTesting(false)
+                        }
+                    }
                     .overlay(alignment: .bottom) {
                         if usesFloatingComposer && !searching {
                             sessionComposer(floating: true)
@@ -500,6 +517,7 @@ struct SessionTimelineScreen: View {
                         history.prefetchArtwork(sessionID: sessionID, visibleIDs: artworkVisibleIDs)
                     }
                     .onScrollPhaseChange { _, phase in
+                        if phase == .tracking || phase == .interacting { submittedQuestion = nil }
                         if phase.isScrolling {
                             history.prefetchArtwork(sessionID: sessionID, visibleIDs: artworkVisibleIDs)
                         }
@@ -518,7 +536,17 @@ struct SessionTimelineScreen: View {
                         }
                     }
                     .defaultScrollAnchor(.top, for: .initialOffset)
-                    .scrollPosition(id: $visibleEntry, anchor: .top)
+                    .scrollPosition(id: $visibleEntry, anchor: scrollAnchor)
+                    .task(id: submittedQuestionTarget) {
+                        guard let target = submittedQuestionTarget else { return }
+                        await Task.yield()
+                        guard !Task.isCancelled, submittedQuestionTarget == target, !searching else { return }
+                        sceneRestoreTask?.cancel(); anchorGeneration = UUID()
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) {
+                            scrollAnchor = .bottom
+                            visibleEntry = target
+                        }
+                    }
                     .refreshable {
                         pullRefreshing = true
                         defer { pullRefreshing = false }
@@ -619,7 +647,11 @@ struct SessionTimelineScreen: View {
             }
             .onChange(of: activeSession?.id) { model.isShowingVibeCastSessionStart = false }
             .onChange(of: history.profileScopeActive) { model.isShowingVibeCastSessionStart = false }
-            .onChange(of: history.responseEpoch) { model.isShowingVibeCastSessionStart = false }
+            .onChange(of: history.responseEpoch) {
+                model.isShowingVibeCastSessionStart = false
+                submittedQuestion = nil
+                questionLeadingRoom = 0
+            }
             .onChange(of: query) { _, value in sceneRestoreTask?.cancel(); anchorGeneration = UUID(); history.search(sessionID: sessionID, query: value) }
             .onChange(of: history.searchMatches) {
                 guard searching, !matches.isEmpty else { return }
@@ -783,6 +815,8 @@ struct SessionTimelineScreen: View {
     }
 
     private func clearReadingState() {
+        submittedQuestion = nil
+        questionLeadingRoom = 0
         history.rememberReadingAnchor(visibleEntry, sessionID: sessionID)
         pagingTask?.cancel(); pagingTask = nil
         renderCache.clear()
@@ -839,6 +873,9 @@ struct SessionTimelineScreen: View {
         var transaction = Transaction(animation: nil)
         transaction.disablesAnimations = true
         withTransaction(transaction) {
+            submittedQuestion = nil
+            questionLeadingRoom = 0
+            scrollAnchor = .top
             visibleEntry = "current"
             currentHeaderVisible = true
             oldestEntriesVisible = false
@@ -847,12 +884,17 @@ struct SessionTimelineScreen: View {
     }
 
     private func jump(_ id: String, proxy: ScrollViewProxy) {
+        submittedQuestion = nil
+        questionLeadingRoom = 0
         sceneRestoreTask?.cancel()
         anchorGeneration = UUID()
         // One scroll controller: mixing proxy animation with the bound target can
         // let a layout/keyboard measurement overwrite the requested anchor.
         let target = id == "tail" ? (timeline.entries.last?.id ?? "current") : id
-        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { visibleEntry = target }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+            scrollAnchor = .top
+            visibleEntry = target
+        }
     }
     private func selectAnchor(_ id: String, proxy: ScrollViewProxy, searchRequest: Bool = false, restoreRequest: Bool = false) async {
         guard !id.hasPrefix("pending-"), !["current", "tail"].contains(id), !searchRequest || searching else { return }
@@ -884,7 +926,13 @@ struct SessionTimelineScreen: View {
     private func sessionComposer(floating: Bool) -> some View {
         AskDJInputBar(model: model, canSend: canSend,
                       canUseVoiceInput: (model.isDemoMode || model.canUseProfileConversation) && model.voiceEnabled,
-                      isInputFocused: $inputFocused, floating: floating, placeholderKey: "ui.session.chat.placeholder",
+                      isInputFocused: $inputFocused, sendAction: {
+                          let previous = model.askDJMessages.last(where: { $0.role == .user })?.id
+                          model.sendAskDJText()
+                          guard let question = model.askDJMessages.last(where: { $0.role == .user }), question.id != previous else { return }
+                          questionLeadingRoom = scrollViewportHeight
+                          submittedQuestion = SessionSubmittedQuestion(sessionID: sessionID, localID: question.id, clientID: question.clientMessageID)
+                      }, floating: floating, placeholderKey: "ui.session.chat.placeholder",
                       surfaceColors: activeSession.map { DJConnectSessionMoodPalette(mood: $0.selectedMood).colors })
         .sessionIntroductionTarget("chat")
     }
@@ -2025,5 +2073,28 @@ private struct SessionCurrentConversationBubble: View {
             setPromptAction: { model.askDJDraft = $0 }, isReadOnly: true, allowsSessionPlaybackActions: true,
             speechEnabled: model.sharedDJSpeechAllowed,
             sharedSpeechActions: { AnyView(SharedDJSpeechActions(model: model, speech: message.sessionSpeech, acceptedText: message.text)) })
+    }
+}
+
+/// Follows one submitted question across its pending, current-only and retained rows.
+/// Background refreshes and assistant replies cannot select a different question.
+struct SessionSubmittedQuestion: Equatable {
+    let sessionID: String
+    let localID: UUID
+    let clientID: String?
+
+    func target(sessionID: String, pending: [DJConnectSessionHistoryModel.PendingTurn],
+                entries: [DJConnectHistoryEntry], current: [DJConnectAskDJMessage], at now: Date = Date()) -> String? {
+        guard sessionID == self.sessionID else { return nil }
+        if let clientID, let entry = entries.first(where: {
+            $0.sessionID == sessionID && $0.kind == .conversationUser && $0.clientMessageID == clientID && $0.isContractValid && $0.isRetained(at: now)
+        }) { return entry.id }
+        if let question = current.first(where: {
+            $0.role == .user && ($0.id == localID || (clientID != nil && $0.clientMessageID == clientID))
+        }) { return "current-conversation-" + question.id.uuidString }
+        if let turn = pending.first(where: {
+            $0.context.sessionID == sessionID && ($0.localMessageID == localID || (clientID != nil && $0.id == clientID))
+        }) { return "pending-" + turn.id }
+        return nil
     }
 }

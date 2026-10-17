@@ -5060,3 +5060,30 @@ func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) asy
     #expect(await imageCache.cachedTint(for: url, at: sample.expiresAt) == nil)
     #expect(fixture.requests.count == 1, "Opening another screen must not refetch or resample the cover")
 }
+
+@Test @MainActor func submittedQuestionScrollTracksPendingRetainedAndCurrentOnlyIdentity() throws {
+    let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self,
+        from: historyData(try #require(historyObject()["archived_timeline"])))
+    let entry = try #require(page.entries.first(where: { $0.kind == .conversationUser }))
+    let client = try #require(entry.clientMessageID)
+    let now = try #require(DJConnectHistoryEntry.date(entry.occurredAt)).addingTimeInterval(1)
+    let localID = UUID()
+    let question = SessionSubmittedQuestion(sessionID: entry.sessionID, localID: localID, clientID: client)
+    let identity = DJConnectIdentity(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Test", clientType: .ios, firmware: "4.0.0", platform: .ios)
+    let pending = DJConnectSessionHistoryModel.PendingTurn(id: client, text: entry.text ?? "", context: .init(sessionID: entry.sessionID),
+        localMessageID: localID, payload: DJConnectAskDJRequest(identity: identity, text: entry.text ?? "", clientMessageID: client),
+        requestEpoch: UUID(), ownerScope: "profile-a")
+    #expect(question.target(sessionID: entry.sessionID, pending: [pending], entries: [], current: [], at: now) == "pending-" + client)
+    #expect(question.target(sessionID: entry.sessionID, pending: [pending], entries: page.entries, current: [], at: now) == entry.id)
+    #expect(question.target(sessionID: entry.sessionID, pending: [], entries: page.entries, current: [], at: now) == entry.id)
+    let ephemeral = DJConnectAskDJMessage(id: localID, clientMessageID: client, role: .user, text: entry.text ?? "")
+    #expect(question.target(sessionID: entry.sessionID, pending: [], entries: [], current: [ephemeral], at: now) == "current-conversation-" + localID.uuidString)
+    #expect(question.target(sessionID: "another-session", pending: [pending], entries: page.entries, current: [ephemeral], at: now) == nil)
+    var invalid = entry; invalid.context = nil
+    #expect(question.target(sessionID: entry.sessionID, pending: [], entries: [invalid], current: [], at: now) == nil)
+    let unrelated = DJConnectAskDJMessage(role: .user, text: entry.text ?? "")
+    let assistant = DJConnectAskDJMessage(id: localID, clientMessageID: client, role: .dj, text: "An answer")
+    #expect(question.target(sessionID: entry.sessionID, pending: [], entries: [], current: [unrelated, assistant], at: now) == nil)
+    let expired = try #require(DJConnectHistoryEntry.date(entry.retainedUntil))
+    #expect(question.target(sessionID: entry.sessionID, pending: [], entries: page.entries, current: [], at: expired) == nil)
+}

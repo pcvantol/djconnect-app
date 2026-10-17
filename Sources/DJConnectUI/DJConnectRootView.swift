@@ -10775,6 +10775,8 @@ private struct AskDJView: View {
     @State private var isAskDJAtTop = true
     @State private var isAskDJScrollToTopButtonSuppressed = false
     @State private var didScrollAskDJToInitialTop = false
+    @State private var submittedQuestionID: UUID?
+    @State private var followsSubmittedQuestion = false
     @State private var composerKeyboardVisible = false
     private var composerBottomPadding: CGFloat {
         #if os(iOS)
@@ -10934,7 +10936,13 @@ private struct AskDJView: View {
     }
     private var composer: some View {
         AskDJInputBar(model: model, canSend: canSend, canUseVoiceInput: canUseVoiceInput,
-                      isInputFocused: $isInputFocused, caretRequest: promptCaretRequest,
+                      isInputFocused: $isInputFocused, sendAction: {
+                          let previous = model.askDJMessages.last(where: { $0.role == .user })?.id
+                          model.sendAskDJText()
+                          guard let question = model.askDJMessages.last(where: { $0.role == .user }), question.id != previous else { return }
+                          submittedQuestionID = question.id
+                          followsSubmittedQuestion = true
+                      }, caretRequest: promptCaretRequest,
                       floating: usesFloatingComposer)
     }
 
@@ -11043,13 +11051,21 @@ private struct AskDJView: View {
                                 }
                                 #endif
                                 .padding(.horizontal, djConnectScreenHorizontalPadding)
-                                .padding(.top, chatTopPadding)
+                                .padding(.top, chatTopPadding + (submittedQuestionID == nil ? 0 : geometry.size.height))
                                 .padding(.bottom, 16)
                                 .frame(width: contentWidth, alignment: .top)
                                 .frame(maxWidth: .infinity, alignment: .top)
                                 .contentShape(Rectangle())
                             }
-                            .contentMargins(.bottom, usesFloatingComposer && !isSearchVisible ? floatingComposerHeight + composerBottomPadding + 8 : 0, for: .scrollContent)
+                            .safeAreaInset(edge: .bottom, spacing: 0) {
+                                if usesFloatingComposer && !isSearchVisible {
+                                    Color.clear.frame(height: floatingComposerHeight + composerBottomPadding + 8)
+                                        .allowsHitTesting(false)
+                                }
+                            }
+                            .onScrollPhaseChange { _, phase in
+                                if phase == .tracking || phase == .interacting { followsSubmittedQuestion = false }
+                            }
                             .coordinateSpace(name: "askDJScroll")
                             .contentShape(Rectangle())
                             .onScrollGeometryChange(for: Bool.self) { scroll in
@@ -11070,6 +11086,7 @@ private struct AskDJView: View {
                                     Spacer()
                                     if shouldShowAskDJScrollToTopButton {
                                         Button {
+                                            followsSubmittedQuestion = false
                                             isInputFocused = false
                                             isSearchFocused = false
                                             withAnimation(.easeOut(duration: 0.22)) {
@@ -11133,6 +11150,13 @@ private struct AskDJView: View {
                             isAskDJScrollToTopButtonSuppressed = false
                             normalizeAskDJSearchSelection()
                             scrollAskDJToInitialTopIfNeeded(proxy: proxy)
+                            positionSubmittedQuestion(proxy: proxy)
+                        }
+                        .onChange(of: submittedQuestionID) { positionSubmittedQuestion(proxy: proxy) }
+                        .onChange(of: geometry.size) { positionSubmittedQuestion(proxy: proxy) }
+                        .onChange(of: floatingComposerHeight) { positionSubmittedQuestion(proxy: proxy) }
+                        .onChange(of: history.responseEpoch) {
+                            submittedQuestionID = nil; followsSubmittedQuestion = false
                         }
                         .onAppear {
                             didScrollAskDJToInitialTop = false
@@ -11146,8 +11170,13 @@ private struct AskDJView: View {
                         }
                         .onDisappear {
                             didScrollAskDJToInitialTop = false
+                            submittedQuestionID = nil; followsSubmittedQuestion = false
                         }
                         .onChange(of: model.askDJScrollRequestID) {
+                            if submittedQuestionID != nil {
+                                positionSubmittedQuestion(proxy: proxy)
+                                return
+                            }
                             guard !isSearchVisible else {
                                 return
                             }
@@ -11335,6 +11364,7 @@ private struct AskDJView: View {
     }
 
     private func toggleAskDJSearch() {
+        followsSubmittedQuestion = false
         dismissAskDJKeyboard()
         if isSearchVisible {
             dismissAskDJSearch()
@@ -11374,7 +11404,19 @@ private struct AskDJView: View {
         }
     }
 
+    private func positionSubmittedQuestion(proxy: ScrollViewProxy) {
+        guard followsSubmittedQuestion, let id = submittedQuestionID, !isSearchVisible,
+              askDJTimelineMessages.contains(where: { $0.id == id }) else { return }
+        DispatchQueue.main.async {
+            guard followsSubmittedQuestion, submittedQuestionID == id, !isSearchVisible,
+                  askDJTimelineMessages.contains(where: { $0.id == id }) else { return }
+            isAskDJScrollToTopButtonSuppressed = true
+            proxy.scrollTo(id, anchor: .bottom)
+        }
+    }
+
     private func scrollAskDJToInitialTopIfNeeded(proxy: ScrollViewProxy) {
+        guard submittedQuestionID == nil else { return }
         guard !didScrollAskDJToInitialTop else {
             return
         }
