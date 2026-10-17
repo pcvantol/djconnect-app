@@ -6,6 +6,10 @@ import UIKit
 import AppKit
 #endif
 
+enum DJConnectAlbumArtworkLayout {
+    static func maximumWidth(phone: Bool) -> CGFloat { phone ? .infinity : 270 }
+}
+
 extension View {
     func djSessionFrostedSurface(cornerRadius: CGFloat = DJConnectCardAppearance.cornerRadius, currentMomentBorder: Bool = false) -> some View {
         modifier(DJSessionGlassSurface(cornerRadius: cornerRadius, currentMomentBorder: currentMomentBorder))
@@ -375,7 +379,7 @@ struct NativeSessionMomentsView: View {
                     .zIndex(2)
             }
                 .aspectRatio(1, contentMode: .fit)
-                .frame(maxWidth: stacksCurrentOnPhone ? .infinity : 270)
+                .frame(maxWidth: DJConnectAlbumArtworkLayout.maximumWidth(phone: stacksCurrentOnPhone))
                 .contentShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
                 .task(id: artworkFeedback?.id) {
                     guard let feedback = artworkFeedback else { return }

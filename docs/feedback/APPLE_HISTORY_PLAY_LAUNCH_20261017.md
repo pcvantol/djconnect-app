@@ -297,3 +297,25 @@ suite PASS or physical screen-switch acceptance is inferred.
 
 iPhone40299 installed, independently read back and launched. iPad/MacBook not
 updated, respecting the existing device installation scope.
+
+## Separate Now Playing artwork and playback cards — 40300
+
+Owner requested a standalone album-art glass card above a separate track-info/
+playback-controls card. iOS/iPadOS Track Hero and the macOS summary now arrange
+these as sibling views; padding/background/outline belong only to the playback
+card. The standalone art retains its existing album glass frame, color cache,
+animation and vinyl fallback. No playback command, seek, volume, favorite, queue,
+shuffle or repeat behavior changed.
+
+Session and Now Playing share one artwork-width policy: full available width on
+iPhone,270pt on iPad/Mac. iOS Now Playing uses the same20pt horizontal edge inset
+as the Session header, so the iPhone cover squares have equal width/height.
+Added stable accessibility identifiers for each separate card. Existing controls
+and their accessibility labels remain in the playback card.
+
+Swift parse/diff checks, native signed iOS40300 build, strict deep signature and
+ordinary-product checks PASS. iPhone installed/read back40300 and launched;
+iPad/MacBook unchanged. No new unit tests for this reversible presentation-only move;
+no physical viewport acceptance or new full-suite PASS is implied. Private build
+log: `/private/tmp/djc-split-now-playing-40300-ios-build.log`.
+Device receipts: `/private/tmp/djc-split-now-playing-40300-{install,apps,launch}.json`.

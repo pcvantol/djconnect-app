@@ -1,4 +1,15 @@
-# Latest installed follow-up — iPhone40299 stable artwork border tint
+# Latest installed follow-up — iPhone40300 separate Now Playing cards
+
+Artwork is a standalone glass card above a separate track/playback card on
+iOS/iPadOS and in the macOS summary. Shared artwork width matches Session:
+iPhone full available width with20pt edge insets, iPad/Mac270pt. Playback actions
+and control logic unchanged. Swift parse/diff/native signed iOS40300/strict
+signature/ordinary-product checks PASS; iPhone installed/read back40300 and
+launched. Physical layout acceptance not inferred. No new full-suite claim.
+iPad40290/MacBook40292 unchanged. See
+[UI evidence](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md).
+
+# Earlier installed follow-up — iPhone40299 stable artwork border tint
 
 Session/Now Playing album glass frames seed their first frame from a shared
 synchronous URL-bound color cache. Removed per-mount tint clearing/animation and

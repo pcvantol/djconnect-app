@@ -9480,7 +9480,7 @@ private struct IOSNowPlayingView: View {
                         IOSTrackHero(model: model, openQueueAction: openQueueAction)
                         OutputSelectorView(model: model)
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, 20)
                     .padding(.vertical, 12)
                 }
                 .background(.clear)
@@ -9683,9 +9683,17 @@ private struct IOSTrackHero: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            AnimatedAlbumArtworkView(playback: playback, maxWidth: 300, usesDemoArtwork: model.isDemoMode)
+        VStack(spacing: 16) {
+            AnimatedAlbumArtworkView(playback: playback,
+                maxWidth: DJConnectAlbumArtworkLayout.maximumWidth(phone: UIDevice.current.userInterfaceIdiom == .phone),
+                usesDemoArtwork: model.isDemoMode)
+                .accessibilityIdentifier("now-playing-artwork-card")
+            playbackCard
+        }
+    }
 
+    private var playbackCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 5) {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 5) {
@@ -9712,6 +9720,7 @@ private struct IOSTrackHero: View {
                 .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
         }
         .modifier(DJConnectCardOutline())
+        .accessibilityIdentifier("now-playing-playback-card")
         .task(id: nowPlayingTrackKey(for: playback)) {
             cardTint = await sampledArtworkTint(for: playback)
         }
@@ -9969,9 +9978,16 @@ struct TrackSummaryView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            AnimatedAlbumArtworkView(playback: playback, maxWidth: 320, usesDemoArtwork: model.isDemoMode)
+        VStack(spacing: 16) {
+            AnimatedAlbumArtworkView(playback: playback,
+                maxWidth: DJConnectAlbumArtworkLayout.maximumWidth(phone: false), usesDemoArtwork: model.isDemoMode)
+                .accessibilityIdentifier("now-playing-artwork-card")
+            playbackCard
+        }
+    }
 
+    private var playbackCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(playback?.trackName ?? localizedKey(model.language, "ui.nothing.playing.13ae37"))
                     .font(.title2.weight(.semibold))
@@ -9993,6 +10009,7 @@ struct TrackSummaryView: View {
                 .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
         }
         .modifier(DJConnectCardOutline())
+        .accessibilityIdentifier("now-playing-playback-card")
         .task(id: nowPlayingTrackKey(for: playback)) {
             cardTint = await sampledArtworkTint(for: playback)
         }
