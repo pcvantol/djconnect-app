@@ -340,6 +340,14 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         pendingTurns = []; host?.setProfileConversationSending(false)
     }
 
+    /// An admitted clear changes content/epoch, not the authenticated Profile.
+    /// Authority errors and lifecycle changes still use suspend() directly.
+    func invalidateClearedConversation() {
+        let admittedOwner = ownerScope
+        suspend()
+        ownerScope = admittedOwner
+    }
+
     public func refreshConversation() async {
         guard profileScopeActive, let host, host.canRefreshSessionHistory else { return }
         let captured = epoch
@@ -717,7 +725,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             let response = try await host.withHomeAssistantClient { try await $0.clearProfileConversationHistory() }
             guard captured == epoch, ownerScope == scope, response.ownerScope == scope else { throw CancellationError() }
             guard response.base.isClearAcknowledged else { throw DJConnectError.invalidResponse }
-            suspend(); ownerScope = scope
+            invalidateClearedConversation()
             host.applyConfirmedProfileConversationClear(response.base)
         } catch {
             if captured == epoch { _ = withdrawAuthority(for: error) }

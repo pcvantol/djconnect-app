@@ -4890,3 +4890,49 @@ func missingOptionalSpeechRouteKeepsReachableOriginAndNeverReplays(_ mode: DJCon
     message.playbackActions = [invalid]
     #expect(message.playbackAction(forHistoryItem: item) == nil)
 }
+
+@Test(arguments: [false, true]) @MainActor
+func profileConversationClearPreservesSendingAndRejectsOldHistory(_ remoteClear: Bool) async throws {
+    let original = try #require(historyObject()["later_historical_answer"] as? [String: Any])
+    let initial = try historyData(original)
+    var cleared = original
+    cleared["messages"] = []; cleared["historical_matches"] = []
+    cleared["user_message"] = NSNull(); cleared["assistant_message"] = NSNull()
+    cleared["history_revision"] = 4; cleared["clear_revision"] = 1; cleared["cleared"] = true
+    let clearData = try historyData(cleared)
+    var next = original; next["history_revision"] = 5; next["clear_revision"] = 1
+    let nextData = try historyData(next)
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/clear") { return (200, clearData, 0) }
+        if request.httpMethod == "POST" { return (200, nextData, 0) }
+        return (200, initial, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    #expect(model.canUseProfileConversation)
+    #expect(!model.askDJMessages.isEmpty)
+    let oldEpoch = model.sessionHistory.responseEpoch
+    if remoteClear {
+        let response = try JSONDecoder().decode(DJConnectAskDJHistoryResponse.self, from: clearData)
+        #expect(model.applyProfileConversationHistory(response))
+    } else {
+        model.clearAskDJHistory()
+        for _ in 0..<100 where model.isClearingAskDJHistory { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(!model.isClearingAskDJHistory)
+    }
+    #expect(model.askDJMessages.isEmpty)
+    #expect(model.sessionHistory.responseEpoch != oldEpoch)
+    #expect(model.sessionHistory.hasAuthorizedOwner && model.canUseProfileConversation)
+    #expect(!model.applyProfileConversationHistory(try JSONDecoder().decode(DJConnectAskDJHistoryResponse.self, from: initial)))
+    #expect(model.askDJMessages.isEmpty)
+    let response = try await model.sessionHistory.sendExistingText("New question after clear", clientMessageID: "after-clear")
+    #expect(response.clearRevision == 1)
+    #expect(fixture.requests.contains { request in
+        request.httpMethod == "POST" && !(request.url!.path.hasSuffix("/clear"))
+    })
+    #expect(model.canUseProfileConversation)
+}

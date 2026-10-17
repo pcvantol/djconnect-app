@@ -3961,7 +3961,7 @@ public final class DJConnectAppModel: ObservableObject {
         guard response.isPrivateEphemeralResponse || (response.historyRevision >= profileConversationHistoryRevision
               && response.clearRevision >= profileConversationClearRevision) else { return false }
         if !response.isPrivateEphemeralResponse, response.clearRevision > profileConversationClearRevision {
-            sessionHistory.suspend(); clearAskDJHistoryLocally()
+            sessionHistory.invalidateClearedConversation(); clearAskDJHistoryLocally()
         }
         withdrawLiveConversationPresentations()
         applyAskDJMessageResponse(response, fallbackUserMessageID: fallback)
@@ -9029,7 +9029,7 @@ public final class DJConnectAppModel: ObservableObject {
         if sessionHistory.profileScopeActive {
             guard response.historyRevision >= profileConversationHistoryRevision,
                   response.clearRevision >= profileConversationClearRevision else { return }
-            if response.clearRevision > profileConversationClearRevision { sessionHistory.suspend() }
+            if response.clearRevision > profileConversationClearRevision { sessionHistory.invalidateClearedConversation() }
             let allowed = Set(response.messages.map(\.id))
             askDJMessages.removeAll { message in
                 if liveConversationPresentations.values.contains(where: {
