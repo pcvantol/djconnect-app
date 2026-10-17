@@ -72,6 +72,14 @@
     "native_duration_seconds": 87.554,
     "native_coverage_export": "PASS",
     "native_infrastructure": "First local run interrupted before tests while opening external-cache test bundle. Rebuilt tests and byte-identical products/test plan copied to a private temporary directory; unchanged plan then completed. No SDK/signing/security modification.",
-    "input_manifest_sha256": "41f682e7e96f97efa0217ce14923308251758b8d69cad78107168d1cc49a82e6"
+    "input_manifest_sha256": "41f682e7e96f97efa0217ce14923308251758b8d69cad78107168d1cc49a82e6",
+    "replacement_session_test": {
+      "native_failure": "Four replacement-session assertions; legacy fixture waits for nonexistent nativeDelivery, allowing background recovery to withdraw A before explicit B read completes",
+      "fix": "Gate first A recovery, explicitly load B, release late A; retain identity/revision/mood/no-stale-write/positive-B-write assertions; stop model at cleanup",
+      "targeted_test": "PASS",
+      "repeated_executions": 10,
+      "production_code_changed": false,
+      "full_protected_checks": "PENDING"
+    }
   }
 }

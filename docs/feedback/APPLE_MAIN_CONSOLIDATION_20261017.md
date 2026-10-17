@@ -105,3 +105,16 @@ The original cache-open limitation is preserved as infrastructure evidence.
 PR: https://github.com/pcvantol/djconnect-app/pull/111. Fresh protected checks and
 Owner Authorization must bind the updated PR head; the old head's status is not
 reused. All functional acceptance boundaries above remain unchanged.
+
+## PR111: deterministic replacement-session regression
+
+The next native coverage run reached all784 tests but reported four assertions
+in activeMoodBoundIntentDoesNotTargetReplacementSession. Its setup incorrectly
+waited for nativeDelivery in a legacy receipt that has no native grant; the
+background HTTP recovery could then observe replacement B while still bound to
+A and correctly withdraw A. The test now holds the first A recovery response,
+finishes the explicit B read, and releases late A. It still asserts B's identity,
+revision and selected mood, zero stale-A writes and exactly one valid B write.
+Fixture cleanup cancels the model's background work. No app code or assertion
+was removed. Targeted test PASS; ten repeated executions PASS. Full updated
+protected Swift/native coverage checks remain required.

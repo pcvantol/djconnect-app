@@ -1644,25 +1644,35 @@ private func activeMoodRuntimeWire() throws -> Data {
     let sessionID = try #require(session["session_id"] as? String)
     let replacementWire = Data(String(decoding: runtime, as: UTF8.self).replacingOccurrences(of: sessionID, with: sessionID + "-replacement").utf8)
     let switched = HistoryAuthorityGate()
+    let activeReads = HTTPRecoveryActiveReadCounter()
+    let initialRecovery = HistoryWireResponseGate()
     let fixture = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/capabilities") { return (200, activeMoodCapsWire, 0) }
-        if request.url!.path.hasSuffix("/session/active") { return (200, switched.denied ? replacementWire : runtime, 0) }
+        if request.url!.path.hasSuffix("/session/active") {
+            // Hold A's first background recovery until the explicit B read has
+            // finished. A late A response must not change B or its mood intent.
+            if activeReads.next() == 2 {
+                throw HistoryWireHeldResponse(data: runtime, gate: initialRecovery)
+            }
+            return (200, switched.denied ? replacementWire : runtime, 0)
+        }
         return (404, Data(), 0)
     }
-    defer { fixture.close() }
-    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    defer { initialRecovery.release(); fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
     await model.refreshActiveDJSession(); await model.refreshActiveMoodCapability()
-    // Establish A after the initial HTTP recovery before switching the fixture
-    // to B. Otherwise the initial A subscription can receive B during setup,
-    // correctly withdraw A, and invalidate the explicit replacement read.
-    for _ in 0..<300 where fixture.requests.filter({ $0.url!.path.hasSuffix("/session/active") }).count < 2 || model.activeDJSession?.broadcast.nativeDelivery == nil {
+    // Wait for the held recovery request, not nativeDelivery: this legacy
+    // receipt has no native grant and can never satisfy that old wait condition.
+    for _ in 0..<300 where activeReads.value < 2 {
         try await Task.sleep(for: .milliseconds(10))
     }
+    try #require(activeReads.value == 2)
     let prior = try #require(model.activeDJSession)
     let epoch = model.sessionHistory.responseEpoch
     switched.denied = true
     await model.refreshActiveDJSession()
     #expect(model.activeDJSession?.id == prior.id + "-replacement")
+    initialRecovery.release()
     await model.refreshActiveMoodCapability()
     #expect(model.activeMoodAvailable)
     #expect(model.activeDJSession?.confirmedMoodRevision != nil)
