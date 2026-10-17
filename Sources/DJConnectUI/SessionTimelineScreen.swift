@@ -710,6 +710,18 @@ struct SessionTimelineScreen: View {
             }
             #else
             if usesExpandedToolbar {
+                if let activeSession {
+                    Button {
+                        sessionControlIntent = SessionControlIntent(kind: .voice, sessionID: activeSession.id,
+                            epoch: history.responseEpoch, sourceRect: menuFrames[.voice] ?? .zero)
+                    } label: {
+                        Image(systemName: "speaker.wave.2")
+                            .foregroundStyle(.white).frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel(text("ui.dj_settings.title"))
+                    .accessibilityIdentifier("session-voice-toggle")
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { menuFrames[.voice] = $0 }
+                }
                 if allowsHandoffPresentation {
                     Button { model.isShowingVibeCastSessionStart = true } label: {
                         Image(systemName: "tv.badge.wifi")
@@ -723,7 +735,7 @@ struct SessionTimelineScreen: View {
                     RefreshButton(model: model, action: refreshAction, isLoading: timeline.loading || retryRefreshing)
                 }
             }
-            if activeSession != nil || allowsHandoffPresentation || refreshAction != nil {
+            if !usesExpandedToolbar && (activeSession != nil || allowsHandoffPresentation || refreshAction != nil) {
                 Button {
                     sessionControlIntent = SessionControlIntent(kind: .more, sessionID: sessionID, epoch: history.responseEpoch, sourceRect: menuFrames[.more] ?? .zero)
                 } label: {

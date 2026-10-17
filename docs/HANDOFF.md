@@ -1,6 +1,7 @@
-# Current local Apple follow-up — iPad40289
+# Current local Apple follow-up — iPad40290
 
-Latest ordinary iPad build40289 is installed/read back/launched with equal
+Latest ordinary iPad build40290 is installed/read back/launched with all iPad
+Session toolbar actions directly visible (no More menu), equal
 selector icon cells for presence/persona/mood and shared
 purple toggle styling, including the
 compact connection popover/keyboard presentation correction, following

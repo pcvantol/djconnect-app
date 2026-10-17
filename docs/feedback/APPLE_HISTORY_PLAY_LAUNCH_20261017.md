@@ -131,3 +131,19 @@ Signed native iOS40289 including embedded targets PASS; strict deep signatures
 and ordinary-product checks PASS. Only iPad installed/read back40289 and launched.
 Private logs/receipts: `/private/tmp/djc-equal-choice-buttons-*`. Physical viewport
 measurement was not captured; no new whole-suite result is inferred.
+
+## Complete iPad session toolbar — ordinary40290
+
+Owner requested all iPad Session actions directly in the toolbar, without More
+and duplicate VibeCast/refresh entries. The existing expanded iPad toolbar now
+adds DJ voice as a direct speaker button between persona and VibeCast, using the
+existing epoch/session-bound voice popover and measured source anchor. More is
+created only on compact/iPhone presentation. The existing capability/demo gates
+for VibeCast and action guards remain. Mac toolbar behavior is unchanged.
+
+Signed native iOS40290 including embedded targets PASS; strict deep signatures
+and ordinary-product checks PASS. Only iPad installed/read back40290 and launched.
+Private logs/receipts: `/private/tmp/djc-ipad-all-toolbar-*`. No physical toolbar
+viewport or voice interaction acceptance was captured. Untracked duplicate
+source/test/fixture/tool files appearing during work remain preserved and unstaged;
+they were not regenerated into the Xcode project or included in this change.
