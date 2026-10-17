@@ -44,6 +44,7 @@ struct SessionArtworkView: View {
     let target: DJConnectSessionMedia.Target
     let audience: DJConnectSessionMedia.Audience
     let language: String
+    let showsAttribution: Bool
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
     @Environment(\.scenePhase) private var scenePhase
@@ -59,9 +60,10 @@ struct SessionArtworkView: View {
         let active: Bool
     }
     init(media: DJConnectSessionMedia, target: DJConnectSessionMedia.Target,
-         audience: DJConnectSessionMedia.Audience, language: String, model: DJConnectAppModel) {
+         audience: DJConnectSessionMedia.Audience, language: String, model: DJConnectAppModel, showsAttribution: Bool = true) {
         self.media = media; self.target = target; self.audience = audience
         self.language = language; self.model = model; history = model.sessionHistory
+        self.showsAttribution = showsAttribution
     }
     private var key: Key {
         Key(media: media, epoch: history.responseEpoch, target: target, audience: audience,
@@ -83,12 +85,14 @@ struct SessionArtworkView: View {
                         .accessibilityLabel(grant.altText?[language] ?? grant.altText?["en"] ?? "")
                         .accessibilityIdentifier("session-authorized-artwork")
                         .padding(8).djSessionFrostedSurface()
-                    Link(destination: source) {
-                        logo.resizable().scaledToFit().frame(width: 70, height: 20)
-                            .padding(10).frame(minHeight: 44)
+                    if showsAttribution {
+                        Link(destination: source) {
+                            logo.resizable().scaledToFit().frame(width: 70, height: 20)
+                                .padding(10).frame(minHeight: 44)
+                        }
+                        .accessibilityLabel("Spotify")
+                        .accessibilityValue(source.absoluteString)
                     }
-                    .accessibilityLabel("Spotify")
-                    .accessibilityValue(source.absoluteString)
                 }
             }
         }

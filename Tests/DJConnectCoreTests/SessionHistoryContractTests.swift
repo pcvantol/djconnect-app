@@ -5087,3 +5087,19 @@ func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) asy
     let expired = try #require(DJConnectHistoryEntry.date(entry.retainedUntil))
     #expect(question.target(sessionID: entry.sessionID, pending: [], entries: page.entries, current: [], at: expired) == nil)
 }
+
+@Test func playbackFieldHighlightsPreserveUnicodeOffsetsAndIgnoreOtherFields() {
+    let source = "🎧 Titel · Artiest · Album"
+    let title = "🎧 Titel"
+    let artist = "Artiest"
+    let titleRange = (source as NSString).range(of: title)
+    let artistRange = (source as NSString).range(of: artist)
+    let highlights = [DJConnectHistoryHighlight(startUTF16: titleRange.location, lengthUTF16: titleRange.length),
+                      DJConnectHistoryHighlight(startUTF16: artistRange.location, lengthUTF16: artistRange.length)]
+    let projectedTitle = SessionPlaybackHighlights.project(highlights, source: source, field: title)
+    #expect(projectedTitle == [.init(startUTF16: 0, lengthUTF16: title.utf16.count)])
+    #expect(SessionPlaybackHighlights.project(highlights, source: source, field: artist) == [.init(startUTF16: 0, lengthUTF16: artist.utf16.count)])
+    #expect(SessionPlaybackHighlights.project(highlights, source: source, field: "Album").isEmpty)
+    #expect(SessionPlaybackHighlights.project(highlights, source: source, field: "Absent").isEmpty)
+    #expect(SessionPlaybackHighlights.project(highlights, source: source, field: "").isEmpty)
+}

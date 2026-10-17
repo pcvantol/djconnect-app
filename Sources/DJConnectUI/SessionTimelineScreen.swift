@@ -1057,15 +1057,18 @@ struct SessionEntryView: View, Equatable {
                     if entry.inputType == "voice" { Label(text("ui.session.history.voice"), systemImage: "mic.fill").font(.caption) }
                 } else {
                     VStack(alignment: .leading, spacing: 10) {
-                        if let media = entry.sessionMedia, let model = artworkModel {
-                            SessionArtworkView(media: media, target: .entry(entry.id),
-                                audience: media.artwork.historicalDisplayAllowed ? .history : .activeFlow,
-                                language: language, model: model)
+                        if horizontalPlayback {
+                            HStack(alignment: .top, spacing: 16) {
+                                entryArtwork
+                                playbackDescription
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(.trailing, 40)
+                        } else {
+                            entryArtwork
+                            entryHeading
+                            SessionHighlightedText(text: entry.text ?? "", highlights: highlights).font(.title3)
                         }
-                        Label(text(entry.kind == .djMoment ? "ui.session.moment.generic" : "ui.session.history.playback"),
-                              systemImage: entry.kind == .djMoment ? "sparkles" : "music.note")
-                            .font(.caption.weight(.semibold)).padding(.trailing, 40)
-                        SessionHighlightedText(text: entry.text ?? "", highlights: highlights).font(.title3)
                         SessionTimestampText(value: entry.occurredAt, language: language).font(.caption).foregroundStyle(.secondary)
                         ForEach(sourceURLs, id: \.absoluteString) { url in
                             Link(entry.sourceAttribution?["provider"] ?? url.host ?? "", destination: url)
@@ -1074,7 +1077,7 @@ struct SessionEntryView: View, Equatable {
                                 .accessibilityValue(url.absoluteString)
                         }
                         if entry.requiresSpotifyAttribution == true, let logo = spotifyAttributionLogo,
-                           let url = sourceURLs.first {
+                           let url = spotifyFooterURL {
                             Link(destination: url) { logo.resizable().scaledToFit().frame(width: 70, height: 20).padding(10).frame(minHeight: 44).contentShape(Rectangle()) }
                                 .accessibilityLabel("Spotify")
                         }
@@ -1103,6 +1106,49 @@ struct SessionEntryView: View, Equatable {
         }
         .padding(4)
     }
+    private var horizontalPlayback: Bool {
+        guard entry.kind == .playbackObserved else { return false }
+        #if os(iOS)
+        return UIDevice.current.userInterfaceIdiom == .pad
+        #else
+        return true
+        #endif
+    }
+    @ViewBuilder private var entryArtwork: some View {
+        if let media = entry.sessionMedia, let model = artworkModel {
+            SessionArtworkView(media: media, target: .entry(entry.id),
+                audience: media.artwork.historicalDisplayAllowed ? .history : .activeFlow,
+                language: language, model: model, showsAttribution: spotifyFooterURL == nil)
+        }
+    }
+    private var entryHeading: some View {
+        Label(text(entry.kind == .djMoment ? "ui.session.moment.generic" : "ui.session.history.playback"),
+              systemImage: entry.kind == .djMoment ? "sparkles" : "music.note")
+            .font(.caption.weight(.semibold))
+    }
+    private var playbackDescription: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            entryHeading
+            if let playback = entry.playback, [playback.title, playback.artist, playback.album].contains(where: { $0?.isEmpty == false }) {
+                if let title = playback.title, !title.isEmpty { playbackField(title).font(.title3) }
+                if let artist = playback.artist, !artist.isEmpty { playbackField(artist).font(.body) }
+                if let album = playback.album, !album.isEmpty { playbackField(album).font(.callout).foregroundStyle(.secondary) }
+            } else {
+                SessionHighlightedText(text: entry.text ?? "", highlights: highlights).font(.title3)
+            }
+        }
+    }
+    private func playbackField(_ value: String) -> some View {
+        SessionHighlightedText(text: value, highlights: SessionPlaybackHighlights.project(highlights, source: entry.text ?? "", field: value))
+    }
+    private var spotifyFooterURL: URL? {
+        guard entry.requiresSpotifyAttribution == true else { return nil }
+        if let media = entry.sessionMedia,
+           let grant = media.admittedArtwork(session: entry.sessionID, target: .entry(entry.id),
+                audience: media.artwork.historicalDisplayAllowed ? .history : .activeFlow),
+           let raw = grant.sourceURL, let url = URL(string: raw) { return url }
+        return sourceURLs.first { $0.scheme == "https" && $0.host?.lowercased() == "open.spotify.com" }
+    }
     private var askButton: some View {
         Button { DJConnectHaptics.selection(); askAction() } label: {
             Image(systemName: selected ? "checkmark.bubble" : "bubble.left.and.bubble.right")
@@ -1123,6 +1169,20 @@ struct SessionEntryView: View, Equatable {
                 guard let raw, let url = URL(string: raw), ["http", "https"].contains(url.scheme), url.user == nil, url.password == nil else { return nil }
                 return url
             }
+    }
+}
+
+enum SessionPlaybackHighlights {
+    static func project(_ highlights: [DJConnectHistoryHighlight], source: String, field: String) -> [DJConnectHistoryHighlight] {
+        guard !field.isEmpty else { return [] }
+        let range = (source as NSString).range(of: field)
+        guard range.location != NSNotFound else { return [] }
+        return highlights.compactMap { highlight in
+            guard let safe = highlight.safeRange(in: source) else { return nil }
+            let intersection = NSIntersectionRange(safe, range)
+            guard intersection.length > 0 else { return nil }
+            return DJConnectHistoryHighlight(startUTF16: intersection.location - range.location, lengthUTF16: intersection.length)
+        }
     }
 }
 

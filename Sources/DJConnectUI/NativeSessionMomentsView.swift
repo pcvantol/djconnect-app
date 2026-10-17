@@ -725,7 +725,8 @@ struct MomentCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if let media = artworkMedia, let model = artworkModel {
-                SessionArtworkView(media: media, target: .moment(moment.id), audience: .current, language: language, model: model)
+                SessionArtworkView(media: media, target: .moment(moment.id), audience: .current, language: language, model: model,
+                    showsAttribution: moment.sourceAttribution?["provider"] != "Spotify" || moment.nativeSourceURLs.isEmpty)
             }
             Text(kind).font(.caption.weight(.bold)).foregroundStyle(.secondary)
             if !moment.title.isEmpty { Text(moment.title).font(.title2.bold()).accessibilityAddTraits(.isHeader) }

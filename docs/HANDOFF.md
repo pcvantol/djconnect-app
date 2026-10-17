@@ -1,4 +1,17 @@
-# Latest installed follow-up — iPhone40302 submitted-question positioning
+# Latest installed follow-up — iPhone40303 compact playback card
+
+Removed duplicate artwork-level Spotify attribution where the enclosing card
+already supplies its footer. Observed playback on iPad/Mac now places artwork
+left and heading/title/artist/album right, with timestamp/source links/one logo
+below; structured fields retain projected search highlights. Native Moment cards
+also avoid repeating their existing Spotify footer. Grant/source/expiry and
+playback authority unchanged. Highlight regression PASS0.001s; native signed
+iOS40303/strict signature/ordinary-product checks PASS. iPhone installed/read back
+40303 and launched. iPad40290/MacBook40292 unchanged per standing installation
+scope, so their new wide layout is not installed/visually accepted yet. See
+[compact-card evidence](feedback/APPLE_COMPACT_PLAYBACK_CARD_20261017.md).
+
+# Earlier installed follow-up — iPhone40302 submitted-question positioning
 
 Session and standalone Ask DJ now position a submitted question immediately above
 the measured input-bar safe-area reservation. Session uses one bottom-anchored
