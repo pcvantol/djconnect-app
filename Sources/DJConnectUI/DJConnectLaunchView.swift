@@ -110,7 +110,7 @@ private struct DJConnectLaunchView: View {
 
             ZStack {
                 DJConnectLaunchCanvasBackground()
-                compactLaunch(bannerWidth: bannerWidth, shortestSide: shortestSide)
+                compactLaunch(bannerWidth: bannerWidth, availableHeight: proxy.size.height)
             }
         }
     }
@@ -129,25 +129,28 @@ private struct DJConnectLaunchView: View {
         }
     }
 
-    private func compactLaunch(bannerWidth: CGFloat, shortestSide: CGFloat) -> some View {
-        VStack(spacing: 24) {
-            DJConnectLaunchBanner()
-                .frame(width: bannerWidth)
+    private func compactLaunch(bannerWidth: CGFloat, availableHeight: CGFloat) -> some View {
+        ScrollView {
             VStack(spacing: 24) {
-                DJSessionWelcomeArtwork()
-                    .frame(height: (bannerWidth - 36) * 0.72)
-                    .accessibilityHidden(true)
-                launchStatus
+                DJConnectLaunchBanner()
+                    .frame(width: bannerWidth)
+                VStack(spacing: 24) {
+                    DJSessionWelcomeArtwork()
+                        .frame(height: (bannerWidth - 36) * 0.72)
+                        .accessibilityHidden(true)
+                    launchStatus
+                }
+                .frame(maxWidth: .infinity)
+                .padding(18)
+                .djSessionFrostedSurface()
+                .frame(width: bannerWidth)
+                .accessibilityIdentifier("launch-content-card")
             }
-            .frame(maxWidth: .infinity)
-            .padding(18)
-            .djSessionFrostedSurface()
-            .frame(width: bannerWidth)
-            .accessibilityIdentifier("launch-content-card")
+            .frame(maxWidth: .infinity, minHeight: max(0, availableHeight - 48))
+            .padding(.vertical, 24)
+            .accessibilityElement(children: .combine)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .offset(y: -shortestSide * 0.04)
-        .accessibilityElement(children: .combine)
+        .scrollIndicators(.hidden)
     }
 
 }
@@ -197,32 +200,57 @@ private struct DJConnectLaunchCanvasBackground: View {
 }
 
 struct DJConnectLaunchBanner: View {
-    var subtitle: String = DJConnectLocalization.localized(key: "launch.music.control.with.character")
+    var subtitle: String = DJConnectLocalization.localized(key: "brand.tagline")
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        HStack(spacing: 14) {
-            DJConnectGlassBrandIcon()
-                .frame(width: 84, height: 84)
-            VStack(alignment: .center, spacing: 7) {
-                Text("DJConnect")
-                    .font(.system(size: 34, weight: .bold, design: .default))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.62)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .layoutPriority(2)
-                Text(subtitle)
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.72))
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.78)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .layoutPriority(1)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                verticalContent
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 14) {
+                        brandIcon
+                        brandText.frame(minWidth: 220)
+                    }
+                    verticalContent
+                }
             }
         }
         .padding(18)
         .djSessionFrostedSurface()
+        .accessibilityElement(children: .combine)
+    }
+
+    private var verticalContent: some View {
+        VStack(spacing: 14) {
+            brandIcon
+            brandText
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var brandIcon: some View {
+        DJConnectGlassBrandIcon()
+            .frame(width: 84, height: 84)
+    }
+
+    private var brandText: some View {
+        VStack(alignment: .center, spacing: 7) {
+            Text("DJConnect")
+                .font(.system(size: 34, weight: .bold, design: .default))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.62)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+            Text(subtitle)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.72))
+                .fixedSize(horizontal: false, vertical: true)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 # DJConnect App
 
-DJConnect. Muziekbediening met karakter.
+Zet je muziek aan. DJConnect brengt die tot leven.
 
 This repository contains native iOS, macOS, and watchOS DJConnect clients that
 talk to the Home Assistant `djconnect` custom integration. Home Assistant stays the

@@ -18679,12 +18679,8 @@ private struct FeedbackPromptView: View {
 }
 
 private struct AboutBanner: View {
-    private var language: String {
-        Locale.preferredLanguages.first?.lowercased().hasPrefix("nl") == true ? "nl" : "en"
-    }
-
     var body: some View {
-        DJConnectLaunchBanner(subtitle: localizedKey(language, "ui.music.control.with.character"))
+        DJConnectLaunchBanner()
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

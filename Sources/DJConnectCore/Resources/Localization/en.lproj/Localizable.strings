@@ -430,7 +430,6 @@
 "ui.update" = "Update";
 "ui.update.draft.context" = "Update draft context";
 "ui.open.github.draft" = "Open GitHub Draft";
-"ui.music.control.with.character" = "Music control with character";
 "ui.wake.word" = "Wake word";
 "ui.pair.home.assistant.first" = "Pair Home Assistant first";
 "ui.playback.backend.unavailable" = "Playback backend unavailable";
@@ -557,7 +556,6 @@
 "watch.voice.activation.only.listens.for.hey.dj.while" = "Voice activation only listens for Hey DJ while the Watch app is visible and open.";
 "watch.apple.will.ask.for.permission.next" = "Apple will ask for permission next.";
 "watch.no.wake.word.outside.the.app.apple.will" = "No wake word outside the app. Apple will ask for microphone and speech recognition permission next.";
-"watch.music.control.with.character" = "Music control with character.";
 "watch.version" = "Version";
 "watch.device.name" = "Device name";
 "watch.connection" = "Connection";
@@ -766,7 +764,6 @@
 "appModel.home.assistant.recognized.apple.watch.finish.setup.in.home" = "Home Assistant recognized Apple Watch. Finish setup in Home Assistant.";
 "appModel.home.assistant.did.not.accept.the.apple.watch.pair" = "Home Assistant did not accept the Apple Watch pair code.";
 "appModel.apple.watch.paired.with.home.assistant" = "Apple Watch paired with Home Assistant.";
-"launch.music.control.with.character" = "Music control with character.";
 "widget.run.track.insight.in.the.app.to.update.this" = "Run Track Insight in the app to update this widget.";
 "widget.ask.dj.in.the.app.to.update.this.widget" = "Ask DJ in the app to update this widget.";
 "watch.server.side.taste.profile.for.ask.dj.context.and.recommendations" = "Server-side taste profile for Ask DJ context and recommendations.";
@@ -1254,3 +1251,6 @@
 "ui.session.intro.navigation.body" = "Switch between DJ Session, Now Playing, Track Insight and Discover. More includes your queue and settings.";
 "ui.session.intro.sidebar.title" = "Navigation on the left";
 "ui.session.intro.sidebar.body" = "Use the sidebar to switch between DJ Session, Now Playing, Track Insight, Discover and the other screens.";
+
+// Shared main brand tagline: launch, About, setup and Watch About.
+"brand.tagline" = "Play your music. DJConnect brings it to life.";

@@ -4424,3 +4424,18 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     #expect(model.activeDJSession?.confirmedPresence?.selectedPresence == .presenter)
     #expect(!model.activePresencePending && fixture.requests.isEmpty)
 }
+
+@Test func sharedBrandTaglineUsesExactApprovedCopyInEveryLanguage() {
+    let expected = [
+        "en": "Play your music. DJConnect brings it to life.",
+        "nl": "Zet je muziek aan. DJConnect brengt die tot leven.",
+        "de": "Mach deine Musik an. DJConnect erweckt sie zum Leben.",
+        "fr": "Lancez votre musique. DJConnect lui donne vie.",
+        "es": "Pon tu música. DJConnect le da vida."
+    ]
+    for language in DJConnectLocalization.supportedLanguageCodes {
+        #expect(DJConnectLocalization.localized(key: "brand.tagline", language: language) == expected[language])
+    }
+    #expect(DJConnectLocalization.localized(key: "brand.tagline", language: "nl-NL") == expected["nl"])
+    #expect(DJConnectLocalization.localized(key: "brand.tagline", language: "unsupported") == expected["en"])
+}

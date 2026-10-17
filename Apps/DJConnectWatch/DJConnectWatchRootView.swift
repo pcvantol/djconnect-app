@@ -2088,7 +2088,8 @@ private struct DJConnectWatchAboutView: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
 
-                    Text(watchLocalizedKey(model.language, "watch.music.control.with.character"))
+                    Text(watchLocalizedKey(model.language, "brand.tagline"))
+                        .fixedSize(horizontal: false, vertical: true)
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.68))
                         .multilineTextAlignment(.center)

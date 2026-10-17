@@ -150,6 +150,7 @@
 		FD18BE1946F850CED5B702DE /* SessionHistoryContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF7AA85DF29BCD64C3B2B05 /* SessionHistoryContractTests.swift */; };
 		FE38A5777B25ACAEC8B83234 /* TrackInsightShareViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9050D0044AD0503337A3699E /* TrackInsightShareViews.swift */; };
 		FF76A13AF5A55A90DC522564 /* DJConnectWatchComplications.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1C1AEB2C655A789533668440 /* DJConnectWatchComplications.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		EF38318D99822DFF01F29486 /* LaunchScreen.strings in Resources */ = {isa = PBXBuildFile; fileRef = 1BD9DCF5A405733B0189852B /* LaunchScreen.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -481,6 +482,11 @@
 		FBE907808268D4334CA5B184 /* DJConnectClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectClient.swift; sourceTree = "<group>"; };
 		FF8E9C24E38E374695F4D300 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		FF9C06ECF082C0B085213ABD /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		B2C8B68A3A2F93F4512880F3 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
+		7BF471DF1BE16E7E1059DCB5 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
+		56CAB6A904EEDBF5C55F2C3D /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
+		08AD5CEB5FC7AE6C19A9EB93 /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
+		5C559EC6796F83B077A0A7AF /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -647,6 +653,7 @@
 				74772CBD8D695A8A4DAA4045 /* Info.plist */,
 				016893CADAA01E3C5DD26999 /* LaunchScreen.storyboard */,
 				E54C36B6AA97FCEC5A0E5E48 /* InfoPlist.strings */,
+				1BD9DCF5A405733B0189852B /* LaunchScreen.strings */,
 			);
 			path = DJConnectIOS;
 			sourceTree = "<group>";
@@ -1251,6 +1258,7 @@
 				CFC1ABCE87D4E965FC2943F5 /* Assets.xcassets in Resources */,
 				62C056EAF00D88CE83B60055 /* InfoPlist.strings in Resources */,
 				D7843393898D7718815669DC /* LaunchScreen.storyboard in Resources */,
+				EF38318D99822DFF01F29486 /* LaunchScreen.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1626,6 +1634,18 @@
 				3436FA1F5868A8F795746664 /* nl */,
 			);
 			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		1BD9DCF5A405733B0189852B /* LaunchScreen.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				B2C8B68A3A2F93F4512880F3 /* de */,
+				7BF471DF1BE16E7E1059DCB5 /* en */,
+				56CAB6A904EEDBF5C55F2C3D /* es */,
+				08AD5CEB5FC7AE6C19A9EB93 /* fr */,
+				5C559EC6796F83B077A0A7AF /* nl */,
+			);
+			name = LaunchScreen.strings;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */

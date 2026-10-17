@@ -430,7 +430,6 @@
 "ui.update" = "Bijwerken";
 "ui.update.draft.context" = "Werk conceptcontext bij";
 "ui.open.github.draft" = "Open GitHub concept";
-"ui.music.control.with.character" = "Muziekbediening met karakter";
 "ui.wake.word" = "Wake word";
 "ui.pair.home.assistant.first" = "Koppel eerst met Home Assistant";
 "ui.playback.backend.unavailable" = "Playback backend niet beschikbaar";
@@ -557,7 +556,6 @@
 "watch.voice.activation.only.listens.for.hey.dj.while" = "Stemactivatie luistert alleen naar Hey DJ zolang de Watch app zichtbaar en open is.";
 "watch.apple.will.ask.for.permission.next" = "Hierna vraagt Apple om toestemming.";
 "watch.no.wake.word.outside.the.app.apple.will" = "Geen wake word buiten de app. Hierna vraagt Apple om microfoon- en spraakherkenningstoestemming.";
-"watch.music.control.with.character" = "Muziekbediening met karakter.";
 "watch.version" = "Versie";
 "watch.device.name" = "Apparaatnaam";
 "watch.connection" = "Connectie";
@@ -766,7 +764,6 @@
 "appModel.home.assistant.recognized.apple.watch.finish.setup.in.home" = "Home Assistant heeft Apple Watch herkend. Rond de setup af in Home Assistant.";
 "appModel.home.assistant.did.not.accept.the.apple.watch.pair" = "Home Assistant accepteerde de Apple Watch koppelcode niet.";
 "appModel.apple.watch.paired.with.home.assistant" = "Apple Watch gekoppeld met Home Assistant.";
-"launch.music.control.with.character" = "Muziekbediening met karakter.";
 "widget.run.track.insight.in.the.app.to.update.this" = "Open Track Insight in de app om deze widget bij te werken.";
 "widget.ask.dj.in.the.app.to.update.this.widget" = "Gebruik Ask DJ in de app om deze widget bij te werken.";
 "watch.server.side.taste.profile.for.ask.dj.context.and.recommendations" = "Server-side smaakprofiel voor Ask DJ-context en aanbevelingen.";
@@ -1254,3 +1251,6 @@
 "ui.session.intro.navigation.body" = "Wissel tussen DJ-sessie, Speelt Nu, Track Insight en Ontdek. Onder Meer staan onder andere je wachtrij en instellingen.";
 "ui.session.intro.sidebar.title" = "Navigatie links";
 "ui.session.intro.sidebar.body" = "Via de zijbalk wissel je tussen DJ-sessie, Speelt Nu, Track Insight, Ontdek en de andere schermen.";
+
+// Shared main brand tagline: launch, About, setup and Watch About.
+"brand.tagline" = "Zet je muziek aan. DJConnect brengt die tot leven.";
