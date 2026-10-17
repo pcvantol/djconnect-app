@@ -333,8 +333,11 @@ struct NativeSessionMomentsView: View {
                 .transition(.opacity)
                 .accessibilityIdentifier("session-current-moment")
         } else {
-            VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Image(systemName: DJConnectFeatureSymbols.djSession)
+                    .font(.title).accessibilityHidden(true)
                 Text(text("ui.session.quiet")).font(.title2.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)
             .djSessionFrostedSurface(currentMomentBorder: true)

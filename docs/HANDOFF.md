@@ -1,4 +1,13 @@
-# Latest installed follow-up — iPhone40300 separate Now Playing cards
+# Latest installed follow-up — iPhone40301 inline listening status
+
+Quiet Session status now places the static icon and text in one horizontal row,
+wrapping text when needed instead of truncating. Recovery spinner remains absent.
+Swift parse/diff/native signed iOS40301/strict signature/ordinary-product checks
+PASS; iPhone installed/read back40301 and launched. No physical viewport or new
+full-suite claim. iPad40290/MacBook40292 unchanged. See
+[UI evidence](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md).
+
+# Earlier installed follow-up — iPhone40300 separate Now Playing cards
 
 New open TTS finding: existing iPhone logs around21:21 show contract3 prepare
 unavailable reason `source_processor_not_qualified` for the reported text-replay

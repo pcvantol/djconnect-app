@@ -319,3 +319,17 @@ iPad/MacBook unchanged. No new unit tests for this reversible presentation-only 
 no physical viewport acceptance or new full-suite PASS is implied. Private build
 log: `/private/tmp/djc-split-now-playing-40300-ios-build.log`.
 Device receipts: `/private/tmp/djc-split-now-playing-40300-{install,apps,launch}.json`.
+
+## Inline listening status icon/text — 40301
+
+Owner requested the quiet Session status text beside its icon when space allows.
+The quiet card now uses a baseline-aligned horizontal row with the static
+Session symbol and unchanged title text. Text can wrap vertically on narrow
+screens or with larger text settings; no forced single-line truncation. The
+recovery progress spinner remains removed. Card padding/glass/border and Session
+logic remain unchanged.
+
+Swift parse/diff/native signed iOS40301/strict signature/ordinary-product checks
+PASS. iPhone installed/read back40301 and launched; iPad/MacBook unchanged. No new unit
+tests for this small reversible layout change or physical viewport claim.
+Private receipts: `/private/tmp/djc-inline-status-40301-*`.
