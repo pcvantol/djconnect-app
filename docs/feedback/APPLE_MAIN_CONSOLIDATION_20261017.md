@@ -80,3 +80,28 @@ physical UI/audio/production acceptance is claimed.
 Original newly added localization keys are all retained in every language.
 Current shared admission and lifecycle/target tests cover the evolved original
 Moment path; old callbacks and visual assertions are not mechanically restored.
+
+## PR111: concrete CI findings repaired
+
+Initial published/owner-approved head664c8aad failed two checks; failures remain
+recorded rather than relabeled. Native coverage could not compile two
+Bundle.module references in the passive fixture loader. The native branch now
+uses the same source-relative fixture strategy as other contract tests; SwiftPM
+keeps its resource bundle. Separately, the original-deadline speech test observed
+preparing after exactly two scheduler yields, with zero plays. It now awaits
+observable idle completion and retains both the no-audio and expiry assertions.
+Only these two test files changed; no production-code behavior or assertion was
+removed. The fixes are part of completing the already authorized protected PR.
+
+Fresh validation after both fixes:42 relevant tests PASS2.208s; full Swift suite
+784tests/10suites PASS92.029s; full native Core suite with coverage784tests/10suites
+PASS87.554s. xccov JSON export PASS. The first local native attempt stalled in
+bundle directory opening before any test; it was gracefully interrupted. The
+newly built products and generated test plan were copied with verified identical
+bytes/modes/symlinks to a private temporary directory. The unchanged plan then
+completed; no SDK repair, signing/entitlement change or runtime-security bypass.
+The original cache-open limitation is preserved as infrastructure evidence.
+
+PR: https://github.com/pcvantol/djconnect-app/pull/111. Fresh protected checks and
+Owner Authorization must bind the updated PR head; the old head's status is not
+reused. All functional acceptance boundaries above remain unchanged.

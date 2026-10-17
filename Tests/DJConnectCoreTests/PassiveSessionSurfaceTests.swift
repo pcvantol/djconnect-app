@@ -6,7 +6,14 @@ import DJConnectCore
 @testable import DJConnectUI
 
 private func passiveOriginal() throws -> [String: Any] {
+    #if SWIFT_PACKAGE
     let url = try #require(Bundle.module.url(forResource: "passive-session-core-2cb87cb7", withExtension: "json", subdirectory: "Fixtures") ?? Bundle.module.url(forResource: "passive-session-core-2cb87cb7", withExtension: "json"))
+    #else
+    // Match the other native contract fixtures: Xcode does not synthesize
+    // SwiftPM's Bundle.module accessor for this macOS unit-test target.
+    let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        .deletingLastPathComponent().appendingPathComponent("Fixtures/passive-session-core-2cb87cb7.json")
+    #endif
     let root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
     let rows = try #require(root["rows"] as? [[String: Any]])
     return try #require(rows.first?["response"] as? [String: Any])

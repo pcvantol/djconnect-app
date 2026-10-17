@@ -174,7 +174,10 @@ struct SpeechPlaybackRuntimeTests {
         let h = try SpeechRuntimeHarness(); h.blockedStage = stage
         #expect(h.listen()); await h.settle { h.continuation != nil }
         h.clock.now = h.clock.now.addingTimeInterval(40)
-        h.resume(); await Task.yield(); await Task.yield()
+        h.resume()
+        // A resumed continuation need not finish within two scheduler yields.
+        // Observe expiry handling itself before asserting its no-audio result.
+        await h.settle { h.runtime.state == .idle }
         #expect(h.plays == 0 && h.runtime.state == .idle)
     }
 

@@ -51,5 +51,27 @@
     "input_manifest_sha256": "dd0f708141f8a4eb98d9465acad3aea222caf463b6263656fe0bf3376d00f7c8",
     "physical_device_acceptance": "No new claim; installed iPad40282 preserved",
     "protected_merge": "PENDING"
+  },
+  "source_pr": "https://github.com/pcvantol/djconnect-app/pull/111",
+  "initial_publication_approved_head": "664c8aad5820c443d8126c01c3112fbd14479c4f",
+  "ci_followup": {
+    "initial_native_failure": "TDE coverage compile failed because passive fixture used two Bundle.module references outside SWIFT_PACKAGE",
+    "initial_swift_failure": "Original deadline test expected resumed async work to finish after exactly two Task.yield calls; observed preparing, zero plays",
+    "fixes": [
+      "Use existing source-relative fixture strategy in native Xcode target; retain Bundle.module in SwiftPM",
+      "Await observable idle completion in expiry test; retain zero-audio and deadline assertions"
+    ],
+    "production_code_changed": false,
+    "targeted_tests": 42,
+    "targeted_duration_seconds": 2.208,
+    "full_swift_tests": 784,
+    "full_swift_suites": 10,
+    "full_swift_duration_seconds": 92.029,
+    "native_tests": 784,
+    "native_suites": 10,
+    "native_duration_seconds": 87.554,
+    "native_coverage_export": "PASS",
+    "native_infrastructure": "First local run interrupted before tests while opening external-cache test bundle. Rebuilt tests and byte-identical products/test plan copied to a private temporary directory; unchanged plan then completed. No SDK/signing/security modification.",
+    "input_manifest_sha256": "41f682e7e96f97efa0217ce14923308251758b8d69cad78107168d1cc49a82e6"
   }
 }
