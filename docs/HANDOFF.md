@@ -1,6 +1,7 @@
-# Current local Apple follow-up — iPad40288
+# Current local Apple follow-up — iPad40289
 
-Latest ordinary iPad build40288 is installed/read back/launched with shared
+Latest ordinary iPad build40289 is installed/read back/launched with equal
+selector icon cells for presence/persona/mood and shared
 purple toggle styling, including the
 compact connection popover/keyboard presentation correction, following
 Discover width40284, fixed Logs title40285 and games available-space40286.

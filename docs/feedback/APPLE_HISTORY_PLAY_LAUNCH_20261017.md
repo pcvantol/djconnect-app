@@ -117,3 +117,17 @@ Signed native iOS40288 including embedded Watch targets PASS; strict deep
 signatures/ordinary-product inspection PASS. Only iPad installed, independently
 read back40288 and launched. Private logs/receipts: `/private/tmp/djc-purple-toggles-*`.
 No physical visual toggle-state acceptance or new whole-suite PASS is inferred.
+
+## Equal selector cells — ordinary40289
+
+Owner requested equal option-button sizing in presence, persona and mood menus.
+Their shared SessionGlassChoiceSelector now gives each symbol an identical24x28pt
+intrinsic frame before its flexible48pt-high cell and shared button padding.
+The HStack therefore distributes width equally without narrower glyph minima
+shrinking music-note/microphone options. Existing responsive width, focus,
+selection, disabled appearance and accessibility labels are retained.
+
+Signed native iOS40289 including embedded targets PASS; strict deep signatures
+and ordinary-product checks PASS. Only iPad installed/read back40289 and launched.
+Private logs/receipts: `/private/tmp/djc-equal-choice-buttons-*`. Physical viewport
+measurement was not captured; no new whole-suite result is inferred.

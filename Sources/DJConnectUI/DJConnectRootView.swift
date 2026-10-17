@@ -13179,6 +13179,8 @@ struct SessionGlassChoiceSelector: View {
                     Button { DJConnectHaptics.selection(); onSelect(index) } label: {
                         Image(systemName: glyphs[safe: index] ?? "sparkles")
                             .font(.system(size: 22, weight: .semibold))
+                            // Equal intrinsic width keeps HStack allocation independent of the symbol.
+                            .frame(width: 24, height: 28)
                             .foregroundStyle(index == selectedIndex ? selectionColor : .white)
                             .frame(maxWidth: .infinity, minHeight: 48)
                     }
