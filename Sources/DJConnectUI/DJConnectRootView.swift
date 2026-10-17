@@ -11766,18 +11766,21 @@ struct AskDJMessageBubble: View {
 
     private var displayItems: [DJConnectAskDJHistoryItem] {
         guard canRenderPlaybackActions else { return message.items }
-        let playableTrackURIs = Set(renderablePlaybackActions.filter { $0.kind == "track" }.compactMap(\.uri))
         let outputs = renderablePlaybackActions.filter(\.isOutputAction)
         let ids = Set(outputs.compactMap(\.outputDeviceID).map { $0.lowercased() })
         let names = Set(outputs.flatMap { [$0.deviceName, Optional($0.title)] }
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
         return message.items.filter { item in
-            if let uri = item.uri, playableTrackURIs.contains(uri) { return false }
             if let value = item.value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), ids.contains(value) { return false }
             let kind = item.kind?.lowercased() ?? ""
             return !(["output", "output_device", "device", "speaker", "computer"].contains(kind)
                 && names.contains(item.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()))
         }
+    }
+
+    private var standalonePlaybackActions: [DJConnectAskDJPlaybackAction] {
+        let inlineIDs = Set(displayItems.compactMap { message.playbackAction(forHistoryItem: $0)?.id })
+        return renderablePlaybackActions.filter { !inlineIDs.contains($0.id) }
     }
 
     private var shouldRenderOutputActionsAsList: Bool {
@@ -11869,7 +11872,11 @@ struct AskDJMessageBubble: View {
                             AskDJTrackInsightSummary(insight: trackInsight, language: language)
                         }
                         if !isUser, !displayItems.isEmpty {
-                            AskDJItemList(items: displayItems)
+                            AskDJItemList(
+                                items: displayItems, language: language, playingActionID: playingActionID,
+                                playbackAction: { canRenderPlaybackActions ? message.playbackAction(forHistoryItem: $0) : nil },
+                                playAction: playAction
+                            )
                         }
                         ForEach(historicalMatches.filter { $0.isRetained() }) { match in
                             SessionHistoryMatchCard(entry: match, language: language) { action in openHistoryAction?(action) }
@@ -11883,9 +11890,9 @@ struct AskDJMessageBubble: View {
                         if !sourceLinks.isEmpty {
                             AskDJSourcesStack(links: sourceLinks, language: language, openLink: openLink)
                         }
-                        if canRenderPlaybackActions, !renderablePlaybackActions.isEmpty {
+                        if canRenderPlaybackActions, !standalonePlaybackActions.isEmpty {
                             AskDJPlaybackActionStack(
-                                actions: renderablePlaybackActions,
+                                actions: standalonePlaybackActions,
                                 language: language,
                                 playingActionID: playingActionID,
                                 playAction: playAction
@@ -12199,10 +12206,15 @@ private func askDJIsOpaqueIdentifier(_ value: String) -> Bool {
 
 private struct AskDJItemList: View {
     let items: [DJConnectAskDJHistoryItem]
+    let language: String
+    let playingActionID: String?
+    let playbackAction: (DJConnectAskDJHistoryItem) -> DJConnectAskDJPlaybackAction?
+    let playAction: (DJConnectAskDJPlaybackAction) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            ForEach(items) { item in
+            // Repeated listens may share a URI; retain every occurrence.
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                 HStack(spacing: 10) {
                     itemArtwork(for: item)
 
@@ -12243,6 +12255,23 @@ private struct AskDJItemList: View {
                     }
 
                     Spacer(minLength: 0)
+                    if let action = playbackAction(item) {
+                        Button { playAction(action) } label: {
+                            ZStack {
+                                if playingActionID == action.id {
+                                    ProgressView().controlSize(.small).tint(.white)
+                                } else {
+                                    Image(systemName: "play.circle.fill")
+                                        .font(.system(size: 23, weight: .semibold))
+                                }
+                            }
+                            .foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                        }
+                        .djConnectPlainButtonStyle()
+                        .accessibilityLabel(localizedKey(language, "ui.play.now") + " " + item.title)
+                        .disabled(playingActionID != nil)
+                    }
                 }
                 .padding(.horizontal, 9)
                 .padding(.vertical, 8)

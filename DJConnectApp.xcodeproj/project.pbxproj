@@ -227,7 +227,6 @@
 		EF0E7CD9F3CF79AE3F43855E /* NativeBottomTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CE40DF95FB967211356B085 /* NativeBottomTabBar.swift */; };
 		F1743F294A122B7019290ECE /* TrackInsightShareRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C97BDBB086FDCCF212549C6 /* TrackInsightShareRenderer.swift */; };
 		F1CF4F325CBF0E0BFCCAA771 /* DJConnectPairedActionConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F43E9CF3F9F9734B22A81C0 /* DJConnectPairedActionConnection.swift */; };
-		F51495B828454F82053A9982 /* LaunchScreen.strings in Resources */ = {isa = PBXBuildFile; fileRef = 43FCCB6B39933885651BC717 /* LaunchScreen.strings */; };
 		F5D797603C3FF603E89C262C /* DJConnectMoment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6AC76AA683C03C6BE3B7806 /* DJConnectMoment.swift */; };
 		F82F7B9DCA6316CB3CC8D7AB /* DJConnectPermissionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CCD20F349D8A2854F6AD0F9 /* DJConnectPermissionCoordinator.swift */; };
 		F8505F3454ADD573DC9F6DEE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 93BE51ADEAE2C4D8EA9988F1 /* Assets.xcassets */; };
@@ -496,12 +495,10 @@
 		3436FA1F5868A8F795746664 /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		364D76BD4811E1D2049CE566 /* MomentContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MomentContractTests.swift; sourceTree = "<group>"; };
 		3A473222FF5ED07EE5B17C27 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		3CAF711DDAC6ACE28661D908 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
 		3F43E9CF3F9F9734B22A81C0 /* DJConnectPairedActionConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectPairedActionConnection.swift; sourceTree = "<group>"; };
 		40011F227BEC32338ACC1F20 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		423DAFBE1369FE47AA43E6CF /* DJConnectIOSSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectIOSSettingsTests.swift; sourceTree = "<group>"; };
 		45528CBD4F8D40CACCF5FFD1 /* DJConnectIOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DJConnectIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		455D8A8E298973A498668A2C /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
 		47CB3DA190E30877E0C146E4 /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		48D4F75F261BB3FACEF2EA26 /* DJConnectUIIOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DJConnectUIIOS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4BF69FA52F132D5D80E3FDF8 /* SessionSpeechContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSpeechContractTests.swift; sourceTree = "<group>"; };
@@ -552,7 +549,6 @@
 		A0C046B5E061ABCE8DE38FD7 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DJConnectCoreMac.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		A6AC76AA683C03C6BE3B7806 /* DJConnectMoment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectMoment.swift; sourceTree = "<group>"; };
-		A924EF3BCA9682E5B8EA9FE7 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
 		A925089414284E0693A9FD97 /* DJConnectRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectRootView.swift; sourceTree = "<group>"; };
 		A943EC6D586E6780FE893F05 /* ArtworkPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkPresentationTests.swift; sourceTree = "<group>"; };
 		AA736267DA83B13ACFBCEC2E /* DJConnectSessionRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionRuntime.swift; sourceTree = "<group>"; };
@@ -588,7 +584,6 @@
 		D67D7549924B4B6A1B783938 /* DJConnectPassiveSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectPassiveSession.swift; sourceTree = "<group>"; };
 		DB9CA48949CC3F1C66897A37 /* DJConnectWatchProxyRequests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchProxyRequests.swift; sourceTree = "<group>"; };
 		DBE7DCFC839E56F90B9AD092 /* SessionArtworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionArtworkView.swift; sourceTree = "<group>"; };
-		DCAC40339382A190B3EB0119 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
 		DD4921C1293A50DA9EA51B5E /* HybridLocalPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HybridLocalPolicyTests.swift; sourceTree = "<group>"; };
 		DE473A51768FAF83BB87904A /* DJConnectCoreIOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DJConnectCoreIOS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		DF1B1366F872E9A96E8E81BE /* SessionSurfaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSurfaceTests.swift; sourceTree = "<group>"; };
@@ -602,7 +597,6 @@
 		E73FECA896259829EBF9F4E8 /* ProfileDJSettingsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileDJSettingsModel.swift; sourceTree = "<group>"; };
 		EACDF5EC6A86A72305C5C68F /* TrackInsightPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackInsightPresentationTests.swift; sourceTree = "<group>"; };
 		EB1971D307A974FC7A093763 /* SessionTimelineRendering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTimelineRendering.swift; sourceTree = "<group>"; };
-		EBCED23356E4C011701718BE /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
 		EE354E073321251BA44BDCFF /* DJConnectTrackInsightWidgetsIOS.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = DJConnectTrackInsightWidgetsIOS.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		EF55E6BE5E6AA1843606BB31 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
 		F12708B5EACDDCDDCDC9C133 /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -804,7 +798,6 @@
 				74772CBD8D695A8A4DAA4045 /* Info.plist */,
 				016893CADAA01E3C5DD26999 /* LaunchScreen.storyboard */,
 				E54C36B6AA97FCEC5A0E5E48 /* InfoPlist.strings */,
-				43FCCB6B39933885651BC717 /* LaunchScreen.strings */,
 			);
 			path = DJConnectIOS;
 			sourceTree = "<group>";
@@ -1437,7 +1430,6 @@
 				CFC1ABCE87D4E965FC2943F5 /* Assets.xcassets in Resources */,
 				62C056EAF00D88CE83B60055 /* InfoPlist.strings in Resources */,
 				D7843393898D7718815669DC /* LaunchScreen.storyboard in Resources */,
-				F51495B828454F82053A9982 /* LaunchScreen.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1864,18 +1856,6 @@
 				F12708B5EACDDCDDCDC9C133 /* nl */,
 			);
 			name = InfoPlist.strings;
-			sourceTree = "<group>";
-		};
-		43FCCB6B39933885651BC717 /* LaunchScreen.strings */ = {
-			isa = PBXVariantGroup;
-			children = (
-				3CAF711DDAC6ACE28661D908 /* de */,
-				DCAC40339382A190B3EB0119 /* en */,
-				A924EF3BCA9682E5B8EA9FE7 /* es */,
-				EBCED23356E4C011701718BE /* fr */,
-				455D8A8E298973A498668A2C /* nl */,
-			);
-			name = LaunchScreen.strings;
 			sourceTree = "<group>";
 		};
 		C1969523B9A957E4B7A7D53C /* InfoPlist.strings */ = {

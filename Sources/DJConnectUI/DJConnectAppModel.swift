@@ -516,6 +516,16 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         playbackActions
     }
 
+    /// Match only an explicit server action; a history URI alone grants no playback.
+    func playbackAction(forHistoryItem item: DJConnectAskDJHistoryItem) -> DJConnectAskDJPlaybackAction? {
+        guard let uri = item.uri, !uri.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              item.kind?.lowercased() == "track" else { return nil }
+        let matches = renderablePlaybackActions.filter {
+            $0.kind?.lowercased() == "track" && $0.uri == uri && $0.hasConsistentResultIdentity
+        }
+        return matches.count == 1 ? matches.first : nil
+    }
+
     enum CodingKeys: String, CodingKey {
         case id
         case serverID = "server_id"

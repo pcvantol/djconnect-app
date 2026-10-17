@@ -4870,3 +4870,23 @@ func missingOptionalSpeechRouteKeepsReachableOriginAndNeverReplays(_ mode: DJCon
     #expect(model.selectedOutput == "MacBook")
     #expect(model.availableOutputs.filter { $0.active == true }.map(\.id) == ["mac"])
 }
+
+@Test func historyRowPlaybackRequiresOneExplicitServerAction() {
+    let item = DJConnectAskDJHistoryItem(kind: "track", title: "Thank U", uri: "spotify:track:example", playedAtLabel: "20:26")
+    var message = DJConnectAskDJMessage(role: .dj, text: "Recently played", items: [item, item])
+    #expect(message.playbackAction(forHistoryItem: item) == nil)
+    let action = DJConnectAskDJPlaybackAction(id: "replay", title: item.title, uri: item.uri, kind: "track")
+    message.playbackActions = [action]
+    #expect(message.playbackAction(forHistoryItem: item) == action)
+    #expect(message.items.count == 2)
+    #expect(message.items.allSatisfy { $0.playedAtLabel == "20:26" })
+    var different = item; different.uri = "spotify:track:other"
+    #expect(message.playbackAction(forHistoryItem: different) == nil)
+    different = item; different.kind = "technical_metric"
+    #expect(message.playbackAction(forHistoryItem: different) == nil)
+    message.playbackActions = [action, action]
+    #expect(message.playbackAction(forHistoryItem: item) == nil)
+    var invalid = action; invalid.resultSetID = "set-without-action"
+    message.playbackActions = [invalid]
+    #expect(message.playbackAction(forHistoryItem: item) == nil)
+}
