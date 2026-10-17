@@ -12,6 +12,15 @@ enum DJConnectFeatureSymbols {
 /// Navigation chrome (back and sidebar controls) remains system-owned.
 var djConnectRefreshToolbarPlacement: ToolbarItemPlacement {
     #if os(macOS)
+    .confirmationAction
+    #else
+    .primaryAction
+    #endif
+}
+
+/// Feature controls stay at the leading edge on Mac, apart from refresh/status.
+var djConnectScreenActionsToolbarPlacement: ToolbarItemPlacement {
+    #if os(macOS)
     .navigation
     #else
     .primaryAction
@@ -885,6 +894,9 @@ public struct DJConnectRootView: View {
                         .foregroundStyle(.white)
                         .accessibilityLabel(localizedKey(model.language, "ui.navigation.menu"))
                         .accessibilityIdentifier("main-sidebar-toggle")
+                    }
+                    if #available(macOS 26.0, *) {
+                        ToolbarSpacer(.fixed, placement: .navigation)
                     }
                 }
                 .tint(Color(red: 0.74, green: 0.22, blue: 0.96))
@@ -3379,12 +3391,17 @@ struct NowPlayingView: View {
             }
             .navigationTitle(screenTitle(model.language, key: "Now Playing", isDemoMode: model.isDemoMode))
             .toolbar {
+                #if os(macOS)
+                ConnectionStatusToolbar(model: model)
+                #endif
                 ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
                     RefreshButton(model: model) {
                         Task { await refreshNowPlayingWithToast() }
                     }
                 }
+                #if !os(macOS)
                 ConnectionStatusToolbar(model: model)
+                #endif
             }
             .djStatusToastOverlay(statusToast, screenImage: "music.note")
             .djUserNoticeToast(model: model, screenImage: "music.note")
@@ -4141,9 +4158,11 @@ struct TrackInsightView: View {
                     }
 
                 }
+                ToolbarItemGroup(placement: .navigation) {
+                    if !explicitMoment { moodToolbarButton }
+                }
                 ToolbarItemGroup(placement: .confirmationAction) {
                     if !explicitMoment {
-                        moodToolbarButton
                         SessionConnectionToolbarButton(model: model)
                     }
                     insightRefreshButton
@@ -4392,6 +4411,9 @@ private struct MusicDNAView: View {
             #endif
             .toolbar {
                 #if os(macOS)
+                ConnectionStatusToolbar(model: model)
+                #endif
+                #if os(macOS)
                 ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
                     MusicDNARefreshButton(model: model)
                 }
@@ -4400,7 +4422,9 @@ private struct MusicDNAView: View {
                     MusicDNARefreshButton(model: model)
                 }
                 #endif
+                #if !os(macOS)
                 ConnectionStatusToolbar(model: model)
+                #endif
             }
         }
         .task(id: scenePhase) {
@@ -6321,6 +6345,12 @@ private struct MusicDiscoveryView: View {
             .navigationBarTitleDisplayMode(.large)
             #endif
             .toolbar {
+                #if os(macOS)
+                ConnectionStatusToolbar(model: model)
+                #endif
+                #if os(macOS)
+                ConnectionStatusToolbar(model: model)
+                #endif
                 ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
                     Button {
                         Task { await refreshMusicDiscoveryWithToast() }
@@ -6335,7 +6365,11 @@ private struct MusicDiscoveryView: View {
                     .tint(.white)
                     .accessibilityLabel(localizedKey(model.language, "ui.refresh.discover"))
                 }
+                #if !os(macOS)
+                #if !os(macOS)
                 ConnectionStatusToolbar(model: model)
+                #endif
+                #endif
             }
             .task(id: model.isDemoMode || (model.pairingStatus == .paired && model.isRuntimeCompatible)) {
                 await model.loadMusicDiscovery(showToast: true)
@@ -8945,10 +8979,10 @@ private struct DJSessionView: View {
                 }
                 #endif
                 #if os(macOS)
+                sessionConnectionToolbar
                 if model.activeDJSession == nil {
                     sessionRefreshToolbar
                 }
-                sessionConnectionToolbar
                 #else
                 sessionConnectionToolbar
                 if model.activeDJSession == nil {
@@ -9008,19 +9042,6 @@ private struct DJSessionView: View {
 private struct IdleDJSessionView: View {
     @ObservedObject var model: DJConnectAppModel
     @ScaledMetric(relativeTo: .largeTitle) private var titleSize: CGFloat = 42
-    private let moods: [(id: String, glyph: String)] = [
-        ("chill", "moon.stars"), ("groove", "waveform"),
-        ("energy", "bolt"), ("party", "sparkles")
-    ]
-
-    private var usesIconOnlyMoodButtons: Bool {
-        #if os(iOS)
-        UIDevice.current.userInterfaceIdiom == .phone
-        #else
-        false
-        #endif
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
             ViewThatFits(in: .horizontal) {
@@ -9032,24 +9053,7 @@ private struct IdleDJSessionView: View {
                 welcomeCopy(compactArtwork: true)
             }
             VStack(alignment: .leading, spacing: 16) {
-                Text(localizedKey(model.language, "ui.session.welcome.mood"))
-                    .font(.headline)
-                VStack(spacing: 8) {
-                    HStack(spacing: 4) {
-                        ForEach(moods, id: \.id) { mood in
-                            moodButton(mood.id, glyph: mood.glyph)
-                        }
-                    }
-                    .padding(DJConnectCardAppearance.segmentedContentInset)
-                    .djConnectGradientCard()
-                    if usesIconOnlyMoodButtons {
-                        Text(localizedKey(model.language, "ui.session.mood." + model.selectedSessionMood))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.82))
-                            .frame(maxWidth: .infinity)
-                            .accessibilityIdentifier("session-welcome-selected-mood")
-                    }
-                }
+                IdleSessionProfileChoices(model: model)
                 Button { Task { await model.startDJSession() } } label: {
                     HStack(spacing: 12) {
                         if model.isLoadingDJSession { ProgressView().tint(.white) }
@@ -9060,7 +9064,7 @@ private struct IdleDJSessionView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
-                .disabled(model.isLoadingDJSession || (!model.isDemoMode && model.pairingStatus != .paired) || !model.canUsePlaybackFeatures)
+                .disabled(model.isLoadingDJSession || (!model.isDemoMode && model.pairingStatus != .paired) || !model.canUsePlaybackFeatures || model.isSchedulingProfileDJChoice || (!model.isDemoMode && [.saving, .uncertain].contains(model.profileDJSettings.phase)))
                 .accessibilityIdentifier("session-welcome-start")
                 if !model.isDemoMode && (model.pairingStatus != .paired || !model.canUsePlaybackFeatures) {
                     Text(localizedKey(model.language, "ui.session.requires_connection")).font(.footnote).foregroundStyle(.secondary)
@@ -9105,34 +9109,98 @@ private struct IdleDJSessionView: View {
         }
     }
 
-    private func moodButton(_ mood: String, glyph: String) -> some View {
-        let selected = model.selectedSessionMood == mood
-        return Button { model.selectedSessionMood = mood } label: {
-            Group {
-                if usesIconOnlyMoodButtons {
-                    Image(systemName: glyph)
-                        .font(.title3.weight(.semibold))
-                } else {
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 8) {
-                            Image(systemName: glyph)
-                            Text(localizedKey(model.language, "ui.session.mood." + mood))
-                        }
-                        VStack(spacing: 4) {
-                            Image(systemName: glyph)
-                            Text(localizedKey(model.language, "ui.session.mood." + mood))
-                        }
-                    }
-                }
-            }
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.white.opacity(selected ? 1 : 0.78))
-            .frame(maxWidth: .infinity, minHeight: 48)
+
+}
+
+/// Uses the same backend Profile defaults that Session start consumes.
+private struct IdleSessionProfileChoices: View {
+    let model: DJConnectAppModel
+    @StateObject private var presentation: ProfileDJSettingsEditorState
+    @State private var showingReview = false
+    init(model: DJConnectAppModel) {
+        self.model = model
+        _presentation = StateObject(wrappedValue: ProfileDJSettingsEditorState(model.profileDJSettings))
+    }
+    private var state: ProfileDJSettingsEditorState.Value { presentation.value }
+    private func text(_ key: String) -> String { localizedKey(model.language, key) }
+    private var presences: [DJConnectSessionPresenceValue] {
+        DJConnectSessionPresenceValue.allCases.filter {
+            state.response?.allowed_values.presence.contains($0.rawValue) ?? true
         }
-        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: selected ? .selected : .secondary, shape: .segmented, expands: true))
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityLabel(localizedKey(model.language, "ui.session.mood." + mood))
-        .accessibilityIdentifier("session-welcome-mood-" + mood)
+    }
+    private var personas: [DJConnectSessionPersonaValue] {
+        DJConnectSessionPersonaValue.allCases.filter {
+            state.response?.allowed_values.persona.contains($0.rawValue) ?? true
+        }
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            let moods = ["chill", "groove", "energy", "party"].filter { state.response?.allowed_values.mood.contains($0) ?? true }
+            SessionGlassChoiceSelector(
+                steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
+                selectedIndex: moods.firstIndex(of: model.selectedSessionMood) ?? -1,
+                language: model.language,
+                glyphs: moods.map { ["chill": "moon.stars", "groove": "waveform", "energy": "bolt", "party": "sparkles"][$0]! },
+                optionIDs: moods.map { "session-welcome-mood-" + $0 },
+                preservesAppearanceWhileDisabled: true,
+                selectedLabelIdentifier: "session-welcome-selected-mood"
+            ) { index in
+                guard moods.indices.contains(index) else { return }
+                model.selectedSessionMood = moods[index]
+            }
+            .disabled(!model.isDemoMode && (!state.canEdit || state.response?.requiresSelection == true))
+
+            SessionGlassChoiceSelector(
+                steps: presences.enumerated().map { (text($0.element.localizationKey), $0.offset) },
+                selectedIndex: state.response.flatMap { presences.firstIndex(of: $0.snapshot.defaults.presence) } ?? -1,
+                language: model.language,
+                glyphs: presences.map { ["music.note", "bubble.left", "bubble.left.and.bubble.right", "waveform", "mic.fill"][DJConnectSessionPresenceValue.allCases.firstIndex(of: $0)!] },
+                titleKey: "ui.dj_settings.presence", accessibilityLabelKey: "ui.session.presence.title",
+                optionIDs: presences.map { "session-welcome-presence-" + $0.rawValue },
+                preservesAppearanceWhileDisabled: true
+            ) { index in
+                guard state.canEdit, presences.indices.contains(index) else { return }
+                let value = presences[index]
+                model.scheduleProfileDJChoice(.init(presence: value))
+            }
+            .disabled(!state.canEdit || model.isDemoMode || state.response?.requiresSelection == true)
+            SessionGlassChoiceSelector(
+                steps: personas.enumerated().map { (text($0.element.localizationKey), $0.offset) },
+                selectedIndex: state.response.flatMap { personas.firstIndex(of: $0.snapshot.defaults.persona) } ?? -1,
+                language: model.language,
+                glyphs: personas.map { ["house", "radio", "opticaldisc", "music.mic"][DJConnectSessionPersonaValue.allCases.firstIndex(of: $0)!] },
+                titleKey: "ui.dj_settings.persona", accessibilityLabelKey: "ui.session.persona.title",
+                optionIDs: personas.map { "session-welcome-persona-" + $0.rawValue },
+                preservesAppearanceWhileDisabled: true
+            ) { index in
+                guard state.canEdit, personas.indices.contains(index) else { return }
+                let value = personas[index]
+                model.scheduleProfileDJChoice(.init(persona: value))
+            }
+            .disabled(!state.canEdit || model.isDemoMode || state.response?.requiresSelection == true)
+            if state.response?.requiresSelection == true {
+                Text(text("ui.dj_settings.review_choices")).font(.callout)
+                Button(text("ui.dj_settings.title")) { showingReview = true }
+                    .djConnectButtonStyle(DJConnectButtonStyle())
+            }
+            if [.uncertain, .unavailable].contains(state.phase) {
+                Text(text("ui.dj_settings." + state.phase.rawValue)).font(.callout)
+            } else if model.isDemoMode {
+                Text(text("ui.dj_settings.demo_unavailable")).font(.callout)
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if [.loading, .saving].contains(state.phase) || model.isSchedulingProfileDJChoice {
+                ProgressView().controlSize(.small).accessibilityLabel(text("ui.dj_settings.saving"))
+            }
+        }
+        .accessibilityIdentifier("session-welcome-profile-choices")
+        .task { await model.refreshProfileDJSettings() }
+        .sheet(isPresented: $showingReview) {
+            ProfileDJSettingsEditor(model: model)
+                .padding()
+                .djConnectPresentationSurface()
+        }
     }
 }
 
@@ -9494,6 +9562,9 @@ private struct IOSNowPlayingView: View {
             .navigationTitle(screenTitle(model.language, key: "Now Playing", isDemoMode: model.isDemoMode))
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
+                #if os(macOS)
+                ConnectionStatusToolbar(model: model)
+                #endif
                 if model.shouldShowAppleWatchPairingReminder {
                     ToolbarItem(placement: .topBarLeading) {
                         AppleWatchPairingReminderButton(model: model)
@@ -9504,7 +9575,9 @@ private struct IOSNowPlayingView: View {
                         Task { await refreshNowPlayingWithToast() }
                     }
                 }
+                #if !os(macOS)
                 ConnectionStatusToolbar(model: model)
+                #endif
             }
             .djUserNoticeToast(model: model, screenImage: "music.note")
         }
@@ -9576,7 +9649,7 @@ struct IOSConnectionCard: View {
                     .foregroundStyle(.orange)
                     .lineLimit(nil)
                     .fixedSize(horizontal: false, vertical: true)
-            } else if let pairingMessage = model.pairingMessage {
+            } else if let pairingMessage = model.connectionPopoverDetail {
                 Text(pairingMessage)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -9884,7 +9957,7 @@ struct SetupStatusView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                if let pairingMessage = model.pairingMessage {
+                if let pairingMessage = model.connectionPopoverDetail {
                     Text(pairingMessage)
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -10781,7 +10854,7 @@ private struct AskDJView: View {
     private var composerBottomPadding: CGFloat {
         #if os(iOS)
         if UIDevice.current.userInterfaceIdiom == .phone {
-            return composerKeyboardVisible ? 6 : 21
+            return composerKeyboardVisible ? 6 : 8
         }
         #endif
         return 8
@@ -11232,8 +11305,6 @@ private struct AskDJView: View {
                     .help(localizedKey(model.language, "ui.search.ask.dj"))
                     .accessibilityLabel(localizedKey(model.language, "ui.search.ask.dj"))
 
-                }
-                ToolbarItemGroup(placement: .confirmationAction) {
                     if !model.askDJMessages.isEmpty {
                         Button {
                             isInputFocused = false
@@ -11247,6 +11318,8 @@ private struct AskDJView: View {
                         .disabled(model.isClearingAskDJHistory)
                         .help(localizedKey(model.language, "ui.clear.chat"))
                     }
+                }
+                ToolbarItemGroup(placement: .confirmationAction) {
                     SessionConnectionToolbarButton(model: model)
                     askDJRefreshToolbarButton
                 }
@@ -13209,7 +13282,8 @@ struct SessionGlassChoiceSelector: View {
     var accessibilityLabelKey = "ui.session.select_mood"
     var optionIDs: [String]? = nil
     var selectionColor: Color = djConnectAccent
-    var preservesAppearanceWhileDisabled = false
+    var preservesAppearanceWhileDisabled = true
+    var selectedLabelIdentifier = "session-popover-selected-mood"
     @FocusState private var focusedOption: Int?
     var onSelect: (Int) -> Void
 
@@ -13217,23 +13291,23 @@ struct SessionGlassChoiceSelector: View {
         VStack(alignment: .leading, spacing: 16) {
             Text(localizedKey(language, titleKey))
                 .font(.headline)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity, alignment: .center)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 4) {
                 ForEach(steps.indices, id: \.self) { index in
                     Button { DJConnectHaptics.selection(); onSelect(index) } label: {
                         Image(systemName: glyphs[safe: index] ?? "sparkles")
-                            .font(.system(size: 22, weight: .semibold))
+                            .font(.title3.weight(.semibold))
                             // Equal intrinsic width keeps HStack allocation independent of the symbol.
                             .frame(width: 24, height: 28)
-                            .foregroundStyle(index == selectedIndex ? selectionColor : .white)
+                            .foregroundStyle(.white.opacity(index == selectedIndex ? 1 : 0.78))
                             .frame(maxWidth: .infinity, minHeight: 48)
                     }
                     .djConnectButtonStyle(DJConnectButtonStyle(
                         emphasis: index == selectedIndex ? .selected : .secondary,
-                        shape: .segmented, expands: true, usesLiveGlass: false,
-                        showsFocusIndicator: false, foregroundColor: index == selectedIndex ? selectionColor : .white,
+                        shape: .segmented, expands: true, usesLiveGlass: true,
+                        showsFocusIndicator: false, foregroundColor: .white.opacity(index == selectedIndex ? 1 : 0.78),
                         selectionTint: selectionColor, dimsWhenDisabled: !preservesAppearanceWhileDisabled
                     ))
                     .focused($focusedOption, equals: index)
@@ -13249,13 +13323,12 @@ struct SessionGlassChoiceSelector: View {
                 }
             }
             .padding(DJConnectCardAppearance.segmentedContentInset)
-            .background(.black.opacity(0.16), in: RoundedRectangle(cornerRadius: 32, style: .continuous))
-            .djSessionFrostedSurface(cornerRadius: 32)
+            .djConnectGradientCard()
             Text(steps[safe: selectedIndex]?.label ?? "")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.90))
+                .foregroundStyle(.white.opacity(0.82))
                 .frame(maxWidth: .infinity)
-                .accessibilityIdentifier("session-popover-selected-mood")
+                .accessibilityIdentifier(selectedLabelIdentifier)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(localizedKey(language, accessibilityLabelKey))
@@ -14033,9 +14106,10 @@ struct QueueView: View {
             .djStatusToastOverlay(statusToast, screenImage: "music.note.list")
             .toolbar {
                 #if os(macOS)
+                ConnectionStatusToolbar(model: model)
                 queueRefreshToolbar
                 #endif
-                ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
+                ToolbarItem(placement: djConnectScreenActionsToolbarPlacement) {
                     Button {
                         toggleQueueSearch()
                     } label: {
@@ -14049,7 +14123,9 @@ struct QueueView: View {
                 #if os(iOS)
                 queueRefreshToolbar
                 #endif
+                #if !os(macOS)
                 ConnectionStatusToolbar(model: model)
+                #endif
             }
             .task {
                 guard model.canUsePlaybackFeatures else {
@@ -14342,9 +14418,10 @@ struct PlaylistsView: View {
             .djStatusToastOverlay(statusToast, screenImage: "rectangle.stack")
             .toolbar {
                 #if os(macOS)
+                ConnectionStatusToolbar(model: model)
                 playlistRefreshToolbar
                 #endif
-                ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
+                ToolbarItem(placement: djConnectScreenActionsToolbarPlacement) {
                     Button {
                         togglePlaylistSearch()
                     } label: {
@@ -14358,7 +14435,9 @@ struct PlaylistsView: View {
                 #if os(iOS)
                 playlistRefreshToolbar
                 #endif
+                #if !os(macOS)
                 ConnectionStatusToolbar(model: model)
+                #endif
             }
             .task {
                 guard model.canUsePlaybackFeatures else {

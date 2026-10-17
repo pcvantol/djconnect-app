@@ -1281,7 +1281,7 @@
 "ui.dj_settings.loading" = "Loading confirmed choices…";
 "ui.dj_settings.saving" = "Saving your choice…";
 "ui.dj_settings.saved" = "Saved for this profile.";
-"ui.dj_settings.conflict" = "Settings changed or this choice was rejected. Review the current choices before trying again.";
+"ui.dj_settings.conflict" = "This choice could not be saved. Check the current settings before choosing again.";
 "ui.dj_settings.uncertain" = "The outcome is unknown. Your change will not be sent again automatically.";
 "ui.dj_settings.check_outcome" = "Check outcome";
 "ui.dj_settings.use_current" = "Use current confirmed choices";
@@ -1334,3 +1334,8 @@
 "ui.app.glass.effects.description" = "Turn off for a simpler appearance with fewer graphical effects.";
 
 "ui.session.start_metadata" = "DJ session started at %1$@ on %2$@";
+
+// Ask DJ submission failures are distinct from history availability.
+"ui.ask_dj.answer.unavailable" = "Ask DJ is unfortunately unable to answer your question or request right now.";
+"ui.ask_dj.answer.connection" = "Ask DJ cannot answer your question or request right now because the connection was interrupted.";
+"ui.ask_dj.answer.context_changed" = "The session context has changed. Review your question before sending it again.";

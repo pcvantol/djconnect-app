@@ -2,8 +2,8 @@
   "schema_version": 1,
   "as_of": "2026-10-17 Europe/Amsterdam",
   "owning_lane": "https://github.com/pcvantol/djconnect-app/issues/87",
-  "baseline": "Gewone iPad40282 geïnstalleerd, geopend en onafhankelijk teruggelezen; iPhone40267 behouden volgens alleen-iPadinstructie. Macmini40266 blijft draaien; gewone Mac40282 kandidaat gecontroleerd en niet geïnstalleerd. Watch40282 meegebouwd/ingesloten; geen verse Watchhardwareclaim. Volledige784tests/10suitesPASS92.272s op40282;3fysiekeidlemetrics, geen algemene performanceclosure.",
-  "source_head": "b47d17a3bd7aade005787206785578bee585096b protected source PR111; main evidence and separate documentary Finalization pending",
+  "baseline": "Local40312 follow-up: iPhone installed/read back (locked launch), MacBook installed/read back/running; iPad40290. Full801 Swift tests PASS; original product/producer acceptance boundaries retained.",
+  "source_head": "fd9af0a base plus qualified local40304–40312 follow-up; not published/merged",
   "status_semantics": {
     "CLOSED_BOUNDED": "Functionele implementatie/expliciet benoemde bewijslevering afgerond binnen de genoemde bewijsgrens; geen sluiting van parentproduct, bronPR of nativejointacceptatie.",
     "SUPERSEDED": "Vervangen door latere directe ownerbeslissing; niet opnieuw bouwen.",

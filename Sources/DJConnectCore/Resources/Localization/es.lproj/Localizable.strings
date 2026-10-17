@@ -1281,7 +1281,7 @@
 "ui.dj_settings.loading" = "Cargando opciones confirmadas…";
 "ui.dj_settings.saving" = "Guardando tu opción…";
 "ui.dj_settings.saved" = "Guardado para este perfil.";
-"ui.dj_settings.conflict" = "Los ajustes cambiaron o se rechazó la opción. Revisa las opciones actuales antes de volver a elegir.";
+"ui.dj_settings.conflict" = "No se pudo guardar esta opción. Revisa los ajustes actuales antes de volver a elegir.";
 "ui.dj_settings.uncertain" = "Se desconoce el resultado. El cambio no se enviará de nuevo automáticamente.";
 "ui.dj_settings.check_outcome" = "Comprobar resultado";
 "ui.dj_settings.use_current" = "Usar opciones actuales confirmadas";
@@ -1334,3 +1334,8 @@
 "ui.app.glass.effects.description" = "Desactívalos para una apariencia más sencilla con menos efectos gráficos.";
 
 "ui.session.start_metadata" = "Sesión de DJ iniciada a las %1$@ el %2$@";
+
+// Ask DJ submission failures are distinct from history availability.
+"ui.ask_dj.answer.unavailable" = "Ask DJ no puede responder a tu pregunta o solicitud en este momento.";
+"ui.ask_dj.answer.connection" = "Ask DJ no puede responder a tu pregunta o solicitud ahora porque se ha interrumpido la conexión.";
+"ui.ask_dj.answer.context_changed" = "El contexto de la sesión ha cambiado. Revisa tu pregunta antes de enviarla de nuevo.";

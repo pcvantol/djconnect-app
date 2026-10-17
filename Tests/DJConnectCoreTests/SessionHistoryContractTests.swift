@@ -784,6 +784,49 @@ func sessionHistoryActualComposerHandlesFailureAfterTransportGoesOffline(_ failu
     }
 }
 
+@Test(arguments: ["502", "503", "decode", "409"]) @MainActor
+func conversationFailureUsesAskDJCopyAndPreservesQuestionMetadata(_ failure: String) async throws {
+    let receipt = try historyObject()
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    let timeline = try historyData(try #require(receipt["archived_timeline"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.httpMethod == "POST", request.url!.path.hasSuffix("/ask_dj/message") {
+            return failure == "decode" ? (200, Data("{}".utf8), 0) : (Int(failure)!, Data(#"{"success":false,"error":"server"}"#.utf8), 0)
+        }
+        return (200, request.url!.path.hasSuffix("/ask_dj/history") ? profile : timeline, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    model.askDJDraft = "Fixture question"
+    model.sessionHistory.sendText()
+    let initial = try #require(model.sessionHistory.pendingTurns.first)
+    for _ in 0..<100 where model.isSendingAskDJText { try await Task.sleep(for: .milliseconds(20)) }
+    let turn = try #require(model.sessionHistory.pendingTurns.first)
+    let expected = failure == "409" ? "ui.ask_dj.answer.context_changed" : "ui.ask_dj.answer.unavailable"
+    #expect(turn.failed && turn.failureKey == expected)
+    #expect(turn.contextChanged == (failure == "409"))
+    #expect(model.askDJErrorMessage == DJConnectLocalization.localized(key: expected, language: model.language))
+    #expect(turn.id == initial.id && turn.payload == initial.payload)
+    let original = try #require(model.askDJMessages.first { $0.id == turn.localMessageID })
+    #expect(turn.questionMessage(in: model.askDJMessages) == original)
+    var voice = original
+    voice.origin = "voice"; voice.text = "Stemverzoek"
+    voice.createdAt = Date(timeIntervalSince1970: 1_700_000_000)
+    #expect(turn.questionMessage(in: [voice]) == voice)
+    let fallback = turn.questionMessage(in: [])
+    #expect(fallback.id == turn.localMessageID && fallback.createdAt == initial.createdAt)
+    #expect(fixture.requests.filter { $0.httpMethod == "POST" && $0.url!.path.hasSuffix("/ask_dj/message") }.count == 1)
+}
+
+@Test @MainActor func conversationErrorKeysKeepTransportAndUncertainDeliveryDistinct() {
+    #expect(DJConnectSessionHistoryModel.conversationErrorKey(URLError(.timedOut)) == "ui.ask_dj.answer.connection")
+    #expect(DJConnectSessionHistoryModel.conversationErrorKey(DJConnectError.network(message: "fixture")) == "ui.ask_dj.answer.connection")
+    #expect(DJConnectSessionHistoryModel.conversationErrorKey(DJConnectHybridTransportError.deliveryUnknown) == DJConnectHybridTransportError.deliveryUnknown.localizationKey)
+}
+
 @Test @MainActor func sessionHistoryPeriodicReadCannotSupersedeExplicitOpen() async throws {
     let receipt = try historyObject()
     let profile = try historyData(try #require(receipt["later_historical_answer"]))

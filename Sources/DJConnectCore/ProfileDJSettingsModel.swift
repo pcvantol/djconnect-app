@@ -80,7 +80,11 @@ public final class ProfileDJSettingsModel: ObservableObject {
             response = incoming
             needsMutationReadback = false
             if pending != nil { phase = .uncertain }
-            else if ![.saved, .conflict].contains(phase) { phase = .ready }
+            else if phase == .conflict {
+                // A successful authoritative read resolves the stale view, not
+                // the rejected write. The caller receives that rejection once.
+                phase = .ready; errorCode = nil
+            } else if phase != .saved { phase = .ready }
         } catch {
             guard epoch == generation, readID == request, active else { return }
             if withdrawIfNeeded(error) { return }
@@ -89,59 +93,67 @@ public final class ProfileDJSettingsModel: ObservableObject {
         }
     }
 
-    public func change(_ patch: DJConnectProfileDJSettings.Patch, using services: Services) async {
+    @discardableResult
+    public func change(_ patch: DJConnectProfileDJSettings.Patch, using services: Services) async -> DJConnectProfileDJSettingsFailure? {
         guard canEdit, let current = response, patch.isValid,
-              !current.requiresSelection || patch.isComplete else { return }
+              !current.requiresSelection || patch.isComplete else { return nil }
         // A concurrent freshness GET may predate this edit. Fence its completion
         // without cancelling/replaying either HTTP operation.
         readID = nil
         let epoch = generation
         // Use the producer's qualified clock; wall-clock drift must not mint an
         // invalid operation or extend its lifetime. Core rejects stale clocks.
-        guard let serverDate = DJConnectHistoryEntry.date(current.as_of) else { return }
+        guard let serverDate = DJConnectHistoryEntry.date(current.as_of) else { return nil }
         let id = DJConnectOperationIdentity.uuidV7(milliseconds: Int(serverDate.timeIntervalSince1970 * 1000))
         pending = Pending(id: id, binding: current.binding); phase = .saving; errorCode = nil
         do {
             let accepted = try await services.update(current, patch, id)
-            guard epoch == generation, active else { return }
+            guard epoch == generation, active else { return nil }
             guard accepted.accepted == true, accepted.operation_id == id,
                   accepted.binding == current.binding, accepted.isValid else {
-                phase = .uncertain; await reconcile(services); return
+                phase = .uncertain; return await reconcile(services)
             }
             // Receipt snapshots are historical. Always read current authority;
             // replayed acceptance must not roll back another device's later edit.
             pending = nil; needsMutationReadback = true; phase = .saved
             await refresh(services)
         } catch let rejection as DJConnectProfileDJSettingsFailure {
-            guard epoch == generation, active else { return }
+            guard epoch == generation, active else { return nil }
             pending = nil; needsMutationReadback = true; phase = .conflict; errorCode = rejection.error
             await refresh(services)
+            guard epoch == generation, active else { return nil }
+            return rejection
         } catch {
-            guard epoch == generation, active else { return }
-            if withdrawIfNeeded(error) { return }
+            guard epoch == generation, active else { return nil }
+            if withdrawIfNeeded(error) { return nil }
             phase = .uncertain; errorCode = "settings_outcome_unknown"
-            await reconcile(services)
+            return await reconcile(services)
         }
+        return nil
     }
 
-    public func reconcile(_ services: Services) async {
-        guard active, let operation = pending, !reconciling else { return }
+    @discardableResult
+    public func reconcile(_ services: Services) async -> DJConnectProfileDJSettingsFailure? {
+        guard active, let operation = pending, !reconciling else { return nil }
         let epoch = generation; reconciling = true
         defer { if epoch == generation { reconciling = false } }
         do {
             let result = try await services.receipt(operation.binding, operation.id)
-            guard epoch == generation, active, result.validates(operationID: operation.id) else { return }
+            guard epoch == generation, active, result.validates(operationID: operation.id) else { return nil }
             switch result.phase {
             case "accepted": pending = nil; needsMutationReadback = true; phase = .saved; errorCode = nil
             case "not_accepted": pending = nil; needsMutationReadback = true; phase = .conflict; errorCode = "settings_not_accepted"
             default: phase = .uncertain; errorCode = "settings_outcome_unknown"
             }
             await refresh(services)
+            guard epoch == generation, active else { return nil }
+            if result.phase == "not_accepted" { return .init(error: "settings_not_accepted") }
         } catch {
-            guard epoch == generation, active else { return }
-            if withdrawIfNeeded(error) { return }
+            guard epoch == generation, active else { return nil }
+            if withdrawIfNeeded(error) { return nil }
             phase = .uncertain; errorCode = "settings_outcome_unknown"
         }
+        return nil
     }
 
     /// Explicitly leave an unknown old attempt behind after an authoritative read.

@@ -90,12 +90,12 @@ struct ActiveSessionPersonaControl: View {
                 titleKey: "ui.session.persona.title",
                 accessibilityLabelKey: "ui.session.persona.title",
                 optionIDs: values.map { "session-persona-" + $0.rawValue },
-                preservesAppearanceWhileDisabled: model.activePersonaPending
+                preservesAppearanceWhileDisabled: true
             ) { index in
                 guard canChange, values.indices.contains(index) else { return }
                 Task { await model.changeActiveSessionPersona(values[index], expectedSessionID: sessionID, expectedEpoch: epoch) }
             }
-            .disabled(!canChange)
+            .disabled(!canChange || (model.profileDJSettings.negotiated && !model.profileDJSettings.canEdit))
             if let error = model.activePersonaError {
                 Text(error).font(.caption).foregroundStyle(.secondary)
             } else if !canChange && !model.activePersonaPending {

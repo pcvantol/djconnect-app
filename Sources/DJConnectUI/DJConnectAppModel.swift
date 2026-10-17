@@ -728,6 +728,8 @@ public final class DJConnectAppModel: ObservableObject {
     public let passiveSurfaces = PassiveSessionSurfaceModel()
     private var passiveSurfaceObservation: AnyCancellable?
     public let profileDJSettings = ProfileDJSettingsModel()
+    private let profileDJChoiceScheduler = ProfileDJChoiceScheduler()
+    @Published public private(set) var isSchedulingProfileDJChoice = false
     private var profileDJSettingsObservation: AnyCancellable?
     private var localAudioRouteObservation: AnyCancellable?
     @Published var localAudioRoute = DJConnectLocalAudioRoute()
@@ -878,7 +880,7 @@ public final class DJConnectAppModel: ObservableObject {
         get { isDemoMode ? demoSessionMood : profileDJSettings.response?.snapshot.defaults.mood ?? "groove" }
         set {
             if isDemoMode { demoSessionMood = newValue }
-            else { Task { await changeProfileDJSettings(.init(mood: newValue)) } }
+            else { scheduleProfileDJChoice(.init(mood: newValue)) }
         }
     }
     @Published public private(set) var isLoadingDJSession = false
@@ -1730,6 +1732,7 @@ public final class DJConnectAppModel: ObservableObject {
         profileDJSettingsObservation = profileDJSettings.objectWillChange.sink { [weak self] in
             self?.objectWillChange.send()
         }
+        profileDJChoiceScheduler.pendingChanged = { [weak self] in self?.isSchedulingProfileDJChoice = $0 }
         refreshLocalAudioRoute()
         #if os(iOS)
         localAudioRouteObservation = NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)
@@ -5765,11 +5768,7 @@ public final class DJConnectAppModel: ObservableObject {
             guard expectedSessionID == activeDJSession?.id, expectedEpoch == sessionHistory.responseEpoch,
                   profileDJSettings.response?.snapshot.session?.session_id == expectedSessionID,
                   profileDJSettings.canEdit else { return }
-            activePresencePending = true
-            Task {
-                await changeProfileDJSettings(.init(presence: value))
-                activePresencePending = false
-            }
+            scheduleProfileDJChoice(.init(presence: value))
             return
         }
         guard expectedSessionID == activeDJSession?.id, expectedEpoch == sessionHistory.responseEpoch,
@@ -5882,7 +5881,9 @@ public final class DJConnectAppModel: ObservableObject {
             }
             let before = profileDJSettings.response
             await profileDJSettings.refresh(profileDJSettingsServices)
-            if profileDJSettings.hasUncertainOperation { await profileDJSettings.reconcile(profileDJSettingsServices) }
+            if profileDJSettings.hasUncertainOperation {
+                presentProfileSettingsRejection(await profileDJSettings.reconcile(profileDJSettingsServices))
+            }
             syncSessionSurfaces()
             if before != nil && (before?.binding != profileDJSettings.response?.binding || before?.snapshot != profileDJSettings.response?.snapshot || before?.voice_revision != profileDJSettings.response?.voice_revision) {
                 stopResponsePlayback(clearText: false)
@@ -5896,10 +5897,45 @@ public final class DJConnectAppModel: ObservableObject {
         bindProfileDJSettings(active: isAppInForeground)
         guard profileDJSettings.canEdit else { return }
         stopResponsePlayback(clearText: false)
-        await profileDJSettings.change(patch, using: profileDJSettingsServices)
+        let rejected = await profileDJSettings.change(patch, using: profileDJSettingsServices)
+        presentProfileSettingsRejection(rejected)
         syncSessionSurfaces()
         // Rendering reads active Session from its existing owner; no separate write.
         _ = await refreshActiveDJSession()
+    }
+
+    private func presentProfileSettingsRejection(_ rejected: DJConnectProfileDJSettingsFailure?) {
+        if let rejected {
+            let code = rejected.error.range(of: "^[a-z0-9_]{1,80}$", options: .regularExpression) != nil ? rejected.error : "unclassified"
+            log(.warning, "Profile DJ settings choice rejected code=\(code)")
+            userNotice = DJConnectUserNotice(text: localized(key: "ui.dj_settings.conflict"))
+        }
+    }
+
+    func reconcileProfileDJSettingsChoice() async {
+        presentProfileSettingsRejection(await profileDJSettings.reconcile(profileDJSettingsServices))
+        syncSessionSurfaces()
+    }
+
+    func scheduleProfileDJChoice(_ patch: DJConnectProfileDJSettings.Patch) {
+        guard !isDemoMode, isAppInForeground, pairingStatus == .paired,
+              profileDJSettings.canEdit, let binding = profileDJSettings.response?.binding else { return }
+        let session = activeDJSession?.id, epoch = sessionHistory.responseEpoch
+        profileDJChoiceScheduler.schedule(patch, context: binding + ":" + (session ?? "") + ":" + epoch.uuidString,
+            isCurrent: { [weak self] in
+                guard let self else { return false }
+                return self.isAppInForeground && self.pairingStatus == .paired && self.profileDJSettings.canEdit &&
+                    self.profileDJSettings.response?.binding == binding && self.activeDJSession?.id == session &&
+                    self.sessionHistory.responseEpoch == epoch
+            }, perform: { [weak self] proposed in
+                guard let self, let current = self.profileDJSettings.effective else { return }
+                var patch = proposed
+                if patch.mood == current.mood { patch.mood = nil }
+                if patch.persona == current.persona { patch.persona = nil }
+                if patch.presence == current.presence { patch.presence = nil }
+                guard patch.isValid else { return }
+                await self.changeProfileDJSettings(patch)
+            })
     }
 
     private func cancelAutomaticSpeech() {
@@ -6202,9 +6238,7 @@ public final class DJConnectAppModel: ObservableObject {
             guard expectedSessionID == activeDJSession?.id, expectedEpoch == sessionHistory.responseEpoch,
                   profileDJSettings.response?.snapshot.session?.session_id == expectedSessionID,
                   profileDJSettings.canEdit else { return }
-            activePersonaPending = true
-            await changeProfileDJSettings(.init(persona: persona))
-            activePersonaPending = false
+            scheduleProfileDJChoice(.init(persona: persona))
             return
         }
         guard !isDemoMode, activePersonaAvailable, !activePersonaPending, isAppInForeground,
@@ -6253,9 +6287,7 @@ public final class DJConnectAppModel: ObservableObject {
         if activeSharedSettingsRequired || profileDJSettings.negotiated {
             guard profileDJSettings.response?.snapshot.session?.session_id == activeDJSession?.id,
                   profileDJSettings.canEdit else { return }
-            activeMoodPending = true
-            await changeProfileDJSettings(.init(mood: mood))
-            activeMoodPending = false
+            scheduleProfileDJChoice(.init(mood: mood))
             return
         }
         guard activeMoodAvailable, !activeMoodPending, isAppInForeground, pairingStatus == .paired,

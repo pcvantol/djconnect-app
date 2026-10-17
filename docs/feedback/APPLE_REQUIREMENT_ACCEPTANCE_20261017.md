@@ -2,9 +2,9 @@
 
 Owning register: [Apple #87](https://github.com/pcvantol/djconnect-app/issues/87). CLOSED_BOUNDED sluit alleen de genoemde functionele implementatie of bewijslevering af. Parentwerk, gereviewde bronoplevering en toestelacceptatie blijven afzonderlijke grenzen.
 
-Actuele baseline: Gewone iPad40282 geïnstalleerd, geopend en onafhankelijk teruggelezen; iPhone40267 behouden volgens alleen-iPadinstructie. Macmini40266 blijft draaien; gewone Mac40282 kandidaat gecontroleerd en niet geïnstalleerd. Watch40282 meegebouwd/ingesloten; geen verse Watchhardwareclaim. Volledige784tests/10suitesPASS92.272s op40282;3fysiekeidlemetrics, geen algemene performanceclosure.
+Actuele baseline: Local40312 follow-up: iPhone installed/read back (locked launch), MacBook installed/read back/running; iPad40290. Full801 Swift tests PASS; original product/producer acceptance boundaries retained.
 
-Bron: b47d17a3bd7aade005787206785578bee585096b protected source PR111; main evidence and separate documentary Finalization pending
+Bron: fd9af0a base plus qualified local40304–40312 follow-up; not published/merged
 
 BLOCKED: 4; CLOSED_BOUNDED: 22; OPEN: 3; PARKED: 1; PARTIAL: 16; SUPERSEDED: 1
 

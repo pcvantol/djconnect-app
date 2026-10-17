@@ -23,8 +23,16 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         public let payload: DJConnectAskDJRequest
         public let requestEpoch: UUID
         public let ownerScope: String
+        public var createdAt = Date()
         public var failed = false
         public var contextChanged = false
+        public var failureKey: String?
+
+        func questionMessage(in messages: [DJConnectAskDJMessage]) -> DJConnectAskDJMessage {
+            if let original = messages.first(where: { $0.id == localMessageID && $0.role == .user }) { return original }
+            return .init(id: localMessageID ?? UUID(uuidString: id) ?? UUID(), clientMessageID: id,
+                role: .user, text: text, status: failed ? .failed : .sending, createdAt: createdAt)
+        }
     }
 
     @Published public private(set) var artworkAvailable = false
@@ -625,7 +633,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     public func sendText() {
         if host?.isDemoMode == true { host?.sendAskDJText(); return }
         guard profileScopeActive, let host, host.canUseProfileConversation, !host.isSendingAskDJText else { return }
-        guard let capturedOwner = ownerScope else { host.failProfileConversationText(id: nil, errorKey: "ui.session.history.unavailable"); return }
+        guard let capturedOwner = ownerScope else { host.failProfileConversationText(id: nil, errorKey: "ui.ask_dj.answer.unavailable"); return }
         let text = host.askDJDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         let id = UUID().uuidString
@@ -643,7 +651,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
               turn.requestEpoch == epoch, ownerScope == turn.ownerScope, pendingTurns.contains(where: { $0.id == turn.id }) else { return }
         pendingTurns.removeAll { $0.id == turn.id }; pendingTurns.append(PendingTurn(
             id: turn.id, text: turn.text, context: turn.context, localMessageID: turn.localMessageID, payload: turn.payload,
-            requestEpoch: turn.requestEpoch, ownerScope: turn.ownerScope))
+            requestEpoch: turn.requestEpoch, ownerScope: turn.ownerScope, createdAt: turn.createdAt))
         host.setProfileConversationSending(true)
         Task { await submit(turn) }
     }
@@ -660,8 +668,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         guard host.canUseProfileConversation else {
             if let index = pendingTurns.firstIndex(where: { $0.id == turn.id }) {
                 pendingTurns[index].failed = true
+                pendingTurns[index].failureKey = "ui.ask_dj.answer.unavailable"
             }
-            host.failProfileConversationText(id: turn.localMessageID, errorKey: "ui.session.history.unavailable")
+            host.failProfileConversationText(id: turn.localMessageID, errorKey: "ui.ask_dj.answer.unavailable")
             return
         }
         let captured = turn.requestEpoch
@@ -686,9 +695,10 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             if let index = pendingTurns.firstIndex(where: { $0.id == turn.id }) {
                 pendingTurns[index].failed = true
                 pendingTurns[index].contextChanged = isConflict(error) || error is DJConnectHybridTransportError
+                pendingTurns[index].failureKey = Self.conversationErrorKey(error)
             }
             host.failProfileConversationText(id: turn.localMessageID,
-                errorKey: (error as? DJConnectHybridTransportError)?.localizationKey ?? errorKey(error))
+                errorKey: Self.conversationErrorKey(error))
         }
     }
 
@@ -845,6 +855,14 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
     private func errorKey(_ error: Error) -> String {
         isConflict(error) ? "ui.session.history.changed" : "ui.session.history.unavailable"
+    }
+
+    static func conversationErrorKey(_ error: Error) -> String {
+        if let hybrid = error as? DJConnectHybridTransportError { return hybrid.localizationKey }
+        if case .server(let status, _) = error as? DJConnectError, status == 409 { return "ui.ask_dj.answer.context_changed" }
+        if error is URLError { return "ui.ask_dj.answer.connection" }
+        if case .network = error as? DJConnectError { return "ui.ask_dj.answer.connection" }
+        return "ui.ask_dj.answer.unavailable"
     }
 }
 

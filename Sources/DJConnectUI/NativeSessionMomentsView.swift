@@ -336,7 +336,8 @@ struct NativeSessionMomentsView: View {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Image(systemName: DJConnectFeatureSymbols.djSession)
                     .font(.title).accessibilityHidden(true)
-                Text(text("ui.session.quiet")).font(.title2.weight(.semibold))
+                Text(text(session.broadcast.playback?.state == "playing" ? "ui.session.quiet" : "brand.tagline"))
+                    .font(.title2.weight(.semibold))
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)
@@ -499,7 +500,9 @@ struct NativeSessionMomentsView: View {
     private var musicDetails: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let playback = session.broadcast.playback {
-                Text(playback.title ?? text("ui.nothing.playing")).font(.headline)
+                if let title = playback.title, !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(title).font(.headline)
+                }
                 if let artist = playback.artist { Text(artist).foregroundStyle(.secondary) }
                 if let album = playback.album { Text(album).font(.caption).foregroundStyle(.secondary) }
                 if let duration = playback.durationMS, duration > 0, let position = playbackModel?.displayedSessionPositionMS(session) ?? playback.positionMS {

@@ -1,3 +1,130 @@
+# Latest installed follow-up — build40312 unified choices and rapid-selection recovery
+
+Welcome and active Session mood/presence/persona use one selector style matching
+the original welcome mood row. Fast unsent gestures coalesce for250ms; no-op
+choices do not write. A confirmed current-settings read clears stale conflict UI;
+real rejection is shown once as an existing transient notice, while unknown and
+failed outcomes remain explicit and unreplayed. Saving overlays existing geometry.
+29 focused tests PASS1.332s; final full801tests/10suites PASS90.958s; five-language
+1261-key and diff checks PASS. iPhone ordinary signed40312 installed/read back;
+launch blocked by locked phone. Mac native compile on MacBook passed unsigned,
+then locally signed with unchanged rights and validated original profiles;
+strict signature/install79-entry manifest/independent40312 readback/process PASS.
+iPad unchanged40290. No physical rapid-touch/layout acceptance claim. Local
+follow-up remains unpublished. See
+[selector and root-cause evidence](feedback/APPLE_UNIFIED_CHOICES_CONFLICT_20261018.md).
+
+Core handoff remains separate: local ingress, widget producer and narrative
+settings-change Moments have no new installed qualification. A cleanup/resource
+status handoff was automatically rejected; owner permission is pending, so no
+resource message was sent. Core files/services/snapshots remain unchanged.
+
+# Earlier installed follow-up — MacBook and iPhone40311 Ask DJ failure UX
+
+Pending/failed Session questions now use normal right-aligned chat bubbles with
+original user metadata; separate left delivery-status bubble replaces combined
+full-width cards. Per-turn Ask DJ error copy in five languages replaces misleading
+history wording for submit failures. Network/409/hybrid/authority behavior remains
+distinct; original payload/identity/date preserved and no automatic replay.
+Three tests/seven cases PASS0.715s; native signed Mac/iOS builds/signatures/
+ordinary-product/brand-key checks PASS. iPhone installed/read back40311, launched.
+Owner explicitly authorized MacBook update; mbpro-peter installed/read back40311,
+all79 manifest entries match, strict signature and launch/process PASS; old app
+retained. This installs the earlier accumulated Mac toolbar/layout fixes too.
+iPad unchanged40290. Physical viewport and original backend failure cause remain
+separate. See [Ask DJ failure evidence](feedback/APPLE_ASK_FAILURE_CHAT_UX_20261018.md).
+
+# Latest built follow-up — Mac40310 toolbar edges
+
+All existing Mac screen refresh actions now trail connection at the right edge.
+Feature search/mood/voice/etc stay leading; root sidebar toggle and Session
+VibeCast each use native fixed separation. No added refresh operations. Native
+signed Mac40310 build/strict signature/ordinary-product/diff/work-register checks
+PASS. Not installed under standing scope; physical cross-screen/overflow/fullscreen
+acceptance remains separate. iPhone40309/iPad40290/MacBook40292 unchanged. See
+[Mac toolbar policy](feedback/APPLE_MAC_TOOLBAR_EDGES_20261018.md).
+
+# Latest follow-up — build40309 direct Mac voice control
+
+Removed duplicate output/voice picker labels while retaining accessibility names.
+Mac direct DJ-voice speaker button now joins refresh/search/mood/presence/persona
+in one group; VibeCast is a separate item. Existing popover scope/write fences
+unchanged. Native Mac/iOS builds/signatures/ordinary-product/diff checks PASS;
+iPhone install, independent40309 readback and launch succeeded. Mac40309 built
+but uninstalled under standing scope; no physical Mac viewport claim. See
+[direct voice toolbar](feedback/APPLE_DIRECT_VOICE_TOOLBAR_20261018.md).
+
+# Latest installed follow-up — iPhone40308 duplicate connection detail
+
+Mac/iOS connection cards omit the generic unreachable detail that repeats the
+status heading, retaining backend recovery and other actionable messages. No
+connection/pairing state changes. Native signed build/signature/ordinary-product
+and diff checks PASS; iPhone install, independent40308 readback and launch
+succeeded. Mac remains source-only under standing installation scope. See
+[connection detail](feedback/APPLE_CONNECTION_DUPLICATE_DETAIL_20261018.md).
+
+# Latest installed follow-up — iPhone40307 welcome settings
+
+Presence and Persona added to the idle Session start card alongside mood. Uses
+confirmed backend Profile defaults, allowed choices, existing patch/readback and
+native selector. Migration opens existing six-field review; no local persistent
+settings. Start blocked during saving/uncertain outcomes. Three Profile contract
+tests PASS0.006s; native signed build/signature/ordinary-product/diff PASS;
+iPhone install, independent40307 readback and launch succeeded. iPad/Mac source
+only; no physical viewport acceptance claimed. See
+[welcome choices](feedback/APPLE_WELCOME_PRESENCE_PERSONA_20261018.md).
+
+# Latest installed follow-up — iPhone40306 idle Session tagline
+
+Removed the synthesized loose Nothing Playing label for missing/blank titles.
+The quiet Session bubble shows the localized brand tagline when playback is not
+playing; ordinary playing/paused/recovery/Moment presentation retains its branch.
+Diff/five-language brand validator/native signed build/strict signature/ordinary
+app checks PASS; iPhone install, independent40306 readback and launch succeeded.
+No physical viewport acceptance claimed. See
+[idle Session copy](feedback/APPLE_IDLE_SESSION_TAGLINE_20261018.md).
+
+# Latest installed follow-up — iPhone40305 composer spacing
+
+Session and standalone Ask DJ composer now use8pt bottom padding with keyboard
+hidden, matching iPad instead of21pt. Measured question-scroll reservation follows
+the same value. Native signed build/signature/ordinary-product checks PASS;
+iPhone install, independent40305 readback and launch succeeded. Physical viewport
+acceptance remains separate; iPad/Mac unchanged.
+See [spacing evidence](feedback/APPLE_COMPOSER_MENU_SPACING_20261018.md).
+
+# New request — narrative Moment after settings change
+
+Owner explicitly authorized the existing Core writer to add one durable narrative
+Moment after each confirmed actual active-Session mood/persona/presence change,
+including shared Profile settings. Handoff delivered; implementation and installed
+acceptance OPEN. Preserve idempotency, conflict/uncertain-write and music-only
+speech fences. No local synthesized copy or new build.
+See [requested behavior](feedback/APPLE_SETTINGS_CHANGE_MOMENT_20261018.md).
+
+# Latest follow-up — iPhone40304 widget current music layout
+
+Widget now presents current music before the latest admitted contribution,
+including both on small widgets; large current cover104pt. Native signed40304,
+strict signature and ordinary-product checks PASS; iPhone installation and
+independent40304 readback PASS. No physical widget acceptance claimed. Actual
+pre-update passive cache contained current metadata but no cover/contribution;
+backend passive source/deadline/background delivery investigation was explicitly
+authorized and delivered to the existing Core writer. No client rights/expiry
+bypass. See [widget evidence](feedback/APPLE_WIDGET_CURRENT_CONTENT_20261018.md).
+
+# Latest diagnosis — MacBook local transport rejected
+
+MacBook remains installed40292. Its configured LAN origin is reachable but the
+transport-context POST returns HTTP426 `transport_security_required` before
+authentication; saved local URL remains correct. Ordinary local HTTP success
+and external hybrid Session transport explain the brief green-to-external
+presentation. Backend direct-local ingress acceptance remains OPEN; no fabricated
+qualification, client bypass, pairing reset or new install. Core-thread handoff
+was initially rejected by automatic approval review, then explicitly authorized
+by the owner and successfully delivered to the existing Core writer. Repair and
+installed local acceptance remain pending. See [MacBook diagnosis](feedback/APPLE_MACBOOK_LOCAL_TRANSPORT_REJECTION_20261017.md).
+
 # Latest installed follow-up — iPhone40303 compact playback card
 
 Removed duplicate artwork-level Spotify attribution where the enclosing card

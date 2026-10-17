@@ -1281,7 +1281,7 @@
 "ui.dj_settings.loading" = "Bevestigde keuzes laden…";
 "ui.dj_settings.saving" = "Je keuze opslaan…";
 "ui.dj_settings.saved" = "Opgeslagen voor dit profiel.";
-"ui.dj_settings.conflict" = "De instellingen zijn gewijzigd of deze keuze is geweigerd. Controleer de huidige keuzes voordat je opnieuw kiest.";
+"ui.dj_settings.conflict" = "Deze keuze kon niet worden opgeslagen. Controleer de huidige instellingen voordat je opnieuw kiest.";
 "ui.dj_settings.uncertain" = "De uitkomst is onbekend. Je wijziging wordt niet automatisch opnieuw verstuurd.";
 "ui.dj_settings.check_outcome" = "Controleer uitkomst";
 "ui.dj_settings.use_current" = "Gebruik huidige bevestigde keuzes";
@@ -1334,3 +1334,8 @@
 "ui.app.glass.effects.description" = "Schakel uit voor een eenvoudigere weergave met minder grafische effecten.";
 
 "ui.session.start_metadata" = "DJ-sessie gestart om %1$@ op %2$@";
+
+// Ask DJ submission failures are distinct from history availability.
+"ui.ask_dj.answer.unavailable" = "Ask DJ kan je vraag of verzoek helaas op dit moment niet beantwoorden.";
+"ui.ask_dj.answer.connection" = "Ask DJ kan je vraag of verzoek nu niet beantwoorden omdat de verbinding is onderbroken.";
+"ui.ask_dj.answer.context_changed" = "De sessiecontext is gewijzigd. Controleer je vraag voordat je die opnieuw verstuurt.";

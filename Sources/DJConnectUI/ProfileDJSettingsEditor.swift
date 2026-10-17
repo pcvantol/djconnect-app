@@ -2,6 +2,35 @@ import SwiftUI
 import Combine
 import DJConnectCore
 
+/// Coalesces only unsent UI gestures. It never cancels or replays a sent write.
+@MainActor
+final class ProfileDJChoiceScheduler {
+    private(set) var hasPending = false
+    var pendingChanged: ((Bool) -> Void)?
+    private var task: Task<Void, Never>?
+    private var context: String?
+    private var patch = DJConnectProfileDJSettings.Patch()
+    func schedule(_ next: DJConnectProfileDJSettings.Patch, context: String,
+                  isCurrent: @escaping () -> Bool,
+                  perform: @escaping (DJConnectProfileDJSettings.Patch) async -> Void) {
+        task?.cancel()
+        if self.context != context { patch = .init() }
+        self.context = context
+        if let value = next.mood { patch.mood = value }
+        if let value = next.presence { patch.presence = value }
+        if let value = next.persona { patch.persona = value }
+        if !hasPending { hasPending = true; pendingChanged?(true) }
+        task = Task { @MainActor [weak self] in
+            do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
+            guard let self, !Task.isCancelled else { return }
+            let value = patch
+            patch = .init(); task = nil; hasPending = false; pendingChanged?(false)
+            guard isCurrent() else { return }
+            await perform(value)
+        }
+    }
+}
+
 /// Only values rendered by the editor participate in invalidation. The owner
 /// retains every fresh response (including its qualified clock) for mutations.
 @MainActor
@@ -155,12 +184,12 @@ struct ProfileDJSettingsEditor: View, Equatable {
                 }
                 if [.loading, .saving].contains(state.phase) {
                     ProgressView(text(state.phase == .saving ? "saving" : "loading"))
-                } else if [.conflict, .uncertain, .unavailable].contains(state.phase) {
+                } else if [.uncertain, .unavailable].contains(state.phase) {
                     Text(text(state.phase.rawValue)).font(.callout).fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("dj-settings-status")
                 }
                 if state.hasUncertainOperation {
-                    Button(text("check_outcome")) { Task { await model.profileDJSettings.reconcile(model.profileDJSettingsServices) } }
+                    Button(text("check_outcome")) { Task { await model.reconcileProfileDJSettingsChoice() } }
                     Button(text("use_current")) { Task { await model.profileDJSettings.useCurrentSettings(model.profileDJSettingsServices) } }
                 }
                 if selectedOutput != .textOnly {
@@ -202,6 +231,8 @@ struct ProfileDJSettingsEditor: View, Equatable {
                 }
             }
             .pickerStyle(.menu).frame(minHeight: 44).disabled(!state.canEdit)
+            .labelsHidden()
+            .accessibilityLabel(text("voice"))
             .accessibilityIdentifier("dj-settings-voice")
             if response.allowed_values.gender.contains("male") || response.allowed_values.gender.contains("female") {
                 let genders = ["male", "female"].filter { response.allowed_values.gender.contains($0) }
@@ -240,6 +271,8 @@ struct ProfileDJSettingsEditor: View, Equatable {
                 }
             }
             .pickerStyle(.menu).frame(minHeight: 44).disabled(!state.canEdit)
+            .labelsHidden()
+            .accessibilityLabel(text("output"))
             .accessibilityIdentifier("dj-settings-output")
         }
     }
