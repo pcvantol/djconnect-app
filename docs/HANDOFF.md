@@ -1,5 +1,12 @@
 # Latest installed follow-up — iPhone40300 separate Now Playing cards
 
+New open TTS finding: existing iPhone logs around21:21 show contract3 prepare
+unavailable reason `source_processor_not_qualified` for the reported text-replay
+failure. Audio fetch/output are not reached by that branch. Core owns live dev
+source/provider qualification; no client grant/text/provider bypass. See
+[TTS diagnosis and dependency](feedback/APPLE_TTS_TEXT_REPLAY_20261017.md).
+No newer install or positive replay acceptance is claimed.
+
 Artwork is a standalone glass card above a separate track/playback card on
 iOS/iPadOS and in the macOS summary. Shared artwork width matches Session:
 iPhone full available width with20pt edge insets, iPad/Mac270pt. Playback actions
