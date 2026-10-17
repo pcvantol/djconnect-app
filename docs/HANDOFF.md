@@ -1,3 +1,21 @@
+# Latest installed follow-up — 40292
+
+MacBook (mbpro-peter) and iPhone ordinary40292 installed, independently version-
+read back and launched. MacBook was40208; complete remote bundle manifest and
+strict signatures match; normal quit/install succeeded and old app is retained.
+Mac mini unchanged. iPad update failed CoreDevice4016; last confirmed40290.
+
+Session headers now route public proxy artwork through the confirmed HA origin
+like Now Playing, retaining vinyl only as missing/failed-image fallback. Source
+9d54967: full787Swift tests/10suites PASS89.600s; signed native Mac/iOS PASS.
+The first full run's obsolete game-cap source assertions were replaced by an
+executed layout-space test. Exact Git-archive qualification excludes untracked
+workspace duplicates, which remain preserved. Physical cover/UI acceptance,
+Core history replay producer and public merge/formal Finalization remain open.
+
+See [40292 routing and MacBook evidence](feedback/APPLE_ARTWORK_ROUTE_MACBOOK_40292_20261017.md).
+The following sections are earlier installed snapshots.
+
 # Current local Apple follow-up — iPad40290
 
 Current ordinary versions: iPad40290 and iPhone40291, installed/read back/launched.
