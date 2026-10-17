@@ -44,7 +44,7 @@ jobs:
 
       - name: Upload third-party update report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: thirdparty-update-report
           path: build/release/thirdparty-update-report.txt
@@ -112,7 +112,7 @@ jobs:
 
       - name: Upload unsigned Apple build artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: apple-unsigned-build-artifacts
           path: |
@@ -140,7 +140,7 @@ jobs:
 
       - name: Upload runner qualification evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: runner-evidence-apple
           path: runner-evidence/runner-evidence.json
@@ -162,7 +162,7 @@ jobs:
           xcodebuild test -project DJConnectApp.xcodeproj -scheme DJConnectMac -only-testing:DJConnectCoreTests -destination platform=macOS -enableCodeCoverage YES -resultBundlePath coverage.xcresult CODE_SIGNING_ALLOWED=NO
           xcrun xccov view --report --json coverage.xcresult > coverage.json
           printf '%s\n' "$GITHUB_SHA" > coverage-main-sha.txt
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: apple-xccov-coverage
           path: |
