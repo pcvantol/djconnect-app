@@ -1,0 +1,30 @@
+{
+  "api_commit": "48a025d6b6343dd3220aa06d9f7a63c4f76a37bd",
+  "profile": "0.3.0-draft",
+  "scope": "isolated synthetic native Mac JOSESwift/Node; sizes test crypto byte fidelity, not wire limit admission",
+  "checks": [
+    "UTF8 Unicode: native -> Node exact bytes",
+    "UTF8 Unicode: Node -> native exact bytes",
+    "8192 bytes: native -> Node exact bytes",
+    "8192 bytes: Node -> native exact bytes",
+    "16384 bytes: native -> Node exact bytes",
+    "16384 bytes: Node -> native exact bytes",
+    "12 repeated native encryptions yield distinct JWE/IV; finite observation, not RNG proof",
+    "Native and Node reject segment2 length11",
+    "Native and Node reject segment2 length13",
+    "Native and Node reject segment4 length15",
+    "Native and Node reject segment4 length17",
+    "Native and Node reject segment1 length0",
+    "Native and Node reject segment3 length0",
+    "Native and Node reject segment4 length0",
+    "Native rejects altered authenticated header bytes; no duplicate-key parser claim"
+  ],
+  "characterizations": [
+    "Valid crypto with extra protected field still decrypts: generic library is not closed-profile admission"
+  ],
+  "checks_passed": 15,
+  "AppAttest": "NOT_RUN",
+  "native_ios": "NOT_RUN",
+  "strict_profile_adapter": "NOT_IMPLEMENTED",
+  "keys": "Ephemeral synthetic RSA only; not App Attest; all work files deleted"
+}

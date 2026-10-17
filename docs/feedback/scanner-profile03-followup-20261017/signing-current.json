@@ -1,0 +1,29 @@
+{
+  "artifact": "signed local build, not installed/production qualification",
+  "bundle_id": "dev.djconnect.ios",
+  "version": "4.0.0",
+  "build": "40210",
+  "minimum_os": "26.0",
+  "sdk_name": "iphoneos27.1",
+  "executable_sha256": "82060c278e4448b79364b4c684658fda1acc56c65ec0755f3521b2fa11c1afe9",
+  "signed_entitlements": {
+    "application-identifier": "ZEML4LPXH4.dev.djconnect.ios",
+    "com.apple.developer.team-identifier": "ZEML4LPXH4",
+    "com.apple.developer.devicecheck.appattest-environment": null,
+    "get-task-allow": true
+  },
+  "profile_entitlements": {
+    "application-identifier": "ZEML4LPXH4.dev.djconnect.ios",
+    "com.apple.developer.team-identifier": "ZEML4LPXH4",
+    "com.apple.developer.devicecheck.appattest-environment": null,
+    "get-task-allow": true
+  },
+  "profile_expiry": "2027-09-23T11:27:31",
+  "profile_prefixes": [
+    "ZEML4LPXH4"
+  ],
+  "environment_proven_by_attestation": false,
+  "existing_real_attestation_fixture": "NONE",
+  "signing_or_entitlement_blocker_demonstrated": false,
+  "keys_generated": false
+}
