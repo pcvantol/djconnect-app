@@ -25,3 +25,9 @@ ordering, exact verified libraries/wire/native interop, independent reviews,
 contract freeze and execution admission remain separate. No central permanent
 registry, extra code, second pairing, entitlement/signing/account change,
 production deployment or blanket source publication is approved here.
+
+Later explicit confirmation: human owner wrote **“Ja dat accepteer ik”** and
+quoted the precise copied-active-QR/genuine-other-paired-scanner question, then
+instructed **“Ga verder”**. The earlier contextual interpretation is therefore
+additionally supported by a direct literal acceptance. Its limited scope above
+is unchanged; it creates no new signing, privacy or cryptographic approval.
