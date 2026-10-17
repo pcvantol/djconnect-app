@@ -104,3 +104,16 @@ and ordinary-product checks PASS. Only iPad installed/read back40287 and app
 launched. Private build/install/readback logs: `/private/tmp/djc-connection-keyboard-*`.
 The exact physical keyboard-open landscape viewport was not replayed/captured;
 source and installation proof are not physical visual acceptance.
+
+## Purple default switches — ordinary40288
+
+Owner requested purple toggles, including Glass effects. The shared presentation
+preference now sets an explicit purple SwitchToggleStyle, independent of parent
+white tints. Glass and autoplay controls and the Mac settings container use the
+same explicit style. The active track uses the existing brand-purple RGB; stored
+on/off values and backend/Profile behavior are unchanged.
+
+Signed native iOS40288 including embedded Watch targets PASS; strict deep
+signatures/ordinary-product inspection PASS. Only iPad installed, independently
+read back40288 and launched. Private logs/receipts: `/private/tmp/djc-purple-toggles-*`.
+No physical visual toggle-state acceptance or new whole-suite PASS is inferred.

@@ -4,6 +4,7 @@ import DJConnectCore
 /// Hardware/UI preference only. Never sent to or stored on a DJConnect Profile.
 enum DJConnectGlassAppearance {
     static let storageKey = "DJConnectGlassEffectsEnabled"
+    static let toggleTint = Color(red: 0.84, green: 0.22, blue: 0.96)
     static let opaqueSurface = Color(red: 0.09, green: 0.11, blue: 0.19)
 }
 
@@ -35,6 +36,7 @@ private struct DJConnectGlassPreference: ViewModifier {
     @AppStorage(DJConnectGlassAppearance.storageKey) private var enabled = true
     func body(content: Content) -> some View {
         content.environment(\.djConnectGlassEffectsEnabled, enabled)
+            .toggleStyle(SwitchToggleStyle(tint: DJConnectGlassAppearance.toggleTint))
     }
 }
 
@@ -78,6 +80,7 @@ struct DJConnectGlassPreferenceToggle: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .toggleStyle(SwitchToggleStyle(tint: DJConnectGlassAppearance.toggleTint))
         .accessibilityIdentifier("settings-glass-effects")
     }
 }

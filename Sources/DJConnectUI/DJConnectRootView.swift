@@ -18171,7 +18171,7 @@ private struct SettingsContentContainer<Content: View>: View {
             #if os(macOS)
             VStack(alignment: .leading, spacing: 28) { content }
                 .labeledContentStyle(SettingsTrailingContentStyle())
-                .toggleStyle(.switch)
+                .toggleStyle(SwitchToggleStyle(tint: DJConnectGlassAppearance.toggleTint))
                 .djConnectMacDetailContent(maxWidth: .infinity, alignment: .topLeading)
             #else
             DJSessionGlassGroup {

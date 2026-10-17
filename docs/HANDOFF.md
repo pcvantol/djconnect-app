@@ -1,6 +1,7 @@
-# Current local Apple follow-up — iPad40287
+# Current local Apple follow-up — iPad40288
 
-Latest ordinary iPad build40287 is installed/read back/launched, including the
+Latest ordinary iPad build40288 is installed/read back/launched with shared
+purple toggle styling, including the
 compact connection popover/keyboard presentation correction, following
 Discover width40284, fixed Logs title40285 and games available-space40286.
 Each has its own signed native build receipt in the history/launch report below;
