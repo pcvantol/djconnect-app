@@ -192,3 +192,16 @@ iPad was unavailable; owner explicitly directed: update only iPhone for now.
 No further iPad attempt or MacBook update was made. Private receipts/logs:
 `/private/tmp/djc-opaque-composer-*`. No actual physical glass-off viewport was
 captured; prior787test proof remains bound to the preceding source9d54967.
+
+## Text-only DJ status card — ordinary40294
+
+Owner requested removal of the spinner from the listening card. Removed the
+decorative disc from the quiet status card and the progress indicator from its
+recovery state. Existing status text, padding, glass surface and border remain;
+session recovery logic is unchanged.
+
+Swift parse/diff checks and signed native iOS40294 build PASS; strict deep
+signature and ordinary-product checks PASS. iPhone installed, independently
+read back40294 and launched. No iPad or MacBook update. Private build/install/
+readback/launch receipts: `/private/tmp/djc-status-card-40294-*`. No physical
+viewport acceptance or new full-suite PASS is inferred for this visual removal.

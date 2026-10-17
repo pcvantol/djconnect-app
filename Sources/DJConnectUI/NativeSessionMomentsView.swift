@@ -286,7 +286,6 @@ struct NativeSessionMomentsView: View {
             .djSessionFrostedSurface(currentMomentBorder: true)
         } else if isRecovering {
             VStack(alignment: .leading, spacing: 12) {
-                ProgressView()
                 Text(text("ui.session.reconnecting")).font(.title2.weight(.semibold))
                     .accessibilityAddTraits(.isHeader)
             }
@@ -319,7 +318,6 @@ struct NativeSessionMomentsView: View {
                 .accessibilityIdentifier("session-current-moment")
         } else {
             VStack(alignment: .leading, spacing: 12) {
-                Image(systemName: DJConnectFeatureSymbols.djSession).font(.title).accessibilityHidden(true)
                 Text(text("ui.session.quiet")).font(.title2.weight(.semibold))
             }
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)

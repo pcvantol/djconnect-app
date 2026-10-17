@@ -1,4 +1,13 @@
-# Latest installed follow-up — iPhone40293
+# Latest installed follow-up — iPhone40294
+
+DJ-session status cards now show status text without the decorative disc in the
+quiet card or the progress spinner during recovery. Text and card styling remain.
+Native signed iOS40294 build, strict deep signatures, ordinary-product checks,
+iPhone install/independent40294 readback/launch PASS. No physical viewport
+acceptance or new full-suite claim. iPad/MacBook not updated. See the40294 entry
+in [UI follow-up evidence](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md).
+
+# Earlier installed follow-up — iPhone40293
 
 Only iPhone updated for now, per the owner's explicit latest direction. Signed
 ordinary40293 build/signatures/install/independent version readback/launch PASS.
