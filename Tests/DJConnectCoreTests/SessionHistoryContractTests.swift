@@ -4936,3 +4936,26 @@ func profileConversationClearPreservesSendingAndRejectsOldHistory(_ remoteClear:
     })
     #expect(model.canUseProfileConversation)
 }
+
+@Test @MainActor func sessionCoverUsesConfirmedArtworkRouteInsteadOfPinnedLAN() throws {
+    let remote = try #require(URL(string: "https://paired.example"))
+    let fixture = HistoryWireFixture { _ in (500, Data(), 0) }; defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(remoteURL: remote)
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    let path = "/api/djconnect/v1/image_proxy/cover?size=600"
+    let local = try #require(URL(string: path, relativeTo: fixture.baseURL)?.absoluteURL)
+    model.recordConnectionMode(.remote, baseURL: remote)
+    let resolved = try #require(model.resolvedArtworkURL(local))
+    #expect(resolved.host == remote.host && resolved.scheme == "https")
+    #expect(resolved.path == local.path && resolved.query == local.query)
+    #expect(model.resolvedArtworkURL(URL(string: path)) == resolved)
+    model.recordConnectionMode(.local, baseURL: fixture.baseURL)
+    #expect(model.resolvedArtworkURL(resolved) == local)
+    let provider = URL(string: "https://images.example/actual-album.jpg")
+    #expect(model.resolvedArtworkURL(provider) == provider)
+    #expect(model.resolvedArtworkURL(nil) == nil)
+    for bad in ["file:///tmp/cover.jpg", "https://user:secret@paired.example/cover", "//unknown.example/cover"] {
+        #expect(model.resolvedArtworkURL(URL(string: bad)) == nil)
+    }
+    #expect(fixture.requests.isEmpty)
+}

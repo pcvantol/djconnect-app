@@ -336,9 +336,12 @@ struct NativeSessionMomentsView: View {
     private var musicArtworkURL: URL? {
         guard playbackModel?.isDemoMode != true,
               let raw = session.broadcast.playback?.artworkURL,
-              let url = URL(string: raw, relativeTo: artworkBaseURL)?.absoluteURL,
-              ["http", "https"].contains(url.scheme) else { return nil }
-        return url
+              let candidate = URL(string: raw) else { return nil }
+        if let playbackModel {
+            return playbackModel.resolvedArtworkURL(candidate)
+        }
+        return DJConnectArtworkRoute.resolve(candidate, knownOrigins: artworkBaseURL.map { [$0] } ?? [],
+                                             preferredOrigin: artworkBaseURL)
     }
 
     private var musicContext: some View {

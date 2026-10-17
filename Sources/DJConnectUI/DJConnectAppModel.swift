@@ -9326,7 +9326,8 @@ public final class DJConnectAppModel: ObservableObject {
         #endif
     }
 
-    private func resolvedArtworkURL(_ artworkURL: URL?) -> URL? {
+    /// Route public playback covers through the confirmed HA connection, including Session headers.
+    func resolvedArtworkURL(_ artworkURL: URL?) -> URL? {
         let preferred: URL?
         switch haConnectionMode {
         case .remote: preferred = Self.normalizedHomeAssistantURL(from: haRemoteURL)
