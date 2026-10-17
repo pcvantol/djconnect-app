@@ -68,16 +68,18 @@ struct SessionArtworkView: View {
             active: scenePhase == .active && model.sessionArtworkIsCurrent(media, target: target, audience: audience))
     }
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { clock in
+        // Grant/task expiry already owns pixel withdrawal; no per-image 1Hz work.
+        TimelineView(.explicit(([Date()] + [media.artwork.expiresAt.flatMap(DJConnectHistoryEntry.date)].compactMap { $0 }).sorted())) { clock in
             if key.active, loadedKey == key, let pixels,
                let grant = media.admittedArtwork(session: media.sessionID, target: target, audience: audience, at: clock.date),
                let source = grant.sourceURL.flatMap(URL.init(string:)), let logo = spotifyAttributionLogo {
                 VStack(alignment: .leading, spacing: 8) {
-                    // Keep every source pixel visible; crop_allowed is false.
+                    // Preserve the source aspect ratio and round inside the glass inset.
                     Image(decorative: pixels.image, scale: 1)
                         .resizable().scaledToFit()
                         .frame(width: 100 * CGFloat(pixels.image.width) / CGFloat(max(pixels.image.width, pixels.image.height)),
                                height: 100 * CGFloat(pixels.image.height) / CGFloat(max(pixels.image.width, pixels.image.height)))
+                        .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius - 8, style: .continuous))
                         .accessibilityLabel(grant.altText?[language] ?? grant.altText?["en"] ?? "")
                         .accessibilityIdentifier("session-authorized-artwork")
                         .padding(8).djSessionFrostedSurface()

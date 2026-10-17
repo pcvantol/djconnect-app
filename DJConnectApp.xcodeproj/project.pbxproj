@@ -9,86 +9,150 @@
 /* Begin PBXBuildFile section */
 		00AA6C34CECDE45C790B5701 /* DJConnectCoreWatch.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F1FA46912E85C39830ED5792 /* DJConnectCoreWatch.framework */; };
 		01020E072E1D7DA4FB583507 /* DJConnectLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DFC8884D473895FD28BE17D /* DJConnectLocalization.swift */; };
+		0358B74BE44A17F99AB358A0 /* DJConnectWatchProxyRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB9CA48949CC3F1C66897A37 /* DJConnectWatchProxyRequests.swift */; };
 		04961CAA9B891051B370C3E8 /* DJConnectKeyboardFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DBBDDB0A14CD342B03D1BBD /* DJConnectKeyboardFocus.swift */; };
 		0583DD9E73B863DC3460B74E /* DJConnectWebSocketFastPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDE973EC0D9C7884A1B597A6 /* DJConnectWebSocketFastPath.swift */; };
 		05D1B65EE76F8999E05799CC /* DJConnectKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3C709B1C49EF89F2A88DA2 /* DJConnectKeychain.swift */; };
 		063D8AC13AF9C2D701CD378A /* DJConnectErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA78D455672D5B5BBD091CA /* DJConnectErrors.swift */; };
+		07E140B7B01BB70EC7A59E77 /* DJConnectWatchForegroundSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1219DD7FC1CF9A39F3DA8CD2 /* DJConnectWatchForegroundSession.swift */; };
+		0C71CCB7950C6EE8CA0249EE /* DJConnectSessionArtworkTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 760279FAE53A2917AFEDF556 /* DJConnectSessionArtworkTransport.swift */; };
 		0C89473C3C2DADB567EFB639 /* DJConnectIOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 872A79FAE7E92E9EBB96CE3B /* DJConnectIOSApp.swift */; };
+		0CB85F2201CA1495D83EBB67 /* DJConnectSpeechProviderFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1530B2374F890AA10D8C8567 /* DJConnectSpeechProviderFeedback.swift */; };
+		0E4DC4CF82B46F58A9C1F99F /* DJConnectPassiveSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67D7549924B4B6A1B783938 /* DJConnectPassiveSession.swift */; };
+		100699C10DDC66C39ED0BA43 /* DJConnectSpeechVoicePreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACB3AAAC43237F3304AEEFA6 /* DJConnectSpeechVoicePreference.swift */; };
+		13881662F93DE9D712B6D84C /* DJConnectWatchSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB18D6EC6A2FED5E85FCF77B /* DJConnectWatchSessionView.swift */; };
+		146A3DC574032DADFE6859EF /* SessionVoiceAutoplayControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18D59D1FBADA4F59C3BF7A0 /* SessionVoiceAutoplayControl.swift */; };
 		14C24A642398851F7208C2CF /* DJConnectRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A925089414284E0693A9FD97 /* DJConnectRootView.swift */; };
+		1685A49BA3A5693C8AEDBB51 /* DJConnectSpeechProviderFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1530B2374F890AA10D8C8567 /* DJConnectSpeechProviderFeedback.swift */; };
+		183B15540BF1EF86847006B8 /* DJConnectSessionArtworkTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 760279FAE53A2917AFEDF556 /* DJConnectSessionArtworkTransport.swift */; };
 		1925925463C20A81C360C321 /* DJConnectCoreMac.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */; };
+		19434A1C46E25B7B0D4DB8B0 /* DJConnectSpeechMP3Validation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF18D4579B1DC3D320F9B698 /* DJConnectSpeechMP3Validation.swift */; };
 		1D294AC0BFDFBA629B58AABB /* DJConnectPairedOwnerLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = C162C43F9DC210B40900B1CB /* DJConnectPairedOwnerLive.swift */; };
 		1EBA30C15C3D35490BFAB014 /* DJConnectIOSUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75854DE35F5A2B4F10D86022 /* DJConnectIOSUITests.swift */; };
+		1F5748390E4C5AE657E51D35 /* SessionSpeechAutoplayAdmission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B486DE718E5FA2615EE07D1 /* SessionSpeechAutoplayAdmission.swift */; };
+		204822D22985B491B602EFE3 /* DJConnectSessionSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D2ACCDC8D8A8F263007390F /* DJConnectSessionSpeech.swift */; };
 		228B9B8F4550DD031259FAD6 /* DJConnectSessionBroadcastTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31C5377358CBFFBF8BA6CB06 /* DJConnectSessionBroadcastTransport.swift */; };
 		2329BAE9585FE20E43B8CED8 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 36C561DF0639DA1A6347591D /* Localizable.strings */; };
 		2386D444B3E508A82E0D5E7D /* SessionTimelineRendering.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB1971D307A974FC7A093763 /* SessionTimelineRendering.swift */; };
+		24CB9720DBDAFCD8A5DF58F9 /* DJConnectHybridLocalPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB320DAAAE1348B8FDDCC435 /* DJConnectHybridLocalPolicy.swift */; };
 		2573CE0B0A2FD7979C72084D /* DJConnectModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26056425DEFDCF738458EB87 /* DJConnectModels.swift */; };
+		25EAA114235DD23F95F27AB0 /* DJConnectSessionPersona.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33C7E24114BDED800B0E978B /* DJConnectSessionPersona.swift */; };
+		26826876B380CBBF6A5BBD4A /* DJConnectArtworkRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71077B75DA6E9D52438D5A6A /* DJConnectArtworkRoute.swift */; };
 		27B8CE350A2D35CDEB4ACD45 /* DJConnectSessionHistoryModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEF605C0E4BEC2FA89633A14 /* DJConnectSessionHistoryModel.swift */; };
+		27D66163BAC72539A4B714AD /* DJConnectArtworkRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71077B75DA6E9D52438D5A6A /* DJConnectArtworkRoute.swift */; };
+		27FF229C637E2690F9705951 /* ProfileDJSettingsEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E15C88176E255E80FB9C140A /* ProfileDJSettingsEditor.swift */; };
 		2842328625158FD5AFFC61D6 /* SessionTimelineRendering.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB1971D307A974FC7A093763 /* SessionTimelineRendering.swift */; };
 		29B857CB82C69FD7F31F7105 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = C1969523B9A957E4B7A7D53C /* InfoPlist.strings */; };
 		29BF6445096461E85653805D /* DJConnectPairedOwnerLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = C162C43F9DC210B40900B1CB /* DJConnectPairedOwnerLive.swift */; };
 		29BF66A31A3EA39B99785792 /* DJConnectSessionHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = D30A7F8046B3191EF66D2033 /* DJConnectSessionHistory.swift */; };
+		2B8845B5A25D2170312B2927 /* DJConnectPairedActionConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F43E9CF3F9F9734B22A81C0 /* DJConnectPairedActionConnection.swift */; };
 		2D32C07A775A7DB51798BCF2 /* DJConnectPairedOwnerLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = C162C43F9DC210B40900B1CB /* DJConnectPairedOwnerLive.swift */; };
+		2F0C2DB0F11D7855E03E0FED /* DJConnectAudioPlaybackCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2D269974F89251A6D044359 /* DJConnectAudioPlaybackCoordinator.swift */; };
+		2FFC4608E6BF4D8EECCFC2B4 /* DJConnectSpeechVoicePreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACB3AAAC43237F3304AEEFA6 /* DJConnectSpeechVoicePreference.swift */; };
 		30511F254DD0BBF8DBDA8618 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 41225F05C17EE00301FF6706 /* InfoPlist.strings */; };
 		30C63E92E0B6AF0C2CDAF8D0 /* DJConnectWatchProxyModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 906371AAB99C0F06424B1789 /* DJConnectWatchProxyModels.swift */; };
+		312D80D38F14BD2E8517B580 /* DJConnectSpeechPlaybackRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481A2DADE9DB2613A7205A6 /* DJConnectSpeechPlaybackRuntime.swift */; };
 		338CA547424C9136D333C86A /* DJConnectTrackInsightWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D28D4FC8C6E0AEC5D2C3EC /* DJConnectTrackInsightWidgets.swift */; };
+		3457F3093B2C6D822A00C67B /* ProfileDJSettingsEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E15C88176E255E80FB9C140A /* ProfileDJSettingsEditor.swift */; };
 		34D70F3706318F09C00191D7 /* DJConnectLogRedactor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F35AC3F11DF3D57017CB5E27 /* DJConnectLogRedactor.swift */; };
 		354692434B94093247BF1F24 /* DJConnectLiveActivities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB08DC91C4431F411D2B128 /* DJConnectLiveActivities.swift */; };
 		3566AF36243F94D5256244C1 /* DJConnectSessionPresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F62DAB22758C121E6007B5 /* DJConnectSessionPresence.swift */; };
 		368640E0BC4AF9BCF455513D /* NativeSessionMomentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8559C062E8B01097AFFB103A /* NativeSessionMomentsView.swift */; };
-		669C7EB60D77E96D060004A8 /* SessionArtworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0BBA37191AA90FA72098BC2 /* SessionArtworkView.swift */; };
+		368E712FF3479ECFE563F3AB /* AlbumArtworkPlaceholder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFF0214AEB80A8C45EF85429 /* AlbumArtworkPlaceholder.swift */; };
+		3692B2219E5BD18C6DAA9E35 /* ProfileDJSettingsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73FECA896259829EBF9F4E8 /* ProfileDJSettingsModel.swift */; };
 		369AB6FC712F8E9530B692DD /* DJConnectSessionPresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F62DAB22758C121E6007B5 /* DJConnectSessionPresence.swift */; };
+		37470A8E956B26B40B193884 /* HybridLocalPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD4921C1293A50DA9EA51B5E /* HybridLocalPolicyTests.swift */; };
+		394203EE451DE3EF85FAB5F5 /* DJConnectSessionPersona.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33C7E24114BDED800B0E978B /* DJConnectSessionPersona.swift */; };
 		3C5DC3E81B25098CBA7AED72 /* DJConnectWebSocketFastPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDE973EC0D9C7884A1B597A6 /* DJConnectWebSocketFastPath.swift */; };
+		3C8D59D7FB231E8787C58BA8 /* DJConnectSessionSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D2ACCDC8D8A8F263007390F /* DJConnectSessionSpeech.swift */; };
 		3D9A4123EC198088A8FC1EE8 /* DJConnectSessionHistoryModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEF605C0E4BEC2FA89633A14 /* DJConnectSessionHistoryModel.swift */; };
 		3F3CB5CC6A1448E6E1F4A412 /* DJConnectLaunchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2660C7D523969EF6A9C4E6B /* DJConnectLaunchView.swift */; };
+		3F84F4FD25B9BDD37AC1D1ED /* DJConnectHybridLocalPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB320DAAAE1348B8FDDCC435 /* DJConnectHybridLocalPolicy.swift */; };
 		3FDF08A442A5A0F9A217CC86 /* DJConnectCoreIOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DE473A51768FAF83BB87904A /* DJConnectCoreIOS.framework */; };
 		4293921BEF6B3C041AF4B407 /* DJConnectUIMac.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C659C3787E9F642A8E1AAFCB /* DJConnectUIMac.framework */; };
+		43024AAC9C250C6C61F6F1BC /* DJConnectArtworkRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71077B75DA6E9D52438D5A6A /* DJConnectArtworkRoute.swift */; };
 		442DFD79FFD229971488AB87 /* DJConnectTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23742113397B7D6D33BD468B /* DJConnectTransport.swift */; };
+		4698DAB6EF42C5AD5FDE9F9A /* ArtworkPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A943EC6D586E6780FE893F05 /* ArtworkPresentationTests.swift */; };
 		46A449DDC4D5CF09C5DCAD8A /* DJConnectIOSSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 423DAFBE1369FE47AA43E6CF /* DJConnectIOSSettingsTests.swift */; };
 		46E99FCD23D83A1863B00D0F /* DJConnectKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3C709B1C49EF89F2A88DA2 /* DJConnectKeychain.swift */; };
 		4702D23D912ECAABD43BFB0A /* TrackInsightShareViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9050D0044AD0503337A3699E /* TrackInsightShareViews.swift */; };
+		47FEB0088AAB2512BA7234AD /* DJConnectSessionMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = E43BD38CC6CE41843416A5C6 /* DJConnectSessionMedia.swift */; };
+		49C9E64442115511F50E5C69 /* DJConnectSpeechVoicePreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACB3AAAC43237F3304AEEFA6 /* DJConnectSpeechVoicePreference.swift */; };
+		4E2CA12C2894D768CD558B37 /* ActiveSessionPersonaToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EAA52913F3E1ACC121936C0 /* ActiveSessionPersonaToolbar.swift */; };
+		4EAFABE97F8F8FB37DA4834E /* HybridTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B913B7AB20FB17F7A798C9DF /* HybridTransportTests.swift */; };
+		4EBB828AA9E4FE24062C877E /* SpeechPlaybackRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1B280474EDCC5E766AD1BE /* SpeechPlaybackRuntimeTests.swift */; };
 		4F7D5058CADA67AC6434387E /* DJConnectMacUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 903EAA227408174074DF1101 /* DJConnectMacUITests.swift */; };
+		504AB7C322D64A2AC437FF84 /* DJConnectSpeechMP3Validation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF18D4579B1DC3D320F9B698 /* DJConnectSpeechMP3Validation.swift */; };
+		506A0D6F7DCECDE9475F3B31 /* DJConnectWatchProxyRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB9CA48949CC3F1C66897A37 /* DJConnectWatchProxyRequests.swift */; };
 		510927DF0C46833AB9D7B3E3 /* TrackInsightLiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B05725000CDA3CC68FEF50CE /* TrackInsightLiveActivityController.swift */; };
 		540F1802406DBC2A7A8E7444 /* DJConnectCoreMac.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		55CEB96E8E6294AEC1BBDA92 /* DJConnectWebSocketFastPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDE973EC0D9C7884A1B597A6 /* DJConnectWebSocketFastPath.swift */; };
+		573B84E5D1F7F79B38824085 /* DJConnectHybridTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C77F18ABA7F02CB49A64DC2 /* DJConnectHybridTransport.swift */; };
 		576B5093B433F6256CDEDDA6 /* DJConnectMoment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6AC76AA683C03C6BE3B7806 /* DJConnectMoment.swift */; };
 		57922B420212AF2949802251 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = D429371494CFD733CCA42104 /* InfoPlist.strings */; };
 		57BE7BC62AC958EB8A59F6D3 /* SessionTimelineScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4ABF74B77230368B5FC81B8 /* SessionTimelineScreen.swift */; };
 		58C03C7DFF4F893EF5352A3E /* DJConnectSessionHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = D30A7F8046B3191EF66D2033 /* DJConnectSessionHistory.swift */; };
 		59138BA2E82A81F820D57960 /* DJConnectWebSocketSessionAuthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD94D01429C701E3E5A3FDEF /* DJConnectWebSocketSessionAuthProvider.swift */; };
+		5A6F2EDB556F3E5841E36BDD /* DJConnectGlassAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 175EDF7175EC7D4B19AFF364 /* DJConnectGlassAppearance.swift */; };
+		5AB66626AB6F2FCD9F335A64 /* DJConnectPassiveSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67D7549924B4B6A1B783938 /* DJConnectPassiveSession.swift */; };
 		5E2CFA0E6184A9045601966C /* DJConnectCoreWatch.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F1FA46912E85C39830ED5792 /* DJConnectCoreWatch.framework */; };
+		5E9DA36ED847DF1CA5E37756 /* TrackInsightMotionClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F85E9409F57B2D3117383DE /* TrackInsightMotionClock.swift */; };
 		5FFA57810AFEF34716CA9FAF /* DJConnectCoreIOS.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = DE473A51768FAF83BB87904A /* DJConnectCoreIOS.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		604AB5AB20094C808AB0FAE8 /* SessionSurfaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF1B1366F872E9A96E8E81BE /* SessionSurfaceTests.swift */; };
+		616CA7395FB12A4DFF8573A9 /* DJConnectSpeechPlaybackRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481A2DADE9DB2613A7205A6 /* DJConnectSpeechPlaybackRuntime.swift */; };
 		62C056EAF00D88CE83B60055 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = E54C36B6AA97FCEC5A0E5E48 /* InfoPlist.strings */; };
 		62EA653D2F7EDB550EA7A093 /* DJConnectLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DFC8884D473895FD28BE17D /* DJConnectLocalization.swift */; };
 		64372C30C7DFE96C70150D4E /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 36C561DF0639DA1A6347591D /* Localizable.strings */; };
 		6539BE83AAA93940251CD547 /* DJConnectCoreIOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DE473A51768FAF83BB87904A /* DJConnectCoreIOS.framework */; };
 		65FB209AB918FFADAC61EF28 /* DJConnectRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A925089414284E0693A9FD97 /* DJConnectRootView.swift */; };
+		675505A9D83445A0E91962E2 /* DJConnectSessionArtworkTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 760279FAE53A2917AFEDF556 /* DJConnectSessionArtworkTransport.swift */; };
+		67AB7F05E823411092AE113A /* DJConnectWatchForegroundSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1219DD7FC1CF9A39F3DA8CD2 /* DJConnectWatchForegroundSession.swift */; };
+		67BF92B4DA594421990FFAEF /* PairingRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89C47A6D0B5B8EB0BBCEF7A9 /* PairingRecoveryTests.swift */; };
 		68CB545DCD87BC70664887AF /* DJConnectWebSocketSessionAuthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD94D01429C701E3E5A3FDEF /* DJConnectWebSocketSessionAuthProvider.swift */; };
 		695A294C43C5CBE76F5F6D17 /* DJConnectTrackInsightWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D28D4FC8C6E0AEC5D2C3EC /* DJConnectTrackInsightWidgets.swift */; };
+		69CDCAF27DFF61780F770AB0 /* DJConnectSpeechPlaybackRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481A2DADE9DB2613A7205A6 /* DJConnectSpeechPlaybackRuntime.swift */; };
+		6E50906E0BACE2E083EBB841 /* PassiveSessionSurfaceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 577C4037AB3F267E0398CA6C /* PassiveSessionSurfaceModel.swift */; };
+		6E8605A1404E92DE294969F2 /* SessionSpeechAutoplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA23D1657E9EA15E93D34D13 /* SessionSpeechAutoplayTests.swift */; };
+		6F0B75F22877234C1A1589AB /* TrackInsightMotionClockTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3A951E5E61254043A34141 /* TrackInsightMotionClockTests.swift */; };
 		6F37B694061BED0331A111D2 /* DJConnectModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26056425DEFDCF738458EB87 /* DJConnectModels.swift */; };
+		6F557CC9599BF50EC268407B /* SessionMediaContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB9736E021B19568D95B01B /* SessionMediaContractTests.swift */; };
+		6F98B31E19DA6D028635DE91 /* DJConnectProfileDJSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B98E4AF219BB5F6995CDEFEE /* DJConnectProfileDJSettings.swift */; };
 		701A89E28F359D2A1A439837 /* DJConnectUIIOS.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 48D4F75F261BB3FACEF2EA26 /* DJConnectUIIOS.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		702C065C979A3AB5E74B1EEA /* AudioPlaybackCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2C36CDC39D17302DD319CDF /* AudioPlaybackCoordinatorTests.swift */; };
+		710E66C1CAFFB78EA9756129 /* DJConnectWatchForegroundSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1219DD7FC1CF9A39F3DA8CD2 /* DJConnectWatchForegroundSession.swift */; };
+		72B2383C5683931BEE925959 /* AlbumArtworkPlaceholder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFF0214AEB80A8C45EF85429 /* AlbumArtworkPlaceholder.swift */; };
+		7326F0B6B7389EF026B9A51E /* PassiveSessionSurfaceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 577C4037AB3F267E0398CA6C /* PassiveSessionSurfaceModel.swift */; };
 		745500004DA85F5DF05A93D4 /* DJConnectUIMac.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C659C3787E9F642A8E1AAFCB /* DJConnectUIMac.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		74EBED3FC200F76CB8B57E68 /* DJConnectWebSocketSessionAuthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD94D01429C701E3E5A3FDEF /* DJConnectWebSocketSessionAuthProvider.swift */; };
 		754FC26A57168C9F533E7820 /* DJConnectSessionHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = D30A7F8046B3191EF66D2033 /* DJConnectSessionHistory.swift */; };
 		75A00534BE8229509AAB4EC5 /* DJConnectModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26056425DEFDCF738458EB87 /* DJConnectModels.swift */; };
 		77B8654AF9ACCF0E21AB1C94 /* DJConnectSessionRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA736267DA83B13ACFBCEC2E /* DJConnectSessionRuntime.swift */; };
-		7F1AEED88C613A4C24E0F6E8 /* DJConnectSessionArtworkTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 495830A1323B730FD4E4020C /* DJConnectSessionArtworkTransport.swift */; };
-		F7FE9F34D9ED6C74B0B38E16 /* DJConnectSessionMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91AE558B6AC881C3C9A15FB /* DJConnectSessionMedia.swift */; };
 		77E9FCD25216A20EAE96F6D8 /* DJConnectSessionBroadcastTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31C5377358CBFFBF8BA6CB06 /* DJConnectSessionBroadcastTransport.swift */; };
+		790E330A65D4D503D040EE5B /* ConnectionResumeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D6012649914E5EBC29F1C20 /* ConnectionResumeTests.swift */; };
+		7948D5FC371B079DAAF41410 /* SessionVoiceAutoplayControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18D59D1FBADA4F59C3BF7A0 /* SessionVoiceAutoplayControl.swift */; };
 		7D7B27514CCB9BB420FBA399 /* DJConnectCoreMac.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */; };
+		7DF99F3C4B30788E513EE9CB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 17919B283CC14F9BC5B8D295 /* Assets.xcassets */; };
 		7E0E853AD780CB4E0127E87F /* NativeBottomTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CE40DF95FB967211356B085 /* NativeBottomTabBar.swift */; };
+		810ED9A2FC88386F6072B1ED /* DJConnectHybridLocalPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB320DAAAE1348B8FDDCC435 /* DJConnectHybridLocalPolicy.swift */; };
+		8119BDB5607FF03C896163A8 /* DJConnectSpeechMP3Validation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF18D4579B1DC3D320F9B698 /* DJConnectSpeechMP3Validation.swift */; };
+		81506862F7DD6B1BF10F5A63 /* DJConnectGlassAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 175EDF7175EC7D4B19AFF364 /* DJConnectGlassAppearance.swift */; };
 		84137CA00AC8F97DBCA6130F /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 36C561DF0639DA1A6347591D /* Localizable.strings */; };
+		852608DF64D755BF757CD241 /* AlbumArtworkPlaceholder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFF0214AEB80A8C45EF85429 /* AlbumArtworkPlaceholder.swift */; };
 		867A89D554EE7367C2411B0C /* DJConnectCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 698C60314289E09A85A97440 /* DJConnectCoreTests.swift */; };
 		8A46F3522A8F22A056C96C37 /* DJConnectLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DFC8884D473895FD28BE17D /* DJConnectLocalization.swift */; };
 		8B7A782756C7896FF1B51CEC /* DJConnectCoreIOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DE473A51768FAF83BB87904A /* DJConnectCoreIOS.framework */; };
 		8F5AA12F5C0AE515E27BD736 /* DJConnectTrackInsightWidgetsIOS.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EE354E073321251BA44BDCFF /* DJConnectTrackInsightWidgetsIOS.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		8F646F1071042CE858CA1341 /* DJConnectSpeechTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE153BA3C808EFB093283172 /* DJConnectSpeechTransport.swift */; };
 		8FFA7E34BEE60E4AD8986C11 /* DJConnectWatchProxyModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 906371AAB99C0F06424B1789 /* DJConnectWatchProxyModels.swift */; };
 		90B389D7B8C4760F2667379F /* DJConnectSessionPresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F62DAB22758C121E6007B5 /* DJConnectSessionPresence.swift */; };
 		9166598D891703B55C073284 /* MomentContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 364D76BD4811E1D2049CE566 /* MomentContractTests.swift */; };
 		91902E73987090C9E154E5B1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 93BE51ADEAE2C4D8EA9988F1 /* Assets.xcassets */; };
+		92B68C217DA44EFED9F78795 /* DJConnectHybridTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C77F18ABA7F02CB49A64DC2 /* DJConnectHybridTransport.swift */; };
 		9542AEB084944D171B242903 /* DJConnectClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBE907808268D4334CA5B184 /* DJConnectClient.swift */; };
 		96E767533FE9B51F0EC1A379 /* DJConnectWatchRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0251944CAC3B0BAF17E08B /* DJConnectWatchRootView.swift */; };
 		975B62A4717F33E2DF71AA87 /* DJConnectClientContractFixtureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 814F5EB18CCB8118C90D4F5A /* DJConnectClientContractFixtureTests.swift */; };
 		98FD076D84CC9F9E2CF14F6F /* DJConnectErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA78D455672D5B5BBD091CA /* DJConnectErrors.swift */; };
+		9AED86DE9981CCF454DCD022 /* DJConnectAudioPlaybackCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2D269974F89251A6D044359 /* DJConnectAudioPlaybackCoordinator.swift */; };
 		9E93FCBEF87FF7A0CA35BD6E /* DJConnectLogRedactor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F35AC3F11DF3D57017CB5E27 /* DJConnectLogRedactor.swift */; };
 		9F61A93F86FFC9DFF2CEE9E3 /* DJConnectWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = F9F25D6F893095773FAE9540 /* DJConnectWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A09C47447F27E4F8B8E6DCB5 /* DJConnectKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3C709B1C49EF89F2A88DA2 /* DJConnectKeychain.swift */; };
@@ -98,59 +162,84 @@
 		AB4B1EBD7255BD2E5A484ED7 /* DJConnectCoreWatch.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F1FA46912E85C39830ED5792 /* DJConnectCoreWatch.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		AB631A7E5BA5910B14C79F4E /* DJConnectLiveActivities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB08DC91C4431F411D2B128 /* DJConnectLiveActivities.swift */; };
 		AC7A04E15082502938CFE99C /* DJConnectTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23742113397B7D6D33BD468B /* DJConnectTransport.swift */; };
+		ACAF95EAEA2684CA5237AC71 /* DJConnectSpeechTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE153BA3C808EFB093283172 /* DJConnectSpeechTransport.swift */; };
 		ACB0E6520D437396646E9C94 /* DJConnectLaunchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2660C7D523969EF6A9C4E6B /* DJConnectLaunchView.swift */; };
 		B131F68F5394732CED039782 /* SessionTimelineScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4ABF74B77230368B5FC81B8 /* SessionTimelineScreen.swift */; };
 		B13E66538E0E449635851AA9 /* TrackInsightShareService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD6599458879D730E637FFC3 /* TrackInsightShareService.swift */; };
+		B2F39A98DD8C5795371335F4 /* ProfileDJSettingsContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 630F5AB2D96B05949CBEE842 /* ProfileDJSettingsContractTests.swift */; };
 		B2FCC9EF83E2B17EF8A11C15 /* DJConnectRefreshScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CAAC6E7748EF262584F22A0 /* DJConnectRefreshScheduler.swift */; };
 		B48EED24BBFA437FF0492AAB /* DJConnectAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3838678C774C89F2046E061 /* DJConnectAppModel.swift */; };
 		B4E1C5CD16B3FEDE73A454A8 /* DJConnectTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23742113397B7D6D33BD468B /* DJConnectTransport.swift */; };
+		B6F5A8139D4D8BC4AD87693D /* DJConnectSessionMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = E43BD38CC6CE41843416A5C6 /* DJConnectSessionMedia.swift */; };
+		B9A997DEA1EA350BF022749B /* DJConnectHybridTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C77F18ABA7F02CB49A64DC2 /* DJConnectHybridTransport.swift */; };
 		BBD8C090799EB7A2D68574F2 /* DJConnectCoreMac.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */; };
 		BC4774802815A6A6F91720DE /* DJConnectCoreMac.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		BD27A2C25BAA6A07092F5B9C /* TrackInsightShareRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C97BDBB086FDCCF212549C6 /* TrackInsightShareRenderer.swift */; };
+		BD2C1F76D100D8FEA9F96022 /* TrackInsightPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EACDF5EC6A86A72305C5C68F /* TrackInsightPresentationTests.swift */; };
 		BECAF9FC07EE86ADEEC95AF4 /* TrackInsightLiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B05725000CDA3CC68FEF50CE /* TrackInsightLiveActivityController.swift */; };
+		BED464FE979B094E8FE81506 /* TrackInsightMotionClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F85E9409F57B2D3117383DE /* TrackInsightMotionClock.swift */; };
 		BFA4AF097BD287B5A392AF85 /* DJConnectMoment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6AC76AA683C03C6BE3B7806 /* DJConnectMoment.swift */; };
+		C0C19182325D9FF96E5B280E /* DJConnectSpeechTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE153BA3C808EFB093283172 /* DJConnectSpeechTransport.swift */; };
 		C15DB709C8214BA0388DD119 /* TrackInsightShareService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD6599458879D730E637FFC3 /* TrackInsightShareService.swift */; };
+		C1ED63B66CBE0C0B2EED35D5 /* DJConnectSessionMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = E43BD38CC6CE41843416A5C6 /* DJConnectSessionMedia.swift */; };
 		C2F31C0F4860EC860D73445B /* NativeSessionMomentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8559C062E8B01097AFFB103A /* NativeSessionMomentsView.swift */; };
-		961C96B484E490AA2608C8CB /* SessionArtworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0BBA37191AA90FA72098BC2 /* SessionArtworkView.swift */; };
+		C33C265498D17D9D1EF0DBEF /* SessionSpeechContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BF69FA52F132D5D80E3FDF8 /* SessionSpeechContractTests.swift */; };
 		C7D147EF5D688B9A4EA8B2DF /* DJConnectAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3838678C774C89F2046E061 /* DJConnectAppModel.swift */; };
+		C8BE43720AB165E9E77D9F50 /* DJConnectAudioPlaybackCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2D269974F89251A6D044359 /* DJConnectAudioPlaybackCoordinator.swift */; };
 		C936F76A159119F3C8B10143 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 36C561DF0639DA1A6347591D /* Localizable.strings */; };
+		CA358DFC935FA1636B4E10F5 /* DJConnectProfileDJSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B98E4AF219BB5F6995CDEFEE /* DJConnectProfileDJSettings.swift */; };
+		CA7EB80E6A855805C42FBC04 /* GlassAppearanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54ADBFA0321B7ECA0F228ED8 /* GlassAppearanceTests.swift */; };
+		CCA94D967905A1C92ADBF183 /* WatchForegroundSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 230A10A5F59E57BD8C742DC3 /* WatchForegroundSessionTests.swift */; };
 		CD8622893912BC7D45099E38 /* DJConnectSessionRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA736267DA83B13ACFBCEC2E /* DJConnectSessionRuntime.swift */; };
-		A230C12C3A268BD044B330F3 /* DJConnectSessionArtworkTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 495830A1323B730FD4E4020C /* DJConnectSessionArtworkTransport.swift */; };
-		9957FFDE0FB84AFEF4B411BD /* DJConnectSessionMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91AE558B6AC881C3C9A15FB /* DJConnectSessionMedia.swift */; };
+		CE8E5F5A6C01BF261C04FAE1 /* SessionArtworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBE7DCFC839E56F90B9AD092 /* SessionArtworkView.swift */; };
 		CF5D7468F43A5723274586BA /* DJConnectMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 732A99F815E33F6A2776DDFA /* DJConnectMacApp.swift */; };
 		CFC1ABCE87D4E965FC2943F5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 93BE51ADEAE2C4D8EA9988F1 /* Assets.xcassets */; };
 		D27083BE729C4FFAB0EF3E8E /* DJConnectWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E261C2E77577F5E05601B484 /* DJConnectWatchApp.swift */; };
+		D34B344D222E9CEC2487AB18 /* DJConnectProfileDJSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B98E4AF219BB5F6995CDEFEE /* DJConnectProfileDJSettings.swift */; };
+		D4B4DB305EB2625579F2BA82 /* DJConnectGlassAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 175EDF7175EC7D4B19AFF364 /* DJConnectGlassAppearance.swift */; };
 		D7843393898D7718815669DC /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 016893CADAA01E3C5DD26999 /* LaunchScreen.storyboard */; };
 		D88C3E1AAD930E0B8D36B401 /* DJConnectLiveActivities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB08DC91C4431F411D2B128 /* DJConnectLiveActivities.swift */; };
 		D90767C18105D1A76C9FDED8 /* DJConnectWatchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E1C5F0578AC3B08A73377D /* DJConnectWatchModel.swift */; };
 		D910F48A8E3D0035A78E09C6 /* DJConnectClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBE907808268D4334CA5B184 /* DJConnectClient.swift */; };
+		DA66E5C33442E0AB0CD476FA /* DJConnectWatchProxyRequests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB9CA48949CC3F1C66897A37 /* DJConnectWatchProxyRequests.swift */; };
+		DFB9F73EDF11B6441FBB34CE /* SessionArtworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBE7DCFC839E56F90B9AD092 /* SessionArtworkView.swift */; };
+		DFCBFC9C0E6584064CEF1FDA /* DJConnectPairedActionConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F43E9CF3F9F9734B22A81C0 /* DJConnectPairedActionConnection.swift */; };
 		DFED6311A0F77F6557E9CB5E /* DJConnectClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBE907808268D4334CA5B184 /* DJConnectClient.swift */; };
+		E04E5E7DB8554A8CD6DFDC78 /* DJConnectSessionSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D2ACCDC8D8A8F263007390F /* DJConnectSessionSpeech.swift */; };
 		E270C9AD52531D0AC97D85E4 /* DJConnectRefreshScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CAAC6E7748EF262584F22A0 /* DJConnectRefreshScheduler.swift */; };
+		E37F5134B724F32DE0D85595 /* ActiveSessionPersonaToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EAA52913F3E1ACC121936C0 /* ActiveSessionPersonaToolbar.swift */; };
 		E39BCB89FD7F4D16081DEEC9 /* DJConnectKeyboardFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DBBDDB0A14CD342B03D1BBD /* DJConnectKeyboardFocus.swift */; };
 		E51CF9D8210259C6648271F5 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3953FE328BD44805A901A115 /* InfoPlist.strings */; };
 		E72A0820020F84F72FE0C1B1 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 36C561DF0639DA1A6347591D /* Localizable.strings */; };
+		E8F675EB29EFB51337D45B33 /* ProfileDJSettingsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73FECA896259829EBF9F4E8 /* ProfileDJSettingsModel.swift */; };
 		E8FF838C8FC0729FDD1BB7BF /* DJConnectLogRedactor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F35AC3F11DF3D57017CB5E27 /* DJConnectLogRedactor.swift */; };
 		E909444F178DC718717670A9 /* DJConnectSessionRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA736267DA83B13ACFBCEC2E /* DJConnectSessionRuntime.swift */; };
-		9A9EB6E2BB7B697F17D7A3D5 /* DJConnectSessionArtworkTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 495830A1323B730FD4E4020C /* DJConnectSessionArtworkTransport.swift */; };
-		B664D57D9163F415BC119415 /* DJConnectSessionMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91AE558B6AC881C3C9A15FB /* DJConnectSessionMedia.swift */; };
 		E9D9FCD90E787DA8EC46C50A /* DJConnectUIMac.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C659C3787E9F642A8E1AAFCB /* DJConnectUIMac.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		EA30FAFA2B7546A7E356A569 /* DJConnectSessionBroadcastTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31C5377358CBFFBF8BA6CB06 /* DJConnectSessionBroadcastTransport.swift */; };
+		EADC746E1BD29DBA39019FE6 /* DJConnectSessionPersona.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33C7E24114BDED800B0E978B /* DJConnectSessionPersona.swift */; };
+		EB55913889AF937ED276C432 /* ProfileDJSettingsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E73FECA896259829EBF9F4E8 /* ProfileDJSettingsModel.swift */; };
 		ED20D4E0A1790A605639CE2D /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3953FE328BD44805A901A115 /* InfoPlist.strings */; };
 		ED8D7C357EE85B6BA23288EC /* DJConnectTrackInsightWidgetsMac.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1371B38D13487B2604185CEB /* DJConnectTrackInsightWidgetsMac.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EDC18A4F8895DECED14484DE /* DJConnectWatchProxyModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 906371AAB99C0F06424B1789 /* DJConnectWatchProxyModels.swift */; };
+		EDDD89EEAF5EF584B2AB3319 /* PassiveSessionSurfaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C33F89588A6335EBD3C9175 /* PassiveSessionSurfaceTests.swift */; };
+		EE4DA9680A3E72A345AEF962 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 17919B283CC14F9BC5B8D295 /* Assets.xcassets */; };
 		EED2D9CB3D98F66E5461D2B9 /* DJConnectCoreMac.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */; };
 		EF0E7CD9F3CF79AE3F43855E /* NativeBottomTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CE40DF95FB967211356B085 /* NativeBottomTabBar.swift */; };
 		F1743F294A122B7019290ECE /* TrackInsightShareRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C97BDBB086FDCCF212549C6 /* TrackInsightShareRenderer.swift */; };
+		F1CF4F325CBF0E0BFCCAA771 /* DJConnectPairedActionConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F43E9CF3F9F9734B22A81C0 /* DJConnectPairedActionConnection.swift */; };
+		F51495B828454F82053A9982 /* LaunchScreen.strings in Resources */ = {isa = PBXBuildFile; fileRef = 43FCCB6B39933885651BC717 /* LaunchScreen.strings */; };
 		F5D797603C3FF603E89C262C /* DJConnectMoment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6AC76AA683C03C6BE3B7806 /* DJConnectMoment.swift */; };
 		F82F7B9DCA6316CB3CC8D7AB /* DJConnectPermissionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CCD20F349D8A2854F6AD0F9 /* DJConnectPermissionCoordinator.swift */; };
 		F8505F3454ADD573DC9F6DEE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 93BE51ADEAE2C4D8EA9988F1 /* Assets.xcassets */; };
+		F91B266389049A94D8E917A9 /* DJConnectSpeechProviderFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1530B2374F890AA10D8C8567 /* DJConnectSpeechProviderFeedback.swift */; };
 		FAB4349305D9E5C1D8B8C946 /* NativeMomentAdmissionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DDCB0288272A23AD390F064 /* NativeMomentAdmissionTests.swift */; };
 		FAB670845EFEBE996CA7D94A /* DJConnectUIMac.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C659C3787E9F642A8E1AAFCB /* DJConnectUIMac.framework */; };
 		FBEC3E564D080A8A5E3167C2 /* DJConnectUIIOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 48D4F75F261BB3FACEF2EA26 /* DJConnectUIIOS.framework */; };
+		FCD9472BA6C2547EEEEF7BF7 /* SessionSpeechAutoplayAdmission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B486DE718E5FA2615EE07D1 /* SessionSpeechAutoplayAdmission.swift */; };
 		FD18BE1946F850CED5B702DE /* SessionHistoryContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF7AA85DF29BCD64C3B2B05 /* SessionHistoryContractTests.swift */; };
+		FD78DA01BA9893750ABAE956 /* DJConnectPassiveSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67D7549924B4B6A1B783938 /* DJConnectPassiveSession.swift */; };
 		FE38A5777B25ACAEC8B83234 /* TrackInsightShareViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9050D0044AD0503337A3699E /* TrackInsightShareViews.swift */; };
 		FF76A13AF5A55A90DC522564 /* DJConnectWatchComplications.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1C1AEB2C655A789533668440 /* DJConnectWatchComplications.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		EF38318D99822DFF01F29486 /* LaunchScreen.strings in Resources */ = {isa = PBXBuildFile; fileRef = 1BD9DCF5A405733B0189852B /* LaunchScreen.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -383,50 +472,71 @@
 		0C6FDD83A02229296F502B85 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		0CAAC6E7748EF262584F22A0 /* DJConnectRefreshScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectRefreshScheduler.swift; sourceTree = "<group>"; };
 		0DC8643D2495A26479E3561C /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		1219DD7FC1CF9A39F3DA8CD2 /* DJConnectWatchForegroundSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchForegroundSession.swift; sourceTree = "<group>"; };
 		1371B38D13487B2604185CEB /* DJConnectTrackInsightWidgetsMac.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DJConnectTrackInsightWidgetsMac.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		1530B2374F890AA10D8C8567 /* DJConnectSpeechProviderFeedback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSpeechProviderFeedback.swift; sourceTree = "<group>"; };
 		16845A0EFC30777F34D9B019 /* DJConnectWatchComplications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchComplications.swift; sourceTree = "<group>"; };
+		175EDF7175EC7D4B19AFF364 /* DJConnectGlassAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectGlassAppearance.swift; sourceTree = "<group>"; };
+		17919B283CC14F9BC5B8D295 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1C1AEB2C655A789533668440 /* DJConnectWatchComplications.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DJConnectWatchComplications.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DB174465C70FE0A0870D342 /* DJConnectIOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DJConnectIOS.entitlements; sourceTree = "<group>"; };
 		1DFC8884D473895FD28BE17D /* DJConnectLocalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectLocalization.swift; sourceTree = "<group>"; };
+		1EAA52913F3E1ACC121936C0 /* ActiveSessionPersonaToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSessionPersonaToolbar.swift; sourceTree = "<group>"; };
+		230A10A5F59E57BD8C742DC3 /* WatchForegroundSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchForegroundSessionTests.swift; sourceTree = "<group>"; };
 		23742113397B7D6D33BD468B /* DJConnectTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectTransport.swift; sourceTree = "<group>"; };
 		26056425DEFDCF738458EB87 /* DJConnectModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectModels.swift; sourceTree = "<group>"; };
 		2A850188DA3CF90644DDB2A1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		2AE4A26BF2B8086174972ABF /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		2CF7AA85DF29BCD64C3B2B05 /* SessionHistoryContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHistoryContractTests.swift; sourceTree = "<group>"; };
+		2D2ACCDC8D8A8F263007390F /* DJConnectSessionSpeech.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionSpeech.swift; sourceTree = "<group>"; };
 		2DDCB0288272A23AD390F064 /* NativeMomentAdmissionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMomentAdmissionTests.swift; sourceTree = "<group>"; };
 		2E3C709B1C49EF89F2A88DA2 /* DJConnectKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectKeychain.swift; sourceTree = "<group>"; };
 		31C5377358CBFFBF8BA6CB06 /* DJConnectSessionBroadcastTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionBroadcastTransport.swift; sourceTree = "<group>"; };
+		33C7E24114BDED800B0E978B /* DJConnectSessionPersona.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionPersona.swift; sourceTree = "<group>"; };
 		3436FA1F5868A8F795746664 /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		364D76BD4811E1D2049CE566 /* MomentContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MomentContractTests.swift; sourceTree = "<group>"; };
 		3A473222FF5ED07EE5B17C27 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		3CAF711DDAC6ACE28661D908 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
+		3F43E9CF3F9F9734B22A81C0 /* DJConnectPairedActionConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectPairedActionConnection.swift; sourceTree = "<group>"; };
 		40011F227BEC32338ACC1F20 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		423DAFBE1369FE47AA43E6CF /* DJConnectIOSSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectIOSSettingsTests.swift; sourceTree = "<group>"; };
 		45528CBD4F8D40CACCF5FFD1 /* DJConnectIOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DJConnectIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		455D8A8E298973A498668A2C /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
 		47CB3DA190E30877E0C146E4 /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		48D4F75F261BB3FACEF2EA26 /* DJConnectUIIOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DJConnectUIIOS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		4BF69FA52F132D5D80E3FDF8 /* SessionSpeechContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSpeechContractTests.swift; sourceTree = "<group>"; };
+		4C77F18ABA7F02CB49A64DC2 /* DJConnectHybridTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectHybridTransport.swift; sourceTree = "<group>"; };
 		4D563ABD581133B09D2F84E1 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		4F85E9409F57B2D3117383DE /* TrackInsightMotionClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackInsightMotionClock.swift; sourceTree = "<group>"; };
+		54ADBFA0321B7ECA0F228ED8 /* GlassAppearanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassAppearanceTests.swift; sourceTree = "<group>"; };
+		577C4037AB3F267E0398CA6C /* PassiveSessionSurfaceModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassiveSessionSurfaceModel.swift; sourceTree = "<group>"; };
+		5B486DE718E5FA2615EE07D1 /* SessionSpeechAutoplayAdmission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSpeechAutoplayAdmission.swift; sourceTree = "<group>"; };
 		5C97BDBB086FDCCF212549C6 /* TrackInsightShareRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackInsightShareRenderer.swift; sourceTree = "<group>"; };
 		5CCD20F349D8A2854F6AD0F9 /* DJConnectPermissionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectPermissionCoordinator.swift; sourceTree = "<group>"; };
 		5DB08DC91C4431F411D2B128 /* DJConnectLiveActivities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectLiveActivities.swift; sourceTree = "<group>"; };
 		5E48B927D9C02E6EDFF53AE2 /* DJConnectWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DJConnectWatch.entitlements; sourceTree = "<group>"; };
 		6103B3E3D2BB674C2CDCDCDE /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		630F5AB2D96B05949CBEE842 /* ProfileDJSettingsContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileDJSettingsContractTests.swift; sourceTree = "<group>"; };
 		654DCF520E407827463FCBDD /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		68E2D818D60B67813EC77A42 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		698C60314289E09A85A97440 /* DJConnectCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectCoreTests.swift; sourceTree = "<group>"; };
+		6C33F89588A6335EBD3C9175 /* PassiveSessionSurfaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassiveSessionSurfaceTests.swift; sourceTree = "<group>"; };
 		70D6C2782B6932A1F2C32BB3 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		71077B75DA6E9D52438D5A6A /* DJConnectArtworkRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectArtworkRoute.swift; sourceTree = "<group>"; };
 		71BC8F114A1FED5837EEFEAD /* DJConnectIOSUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DJConnectIOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		730B072F1EF6DD4AFAE2B868 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		732A99F815E33F6A2776DDFA /* DJConnectMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectMacApp.swift; sourceTree = "<group>"; };
 		74772CBD8D695A8A4DAA4045 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		7554C0E7C791FFA62E701921 /* DJConnectMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DJConnectMac.entitlements; sourceTree = "<group>"; };
 		75854DE35F5A2B4F10D86022 /* DJConnectIOSUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectIOSUITests.swift; sourceTree = "<group>"; };
+		760279FAE53A2917AFEDF556 /* DJConnectSessionArtworkTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionArtworkTransport.swift; sourceTree = "<group>"; };
 		7B1D2239570C02F3F6B43C72 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		7CE40DF95FB967211356B085 /* NativeBottomTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeBottomTabBar.swift; sourceTree = "<group>"; };
 		814F5EB18CCB8118C90D4F5A /* DJConnectClientContractFixtureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectClientContractFixtureTests.swift; sourceTree = "<group>"; };
 		8559C062E8B01097AFFB103A /* NativeSessionMomentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSessionMomentsView.swift; sourceTree = "<group>"; };
-		F0BBA37191AA90FA72098BC2 /* SessionArtworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionArtworkView.swift; sourceTree = "<group>"; };
 		872A79FAE7E92E9EBB96CE3B /* DJConnectIOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectIOSApp.swift; sourceTree = "<group>"; };
 		8856F701CA981D3A16595DFF /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		89C47A6D0B5B8EB0BBCEF7A9 /* PairingRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingRecoveryTests.swift; sourceTree = "<group>"; };
 		8AA78D455672D5B5BBD091CA /* DJConnectErrors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectErrors.swift; sourceTree = "<group>"; };
 		8D087A44DEDC32B57C1F4A55 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8F0251944CAC3B0BAF17E08B /* DJConnectWatchRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchRootView.swift; sourceTree = "<group>"; };
@@ -435,26 +545,36 @@
 		906371AAB99C0F06424B1789 /* DJConnectWatchProxyModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchProxyModels.swift; sourceTree = "<group>"; };
 		90FB813F4F6C89EC152146DD /* DJConnectMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DJConnectMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		93BE51ADEAE2C4D8EA9988F1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		9481A2DADE9DB2613A7205A6 /* DJConnectSpeechPlaybackRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSpeechPlaybackRuntime.swift; sourceTree = "<group>"; };
 		9D4DDF4458E05FC14D5BE562 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		9D6012649914E5EBC29F1C20 /* ConnectionResumeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionResumeTests.swift; sourceTree = "<group>"; };
 		9DBBDDB0A14CD342B03D1BBD /* DJConnectKeyboardFocus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectKeyboardFocus.swift; sourceTree = "<group>"; };
 		A0C046B5E061ABCE8DE38FD7 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DJConnectCoreMac.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		A6AC76AA683C03C6BE3B7806 /* DJConnectMoment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectMoment.swift; sourceTree = "<group>"; };
+		A924EF3BCA9682E5B8EA9FE7 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
 		A925089414284E0693A9FD97 /* DJConnectRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectRootView.swift; sourceTree = "<group>"; };
+		A943EC6D586E6780FE893F05 /* ArtworkPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkPresentationTests.swift; sourceTree = "<group>"; };
 		AA736267DA83B13ACFBCEC2E /* DJConnectSessionRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionRuntime.swift; sourceTree = "<group>"; };
-		495830A1323B730FD4E4020C /* DJConnectSessionArtworkTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionArtworkTransport.swift; sourceTree = "<group>"; };
-		A91AE558B6AC881C3C9A15FB /* DJConnectSessionMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionMedia.swift; sourceTree = "<group>"; };
+		AB18D6EC6A2FED5E85FCF77B /* DJConnectWatchSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchSessionView.swift; sourceTree = "<group>"; };
+		ACB3AAAC43237F3304AEEFA6 /* DJConnectSpeechVoicePreference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSpeechVoicePreference.swift; sourceTree = "<group>"; };
 		AD6599458879D730E637FFC3 /* TrackInsightShareService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackInsightShareService.swift; sourceTree = "<group>"; };
 		AFA1030D721F99E941FD7ABB /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/Localizable.strings; sourceTree = "<group>"; };
 		AFEE1759CCFC100C9F2E3C03 /* DJConnectCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DJConnectCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0113F9827B62D57571A1B58 /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		B05725000CDA3CC68FEF50CE /* TrackInsightLiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackInsightLiveActivityController.swift; sourceTree = "<group>"; };
+		B18D59D1FBADA4F59C3BF7A0 /* SessionVoiceAutoplayControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionVoiceAutoplayControl.swift; sourceTree = "<group>"; };
 		B3838678C774C89F2046E061 /* DJConnectAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectAppModel.swift; sourceTree = "<group>"; };
 		B4ABF74B77230368B5FC81B8 /* SessionTimelineScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTimelineScreen.swift; sourceTree = "<group>"; };
 		B4D28D4FC8C6E0AEC5D2C3EC /* DJConnectTrackInsightWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectTrackInsightWidgets.swift; sourceTree = "<group>"; };
 		B5D47182E36AF9D48D8799FA /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		B5F62DAB22758C121E6007B5 /* DJConnectSessionPresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionPresence.swift; sourceTree = "<group>"; };
 		B7E1C5F0578AC3B08A73377D /* DJConnectWatchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchModel.swift; sourceTree = "<group>"; };
+		B913B7AB20FB17F7A798C9DF /* HybridTransportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HybridTransportTests.swift; sourceTree = "<group>"; };
+		B98E4AF219BB5F6995CDEFEE /* DJConnectProfileDJSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectProfileDJSettings.swift; sourceTree = "<group>"; };
+		BA23D1657E9EA15E93D34D13 /* SessionSpeechAutoplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSpeechAutoplayTests.swift; sourceTree = "<group>"; };
+		BB1B280474EDCC5E766AD1BE /* SpeechPlaybackRuntimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechPlaybackRuntimeTests.swift; sourceTree = "<group>"; };
+		BBB9736E021B19568D95B01B /* SessionMediaContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionMediaContractTests.swift; sourceTree = "<group>"; };
 		BCF3209DDD20030D88E9E6A1 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/Localizable.strings; sourceTree = "<group>"; };
 		BEF605C0E4BEC2FA89633A14 /* DJConnectSessionHistoryModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionHistoryModel.swift; sourceTree = "<group>"; };
 		C162C43F9DC210B40900B1CB /* DJConnectPairedOwnerLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectPairedOwnerLive.swift; sourceTree = "<group>"; };
@@ -463,12 +583,26 @@
 		C9827D3149A68F3B7699E7CE /* DJConnectTrackInsightWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DJConnectTrackInsightWidgets.entitlements; sourceTree = "<group>"; };
 		CD94D01429C701E3E5A3FDEF /* DJConnectWebSocketSessionAuthProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWebSocketSessionAuthProvider.swift; sourceTree = "<group>"; };
 		CDE973EC0D9C7884A1B597A6 /* DJConnectWebSocketFastPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWebSocketFastPath.swift; sourceTree = "<group>"; };
+		CE3A951E5E61254043A34141 /* TrackInsightMotionClockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackInsightMotionClockTests.swift; sourceTree = "<group>"; };
 		D30A7F8046B3191EF66D2033 /* DJConnectSessionHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionHistory.swift; sourceTree = "<group>"; };
+		D67D7549924B4B6A1B783938 /* DJConnectPassiveSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectPassiveSession.swift; sourceTree = "<group>"; };
+		DB9CA48949CC3F1C66897A37 /* DJConnectWatchProxyRequests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchProxyRequests.swift; sourceTree = "<group>"; };
+		DBE7DCFC839E56F90B9AD092 /* SessionArtworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionArtworkView.swift; sourceTree = "<group>"; };
+		DCAC40339382A190B3EB0119 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
+		DD4921C1293A50DA9EA51B5E /* HybridLocalPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HybridLocalPolicyTests.swift; sourceTree = "<group>"; };
 		DE473A51768FAF83BB87904A /* DJConnectCoreIOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DJConnectCoreIOS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		DF1B1366F872E9A96E8E81BE /* SessionSurfaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSurfaceTests.swift; sourceTree = "<group>"; };
 		E1372E7133BB3581B0031DBA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		E15C88176E255E80FB9C140A /* ProfileDJSettingsEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileDJSettingsEditor.swift; sourceTree = "<group>"; };
 		E261C2E77577F5E05601B484 /* DJConnectWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchApp.swift; sourceTree = "<group>"; };
+		E2C36CDC39D17302DD319CDF /* AudioPlaybackCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlaybackCoordinatorTests.swift; sourceTree = "<group>"; };
+		E2D269974F89251A6D044359 /* DJConnectAudioPlaybackCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectAudioPlaybackCoordinator.swift; sourceTree = "<group>"; };
 		E2E24226BDC5D6BD0DE369B1 /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/Localizable.strings; sourceTree = "<group>"; };
+		E43BD38CC6CE41843416A5C6 /* DJConnectSessionMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionMedia.swift; sourceTree = "<group>"; };
+		E73FECA896259829EBF9F4E8 /* ProfileDJSettingsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileDJSettingsModel.swift; sourceTree = "<group>"; };
+		EACDF5EC6A86A72305C5C68F /* TrackInsightPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackInsightPresentationTests.swift; sourceTree = "<group>"; };
 		EB1971D307A974FC7A093763 /* SessionTimelineRendering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTimelineRendering.swift; sourceTree = "<group>"; };
+		EBCED23356E4C011701718BE /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
 		EE354E073321251BA44BDCFF /* DJConnectTrackInsightWidgetsIOS.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = DJConnectTrackInsightWidgetsIOS.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		EF55E6BE5E6AA1843606BB31 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
 		F12708B5EACDDCDDCDC9C133 /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -479,14 +613,13 @@
 		F40B352105E173E5F5385B8D /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		F9F25D6F893095773FAE9540 /* DJConnectWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DJConnectWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FAD0D96339C96E2CD2EE47E6 /* DJConnectMacUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DJConnectMacUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FB320DAAAE1348B8FDDCC435 /* DJConnectHybridLocalPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectHybridLocalPolicy.swift; sourceTree = "<group>"; };
 		FBE907808268D4334CA5B184 /* DJConnectClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectClient.swift; sourceTree = "<group>"; };
+		FE153BA3C808EFB093283172 /* DJConnectSpeechTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSpeechTransport.swift; sourceTree = "<group>"; };
+		FF18D4579B1DC3D320F9B698 /* DJConnectSpeechMP3Validation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSpeechMP3Validation.swift; sourceTree = "<group>"; };
 		FF8E9C24E38E374695F4D300 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		FF9C06ECF082C0B085213ABD /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		B2C8B68A3A2F93F4512880F3 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
-		7BF471DF1BE16E7E1059DCB5 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
-		56CAB6A904EEDBF5C55F2C3D /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
-		08AD5CEB5FC7AE6C19A9EB93 /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
-		5C559EC6796F83B077A0A7AF /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/LaunchScreen.strings; sourceTree = "<group>"; };
+		FFF0214AEB80A8C45EF85429 /* AlbumArtworkPlaceholder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumArtworkPlaceholder.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -602,25 +735,42 @@
 		2B9E5D83730F0D68C3C783AD /* DJConnectCore */ = {
 			isa = PBXGroup;
 			children = (
+				71077B75DA6E9D52438D5A6A /* DJConnectArtworkRoute.swift */,
+				E2D269974F89251A6D044359 /* DJConnectAudioPlaybackCoordinator.swift */,
 				FBE907808268D4334CA5B184 /* DJConnectClient.swift */,
 				8AA78D455672D5B5BBD091CA /* DJConnectErrors.swift */,
+				FB320DAAAE1348B8FDDCC435 /* DJConnectHybridLocalPolicy.swift */,
+				4C77F18ABA7F02CB49A64DC2 /* DJConnectHybridTransport.swift */,
 				2E3C709B1C49EF89F2A88DA2 /* DJConnectKeychain.swift */,
 				5DB08DC91C4431F411D2B128 /* DJConnectLiveActivities.swift */,
 				1DFC8884D473895FD28BE17D /* DJConnectLocalization.swift */,
 				F35AC3F11DF3D57017CB5E27 /* DJConnectLogRedactor.swift */,
 				26056425DEFDCF738458EB87 /* DJConnectModels.swift */,
 				A6AC76AA683C03C6BE3B7806 /* DJConnectMoment.swift */,
+				3F43E9CF3F9F9734B22A81C0 /* DJConnectPairedActionConnection.swift */,
 				C162C43F9DC210B40900B1CB /* DJConnectPairedOwnerLive.swift */,
+				D67D7549924B4B6A1B783938 /* DJConnectPassiveSession.swift */,
+				B98E4AF219BB5F6995CDEFEE /* DJConnectProfileDJSettings.swift */,
+				760279FAE53A2917AFEDF556 /* DJConnectSessionArtworkTransport.swift */,
 				31C5377358CBFFBF8BA6CB06 /* DJConnectSessionBroadcastTransport.swift */,
 				D30A7F8046B3191EF66D2033 /* DJConnectSessionHistory.swift */,
+				E43BD38CC6CE41843416A5C6 /* DJConnectSessionMedia.swift */,
+				33C7E24114BDED800B0E978B /* DJConnectSessionPersona.swift */,
 				B5F62DAB22758C121E6007B5 /* DJConnectSessionPresence.swift */,
 				AA736267DA83B13ACFBCEC2E /* DJConnectSessionRuntime.swift */,
-				495830A1323B730FD4E4020C /* DJConnectSessionArtworkTransport.swift */,
-				A91AE558B6AC881C3C9A15FB /* DJConnectSessionMedia.swift */,
+				2D2ACCDC8D8A8F263007390F /* DJConnectSessionSpeech.swift */,
+				FF18D4579B1DC3D320F9B698 /* DJConnectSpeechMP3Validation.swift */,
+				9481A2DADE9DB2613A7205A6 /* DJConnectSpeechPlaybackRuntime.swift */,
+				1530B2374F890AA10D8C8567 /* DJConnectSpeechProviderFeedback.swift */,
+				FE153BA3C808EFB093283172 /* DJConnectSpeechTransport.swift */,
+				ACB3AAAC43237F3304AEEFA6 /* DJConnectSpeechVoicePreference.swift */,
 				23742113397B7D6D33BD468B /* DJConnectTransport.swift */,
+				1219DD7FC1CF9A39F3DA8CD2 /* DJConnectWatchForegroundSession.swift */,
 				906371AAB99C0F06424B1789 /* DJConnectWatchProxyModels.swift */,
+				DB9CA48949CC3F1C66897A37 /* DJConnectWatchProxyRequests.swift */,
 				CDE973EC0D9C7884A1B597A6 /* DJConnectWebSocketFastPath.swift */,
 				CD94D01429C701E3E5A3FDEF /* DJConnectWebSocketSessionAuthProvider.swift */,
+				E73FECA896259829EBF9F4E8 /* ProfileDJSettingsModel.swift */,
 				864DC3C7677DE38E9364ADAE /* Resources */,
 			);
 			path = DJConnectCore;
@@ -637,6 +787,7 @@
 		4653757B26FBF6208FA0BBAD /* DJConnectTrackInsightWidgets */ = {
 			isa = PBXGroup;
 			children = (
+				17919B283CC14F9BC5B8D295 /* Assets.xcassets */,
 				C9827D3149A68F3B7699E7CE /* DJConnectTrackInsightWidgets.entitlements */,
 				B4D28D4FC8C6E0AEC5D2C3EC /* DJConnectTrackInsightWidgets.swift */,
 				8D087A44DEDC32B57C1F4A55 /* Info.plist */,
@@ -653,7 +804,7 @@
 				74772CBD8D695A8A4DAA4045 /* Info.plist */,
 				016893CADAA01E3C5DD26999 /* LaunchScreen.storyboard */,
 				E54C36B6AA97FCEC5A0E5E48 /* InfoPlist.strings */,
-				1BD9DCF5A405733B0189852B /* LaunchScreen.strings */,
+				43FCCB6B39933885651BC717 /* LaunchScreen.strings */,
 			);
 			path = DJConnectIOS;
 			sourceTree = "<group>";
@@ -687,11 +838,28 @@
 		7D958A1A80B5B7240004B60F /* DJConnectCoreTests */ = {
 			isa = PBXGroup;
 			children = (
+				A943EC6D586E6780FE893F05 /* ArtworkPresentationTests.swift */,
+				E2C36CDC39D17302DD319CDF /* AudioPlaybackCoordinatorTests.swift */,
+				9D6012649914E5EBC29F1C20 /* ConnectionResumeTests.swift */,
 				814F5EB18CCB8118C90D4F5A /* DJConnectClientContractFixtureTests.swift */,
 				698C60314289E09A85A97440 /* DJConnectCoreTests.swift */,
+				54ADBFA0321B7ECA0F228ED8 /* GlassAppearanceTests.swift */,
+				DD4921C1293A50DA9EA51B5E /* HybridLocalPolicyTests.swift */,
+				B913B7AB20FB17F7A798C9DF /* HybridTransportTests.swift */,
 				364D76BD4811E1D2049CE566 /* MomentContractTests.swift */,
 				2DDCB0288272A23AD390F064 /* NativeMomentAdmissionTests.swift */,
+				89C47A6D0B5B8EB0BBCEF7A9 /* PairingRecoveryTests.swift */,
+				6C33F89588A6335EBD3C9175 /* PassiveSessionSurfaceTests.swift */,
+				630F5AB2D96B05949CBEE842 /* ProfileDJSettingsContractTests.swift */,
 				2CF7AA85DF29BCD64C3B2B05 /* SessionHistoryContractTests.swift */,
+				BBB9736E021B19568D95B01B /* SessionMediaContractTests.swift */,
+				BA23D1657E9EA15E93D34D13 /* SessionSpeechAutoplayTests.swift */,
+				4BF69FA52F132D5D80E3FDF8 /* SessionSpeechContractTests.swift */,
+				DF1B1366F872E9A96E8E81BE /* SessionSurfaceTests.swift */,
+				BB1B280474EDCC5E766AD1BE /* SpeechPlaybackRuntimeTests.swift */,
+				CE3A951E5E61254043A34141 /* TrackInsightMotionClockTests.swift */,
+				EACDF5EC6A86A72305C5C68F /* TrackInsightPresentationTests.swift */,
+				230A10A5F59E57BD8C742DC3 /* WatchForegroundSessionTests.swift */,
 			);
 			path = DJConnectCoreTests;
 			sourceTree = "<group>";
@@ -729,7 +897,10 @@
 		927D494AA9A571A7F0D5A0BA /* DJConnectUI */ = {
 			isa = PBXGroup;
 			children = (
+				1EAA52913F3E1ACC121936C0 /* ActiveSessionPersonaToolbar.swift */,
+				FFF0214AEB80A8C45EF85429 /* AlbumArtworkPlaceholder.swift */,
 				B3838678C774C89F2046E061 /* DJConnectAppModel.swift */,
+				175EDF7175EC7D4B19AFF364 /* DJConnectGlassAppearance.swift */,
 				9DBBDDB0A14CD342B03D1BBD /* DJConnectKeyboardFocus.swift */,
 				F2660C7D523969EF6A9C4E6B /* DJConnectLaunchView.swift */,
 				5CCD20F349D8A2854F6AD0F9 /* DJConnectPermissionCoordinator.swift */,
@@ -738,10 +909,15 @@
 				BEF605C0E4BEC2FA89633A14 /* DJConnectSessionHistoryModel.swift */,
 				7CE40DF95FB967211356B085 /* NativeBottomTabBar.swift */,
 				8559C062E8B01097AFFB103A /* NativeSessionMomentsView.swift */,
-				F0BBA37191AA90FA72098BC2 /* SessionArtworkView.swift */,
+				577C4037AB3F267E0398CA6C /* PassiveSessionSurfaceModel.swift */,
+				E15C88176E255E80FB9C140A /* ProfileDJSettingsEditor.swift */,
+				DBE7DCFC839E56F90B9AD092 /* SessionArtworkView.swift */,
+				5B486DE718E5FA2615EE07D1 /* SessionSpeechAutoplayAdmission.swift */,
 				EB1971D307A974FC7A093763 /* SessionTimelineRendering.swift */,
 				B4ABF74B77230368B5FC81B8 /* SessionTimelineScreen.swift */,
+				B18D59D1FBADA4F59C3BF7A0 /* SessionVoiceAutoplayControl.swift */,
 				B05725000CDA3CC68FEF50CE /* TrackInsightLiveActivityController.swift */,
+				4F85E9409F57B2D3117383DE /* TrackInsightMotionClock.swift */,
 				5C97BDBB086FDCCF212549C6 /* TrackInsightShareRenderer.swift */,
 				AD6599458879D730E637FFC3 /* TrackInsightShareService.swift */,
 				9050D0044AD0503337A3699E /* TrackInsightShareViews.swift */,
@@ -766,6 +942,7 @@
 				E261C2E77577F5E05601B484 /* DJConnectWatchApp.swift */,
 				B7E1C5F0578AC3B08A73377D /* DJConnectWatchModel.swift */,
 				8F0251944CAC3B0BAF17E08B /* DJConnectWatchRootView.swift */,
+				AB18D6EC6A2FED5E85FCF77B /* DJConnectWatchSessionView.swift */,
 				E1372E7133BB3581B0031DBA /* Info.plist */,
 				C1969523B9A957E4B7A7D53C /* InfoPlist.strings */,
 			);
@@ -1197,6 +1374,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7DF99F3C4B30788E513EE9CB /* Assets.xcassets in Resources */,
 				E51CF9D8210259C6648271F5 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1222,6 +1400,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EE4DA9680A3E72A345AEF962 /* Assets.xcassets in Resources */,
 				ED20D4E0A1790A605639CE2D /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1258,7 +1437,7 @@
 				CFC1ABCE87D4E965FC2943F5 /* Assets.xcassets in Resources */,
 				62C056EAF00D88CE83B60055 /* InfoPlist.strings in Resources */,
 				D7843393898D7718815669DC /* LaunchScreen.storyboard in Resources */,
-				EF38318D99822DFF01F29486 /* LaunchScreen.strings in Resources */,
+				F51495B828454F82053A9982 /* LaunchScreen.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1277,11 +1456,28 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4698DAB6EF42C5AD5FDE9F9A /* ArtworkPresentationTests.swift in Sources */,
+				702C065C979A3AB5E74B1EEA /* AudioPlaybackCoordinatorTests.swift in Sources */,
+				790E330A65D4D503D040EE5B /* ConnectionResumeTests.swift in Sources */,
 				975B62A4717F33E2DF71AA87 /* DJConnectClientContractFixtureTests.swift in Sources */,
 				867A89D554EE7367C2411B0C /* DJConnectCoreTests.swift in Sources */,
+				CA7EB80E6A855805C42FBC04 /* GlassAppearanceTests.swift in Sources */,
+				37470A8E956B26B40B193884 /* HybridLocalPolicyTests.swift in Sources */,
+				4EAFABE97F8F8FB37DA4834E /* HybridTransportTests.swift in Sources */,
 				9166598D891703B55C073284 /* MomentContractTests.swift in Sources */,
 				FAB4349305D9E5C1D8B8C946 /* NativeMomentAdmissionTests.swift in Sources */,
+				67BF92B4DA594421990FFAEF /* PairingRecoveryTests.swift in Sources */,
+				EDDD89EEAF5EF584B2AB3319 /* PassiveSessionSurfaceTests.swift in Sources */,
+				B2F39A98DD8C5795371335F4 /* ProfileDJSettingsContractTests.swift in Sources */,
 				FD18BE1946F850CED5B702DE /* SessionHistoryContractTests.swift in Sources */,
+				6F557CC9599BF50EC268407B /* SessionMediaContractTests.swift in Sources */,
+				6E8605A1404E92DE294969F2 /* SessionSpeechAutoplayTests.swift in Sources */,
+				C33C265498D17D9D1EF0DBEF /* SessionSpeechContractTests.swift in Sources */,
+				604AB5AB20094C808AB0FAE8 /* SessionSurfaceTests.swift in Sources */,
+				4EBB828AA9E4FE24062C877E /* SpeechPlaybackRuntimeTests.swift in Sources */,
+				6F0B75F22877234C1A1589AB /* TrackInsightMotionClockTests.swift in Sources */,
+				BD2C1F76D100D8FEA9F96022 /* TrackInsightPresentationTests.swift in Sources */,
+				CCA94D967905A1C92ADBF183 /* WatchForegroundSessionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1297,25 +1493,42 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				43024AAC9C250C6C61F6F1BC /* DJConnectArtworkRoute.swift in Sources */,
+				9AED86DE9981CCF454DCD022 /* DJConnectAudioPlaybackCoordinator.swift in Sources */,
 				9542AEB084944D171B242903 /* DJConnectClient.swift in Sources */,
 				98FD076D84CC9F9E2CF14F6F /* DJConnectErrors.swift in Sources */,
+				3F84F4FD25B9BDD37AC1D1ED /* DJConnectHybridLocalPolicy.swift in Sources */,
+				92B68C217DA44EFED9F78795 /* DJConnectHybridTransport.swift in Sources */,
 				05D1B65EE76F8999E05799CC /* DJConnectKeychain.swift in Sources */,
 				D88C3E1AAD930E0B8D36B401 /* DJConnectLiveActivities.swift in Sources */,
 				01020E072E1D7DA4FB583507 /* DJConnectLocalization.swift in Sources */,
 				34D70F3706318F09C00191D7 /* DJConnectLogRedactor.swift in Sources */,
 				2573CE0B0A2FD7979C72084D /* DJConnectModels.swift in Sources */,
 				F5D797603C3FF603E89C262C /* DJConnectMoment.swift in Sources */,
+				2B8845B5A25D2170312B2927 /* DJConnectPairedActionConnection.swift in Sources */,
 				2D32C07A775A7DB51798BCF2 /* DJConnectPairedOwnerLive.swift in Sources */,
+				FD78DA01BA9893750ABAE956 /* DJConnectPassiveSession.swift in Sources */,
+				6F98B31E19DA6D028635DE91 /* DJConnectProfileDJSettings.swift in Sources */,
+				0C71CCB7950C6EE8CA0249EE /* DJConnectSessionArtworkTransport.swift in Sources */,
 				228B9B8F4550DD031259FAD6 /* DJConnectSessionBroadcastTransport.swift in Sources */,
 				754FC26A57168C9F533E7820 /* DJConnectSessionHistory.swift in Sources */,
+				C1ED63B66CBE0C0B2EED35D5 /* DJConnectSessionMedia.swift in Sources */,
+				394203EE451DE3EF85FAB5F5 /* DJConnectSessionPersona.swift in Sources */,
 				90B389D7B8C4760F2667379F /* DJConnectSessionPresence.swift in Sources */,
 				77B8654AF9ACCF0E21AB1C94 /* DJConnectSessionRuntime.swift in Sources */,
-				7F1AEED88C613A4C24E0F6E8 /* DJConnectSessionArtworkTransport.swift in Sources */,
-				F7FE9F34D9ED6C74B0B38E16 /* DJConnectSessionMedia.swift in Sources */,
+				204822D22985B491B602EFE3 /* DJConnectSessionSpeech.swift in Sources */,
+				19434A1C46E25B7B0D4DB8B0 /* DJConnectSpeechMP3Validation.swift in Sources */,
+				312D80D38F14BD2E8517B580 /* DJConnectSpeechPlaybackRuntime.swift in Sources */,
+				F91B266389049A94D8E917A9 /* DJConnectSpeechProviderFeedback.swift in Sources */,
+				ACAF95EAEA2684CA5237AC71 /* DJConnectSpeechTransport.swift in Sources */,
+				49C9E64442115511F50E5C69 /* DJConnectSpeechVoicePreference.swift in Sources */,
 				B4E1C5CD16B3FEDE73A454A8 /* DJConnectTransport.swift in Sources */,
+				67AB7F05E823411092AE113A /* DJConnectWatchForegroundSession.swift in Sources */,
 				EDC18A4F8895DECED14484DE /* DJConnectWatchProxyModels.swift in Sources */,
+				DA66E5C33442E0AB0CD476FA /* DJConnectWatchProxyRequests.swift in Sources */,
 				55CEB96E8E6294AEC1BBDA92 /* DJConnectWebSocketFastPath.swift in Sources */,
 				68CB545DCD87BC70664887AF /* DJConnectWebSocketSessionAuthProvider.swift in Sources */,
+				EB55913889AF937ED276C432 /* ProfileDJSettingsModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1331,25 +1544,42 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				27D66163BAC72539A4B714AD /* DJConnectArtworkRoute.swift in Sources */,
+				C8BE43720AB165E9E77D9F50 /* DJConnectAudioPlaybackCoordinator.swift in Sources */,
 				DFED6311A0F77F6557E9CB5E /* DJConnectClient.swift in Sources */,
 				A73CF8DB680C92236CBA8850 /* DJConnectErrors.swift in Sources */,
+				24CB9720DBDAFCD8A5DF58F9 /* DJConnectHybridLocalPolicy.swift in Sources */,
+				573B84E5D1F7F79B38824085 /* DJConnectHybridTransport.swift in Sources */,
 				46E99FCD23D83A1863B00D0F /* DJConnectKeychain.swift in Sources */,
 				AB631A7E5BA5910B14C79F4E /* DJConnectLiveActivities.swift in Sources */,
 				62EA653D2F7EDB550EA7A093 /* DJConnectLocalization.swift in Sources */,
 				9E93FCBEF87FF7A0CA35BD6E /* DJConnectLogRedactor.swift in Sources */,
 				6F37B694061BED0331A111D2 /* DJConnectModels.swift in Sources */,
 				576B5093B433F6256CDEDDA6 /* DJConnectMoment.swift in Sources */,
+				F1CF4F325CBF0E0BFCCAA771 /* DJConnectPairedActionConnection.swift in Sources */,
 				29BF6445096461E85653805D /* DJConnectPairedOwnerLive.swift in Sources */,
+				5AB66626AB6F2FCD9F335A64 /* DJConnectPassiveSession.swift in Sources */,
+				CA358DFC935FA1636B4E10F5 /* DJConnectProfileDJSettings.swift in Sources */,
+				183B15540BF1EF86847006B8 /* DJConnectSessionArtworkTransport.swift in Sources */,
 				EA30FAFA2B7546A7E356A569 /* DJConnectSessionBroadcastTransport.swift in Sources */,
 				58C03C7DFF4F893EF5352A3E /* DJConnectSessionHistory.swift in Sources */,
+				B6F5A8139D4D8BC4AD87693D /* DJConnectSessionMedia.swift in Sources */,
+				25EAA114235DD23F95F27AB0 /* DJConnectSessionPersona.swift in Sources */,
 				369AB6FC712F8E9530B692DD /* DJConnectSessionPresence.swift in Sources */,
 				CD8622893912BC7D45099E38 /* DJConnectSessionRuntime.swift in Sources */,
-				A230C12C3A268BD044B330F3 /* DJConnectSessionArtworkTransport.swift in Sources */,
-				9957FFDE0FB84AFEF4B411BD /* DJConnectSessionMedia.swift in Sources */,
+				3C8D59D7FB231E8787C58BA8 /* DJConnectSessionSpeech.swift in Sources */,
+				504AB7C322D64A2AC437FF84 /* DJConnectSpeechMP3Validation.swift in Sources */,
+				616CA7395FB12A4DFF8573A9 /* DJConnectSpeechPlaybackRuntime.swift in Sources */,
+				1685A49BA3A5693C8AEDBB51 /* DJConnectSpeechProviderFeedback.swift in Sources */,
+				C0C19182325D9FF96E5B280E /* DJConnectSpeechTransport.swift in Sources */,
+				100699C10DDC66C39ED0BA43 /* DJConnectSpeechVoicePreference.swift in Sources */,
 				AC7A04E15082502938CFE99C /* DJConnectTransport.swift in Sources */,
+				710E66C1CAFFB78EA9756129 /* DJConnectWatchForegroundSession.swift in Sources */,
 				8FFA7E34BEE60E4AD8986C11 /* DJConnectWatchProxyModels.swift in Sources */,
+				0358B74BE44A17F99AB358A0 /* DJConnectWatchProxyRequests.swift in Sources */,
 				3C5DC3E81B25098CBA7AED72 /* DJConnectWebSocketFastPath.swift in Sources */,
 				59138BA2E82A81F820D57960 /* DJConnectWebSocketSessionAuthProvider.swift in Sources */,
+				3692B2219E5BD18C6DAA9E35 /* ProfileDJSettingsModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1365,25 +1595,42 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				26826876B380CBBF6A5BBD4A /* DJConnectArtworkRoute.swift in Sources */,
+				2F0C2DB0F11D7855E03E0FED /* DJConnectAudioPlaybackCoordinator.swift in Sources */,
 				D910F48A8E3D0035A78E09C6 /* DJConnectClient.swift in Sources */,
 				063D8AC13AF9C2D701CD378A /* DJConnectErrors.swift in Sources */,
+				810ED9A2FC88386F6072B1ED /* DJConnectHybridLocalPolicy.swift in Sources */,
+				B9A997DEA1EA350BF022749B /* DJConnectHybridTransport.swift in Sources */,
 				A09C47447F27E4F8B8E6DCB5 /* DJConnectKeychain.swift in Sources */,
 				354692434B94093247BF1F24 /* DJConnectLiveActivities.swift in Sources */,
 				8A46F3522A8F22A056C96C37 /* DJConnectLocalization.swift in Sources */,
 				E8FF838C8FC0729FDD1BB7BF /* DJConnectLogRedactor.swift in Sources */,
 				75A00534BE8229509AAB4EC5 /* DJConnectModels.swift in Sources */,
 				BFA4AF097BD287B5A392AF85 /* DJConnectMoment.swift in Sources */,
+				DFCBFC9C0E6584064CEF1FDA /* DJConnectPairedActionConnection.swift in Sources */,
 				1D294AC0BFDFBA629B58AABB /* DJConnectPairedOwnerLive.swift in Sources */,
+				0E4DC4CF82B46F58A9C1F99F /* DJConnectPassiveSession.swift in Sources */,
+				D34B344D222E9CEC2487AB18 /* DJConnectProfileDJSettings.swift in Sources */,
+				675505A9D83445A0E91962E2 /* DJConnectSessionArtworkTransport.swift in Sources */,
 				77E9FCD25216A20EAE96F6D8 /* DJConnectSessionBroadcastTransport.swift in Sources */,
 				29BF66A31A3EA39B99785792 /* DJConnectSessionHistory.swift in Sources */,
+				47FEB0088AAB2512BA7234AD /* DJConnectSessionMedia.swift in Sources */,
+				EADC746E1BD29DBA39019FE6 /* DJConnectSessionPersona.swift in Sources */,
 				3566AF36243F94D5256244C1 /* DJConnectSessionPresence.swift in Sources */,
 				E909444F178DC718717670A9 /* DJConnectSessionRuntime.swift in Sources */,
-				9A9EB6E2BB7B697F17D7A3D5 /* DJConnectSessionArtworkTransport.swift in Sources */,
-				B664D57D9163F415BC119415 /* DJConnectSessionMedia.swift in Sources */,
+				E04E5E7DB8554A8CD6DFDC78 /* DJConnectSessionSpeech.swift in Sources */,
+				8119BDB5607FF03C896163A8 /* DJConnectSpeechMP3Validation.swift in Sources */,
+				69CDCAF27DFF61780F770AB0 /* DJConnectSpeechPlaybackRuntime.swift in Sources */,
+				0CB85F2201CA1495D83EBB67 /* DJConnectSpeechProviderFeedback.swift in Sources */,
+				8F646F1071042CE858CA1341 /* DJConnectSpeechTransport.swift in Sources */,
+				2FFC4608E6BF4D8EECCFC2B4 /* DJConnectSpeechVoicePreference.swift in Sources */,
 				442DFD79FFD229971488AB87 /* DJConnectTransport.swift in Sources */,
+				07E140B7B01BB70EC7A59E77 /* DJConnectWatchForegroundSession.swift in Sources */,
 				30C63E92E0B6AF0C2CDAF8D0 /* DJConnectWatchProxyModels.swift in Sources */,
+				506A0D6F7DCECDE9475F3B31 /* DJConnectWatchProxyRequests.swift in Sources */,
 				0583DD9E73B863DC3460B74E /* DJConnectWebSocketFastPath.swift in Sources */,
 				74EBED3FC200F76CB8B57E68 /* DJConnectWebSocketSessionAuthProvider.swift in Sources */,
+				E8F675EB29EFB51337D45B33 /* ProfileDJSettingsModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1391,7 +1638,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4E2CA12C2894D768CD558B37 /* ActiveSessionPersonaToolbar.swift in Sources */,
+				72B2383C5683931BEE925959 /* AlbumArtworkPlaceholder.swift in Sources */,
 				B48EED24BBFA437FF0492AAB /* DJConnectAppModel.swift in Sources */,
+				D4B4DB305EB2625579F2BA82 /* DJConnectGlassAppearance.swift in Sources */,
 				04961CAA9B891051B370C3E8 /* DJConnectKeyboardFocus.swift in Sources */,
 				3F3CB5CC6A1448E6E1F4A412 /* DJConnectLaunchView.swift in Sources */,
 				A98C2685A50B44910992D183 /* DJConnectPermissionCoordinator.swift in Sources */,
@@ -1400,10 +1650,15 @@
 				27B8CE350A2D35CDEB4ACD45 /* DJConnectSessionHistoryModel.swift in Sources */,
 				EF0E7CD9F3CF79AE3F43855E /* NativeBottomTabBar.swift in Sources */,
 				C2F31C0F4860EC860D73445B /* NativeSessionMomentsView.swift in Sources */,
-				961C96B484E490AA2608C8CB /* SessionArtworkView.swift in Sources */,
+				6E50906E0BACE2E083EBB841 /* PassiveSessionSurfaceModel.swift in Sources */,
+				3457F3093B2C6D822A00C67B /* ProfileDJSettingsEditor.swift in Sources */,
+				CE8E5F5A6C01BF261C04FAE1 /* SessionArtworkView.swift in Sources */,
+				1F5748390E4C5AE657E51D35 /* SessionSpeechAutoplayAdmission.swift in Sources */,
 				2386D444B3E508A82E0D5E7D /* SessionTimelineRendering.swift in Sources */,
 				B131F68F5394732CED039782 /* SessionTimelineScreen.swift in Sources */,
+				7948D5FC371B079DAAF41410 /* SessionVoiceAutoplayControl.swift in Sources */,
 				BECAF9FC07EE86ADEEC95AF4 /* TrackInsightLiveActivityController.swift in Sources */,
+				5E9DA36ED847DF1CA5E37756 /* TrackInsightMotionClock.swift in Sources */,
 				F1743F294A122B7019290ECE /* TrackInsightShareRenderer.swift in Sources */,
 				C15DB709C8214BA0388DD119 /* TrackInsightShareService.swift in Sources */,
 				FE38A5777B25ACAEC8B83234 /* TrackInsightShareViews.swift in Sources */,
@@ -1422,7 +1677,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E37F5134B724F32DE0D85595 /* ActiveSessionPersonaToolbar.swift in Sources */,
+				852608DF64D755BF757CD241 /* AlbumArtworkPlaceholder.swift in Sources */,
 				C7D147EF5D688B9A4EA8B2DF /* DJConnectAppModel.swift in Sources */,
+				5A6F2EDB556F3E5841E36BDD /* DJConnectGlassAppearance.swift in Sources */,
 				E39BCB89FD7F4D16081DEEC9 /* DJConnectKeyboardFocus.swift in Sources */,
 				ACB0E6520D437396646E9C94 /* DJConnectLaunchView.swift in Sources */,
 				F82F7B9DCA6316CB3CC8D7AB /* DJConnectPermissionCoordinator.swift in Sources */,
@@ -1431,10 +1689,15 @@
 				3D9A4123EC198088A8FC1EE8 /* DJConnectSessionHistoryModel.swift in Sources */,
 				7E0E853AD780CB4E0127E87F /* NativeBottomTabBar.swift in Sources */,
 				368640E0BC4AF9BCF455513D /* NativeSessionMomentsView.swift in Sources */,
-				669C7EB60D77E96D060004A8 /* SessionArtworkView.swift in Sources */,
+				7326F0B6B7389EF026B9A51E /* PassiveSessionSurfaceModel.swift in Sources */,
+				27FF229C637E2690F9705951 /* ProfileDJSettingsEditor.swift in Sources */,
+				DFB9F73EDF11B6441FBB34CE /* SessionArtworkView.swift in Sources */,
+				FCD9472BA6C2547EEEEF7BF7 /* SessionSpeechAutoplayAdmission.swift in Sources */,
 				2842328625158FD5AFFC61D6 /* SessionTimelineRendering.swift in Sources */,
 				57BE7BC62AC958EB8A59F6D3 /* SessionTimelineScreen.swift in Sources */,
+				146A3DC574032DADFE6859EF /* SessionVoiceAutoplayControl.swift in Sources */,
 				510927DF0C46833AB9D7B3E3 /* TrackInsightLiveActivityController.swift in Sources */,
+				BED464FE979B094E8FE81506 /* TrackInsightMotionClock.swift in Sources */,
 				BD27A2C25BAA6A07092F5B9C /* TrackInsightShareRenderer.swift in Sources */,
 				B13E66538E0E449635851AA9 /* TrackInsightShareService.swift in Sources */,
 				4702D23D912ECAABD43BFB0A /* TrackInsightShareViews.swift in Sources */,
@@ -1454,9 +1717,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				368E712FF3479ECFE563F3AB /* AlbumArtworkPlaceholder.swift in Sources */,
+				81506862F7DD6B1BF10F5A63 /* DJConnectGlassAppearance.swift in Sources */,
 				D27083BE729C4FFAB0EF3E8E /* DJConnectWatchApp.swift in Sources */,
 				D90767C18105D1A76C9FDED8 /* DJConnectWatchModel.swift in Sources */,
 				96E767533FE9B51F0EC1A379 /* DJConnectWatchRootView.swift in Sources */,
+				13881662F93DE9D712B6D84C /* DJConnectWatchSessionView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1600,6 +1866,18 @@
 			name = InfoPlist.strings;
 			sourceTree = "<group>";
 		};
+		43FCCB6B39933885651BC717 /* LaunchScreen.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				3CAF711DDAC6ACE28661D908 /* de */,
+				DCAC40339382A190B3EB0119 /* en */,
+				A924EF3BCA9682E5B8EA9FE7 /* es */,
+				EBCED23356E4C011701718BE /* fr */,
+				455D8A8E298973A498668A2C /* nl */,
+			);
+			name = LaunchScreen.strings;
+			sourceTree = "<group>";
+		};
 		C1969523B9A957E4B7A7D53C /* InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -1634,18 +1912,6 @@
 				3436FA1F5868A8F795746664 /* nl */,
 			);
 			name = InfoPlist.strings;
-			sourceTree = "<group>";
-		};
-		1BD9DCF5A405733B0189852B /* LaunchScreen.strings */ = {
-			isa = PBXVariantGroup;
-			children = (
-				B2C8B68A3A2F93F4512880F3 /* de */,
-				7BF471DF1BE16E7E1059DCB5 /* en */,
-				56CAB6A904EEDBF5C55F2C3D /* es */,
-				08AD5CEB5FC7AE6C19A9EB93 /* fr */,
-				5C559EC6796F83B077A0A7AF /* nl */,
-			);
-			name = LaunchScreen.strings;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */

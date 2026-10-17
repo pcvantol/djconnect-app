@@ -19,9 +19,13 @@ struct NativeBottomTabBar: UIViewControllerRepresentable {
         controller.mode = .tabBar
         controller.traitOverrides.horizontalSizeClass = .compact
         controller.tabBar.tintColor = UIColor(djConnectAccent)
+        context.coordinator.originalAppearance = controller.tabBar.standardAppearance.copy() as? UITabBarAppearance
+        context.coordinator.originalScrollAppearance = controller.tabBar.scrollEdgeAppearance?.copy() as? UITabBarAppearance
+        context.coordinator.applyGlassAppearance(to: controller, enabled: context.environment.djConnectGlassEffectsEnabled && !context.environment.accessibilityReduceTransparency)
         controller.delegate = context.coordinator
         context.coordinator.hosts = screens.enumerated().map { index, screen in
-            let host = UIHostingController(rootView: hostedScreen(screen, anchors: context.environment.sessionIntroductionAnchors))
+            let host = UIHostingController(rootView: hostedScreen(screen, anchors: context.environment.sessionIntroductionAnchors,
+                glassEnabled: context.environment.djConnectGlassEffectsEnabled))
             host.view.backgroundColor = .clear
             host.tabBarItem = UITabBarItem(title: titles[index], image: UIImage(systemName: symbols[index]), tag: index)
             return host
@@ -35,15 +39,18 @@ struct NativeBottomTabBar: UIViewControllerRepresentable {
         context.coordinator.selection = $selection
         (controller as? KeyboardAwareTabBarController)?.introductionAnchors = context.environment.sessionIntroductionAnchors
         controller.view.setNeedsLayout()
+        context.coordinator.applyGlassAppearance(to: controller, enabled: context.environment.djConnectGlassEffectsEnabled && !context.environment.accessibilityReduceTransparency)
         for (index, host) in context.coordinator.hosts.enumerated() {
-            host.rootView = hostedScreen(screens[index], anchors: context.environment.sessionIntroductionAnchors)
+            host.rootView = hostedScreen(screens[index], anchors: context.environment.sessionIntroductionAnchors,
+                glassEnabled: context.environment.djConnectGlassEffectsEnabled)
             host.tabBarItem.title = titles[index]
         }
         if controller.selectedIndex != selection { controller.selectedIndex = selection }
     }
 
-    private func hostedScreen(_ screen: AnyView, anchors: SessionIntroductionAnchors?) -> AnyView {
+    private func hostedScreen(_ screen: AnyView, anchors: SessionIntroductionAnchors?, glassEnabled: Bool) -> AnyView {
         AnyView(screen.environment(\.sessionIntroductionAnchors, anchors).environment(\.colorScheme, .dark)
+            .environment(\.djConnectGlassEffectsEnabled, glassEnabled)
             .environment(\.scenePhase, scenePhase).tint(djConnectAccent))
     }
 
@@ -79,6 +86,24 @@ struct NativeBottomTabBar: UIViewControllerRepresentable {
     }
 
     @MainActor final class Coordinator: NSObject, UITabBarControllerDelegate {
+        var originalAppearance: UITabBarAppearance?
+        var originalScrollAppearance: UITabBarAppearance?
+        private var lastGlassEnabled: Bool?
+
+        func applyGlassAppearance(to controller: UITabBarController, enabled: Bool) {
+            guard lastGlassEnabled != enabled else { return }
+            lastGlassEnabled = enabled
+            if enabled {
+                if let originalAppearance { controller.tabBar.standardAppearance = originalAppearance }
+                controller.tabBar.scrollEdgeAppearance = originalScrollAppearance
+            } else {
+                let appearance = UITabBarAppearance()
+                appearance.configureWithOpaqueBackground()
+                appearance.backgroundColor = UIColor(DJConnectGlassAppearance.opaqueSurface)
+                controller.tabBar.standardAppearance = appearance
+                controller.tabBar.scrollEdgeAppearance = appearance
+            }
+        }
         var selection: Binding<Int>
         var hosts: [UIHostingController<AnyView>] = []
         init(selection: Binding<Int>) { self.selection = selection }

@@ -187,6 +187,7 @@ public actor DJConnectHybridTransport {
     }
     public func retainedReceipt(_ id: String) -> DJConnectOperationReceipt? { receipts[id] }
     public func lifecycle(foreground: Bool) async {
+        guard self.foreground != foreground else { return }
         self.foreground = foreground
         generation = UUID(); routeTask?.cancel(); routeTask = nil; route = nil
         retryLocalAfter = 0; offlineRetryAfter = 0
@@ -239,7 +240,7 @@ public actor DJConnectHybridTransport {
                   let command = body["command"]?.hybridString,
                   ["set_output", "play", "play_uris", "pause", "next", "previous", "set_volume", "volume_delta", "save_current_track", "set_current_track_favorite", "toggle_current_track_favorite", "set_shuffle", "set_repeat", "seek_relative", "ask_dj_play_recommendation", "ask_dj_play_recommendation_on_output", "ask_dj_play_request_on_output", "ask_dj_followup_response", "ask_dj_message"].contains(command) else { return nil }
         }
-        return ["command", "ask_dj/message", "track_insight", "session/start", "session/end", "session/mood", "session/presence"].contains(name) ? name : nil
+        return ["command", "ask_dj/message", "track_insight", "session/start", "session/end", "session/mood", "session/presence", "session/speech/play"].contains(name) ? name : nil
     }
     public static func isActiveRead(_ request: URLRequest) -> Bool {
         request.httpMethod == "GET" && request.url?.path.hasSuffix("/api/djconnect/v1/session/active") == true
@@ -251,11 +252,16 @@ public actor DJConnectHybridTransport {
         }
         report?(diagnostics)
     }
+    private func urlIsLocal(_ url: URL) -> Bool {
+        url == localURL && (Self.isLocalTransportCandidate(url) || DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(url))
+    }
     private func protectedRequest(_ base: URL, path: String, body: HybridObject) throws -> URLRequest {
         guard eligibleOrigin(base), !expectedInstallID.isEmpty else { throw DJConnectHybridTransportError.untrustedRoute }
         var c = URLComponents(url: base, resolvingAgainstBaseURL: false)!
         c.path = path; c.query = nil; c.fragment = nil
         var request = URLRequest(url: c.url!); request.httpMethod = "POST"
+        request.timeoutInterval = path.hasSuffix("/transport/context")
+            ? (urlIsLocal(base) ? 2 : 8) : 15
         guard let token = try tokenStore.loadToken(), !token.isEmpty else { throw DJConnectError.missingToken }
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(identity.deviceID, forHTTPHeaderField: "X-DJConnect-Device-ID")
@@ -281,6 +287,7 @@ public actor DJConnectHybridTransport {
     private func qualify(_ url: URL, local: Bool) async throws -> Route {
         diagnostics.probes += 1
         let (data, status) = try await wire.http(protectedRequest(url, path: "/api/djconnect/v1/transport/context", body: ["contract_version": .int(1)]))
+        try Task.checkCancellation()
         let body = try JSONDecoder().decode(HybridObject.self, from: data)
         try checkAuthority(body, status: status)
         guard status == 200, body["success"] == .bool(true), body["contract_version"] == .int(1),
@@ -322,6 +329,7 @@ public actor DJConnectHybridTransport {
             catch { /* Only pre-operation reachability loss permits trying another configured origin. */ }
             if local { state(.localDegraded) }
         }
+        try Task.checkCancellation()
         offlineRetryAfter = ProcessInfo.processInfo.systemUptime + min(60, retryDelay)
         retryDelay = min(60, retryDelay * 2)
         state(.recoveringOffline); throw DJConnectHybridTransportError.unavailable

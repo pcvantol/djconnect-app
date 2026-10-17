@@ -1,5 +1,6 @@
 import SwiftUI
 import WidgetKit
+import ImageIO
 import DJConnectCore
 #if os(iOS) && canImport(ActivityKit)
 import ActivityKit
@@ -38,7 +39,9 @@ struct DJConnectSessionWidgetEntry: TimelineEntry {
     let date: Date
     let snapshot: DJConnectSessionSurfaceSnapshot?
     var isActive: Bool { snapshot?.isCurrent(at: date) == true }
-    var theme: DJConnectSessionMoodTheme { snapshot?.renderingTheme(at: date) ?? .brand }
+    var palette: DJConnectWidgetPaletteSnapshot? = nil
+    var rich: DJConnectPassiveSurfaceCache? = nil
+    var theme: DJConnectSessionMoodTheme { isActive ? (snapshot?.renderingTheme(at: date) ?? .brand) : (palette?.renderingTheme(at: date) ?? .brand) }
 }
 
 struct DJConnectSessionWidgetProvider: TimelineProvider {
@@ -51,18 +54,19 @@ struct DJConnectSessionWidgetProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<DJConnectSessionWidgetEntry>) -> Void) {
         let entry = current()
         var entries = [entry]
-        if let expiry = entry.snapshot?.expiresAt {
-            // Remove active status at the original deadline even when the app
-            // is suspended; no network request and no renewed local lease.
-            entries.append(.init(date: expiry, snapshot: nil))
+        let deadlines = Set([entry.snapshot?.expiresAt, entry.palette?.expiresAt].compactMap { $0 } + (entry.rich?.projection.deadlines ?? [])).sorted()
+        for expiry in deadlines {
+            entries.append(.init(date: expiry, snapshot: entry.snapshot, palette: entry.palette, rich: entry.rich))
         }
         completion(Timeline(entries: entries, policy: .after(Date().addingTimeInterval(15 * 60))))
     }
     private func current() -> DJConnectSessionWidgetEntry {
         let now = Date()
-        let snapshot = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier)
-            .flatMap { DJConnectSessionSurfaceSnapshot.load(from: $0, at: now) }
-        return .init(date: now, snapshot: snapshot)
+        let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier)
+        let snapshot = shared.flatMap { DJConnectSessionSurfaceSnapshot.load(from: $0, at: now) }
+        let palette = shared.flatMap { DJConnectWidgetPaletteSnapshot.load(from: $0, at: now) }
+        let rich = shared.flatMap { DJConnectPassiveSurfaceCache.load(surface: .widget, from: $0, at: now) }
+        return .init(date: now, snapshot: snapshot, palette: palette, rich: rich)
     }
 }
 
@@ -101,11 +105,20 @@ private struct DJConnectSessionWidgetView: View {
     let entry: DJConnectSessionWidgetEntry
     @Environment(\.widgetFamily) private var family
     var body: some View {
-        DJConnectSessionSurfaceView(isActive: entry.isActive, compact: family == .systemSmall, theme: entry.theme)
-            .containerBackground(for: .widget) {
-                SessionMoodBackground(theme: entry.theme)
+        let now = max(entry.date, Date())
+        let rich = entry.rich.flatMap { $0.isCurrent(at: now) ? $0 : nil }
+        let theme = rich.map { DJConnectSessionMoodTheme(sessionMood: $0.projection.mood.value) } ?? entry.theme
+        Group {
+            if let rich {
+                PassiveSessionContentView(contribution: rich.projection.currentContribution(at: now),
+                    playback: rich.projection.currentPlayback(at: now), cache: rich,
+                    compact: family == .systemSmall, large: family == .systemLarge, date: now)
+            } else {
+                DJConnectSessionSurfaceView(isActive: entry.isActive, compact: family == .systemSmall, theme: theme)
             }
-            .widgetURL(sessionURL)
+        }
+        .containerBackground(for: .widget) { SessionMoodBackground(theme: theme) }
+        .widgetURL(sessionURL)
     }
 }
 
@@ -141,7 +154,7 @@ struct DJConnectAskDJWidget: Widget {
 struct DJConnectSessionActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: DJConnectSessionLiveActivityAttributes.self) { context in
-            DJConnectSessionSurfaceView(isActive: !context.isStale, theme: context.isStale ? .brand : (context.state.theme ?? .brand))
+            PassiveActivityBody(snapshot: context.state, stale: context.isStale)
                 .padding(16)
                 .background { SessionMoodBackground(theme: context.isStale ? .brand : (context.state.theme ?? .brand)) }
                 .activityBackgroundTint((context.isStale ? DJConnectSessionMoodTheme.brand : (context.state.theme ?? .brand)).darkTint)
@@ -151,8 +164,7 @@ struct DJConnectSessionActivityWidget: Widget {
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) { Image(systemName: "opticaldisc").foregroundStyle((context.isStale ? DJConnectSessionMoodTheme.brand : (context.state.theme ?? .brand)).accent) }
                 DynamicIslandExpandedRegion(.bottom) {
-                    Text(text(context.isStale ? "surface.session.open" : "surface.session.active"))
-                        .font(.headline).foregroundStyle(.white)
+                    PassiveActivityBody(snapshot: context.state, stale: context.isStale)
                 }
             } compactLeading: {
                 Image(systemName: "opticaldisc").foregroundStyle((context.isStale ? DJConnectSessionMoodTheme.brand : (context.state.theme ?? .brand)).accent)
@@ -163,6 +175,103 @@ struct DJConnectSessionActivityWidget: Widget {
             }
             .widgetURL(sessionURL)
             .keylineTint((context.isStale ? DJConnectSessionMoodTheme.brand : (context.state.theme ?? .brand)).accent)
+        }
+    }
+}
+#endif
+
+// Rich content comes only from the separate passive grant, never the foreground
+// owner Moment cache. Contribution and current music retain independent slots.
+private struct PassiveSessionContentView: View {
+    let contribution: DJConnectPassiveSession.Contribution?
+    let playback: DJConnectPassiveSession.NowPlaying?
+    let cache: DJConnectPassiveSurfaceCache?
+    var compact = false
+    var large = false
+    let date: Date
+    var body: some View {
+        VStack(alignment: .leading, spacing: compact ? 6 : 8) {
+            Label(text("ui.session.title"), systemImage: "opticaldisc")
+                .font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+            if let contribution {
+                HStack(alignment: .top, spacing: 10) {
+                    if cache?.projection.currentArtwork(slot: "contribution", at: date) != nil {
+                        cover(slot: "contribution").frame(width: compact ? 40 : 56, height: compact ? 40 : 56)
+                    }
+                    Text(contribution.text).font(compact ? .subheadline.weight(.medium) : .headline)
+                        .lineLimit(large ? 6 : compact ? 4 : 3)
+                        .accessibilityLabel(contribution.text)
+                }
+                credit(contribution.source_attribution)
+            }
+            if let playback, !compact || contribution == nil {
+                if contribution != nil { Divider().overlay(.white.opacity(0.15)) }
+                HStack(alignment: .top, spacing: 10) {
+                    if cache?.projection.currentArtwork(slot: "now_playing", at: date) != nil {
+                        cover(slot: "now_playing").frame(width: large ? 72 : 44, height: large ? 72 : 44)
+                    }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(text("ui.now.playing")).font(.caption2).foregroundStyle(.white.opacity(0.7))
+                        Text(playback.track).font(.subheadline.weight(.semibold)).lineLimit(large ? 3 : 2)
+                        Text(playback.artist).font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(large ? 2 : 1)
+                        if large { Text(playback.album).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(2) }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                credit(playback.attribution)
+            }
+            if contribution == nil && playback == nil {
+                Text(text("surface.session.active")).font(.headline)
+            }
+        }
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityElement(children: .contain)
+    }
+    @ViewBuilder private func credit(_ attribution: [String: String]) -> some View {
+        if attribution["mark"] == "spotify", let source = attribution["url"], let url = URL(string: source) {
+            Link(destination: url) {
+                Image("SpotifyAttribution").resizable().scaledToFit().frame(width: 70, height: 21)
+                    .accessibilityLabel("Spotify")
+            }
+        } else if let provider = attribution["provider"], !provider.isEmpty {
+            if let source = attribution["url"], let url = URL(string: source) {
+                Link(provider, destination: url).font(.caption2).foregroundStyle(.white.opacity(0.85))
+            } else { Text(provider).font(.caption2).foregroundStyle(.white.opacity(0.85)) }
+        }
+    }
+    @ViewBuilder private func cover(slot: String) -> some View {
+        if let cache, cache.isCurrent(at: date),
+           let artwork = cache.projection.currentArtwork(slot: slot, at: date), let data = cache.pixels[slot],
+           data.count <= DJConnectPassiveSurfaceCache.maximumImageBytes,
+           let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+           CGImageSourceGetCount(source) == 1,
+           let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 512
+           ] as CFDictionary) {
+            Image(image, scale: 1, label: Text(artwork.alt_text[DJConnectLocalization.defaultDisplayLanguageCode()] ?? artwork.alt_text["en"] ?? ""))
+                .resizable().scaledToFit() // The granted cover must not be cropped.
+        }
+    }
+}
+
+#if os(iOS) && canImport(ActivityKit)
+private struct PassiveActivityBody: View {
+    let snapshot: DJConnectSessionSurfaceSnapshot
+    let stale: Bool
+    var body: some View {
+        let now = Date()
+        if !stale, let rich = snapshot.rich, rich.isCurrent(at: now) {
+            let cache = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier)
+                .flatMap { DJConnectPassiveSurfaceCache.load(surface: .liveActivity, from: $0, at: now) }
+                .flatMap { value in
+                    value.projection.binding_id == rich.bindingID && value.projection.generation == rich.generation &&
+                    value.projection.delivery_sequence == rich.sequence && value.projection.contribution == rich.contribution &&
+                    value.projection.now_playing == rich.nowPlaying ? value : nil
+                }
+            PassiveSessionContentView(contribution: rich.contribution, playback: rich.nowPlaying, cache: cache, date: now)
+        } else {
+            DJConnectSessionSurfaceView(isActive: !stale && snapshot.isCurrent(at: now), theme: stale ? .brand : (snapshot.theme ?? .brand))
         }
     }
 }

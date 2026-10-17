@@ -140,7 +140,9 @@ struct DJConnectWatchRootView: View {
         }
         .sheet(isPresented: $isShowingNowPlayingArtwork) {
             DJConnectWatchArtworkPreviewView(
-                artworkURL: model.playback?.albumImageURL
+                artworkURL: model.isDemoMode ? nil : model.playback?.albumImageURL,
+                usesDemoArtwork: model.isDemoMode,
+                isPlaying: model.playback?.isPlaying == true
             )
         }
         .onChange(of: scenePhase) { _, phase in
@@ -241,6 +243,10 @@ struct DJConnectWatchRootView: View {
                 LazyVStack(spacing: 12) {
                     mainHeader
 
+                    if !model.isDemoMode {
+                        DJConnectWatchSessionView(state: model.foregroundSession, settings: model.profileDJSettings)
+                    }
+
                     nowPlaying
 
                     HStack(spacing: 12) {
@@ -288,7 +294,7 @@ struct DJConnectWatchRootView: View {
                     }
                     .buttonStyle(.plain)
 
-                    askDJMoodControl
+                    if model.isDemoMode { askDJMoodControl }
 
                     NavigationLink {
                         DJConnectWatchQueueView()
@@ -660,8 +666,10 @@ struct DJConnectWatchRootView: View {
     private var nowPlaying: some View {
         HStack(spacing: 9) {
             DJConnectWatchArtwork(
-                url: model.playback?.albumImageURL,
-                fallbackSystemImage: "music.note"
+                url: model.isDemoMode ? nil : model.playback?.albumImageURL,
+                fallbackSystemImage: "music.note",
+                usesVinylPlaceholder: model.isDemoMode,
+                isPlaying: model.playback?.isPlaying == true
             )
             .frame(width: 54, height: 54)
 
@@ -730,7 +738,8 @@ struct DJConnectWatchRootView: View {
                             insight: insight,
                             profile: TrackVibeProfile.make(for: insight)
                                 .applyingWatchTrackInsightMoodRenderOverride(stepIndex: model.askDJMoodStepIndex),
-                            isPlaying: model.playback?.isPlaying == true
+                            isPlaying: model.playback?.isPlaying == true,
+                            usesDemoArtwork: model.isDemoMode
                         )
                         .id(trackInsightVisualizerRenderID(for: insight))
                         .frame(height: 190)
@@ -983,6 +992,7 @@ struct DJConnectWatchRootView: View {
         let insight: TrackInsight
         let profile: TrackVibeProfile
         let isPlaying: Bool
+        var usesDemoArtwork = false
 
         private var shouldAnimate: Bool {
             !reduceMotion && isPlaying
@@ -1069,7 +1079,9 @@ struct DJConnectWatchRootView: View {
                     .scaleEffect(1.16)
 
                 ZStack {
-                    if let artworkURL = insight.artwork {
+                    if usesDemoArtwork {
+                        AlbumArtworkPlaceholder(tint: watchAccentPurple, isPlaying: isPlaying)
+                    } else if let artworkURL = insight.artwork {
                         AsyncImage(url: artworkURL) { phase in
                             switch phase {
                             case let .success(image):
@@ -1848,6 +1860,7 @@ struct DJConnectWatchRootView: View {
 private struct DJConnectWatchGlassBrandIcon: View {
     let size: CGFloat
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
 
     var body: some View {
         let corner = size * 0.25
@@ -1859,12 +1872,12 @@ private struct DJConnectWatchGlassBrandIcon: View {
             .padding(3)
             .frame(width: size, height: size)
             .background {
-                if #available(watchOS 26, *), !reduceTransparency {
+                if #available(watchOS 26, *), glassEnabled && !reduceTransparency {
                     shape.fill(.clear).glassEffect(.regular, in: shape)
-                } else if reduceTransparency {
+                } else if !glassEnabled || reduceTransparency {
                     shape.fill(watchDeepNavy)
                 } else {
-                    shape.fill(.ultraThinMaterial)
+                    shape.fill(DJConnectMaterial(.ultraThin))
                 }
             }
             .overlay {
@@ -2464,6 +2477,7 @@ private struct DJConnectWatchSettingsView: View {
                         }
                         .labelsHidden()
                         .pickerStyle(.navigationLink)
+                        DJConnectGlassPreferenceToggle(language: model.language)
                     }
 
                     if model.isDemoMode {
@@ -3557,6 +3571,8 @@ private struct DJConnectWatchPlaylistRow: View {
 private struct DJConnectWatchArtwork: View {
     let url: URL?
     let fallbackSystemImage: String
+    var usesVinylPlaceholder = false
+    var isPlaying = false
 
     var body: some View {
         ZStack {
@@ -3585,19 +3601,25 @@ private struct DJConnectWatchArtwork: View {
         )
     }
 
-    private var fallback: some View {
-        Image(systemName: fallbackSystemImage)
-            .renderingMode(.template)
-            .font(.system(size: 15, weight: .semibold))
-            .symbolRenderingMode(.monochrome)
-            .foregroundStyle(watchAccentPurple.opacity(0.88))
-            .foregroundColor(watchAccentPurple.opacity(0.88))
+    @ViewBuilder private var fallback: some View {
+        if usesVinylPlaceholder {
+            AlbumArtworkPlaceholder(tint: watchAccentPurple, isPlaying: isPlaying)
+        } else {
+            Image(systemName: fallbackSystemImage)
+                .renderingMode(.template)
+                .font(.system(size: 15, weight: .semibold))
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(watchAccentPurple.opacity(0.88))
+                .foregroundColor(watchAccentPurple.opacity(0.88))
+        }
     }
 }
 
 private struct DJConnectWatchArtworkPreviewView: View {
     @Environment(\.dismiss) private var dismiss
     let artworkURL: URL?
+    var usesDemoArtwork = false
+    var isPlaying = false
 
     var body: some View {
         ZStack {
@@ -3657,10 +3679,14 @@ private struct DJConnectWatchArtworkPreviewView: View {
         )
     }
 
-    private var fallbackArtwork: some View {
-        Image(systemName: "play.fill")
-            .font(.system(size: 44, weight: .bold))
-            .foregroundStyle(watchIconGradient)
+    @ViewBuilder private var fallbackArtwork: some View {
+        if usesDemoArtwork {
+            AlbumArtworkPlaceholder(tint: watchAccentPurple, isPlaying: isPlaying)
+        } else {
+            Image(systemName: "play.fill")
+                .font(.system(size: 44, weight: .bold))
+                .foregroundStyle(watchIconGradient)
+        }
     }
 }
 

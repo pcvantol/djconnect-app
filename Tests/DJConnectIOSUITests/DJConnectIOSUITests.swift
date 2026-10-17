@@ -2036,7 +2036,7 @@ extension DJConnectIOSUITests {
         let sessionTab = app.tabBars.buttons["DJ-sessie"]
         if sessionTab.exists { sessionTab.tap() }
         XCTAssertTrue(app.staticTexts["Een avond met de DJ"].firstMatch.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.descendants(matching: .any)["session-demo-notice"].firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any)["session-demo-notice"].firstMatch.exists)
         XCTAssertTrue(app.staticTexts["Midnight City"].firstMatch.exists)
         let overviewBeforeTyping = XCTAttachment(screenshot: app.screenshot()); overviewBeforeTyping.name = "demo-native-overview-before-keyboard"; overviewBeforeTyping.lifetime = .keepAlways; add(overviewBeforeTyping)
         let composer = app.textViews.firstMatch

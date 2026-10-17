@@ -18,7 +18,6 @@ var djConnectRefreshToolbarPlacement: ToolbarItemPlacement {
     #endif
 }
 
-
 #if canImport(AVFoundation)
 @preconcurrency import AVFoundation
 #endif
@@ -86,15 +85,6 @@ private func localizedKey(_ language: String, _ key: String, arguments: CVarArg.
     DJConnectLocalization.localized(key: key, language: language, arguments: arguments)
 }
 
-private func localizedOutputName(_ outputName: String, language: String) -> String {
-    switch outputName {
-    case "Not selected", "No output selected":
-        localizedKey(language, "ui.no.output.device.selected")
-    default:
-        outputName
-    }
-}
-
 private func screenTitle(_ language: String, key: String, isDemoMode: Bool) -> String {
     let title = localizedKey(language, key)
     guard isDemoMode, title != localizedKey(language, "ui.more") else {
@@ -128,21 +118,6 @@ private func askDJTimestamp(_ date: Date, language: String, now: Date = Date()) 
     default:
         let months = max(2, days / 30)
         return localizedKey(language, "ui.value.months.ago", arguments: months)
-    }
-}
-
-private func localizedPairingStatus(_ status: DJConnectPairingStatus, language: String) -> String {
-    switch status {
-    case .paired:
-        localizedKey(language, "ui.paired")
-    case .pairing:
-        localizedKey(language, "ui.pairing")
-    case .waitingForHomeAssistantCompletion:
-        localizedKey(language, "ui.waiting.for.home.assistant")
-    case .stale:
-        localizedKey(language, "ui.stale")
-    case .unpaired:
-        localizedKey(language, "ui.unpaired")
     }
 }
 
@@ -551,15 +526,7 @@ private extension Data {
 private extension View {
     @ViewBuilder
     func liquidGlassIfAvailable() -> some View {
-        #if compiler(>=6.2)
-        if #available(iOS 26.0, macOS 26.0, *) {
-            self.glassEffect()
-        } else {
-            self
-        }
-        #else
-        self
-        #endif
+        modifier(DJConnectOptionalGlassEffect())
     }
 
     @ViewBuilder
@@ -750,7 +717,7 @@ public struct DJConnectRootView: View {
 
     public var body: some View {
         ZStack {
-            DJConnectCanvasBackground()
+            rootCanvas
             Group {
                 #if os(macOS)
                 NavigationSplitView(columnVisibility: $sidebarVisibility) {
@@ -999,7 +966,10 @@ public struct DJConnectRootView: View {
                 model.handlePairingDeepLink(url)
             }
         }
-        .task { await model.refreshActiveDJSession() }
+        .task(id: model.pairingStatus) {
+            await model.refreshProfileDJSettings()
+            await model.refreshActiveDJSession()
+        }
         .task(id: model.pairingStatus) { await history.prepare() }
         .overlay(alignment: .bottom) {
             if let key = history.navigationErrorKey {
@@ -1008,7 +978,7 @@ public struct DJConnectRootView: View {
                     Button(localizedKey(model.language, "ui.close")) { history.clearNavigationError() }
                 }
                 .font(.callout).padding(16).frame(maxWidth: 650)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16)).padding(.bottom, 80)
+                .background(DJConnectMaterial(.regular), in: RoundedRectangle(cornerRadius: 16)).padding(.bottom, 80)
             }
         }
         .onAppear {
@@ -1048,6 +1018,22 @@ public struct DJConnectRootView: View {
         }
         .environment(\.colorScheme, .dark)
         .preferredColorScheme(.dark)
+        .djConnectGlassPreferences()
+    }
+
+    @ViewBuilder private var rootCanvas: some View {
+        #if os(iOS)
+        if usesNativeiPadTabs, selectedSection == .djSession, let session = model.activeDJSession {
+            // UIKit's tab hosts stop at the container safe area. Paint the same
+            // confirmed mood behind the status bar and home-indicator area.
+            DJSessionPinnedMoodBackground(mood: session.selectedMood)
+                .ignoresSafeArea(.container)
+        } else {
+            DJConnectCanvasBackground()
+        }
+        #else
+        DJConnectCanvasBackground()
+        #endif
     }
 
     private func handleHomeScreenActionRequestIfNeeded() {
@@ -2532,7 +2518,7 @@ private struct PairingQRScannerView: View {
                         .multilineTextAlignment(.center)
                         .padding(16)
                         .frame(maxWidth: .infinity)
-                        .background(.ultraThinMaterial)
+                        .background(DJConnectMaterial(.ultraThin))
                 }
             }
             .navigationTitle(localizedKey(language, "ui.scan.qr.code"))
@@ -2750,72 +2736,6 @@ private final class PairingQRScannerViewController: UIViewController, @preconcur
     }
 }
 #endif
-
-private struct PairingValueCard: View {
-    let title: String
-    let language: String
-    let value: String
-    let copyLabel: String
-    var prominent = false
-    @State private var didCopy = false
-    @State private var copyFeedbackToken = UUID()
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.62))
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(value)
-                    .font(prominent ? .system(.title, design: .monospaced).weight(.semibold) : .system(.body, design: .monospaced))
-                    .textSelection(.enabled)
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
-                Button {
-                    copyText(value)
-                    showCopiedFeedback()
-                } label: {
-                    Image(systemName: didCopy ? "checkmark.circle.fill" : "doc.on.doc")
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(didCopy ? .green : djConnectAccent)
-                .tint(djConnectAccent)
-                .help(copyLabel)
-                .accessibilityLabel(copyLabel)
-            }
-            if didCopy {
-                Label(
-                    localizedKey(language, "ui.copied.to.clipboard"),
-                    systemImage: "checkmark.circle"
-                )
-                .font(.caption)
-                .foregroundStyle(.green)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .djConnectGradientCard()
-    }
-
-    private func showCopiedFeedback() {
-        let token = UUID()
-        copyFeedbackToken = token
-        withAnimation(.easeOut(duration: 0.16)) {
-            didCopy = true
-        }
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(1_100))
-            guard copyFeedbackToken == token else {
-                return
-            }
-            withAnimation(.easeOut(duration: 0.18)) {
-                didCopy = false
-            }
-        }
-    }
-}
 
 private struct WakeWordActivationPromptView: View {
     @ObservedObject var model: DJConnectAppModel
@@ -3581,9 +3501,13 @@ struct DJConnectButtonStyle: ButtonStyle {
     var iconDiameter: CGFloat = DJConnectButtonAppearance.iconSize
     var showsFocusIndicator = true
     var foregroundColor: Color? = nil
+    var selectionTint: Color? = nil
+    var dimsWhenDisabled = true
     @Environment(\.isFocused) private var isFocused
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
 
     private var outline: AnyShape {
         switch shape {
@@ -3609,19 +3533,19 @@ struct DJConnectButtonStyle: ButtonStyle {
             .background {
                 switch role {
                 case .primary: outline.fill(DJConnectButtonAppearance.primaryGradient)
-                case .selected: outline.fill(DJConnectButtonAppearance.selectedFill)
+                case .selected: outline.fill((selectionTint ?? djConnectAccent).opacity(0.22))
                 case .destructive: outline.fill(Color.red.opacity(0.12))
                 case .secondary:
-                    if usesLiveGlass { outline.fill(.white.opacity(0.04)).glassEffect(.regular.interactive(), in: outline) }
-                    else { outline.fill(.white.opacity(0.10)) }
+                    if usesLiveGlass && glassEnabled && !reduceTransparency { outline.fill(.white.opacity(0.04)).glassEffect(.regular.interactive(), in: outline) }
+                    else { outline.fill(glassEnabled && !reduceTransparency ? Color.white.opacity(0.10) : DJConnectGlassAppearance.opaqueSurface) }
                 case .tertiary: Color.clear
                 }
             }
-            .overlay { outline.stroke(role == .selected ? djConnectAccent.opacity(0.55) : .white.opacity(role == .tertiary ? 0 : 0.12), lineWidth: 1).allowsHitTesting(false) }
+            .overlay { outline.stroke(role == .selected ? (selectionTint ?? djConnectAccent).opacity(0.55) : .white.opacity(role == .tertiary ? 0 : 0.12), lineWidth: 1).allowsHitTesting(false) }
             .overlay { outline.fill(.white.opacity(pressed ? 0.10 : 0)).allowsHitTesting(false) }
             .overlay { outline.stroke(.white.opacity(showsFocusIndicator && isFocused ? 0.95 : 0), lineWidth: 3).allowsHitTesting(false) }
             .contentShape(outline)
-            .opacity(isEnabled ? 1 : 0.40)
+            .opacity(isEnabled || !dimsWhenDisabled ? 1 : 0.40)
             .scaleEffect(pressed && !reduceMotion ? DJConnectButtonAppearance.pressedScale : 1)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: pressed)
     }
@@ -3650,6 +3574,7 @@ private struct DJConnectNotNowLinkButton: View {
 private struct AnimatedAlbumArtworkView: View {
     let playback: DJConnectPlayback?
     let maxWidth: CGFloat
+    var usesDemoArtwork = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var trackKey: String {
@@ -3672,135 +3597,10 @@ private struct AnimatedAlbumArtworkView: View {
     }
 
     private var artworkContent: some View {
-        CachedArtworkImage(url: playback?.albumImageURL, mode: .fit, usesAlbumGlassFrame: true) {
+        CachedArtworkImage(url: usesDemoArtwork ? nil : playback?.albumImageURL, mode: .fit, usesAlbumGlassFrame: true) {
             AlbumArtworkPlaceholder(tint: artworkTintColor(for: playback), isPlaying: playback?.isPlaying == true)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-/// A fixed pivot, counterweight, bent metal arm and cartridge above the spinning record.
-private struct AlbumArtworkTonearm: View {
-    let recordDiameter: CGFloat
-
-    var body: some View {
-        Canvas { context, size in
-            let d = recordDiameter
-            let center = CGPoint(x: size.width / 2, y: size.height / 2)
-            func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-                CGPoint(x: center.x + x * d, y: center.y + y * d)
-            }
-            let pivot = point(0.44, -0.38)
-            let base = CGRect(x: pivot.x - d * 0.055, y: pivot.y - d * 0.055,
-                              width: d * 0.11, height: d * 0.11)
-            context.fill(Path(ellipseIn: base), with: .linearGradient(
-                Gradient(colors: [Color(white: 0.28), Color(white: 0.08)]),
-                startPoint: CGPoint(x: base.minX, y: base.minY), endPoint: CGPoint(x: base.maxX, y: base.maxY)))
-            context.stroke(Path(ellipseIn: base), with: .color(.white.opacity(0.35)), lineWidth: d * 0.004)
-
-            let weight = CGRect(x: pivot.x - d * 0.028, y: pivot.y - d * 0.105,
-                                width: d * 0.065, height: d * 0.07)
-            context.fill(Path(roundedRect: weight, cornerRadius: d * 0.012), with: .color(Color(white: 0.55)))
-            var arm = Path()
-            arm.move(to: point(0.45, -0.08 - 0.38))
-            arm.addLine(to: pivot)
-            arm.addLine(to: point(0.38, 0.035))
-            arm.addLine(to: point(0.18, 0.185))
-            var shadow = context
-            shadow.translateBy(x: d * 0.012, y: d * 0.014)
-            shadow.stroke(arm, with: .color(.black.opacity(0.45)),
-                          style: StrokeStyle(lineWidth: d * 0.028, lineCap: .round, lineJoin: .round))
-            context.stroke(arm, with: .color(Color(white: 0.18)),
-                           style: StrokeStyle(lineWidth: d * 0.028, lineCap: .round, lineJoin: .round))
-            context.stroke(arm, with: .linearGradient(Gradient(colors: [.white.opacity(0.95), Color(white: 0.48)]),
-                                                     startPoint: pivot, endPoint: point(0.18, 0.185)),
-                           style: StrokeStyle(lineWidth: d * 0.016, lineCap: .round, lineJoin: .round))
-            context.fill(Path(ellipseIn: CGRect(x: pivot.x - d * 0.022, y: pivot.y - d * 0.022,
-                                                width: d * 0.044, height: d * 0.044)), with: .color(Color(white: 0.7)))
-
-            var cartridge = Path()
-            cartridge.move(to: point(0.215, 0.17))
-            cartridge.addLine(to: point(0.177, 0.13))
-            cartridge.addLine(to: point(0.112, 0.207))
-            cartridge.addLine(to: point(0.15, 0.245))
-            cartridge.closeSubpath()
-            context.fill(cartridge, with: .color(Color(red: 0.18, green: 0.16, blue: 0.25)))
-            context.stroke(cartridge, with: .color(.white.opacity(0.55)), lineWidth: d * 0.004)
-            var stylus = Path()
-            stylus.move(to: point(0.13, 0.225))
-            stylus.addLine(to: point(0.113, 0.25))
-            context.stroke(stylus, with: .color(.white.opacity(0.9)),
-                           style: StrokeStyle(lineWidth: d * 0.006, lineCap: .round))
-        }
-        .allowsHitTesting(false)
-    }
-}
-
-/// An unframed, quiet vinyl silhouette when artwork is absent or unavailable.
-/// Its soft halo merges into the parent player card; it is not an album image.
-private struct AlbumArtworkPlaceholder: View {
-    let tint: Color
-    let isPlaying: Bool
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var elapsedBeforePause: TimeInterval = 0
-    @State private var spinningSince: Date?
-
-    private var shouldSpin: Bool {
-        isPlaying && !reduceMotion && scenePhase == .active
-    }
-
-    var body: some View {
-        GeometryReader { geometry in
-            let side = min(geometry.size.width, geometry.size.height)
-            let record = side * 0.66
-            ZStack {
-                Circle()
-                    .fill(RadialGradient(colors: [tint.opacity(0.30), .clear],
-                                         center: .center, startRadius: 0, endRadius: side * 0.46))
-                    .frame(width: side * 0.92, height: side * 0.92)
-                    .blur(radius: side * 0.06)
-                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !shouldSpin)) { context in
-                    let elapsed = elapsedBeforePause + (spinningSince.map { max(0, context.date.timeIntervalSince($0)) } ?? 0)
-                    ZStack {
-                        Circle()
-                            .fill(LinearGradient(colors: [Color(red: 0.12, green: 0.13, blue: 0.20),
-                                                          Color(red: 0.025, green: 0.03, blue: 0.07)],
-                                                 startPoint: .topLeading, endPoint: .bottomTrailing))
-                            .frame(width: record, height: record)
-                        ForEach([0.78, 0.90], id: \.self) { scale in
-                            Circle().stroke(.white.opacity(0.045), lineWidth: 1)
-                                .frame(width: record * scale, height: record * scale)
-                        }
-                        // The reflection turns with the record; the tonearm stays fixed.
-                        Circle().trim(from: 0.04, to: 0.18)
-                            .stroke(.white.opacity(0.14), style: StrokeStyle(lineWidth: record * 0.012, lineCap: .round))
-                            .frame(width: record * 0.84, height: record * 0.84)
-                        Circle()
-                            .fill(djConnectIconGradient)
-                            .frame(width: record * 0.26, height: record * 0.26)
-                            .opacity(0.85)
-                        Circle().fill(Color(red: 0.035, green: 0.04, blue: 0.09))
-                            .frame(width: record * 0.045, height: record * 0.045)
-                    }
-                    .rotationEffect(.degrees(elapsed.truncatingRemainder(dividingBy: 12) * 30))
-                    .shadow(color: .black.opacity(0.18), radius: side * 0.06, y: side * 0.035)
-                }
-                AlbumArtworkTonearm(recordDiameter: record)
-            }
-            .frame(width: geometry.size.width, height: geometry.size.height)
-        }
-        .onChange(of: shouldSpin, initial: true) { _, spinning in
-            let now = Date()
-            if spinning {
-                spinningSince = now
-            } else if let started = spinningSince {
-                elapsedBeforePause += max(0, now.timeIntervalSince(started))
-                spinningSince = nil
-            }
-        }
-        .accessibilityHidden(true)
-        .allowsHitTesting(false)
     }
 }
 
@@ -3819,25 +3619,25 @@ struct CachedArtworkImage<Placeholder: View>: View {
 
     var body: some View {
         Group {
-            if let loadedImage, loadedURL == url {
-                if usesAlbumGlassFrame {
-                    loadedImage
-                        .resizable()
-                        .cachedArtworkContentMode(mode)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color.black.opacity(0.22))
-                        .djAlbumArtworkGlassCard(artworkURL: url)
-                } else {
-                    loadedImage
-                        .resizable()
-                        .cachedArtworkContentMode(mode)
-                }
+            if usesAlbumGlassFrame {
+                artworkContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black.opacity(0.22))
+                    .djAlbumArtworkGlassCard(artworkURL: loadedImage != nil && loadedURL == url ? url : nil)
             } else {
-                placeholder()
+                artworkContent
             }
         }
         .task(id: url?.absoluteString) {
             await loadImage()
+        }
+    }
+
+    @ViewBuilder private var artworkContent: some View {
+        if let loadedImage, loadedURL == url {
+            loadedImage.resizable().cachedArtworkContentMode(mode)
+        } else {
+            placeholder()
         }
     }
 
@@ -4182,7 +3982,6 @@ struct TrackInsightView: View {
         insight?.id
     }
 
-
     private var playbackShareIdentity: String {
         Self.shareIdentity(title: model.playback?.trackName, artist: model.playback?.artistName)
     }
@@ -4332,6 +4131,9 @@ struct TrackInsightView: View {
                     )
                 }
             }
+            .onChange(of: standaloneMoodStepIndex) { _, value in
+                model.setTrackInsightWidgetMood(step: value)
+            }
             .onChange(of: playbackShareIdentity) {
                 dismissShareIfPlaybackMovedOn()
             }
@@ -4406,7 +4208,6 @@ struct TrackInsightView: View {
         )
     }
 
-
     private func showStatusToast(_ text: String, systemImage: String) {
         let notice = DJConnectVisualNotice(text: text, systemImage: systemImage)
         withAnimation(.easeOut(duration: 0.18)) {
@@ -4465,6 +4266,7 @@ private struct TrackInsightVisualMoodToolbar: View {
             .padding(12)
             .frame(idealWidth: 360)
             .presentationCompactAdaptation(.popover)
+                .djConnectPresentationSurface()
         }
     }
 }
@@ -5208,17 +5010,6 @@ private struct MusicDNASectionGrid: View {
             images[uri] = url
         }
         return images
-    }
-
-    private func rangeText<T>(_ ranges: [String: [T]], formatter: ([T]) -> String) -> String? {
-        let lines = ranges.keys.sorted().compactMap { key -> String? in
-            guard let values = ranges[key], !values.isEmpty else { return nil }
-            let formatted = formatter(values).trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !formatted.isEmpty else { return nil }
-            return "\(key.replacingOccurrences(of: "_", with: " ")): \(formatted)"
-        }
-        .prefix(4)
-        return lines.isEmpty ? nil : lines.joined(separator: "\n")
     }
 
     private func discoveryFeedbackText(_ feedback: DJConnectMusicDNADiscoveryFeedback) -> String {
@@ -7316,23 +7107,6 @@ private struct MusicDNAMetricPanel: View {
     }
 }
 
-private struct MusicDNATimelinePreview: View {
-    let language: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Music DNA Evolution", systemImage: "point.3.connected.trianglepath.dotted")
-                .font(.headline.weight(.semibold))
-            Text(localizedKey(language, "ui.future.timeline.taste.evolution.artist.affinity.mood.shifts.year.in"))
-            .font(.callout)
-            .foregroundStyle(.white.opacity(0.68))
-            .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(14)
-        .djConnectGradientCard()
-    }
-}
-
 private struct MusicDNAHelixView: View {
     let moodStepIndex: Int
 
@@ -7498,9 +7272,10 @@ private struct TrackInsightHero: View {
                 reduceMotion: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled,
                 isActive: isAnimationActive && isVisualizerPlaying,
                 language: model.language,
-                privateArtwork: isPinnedSubject
+                privateArtwork: isPinnedSubject,
+                usesDemoArtwork: model.isDemoMode
             )
-            .frame(height: 430)
+            .frame(minHeight: 430)
             .frame(maxWidth: .infinity)
 
         }
@@ -7519,6 +7294,8 @@ private struct TrackInsightHeroScene: View {
     let isActive: Bool
     let language: String
     var privateArtwork = false
+    var usesDemoArtwork = false
+    @State private var sceneWidth: CGFloat = 320
     @State private var playbackAnchor = TrackVibePlaybackAnchor()
     @State private var motionClock = TrackInsightMotionClock()
     @Environment(\.scenePhase) private var scenePhase
@@ -7570,27 +7347,12 @@ private struct TrackInsightHeroScene: View {
         let phase = TrackVibePlaybackPhase(playback: playback, anchor: playbackAnchor, date: date)
         let motion = motionClock.frame(at: ProcessInfo.processInfo.systemUptime)
         let motionDate = Date(timeIntervalSinceReferenceDate: motion.elapsed)
-        return GeometryReader { geometry in
-            let isCompact = geometry.size.width < 560 || geometry.size.width / max(geometry.size.height, 1) < 1.05
-            let artworkSize = min(
-                geometry.size.width * (isCompact ? 0.34 : 0.30),
-                geometry.size.height * (isCompact ? 0.25 : 0.34),
-                210
-            )
-            #if os(macOS)
-            let artworkY = geometry.size.height * (isCompact ? 0.21 : 0.25)
-            #else
-            let artworkY = geometry.size.height * (isCompact ? 0.24 : 0.30)
-            #endif
-            let infoY = min(
-                geometry.size.height * (isCompact ? 0.56 : 0.57),
-                artworkY + artworkSize / 2 + (isCompact ? 64 : 74)
-            )
-            let spectrumHeight = max(isCompact ? 88 : 96, geometry.size.height * (isCompact ? 0.15 : 0.20))
-            let spectrumY = geometry.size.height * (isCompact ? 0.88 : 0.86)
-            ZStack {
-                TrackInsightPremiumBackground(profile: profile, phase: phase, date: motionDate)
-                TrackInsightLightField(profile: profile, phase: phase, date: motionDate, motionTravel: motion.travel)
+        let isCompact = sceneWidth < 560
+        let artworkSize = min(sceneWidth * (isCompact ? 0.34 : 0.30), isCompact ? 108 : 146)
+        return ZStack {
+            TrackInsightPremiumBackground(profile: profile, phase: phase, date: motionDate)
+            TrackInsightLightField(profile: profile, phase: phase, date: motionDate, motionTravel: motion.travel)
+            VStack(spacing: 16) {
                 TrackInsightHeroArtwork(
                     insight: insight,
                     profile: profile,
@@ -7598,21 +7360,24 @@ private struct TrackInsightHeroScene: View {
                     reduceMotion: reduceMotion,
                     isActive: isActive,
                     renderedArtworkImage: nil,
-                    privateArtwork: privateArtwork
+                    privateArtwork: privateArtwork,
+                    usesDemoArtwork: usesDemoArtwork
                 )
                 .frame(width: artworkSize, height: artworkSize)
-                .position(x: geometry.size.width * 0.50, y: artworkY)
 
                 TrackInsightHeroInfo(insight: insight, language: language)
-                    .frame(maxWidth: min(720, geometry.size.width * 0.82))
-                    .position(x: geometry.size.width / 2, y: infoY)
+                    .frame(maxWidth: min(720, sceneWidth * 0.82))
 
+                Spacer(minLength: 30)
                 TrackInsightPremiumSpectrum(profile: profile, phase: phase)
-                    .frame(height: spectrumHeight)
-                    .padding(.horizontal, max(isCompact ? 28 : 44, geometry.size.width * (isCompact ? 0.08 : 0.11)))
-                    .position(x: geometry.size.width / 2, y: spectrumY)
+                    .frame(height: isCompact ? 88 : 96)
+                    .padding(.horizontal, max(isCompact ? 28 : 44, sceneWidth * (isCompact ? 0.08 : 0.11)))
             }
+            .padding(.top, isCompact ? 50 : 56)
+            .padding(.bottom, 8)
+            .frame(maxWidth: .infinity, minHeight: 430)
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { sceneWidth = $0 }
     }
 }
 
@@ -7801,6 +7566,7 @@ private struct TrackInsightHeroArtwork: View {
     let renderedArtworkImage: Image?
 
     var privateArtwork = false
+    var usesDemoArtwork = false
     var body: some View {
         GeometryReader { geometry in
             let side = min(geometry.size.width, geometry.size.height)
@@ -7812,7 +7578,9 @@ private struct TrackInsightHeroArtwork: View {
                     .blur(radius: max(14, side * 0.11))
                     .scaleEffect(1.14)
                 Group {
-                    if let renderedArtworkImage {
+                    if usesDemoArtwork {
+                        AlbumArtworkPlaceholder(tint: djConnectAccent, isPlaying: isActive && !reduceMotion)
+                    } else if let renderedArtworkImage {
                         renderedArtworkImage
                             .resizable()
                             .scaledToFill()
@@ -8055,8 +7823,7 @@ private struct TrackInsightHeroInfo: View {
                 titleLabel(size: titleFontSize * 0.9).fixedSize()
                 titleLabel(size: titleFontSize * 0.8).fixedSize()
                 titleLabel(size: titleFontSize * 0.9)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.8 / 0.9)
+                    .lineLimit(nil)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity)
@@ -8099,102 +7866,6 @@ private struct TrackInsightHeroInfo: View {
         let minutes = totalSeconds / 60
         let seconds = totalSeconds % 60
         return "\(minutes):\(seconds < 10 ? "0" : "")\(seconds)"
-    }
-}
-
-private struct TrackVibeVisualizerView: View {
-    let profile: TrackVibeProfile
-    let playback: DJConnectPlayback?
-    let reduceMotion: Bool
-    let isActive: Bool
-    @State private var playbackAnchor = TrackVibePlaybackAnchor()
-
-    private var isPlaying: Bool {
-        playback?.isPlaying == true
-    }
-
-    private var shouldAnimate: Bool {
-        isActive && isPlaying
-    }
-
-    private var playbackSignature: String {
-        TrackVibePlaybackAnchor.signature(for: playback)
-    }
-
-    var body: some View {
-        visualizer
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(alignment: .bottom) {
-                TrackVibePhaseSpectrum(profile: profile, progress: playbackPhase(at: Date()).progress)
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 10)
-            }
-            .onAppear {
-                playbackAnchor.update(from: playback, at: Date())
-            }
-            .onChange(of: playbackSignature) {
-                playbackAnchor.update(from: playback, at: Date())
-            }
-            .onChange(of: playback?.progressMS) {
-                playbackAnchor.update(from: playback, at: Date())
-            }
-            .onChange(of: playback?.isPlaying) {
-                playbackAnchor.update(from: playback, at: Date())
-            }
-            .onChange(of: playback?.durationMS) {
-                playbackAnchor.update(from: playback, at: Date())
-            }
-    }
-
-    @ViewBuilder
-    private var visualizer: some View {
-        #if canImport(MetalKit) && (os(iOS) || os(macOS))
-        TrackVibeMetalVisualizerView(
-            profile: profile,
-            playback: playback,
-            playbackAnchor: playbackAnchor,
-            reduceMotion: reduceMotion,
-            isActive: shouldAnimate
-        )
-        #else
-        canvasVisualizer
-            .drawingGroup(opaque: true, colorMode: .linear)
-        #endif
-    }
-
-    @ViewBuilder
-    private var canvasVisualizer: some View {
-        if !shouldAnimate {
-            TrackVibeCanvas(profile: profile, playbackPhase: playbackPhase(at: Date()), liveBeat: 0)
-        } else if reduceMotion {
-            TimelineView(.periodic(from: .now, by: 60)) { _ in
-                TrackVibeCanvas(profile: profile, playbackPhase: playbackPhase(at: Date()), liveBeat: 0)
-            }
-        } else {
-            #if os(macOS)
-            TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
-                let phase = playbackPhase(at: timeline.date)
-                TrackVibeCanvas(
-                    profile: profile,
-                    playbackPhase: phase,
-                    liveBeat: playback?.isPlaying == true ? timeline.date.timeIntervalSinceReferenceDate : phase.positionSeconds
-                )
-            }
-            #else
-            TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
-                let phase = playbackPhase(at: timeline.date)
-                TrackVibeCanvas(
-                    profile: profile,
-                    playbackPhase: phase,
-                    liveBeat: playback?.isPlaying == true ? timeline.date.timeIntervalSinceReferenceDate : phase.positionSeconds
-                )
-            }
-            #endif
-        }
-    }
-
-    private func playbackPhase(at date: Date) -> TrackVibePlaybackPhase {
-        TrackVibePlaybackPhase(playback: playback, anchor: playbackAnchor, date: date)
     }
 }
 
@@ -8475,109 +8146,6 @@ private final class TrackVibeMetalRenderer: NSObject, MTKViewDelegate {
 }
 #endif
 
-private struct TrackVibeCanvas: View {
-    let profile: TrackVibeProfile
-    let playbackPhase: TrackVibePlaybackPhase
-    let liveBeat: TimeInterval
-
-    var body: some View {
-        Canvas(opaque: true, colorMode: .linear, rendersAsynchronously: true) { context, size in
-            draw(context: &context, size: size)
-        }
-    }
-
-    private func draw(context: inout GraphicsContext, size: CGSize) {
-        let colors = profile.colors
-        let rect = CGRect(origin: .zero, size: size)
-        context.fill(Path(rect), with: .linearGradient(
-            Gradient(colors: [
-                Color(red: 0.015, green: 0.018, blue: 0.045),
-                colors.first?.opacity(0.34) ?? djConnectAccent.opacity(0.34),
-                Color.black
-            ]),
-            startPoint: CGPoint(x: 0, y: 0),
-            endPoint: CGPoint(x: size.width, y: size.height)
-        ))
-
-        let songTime = playbackPhase.positionSeconds
-        let progress = playbackPhase.progress
-        let energyLift = playbackPhase.energyLift
-        let pulse = sin((songTime + liveBeat * 0.12) * profile.pulseSpeed) * 0.5 + 0.5
-        let horizonY = size.height * 0.54
-        let orbRadius = min(size.width, size.height) * (0.15 + pulse * 0.04 + energyLift * 0.07)
-        let orbCenter = CGPoint(
-            x: size.width * (0.18 + progress * 0.64 + sin(songTime * 0.12) * 0.04),
-            y: size.height * (0.40 + cos(songTime * 0.10) * 0.04)
-        )
-        context.addFilter(.blur(radius: 22 + profile.glow * 14))
-        context.fill(
-            Path(ellipseIn: CGRect(x: orbCenter.x - orbRadius, y: orbCenter.y - orbRadius, width: orbRadius * 2, height: orbRadius * 2)),
-            with: .color((colors.last ?? djConnectAccent).opacity(0.22 + pulse * 0.18 + energyLift * 0.18))
-        )
-        context.addFilter(.blur(radius: 0))
-        for ring in 0..<4 {
-            let radius = orbRadius * (0.78 + CGFloat(ring) * 0.18 + CGFloat(pulse) * 0.05)
-            context.stroke(
-                Path(ellipseIn: CGRect(x: orbCenter.x - radius, y: orbCenter.y - radius, width: radius * 2, height: radius * 2)),
-                with: .color((colors[safe: ring] ?? djConnectAccent).opacity(0.40 - Double(ring) * 0.06)),
-                lineWidth: 1.3
-            )
-        }
-
-        for layer in 0..<9 {
-            var path = Path()
-            let layerProgress = CGFloat(layer) / 8
-            let baseY = horizonY + layerProgress * size.height * 0.34
-            path.move(to: CGPoint(x: -20, y: baseY))
-            let steps = 72
-            for index in 0...steps {
-                let progress = CGFloat(index) / CGFloat(steps)
-                let x = size.width * progress
-                let depth = 1 + layerProgress * 2.4
-                let waveA = sin(Double(index) * 0.28 + songTime * profile.animationSpeed + Double(layer) * 0.58)
-                let waveB = cos(Double(index) * 0.13 + songTime * 0.42 + Double(layer))
-                let y = baseY + CGFloat(waveA) * 18 * profile.waveform * depth * CGFloat(0.72 + energyLift) + CGFloat(waveB) * 8
-                path.addLine(to: CGPoint(x: x, y: y))
-            }
-            let hueColor = colors[safe: layer % max(colors.count, 1)] ?? djConnectAccent
-            context.stroke(path, with: .color(hueColor.opacity(0.18 + Double(layer) * 0.045)), lineWidth: 1.1 + layerProgress * 1.6)
-        }
-
-        for column in stride(from: 0, through: Int(size.width), by: 7) {
-            let x = CGFloat(column)
-            let seed = Double(column + 17)
-            let distanceFromPlayhead = abs((x / max(size.width, 1)) - progress)
-            let playheadBoost = max(0, 1 - distanceFromPlayhead * 6)
-            let normalized = (sin(seed * 0.21 + songTime * 1.3) + 1) / 2
-            let barSignal = normalized + playheadBoost * 0.72 + energyLift * 0.42
-            let height = CGFloat(12 + barSignal * 64 * profile.waveform)
-            let top = horizonY - height * 0.55
-            var bar = Path()
-            bar.move(to: CGPoint(x: x, y: horizonY))
-            bar.addLine(to: CGPoint(x: x, y: top))
-            context.stroke(bar, with: .color((colors.last ?? djConnectAccent).opacity(0.10 + normalized * 0.14 + playheadBoost * 0.28)), lineWidth: 2)
-        }
-
-        let particleCount = max(10, Int(28 * profile.particleDensity))
-        for index in 0..<particleCount {
-            let seed = Double(index + 1)
-            let x = size.width * CGFloat((sin(seed * 12.989 + songTime * profile.particleVelocity) + 1) / 2)
-            let y = size.height * CGFloat((cos(seed * 7.233 + songTime * 0.37) + 1) / 2)
-            let radius = CGFloat(1.5 + (seed.truncatingRemainder(dividingBy: 4)))
-            context.fill(
-                Path(ellipseIn: CGRect(x: x, y: y, width: radius, height: radius)),
-                with: .color(.white.opacity(0.16 + profile.glow * 0.24))
-            )
-        }
-
-        context.fill(Path(rect), with: .linearGradient(
-            Gradient(colors: [.clear, .black.opacity(0.72)]),
-            startPoint: CGPoint(x: size.width / 2, y: size.height * 0.58),
-            endPoint: CGPoint(x: size.width / 2, y: size.height)
-        ))
-    }
-}
-
 private struct TrackHeartbeatIcon: View {
     let profile: TrackVibeProfile
     let playback: DJConnectPlayback?
@@ -8805,59 +8373,6 @@ struct TrackVibePlaybackAnchor: Equatable {
         let baseMS = playbackSignature == signature && !signature.isEmpty ? progressMS : max(playback?.progressMS ?? fallbackProgressMS, 0)
         let elapsed = playback?.isPlaying == true && isPlaying ? max(0, date.timeIntervalSince(snapshotDate)) : 0
         return min(Double(baseMS) / 1_000 + elapsed, durationSeconds)
-    }
-}
-
-private struct TrackVibePhaseSpectrum: View {
-    let profile: TrackVibeProfile
-    let progress: Double
-    var sectionTitles: [String] = []
-
-    private var visibleSectionTitles: [String] {
-        sectionTitles
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-    }
-
-    var body: some View {
-        VStack(spacing: 7) {
-            HStack(alignment: .bottom, spacing: 2) {
-                ForEach(0..<64, id: \.self) { index in
-                    let base = profile.spectrumProfile[index % profile.spectrumProfile.count]
-                    let position = Double(index) / 63
-                    let playheadBoost = max(0, 1 - abs(position - progress) * 9)
-                    let lift = sin(Double(index) * 0.31 + progress * .pi * 8) * 0.5 + 0.5
-                    let opacity = 0.56 + playheadBoost * 0.38
-                    let heightSignal = base * (0.55 + lift * 0.55) + playheadBoost * 0.82
-                    let height = 5 + CGFloat(heightSignal) * 36
-                    let color = Color(hue: 0.60 + Double(index) / 170, saturation: 0.85, brightness: 1.0)
-                    Capsule()
-                        .fill(color.opacity(opacity))
-                        .frame(width: 3, height: height)
-                }
-            }
-            if !visibleSectionTitles.isEmpty {
-                HStack {
-                    ForEach(visibleSectionTitles, id: \.self) { phase in
-                        Text(phase)
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.55))
-                            .lineLimit(1)
-                        if phase != visibleSectionTitles.last {
-                            Spacer(minLength: 0)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private extension TrackVibePhaseSpectrum {
-    func sections(_ sections: [TrackInsightSection]) -> TrackVibePhaseSpectrum {
-        var copy = self
-        copy.sectionTitles = sections.map(\.title)
-        return copy
     }
 }
 
@@ -9358,12 +8873,14 @@ private struct DJSessionView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                DJConnectCanvasBackground()
                 if let session = model.activeDJSession {
+                    DJSessionPinnedMoodBackground(mood: session.selectedMood)
+                        .ignoresSafeArea(.container)
                     SessionTimelineScreen(model: model, sessionID: session.id, activeSession: session,
                                           openQueueAction: openQueueAction,
                                           refreshAction: { Task { await refreshNowPlayingWithToast() } })
                 } else {
+                DJConnectCanvasBackground()
                 ScrollView {
                     IdleDJSessionView(model: model)
                         .padding(.horizontal, 16)
@@ -9506,9 +9023,7 @@ private struct IdleDJSessionView: View {
                 .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
                 .disabled(model.isLoadingDJSession || (!model.isDemoMode && model.pairingStatus != .paired) || !model.canUsePlaybackFeatures)
                 .accessibilityIdentifier("session-welcome-start")
-                if model.isDemoMode {
-                    Text(localizedKey(model.language, "demo.session.notice")).font(.footnote).foregroundStyle(.secondary)
-                } else if model.pairingStatus != .paired || !model.canUsePlaybackFeatures {
+                if !model.isDemoMode && (model.pairingStatus != .paired || !model.canUsePlaybackFeatures) {
                     Text(localizedKey(model.language, "ui.session.requires_connection")).font(.footnote).foregroundStyle(.secondary)
                 }
                 if let error = model.djSessionErrorMessage {
@@ -9606,7 +9121,7 @@ struct DJSessionWelcomeArtwork: View {
                 }
                 // Match the two square badges exactly in height.
                 .frame(width: size * 0.32, height: size * 0.18)
-                .background(.ultraThinMaterial, in: Capsule())
+                .background(DJConnectMaterial(.ultraThin), in: Capsule())
                 .overlay { Capsule().stroke(.white.opacity(0.2)) }
                 .offset(x: size * 0.16, y: size * 0.32)
             }
@@ -9656,7 +9171,7 @@ struct DJSessionWelcomeArtwork: View {
         Image(systemName: glyph).font(.system(size: size * 0.07, weight: .medium))
             .foregroundStyle(.white)
             .frame(width: size * 0.18, height: size * 0.18)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: size * 0.06))
+            .background(DJConnectMaterial(.ultraThin), in: RoundedRectangle(cornerRadius: size * 0.06))
             .overlay { RoundedRectangle(cornerRadius: size * 0.06).stroke(.white.opacity(0.22)) }
     }
 }
@@ -9983,32 +9498,11 @@ private struct IOSNowPlayingView: View {
 
 struct IOSConnectionCard: View {
     @ObservedObject var model: DJConnectAppModel
+    var openAbout: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: model.connectionPresentation.icon)
-                    .font(.headline)
-                    .foregroundStyle(model.connectionPresentation.color)
-                    .frame(width: 28, height: 28)
-                    .background(model.connectionPresentation.color.opacity(0.12), in: Circle())
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(localizedKey(model.language, model.connectionPresentation.key))
-                        .font(.headline)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if let statusSubtitle {
-                        Text(statusSubtitle)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(nil)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                .layoutPriority(1)
-                Spacer()
-                if model.pairingStatus == .paired, !model.isDemoMode {
-                    }
-            }
+            SessionConnectionAboutLink(model: model, subtitle: statusSubtitle, action: openAbout)
 
             if model.pairingStatus != .paired {
                 HStack {
@@ -10151,7 +9645,7 @@ private struct IOSTrackHero: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            AnimatedAlbumArtworkView(playback: playback, maxWidth: 300)
+            AnimatedAlbumArtworkView(playback: playback, maxWidth: 300, usesDemoArtwork: model.isDemoMode)
 
             VStack(alignment: .leading, spacing: 5) {
                 HStack(alignment: .top, spacing: 12) {
@@ -10190,7 +9684,7 @@ private struct IOSTrackHero: View {
         [
             playback?.trackName,
             playback?.artistName,
-            model.selectedOutput
+            model.currentPlaybackOutputDisplayName ?? model.selectedOutput
         ]
         .compactMap { value in
             let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -10234,21 +9728,23 @@ private struct IOSPlaybackSurface: View {
                 }
             }
 
-            HStack(spacing: 12) {
-                Image(systemName: "speaker.wave.1.fill")
-                    .foregroundStyle(.secondary)
-                Slider(value: $model.volume, in: 0...100) { editing in
-                    if !editing {
-                        DJConnectHaptics.selection()
-                        model.commitVolumeChange()
+            if model.canControlPlaybackVolume {
+                HStack(spacing: 12) {
+                    Image(systemName: "speaker.wave.1.fill")
+                        .foregroundStyle(.secondary)
+                    Slider(value: $model.volume, in: 0...100) { editing in
+                        if !editing {
+                            DJConnectHaptics.selection()
+                            model.commitVolumeChange()
+                        }
                     }
+                    .tint(djConnectAccent)
+                    .disabled(!canUsePlayback)
+                    Text("\(Int(model.volume))")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .frame(width: 30, alignment: .trailing)
                 }
-                .tint(djConnectAccent)
-                .disabled(!canUsePlayback)
-                Text("\(Int(model.volume))")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(width: 30, alignment: .trailing)
             }
 
             HStack(spacing: 12) {
@@ -10318,23 +9814,12 @@ private struct QueueNavigationButton: View {
 
 struct SetupStatusView: View {
     @ObservedObject var model: DJConnectAppModel
+    var openAbout: () -> Void
 
     var body: some View {
         if !model.isDemoMode {
             VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Label {
-                        Text(localizedKey(model.language, model.connectionPresentation.key))
-                            .foregroundStyle(.primary)
-                            .lineLimit(nil)
-                            .fixedSize(horizontal: false, vertical: true)
-                    } icon: {
-                        Image(systemName: model.connectionPresentation.icon)
-                            .foregroundStyle(model.connectionPresentation.color)
-                    }
-                    .layoutPriority(1)
-                    Spacer()
-                }
+                SessionConnectionAboutLink(model: model, action: openAbout)
 
                 if let updateRequiredMessage = model.updateRequiredMessage {
                     Label(updateRequiredMessage, systemImage: "arrow.down.app")
@@ -10446,7 +9931,7 @@ struct TrackSummaryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            AnimatedAlbumArtworkView(playback: playback, maxWidth: 320)
+            AnimatedAlbumArtworkView(playback: playback, maxWidth: 320, usesDemoArtwork: model.isDemoMode)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(playback?.trackName ?? localizedKey(model.language, "ui.nothing.playing.13ae37"))
@@ -10663,19 +10148,21 @@ struct PlaybackControlsView: View {
                 .disabled(!canUsePlayback)
             }
 
-            HStack {
-                Image(systemName: "speaker.wave.1")
-                Slider(value: $model.volume, in: 0...100) { editing in
-                    if !editing {
-                        DJConnectHaptics.selection()
-                        model.commitVolumeChange()
+            if model.canControlPlaybackVolume {
+                HStack {
+                    Image(systemName: "speaker.wave.1")
+                    Slider(value: $model.volume, in: 0...100) { editing in
+                        if !editing {
+                            DJConnectHaptics.selection()
+                            model.commitVolumeChange()
+                        }
                     }
+                    .tint(djConnectAccent)
+                    .disabled(!canUsePlayback)
+                    Text("\(Int(model.volume))")
+                        .monospacedDigit()
+                        .frame(width: 32, alignment: .trailing)
                 }
-                .tint(djConnectAccent)
-                .disabled(!canUsePlayback)
-                Text("\(Int(model.volume))")
-                    .monospacedDigit()
-                    .frame(width: 32, alignment: .trailing)
             }
 
             HStack {
@@ -10880,7 +10367,7 @@ private struct OutputSelectorView: View {
 
     private var sortedOutputs: [DJConnectOutputDevice] {
         model.availableOutputs.sorted { left, right in
-            let order = left.name.localizedStandardCompare(right.name)
+            let order = model.outputDisplayName(left).localizedStandardCompare(model.outputDisplayName(right))
             return order == .orderedSame ? left.id < right.id : order == .orderedAscending
         }
     }
@@ -10891,7 +10378,7 @@ private struct OutputSelectorView: View {
                 Text(localizedKey(model.language, "ui.output.device"))
                     .font(.headline)
                 Spacer()
-                Button { model.loadOutputs() } label: {
+                Button { Task { await model.refreshOutputDevicesAndPlayback() } } label: {
                     if model.isLoadingOutputs {
                         ProgressView().controlSize(.small).tint(.white)
                     } else {
@@ -10907,23 +10394,20 @@ private struct OutputSelectorView: View {
             }
 
             if model.availableOutputs.isEmpty {
-                OutputDeviceChoiceRow(
-                    language: model.language,
-                    output: nil,
-                    title: localizedOutputName(model.selectedOutput, language: model.language),
-                    isActive: false,
-                    isEnabled: false,
-                    action: {}
-                )
+                Text(localizedKey(model.language, "watch.no.output.devices.found"))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 VStack(spacing: 8) {
                     ForEach(sortedOutputs) { output in
                         OutputDeviceChoiceRow(
                             language: model.language,
                             output: output,
-                            title: output.name,
+                            title: model.outputDisplayName(output),
                             isActive: output.active == true,
                             isPending: model.pendingOutputSelectionID == output.id,
+                            volumeLabel: model.outputVolumeLabel(output),
+                            isBluetooth: model.outputUsesLocalBluetooth(output),
                             isEnabled: canUsePlayback,
                             action: {
                                 guard canUsePlayback else {
@@ -10949,12 +10433,27 @@ private struct OutputSelectorView: View {
     }
 }
 
+struct BluetoothOutputSymbol: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.height * 0.25))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.height * 0.75))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.height * 0.25))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.height * 0.75))
+        return path
+    }
+}
+
 private struct OutputDeviceChoiceRow: View {
     let language: String
     let output: DJConnectOutputDevice?
     let title: String
     let isActive: Bool
     var isPending: Bool = false
+    var volumeLabel: String? = nil
+    var isBluetooth: Bool = false
     let isEnabled: Bool
     let action: () -> Void
 
@@ -10975,13 +10474,7 @@ private struct OutputDeviceChoiceRow: View {
         if output?.isCachedSpotifyOutput == true {
             return localizedKey(language, "ui.output.recently.seen")
         }
-        if let volume = output?.volumePercent {
-            return "\(volume)%"
-        }
-        if let type = output?.type, !type.isEmpty {
-            return type
-        }
-        return localizedKey(language, "ui.output")
+        return volumeLabel ?? output?.reportedVolumePercent.map { "\($0)%" } ?? "-"
     }
 
     private var activeColor: Color {
@@ -10991,8 +10484,17 @@ private struct OutputDeviceChoiceRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                Image(systemName: iconName)
-                    .font(.system(size: 18, weight: .semibold))
+                Group {
+                    if isBluetooth {
+                        BluetoothOutputSymbol()
+                            .stroke(style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                            .frame(width: 14, height: 22)
+                            .accessibilityLabel("Bluetooth")
+                    } else {
+                        Image(systemName: iconName)
+                            .font(.system(size: 18, weight: .semibold))
+                    }
+                }
                     .foregroundStyle(isActive ? activeColor : .white.opacity(0.68))
                     .frame(width: 38, height: 38)
                     .background(
@@ -11465,7 +10967,11 @@ private struct AskDJView: View {
                                                     }
                                                 },
                                                 contextQuestionSelected: contextEntry.map { history.selectedEntry == $0.reference } ?? false,
-                                                contextQuestionID: "ask-answer-context-" + message.id.uuidString
+                                                contextQuestionID: "ask-answer-context-" + message.id.uuidString,
+                                                speechEnabled: model.sharedDJSpeechAllowed,
+                                                sharedSpeechActions: model.profileDJSettings.negotiated ? {
+                                                    AnyView(SharedDJSpeechActions(model: model, speech: message.sessionSpeech, acceptedText: message.text))
+                                                } : nil
                                             )
                                             .id(message.id)
                                         }
@@ -11851,7 +11357,6 @@ private struct AskDJView: View {
     }
 }
 
-
 struct AskDJSearchBar: View {
     let language: String
     var scopeName: String = "Ask DJ"
@@ -11921,7 +11426,7 @@ struct AskDJSearchBar: View {
         .padding(.vertical, 10)
         .background {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(.regularMaterial)
+                .fill(DJConnectMaterial(.regular))
         }
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -12119,6 +11624,8 @@ struct AskDJMessageBubble: View {
     var contextQuestionAction: (() -> Void)? = nil
     var contextQuestionSelected = false
     var contextQuestionID = ""
+    var speechEnabled = true
+    var sharedSpeechActions: (() -> AnyView)? = nil
 
     private var renderedMessageText: some View {
         Group {
@@ -12322,7 +11829,7 @@ struct AskDJMessageBubble: View {
     }
 
     private var shouldShowAudioReplayShortcut: Bool {
-        !isReadOnly && !isStaleHistory && !isUser && hasPlayableAudio
+        speechEnabled && sharedSpeechActions == nil && !isReadOnly && !isStaleHistory && !isUser && hasPlayableAudio
     }
 
     var body: some View {
@@ -12332,72 +11839,75 @@ struct AskDJMessageBubble: View {
             }
             VStack(alignment: isUser ? .trailing : .leading, spacing: 4) {
                 VStack(alignment: .leading, spacing: 10) {
-                    if let systemMessageLabel {
-                        Label(systemMessageLabel, systemImage: "info.circle")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.66))
-                            .lineLimit(1)
-                    }
-                    if !displayText.isEmpty {
-                        if isVoiceRequestMessage {
-                            HStack(spacing: 8) {
-                                Image(systemName: "mic.fill")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(.white.opacity(0.88))
+                    VStack(alignment: .leading, spacing: 10) {
+                        if let systemMessageLabel {
+                            Label(systemMessageLabel, systemImage: "info.circle")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.66))
+                                .lineLimit(1)
+                        }
+                        if !displayText.isEmpty {
+                            if isVoiceRequestMessage {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "mic.fill")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(.white.opacity(0.88))
+                                    renderedMessageText
+                                }
+                            } else if shouldShowGeneratedTextIcon {
+                                HStack(alignment: .firstTextBaseline, spacing: 7) {
+                                    Image(systemName: "sparkles")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(djConnectIconGradient)
+                                    renderedMessageText
+                                }
+                            } else {
                                 renderedMessageText
                             }
-                        } else if shouldShowGeneratedTextIcon {
-                            HStack(alignment: .firstTextBaseline, spacing: 7) {
-                                Image(systemName: "sparkles")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(djConnectIconGradient)
-                                renderedMessageText
-                            }
-                        } else {
-                            renderedMessageText
+                        }
+                        if !isUser, let trackInsight = message.trackInsight {
+                            AskDJTrackInsightSummary(insight: trackInsight, language: language)
+                        }
+                        if !isUser, !displayItems.isEmpty {
+                            AskDJItemList(items: displayItems)
+                        }
+                        ForEach(historicalMatches.filter { $0.isRetained() }) { match in
+                            SessionHistoryMatchCard(entry: match, language: language) { action in openHistoryAction?(action) }
+                        }
+                        if !message.images.isEmpty && !shouldAttachImagesToPlaybackActions && !isRecentlyPlayedHistoryMessage {
+                            AskDJImageStrip(images: message.images)
+                        }
+                        if !regularLinks.isEmpty {
+                            AskDJLinkStack(links: regularLinks, openLink: openLink)
+                        }
+                        if !sourceLinks.isEmpty {
+                            AskDJSourcesStack(links: sourceLinks, language: language, openLink: openLink)
+                        }
+                        if canRenderPlaybackActions, !renderablePlaybackActions.isEmpty {
+                            AskDJPlaybackActionStack(
+                                actions: renderablePlaybackActions,
+                                language: language,
+                                playingActionID: playingActionID,
+                                playAction: playAction
+                            )
+                        }
+                        if shouldShowAudioReplayShortcut || shouldShowTrackInsightShortcut {
+                            AskDJResponseShortcutStack(
+                                language: language,
+                                showAudioReplay: shouldShowAudioReplayShortcut,
+                                isAudioLoading: isAudioLoading,
+                                isAudioPlaying: isAudioPlaying,
+                                audioAction: audioAction,
+                                showTrackInsight: shouldShowTrackInsightShortcut,
+                                trackInsightAction: trackInsightAction
+                            )
                         }
                     }
-                    if !isUser, let trackInsight = message.trackInsight {
-                        AskDJTrackInsightSummary(insight: trackInsight, language: language)
-                    }
-                    if !isUser, !displayItems.isEmpty {
-                        AskDJItemList(items: displayItems)
-                    }
-                    ForEach(historicalMatches.filter { $0.isRetained() }) { match in
-                        SessionHistoryMatchCard(entry: match, language: language) { action in openHistoryAction?(action) }
-                    }
-                    if !message.images.isEmpty && !shouldAttachImagesToPlaybackActions && !isRecentlyPlayedHistoryMessage {
-                        AskDJImageStrip(images: message.images)
-                    }
-                    if !regularLinks.isEmpty {
-                        AskDJLinkStack(links: regularLinks, openLink: openLink)
-                    }
-                    if !sourceLinks.isEmpty {
-                        AskDJSourcesStack(links: sourceLinks, language: language, openLink: openLink)
-                    }
-                    if canRenderPlaybackActions, !renderablePlaybackActions.isEmpty {
-                        AskDJPlaybackActionStack(
-                            actions: renderablePlaybackActions,
-                            language: language,
-                            playingActionID: playingActionID,
-                            playAction: playAction
-                        )
-                    }
-                    if shouldShowAudioReplayShortcut || shouldShowTrackInsightShortcut {
-                        AskDJResponseShortcutStack(
-                            language: language,
-                            showAudioReplay: shouldShowAudioReplayShortcut,
-                            isAudioLoading: isAudioLoading,
-                            isAudioPlaying: isAudioPlaying,
-                            audioAction: audioAction,
-                            showTrackInsight: shouldShowTrackInsightShortcut,
-                            trackInsightAction: trackInsightAction
-                        )
-                    }
+                    .padding(.trailing, contextQuestionAction == nil || !renderablePlaybackActions.isEmpty ? 0 : 36)
+                    if !isUser { sharedSpeechActions?() }
                 }
                 .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .padding(.trailing, contextQuestionAction == nil || !renderablePlaybackActions.isEmpty ? 0 : 36)
+                .padding(.vertical, isUser ? 10 : 14)
                 .frame(minHeight: contextQuestionAction == nil ? 0 : 44)
                 .overlay(alignment: .topTrailing) {
                     if let contextQuestionAction {
@@ -12503,7 +12013,6 @@ struct AskDJMessageBubble: View {
             AnyShapeStyle(Color.white.opacity(isUser ? 0.12 : isSystemMessage ? 0.14 : 0.18))
         }
     }
-
 
 }
 
@@ -13619,6 +13128,8 @@ struct SessionGlassChoiceSelector: View {
     var titleKey = "ui.session.welcome.mood"
     var accessibilityLabelKey = "ui.session.select_mood"
     var optionIDs: [String]? = nil
+    var selectionColor: Color = djConnectAccent
+    var preservesAppearanceWhileDisabled = false
     @FocusState private var focusedOption: Int?
     var onSelect: (Int) -> Void
 
@@ -13634,19 +13145,20 @@ struct SessionGlassChoiceSelector: View {
                     Button { DJConnectHaptics.selection(); onSelect(index) } label: {
                         Image(systemName: glyphs[safe: index] ?? "sparkles")
                             .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(index == selectedIndex ? djConnectAccent : .white)
+                            .foregroundStyle(index == selectedIndex ? selectionColor : .white)
                             .frame(maxWidth: .infinity, minHeight: 48)
                     }
                     .djConnectButtonStyle(DJConnectButtonStyle(
                         emphasis: index == selectedIndex ? .selected : .secondary,
                         shape: .segmented, expands: true, usesLiveGlass: false,
-                        showsFocusIndicator: false, foregroundColor: index == selectedIndex ? djConnectAccent : .white
+                        showsFocusIndicator: false, foregroundColor: index == selectedIndex ? selectionColor : .white,
+                        selectionTint: selectionColor, dimsWhenDisabled: !preservesAppearanceWhileDisabled
                     ))
                     .focused($focusedOption, equals: index)
                     .focusEffectDisabled()
                     .overlay {
                         DJConnectCardAppearance.segmentedItemShape
-                            .stroke(djConnectAccent.opacity(focusedOption == index ? 0.75 : 0), lineWidth: 1)
+                            .stroke(selectionColor.opacity(focusedOption == index ? 0.75 : 0), lineWidth: 1)
                             .allowsHitTesting(false)
                     }
                     .accessibilityLabel(steps[index].label)
@@ -13706,6 +13218,7 @@ struct AskDJInputBar: View {
     @ObservedObject var model: DJConnectAppModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
     #if os(macOS)
     @State private var promptSelection: TextSelection?
     #endif
@@ -13918,10 +13431,10 @@ struct AskDJInputBar: View {
             if floating {
                 // Frost the content without the lens effect that magnifies text underneath.
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .fill(.regularMaterial)
+                    .fill(DJConnectMaterial(.regular))
                     .overlay {
                         RoundedRectangle(cornerRadius: 26, style: .continuous)
-                            .fill(composerSurfaceTint.opacity(reduceTransparency ? 1 : (surfaceColors == nil ? 0.30 : 0.14)))
+                            .fill(composerSurfaceTint.opacity(reduceTransparency || !glassEnabled ? 1 : (surfaceColors == nil ? 0.30 : 0.14)))
                     }
                     .overlay {
                         RoundedRectangle(cornerRadius: 26, style: .continuous)
@@ -13931,14 +13444,14 @@ struct AskDJInputBar: View {
             } else {
                 #if os(macOS)
                 Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .opacity(reduceTransparency ? 1 : 0.85)
+                    .fill(DJConnectMaterial(.ultraThin))
+                    .opacity(reduceTransparency || !glassEnabled ? 1 : 0.85)
                     .ignoresSafeArea(.container, edges: .bottom)
                 #else
                 ZStack(alignment: .top) {
                     Rectangle()
-                        .fill(.ultraThinMaterial)
-                    .opacity(reduceTransparency ? 1 : 0.85)
+                        .fill(DJConnectMaterial(.ultraThin))
+                    .opacity(reduceTransparency || !glassEnabled ? 1 : 0.85)
                     LinearGradient(
                         colors: [
                             Color(red: 0.06, green: 0.43, blue: 1.00).opacity(0.22),
@@ -14265,7 +13778,6 @@ private struct AskDJVoiceInputButton: View {
     private func stop() {
         if let stopAction { stopAction() } else { model.stopVoiceRecordingAndUpload() }
     }
-
 
     private var helpText: String {
         if model.isDemoMode { return localizedKey(model.language, "demo.session.voice_hint") }
@@ -14959,7 +14471,7 @@ private struct StatusToast: View {
                 Capsule()
                     .stroke(.white.opacity(0.42), lineWidth: 1.2)
             }
-            .background(.ultraThinMaterial, in: Capsule())
+            .background(DJConnectMaterial(.ultraThin), in: Capsule())
             .shadow(color: Color(red: 1.0, green: 0.36, blue: 0.0).opacity(0.34), radius: 16, y: 8)
             .accessibilityAddTraits(.isStaticText)
             .allowsHitTesting(false)
@@ -16488,6 +16000,7 @@ public struct DJConnectSettingsView: View {
 
     public var body: some View {
         SettingsView(model: model)
+            .djConnectGlassPreferences()
     }
 }
 
@@ -17099,19 +16612,6 @@ struct SettingsView: View {
         hasAskDJHistoryMessages && !model.isDemoMode && model.pairingStatus == .paired && model.isConnected
     }
 
-    private func djAnnouncementOutputTitle(_ output: DJAnnouncementOutput) -> String {
-        switch output {
-        case .clientDevice:
-            return "Alleen dit apparaat"
-        case .both:
-            return "Dit apparaat + Home Assistant speaker"
-        case .haSpeaker:
-            return "Alleen Home Assistant speaker"
-        case .textOnly:
-            return "Alleen tekst"
-        }
-    }
-
     private var musicDNAHowItWorksText: String {
         if musicDNAEnabled {
             return localizedKey(model.language, "ui.music.dna.is.enabled.home.assistant.can.use.future.listening")
@@ -17120,21 +16620,6 @@ struct SettingsView: View {
             return localizedKey(model.language, "ui.music.dna.is.disabled.no.listening.profile.is.being.built")
         }
         return localizedKey(model.language, "ui.djconnect.is.still.checking.the.current.music.dna.status")
-    }
-
-    private var canShowAutomaticTransportStatus: Bool {
-        !model.isDemoMode && model.pairingStatus == .paired
-    }
-
-    private var connectionTransportTitle: String {
-        if model.fastPathDiagnostics.websocketConnected {
-            return localizedKey(model.language, "ui.fast.local.link.websocket")
-        }
-        return localizedKey(model.language, "ui.normal.link.http")
-    }
-
-    private var connectionTransportColor: Color {
-        model.fastPathDiagnostics.websocketConnected ? .green : .secondary
     }
 
     private func prepareAskDJHistoryExport() {
@@ -17386,6 +16871,8 @@ struct SettingsView: View {
                         .labelsHidden()
                     }
                     .djMusicDNASettingsListRow()
+                    DJConnectGlassPreferenceToggle(language: model.language)
+                        .djMusicDNASettingsListRow()
                     if model.isDemoMode {
                         LabeledContent(localizedKey(model.language, "ui.demo.mode")) {
                             Button(localizedKey(model.language, "ui.stop.demo.mode"), role: .destructive) {
@@ -17448,36 +16935,7 @@ struct SettingsView: View {
                 }
                 .djSettingsListRowBackground()
 
-                SettingsGlassSection(title: "DJ-aankondigingen") {
-                    LabeledContent("Output") {
-                        Picker("Output", selection: $model.djAnnouncementOutput) {
-                            ForEach(DJAnnouncementOutput.allCases, id: \.self) { output in
-                                Text(djAnnouncementOutputTitle(output))
-                                    .tag(output)
-                                    .disabled(!model.isDJAnnouncementOutputSelectable(output))
-                            }
-                        }
-                        .labelsHidden()
-                        .pickerStyle(.menu)
-                    }
-                    .djCompactSettingsListRow()
-
-                    LabeledContent("Home Assistant speaker") {
-                        Text(model.djAnnouncementCapabilities.isSpeakerConfigured ? model.djAnnouncementSpeakerDisplayName : "Niet geconfigureerd")
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.trailing)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .djCompactSettingsListRow()
-
-                    if !model.djAnnouncementCapabilities.isSpeakerConfigured {
-                        Text("Configureer een speaker in de DJConnect opties in Home Assistant om de Home Assistant speaker-modi te gebruiken.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .djCompactSettingsListRow()
-                    }
-
+                SettingsGlassSection(title: localizedKey(model.language, "ui.dj_settings.profile")) {
                     LabeledContent(localizedKey(model.language, "ui.chat.history")) {
                         Button {
                             prepareAskDJHistoryExport()
@@ -17563,21 +17021,6 @@ struct SettingsView: View {
                     .djMusicDNASettingsListRow()
                 }
                 .djSettingsListRowBackground()
-
-                if canShowAutomaticTransportStatus {
-                    SettingsGlassSection(title: localizedKey(model.language, "ui.connection")) {
-                        Text(localizedKey(model.language, "ui.transport.automatic"))
-                            .font(.caption).foregroundStyle(.secondary)
-                            .djCompactSettingsListRow()
-
-                        LabeledContent(localizedKey(model.language, "ui.connection.speed")) {
-                            Text(connectionTransportTitle)
-                                .foregroundStyle(connectionTransportColor)
-                        }
-                        .djCompactSettingsListRow()
-                    }
-                    .djSettingsListRowBackground()
-                }
 
                 SettingsGlassSection(title: localizedKey(model.language, "ui.permissions")) {
                     PermissionStatusRow(
@@ -18069,17 +17512,10 @@ private struct LogsView: View {
         }
     }
 
-    private func logLineNumber(_ number: Int, total: Int) -> String {
-        String(format: "%0\(logLineNumberDigits(total: total))d", number)
-    }
-
     private func logLineNumberDigits(total: Int) -> Int {
         max(3, String(max(total, 1)).count)
     }
 
-    private func logLineNumberWidth(total: Int) -> CGFloat {
-        CGFloat(logLineNumberDigits(total: total)) * 8
-    }
 }
 
 private struct LogSearchText: View {
@@ -18228,6 +17664,7 @@ private struct AboutView: View {
                             .popover(isPresented: $showingPushStatus) {
                                 PushRegistrationDetailsView(model: model)
                                     .presentationCompactAdaptation(.popover)
+                .djConnectPresentationSurface()
                             }
                         }
                         AboutStackedRow(label: localizedKey(model.language, "ui.music")) {
@@ -18280,13 +17717,7 @@ private struct AboutView: View {
     }
 
     private var actualConnectionMode: DJConnectHAConnectionMode {
-        guard model.pairingStatus == .paired, model.isConnected, !model.isOfflineModeActive else { return .offline }
-        switch model.hybridConnectionDiagnostics?.state {
-        case .localReady, .localDegraded: return .local
-        case .remoteReady: return .remote
-        case .recoveringOffline, .terminalAuthorityWithdrawn: return .offline
-        case nil: return model.haConnectionMode
-        }
+        model.actualConnectionMode
     }
 
     private var connectionModeTitle: String {
@@ -18306,7 +17737,7 @@ private struct AboutView: View {
         }
         // Hybrid reports only an authenticated, installation-qualified origin.
         // Legacy routes do not provide that proof; do not call a configured URL active.
-        guard let origin = model.hybridConnectionDiagnostics?.activeOrigin,
+        guard let origin = model.hybridConnectionDiagnostics?.activeOrigin ?? model.authenticatedStatusOrigin,
               var components = URLComponents(url: origin, resolvingAgainstBaseURL: false) else {
             return localizedKey(model.language, "ui.connection.address.unconfirmed")
         }
@@ -18317,9 +17748,8 @@ private struct AboutView: View {
     private var connectionTransportTitle: String {
         if model.isDemoMode { return localizedKey(model.language, "ui.demo") }
         guard actualConnectionMode != .offline else { return localizedKey(model.language, "ui.not.active") }
-        if let hybrid = model.hybridConnectionDiagnostics {
-            return hybrid.transportDisplayName ?? localizedKey(model.language, "ui.not.active")
-        }
+        if let hybrid = model.hybridConnectionDiagnostics, let name = hybrid.transportDisplayName { return name }
+        if let origin = model.authenticatedStatusOrigin { return origin.scheme == "https" ? "HTTPS · TLS" : "HTTP · LAN" }
         return model.fastPathDiagnostics.websocketConnected ? "WebSocket" : localizedKey(model.language, "ui.connection.address.unconfirmed")
     }
 
@@ -18772,22 +18202,6 @@ private struct SettingsSection<Content: View>: View {
     }
 }
 
-private struct SettingsRow<Content: View>: View {
-    let label: String
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 18) {
-            Text(label)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 150, alignment: .trailing)
-            content
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-}
-
 private struct AboutStackedRow<Content: View>: View {
     let label: String
     @ViewBuilder var content: Content
@@ -19059,7 +18473,6 @@ func askDJSearchResultIndex(preserving selectedID: UUID?, fallback: Int, in resu
     if let selectedID, let index = results.firstIndex(of: selectedID) { return index }
     return min(max(fallback, 0), max(results.count - 1, 0))
 }
-
 
 private struct PushRegistrationDetailsView: View {
     @ObservedObject var model: DJConnectAppModel

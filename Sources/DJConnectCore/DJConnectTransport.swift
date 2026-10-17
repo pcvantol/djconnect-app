@@ -127,6 +127,13 @@ public final class DJConnectHATransportManager: Sendable {
                 lastError = error
                 // A provider error is a response from reachable Home Assistant.
                 // Preserve transport reachability; playback availability remains separate.
+                if case .routeMissing = error {
+                    // An HTTP route refusal proves this HA origin is reachable.
+                    // Optional history/speech absence is not network loss and
+                    // must not trigger transport fallback or replay an operation.
+                    modeReporter?(candidate.mode, baseURL)
+                    throw error
+                }
                 if case .backendUnavailable = error {
                     modeReporter?(candidate.mode, baseURL)
                     throw error
@@ -146,6 +153,9 @@ public final class DJConnectHATransportManager: Sendable {
                 // The shared coordinator owns reconciliation. Never re-enter a closure
                 // and allocate a second intent after an uncertain/receipt-only result.
                 throw hybrid
+            } catch let rejection as DJConnectProfileDJSettingsFailure {
+                modeReporter?(candidate.mode, baseURL)
+                throw rejection // Reachable owner rejection, never a route failure/replay.
             } catch let conflict as DJConnectSessionPresenceConflict {
                 // An authorized CAS conflict proves this route is reachable.
                 // Preserve connection health and never replay the mutation.

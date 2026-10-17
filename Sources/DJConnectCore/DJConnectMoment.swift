@@ -165,6 +165,17 @@ public struct DJConnectNativeMomentDelivery: Codable, Equatable, Sendable {
             requiresSpotifyAttribution = try c.decode(Bool.self, forKey: .requiresSpotifyAttribution)
             navigationActions = (try? c.decode([LossyBroadcastValue<DJConnectMomentInsightNavigation>].self, forKey: .navigationActions))?.compactMap(\.value) ?? []
         }
+        public func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(momentID, forKey: .momentID); try c.encode(qualification, forKey: .qualification)
+            try c.encode(currentDisplayAllowed, forKey: .currentDisplayAllowed)
+            try c.encode(activeFlowDisplayAllowed, forKey: .activeFlowDisplayAllowed)
+            try c.encode(sourceExpiresAt, forKey: .sourceExpiresAt)
+            try c.encode(displayExpiresAt, forKey: .displayExpiresAt)
+            try c.encode(executableActions, forKey: .executableActions)
+            try c.encode(requiresSpotifyAttribution, forKey: .requiresSpotifyAttribution)
+            try c.encode(navigationActions, forKey: .navigationActions)
+        }
         enum CodingKeys: String, CodingKey {
             case momentID = "moment_id", qualification
             case currentDisplayAllowed = "current_display_allowed", activeFlowDisplayAllowed = "active_flow_display_allowed"
@@ -183,6 +194,13 @@ public struct DJConnectNativeMomentDelivery: Codable, Equatable, Sendable {
         activeFlowMomentIDs = try c.decode([String].self, forKey: .activeFlowMomentIDs)
         admissions = try c.decode([Admission].self, forKey: .admissions)
         revocationScope = try c.decode(String.self, forKey: .revocationScope)
+    }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(schemaVersion, forKey: .schemaVersion); try c.encode(sessionID, forKey: .sessionID)
+        try c.encode(revision, forKey: .revision); try c.encode(currentMomentID, forKey: .currentMomentID)
+        try c.encode(activeFlowMomentIDs, forKey: .activeFlowMomentIDs)
+        try c.encode(admissions, forKey: .admissions); try c.encode(revocationScope, forKey: .revocationScope)
     }
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version", sessionID = "session_id", revision

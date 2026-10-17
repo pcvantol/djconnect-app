@@ -32,6 +32,7 @@ private struct DJAlbumArtworkGlassCard: ViewModifier {
     @State private var sampledURL: URL?
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
 
     func body(content: Content) -> some View {
         let inset: CGFloat = 8
@@ -40,7 +41,7 @@ private struct DJAlbumArtworkGlassCard: ViewModifier {
         content
             .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius - inset, style: .continuous))
             .padding(inset)
-            .background { shape.fill(tint?.opacity(reduceTransparency ? 1 : 0.72) ?? .clear) }
+            .background { shape.fill(tint?.opacity(reduceTransparency || !glassEnabled ? 1 : 0.72) ?? .clear) }
             .djSessionFrostedSurface()
             .overlay {
                 if let tint {
@@ -62,19 +63,66 @@ private struct DJAlbumArtworkGlassCard: ViewModifier {
     }
 }
 
+private struct CurrentMomentArtworkTintKey: EnvironmentKey {
+    static let defaultValue: Color? = nil
+}
+
+private extension EnvironmentValues {
+    var currentMomentArtworkTint: Color? {
+        get { self[CurrentMomentArtworkTintKey.self] }
+        set { self[CurrentMomentArtworkTintKey.self] = newValue }
+    }
+}
+
+/// Use the same cover sample as the artwork border, only for the current card.
+private struct CurrentMomentArtworkTint: ViewModifier {
+    let artworkURL: URL?
+    @State private var sampledTint: Color?
+    @State private var sampledURL: URL?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.currentMomentArtworkTint, sampledURL == artworkURL ? sampledTint : nil)
+            .task(id: artworkURL) {
+                sampledTint = nil
+                sampledURL = nil
+                guard let requestedURL = artworkURL else { return }
+                let tint = await DJConnectArtworkDataCache.shared.tint(for: requestedURL, fallback: Color(white: 0.22))
+                guard !Task.isCancelled, requestedURL == artworkURL else { return }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                    sampledURL = requestedURL
+                    sampledTint = tint
+                }
+            }
+    }
+}
+
 private struct DJSessionGlassSurface: ViewModifier {
     let cornerRadius: CGFloat
     var currentMomentBorder = false
+    @Environment(\.currentMomentArtworkTint) private var artworkTint
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
     @ViewBuilder func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        let bordered = content.overlay {
+        let bordered = content.background {
+            if currentMomentBorder, let artworkTint {
+                shape.fill(LinearGradient(
+                    colors: [artworkTint.opacity(reduceTransparency ? 0.85 : 0.38),
+                             artworkTint.opacity(reduceTransparency ? 0.65 : 0.22)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing))
+            }
+        }.overlay {
             shape.stroke(currentMomentBorder ? AnyShapeStyle(DJConnectCardAppearance.searchFocusGradient) : AnyShapeStyle(Color.white.opacity(DJConnectCardAppearance.borderOpacity)),
                          lineWidth: DJConnectCardAppearance.borderWidth)
         }
-        if #available(iOS 26, macOS 26, watchOS 26, tvOS 26, *) {
-            if reduceTransparency { bordered.background(.regularMaterial, in: shape) }
-            else {
+        if !glassEnabled || reduceTransparency {
+            bordered.background(DJConnectGlassAppearance.opaqueSurface, in: shape)
+        } else if #available(iOS 26, macOS 26, watchOS 26, tvOS 26, *) {
+            if currentMomentBorder, let artworkTint {
+                bordered.glassEffect(.regular.tint(artworkTint.opacity(0.22)), in: shape)
+            } else {
                 #if os(iOS)
                 if currentMomentBorder && UIDevice.current.userInterfaceIdiom == .pad {
                     // Wide iPad bubbles need a visible frost tint over the page gradient.
@@ -84,17 +132,18 @@ private struct DJSessionGlassSurface: ViewModifier {
                 bordered.glassEffect(.regular, in: shape)
                 #endif
             }
-        } else { bordered.background(.ultraThinMaterial, in: shape) }
+        } else { bordered.background(DJConnectMaterial(.ultraThin), in: shape) }
     }
 }
 
 /// Share the glass compositor across visible cards without merging separated bubbles.
 struct DJSessionGlassGroup<Content: View>: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
     let content: Content
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     var body: some View {
-        if #available(iOS 26, macOS 26, watchOS 26, tvOS 26, *), !reduceTransparency {
+        if #available(iOS 26, macOS 26, watchOS 26, tvOS 26, *), glassEnabled && !reduceTransparency {
             GlassEffectContainer(spacing: 0) { content }
         } else {
             content
@@ -154,6 +203,7 @@ struct NativeSessionMomentsView: View {
                 SessionCurrentColumns(stacked: true) {
                     musicContext
                     currentCard(current)
+                        .modifier(CurrentMomentArtworkTint(artworkURL: musicArtworkURL))
                         .accessibilityIdentifier("session-current-card")
                 }
                 .accessibilityElement(children: .contain)
@@ -262,7 +312,8 @@ struct NativeSessionMomentsView: View {
                 navigationLabel: insightOffer(for: moment)?.label,
                 openInsight: { if let offer = insightOffer(for: moment) { playbackModel?.openMomentTrackInsight(offer) } },
                 artworkMedia: session.broadcast.sessionMedia.first { $0.sessionID == session.id && $0.target == .moment(moment.id) },
-                artworkModel: playbackModel)
+                artworkModel: playbackModel,
+                speech: session.broadcast.sessionSpeech.first { $0.reference == .moment(sessionID: session.id, momentID: moment.id) })
                 .id(moment.id)
                 .transition(.opacity)
                 .accessibilityIdentifier("session-current-moment")
@@ -283,53 +334,50 @@ struct NativeSessionMomentsView: View {
     }
 
     private var musicArtworkURL: URL? {
-        guard let raw = session.broadcast.playback?.artworkURL,
+        guard playbackModel?.isDemoMode != true,
+              let raw = session.broadcast.playback?.artworkURL,
               let url = URL(string: raw, relativeTo: artworkBaseURL)?.absoluteURL,
               ["http", "https"].contains(url.scheme) else { return nil }
         return url
     }
 
     private var musicContext: some View {
-        Group {
-            if let url = musicArtworkURL {
-                SessionCurrentColumns(stacked: stacksCurrentOnPhone) {
-                    ZStack {
-                        AsyncImage(url: url) { image in image.resizable().scaledToFit() } placeholder: { Image(systemName: "music.note") }
-                            .aspectRatio(1, contentMode: .fit)
-                        artworkPlaybackOverlay
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .zIndex(1)
-                        SessionArtworkTapSurface(action: handleArtworkTap, touchBegan: {
-                            if artworkIsPaused, playbackModel?.canUsePlaybackFeatures == true {
-                                hidesArtworkPlayOnTouch = true
-                                artworkTouchID = UUID()
-                            }
-                        }, touchCancelled: { hidesArtworkPlayOnTouch = false })
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .zIndex(2)
-                    }
-                        .aspectRatio(1, contentMode: .fit)
-                        .djAlbumArtworkGlassCard(artworkURL: url)
-                        .frame(maxWidth: 270)
-                        .contentShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
-                        .task(id: artworkFeedback?.id) {
-                            guard let feedback = artworkFeedback else { return }
-                            do { try await Task.sleep(for: feedback.command == "pause" ? .seconds(2) : .milliseconds(850)) } catch { return }
-                            guard artworkFeedback?.id == feedback.id else { return }
-                            withAnimation(.easeOut(duration: 0.2)) { artworkFeedback = nil }
-                        }
-                        .accessibilityAction { sendArtworkCommand(artworkIsPaused ? "play" : "pause") }
-                        .accessibilityAction(named: Text(text("ui.next.track"))) { sendArtworkCommand("next") }
-                        .accessibilityAction(named: Text(text("ui.previous.track"))) { sendArtworkCommand("previous") }
-                        .accessibilityAction(named: Text(text("ui.pause"))) { sendArtworkCommand("pause") }
-                        .frame(maxWidth: .infinity)
-                        .accessibilityIdentifier("session-music-artwork")
-                        .sessionIntroductionTarget("artwork")
-                    musicDetails
+        SessionCurrentColumns(stacked: stacksCurrentOnPhone) {
+            ZStack {
+                CachedArtworkImage(url: musicArtworkURL, mode: .fit, usesAlbumGlassFrame: true) {
+                    AlbumArtworkPlaceholder(tint: djConnectAccent,
+                        isPlaying: session.broadcast.playback?.state == "playing" && !artworkIsPaused)
                 }
-            } else {
-                musicDetails
+                    .aspectRatio(1, contentMode: .fit)
+                artworkPlaybackOverlay
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .zIndex(1)
+                SessionArtworkTapSurface(action: handleArtworkTap, touchBegan: {
+                    if artworkIsPaused, playbackModel?.canUsePlaybackFeatures == true {
+                        hidesArtworkPlayOnTouch = true
+                        artworkTouchID = UUID()
+                    }
+                }, touchCancelled: { hidesArtworkPlayOnTouch = false })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .zIndex(2)
             }
+                .aspectRatio(1, contentMode: .fit)
+                .frame(maxWidth: stacksCurrentOnPhone ? .infinity : 270)
+                .contentShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
+                .task(id: artworkFeedback?.id) {
+                    guard let feedback = artworkFeedback else { return }
+                    do { try await Task.sleep(for: feedback.command == "pause" ? .seconds(2) : .milliseconds(850)) } catch { return }
+                    guard artworkFeedback?.id == feedback.id else { return }
+                    withAnimation(.easeOut(duration: 0.2)) { artworkFeedback = nil }
+                }
+                .accessibilityAction { sendArtworkCommand(artworkIsPaused ? "play" : "pause") }
+                .accessibilityAction(named: Text(text("ui.next.track"))) { sendArtworkCommand("next") }
+                .accessibilityAction(named: Text(text("ui.previous.track"))) { sendArtworkCommand("previous") }
+                .accessibilityAction(named: Text(text("ui.pause"))) { sendArtworkCommand("pause") }
+                .frame(maxWidth: .infinity)
+                .accessibilityIdentifier("session-music-artwork")
+                .sessionIntroductionTarget("artwork")
+            musicDetails
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("session-music-context")
@@ -458,14 +506,21 @@ struct NativeSessionMomentsView: View {
                             .accessibilityValue(playbackOutputName)
                             .accessibilityIdentifier("session-playback-output")
                         Spacer(minLength: 0)
-                        if let rawVolume = playbackModel?.playback?.volumePercent {
-                            let volume = max(0, min(100, rawVolume))
-                            Label("\(volume)%", systemImage: volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                                .fixedSize()
-                                .accessibilityLabel(text("watch.volume"))
-                                .accessibilityValue("\(volume)%")
-                                .accessibilityIdentifier("session-playback-volume")
+                        Group {
+                            if playbackModel?.currentPlaybackUsesLocalBluetooth == true {
+                                BluetoothOutputSymbol()
+                                    .stroke(style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                                    .frame(width: 12, height: 18)
+                            } else if let volume = playbackModel?.currentPlaybackVolumePercent {
+                                Label("\(volume)%", systemImage: volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                            } else {
+                                Text("-")
+                            }
                         }
+                        .fixedSize()
+                        .accessibilityLabel(text("watch.volume"))
+                        .accessibilityValue(playbackModel?.currentPlaybackUsesLocalBluetooth == true ? "Bluetooth" : playbackModel?.currentPlaybackVolumePercent.map { "\($0)%" } ?? "-")
+                        .accessibilityIdentifier("session-playback-volume")
                     }
                     .font(.caption).foregroundStyle(.secondary)
                 }
@@ -646,6 +701,7 @@ struct MomentCard: View {
     var openInsight: (() -> Void)? = nil
     var artworkMedia: DJConnectSessionMedia? = nil
     var artworkModel: DJConnectAppModel? = nil
+    var speech: DJConnectSessionSpeech? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if let media = artworkMedia, let model = artworkModel {
@@ -675,22 +731,17 @@ struct MomentCard: View {
                 .accessibilityIdentifier("session-spotify-attribution")
             }
             ForEach(moment.nativeSourceURLs, id: \.absoluteString) { url in
-                Link(sourceLabel(url), destination: url)
+                Link(moment.sourceAttribution?["provider"] ?? url.host ?? "", destination: url)
                     .foregroundStyle(.white)
                     .tint(.white)
                     .accessibilityValue(url.absoluteString)
                     .accessibilityIdentifier("moment-source-" + url.absoluteString)
             }
+            if let model = artworkModel { SharedDJSpeechActions(model: model, speech: speech, acceptedText: moment.content) }
         }
         .padding(24).frame(maxWidth: .infinity, alignment: .leading)
         .djSessionFrostedSurface(currentMomentBorder: true)
         .accessibilityElement(children: .contain)
-    }
-    private func sourceLabel(_ url: URL) -> String {
-        if moment.sourceAttribution?["provider"] == "Spotify" { return "Spotify" }
-        let key = url.absoluteString == moment.sourceAttribution?["url_previous"] ? "ui.session.source_previous" : "ui.session.source_current"
-        let provider = moment.sourceAttribution?["provider"] ?? url.host ?? ""
-        return provider + " · " + DJConnectLocalization.localized(key: key, language: language)
     }
 }
 
@@ -910,7 +961,7 @@ struct SessionIntroductionOverlay: View {
         }
         .padding(20)
         .foregroundStyle(.white)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 26))
+        .background(DJConnectMaterial(.regular), in: RoundedRectangle(cornerRadius: 26))
         .overlay { RoundedRectangle(cornerRadius: 26).stroke(DJConnectCardAppearance.searchFocusGradient, lineWidth: 1.25).allowsHitTesting(false) }
     }
 }

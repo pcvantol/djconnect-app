@@ -79,6 +79,12 @@ jobs:
       - name: Validate shared brand tagline
         run: /usr/bin/python3 Tools/validate_brand_tagline.py
 
+      - name: Ordinary app installation hygiene
+        run: /usr/bin/python3 -m unittest discover -s Tools/qualification -p 'test_*.py'
+
+      - name: Validate Apple work register projections
+        run: /usr/bin/python3 Tools/qualification/validate_apple_work_registers.py
+
       - name: Swift tests
         run: swift test --no-parallel
 

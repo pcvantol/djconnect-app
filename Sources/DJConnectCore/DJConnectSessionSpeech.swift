@@ -58,15 +58,22 @@ public struct DJConnectSessionSpeech: Codable, Equatable, Sendable {
         public let processor: DJConnectSpeechProcessor
         public let engine: String
         public let provider: String
-        public let voiceID: String
-        public let voiceName: String
+        public let voiceID: String?
+        public let voiceName: String?
+        public let voiceSelection: String?
         public let locale: String
         public let gender: String?
         public let providerVersion: String?
         public let voiceVersion: String?
         enum CodingKeys: String, CodingKey {
             case processor, engine, provider, locale, gender
-            case voiceID = "voice_id", voiceName = "voice_name", providerVersion = "provider_version", voiceVersion = "voice_version"
+            case voiceID = "voice_id", voiceName = "voice_name", voiceSelection = "voice_selection", providerVersion = "provider_version", voiceVersion = "voice_version"
+        }
+        /// A provider may own its default voice without exposing an inventory.
+        /// Explicit selections must still retain their exact nonempty identity.
+        public var hasQualifiedSelection: Bool {
+            if let voiceID { return !voiceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            return voiceSelection == "provider_default"
         }
     }
     public struct AudioReference: Codable, Equatable, Sendable {
@@ -107,14 +114,24 @@ public struct DJConnectSessionSpeech: Codable, Equatable, Sendable {
     public let effectiveVoice: Voice?
     public let voicePreference: DJConnectVoicePreference?
     public let notification: DJConnectSpeechNotification?
+    public var settingsContractVersion: Int? = nil
+    public var settingsRevision: [DJConnectJSONValue]? = nil
     enum CodingKeys: String, CodingKey {
         case reference, persona, locale, segments, state, reason, processors, attribution, notification
+        case settingsContractVersion = "settings_contract_version", settingsRevision = "settings_revision"
         case schemaVersion = "schema_version", sourceKind = "source_kind", sourceID = "source_id", sessionID = "session_id"
         case textRevision = "text_revision", presentationRevision = "presentation_revision", personaRevision = "persona_revision"
         case expiresAt = "expires_at", sourceExpiresAt = "source_expires_at", manualAllowed = "manual_allowed", autoplayEligible = "autoplay_eligible"
         case processorQualificationRequired = "processor_qualification_required"
         case cachePolicy = "cache_policy", audioState = "audio_state", audioReference = "audio_reference", effectiveVoice = "effective_voice", voicePreference = "voice_preference"
     }
+    /// Retention can outlive a playback action; a local ticket is always bounded.
+    /// This shortens UI work only and never renews source or prepared asset rights.
+    public func playbackDeadline(at now: Date = Date()) -> Date? {
+        guard let expiry = expiresAt.flatMap(DJConnectHistoryEntry.date), expiry > now else { return nil }
+        return min(expiry, now.addingTimeInterval(300))
+    }
+
     public func advertisesPreparationAttempt(_ processor: DJConnectSpeechProcessor) -> Bool {
         // Legacy omission never adds a route absent from its original list.
         processors.contains(processor) && processorQualificationRequired != false

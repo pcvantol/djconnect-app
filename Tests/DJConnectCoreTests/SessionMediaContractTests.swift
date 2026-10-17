@@ -126,6 +126,11 @@ private final class ArtworkURLProtocol: URLProtocol, @unchecked Sendable {
             #expect(request.httpMethod == "GET")
             #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-artwork-token")
             #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == "ios")
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            #expect(query.count == 2)
+            #expect(query.first(where: { $0.name == "device_id" })?.value == "djconnect-ios-artwork-test")
+            #expect(query.first(where: { $0.name == "client_type" })?.value == "ios")
+            #expect(request.value(forHTTPHeaderField: "Cache-Control") == "no-store")
             #expect(request.cachePolicy == .reloadIgnoringLocalCacheData)
             #expect(request.url?.path.contains("/session/media/image/session-fixture-1/") == true)
             let status = Int(request.url?.host?.split(separator: ".").first ?? "") ?? 200

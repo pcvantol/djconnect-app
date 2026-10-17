@@ -30,6 +30,57 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     @Published public private(set) var artworkAvailable = false
     @Published public private(set) var artworkPreparing: Set<DJConnectSessionEntryReference> = []
     @Published public private(set) var artworkFailed: Set<DJConnectSessionEntryReference> = []
+    private var artworkQueue: [DJConnectSessionEntryReference] = []
+    private var artworkQueueTask: Task<Void, Never>?
+    private var artworkQueueGeneration = UUID()
+    private var artworkAttempts: [DJConnectSessionEntryReference: Date] = [:]
+
+    public func cancelArtworkQueue() {
+        artworkQueueGeneration = UUID()
+        artworkQueueTask?.cancel(); artworkQueueTask = nil
+        artworkQueue = []; artworkAttempts = [:]
+    }
+
+    /// Visible rows first; one neighboring media contribution on either side.
+    /// Never scans/prepares the whole loaded history or performs a provider lookup.
+    static func artworkWindow(entries: [DJConnectHistoryEntry], visibleIDs: Set<String>, at now: Date = Date()) -> [DJConnectSessionEntryReference] {
+        let rows = entries.filter { $0.isRetained(at: now) }
+        let visible = rows.indices.filter { visibleIDs.contains(rows[$0].id) }
+        guard let first = visible.first, let last = visible.last else { return [] }
+        let eligible: (DJConnectHistoryEntry) -> Bool = { [.playbackObserved, .djMoment].contains($0.kind) }
+        var indices = visible.filter { eligible(rows[$0]) }
+        if let before = rows.indices.prefix(first).last(where: { eligible(rows[$0]) }) { indices.append(before) }
+        if let after = rows.indices.dropFirst(last + 1).first(where: { eligible(rows[$0]) }) { indices.append(after) }
+        return indices.map { rows[$0].reference }
+    }
+
+    public func prefetchArtwork(sessionID: String, visibleIDs: Set<String>) {
+        guard artworkAvailable, host?.canRefreshSessionHistory == true,
+              let rows = timelines[sessionID]?.entries else { return }
+        artworkQueue = Self.artworkWindow(entries: rows, visibleIDs: visibleIDs)
+        guard artworkQueueTask == nil, !artworkQueue.isEmpty else { return }
+        let captured = epoch
+        let generation = artworkQueueGeneration
+        artworkQueueTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { if captured == epoch, generation == artworkQueueGeneration { artworkQueueTask = nil } }
+            while captured == epoch, generation == artworkQueueGeneration, !Task.isCancelled, !artworkQueue.isEmpty {
+                let ref = artworkQueue.removeFirst()
+                guard let row = timelines[ref.sessionID]?.entries.first(where: { $0.reference == ref }),
+                      row.isRetained(), !artworkPreparing.contains(ref) else { continue }
+                let now = Date()
+                if let media = row.sessionMedia {
+                    let audience: DJConnectSessionMedia.Audience = media.artwork.historicalDisplayAllowed ? .history : .activeFlow
+                    if media.admittedArtwork(session: ref.sessionID, target: .entry(ref.entryID), audience: audience, at: now) != nil { continue }
+                }
+                guard artworkAttempts[ref].map({ now.timeIntervalSince($0) >= 30 }) ?? true else { continue }
+                artworkAttempts = artworkAttempts.filter { now.timeIntervalSince($0.value) < 30 }
+                artworkAttempts[ref] = now
+                await refreshArtwork(for: row)
+            }
+        }
+    }
+
     @Published public private(set) var available = false
     @Published public private(set) var preparing = false
     @Published public private(set) var searchAvailable = false
@@ -256,6 +307,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         host?.dismissMomentTrackInsight()
         preparationTask?.cancel(); preparationTask = nil; preparationID = UUID(); preparing = false
         liveResponses = [:]
+        cancelArtworkQueue()
         artworkAvailable = false; artworkPreparing = []; artworkFailed = []
         epoch = UUID(); searchGeneration = UUID(); listGeneration = UUID(); navigationGeneration = UUID()
         searchTask?.cancel(); searchTask = nil
@@ -276,6 +328,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         host?.dismissMomentTrackInsight()
         preparationTask?.cancel(); preparationTask = nil; preparationID = UUID(); preparing = false
         liveResponses = [:]
+        cancelArtworkQueue()
         artworkAvailable = false; artworkPreparing = []; artworkFailed = []
         epoch = UUID(); ownerScope = nil
         listGeneration = UUID(); timelineGenerations = [:]; timelineNavigations = [:]; navigationGeneration = UUID()
@@ -310,7 +363,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
     }
 
-    /// Explicit older-row refresh only. Opening/reading/expiry never calls this.
+    /// Exact-entry preparation, coordinated separately from pure history reads.
+    /// Viewport loading and prefetch share the same owner/retention fences.
     public func refreshArtwork(for original: DJConnectHistoryEntry) async {
         let ref = original.reference
         guard artworkAvailable, let host, host.canRefreshSessionHistory,
@@ -347,7 +401,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         } catch {
             guard captured == epoch, !Task.isCancelled, host.canRefreshSessionHistory,
                   timelines[ref.sessionID]?.entries.contains(original) == true else { return }
-            // A failed explicit revalidation must not leave the old image shown.
+            // Failed revalidation must not leave the old image shown.
             // Clear only this still-matching target; preserve text and any newer grant.
             func clear(_ rows: [DJConnectHistoryEntry]) -> [DJConnectHistoryEntry] {
                 rows.map { row in
@@ -431,8 +485,34 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
             guard captured == epoch, timelineGenerations[sessionID] == generation else { return }
             if withdrawAuthority(for: error) { return }
-            timelines[sessionID] = Timeline(errorKey: errorKey(error))
+            // A failed read cannot revoke already confirmed retained entries.
+            // Explicit owner withdrawal above still removes every private row.
+            var retained = timelines[sessionID] ?? Timeline()
+            retained.entries.removeAll { !$0.isRetained() }
+            retained.loading = false; retained.errorKey = errorKey(error)
+            timelines[sessionID] = retained
         }
+    }
+
+    /// A live journal gap is repaired from canonical retained history, not by
+    /// replaying commands or assuming that a Broadcast snapshot contains history.
+    @discardableResult
+    func recoverContributions(_ sessionID: String) async -> Bool {
+        let captured = epoch
+        for attempt in 0..<3 {
+            guard captured == epoch, !Task.isCancelled, host?.canRefreshSessionHistory == true else { return false }
+            if attempt > 0 {
+                do { try await Task.sleep(for: .milliseconds(attempt * 500)) } catch { return false }
+            }
+            await prepare()
+            guard captured == epoch, !Task.isCancelled, hasAuthorizedOwner else { return false }
+            // prepare() already refreshes the authorized conversation projection.
+            await loadTimeline(sessionID, window: .tail)
+            guard captured == epoch, !Task.isCancelled else { return false }
+            if let timeline = timelines[sessionID], !timeline.loading, timeline.errorKey == nil,
+               timeline.session != nil { return true }
+        }
+        return false
     }
 
     public func refreshVisibleTimeline(_ sessionID: String, anchor: String?) async {
@@ -692,6 +772,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
         let acceptedEpoch = epoch
         retainLiveResponse(response)
+        host.autoplayAcceptedDJResponse(response.base)
         for message in response.base.messages where message.role != .user {
             historicalMatches[message.id] = response.historicalMatches
         }
@@ -748,7 +829,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     public func restoreVisibleTimeline(_ sessionID: String, active: Bool, anchor: String?) async {
         await prepare()
         guard hasAuthorizedOwner || host?.isDemoMode == true, !Task.isCancelled else { return }
-        if let anchor, !["current", "tail"].contains(anchor), !anchor.hasPrefix("pending-") {
+        if !active, let anchor, !["current", "tail"].contains(anchor), !anchor.hasPrefix("pending-") {
             await loadTimeline(sessionID, window: .anchor, anchorEntryID: anchor)
             if timelines[sessionID]?.entries.contains(where: { $0.id == anchor && $0.isRetained() }) == true { return }
         }

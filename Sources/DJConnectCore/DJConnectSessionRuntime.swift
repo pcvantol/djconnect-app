@@ -168,6 +168,7 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
         public var snapshotWatermark: Int?
         enum CodingKeys: String, CodingKey { case snapshotWatermark = "snapshot_watermark" }
     }
+    public var sessionSpeech: [DJConnectSessionSpeech] = []
     public var sessionMedia: [DJConnectSessionMedia] = []
     public var nativeDelivery: DJConnectNativeMomentDelivery? = nil
     public var djMoments: [DJConnectMoment] = []
@@ -204,6 +205,18 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
         delivery = try? c.decode(Delivery.self, forKey: .delivery)
         sessionMedia = Array(((try? c.decode([LossyBroadcastValue<DJConnectSessionMedia>].self, forKey: .sessionMedia))?.compactMap(\.value) ?? []).prefix(64))
         nativeDelivery = try? c.decode(DJConnectNativeMomentDelivery.self, forKey: .nativeDelivery)
+        struct PrivateSpeech: Decodable { let schema_version: Int; let moments: [DJConnectOptionalSessionSpeech] }
+        struct SpeechKey: CodingKey {
+            let stringValue: String; let intValue: Int? = nil
+            init?(stringValue: String) { self.stringValue = stringValue }
+            init?(intValue: Int) { return nil }
+        }
+        if let privateContainer = try? decoder.container(keyedBy: SpeechKey.self),
+           let key = SpeechKey(stringValue: "session_speech"),
+           let grant = try? privateContainer.decode(PrivateSpeech.self, forKey: key), grant.schema_version == 1 {
+            sessionSpeech = Array(grant.moments.compactMap(\.value).prefix(64))
+        }
+
     }
     public init(session: Session, planner: Planner, sessionFlow: DJConnectSessionFlow) {
         self.session = session; self.planner = planner; self.sessionFlow = sessionFlow
@@ -280,6 +293,16 @@ public struct DJConnectSessionBroadcastSubscription: Codable, Equatable, Sendabl
     }
 }
 
+public struct DJConnectPassiveSurfaceInvalidation: Codable, Equatable, Sendable {
+    public let version: Int
+    public let session_id: String
+    public let delivery_sequence: Int
+    public let invalidation_only: Bool
+    public func validates(sessionID: String) -> Bool {
+        version == 1 && session_id == sessionID && delivery_sequence >= 0 && invalidation_only
+    }
+}
+
 public struct DJConnectSessionBroadcastEvent: Codable, Equatable, Sendable {
     public struct Payload: Codable, Equatable, Sendable {
         public var session: DJConnectBroadcastState.Session?
@@ -290,6 +313,10 @@ public struct DJConnectSessionBroadcastEvent: Codable, Equatable, Sendable {
         public var djMoment: DJConnectMoment? = nil
         public var presentation: DJConnectPresentation? = nil
         public var playback: DJConnectSessionPlayback? = nil
+        /// Private owner grant: decoded for local playback, never re-encoded.
+        public var sessionSpeech: [DJConnectSessionSpeech] = []
+        /// Owner-only invalidation: not encoded into other client projections.
+        public var passiveSurfaceInvalidation: DJConnectPassiveSurfaceInvalidation? = nil
 
         enum CodingKeys: String, CodingKey {
             case session, planner, playback, presentation
@@ -309,6 +336,21 @@ public struct DJConnectSessionBroadcastEvent: Codable, Equatable, Sendable {
             djMoment = try? c.decode(DJConnectMoment.self, forKey: .djMoment)
             presentation = try? c.decode(DJConnectPresentation.self, forKey: .presentation)
             playback = try? c.decode(DJConnectSessionPlayback.self, forKey: .playback)
+            struct Grant: Decodable { let schema_version: Int; let moments: [DJConnectOptionalSessionSpeech] }
+            struct Key: CodingKey {
+                let stringValue: String; let intValue: Int? = nil
+                init?(stringValue: String) { self.stringValue = stringValue }
+                init?(intValue: Int) { return nil }
+            }
+            if let container = try? decoder.container(keyedBy: Key.self),
+               let key = Key(stringValue: "passive_surface") {
+                passiveSurfaceInvalidation = try? container.decode(DJConnectPassiveSurfaceInvalidation.self, forKey: key)
+            }
+            if let container = try? decoder.container(keyedBy: Key.self),
+               let key = Key(stringValue: "session_speech"),
+               let grant = try? container.decode(Grant.self, forKey: key), grant.schema_version == 1 {
+                sessionSpeech = Array(grant.moments.compactMap(\.value).prefix(64))
+            }
         }
         public init(session: DJConnectBroadcastState.Session? = nil, planner: DJConnectBroadcastState.Planner? = nil, sessionFlow: DJConnectSessionFlow? = nil) {
             self.session = session; self.planner = planner; self.sessionFlow = sessionFlow
@@ -386,6 +428,7 @@ public extension DJConnectSessionRuntime {
         }
         guard sequence > (broadcast.delivery?.snapshotWatermark ?? -1) else { return self }
         var state = broadcast
+        state.sessionSpeech = broadcastEvent.payload.sessionSpeech
         state.sessionMedia = broadcastEvent.payload.sessionMedia
         state.nativeDelivery = broadcastEvent.payload.nativeDelivery
         if let sequence = broadcastEvent.deliverySequence { state.delivery = .init(snapshotWatermark: sequence) }
@@ -419,6 +462,7 @@ public struct DJConnectActiveMoodCapabilities: Decodable, Sendable {
     }
     let capabilities: [String: Bool]?
     let contractVersions: [String: Int]?
+    public var sharedSettingsAvailable: Bool { capabilities?["profile_session_settings"] == true && contractVersions?["profile_session_settings"] == 3 }
     let contract: Contract?
     let presenceContract: DJConnectPresenceCapability?
     let personaContract: DJConnectPersonaCapability?

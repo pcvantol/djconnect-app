@@ -7718,7 +7718,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func outputDevicesIncludeNoOutputBeforeBackendDevices() throws {
+@Test func outputDevicesExcludeSyntheticNoOutputChoices() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -7733,14 +7733,14 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
         ]
     ))
 
-    let noOutputName = DJConnectLocalization.localized(key: "ui.no.output.device.selected", language: "nl")
-    #expect(model.availableOutputs.map(\.name).prefix(2) == [noOutputName, "Woonkamer"])
+    #expect(model.availableOutputs.map(\.name) == ["Woonkamer"])
     #expect(model.selectedOutput == "Woonkamer")
+    let dummy = DJConnectOutputDevice(id: "djconnect-output-none", name: "Geen uitvoerapparaat geselecteerd", type: "local", active: true)
+    model.selectOutput(dummy)
+    #expect(model.selectedOutput == "Woonkamer")
+    model.apply(commandResponse: DJConnectCommandResponse(success: true, backendAvailable: true, devices: [dummy]))
+    #expect(model.availableOutputs.isEmpty)
 
-    model.selectOutput(model.availableOutputs[0])
-    #expect(model.selectedOutput == noOutputName)
-    #expect(model.availableOutputs[0].active == true)
-    #expect(model.availableOutputs[1].active == false)
 }
 
 @MainActor
@@ -7920,7 +7920,6 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
         backendAvailable: true,
         devices: [DJConnectOutputDevice(id: "speaker", name: "Woonkamer", active: false)]
     ))
-    model.selectOutput(model.availableOutputs[0])
     model.sendPlaybackCommand("play")
 
     #expect(model.selectedOutput == DJConnectLocalization.localized(key: "ui.no.output.device.selected", language: "nl"))
@@ -12840,23 +12839,15 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 
 @Test func watchAppTargetsEmbedSharedLocalizableStrings() throws {
     let project = try loadRepositoryText("project.yml")
-    #expect(project.contains("""
-  DJConnectWatch:
-    type: application
-    platform: watchOS
-    sources:
-      - path: Apps/DJConnectWatch
-      - path: Apps/Shared/Assets.xcassets
-      - path: Sources/DJConnectCore/Resources
-"""))
-    #expect(project.contains("""
-  DJConnectWatchComplications:
-    type: app-extension
-    platform: watchOS
-    sources:
-      - path: Apps/DJConnectWatchComplications
-      - path: Sources/DJConnectCore/Resources
-"""))
+    for target in ["DJConnectWatch", "DJConnectWatchComplications"] {
+        // Check resource ownership in each target, independently of additional
+        // shared Swift sources or source ordering (vinyl/glass, for example).
+        let pattern = "(?m)^  " + NSRegularExpression.escapedPattern(for: target) + ":\\n(?: {4}.*\\n|\\n)+"
+        let range = try #require(project.range(of: pattern, options: .regularExpression))
+        let targetSpec = project[range]
+        #expect(targetSpec.contains("platform: watchOS"))
+        #expect(targetSpec.contains("- path: Sources/DJConnectCore/Resources"))
+    }
 
     let pbxproj = try loadRepositoryText("DJConnectApp.xcodeproj/project.pbxproj")
     let watchResources = try #require(pbxproj.pbxResourcesBuildPhase(named: "12C9797D02B6425447348CA2"))
@@ -13800,7 +13791,10 @@ func pushFailureCannotWithdrawPairingWithoutIndependentHTTPRefusal(_ failure: In
         var confirmations = 0
         var unconfirmed = 0
         model.sendPlaybackCommand("pause", onConfirmed: { confirmations += 1 }, onUnconfirmed: { unconfirmed += 1 })
-        try await Task.sleep(for: .milliseconds(300))
+        // Wait for the semantic completion, not a machine-speed-dependent delay.
+        for _ in 0..<200 where confirmations + unconfirmed == 0 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
         #expect(confirmations == (success == true ? 1 : 0))
         #expect(unconfirmed == (success == true ? 0 : 1))
     }
@@ -13822,4 +13816,168 @@ func pushFailureCannotWithdrawPairingWithoutIndependentHTTPRefusal(_ failure: In
         }
         Issue.record("The first ping error must be preserved")
     } catch { #expect((error as? URLError)?.code == .cancelled) }
+}
+
+
+@Test func appleLocalATSIsRestrictedToSupportedPrivateNetworkExceptions() throws {
+    let ranges: Set<String> = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "fc00::/7", "fe80::/10", "::1/128"]
+    for platform in ["IOS", "Mac", "Watch"] {
+        let plist = try loadRepositoryPlist("Apps/DJConnect\(platform)/Info.plist")
+        let ats = try #require(plist["NSAppTransportSecurity"] as? [String: Any])
+        #expect(ats["NSAllowsLocalNetworking"] as? Bool == true)
+        #expect(ats["NSAllowsArbitraryLoadsInLocalNetworking"] == nil)
+        #expect(ats["NSAllowsArbitraryLoads"] as? Bool != true)
+        let exceptions = try #require(ats["NSExceptionDomains"] as? [String: [String: Any]])
+        #expect(Set(exceptions.keys) == ranges)
+        for properties in exceptions.values {
+            #expect(Set(properties.keys) == ["NSExceptionAllowsInsecureHTTPLoads"])
+            #expect(properties["NSExceptionAllowsInsecureHTTPLoads"] as? Bool == true)
+        }
+    }
+}
+
+@MainActor
+@Test func playbackVolumeFollowsOutputCapability() throws {
+    let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore())
+    model.playback = DJConnectPlayback(volumePercent: 50, device: DJConnectPlaybackDevice(id: "bluetooth", supportsVolume: false))
+    #expect(!model.canControlPlaybackVolume)
+    model.playback = DJConnectPlayback(volumePercent: 50, device: DJConnectPlaybackDevice(id: "speaker", supportsVolume: true))
+    #expect(model.canControlPlaybackVolume)
+    model.playback = nil
+    #expect(!model.canControlPlaybackVolume)
+}
+
+@MainActor
+@Test(arguments: ["nl", "en", "de", "fr", "es"])
+func volumeControlFailureIsLocalized(language: String) throws {
+    let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore())
+    model.language = language
+    model.apply(watchProxyDJResponse: DJConnectWatchProxyDJResponseRequest(
+        text: "Player command failed: Cannot control device volume", djText: nil, audioURL: nil, audioType: nil))
+    #expect(model.djResponseText == DJConnectLocalization.localized(key: "appModel.device.volume.control.unavailable", language: language))
+    #expect(model.djResponseText.contains("Player command failed") == false)
+}
+
+@MainActor
+@Test func volumeRefusalHidesControlOnlyForAffectedOutput() async throws {
+    let host = "volume-restricted.local"
+    let session = mockSession(host: host) { request in
+        return (try httpResponse(for: request, statusCode: 200), Data("""
+        {"success":false,"error":"backend_unavailable","message":"Player command failed: Cannot control device volume"}
+        """.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: try testDefaults(), host: host, session: session)
+    model.language = "nl"
+    model.isConnected = true
+    model.playback = DJConnectPlayback(volumePercent: 50, device: DJConnectPlaybackDevice(id: "bluetooth", supportsVolume: true))
+    model.sendPlaybackCommand("set_volume", value: .int(45))
+    for _ in 0..<100 where model.canControlPlaybackVolume {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    #expect(!model.canControlPlaybackVolume)
+    model.playback = DJConnectPlayback(volumePercent: 50, device: DJConnectPlaybackDevice(id: "speaker", supportsVolume: true))
+    #expect(model.canControlPlaybackVolume)
+}
+
+@Test func outputNamesAndVolumesDoNotExposeTransportFallbacks() throws {
+    let opaque = "9a2c703675ba2ecd05fe97eb-b78d644b481b3c07"
+    let device = try JSONDecoder().decode(DJConnectOutputDevice.self, from: Data("{\"id\":\"\(opaque)\"}".utf8))
+    #expect(!device.hasDisplayName)
+    #expect(device.displayName(language: "nl") == "Naam niet beschikbaar")
+    #expect(device.reportedVolumePercent == nil)
+    let bluetooth = DJConnectOutputDevice(id: "phone", name: "iPhone", type: "Smartphone", active: true, supportsVolume: false, volumePercent: 100)
+    #expect(bluetooth.reportedVolumePercent == nil)
+    #expect(bluetooth.usesLocalBluetoothRoute(localDeviceName: "iPhone", playbackDeviceID: "phone", hasBluetoothRoute: true))
+    #expect(!bluetooth.usesLocalBluetoothRoute(localDeviceName: "iPhone", playbackDeviceID: "another-phone", hasBluetoothRoute: true))
+    #expect(!bluetooth.usesLocalBluetoothRoute(localDeviceName: "iPhone", playbackDeviceID: "phone", hasBluetoothRoute: false))
+    #expect(!bluetooth.usesLocalBluetoothRoute(localDeviceName: "Other iPhone", playbackDeviceID: "phone", hasBluetoothRoute: true))
+}
+
+@MainActor
+@Test func outputReadPreservesExactKnownNameWithoutBorrowingPlaybackVolume() throws {
+    let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore())
+    let id = "9a2c703675ba2ecd05fe97eb-b78d644b481b3c07"
+    model.apply(commandResponse: DJConnectCommandResponse(success: true, backendAvailable: true, devices: [
+        DJConnectOutputDevice(id: id, name: "Woonkamer", active: true, supportsVolume: true, volumePercent: 18)
+    ]))
+    model.playback = DJConnectPlayback(volumePercent: 100, device: DJConnectPlaybackDevice(id: id, name: id, supportsVolume: true))
+    model.apply(commandResponse: DJConnectCommandResponse(success: true, backendAvailable: true, devices: [
+        DJConnectOutputDevice(id: id, name: id, active: true, supportsVolume: true)
+    ]))
+    let resolved = try #require(model.availableOutputs.first { $0.id == id })
+    #expect(resolved.name == "Woonkamer")
+    #expect(model.outputVolumeLabel(resolved) == "-")
+    #expect(model.outputVolumeLabel(DJConnectOutputDevice(id: "different", name: "Speaker", supportsVolume: true, volumePercent: 18)) == "18%")
+}
+
+@MainActor
+@Test func bluetoothDeviceNameFollowsRouteWithoutReplacingPlaybackIdentity() throws {
+    let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.isConnected = true; model.backendAvailable = true
+    let phone = DJConnectOutputDevice(id: "this-phone", name: "iPhone", type: "Smartphone", active: true, supportsVolume: false)
+    model.availableOutputs = [phone]
+    model.playback = DJConnectPlayback(device: DJConnectPlaybackDevice(id: phone.id, name: phone.name, type: phone.type, active: true, supportsVolume: false))
+    model.localAudioRoute = .init(localDeviceName: "iPhone", bluetoothPortNames: [" BOWERS & WILKINS Px8 "])
+    #expect(model.currentPlaybackUsesLocalBluetooth)
+    #expect(model.currentPlaybackBluetoothDeviceName == "BOWERS & WILKINS Px8")
+    #expect(model.currentPlaybackOutputDisplayName == "BOWERS & WILKINS Px8")
+    #expect(model.outputDisplayName(phone) == "BOWERS & WILKINS Px8")
+    #expect(model.availableOutputs == [phone])
+    #expect(model.playback?.device?.id == phone.id && model.playback?.device?.name == "iPhone")
+    model.localAudioRoute = .init(localDeviceName: "iPhone", bluetoothPortNames: [])
+    #expect(!model.currentPlaybackUsesLocalBluetooth)
+    #expect(model.outputDisplayName(phone) == "iPhone")
+    model.localAudioRoute = .init(localDeviceName: "iPhone", bluetoothPortNames: ["Another headset"])
+    #expect(model.outputDisplayName(phone) == "Another headset")
+}
+
+@MainActor
+@Test(arguments: ["speaker", "other-phone", "same-name-other-id", "cached", "offline", "backend-unavailable"])
+func bluetoothDeviceNameDoesNotBorrowLocalRouteForOtherOutputs(reason: String) throws {
+    let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.isConnected = true; model.backendAvailable = true
+    model.localAudioRoute = .init(localDeviceName: "iPhone", bluetoothPortNames: ["Private headset"])
+    var phone = DJConnectOutputDevice(id: "this-phone", name: "iPhone", type: "Smartphone", active: true)
+    if reason == "speaker" { phone.type = "speaker" }
+    if reason == "other-phone" { phone.name = "Other iPhone" }
+    if reason == "cached" { phone.cached = true }
+    model.availableOutputs = [phone]
+    if reason == "same-name-other-id" {
+        model.availableOutputs.append(.init(id: "other-phone", name: "iPhone", type: "Smartphone", active: false))
+    }
+    model.playback = DJConnectPlayback(device: DJConnectPlaybackDevice(id: phone.id, name: phone.name, type: phone.type, active: true, cached: phone.cached))
+    if reason == "offline" { model.isConnected = false }
+    if reason == "backend-unavailable" { model.backendAvailable = false }
+    #expect(!model.currentPlaybackUsesLocalBluetooth)
+    #expect(model.currentPlaybackBluetoothDeviceName == nil)
+    #expect(model.outputDisplayName(phone) == phone.name)
+}
+
+@MainActor
+@Test(arguments: [[], [""], ["One", "Two"]])
+func bluetoothDeviceNameRequiresOneUnambiguousNamedRoute(names: [String]) throws {
+    let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.isConnected = true; model.backendAvailable = true
+    let phone = DJConnectOutputDevice(id: "this-phone", name: "iPhone", type: "Smartphone", active: true)
+    model.availableOutputs = [phone]
+    model.playback = DJConnectPlayback(device: DJConnectPlaybackDevice(id: phone.id, name: phone.name, type: phone.type, active: true, supportsVolume: false))
+    model.localAudioRoute = .init(localDeviceName: "iPhone", bluetoothPortNames: names)
+    #expect(model.currentPlaybackBluetoothDeviceName == nil)
+    #expect(model.outputDisplayName(phone) == "iPhone")
+    #expect(model.currentPlaybackVolumePercent == nil)
+    model.localAudioRoute = .init(localDeviceName: "iPhone", bluetoothPortNames: ["One"], hasOtherOutputs: true)
+    #expect(model.currentPlaybackBluetoothDeviceName == nil)
+}
+
+@MainActor
+@Test func currentPlaybackVolumePresentationRejectsUnsupportedAndUnknownLevels() throws {
+    let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.playback = DJConnectPlayback(volumePercent: 100, device: DJConnectPlaybackDevice(id: "phone", name: "iPhone", supportsVolume: false))
+    #expect(model.currentPlaybackVolumePercent == nil)
+    model.playback = DJConnectPlayback(device: DJConnectPlaybackDevice(id: "speaker", supportsVolume: true))
+    #expect(model.currentPlaybackVolumePercent == nil)
+    model.playback = DJConnectPlayback(volumePercent: 100, device: DJConnectPlaybackDevice(id: "speaker", active: true, supportsVolume: true))
+    #expect(model.currentPlaybackVolumePercent == 100)
+    model.playback = DJConnectPlayback(volumePercent: 37, device: DJConnectPlaybackDevice(id: "speaker", active: false, supportsVolume: true))
+    #expect(model.currentPlaybackVolumePercent == nil)
 }

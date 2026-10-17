@@ -43,6 +43,10 @@ public enum DJConnectPlatform: String, Codable, Sendable {
 
 public enum DJConnectWatchProxyOperation: String, Codable, Sendable {
     case status
+    case foregroundSession = "foreground_session"
+    case profileDJSettings = "profile_dj_settings"
+    case updateProfileDJSettings = "update_profile_dj_settings"
+    case profileDJSettingsOperation = "profile_dj_settings_operation"
     case command
     case trackInsight = "track_insight"
     case askDJHistory = "ask_dj_history"
@@ -1087,6 +1091,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable, DJConnectProf
     public var privateSession: Bool?
     public var requestSource: DJConnectProfileRequestSource?
     public var conversationContext: DJConnectConversationContext? = nil
+    public var speechContractVersion: Int? = nil
 
     public init(
         identity: DJConnectIdentity,
@@ -1142,6 +1147,7 @@ public struct DJConnectAskDJRequest: Codable, Equatable, Sendable, DJConnectProf
         case privateSession = "private_session"
         case requestSource = "request_source"
         case conversationContext = "conversation_context"
+        case speechContractVersion = "speech_contract_version"
     }
 }
 
@@ -7626,6 +7632,8 @@ public struct DJConnectEnvelope<T: Codable & Sendable>: Codable, Sendable {
     public var lastPushError: String?
     public var bootstrapProof: String?
     public var bootstrapProofExpiresAt: String?
+    public var haLocalURL: String?
+    public var haRemoteURL: String?
     public var haInstallID: String?
     public var integrationVersion: String?
     public var pairingSessionID: String?
@@ -7657,6 +7665,8 @@ public struct DJConnectEnvelope<T: Codable & Sendable>: Codable, Sendable {
         case lastPushError = "last_push_error"
         case bootstrapProof = "bootstrap_proof"
         case bootstrapProofExpiresAt = "bootstrap_proof_expires_at"
+        case haLocalURL = "ha_local_url"
+        case haRemoteURL = "ha_remote_url"
         case haInstallID = "ha_install_id"
         case integrationVersion = "integration_version"
         case pairingSessionID = "pairing_session_id"
@@ -8075,6 +8085,28 @@ public struct DJConnectOutputDevice: Codable, Equatable, Identifiable, Sendable 
         case volumePercent = "volume_percent"
     }
 
+    /// A transport identifier is not a user-facing device name.
+    public var hasDisplayName: Bool {
+        let label = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hex = label.replacingOccurrences(of: "-", with: "")
+        let opaqueHex = hex.count >= 32 && hex.allSatisfy { $0.isHexDigit }
+        return !label.isEmpty && label != "Unknown" && !opaqueHex
+    }
+
+    public func displayName(language: String) -> String {
+        hasDisplayName ? name : DJConnectLocalization.localized(key: "ui.output.name.unavailable", language: language)
+    }
+
+    public func usesLocalBluetoothRoute(localDeviceName: String, playbackDeviceID: String?, hasBluetoothRoute: Bool) -> Bool {
+        guard hasBluetoothRoute, active == true, id == playbackDeviceID,
+              ["phone", "smartphone", "tablet"].contains(type?.lowercased() ?? "") else { return false }
+        return name.localizedCaseInsensitiveCompare(localDeviceName) == .orderedSame
+    }
+
+    public var reportedVolumePercent: Int? {
+        supportsVolume == false ? nil : DJConnectVolumeNormalizer.validBackendPercent(volumePercent)
+    }
+
     public var isCachedSpotifyOutput: Bool {
         guard cached == true else {
             return false
@@ -8089,6 +8121,9 @@ public struct DJConnectOutputDevice: Codable, Equatable, Identifiable, Sendable 
         if let playbackID, !playbackID.isEmpty, outputID.localizedCaseInsensitiveCompare(playbackID) == .orderedSame {
             return true
         }
+        // A same-name cached device cannot replace a different stable identity.
+        // Name fallback exists only for legacy outputs whose ID is the name.
+        if let playbackID, !playbackID.isEmpty, !outputID.isEmpty, outputID != outputName { return false }
         if let playbackName, !playbackName.isEmpty, outputName.localizedCaseInsensitiveCompare(playbackName) == .orderedSame {
             return true
         }

@@ -148,7 +148,22 @@ targets:
         NSBonjourServices:
           - _home-assistant._tcp.
         NSAppTransportSecurity:
-          NSAllowsArbitraryLoadsInLocalNetworking: true
+          NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            "10.0.0.0/8":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "172.16.0.0/12":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "192.168.0.0/16":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "127.0.0.0/8":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "fc00::/7":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "fe80::/10":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "::1/128":
+              NSExceptionAllowsInsecureHTTPLoads: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios
@@ -182,7 +197,22 @@ targets:
         NSBonjourServices:
           - _home-assistant._tcp.
         NSAppTransportSecurity:
-          NSAllowsArbitraryLoadsInLocalNetworking: true
+          NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            "10.0.0.0/8":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "172.16.0.0/12":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "192.168.0.0/16":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "127.0.0.0/8":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "fc00::/7":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "fe80::/10":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "::1/128":
+              NSExceptionAllowsInsecureHTTPLoads: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.mac
@@ -195,6 +225,8 @@ targets:
     platform: watchOS
     sources:
       - path: Apps/DJConnectWatch
+      - path: Sources/DJConnectUI/AlbumArtworkPlaceholder.swift
+      - path: Sources/DJConnectUI/DJConnectGlassAppearance.swift
       - path: Apps/Shared/Assets.xcassets
       - path: Sources/DJConnectCore/Resources
     dependencies:
@@ -215,7 +247,22 @@ targets:
         UIRequiredDeviceCapabilities:
           - wifi
         NSAppTransportSecurity:
-          NSAllowsArbitraryLoadsInLocalNetworking: true
+          NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            "10.0.0.0/8":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "172.16.0.0/12":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "192.168.0.0/16":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "127.0.0.0/8":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "fc00::/7":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "fe80::/10":
+              NSExceptionAllowsInsecureHTTPLoads: true
+            "::1/128":
+              NSExceptionAllowsInsecureHTTPLoads: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios.watch

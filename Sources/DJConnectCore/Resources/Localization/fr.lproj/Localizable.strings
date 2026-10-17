@@ -929,6 +929,7 @@
 "ui.session.flow" = "Déroulement de session";
 "ui.session.queue" = "File de lecture";
 "ui.session.end" = "Terminer la session";
+"ui.session.history.saved_notice" = "Session « %@ » enregistrée dans Sessions précédentes";
 "ui.refresh.discover" = "Actualiser Decouvrir";
 "ui.discovery.could.not.be.loaded" = "Decouvrir n a pas pu etre charge";
 "ui.no.discovery.recommendations" = "Aucune recommandation pour le moment";
@@ -1168,8 +1169,8 @@
 
 "ui.transport.automatic" = "L’app choisit automatiquement une connexion disponible et la rétablit lorsque le réseau change.";
 
-"ui.transport.confirmed_no_body" = "L’action est confirmée. Son résultat initial n’est plus disponible ; actualisez la page.";
-"ui.transport.uncertain" = "Le résultat reste incertain. Actualisez la page pour consulter l’état actuel.";
+"ui.transport.confirmed_no_body" = "Votre action a été effectuée. L’affichage n’a pas encore été actualisé.";
+"ui.transport.uncertain" = "Nous ne pouvons pas encore confirmer que votre action a réussi.";
 "ui.transport.untrusted" = "Cette connexion n’a pas pu être vérifiée comme votre Home Assistant associé. Vérifiez l’adresse configurée.";
 "ui.transport.recovering" = "La connexion est en cours de rétablissement. Réessayez l’action plus tard.";
 "ui.transport.snapshot_gap" = "La session actuelle est à jour. Certaines contributions pendant l’interruption n’ont pas pu être récupérées.";
@@ -1178,7 +1179,7 @@
 
 "ui.connection.transport" = "Transport";
 
-"ui.connection.address.active" = "Adresse Home Assistant active";
+"ui.connection.address.active" = "Adresse Home Assistant";
 
 "ui.connection.address.unconfirmed" = "Route active pas encore confirmée";
 
@@ -1254,3 +1255,80 @@
 
 // Shared main brand tagline: launch, About, setup and Watch About.
 "brand.tagline" = "Lancez votre musique. DJConnect lui donne vie.";
+
+// Shared Profile and Session DJ settings contract3.
+"ui.dj_settings.profile" = "Profil";
+"ui.dj_settings.title" = "Voix du DJ";
+"ui.dj_settings.persona" = "Personnalité";
+"ui.dj_settings.voice" = "Préférence de voix";
+"ui.dj_settings.gender" = "Genre de voix";
+"ui.dj_settings.mood" = "Ambiance";
+"ui.dj_settings.presence" = "Présence";
+"ui.dj_settings.output" = "Préférence de lecture";
+"ui.dj_settings.defaults_scope" = "Réglages de départ de votre prochaine session.";
+"ui.dj_settings.session_scope" = "S’applique maintenant et sera mémorisé pour votre prochaine session.";
+"ui.dj_settings.review_choices" = "Vérifiez les six choix proposés avant de les activer. Aucun choix n’a été repris automatiquement.";
+"ui.dj_settings.confirm_six" = "Confirmer ces six choix";
+"ui.dj_settings.selection_unavailable" = "Choix enregistré indisponible";
+"ui.dj_settings.voice_unavailable" = "Votre voix enregistrée est indisponible. Conservez-la ou choisissez une autre voix.";
+"ui.dj_settings.provider_default" = "Voix par défaut du fournisseur";
+"ui.dj_settings.reset_voice" = "Utiliser la voix par défaut sans préférence de genre";
+"ui.dj_settings.voice_preserved_text_only" = "Les choix de voix sont conservés. Le mode texte seul ne produit aucun audio.";
+"ui.dj_settings.speaker_unavailable" = "Le haut-parleur HA est indisponible. Configurez-le dans Home Assistant.";
+"ui.dj_settings.device_local" = "La lecture automatique, la sortie et les autorisations restent propres à cet appareil.";
+"ui.dj_settings.demo_unavailable" = "Les réglages personnels sont indisponibles en mode démo.";
+"ui.dj_settings.unavailable" = "Vos réglages DJ sont indisponibles. Vérifiez la connexion et la version de Home Assistant.";
+"ui.dj_settings.loading" = "Chargement des choix confirmés…";
+"ui.dj_settings.saving" = "Enregistrement de votre choix…";
+"ui.dj_settings.saved" = "Enregistré pour ce profil.";
+"ui.dj_settings.conflict" = "Les réglages ont changé ou le choix a été refusé. Vérifiez les choix actuels avant de réessayer.";
+"ui.dj_settings.uncertain" = "Le résultat est inconnu. Votre modification ne sera pas renvoyée automatiquement.";
+"ui.dj_settings.check_outcome" = "Vérifier le résultat";
+"ui.dj_settings.use_current" = "Utiliser les choix actuels confirmés";
+"ui.dj_settings.refresh" = "Actualiser";
+"ui.dj_settings.gender.default" = "Sans préférence";
+"ui.dj_settings.gender.female" = "Féminin";
+"ui.dj_settings.gender.male" = "Masculin";
+"ui.dj_settings.output.client_device" = "Mes appareils DJConnect";
+"ui.dj_settings.output.both" = "Mes appareils DJConnect + enceinte HA";
+"ui.dj_settings.output.ha_speaker" = "Enceinte HA uniquement";
+"ui.dj_settings.output.text_only" = "Texte uniquement (sans voix)";
+
+// Target-aware manual speech.
+"ui.dj_settings.listen_local" = "Écouter sur cet appareil";
+"ui.dj_settings.stop_local" = "Arrêter sur cet appareil";
+"ui.dj_settings.target.local" = "Cet appareil";
+"ui.dj_settings.target.ha_speaker" = "Haut-parleur HA";
+"ui.dj_settings.target.both" = "Les deux";
+"ui.dj_settings.target.choose" = "Lire sur…";
+"ui.dj_settings.delivery.preparing" = "Préparation";
+"ui.dj_settings.delivery.ready" = "Prêt";
+"ui.dj_settings.delivery.queued" = "En file, lecture audible non confirmée";
+"ui.dj_settings.delivery.accepted" = "Accepté, lecture audible non confirmée";
+"ui.dj_settings.delivery.playing" = "Lecture locale";
+"ui.dj_settings.delivery.finished" = "Lecture locale terminée";
+"ui.dj_settings.delivery.failed" = "Échec";
+"ui.dj_settings.delivery.unavailable" = "Indisponible";
+"ui.dj_settings.delivery.unknown" = "Résultat inconnu ; aucun renvoi";
+
+"ui.dj_settings.replay_local" = "Réécouter sur cet appareil";
+
+"ui.dj_settings.delivery.stopped" = "Arrêté";
+
+"appModel.device.volume.control.unavailable" = "Réglez le volume directement sur cet appareil.";
+
+"ui.output.name.unavailable" = "Nom indisponible";
+"surface.consent.title" = "Affichage hors de l’app";
+"surface.consent.explanation" = "Afficher les courtes interventions DJ, les informations musicales et les pochettes autorisées de cette session hors de l’app, même lorsque l’appareil est verrouillé.";
+"surface.consent.widget" = "Interventions sur les widgets";
+"surface.consent.activity" = "Interventions sur l’écran verrouillé";
+"surface.consent.unavailable" = "Cet affichage est actuellement indisponible.";
+"surface.consent.failed" = "Impossible de confirmer l’affichage. Réessayez.";
+"surface.consent.expiry" = "Valable pour cette session. Le contenu expire en deux minutes maximum. Autorisez-le à nouveau après un redémarrage de l’app. Le système peut conserver plus longtemps des images déjà affichées.";
+"watch.session.loading" = "Chargement de votre session DJ…";
+"watch.session.unavailable" = "La session DJ est temporairement indisponible. Ouvrez DJConnect sur votre iPhone.";
+"watch.session.waiting" = "Le DJ écoute avec vous.";
+"watch.session.settings" = "Réglages DJ";
+
+"ui.app.glass.effects" = "Effets de verre";
+"ui.app.glass.effects.description" = "Désactivez pour un affichage plus simple avec moins d’effets graphiques.";

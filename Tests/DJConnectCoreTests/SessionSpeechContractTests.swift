@@ -347,3 +347,12 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
     }
 
 }
+
+@Test func liveBroadcastPayloadRetainsPrivateSpeechAndDoesNotExportIt() throws {
+    let descriptor = try speechDescriptor()
+    let payload = try speechDecode(["session_speech": ["schema_version": 1, "moments": [descriptor]]], as: DJConnectSessionBroadcastEvent.Payload.self)
+    #expect(payload.sessionSpeech.count == 1)
+    #expect(payload.sessionSpeech.first?.reference == .turn((descriptor["reference"] as? [String: String])?["turn_id"] ?? ""))
+    let encoded = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(payload)) as? [String: Any])
+    #expect(encoded["session_speech"] == nil)
+}

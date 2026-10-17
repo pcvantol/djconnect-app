@@ -748,37 +748,6 @@ private struct TrackInsightShareHeartbeatLine: Shape {
     }
 }
 
-private struct TrackInsightShareBackground: View {
-    let profile: TrackVibeProfile
-    let animationPhase: Double
-
-    var body: some View {
-        Canvas { context, size in
-            draw(context: &context, size: size)
-        }
-    }
-
-    private func draw(context: inout GraphicsContext, size: CGSize) {
-        let rect = CGRect(origin: .zero, size: size)
-        context.fill(Path(rect), with: .linearGradient(
-            Gradient(colors: profile.colors),
-            startPoint: CGPoint(x: 0, y: 0),
-            endPoint: CGPoint(x: size.width, y: size.height)
-        ))
-        for index in 0..<5 {
-            var path = Path()
-            let baseY = size.height * (0.42 + CGFloat(index) * 0.08)
-            path.move(to: CGPoint(x: -40, y: baseY))
-            for step in 0...18 {
-                let x = size.width * CGFloat(step) / 18
-                let y = baseY + sin(CGFloat(step) * 0.8 + CGFloat(index) + CGFloat(animationPhase) * 1.4) * 22 * profile.waveform
-                path.addLine(to: CGPoint(x: x, y: y))
-            }
-            context.stroke(path, with: .color(.white.opacity(0.05 + Double(index) * 0.018)), lineWidth: 2)
-        }
-        context.fill(Path(rect), with: .color(.black.opacity(0.30)))
-    }
-}
 
 private struct TrackInsightShareMeters: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion

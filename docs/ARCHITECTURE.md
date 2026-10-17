@@ -19,6 +19,8 @@ The Apple app owns:
 - native iOS/macOS/watchOS UI;
 - the shared DJConnect blue/purple gradient canvas on iOS, iPadOS, and macOS;
 - local app state;
+- the device-local Glass effects preference: shared UI policy and opaque material
+  fallbacks, respecting OS Reduce Transparency; never a backend Profile field;
 - local bonus games with app-local highscores;
 - local app-private storage for only the DJConnect bearer token;
 - iOS/macOS Home Assistant URL state after local pairing, including local URL,
@@ -164,9 +166,11 @@ microphone listener.
 lightweight context hints such as mood, DJ style, and a Music DNA key hint with
 status or voice requests. Long-term Music DNA remains server-side in the Home
 Assistant DJConnect integration so Watch, iOS, and macOS can share context. A
-client may remember local UI preferences such as the current mood slider value,
-but it must not be the source of truth for conversation history, music profile,
-or cross-device follow-up context.
+client may remember transient control presentation, but Persona, voice, gender,
+Mood, presence and announcement output are Profile-bound backend settings under
+settings3. Local preview/control state never overrides confirmed defaults or
+Session revisions. Conversation history, music profile and cross-device context
+also remain backend-owned.
 
 Music DNA export/import follows the same boundary. Apple clients may request a
 server-built export envelope over authenticated HTTP and save it through native
@@ -302,10 +306,29 @@ Fresh installs seed the Home Assistant URL field with
 the `ha_local_url` returned by Home Assistant instead of this editable setup
 default.
 
-The output selector exposes a local `Geen`/`None` state plus real backend
-devices returned by Home Assistant. It does not synthesize local platform
-outputs. When the no-output state is selected, playback-start commands are
-blocked locally so Spotify does not pick an arbitrary Connect device.
+The output selector exposes real backend devices only. Synthetic local/None/no
+selected-device rows are filtered; an absent selection is an unavailable state,
+not a playable output. Unknown/non-controllable volume displays a dash and does
+not expose a writable slider. A Bluetooth glyph requires a reliable route signal;
+a device name alone never establishes Bluetooth capability.
+
+On iOS, one model-owned, in-memory audio-route snapshot observes
+`AVAudioSession.routeChangeNotification` and refreshes on foreground entry.
+For the current, connected, non-cached phone/tablet playback output only, its
+display name can use the active Bluetooth port's `portName`. Known conflicting
+local device aliases, blank/multiple names and mixed routes suppress that alias.
+The output inventory, backend name and command device ID remain authoritative
+and unchanged. Now Playing, the Session header and the output selector share
+this presentation. Reading the route neither activates an audio session nor
+changes routing; it does not persist a Profile preference or imply lossless audio.
+
+Demo artwork is local presentation: Now Playing, the Session music header and
+Track Insight use the existing vinyl placeholder rather than remote cover art.
+`AlbumArtworkPlaceholder.swift` is compiled into iOS/macOS UI and the Watch app
+from one source file. The Watch uses it for the demo player thumbnail, artwork
+preview and Track Insight. A width-only layout proposal still reserves a square;
+rotation follows playback and stops for inactive scenes or Reduce Motion. Real
+Session artwork continues to require its existing backend media grant.
 
 Spotify source and liked/default playlist overrides are Home Assistant
 integration internals, not client settings. New Apple app setup, Settings, and
@@ -399,14 +422,33 @@ are migration aliases. Activity lifecycle follows confirmed Session lifecycle,
 not playback. Standalone feature deep links remain unchanged. Watch's separate
 container does not receive implicit iPhone state or private content.
 
-Rich Moment/artwork/track metadata is still blocked on Core's explicit passive
-purpose/cache/locked-display projection. Foreground native_delivery and managed
-no-store owner media are not that grant. The candidate therefore contains only
-neutral status/navigation and retires owned legacy transient rich caches. It is
-not installed or the completed product request. See
-feedback/APPLE_SESSION_SURFACE_CONSOLIDATION_20261015.md for migration, producer
-handoff and proof boundaries. General APNs registration does not qualify
-ActivityKit push or real-time WidgetKit updates while suspended.
+The consumer uses the frozen Core passive projection2cb87cb7 wire fields and
+independent RAM grants. The owner's later 2026-10-17 instruction removes the
+extra per-Session pop-out: a fresh confirmed Session plus configured OS widgets
+or enabled iOS Live Activities now triggers foreground preparation automatically.
+A new process obtains a new grant rather than trusting stored pixels. Core owns
+the corresponding consent-policy/SYNC acceptance; the concrete handoff is linked
+in feedback/APPLE_PASSIVE_AUTOMATIC_SURFACES_20261017.md. No new backend wire fields,
+private owner export or Watch replication are inferred.
+
+The passive owner fence follows the independently confirmed settings3 binding,
+not conversation history's suspension epoch. Backgrounding preserves already
+granted cache only to its original deadlines. Automatic preparation uses the
+existing foreground coordinator, throttles OS configuration queries to30seconds,
+and never blindly replays uncertain authorization. OS removal revokes the surface
+and fences late pixels. Activity bookkeeping separates confirmed dismissal from
+app retirement and build updates; confirmed user dismissal remains respected.
+Qualification processes cannot publish real AppGroup/ActivityKit content.
+
+The physical iPad read before the fix found3configured widgets, OS authorization
+and an active server Session, but no caches or Activity. Subsequent ordinary
+40268/40269 preparation populated both independent stores;40269's actual read
+confirmed fresh contribution and music. This is not an OS-pixel or artwork PASS.
+The current Core contract advertises background_delivery=false. No polling loop,
+source-TTL extension or ordinary APNs-to-ActivityKit assumption is introduced;
+sustained background/locked delivery and original-source pixels remain producer
+and joint acceptance work. See feedback/APPLE_INTEGRAL_EXECUTION_20261017.md.
+
 
 
 The subsequent explicit user request adds Session-mood styling to this consumer
@@ -418,3 +460,54 @@ rights are introduced. Missing/unknown/expired Session style uses brand colors.
 A changed palette requests reload promptly, while freshness renewals use a
 separate bounded reload clock. ActivityKit/background and rich-content producer
 qualification remain open; local style does not qualify either capability.
+
+## Shared DJ settings and private Session media (2026-10-17)
+
+Settings3 is the only negotiated durable owner of the six shared DJ choices.
+Persona, Mood and presence have separate quick controls. The DJ voice popover is
+under Session ellipsis only; it is not a bubble-specific setting or Settings
+page. Confirmed text_only hides voice/gender/autoplay and all bubble audio
+controls, retains the selected voice backend-side and produces no speech. The
+local autoplay toggle is client runtime, never a shared Profile default.
+
+Speech3 prepares/replays the exact accepted owner contribution with settings,
+source, revision, retention and lifecycle fences. HA-configured synthesis uses
+the user's actual provider; native-device override and Preview remain separate
+open consumer/producer work. A player-start log is not acoustic completion.
+
+Private artwork preparation is viewport-driven, bounded and separate from pure
+history reads. Image GET and history GET share complete device/client query
+identity plus bearer headers. No-store, no redirects, byte/decoded geometry caps,
+exact subject attribution, original expiry and owner withdrawal remain mandatory.
+An unavailable/insufficient_identity projection cannot borrow NowPlaying art.
+Actual acceptance and outstanding work are recorded in
+feedback/APPLE_OPEN_WORK_20261017.md, independently of these architecture rules.
+
+
+The playback output list and Now Playing label are reconciled from the same
+newly observed current playback device. Refreshing outputs reads inventory and
+current playback without issuing a transfer; an older inventory response cannot
+overwrite a newer playback observation. Exact stable IDs retain precedence over
+ambiguous display names. An unsuccessful transfer is an action-local outcome,
+not sufficient evidence to withdraw otherwise confirmed music-backend health.
+
+
+## Shared settings and Watch foreground delivery (2026-10-17)
+
+ProfileDJSettingsModel lives in DJConnectCore and is reused by iOS/macOS and
+Watch presentation. Authenticated settings3 supplies its own Profile binding:
+startup must not wait for Ask DJ/history to load. The local task fence follows
+the paired device/installation and confirmed Profile changes, preserves uncertain
+operations through ordinary history suspension and URL updates, and rejects
+Profile ABA or an incompatible server binding. Explicit authority withdrawal
+clears visible values without replaying an unresolved PATCH.
+
+The Watch reads existing owner Session/settings routes with its own paired Watch
+identity via the iPhone proxy. Only currently admitted complete contributions and
+flow cards cross this interactive bridge; no passive iPhone grant, bearer,
+artwork cache, hidden history or future plan labels are replicated. Source and
+display deadlines remain intact. Interactive replies never enter application
+context or transferUserInfo; eight requests and a20-second timeout/cancellation
+bound outstanding work. No native Watch runtime acceptance follows from the
+signed embedded build. Ordinary Watch personal mood hints have been retired;
+Demo state and genuinely local client controls remain device-local.

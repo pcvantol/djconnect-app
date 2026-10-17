@@ -118,3 +118,76 @@ import DJConnectUI
     #expect(DJConnectSessionSurfaceSnapshot.needsWidgetReload(current: nil, previous: changed, lastReloadAt: now, at: now.addingTimeInterval(11)))
     #expect(!DJConnectSessionSurfaceSnapshot.needsWidgetReload(current: nil, previous: nil, lastReloadAt: now, at: now.addingTimeInterval(61)))
 }
+
+@Test func widgetPaletteUsesSessionThenTrackInsightThenProfileWithoutExportingContent() throws {
+    #expect(DJConnectWidgetPaletteSnapshot.resolve(session: "party", trackInsight: .groove, profile: "chill") == .party)
+    #expect(DJConnectWidgetPaletteSnapshot.resolve(session: nil, trackInsight: .groove, profile: "chill") == .groove)
+    #expect(DJConnectWidgetPaletteSnapshot.resolve(session: nil, trackInsight: nil, profile: "energy") == .energy)
+    #expect(DJConnectWidgetPaletteSnapshot.resolve(session: "unknown", trackInsight: nil, profile: "unknown") == .brand)
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let palette = DJConnectWidgetPaletteSnapshot(theme: .groove, at: now)
+    #expect(palette.renderingTheme(at: now.addingTimeInterval(119)) == .groove)
+    #expect(palette.renderingTheme(at: now.addingTimeInterval(120)) == .brand)
+    #expect(palette.renderingTheme(at: now.addingTimeInterval(-1)) == .brand)
+    let encoded = try JSONEncoder().encode(palette)
+    let object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    #expect(Set(object.keys) == ["observedAt", "theme"])
+    let name = "widget-palette-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    defaults.set(encoded, forKey: DJConnectWidgetPaletteSnapshot.storageKey)
+    #expect(DJConnectWidgetPaletteSnapshot.load(from: defaults, at: now)?.theme == .groove)
+    #expect(DJConnectWidgetPaletteSnapshot.load(from: defaults, at: now.addingTimeInterval(120)) == nil)
+    #expect(DJConnectSessionSurfaceSnapshot.load(from: defaults, at: now) == nil, "A palette never asserts an active Session")
+}
+
+@Test func sessionSurfaceApplicationEndAllowsRestartButUserDismissalSurvives() throws {
+    let suite = "surface-request-marker-" + UUID().uuidString
+    let defaults = UserDefaults(suiteName: suite)!
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let first = DJConnectSessionSurfacePresentation.identity(for: "session-a", in: defaults)
+    defaults.set(first, forKey: DJConnectSessionSurfacePresentation.requestedKey)
+    DJConnectSessionSurfacePresentation.applicationEnded(first, wasDismissed: true, in: defaults)
+    #expect(defaults.string(forKey: DJConnectSessionSurfacePresentation.requestedKey) == first)
+    #expect(DJConnectSessionSurfacePresentation.identity(for: "session-a", in: defaults) == first)
+    DJConnectSessionSurfacePresentation.applicationEnded("other", wasDismissed: false, in: defaults)
+    #expect(defaults.string(forKey: DJConnectSessionSurfacePresentation.requestedKey) == first)
+    DJConnectSessionSurfacePresentation.applicationEnded(first, wasDismissed: false, in: defaults)
+    #expect(defaults.string(forKey: DJConnectSessionSurfacePresentation.requestedKey) == nil)
+    #expect(DJConnectSessionSurfacePresentation.identity(for: "session-a", in: defaults) == first)
+}
+
+@Test func sessionSurfaceUpgradeRestoresOSRetirementButNeverKnownUserDismissal() throws {
+    let suite = "surface-upgrade-" + UUID().uuidString
+    let defaults = UserDefaults(suiteName: suite)!
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let identity = DJConnectSessionSurfacePresentation.identity(for: "a", in: defaults)
+    #expect(DJConnectSessionSurfacePresentation.canRequest(identity, build: "1", in: defaults))
+    DJConnectSessionSurfacePresentation.requested(identity, build: "1", in: defaults)
+    #expect(!DJConnectSessionSurfacePresentation.canRequest(identity, build: "1", in: defaults))
+    #expect(DJConnectSessionSurfacePresentation.canRequest(identity, build: "2", in: defaults))
+    DJConnectSessionSurfacePresentation.requested(identity, build: "2", in: defaults)
+    DJConnectSessionSurfacePresentation.userDismissed(identity, in: defaults)
+    #expect(!DJConnectSessionSurfacePresentation.canRequest(identity, build: "2", in: defaults))
+    #expect(!DJConnectSessionSurfacePresentation.canRequest(identity, build: "3", in: defaults))
+    let next = DJConnectSessionSurfacePresentation.identity(for: "b", in: defaults)
+    #expect(DJConnectSessionSurfacePresentation.canRequest(next, build: "3", in: defaults))
+}
+
+@Test func sessionSurfaceLateDismissalFromAppRetirementCannotDismissReplacement() throws {
+    let suite = "surface-instance-fence-" + UUID().uuidString
+    let defaults = UserDefaults(suiteName: suite)!
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let identity = DJConnectSessionSurfacePresentation.identity(for: "a", in: defaults)
+    DJConnectSessionSurfacePresentation.requested(identity, build: "1", activityID: "old", in: defaults)
+    DJConnectSessionSurfacePresentation.applicationEnded(identity, wasDismissed: false, activityID: "old", in: defaults)
+    DJConnectSessionSurfacePresentation.userDismissed(identity, activityID: "old", in: defaults)
+    #expect(DJConnectSessionSurfacePresentation.canRequest(identity, build: "1", in: defaults))
+    DJConnectSessionSurfacePresentation.requested(identity, build: "1", activityID: "new", in: defaults)
+    DJConnectSessionSurfacePresentation.userDismissed(identity, activityID: "old", in: defaults)
+    DJConnectSessionSurfacePresentation.applicationEnded(identity, wasDismissed: false, activityID: "old", in: defaults)
+    #expect(!DJConnectSessionSurfacePresentation.canRequest(identity, build: "1", in: defaults))
+    #expect(DJConnectSessionSurfacePresentation.canRequest(identity, build: "2", in: defaults))
+    DJConnectSessionSurfacePresentation.userDismissed(identity, activityID: "new", in: defaults)
+    #expect(!DJConnectSessionSurfacePresentation.canRequest(identity, build: "2", in: defaults))
+}

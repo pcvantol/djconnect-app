@@ -1,5 +1,7 @@
 # Todo And Known Issues
 
+Actuele Apple-lanestatus (17okt2026): [integrale open-werk- en acceptatiematrix](feedback/APPLE_OPEN_WORK_20261017.md) en [requirementniveau/afmeldingen40258](feedback/APPLE_REQUIREMENT_ACCEPTANCE_20261017.md). Historische done-notities hieronder sluiten nieuwe Session/Speech/Settings/Watch-acceptatie niet af.
+
 This document tracks app-local known project gaps. The canonical product
 roadmap lives in `pcvantol/djconnect/PRODUCT_ROADMAP.md`; if roadmap changes
 originate here, update `pcvantol/djconnect` separately. Concrete backlog items
@@ -44,7 +46,7 @@ with acceptance criteria live in [ISSUES.md](ISSUES.md).
 - Tune iPhone and iPad layouts with real device/simulator screenshots.
 - Re-check that every primary iPhone/iPad screen uses the DJConnect gradient
   canvas and that compact permission rows stay readable with Dynamic Type.
-- Decide whether lock screen/live activity support belongs in the first release.
+- Complete qualified passive Session projection adoption for widgets, Live Activity and Dynamic Island; current native foundation does not prove rich-content/lock-screen acceptance.
 - Decide whether Shortcuts integration should map to DJConnect commands.
 
 ## macOS

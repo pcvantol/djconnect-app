@@ -365,3 +365,32 @@ private func hybridQualifiedLocalContext() -> HybridObject {
     status.activeOrigin = nil
     #expect(status.transportDisplayName == nil)
 }
+
+@Test func hybridRepeatedActiveDoesNotWithdrawQualifiedRouteOrProbeAgain() async throws {
+    let wire = HybridTestWire()
+    let coordinator = DJConnectHybridTransport(localURL: URL(string: "https://ha.local"),
+        remoteURL: URL(string: "https://remote.example"), expectedInstallID: "test-install",
+        identity: hybridIdentity(), tokenStore: DJConnectInMemoryTokenStore(token: "test-token"), wire: wire)
+    let original = try await coordinator.authorizedBaseURL()
+    await coordinator.lifecycle(foreground: true)
+    #expect(try await coordinator.authorizedBaseURL() == original)
+    #expect(await wire.recorded().count == 1)
+    #expect(await coordinator.snapshot().state == .localReady)
+    await coordinator.lifecycle(foreground: false)
+    await coordinator.lifecycle(foreground: true)
+    #expect(try await coordinator.authorizedBaseURL() == original)
+    #expect(await wire.recorded().count == 2)
+}
+
+@Test func hybridLANQualificationIsBoundedBeforeAuthenticatedTLSFallback() async throws {
+    let wire = HybridTestWire(failedLocal: true)
+    let coordinator = DJConnectHybridTransport(localURL: URL(string: "https://ha.local"),
+        remoteURL: URL(string: "https://remote.example"), expectedInstallID: "test-install",
+        identity: hybridIdentity(), tokenStore: DJConnectInMemoryTokenStore(token: "test-token"), wire: wire)
+    #expect(try await coordinator.authorizedBaseURL().host == "remote.example")
+    let requests = await wire.recorded()
+    #expect(requests.count == 2)
+    #expect(requests[0].timeoutInterval == 2)
+    #expect(requests[1].timeoutInterval == 8)
+    #expect(await coordinator.snapshot().state == .remoteReady)
+}

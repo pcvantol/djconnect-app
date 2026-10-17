@@ -1,5 +1,186 @@
 # DJConnect iOS/macOS/watchOS App Handoff
 
+Actuele Apple-lanestatus (17okt2026): [integrale open-werk- en acceptatiematrix](feedback/APPLE_OPEN_WORK_20261017.md) en [requirementniveau/afmeldingen](feedback/APPLE_REQUIREMENT_ACCEPTANCE_20261017.md). Historische done-notities hieronder sluiten nieuwe Session/Speech/Settings/Watch-acceptatie niet af.
+
+## Opruiming40282 — 34 ongebruikte componenten verwijderd
+
+Alle 28 concrete roots uit het legacyassessment plus zes transitieve helpers zijn
+verwijderd, naast een leeg toolbarbestand en nooit gevulde WS-cache. Actieve
+TTS/settings3/Watch/pairing en publieke API/migraties blijven behouden. Volledige
+784 Swift-tests in tien suites PASS (92.272s); signed iOS/macOS inclusief
+Watch/widgets, source/stage, ordinary copy en signatures PASS. Gewone iPad40282
+geïnstalleerd en onafhankelijk teruggelezen; iPhone40267/Mac40266 behouden,
+Mac40282 alleen kandidaat. Eén worktree/drie branches zonder bewezen veilig
+merged/stale kandidaat: nul deleties.
+
+Eerste echte fysieke idlecollectie40282: drie samples, circa 57–58 MB piekgeheugen
+en 0.113–0.557 CPU-seconden per circa 4.93s. Geen performancewinst-, p95-, soak-
+of crashvrijclaim. DJ-stem-menutests blijven twee failures per run, ook bij
+landscape en vers proces. Volledige capture toont pop-out binnen beeld; remote
+AX/hit-testprobleem nog te onderscheiden van echte refreshdismissal. Geen
+fysieke twaalfsecondenstabiliteitclaim. Zie [retirement en bewijsgrenzen](feedback/APPLE_LEGACY_RETIREMENT_20261017.md).
+
+## iPadmoodranden40280 — gewone fysieke viewports bevestigd
+
+De buitenste root achter UIKit en de Sessionwrapper volgen de bevestigde mood.
+Statusbalk en onderste systeemrand kleuren door; Meer/geenactieveSession gebruiken
+de gewone canvas. Nativebuild/signatures/source-stage/copyPASS; iPad40280install
+vóór/na onafhankelijk teruggelezen. Externe screenshotprobe1PASS15.959s; volledige
+EnergieSessionbeelden liggend/staand én Meer bekeken: groene randen, correcte
+merkcanvas na tabwissel. Geen mood-/backend-/playbackactie; oriëntatie hersteld,
+eigen runner verwijderd. De viewports bevestigen ook vinyl-in-kaart en TTSknop
+rechtsonder; geen audio-/downloade2e.2bestaande renderchecks6gevallenPASS0.040s.
+Zie [oorzaak en echte bewijsgrenzen](feedback/APPLE_IPAD_SESSION_MOOD_EDGES_20261017.md).
+
+## Afspeelknop40279 — rechtsonder, gelijke rechter-/ondermarge
+
+Contextvraagruimte reserveert alleen inhoud; de speechfooter gebruikt de volle
+breedte. DJ-conversatiepadding14pt rechts/onder; gedeelde rij bottomaligned zodat
+statusregels de knop niet omhoog duwen.4bubblelayout-renders met geïnjecteerde
+44ptfooterPASS, twee bestaande rendertests/6gevallenPASS0.041s. Gewone signed
+native iOS/macOSincl.Watch/widgets/source-stage/copy/signaturesPASS; iPad40279
+geïnstalleerd/teruggelezen. Geen nieuwe fysieke audio-/screenshotacceptatie.
+Zie [oorzaak/fix/bewijsgrens](feedback/APPLE_SPEECH_BUTTON_CORNER_20261017.md).
+
+## Vinylkaart40278 — dezelfde album-artvorm met en zonder hoes
+
+De glass-kaart zat alleen rond geladen pixels. Nu deelt de vinyl-/laad-/foutfallback
+hetzelfde albumframe, met gelijke maat, inset8, afgeronde hoeken en rand. De
+Glaseffectenpolicy blijft leidend; geen extra tintdownload zonder geladen hoes.
+2bestaande rendertests/6gevallenPASS0.041s; handmatige vierkante renders op3maten
+PASS en358ptPNGbekeken. Gewone signed iOS/macOSincl.Watch/widgets en bron/stage/
+copy/signaturesPASS. GewoneiPad40278install/versiereadbackPASS; iPhone40267 en
+Mac40266behouden. Geen nieuwe fysieke artworkpixelclaim of volledige UIclosure.
+Zie [fix en bewijs](feedback/APPLE_VINYL_ALBUM_CARD_20261017.md).
+
+## Glaseffecten40277 — gewone iPadinstall en toggle/persistentie bevestigd
+
+Eén apparaatgebonden schakelaar onder Instellingen → App vervangt app-eigen
+glass/materials door dekkende vlakken, direct en zonder herstart. De keuze is
+lokaal; systeem Verminder transparantie blijft leidend.1257localechecksPASS,
+2render-/vinyltests met6gevallenPASS0.058s; gewone signed iOS/macOS inclusief
+Watch/widgets en source/stage/copy/signaturesPASS. GewoneiPad40277install en
+onafhankelijke versieteruglezingPASS. Externe UItestPASS33.872s controleert
+omschakelen, gewoneherstart, persistentie en herstel oorspronkelijke waarde;
+eigen runner opgeruimd. Private screenshots tonen dekkende kaarten, maar zijn
+rechts afgesneden: geen complete layoutacceptatie. iPhone40267/Mac40266behouden.
+Geen gemeten oudere-deviceperformancewinst; algemene profiling blijftopen.
+Zie [ontwerp en bewijsgrenzen](feedback/APPLE_GLASS_EFFECTS_PREFERENCE_20261017.md).
+
+## Automatische surfaces40268–40272 — 17 oktober 2026
+
+De extra pop-out/twee toggles zijn weg. Bevestigde actieve Session/settings3 en
+OS-widgetplaatsing/Live Activity-toestemming sturen automatisch onafhankelijke
+grants. Historysuspension, settings-first startup, exacte Activityinstancefence
+en onafhankelijke neutrale/veldexpiry zijn hersteld; geen onzeker-write-replay,
+nieuwe poller of bronleaseverlenging.
+
+26gerichte testsPASS2.533s; signed gewone iOS/macOS40272 inclusiefWatch/widgets,
+strictdeep signatures en bron/stagehashesPASS. GewoneiPad40272 geïnstalleerd en
+teruggelezen; SDK active/count1, twee gewone reads zonder daarna app-einde,
+actuele neutralcache/widgetmuziek. De huidige LiveActivityrichcache ontbreekt,
+0art/pixels; eerdere40269/40271 hadden beide richstores met muziek/bijdrage.
+Geen fysieke OS-pixel- of duurzame background-PASS. Vier tijdelijke SDK-
+authorizationfouten tijdens startup vóór de geaccepteerde start zijn behouden.
+
+Owner kiest nu alleeniPad: iPhone40267 behouden, Mac40266draait/ordinary40272gereed,
+Watchalleenmeegebouwd. Owning Corebeleid/SYNC/verse rijke bron/achtergrondlevering
+blijft afhankelijkheid: v1 explicit_consent_required=true, background_delivery=false,
+max120s. Consumerimplementatie bounded afgemeld; parentpassive blijftPARTIAL.
+Zie [ontwerp/bewijs](feedback/APPLE_PASSIVE_AUTOMATIC_SURFACES_20261017.md) en
+[integrale uitvoering](feedback/APPLE_INTEGRAL_EXECUTION_20261017.md).
+
+## UI-followup40267 — 17 oktober 2026
+
+De volledige regel 'Demo · Voorbeeldsessies, geen echte luistergeschiedenis'
+is verwijderd uit actieve sessies, eerdere sessies en het startscherm. Geen
+lege banner of gereserveerde teksthoogte. Gedeelde iPhone/iPad/Mac-weergave,
+dus dezelfde wijziging in alle talen. Bestaande demo-UI-test verwacht nu dat de
+banner ontbreekt. Native signed iOS/macOS-builds en 1255 lokalisatiesleutels PASS;
+geen nieuwe fysieke UI-test of volledige regressierun. Installatiestatus staat
+in de integrale uitvoering en de werkregisters.
+
+## UI-followup40266 — 17 oktober 2026
+
+Demo toont de bestaande vinylplaat in Speelt Nu, de sessieheader en Track
+Insight. Eén gedeeld SwiftUI-bronbestand voor iPhone/iPad/Mac en Watch;
+Watchminiatuur en grote hoespreview sluiten aan. Geen externe demohoes nodig.
+Een breedtevoorstel zonder hoogte reserveert een vierkant. Draaien volgt
+playback, sceneactiviteit en Reduce Motion.
+
+Renderregressie PASS op 54/190/270/358pt (4 gevallen, 0.025s); gedeelde render
+visueel bekeken. Gewone signed iOS/macOS-builds 40266, inclusief Watch, PASS.
+Mac mini 40266 geïnstalleerd en exact manifest/signature teruggelezen; vorige
+40258 herstelbaar bewaard en gewone app heropend. Zie integrale uitvoering
+voor grenzen. Ook iPhone/iPad40266 installatie/readback PASS; geen verse
+Watchhardwareclaim.
+
+## UI-followup40265 — 17 oktober 2026
+
+De actieve lokale Bluetoothuitvoer toont de door iOS gemelde apparaatnaam in
+Speelt Nu, de sessieheader en de uitvoerlijst. Eén centrale route-observer
+verwerkt aansluiten, ontkoppelen en hervatten; apparaat-ID en backendnaam blijven
+ongewijzigd. Geen naam bij een andere/cached uitvoer, onduidelijke route of
+conflicterende lokale aliassen. Geen audioactivatie of claim over audiokwaliteit.
+
+7 gerichte tests PASS (0.484s); signed native iOS/macOS-builds en signatures PASS.
+Echte iPhonecontrole met actieve AirPods PASS (1.144s): één Bluetoothroute,
+matching actieve iPhone-inventarisrij en beide weergaven gelijk aan routenaam.
+Eerdere controles zonder actieve route of tijdens omschakelen waren SKIP;
+geen pixel-/tikacceptatie geclaimd. Gewone 40265 hersteld na XCTest; iPhone/iPad
+installatie en readback PASS. Mac mini blijft 40258; gewone 40265 staat gereed.
+De 762 volledige regressies horen bij 40258; bredere productacceptatie blijft open.
+
+## UI-followup40264 — 17 oktober 2026
+
+Adreslabel zonder Actief in5talen.1255keys en compiledlocalevaluesPASS;
+signed native builds/iPadinstall/readback40264PASS. Mac mini40258/40264gereed;
+iPhone unavailable. Overige product-/hardware-/bronacceptatie ongewijzigd open.
+
+## UI-followup40263 — 17 oktober 2026
+
+Sessionhoes op iPhone volgt contentbreedte en gebruikt de bestaande SpeeltNu-
+vinylfallback bij laden/fout/geenURL. Opslagtoast met serverdatum/duur verschijnt
+na bevestigde End én matchingreadonlyarchief, zonder replay of geschatte eindtijd.
+8gerichte testsPASS0.796s,1255keys/5talenPASS; signed native builds en iPad40263
+install/readbackPASS. Mac mini40258/40263gereed; iPhone unavailable, USB gevraagd.
+Fysieke iPhone/echte Endtoast en overige parentacceptatie blijven afzonderlijk open.
+
+## UI-followup40261 — 17 oktober 2026
+
+Bronlinks tonen alleen providernaam; Opname/Eerdere opname verwijderd bij
+MusicBrainz/Spotify en overige bronnen in huidige Moment- en historybijdragen.
+Signed native buildsPASS; iPad40261 geïnstalleerd/teruggelezen. Mac mini40258,
+gewone40261 gereed; iPhone unavailable. Geen verse fysieke screenshotclaim.
+
+## UI-followup40260 — 17 oktober 2026
+
+Verbindingsstatus heeft het info-icoon rechts in dezelfde volledig klikbare regel
+naar Over; aparte Detailsregel weg. Gedeelde iOS/macOS/demo-weergave;
+signed native buildsPASS en iPad40260 geïnstalleerd/teruggelezen. Mac mini
+blijft40258 na eerder geannuleerd appafsluiten; gewone40260 staat klaar.
+iPhone unavailable. Geen nieuwe fysieke tik-/screenshotclaim.
+
+## UI-followup40259 — 17 oktober 2026
+
+Albumhoezen in de gedeelde DJMoment/historyrenderer zijn afgerond binnen de
+glazen rand. Signed iOS/macOS-buildsPASS; iPad40259 geïnstalleerd/teruggelezen.
+Mac mini blijft40258 na geannuleerd appafsluiten;40259 staat gecontroleerd klaar.
+iPhone unavailable. Geen nieuwe fysieke screenshot- of volledige testclaim.
+
+## Actuele uitvoering40258 — 17 oktober 2026
+
+Gewone40258 op iPad/Macmini,762regressiesPASS91.023s. Settings-startup op eigen
+settings3autoriteit en stabiele installatie/Profilefence hersteld; echte iPadread
+PASS0.274s. Watchforeground Session/flowcards/gedeelde settings en bounded proxy
+bronmatig aanwezig; passive v1 echte current-music authorize/read/disablePASS,
+maar verse pixels en OS-/Watch-/crossdevicematrix open. Zie
+[integrale uitvoering](feedback/APPLE_INTEGRAL_EXECUTION_20261017.md) voor failures,
+herstel, geïnstalleerde readback en actuele laneberichten. Bestaande solewriter
+codex/apple-dj-presence-v1, HEAD4fa9115 plus behouden WIP; geen nieuwe protected
+bronoplevering/Finalization. Secties hieronder zijn historische snapshots en
+verlenen geen nieuwe uitvoeringsbevoegdheid.
+
 ## Current build40021 source reconciliation — 2026-10-13
 
 [Source PR #105](https://github.com/pcvantol/djconnect-app/pull/105) is protected merged as `357251cedc4b78a4f9d5b446d3cdafc610cedc40`; reviewed head `6edfcb0c1dddde38398d23dbee93a6b557b742e2` shares tree `d6ae93ee6fd3eb64a1c9ab6756f17cac87c9dd35`. All previously local40021 followups are retained, plus the independently reviewed HTTP authority-withdrawal privacy correction.498 shared tests, unsigned Mac/iOS Simulator builds and contract/localization/security checks PASS; technical/privacy and UX bounded GO. Source-main CI/coverage38439881390 and formal evidence38441132690 PASS; independently verified hashes and canonical integrity are in [portable receipts](verification/40021-source-finalization/source-main-readback.json). Separate Finalization requires its own exact-candidate publication/merge authority and readback.
@@ -250,9 +431,11 @@ Now Playing should not reintroduce a separate `DJ verzoek` block. rbpi did not
 have that separate UI block, and ESP32 remains a firmware/device client without
 the Apple Ask DJ rich chat UI.
 
-Mood selection is centralized in Now Playing on iOS and macOS. Ask DJ and Track
-Insight consume the shared selected mood for request context and visual styling,
-but must not expose their own duplicate Mood picker routes.
+Mood is backend-owned Profile/Session state under negotiated settings3. Native
+Session Persona, Mood and presence quick controls edit that same authoritative
+state. Ask DJ and Track Insight consume the confirmed context/style; they do not
+create independent durable choices. The DJ voice editor is a Session ellipsis
+popover, with text_only visibility and output rules documented in ARCHITECTURE.md.
 
 For `Ask DJ`, the Watch may send mood, DJ style, and a Music DNA key hint, but
 Music DNA itself belongs to the Home Assistant integration. This lets a user

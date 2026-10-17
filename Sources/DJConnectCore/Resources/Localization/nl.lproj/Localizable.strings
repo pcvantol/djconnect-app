@@ -929,6 +929,7 @@
 "ui.session.flow" = "Sessieverloop";
 "ui.session.queue" = "Afspeelwachtrij";
 "ui.session.end" = "Sessie beëindigen";
+"ui.session.history.saved_notice" = "Sessie '%@' opgeslagen onder Eerdere sessies";
 "ui.refresh.discover" = "Ververs Ontdek";
 "ui.discovery.could.not.be.loaded" = "Ontdek kon niet worden geladen";
 "ui.no.discovery.recommendations" = "Nog geen aanbevelingen";
@@ -1168,8 +1169,8 @@
 
 "ui.transport.automatic" = "De app kiest automatisch de beschikbare verbinding en herstelt deze wanneer je netwerk verandert.";
 
-"ui.transport.confirmed_no_body" = "De actie is bevestigd. Het oorspronkelijke resultaat is niet meer beschikbaar; ververs de pagina.";
-"ui.transport.uncertain" = "De uitkomst van de actie is nog onzeker. Ververs de pagina om de actuele status te bekijken.";
+"ui.transport.confirmed_no_body" = "Je actie is uitgevoerd. De weergave is nog niet bijgewerkt.";
+"ui.transport.uncertain" = "We kunnen nog niet bevestigen of je actie is gelukt.";
 "ui.transport.untrusted" = "Deze verbinding hoort niet aantoonbaar bij je gekoppelde Home Assistant. Controleer het ingestelde adres.";
 "ui.transport.recovering" = "De verbinding wordt hersteld. Probeer de actie later opnieuw.";
 "ui.transport.snapshot_gap" = "De actuele sessie is bijgewerkt. Niet alle tussentijdse bijdragen konden worden hersteld.";
@@ -1178,7 +1179,7 @@
 
 "ui.connection.transport" = "Transport";
 
-"ui.connection.address.active" = "Actief Home Assistant-adres";
+"ui.connection.address.active" = "Home Assistant-adres";
 
 "ui.connection.address.unconfirmed" = "Actieve route nog niet bevestigd";
 
@@ -1254,3 +1255,80 @@
 
 // Shared main brand tagline: launch, About, setup and Watch About.
 "brand.tagline" = "Zet je muziek aan. DJConnect brengt die tot leven.";
+
+// Shared Profile and Session DJ settings contract3.
+"ui.dj_settings.profile" = "Profiel";
+"ui.dj_settings.title" = "DJ stem";
+"ui.dj_settings.persona" = "Persona";
+"ui.dj_settings.voice" = "Stemvoorkeur";
+"ui.dj_settings.gender" = "Stemgender";
+"ui.dj_settings.mood" = "Stemming";
+"ui.dj_settings.presence" = "Aanwezigheid";
+"ui.dj_settings.output" = "Afspeelvoorkeur";
+"ui.dj_settings.defaults_scope" = "Startinstellingen voor je volgende sessie.";
+"ui.dj_settings.session_scope" = "Geldt nu en wordt onthouden voor je volgende sessie.";
+"ui.dj_settings.review_choices" = "Controleer alle zes voorgestelde keuzes voordat je ze activeert. Er is niets automatisch overgenomen.";
+"ui.dj_settings.confirm_six" = "Bevestig deze zes keuzes";
+"ui.dj_settings.selection_unavailable" = "Opgeslagen keuze niet beschikbaar";
+"ui.dj_settings.voice_unavailable" = "Je opgeslagen stem is niet beschikbaar. Behoud hem of kies expliciet een andere stem.";
+"ui.dj_settings.provider_default" = "Providerstandaard";
+"ui.dj_settings.reset_voice" = "Gebruik providerstandaard zonder gendervoorkeur";
+"ui.dj_settings.voice_preserved_text_only" = "Je stemkeuzes blijven bewaard. Alleen tekst maakt geen gesproken audio.";
+"ui.dj_settings.speaker_unavailable" = "De HA-speaker is nu niet beschikbaar. Configureer hem in Home Assistant.";
+"ui.dj_settings.device_local" = "Automatisch uitspreken, apparaatoutput en app-toestemmingen blijven lokaal op dit apparaat.";
+"ui.dj_settings.demo_unavailable" = "Persoonlijke instellingen zijn niet beschikbaar in demomodus.";
+"ui.dj_settings.unavailable" = "Jouw DJ-instellingen zijn niet beschikbaar. Controleer de verbinding en Home Assistant-versie.";
+"ui.dj_settings.loading" = "Bevestigde keuzes laden…";
+"ui.dj_settings.saving" = "Je keuze opslaan…";
+"ui.dj_settings.saved" = "Opgeslagen voor dit profiel.";
+"ui.dj_settings.conflict" = "De instellingen zijn gewijzigd of deze keuze is geweigerd. Controleer de huidige keuzes voordat je opnieuw kiest.";
+"ui.dj_settings.uncertain" = "De uitkomst is onbekend. Je wijziging wordt niet automatisch opnieuw verstuurd.";
+"ui.dj_settings.check_outcome" = "Controleer uitkomst";
+"ui.dj_settings.use_current" = "Gebruik huidige bevestigde keuzes";
+"ui.dj_settings.refresh" = "Vernieuwen";
+"ui.dj_settings.gender.default" = "Geen voorkeur";
+"ui.dj_settings.gender.female" = "Vrouwelijk";
+"ui.dj_settings.gender.male" = "Mannelijk";
+"ui.dj_settings.output.client_device" = "Mijn DJConnect-apparaten";
+"ui.dj_settings.output.both" = "Mijn DJConnect-apparaten + HA-speaker";
+"ui.dj_settings.output.ha_speaker" = "Alleen HA-speaker";
+"ui.dj_settings.output.text_only" = "Alleen tekst (geen spraak)";
+
+// Target-aware manual speech.
+"ui.dj_settings.listen_local" = "Luister op dit apparaat";
+"ui.dj_settings.stop_local" = "Stop op dit apparaat";
+"ui.dj_settings.target.local" = "Dit apparaat";
+"ui.dj_settings.target.ha_speaker" = "HA-speaker";
+"ui.dj_settings.target.both" = "Beide";
+"ui.dj_settings.target.choose" = "Afspelen op…";
+"ui.dj_settings.delivery.preparing" = "Voorbereiden";
+"ui.dj_settings.delivery.ready" = "Gereed";
+"ui.dj_settings.delivery.queued" = "In wachtrij, hoorbaar afspelen niet bevestigd";
+"ui.dj_settings.delivery.accepted" = "Geaccepteerd, hoorbaar afspelen niet bevestigd";
+"ui.dj_settings.delivery.playing" = "Lokaal aan het afspelen";
+"ui.dj_settings.delivery.finished" = "Lokale weergave beëindigd";
+"ui.dj_settings.delivery.failed" = "Mislukt";
+"ui.dj_settings.delivery.unavailable" = "Niet beschikbaar";
+"ui.dj_settings.delivery.unknown" = "Uitkomst onbekend; niet opnieuw verstuurd";
+
+"ui.dj_settings.replay_local" = "Opnieuw afspelen op dit apparaat";
+
+"ui.dj_settings.delivery.stopped" = "Gestopt";
+
+"appModel.device.volume.control.unavailable" = "Het volume van dit apparaat kun je alleen op het apparaat zelf aanpassen.";
+
+"ui.output.name.unavailable" = "Naam niet beschikbaar";
+"surface.consent.title" = "Weergave buiten de app";
+"surface.consent.explanation" = "Toon korte DJ-bijdragen, muziekgegevens en toegestane hoezen van deze sessie buiten de app, ook als het apparaat vergrendeld is.";
+"surface.consent.widget" = "Bijdragen op widgets";
+"surface.consent.activity" = "Bijdragen op toegangsscherm";
+"surface.consent.unavailable" = "Deze weergave is nu niet beschikbaar.";
+"surface.consent.failed" = "De weergave kon niet worden bevestigd. Probeer opnieuw.";
+"surface.consent.expiry" = "Geldt voor deze sessie. Inhoud vervalt binnen twee minuten. Na een app-herstart is opnieuw toestemming nodig. Het besturingssysteem kan eerder gemaakte afbeeldingen langer bewaren.";
+"watch.session.loading" = "Je DJ-sessie wordt geladen…";
+"watch.session.unavailable" = "De DJ-sessie is tijdelijk niet beschikbaar. Open DJConnect op je iPhone.";
+"watch.session.waiting" = "De DJ luistert met je mee.";
+"watch.session.settings" = "DJ-instellingen";
+
+"ui.app.glass.effects" = "Glaseffecten";
+"ui.app.glass.effects.description" = "Schakel uit voor een eenvoudigere weergave met minder grafische effecten.";

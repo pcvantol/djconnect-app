@@ -110,8 +110,29 @@ public enum DJConnectSessionMoodTheme: String, Codable, CaseIterable, Sendable {
     }
 }
 
+/// Closed, expiring renderer preference only; never proof of an active Session.
+public struct DJConnectWidgetPaletteSnapshot: Codable, Equatable, Sendable {
+    public static let storageKey = "DJConnectWidgetPalette.v1"
+    public let observedAt: Date
+    public let theme: DJConnectSessionMoodTheme
+    public var expiresAt: Date { observedAt.addingTimeInterval(120) }
+    public init(theme: DJConnectSessionMoodTheme, at now: Date) { self.theme = theme; observedAt = now }
+    public static func resolve(session: String?, trackInsight: DJConnectSessionMoodTheme?, profile: String?) -> DJConnectSessionMoodTheme {
+        if let session, let theme = DJConnectSessionMoodTheme(rawValue: session), theme != .brand { return theme }
+        return trackInsight ?? DJConnectSessionMoodTheme(sessionMood: profile)
+    }
+    public func renderingTheme(at now: Date) -> DJConnectSessionMoodTheme {
+        now >= observedAt && now < expiresAt ? theme : .brand
+    }
+    public static func load(from defaults: UserDefaults, at now: Date) -> Self? {
+        guard let data = defaults.data(forKey: storageKey), let value = try? JSONDecoder().decode(Self.self, from: data),
+              now >= value.observedAt, now < value.expiresAt else { return nil }
+        return value
+    }
+}
+
 /// Passive surfaces carry neutral runtime status and closed UI styling until
-/// Core qualifies its separate rich locked-display/cache projection. Owner Moments and
+/// an independently qualified passive grant supplies explicit rich content. Owner Moments and
 /// authenticated no-store artwork must never be copied into this store.
 public struct DJConnectSessionSurfaceSnapshot: Codable, Equatable, Hashable, Sendable {
     public static let storageKey = "DJConnectSessionSurfaceSnapshot.v1"
@@ -123,11 +144,13 @@ public struct DJConnectSessionSurfaceSnapshot: Codable, Equatable, Hashable, Sen
     /// Optional for existing caches. This is a renderer-only palette token;
     /// it never grants permission to export Moment/artwork or generated copy.
     public let theme: DJConnectSessionMoodTheme?
+    public let rich: DJConnectPassiveActivityContent?
 
-    public init(observedAt: Date, theme: DJConnectSessionMoodTheme? = nil) {
+    public init(observedAt: Date, theme: DJConnectSessionMoodTheme? = nil, rich: DJConnectPassiveActivityContent? = nil) {
         self.observedAt = observedAt
-        self.expiresAt = observedAt.addingTimeInterval(Self.maximumLifetime)
+        self.expiresAt = min(observedAt.addingTimeInterval(Self.maximumLifetime), rich?.expiresAt ?? .distantFuture)
         self.theme = theme
+        self.rich = rich
     }
 
     public static func observe(runtimeState: String?, authorized: Bool, isDemo: Bool,
@@ -152,6 +175,13 @@ public struct DJConnectSessionSurfaceSnapshot: Codable, Equatable, Hashable, Sen
     public func isCurrent(at now: Date) -> Bool {
         observedAt <= now && expiresAt > now && expiresAt > observedAt
             && expiresAt.timeIntervalSince(observedAt) <= Self.maximumLifetime
+    }
+
+    /// Rich fields may expire earlier than the independently observed Session.
+    /// Removing them preserves its original observation, never a sliding lease.
+    public func neutral(at now: Date) -> Self? {
+        let value = Self(observedAt: observedAt, theme: theme)
+        return value.isCurrent(at: now) ? value : nil
     }
 
     public static func load(from defaults: UserDefaults, at now: Date = Date()) -> Self? {
@@ -194,6 +224,34 @@ public struct DJConnectSessionLiveActivityAttributes: ActivityAttributes, Sendab
 /// Device-private presentation bookkeeping, never the App Group projection.
 /// Keeping the random ID stable lets ActivityKit dismissal survive app restart.
 public enum DJConnectSessionSurfacePresentation {
+    // Separate request/build and exact-instance dismissal markers distinguish
+    // OS retirement from a user action. No content or authorization is migrated.
+    public static let requestedKey = "DJConnectSessionSurface.requested.v2"
+    private static let requestedBuildKey = "DJConnectSessionSurface.requestedBuild.v2"
+    private static let requestedActivityKey = "DJConnectSessionSurface.requestedActivity.v3"
+    private static let dismissedKey = "DJConnectSessionSurface.dismissed.v3"
+    public static func canRequest(_ presentationID: String, build: String, in defaults: UserDefaults) -> Bool {
+        guard defaults.string(forKey: dismissedKey) != presentationID else { return false }
+        return defaults.string(forKey: requestedKey) != presentationID || defaults.string(forKey: requestedBuildKey) != build
+    }
+    public static func requested(_ presentationID: String, build: String, activityID: String? = nil, in defaults: UserDefaults) {
+        defaults.set(presentationID, forKey: requestedKey)
+        defaults.set(build, forKey: requestedBuildKey)
+        defaults.set(activityID, forKey: requestedActivityKey)
+    }
+    public static func userDismissed(_ presentationID: String, activityID: String? = nil, in defaults: UserDefaults) {
+        guard defaults.string(forKey: requestedKey) == presentationID,
+              activityID == nil || defaults.string(forKey: requestedActivityKey) == activityID else { return }
+        defaults.set(presentationID, forKey: dismissedKey)
+    }
+    public static func applicationEnded(_ presentationID: String, wasDismissed: Bool, activityID: String? = nil, in defaults: UserDefaults) {
+        if wasDismissed { userDismissed(presentationID, activityID: activityID, in: defaults) }
+        guard activityID == nil || defaults.string(forKey: requestedActivityKey) == activityID else { return }
+        guard !wasDismissed, defaults.string(forKey: requestedKey) == presentationID else { return }
+        defaults.removeObject(forKey: requestedKey)
+        defaults.removeObject(forKey: requestedBuildKey)
+        defaults.removeObject(forKey: requestedActivityKey)
+    }
     public static func identity(for sessionID: String, in deviceDefaults: UserDefaults) -> String {
         let bindingKey = "DJConnectSessionSurface.localBinding"
         let identityKey = "DJConnectSessionSurface.localPresentation"
