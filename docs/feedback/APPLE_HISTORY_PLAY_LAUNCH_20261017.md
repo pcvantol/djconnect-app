@@ -39,3 +39,18 @@ Swift build compiled Core/UI and the targeted row-action regression passed
 (1test,0.001s). The initial testfixture used an invalid role name; compilation
 rejected it and the fixture was corrected to the existing dj role before PASS.
 No cache metadata or signing policy was altered.
+
+## Discover iPad portrait width — ordinary40284
+
+The owner requested removal of the large side margins on Discover. Only its iOS
+regular-width portrait container now uses the actual available width instead of
+the760pt cap. The existing16pt edge inset remains. Compact layouts and the
+landscape/Mac width policy retain their behavior. This is a local presentation
+change with no Profile/backend model change.
+
+Incremental signed iOS40284 build including embedded targets PASS; strict deep
+signatures/ordinary-product checks PASS. iPad install, independent apps-version
+readback40284 and process launch PASS. Private receipts/log:
+`/private/tmp/djc-discovery-width-*`. No new physical viewport screenshot was
+captured, so visual acceptance remains distinct from installation. Prior786test
+result binds the preceding shared-state change; it is not a new layout test.

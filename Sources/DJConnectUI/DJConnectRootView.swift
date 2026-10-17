@@ -6251,7 +6251,12 @@ private struct MusicDiscoveryView: View {
     }
 
     private func maxContentWidth(for size: CGSize) -> CGFloat {
-        shouldUseWideLayout(for: size) ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
+        #if os(iOS)
+        if horizontalSizeClass == .regular && size.height >= size.width {
+            return size.width
+        }
+        #endif
+        return shouldUseWideLayout(for: size) ? djConnectMacDetailContentMaxWidth : djConnectContentMaxWidth
     }
 
     var body: some View {
