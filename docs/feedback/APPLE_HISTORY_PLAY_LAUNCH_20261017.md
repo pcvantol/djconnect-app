@@ -205,3 +205,14 @@ signature and ordinary-product checks PASS. iPhone installed, independently
 read back40294 and launched. No iPad or MacBook update. Private build/install/
 readback/launch receipts: `/private/tmp/djc-status-card-40294-*`. No physical
 viewport acceptance or new full-suite PASS is inferred for this visual removal.
+
+## Full-width saved-session rows on iPad — 40295
+
+Removed the1000pt width cap for iPad saved-session rows and their loading header.
+Rows now fill their List width while retaining the existing20pt edge insets.
+The iPhone/macOS width policy and session navigation/data logic are unchanged.
+Swift parse/diff checks, signed native iOS/iPadOS40295 build and strict deep
+signature verification PASS. Build verification is recorded in
+`/private/tmp/djc-saved-sessions-40295-build.log`. No iPad installation or physical
+landscape acceptance is implied; the owner's iPhone-only installation direction
+remains in effect.

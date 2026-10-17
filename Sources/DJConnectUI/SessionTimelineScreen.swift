@@ -36,6 +36,13 @@ struct SavedSessionsView: View {
         externalOpenedSessionID = openedSessionID
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
+    private var rowMaxWidth: CGFloat {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .pad ? .infinity : 1000
+        #else
+        1000
+        #endif
+    }
     @ViewBuilder var body: some View {
         if embedsNavigationStack { NavigationStack { content } }
         else { content }
@@ -60,7 +67,7 @@ struct SavedSessionsView: View {
                     #endif
 
                 }
-                .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity).padding(.horizontal, 20)
+                .frame(maxWidth: rowMaxWidth, alignment: .leading).frame(maxWidth: .infinity).padding(.horizontal, 20)
                 #if os(iOS)
                 .background(SessionRefreshIndicatorBridge(
                     isRefreshing: !initialLoadFinished || refreshing || history.listLoading || history.preparing))
@@ -104,7 +111,7 @@ struct SavedSessionsView: View {
                         }
                         .buttonStyle(DJConnectMediaRowButtonStyle())
                         .accessibilityIdentifier("saved-session-" + session.id)
-                        .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity)
+                        .frame(maxWidth: rowMaxWidth, alignment: .leading).frame(maxWidth: .infinity)
                         .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)

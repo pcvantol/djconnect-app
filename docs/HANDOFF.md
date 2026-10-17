@@ -1,3 +1,11 @@
+# Latest source follow-up — iPad saved-session row width
+
+Saved-session rows now fill the iPad List width, retaining20pt edge insets;
+removed the1000pt cap on iPad only. See the40295 entry in
+[UI follow-up evidence](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md).
+No iPad installation/physical landscape acceptance; latest installed versions
+remain iPhone40294, iPad40290, MacBook40292.
+
 # Latest installed follow-up — iPhone40294
 
 DJ-session status cards now show status text without the decorative disc in the
