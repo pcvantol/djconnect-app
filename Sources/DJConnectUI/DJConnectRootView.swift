@@ -12125,7 +12125,7 @@ struct AskDJMessageBubble: View {
             if let serverHighlights { SessionHighlightedText(text: displayText, highlights: serverHighlights) }
             else { AskDJMarkdownText(text: displayText, highlight: searchText) }
         }
-        .padding(.trailing, contextQuestionAction != nil && !outputPlaybackActions.isEmpty ? 36 : 0)
+        .padding(.trailing, contextQuestionAction != nil && !renderablePlaybackActions.isEmpty ? 36 : 0)
         .contextMenu {
             if !isReadOnly && canSetPrompt && !isStaleHistory {
                 Button {
@@ -12397,7 +12397,7 @@ struct AskDJMessageBubble: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .padding(.trailing, contextQuestionAction == nil || !outputPlaybackActions.isEmpty ? 0 : 36)
+                .padding(.trailing, contextQuestionAction == nil || !renderablePlaybackActions.isEmpty ? 0 : 36)
                 .frame(minHeight: contextQuestionAction == nil ? 0 : 44)
                 .overlay(alignment: .topTrailing) {
                     if let contextQuestionAction {
@@ -13041,21 +13041,19 @@ private struct AskDJPlaybackActionStack: View {
                                 .controlSize(.small)
                                 .tint(.white)
                         } else {
-                            Image(systemName: "play.fill")
-                                .font(.system(size: 18, weight: .semibold))
+                            Image(systemName: "play.circle.fill")
+                                .font(.system(size: 23, weight: .semibold))
                                 .foregroundStyle(.white)
-                                .offset(x: 1)
                         }
                     }
                     .frame(width: 44, height: 44)
-                    .background(DJConnectButtonAppearance.primaryGradient, in: Circle())
                     .fixedSize()
                     .accessibilityHidden(true)
                 }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 9)
-            .frame(maxWidth: 520, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(action.isOutputAction ? .white.opacity(0.10) : .white.opacity(0.12))
