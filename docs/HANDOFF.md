@@ -1,4 +1,15 @@
-# Latest installed follow-up — iPhone40297 session metadata
+# Latest installed follow-up — iPhone40298 queue diagnostics
+
+Owner's single-item/duplicated Volbeat Queue report is explicitly HA-dev and
+remains OPEN: current Core receipt has20distinct positions/repeat off, without
+reproducing the original snapshot. Client decode/projection replaces arrays;
+six queue regressions PASS0.138s. Added count-only explicit queue response logs,
+preserving all existing positions; no blanket dedup or original-cause fix claim.
+Native signed iOS40298/strict signature/ordinary-product checks PASS; iPhone
+install/independent40298 readback/launch PASS. iPad40290/MacBook40292 unchanged.
+See [queue evidence and dependency](feedback/APPLE_QUEUE_SINGLE_ITEM_20261017.md).
+
+# Earlier installed follow-up — iPhone40297 session metadata
 
 Active/archived timelines show a start metadata bubble at their oldest end,
 using the matching backend Session started_at, local time and a full localized

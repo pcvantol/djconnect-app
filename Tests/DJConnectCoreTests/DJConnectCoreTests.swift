@@ -13990,3 +13990,31 @@ func bluetoothDeviceNameRequiresOneUnambiguousNamedRoute(names: [String]) throws
     model.playback = DJConnectPlayback(volumePercent: 37, device: DJConnectPlaybackDevice(id: "speaker", active: false, supportsVolume: true))
     #expect(model.currentPlaybackVolumePercent == nil)
 }
+
+@MainActor
+@Test func singleQueueItemSnapshotsReplaceRepeatedQueueRowsWithoutAccumulating() throws {
+    let name = "queue-one-item-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    let item = DJConnectQueueItem(title: "Heaven Nor Hell", artist: "Volbeat", album: "Beyond Hell / Above Heaven", uri: "spotify:track:fixture")
+    model.apply(commandResponse: DJConnectCommandResponse(success: true, queue: Array(repeating: item, count: 12)))
+    #expect(model.queueItems.count == 12)
+    let row: [String: Any] = ["id":"queue-entry", "title":item.title, "artist":item.artist!, "uri":item.uri!]
+    for shape in [
+        ["success":true, "queue":[row]] as [String: Any],
+        ["success":true, "queue":["items":[row]], "data":["queue":[row]], "result":["queue":[row]]],
+        ["success":true, "data":["queue":["items":[row]]]],
+        ["success":true, "result":["queue":[row]]]
+    ] {
+        let data = try JSONSerialization.data(withJSONObject: shape)
+        let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: data)
+        #expect(response.queue?.count == 1, "Envelope aliases must not be concatenated")
+        for _ in 0..<3 {
+            model.apply(commandResponse: response)
+            #expect(model.queueItems.count == 1 && model.queue.count == 1)
+            #expect(model.queueItems.first?.uri == item.uri)
+            #expect(DJConnectQueueWidgetSnapshot(items: model.queueItems).totalCount == 1)
+        }
+    }
+}

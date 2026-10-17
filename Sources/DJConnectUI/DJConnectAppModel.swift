@@ -5127,6 +5127,10 @@ public final class DJConnectAppModel: ObservableObject {
         let shouldApplyPlaylists = command == nil || command == "playlists"
         if shouldApplyQueue, let responseQueue = response.queue {
             let normalizedQueue = normalizedQueueItems(responseQueue)
+            if command == "queue" {
+                let distinctTracks = Set(responseQueue.map(queueItemSignature)).count
+                log(.info, "Queue snapshot decoded_count=\(responseQueue.count) rendered_count=\(normalizedQueue.count) distinct_tracks=\(distinctTracks)")
+            }
             queueItems = normalizedQueue
             queue = normalizedQueue.map(\.displayTitle)
             updateQueueWidgetSnapshot(items: normalizedQueue)
