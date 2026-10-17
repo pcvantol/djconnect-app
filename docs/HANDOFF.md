@@ -25,6 +25,12 @@ HTTP502/503/decode/transport/pre-HTTP scope tests, preserving authority withdraw
 409 context, frozen client_message_id and uncertain-effect/retry rules. No claim
 that wording correction establishes the original Armin transport cause. This
 follow-up is queued; no implementation or new Core writer in the artwork fix.
+Core lane subsequently reported the same owner-visible failed-submit wording for
+“wie is de artiest” and “wie zijn de zangers”; include both alongside the Armin
+question in this existing mapping/diagnostic follow-up. The Armin report is
+explicitly HA-dev. Original per-question HTTP causes remain unproven; Core owns
+live dev investigation. No user-turn replay, deployment or additional writer is
+authorized merely by this report.
 
 # Earlier source follow-up — iPad saved-session row width
 
