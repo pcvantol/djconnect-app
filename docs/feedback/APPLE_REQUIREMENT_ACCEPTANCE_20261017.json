@@ -3,7 +3,7 @@
   "as_of": "2026-10-17 Europe/Amsterdam",
   "owning_lane": "https://github.com/pcvantol/djconnect-app/issues/87",
   "baseline": "Gewone iPad40282 geïnstalleerd, geopend en onafhankelijk teruggelezen; iPhone40267 behouden volgens alleen-iPadinstructie. Macmini40266 blijft draaien; gewone Mac40282 kandidaat gecontroleerd en niet geïnstalleerd. Watch40282 meegebouwd/ingesloten; geen verse Watchhardwareclaim. Volledige784tests/10suitesPASS92.272s op40282;3fysiekeidlemetrics, geen algemene performanceclosure.",
-  "source_head": "4fa911527eb02fed8bed71397ee4c95fff2b2daa plus preserved same-writer WIP",
+  "source_head": "b47d17a3bd7aade005787206785578bee585096b protected source PR111; main evidence and separate documentary Finalization pending",
   "status_semantics": {
     "CLOSED_BOUNDED": "Functionele implementatie/expliciet benoemde bewijslevering afgerond binnen de genoemde bewijsgrens; geen sluiting van parentproduct, bronPR of nativejointacceptatie.",
     "SUPERSEDED": "Vervangen door latere directe ownerbeslissing; niet opnieuw bouwen.",
@@ -15,9 +15,9 @@
   "counts": {
     "BLOCKED": 4,
     "CLOSED_BOUNDED": 22,
-    "OPEN": 4,
+    "OPEN": 3,
     "PARKED": 1,
-    "PARTIAL": 15,
+    "PARTIAL": 16,
     "SUPERSEDED": 1
   },
   "requirements": [
@@ -312,10 +312,10 @@
     {
       "id": "source-finalization",
       "requirement": "Onafhankelijke review/beschermde bronPR en aparte Finalization",
-      "status": "OPEN",
+      "status": "PARTIAL",
       "source": "Bestaande Appleproductgovernance",
-      "evidence": "Bestaande solewriter/WIP behouden; alleen openAppleissue87; huidige gewone40253installatie is lokale kwalificatie.",
-      "remaining": "Exactkandidaat afbakenen/reviewen, beschermde bronoplevering en daarna afzonderlijke Finalization/mainreadback; geen volledige sourceclosure of productiepublicatie."
+      "evidence": "PR111 protected squash merge b47d17a3; reviewed head0688cf6 and main have exact tree422cf117. All premerge checks/Owner Authorization PASS; portable784tests89.368s/native784tests82.596s and unsigned Applebuilds PASS. Main CI39061192756 including native coverage PASS; formal run39061762379 refused unqualified evidence before publication; original WIP recovery verified.",
+      "remaining": "Exact-main formal reconciliation needs central pagination correction (>300files) and separate documentary Finalization. New independent full technical/UX review of this entire consolidated head has not run; older bounded reviews do not replace it. No physical or production acceptance inferred."
     },
     {
       "id": "passive-automatic-ui",
@@ -433,5 +433,17 @@
   "glass_effects_feedback_40277": "https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6235866275",
   "vinyl_album_card_feedback_40278": "https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6235934840",
   "speech_button_corner_feedback_40279": "https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6236060725",
-  "ipad_session_mood_edges_feedback_40280": "https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6236182122"
+  "ipad_session_mood_edges_feedback_40280": "https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6236182122",
+  "source_delivery_20261017": {
+    "source_pr": "https://github.com/pcvantol/djconnect-app/pull/111",
+    "reviewed_head": "0688cf6529358ba72660cb5c0da28d296df84463",
+    "main_sha": "b47d17a3bd7aade005787206785578bee585096b",
+    "tree": "422cf1173bc48e660931b0a5beb5f4264a03b973",
+    "source_main_ci_run": 39061192756,
+    "formal_reconciliation": "FAILED39061762379 before publication; producer pagination correction pending",
+    "current_full_independent_review": "NOT_RUN",
+    "product_acceptance": "PARTIAL; existing boundaries retained",
+    "original_wip": "Both original checkouts now clean main; 18/155 WIP paths preserved in independently hash-verified archives and Git stashes; excluded experiments retained",
+    "source_main_ci": "PASS with native coverage; independently verified artifact digests and embedded exact main SHA"
+  }
 }

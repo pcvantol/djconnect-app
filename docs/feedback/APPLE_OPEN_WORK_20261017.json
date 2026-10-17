@@ -2,8 +2,8 @@
   "schema_version": 1,
   "as_of": "2026-10-17 Europe/Amsterdam",
   "owning_lane": "https://github.com/pcvantol/djconnect-app/issues/87",
-  "writer": "codex/apple-dj-presence-v1",
-  "head": "4fa911527eb02fed8bed71397ee4c95fff2b2daa",
+  "writer": "Existing Apple writer consolidated into protected main; temporary isolated Finalization branch only",
+  "head": "b47d17a3bd7aade005787206785578bee585096b",
   "installed_baseline": "Gewone iPad40282 geïnstalleerd, geopend en onafhankelijk teruggelezen; iPhone40267 behouden volgens alleen-iPadinstructie. Macmini40266 blijft draaien; gewone Mac40282 kandidaat gecontroleerd en niet geïnstalleerd. Watch40282 meegebouwd/ingesloten; geen verse Watchhardwareclaim.",
   "items": [
     {
@@ -173,14 +173,14 @@
     {
       "id": "source-delivery",
       "topic": "Gereviewde bronoplevering",
-      "status": "open",
+      "status": "partial",
       "owner": "Apple",
-      "evidence": "Sole writer codex/apple-dj-presence-v1 HEAD4fa9115 + omvangrijke behouden WIP. Remote mainbe7e636; nieuwe WIP nog geen beschermde delivery. Verse40282Gitread: éénworktree/driebranches; geen exactbewezen mergedstalecandidate,0deletions. ActieveWIP/recoveryrefsbehouden.",
+      "evidence": "PR111 protected merged b47d17a3, exact qualified tree422cf117.784portable/784native tests and unsigned Applebuilds PASS; all premergechecks/Owner Authorization PASS. Both original checkouts clean main; WIP18/155paths preserved in stashes plus verified archives. MainCI39061192756/native coverage PASS; both artifact digests and coverage main SHA independently verified. Formal39061762379 refused unqualified evidence before publication.",
       "remaining": [
-        "Bestaande WIP afbakenen, onafhankelijke technische/UXreview en normale beschermde PR/Finalization; geen groen hardwarebewijs uit alleen builds afleiden.",
-        "Geen push/merge/release in deze audit; productiepublicatie heeft eigen gates."
+        "Main CI/formal evidence and separate documentary Finalization pending; central collector truncates369files to300.",
+        "Independent current full technical/UX review is absent; original functional/device/provider acceptance stays open."
       ],
-      "next_action": "Bestaande WIP afbakenen, onafhankelijke technische/UXreview en normale beschermde PR/Finalization; geen groen hardwarebewijs uit alleen builds afleiden."
+      "next_action": "Complete exact-main evidence and documentary Finalization; keep independent review and physical acceptance separately open."
     },
     {
       "id": "iphone-output-transfer",
@@ -264,6 +264,18 @@
         "Gevraagde iPadfix inclusief echte Energieviewportcontrole afgerond. Andere moods/Sessioneinde/keyboard/splitview/externaldisplay, iPhone/Mac/Watch en bredere UI/bronopleveringsmatrix niet opnieuw gekwalificeerd."
       ],
       "next_action": "Geen blocker voor bounded iPad-Energieviewportfix; overige UI-matrix blijft eigen spoor."
+    },
+    {
+      "id": "technical-debt-observe",
+      "topic": "TDE observe: broncomplexiteit",
+      "status": "open",
+      "owner": "Apple",
+      "evidence": "Native coverage run39060662445 PASS784tests82.596s. TDE1.1.1 observe workflow PASS but assessment FAIL/repository qualification FAILED:3CRITICAL and174HIGH complexity findings; maximum668. No regression baseline, no new runtime/crash conclusion. Findings include widget source, AppModel and RootView.",
+      "remaining": [
+        "Triage analyzer findings against actual Swift declaration boundaries and existing AppModel/refactor work.",
+        "No suppression, threshold relaxation or technical-debt-free claim in this consolidation."
+      ],
+      "next_action": "Carry current observe findings into existing Apple refactor work after bounded source consolidation."
     }
   ],
   "qualification": {
@@ -492,5 +504,17 @@
       "apple": "https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6237676625",
       "core": "https://github.com/pcvantol/djconnect/issues/1101#issuecomment-6237677036"
     }
+  },
+  "source_delivery_20261017": {
+    "source_pr": "https://github.com/pcvantol/djconnect-app/pull/111",
+    "reviewed_head": "0688cf6529358ba72660cb5c0da28d296df84463",
+    "main_sha": "b47d17a3bd7aade005787206785578bee585096b",
+    "tree": "422cf1173bc48e660931b0a5beb5f4264a03b973",
+    "source_main_ci_run": 39061192756,
+    "formal_reconciliation": "FAILED39061762379 before publication; producer pagination correction pending",
+    "current_full_independent_review": "NOT_RUN",
+    "product_acceptance": "PARTIAL; existing boundaries retained",
+    "original_wip": "Both original checkouts now clean main; 18/155 WIP paths preserved in independently hash-verified archives and Git stashes; excluded experiments retained",
+    "source_main_ci": "PASS with native coverage; independently verified artifact digests and embedded exact main SHA"
   }
 }

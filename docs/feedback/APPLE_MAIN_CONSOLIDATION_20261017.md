@@ -118,3 +118,36 @@ revision and selected mood, zero stale-A writes and exactly one valid B write.
 Fixture cleanup cancels the model's background work. No app code or assertion
 was removed. Targeted test PASS; ten repeated executions PASS. Full updated
 protected Swift/native coverage checks remain required.
+
+## Protected source merged; exact-main qualification
+
+[PR111](https://github.com/pcvantol/djconnect-app/pull/111) merged as
+`b47d17a3bd7aade005787206785578bee585096b`, reviewed head
+`0688cf6529358ba72660cb5c0da28d296df84463`, exact common tree
+`422cf1173bc48e660931b0a5beb5f4264a03b973`. All premerge checks and official
+Owner Authorization39060691226 PASS. Latest portable784tests PASS89.368s and
+native784tests PASS82.596s. Main CI39061192756, native coverage and unsigned
+Apple builds PASS. Coverage/runner artifact digests and embedded main SHA were
+independently read and verified; see the portable source-main receipt.
+
+Both original checkouts now clean main;18/155WIP paths preserved in stashes,
+hash-verified archives and complete Git bundles. Three exact-proven local
+branches removed, zero worktrees; remote only main. Excluded experiments remain
+recoverable. Only the completed temporary Swift cache was removed after open-file
+inspection; build products/logs/recovery were preserved.
+
+Formal reconciliation39061762379 failed before durable publication. The pinned
+central collector reads commit.data.files without pagination:300 paths versus
+369 in the PR, full paginated commit API and local Git. Complete sets are equal.
+The durable builder correctly refused the unqualified record; cancellation was
+too late and no invalid record was published. Existing Core-writer owns the
+collector fix and immutable producer pin. No Core modification or manual green
+status by Apple. Documentary Finalization cannot substitute for corrected
+exact-main formal evidence.
+
+TDE observe ran successfully but its assessment and repository qualification
+failed:3CRITICAL/174HIGH complexity findings, no regression baseline. These are
+registered for triage/refactor, not suppressed. No new independent full
+technical/UX review was run for this complete candidate.23 active functional/
+acceptance requirements and all installed/hardware/provider boundaries remain
+open as stated; this merge closes only the source inclusion.

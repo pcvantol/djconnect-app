@@ -1,11 +1,52 @@
 # Integrale Apple-uitvoering — 17 oktober 2026
 
-Directe owneropdracht: integraal het gevonden open werk oppakken. Bestaande sole
-writer/branch codex/apple-dj-presence-v1, HEAD4fa9115 plus alle behouden WIP.
-Geen tweede writer. Dit is functionele uitvoering met afzonderlijke bewijsgrenzen;
-beschermde bronoplevering/Finalization en volledige productacceptatie blijven open.
+Directe owneropdracht: integraal het gevonden open werk oppakken en vervolgens
+alle bestaande Applebron naar main consolideren. De bestaande writer/WIP is
+behouden en opgenomen via PR111; onderstaande buildsecties zijn historische
+bewijsleveringen. Actuele source- en Finalizationstatus staan in de eerste sectie;
+volledige productacceptatie blijft afzonderlijk.
 [Requirementregister](APPLE_REQUIREMENT_ACCEPTANCE_20261017.md) en
 [open werk](APPLE_OPEN_WORK_20261017.md) zijn de actuele owning overzichten.
+
+## Mainconsolidatie — 17 oktober 2026
+
+[Bron-PR111](https://github.com/pcvantol/djconnect-app/pull/111) is beschermd
+gemerged als `b47d17a3bd7aade005787206785578bee585096b`; kandidaat
+`0688cf6529358ba72660cb5c0da28d296df84463` heeft exact dezelfde tree
+`422cf1173bc48e660931b0a5beb5f4264a03b973`. Alle premergechecks en officiële
+Owner Authorization PASS. Nieuwe portable784tests/10suites PASS89.368s; native
+784tests/10suites PASS82.596s; unsigned iOS/macOS inclusief Watch/widgets PASS.
+Drie CI-testcorrecties veranderen geen appgedrag en behouden alle assertions.
+
+Beide oorspronkelijke checkouts staan schoon op dit main. Hun18/155WIPpaden
+zijn behouden in stashes en onafhankelijk hashgecontroleerde herstelarchieven;
+Gitbundles bewaren alle oorspronkelijke refs. Drie exact bewezen oude lokale
+branches zijn verwijderd, nul worktrees. Remote heeft alleen main. Het
+ongeïnstalleerde Base-launchscreenexperiment en twee dubbele Xcodeprojecten
+blijven herstelbaar buiten de merge. Gewone iPad40282/iPhone40267/Mac40266
+blijven ongewijzigd; geen nieuwe installatie, HA-deployment of distributie.
+
+Main CI39061192756 inclusief native coverage PASS. Coverage- en runnerartefacten
+zijn onafhankelijk gehasht; coverage noemt exact bron-mainb47d17a3. Formele
+reconciliatie39061762379 FAILED vóór publicatie door een concrete centrale
+producerfout: de ongepagineerde commitread levert300 van369bestanden. Alle
+369bestanden komen bij volledige gepagineerde GitHub- en lokale Gitreadbacks
+exact overeen. De bestaande Core-writer heeft de collectorcorrectie ontvangen;
+geen status of bewijs wordt omzeild. Aparte documentaire Finalization blijft
+pending totdat de juiste exact-main evidence is gelezen. De poging deze run te
+stoppen was te laat; de duurzame builder had het niet-gekwalificeerde rapport
+al terecht geweigerd. Er is geen ongeldig rapport gepubliceerd.
+
+TDE-observeworkflow PASS, maar de analyse zelf FAIL/repositoryqualification
+FAILED met3CRITICAL/174HIGHcomplexiteitsbevindingen. Deze blijven open voor
+triage/refactor; geen baseline-regressie- of runtime/crashconclusie. Nieuwe
+onafhankelijke volledige technische/UXreview op deze gehele kandidaat is niet
+uitgevoerd. De23actieve functionele/acceptatiepunten blijven open; bounded
+source-inclusie sluit geen LAN/WS, TTS, Profile, VibeCast, OS-surfaces, Watch,
+productiepush, performance of fysieke acceptatie af.
+
+Zie [bronconsolidatie](APPLE_MAIN_CONSOLIDATION_20261017.md) en
+[exacte bronreadback](../verification/apple-main-consolidation/source-main-readback.json).
 
 ## Opruiming40282 — 34 ongebruikte componenten verwijderd
 
