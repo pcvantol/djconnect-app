@@ -1824,7 +1824,7 @@ public extension DJConnectClient {
         guard DJConnectPassiveSession.identifier(sessionID), [.ios, .macos].contains(identity.clientType) else { throw DJConnectError.invalidResponse }
         let body: [String: Any] = ["contract_version": 1, "device_id": identity.deviceID, "client_type": identity.clientType.rawValue,
             "session_id": sessionID, "surface": surface.rawValue, "enabled": enabled,
-            "os_snapshot_cache": enabled, "locked_display": enabled]
+            "os_snapshot_cache": enabled, "locked_display": enabled && surface == .liveActivity]
         let request = try passiveSurfacePOST(path: "authorize", body: body)
         let data = try await sessionArtworkTransport.prepare(request)
         if !enabled {
