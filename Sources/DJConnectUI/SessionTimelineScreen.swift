@@ -213,7 +213,7 @@ struct SavedSessionsView: View {
             .scrollBounceBehavior(.always)
             .refreshable { await refresh() }
             .toolbar {
-                ToolbarItem(placement: djConnectSearchToolbarPlacement) {
+                ToolbarItemGroup(placement: djConnectSearchToolbarPlacement) {
                     Button {
                         if isSearchVisible { closeSearch() }
                         else { isSearchVisible = true; isSearchFocused = true }
@@ -224,6 +224,18 @@ struct SavedSessionsView: View {
                     .accessibilityLabel(text("ui.session.history.search_sessions"))
                     .accessibilityIdentifier("saved-sessions-search-toggle")
                     .help(text("ui.session.history.search_sessions"))
+                    if history.bulkDeletionAvailable {
+                        SavedSessionsDeleteAllButton(language: model.language,
+                            isEnabled: history.canPrepareBulkDeletion,
+                            contextEpoch: history.responseEpoch, archiveEpoch: history.archiveResponseEpoch) {
+                            isSearchFocused = false
+                            let epoch = history.responseEpoch
+                            guard let snapshot = await history.prepareBulkDeletion(expectedEpoch: epoch) else { return nil }
+                            return .init(count: snapshot.targetCount, perform: {
+                                await history.deleteAllSessions(snapshot, expectedEpoch: epoch)
+                            })
+                        }
+                    }
                 }
                 ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
                     Button { Task { await refresh() } } label: {
@@ -235,6 +247,10 @@ struct SavedSessionsView: View {
                     .accessibilityIdentifier("saved-sessions-refresh")
                     .help(text("ui.session.history.refresh"))
                 }
+            }
+            .onChange(of: history.archiveResponseEpoch) { _, _ in
+                openedSessionID.wrappedValue = nil
+                closeSearch()
             }
             .djStatusToastOverlay(statusToast, screenImage: "clock.arrow.circlepath")
             .task(id: model.isDemoMode || model.canRefreshSessionHistory) {
@@ -308,6 +324,8 @@ struct SavedSessionsView: View {
 
 /// The same native timeline surface serves the active Session and readonly archive.
 struct SessionTimelineScreen: View {
+    @State private var deleteConfirmation: SessionDeleteConfirmation?
+    @State private var confirmingDelete = false
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
     let sessionID: String
@@ -318,6 +336,7 @@ struct SessionTimelineScreen: View {
     @StateObject private var renderCache = SessionTimelineRenderCache()
     @State private var sessionControlIntent: SessionControlIntent?
     @State private var showingDJVoice = false
+    @State private var feedbackMessage: DJConnectAskDJMessage?
     @State private var menuFrames: [SessionControlIntent.Kind: CGRect] = [:]
     @State private var currentHeaderVisible = true
     @State private var composerKeyboardVisible = false
@@ -426,6 +445,18 @@ struct SessionTimelineScreen: View {
         submittedQuestion = SessionSubmittedQuestion(sessionID: sessionID, localID: question.id, clientID: question.clientMessageID)
     }
 
+    private func setConversationPrompt(_ prompt: String) {
+        guard activeSession != nil, model.activeDJSession?.id == sessionID else { return }
+        model.askDJDraft = prompt
+        inputFocused = true
+    }
+
+    private func reportConversation(_ message: DJConnectAskDJMessage) {
+        guard activeSession != nil, model.activeDJSession?.id == sessionID else { return }
+        inputFocused = false
+        feedbackMessage = message
+    }
+
     var body: some View {
         let retentionDeadlines = renderCache.snapshot(timeline.entries, sessionID: sessionID, epoch: history.responseEpoch).compactMap(\.deadline)
             + timeline.entries.compactMap { $0.sessionMedia?.artwork.expiresAt.flatMap(DJConnectHistoryEntry.date) }
@@ -480,13 +511,15 @@ struct SessionTimelineScreen: View {
                                 .accessibilityIdentifier("session-timeline-error")
                             }
                             ForEach(history.pendingTurns.reversed().filter { $0.context.sessionID == sessionID }) { turn in
-                                SessionPendingConversationBubble(model: model, history: history, turn: turn)
+                                SessionPendingConversationBubble(model: model, history: history, turn: turn,
+                                    setPromptAction: setConversationPrompt, feedbackAction: reportConversation)
                                 .padding(.horizontal, 20)
                                 .id("pending-" + turn.id)
                             }
                             if activeSession != nil {
                                 ForEach(model.currentSessionConversationMessages(sessionID: sessionID, at: clock.date).reversed()) { message in
-                                    SessionCurrentConversationBubble(model: model, message: message)
+                                    SessionCurrentConversationBubble(model: model, message: message,
+                                        setPromptAction: setConversationPrompt, feedbackAction: reportConversation)
                                         .padding(.horizontal, 20)
                                         .id("current-conversation-" + message.id.uuidString)
                                 }
@@ -502,6 +535,14 @@ struct SessionTimelineScreen: View {
                                     allowsPlaybackActions: liveMessage != nil,
                                     playingActionID: model.playingAskDJActionID,
                                     artworkModel: model,
+                                    setPromptAction: { prompt in
+                                        guard history.responseEpoch == actionEpoch, entry.isRetained() else { return }
+                                        setConversationPrompt(prompt)
+                                    },
+                                    feedbackAction: { message in
+                                        guard history.responseEpoch == actionEpoch, entry.isRetained() else { return }
+                                        reportConversation(message)
+                                    },
                                     playAction: { action in history.playLiveAction(action, for: entry, expectedEpoch: actionEpoch) },
                                     highlights: matchMap[entry.id]?.text == entry.text ? (matchMap[entry.id]?.highlights ?? []) : [],
                                     isSelectedMatch: selectedMatchID == entry.id || initialAnchor == entry.id,
@@ -619,6 +660,13 @@ struct SessionTimelineScreen: View {
                 }
             }
             .background(sessionBackground)
+            .sheet(item: $feedbackMessage) { message in
+                AskDJFeedbackPromptView(model: model, message: message)
+                #if os(iOS)
+                    .presentationDetents([.large])
+                    .presentationSizing(.page)
+                #endif
+            }
         #if os(iOS)
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             composerKeyboardVisible = true
@@ -648,7 +696,11 @@ struct SessionTimelineScreen: View {
                 }
                 #endif
                 #if os(iOS)
-                if usesExpandedToolbar {
+                if activeSession == nil {
+                    ToolbarItem(placement: .topBarLeading) {
+                        sessionSearchToolbarButton(proxy: proxy)
+                    }
+                } else if usesExpandedToolbar {
                     ToolbarItemGroup(placement: .topBarLeading) {
                         sessionSearchToolbarButton(proxy: proxy)
                         sessionToolbarActions(proxy: proxy)
@@ -666,6 +718,7 @@ struct SessionTimelineScreen: View {
                     }
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    if activeSession == nil, history.deletionAvailable { archiveDeleteButton }
                     if activeSession != nil { SessionConnectionToolbarButton(model: model) }
                     if let refreshAction {
                         RefreshButton(model: model, action: refreshAction, isLoading: timeline.loading || retryRefreshing)
@@ -673,6 +726,9 @@ struct SessionTimelineScreen: View {
                 }
                 #endif
                 #if os(macOS)
+                if activeSession == nil, history.deletionAvailable {
+                    ToolbarItem(placement: .confirmationAction) { archiveDeleteButton }
+                }
                 if activeSession != nil {
                     ToolbarItemGroup(placement: .confirmationAction) {
                         SessionConnectionToolbarButton(model: model)
@@ -685,6 +741,8 @@ struct SessionTimelineScreen: View {
                 }
                 #endif
             }
+            .modifier(SessionArchiveDeletionConfirmation(history: history, language: model.language,
+                confirmation: $deleteConfirmation, isPresented: $confirmingDelete))
             #if os(iOS)
             .overlay(alignment: .topTrailing) {
                 SessionControlPopoverHost(model: model, intent: $sessionControlIntent, showsHandoff: allowsHandoffPresentation,
@@ -725,6 +783,7 @@ struct SessionTimelineScreen: View {
             .onChange(of: activeSession?.id) { model.isShowingVibeCastSessionStart = false }
             .onChange(of: history.profileScopeActive) { model.isShowingVibeCastSessionStart = false }
             .onChange(of: history.responseEpoch) {
+                feedbackMessage = nil
                 model.isShowingVibeCastSessionStart = false
                 submittedQuestion = nil
                 questionLeadingRoom = 0
@@ -777,6 +836,22 @@ struct SessionTimelineScreen: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(activeSession == nil ? "screen-history-timeline" : "screen-session-conversation")
         }
+    }
+
+    private var archiveDeleteButton: some View {
+        Button(role: .destructive) {
+            guard history.canDeleteSession(sessionID),
+                  let session = history.timelines[sessionID]?.session ?? history.sessions.first(where: { $0.id == sessionID }) else { return }
+            inputFocused = false; searchFocused = false
+            deleteConfirmation = .init(sessionID: sessionID, revision: session.revision.value, epoch: history.responseEpoch)
+            confirmingDelete = true
+        } label: {
+            Image(systemName: "trash").foregroundStyle(.red)
+        }
+        .disabled(!history.canDeleteSession(sessionID) || history.deletingSessionID != nil)
+        .accessibilityLabel(text("ui.session.history.delete.title"))
+        .accessibilityIdentifier("session-delete-button")
+        .help(text("ui.session.history.delete.title"))
     }
 
     @ViewBuilder private func sessionToolbarActions(proxy: ScrollViewProxy) -> some View {
@@ -1107,6 +1182,8 @@ struct SessionEntryView: View, Equatable {
     var allowsPlaybackActions = false
     var playingActionID: String? = nil
     var artworkModel: DJConnectAppModel? = nil
+    var setPromptAction: (String) -> Void = { _ in }
+    var feedbackAction: (DJConnectAskDJMessage) -> Void = { _ in }
     var playAction: (DJConnectAskDJPlaybackAction) -> Void = { _ in }
     var highlights: [DJConnectHistoryHighlight] = []
     var isSelectedMatch = false
@@ -1124,7 +1201,18 @@ struct SessionEntryView: View, Equatable {
             if entry.requiresSpotifyAttribution == true && spotifyAttributionLogo == nil {
                 Text(text("ui.session.history.unavailable"))
             } else {
-                if entry.kind == .conversationUser || entry.kind == .conversationDJ {
+                if entry.isPublicationReceipt {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(text(entry.kind == .djSilence ? "ui.session.history.silence" : "ui.session.history.contribution_unavailable"),
+                              systemImage: entry.kind == .djSilence ? "speaker.slash" : "text.bubble")
+                            .font(.callout).foregroundStyle(.secondary)
+                        SessionTimestampText(value: entry.occurredAt, language: language)
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .djSessionFrostedSurface(cornerRadius: DJConnectCardAppearance.conversationCornerRadius)
+                } else if entry.kind == .conversationUser || entry.kind == .conversationDJ {
                     AskDJMessageBubble(message: messageAdapter ?? DJConnectAskDJMessage(
                         serverID: entry.originMessageID, clientMessageID: entry.clientMessageID,
                         role: entry.kind == .conversationUser ? .user : .dj,
@@ -1138,7 +1226,8 @@ struct SessionEntryView: View, Equatable {
                             guard ["https", "http"].contains(url.scheme?.lowercased() ?? ""),
                                   url.user == nil, url.password == nil else { return }
                             openURL(url)
-                        }, feedbackAction: { _ in }, setPromptAction: { _ in }, isReadOnly: true, allowsSessionPlaybackActions: allowsPlaybackActions,
+                        }, feedbackAction: feedbackAction, setPromptAction: setPromptAction, isReadOnly: true,
+                        allowsConversationMenu: opensActiveComposer, allowsSessionPlaybackActions: allowsPlaybackActions,
                         serverHighlights: highlights, contextQuestionAction: askAction,
                         contextQuestionSelected: selected, contextQuestionID: "ask-entry-" + entry.id,
                         sharedSpeechActions: artworkModel.map { model in
@@ -1161,7 +1250,7 @@ struct SessionEntryView: View, Equatable {
                         }
                         SessionTimestampText(value: entry.occurredAt, language: language).font(.caption).foregroundStyle(.secondary)
                         ForEach(sourceURLs, id: \.absoluteString) { url in
-                            Link(entry.sourceAttribution?["provider"] ?? url.host ?? "", destination: url)
+                            Link(sourceLabel(for: url), destination: url)
                                 .foregroundStyle(.white)
                                 .tint(.white)
                                 .accessibilityValue(url.absoluteString)
@@ -1254,11 +1343,22 @@ struct SessionEntryView: View, Equatable {
         .help(text(selected ? "ui.session.history.selected_context" : "ui.session.history.ask_entry"))
     }
     private var sourceURLs: [URL] {
-        [entry.playback?.sourceURL, entry.sourceAttribution?["url"], entry.sourceAttribution?["url_previous"]]
+        var seen = Set<URL>()
+        return ([entry.playback?.sourceURL] + sourceAttributions.flatMap { [$0["url"], $0["url_previous"], $0["revision_url"]] })
             .compactMap { raw in
                 guard let raw, let url = URL(string: raw), ["http", "https"].contains(url.scheme), url.user == nil, url.password == nil else { return nil }
-                return url
+                return seen.insert(url).inserted ? url : nil
             }
+    }
+    private var sourceAttributions: [[String: String]] {
+        (entry.sourceAttribution.map { [$0] } ?? []) + (entry.sources ?? [])
+    }
+    private func sourceLabel(for url: URL) -> String {
+        guard let source = sourceAttributions.first(where: { [$0["url"], $0["url_previous"], $0["revision_url"]].contains(url.absoluteString) }) else {
+            return url.host ?? ""
+        }
+        let label = [source["provider"], source["license"]].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+        return source["revision_url"] == url.absoluteString ? label + " · " + text("ui.session.history.source_revision") : label
     }
 }
 
@@ -1403,14 +1503,6 @@ enum SessionArchiveSummary {
         return date.string(from: start) + " – " + length + " (" + time.string(from: start) + " – " + endLabel + ")"
     }
 
-    static func savedNotice(_ session: DJConnectSavedSession, language: String,
-                            timeZone: TimeZone = .current) -> String? {
-        guard session.isContractValid, session.readOnly, session.lifecycleStatus == "ENDED",
-              let start = DJConnectHistoryEntry.date(session.startedAt),
-              let end = DJConnectHistoryEntry.date(session.endedAt), end >= start else { return nil }
-        return String(format: DJConnectLocalization.localized(key: "ui.session.history.saved_notice", language: language),
-                      locale: Locale(identifier: language), text(session, language: language, timeZone: timeZone, compact: true))
-    }
 }
 
 /// Native presentation only: all writes, pending intent and confirmation belong to AppModel.
@@ -1931,7 +2023,8 @@ struct SessionEndToolbarButton: View {
         .accessibilityIdentifier("session-end-button")
         .help(text("ui.session.end"))
         .alert(text("ui.session.end.confirm"), isPresented: $confirming) {
-            Button(text("ui.session.end"), role: .destructive) {
+            Button(text("ui.cancel"), role: .cancel) { requestedSessionID = nil }
+            Button(text("ui.session.end.action"), role: .destructive) {
                 let expectedSessionID = requestedSessionID
                 requestedSessionID = nil
                 Task { @MainActor in
@@ -1940,8 +2033,10 @@ struct SessionEndToolbarButton: View {
                 }
             }
             .accessibilityIdentifier("session-end-confirm")
-            Button(text("ui.cancel"), role: .cancel) { requestedSessionID = nil }
+        } message: {
+            Text(text("ui.session.end.saved_in_profile"))
         }
+        .tint(.white)
         .onChange(of: model.activeDJSession?.id) { _, _ in
             confirming = false
             requestedSessionID = nil
@@ -2248,6 +2343,8 @@ private struct SessionPendingConversationBubble: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject var history: DJConnectSessionHistoryModel
     let turn: DJConnectSessionHistoryModel.PendingTurn
+    let setPromptAction: (String) -> Void
+    let feedbackAction: (DJConnectAskDJMessage) -> Void
     private func text(_ key: String) -> String {
         DJConnectLocalization.localized(key: key, language: model.language)
     }
@@ -2279,7 +2376,8 @@ private struct SessionPendingConversationBubble: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("session-conversation-delivery-status")
-            SessionCurrentConversationBubble(model: model, message: turn.questionMessage(in: model.askDJMessages))
+            SessionCurrentConversationBubble(model: model, message: turn.questionMessage(in: model.askDJMessages),
+                setPromptAction: setPromptAction, feedbackAction: feedbackAction)
         }
     }
 }
@@ -2288,6 +2386,8 @@ private struct SessionPendingConversationBubble: View {
 private struct SessionCurrentConversationBubble: View {
     @ObservedObject var model: DJConnectAppModel
     let message: DJConnectAskDJMessage
+    let setPromptAction: (String) -> Void
+    let feedbackAction: (DJConnectAskDJMessage) -> Void
     @Environment(\.openURL) private var openURL
     var body: some View {
         AskDJMessageBubble(message: message, language: model.language,
@@ -2296,8 +2396,8 @@ private struct SessionCurrentConversationBubble: View {
             currentMood: model.confirmedSessionMoodInt, isSearchResult: false,
             isActiveSearchResult: false, searchText: "", retryAction: {},
             playAction: { model.playAskDJRecommendation($0) }, audioAction: {}, trackInsightAction: {},
-            openLink: { openURL($0.url) }, feedbackAction: { _ in },
-            setPromptAction: { model.askDJDraft = $0 }, isReadOnly: true, allowsSessionPlaybackActions: true,
+            openLink: { openURL($0.url) }, feedbackAction: feedbackAction,
+            setPromptAction: setPromptAction, isReadOnly: true, allowsConversationMenu: true, allowsSessionPlaybackActions: true,
             speechEnabled: model.sharedDJSpeechAllowed,
             sharedSpeechActions: { AnyView(SharedDJSpeechActions(model: model, speech: message.sessionSpeech, acceptedText: message.text)) })
     }
@@ -2323,5 +2423,121 @@ struct SessionSubmittedQuestion: Equatable {
             $0.context.sessionID == sessionID && ($0.localMessageID == localID || (clientID != nil && $0.id == clientID))
         }) { return "pending-" + turn.id }
         return nil
+    }
+}
+
+
+private struct SessionDeleteConfirmation {
+    let sessionID: String
+    let revision: String
+    let epoch: UUID
+}
+
+private struct SessionArchiveDeletionConfirmation: ViewModifier {
+    @ObservedObject var history: DJConnectSessionHistoryModel
+    let language: String
+    @Binding var confirmation: SessionDeleteConfirmation?
+    @Binding var isPresented: Bool
+    @State private var failed = false
+    @State private var presentationGeneration = UUID()
+    @Environment(\.dismiss) private var dismiss
+    private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
+    func body(content: Content) -> some View {
+        content
+            .alert(text("ui.session.history.delete.confirm"), isPresented: $isPresented, presenting: confirmation) { request in
+                Button(text("ui.cancel"), role: .cancel) { confirmation = nil }
+                Button(text("ui.session.history.delete.action"), role: .destructive) {
+                    confirmation = nil
+                    let generation = presentationGeneration
+                    Task { @MainActor in
+                        let deleted = await history.deleteSession(request.sessionID, expectedRevision: request.revision,
+                                                                  expectedEpoch: request.epoch)
+                        guard generation == presentationGeneration else { return }
+                        if deleted { dismiss() }
+                        else if request.epoch == history.responseEpoch { failed = true }
+                    }
+                }
+                .accessibilityIdentifier("session-delete-confirm")
+            } message: { _ in Text(text("ui.session.history.delete.message")) }
+            .alert(text("ui.session.history.delete.failed"), isPresented: $failed) {
+                Button(text("ui.close"), role: .cancel) {}
+            }
+            .tint(.white)
+            .onChange(of: history.responseEpoch) { _, _ in
+                isPresented = false; confirmation = nil; failed = false
+            }
+            .onChange(of: history.archiveResponseEpoch) { _, _ in
+                presentationGeneration = UUID(); isPresented = false; confirmation = nil; failed = false
+            }
+            .onDisappear { presentationGeneration = UUID(); isPresented = false; confirmation = nil }
+    }
+}
+
+/// The list's destructive action captures an authorized server snapshot before confirmation.
+private struct SavedSessionsDeleteAllButton: View {
+    typealias ConfirmedAction = @MainActor () async -> Bool
+    struct PreparedAction {
+        let count: Int
+        let perform: ConfirmedAction
+    }
+    let language: String
+    let isEnabled: Bool
+    let contextEpoch: UUID
+    let archiveEpoch: UUID
+    let prepareDeletion: @MainActor () async -> PreparedAction?
+    @State private var pendingAction: ConfirmedAction?
+    @State private var targetCount = 0
+    @State private var confirming = false
+    @State private var failed = false
+    @State private var working = false
+    @State private var presentationGeneration = UUID()
+    private func text(_ suffix: String) -> String {
+        DJConnectLocalization.localized(key: "ui.session.history.delete_all." + suffix, language: language)
+    }
+    var body: some View {
+        Button(role: .destructive) {
+            working = true
+            let generation = presentationGeneration
+            Task { @MainActor in
+                let action = await prepareDeletion()
+                working = false
+                guard generation == presentationGeneration else { return }
+                guard let action else { failed = true; return }
+                targetCount = action.count
+                pendingAction = action.count > 0 ? action.perform : nil
+                confirming = action.count > 0
+            }
+        } label: {
+            Image(systemName: "trash").foregroundStyle(.red)
+        }
+        .disabled(!isEnabled || working)
+        .accessibilityLabel(text("title"))
+        .accessibilityIdentifier("saved-sessions-delete-all-button")
+        .help(text("title"))
+        .alert(text("confirm"), isPresented: $confirming) {
+            Button(DJConnectLocalization.localized(key: "ui.cancel", language: language), role: .cancel) { pendingAction = nil }
+            Button(text("action"), role: .destructive) {
+                guard let action = pendingAction else { return }
+                pendingAction = nil; working = true
+                let generation = presentationGeneration
+                Task { @MainActor in
+                    let success = await action()
+                    working = false
+                    guard generation == presentationGeneration else { return }
+                    if !success { failed = true }
+                }
+            }
+            .accessibilityIdentifier("saved-sessions-delete-all-confirm")
+        } message: { Text(String(format: text("message"), Int64(targetCount))) }
+        .alert(text("failed"), isPresented: $failed) {
+            Button(DJConnectLocalization.localized(key: "ui.close", language: language), role: .cancel) {}
+        }
+        .tint(.white)
+        .onChange(of: contextEpoch) { _, _ in resetConfirmation() }
+        .onChange(of: archiveEpoch) { _, _ in resetConfirmation() }
+        .onDisappear { resetConfirmation() }
+    }
+    private func resetConfirmation() {
+        presentationGeneration = UUID(); confirming = false; pendingAction = nil; failed = false
     }
 }

@@ -929,7 +929,6 @@
 "ui.session.flow" = "Flujo de sesión";
 "ui.session.queue" = "Cola de reproducción";
 "ui.session.end" = "Finalizar sesión";
-"ui.session.history.saved_notice" = "Sesión « %@ » guardada en Sesiones anteriores";
 "ui.refresh.discover" = "Actualizar Descubrir";
 "ui.discovery.could.not.be.loaded" = "No se pudo cargar Descubrir";
 "ui.no.discovery.recommendations" = "Aun no hay recomendaciones";
@@ -1242,7 +1241,7 @@
 "ui.session.intro.toolbar.title" = "Menús superiores";
 "ui.session.intro.toolbar.body" = "Elige el ambiente, la presencia del DJ y la voz. El icono de conexión muestra su estado.";
 "ui.session.intro.chat.title" = "Habla con el DJ";
-"ui.session.intro.chat.body" = "Haz una pregunta, pide una canción o usa el micrófono para hablar con el DJ.";
+"ui.session.intro.chat.body" = "Haz una pregunta, pide una canción o usa el micrófono para hablar con el DJ. Escribe «help» en la barra de chat y envíalo para saber qué puedes preguntar.";
 "ui.session.intro.artwork.title" = "Controla la portada";
 "ui.session.intro.artwork.body" = "Cuando se reproduzca una canción, usa estos gestos sobre su portada. No hace falta probarlos ahora.";
 "ui.session.intro.gesture.1" = "1×: pausar o reproducir";
@@ -1371,3 +1370,26 @@
 
 "ui.feedback.issue.title" = "Comentarios sobre la app DJConnect";
 "ui.feedback.issue.intro" = "Describe tus comentarios o la función que te gustaría solicitar:";
+
+"ui.session.history.silence" = "Momento de DJ intencionadamente silencioso";
+
+"ui.session.history.contribution_unavailable" = "Esta contribución del DJ ya no está disponible.";
+
+"ui.session.history.source_revision" = "Versión de la fuente";
+
+"ui.session.history.update_required" = "Actualiza DJConnect para ver el historial de esta sesión.";
+
+"ui.session.end.action" = "Finalizar";
+"ui.session.end.saved_in_profile" = "Tu sesión queda guardada en tu perfil. Puedes encontrarla en Sesiones anteriores.";
+
+"ui.session.history.delete.title" = "Eliminar sesión";
+"ui.session.history.delete.confirm" = "¿Eliminar esta sesión?";
+"ui.session.history.delete.message" = "Esta sesión se eliminará permanentemente de tu perfil. Esta acción no se puede deshacer.";
+"ui.session.history.delete.action" = "Eliminar";
+"ui.session.history.delete.failed" = "No se pudo eliminar la sesión. Comprueba la conexión e inténtalo de nuevo.";
+
+"ui.session.history.delete_all.title" = "Eliminar todas las sesiones anteriores";
+"ui.session.history.delete_all.confirm" = "¿Eliminar todas las sesiones anteriores?";
+"ui.session.history.delete_all.message" = "Vas a eliminar permanentemente %lld sesiones anteriores de tu perfil. Tu sesión activa y las sesiones que terminen después se conservarán.";
+"ui.session.history.delete_all.action" = "Eliminar";
+"ui.session.history.delete_all.failed" = "No se pudieron eliminar las sesiones anteriores. Comprueba la conexión e inténtalo de nuevo.";

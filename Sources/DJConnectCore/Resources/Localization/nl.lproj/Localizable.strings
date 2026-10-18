@@ -929,7 +929,6 @@
 "ui.session.flow" = "Sessieverloop";
 "ui.session.queue" = "Afspeelwachtrij";
 "ui.session.end" = "Sessie beëindigen";
-"ui.session.history.saved_notice" = "Sessie '%@' opgeslagen onder Eerdere sessies";
 "ui.refresh.discover" = "Ververs Ontdek";
 "ui.discovery.could.not.be.loaded" = "Ontdek kon niet worden geladen";
 "ui.no.discovery.recommendations" = "Nog geen aanbevelingen";
@@ -1242,7 +1241,7 @@
 "ui.session.intro.toolbar.title" = "Menu’s bovenaan";
 "ui.session.intro.toolbar.body" = "Kies hier je mood, DJ-aanwezigheid en stem. Via het verbindingsicoon bekijk je de status.";
 "ui.session.intro.chat.title" = "Chat met de DJ";
-"ui.session.intro.chat.body" = "Stel een vraag, vraag een nummer aan of gebruik de microfoon om met de DJ te praten.";
+"ui.session.intro.chat.body" = "Stel een vraag, vraag een nummer aan of gebruik de microfoon om met de DJ te praten. Typ ‘help’ in de chatbalk en verstuur het voor uitleg over wat je kunt vragen.";
 "ui.session.intro.artwork.title" = "Bedien de albumhoes";
 "ui.session.intro.artwork.body" = "Zodra er een nummer speelt, bedien je de muziek met deze gebaren op de albumhoes. Je hoeft ze nu niet uit te voeren.";
 "ui.session.intro.gesture.1" = "1×: pauzeren of afspelen";
@@ -1371,3 +1370,26 @@
 
 "ui.feedback.issue.title" = "Feedback over de DJConnect-app";
 "ui.feedback.issue.intro" = "Beschrijf je feedback of je verzoek voor een nieuwe functie:";
+
+"ui.session.history.silence" = "Bewust stil DJ-moment";
+
+"ui.session.history.contribution_unavailable" = "Deze DJ-bijdrage is niet meer beschikbaar.";
+
+"ui.session.history.source_revision" = "Bronversie";
+
+"ui.session.history.update_required" = "Werk DJConnect bij om deze sessiegeschiedenis te bekijken.";
+
+"ui.session.end.action" = "Beëindigen";
+"ui.session.end.saved_in_profile" = "Je sessie blijft bewaard in je profiel. Je vindt deze terug bij Eerdere sessies.";
+
+"ui.session.history.delete.title" = "Sessie verwijderen";
+"ui.session.history.delete.confirm" = "Deze sessie verwijderen?";
+"ui.session.history.delete.message" = "Deze sessie wordt definitief uit je profiel verwijderd. Dit kun je niet ongedaan maken.";
+"ui.session.history.delete.action" = "Verwijderen";
+"ui.session.history.delete.failed" = "De sessie kon niet worden verwijderd. Controleer de verbinding en probeer opnieuw.";
+
+"ui.session.history.delete_all.title" = "Alle eerdere sessies verwijderen";
+"ui.session.history.delete_all.confirm" = "Alle eerdere sessies verwijderen?";
+"ui.session.history.delete_all.message" = "Je verwijdert %lld eerdere sessies definitief uit je profiel. Je actieve sessie en later afgesloten sessies blijven behouden.";
+"ui.session.history.delete_all.action" = "Verwijderen";
+"ui.session.history.delete_all.failed" = "De eerdere sessies konden niet worden verwijderd. Controleer de verbinding en probeer opnieuw.";

@@ -909,8 +909,8 @@ public struct DJConnectRootView: View {
                         ToolbarSpacer(.fixed, placement: .navigation)
                     }
                 }
-                .tint(Color(red: 0.74, green: 0.22, blue: 0.96))
-                .accentColor(Color(red: 0.74, green: 0.22, blue: 0.96))
+                .tint(.white)
+                .accentColor(.white)
                 #else
                 GeometryReader { proxy in
                     Group {
@@ -959,6 +959,8 @@ public struct DJConnectRootView: View {
             }
             #endif
         }
+        .tint(.white)
+        .accentColor(.white)
         .environment(\.sessionIntroductionAnchors, introductionAnchors)
         .accessibilityHidden(model.isSessionIntroductionPresented)
         .overlay {
@@ -1209,8 +1211,8 @@ public struct DJConnectRootView: View {
                 .tag(DJConnectSection.more)
         }
         .tabViewStyle(.tabBarOnly)
-        .tint(djConnectAccent)
-        .accentColor(djConnectAccent)
+        .tint(.white)
+        .accentColor(.white)
         .environment(\.symbolVariants, .none)
     }
 
@@ -1329,13 +1331,13 @@ public struct DJConnectRootView: View {
         switch sheet {
         case .updateRequired:
             UpdateRequiredView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
+                .tint(.white)
+                .accentColor(.white)
                 .interactiveDismissDisabled(true)
         case .pairing:
             PairingSheetView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
+                .tint(.white)
+                .accentColor(.white)
                 .interactiveDismissDisabled(true)
                 #if os(iOS)
                 .presentationDetents([.large])
@@ -1346,8 +1348,8 @@ public struct DJConnectRootView: View {
                 }
         case .welcome:
             WelcomeView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
+                .tint(.white)
+                .accentColor(.white)
                 #if os(iOS)
                 .presentationDetents([.large])
                 .presentationSizing(.page)
@@ -1357,28 +1359,28 @@ public struct DJConnectRootView: View {
                 }
         case .crashReportPrompt:
             CrashReportPromptView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
+                .tint(.white)
+                .accentColor(.white)
         case .whatsNew:
             WhatsNewView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
+                .tint(.white)
+                .accentColor(.white)
         case .wakeWordActivationPrompt:
             WakeWordActivationPromptView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
+                .tint(.white)
+                .accentColor(.white)
         case .feedback:
             FeedbackPromptView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
+                .tint(.white)
+                .accentColor(.white)
         case .vibeCastSessionStart:
             VibeCastSessionStartDialog(model: model)
         case .permissionExplanation:
             PermissionExplanationView(model: model)
         case .musicDNAOptIn:
             MusicDNAOptInPromptView(model: model)
-                .tint(djConnectAccent)
-                .accentColor(djConnectAccent)
+                .tint(.white)
+                .accentColor(.white)
                 #if os(iOS)
                 .presentationDetents([.large])
                 .presentationSizing(.page)
@@ -9240,7 +9242,7 @@ private struct IdleSessionProfileChoices: View {
                 steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
                 selectedIndex: moods.firstIndex(of: model.selectedSessionMood) ?? -1,
                 language: model.language,
-                glyphs: moods.map { ["chill": "moon.stars", "groove": "waveform", "energy": "bolt", "party": "sparkles"][$0]! },
+                glyphs: moods.map { ["chill": "moon.stars", "groove": "waveform", "energy": "bolt", "party": askDJMoodIcon(for: 3)][$0]! },
                 optionIDs: moods.map { "session-welcome-mood-" + $0 },
                 preservesAppearanceWhileDisabled: true,
                 selectedLabelIdentifier: "session-welcome-selected-mood"
@@ -9404,8 +9406,8 @@ struct VibeCastSessionStartDialog: View {
             dialogContent
             #endif
         }
-        .tint(djConnectAccent)
-        .accentColor(djConnectAccent)
+        .tint(.white)
+        .accentColor(.white)
         .interactiveDismissDisabled(true)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("vibecast-session-start-dialog")
@@ -11891,6 +11893,7 @@ struct AskDJMessageBubble: View {
     let feedbackAction: (DJConnectAskDJMessage) -> Void
     let setPromptAction: (String) -> Void
     var isReadOnly = false
+    var allowsConversationMenu = false
     var allowsSessionPlaybackActions = false
     var serverHighlights: [DJConnectHistoryHighlight]? = nil
     var historicalMatches: [DJConnectHistoryEntry] = []
@@ -11908,23 +11911,34 @@ struct AskDJMessageBubble: View {
         }
         .padding(.trailing, contextQuestionAction != nil && !renderablePlaybackActions.isEmpty ? 36 : 0)
         .contextMenu {
-            if !isReadOnly && canSetPrompt && !isStaleHistory {
+            if (!isReadOnly || allowsConversationMenu) && canSetPrompt && !isStaleHistory {
                 Button {
                     DJConnectHaptics.selection()
                     setPromptAction(promptText)
                 } label: {
-                    Label(localizedKey(language, "ui.set.in.prompt"), systemImage: "text.cursor")
+                    Label {
+                        Text(localizedKey(language, "ui.set.in.prompt"))
+                    } icon: {
+                        Image(systemName: "text.cursor").renderingMode(.original).foregroundStyle(.white)
+                    }
                 }
+                .tint(.white)
             }
             if canReportFeedback {
                 Button {
                     DJConnectHaptics.selection()
                     feedbackAction(message)
                 } label: {
-                    Label(localizedKey(language, "ui.report.answer"), systemImage: "exclamationmark.bubble")
+                    Label {
+                        Text(localizedKey(language, "ui.report.answer"))
+                    } icon: {
+                        Image(systemName: "exclamationmark.bubble").renderingMode(.original).foregroundStyle(.white)
+                    }
                 }
+                .tint(.white)
             }
         }
+        .tint(.white)
     }
 
     private var isUser: Bool {
@@ -11954,7 +11968,7 @@ struct AskDJMessageBubble: View {
     }
 
     private var canReportFeedback: Bool {
-        !isReadOnly && !isUser && !isSystemMessage && !isStaleHistory
+        (!isReadOnly || allowsConversationMenu) && !isUser && !isSystemMessage && !isStaleHistory
     }
 
     private var shouldShowGeneratedTextIcon: Bool {
@@ -12227,19 +12241,6 @@ struct AskDJMessageBubble: View {
                         .djConnectPlainButtonStyle()
                         .foregroundStyle(.white.opacity(0.82))
                         .disabled(isRetryDisabled)
-                    }
-                    if canReportFeedback {
-                        Button {
-                            DJConnectHaptics.selection()
-                            feedbackAction(message)
-                        } label: {
-                            Label(localizedKey(language, "ui.feedback"), systemImage: "exclamationmark.bubble")
-                                .font(.caption2.weight(.semibold))
-                        }
-                        .djConnectPlainButtonStyle()
-                        .foregroundStyle(.white.opacity(0.58))
-                        .help(localizedKey(language, "ui.report.this.ask.dj.answer"))
-                        .accessibilityLabel(localizedKey(language, "ui.report.this.ask.dj.answer"))
                     }
                 }
                 .padding(.horizontal, 6)
@@ -13380,7 +13381,7 @@ struct SessionGlassChoiceSelector: View {
     let steps: [(label: String, value: Int)]
     let selectedIndex: Int
     let language: String
-    var glyphs = ["moon.stars", "waveform", "bolt", "sparkles"]
+    var glyphs = ["moon.stars", "waveform", "bolt", askDJMoodIcon(for: 3)]
     var titleKey = "ui.session.welcome.mood"
     var accessibilityLabelKey = "ui.session.select_mood"
     var optionIDs: [String]? = nil
@@ -17219,19 +17220,19 @@ struct SettingsView: View {
                                 model.setWakeWordEnabled(false)
                             } label: {
                                 Text(localizedKey(model.language, "ui.disable.voice.activation"))
-                                    .foregroundStyle(djConnectAccent)
+                                    .foregroundStyle(.white)
                             }
-                            .foregroundStyle(djConnectAccent)
-                            .tint(djConnectAccent)
+                            .foregroundStyle(.white)
+                            .tint(.white)
                         } else {
                             Button {
                                 model.setWakeWordEnabled(true)
                             } label: {
                                 Text(localizedKey(model.language, "ui.enable.voice.activation.321a28"))
-                                    .foregroundStyle(djConnectAccent)
+                                    .foregroundStyle(.white)
                             }
-                            .foregroundStyle(djConnectAccent)
-                            .tint(djConnectAccent)
+                            .foregroundStyle(.white)
+                            .tint(.white)
                         }
                     }
                     .djMusicDNASettingsListRow()
@@ -17268,10 +17269,10 @@ struct SettingsView: View {
                             prepareAskDJHistoryExport()
                         } label: {
                             Text(localizedKey(model.language, "ui.export"))
-                                .foregroundStyle(djConnectAccent)
+                                .foregroundStyle(.white)
                         }
-                        .foregroundStyle(djConnectAccent)
-                        .tint(djConnectAccent)
+                        .foregroundStyle(.white)
+                        .tint(.white)
                         .disabled(!canUseAskDJHistoryExport)
                     }
                     .djCompactSettingsListRow()
@@ -17300,10 +17301,10 @@ struct SettingsView: View {
                                 model.showMusicDNAOptInPrompt()
                             } label: {
                                 Text(localizedKey(model.language, "ui.turn.on"))
-                                    .foregroundStyle(djConnectAccent)
+                                    .foregroundStyle(.white)
                             }
-                            .foregroundStyle(djConnectAccent)
-                            .tint(djConnectAccent)
+                            .foregroundStyle(.white)
+                            .tint(.white)
                             .disabled(model.isUpdatingMusicDNA || (!model.isDemoMode && model.pairingStatus != .paired))
                         }
                     }
@@ -17326,10 +17327,10 @@ struct SettingsView: View {
                             prepareMusicDNAExport()
                         } label: {
                             Text(localizedKey(model.language, "ui.export"))
-                                .foregroundStyle(djConnectAccent)
+                                .foregroundStyle(.white)
                         }
-                        .foregroundStyle(djConnectAccent)
-                        .tint(djConnectAccent)
+                        .foregroundStyle(.white)
+                        .tint(.white)
                         .disabled(!canUseMusicDNAExport)
                     }
                     .djMusicDNASettingsListRow()
@@ -17339,10 +17340,10 @@ struct SettingsView: View {
                             presentMusicDNAFileImporter()
                         } label: {
                             Text(localizedKey(model.language, "ui.import"))
-                                .foregroundStyle(djConnectAccent)
+                                .foregroundStyle(.white)
                         }
-                        .foregroundStyle(djConnectAccent)
-                        .tint(djConnectAccent)
+                        .foregroundStyle(.white)
+                        .tint(.white)
                         .disabled(!canUseMusicDNAImport)
                     }
                     .djMusicDNASettingsListRow()
@@ -17380,17 +17381,17 @@ struct SettingsView: View {
                         } label: {
                             if model.isRequestingPermissions {
                                 ProgressView()
-                                    .tint(djConnectAccent)
+                                    .tint(.white)
                             } else {
                                 Label(
                                     localizedKey(model.language, "ui.request.permissions"),
                                     systemImage: "checkmark.shield"
                                 )
-                                .foregroundStyle(djConnectAccent)
+                                .foregroundStyle(.white)
                             }
                         }
-                        .foregroundStyle(djConnectAccent)
-                        .tint(djConnectAccent)
+                        .foregroundStyle(.white)
+                        .tint(.white)
                         .disabled(model.isRequestingPermissions)
                         .djCompactSettingsListRow()
                     }
@@ -17678,9 +17679,11 @@ private struct LogsView: View {
                     model.clearDiagnosticLog()
                 }
                 Button(localizedKey(model.language, "ui.cancel"), role: .cancel) {}
+                    .tint(.white)
             } message: {
                 Text(localizedKey(model.language, "ui.this.removes.the.visible.and.persisted.diagnostic.logs"))
             }
+            .tint(.white)
             .background {
                 Button("") {
                     showLogSearch()
@@ -18196,7 +18199,7 @@ private struct PrivacyView: View {
     }
 }
 
-private struct AskDJFeedbackPromptView: View {
+struct AskDJFeedbackPromptView: View {
     @ObservedObject var model: DJConnectAppModel
     let message: DJConnectAskDJMessage
     @Environment(\.dismiss) private var dismiss
@@ -18607,8 +18610,8 @@ private struct CopyableValue: View {
                 }
             }
             .buttonStyle(.borderless)
-            .tint(djConnectAccent)
-            .foregroundStyle(djConnectAccent)
+            .tint(.white)
+            .foregroundStyle(.white)
             .help(copyLabel)
             .accessibilityLabel(copyLabel)
         }

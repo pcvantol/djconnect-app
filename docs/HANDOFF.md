@@ -1,3 +1,71 @@
+## 2026-10-18 — Saved-session deletion consumer and pending UI follow-ups
+
+Single and bulk manual archive deletion are implemented as capability-gated Apple
+consumers of the existing Core writer's selected contracts. Bulk uses an owner-bound
+five-minute server snapshot and exact count before confirmation, then one fresh
+UUIDv7 mutation. Search and red trash share the list's leading toolbar group.
+Empty snapshots never offer a destructive action. Active Flow/ownerepoch/live
+speech leases survive; archive-only invalidation fences stale reads and returns
+archive navigation to the refreshed list. No personal data was deleted for testing.
+
+Full Swift suite: **834 tests /10 suites PASS91.717s**; focused deletion/toast
+qualification **8 tests /43 cases PASS**; localizations **1302 keys/five languages
+PASS**; work-register/diff validation PASS. Seventy tracked product/test inputs
+match the private compiled source stage. Evidence and limits:
+[manual deletion qualification](feedback/APPLE_SAVED_SESSION_DELETION_20261018.md).
+Core producer implementation/fixtures/exact qualified pin, native visual acceptance
+and installed enablement remain pending. Both deletion topics remain PARTIAL;
+missing capabilities keep the actions hidden. Ordinary build40335 now includes these follow-ups and is installed/read back on
+iPad, MacBook and Mac mini. Deletion remains hidden without producer capabilities;
+installed enablement and protected delivery are not claimed. iPhone/Watch remain
+on their last confirmed40331 because they are unavailable. The local native UI runner timed out enabling automation mode before screen
+actions; own processes were stopped without repeating the failed run. Native
+visual acceptance remains open; USB scroll profiling stays owner-deferred.
+
+Other pending UI follow-ups in this same preserved WIP: help-command onboarding
+hint, consistent party icon, white native action tint, session-artwork separated
+from clock-driven rendering, shorter session-end actions/profile-retention message,
+and removal of its duplicate saved toast/extra archive lookup. Swift compilation
+and regressions passed; visual transition/confirmation/device proof is separate.
+Profiling was explicitly deferred by the owner; do not resume measurements silently.
+
+## 2026-10-18 — HTTP200 history decode repair / ordinary40334
+
+Existing Core writer confirmed the live closed-decoder mismatch; new metadata
+narration rejected the whole200page on40331. Four explicit bases/six kinds,
+source-free withdrawn/silent receipts and capability-negotiated historyv2 now
+supported. Same-identity withdrawal, version/cursor boundaries and typed upgrade
+without pairing loss are covered. Full828tests/10suites PASS91.278s. Physical
+iPad15→18entries and MacBook12entries read/reopen PASS/no duplicates; iPad
+stop/start/archive/resume PASS. Mac mini live check SKIP/unpaired. Ordinary40334
+installed/read back/launched on allthree named targets, strict signatures and
+zero test bundles. All161build-source hashes match. Core's minimal history-only
+HA-devartifact77861070… installed199/199match; independent archive hash and
+capability2/v1typed409/v2schema2HTTP200 readback PASS. After restart, iPadv2
+lifecycle PASS; final iPad+MacBook both3entries/one new narration/reopen/no
+duplicates PASS. Ordinary apps restored/launched, new Session left active.
+No protected source-main/production, old404, Watch/iPhone, audible TTS or
+USB-performance closure.
+[Repair and evidence boundaries](feedback/APPLE_SESSION_HISTORY_REPAIR_40334_20261018.md).
+
+## 2026-10-18 — Ask DJ context menus /40332 local candidate
+
+Followup on main7af44f7, branch `codex/ask-dj-session-context-menu`.
+Ask DJ prompt/report menu icons explicitly use white native menu tint. Active
+Session conversation questions and answers now reuse the same menu and report
+sheet, including pending questions/current-only answers and retained rows.
+Questions offer prompt reuse; assistant answers also offer reporting. Archived
+Sessions stay readonly; retained actions check response epoch and retention.
+Signed iOS (including Watch dependency) and macOS40332 builds PASS. Native
+iPhone simulator test `testSessionConversationContextMenuReusesPromptAndReportsAnswer`
+PASS; final menu screenshot visually confirms both white icons. Localization
+validation1287keys PASS; diff whitespace check PASS. Initial native attempts
+exposed lazy-row test navigation and an unreliable software-keyboard visibility
+assertion; final test scrolls to the row and checks the draft/send availability.
+No physical installation or physical keyboard-focus acceptance claimed. Devices
+remain40331. Private test evidence: MacBook `/private/tmp/djc-context-menu-40332-white.xcresult`;
+local screenshot `/private/tmp/djc-context-menu-40332-white-menu.png`.
+
 ## 2026-10-18 — All devices40331; formal source proof PASS
 
 iPhone/iPad/Watch/MacBook/Mac mini40331 actual installed versions and launch/

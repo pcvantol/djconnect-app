@@ -1,5 +1,9 @@
 import Foundation
 
+public struct DJConnectSessionHistoryUpgradeRequired: Error, Equatable, Sendable {
+    public init() {}
+}
+
 /// Temporary owner projections from Core's versioned history contract.
 /// These models grant no local archival storage or playback authority.
 public struct DJConnectHistoryRevision: Codable, Equatable, Sendable {
@@ -112,6 +116,7 @@ public struct DJConnectHistoryHighlight: Codable, Equatable, Sendable {
 public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable {
     public enum Kind: String, Codable, Sendable {
         case playbackObserved = "playback_observed", djMoment = "dj_moment"
+        case djPublication = "dj_publication", djSilence = "dj_silence"
         case conversationUser = "conversation_user", conversationDJ = "conversation_dj"
     }
     public let entryID: String
@@ -134,6 +139,10 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
     public var summary: String?
     public var archiveBasis: String?
     public var sourceAttribution: [String: String]?
+    public var sources: [[String: String]]?
+    public var contentState: String?
+    public var unavailableReason: String?
+    public var speechAvailable: Bool?
     public var historicalViewOnly: Bool?
     public var currentDisplayAllowed: Bool?
     public var requiresSpotifyAttribution: Bool?
@@ -149,6 +158,7 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
     public var highlights: [DJConnectHistoryHighlight]?
     public var id: String { entryID }
     public var reference: DJConnectSessionEntryReference { .init(sessionID: sessionID, entryID: entryID) }
+    public var isPublicationReceipt: Bool { kind == .djPublication || kind == .djSilence }
     public var isContractValid: Bool {
         guard historicalViewOnly == true, currentDisplayAllowed == false,
               !entryID.isEmpty, !sessionID.isEmpty, order > 0,
@@ -164,11 +174,22 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
             }
             return true
         case .djMoment:
-            return ["cc0_normalized_fields_v1", "runtime_authored_direction_v1"].contains(archiveBasis ?? "") && text?.isEmpty == false
+            // These are Core-qualified records of an accepted publication.
+            // Recognizing a history basis grants no live, shared or speech authority.
+            return ["cc0_normalized_fields_v1", "runtime_authored_direction_v1",
+                    "owner_metadata_narration_v1", "public_artist_narration_v1"]
+                .contains(archiveBasis ?? "") && text?.isEmpty == false
         case .conversationUser, .conversationDJ:
             return turnID?.isEmpty == false && originMessageID?.isEmpty == false && clientMessageID?.isEmpty == false &&
                 ["text", "voice"].contains(inputType ?? "") && context?.sessionID == sessionID &&
                 role == (kind == .conversationUser ? "user" : "assistant")
+        case .djPublication, .djSilence:
+            guard momentID?.isEmpty == false, text == nil, speechAvailable == false,
+                  playback == nil, sourceAttribution?.isEmpty != false, sources?.isEmpty != false,
+                  sessionSpeech == nil, sessionMedia == nil else { return false }
+            return kind == .djSilence
+                ? contentState == "silence" && momentType == "silence"
+                : contentState == "unavailable" && unavailableReason?.isEmpty == false
         }
     }
     public func isRetained(at date: Date = Date()) -> Bool {
@@ -187,6 +208,7 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
         case text, playback, turnID = "turn_id", clientMessageID = "client_message_id", originMessageID = "origin_message_id"
         case role, inputType = "input_type", context, momentID = "moment_id", momentType = "moment_type", persona, summary
         case archiveBasis = "archive_basis", sourceAttribution = "source_attribution"
+        case sources, contentState = "content_state", unavailableReason = "unavailable_reason", speechAvailable = "speech_available"
         case requiresSpotifyAttribution = "requires_spotify_attribution", openAction = "open_action", highlights
     }
     public func encode(to encoder: Encoder) throws {
@@ -211,6 +233,10 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
         try c.encodeIfPresent(summary, forKey: .summary)
         try c.encodeIfPresent(archiveBasis, forKey: .archiveBasis)
         try c.encodeIfPresent(sourceAttribution, forKey: .sourceAttribution)
+        try c.encodeIfPresent(sources, forKey: .sources)
+        try c.encodeIfPresent(contentState, forKey: .contentState)
+        try c.encodeIfPresent(unavailableReason, forKey: .unavailableReason)
+        try c.encodeIfPresent(speechAvailable, forKey: .speechAvailable)
         try c.encodeIfPresent(historicalViewOnly, forKey: .historicalViewOnly)
         try c.encodeIfPresent(currentDisplayAllowed, forKey: .currentDisplayAllowed)
         try c.encodeIfPresent(requiresSpotifyAttribution, forKey: .requiresSpotifyAttribution)
@@ -224,16 +250,18 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
 public struct DJConnectSessionHistoryPage: Decodable, Equatable, Sendable {
     public let success: Bool
     public let schemaVersion: Int
+    public let historyContractVersion: Int?
     public let sessions: [DJConnectSavedSession]
     public let revision: DJConnectHistoryRevision
     public let nextCursor: String?
     public let retentionDays: Int
-    enum CodingKeys: String, CodingKey { case success, sessions, revision; case schemaVersion = "schema_version", nextCursor = "next_cursor", retentionDays = "retention_days" }
+    enum CodingKeys: String, CodingKey { case success, sessions, revision; case historyContractVersion = "history_contract_version", schemaVersion = "schema_version", nextCursor = "next_cursor", retentionDays = "retention_days" }
 }
 
 public struct DJConnectSessionTimelinePage: Decodable, Equatable, Sendable {
     public let success: Bool
     public let schemaVersion: Int
+    public let historyContractVersion: Int?
     public let session: DJConnectSavedSession
     public let entries: [DJConnectHistoryEntry]
     public let revision: DJConnectHistoryRevision
@@ -246,6 +274,7 @@ public struct DJConnectSessionTimelinePage: Decodable, Equatable, Sendable {
     public let scanComplete: Bool?
     enum CodingKeys: String, CodingKey {
         case success, session, entries, revision, window
+        case historyContractVersion = "history_contract_version"
         case schemaVersion = "schema_version", nextCursor = "next_cursor", anchorEntryID = "anchor_entry_id"
         case windowLimit = "window_limit", scannedOrderMin = "scanned_order_min", scannedOrderMax = "scanned_order_max", scanComplete = "scan_complete"
     }
@@ -256,6 +285,7 @@ public enum DJConnectHistoryWindow: String, Sendable { case tail, anchor }
 public struct DJConnectSessionSearchPage: Decodable, Equatable, Sendable {
     public let success: Bool
     public let schemaVersion: Int
+    public let historyContractVersion: Int?
     public let sessionID: String
     public let query: String
     public let revision: DJConnectHistoryRevision
@@ -268,6 +298,7 @@ public struct DJConnectSessionSearchPage: Decodable, Equatable, Sendable {
     public let highlightUnits: String
     enum CodingKeys: String, CodingKey {
         case success, query, revision, matches, complete, normalization
+        case historyContractVersion = "history_contract_version"
         case schemaVersion = "schema_version", sessionID = "session_id", returnedCount = "returned_count"
         case totalCount = "total_count", nextCursor = "next_cursor", highlightUnits = "highlight_units"
     }
@@ -276,12 +307,14 @@ public struct DJConnectSessionSearchPage: Decodable, Equatable, Sendable {
 public struct DJConnectSessionOpenResponse: Decodable, Equatable, Sendable {
     public let success: Bool
     public let schemaVersion: Int
+    public let historyContractVersion: Int?
     public let session: DJConnectSavedSession
     public let entry: DJConnectHistoryEntry
     public let readOnly: Bool
     public let navigationOnly: Bool
     enum CodingKeys: String, CodingKey {
         case success, session, entry, schemaVersion = "schema_version", readOnly = "read_only", navigationOnly = "navigation_only"
+        case historyContractVersion = "history_contract_version"
     }
 }
 
@@ -333,6 +366,13 @@ public struct DJConnectProfileConversationHistory: Decodable, Sendable {
 public struct DJConnectSessionHistoryCapabilities: Decodable, Sendable {
     public let capabilities: [String: Bool]?
     public let contractVersions: [String: Int]?
+    public var historyContractVersion: Int { contractVersions?["session_history_entries"] == 2 ? 2 : 1 }
+    public var bulkDeletionAvailable: Bool {
+        available && capabilities?["session_history_bulk_delete"] == true && contractVersions?["session_history_bulk_delete"] == 1
+    }
+    public var deletionAvailable: Bool {
+        available && capabilities?["session_history_delete"] == true && contractVersions?["session_history_delete"] == 1
+    }
     public var artworkAvailable: Bool {
         capabilities?["session_artwork"] == true && contractVersions?["session_artwork"] == 1
     }
@@ -346,6 +386,36 @@ public struct DJConnectSessionHistoryCapabilities: Decodable, Sendable {
         available && capabilities?["session_flow_text_search"] == true && contractVersions?["session_flow_text_search"] == 1
     }
     enum CodingKeys: String, CodingKey { case capabilities, contractVersions = "contract_versions" }
+}
+
+public struct DJConnectSessionDeleteRequest: Sendable {
+    public let sessionID: String
+    public let expectedRevision: String
+    public let operationID: String
+    public init(sessionID: String, expectedRevision: String,
+                operationID: String = DJConnectOperationIdentity.uuidV7(milliseconds: Int(Date().timeIntervalSince1970 * 1000))) {
+        self.sessionID = sessionID; self.expectedRevision = expectedRevision; self.operationID = operationID
+    }
+    public var isValid: Bool {
+        !sessionID.isEmpty && sessionID.count <= 512 && !expectedRevision.isEmpty && historyDeletionOperationIsValid(operationID)
+    }
+}
+
+public struct DJConnectSessionDeleteResponse: Decodable, Sendable {
+    public let success: Bool
+    public let schemaVersion: Int
+    public let operationID: String
+    public let ownerProfileID: String
+    public let deletedSessionID: String
+    public let deleted: Bool
+    enum CodingKeys: String, CodingKey {
+        case success, deleted, schemaVersion = "schema_version", operationID = "operation_id"
+        case ownerProfileID = "owner_profile_id", deletedSessionID = "deleted_session_id"
+    }
+    public func admits(_ request: DJConnectSessionDeleteRequest, owner: String) -> Bool {
+        request.isValid && success && schemaVersion == 1 && deleted && !owner.isEmpty && ownerProfileID == owner
+            && operationID == request.operationID && deletedSessionID == request.sessionID
+    }
 }
 
 /// Reuses parsers and bounded immutable timestamp results, never retention decisions.
@@ -366,4 +436,49 @@ private final class SessionHistoryDateParser: @unchecked Sendable {
         if text.utf8.count <= 128 { dates.setObject(date as NSDate, forKey: text as NSString) }
         return date
     }
+}
+
+public struct DJConnectSessionDeleteSnapshot: Decodable, Sendable {
+    public let success: Bool
+    public let schemaVersion: Int
+    public let ownerProfileID: String
+    public let snapshotID: String
+    public let targetCount: Int
+    public let createdAt: String
+    public let expiresAt: String
+    enum CodingKeys: String, CodingKey {
+        case success, schemaVersion = "schema_version", ownerProfileID = "owner_profile_id", snapshotID = "snapshot_id"
+        case targetCount = "target_count", createdAt = "created_at", expiresAt = "expires_at"
+    }
+    public func admits(owner: String, at now: Date = Date()) -> Bool {
+        guard success, schemaVersion == 1, !owner.isEmpty, ownerProfileID == owner,
+              !snapshotID.isEmpty, targetCount >= 0,
+              let created = DJConnectHistoryEntry.date(createdAt), let expires = DJConnectHistoryEntry.date(expiresAt) else { return false }
+        return created <= now.addingTimeInterval(30) && expires > now && expires > created && expires.timeIntervalSince(created) <= 300
+    }
+}
+
+public struct DJConnectSessionBulkDeleteResponse: Decodable, Sendable {
+    public let success: Bool
+    public let schemaVersion: Int
+    public let operationID: String
+    public let ownerProfileID: String
+    public let snapshotID: String
+    public let deleted: Bool
+    public let deletedSessionCount: Int
+    enum CodingKeys: String, CodingKey {
+        case success, deleted, schemaVersion = "schema_version", operationID = "operation_id"
+        case ownerProfileID = "owner_profile_id", snapshotID = "snapshot_id", deletedSessionCount = "deleted_session_count"
+    }
+    public func admits(snapshot: DJConnectSessionDeleteSnapshot, operationID: String, owner: String) -> Bool {
+        success && schemaVersion == 1 && deleted && !owner.isEmpty && ownerProfileID == owner
+            && snapshot.ownerProfileID == owner && self.operationID == operationID
+            && snapshotID == snapshot.snapshotID && snapshot.targetCount > 0 && deletedSessionCount == snapshot.targetCount
+    }
+}
+
+func historyDeletionOperationIsValid(_ operationID: String) -> Bool {
+    guard let uuid = UUID(uuidString: operationID) else { return false }
+    let characters = Array(uuid.uuidString)
+    return characters[14] == "7" && ["8", "9", "A", "B"].contains(String(characters[19]))
 }

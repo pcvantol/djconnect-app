@@ -929,7 +929,6 @@
 "ui.session.flow" = "Session Flow";
 "ui.session.queue" = "Playback Queue";
 "ui.session.end" = "End Session";
-"ui.session.history.saved_notice" = "Session '%@' saved under Earlier sessions";
 "ui.refresh.discover" = "Refresh Discover";
 "ui.discovery.could.not.be.loaded" = "Discover could not be loaded";
 "ui.no.discovery.recommendations" = "No recommendations yet";
@@ -1242,7 +1241,7 @@
 "ui.session.intro.toolbar.title" = "Menus at the top";
 "ui.session.intro.toolbar.body" = "Choose your mood, DJ presence and voice here. The connection icon shows your connection status.";
 "ui.session.intro.chat.title" = "Chat with the DJ";
-"ui.session.intro.chat.body" = "Ask a question, request a song or use the microphone to talk to the DJ.";
+"ui.session.intro.chat.body" = "Ask a question, request a song or use the microphone to talk to the DJ. Type ‘help’ in the chat bar and send it for guidance on what you can ask.";
 "ui.session.intro.artwork.title" = "Control the album cover";
 "ui.session.intro.artwork.body" = "When a song is playing, use these gestures on its album cover. You do not need to try them now.";
 "ui.session.intro.gesture.1" = "1×: pause or play";
@@ -1371,3 +1370,26 @@
 
 "ui.feedback.issue.title" = "DJConnect app feedback";
 "ui.feedback.issue.intro" = "Please describe your feedback or feature request:";
+
+"ui.session.history.silence" = "Intentional silent DJ moment";
+
+"ui.session.history.contribution_unavailable" = "This DJ contribution is no longer available.";
+
+"ui.session.history.source_revision" = "Source revision";
+
+"ui.session.history.update_required" = "Update DJConnect to view this session history.";
+
+"ui.session.end.action" = "End";
+"ui.session.end.saved_in_profile" = "Your session stays saved in your profile. You can find it under Previous sessions.";
+
+"ui.session.history.delete.title" = "Delete session";
+"ui.session.history.delete.confirm" = "Delete this session?";
+"ui.session.history.delete.message" = "This session will be permanently deleted from your profile. This cannot be undone.";
+"ui.session.history.delete.action" = "Delete";
+"ui.session.history.delete.failed" = "The session could not be deleted. Check your connection and try again.";
+
+"ui.session.history.delete_all.title" = "Delete all previous sessions";
+"ui.session.history.delete_all.confirm" = "Delete all previous sessions?";
+"ui.session.history.delete_all.message" = "You are permanently deleting %lld previous sessions from your profile. Your active session and sessions that end later will be kept.";
+"ui.session.history.delete_all.action" = "Delete";
+"ui.session.history.delete_all.failed" = "The previous sessions could not be deleted. Check your connection and try again.";
