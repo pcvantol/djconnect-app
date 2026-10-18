@@ -4215,7 +4215,7 @@ struct TrackInsightView: View {
                             .frame(maxWidth: .infinity, alignment: .top)
                         }
                         #if os(iOS)
-                        .refreshable {
+                        .djContentRefreshable(enabled: insight != nil) {
                             await refreshTrackInsightWithToast()
                         }
                         #endif
@@ -4507,7 +4507,7 @@ private struct MusicDNAView: View {
                     }
                 }
                 #if os(iOS)
-                .refreshable {
+                .djContentRefreshable(enabled: model.musicDNAProfileResponse.map { $0.enabled && !$0.profile.isEmpty } ?? false) {
                     #if DEBUG
                     guard !model.isMusicDNAPreviewMode else { return }
                     #endif
@@ -6447,7 +6447,7 @@ private struct MusicDiscoveryView: View {
                         .frame(maxWidth: .infinity, alignment: .top)
                     }
                     #if os(iOS)
-                    .refreshable { await refreshMusicDiscoveryWithToast() }
+                    .djContentRefreshable(enabled: !shouldShowMusicDNALockedState && !visibleSections.isEmpty) { await refreshMusicDiscoveryWithToast() }
                     #endif
                 }
             }
@@ -11264,7 +11264,7 @@ private struct AskDJView: View {
                                 isAskDJAtTop = isAtTop
                                 if isAtTop { isAskDJScrollToTopButtonSuppressed = false }
                             }
-                            .refreshable {
+                            .djContentRefreshable(enabled: !model.askDJMessages.isEmpty) {
                                 dismissAskDJKeyboard()
                                 if !model.isDemoMode {
                                     await model.refreshAskDJHistory(showToast: true)
@@ -18779,5 +18779,17 @@ private struct PushRegistrationDetailsView: View {
         }
         .padding(20).frame(idealWidth: 360, maxWidth: 420)
         .accessibilityIdentifier("push-registration-details")
+    }
+}
+
+private extension View {
+    /// Omit the native refresh action entirely for empty feature screens.
+    @ViewBuilder
+    func djContentRefreshable(enabled: Bool, action: @escaping @MainActor @Sendable () async -> Void) -> some View {
+        if enabled {
+            refreshable(action: action)
+        } else {
+            self
+        }
     }
 }
