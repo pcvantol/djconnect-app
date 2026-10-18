@@ -1,0 +1,10 @@
+{
+  "candidate_sha": "0386dc89788b8ce35fa579c9761c1e8eda7d7cf0",
+  "candidate_tree": "0ff7976d529517295f56df281721c305e64f8522",
+  "pr": "https://github.com/pcvantol/djconnect-app/pull/113",
+  "main_before": "f6b0a71b3d8a2076539a2aea5e853626558b04ad",
+  "authorization": "Owner requested source finalization; actual protected classifier NORMAL_RISK / Owner Authorization NOT_REQUIRED on exact candidate",
+  "trusted_delivery_run": 39109183011,
+  "ci_run": 39109183076,
+  "status": "CI_QUEUED_SOURCE_NOT_MERGED"
+}

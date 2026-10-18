@@ -1,3 +1,30 @@
+## 2026-10-18 — All devices40331; formal source proof PASS
+
+iPhone/iPad/Watch/MacBook/Mac mini40331 actual installed versions and launch/
+process readback PASS. Watch retried after explicit unlock/nearby confirmation,
+previous40311. No physical Watch TTS or performance acceptance inferred.
+SourcePR113 protected-merged as803d77c; mainCI39109669813 including native
+coverage and formal reconciliation39110224530 PASS. Durable asset hash, canonical
+integrity,12formal checks, coverage main SHA and runner ZIP digests independently
+verified. Separate documentary Finalization candidate is ready; not merged.
+TDE3CRITICAL184HIGHcomplexity and named product/runtime gaps remain OPEN.
+[Snapshot](history/prompts/2026-10-18-apple-40331-finalization.md) /
+[exact source readback](verification/apple-40331-finalization/source-main-readback.json).
+
+## 2026-10-18 — Source PR113 merged; separate Finalization in progress
+
+Reviewed candidate0386dc89788b8ce35fa579c9761c1e8eda7d7cf0 protected-merged as
+source-main803d77c665701fc9fe3d3d5cc8ee0752597343a1; identical tree0ff7976d.
+PremergeCI39109183076 and Trusted Delivery39109183011 PASS. Source classified
+NORMAL_RISK; Owner Authorization NOT_REQUIRED on exact SHA. All276installed
+source-input hashes and independent remote-ref/fetch readback match.
+Documentary branchcodex/apple-40331-finalization changes no product/test/project
+bytes. MainCI39109669813/formal evidence pending; source MERGED_UNRECONCILED.
+TDE observed assessment FAIL with3CRITICAL184HIGHcomplexity findings, regression
+UNKNOWN; explicit non-blocking workflow success is not quality acceptance.
+Watch and all other named product/runtime acceptance remain open.
+[Finalization snapshot](history/prompts/2026-10-18-apple-40331-finalization.md).
+
 ## 2026-10-18 — Owner requested delivered-work finalization /40331
 
 Source finalization preparation started, preserving sole writer and WIP.

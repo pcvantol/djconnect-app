@@ -1,0 +1,31 @@
+{
+  "run": 39109669813,
+  "artifacts": [
+    {
+      "id": 12129868790,
+      "name": "apple-unsigned-build-artifacts",
+      "digest": "sha256:51601bdb7bd7d8e3b48ec4427eea94168bf07608fc5cb4b59651e655cc8fd227",
+      "size_in_bytes": 83786317
+    },
+    {
+      "id": 12129717542,
+      "name": "thirdparty-update-report",
+      "digest": "sha256:8a0d4e611e09d251bfaac9d176ab0e3709cbeb64132fc4673af944e1155f3aad",
+      "size_in_bytes": 878
+    },
+    {
+      "id": 12129702553,
+      "name": "apple-xccov-coverage",
+      "digest": "sha256:0b17c421ae0e11568fea58bd730149bb5ada183ca58a14dd0c7351e86a99d3e0",
+      "size_in_bytes": 177249
+    },
+    {
+      "id": 12129534968,
+      "name": "runner-evidence-apple",
+      "digest": "sha256:e3160c695ca9c829bb1b46015d6df0e6d590451648db0f50facf27fb454f9423",
+      "size_in_bytes": 367
+    }
+  ],
+  "runner_zip_sha256": "e3160c695ca9c829bb1b46015d6df0e6d590451648db0f50facf27fb454f9423",
+  "runner_embedded_main_sha": "PASS"
+}

@@ -1,8 +1,8 @@
 # Integrale Apple-status en open werk
 
-Actuele readback: 2026-10-18 Europe/Amsterdam;40331 installed on iPhone/iPad/MacBook/Mac mini; Watch pending; source finalization in progress. Owning register: [Apple #87](https://github.com/pcvantol/djconnect-app/issues/87). Het [requirementregister](APPLE_REQUIREMENT_ACCEPTANCE_20261017.md) benoemt de afzonderlijke functionele afmeldingen. Oudere receipts blijven bewijs voor hun eigen bron en build. Geen tweede writer.
+Actuele readback: 2026-10-18 Europe/Amsterdam; ordinary40331 installed/read back/launched on all5devices; sourcePR113 and formal source-main evidence PASS; separate Finalization pending. Owning register: [Apple #87](https://github.com/pcvantol/djconnect-app/issues/87). Het [requirementregister](APPLE_REQUIREMENT_ACCEPTANCE_20261017.md) benoemt de afzonderlijke functionele afmeldingen. Oudere receipts blijven bewijs voor hun eigen bron en build. Geen tweede writer.
 
-Geïnstalleerd: iPhone40331 and iPad40331 installed/read back/launched; MacBook40331 PID96898 and Mac mini40331 PID55792 installed/read back/running; strict Mac signatures PASS. Watch40331 candidate only: tunnel timeout and Bluetooth authentication failed, owner unlock pending. No physical audio/performance acceptance.
+Geïnstalleerd: iPhone/iPad/Watch40331 installed, actual bundle versions read back and apps launched. MacBook/Mac mini40331 installed/read back/running, strict deep signatures PASS. Watch retried successfully after owner unlocked/placed near iPhone, previous40311. No physical Watch audio or CPU/GPU/memory acceptance; USB profiling deferred.
 
 | Spoor | Status / eigenaar | Bewezen | Nog open |
 |---|---|---|---|
