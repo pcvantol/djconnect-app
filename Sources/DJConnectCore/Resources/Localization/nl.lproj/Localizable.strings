@@ -353,6 +353,10 @@
 "ui.wakeword.status" = "Stemactivatie-status";
 "ui.log.level" = "Logniveau";
 "ui.log.disabled" = "Uitgeschakeld";
+"ui.log.disable.title" = "Logging uitschakelen?";
+"ui.log.disable.message" = "Alle zichtbare en opgeslagen diagnostische logs op dit apparaat worden verwijderd.";
+"ui.log.disable.confirm" = "Uitschakelen en wissen";
+"ui.log.disable.failed" = "De logs konden niet worden gewist. Logging blijft ingeschakeld. Probeer opnieuw.";
 "ui.warning" = "Waarschuwing";
 "ui.error" = "Fout";
 "ui.how.it.works" = "Werking";
