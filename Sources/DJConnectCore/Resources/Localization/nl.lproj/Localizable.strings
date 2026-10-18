@@ -1020,8 +1020,6 @@
 // Native session refresh and readable Music DNA privacy.
 "ui.session.history.refresh" = "Eerdere sessies bijwerken";
 "ui.session.history.updated" = "Eerdere sessies bijgewerkt";
-"ui.session.refresh.loading" = "DJ-sessie bijwerken…";
-"ui.session.refresh.updated" = "DJ-sessie bijgewerkt";
 "ui.music.dna.privacy.enabled.yes" = "Music DNA staat aan.";
 "ui.music.dna.privacy.enabled.no" = "Music DNA staat uit.";
 "ui.music.dna.privacy.clear.yes" = "Je kunt je Music DNA wissen.";
@@ -1416,6 +1414,10 @@
 
 "ui.device_stt.failed" = "De opname kon niet lokaal worden omgezet of de chatcontext is gewijzigd. Probeer opnieuw. Er is geen audio verstuurd.";
 
-"appModel.now.playing.updating" = "Speelt Nu bijwerken…";
 
-"appModel.discovery.updating" = "Ontdek bijwerken…";
+
+"ui.refresh.loading" = "Bijwerken…";
+
+"ui.refresh.updated" = "Bijgewerkt";
+
+"ui.refresh.failed" = "Bijwerken mislukt";

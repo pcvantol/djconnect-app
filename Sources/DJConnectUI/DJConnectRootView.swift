@@ -3387,9 +3387,9 @@ private struct WhatsNewMarkdownBody: View {
 }
 
 struct NowPlayingView: View {
+    @StateObject private var manualRefresh = DJConnectManualRefreshController()
     @ObservedObject var model: DJConnectAppModel
     var openQueueAction: () -> Void = {}
-    @State private var statusToast: DJConnectVisualNotice?
 
     var body: some View {
         #if os(iOS)
@@ -3420,7 +3420,7 @@ struct NowPlayingView: View {
                 ConnectionStatusToolbar(model: model)
                 #endif
             }
-            .djStatusToastOverlay(statusToast, screenImage: "music.note")
+            .djStatusToastOverlay(manualRefresh.notice, screenImage: "music.note")
             .djUserNoticeToast(model: model, screenImage: "music.note")
         }
         .accessibilityIdentifier("screen-now-playing")
@@ -3428,29 +3428,13 @@ struct NowPlayingView: View {
     }
 
     private func refreshNowPlayingWithToast() async {
-        statusToast = DJConnectVisualNotice(text: localizedKey(model.language, "appModel.now.playing.updating"), systemImage: "music.note")
-        let didRefresh = await model.refreshNowPlaying()
-        showStatusToast(
-            didRefresh ? localizedKey(model.language, "appModel.now.playing.updated") : localizedKey(model.language, "appModel.now.playing.update.failed"),
-            systemImage: "music.note"
-        )
+        await manualRefresh.run(model: model, systemImage: "music.note") {
+            let succeeded = await model.refreshNowPlaying()
+            return localizedKey(model.language, succeeded ? "appModel.now.playing.updated" : "appModel.now.playing.update.failed")
+        }
     }
 
-    private func showStatusToast(_ text: String, systemImage: String) {
-        let notice = DJConnectVisualNotice(text: text, systemImage: systemImage)
-        withAnimation(.easeOut(duration: 0.18)) {
-            statusToast = notice
-        }
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
-            guard statusToast?.id == notice.id else {
-                return
-            }
-            withAnimation(.easeIn(duration: 0.18)) {
-                statusToast = nil
-            }
-        }
-    }
+
 }
 
 private struct AppleWatchPairingReminderButton: View {
@@ -3481,17 +3465,11 @@ private struct AppleWatchPairingReminderButton: View {
 
 struct RefreshButton: View {
     @ObservedObject var model: DJConnectAppModel
-    var action: (() -> Void)?
+    var action: () -> Void
     var isLoading = false
 
     var body: some View {
-        Button {
-            if let action {
-                action()
-            } else {
-                model.refresh()
-            }
-        } label: {
+        Button(action: action) {
             RefreshStatusIcon(isLoading: model.isRefreshing || isLoading)
         }
         .disabled(model.isDemoMode || model.pairingStatus != .paired || model.isRefreshing || isLoading)
@@ -4095,6 +4073,7 @@ func averageArtworkColor(from cgImage: CGImage) -> Color? {
 }
 
 struct TrackInsightView: View {
+    @StateObject private var manualRefresh = DJConnectManualRefreshController()
     @ObservedObject var model: DJConnectAppModel
     var explicitMoment = false
     @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
@@ -4199,7 +4178,7 @@ struct TrackInsightView: View {
                                             Text(model.momentTrackInsightErrorMessage ?? localizedKey(model.language, "ui.session.insight.unavailable"))
                                                 .fixedSize(horizontal: false, vertical: true)
                                             if model.canRetryMomentTrackInsight {
-                                                Button(localizedKey(model.language, "ui.retry")) { Task { await model.refreshMomentTrackInsight() } }
+                                                Button(localizedKey(model.language, "ui.retry")) { Task { await refreshTrackInsightWithToast() } }
                                             }
                                         }
                                     }.padding(24).frame(maxWidth: .infinity, alignment: .leading).djSessionFrostedSurface()
@@ -4215,14 +4194,14 @@ struct TrackInsightView: View {
                             .frame(maxWidth: .infinity, alignment: .top)
                         }
                         #if os(iOS)
-                        .djContentRefreshable(enabled: insight != nil) {
+                        .djContentRefreshable(enabled: insight != nil && !model.isDemoMode && model.pairingStatus == .paired && (explicitMoment || model.canStartTrackInsightAnalysis)) {
                             await refreshTrackInsightWithToast()
                         }
                         #endif
                     }
                 }
             }
-            .djStatusToastOverlay(statusToast, screenImage: "waveform.path.ecg")
+            .djStatusToastOverlay(manualRefresh.notice ?? statusToast, screenImage: "waveform.path.ecg")
             .navigationTitle(screenTitle(model.language, key: "Track Insight", isDemoMode: model.isDemoMode))
             .accessibilityIdentifier(explicitMoment ? "screen-moment-track-insight" : "screen-track-insight")
             #if os(iOS)
@@ -4363,15 +4342,12 @@ struct TrackInsightView: View {
     }
 
     private func refreshTrackInsightWithToast() async {
-        guard !model.isDemoMode, model.pairingStatus == .paired else { return }
-        let didRefresh = explicitMoment ? await model.refreshMomentTrackInsight() : await model.refreshTrackInsight(open: true, forceRefresh: true)
-        let failureMessage = errorMessage?.trimmingCharacters(in: .whitespacesAndNewlines)
-        showStatusToast(
-            didRefresh
-                ? localizedKey(model.language, "appModel.track.insight.updated")
-                : (failureMessage?.isEmpty == false ? failureMessage! : localizedKey(model.language, "appModel.track.insight.update.failed")),
-            systemImage: "waveform.path.ecg"
-        )
+        await manualRefresh.run(model: model, systemImage: "waveform.path.ecg",
+                                isBusy: { explicitMoment ? model.isLoadingMomentTrackInsight : model.isLoadingTrackInsight }) {
+            let succeeded = explicitMoment ? await model.refreshMomentTrackInsight() : await model.refreshTrackInsight(open: true, forceRefresh: true)
+            return succeeded ? localizedKey(model.language, "appModel.track.insight.updated")
+                : (errorMessage ?? localizedKey(model.language, "appModel.track.insight.update.failed"))
+        }
     }
 
     private func showStatusToast(_ text: String, systemImage: String) {
@@ -4460,6 +4436,7 @@ private struct TrackInsightRefreshButton: View {
 }
 
 private struct MusicDNAView: View {
+    @StateObject private var manualRefresh = DJConnectManualRefreshController()
     @ObservedObject var model: DJConnectAppModel
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
@@ -4489,7 +4466,7 @@ private struct MusicDNAView: View {
                         VStack(alignment: .leading, spacing: 16) {
                             MusicDNAHeroView(model: model, moodStepIndex: model.askDJMoodStepIndex)
                                 .frame(maxWidth: .infinity, alignment: .top)
-                            MusicDNAContentView(model: model)
+                            MusicDNAContentView(model: model, refreshAction: { Task { await refreshMusicDNAWithToast() } })
                                 .frame(maxWidth: .infinity, alignment: .topLeading)
                             if let updatedSummary {
                                 MusicDNAUpdatedFooter(language: model.language, updatedSummary: updatedSummary)
@@ -4507,16 +4484,12 @@ private struct MusicDNAView: View {
                     }
                 }
                 #if os(iOS)
-                .djContentRefreshable(enabled: model.musicDNAProfileResponse.map { $0.enabled && !$0.profile.isEmpty } ?? false) {
-                    #if DEBUG
-                    guard !model.isMusicDNAPreviewMode else { return }
-                    #endif
-                    guard !model.isDemoMode, model.pairingStatus == .paired else { return }
-                    await model.refreshMusicDNAProfile(showToast: true)
+                .djContentRefreshable(enabled: !model.isDemoMode && model.pairingStatus == .paired && (model.musicDNAProfileResponse.map { $0.enabled && !$0.profile.isEmpty } ?? false)) {
+                    await refreshMusicDNAWithToast()
                 }
                 #endif
             }
-            .djStatusToastOverlay(statusToast, screenImage: "heart")
+            .djStatusToastOverlay(manualRefresh.notice ?? statusToast, screenImage: "heart")
             .navigationTitle(screenTitle(model.language, key: "Music DNA", isDemoMode: model.isDemoMode))
             .accessibilityIdentifier("screen-music-dna")
             #if os(iOS)
@@ -4528,11 +4501,11 @@ private struct MusicDNAView: View {
                 #endif
                 #if os(macOS)
                 ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
-                    MusicDNARefreshButton(model: model)
+                    MusicDNARefreshButton(model: model, action: { Task { await refreshMusicDNAWithToast() } })
                 }
                 #else
                 ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
-                    MusicDNARefreshButton(model: model)
+                    MusicDNARefreshButton(model: model, action: { Task { await refreshMusicDNAWithToast() } })
                 }
                 #endif
                 #if !os(macOS)
@@ -4559,6 +4532,14 @@ private struct MusicDNAView: View {
                 return
             }
             showStatusToast(toast)
+        }
+    }
+
+    private func refreshMusicDNAWithToast() async {
+        await manualRefresh.run(model: model, systemImage: "heart", isBusy: { model.isLoadingMusicDNA || model.isUpdatingMusicDNA }) {
+            let succeeded = await model.refreshMusicDNAProfile()
+            return succeeded ? localizedKey(model.language, "appModel.music.dna.updated")
+                : (model.musicDNAErrorMessage ?? localizedKey(model.language, "ui.refresh.failed"))
         }
     }
 
@@ -4607,10 +4588,10 @@ private struct MusicDNAUpdatedFooter: View {
 private struct MusicDNARefreshButton: View {
     @ObservedObject var model: DJConnectAppModel
 
+    var action: () -> Void
+
     var body: some View {
-        Button {
-            Task { await model.refreshMusicDNAProfile(showToast: true) }
-        } label: {
+        Button(action: action) {
             if model.isLoadingMusicDNA {
                 ProgressView()
                     .controlSize(.small)
@@ -4762,6 +4743,7 @@ private struct MusicDNAPromptIcon: View {
 
 private struct MusicDNAContentView: View {
     @ObservedObject var model: DJConnectAppModel
+    var refreshAction: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -4785,7 +4767,7 @@ private struct MusicDNAContentView: View {
                     MusicDNADisabledView(model: model)
                 }
             } else {
-                MusicDNAUnavailableView(model: model)
+                MusicDNAUnavailableView(model: model, refreshAction: refreshAction)
             }
 
         }
@@ -5347,6 +5329,7 @@ private struct MusicDNANoProfileView: View {
 
 private struct MusicDNAUnavailableView: View {
     @ObservedObject var model: DJConnectAppModel
+    var refreshAction: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -5360,9 +5343,7 @@ private struct MusicDNAUnavailableView: View {
             .font(.callout)
             .foregroundStyle(.white.opacity(0.72))
             .fixedSize(horizontal: false, vertical: true)
-            Button {
-                Task { await model.refreshMusicDNAProfile(showToast: true) }
-            } label: {
+            Button(action: refreshAction) {
                 Label(localizedKey(model.language, "ui.try.again"), systemImage: "arrow.clockwise")
                     .frame(maxWidth: .infinity)
             }
@@ -6402,12 +6383,12 @@ private func musicDNAMoodTint(_ zone: String) -> Color {
 }
 
 private struct MusicDiscoveryView: View {
+    @StateObject private var manualRefresh = DJConnectManualRefreshController()
     @ObservedObject var model: DJConnectAppModel
     @Environment(\.horizontalSizeClass) private var nativeHorizontalSizeClass
     @Environment(\.djConnectContentSizeClass) private var contentSizeClass
     private var horizontalSizeClass: UserInterfaceSizeClass? { contentSizeClass ?? nativeHorizontalSizeClass }
     @State private var selectedDetail: MusicDiscoveryDetailSelection?
-    @State private var statusToast: DJConnectVisualNotice?
 
     private var visibleSections: [DJConnectMusicDiscoverySection] {
         model.musicDiscoveryResponse?.visibleSections ?? []
@@ -6451,7 +6432,7 @@ private struct MusicDiscoveryView: View {
                     #endif
                 }
             }
-            .djStatusToastOverlay(statusToast ?? model.musicDNAToast, screenImage: "wand.and.stars")
+            .djStatusToastOverlay(manualRefresh.notice ?? model.musicDNAToast, screenImage: "wand.and.stars")
             .accessibilityIdentifier("screen-discovery")
             .navigationTitle(screenTitle(model.language, key: "ui.discover", isDemoMode: model.isDemoMode))
             #if os(iOS)
@@ -6501,32 +6482,14 @@ private struct MusicDiscoveryView: View {
     }
 
     private func refreshMusicDiscoveryWithToast() async {
-        statusToast = DJConnectVisualNotice(text: localizedKey(model.language, "appModel.discovery.updating"), systemImage: "wand.and.stars")
-        let didRefresh = await model.refreshMusicDiscovery()
-        let failureMessage = model.musicDiscoveryErrorMessage?.trimmingCharacters(in: .whitespacesAndNewlines)
-        showStatusToast(
-            didRefresh
-                ? localizedKey(model.language, "appModel.discovery.updated")
-                : (failureMessage?.isEmpty == false ? failureMessage! : localizedKey(model.language, "appModel.discovery.update.failed")),
-            systemImage: "wand.and.stars"
-        )
+        await manualRefresh.run(model: model, systemImage: "wand.and.stars") {
+            let succeeded = await model.refreshMusicDiscovery()
+            return succeeded ? localizedKey(model.language, "appModel.discovery.updated")
+                : (model.musicDiscoveryErrorMessage ?? localizedKey(model.language, "appModel.discovery.update.failed"))
+        }
     }
 
-    private func showStatusToast(_ text: String, systemImage: String) {
-        let notice = DJConnectVisualNotice(text: text, systemImage: systemImage)
-        withAnimation(.easeOut(duration: 0.18)) {
-            statusToast = notice
-        }
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
-            guard statusToast?.id == notice.id else {
-                return
-            }
-            withAnimation(.easeIn(duration: 0.18)) {
-                statusToast = nil
-            }
-        }
-    }
+
 
     @ViewBuilder
     private var content: some View {
@@ -9050,7 +9013,6 @@ private extension Color {
 private struct DJSessionView: View {
     @ObservedObject var model: DJConnectAppModel
     var openQueueAction: () -> Void
-    @State private var statusToast: DJConnectVisualNotice?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(model: DJConnectAppModel, openQueueAction: @escaping () -> Void) {
@@ -9076,7 +9038,6 @@ private struct DJSessionView: View {
                 .background(.clear)
                 }
             }
-            .djStatusToastOverlay(statusToast, screenImage: DJConnectFeatureSymbols.djSession)
             .navigationTitle("")
             .djSessionNavigationTitleStyle(compactPhone: true)
             .toolbar {
@@ -9105,34 +9066,15 @@ private struct DJSessionView: View {
         }
     }
 
-    private func refreshNowPlayingWithToast() async {
-        guard let sessionID = model.activeDJSession?.id else { return }
-        statusToast = DJConnectVisualNotice(text: localizedKey(model.language, "ui.session.refresh.loading"), systemImage: DJConnectFeatureSymbols.djSession)
+    private func refreshNowPlayingWithToast() async -> Bool {
+        guard let sessionID = model.activeDJSession?.id else { return false }
         _ = await model.refreshNowPlaying()
-        guard model.activeDJSession?.id == sessionID else { statusToast = nil; return }
-        let didRefresh = await model.refreshActiveDJSession()
-        guard model.activeDJSession?.id == sessionID else { statusToast = nil; return }
-        showStatusToast(
-            didRefresh ? localizedKey(model.language, "ui.session.refresh.updated") : localizedKey(model.language, "ui.session.unavailable"),
-            systemImage: DJConnectFeatureSymbols.djSession
-        )
+        guard model.activeDJSession?.id == sessionID else { return false }
+        let succeeded = await model.refreshActiveDJSession()
+        return succeeded && model.activeDJSession?.id == sessionID
     }
 
-    private func showStatusToast(_ text: String, systemImage: String) {
-        let notice = DJConnectVisualNotice(text: text, systemImage: systemImage)
-        withAnimation(.easeOut(duration: 0.18)) {
-            statusToast = notice
-        }
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
-            guard statusToast?.id == notice.id else {
-                return
-            }
-            withAnimation(.easeIn(duration: 0.18)) {
-                statusToast = nil
-            }
-        }
-    }
+
 }
 
 private struct IdleDJSessionView: View {
@@ -9630,9 +9572,9 @@ private struct VibeCastCodeEntry: View {
 
 #if os(iOS)
 private struct IOSNowPlayingView: View {
+    @StateObject private var manualRefresh = DJConnectManualRefreshController()
     @ObservedObject var model: DJConnectAppModel
     var openQueueAction: () -> Void
-    @State private var statusToast: DJConnectVisualNotice?
 
     var body: some View {
         NavigationStack {
@@ -9647,13 +9589,11 @@ private struct IOSNowPlayingView: View {
                     .padding(.vertical, 12)
                 }
                 .background(.clear)
-                .refreshable {
-                    if !model.isDemoMode, model.pairingStatus == .paired {
-                        await refreshNowPlayingWithToast()
-                    }
+                .djContentRefreshable(enabled: !model.isDemoMode && model.pairingStatus == .paired) {
+                    await refreshNowPlayingWithToast()
                 }
             }
-            .djStatusToastOverlay(statusToast, screenImage: "music.note")
+            .djStatusToastOverlay(manualRefresh.notice, screenImage: "music.note")
             .navigationTitle(screenTitle(model.language, key: "Now Playing", isDemoMode: model.isDemoMode))
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -9679,29 +9619,13 @@ private struct IOSNowPlayingView: View {
     }
 
     private func refreshNowPlayingWithToast() async {
-        statusToast = DJConnectVisualNotice(text: localizedKey(model.language, "appModel.now.playing.updating"), systemImage: "music.note")
-        let didRefresh = await model.refreshNowPlaying()
-        showStatusToast(
-            didRefresh ? localizedKey(model.language, "appModel.now.playing.updated") : localizedKey(model.language, "appModel.now.playing.update.failed"),
-            systemImage: "music.note"
-        )
+        await manualRefresh.run(model: model, systemImage: "music.note") {
+            let succeeded = await model.refreshNowPlaying()
+            return localizedKey(model.language, succeeded ? "appModel.now.playing.updated" : "appModel.now.playing.update.failed")
+        }
     }
 
-    private func showStatusToast(_ text: String, systemImage: String) {
-        let notice = DJConnectVisualNotice(text: text, systemImage: systemImage)
-        withAnimation(.easeOut(duration: 0.18)) {
-            statusToast = notice
-        }
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
-            guard statusToast?.id == notice.id else {
-                return
-            }
-            withAnimation(.easeIn(duration: 0.18)) {
-                statusToast = nil
-            }
-        }
-    }
+
 }
 
 struct IOSConnectionCard: View {
@@ -10602,6 +10526,7 @@ private extension View {
 }
 
 private struct OutputSelectorView: View {
+    @StateObject private var manualRefresh = DJConnectManualRefreshController()
     @ObservedObject var model: DJConnectAppModel
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
 
@@ -10618,7 +10543,12 @@ private struct OutputSelectorView: View {
                 Text(localizedKey(model.language, "ui.output.device"))
                     .font(.headline)
                 Spacer()
-                Button { Task { await model.refreshOutputDevicesAndPlayback() } } label: {
+                Button { Task {
+                    await manualRefresh.run(model: model, systemImage: "speaker.wave.2", isBusy: { model.isLoadingOutputs }) {
+                        let succeeded = await model.refreshOutputDevicesAndPlayback()
+                        return localizedKey(model.language, succeeded ? "ui.refresh.updated" : "ui.refresh.failed")
+                    }
+                } } label: {
                     if model.isLoadingOutputs {
                         ProgressView().controlSize(.small).tint(.white)
                     } else {
@@ -10660,6 +10590,7 @@ private struct OutputSelectorView: View {
                 }
             }
         }
+        .djStatusToastOverlay(manualRefresh.notice, screenImage: "speaker.wave.2")
         .opacity(canUsePlayback ? 1 : 0.55)
         .tint(djConnectAccent)
         .task(id: canUsePlayback) {
@@ -10940,6 +10871,7 @@ private struct AskDJWindowSizeReader: UIViewRepresentable {
 #endif
 
 private struct AskDJView: View {
+    @StateObject private var manualRefresh = DJConnectManualRefreshController()
     @State private var layoutWindowSize: CGSize = .zero
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
@@ -11265,11 +11197,8 @@ private struct AskDJView: View {
                                 isAskDJAtTop = isAtTop
                                 if isAtTop { isAskDJScrollToTopButtonSuppressed = false }
                             }
-                            .djContentRefreshable(enabled: !model.askDJMessages.isEmpty) {
-                                dismissAskDJKeyboard()
-                                if !model.isDemoMode {
-                                    await model.refreshAskDJHistory(showToast: true)
-                                }
+                            .djContentRefreshable(enabled: !model.isDemoMode && model.pairingStatus == .paired && !model.askDJMessages.isEmpty) {
+                                await refreshAskDJWithToast()
                             }
                             .scrollDismissesKeyboard(.interactively)
                             .overlay(alignment: .bottom) {
@@ -11407,7 +11336,7 @@ private struct AskDJView: View {
                 }
             }
             .background(DJConnectCanvasBackground())
-            .djStatusToastOverlay(text: toast, systemImage: "bubble.left.and.bubble.right")
+            .djStatusToastOverlay(text: manualRefresh.notice?.text ?? toast, systemImage: "bubble.left.and.bubble.right")
             .navigationTitle(screenTitle(model.language, key: "Ask DJ", isDemoMode: model.isDemoMode))
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("screen-ask-dj")
@@ -11537,14 +11466,18 @@ private struct AskDJView: View {
         resignPlatformFirstResponder()
     }
 
+    private func refreshAskDJWithToast() async {
+        dismissAskDJKeyboard()
+        await manualRefresh.run(model: model, systemImage: "bubble.left.and.bubble.right", isBusy: { model.isCheckingAskDJHistoryState || model.isClearingAskDJHistory }) {
+            let succeeded = await model.refreshAskDJHistory()
+            return succeeded ? localizedKey(model.language, "appModel.ask.dj.updated")
+                : (model.askDJErrorMessage ?? localizedKey(model.language, "appModel.ask.dj.is.unreachable"))
+        }
+    }
+
     private var askDJRefreshToolbarButton: some View {
         Button {
-            isInputFocused = false
-            Task {
-                if !model.isDemoMode, model.pairingStatus == .paired {
-                    await model.refreshAskDJHistory(showToast: true)
-                }
-            }
+            Task { await refreshAskDJWithToast() }
         } label: {
             Image(systemName: model.isCheckingAskDJHistoryState ? "hourglass" : "arrow.clockwise")
                 .foregroundStyle(.white.opacity(model.isDemoMode ? 0.4 : 1))
@@ -14085,6 +14018,7 @@ private struct AskDJVoiceInputButton: View {
 }
 
 struct QueueView: View {
+    @StateObject private var manualRefresh = DJConnectManualRefreshController()
     @ObservedObject var model: DJConnectAppModel
     @State private var statusToast: DJConnectVisualNotice?
     @State private var isSearchVisible = false
@@ -14219,13 +14153,7 @@ struct QueueView: View {
                     scrollToActiveQueueSearchResult(proxy)
                 }
             }
-            .refreshable {
-                guard !model.isDemoMode, canUsePlayback else {
-                    showStatusToast(localizedKey(model.language, "appModel.no.connection.to.home.assistant"), systemImage: "exclamationmark.triangle.fill")
-                    return
-                }
-                await refreshQueueWithToast()
-            }
+            .djContentRefreshable(enabled: !model.isDemoMode && canUsePlayback) { await refreshQueueWithToast() }
             .navigationTitle(screenTitle(model.language, key: "Queue", isDemoMode: model.isDemoMode))
             .accessibilityIdentifier("screen-queue")
             .scrollContentBackgroundIfAvailable(.hidden)
@@ -14235,7 +14163,7 @@ struct QueueView: View {
             #else
             .contentMargins(.horizontal, djConnectScreenHorizontalPadding, for: .scrollContent)
             #endif
-            .djStatusToastOverlay(statusToast, screenImage: "music.note.list")
+            .djStatusToastOverlay(manualRefresh.notice ?? statusToast, screenImage: "music.note.list")
             .toolbar {
                 #if os(macOS)
                 ConnectionStatusToolbar(model: model)
@@ -14392,15 +14320,11 @@ struct QueueView: View {
     }
 
     private func refreshQueueWithToast() async {
-        guard !model.isDemoMode, canUsePlayback else {
-            showStatusToast(localizedKey(model.language, "appModel.no.connection.to.home.assistant"), systemImage: "exclamationmark.triangle.fill")
-            return
+        await manualRefresh.run(model: model, systemImage: "music.note.list", isBusy: { model.isLoadingQueue }) {
+            guard !model.isDemoMode, canUsePlayback else { return localizedKey(model.language, "appModel.no.connection.to.home.assistant") }
+            let succeeded = await model.refreshQueue()
+            return localizedKey(model.language, succeeded ? "appModel.queue.updated" : "appModel.queue.update.failed")
         }
-        let didRefresh = await model.refreshQueue()
-        showStatusToast(
-            didRefresh ? localizedKey(model.language, "appModel.queue.updated") : localizedKey(model.language, "appModel.queue.update.failed"),
-            systemImage: "music.note.list"
-        )
     }
 
     private func showStatusToast(_ text: String, systemImage: String) {
@@ -14421,6 +14345,7 @@ struct QueueView: View {
 }
 
 struct PlaylistsView: View {
+    @StateObject private var manualRefresh = DJConnectManualRefreshController()
     @ObservedObject var model: DJConnectAppModel
     @State private var statusToast: DJConnectVisualNotice?
     @State private var isSearchVisible = false
@@ -14532,13 +14457,7 @@ struct PlaylistsView: View {
                     scrollToActivePlaylistSearchResult(proxy)
                 }
             }
-            .refreshable {
-                guard !model.isDemoMode, canUsePlayback else {
-                    showStatusToast(localizedKey(model.language, "appModel.no.connection.to.home.assistant"), systemImage: "exclamationmark.triangle.fill")
-                    return
-                }
-                await refreshPlaylistsWithToast()
-            }
+            .djContentRefreshable(enabled: !model.isDemoMode && canUsePlayback) { await refreshPlaylistsWithToast() }
             .navigationTitle(screenTitle(model.language, key: "ui.playlists", isDemoMode: model.isDemoMode))
             .accessibilityIdentifier("screen-playlists")
             .scrollContentBackgroundIfAvailable(.hidden)
@@ -14548,7 +14467,7 @@ struct PlaylistsView: View {
             #else
             .contentMargins(.horizontal, djConnectScreenHorizontalPadding, for: .scrollContent)
             #endif
-            .djStatusToastOverlay(statusToast, screenImage: "rectangle.stack")
+            .djStatusToastOverlay(manualRefresh.notice ?? statusToast, screenImage: "rectangle.stack")
             .toolbar {
                 #if os(macOS)
                 ConnectionStatusToolbar(model: model)
@@ -14699,15 +14618,11 @@ struct PlaylistsView: View {
     }
 
     private func refreshPlaylistsWithToast() async {
-        guard !model.isDemoMode, canUsePlayback else {
-            showStatusToast(localizedKey(model.language, "appModel.no.connection.to.home.assistant"), systemImage: "exclamationmark.triangle.fill")
-            return
+        await manualRefresh.run(model: model, systemImage: "rectangle.stack", isBusy: { model.isLoadingPlaylists }) {
+            guard !model.isDemoMode, canUsePlayback else { return localizedKey(model.language, "appModel.no.connection.to.home.assistant") }
+            let succeeded = await model.refreshPlaylists()
+            return localizedKey(model.language, succeeded ? "appModel.playlists.updated" : "appModel.playlists.update.failed")
         }
-        let didRefresh = await model.refreshPlaylists()
-        showStatusToast(
-            didRefresh ? localizedKey(model.language, "appModel.playlists.updated") : localizedKey(model.language, "appModel.playlists.update.failed"),
-            systemImage: "rectangle.stack"
-        )
     }
 
     private func showStatusToast(_ text: String, systemImage: String) {
@@ -18783,7 +18698,7 @@ private struct PushRegistrationDetailsView: View {
     }
 }
 
-private extension View {
+extension View {
     /// Omit the native refresh action entirely for empty feature screens.
     @ViewBuilder
     func djContentRefreshable(enabled: Bool, action: @escaping @MainActor @Sendable () async -> Void) -> some View {
