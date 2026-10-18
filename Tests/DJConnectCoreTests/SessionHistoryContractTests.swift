@@ -2065,9 +2065,9 @@ private final class MusicDNARecoveryAttempts: @unchecked Sendable {
     }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
-    await model.refreshMusicDNAProfile(retryDelays: [])
+    #expect(await model.refreshMusicDNAProfile(retryDelays: []))
     gate.denied = true
-    await model.refreshMusicDNAProfile(retryDelays: [.milliseconds(1), .milliseconds(1)])
+    #expect(await model.refreshMusicDNAProfile(retryDelays: [.milliseconds(1), .milliseconds(1)]) == false)
     #expect(fixture.requests.count == 4)
     #expect(model.musicDNAProfileResponse?.profile.summary == "Existing profile")
     #expect(model.musicDNAProfileNeedsRecovery && !model.isLoadingMusicDNA)
@@ -5359,10 +5359,10 @@ func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) asy
     let (model, defaults, name) = fixture.model()
     defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
     let history = model.sessionHistory
-    await history.prepare(); await history.loadTimeline(page.session.id)
+    await history.prepare(); #expect(await history.loadTimeline(page.session.id))
     let confirmed = try #require(history.timelines[page.session.id]?.entries)
     phase.value = 1
-    await history.loadTimeline(page.session.id)
+    #expect(await history.loadTimeline(page.session.id) == false)
     let error = try #require(history.timelines[page.session.id]?.errorKey)
     for mode in [2, 3] {
         phase.value = mode
@@ -5371,7 +5371,7 @@ func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) asy
         #expect(history.timelines[page.session.id]?.loading == true)
         #expect(history.timelines[page.session.id]?.errorKey == error, "Starting a background read cannot remove the error block and shift the feed")
         #expect(history.timelines[page.session.id]?.entries == confirmed)
-        await retry.value
+        #expect(await retry.value == (mode == 3))
     }
     #expect(history.timelines[page.session.id]?.errorKey == nil)
     #expect(history.timelines[page.session.id]?.entries == confirmed)
@@ -5894,4 +5894,87 @@ func sessionSearchAutomaticPagingFencesOldFootersAndRepeatedCursors(repeatsCurso
     #expect(await gesture.value == false)
     #expect(model.musicDiscoveryResponse == nil)
     #expect(!model.isRefreshingMusicDiscovery)
+}
+
+@Test @MainActor func unifiedManualRefreshShowsBothPhasesAndSharesCancelledGesture() async throws {
+    let controller = DJConnectManualRefreshController()
+    var calls = 0
+    let gesture = Task {
+        await controller.run(language: "nl", systemImage: "arrow.clockwise") {
+            calls += 1
+            try? await Task.sleep(for: .milliseconds(150))
+            return "Bijgewerkt"
+        }
+    }
+    for _ in 0..<100 where calls == 0 { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(controller.notice?.text == "Bijwerken…")
+    #expect(controller.isRefreshing)
+    gesture.cancel()
+    let toolbar = Task {
+        await controller.run(language: "nl", systemImage: "arrow.clockwise") {
+            calls += 1
+            return "Wrong duplicate result"
+        }
+    }
+    await gesture.value
+    await toolbar.value
+    #expect(calls == 1)
+    #expect(controller.notice?.text == "Bijgewerkt")
+    #expect(!controller.isRefreshing)
+    await controller.run(language: "nl", systemImage: "arrow.clockwise") { "Bijwerken mislukt" }
+    #expect(controller.notice?.text == "Bijwerken mislukt")
+}
+
+@Test @MainActor func unifiedManualRefreshWaitsForBackgroundWorkAndRejectsChangedOwner() async throws {
+    let controller = DJConnectManualRefreshController()
+    var busy = true
+    var current = true
+    var calls = 0
+    let gesture = Task {
+        await controller.run(language: "nl", systemImage: "heart", isCurrent: { current }, isBusy: { busy }) {
+            calls += 1
+            return "Bijgewerkt"
+        }
+    }
+    for _ in 0..<100 where !controller.isRefreshing { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(controller.notice?.text == "Bijwerken…")
+    #expect(calls == 0)
+    gesture.cancel()
+    current = false
+    busy = false
+    await gesture.value
+    #expect(calls == 0)
+    #expect(controller.notice == nil)
+    #expect(!controller.isRefreshing)
+    current = true
+    busy = true
+    let retry = Task {
+        await controller.run(language: "nl", systemImage: "heart", isBusy: { busy }) {
+            calls += 1
+            return "Bijgewerkt"
+        }
+    }
+    for _ in 0..<100 where !controller.isRefreshing { try await Task.sleep(for: .milliseconds(5)) }
+    busy = false
+    await retry.value
+    #expect(calls == 1)
+    #expect(controller.notice?.text == "Bijgewerkt")
+}
+
+@Test @MainActor func unifiedManualRefreshCannotPublishCompletionAfterContextChanges() async throws {
+    let controller = DJConnectManualRefreshController()
+    var current = true
+    var started = false
+    let refresh = Task {
+        await controller.run(language: "nl", systemImage: "heart", isCurrent: { current }) {
+            started = true
+            try? await Task.sleep(for: .milliseconds(100))
+            return "Stale result"
+        }
+    }
+    for _ in 0..<100 where !started { try await Task.sleep(for: .milliseconds(5)) }
+    current = false
+    await refresh.value
+    #expect(controller.notice == nil)
+    #expect(!controller.isRefreshing)
 }

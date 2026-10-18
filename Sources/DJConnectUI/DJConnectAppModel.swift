@@ -418,6 +418,53 @@ public struct DJConnectVisualNotice: Identifiable, Equatable, Sendable {
     public var systemImage: String
 }
 
+/// One user-triggered refresh per screen, independent of the SwiftUI gesture task.
+@MainActor
+final class DJConnectManualRefreshController: ObservableObject {
+    @Published private(set) var notice: DJConnectVisualNotice?
+    @Published private(set) var isRefreshing = false
+    private var task: Task<Void, Never>?
+    private var dismissal: Task<Void, Never>?
+
+    func run(model: DJConnectAppModel, systemImage: String,
+             isBusy: @escaping @MainActor () -> Bool = { false },
+             operation: @escaping @MainActor () async -> String?) async {
+        let epoch = model.sessionHistory.responseEpoch
+        await run(language: model.language, systemImage: systemImage,
+                  isCurrent: { model.sessionHistory.responseEpoch == epoch },
+                  isBusy: isBusy, operation: operation)
+    }
+
+    func run(language: String, systemImage: String,
+             isCurrent: @escaping @MainActor () -> Bool = { true },
+             isBusy: @escaping @MainActor () -> Bool = { false },
+             operation: @escaping @MainActor () async -> String?) async {
+        if let task { await task.value; return }
+        let pending = Task { @MainActor in
+            dismissal?.cancel()
+            isRefreshing = true
+            defer { isRefreshing = false }
+            notice = DJConnectVisualNotice(text: DJConnectLocalization.localized(key: "ui.refresh.loading", language: language), systemImage: systemImage)
+            while isBusy() {
+                guard isCurrent() else { notice = nil; return }
+                try? await Task.sleep(for: .milliseconds(25))
+            }
+            guard isCurrent() else { notice = nil; return }
+            let result = await operation()
+            guard isCurrent(), let result else { notice = nil; return }
+            let completed = DJConnectVisualNotice(text: result, systemImage: systemImage)
+            notice = completed
+            dismissal = Task { @MainActor in
+                do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                if notice?.id == completed.id { notice = nil }
+            }
+        }
+        task = pending
+        await pending.value
+        task = nil
+    }
+}
+
 public enum DJConnectAskDJMessageRole: String, Codable, Equatable, Sendable {
     case user
     case dj
@@ -7863,22 +7910,24 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    public func refreshMusicDNAProfile(showToast: Bool = false) async {
+    @discardableResult
+    public func refreshMusicDNAProfile(showToast: Bool = false) async -> Bool {
         await refreshMusicDNAProfile(showToast: showToast, retryDelays: [.seconds(1), .seconds(3), .seconds(8)])
     }
 
-    func refreshMusicDNAProfile(showToast: Bool = false, retryDelays: [Duration]) async {
+    @discardableResult
+    func refreshMusicDNAProfile(showToast: Bool = false, retryDelays: [Duration]) async -> Bool {
         if isDemoMode {
             applyDemoMusicDNAProfile()
             musicDNAProfileNeedsRecovery = false
             if showToast { showMusicDNAToast(localized(key: "appModel.music.dna.updated"), systemImage: "heart") }
-            return
+            return true
         }
         guard pairingStatus == .paired, isRuntimeCompatible else {
             clearMusicDNADisplay()
-            return
+            return false
         }
-        guard isAppInForeground, !isLoadingMusicDNA else { return }
+        guard isAppInForeground, !isLoadingMusicDNA else { return false }
         let epoch = sessionHistory.responseEpoch
         let generation = UUID(); musicDNARefreshGeneration = generation
         isLoadingMusicDNA = true
@@ -7886,20 +7935,20 @@ public final class DJConnectAppModel: ObservableObject {
         defer { if musicDNARefreshGeneration == generation { isLoadingMusicDNA = false } }
         for attempt in 0...retryDelays.count {
             guard !Task.isCancelled, isAppInForeground, pairingStatus == .paired, !isDemoMode, isRuntimeCompatible,
-                  musicDNARefreshGeneration == generation, epoch == sessionHistory.responseEpoch else { return }
+                  musicDNARefreshGeneration == generation, epoch == sessionHistory.responseEpoch else { return false }
             do {
                 let response = try await withHomeAssistantClient { client in
                     try await client.musicDNAProfile(mood: confirmedSessionMoodInt, musicDNAKey: askDJMusicDNAKey, language: language)
                 }
                 guard !Task.isCancelled, isAppInForeground, !isDemoMode, musicDNARefreshGeneration == generation,
-                      epoch == sessionHistory.responseEpoch else { return }
+                      epoch == sessionHistory.responseEpoch else { return false }
                 apply(musicDNAProfile: response)
                 musicDNAProfileNeedsRecovery = false
                 if showToast { showMusicDNAToast(localized(key: "appModel.music.dna.updated"), systemImage: "heart") }
-                return
+                return true
             } catch {
                 guard !Self.isCancellation(error), !Task.isCancelled, !isDemoMode,
-                      musicDNARefreshGeneration == generation, epoch == sessionHistory.responseEpoch else { return }
+                      musicDNARefreshGeneration == generation, epoch == sessionHistory.responseEpoch else { return false }
                 // A context fence rejects the previous projection, not Music DNA consent.
                 // Withdraw its data before a bounded new read; never reuse its artwork.
                 let contextChanged = Self.isMusicDNAContextChanged(error)
@@ -7916,8 +7965,8 @@ public final class DJConnectAppModel: ObservableObject {
                 musicDNAProfileNeedsRecovery = transient
                 if transient {
                     musicDNAErrorMessage = localized(key: "ui.music.dna.recovering")
-                    guard attempt < retryDelays.count else { return }
-                    do { try await Task.sleep(for: retryDelays[attempt]) } catch { return }
+                    guard attempt < retryDelays.count else { return false }
+                    do { try await Task.sleep(for: retryDelays[attempt]) } catch { return false }
                 } else {
                     if let typed = error as? DJConnectError {
                         handleMusicDNAError(typed)
@@ -7933,10 +7982,11 @@ public final class DJConnectAppModel: ObservableObject {
                     }
                     log(.warning, "Music DNA profile refresh stopped: \(error.localizedDescription)")
                     if showToast, let message = musicDNAErrorMessage { showMusicDNAToast(message, systemImage: "exclamationmark.triangle.fill") }
-                    return
+                    return false
                 }
             }
         }
+        return false
     }
 
     private static func isMusicDNAContextChanged(_ error: Error) -> Bool {

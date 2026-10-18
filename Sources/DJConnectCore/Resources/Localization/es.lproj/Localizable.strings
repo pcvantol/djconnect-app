@@ -1020,8 +1020,6 @@
 // Native session refresh and readable Music DNA privacy.
 "ui.session.history.refresh" = "Actualizar sesiones anteriores";
 "ui.session.history.updated" = "Sesiones anteriores actualizadas";
-"ui.session.refresh.loading" = "Actualizando la sesión DJ…";
-"ui.session.refresh.updated" = "Sesión DJ actualizada";
 "ui.music.dna.privacy.enabled.yes" = "Music DNA está activado.";
 "ui.music.dna.privacy.enabled.no" = "Music DNA está desactivado.";
 "ui.music.dna.privacy.clear.yes" = "Puedes borrar tu Music DNA.";
@@ -1416,6 +1414,10 @@
 
 "ui.device_stt.failed" = "No se pudo transcribir la grabación localmente o cambió el contexto del chat. Inténtalo de nuevo. No se ha enviado audio.";
 
-"appModel.now.playing.updating" = "Actualizando la reproducción actual…";
 
-"appModel.discovery.updating" = "Actualizando Descubrir…";
+
+"ui.refresh.loading" = "Actualizando…";
+
+"ui.refresh.updated" = "Actualizado";
+
+"ui.refresh.failed" = "Error al actualizar";

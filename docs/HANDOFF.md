@@ -1,3 +1,20 @@
+## 2026-10-18 — integral manual refresh consistency
+
+Every iOS/iPadOS/macOS content-refresh gesture and toolbar action now delegates
+to the same per-screen function and shared manual-refresh controller. It emits
+localized loading/result notices, shares concurrent callers, survives gesture
+cancellation, waits for an existing read where needed, and suppresses results
+after a Profile epoch change. The generic toolbar button now requires an explicit
+action so new screens cannot silently bypass the shared handling.
+
+Music DNA, conversation history and timeline reads return their actual result;
+retained old content no longer implies a successful refresh. Session feedback
+covers playback, current Session, conversation and the visible timeline read.
+Archive details and their inline retry share the same operation. Output inventory
+refresh also has progress/result feedback. Empty-screen and idle-Session refresh
+restrictions remain in force. See `docs/MANUAL_REFRESH_AUDIT.md` for the screen
+matrix and validation boundaries.
+
 ## 2026-10-18 — Discover gesture refresh
 
 Manual Discover refresh now shares a request between pull and toolbar callers

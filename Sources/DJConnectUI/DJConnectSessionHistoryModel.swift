@@ -537,27 +537,30 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
     }
 
-    public func refreshConversation() async {
-        guard profileScopeActive, let host, host.canRefreshSessionHistory else { return }
+    @discardableResult
+    public func refreshConversation() async -> Bool {
+        guard profileScopeActive, let host, host.canRefreshSessionHistory else { return false }
         let captured = epoch, archives = archiveGeneration
         do {
             let response = try await host.withHomeAssistantClient { try await $0.profileConversationHistory() }
-            guard captured == epoch, archives == archiveGeneration, !response.ownerScope.isEmpty else { return }
+            guard captured == epoch, archives == archiveGeneration, !response.ownerScope.isEmpty else { return false }
             let scope = response.ownerScope
             if let ownerScope, ownerScope != scope {
                 suspend(); host.enterProfileConversationScope()
             }
             ownerScope = scope
-            guard host.applyProfileConversationHistory(response.base) else { return }
+            guard host.applyProfileConversationHistory(response.base) else { return false }
             historicalMatches = response.historicalMatches
             reconcilePending(with: response.base)
+            return true
         } catch {
-            guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
-            guard captured == epoch else { return }
+            guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return false }
+            guard captured == epoch else { return false }
             // A transient history read must not erase a confirmed conversation
             // or its still-valid presentation. Explicit authority errors revoke it.
             _ = withdrawAuthority(for: error)
         }
+        return false
     }
 
     /// Exact-entry preparation, coordinated separately from pure history reads.
@@ -654,13 +657,14 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
     }
 
+    @discardableResult
     public func loadTimeline(_ sessionID: String, more: Bool = false, window: DJConnectHistoryWindow? = nil,
-                             anchorEntryID: String? = nil, limit: Int = 20, preserveLoadedEntries: Bool = false) async {
-        if host?.isDemoMode == true { return }
+                             anchorEntryID: String? = nil, limit: Int = 20, preserveLoadedEntries: Bool = false) async -> Bool {
+        if host?.isDemoMode == true { return false }
         guard available, !historyNeedsUpgrade, let host, host.canRefreshSessionHistory, !(timelines[sessionID]?.loading ?? false),
-              timelineNavigations[sessionID] == nil else { return }
+              timelineNavigations[sessionID] == nil else { return false }
         let cursor = more ? timelines[sessionID]?.nextCursor : nil
-        if more && cursor == nil { return }
+        if more && cursor == nil { return false }
         let captured = epoch; let generation = UUID(); timelineGenerations[sessionID] = generation
         timelines[sessionID, default: Timeline()].loading = true
         // Starting a read is not recovery. Keep the previous failure visible
@@ -670,7 +674,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             let page = try await host.withHomeAssistantClient {
                 try await $0.sessionTimeline(sessionID: sessionID, cursor: cursor, window: window, anchorEntryID: anchorEntryID, limit: limit)
             }
-            guard captured == epoch, timelineGenerations[sessionID] == generation else { return }
+            guard captured == epoch, timelineGenerations[sessionID] == generation else { return false }
             guard cursor == nil || timelines[sessionID]?.revision == page.revision.value else { throw DJConnectError.invalidResponse }
             var previous = cursor == nil && window == nil && !preserveLoadedEntries ? [] : timelines[sessionID]?.entries ?? []
             if window != nil, let lower = page.scannedOrderMin, let upper = page.scannedOrderMax {
@@ -680,14 +684,15 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             let nextCursor = window != nil && timelines[sessionID]?.revision == page.revision.value ? timelines[sessionID]?.nextCursor : page.nextCursor
             timelines[sessionID] = Timeline(session: page.session, entries: entries, nextCursor: nextCursor,
                                             revision: page.revision.value, loading: false, errorKey: nil, windowed: window != nil)
+            return true
         } catch {
-            guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
-            guard captured == epoch, timelineGenerations[sessionID] == generation else { return }
+            guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return false }
+            guard captured == epoch, timelineGenerations[sessionID] == generation else { return false }
             if requireHistoryUpgrade(for: error) {
                 timelines[sessionID] = Timeline(errorKey: "ui.session.history.update_required")
-                return
+                return false
             }
-            if withdrawAuthority(for: error) { return }
+            if withdrawAuthority(for: error) { return false }
             // A failed read cannot revoke already confirmed retained entries.
             // Explicit owner withdrawal above still removes every private row.
             var retained = timelines[sessionID] ?? Timeline()
@@ -695,6 +700,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             retained.loading = false; retained.errorKey = errorKey(error)
             timelines[sessionID] = retained
         }
+        return false
     }
 
     /// A live journal gap is repaired from canonical retained history, not by
@@ -718,11 +724,24 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         return false
     }
 
-    public func refreshVisibleTimeline(_ sessionID: String, anchor: String?) async {
-        if let anchor, !["current", "tail"].contains(anchor), !anchor.hasPrefix("pending-") {
-            await loadTimeline(sessionID, window: .anchor, anchorEntryID: anchor)
+    @discardableResult
+    public func refreshVisibleTimeline(_ sessionID: String, anchor: String?) async -> Bool {
+        let captured = epoch
+        func waitForRead() async -> Bool {
+            while timelines[sessionID]?.loading == true {
+                guard captured == epoch, !Task.isCancelled else { return false }
+                do { try await Task.sleep(for: .milliseconds(25)) } catch { return false }
+            }
+            return captured == epoch && !Task.isCancelled
         }
-        await loadTimeline(sessionID, window: .tail)
+        guard await waitForRead() else { return false }
+        var anchorSucceeded = true
+        if let anchor, !["current", "tail"].contains(anchor), !anchor.hasPrefix("pending-") {
+            anchorSucceeded = await loadTimeline(sessionID, window: .anchor, anchorEntryID: anchor)
+        }
+        guard await waitForRead() else { return false }
+        let tailSucceeded = await loadTimeline(sessionID, window: .tail)
+        return anchorSucceeded && tailSucceeded
     }
 
     /// Every known navigation target is revalidated before displaying an anchor.

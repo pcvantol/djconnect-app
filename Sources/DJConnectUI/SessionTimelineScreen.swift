@@ -24,9 +24,9 @@ struct SavedSessionsView: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
     @Environment(\.scenePhase) private var scenePhase
-    @State private var refreshing = false
+    @StateObject private var manualRefresh = DJConnectManualRefreshController()
+    private var refreshing: Bool { manualRefresh.isRefreshing }
     @State private var initialLoadFinished = false
-    @State private var statusToast: DJConnectVisualNotice?
     @State private var localOpenedSessionID: String?
     @State private var isSearchVisible = false
     @State private var searchText = ""
@@ -210,7 +210,7 @@ struct SavedSessionsView: View {
             }
             .navigationTitle(text("ui.session.history.title") + (model.isDemoMode ? " (demo)" : ""))
             .scrollBounceBehavior(.always)
-            .refreshable { await refresh() }
+            .djContentRefreshable(enabled: !model.isDemoMode && model.pairingStatus == .paired) { await refresh() }
             .toolbar {
                 ToolbarItemGroup(placement: djConnectSearchToolbarPlacement) {
                     Button {
@@ -251,7 +251,7 @@ struct SavedSessionsView: View {
                 openedSessionID.wrappedValue = nil
                 closeSearch()
             }
-            .djStatusToastOverlay(statusToast, screenImage: "clock.arrow.circlepath")
+            .djStatusToastOverlay(manualRefresh.notice, screenImage: "clock.arrow.circlepath")
             .task(id: model.isDemoMode || model.canRefreshSessionHistory) {
                 initialLoadFinished = false
                 await history.restoreVisibleSessions()
@@ -301,23 +301,11 @@ struct SavedSessionsView: View {
         return text(history.available ? "ui.session.history.empty" : "ui.session.history.unavailable")
     }
     private func refresh() async {
-        guard !refreshing, !model.isDemoMode, model.pairingStatus == .paired else { return }
-        refreshing = true
-        defer { refreshing = false }
-        statusToast = DJConnectVisualNotice(text: text("ui.session.history.loading"), systemImage: "clock.arrow.circlepath")
-        let epoch = history.responseEpoch
-        await history.prepare()
-        let succeeded = await history.loadSessions()
-        guard !Task.isCancelled, epoch == history.responseEpoch else { statusToast = nil; return }
-        // A superseded/cancelled read has no authoritative failure. The current
-        // request owns the list indicator and any actual error presentation.
-        guard succeeded || !history.available || history.listErrorKey != nil else { statusToast = nil; return }
-        let notice = DJConnectVisualNotice(text: text(succeeded ? "ui.session.history.updated" : "ui.session.history.unavailable"),
-                                          systemImage: "clock.arrow.circlepath")
-        statusToast = notice
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
-            if statusToast?.id == notice.id { statusToast = nil }
+        await manualRefresh.run(model: model, systemImage: "clock.arrow.circlepath") {
+            guard !model.isDemoMode, model.pairingStatus == .paired else { return text("ui.session.history.unavailable") }
+            await history.prepare()
+            let succeeded = await history.loadSessions()
+            return text(succeeded ? "ui.session.history.updated" : "ui.session.history.unavailable")
         }
     }
 
@@ -325,6 +313,7 @@ struct SavedSessionsView: View {
 
 /// The same native timeline surface serves the active Session and readonly archive.
 struct SessionTimelineScreen: View {
+    @StateObject private var manualRefresh = DJConnectManualRefreshController()
     @State private var deleteConfirmation: SessionDeleteConfirmation?
     @State private var confirmingDelete = false
     @ObservedObject var model: DJConnectAppModel
@@ -333,7 +322,7 @@ struct SessionTimelineScreen: View {
     var activeSession: DJConnectSessionRuntime?
     var initialAnchor: String?
     var openQueueAction: () -> Void = {}
-    var refreshAction: (() async -> Void)?
+    var refreshAction: (() async -> Bool)?
     @StateObject private var renderCache = SessionTimelineRenderCache()
     @State private var sessionControlIntent: SessionControlIntent?
     @State private var showingDJVoice = false
@@ -362,7 +351,7 @@ struct SessionTimelineScreen: View {
     @State private var query = ""
     @State private var searching = false
     @State private var selectedMatchID: String?
-    @State private var retryRefreshing = false
+    private var retryRefreshing: Bool { manualRefresh.isRefreshing }
     @State private var pullRefreshing = false
     @State private var resumePosition: String?
     @State private var anchorGeneration = UUID()
@@ -373,18 +362,19 @@ struct SessionTimelineScreen: View {
     @Environment(\.scenePhase) private var scenePhase
 
     init(model: DJConnectAppModel, sessionID: String, activeSession: DJConnectSessionRuntime? = nil,
-         initialAnchor: String? = nil, openQueueAction: @escaping () -> Void = {}, refreshAction: (() async -> Void)? = nil) {
+         initialAnchor: String? = nil, openQueueAction: @escaping () -> Void = {}, refreshAction: (() async -> Bool)? = nil) {
         self.model = model; history = model.sessionHistory; self.sessionID = sessionID
         self.activeSession = activeSession; self.initialAnchor = initialAnchor; self.openQueueAction = openQueueAction
         self.refreshAction = refreshAction
     }
     private func refreshTimeline() async {
-        // Keep both gestures on the same path, including the Session status toast.
-        await Task { @MainActor in
-            await refreshAction?()
-            await history.refreshConversation()
-            await history.refreshVisibleTimeline(sessionID, anchor: visibleEntry)
-        }.value
+        await manualRefresh.run(model: model, systemImage: DJConnectFeatureSymbols.djSession) {
+            let sessionSucceeded = await refreshAction?() ?? true
+            let conversationSucceeded = history.profileScopeActive ? await history.refreshConversation() : true
+            let timelineSucceeded = await history.refreshVisibleTimeline(sessionID, anchor: visibleEntry)
+            let succeeded = sessionSucceeded && conversationSucceeded && timelineSucceeded
+            return text(succeeded ? "ui.refresh.updated" : "ui.refresh.failed")
+        }
     }
 
     private var usesFloatingComposer: Bool {
@@ -508,12 +498,7 @@ struct SessionTimelineScreen: View {
                                     Text(text(key)).fixedSize(horizontal: false, vertical: true)
                                         .foregroundStyle(.white.opacity(0.82))
                                     Button {
-                                        guard !retryRefreshing else { return }
-                                        Task { @MainActor in
-                                            retryRefreshing = true
-                                            defer { retryRefreshing = false }
-                                            await history.loadTimeline(sessionID, window: .tail)
-                                        }
+                                        Task { await refreshTimeline() }
                                     } label: {
                                         Label(text("ui.refresh.page"), systemImage: "arrow.clockwise")
                                     }
@@ -668,7 +653,7 @@ struct SessionTimelineScreen: View {
                             visibleEntry = target
                         }
                     }
-                    .refreshable {
+                    .djContentRefreshable(enabled: !model.isDemoMode && model.pairingStatus == .paired) {
                         pullRefreshing = true
                         defer { pullRefreshing = false }
                         await refreshTimeline()
@@ -679,6 +664,7 @@ struct SessionTimelineScreen: View {
                 }
             }
             .background(sessionBackground)
+            .djStatusToastOverlay(manualRefresh.notice, screenImage: DJConnectFeatureSymbols.djSession)
             .sheet(item: $feedbackMessage) { message in
                 AskDJFeedbackPromptView(model: model, message: message)
                 #if os(iOS)
@@ -739,7 +725,7 @@ struct SessionTimelineScreen: View {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     if activeSession == nil, history.deletionAvailable { archiveDeleteButton }
                     if activeSession != nil { SessionConnectionToolbarButton(model: model) }
-                    if refreshAction != nil {
+                    if activeSession == nil || refreshAction != nil {
                         RefreshButton(model: model, action: { Task { await refreshTimeline() } }, isLoading: timeline.loading || retryRefreshing)
                     }
                 }
@@ -753,7 +739,7 @@ struct SessionTimelineScreen: View {
                         SessionConnectionToolbarButton(model: model)
                         if refreshAction != nil { RefreshButton(model: model, action: { Task { await refreshTimeline() } }, isLoading: timeline.loading || retryRefreshing) }
                     }
-                } else if refreshAction != nil {
+                } else {
                     ToolbarItem(placement: .confirmationAction) {
                         RefreshButton(model: model, action: { Task { await refreshTimeline() } }, isLoading: timeline.loading || retryRefreshing)
                     }
