@@ -13013,14 +13013,23 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(timeline.contains("struct ActiveSessionMoodToolbar: View"))
 }
 
-@Test func gamesCanvasIsCappedOnIPadLandscapeOnly() throws {
-    let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
-
-    #expect(source.contains("private func gameCanvasMaxHeight(for size: CGSize) -> CGFloat?"))
-    #expect(source.contains("guard horizontalSizeClass == .regular, size.width > size.height else"))
-    #expect(source.contains("return min(560, max(360, size.height * 0.42))"))
-    #expect(source.contains("maxCanvasHeight: gameCanvasMaxHeight(for: proxy.size)"))
-    #expect(source.contains(".frame(maxHeight: maxCanvasHeight)"))
+@Test func gamesViewportUsesAvailableHeightAndKeepsControlsReachable() {
+    let picker: CGFloat = 60
+    let controls: CGFloat = 180
+    for viewport: CGFloat in [320, 600, 834, 1194] {
+        let canvas = DJConnectGameViewport.canvasHeight(viewportHeight: viewport, pickerHeight: picker,
+                                                       chromeHeight: controls, verticalPadding: 12)
+        #expect(canvas >= 170)
+        let occupied = canvas + picker + controls + 24 + 18
+        if viewport >= 454 {
+            #expect(occupied <= viewport && viewport - occupied <= 2)
+        } else {
+            // Small windows deliberately scroll instead of crushing the game/controls.
+            #expect(occupied > viewport)
+        }
+    }
+    #expect(DJConnectGameViewport.canvasHeight(viewportHeight: 1194, pickerHeight: picker,
+                                              chromeHeight: controls, verticalPadding: 12) > 560)
 }
 
 @Test func publicReleaseWorkflowPublishesFiveLocalizedReleaseNoteJSONFiles() throws {
@@ -13980,4 +13989,83 @@ func bluetoothDeviceNameRequiresOneUnambiguousNamedRoute(names: [String]) throws
     #expect(model.currentPlaybackVolumePercent == 100)
     model.playback = DJConnectPlayback(volumePercent: 37, device: DJConnectPlaybackDevice(id: "speaker", active: false, supportsVolume: true))
     #expect(model.currentPlaybackVolumePercent == nil)
+}
+
+@MainActor
+@Test func singleQueueItemSnapshotsReplaceRepeatedQueueRowsWithoutAccumulating() throws {
+    let name = "queue-one-item-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    let item = DJConnectQueueItem(title: "Heaven Nor Hell", artist: "Volbeat", album: "Beyond Hell / Above Heaven", uri: "spotify:track:fixture")
+    model.apply(commandResponse: DJConnectCommandResponse(success: true, queue: Array(repeating: item, count: 12)))
+    #expect(model.queueItems.count == 12)
+    let row: [String: Any] = ["id":"queue-entry", "title":item.title, "artist":item.artist!, "uri":item.uri!]
+    for shape in [
+        ["success":true, "queue":[row]] as [String: Any],
+        ["success":true, "queue":["items":[row]], "data":["queue":[row]], "result":["queue":[row]]],
+        ["success":true, "data":["queue":["items":[row]]]],
+        ["success":true, "result":["queue":[row]]]
+    ] {
+        let data = try JSONSerialization.data(withJSONObject: shape)
+        let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: data)
+        #expect(response.queue?.count == 1, "Envelope aliases must not be concatenated")
+        for _ in 0..<3 {
+            model.apply(commandResponse: response)
+            #expect(model.queueItems.count == 1 && model.queue.count == 1)
+            #expect(model.queueItems.first?.uri == item.uri)
+            #expect(DJConnectQueueWidgetSnapshot(items: model.queueItems).totalCount == 1)
+        }
+    }
+}
+
+@MainActor
+@Test func queueRowIdentitySurvivesMetadataDifferencesAndReservedSuffixes() throws {
+    let defaults = try #require(UserDefaults(suiteName: "DJConnectQueueIdentity-\(UUID().uuidString)"))
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    let items = [
+        DJConnectQueueItem(title: "Before metadata refresh", uri: "spotify:track:same"),
+        DJConnectQueueItem(title: "After metadata refresh", artist: "Artist", uri: "spotify:track:same"),
+        DJConnectQueueItem(id: "spotify:track:same#2", title: "Real suffixed ID"),
+        DJConnectQueueItem(title: "Again", album: "Album", uri: "spotify:track:same")
+    ]
+    model.apply(commandResponse: .init(success: true, queue: items))
+    #expect(Set(model.queueItems.map(\.id)).count == items.count)
+    #expect(model.queueItems.map(\.title) == items.map(\.title))
+    #expect(model.queueItems.map(\.uri) == items.map(\.uri))
+    #expect(model.queueItems[2].id == "spotify:track:same#2")
+    let stable = model.queueItems.map(\.id)
+    model.apply(commandResponse: .init(success: true, queue: items))
+    #expect(model.queueItems.map(\.id) == stable)
+    let many = (0..<20).map { DJConnectQueueItem(title: "Metadata variant \($0)", uri: "spotify:track:same") }
+    model.apply(commandResponse: .init(success: true, queue: many))
+    #expect(model.queueItems.count == 20)
+    #expect(Set(model.queueItems.map(\.id)).count == 20)
+    // A smaller snapshot replaces every old occurrence; nothing is appended or retained.
+    model.apply(commandResponse: .init(success: true, queue: [items[1]]))
+    #expect(model.queueItems.count == 1)
+    #expect(model.queueItems[0].title == items[1].title)
+    #expect(model.queueItems[0].id == "spotify:track:same")
+    #expect(model.queue == [items[1].displayTitle])
+    #expect(DJConnectQueueWidgetSnapshot(items: model.queueItems).totalCount == 1)
+    model.apply(commandResponse: .init(success: true, queue: []))
+    #expect(model.queueItems.isEmpty)
+}
+
+@Test func liveActivitySpotifyMarkHasBoundedScaleSpecificAssets() throws {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Apps/DJConnectTrackInsightWidgets/Assets.xcassets/SpotifyAttribution.imageset")
+    let manifest = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Contents.json"))) as? [String: Any])
+    let images = try #require(manifest["images"] as? [[String: String]])
+    #expect(Set(images.compactMap { $0["scale"] }) == ["1x", "2x", "3x"])
+    for entry in images {
+        let scale = try #require(entry["scale"].flatMap { Int($0.dropLast()) })
+        let name = try #require(entry["filename"])
+        let bytes = try Data(contentsOf: root.appendingPathComponent(name))
+        #expect(bytes.prefix(8) == Data([137,80,78,71,13,10,26,10]))
+        let width = bytes[16..<20].reduce(0) { ($0 << 8) | Int($1) }
+        let height = bytes[20..<24].reduce(0) { ($0 << 8) | Int($1) }
+        #expect(width == 70 * scale && height == 21 * scale,
+                "Live Activity assets must be prepared at their actual display size, not merely framed smaller")
+    }
 }

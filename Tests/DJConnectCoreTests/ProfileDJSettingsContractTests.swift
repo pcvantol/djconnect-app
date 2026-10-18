@@ -125,6 +125,77 @@ private func settingsOperation(_ phase: String, id: String) throws -> DJConnectP
     return try JSONDecoder().decode(DJConnectProfileDJSettingsOperation.self, from: JSONSerialization.data(withJSONObject: value))
 }
 
+@Test @MainActor func choiceBurstCoalescesLastValuePerFieldBeforeOneSend() async throws {
+    let scheduler = ProfileDJChoiceScheduler()
+    var sent: [DJConnectProfileDJSettings.Patch] = []
+    var pending: [Bool] = []
+    scheduler.pendingChanged = { pending.append($0) }
+    let perform: (DJConnectProfileDJSettings.Patch) async -> Void = { sent.append($0) }
+    for index in 0..<30 {
+        scheduler.schedule(.init(mood: index == 29 ? "party" : "chill"), context: "A", isCurrent: { true }, perform: perform)
+        scheduler.schedule(.init(presence: .presenter), context: "A", isCurrent: { true }, perform: perform)
+        scheduler.schedule(.init(persona: .clubDJ), context: "A", isCurrent: { true }, perform: perform)
+    }
+    #expect(scheduler.hasPending && sent.isEmpty)
+    try await Task.sleep(for: .milliseconds(350))
+    #expect(sent == [.init(persona: .clubDJ, mood: "party", presence: .presenter)])
+    #expect(!scheduler.hasPending && pending == [true, false])
+}
+
+@Test @MainActor func queuedChoiceDropsOnScopeChangeAndDoesNotMergePreviousOwner() async throws {
+    let scheduler = ProfileDJChoiceScheduler()
+    var current = true
+    var sent: [DJConnectProfileDJSettings.Patch] = []
+    let perform: (DJConnectProfileDJSettings.Patch) async -> Void = { sent.append($0) }
+    scheduler.schedule(.init(persona: .clubDJ), context: "A", isCurrent: { current }, perform: perform)
+    current = false
+    try await Task.sleep(for: .milliseconds(350))
+    #expect(sent.isEmpty && !scheduler.hasPending)
+    scheduler.schedule(.init(persona: .clubDJ), context: "A", isCurrent: { false }, perform: perform)
+    scheduler.schedule(.init(mood: "party"), context: "B", isCurrent: { true }, perform: perform)
+    try await Task.sleep(for: .milliseconds(350))
+    #expect(sent == [.init(mood: "party")])
+}
+
+@Test(arguments: [false, true]) @MainActor
+func confirmedSettingsReadClearsStickyConflictButReturnsRealRejection(readFails: Bool) async throws {
+    let model = ProfileDJSettingsModel(); model.bind(owner: "A", active: true)
+    let current = try settingsFixture(noSessionSettingsCase)
+    var reads = 0, writes = 0
+    let rejection = try JSONDecoder().decode(DJConnectProfileDJSettingsFailure.self,
+        from: Data(#"{"error":"settings_revision_conflict"}"#.utf8))
+    let services = ProfileDJSettingsModel.Services(read: {
+        reads += 1
+        if reads > 1 && readFails { throw URLError(.timedOut) }
+        return current
+    }, update: { _, _, _ in writes += 1; throw rejection }, receipt: { _, _ in throw CancellationError() })
+    await model.refresh(services)
+    let result = await model.change(.init(mood: "party"), using: services)
+    #expect(result == rejection && writes == 1)
+    if readFails {
+        #expect(model.phase == .unavailable && !model.canEdit)
+    } else {
+        #expect(model.phase == .ready && model.errorCode == nil && model.canEdit)
+        await model.refresh(services)
+        #expect(model.phase == .ready && model.errorCode == nil && writes == 1)
+    }
+}
+
+@Test @MainActor func rejectedReceiptIsReportedOnceWithoutReplayingOrStickyConflict() async throws {
+    let model = ProfileDJSettingsModel(); model.bind(owner: "A", active: true)
+    let current = try settingsFixture(noSessionSettingsCase)
+    var writes = 0, receipts = 0
+    let services = ProfileDJSettingsModel.Services(read: { current }, update: { _, _, _ in
+        writes += 1; throw URLError(.timedOut)
+    }, receipt: { _, id in receipts += 1; return try settingsOperation("not_accepted", id: id) })
+    await model.refresh(services)
+    let rejection = await model.change(.init(mood: "party"), using: services)
+    #expect(rejection?.error == "settings_not_accepted")
+    #expect(model.phase == .ready && model.errorCode == nil && model.canEdit)
+    let duplicate = await model.reconcile(services)
+    #expect(duplicate == nil && writes == 1 && receipts == 1)
+}
+
 @Suite("Profile settings3") struct ProfileDJSettingsContractTests {
     @Test func exactProducerSnapshotsAndUnavailableChoices() throws {
         let initial = try settingsFixture("ordinary_legacy_HTTP_start_unknown_mood_askdj1_prepare1_settings_read")
@@ -605,5 +676,37 @@ extension ProfileDJSettingsContractTests {
         #expect(payload.audioResponse == (enabled ? .always : .never))
         let encoded = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(payload)) as? [String: Any])
         #expect(encoded["speech_contract_version"] as? Int == 3)
+    }
+}
+
+@Test func presenceOffersMusicAndThreeLevelsWithoutRewritingHistoricalValues() throws {
+    #expect(DJConnectSessionPresenceValue.selectableChoices.map(\.rawValue) == ["music_only", "occasional", "balanced", "presenter"])
+    #expect(DJConnectSessionPresenceValue.selectableChoices.map(\.choiceGlyph) == ["music.note", "bubble.left", "bubble.left.and.bubble.right", "mic.fill"])
+    #expect(try JSONDecoder().decode(DJConnectSessionPresenceValue.self, from: Data("\"talkative\"".utf8)) == .talkative)
+}
+
+@Test func nativeSettingsPrepareUsesOnlyReferenceAndWatchIdentityAndCannotDispatchSpeakers() async throws {
+    let (result, intent, _) = try nativeWatchSpeechFixture()
+    let reply = try JSONEncoder().encode(result)
+    let wire = SettingsWire { request in
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/api/djconnect/v1/speech/prepare")
+        let body = try settingsRequestBody(request)
+        #expect(Set(body.keys) == ["contract_version", "processor", "intent", "reference", "target", "device_id", "client_type"])
+        #expect(body["contract_version"] as? Int == 3)
+        #expect(body["processor"] as? String == "local_on_device")
+        #expect(body["intent"] as? String == "manual")
+        #expect(body["target"] as? String == "local")
+        return (200, reply)
+    }
+    defer { wire.close() }
+    let prepared = try await wire.client().prepareSharedDJSpeech(reference: intent.reference,
+        acceptedText: intent.moment.content, settings: intent.settings, processor: .localOnDevice)
+    #expect(prepared.session_speech.processor == .localOnDevice)
+    for target in [DJConnectSharedSpeechTarget.haSpeaker, .both] {
+        await #expect(throws: DJConnectError.invalidResponse) {
+            try await wire.client().prepareSharedDJSpeech(reference: intent.reference,
+                acceptedText: intent.moment.content, settings: intent.settings, target: target, processor: .localOnDevice)
+        }
     }
 }

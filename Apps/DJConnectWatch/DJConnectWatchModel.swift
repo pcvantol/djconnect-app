@@ -379,6 +379,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published private(set) var voiceState: VoiceState = .idle
     @Published private(set) var playback: DJConnectPlayback?
     let foregroundSession = DJConnectWatchForegroundSession()
+    lazy var sessionSpeech = DJConnectWatchSessionSpeech { [weak self] in self?.clearAskDJAudioOutput() }
     let profileDJSettings = ProfileDJSettingsModel()
     @Published private(set) var currentTrackInsight: TrackInsight?
     @Published private(set) var isRefreshingStatus = false
@@ -436,6 +437,15 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published var statusMessage = "Niet gekoppeld"
     @Published private(set) var voiceActivationStatus: VoiceActivationStatus = .paused
     @Published private(set) var isAppForeground = true
+    @Published var deviceSpeechPreferences = DJConnectDeviceSpeechPreferences.load(from: .standard) {
+        didSet {
+            guard deviceSpeechPreferences != oldValue else { return }
+            guard deviceSpeechPreferences.isValid else { deviceSpeechPreferences = oldValue; return }
+            deviceSpeechPreferences.save(to: .standard); stopAskDJAudio()
+        }
+    }
+    @Published private(set) var deviceSpeechPreviewIsPlaying = false
+    private let deviceSpeechRenderer = DJConnectAppleSpeechRenderer()
 
     private let askDJMessagesKey = "DJConnectWatchAskDJMessages"
     private let legacyPushTokenKey = "DJConnectWatchPushToken"
@@ -459,6 +469,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private var recordingURL: URL?
     private var player: AVPlayer?
     private var audioPlaybackTask: Task<Void, Never>?
+    private var deviceSpeechPreviewGeneration = UUID()
     private var runtimeDiagnosticsTask: Task<Void, Never>?
     private var speechSynthesizer: AVSpeechSynthesizer?
     private let askDJHistorySyncInterval: UInt64 = 20_000_000_000
@@ -680,6 +691,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             updateVoiceActivationListening()
             Task { await refreshStatus() }
         } else {
+            stopAskDJAudio()
             runtimeDiagnosticsTask?.cancel()
             runtimeDiagnosticsTask = nil
             stopNetworkMonitor()
@@ -908,6 +920,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func changeSharedDJSettings(_ patch: DJConnectProfileDJSettings.Patch) async {
         guard isAppForeground, canUseBackend, !isDemoMode else { return }
+        stopAskDJAudio()
         await profileDJSettings.change(patch, using: sharedSettingsServices)
         await refreshForegroundSession(force: true)
     }
@@ -2644,7 +2657,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     mood: backendMoodHint,
                     djStyle: djStyle,
                     musicDNAKey: musicDNAKey,
-                    audioResponse: .auto,
+                    audioResponse: deviceSpeechPreferences.enabled ? .never : .auto,
                     djAnnouncementOutput: .clientDevice,
                     language: currentRequestLocale
                 )
@@ -3190,13 +3203,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         notifyAskDJResponse(response)
         voiceState = .idle
         statusMessage = response
-        speechSynthesizer?.stopSpeaking(at: .immediate)
-        let utterance = AVSpeechUtterance(string: response)
-        utterance.voice = AVSpeechSynthesisVoice(language: currentRequestLocale)
-        utterance.rate = 0.48
-        let synthesizer = AVSpeechSynthesizer()
-        speechSynthesizer = synthesizer
-        synthesizer.speak(utterance)
+        // Demo text is not a speech grant. Native voice sampling is explicit in Settings.
     }
 
     private func statusPayload(screenState: String) -> DJConnectStatusPayload {
@@ -3920,6 +3927,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     func stopAskDJAudio() {
+        sessionSpeech.stop()
+    }
+
+    private func clearAskDJAudioOutput() {
+        deviceSpeechPreviewGeneration = UUID()
+        deviceSpeechRenderer.stop(); deviceSpeechPreviewIsPlaying = false
         audioPlaybackTask?.cancel()
         audioPlaybackTask = nil
         player?.pause()
@@ -3950,9 +3963,11 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func playResponseAudio(_ audioURL: URL?, fallbackText: String?) async {
-        speechSynthesizer?.stopSpeaking(at: .immediate)
-        audioPlaybackTask?.cancel()
-        player?.pause()
+        guard isAppForeground, profileDJSettings.active,
+              profileDJSettings.response?.allowsSpeech(.local) == true, !deviceSpeechPreferences.enabled else {
+            stopAskDJAudio(); return
+        }
+        stopAskDJAudio()
 
         if let audioURL = resolvedAudioURL(audioURL) {
             guard Self.isSupportedResponseAudioURL(audioURL) else {
@@ -4024,11 +4039,78 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func speakResponseFallback(_ text: String) {
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: currentRequestLocale)
-        let synthesizer = AVSpeechSynthesizer()
-        speechSynthesizer = synthesizer
-        synthesizer.speak(utterance)
+        // Missing/unsupported server audio never authorizes native synthesis.
+        askDJAudioPlaybackState = .idle
+    }
+
+    var canPreviewDeviceSpeech: Bool {
+        isAppForeground && profileDJSettings.active && profileDJSettings.response?.allowsSpeech(.local) == true &&
+        ![.idle, .loading, .saving, .unavailable, .uncertain].contains(profileDJSettings.phase)
+    }
+    func stopDeviceSpeechPreview() { if deviceSpeechPreviewIsPlaying { stopAskDJAudio() } }
+    func canPlaySessionMoment(_ moment: DJConnectMoment) -> Bool {
+        guard isAppForeground, canUseBackend, !isDemoMode, deviceSpeechPreferences.enabled,
+              let snapshot = foregroundSession.current(),
+              let source = snapshot.speechSources.first(where: { $0.reference == .moment(sessionID: moment.sessionID, momentID: moment.id) }) else { return false }
+        return DJConnectWatchMomentSpeechRequest(settings: snapshot.settings, moment: moment, source: source).matches(snapshot)
+    }
+
+    func playSessionMoment(_ moment: DJConnectMoment) {
+        guard isAppForeground, canUseBackend, !isDemoMode, deviceSpeechPreferences.enabled,
+              let snapshot = foregroundSession.current() else { return }
+        guard let source = snapshot.speechSources.first(where: { $0.reference == .moment(sessionID: moment.sessionID, momentID: moment.id) }) else { return }
+        let request = DJConnectWatchMomentSpeechRequest(settings: snapshot.settings, moment: moment, source: source)
+        let preferences = deviceSpeechPreferences
+        guard request.matches(snapshot) else { return }
+        sessionSpeech.play(request, preferences: preferences,
+            prepare: { [weak self] in
+                guard let self else { throw CancellationError() }
+                return try await self.sendCompanionHARequest(.prepareSessionSpeech, payload: request)
+            }, isCurrent: { [weak self] in
+                guard let self, isAppForeground, canUseBackend, !isDemoMode,
+                      deviceSpeechPreferences == preferences,
+                      profileDJSettings.active, profileDJSettings.response?.binding == request.settings.binding,
+                      profileDJSettings.response?.speechFence == request.settings.speechFence,
+                      profileDJSettings.response?.voice_revision == request.settings.voice_revision,
+                      profileDJSettings.response?.snapshot.effective == request.settings.snapshot.effective,
+                      ![.idle, .loading, .saving, .unavailable, .uncertain].contains(profileDJSettings.phase),
+                      let current = foregroundSession.current() else { return false }
+                return request.matches(current)
+            }, start: { [weak self] speech, finished in
+                guard let self, let locale = speech.locale else { return false }
+                try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
+                try AVAudioSession.sharedInstance().setActive(true)
+                self.deviceSpeechRenderer.onStateChange = { playing in if !playing { finished() } }
+                return self.deviceSpeechRenderer.speak(speech.segments.map(\.text).joined(), locale: locale,
+                    preferences: preferences, completion: finished)
+            })
+    }
+
+    func previewDeviceSpeech() {
+        guard deviceSpeechPreferences.enabled, canPreviewDeviceSpeech else { return }
+        stopAskDJAudio()
+        let preferences = deviceSpeechPreferences, deadline = Date().addingTimeInterval(30)
+        let generation = deviceSpeechPreviewGeneration
+        let binding = profileDJSettings.response?.binding
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
+            try AVAudioSession.sharedInstance().setActive(true)
+            deviceSpeechRenderer.onStateChange = { [weak self] value in self?.deviceSpeechPreviewIsPlaying = value }
+            guard deviceSpeechRenderer.speak(DJConnectLocalization.localized(key: "ui.device_speech.sample", language: language),
+                locale: language, preferences: preferences, completion: {}) else { return }
+            audioPlaybackTask = Task { @MainActor [weak self] in
+                guard let self else { return }
+                defer {
+                    if deviceSpeechPreviewGeneration == generation {
+                        deviceSpeechRenderer.stop(); deviceSpeechPreviewIsPlaying = false; audioPlaybackTask = nil
+                    }
+                }
+                while !Task.isCancelled && deviceSpeechPreviewGeneration == generation && deviceSpeechRenderer.isSpeaking && canPreviewDeviceSpeech &&
+                    profileDJSettings.response?.binding == binding && deviceSpeechPreferences == preferences && Date() < deadline {
+                    do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+                }
+            }
+        } catch { stopDeviceSpeechPreview() }
     }
 
     private func resolvedAudioURL(_ audioURL: URL?) -> URL? {

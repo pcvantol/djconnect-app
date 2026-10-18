@@ -6,6 +6,10 @@ import UIKit
 import AppKit
 #endif
 
+enum DJConnectAlbumArtworkLayout {
+    static func maximumWidth(phone: Bool) -> CGFloat { phone ? .infinity : 270 }
+}
+
 extension View {
     func djSessionFrostedSurface(cornerRadius: CGFloat = DJConnectCardAppearance.cornerRadius, currentMomentBorder: Bool = false) -> some View {
         modifier(DJSessionGlassSurface(cornerRadius: cornerRadius, currentMomentBorder: currentMomentBorder))
@@ -13,6 +17,11 @@ extension View {
 
     func djAlbumArtworkGlassCard(artworkURL: URL? = nil) -> some View {
         modifier(DJAlbumArtworkGlassCard(artworkURL: artworkURL))
+    }
+
+    /// A protected image supplies its already admitted pixel sample, never a URL/cache lookup.
+    func djAlbumArtworkGlassCard(tint: Color?) -> some View {
+        modifier(DJAlbumArtworkGlassSurface(tint: tint))
     }
 
     @ViewBuilder func djSessionNavigationTitleStyle(compactPhone: Bool = false) -> some View {
@@ -30,14 +39,46 @@ private struct DJAlbumArtworkGlassCard: ViewModifier {
     let artworkURL: URL?
     @State private var sampledTint: Color?
     @State private var sampledURL: URL?
+
+    init(artworkURL: URL?) {
+        self.artworkURL = artworkURL
+        let cached = artworkURL.flatMap { DJConnectArtworkTintCache.shared.value(for: $0) }
+        _sampledTint = State(initialValue: cached?.color)
+        _sampledURL = State(initialValue: cached == nil ? nil : artworkURL)
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .djAlbumArtworkGlassCard(tint: sampledURL == artworkURL ? sampledTint : nil)
+            .task(id: artworkURL) {
+                guard let requestedURL = artworkURL else {
+                    sampledTint = nil; sampledURL = nil; return
+                }
+                if let cached = DJConnectArtworkTintCache.shared.value(for: requestedURL) {
+                    sampledTint = cached.color; sampledURL = requestedURL
+                    return
+                }
+                let color = await DJConnectArtworkDataCache.shared.tint(for: requestedURL, fallback: Color(white: 0.22))
+                guard !Task.isCancelled, requestedURL == artworkURL else { return }
+                if let cached = await DJConnectArtworkDataCache.shared.cachedTint(for: requestedURL) {
+                    DJConnectArtworkTintCache.shared.store(cached, for: requestedURL)
+                }
+                guard !Task.isCancelled, requestedURL == artworkURL else { return }
+                sampledURL = requestedURL
+                sampledTint = color
+            }
+    }
+}
+
+/// Identical glass treatment for public player covers and ephemeral admitted artwork.
+private struct DJAlbumArtworkGlassSurface: ViewModifier {
+    let tint: Color?
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
 
     func body(content: Content) -> some View {
         let inset: CGFloat = 8
         let shape = RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous)
-        let tint = sampledURL == artworkURL ? sampledTint : nil
         content
             .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius - inset, style: .continuous))
             .padding(inset)
@@ -47,17 +88,6 @@ private struct DJAlbumArtworkGlassCard: ViewModifier {
                 if let tint {
                     shape.stroke(tint.opacity(0.8), lineWidth: DJConnectCardAppearance.borderWidth)
                         .allowsHitTesting(false)
-                }
-            }
-            .task(id: artworkURL) {
-                sampledTint = nil
-                sampledURL = nil
-                guard let requestedURL = artworkURL else { return }
-                let color = await DJConnectArtworkDataCache.shared.tint(for: requestedURL, fallback: Color(white: 0.22))
-                guard !Task.isCancelled, requestedURL == artworkURL else { return }
-                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
-                    sampledURL = requestedURL
-                    sampledTint = color
                 }
             }
     }
@@ -286,7 +316,6 @@ struct NativeSessionMomentsView: View {
             .djSessionFrostedSurface(currentMomentBorder: true)
         } else if isRecovering {
             VStack(alignment: .leading, spacing: 12) {
-                ProgressView()
                 Text(text("ui.session.reconnecting")).font(.title2.weight(.semibold))
                     .accessibilityAddTraits(.isHeader)
             }
@@ -318,9 +347,12 @@ struct NativeSessionMomentsView: View {
                 .transition(.opacity)
                 .accessibilityIdentifier("session-current-moment")
         } else {
-            VStack(alignment: .leading, spacing: 12) {
-                Image(systemName: DJConnectFeatureSymbols.djSession).font(.title).accessibilityHidden(true)
-                Text(text("ui.session.quiet")).font(.title2.weight(.semibold))
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Image(systemName: DJConnectFeatureSymbols.djSession)
+                    .font(.title).accessibilityHidden(true)
+                Text(text(session.broadcast.playback?.state == "playing" ? "ui.session.quiet" : "brand.tagline"))
+                    .font(.title2.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)
             .djSessionFrostedSurface(currentMomentBorder: true)
@@ -336,33 +368,38 @@ struct NativeSessionMomentsView: View {
     private var musicArtworkURL: URL? {
         guard playbackModel?.isDemoMode != true,
               let raw = session.broadcast.playback?.artworkURL,
-              let url = URL(string: raw, relativeTo: artworkBaseURL)?.absoluteURL,
-              ["http", "https"].contains(url.scheme) else { return nil }
-        return url
+              let candidate = URL(string: raw) else { return nil }
+        if let playbackModel {
+            return playbackModel.resolvedArtworkURL(candidate)
+        }
+        return DJConnectArtworkRoute.resolve(candidate, knownOrigins: artworkBaseURL.map { [$0] } ?? [],
+                                             preferredOrigin: artworkBaseURL)
     }
 
     private var musicContext: some View {
         SessionCurrentColumns(stacked: stacksCurrentOnPhone) {
-            ZStack {
-                CachedArtworkImage(url: musicArtworkURL, mode: .fit, usesAlbumGlassFrame: true) {
-                    AlbumArtworkPlaceholder(tint: djConnectAccent,
-                        isPlaying: session.broadcast.playback?.state == "playing" && !artworkIsPaused)
-                }
-                    .aspectRatio(1, contentMode: .fit)
-                artworkPlaybackOverlay
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .zIndex(1)
-                SessionArtworkTapSurface(action: handleArtworkTap, touchBegan: {
-                    if artworkIsPaused, playbackModel?.canUsePlaybackFeatures == true {
-                        hidesArtworkPlayOnTouch = true
-                        artworkTouchID = UUID()
-                    }
-                }, touchCancelled: { hidesArtworkPlayOnTouch = false })
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .zIndex(2)
+            CachedArtworkImage(url: musicArtworkURL, mode: .fit, usesAlbumGlassFrame: true, animatesArtworkChanges: true) {
+                AlbumArtworkPlaceholder(tint: djConnectAccent,
+                    isPlaying: session.broadcast.playback?.state == "playing" && !artworkIsPaused)
             }
                 .aspectRatio(1, contentMode: .fit)
-                .frame(maxWidth: stacksCurrentOnPhone ? .infinity : 270)
+                // The base cover determines geometry. Neither the native hit
+                // surface nor an initially empty feedback view participates in sizing.
+                .overlay {
+                    SessionArtworkTapSurface(action: handleArtworkTap, touchBegan: {
+                        if artworkIsPaused, playbackModel?.canUsePlaybackFeatures == true {
+                            hidesArtworkPlayOnTouch = true
+                            artworkTouchID = UUID()
+                        }
+                    }, touchCancelled: { hidesArtworkPlayOnTouch = false })
+                }
+                // Paint feedback last, above the native touch plane and the
+                // complete glass/crossfade subtree; it never intercepts taps.
+                .overlay(alignment: .center) {
+                    artworkPlaybackOverlay
+                        .allowsHitTesting(false)
+                }
+                .frame(maxWidth: DJConnectAlbumArtworkLayout.maximumWidth(phone: stacksCurrentOnPhone))
                 .contentShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
                 .task(id: artworkFeedback?.id) {
                     guard let feedback = artworkFeedback else { return }
@@ -479,7 +516,9 @@ struct NativeSessionMomentsView: View {
     private var musicDetails: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let playback = session.broadcast.playback {
-                Text(playback.title ?? text("ui.nothing.playing")).font(.headline)
+                if let title = playback.title, !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(title).font(.headline)
+                }
                 if let artist = playback.artist { Text(artist).foregroundStyle(.secondary) }
                 if let album = playback.album { Text(album).font(.caption).foregroundStyle(.secondary) }
                 if let duration = playback.durationMS, duration > 0, let position = playbackModel?.displayedSessionPositionMS(session) ?? playback.positionMS {
@@ -705,7 +744,8 @@ struct MomentCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if let media = artworkMedia, let model = artworkModel {
-                SessionArtworkView(media: media, target: .moment(moment.id), audience: .current, language: language, model: model)
+                SessionArtworkView(media: media, target: .moment(moment.id), audience: .current, language: language, model: model,
+                    showsAttribution: moment.sourceAttribution?["provider"] != "Spotify" || moment.nativeSourceURLs.isEmpty)
             }
             Text(kind).font(.caption.weight(.bold)).foregroundStyle(.secondary)
             if !moment.title.isEmpty { Text(moment.title).font(.title2.bold()).accessibilityAddTraits(.isHeader) }

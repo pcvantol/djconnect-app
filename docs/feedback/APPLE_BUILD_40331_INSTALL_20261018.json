@@ -1,0 +1,47 @@
+{
+  "recorded_at": "2026-10-18T07:40:49.857141+00:00",
+  "build": "40331",
+  "authorization": "Owner: Installeer nieuwe build op alle apparaten",
+  "source_manifest": "/private/tmp/djc-install-40331/source-manifest.json",
+  "source_manifest_sha256": "13c17017e872c71259faf302db479206eb96389b7a0e41451a838a8bc1de39d9",
+  "source_inputs": 276,
+  "mac_archive_sha256": "3bdd3c1413c49e15bab3c24216cb4a8b832f49575079883e97960584a49f4ab5",
+  "devices": {
+    "iPhone": {
+      "installed": "40331",
+      "launch": "PASS",
+      "receipt": "/private/tmp/djc-install-40331/iphone-installed.json"
+    },
+    "iPad": {
+      "installed": "40331",
+      "launch": "PASS",
+      "receipt": "/private/tmp/djc-install-40331/ipad-installed.json"
+    },
+    "MacBook": {
+      "installed": "40331",
+      "pid": 96898,
+      "signature": "PASS",
+      "path": "/Applications/DJConnect.app"
+    },
+    "Mac mini": {
+      "installed": "40331",
+      "pid": 55792,
+      "signature": "PASS",
+      "path": "/Applications/DJConnect.app"
+    },
+    "Watch": {
+      "status": "UNVERIFIED",
+      "candidate": "40331",
+      "install_result": "CoreDevice4000/RemotePairing1001 tunnel negotiation timed out",
+      "macbook_read_result": "CoreDevice4000/RemotePairing1035 Bluetooth authentication failed",
+      "receipt": "/private/tmp/djc-install-40331/watch-install.json",
+      "user_unlock_request": "pending"
+    }
+  },
+  "limits": [
+    "No physical audio or visual acceptance claimed.",
+    "Watch may receive embedded app through iPhone, but installed version not read back.",
+    "No backend update included; Core-only fixes remain separately owned."
+  ],
+  "data_preservation": "No uninstall or pairing reset. Previous Mac apps retained at /private/tmp/djc-mac-install-40331/previous.app on each host."
+}

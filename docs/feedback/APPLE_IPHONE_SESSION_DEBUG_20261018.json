@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-18",
+  "physical_app_build": "40315",
+  "source": "Read-only CoreDevice app/process/log queries",
+  "active_process_confirmed": 17305,
+  "instruments": "Device offline; no CPU/GPU trace",
+  "profile_deferred": "Owner: Morgen even profilen via usb",
+  "log_sha256": "d5524919187973740568c211ffd3afffd43e21697498d8262f781fc0436e725c",
+  "api_failures_in_retained_log": [
+    {
+      "route": "POST /api/djconnect/v1/music_discovery/play",
+      "http_status": "500",
+      "count": 1
+    },
+    {
+      "route": "POST /api/djconnect/v1/voice",
+      "http_status": "422",
+      "count": 1
+    },
+    {
+      "route": "GET /api/djconnect/v1/capabilities",
+      "http_status": "502",
+      "count": 18
+    },
+    {
+      "route": "POST /api/djconnect/v1/command",
+      "http_status": "502",
+      "count": 4
+    },
+    {
+      "route": "GET /api/djconnect/v1/ask_dj/history",
+      "http_status": "502",
+      "count": 4
+    },
+    {
+      "route": "GET /api/djconnect/v1/session/history/{session_id}",
+      "http_status": "502",
+      "count": 5
+    },
+    {
+      "route": "GET /api/djconnect/v1/music_discovery",
+      "http_status": "502",
+      "count": 1
+    },
+    {
+      "route": "GET /api/djconnect/v1/session/history/{session_id}",
+      "http_status": "404",
+      "count": 5
+    }
+  ],
+  "history_404_local_times": [
+    "03:49:10",
+    "03:49:21",
+    "03:49:41",
+    "03:49:52",
+    "03:50:03"
+  ],
+  "diagnosed_client_layout_issue": "loadTimeline cleared errorKey at request start and restored it on failure, repeatedly removing and reinserting the visible error block during ten-second background polling. Regression failed twice on old implementation.",
+  "correction": "Retain prior error until successful read. Known-empty message no longer disappears during background reads.",
+  "limits": [
+    "Not proof of the source of the HTTP404 or502 in Core/upstream",
+    "No measured CPU/GPU/FPS improvement",
+    "Uncertain voice delivery and speech audio_fetch failures remain open",
+    "No new installation or backend mutation",
+    "Local tunnel inspection1000requests contains no direct history HTTP404; actual transport/origin/failure reference unresolved"
+  ],
+  "client_candidate": {
+    "build": "40323",
+    "native_iOS_watch": "PASS",
+    "full_tests": 819,
+    "suites": 10,
+    "seconds": 89.983,
+    "source_inputs": 276,
+    "installed": false
+  },
+  "ha_dev_readback": {
+    "installed_api_handlers_sha256": "9d73103d211c86e7012757c9707ad2071214a3140a5805fc76b81c2e2191603b",
+    "session_started_local": "03:44:44",
+    "state": "ACTIVE",
+    "history_enabled": true,
+    "owner_matches_phone_request": true,
+    "history_profile_resolutions_0349": 25,
+    "distinct_resolved_profiles": 1,
+    "all_explicit_profile": true,
+    "actual_failed_session_reference": "NOT_CAPTURED"
+  },
+  "core_handoff": {
+    "owner_authorized": true,
+    "sent": true,
+    "thread_id": "01a120e2-b557-76c3-8568-129dbce2f2d2",
+    "scope": "Investigate and repair active Session history404; no policy bypass or unrelated deployment",
+    "status": "AWAITING_CORE_RESULT"
+  }
+}

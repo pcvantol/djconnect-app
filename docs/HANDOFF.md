@@ -1,3 +1,608 @@
+## 2026-10-18 — Owner requested delivered-work finalization /40331
+
+Source finalization preparation started, preserving sole writer and WIP.
+29local commits after reconciled mainf6b0a71 plus delivered followups selected;
+seven recovery duplicate paths excluded and preserved. Four physical installations
+confirmed40331; Watch remains unverified. Required local checks PASS; full source
+regression821tests/10suites PASS90.555s; standalone VibeCast10tests PASS.
+No source PR, protected merge or current full independent
+review yet. [Scope and remaining gates](feedback/APPLE_SOURCE_FINALIZATION_40331_20261018.md).
+
+## 2026-10-18 — Owner requested all-device installation /40331
+
+Ordinary40331 installed and launched on iPhone/iPad (actual app version readback),
+MacBookPID96898 and Mac miniPID55792 (actual installed bundle/version/signature
+readback). Includes prior UI work through immediate Ask DJ example submission.
+Watch candidate embedded40331, but direct tunnel timed out and MacBook Watch
+read failed Bluetooth authentication. Watch installation remains UNVERIFIED;
+owner asked to unlock/place it near iPhone with wifi enabled. No pairing reset.
+No physical audio acceptance or Core/backend repair included in app install.
+See [installation record](feedback/APPLE_BUILD_40331_INSTALL_20261018.json).
+
+## 2026-10-18 — Ask DJ examples send immediately /40331
+
+Owner requested all empty Ask DJ example rows send automatically. Selection now
+sets the existing localized draft and invokes the same composer send handler,
+including submitted-question scrolling; hides keyboard rather than focusing the
+draft. Capability/send/recording guards prevent blocked or duplicate sends.
+No model, backend, prompt-content or speech-policy change. Not installed.
+Native iOS build log: /private/tmp/djc-ask-examples-40331-ios.log.
+
+## 2026-10-18 — First-play suggestion under active Session header /40330
+
+Added localized existing Surprise me with new music prompt directly under
+current Session card, styled like Ask DJ examples. Uses the exact composer send
+and submitted-question scroll path; no client recommendations or new backend
+request shape. Only before current/historical Session playback is known; owner-
+scoped in-memory UI latch prevents return after pause/empty snapshots/reopening.
+Opening DJMoments do not count as music. Hidden in archives/recovery/unavailable
+state; no replacement of an existing draft and disabled during recording/send.
+New lifecycle regression covers current/history/new Session/pause/snapshot loss/
+authority reset. Targeted lifecycle test PASS0.136s; Swift package compiled
+Mac UI/tests. Final ordinary iOS/embedded Watch40330 native build PASS. Five-
+language validator PASS1287keys; git diff --check PASS. Not installed.
+Logs: /private/tmp/djc-first-play-40330-{ios-final,tests}.log.
+Source manifest: /private/tmp/djc-first-play-40330-manifest.json.
+
+## 2026-10-18 — Server-owned opening DJMoment requested
+
+Owner explicitly requests first DJ contribution narrates confirmed start mood,
+persona and DJ presence, welcomes and wishes listening pleasure. Sent to existing
+Core writer within authorized server Moment work. One durable opening per new
+Session, retry/reconnect/reopen idempotency, start-settings snapshot retained,
+separate from date/time metadata, localized, existing speech/consent policy.
+No client-generated narration or invented music facts. Apple history decodes
+moment_type as String; producer must confirm compatibility or publish fixture/
+contract before consumer changes. Implementation and installed acceptance OPEN.
+
+## 2026-10-18 — Nirvana playback failure / wrong English fallback OPEN
+
+Owner09:13 screenshot: Dutch request/UI with English playback_failed bubble.
+Exact text traced read-only to Core ask_dj._playback_failed_text; hybrid catch
+omits request payload and helper consults text heuristic/runtime.device_language.
+Apple profileConversationPayload sends currentRequestLocale from app language.
+Owner explicitly authorized existing Core writer to repair both language and
+Spotify-start root cause; evidence sent. Latest physical40324client log collected
+but500line rotation no longer contains09:12request. No new playback, reset,
+producer mutation or cosmetic client text replacement. Core readback: two
+separate turns (Pearl Jam09:12, Nirvana09:13), not duplicate bubbles. Conversation
+locale Dutch. Search yielded Eddie Vedder / Guns N Roses respectively, rejected
+by existing artist identity check before playback. Core confirmed broad limit1 search as root; artist-qualified same-HA-dev search
+returns correct artists. Core reports source repair with bounded10candidate
+artist verification and confirmed-conversation locale, targeted tests PASS.
+Golden and other playback routes still running; no installed repair established.
+
+## 2026-10-18 — Saved-session overview search /40329
+
+Added leading search toggle and shared glass search bar to Earlier Sessions.
+Filters loaded canonical summaries (localized date/time/duration/status), supports
+previous/next-result scrolling and clears on close or owner epoch change. Scope
+is explicitly loaded sessions; no invented backend global-search contract. While
+filtering, pagination requires Load more rather than eager background scanning;
+normal infinite pagination returns when the query is cleared. Five-language keys
+PASS1285; native iOS and Mac builds PASS. Native iPhone simulator demo
+filter/no-results/close/reopen test PASS (23.956s test session), screenshot
+exported for visual review. No installation.
+
+## 2026-10-18 — Queue/playlist search at leading edge /40328
+
+Owner requested search in a separate left toolbar item on Queue and Playlists.
+Both now use topBarLeading on iOS/iPadOS and retain navigation on macOS, apart
+from trailing connection/refresh. Search behavior and eligibility unchanged.
+Not installed. Native iOS build log: /private/tmp/djc-search-leading-40328.log.
+
+## 2026-10-18 — Ask DJ clear action in leading search group /40327
+
+Moved the existing iOS/iPadOS clear-history action into the leading search
+ToolbarItemGroup. Connection/refresh remain trailing, macOS already groups
+search/clear at the left. Existing empty-history visibility, busy state,
+accessibility and destructive confirmation unchanged. Includes preceding Dutch
+DJ aanwezigheid label and6second saved-Session notice. Not installed.
+Native iOS build log: /private/tmp/djc-ask-toolbar-40327.log.
+
+## 2026-10-18 — Saved Session toast duration /40326
+
+Only the confirmed saved-Session notice (real archive and demo) requests6seconds,
+previously2. Shared notices keep their2second default; existing identity guard
+prevents an older toast timer dismissing its replacement. Presentation only.
+Native build log: /private/tmp/djc-session-saved-toast-40326.log. Not installed.
+
+## 2026-10-18 — Confirmed Presence/Persona toolbar glyphs /40325
+
+Owner requested menu-bar icons follow the selected Presence and Persona like
+Mood. Both shared toolbar buttons now render the Core-confirmed selection glyph;
+unknown values keep their existing generic icon. Persona welcome/popover/toolbar
+reuse one enum glyph mapping. No mutation, optimistic state or backend contract
+change. Native Mac and iOS/embedded Watch builds40325 and strict/deep signatures PASS.
+Not installed; physical devices remain40324 (Watch unverified).
+Build logs and exact276input manifest: /private/tmp/djc-toolbar-selection-40325.
+
+## 2026-10-18 — iPad installation / Watch unavailable
+
+Owner requested both additional devices. iPad40324 installed, actual bundle version
+read back and launched. Watch candidate40324 is embedded in the iPhone app, but
+physical Watch is unavailable and direct installation timed out20s; installation
+and runtime version remain UNVERIFIED. No Watch audio acceptance claim.
+
+## 2026-10-18 — Owner requested physical installation /40324
+
+Installed ordinary40324 on iPhone (previous40315), MacBook (40314) and Mac mini
+(40266). Actual bundle versions read back; iPhone launched, MacBookPID94661 and
+Mac miniPID7787 run the installed app. Both Mac signatures strict/deep PASS.
+Owner explicitly superseded preservation of the old iPhone baseline. USB profiling
+remains deferred; no visual/audio acceptance or original404/widget/queue closure.
+See [installation receipt](feedback/APPLE_BUILD_40324_INSTALL_20261018.json).
+
+## 2026-10-18 — Native UI follow-up /40324
+
+Reproduced native iPhone leading-toolbar overflow hiding connection/refresh in
+first run; bounded44point compact row fixes it. Final iPhone6/6 + iPad1/1 with
+portrait/landscape PASS and viewed screenshots. Full820testsPASS90.838s;15passive
+regressions PASS. Added privacy-safe widget lifecycle/refusal diagnostics; no
+widget repair claim. Signed iOS/Watch40324/source276hashes/locales PASS; not
+installed, phone40315 preserved for tomorrow USB baseline. Core original404/widget
+root cause, queue and physical Watch/audio remain open. See
+[qualification](feedback/APPLE_NATIVE_UI_WIDGET_DIAGNOSTICS_40324_20261018.md).
+
+## 2026-10-18 — Home widget rich data absent (OPEN)
+
+Physical AppGroup cache: widget rich key absent, neutral Session present;
+LiveActivity current track without art/Moment. Earlier widget authorization/read
+were200. Existing authorized Core widget repair handoff updated; Core actively
+investigates authorization loss. No client fix/install or physical acceptance.
+See [widget evidence](feedback/APPLE_HOME_WIDGET_DATA_20261018.md).
+
+## 2026-10-18 — Physical iPhone diagnosis /40323 layout correction
+
+Phone still40315/PID17305. Repeated history404 reproduced in existing device log;
+read-only HA-dev confirms current03:44Session ACTIVE/historyenabled/same owner.
+Actual failed reference/refusal unresolved. Owner approved bounded existing-Core
+repair handoff; message successfully sent. Client polling removed/reinserted error
+layout every retry; red/green regression and full819testsPASS89.983s; ordinary
+iOS/Watch40323build/276inputhashes PASS. Not installed, phone baseline preserved.
+USB CPU/GPU profiling deferred to tomorrow by owner. Neither server repair nor
+physical stutter acceptance claimed. See
+[debug evidence](feedback/APPLE_IPHONE_SESSION_DEBUG_40323_20261018.md).
+
+## 2026-10-18 — Unknown music availability when HA unreachable /40322
+
+About shows grey Cannot verify when the HA route cannot confirm music
+availability; cached/default backendAvailable no longer displays green Available.
+Explicit reachable backend availability/unavailability retains its meaning; this
+is not a Spotify OAuth status. Native iOS40322 build including Watch/widgets,
+276input hashes,1283keys/five languages and diff validation PASS; not installed.
+See [music status evidence](feedback/APPLE_MUSIC_AVAILABILITY_40322_20261018.md).
+
+## 2026-10-18 — Duplicate Session outage text removed /40321
+
+Active Session recovery keeps its status card and toolbar refresh. Removed the
+separate Session error, history outage text and duplicate refresh beneath it;
+matching outage no longer adds a timeline error block. Native iOS40321 build
+including Watch/widgets and276input hashes PASS; not installed. See
+[status evidence](feedback/APPLE_SESSION_STATUS_DEDUP_40321_20261018.md).
+
+## 2026-10-18 — Session toolbar controls left /40320
+
+Compact iPhone: More first, Mood/Presence/Persona/End left; Connection/Refresh
+right; Search in More. Expanded iPad keeps direct actions left and status/refresh
+right. Search opens after popover dismissal, retaining epoch/availability guards.
+Ordinary signed iOS40320 build including Watch/widgets and276input-manifest check
+PASS; UI test expectations updated but not executed; not installed. See
+[toolbar evidence](feedback/APPLE_SESSION_TOOLBAR_40320_20261018.md).
+
+## 2026-10-18 — Track Insight leading control block /40319
+
+Share and Mood now form the far-left iPhone/iPad toolbar block; Connection and
+Refresh stay right. Ordinary signed iOS/Watch40319 compilation PASS,276input
+manifest checked; not installed. See
+[toolbar evidence](feedback/APPLE_TRACK_INSIGHT_TOOLBAR_40319_20261018.md).
+
+## 2026-10-18 — Watch Session display and native replay /40318 (PARTIAL)
+
+Continued the existing Watch flow: current music first, latest admitted Moment
+with Listen/Stop, collapsible complete flow cards, Session/card timestamps and
+shared presence choices. Uses frozen Core local-settings3 source bc6e080e and
+unaltered actual producer fixtures81318257; no invented backend wire or grants.
+Own-Watch iPhone proxy revalidates owners before/after prepare; exact original
+revision and expiry fences remain. Local opt-in/manual only; no refresh autoplay.
+Signed ordinary iPhone/Watch40318 builds and strict signatures PASS. Physical
+Watch currently unavailable; no installation, audible/Bluetooth or native UI
+acceptance claimed. Core writer separately reports the same frozen producer
+candidate installed on HA-dev; not independently deployment-qualified here.
+See [Watch evidence](feedback/APPLE_WATCH_SESSION_TTS_40318_20261018.md).
+
+The new Discover→Queue screenshot is also investigated: existing physical iPhone
+log contains10 decoded/10 normalized/1 distinct track at03:27:17,03:27:28 and
+03:32:34. Earlier view-ID fix does not close that producer-projection recurrence.
+No content dedupe or backend mutation. Core-handoff question pending owner answer;
+[bounded queue evidence](feedback/APPLE_QUEUE_DISCOVER_REPRO_20261018.json).
+
+## 2026-10-18 — unlocked physical iPhone / Instruments transport blocked
+
+Owner unlocked the phone: CoreDevice confirms unlocked, developer/DDI ready and
+ordinary40315 running over localNetwork. Instruments still lists it offline on
+both hosts and direct attach cannot find the verified live PID. USB-connect owner
+question pending; no app update/settings change or physical performance capture.
+See [physical preflight](feedback/APPLE_PHYSICAL_PROFILE_PREFLIGHT_20261018.json).
+
+## 2026-10-18 — authorized MacBook source copy / verified Now Playing scroll40317
+
+Owner explicitly approved source transfer;273files copied and final hashes checked
+on the MacBook. Native build-for-testing and two verified native scroll/CPU runs
+PASS; title moved374.67pt. Glass on/off scroll mean23.29%/21.38%CPU, peaks27.60%/25.73%;
+short-run memory flat. Initial central-drag tests did not prove scrolling and are
+excluded from this comparison. SwiftUI template unsupported Hitches, separate
+instrument produced no SwiftUI data; no body/layout/FPS acceptance. Real cover,
+long Session and physical iPhone/GPU remain open. Only simulator40317 installed;
+no production performance fix/publication. See [profiling scope and evidence](feedback/APPLE_NATIVE_SCROLL_PROFILING_20261018.md).
+
+## 2026-10-18 — on-device TTS client slice /40316 (PARTIAL)
+
+Local Apple voice controls and bounded static sample implemented across phone,
+iPad, Mac and Watch; actual OS metadata only, no shared Profile writes or autoplay
+change. One native renderer, existing playback coordinator, Watch generation and
+text_only/unknown-policy fences. Signed ordinary iOS40316/Watch build,272inputhashes and full811tests/10suites
+PASS90.059s. Scope at [device TTS evidence](feedback/APPLE_DEVICE_TTS_40316_20261018.md).
+At40316 Core Speech3 rejected local_on_device; no legacy/visible-text bypass,
+local server synthesis or invented grant. Actual DJ contribution speech remains
+blocked pending a frozen Core delta. Owner approved the Core handoff with “Akkoord”; the bounded request was sent
+to existing chat “Pak VibeCast shared renderer op”. Producer delivery/Apple adoption
+were pending at40316; the40318 Watch continuation above supersedes that dependency status. No new client install/publication.
+
+## 2026-10-18 — VibeCast Apple lane resumed / native qualification
+
+Existing owner-scanner slice resumed with sole writer/WIP preserved. Exact API94fbe118b3 generator read back; 10 portable binding/race tests and33 fresh Mac/native↔API/Node JOSE checks PASS. Private software keys remain process memory only. Isolated actual-app iOS diagnostic build/strict signatures PASS,40315/dev.djconnect.ios; no product dependency/runtime/install change. iPhone reachable but locked, unlock question pending; physical test NOT_RUN. API0.4-draft NOT_FROZEN/NO_RUNTIME_GO, genuine action/HA-route/independent review/joint TV gates remain open. See [receipt and scope](feedback/APPLE_VIBECAST_NATIVE_BINDING_20261018.md); local tooling at Tools/qualification/vibecast-native, logs/spec /private/tmp/djc-vibecast-native-20261018. No new App Attest call/key, source push or merge.
+
+## 2026-10-18 — native CPU/memory/Metal profiling (OPEN)
+
+Dedicated iPhone17Pro/iOS27.0 simulator on MacBook; actual Time Profiler/Metal traces and native short-session scroll benchmark recorded. Three scroll rounds average2.563s appCPU/10.485s wall clock,65.94MB physical peak.94.45%weighted CPU samples main thread; no measured runaway background worker or growing heap in this short demo. NowPlaying idle9.01%CPU/37M; dedicated NowPlaying scrolling and real-art/long-session repro remain pending. GPU rows belong to simulator host processes, not a qualified iPhone GPU/FPS result. Physical iPhone Instruments offline. At that baseline, source transfer was rejected pending consent. Owner now explicitly approved; the273-file40317 transfer and verified scroll comparison above supersede that blocker. Existing remote UI hashes match the measured current three UI files; no new install/publication. See [profiling evidence](feedback/APPLE_NATIVE_SCROLL_PROFILING_20261018.md).
+
+## 2026-10-18 — Live Activity grey Spotify mark /40315
+
+Grey rectangle matches the Spotify attribution slot. Replaced widget's3432×940px source asset with real70pt1x/2x/3x prepared images from the unchanged shared logo; bounded cover image decoding to actual display scale. Existing attribution, links and leases unchanged. Native iOS build/signature and17targeted tests pass; iPhone40315 installed/read back, normal launch Locked; physical ActivityKit rendering not yet accepted. See [evidence](feedback/APPLE_LIVE_ACTIVITY_GREY_LOGO_40315_20261018.md). MacBook40314/iPad40290 unchanged.
+
+## 2026-10-18 — session scroll performance / installed40314
+
+MacBook and iPhone40314 installed/read back; MacBook running. Optimized repeated history date parsing, visible artwork prefetch checks, collection allocation and static card timers. Generic HTTP-cacheable artwork now reuses background-prepared images/tints in a memory-pressure-sensitive cache (60/32MiB limits, original HTTP expiry); protected no-store SessionMedia remains view-local and never gains offline storage. Core permission question for a future bounded memory-reuse contract is pending; no message sent. Targeted9/full806tests PASS; component date benchmark improved, but physical scroll CPU/FPS remains unmeasured. See [evidence](feedback/APPLE_SESSION_SCROLL_PERFORMANCE_40314_20261018.md). Mac40312 recovery preserved; iPad40290 unchanged.
+
+## 2026-10-18 — gesture overlays / installed iPhone40313
+
+Gesture feedback is now a centered overlay painted above the native tap surface and image/glass crossfade, with geometry driven solely by the cover. Prior tap mappings, playback guards and feedback semantics preserved. Native iOS build/signature/install and independent40313 readback passed; launch blocked because the iPhone was locked. Full803 Swift tests/10 suites PASS91.050s; native gesture visibility remains unaccepted. The preceding UI follow-ups are included on iPhone; MacBook40312 and iPad40290 remain unchanged. Core four-level dosing is still a separate producer delivery. See [evidence](feedback/APPLE_ARTWORK_GESTURE_OVERLAY_40313_20261018.md).
+
+## 2026-10-18 — large album artwork fade
+
+DJ Session and Now Playing use a shared 0.45s opacity crossfade when replacement pixels are decoded; the old cover remains during loading and the glass color changes with the pixels. Removed Now Playing's metadata-triggered renderer remount/scale animation. Reduce Motion is respected. See [qualification](feedback/APPLE_LARGE_ARTWORK_FADE_20261018.md). No new installed build.
+
+## 2026-10-18 — queue client rendering identity
+
+User confirmed one actual queued item. Corrected the client identity path: queue position now identifies each rendered row and search target; normalization guarantees unique IDs despite metadata variants and reserved suffixes. No repeated-track removal. See [regression evidence](feedback/APPLE_QUEUE_RENDER_IDENTITY_20261018.md). Old-code regression failure confirmed; corrected native compilation and 25 focused tests pass. No new installation or physical acceptance.
+
+## 2026-10-18 — Mac composer expands on popover dismissal
+
+Mac composer expansion now requires deliberate editing intent as well as focus, so native popover focus restoration cannot change the bar height. Mouse/typing/explicit question insertion still expand; draft and selection remain mounted. See [diagnosis and checks](feedback/APPLE_MAC_POPOVER_COMPOSER_FOCUS_20261018.md). Native mouse-cycle regression added, not yet executed; installed build remains 40312.
+
+## 2026-10-18 — small artwork glass tint
+
+Small admitted Session/history covers now use the large-cover glass treatment and sample the already admitted pixels. No additional fetch/cache or lease renewal; tint clears with the image. See [evidence](feedback/APPLE_SMALL_ARTWORK_TINT_20261018.md). Native compilation and 18 targeted tests passed; no new installation.
+
+## 2026-10-18 — four presence options (in progress)
+
+See [presence handoff](feedback/APPLE_PRESENCE_FOUR_OPTIONS_20261018.md). Welcome and active selectors now offer Alleen muziek / Af en toe / Gebalanceerd / Presentator. Praatgraag remains historical decode-only. Core acknowledged the explicit server-side dosing and migration request; producer contract/pin and active capability adaptation remain pending. No new installation claim.
+
+# Latest installed follow-up — build40312 unified choices and rapid-selection recovery
+
+Welcome and active Session mood/presence/persona use one selector style matching
+the original welcome mood row. Fast unsent gestures coalesce for250ms; no-op
+choices do not write. A confirmed current-settings read clears stale conflict UI;
+real rejection is shown once as an existing transient notice, while unknown and
+failed outcomes remain explicit and unreplayed. Saving overlays existing geometry.
+29 focused tests PASS1.332s; final full801tests/10suites PASS90.958s; five-language
+1261-key and diff checks PASS. iPhone ordinary signed40312 installed/read back;
+launch blocked by locked phone. Mac native compile on MacBook passed unsigned,
+then locally signed with unchanged rights and validated original profiles;
+strict signature/install79-entry manifest/independent40312 readback/process PASS.
+iPad unchanged40290. No physical rapid-touch/layout acceptance claim. Local
+follow-up remains unpublished. See
+[selector and root-cause evidence](feedback/APPLE_UNIFIED_CHOICES_CONFLICT_20261018.md).
+
+Core handoff remains separate: local ingress, widget producer and narrative
+settings-change Moments have no new installed qualification. A cleanup/resource
+status handoff was automatically rejected; owner permission is pending, so no
+resource message was sent. Core files/services/snapshots remain unchanged.
+
+# Earlier installed follow-up — MacBook and iPhone40311 Ask DJ failure UX
+
+Pending/failed Session questions now use normal right-aligned chat bubbles with
+original user metadata; separate left delivery-status bubble replaces combined
+full-width cards. Per-turn Ask DJ error copy in five languages replaces misleading
+history wording for submit failures. Network/409/hybrid/authority behavior remains
+distinct; original payload/identity/date preserved and no automatic replay.
+Three tests/seven cases PASS0.715s; native signed Mac/iOS builds/signatures/
+ordinary-product/brand-key checks PASS. iPhone installed/read back40311, launched.
+Owner explicitly authorized MacBook update; mbpro-peter installed/read back40311,
+all79 manifest entries match, strict signature and launch/process PASS; old app
+retained. This installs the earlier accumulated Mac toolbar/layout fixes too.
+iPad unchanged40290. Physical viewport and original backend failure cause remain
+separate. See [Ask DJ failure evidence](feedback/APPLE_ASK_FAILURE_CHAT_UX_20261018.md).
+
+# Latest built follow-up — Mac40310 toolbar edges
+
+All existing Mac screen refresh actions now trail connection at the right edge.
+Feature search/mood/voice/etc stay leading; root sidebar toggle and Session
+VibeCast each use native fixed separation. No added refresh operations. Native
+signed Mac40310 build/strict signature/ordinary-product/diff/work-register checks
+PASS. Not installed under standing scope; physical cross-screen/overflow/fullscreen
+acceptance remains separate. iPhone40309/iPad40290/MacBook40292 unchanged. See
+[Mac toolbar policy](feedback/APPLE_MAC_TOOLBAR_EDGES_20261018.md).
+
+# Latest follow-up — build40309 direct Mac voice control
+
+Removed duplicate output/voice picker labels while retaining accessibility names.
+Mac direct DJ-voice speaker button now joins refresh/search/mood/presence/persona
+in one group; VibeCast is a separate item. Existing popover scope/write fences
+unchanged. Native Mac/iOS builds/signatures/ordinary-product/diff checks PASS;
+iPhone install, independent40309 readback and launch succeeded. Mac40309 built
+but uninstalled under standing scope; no physical Mac viewport claim. See
+[direct voice toolbar](feedback/APPLE_DIRECT_VOICE_TOOLBAR_20261018.md).
+
+# Latest installed follow-up — iPhone40308 duplicate connection detail
+
+Mac/iOS connection cards omit the generic unreachable detail that repeats the
+status heading, retaining backend recovery and other actionable messages. No
+connection/pairing state changes. Native signed build/signature/ordinary-product
+and diff checks PASS; iPhone install, independent40308 readback and launch
+succeeded. Mac remains source-only under standing installation scope. See
+[connection detail](feedback/APPLE_CONNECTION_DUPLICATE_DETAIL_20261018.md).
+
+# Latest installed follow-up — iPhone40307 welcome settings
+
+Presence and Persona added to the idle Session start card alongside mood. Uses
+confirmed backend Profile defaults, allowed choices, existing patch/readback and
+native selector. Migration opens existing six-field review; no local persistent
+settings. Start blocked during saving/uncertain outcomes. Three Profile contract
+tests PASS0.006s; native signed build/signature/ordinary-product/diff PASS;
+iPhone install, independent40307 readback and launch succeeded. iPad/Mac source
+only; no physical viewport acceptance claimed. See
+[welcome choices](feedback/APPLE_WELCOME_PRESENCE_PERSONA_20261018.md).
+
+# Latest installed follow-up — iPhone40306 idle Session tagline
+
+Removed the synthesized loose Nothing Playing label for missing/blank titles.
+The quiet Session bubble shows the localized brand tagline when playback is not
+playing; ordinary playing/paused/recovery/Moment presentation retains its branch.
+Diff/five-language brand validator/native signed build/strict signature/ordinary
+app checks PASS; iPhone install, independent40306 readback and launch succeeded.
+No physical viewport acceptance claimed. See
+[idle Session copy](feedback/APPLE_IDLE_SESSION_TAGLINE_20261018.md).
+
+# Latest installed follow-up — iPhone40305 composer spacing
+
+Session and standalone Ask DJ composer now use8pt bottom padding with keyboard
+hidden, matching iPad instead of21pt. Measured question-scroll reservation follows
+the same value. Native signed build/signature/ordinary-product checks PASS;
+iPhone install, independent40305 readback and launch succeeded. Physical viewport
+acceptance remains separate; iPad/Mac unchanged.
+See [spacing evidence](feedback/APPLE_COMPOSER_MENU_SPACING_20261018.md).
+
+# New request — narrative Moment after settings change
+
+Owner explicitly authorized the existing Core writer to add one durable narrative
+Moment after each confirmed actual active-Session mood/persona/presence change,
+including shared Profile settings. Handoff delivered; implementation and installed
+acceptance OPEN. Preserve idempotency, conflict/uncertain-write and music-only
+speech fences. No local synthesized copy or new build.
+See [requested behavior](feedback/APPLE_SETTINGS_CHANGE_MOMENT_20261018.md).
+
+# Latest follow-up — iPhone40304 widget current music layout
+
+Widget now presents current music before the latest admitted contribution,
+including both on small widgets; large current cover104pt. Native signed40304,
+strict signature and ordinary-product checks PASS; iPhone installation and
+independent40304 readback PASS. No physical widget acceptance claimed. Actual
+pre-update passive cache contained current metadata but no cover/contribution;
+backend passive source/deadline/background delivery investigation was explicitly
+authorized and delivered to the existing Core writer. No client rights/expiry
+bypass. See [widget evidence](feedback/APPLE_WIDGET_CURRENT_CONTENT_20261018.md).
+
+# Latest diagnosis — MacBook local transport rejected
+
+MacBook remains installed40292. Its configured LAN origin is reachable but the
+transport-context POST returns HTTP426 `transport_security_required` before
+authentication; saved local URL remains correct. Ordinary local HTTP success
+and external hybrid Session transport explain the brief green-to-external
+presentation. Backend direct-local ingress acceptance remains OPEN; no fabricated
+qualification, client bypass, pairing reset or new install. Core-thread handoff
+was initially rejected by automatic approval review, then explicitly authorized
+by the owner and successfully delivered to the existing Core writer. Repair and
+installed local acceptance remain pending. See [MacBook diagnosis](feedback/APPLE_MACBOOK_LOCAL_TRANSPORT_REJECTION_20261017.md).
+
+# Latest installed follow-up — iPhone40303 compact playback card
+
+Removed duplicate artwork-level Spotify attribution where the enclosing card
+already supplies its footer. Observed playback on iPad/Mac now places artwork
+left and heading/title/artist/album right, with timestamp/source links/one logo
+below; structured fields retain projected search highlights. Native Moment cards
+also avoid repeating their existing Spotify footer. Grant/source/expiry and
+playback authority unchanged. Highlight regression PASS0.001s; native signed
+iOS40303/strict signature/ordinary-product checks PASS. iPhone installed/read back
+40303 and launched. iPad40290/MacBook40292 unchanged per standing installation
+scope, so their new wide layout is not installed/visually accepted yet. See
+[compact-card evidence](feedback/APPLE_COMPACT_PLAYBACK_CARD_20261017.md).
+
+# Earlier installed follow-up — iPhone40302 submitted-question positioning
+
+Session and standalone Ask DJ now position a submitted question immediately above
+the measured input-bar safe-area reservation. Session uses one bottom-anchored
+scroll controller and follows pending/retained/current-only identity; standalone
+Ask DJ follows the submitted UUID instead of generic feed-top requests. Added
+leading scroll room for short feeds; manual scrolling/search/navigation release
+automatic question following. No backend request/replay or payload change.
+Identity regression PASS0.007s; native signed iOS40302/strict signature/ordinary-
+product checks PASS. iPhone installed/read back40302 and launched. Physical
+viewport/keyboard acceptance and a new full-suite PASS are not claimed.
+iPad40290/MacBook40292 unchanged. See
+[scroll evidence](feedback/APPLE_SUBMITTED_QUESTION_SCROLL_20261017.md).
+
+# Earlier installed follow-up — iPhone40301 inline listening status
+
+Quiet Session status now places the static icon and text in one horizontal row,
+wrapping text when needed instead of truncating. Recovery spinner remains absent.
+Swift parse/diff/native signed iOS40301/strict signature/ordinary-product checks
+PASS; iPhone installed/read back40301 and launched. No physical viewport or new
+full-suite claim. iPad40290/MacBook40292 unchanged. See
+[UI evidence](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md).
+
+# Earlier installed follow-up — iPhone40300 separate Now Playing cards
+
+New open TTS finding: existing iPhone logs around21:21 show contract3 prepare
+unavailable reason `source_processor_not_qualified` for the reported text-replay
+failure. Audio fetch/output are not reached by that branch. Core owns live dev
+source/provider qualification; no client grant/text/provider bypass. See
+[TTS diagnosis and dependency](feedback/APPLE_TTS_TEXT_REPLAY_20261017.md).
+No newer install or positive replay acceptance is claimed.
+
+Artwork is a standalone glass card above a separate track/playback card on
+iOS/iPadOS and in the macOS summary. Shared artwork width matches Session:
+iPhone full available width with20pt edge insets, iPad/Mac270pt. Playback actions
+and control logic unchanged. Swift parse/diff/native signed iOS40300/strict
+signature/ordinary-product checks PASS; iPhone installed/read back40300 and
+launched. Physical layout acceptance not inferred. No new full-suite claim.
+iPad40290/MacBook40292 unchanged. See
+[UI evidence](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md).
+
+# Earlier installed follow-up — iPhone40299 stable artwork border tint
+
+Session/Now Playing album glass frames seed their first frame from a shared
+synchronous URL-bound color cache. Removed per-mount tint clearing/animation and
+the nil URL gate while the image loads. Entries inherit HTTP cache expiry and
+exclude no-store/no-cache/max-age=0, bounded to180 colors without decoded images.
+Four tests/six cases PASS0.043s; native signed iOS40299/strict signature/ordinary-
+product checks PASS. iPhone installed/read back40299 and launched; no physical
+screen-switch acceptance inferred. iPad40290/MacBook40292 unchanged. See
+[UI evidence](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md).
+
+# Earlier installed follow-up — iPhone40298 queue diagnostics
+
+Owner's single-item/duplicated Volbeat Queue report is explicitly HA-dev and
+remains OPEN: current Core receipt has20distinct positions/repeat off, without
+reproducing the original snapshot. Client decode/projection replaces arrays;
+six queue regressions PASS0.138s. Added count-only explicit queue response logs,
+preserving all existing positions; no blanket dedup or original-cause fix claim.
+Native signed iOS40298/strict signature/ordinary-product checks PASS; iPhone
+install/independent40298 readback/launch PASS. iPad40290/MacBook40292 unchanged.
+See [queue evidence and dependency](feedback/APPLE_QUEUE_SINGLE_ITEM_20261017.md).
+
+# Earlier installed follow-up — iPhone40297 session metadata
+
+Active/archived timelines show a start metadata bubble at their oldest end,
+using the matching backend Session started_at, local time and a full localized
+date. Five-language regression cases including DST/invalid timestamps PASS;
+native signed iOS40297, strict signature/ordinary-product checks and iPhone
+install/independent40297 readback/launch PASS. No physical viewport acceptance
+or new full-suite claim. iPad40290/MacBook40292 unchanged. See
+[UI evidence](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md).
+
+# Earlier installed follow-up — iPhone40296 Ask DJ artwork
+
+Rich Ask DJ images/history/action thumbnails now share the artwork cache and
+response projection follows the confirmed HA origin for public image_proxy URLs.
+Existing no-store/expiry/authority boundaries remain intact. Signed iOS40296
+build/strict signature/ordinary-product checks PASS; iPhone installed/read back
+40296 and launched. Full788tests/10suites PASS89.528s with explicit no-parallel;
+initial concurrent failures retained, not a parallel-suite PASS. Physical reopen
+acceptance and the original runtime HTTP cause remain unproven. iPad40290 and
+MacBook40292 unchanged. See [UI evidence](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md).
+
+Open existing-lane follow-up: Ask DJ submit currently mislabels generic failures
+as history unavailable. Correct five-language question/connection wording with
+HTTP502/503/decode/transport/pre-HTTP scope tests, preserving authority withdrawal,
+409 context, frozen client_message_id and uncertain-effect/retry rules. No claim
+that wording correction establishes the original Armin transport cause. This
+follow-up is queued; no implementation or new Core writer in the artwork fix.
+Core lane subsequently reported the same owner-visible failed-submit wording for
+“wie is de artiest” and “wie zijn de zangers”; include both alongside the Armin
+question in this existing mapping/diagnostic follow-up. The Armin report is
+explicitly HA-dev. Original per-question HTTP causes remain unproven; Core owns
+live dev investigation. No user-turn replay, deployment or additional writer is
+authorized merely by this report.
+
+# Earlier source follow-up — iPad saved-session row width
+
+Saved-session rows now fill the iPad List width, retaining20pt edge insets;
+removed the1000pt cap on iPad only. See the40295 entry in
+[UI follow-up evidence](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md).
+No iPad installation/physical landscape acceptance; latest installed versions
+at that snapshot were iPhone40294, iPad40290, MacBook40292.
+
+# Latest installed follow-up — iPhone40294
+
+DJ-session status cards now show status text without the decorative disc in the
+quiet card or the progress spinner during recovery. Text and card styling remain.
+Native signed iOS40294 build, strict deep signatures, ordinary-product checks,
+iPhone install/independent40294 readback/launch PASS. No physical viewport
+acceptance or new full-suite claim. iPad/MacBook not updated. See the40294 entry
+in [UI follow-up evidence](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md).
+
+# Earlier installed follow-up — iPhone40293
+
+Only iPhone updated for now, per the owner's explicit latest direction. Signed
+ordinary40293 build/signatures/install/independent version readback/launch PASS.
+Ask DJ composer with Glass effects off or Reduce Transparency now uses the dark
+opaque surface/subtle border; removed full-opacity mood color. No physical
+viewport acceptance or new full-suite PASS is inferred. iPad last40290, MacBook
+40292; no further update attempted on either. See the40293 entry in
+[UI follow-up evidence](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md).
+
+Earlier source/install snapshots retain their evidence bindings below.
+
+# Latest installed follow-up — 40292
+
+MacBook (mbpro-peter) and iPhone ordinary40292 installed, independently version-
+read back and launched. MacBook was40208; complete remote bundle manifest and
+strict signatures match; normal quit/install succeeded and old app is retained.
+Mac mini unchanged. iPad update failed CoreDevice4016; last confirmed40290.
+
+Session headers now route public proxy artwork through the confirmed HA origin
+like Now Playing, retaining vinyl only as missing/failed-image fallback. Source
+9d54967: full787Swift tests/10suites PASS89.600s; signed native Mac/iOS PASS.
+The first full run's obsolete game-cap source assertions were replaced by an
+executed layout-space test. Exact Git-archive qualification excludes untracked
+workspace duplicates, which remain preserved. Physical cover/UI acceptance,
+Core history replay producer and public merge/formal Finalization remain open.
+
+See [40292 routing and MacBook evidence](feedback/APPLE_ARTWORK_ROUTE_MACBOOK_40292_20261017.md).
+The following sections are earlier installed snapshots.
+
+# Current local Apple follow-up — iPad40290
+
+Current ordinary versions: iPad40290 and iPhone40291, installed/read back/launched.
+The iPhone active-Session connection/search group now sits separately at leading.
+The owner explicitly approved the iPhone catch-up from40267 after the vinyl-card
+report; the same existing shared artwork glass wrapper covers the placeholder.
+The build includes all iPad
+Session toolbar actions directly visible (no More menu), equal
+selector icon cells for presence/persona/mood and shared
+purple toggle styling, including the
+compact connection popover/keyboard presentation correction, following
+Discover width40284, fixed Logs title40285 and games available-space40286.
+Each has its own signed native build receipt in the history/launch report below;
+physical viewport acceptance is not claimed. The786test result below binds
+the earlier clear-state source, not these later presentation changes.
+
+Protected consolidation PR111/112 are merged; main is f6b0a71b. Current local
+follow-up branch `codex/apple-history-row-play-launch` contains98eda79:
+Ask DJ clear preserves the admitted Profile; neutral system launch; explicit
+history actions render inline. Full786Swift tests/10suites PASS87.359s. Signed
+ordinary iOS build/signatures PASS; only iPad installed/read back40283 and
+launched. Real-user chat clear was not repeated; no physical replay acceptance.
+Core must still supply history replay actions. Public source merge and formal
+source Finalization for this follow-up are not claimed. Original369-file source
+formal evidence remains dependent on the named central collector pagination fix.
+
+See [clear recovery](feedback/APPLE_CHAT_CLEAR_RECOVERY_20261017.md) and
+[history/launch](feedback/APPLE_HISTORY_PLAY_LAUNCH_20261017.md). Previous
+handoff snapshots below retain their original evidence bindings.
+
 # DJConnect iOS/macOS/watchOS App Handoff
 
 Actuele Apple-lanestatus (17okt2026): [integrale open-werk- en acceptatiematrix](feedback/APPLE_OPEN_WORK_20261017.md) en [requirementniveau/afmeldingen](feedback/APPLE_REQUIREMENT_ACCEPTANCE_20261017.md). Historische done-notities hieronder sluiten nieuwe Session/Speech/Settings/Watch-acceptatie niet af.

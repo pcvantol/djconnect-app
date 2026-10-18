@@ -479,17 +479,18 @@ public final class DJConnectClient: Sendable {
 
     public func prepareSharedDJSpeech(reference: DJConnectSpeechReference, acceptedText: String,
         settings: DJConnectProfileDJSettingsResponse, target: DJConnectSharedSpeechTarget = .local,
-        automatic: Bool = false) async throws -> DJConnectSharedSpeechResult {
+        automatic: Bool = false, processor: DJConnectSpeechProcessor = .haConfigured) async throws -> DJConnectSharedSpeechResult {
         guard reference.isValid, settings.allowsSpeech(target),
+              processor != .localOnDevice || target == .local,
               !automatic || (target == .local && settings.snapshot.effective.announcement_output.allowsClientAudio) else { throw DJConnectError.invalidResponse }
         struct SharedPrepare: Encodable {
             let contract_version = 3
-            let processor = "ha_configured"
+            let processor: DJConnectSpeechProcessor
             let intent: String
             let reference: DJConnectSpeechReference
             let target: DJConnectSharedSpeechTarget
         }
-        let payload = SharedPrepare(intent: automatic ? "automatic" : "manual", reference: reference, target: target)
+        let payload = SharedPrepare(processor: processor, intent: automatic ? "automatic" : "manual", reference: reference, target: target)
         let result: DJConnectSharedSpeechResult
         if target == .local {
             let request = try speechJSONRequest(path: "prepare", payload: payload)
@@ -504,6 +505,10 @@ public final class DJConnectClient: Sendable {
         guard result.success, result.session_speech.reference == reference else { throw DJConnectError.invalidResponse }
         let prepared = result.session_speech
         if ["unavailable", "withdrawn", "expired"].contains(prepared.state) && !prepared.manualAllowed && prepared.audioReference == nil { return result }
+        if processor == .localOnDevice {
+            guard DJConnectNativeSpeechAdmission.admits(prepared, reference: reference, text: acceptedText, settings: settings) else { throw DJConnectError.invalidResponse }
+            return result
+        }
         guard prepared.admits(reference: reference, text: acceptedText), prepared.audioState == "ready",
               prepared.settingsContractVersion == 3, prepared.settingsRevision == settings.speechFence,
               prepared.effectiveVoice?.hasQualifiedSelection == true,

@@ -6,13 +6,30 @@ import Foundation
 public struct DJConnectWatchSessionSnapshot: Codable, Sendable {
     public let settings: DJConnectProfileDJSettingsResponse
     public let session: DJConnectSessionRuntime?
+    public let speechSources: [DJConnectWatchSpeechSource]
+    enum CodingKeys: String, CodingKey { case settings, session; case speechSources = "speech_sources" }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        settings = try c.decode(DJConnectProfileDJSettingsResponse.self, forKey: .settings)
+        session = try c.decodeIfPresent(DJConnectSessionRuntime.self, forKey: .session)
+        speechSources = try c.decodeIfPresent([DJConnectWatchSpeechSource].self, forKey: .speechSources) ?? []
+        guard speechSources.count <= 9 else { throw DJConnectError.invalidResponse }
+    }
     public init(settings: DJConnectProfileDJSettingsResponse, session: DJConnectSessionRuntime?, at date: Date = Date()) {
         self.settings = settings
         if var value = session {
             let current = value.broadcast.nativeCurrentMoment(at: date, spotifyAttributionAvailable: true)
             let flow = value.broadcast.nativeFlowMoments(at: date).filter { $0.id != current?.id }
             let ids = Set(([current].compactMap { $0 } + Array(flow.prefix(8))).map(\.id))
-            // No hidden history, future labels, speech/media payloads or actions.
+            // Only compact original speech revisions accompany visible cards;
+            // no speech segments, hidden history, future labels, media or actions.
+            speechSources = value.broadcast.djMoments.filter { ids.contains($0.id) }.compactMap { moment in
+                guard settings.allowsSpeech(.local), let original = value.broadcast.sessionSpeech.first(where: {
+                    $0.reference == .moment(sessionID: value.id, momentID: moment.id)
+                }) else { return nil }
+                return DJConnectWatchSpeechSource(original, text: moment.content, at: date)
+            }
+            value.broadcast.sessionSpeech = []
             value.broadcast.djMoments = value.broadcast.djMoments.filter { ids.contains($0.id) }.map { moment in
                 var visible = moment; visible.actions = []; visible.artwork = nil; return visible
             }
@@ -21,7 +38,7 @@ public struct DJConnectWatchSessionSnapshot: Codable, Sendable {
             value.broadcast.nativeDelivery?.admissions.removeAll { !ids.contains($0.momentID) }
             value.broadcast.playback?.artworkURL = nil
             self.session = value
-        } else { self.session = nil }
+        } else { self.session = nil; speechSources = [] }
     }
     public var isValid: Bool {
         guard settings.isValid else { return false }

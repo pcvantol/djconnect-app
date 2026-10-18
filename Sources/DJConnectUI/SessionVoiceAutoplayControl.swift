@@ -14,7 +14,7 @@ struct SessionVoiceAutoplayControl: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .toggleStyle(.switch)
+        .toggleStyle(SwitchToggleStyle(tint: DJConnectGlassAppearance.toggleTint))
         .frame(minHeight: 44)
         .accessibilityIdentifier("session-voice-autoplay")
     }

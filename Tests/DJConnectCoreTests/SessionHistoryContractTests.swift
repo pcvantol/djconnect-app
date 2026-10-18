@@ -2,6 +2,8 @@ import Foundation
 import Combine
 import Testing
 import CryptoKit
+import CoreGraphics
+import ImageIO
 import Combine
 @testable import DJConnectCore
 @testable import DJConnectUI
@@ -97,9 +99,10 @@ private final class HistoryWireFixture: @unchecked Sendable {
     var baseURL: URL { URL(string: "http://" + hostname + ":8123")! }
     private let lock = NSLock()
     private var captured: [URLRequest] = []
+    let cacheControl: String
     let reply: @Sendable (URLRequest) throws -> (Int, Data, TimeInterval)
-    init(reply: @escaping @Sendable (URLRequest) throws -> (Int, Data, TimeInterval)) {
-        self.reply = reply; HistoryWireProtocol.register(self)
+    init(cacheControl: String = "no-store", reply: @escaping @Sendable (URLRequest) throws -> (Int, Data, TimeInterval)) {
+        self.cacheControl = cacheControl; self.reply = reply; HistoryWireProtocol.register(self)
     }
     func close() { HistoryWireProtocol.unregister(hostname) }
     func record(_ request: URLRequest) { lock.withLock { captured.append(request) } }
@@ -175,7 +178,7 @@ private final class HistoryWireProtocol: URLProtocol, @unchecked Sendable {
             let (status, data, delay) = try fixture.reply(request)
             DispatchQueue.global().asyncAfter(deadline: .now() + delay) { [self] in
                 guard !stateLock.withLock({ stopped }), let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil,
-                    headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"]) else { return }
+                    headerFields: ["Content-Type": "application/json", "Cache-Control": fixture.cacheControl]) else { return }
                 client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
                 client?.urlProtocol(self, didLoad: data); client?.urlProtocolDidFinishLoading(self)
             }
@@ -781,6 +784,49 @@ func sessionHistoryActualComposerHandlesFailureAfterTransportGoesOffline(_ failu
     } else {
         #expect(model.sessionHistory.pendingTurns.count == 1 && model.sessionHistory.pendingTurns.first?.failed == true)
     }
+}
+
+@Test(arguments: ["502", "503", "decode", "409"]) @MainActor
+func conversationFailureUsesAskDJCopyAndPreservesQuestionMetadata(_ failure: String) async throws {
+    let receipt = try historyObject()
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    let timeline = try historyData(try #require(receipt["archived_timeline"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.httpMethod == "POST", request.url!.path.hasSuffix("/ask_dj/message") {
+            return failure == "decode" ? (200, Data("{}".utf8), 0) : (Int(failure)!, Data(#"{"success":false,"error":"server"}"#.utf8), 0)
+        }
+        return (200, request.url!.path.hasSuffix("/ask_dj/history") ? profile : timeline, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    model.askDJDraft = "Fixture question"
+    model.sessionHistory.sendText()
+    let initial = try #require(model.sessionHistory.pendingTurns.first)
+    for _ in 0..<100 where model.isSendingAskDJText { try await Task.sleep(for: .milliseconds(20)) }
+    let turn = try #require(model.sessionHistory.pendingTurns.first)
+    let expected = failure == "409" ? "ui.ask_dj.answer.context_changed" : "ui.ask_dj.answer.unavailable"
+    #expect(turn.failed && turn.failureKey == expected)
+    #expect(turn.contextChanged == (failure == "409"))
+    #expect(model.askDJErrorMessage == DJConnectLocalization.localized(key: expected, language: model.language))
+    #expect(turn.id == initial.id && turn.payload == initial.payload)
+    let original = try #require(model.askDJMessages.first { $0.id == turn.localMessageID })
+    #expect(turn.questionMessage(in: model.askDJMessages) == original)
+    var voice = original
+    voice.origin = "voice"; voice.text = "Stemverzoek"
+    voice.createdAt = Date(timeIntervalSince1970: 1_700_000_000)
+    #expect(turn.questionMessage(in: [voice]) == voice)
+    let fallback = turn.questionMessage(in: [])
+    #expect(fallback.id == turn.localMessageID && fallback.createdAt == initial.createdAt)
+    #expect(fixture.requests.filter { $0.httpMethod == "POST" && $0.url!.path.hasSuffix("/ask_dj/message") }.count == 1)
+}
+
+@Test @MainActor func conversationErrorKeysKeepTransportAndUncertainDeliveryDistinct() {
+    #expect(DJConnectSessionHistoryModel.conversationErrorKey(URLError(.timedOut)) == "ui.ask_dj.answer.connection")
+    #expect(DJConnectSessionHistoryModel.conversationErrorKey(DJConnectError.network(message: "fixture")) == "ui.ask_dj.answer.connection")
+    #expect(DJConnectSessionHistoryModel.conversationErrorKey(DJConnectHybridTransportError.deliveryUnknown) == DJConnectHybridTransportError.deliveryUnknown.localizationKey)
 }
 
 @Test @MainActor func sessionHistoryPeriodicReadCannotSupersedeExplicitOpen() async throws {
@@ -4869,4 +4915,359 @@ func missingOptionalSpeechRouteKeepsReachableOriginAndNeverReplays(_ mode: DJCon
     for _ in 0..<100 where model.isLoadingOutputs { try await Task.sleep(for: .milliseconds(5)) }
     #expect(model.selectedOutput == "MacBook")
     #expect(model.availableOutputs.filter { $0.active == true }.map(\.id) == ["mac"])
+}
+
+@Test func historyRowPlaybackRequiresOneExplicitServerAction() {
+    let item = DJConnectAskDJHistoryItem(kind: "track", title: "Thank U", uri: "spotify:track:example", playedAtLabel: "20:26")
+    var message = DJConnectAskDJMessage(role: .dj, text: "Recently played", items: [item, item])
+    #expect(message.playbackAction(forHistoryItem: item) == nil)
+    let action = DJConnectAskDJPlaybackAction(id: "replay", title: item.title, uri: item.uri, kind: "track")
+    message.playbackActions = [action]
+    #expect(message.playbackAction(forHistoryItem: item) == action)
+    #expect(message.items.count == 2)
+    #expect(message.items.allSatisfy { $0.playedAtLabel == "20:26" })
+    var different = item; different.uri = "spotify:track:other"
+    #expect(message.playbackAction(forHistoryItem: different) == nil)
+    different = item; different.kind = "technical_metric"
+    #expect(message.playbackAction(forHistoryItem: different) == nil)
+    message.playbackActions = [action, action]
+    #expect(message.playbackAction(forHistoryItem: item) == nil)
+    var invalid = action; invalid.resultSetID = "set-without-action"
+    message.playbackActions = [invalid]
+    #expect(message.playbackAction(forHistoryItem: item) == nil)
+}
+
+@Test(arguments: [false, true]) @MainActor
+func profileConversationClearPreservesSendingAndRejectsOldHistory(_ remoteClear: Bool) async throws {
+    let original = try #require(historyObject()["later_historical_answer"] as? [String: Any])
+    let initial = try historyData(original)
+    var cleared = original
+    cleared["messages"] = []; cleared["historical_matches"] = []
+    cleared["user_message"] = NSNull(); cleared["assistant_message"] = NSNull()
+    cleared["history_revision"] = 4; cleared["clear_revision"] = 1; cleared["cleared"] = true
+    let clearData = try historyData(cleared)
+    var next = original; next["history_revision"] = 5; next["clear_revision"] = 1
+    let nextData = try historyData(next)
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/clear") { return (200, clearData, 0) }
+        if request.httpMethod == "POST" { return (200, nextData, 0) }
+        return (200, initial, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    #expect(model.canUseProfileConversation)
+    #expect(!model.askDJMessages.isEmpty)
+    let oldEpoch = model.sessionHistory.responseEpoch
+    if remoteClear {
+        let response = try JSONDecoder().decode(DJConnectAskDJHistoryResponse.self, from: clearData)
+        #expect(model.applyProfileConversationHistory(response))
+    } else {
+        model.clearAskDJHistory()
+        for _ in 0..<100 where model.isClearingAskDJHistory { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(!model.isClearingAskDJHistory)
+    }
+    #expect(model.askDJMessages.isEmpty)
+    #expect(model.sessionHistory.responseEpoch != oldEpoch)
+    #expect(model.sessionHistory.hasAuthorizedOwner && model.canUseProfileConversation)
+    #expect(!model.applyProfileConversationHistory(try JSONDecoder().decode(DJConnectAskDJHistoryResponse.self, from: initial)))
+    #expect(model.askDJMessages.isEmpty)
+    let response = try await model.sessionHistory.sendExistingText("New question after clear", clientMessageID: "after-clear")
+    #expect(response.clearRevision == 1)
+    #expect(fixture.requests.contains { request in
+        request.httpMethod == "POST" && !(request.url!.path.hasSuffix("/clear"))
+    })
+    #expect(model.canUseProfileConversation)
+}
+
+@Test @MainActor func sessionCoverUsesConfirmedArtworkRouteInsteadOfPinnedLAN() throws {
+    let remote = try #require(URL(string: "https://paired.example"))
+    let fixture = HistoryWireFixture { _ in (500, Data(), 0) }; defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(remoteURL: remote)
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    let path = "/api/djconnect/v1/image_proxy/cover?size=600"
+    let local = try #require(URL(string: path, relativeTo: fixture.baseURL)?.absoluteURL)
+    model.recordConnectionMode(.remote, baseURL: remote)
+    let resolved = try #require(model.resolvedArtworkURL(local))
+    #expect(resolved.host == remote.host && resolved.scheme == "https")
+    #expect(resolved.path == local.path && resolved.query == local.query)
+    #expect(model.resolvedArtworkURL(URL(string: path)) == resolved)
+    model.recordConnectionMode(.local, baseURL: fixture.baseURL)
+    #expect(model.resolvedArtworkURL(resolved) == local)
+    let provider = URL(string: "https://images.example/actual-album.jpg")
+    #expect(model.resolvedArtworkURL(provider) == provider)
+    #expect(model.resolvedArtworkURL(nil) == nil)
+    for bad in ["file:///tmp/cover.jpg", "https://user:secret@paired.example/cover", "//unknown.example/cover"] {
+        #expect(model.resolvedArtworkURL(URL(string: bad)) == nil)
+    }
+    #expect(fixture.requests.isEmpty)
+}
+
+@Test @MainActor func askDJArtworkRestorationUsesConfirmedRouteAndPreservesResponseIdentity() throws {
+    let remote = try #require(URL(string: "https://paired.example"))
+    let fixture = HistoryWireFixture { _ in (500, Data(), 0) }; defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(remoteURL: remote)
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    for prefix in ["/api/djconnect/v1/image_proxy/", "/api/djconnect/image_proxy/"] {
+        let path = prefix + "album/cover?size=600"
+        let local = try #require(URL(string: path, relativeTo: fixture.baseURL)?.absoluteURL)
+        let relative = try #require(URL(string: path))
+        let action = try JSONDecoder().decode(DJConnectAskDJPlaybackAction.self, from: historyData([
+            "id":"replay", "title":"Your House", "kind":"track", "command":"play_uri",
+            "uri":"spotify:track:fixture", "image_url":local.absoluteString,
+            "result_set_id":"set-a", "action_id":"action-a"
+        ]))
+        let wire = DJConnectAskDJHistoryMessage(id: "answer", role: .assistant, text: "Your House",
+            createdAt: Date(timeIntervalSince1970: 1000),
+            images: [.init(url: relative, title: "Your House", thumbnailURL: local)],
+            playbackActions: [action], items: [.init(title: "Your House", imageURL: local, thumbnailURL: relative)])
+        model.recordConnectionMode(.local, baseURL: fixture.baseURL)
+        #expect(model.sessionResponseMessage(wire).images.first?.url == local)
+        model.recordConnectionMode(.remote, baseURL: remote)
+        // Re-decoding represents a fresh history read after leaving/reopening the screen.
+        let restored = try JSONDecoder().decode(DJConnectAskDJHistoryMessage.self, from: JSONEncoder().encode(wire))
+        let projected = model.sessionResponseMessage(restored)
+        let expected = try #require(URL(string: path, relativeTo: remote)?.absoluteURL)
+        #expect(projected.images.first?.url == expected)
+        #expect(projected.images.first?.thumbnailURL == expected)
+        #expect(projected.items.first?.imageURL == expected)
+        #expect(projected.items.first?.thumbnailURL == expected)
+        #expect(projected.playbackActions.first?.imageURL == expected)
+        var expectedAction = action; expectedAction.imageURL = expected
+        #expect(projected.playbackActions == [expectedAction], "Artwork routing must preserve action authority and identity")
+        #expect(projected.serverID == wire.id && projected.text == wire.text)
+    }
+    let rejected = DJConnectAskDJHistoryMessage(id: "unsafe", role: .assistant, text: "No untrusted art", createdAt: Date(),
+        images: [.init(url: URL(string: "file:///tmp/cover")!), .init(url: URL(string: "https://unpaired.example/cover")!)])
+    #expect(model.sessionResponseMessage(rejected).images.isEmpty)
+    #expect(fixture.requests.isEmpty)
+}
+
+@Test(arguments: ["nl", "en", "de", "fr", "es"])
+func sessionStartMetadataUsesServerStartLocalTimeAndTranslatedFullDate(language: String) throws {
+    let zone = try #require(TimeZone(identifier: "Europe/Amsterdam"))
+    let text = try #require(SessionStartMetadata.text(startedAt: "2026-10-10T15:30:00Z", language: language, timeZone: zone))
+    #expect(text.contains("17:30") && text.contains("2026"))
+    #expect(!text.contains("ui.session.") && !text.contains("%@"))
+    if language == "nl" { #expect(text == "DJ-sessie gestart om 17:30 op 10 oktober 2026") }
+    #expect(SessionStartMetadata.text(startedAt: "", language: language, timeZone: zone) == nil)
+    #expect(SessionStartMetadata.text(startedAt: "unknown", language: language, timeZone: zone) == nil)
+    let winter = try #require(SessionStartMetadata.text(startedAt: "2026-12-10T16:30:00Z", language: language, timeZone: zone))
+    #expect(winter.contains("17:30"))
+}
+
+@Test @MainActor func albumBorderTintIsImmediatelyReusableAcrossScreensWithoutExtendingLifetime() throws {
+    let cache = DJConnectArtworkTintCache()
+    let now = Date(timeIntervalSince1970: 1000)
+    let cover = try #require(URL(string: "https://paired.example/api/djconnect/v1/image_proxy/cover-a"))
+    let nextCover = try #require(URL(string: "https://paired.example/api/djconnect/v1/image_proxy/cover-b"))
+    let tint = DJConnectArtworkTintSnapshot(color: .purple, expiresAt: now.addingTimeInterval(10))
+    cache.store(tint, for: cover, at: now)
+    // Separate synchronous reads model initial state on two independently mounted screens.
+    let session = try #require(cache.value(for: cover, at: now.addingTimeInterval(1)))
+    let player = try #require(cache.value(for: cover, at: now.addingTimeInterval(2)))
+    #expect(session.color == player.color && session.expiresAt == player.expiresAt)
+    #expect(player.expiresAt == tint.expiresAt)
+    #expect(cache.value(for: nextCover, at: now) == nil, "A previous cover must not tint the next track")
+    #expect(cache.value(for: cover, at: tint.expiresAt) == nil)
+    cache.store(tint, for: cover, at: tint.expiresAt)
+    #expect(cache.value(for: cover, at: tint.expiresAt) == nil, "Remounting cannot renew expired tint")
+}
+
+@Test(arguments: ["no-store", "no-cache", "public, max-age=0"])
+func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) async throws {
+    let fixture = HistoryWireFixture(cacheControl: cacheControl) { _ in (200, Data([1, 2, 3]), 0) }
+    defer { fixture.close() }
+    let cache = DJConnectArtworkDataCache(session: fixture.session())
+    let url = fixture.baseURL.appendingPathComponent("artwork")
+    _ = await cache.tint(for: url, fallback: .purple)
+    #expect(await cache.cachedTint(for: url) == nil, "The synchronous border cache may only inherit retained HTTP lifetime")
+    #expect(fixture.requests.count == 1)
+}
+
+@Test @MainActor func albumBorderTintWarmDownloadIsImmediatelyAvailableOnBothScreens() async throws {
+    let png = try #require(Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII="))
+    let fixture = HistoryWireFixture(cacheControl: "public, max-age=60") { _ in (200, png, 0) }
+    defer { fixture.close() }
+    let imageCache = DJConnectArtworkDataCache(session: fixture.session())
+    let presentation = DJConnectArtworkTintCache()
+    let url = fixture.baseURL.appendingPathComponent("album")
+    let color = await imageCache.tint(for: url, fallback: .purple)
+    let sample = try #require(await imageCache.cachedTint(for: url))
+    presentation.store(sample, for: url)
+    #expect(try #require(presentation.value(for: url)).color == color)
+    #expect(try #require(presentation.value(for: url)).color == color)
+    #expect(sample.expiresAt.timeIntervalSinceNow <= 60)
+    #expect(presentation.value(for: url, at: sample.expiresAt) == nil)
+    #expect(await imageCache.cachedTint(for: url, at: sample.expiresAt) == nil)
+    #expect(fixture.requests.count == 1, "Opening another screen must not refetch or resample the cover")
+}
+
+@Test @MainActor func submittedQuestionScrollTracksPendingRetainedAndCurrentOnlyIdentity() throws {
+    let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self,
+        from: historyData(try #require(historyObject()["archived_timeline"])))
+    let entry = try #require(page.entries.first(where: { $0.kind == .conversationUser }))
+    let client = try #require(entry.clientMessageID)
+    let now = try #require(DJConnectHistoryEntry.date(entry.occurredAt)).addingTimeInterval(1)
+    let localID = UUID()
+    let question = SessionSubmittedQuestion(sessionID: entry.sessionID, localID: localID, clientID: client)
+    let identity = DJConnectIdentity(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Test", clientType: .ios, firmware: "4.0.0", platform: .ios)
+    let pending = DJConnectSessionHistoryModel.PendingTurn(id: client, text: entry.text ?? "", context: .init(sessionID: entry.sessionID),
+        localMessageID: localID, payload: DJConnectAskDJRequest(identity: identity, text: entry.text ?? "", clientMessageID: client),
+        requestEpoch: UUID(), ownerScope: "profile-a")
+    #expect(question.target(sessionID: entry.sessionID, pending: [pending], entries: [], current: [], at: now) == "pending-" + client)
+    #expect(question.target(sessionID: entry.sessionID, pending: [pending], entries: page.entries, current: [], at: now) == entry.id)
+    #expect(question.target(sessionID: entry.sessionID, pending: [], entries: page.entries, current: [], at: now) == entry.id)
+    let ephemeral = DJConnectAskDJMessage(id: localID, clientMessageID: client, role: .user, text: entry.text ?? "")
+    #expect(question.target(sessionID: entry.sessionID, pending: [], entries: [], current: [ephemeral], at: now) == "current-conversation-" + localID.uuidString)
+    #expect(question.target(sessionID: "another-session", pending: [pending], entries: page.entries, current: [ephemeral], at: now) == nil)
+    var invalid = entry; invalid.context = nil
+    #expect(question.target(sessionID: entry.sessionID, pending: [], entries: [invalid], current: [], at: now) == nil)
+    let unrelated = DJConnectAskDJMessage(role: .user, text: entry.text ?? "")
+    let assistant = DJConnectAskDJMessage(id: localID, clientMessageID: client, role: .dj, text: "An answer")
+    #expect(question.target(sessionID: entry.sessionID, pending: [], entries: [], current: [unrelated, assistant], at: now) == nil)
+    let expired = try #require(DJConnectHistoryEntry.date(entry.retainedUntil))
+    #expect(question.target(sessionID: entry.sessionID, pending: [], entries: page.entries, current: [], at: expired) == nil)
+}
+
+@Test func playbackFieldHighlightsPreserveUnicodeOffsetsAndIgnoreOtherFields() {
+    let source = "🎧 Titel · Artiest · Album"
+    let title = "🎧 Titel"
+    let artist = "Artiest"
+    let titleRange = (source as NSString).range(of: title)
+    let artistRange = (source as NSString).range(of: artist)
+    let highlights = [DJConnectHistoryHighlight(startUTF16: titleRange.location, lengthUTF16: titleRange.length),
+                      DJConnectHistoryHighlight(startUTF16: artistRange.location, lengthUTF16: artistRange.length)]
+    let projectedTitle = SessionPlaybackHighlights.project(highlights, source: source, field: title)
+    #expect(projectedTitle == [.init(startUTF16: 0, lengthUTF16: title.utf16.count)])
+    #expect(SessionPlaybackHighlights.project(highlights, source: source, field: artist) == [.init(startUTF16: 0, lengthUTF16: artist.utf16.count)])
+    #expect(SessionPlaybackHighlights.project(highlights, source: source, field: "Album").isEmpty)
+    #expect(SessionPlaybackHighlights.project(highlights, source: source, field: "Absent").isEmpty)
+    #expect(SessionPlaybackHighlights.project(highlights, source: source, field: "").isEmpty)
+}
+
+@Test(arguments: ["public, max-age=60", "no-store", "no-cache", "public, max-age=0"])
+@MainActor func decodedArtworkReusesPixelsOnlyWithinHTTPLifetime(cacheControl: String) async throws {
+    let context = try #require(CGContext(data: nil, width: 8, height: 8, bitsPerComponent: 8, bytesPerRow: 32,
+        space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+    context.setFillColor(CGColor(red: 0.8, green: 0.2, blue: 0.1, alpha: 1)); context.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
+    let pixels = try #require(context.makeImage()); let bytes = NSMutableData()
+    let destination = try #require(CGImageDestinationCreateWithData(bytes, "public.png" as CFString, 1, nil))
+    CGImageDestinationAddImage(destination, pixels, nil); #expect(CGImageDestinationFinalize(destination))
+    let png = bytes as Data
+    let fixture = HistoryWireFixture(cacheControl: cacheControl) { _ in (200, png, 0) }
+    defer { fixture.close() }
+    let source = DJConnectArtworkDataCache(session: fixture.session())
+    let decoded = DJConnectDecodedArtworkCache()
+    let url = fixture.baseURL.appendingPathComponent("cacheable-cover")
+    let first = try await loadDecodedArtwork(for: url, using: source, decoded: decoded)
+    let again = try await loadDecodedArtwork(for: url, using: source, decoded: decoded)
+    let cacheable = cacheControl == "public, max-age=60"
+    #expect((first === again) == cacheable)
+    #expect(fixture.requests.count == (cacheable ? 1 : 2))
+    #expect(decoded.value(for: url, expiresAt: first.expiresAt, at: first.expiresAt) == nil)
+    #expect(first.byteCost >= 8 * 8 * 4)
+}
+
+@Test func historyTimestampParserPreservesFractionalWholeOffsetAndConcurrentResults() async {
+    let samples = ["2026-10-18T00:00:00Z", "2026-10-18T00:00:00.123Z", "2026-10-18T02:00:00+02:00", "", "not-a-date"]
+    let expected = samples.map { text in
+        let parser = ISO8601DateFormatter(); parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return parser.date(from: text) ?? ISO8601DateFormatter().date(from: text)
+    }
+    await withTaskGroup(of: Bool.self) { group in
+        for _ in 0..<100 {
+            group.addTask { samples.enumerated().allSatisfy { DJConnectHistoryEntry.date($0.element) == expected[$0.offset] } }
+        }
+        for await matches in group { #expect(matches) }
+    }
+}
+
+@Test @MainActor func longHistoryArtworkWindowMatchesRetentionFilteredReference() throws {
+    let demo = try DJConnectDemoSessionData.make(language: "nl")
+    let original = try #require(demo.timelines[demo.active.id]?.entries.first(where: { [.playbackObserved, .djMoment].contains($0.kind) }))
+    let prototype = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
+    let now = Date(); let formatter = ISO8601DateFormatter()
+    let rows = try (0..<1000).map { index in
+        var value = prototype; value["entry_id"] = "row-\(index)"; value["order"] = index + 1
+        value["retained_until"] = formatter.string(from: now.addingTimeInterval(index % 3 == 0 ? -60 : 600))
+        return try JSONDecoder().decode(DJConnectHistoryEntry.self, from: JSONSerialization.data(withJSONObject: value))
+    }
+    let visible = Set(rows[495..<505].map(\.id))
+    let retained = rows.filter { $0.isRetained(at: now) }
+    let positions = retained.indices.filter { visible.contains(retained[$0].id) }
+    var expected = positions
+    if let first = positions.first, first > 0 { expected.append(first - 1) }
+    if let last = positions.last, last + 1 < retained.count { expected.append(last + 1) }
+    #expect(DJConnectSessionHistoryModel.artworkWindow(entries: rows, visibleIDs: visible, at: now) == expected.map { retained[$0].reference })
+    #expect(DJConnectSessionHistoryModel.artworkWindow(entries: rows, visibleIDs: visible, at: now.addingTimeInterval(1000)).isEmpty)
+}
+
+@Test @MainActor func timelineRefreshKeepsFailureVisibleUntilReadActuallySucceeds() async throws {
+    let first = try historyData(try #require(historyObject("window-producer-receipt")["first_page"]))
+    let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: first)
+    let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true},"contract_versions":{"session_conversation_history":1}}"#.utf8)
+    let phase = PresenceReadPhase()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("ask_dj/history") { return (200, profile, 0) }
+        if phase.value == 1 || phase.value == 2 {
+            return (404, Data(#"{"success":false,"error":"session_not_found"}"#.utf8), phase.value == 2 ? 0.15 : 0)
+        }
+        return (200, first, phase.value == 3 ? 0.15 : 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare(); await history.loadTimeline(page.session.id)
+    let confirmed = try #require(history.timelines[page.session.id]?.entries)
+    phase.value = 1
+    await history.loadTimeline(page.session.id)
+    let error = try #require(history.timelines[page.session.id]?.errorKey)
+    for mode in [2, 3] {
+        phase.value = mode
+        let retry = Task { await history.loadTimeline(page.session.id) }
+        for _ in 0..<100 where history.timelines[page.session.id]?.loading != true { await Task.yield() }
+        #expect(history.timelines[page.session.id]?.loading == true)
+        #expect(history.timelines[page.session.id]?.errorKey == error, "Starting a background read cannot remove the error block and shift the feed")
+        #expect(history.timelines[page.session.id]?.entries == confirmed)
+        await retry.value
+    }
+    #expect(history.timelines[page.session.id]?.errorKey == nil)
+    #expect(history.timelines[page.session.id]?.entries == confirmed)
+    #expect(history.hasAuthorizedOwner)
+}
+
+@Test @MainActor func firstPlayHelperUsesSessionMusicHistoryAndStaysDismissedAfterPlaybackClears() throws {
+    let name = "first-play-helper-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    model.startDemoMode()
+    var session = try #require(model.activeDJSession)
+    let playing = try #require(session.broadcast.playback)
+    session.broadcast.playback = nil
+    // Existing observed music still hides the helper when the current snapshot disappears.
+    #expect(model.sessionHistory.hasPlaybackForFirstPlayHelper(session))
+    session.sessionID = "new-empty-session"
+    // Opening moments by themselves are not music: a fresh Session still needs the helper.
+    #expect(!session.broadcast.djMoments.isEmpty)
+    #expect(!model.sessionHistory.hasPlaybackForFirstPlayHelper(session))
+    session.broadcast.playback = playing
+    #expect(model.sessionHistory.hasPlaybackForFirstPlayHelper(session))
+    session.broadcast.playback?.state = "paused"
+    #expect(model.sessionHistory.hasPlaybackForFirstPlayHelper(session))
+    model.sessionHistory.rememberObservedPlayback(sessionID: session.id)
+    session.broadcast.playback = nil
+    #expect(model.sessionHistory.hasPlaybackForFirstPlayHelper(session))
+    session.sessionID = "another-new-session"
+    #expect(!model.sessionHistory.hasPlaybackForFirstPlayHelper(session))
+    session.sessionID = "new-empty-session"
+    model.sessionHistory.reset()
+    #expect(!model.sessionHistory.hasPlaybackForFirstPlayHelper(session))
 }

@@ -1281,7 +1281,7 @@
 "ui.dj_settings.loading" = "Cargando opciones confirmadas…";
 "ui.dj_settings.saving" = "Guardando tu opción…";
 "ui.dj_settings.saved" = "Guardado para este perfil.";
-"ui.dj_settings.conflict" = "Los ajustes cambiaron o se rechazó la opción. Revisa las opciones actuales antes de volver a elegir.";
+"ui.dj_settings.conflict" = "No se pudo guardar esta opción. Revisa los ajustes actuales antes de volver a elegir.";
 "ui.dj_settings.uncertain" = "Se desconoce el resultado. El cambio no se enviará de nuevo automáticamente.";
 "ui.dj_settings.check_outcome" = "Comprobar resultado";
 "ui.dj_settings.use_current" = "Usar opciones actuales confirmadas";
@@ -1332,3 +1332,42 @@
 
 "ui.app.glass.effects" = "Efectos de cristal";
 "ui.app.glass.effects.description" = "Desactívalos para una apariencia más sencilla con menos efectos gráficos.";
+
+"ui.session.start_metadata" = "Sesión de DJ iniciada a las %1$@ el %2$@";
+
+// Ask DJ submission failures are distinct from history availability.
+"ui.ask_dj.answer.unavailable" = "Ask DJ no puede responder a tu pregunta o solicitud en este momento.";
+"ui.ask_dj.answer.connection" = "Ask DJ no puede responder a tu pregunta o solicitud ahora porque se ha interrumpido la conexión.";
+"ui.ask_dj.answer.context_changed" = "El contexto de la sesión ha cambiado. Revisa tu pregunta antes de enviarla de nuevo.";
+
+// Device-local Apple speech renderer
+"ui.device_speech.title" = "En este dispositivo · Voz";
+"ui.device_speech.enabled" = "Usar Apple TTS en este dispositivo";
+"ui.device_speech.explanation" = "Esta voz se aplica solo aquí. La reproducción automática y la salida de Home Assistant siguen siendo ajustes separados.";
+"ui.device_speech.gender" = "Tipo de voz";
+"ui.device_speech.system" = "Automático";
+"ui.device_speech.female" = "Femenina";
+"ui.device_speech.male" = "Masculina";
+"ui.device_speech.voice" = "Voz";
+"ui.device_speech.unavailable" = "No hay ninguna voz compatible disponible";
+"ui.device_speech.rate" = "Velocidad de habla";
+"ui.device_speech.pitch" = "Tono";
+"ui.device_speech.stop" = "Detener muestra";
+"ui.device_speech.preview" = "Escuchar muestra";
+"ui.device_speech.pending" = "La voz del DJ en este dispositivo requiere compatibilidad con Home Assistant conectado.";
+"ui.device_speech.sample" = "Pon tu música. DJConnect le da vida. Esta es una muestra de la voz de este dispositivo.";
+
+"watch.session.current" = "Último momento del DJ";
+"watch.session.listen" = "Escuchar";
+"watch.session.stop_speech" = "Detener";
+"watch.session.speech_settings" = "Voz en este Watch";
+"watch.session.enable_speech" = "Activa Apple TTS para escuchar las intervenciones del DJ en este Watch.";
+"watch.session.speech_unavailable" = "Esta intervención no se puede reproducir ahora. Inténtalo de nuevo.";
+
+"ui.music.availability.unconfirmed" = "No se puede comprobar";
+
+"ui.session.history.search_sessions" = "Buscar sesiones anteriores";
+"ui.session.history.search_loaded" = "Buscar en las sesiones cargadas";
+
+"ui.feedback.issue.title" = "Comentarios sobre la app DJConnect";
+"ui.feedback.issue.intro" = "Describe tus comentarios o la función que te gustaría solicitar:";

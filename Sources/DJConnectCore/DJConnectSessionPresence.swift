@@ -3,6 +3,8 @@ import Foundation
 public enum DJConnectSessionPresenceValue: String, Codable, CaseIterable, Equatable, Sendable {
     case musicOnly = "music_only"
     case occasional, balanced, talkative, presenter
+    /// Presentation choices retain historical talkative decoding without offering it anew.
+    public static let selectableChoices: [Self] = [.musicOnly, .occasional, .balanced, .presenter]
     public var localizationKey: String { "ui.session.presence." + rawValue }
 }
 

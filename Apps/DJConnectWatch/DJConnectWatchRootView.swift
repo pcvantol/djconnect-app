@@ -243,11 +243,11 @@ struct DJConnectWatchRootView: View {
                 LazyVStack(spacing: 12) {
                     mainHeader
 
-                    if !model.isDemoMode {
-                        DJConnectWatchSessionView(state: model.foregroundSession, settings: model.profileDJSettings)
-                    }
-
                     nowPlaying
+
+                    if !model.isDemoMode {
+                        DJConnectWatchSessionView(state: model.foregroundSession, settings: model.profileDJSettings, speech: model.sessionSpeech)
+                    }
 
                     HStack(spacing: 12) {
                         commandButton("backward.fill", command: "previous", accessibilityLabel: watchLocalizedKey(model.language, "watch.previous.track"))
@@ -2478,6 +2478,12 @@ private struct DJConnectWatchSettingsView: View {
                         .labelsHidden()
                         .pickerStyle(.navigationLink)
                         DJConnectGlassPreferenceToggle(language: model.language)
+                    }
+
+                    DJConnectWatchSettingsSection(title: watchLocalizedKey(model.language, "ui.device_speech.title")) {
+                        DeviceSpeechSettingsView(language: model.language, preferences: $model.deviceSpeechPreferences,
+                            previewAllowed: model.canPreviewDeviceSpeech, isSpeaking: model.deviceSpeechPreviewIsPlaying,
+                            preview: model.previewDeviceSpeech, stop: model.stopDeviceSpeechPreview)
                     }
 
                     if model.isDemoMode {

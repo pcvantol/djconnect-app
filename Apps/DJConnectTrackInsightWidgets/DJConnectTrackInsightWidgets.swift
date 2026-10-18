@@ -193,32 +193,36 @@ private struct PassiveSessionContentView: View {
         VStack(alignment: .leading, spacing: compact ? 6 : 8) {
             Label(text("ui.session.title"), systemImage: "opticaldisc")
                 .font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
-            if let contribution {
-                HStack(alignment: .top, spacing: 10) {
-                    if cache?.projection.currentArtwork(slot: "contribution", at: date) != nil {
-                        cover(slot: "contribution").frame(width: compact ? 40 : 56, height: compact ? 40 : 56)
-                    }
-                    Text(contribution.text).font(compact ? .subheadline.weight(.medium) : .headline)
-                        .lineLimit(large ? 6 : compact ? 4 : 3)
-                        .accessibilityLabel(contribution.text)
-                }
-                credit(contribution.source_attribution)
-            }
-            if let playback, !compact || contribution == nil {
-                if contribution != nil { Divider().overlay(.white.opacity(0.15)) }
-                HStack(alignment: .top, spacing: 10) {
+            if let playback {
+                HStack(alignment: .top, spacing: compact ? 6 : 12) {
                     if cache?.projection.currentArtwork(slot: "now_playing", at: date) != nil {
-                        cover(slot: "now_playing").frame(width: large ? 72 : 44, height: large ? 72 : 44)
+                        cover(slot: "now_playing")
+                            .frame(width: large ? 104 : compact ? 32 : 56,
+                                   height: large ? 104 : compact ? 32 : 56)
                     }
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(text("ui.now.playing")).font(.caption2).foregroundStyle(.white.opacity(0.7))
-                        Text(playback.track).font(.subheadline.weight(.semibold)).lineLimit(large ? 3 : 2)
+                        if !compact {
+                            Text(text("ui.now.playing")).font(.caption2).foregroundStyle(.white.opacity(0.7))
+                        }
+                        Text(playback.track).font(.subheadline.weight(.semibold)).lineLimit(large ? 3 : compact ? 1 : 2)
                         Text(playback.artist).font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(large ? 2 : 1)
                         if large { Text(playback.album).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(2) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 credit(playback.attribution)
+            }
+            if let contribution {
+                if playback != nil { Divider().overlay(.white.opacity(0.15)) }
+                HStack(alignment: .top, spacing: 10) {
+                    if !compact, cache?.projection.currentArtwork(slot: "contribution", at: date) != nil {
+                        cover(slot: "contribution").frame(width: 56, height: 56)
+                    }
+                    Text(contribution.text).font(compact ? .caption : .subheadline.weight(.medium))
+                        .lineLimit(large ? 6 : compact && playback != nil ? 2 : 3)
+                        .accessibilityLabel(contribution.text)
+                }
+                credit(contribution.source_attribution)
             }
             if contribution == nil && playback == nil {
                 Text(text("surface.session.active")).font(.headline)
@@ -247,9 +251,13 @@ private struct PassiveSessionContentView: View {
            let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
            CGImageSourceGetCount(source) == 1,
            let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-                kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 512
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                // Match the presentation's point size at Retina scale; a frame
+                // alone does not shrink the image archived by ActivityKit.
+                kCGImageSourceThumbnailMaxPixelSize: Int((large ? 104 : compact ? 32 : 56) * 3)
            ] as CFDictionary) {
-            Image(image, scale: 1, label: Text(artwork.alt_text[DJConnectLocalization.defaultDisplayLanguageCode()] ?? artwork.alt_text["en"] ?? ""))
+            Image(image, scale: 3, label: Text(artwork.alt_text[DJConnectLocalization.defaultDisplayLanguageCode()] ?? artwork.alt_text["en"] ?? ""))
                 .resizable().scaledToFit() // The granted cover must not be cropped.
         }
     }

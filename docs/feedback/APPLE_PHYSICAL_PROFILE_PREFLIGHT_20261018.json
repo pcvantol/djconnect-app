@@ -1,0 +1,18 @@
+{
+  "scope": "PHYSICAL_PREFLIGHT_ONLY_NO_PERFORMANCE_CAPTURE",
+  "date": "2026-10-18",
+  "device": "iPhone 17 Pro",
+  "unlocked": true,
+  "developer_mode": "enabled",
+  "ddi_services_available": true,
+  "transport": "localNetwork",
+  "app_bundle": "dev.djconnect.ios",
+  "installed_build": "40315",
+  "app_running": true,
+  "instruments_mac_mini": "offline",
+  "instruments_macbook": "offline",
+  "direct_attach_probe": "Cannot find process for provided pid",
+  "physical_measurement": "NOT_RUN",
+  "next_action": "Owner asked to connect unlocked iPhone via USB, preferably MacBook",
+  "installed_or_modified_app": false
+}

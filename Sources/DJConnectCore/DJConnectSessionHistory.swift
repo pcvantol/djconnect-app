@@ -177,8 +177,7 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
         return deadline > date
     }
     public static func date(_ text: String) -> Date? {
-        let fractional = ISO8601DateFormatter(); fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return fractional.date(from: text) ?? ISO8601DateFormatter().date(from: text)
+        SessionHistoryDateParser.shared.date(text)
     }
     enum CodingKeys: String, CodingKey {
         case optionalSessionSpeech = "session_speech"
@@ -347,4 +346,24 @@ public struct DJConnectSessionHistoryCapabilities: Decodable, Sendable {
         available && capabilities?["session_flow_text_search"] == true && contractVersions?["session_flow_text_search"] == 1
     }
     enum CodingKeys: String, CodingKey { case capabilities, contractVersions = "contract_versions" }
+}
+
+/// Reuses parsers and bounded immutable timestamp results, never retention decisions.
+private final class SessionHistoryDateParser: @unchecked Sendable {
+    static let shared = SessionHistoryDateParser()
+    private let lock = NSLock()
+    private let fractional = ISO8601DateFormatter()
+    private let whole = ISO8601DateFormatter()
+    private let dates = NSCache<NSString, NSDate>()
+    private init() {
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        dates.countLimit = 2048
+    }
+    func date(_ text: String) -> Date? {
+        lock.lock(); defer { lock.unlock() }
+        if let date = dates.object(forKey: text as NSString) { return date as Date }
+        guard let date = fractional.date(from: text) ?? whole.date(from: text) else { return nil }
+        if text.utf8.count <= 128 { dates.setObject(date as NSDate, forKey: text as NSString) }
+        return date
+    }
 }

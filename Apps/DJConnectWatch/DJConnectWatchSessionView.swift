@@ -7,6 +7,8 @@ struct DJConnectWatchSessionView: View {
     @EnvironmentObject private var model: DJConnectWatchModel
     @ObservedObject var state: DJConnectWatchForegroundSession
     @ObservedObject var settings: ProfileDJSettingsModel
+    @ObservedObject var speech: DJConnectWatchSessionSpeech
+    @State private var showsFlow = false
 
     private func text(_ key: String) -> String {
         DJConnectLocalization.localized(key: key, language: model.language)
@@ -27,15 +29,40 @@ struct DJConnectWatchSessionView: View {
                 }
                 if let snapshot = state.current(at: clock.date) {
                     if let session = snapshot.session {
+                        if let started = DJConnectHistoryEntry.date(session.startedAt) {
+                            Text(text("ui.session.started_at") + " " + started.formatted(.dateTime.day().month().hour().minute().locale(Locale(identifier: model.language))))
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
                         let current = session.broadcast.nativeCurrentMoment(at: clock.date, spotifyAttributionAvailable: true)
-                        if let current { momentCard(current) }
+                        if let current {
+                            Label(text("watch.session.current"), systemImage: "sparkles").font(.caption.weight(.semibold))
+                            momentCard(current)
+                        }
                         else { Text(text("watch.session.waiting")).font(.callout) }
                         let flow = session.broadcast.nativeFlowMoments(at: clock.date).filter { $0.id != current?.id }
                         if !flow.isEmpty {
-                            Text(text("ui.session.flow")).font(.caption.weight(.semibold))
-                            ForEach(flow) { moment in momentCard(moment) }
+                            Button { showsFlow.toggle() } label: {
+                                HStack {
+                                    Text(text("ui.session.flow"))
+                                    Spacer(minLength: 2)
+                                    Image(systemName: showsFlow ? "chevron.up" : "chevron.down")
+                                }.font(.caption.weight(.semibold))
+                            }
+                            .accessibilityIdentifier("watch-session-flow-toggle")
+                            if showsFlow { ForEach(flow) { moment in momentCard(moment) } }
                         }
                     } else { Text(text("ui.session.idle")).font(.callout) }
+                    if snapshot.settings.allowsSpeech(.local) {
+                        NavigationLink {
+                            DJConnectWatchSessionSpeechSettingsView()
+                        } label: {
+                            Label(text("watch.session.speech_settings"), systemImage: "speaker.wave.2")
+                                .font(.footnote)
+                        }
+                        if !model.deviceSpeechPreferences.enabled {
+                            Text(text("watch.session.enable_speech")).font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
                     NavigationLink {
                         DJConnectWatchSharedDJSettingsView(settings: settings)
                     } label: {
@@ -54,10 +81,18 @@ struct DJConnectWatchSessionView: View {
             .accessibilityIdentifier("watch-current-session")
         }
         .task { await model.refreshForegroundSession() }
+        .onDisappear { speech.stop() }
     }
 
     private func momentCard(_ moment: DJConnectMoment) -> some View {
         VStack(alignment: .leading, spacing: 7) {
+            HStack {
+                if let timestamp = DJConnectHistoryEntry.date(moment.createdAt) {
+                    Text(timestamp.formatted(.dateTime.hour().minute().locale(Locale(identifier: model.language))))
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 2)
+            }
             // Complete producer copy, never a local summary or future plan label.
             Text(moment.content).font(.callout).fixedSize(horizontal: false, vertical: true)
             if moment.sourceAttribution?["provider"] == "Spotify",
@@ -69,6 +104,23 @@ struct DJConnectWatchSessionView: View {
             }
             ForEach(moment.nativeSourceURLs.filter { $0.host != "open.spotify.com" }, id: \.absoluteString) { source in
                 Link(source.host ?? text("ui.session.flow"), destination: source).font(.caption2)
+            }
+            if model.canPlaySessionMoment(moment) {
+                let selected = speech.momentID == moment.id
+                let active = selected && (speech.state == .preparing || speech.state == .playing)
+                Button {
+                    if active { speech.stop() } else { model.playSessionMoment(moment) }
+                } label: {
+                    HStack {
+                        if selected && speech.state == .preparing { ProgressView().frame(width: 20) }
+                        else { Image(systemName: active ? "stop.fill" : "play.fill").frame(width: 20) }
+                        Text(text(active ? "watch.session.stop_speech" : "watch.session.listen"))
+                    }.frame(maxWidth: .infinity, minHeight: 36)
+                }
+                .accessibilityIdentifier("watch-session-speech-" + moment.id)
+                if selected && speech.state == .unavailable {
+                    Text(text("watch.session.speech_unavailable")).font(.caption2).foregroundStyle(.secondary)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -109,7 +161,7 @@ private struct DJConnectWatchSharedDJSettingsView: View {
                         choose(.init(persona: DJConnectSessionPersonaValue(rawValue: $0)))
                     }
                     choices("mood", r.allowed_values.mood, selected: review ? draft.mood ?? e.mood : e.mood) { choose(.init(mood: $0)) }
-                    choices("presence", r.allowed_values.presence, selected: (review ? draft.presence ?? e.presence : e.presence).rawValue) {
+                    choices("presence", r.allowed_values.presence.filter { raw in DJConnectSessionPresenceValue.selectableChoices.contains { $0.rawValue == raw } }, selected: (review ? draft.presence ?? e.presence : e.presence).rawValue) {
                         choose(.init(presence: DJConnectSessionPresenceValue(rawValue: $0)))
                     }
                     let output = review ? draft.announcement_output ?? e.announcement_output : e.announcement_output
@@ -169,10 +221,24 @@ private struct DJConnectWatchSharedDJSettingsView: View {
     }
     private func choices(_ field: String, _ values: [String], selected: String, change: @escaping (String) -> Void) -> some View {
         Picker(text("ui.dj_settings." + field), selection: Binding(get: { selected }, set: change)) {
+            if !values.contains(selected) { Text(label(field, selected)).tag(selected).disabled(true) }
             ForEach(values, id: \.self) { value in
                 Text(label(field, value)).tag(value)
                     .disabled(field == "output" && settings.response?.announcement_output.outputs.first(where: { $0.value == value })?.available != true)
             }
         }
+    }
+}
+
+private struct DJConnectWatchSessionSpeechSettingsView: View {
+    @EnvironmentObject private var model: DJConnectWatchModel
+    var body: some View {
+        ScrollView {
+            DeviceSpeechSettingsView(language: model.language, preferences: $model.deviceSpeechPreferences,
+                previewAllowed: model.canPreviewDeviceSpeech, isSpeaking: model.deviceSpeechPreviewIsPlaying,
+                preview: model.previewDeviceSpeech, stop: model.stopDeviceSpeechPreview)
+                .padding(8)
+        }
+        .navigationTitle(DJConnectLocalization.localized(key: "watch.session.speech_settings", language: model.language))
     }
 }

@@ -14,7 +14,7 @@
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" alignment="center" spacing="14" translatesAutoresizingMaskIntoConstraints="NO" id="launch-brand-stack">
-                                <rect key="frame" x="232" y="539" width="560" height="288"/>
+                                <rect key="frame" x="232" y="613.5" width="560" height="139"/>
                                 <subviews>
                                     <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="LaunchIcon" translatesAutoresizingMaskIntoConstraints="NO" id="launch-brand-icon">
                                         <rect key="frame" x="238" y="0.0" width="84" height="84"/>
@@ -28,19 +28,9 @@
                                         <fontDescription key="fontDescription" type="boldSystem" pointSize="34"/>
                                         <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                     </label>
-                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="Play your music. DJConnect brings it to life." textAlignment="center" lineBreakMode="wordWrap" numberOfLines="0" adjustsFontForContentSizeCategory="YES" translatesAutoresizingMaskIntoConstraints="NO" id="launch-tagline">
-                                        <rect key="frame" x="0.0" y="153" width="560" height="42"/>
-                                        <fontDescription key="fontDescription" style="UICTFontTextStyleHeadline"/>
-                                        <color key="textColor" white="1" alpha="0.72" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                                    </label>
-                                    <activityIndicatorView opaque="NO" userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" style="medium" animating="YES" translatesAutoresizingMaskIntoConstraints="NO" id="launch-spinner">
-                                        <rect key="frame" x="270" y="209" width="20" height="20"/>
-                                        <color key="color" white="1" alpha="0.86" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                                    </activityIndicatorView>
                                 </subviews>
                                 <constraints>
                                     <constraint firstItem="launch-brand-name" firstAttribute="width" secondItem="launch-brand-stack" secondAttribute="width" id="launch-name-width"/>
-                                    <constraint firstItem="launch-tagline" firstAttribute="width" secondItem="launch-brand-stack" secondAttribute="width" id="launch-tagline-width"/>
                                     <constraint firstAttribute="width" relation="lessThanOrEqual" constant="560" id="launch-brand-max-width"/>
                                 </constraints>
                             </stackView>
