@@ -117,7 +117,11 @@ Mode, returns to Now Playing, and reopens the pairing sheet.
 
 ## Debug Logging
 
-Set Log Level to Debug in Settings when validating pairing or backend flows.
+Log Level defaults to Disabled; no new app diagnostic entries are emitted or
+persisted in that mode, and Logs is hidden from More and the Mac sidebar. Existing
+explicit logging preferences and retained diagnostic files are preserved. Choose
+Info, Warning, Error or Debug in Settings to show Logs again. Set Log Level to
+Debug when validating pairing or backend flows.
 Expected debug coverage includes user actions, navigation/recovery flows, Home
 Assistant API calls, and iPhone-mediated Watch proxy actions. API log lines
 include HTTP status codes. Do not add logs that include bearer tokens, pairing codes,

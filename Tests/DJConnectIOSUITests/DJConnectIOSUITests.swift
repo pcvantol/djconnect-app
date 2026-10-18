@@ -95,9 +95,10 @@ final class DJConnectIOSUITests: XCTestCase {
         return app
     }
 
-    private func launchMonkeyApp() -> XCUIApplication {
+    private func launchMonkeyApp(logLevel: String? = nil) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments.append(contentsOf: ["--uitesting", "--monkey-testing", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"])
+        if let logLevel { app.launchArguments += ["-DJConnectLogLevel", logLevel] }
         app.launchEnvironment["DJCONNECT_UITEST_HA_URL"] = "http://127.0.0.1:8123"
         app.terminate()
         app.launch()
@@ -687,7 +688,7 @@ final class DJConnectIOSUITests: XCTestCase {
     }
 
     func testCaptureDemoScreenshots() throws {
-        let app = launchMonkeyApp()
+        let app = launchMonkeyApp(logLevel: "info")
         enterDemoModeIfNeeded(app)
 
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 12))
@@ -727,7 +728,7 @@ final class DJConnectIOSUITests: XCTestCase {
     }
 
     func testWalkDemoScreensForExternalScreenshots() {
-        let app = launchMonkeyApp()
+        let app = launchMonkeyApp(logLevel: "info")
         enterDemoModeIfNeeded(app)
 
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 12))

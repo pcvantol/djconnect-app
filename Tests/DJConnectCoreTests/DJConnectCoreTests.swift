@@ -3632,6 +3632,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
+    defaults.set("info", forKey: "DJConnectLogLevel")
     let logDirectory = FileManager.default.temporaryDirectory
         .appendingPathComponent("DJConnectTests-\(UUID().uuidString)", isDirectory: true)
     defer {
@@ -9379,10 +9380,61 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
+@Test func diagnosticLoggingDefaultsOffAndCreatesNoFile() throws {
+    let name = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+    defer {
+        defaults.removePersistentDomain(forName: name)
+        try? FileManager.default.removeItem(at: directory)
+    }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false, diagnosticLogDirectory: directory)
+    #expect(model.logLevel == "off")
+    #expect(!model.isDiagnosticLoggingEnabled)
+    model.apply(error: .server(statusCode: 500, message: "logging-disabled-error"))
+    model.recordPresentationState("logging-disabled-presentation")
+    #expect(model.diagnosticLogLines.isEmpty)
+    #expect(!FileManager.default.fileExists(atPath: directory.path))
+}
+
+@MainActor
+@Test func disabledDiagnosticLoggingPersistsWithoutAppendingOrDeletingHistory() throws {
+    let name = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defaults.set("info", forKey: "DJConnectLogLevel")
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+    defer {
+        defaults.removePersistentDomain(forName: name)
+        try? FileManager.default.removeItem(at: directory)
+    }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false, diagnosticLogDirectory: directory)
+    #expect(model.isDiagnosticLoggingEnabled)
+    let file = directory.appendingPathComponent("djconnect.log")
+    let original = try Data(contentsOf: file)
+    let originalLines = model.diagnosticLogLines.map(\.text)
+    model.logLevel = "off"
+    model.apply(error: .server(statusCode: 500, message: "logging-disabled-error"))
+    model.recordPresentationState("logging-disabled-presentation")
+    #expect(model.diagnosticLogLines.map(\.text) == originalLines)
+    #expect(try Data(contentsOf: file) == original)
+    let restored = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false, diagnosticLogDirectory: directory)
+    #expect(restored.logLevel == "off" && !restored.isDiagnosticLoggingEnabled)
+    #expect(try Data(contentsOf: file) == original)
+    restored.logLevel = "warning"
+    #expect(restored.isDiagnosticLoggingEnabled)
+    restored.apply(error: .server(statusCode: 500, message: "logging-enabled-again"))
+    #expect(restored.diagnosticLogLines.contains { $0.text.contains("logging-enabled-again") })
+}
+
+@MainActor
 @Test func diagnosticLogsPersistAcrossModelLaunches() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
+    defaults.set("info", forKey: "DJConnectLogLevel")
     let logDirectory = FileManager.default.temporaryDirectory
         .appendingPathComponent("DJConnectTests-\(UUID().uuidString)", isDirectory: true)
     defer {
@@ -9415,6 +9467,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
+    defaults.set("info", forKey: "DJConnectLogLevel")
     let logDirectory = FileManager.default.temporaryDirectory
         .appendingPathComponent("DJConnectTests-\(UUID().uuidString)", isDirectory: true)
     defer {
@@ -9449,6 +9502,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
+    defaults.set("info", forKey: "DJConnectLogLevel")
     let logDirectory = FileManager.default.temporaryDirectory
         .appendingPathComponent("DJConnectTests-\(UUID().uuidString)", isDirectory: true)
     defer {

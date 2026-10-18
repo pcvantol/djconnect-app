@@ -352,6 +352,7 @@
 "ui.disable.voice.activation" = "Disable Voice Activation";
 "ui.wakeword.status" = "Wakeword status";
 "ui.log.level" = "Log Level";
+"ui.log.disabled" = "Desactivado";
 "ui.warning" = "Warning";
 "ui.error" = "Error";
 "ui.how.it.works" = "How It Works";

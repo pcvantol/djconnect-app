@@ -819,13 +819,15 @@ public struct DJConnectRootView: View {
                             focusTarget: .section(.settings),
                             focus: $focusedSidebarItem
                         ) { selectSidebarSection(.settings) }
-                        SidebarItem(
-                            title: localizedKey(model.language, "ui.logs"),
-                            systemImage: "doc.text.magnifyingglass",
-                            isSelected: selectedSection == .logs,
-                            focusTarget: .section(.logs),
-                            focus: $focusedSidebarItem
-                        ) { selectSidebarSection(.logs) }
+                        if model.isDiagnosticLoggingEnabled {
+                            SidebarItem(
+                                title: localizedKey(model.language, "ui.logs"),
+                                systemImage: "doc.text.magnifyingglass",
+                                isSelected: selectedSection == .logs,
+                                focusTarget: .section(.logs),
+                                focus: $focusedSidebarItem
+                            ) { selectSidebarSection(.logs) }
+                        }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.about"),
                             systemImage: "info.circle",
@@ -974,6 +976,9 @@ public struct DJConnectRootView: View {
         .onChange(of: model.isSessionIntroductionPresented) { _, showing in
             if showing { selectedSection = .djSession }
         }
+        .onChange(of: model.isDiagnosticLoggingEnabled) { _, enabled in
+            if !enabled, selectedSection == .logs { selectedSection = .settings }
+        }
         .onChange(of: model.activeDJSession?.id) { _, sessionID in
             if sessionID == nil { model.dismissSessionIntroduction() }
         }
@@ -1121,7 +1126,7 @@ public struct DJConnectRootView: View {
         case "settings":
             selectedSection = .settings
         case "logs":
-            selectedSection = .logs
+            selectedSection = model.isDiagnosticLoggingEnabled ? .logs : .settings
         case "about":
             selectedSection = .about
         case "legal":
@@ -1439,7 +1444,7 @@ public struct DJConnectRootView: View {
         // Withdraw the pushed archive before replacing its detail root, including
         // a click on the already-selected Earlier Sessions overview.
         openedSavedSessionID = nil
-        selectedSection = section
+        selectedSection = section == .logs && !model.isDiagnosticLoggingEnabled ? .settings : section
     }
 
     @ViewBuilder
@@ -16369,7 +16374,9 @@ private struct MoreView: View {
                     MoreNavigationRow(title: localizedKey(model.language, "ui.playlists"), systemImage: "rectangle.stack") { destinationSelection = .playlists }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.games"), systemImage: "gamecontroller") { destinationSelection = .games }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.settings"), systemImage: "gearshape") { destinationSelection = .settings }
-                    MoreNavigationRow(title: localizedKey(model.language, "ui.logs"), systemImage: "doc.text.magnifyingglass") { destinationSelection = .logs }
+                    if model.isDiagnosticLoggingEnabled {
+                        MoreNavigationRow(title: localizedKey(model.language, "ui.logs"), systemImage: "doc.text.magnifyingglass") { destinationSelection = .logs }
+                    }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.about"), systemImage: "info.circle") { destinationSelection = .about }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.legal"), systemImage: "doc.text") { destinationSelection = .legal }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.privacy"), systemImage: "hand.raised") { destinationSelection = .privacy }
@@ -16387,7 +16394,7 @@ private struct MoreView: View {
     }
     private func routeRequestedSection() {
         guard let requestedSection else { return }
-        destinationSelection = requestedSection
+        destinationSelection = requestedSection == .logs && !model.isDiagnosticLoggingEnabled ? .settings : requestedSection
     }
 
     @ViewBuilder private func destination(_ section: DJConnectSection) -> some View {
@@ -17217,6 +17224,7 @@ struct SettingsView: View {
                     }
                     LabeledContent(localizedKey(model.language, "ui.log.level")) {
                         Picker(localizedKey(model.language, "ui.log.level"), selection: $model.logLevel) {
+                            Text(localizedKey(model.language, "ui.log.disabled")).tag("off")
                             Text("Debug").tag("debug")
                             Text("Info").tag("info")
                             Text(localizedKey(model.language, "ui.warning")).tag("warning")

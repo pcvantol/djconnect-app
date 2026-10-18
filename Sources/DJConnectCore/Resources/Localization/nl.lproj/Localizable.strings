@@ -352,6 +352,7 @@
 "ui.disable.voice.activation" = "Stemactivatie uitschakelen";
 "ui.wakeword.status" = "Stemactivatie-status";
 "ui.log.level" = "Logniveau";
+"ui.log.disabled" = "Uitgeschakeld";
 "ui.warning" = "Waarschuwing";
 "ui.error" = "Fout";
 "ui.how.it.works" = "Werking";
