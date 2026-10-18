@@ -700,6 +700,7 @@ extension DJConnectMacUITests {
     func testNativeSplashToolbarAndDetailLayoutScreens() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--monkey-testing", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchArguments += ["-DJConnectLogLevel", "info"]
         app.launchEnvironment["DJCONNECT_UITEST_HOLD_SPLASH"] = "1"
         app.launch()
         defer { app.terminate() }

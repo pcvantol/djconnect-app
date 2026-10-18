@@ -1,3 +1,20 @@
+## 2026-10-18 — Disabled app diagnostics by default
+
+Owner requests an additional Disabled log level, default selection, and hiding
+Logs from the menu while disabled. The local preference now defaults tooff;
+invalid stored values also resolve tooff, while existing explicit valid levels
+remain intact. More and Mac sidebar only show Logs when logging is enabled;
+old Logs navigation requests route to Settings. App diagnostic emission and
+persistent writes, including the separate debug presentation recorder, honoroff.
+Retained diagnostic files are preserved. No Profile/backend contract changes.
+
+Existing persistence/redaction tests explicitly opt in; screenshot walks that
+include Logs opt in through their launch argument domain. New actual-file
+regressions cover defaultoff/no-file and off persistence/no append/no deletion/
+re-enable. Six focused tests pass0.249s; full849tests/10suites PASS91.212s;
+Mac and iOS build-for-testing,1314-key five-language validation and work-register/
+diff checks pass. Ordinary40341 build/installation readbacks follow separately.
+
 ## 2026-10-18 — UI consolidation and bounded cleanup
 
 Owner requests protected merges and thorough stale test/simulator/branch/worktree

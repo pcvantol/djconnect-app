@@ -73,6 +73,7 @@ private func setDJConnectAudioSessionActive(
 #endif
 
 public enum DJConnectAppLogLevel: String, CaseIterable, Sendable {
+    case off
     case debug
     case info
     case warning
@@ -80,6 +81,8 @@ public enum DJConnectAppLogLevel: String, CaseIterable, Sendable {
 
     var priority: Int {
         switch self {
+        case .off:
+            Int.max
         case .debug:
             0
         case .info:
@@ -92,7 +95,7 @@ public enum DJConnectAppLogLevel: String, CaseIterable, Sendable {
     }
 
     static func parse(_ rawValue: String) -> DJConnectAppLogLevel {
-        DJConnectAppLogLevel(rawValue: rawValue.lowercased()) ?? .info
+        DJConnectAppLogLevel(rawValue: rawValue.lowercased()) ?? .off
     }
 }
 
@@ -1018,11 +1021,14 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public var isRecordingVoice = false
     @Published public var voiceStatus: DJConnectVoiceStatus = .idle
     @Published public var voiceErrorMessage: String?
-    @Published public var logLevel = "info" {
+    @Published public var logLevel = "off" {
         didSet {
             defaults.set(logLevel, forKey: logLevelKey)
             log(.info, "Log level changed to \(logLevel)")
         }
+    }
+    public var isDiagnosticLoggingEnabled: Bool {
+        DJConnectAppLogLevel.parse(logLevel) != .off
     }
     @Published public var language = "en"
     @Published public private(set) var appLanguageOverrideCode = ""
@@ -1685,7 +1691,7 @@ public final class DJConnectAppModel: ObservableObject {
         self.language = Self.resolvedLanguage(defaults: defaults)
         Self.syncAppLanguageOverrideToSharedDefaults(self.appLanguageOverrideCode)
         self.selectedOutput = Self.noOutputName(for: language)
-        self.logLevel = defaults.string(forKey: logLevelKey) ?? "info"
+        self.logLevel = DJConnectAppLogLevel.parse(defaults.string(forKey: logLevelKey) ?? "off").rawValue
         self.askDJMood = defaults.object(forKey: askDJMoodKey) == nil ? 50.0 : defaults.double(forKey: askDJMoodKey)
         Self.syncAskDJMoodToSharedDefaults(self.askDJMood)
         self.localResponseAudioEnabled = defaults.bool(forKey: localResponseAudioEnabledKey)
@@ -13436,6 +13442,7 @@ public final class DJConnectAppModel: ObservableObject {
     /// Local, bounded presentation metadata; never captures view text or account data.
     func recordPresentationState(_ event: String) {
         #if DEBUG && canImport(UIKit)
+        guard isDiagnosticLoggingEnabled else { return }
         var rows: [String] = []
         var seen = Set<ObjectIdentifier>()
         func visit(_ controller: UIViewController) {
@@ -13460,12 +13467,14 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func log(_ level: DJConnectAppLogLevel, _ message: String) {
         let configuredLevel = DJConnectAppLogLevel.parse(logLevel)
-        guard level.priority >= configuredLevel.priority else {
+        guard configuredLevel != .off, level != .off, level.priority >= configuredLevel.priority else {
             return
         }
         let message = DJConnectLogRedactor.redactText(message)
 
         switch level {
+        case .off:
+            return
         case .debug:
             logger.debug("\(message, privacy: .public)")
         case .info:
@@ -13503,7 +13512,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func appendPersistentDiagnosticLogLine(_ line: String) {
-        guard let diagnosticLogFileURL else {
+        guard isDiagnosticLoggingEnabled, let diagnosticLogFileURL else {
             return
         }
 
@@ -13551,6 +13560,8 @@ public final class DJConnectAppModel: ObservableObject {
 
     private static func logAbbreviation(for level: DJConnectAppLogLevel) -> String {
         switch level {
+        case .off:
+            "OFF"
         case .debug:
             "DBG"
         case .info:
