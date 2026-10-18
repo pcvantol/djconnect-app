@@ -1424,3 +1424,5 @@
 
 "ui.session.start_here.title" = "Your session starts here";
 "ui.session.start_here.detail" = "Play some music or talk to your DJ. DJConnect brings your session to life with contributions that match what you’re listening to.";
+
+"ui.session.avatar.label" = "Your DJ";

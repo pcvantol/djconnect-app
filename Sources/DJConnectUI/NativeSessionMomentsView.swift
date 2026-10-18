@@ -306,22 +306,28 @@ struct NativeSessionMomentsView: View {
         session.broadcast.presentations.last { $0.momentID == moment.id }
     }
 
-    @ViewBuilder private func currentCard(_ moment: DJConnectMoment?) -> some View {
+    func currentCard(_ moment: DJConnectMoment?) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            DJPersonaAvatarView(confirmedMood: isLiveUnavailable || isRecovering ? nil : session.selectedMood, language: language)
+                .frame(width: 80, height: 80)
+            currentCardContent(moment)
+        }
+        .padding(24).frame(maxWidth: .infinity, alignment: .leading)
+        .djSessionFrostedSurface(currentMomentBorder: true)
+    }
+
+    @ViewBuilder private func currentCardContent(_ moment: DJConnectMoment?) -> some View {
         if isLiveUnavailable {
             VStack(alignment: .leading, spacing: 12) {
                 Text(text("ui.session.live_unavailable")).font(.title2.weight(.semibold))
                     .accessibilityAddTraits(.isHeader)
                 Button(text("ui.retry"), action: retryConnection)
             }
-            .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-            .djSessionFrostedSurface(currentMomentBorder: true)
         } else if isRecovering {
             VStack(alignment: .leading, spacing: 12) {
                 Text(text("ui.session.reconnecting")).font(.title2.weight(.semibold))
                     .accessibilityAddTraits(.isHeader)
             }
-            .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-            .djSessionFrostedSurface(currentMomentBorder: true)
         } else if session.runtimeState == "active", session.broadcast.playback?.state == "paused" {
             VStack(alignment: .leading, spacing: 12) {
                 Image(systemName: "pause.circle.fill")
@@ -334,8 +340,6 @@ struct NativeSessionMomentsView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-            .djSessionFrostedSurface(currentMomentBorder: true)
             .accessibilityIdentifier("session-playback-paused")
         } else if let moment {
             MomentCard(moment: moment, kind: kind(moment), presentation: presentation(for: moment), language: language,
@@ -348,24 +352,18 @@ struct NativeSessionMomentsView: View {
                 .transition(.opacity)
                 .accessibilityIdentifier("session-current-moment")
         } else {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Image(systemName: DJConnectFeatureSymbols.djSession)
-                    .font(.title).accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(text(session.broadcast.playback?.state == "playing" ? "ui.session.quiet" : "ui.session.start_here.title"))
-                        .font(.title2.weight(.semibold))
-                        .accessibilityAddTraits(.isHeader)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(text(session.broadcast.playback?.state == "playing" ? "ui.session.quiet" : "ui.session.start_here.title"))
+                    .font(.title2.weight(.semibold))
+                    .accessibilityAddTraits(.isHeader)
+                    .fixedSize(horizontal: false, vertical: true)
+                if session.broadcast.playback?.state != "playing" {
+                    Text(text("ui.session.start_here.detail"))
+                        .font(.body)
+                        .foregroundStyle(.white.opacity(0.78))
                         .fixedSize(horizontal: false, vertical: true)
-                    if session.broadcast.playback?.state != "playing" {
-                        Text(text("ui.session.start_here.detail"))
-                            .font(.body)
-                            .foregroundStyle(.white.opacity(0.78))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
                 }
             }
-            .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-            .djSessionFrostedSurface(currentMomentBorder: true)
         }
     }
 
@@ -789,8 +787,6 @@ struct MomentCard: View {
             }
             if let model = artworkModel { SharedDJSpeechActions(model: model, speech: speech, acceptedText: moment.content) }
         }
-        .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-        .djSessionFrostedSurface(currentMomentBorder: true)
         .accessibilityElement(children: .contain)
     }
 }

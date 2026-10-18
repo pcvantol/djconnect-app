@@ -27,7 +27,7 @@ struct NativeBottomTabBar: UIViewControllerRepresentable {
             let host = UIHostingController(rootView: hostedScreen(screen, anchors: context.environment.sessionIntroductionAnchors,
                 glassEnabled: context.environment.djConnectGlassEffectsEnabled))
             host.view.backgroundColor = .clear
-            host.tabBarItem = UITabBarItem(title: titles[index], image: UIImage(systemName: symbols[index]), tag: index)
+            host.tabBarItem = UITabBarItem(title: titles[index], image: DJConnectFeatureSymbols.uiImage(symbols[index]), tag: index)
             return host
         }
         controller.setViewControllers(context.coordinator.hosts, animated: false)
