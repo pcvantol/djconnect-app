@@ -351,9 +351,18 @@ struct NativeSessionMomentsView: View {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Image(systemName: DJConnectFeatureSymbols.djSession)
                     .font(.title).accessibilityHidden(true)
-                Text(text(session.broadcast.playback?.state == "playing" ? "ui.session.quiet" : "brand.tagline"))
-                    .font(.title2.weight(.semibold))
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(text(session.broadcast.playback?.state == "playing" ? "ui.session.quiet" : "ui.session.start_here.title"))
+                        .font(.title2.weight(.semibold))
+                        .accessibilityAddTraits(.isHeader)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if session.broadcast.playback?.state != "playing" {
+                        Text(text("ui.session.start_here.detail"))
+                            .font(.body)
+                            .foregroundStyle(.white.opacity(0.78))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
             }
             .padding(24).frame(maxWidth: .infinity, alignment: .leading)
             .djSessionFrostedSurface(currentMomentBorder: true)
