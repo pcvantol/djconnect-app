@@ -1,6 +1,17 @@
 import SwiftUI
 import DJConnectCore
 
+extension DJConnectSessionPersonaValue {
+    var choiceGlyph: String {
+        switch self {
+        case .homeDJ: return "house"
+        case .radioDJ: return "radio"
+        case .clubDJ: return "opticaldisc"
+        case .festivalDJ: return "music.mic"
+        }
+    }
+}
+
 /// Shared Session state; selection changes only after Core confirmation.
 struct ActiveSessionPersonaToolbar: View {
     @ObservedObject var model: DJConnectAppModel
@@ -29,7 +40,8 @@ struct ActiveSessionPersonaToolbar: View {
             if scope != nil { scope = nil }
             else { scope = Scope(sessionID: session.id, epoch: history.responseEpoch) }
         } label: {
-            Image(systemName: "person.crop.circle").foregroundStyle(.white)
+            Image(systemName: confirmed?.selectedPersona.choiceGlyph ?? "person.crop.circle")
+                .foregroundStyle(.white)
         }
         .accessibilityLabel(text("ui.session.persona.title"))
         .accessibilityValue(confirmed.map { text($0.selectedPersona.localizationKey) } ?? text("ui.session.persona.unavailable"))
@@ -86,7 +98,7 @@ struct ActiveSessionPersonaControl: View {
                 steps: values.enumerated().map { (text($0.element.localizationKey), $0.offset) },
                 selectedIndex: confirmed.flatMap { values.firstIndex(of: $0.selectedPersona) } ?? -1,
                 language: model.language,
-                glyphs: ["house", "radio", "opticaldisc", "music.mic"],
+                glyphs: values.map(\.choiceGlyph),
                 titleKey: "ui.session.persona.title",
                 accessibilityLabelKey: "ui.session.persona.title",
                 optionIDs: values.map { "session-persona-" + $0.rawValue },

@@ -23,6 +23,8 @@ import DJConnectCore
     @Published public private(set) var phases: [DJConnectPassiveSurface: Phase] = [:]
     @Published public private(set) var caches: [DJConnectPassiveSurface: DJConnectPassiveSurfaceCache] = [:]
     public var onChange: (() -> Void)?
+    /// Lifecycle diagnostics contain no source text, identities or grant IDs.
+    public var onDiagnostic: ((String) -> Void)?
     public private(set) var renderingRevision = UUID()
     private func notify() { renderingRevision = UUID(); onChange?() }
     private var owner: String?
@@ -46,6 +48,7 @@ import DJConnectCore
     private var invalidationTask: Task<Void, Never>?
     private var lastInvalidationSequence = -1
     private var automaticAttempts: Set<DJConnectPassiveSurface> = []
+    private var lastDiagnosticConfiguration: Set<DJConnectPassiveSurface>?
     public init() {}
     public func enabled(_ surface: DJConnectPassiveSurface) -> Bool { grants[surface] != nil }
     public func busy(_ surface: DJConnectPassiveSurface) -> Bool { tasks[surface] != nil }
@@ -61,6 +64,8 @@ import DJConnectCore
         owner = nextOwner; sessionID = nextSession
         active = foreground && owner != nil && sessionID != nil
         if changed {
+            onDiagnostic?("reset reason=owner_or_session_changed")
+            lastDiagnosticConfiguration = nil
             automaticAttempts = []
             available = false; grants = [:]; caches = [:]; versions = [:]; lastRead = [:]; phases = [:]; lastInvalidationSequence = -1
             expiryTask?.cancel(); notify()
@@ -72,6 +77,10 @@ import DJConnectCore
     public func reconcileAutomatic(surfaces: Set<DJConnectPassiveSurface>, services: Services) async {
         guard active else { return }
         let captured = epoch
+        if lastDiagnosticConfiguration != surfaces {
+            lastDiagnosticConfiguration = surfaces
+            onDiagnostic?("configuration widget=\(surfaces.contains(.widget)) live_activity=\(surfaces.contains(.liveActivity))")
+        }
         if !available { await discover(services) }
         guard active, captured == epoch, available else { return }
         for surface in DJConnectPassiveSurface.allCases {
@@ -102,7 +111,7 @@ import DJConnectCore
         let changed = active || !caches.isEmpty
         suspend()
         caches = [:]; expiryTask?.cancel()
-        if changed { notify() }
+        if changed { onDiagnostic?("cache_removed reason=profile_settings_revalidation"); notify() }
     }
     public func discover(_ services: Services) async {
         guard active, !discovering else { return }
@@ -123,6 +132,7 @@ import DJConnectCore
         // Local revocation is immediate even when the server is unreachable.
         if !enabled { grants[surface] = nil; caches[surface] = nil; notify() }
         phases[surface] = .loading
+        onDiagnostic?("authorize surface=\(surface.rawValue) enabled=\(enabled)")
         let task = Task { @MainActor [weak self] in
             guard let self else { return }
             defer { if versions[surface] == version { tasks[surface] = nil } }
@@ -137,6 +147,7 @@ import DJConnectCore
                 } else { phases[surface] = .idle }
             } catch {
                 guard current(captured, version, surface) else { return }
+                onDiagnostic?("authorize_failed surface=\(surface.rawValue) reason=\(Self.diagnosticCode(error))")
                 grants[surface] = nil; caches[surface] = nil; phases[surface] = .unavailable; notify()
             }
         }
@@ -175,6 +186,7 @@ import DJConnectCore
                     try await accept(result, surface: surface, captured: captured, version: version, services: services)
                 } catch {
                     guard current(captured, version, surface) else { return }
+                    onDiagnostic?("read_failed surface=\(surface.rawValue) withdraws=\(Self.withdraws(error)) reason=\(Self.diagnosticCode(error))")
                     if Self.withdraws(error) {
                         grants[surface] = nil; caches[surface] = nil; phases[surface] = .unavailable; notify()
                     }
@@ -187,6 +199,22 @@ import DJConnectCore
     private func current(_ captured: UUID, _ version: UUID, _ surface: DJConnectPassiveSurface) -> Bool {
         active && epoch == captured && versions[surface] == version
     }
+    private static func diagnosticCode(_ error: Error) -> String {
+        guard let value = error as? DJConnectError else {
+            if error is CancellationError { return "cancelled" }
+            if let url = error as? URLError { return "network_\(url.code.rawValue)" }
+            return "other"
+        }
+        switch value {
+        case .invalidResponse: return "invalid_response"
+        case .decodingFailed: return "decoding_failed"
+        case .routeMissing: return "route_missing"
+        case .authStale, .missingToken, .profile: return "authority_withdrawn"
+        case .server(let code, _): return "http_\(code)"
+        default: return "client_error"
+        }
+    }
+
     private static func withdraws(_ error: Error) -> Bool {
         guard let e = error as? DJConnectError else { return !(error is URLError) && !(error is CancellationError) }
         if e.invalidatesSessionAuthority { return true }
@@ -210,6 +238,9 @@ import DJConnectCore
         let previous = caches[surface]
         // Publish text/metadata first; optional image IO cannot block the whole surface.
         caches[surface] = try DJConnectPassiveSurfaceCache(projection: p.removingExpiredFields(at: now), at: now)
+        if previous == nil {
+            onDiagnostic?("cache_ready surface=\(surface.rawValue) playback=\(p.currentPlayback(at: now) != nil) contribution=\(p.currentContribution(at: now) != nil) artwork=\(p.artwork.count)")
+        }
         phases[surface] = .ready; notify(); scheduleExpiry()
         var pixels: [String: Data] = [:]
         for a in p.artwork where p.currentArtwork(slot: a.slot, at: Date()) != nil {
@@ -249,6 +280,9 @@ import DJConnectCore
             try? await Task.sleep(for: .seconds(max(0, deadline.timeIntervalSinceNow)))
             guard let self, !Task.isCancelled else { return }
             let now = Date()
+            for (surface, cache) in caches where !cache.isCurrent(at: now) {
+                onDiagnostic?("cache_removed surface=\(surface.rawValue) reason=original_deadline_expired")
+            }
             caches = caches.compactMapValues { $0.isCurrent(at: now) ? $0.removingExpiredFields(at: now) : nil }
             notify(); scheduleExpiry()
         }

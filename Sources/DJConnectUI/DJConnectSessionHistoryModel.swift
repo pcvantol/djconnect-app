@@ -6,6 +6,21 @@ import DJConnectCore
 /// Entry identity, ordering, rights, search and conversation context remain Core-owned.
 @MainActor
 public final class DJConnectSessionHistoryModel: ObservableObject {
+    /// Ephemeral UI memory: a started Session must not regain its first-play helper.
+    @Published private(set) var sessionsWithObservedPlayback: Set<String> = []
+
+    func rememberObservedPlayback(sessionID: String) {
+        guard !sessionsWithObservedPlayback.contains(sessionID) else { return }
+        sessionsWithObservedPlayback.insert(sessionID)
+    }
+
+    func hasPlaybackForFirstPlayHelper(_ session: DJConnectSessionRuntime) -> Bool {
+        let playback = session.broadcast.playback
+        return sessionsWithObservedPlayback.contains(session.id)
+            || playback?.itemID?.isEmpty == false || playback?.title?.isEmpty == false
+            || playback?.state == "playing" || playback?.state == "paused"
+            || timelines[session.id]?.entries.contains { $0.kind == .playbackObserved } == true
+    }
     public struct Timeline: Equatable {
         public var session: DJConnectSavedSession?
         public var entries: [DJConnectHistoryEntry] = []
@@ -52,10 +67,13 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     /// Visible rows first; one neighboring media contribution on either side.
     /// Never scans/prepares the whole loaded history or performs a provider lookup.
     static func artworkWindow(entries: [DJConnectHistoryEntry], visibleIDs: Set<String>, at now: Date = Date()) -> [DJConnectSessionEntryReference] {
-        let rows = entries.filter { $0.isRetained(at: now) }
-        let visible = rows.indices.filter { visibleIDs.contains(rows[$0].id) }
+        guard !visibleIDs.isEmpty else { return [] }
+        // Identify visible positions before parsing rights/retention. Offscreen
+        // history must not be revalidated in full on every visibility callback.
+        let rows = entries
+        let visible = rows.indices.filter { visibleIDs.contains(rows[$0].id) && rows[$0].isRetained(at: now) }
         guard let first = visible.first, let last = visible.last else { return [] }
-        let eligible: (DJConnectHistoryEntry) -> Bool = { [.playbackObserved, .djMoment].contains($0.kind) }
+        let eligible: (DJConnectHistoryEntry) -> Bool = { [.playbackObserved, .djMoment].contains($0.kind) && $0.isRetained(at: now) }
         var indices = visible.filter { eligible(rows[$0]) }
         if let before = rows.indices.prefix(first).last(where: { eligible(rows[$0]) }) { indices.append(before) }
         if let after = rows.indices.dropFirst(last + 1).first(where: { eligible(rows[$0]) }) { indices.append(after) }
@@ -308,6 +326,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func reset() {
+        sessionsWithObservedPlayback = []
         host?.discardActiveVoicePreference()
         host?.invalidateSessionPlaybackActions()
         host?.withdrawLiveConversationPresentations()
@@ -481,7 +500,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         if more && cursor == nil { return }
         let captured = epoch; let generation = UUID(); timelineGenerations[sessionID] = generation
         timelines[sessionID, default: Timeline()].loading = true
-        timelines[sessionID]?.errorKey = nil
+        // Starting a read is not recovery. Keep the previous failure visible
+        // until success so background retries do not collapse/reinsert its row.
         defer { if timelineGenerations[sessionID] == generation { timelines[sessionID]?.loading = false } }
         do {
             let page = try await host.withHomeAssistantClient {

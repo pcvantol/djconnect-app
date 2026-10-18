@@ -678,3 +678,35 @@ extension ProfileDJSettingsContractTests {
         #expect(encoded["speech_contract_version"] as? Int == 3)
     }
 }
+
+@Test func presenceOffersMusicAndThreeLevelsWithoutRewritingHistoricalValues() throws {
+    #expect(DJConnectSessionPresenceValue.selectableChoices.map(\.rawValue) == ["music_only", "occasional", "balanced", "presenter"])
+    #expect(DJConnectSessionPresenceValue.selectableChoices.map(\.choiceGlyph) == ["music.note", "bubble.left", "bubble.left.and.bubble.right", "mic.fill"])
+    #expect(try JSONDecoder().decode(DJConnectSessionPresenceValue.self, from: Data("\"talkative\"".utf8)) == .talkative)
+}
+
+@Test func nativeSettingsPrepareUsesOnlyReferenceAndWatchIdentityAndCannotDispatchSpeakers() async throws {
+    let (result, intent, _) = try nativeWatchSpeechFixture()
+    let reply = try JSONEncoder().encode(result)
+    let wire = SettingsWire { request in
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/api/djconnect/v1/speech/prepare")
+        let body = try settingsRequestBody(request)
+        #expect(Set(body.keys) == ["contract_version", "processor", "intent", "reference", "target", "device_id", "client_type"])
+        #expect(body["contract_version"] as? Int == 3)
+        #expect(body["processor"] as? String == "local_on_device")
+        #expect(body["intent"] as? String == "manual")
+        #expect(body["target"] as? String == "local")
+        return (200, reply)
+    }
+    defer { wire.close() }
+    let prepared = try await wire.client().prepareSharedDJSpeech(reference: intent.reference,
+        acceptedText: intent.moment.content, settings: intent.settings, processor: .localOnDevice)
+    #expect(prepared.session_speech.processor == .localOnDevice)
+    for target in [DJConnectSharedSpeechTarget.haSpeaker, .both] {
+        await #expect(throws: DJConnectError.invalidResponse) {
+            try await wire.client().prepareSharedDJSpeech(reference: intent.reference,
+                acceptedText: intent.moment.content, settings: intent.settings, target: target, processor: .localOnDevice)
+        }
+    }
+}

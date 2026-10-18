@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "as_of": "2026-10-18 Europe/Amsterdam; latest local follow-up40312",
+  "as_of": "2026-10-18 Europe/Amsterdam;40331 installed on iPhone/iPad/MacBook/Mac mini; Watch pending; source finalization in progress",
   "owning_lane": "https://github.com/pcvantol/djconnect-app/issues/87",
   "writer": "Existing Apple writer on codex/apple-history-row-play-launch; follow-ups after protected PR112 remain local/unpublished",
-  "head": "fd9af0a590938e3d1596ce46fbdf8464c8a04cdd",
-  "installed_baseline": "iPhone40312 installed and independently read back; launch refused because locked. MacBook40312 installed/read back and running, strict signature and79-entry manifest match; prior app preserved. iPad40290 unchanged. No new Watch or Mac mini hardware acceptance.",
+  "head": "075895634feca03b5cc068b45a6fa7bfe781762e",
+  "installed_baseline": "iPhone40331 and iPad40331 installed/read back/launched; MacBook40331 PID96898 and Mac mini40331 PID55792 installed/read back/running; strict Mac signatures PASS. Watch40331 candidate only: tunnel timeout and Bluetooth authentication failed, owner unlock pending. No physical audio/performance acceptance.",
   "items": [
     {
       "id": "lan-websocket",
@@ -37,13 +37,13 @@
       "topic": "VibeCast scanner en App Attest",
       "status": "blocked",
       "owner": "API + Apple + receiver",
-      "evidence": "Genuine signed iPhone App Attest/ assertions en geïsoleerde JOSE-interoperabiliteit geleverd; API94 head250be2f, profiel0.4-draft. Leaf-AKI policyblokkade is inmiddels opgelost.",
+      "evidence": "Genuine signed iPhone App Attest/ assertions en geïsoleerde JOSE-interoperabiliteit geleverd; API94 head250be2f, profiel0.4-draft. Leaf-AKI policyblokkade is inmiddels opgelost. 20261018 lane pickup: exact API94fbe118b3,10portable binding/race tests and33fresh Mac/native API-generator JOSE checks PASS; isolated iOS host40315 build/signatures PASS. No physical run/install/newAppAttestcalls; iPhone locked, owner unlock pending. Contract0.4-draft NOT_FROZEN/NO_RUNTIME_GO. APPLE_VIBECAST_NATIVE_BINDING_20261018.md.",
       "remaining": [
         "API volledige serververifier/Worker/receiptpolicy kwalificatie en contractfreeze ontbreken.",
         "Daarna native iPhone-JWE, lifecycle/herstel/rotatie en scanner aan bestaande HA-pairing/B-codeflow koppelen; fysieke TV-keten.",
         "Geen scanner tegen onbevroren contract; copied-QR-keuze blijft geaccepteerd."
       ],
-      "next_action": "API volledige serververifier/Worker/receiptpolicy kwalificatie en contractfreeze ontbreken."
+      "next_action": "Ontgrendelde iPhone: gereedstaande native kwalificatie uitvoeren; productscanner pas na exacte API/Core-contractvrijgave."
     },
     {
       "id": "tts-provider",
@@ -73,14 +73,13 @@
     {
       "id": "tts-native",
       "topic": "Apple-native device-TTS override",
-      "status": "open",
+      "status": "partial",
       "owner": "Apple + Core",
-      "evidence": "Geselecteerd en aan bestaande Speech/Settings-opdracht toegevoegd; bestaande AVSpeechSynthesizer is geen implementatiebewijs voor deze taak.",
+      "evidence": "40318 Watch: playback first, admitted latest Moment Listen/Stop, expandable full flow and timestamps. Exact Core freeze bc6e080e/fixture81318257; own-Watch identity and before/after owner checks, nonrenewable exact-source settings3 grant, local opt-in/manual only. Full818tests/10suites PASS90.226s; ordinary signed iPhone/Watch build/strict signatures and276source-stage hashes PASS. See APPLE_WATCH_SESSION_TTS_40318_20261018.md.",
       "remaining": [
-        "Allow/deny voor local_on_device met originele source/revision/expiry en text-only/outputbeleid reconciliëren.",
-        "Device-toggle/OS-voice/gender/pitch/snelheid en cancellation op iPhone/iPad/Mac/Watch implementeren en kwalificeren zonder HA-profielstem te wijzigen."
+        "Physical Watch is unavailable; no Watch installation/native UI/audible/Bluetooth/lifecycle acceptance. No autoplay inferred from refresh. Phone/macOS native contribution integration and independent review/source delivery remain separate. Core writer reports private HA-dev candidate installed; Apple has not independently deployment-qualified it."
       ],
-      "next_action": "Allow/deny voor local_on_device met originele source/revision/expiry en text-only/outputbeleid reconciliëren."
+      "next_action": "Connect reachable physical Watch; qualify own-owner UI/manual native sound, stop/replacement/background/reconnect and text_only. Preserve original deadlines and distinct iPhone/Mac integration scope."
     },
     {
       "id": "profile-settings",
@@ -113,13 +112,13 @@
       "topic": "Performance en geheugen",
       "status": "open",
       "owner": "Apple",
-      "evidence": "Bestaande refreshcoalescing, lazy/equatable timeline, serial artworkprepare, media2MiB/512px en private no-store; automatic speechqueue16 en ownercancellation. Per-image1Hz-update vervangen door oorspronkelijke expiry; Watchforeground30s/15sreadcoalescing en proxy20s/8requests, geen extra achtergrondloop. Glaseffectschakelaar40277 afgeleverd/getest; geen gemeten performancewinst. 40282 eerste echte externe XCTestcollectie:1PASS23.457s,3opgenomen foregroundSession-idlesamples; piekgeheugen58213.896/57099.784/56739.336kB, CPU0.1162/0.5572/0.1131s bij~4.93sintervallen. Geen thresholds/baselinevergelijking of glaseffectprestatieclaim. Instrumentspoging40281timeout vóór recording; geen trace. Gesaneerde metrics in APPLE_IDLE_PERFORMANCE_40282_20261017.json.",
+      "evidence": "Bestaande refreshcoalescing, lazy/equatable timeline, serial artworkprepare, media2MiB/512px en private no-store; automatic speechqueue16 en ownercancellation. Per-image1Hz-update vervangen door oorspronkelijke expiry; Watchforeground30s/15sreadcoalescing en proxy20s/8requests, geen extra achtergrondloop. Glaseffectschakelaar40277 afgeleverd/getest; geen gemeten performancewinst. 40282 eerste echte externe XCTestcollectie:1PASS23.457s,3opgenomen foregroundSession-idlesamples; piekgeheugen58213.896/57099.784/56739.336kB, CPU0.1162/0.5572/0.1131s bij~4.93sintervallen. Geen thresholds/baselinevergelijking of glaseffectprestatieclaim. Instrumentspoging40281timeout vóór recording; geen trace. Gesaneerde metrics in APPLE_IDLE_PERFORMANCE_40282_20261017.json. 20261018: real simulator TimeProfiler/Metal traces and native short demo scroll benchmark; CPU2.563s/10.485s wall, physical peak65937.245kB,94.45%weighted CPU on main thread. NowPlaying idle9.01%CPU/37M. No95%repro, long-session/real-art/physicalGPU/FPS acceptance; dedicated NowPlaying transfer subsequently owner-approved. APPLE_NATIVE_SCROLL_PROFILING_20261018.md. 40317:273current files copied/hash-verified on MacBook. Actual page movement374.67pt; native glass on/off scroll/TimeProfiler runs PASS. Scroll CPU23.29%/21.38%, peaks27.60%/25.73%; short-run memory flat. Early unverified central-drag results excluded. No95%repro, real-art/cache/long-session/physicalGPU/FPS or SwiftUI-body acceptance. APPLE_NOW_PLAYING_SCROLL_40317_20261018.json.",
       "remaining": [
         "Eerste3idleCPU/geheugensamples geleverd; p95cold/resume/scroll/playback/energie/heap en langeSession-soak nog open.",
         "Timelines/loaded-history totaalbudget en 1Hz artwork-grantexpiry-renderkosten onderzoeken; niet zomaar geladen geschiedenis afkappen.",
         "AppModel blijft groot: ISS-004 open. Deze audit centraliseert paired-ownerGETs; geen brede ongekwalificeerde refactor."
       ],
-      "next_action": "Reproduceerbare workload-/langeSessionmetingen en aparte glassaan/uitvergelijking; eersteidlecollectie is geen performanceacceptatie."
+      "next_action": "Controlled real-art and large-history workload, qualified body/layout attribution and physical frame/GPU/energy profiling; no cache policy or history truncation workaround."
     },
     {
       "id": "crashes",
@@ -138,12 +137,13 @@
       "topic": "Widgets, Live Activity en Dynamic Island",
       "status": "partial",
       "owner": "Apple + Core",
-      "evidence": "40272: extra surfacepop-out/twee toggles verwijderd; verse actieve Session/settings3 + OS-widgetplaatsing/Activitytoestemming sturen bestaande onafhankelijke grants. Eén poging per context, geen onzeker-write-replay. Historysuspension wist geen onafhankelijke cache meer. Settings-first bootstrap, exacte Activityinstancefence en aparte neutrale Sessionlease voorkomen onterecht app-einde bij bindingadoptie/late dismissal/verlopen richfield.26gerichte testsPASS2.533s; signed native iOS/macOS inclusiefWatch/widgets, ordinarybundles/signaturesPASS. GewoneiPad40272geïnstalleerd/teruggelezen; SDK accepteert active/count1 en eerste runtime-read toont geen app-einde.3vooraf geconfigureerde widgets; eerdere40269/40271reads beide rich stores met actuele muziek/bijdrage. Laatste40272read heeft actuele neutrale cache/widgetmuziek, geen live_activityrichcache en0art/pixels. Geen fysieke OS-pixel- of duurzame backgroundclaim.",
+      "evidence": "40272: extra surfacepop-out/twee toggles verwijderd; verse actieve Session/settings3 + OS-widgetplaatsing/Activitytoestemming sturen bestaande onafhankelijke grants. Eén poging per context, geen onzeker-write-replay. Historysuspension wist geen onafhankelijke cache meer. Settings-first bootstrap, exacte Activityinstancefence en aparte neutrale Sessionlease voorkomen onterecht app-einde bij bindingadoptie/late dismissal/verlopen richfield.26gerichte testsPASS2.533s; signed native iOS/macOS inclusiefWatch/widgets, ordinarybundles/signaturesPASS. GewoneiPad40272geïnstalleerd/teruggelezen; SDK accepteert active/count1 en eerste runtime-read toont geen app-einde.3vooraf geconfigureerde widgets; eerdere40269/40271reads beide rich stores met actuele muziek/bijdrage. Laatste40272read heeft actuele neutrale cache/widgetmuziek, geen live_activityrichcache en0art/pixels. Geen fysieke OS-pixel- of duurzame backgroundclaim. 18okt04:02 homescreen recurrence: physical AppGroup widget rich key absent, neutral snapshot present; LiveActivity track metadata present without art/Moment. Earlier03:44widgetauthorize/read200. Existing authorized Core repair handoff updated and writer investigating grant loss. APPLE_HOME_WIDGET_DATA_20261018.json. 40324 adds fixed-class/boolean/count-only widget lifecycle/refusal diagnostics. Privacy/no grant replay regression and15passive tests PASS; full820testsPASS. Core current history reads200, original404/widget withdrawal remain open; no expired-data bypass.",
       "remaining": [
         "Core owning SYNC/producerbeleid afstemmen met directe OS-/Sessioninstructie; huidige v1 expliciete consentadvertentie nogtrue. Concrete overdracht: https://github.com/pcvantol/djconnect/issues/1101#issuecomment-6234481650.",
         "Verse eligible bijdrage/artwork/pixels en echte widget-/Lock-/Islandweergave/mood/achtergrond-/energiebudget kwalificeren. Wisselende richinhoud volgt originele veldleases; laatste40272read live_activityrichcache afwezig.0art/pixels; geen bronrechten/TTL verlengen.",
         "Blijvende achtergrondactualiteit vereist Core/ActivityKitproducerlevering; huidige background_delivery=false/max120s. Geen nieuwe poller, gedeelde bearer of fixture-PASS.",
-        "Owner kiest nu alleeniPad: iPhone blijft40267, Mac40266draait/ordinary40272gereed, Watchalleenmeegebouwd. Geen crossplatform hardwareacceptatie."
+        "Owner kiest nu alleeniPad: iPhone blijft40267, Mac40266draait/ordinary40272gereed, Watchalleenmeegebouwd. Geen crossplatform hardwareacceptatie.",
+        "Exact subsequent widget authorization/cache withdrawal cause and real device rich rendering remain open; no expiry extension, private foreground fallback or fix claim."
       ],
       "next_action": "Core owning SYNC/producerbeleid afstemmen met directe OS-/Sessioninstructie; huidige v1 expliciete consentadvertentie nogtrue. Concrete overdracht: https://github.com/pcvantol/djconnect/issues/1101#issuecomment-6234481650."
     },
@@ -164,11 +164,11 @@
       "topic": "Watch DJ-sessie hoofdflow",
       "status": "partial",
       "owner": "Apple + Core",
-      "evidence": "40256Watchhoofdview met huidige native-admitted bijdrage en flowcards; eigen Watch-HAidentiteit via typed interactieve iPhoneproxy. Zes settings3velden via gedeelde Corecontroller, lokale normale moodautoriteit verwijderd. Proxy20s/8requests/cancel/late-reply/no durable content; nativebuild en8gerichte testsPASS.",
+      "evidence": "40318 Watch: playback first, admitted latest Moment Listen/Stop, expandable full flow and timestamps. Exact Core freeze bc6e080e/fixture81318257; own-Watch identity and before/after owner checks, nonrenewable exact-source settings3 grant, local opt-in/manual only. Full818tests/10suites PASS90.226s; ordinary signed iPhone/Watch build/strict signatures and276source-stage hashes PASS. See APPLE_WATCH_SESSION_TTS_40318_20261018.md.",
       "remaining": [
-        "Echte Watchtunnel faalt; iPhone unavailable. Install/UI/foreground/locked/reconnect/audio en crossdeviceinstellingenacceptatie open. Passive v1 kopieert geen iPhonecontent naar Watch; geen nieuwe backendwire verzonnen."
+        "Physical Watch is unavailable; no Watch installation/native UI/audible/Bluetooth/lifecycle acceptance. No autoplay inferred from refresh. Phone/macOS native contribution integration and independent review/source delivery remain separate. Core writer reports private HA-dev candidate installed; Apple has not independently deployment-qualified it."
       ],
-      "next_action": "Echte Watchtunnel faalt; iPhone unavailable. Install/UI/foreground/locked/reconnect/audio en crossdeviceinstellingenacceptatie open. Passive v1 kopieert geen iPhonecontent naar Watch; geen nieuwe backendwire verzonnen."
+      "next_action": "Connect reachable physical Watch; qualify own-owner UI/manual native sound, stop/replacement/background/reconnect and text_only. Preserve original deadlines and distinct iPhone/Mac integration scope."
     },
     {
       "id": "source-delivery",
@@ -276,6 +276,28 @@
         "No suppression, threshold relaxation or technical-debt-free claim in this consolidation."
       ],
       "next_action": "Carry current observe findings into existing Apple refactor work after bounded source consolidation."
+    },
+    {
+      "id": "queue-discover",
+      "status": "partial",
+      "evidence": "New owner Discover→Queue screenshot reproduced in physical iPhone log at03:27:17/03:27:28/03:32:34:10 decoded,10normalized,1distinct track,10unique row IDs. Earlier row-identity fix alone does not close this defect. APPLE_QUEUE_DISCOVER_REPRO_20261018.json; no upstream raw-response proof or new fix.",
+      "remaining": [
+        "Producer/upstream Spotify queue and playback-context capture around Discover play; Core handoff awaiting owner answer; retain legitimate repetitions."
+      ],
+      "topic": "Wachtrijherhaling na Ontdek",
+      "owner": "Apple + Core",
+      "next_action": "Owner answer for bounded Core handoff; preserve exact decoded counts and upstream evidence boundary."
+    },
+    {
+      "id": "session-iphone-stability",
+      "status": "partial",
+      "evidence": "Physical phone40315/PID17305 logs: repeated history404. Read-only HA-dev current03:44Session ACTIVE/historyenabled/owner matches phone. Owner authorized existing-Core repair handoff, successfully sent. Client retry error-row removal/reinsert reproduced red2issues; corrected with full819tests/10suites PASS89.983s and signed iOS/Watch40323 build/276inputhashes PASS. APPLE_IPHONE_SESSION_DEBUG_40323_20261018.md. 40324 native simulator follow-up found leading-toolbar overflow hiding connection/refresh; bounded44pt row fixes it. Final iPhone6/6 and iPad1/1portrait/landscape PASS, screenshots viewed; full820testsPASS90.838s. APPLE_NATIVE_UI_WIDGET_DIAGNOSTICS_40324_20261018.md.",
+      "remaining": [
+        "Core must establish actual failed reference/origin and repair404; no server closure. Owner defers physical USB CPU/GPU/stutter profiling until tomorrow; phone40315 preserved;40323notinstalled."
+      ],
+      "topic": "Fysieke iPhone sessieladen en springende feed",
+      "owner": "Apple + Core",
+      "next_action": "Existing Core writer investigates404; preserve phone40315 for owner-requested USB baseline tomorrow; compare40323 after measurement."
     }
   ],
   "qualification": {
@@ -518,8 +540,22 @@
     "original_wip": "Both original checkouts now clean main; 18/155 WIP paths preserved in independently hash-verified archives and Git stashes; excluded experiments retained",
     "source_main_ci": "PASS with native coverage; independently verified artifact digests and embedded exact main SHA"
   },
-  "head_role": "Committed base before the locally qualified40304–40312 follow-up; source receipt records its final local commit separately",
+  "head_role": "Committed local base; installed40315 includes subsequent tracked local source changes, hashed in /private/tmp/djc-live-activity-40315/qualification.json; unpublished",
   "current_qualification": {
+    "build": "40315",
+    "scope": "bounded widget image asset correction",
+    "swift_tests": 17,
+    "result": "PASS",
+    "duration_seconds": 1.287,
+    "mode": "--no-parallel targeted",
+    "full_regression_baseline": "806 tests PASS on40314; not rerun for bounded asset change",
+    "native_ios": "ordinary signed build, strict signature, installation/readback PASS; launch LOCKED",
+    "native_macos": "unchanged40314",
+    "physical_live_activity_visual": "NOT_RUN",
+    "publication": "NOT_RUN",
+    "evidence": "APPLE_LIVE_ACTIVITY_GREY_LOGO_40315_20261018.md"
+  },
+  "qualification_40312": {
     "build": "40312",
     "swift_tests": 801,
     "swift_suites": 10,
@@ -535,5 +571,69 @@
     "physical_rapid_touch": "NOT_RUN",
     "publication": "NOT_RUN",
     "evidence": "APPLE_UNIFIED_CHOICES_CONFLICT_20261018.md"
+  },
+  "qualification_40313": {
+    "build": "40313",
+    "swift_tests": 803,
+    "swift_suites": 10,
+    "result": "PASS",
+    "duration_seconds": 91.05,
+    "mode": "--skip-build --no-parallel",
+    "native_ios": "ordinary signed build, strict signature, installation and independent40313 readback PASS; launch LOCKED",
+    "native_macos": "not built/installed for40313; MacBook remains40312",
+    "physical_gesture_visibility": "NOT_RUN",
+    "publication": "NOT_RUN",
+    "evidence": "APPLE_ARTWORK_GESTURE_OVERLAY_40313_20261018.md"
+  },
+  "qualification_40314": {
+    "build": "40314",
+    "swift_tests": 806,
+    "swift_suites": 10,
+    "result": "PASS",
+    "duration_seconds": 88.601,
+    "targeted_tests": 9,
+    "mode": "--skip-build --no-parallel",
+    "native_ios": "ordinary signed build, strict signature, installation/readback PASS",
+    "native_macos": "native MacBook compile; unchanged entitlement local signing; strict signature,79-entry manifest, install/readback/running PASS",
+    "physical_scroll_cpu_fps": "NOT_MEASURED",
+    "publication": "NOT_RUN",
+    "evidence": "APPLE_SESSION_SCROLL_PERFORMANCE_40314_20261018.md"
+  },
+  "native_scroll_profiling_20261018": {
+    "status": "OPEN",
+    "evidence": "APPLE_NATIVE_SCROLL_PROFILING_20261018.md",
+    "native_ui_test": "PASS existing short synthetic session benchmark",
+    "now_playing_scroll": "PENDING source transfer consent",
+    "physical_iphone": "OFFLINE",
+    "gpu": "simulator host intervals captured; no app/physical GPU acceptance",
+    "new_installation": false
+  },
+  "vibecast_native_binding_20261018": {
+    "status": "PARTIAL",
+    "evidence": "APPLE_VIBECAST_NATIVE_BINDING_20261018.md",
+    "portable_tests": 10,
+    "native_api_interop_checks": 33,
+    "signed_ios_build": "PASS diagnostic only",
+    "physical_iphone": "NOT_RUN_LOCKED",
+    "new_app_attest_calls": 0,
+    "contract": "NOT_FROZEN / NO_RUNTIME_GO",
+    "publication": "NOT_RUN"
+  },
+  "source_finalization_40331": {
+    "status": "IN_PROGRESS",
+    "source_base": "075895634feca03b5cc068b45a6fa7bfe781762e",
+    "installed_receipt": "APPLE_BUILD_40331_INSTALL_20261018.json",
+    "full_regression": "821tests/10suites PASS90.555s;10 isolated VibeCast tests PASS;7 validation groups PASS",
+    "source_pr": "PENDING",
+    "independent_review": "NOT_RUN current full candidate",
+    "limits": [
+      "Watch installation unverified",
+      "Original Session404 and widget continuity not closed",
+      "Queue recurrence open",
+      "USB CPU/GPU/memory qualification deferred",
+      "Device TTS and VibeCast producer/runtime gates remain open",
+      "Special opening DJMoment assigned to existing Core writer; no Apple-generated narration"
+    ],
+    "evidence": "APPLE_SOURCE_FINALIZATION_40331_20261018.json"
   }
 }

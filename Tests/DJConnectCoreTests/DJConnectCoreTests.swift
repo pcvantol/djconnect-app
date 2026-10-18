@@ -14018,3 +14018,54 @@ func bluetoothDeviceNameRequiresOneUnambiguousNamedRoute(names: [String]) throws
         }
     }
 }
+
+@MainActor
+@Test func queueRowIdentitySurvivesMetadataDifferencesAndReservedSuffixes() throws {
+    let defaults = try #require(UserDefaults(suiteName: "DJConnectQueueIdentity-\(UUID().uuidString)"))
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    let items = [
+        DJConnectQueueItem(title: "Before metadata refresh", uri: "spotify:track:same"),
+        DJConnectQueueItem(title: "After metadata refresh", artist: "Artist", uri: "spotify:track:same"),
+        DJConnectQueueItem(id: "spotify:track:same#2", title: "Real suffixed ID"),
+        DJConnectQueueItem(title: "Again", album: "Album", uri: "spotify:track:same")
+    ]
+    model.apply(commandResponse: .init(success: true, queue: items))
+    #expect(Set(model.queueItems.map(\.id)).count == items.count)
+    #expect(model.queueItems.map(\.title) == items.map(\.title))
+    #expect(model.queueItems.map(\.uri) == items.map(\.uri))
+    #expect(model.queueItems[2].id == "spotify:track:same#2")
+    let stable = model.queueItems.map(\.id)
+    model.apply(commandResponse: .init(success: true, queue: items))
+    #expect(model.queueItems.map(\.id) == stable)
+    let many = (0..<20).map { DJConnectQueueItem(title: "Metadata variant \($0)", uri: "spotify:track:same") }
+    model.apply(commandResponse: .init(success: true, queue: many))
+    #expect(model.queueItems.count == 20)
+    #expect(Set(model.queueItems.map(\.id)).count == 20)
+    // A smaller snapshot replaces every old occurrence; nothing is appended or retained.
+    model.apply(commandResponse: .init(success: true, queue: [items[1]]))
+    #expect(model.queueItems.count == 1)
+    #expect(model.queueItems[0].title == items[1].title)
+    #expect(model.queueItems[0].id == "spotify:track:same")
+    #expect(model.queue == [items[1].displayTitle])
+    #expect(DJConnectQueueWidgetSnapshot(items: model.queueItems).totalCount == 1)
+    model.apply(commandResponse: .init(success: true, queue: []))
+    #expect(model.queueItems.isEmpty)
+}
+
+@Test func liveActivitySpotifyMarkHasBoundedScaleSpecificAssets() throws {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Apps/DJConnectTrackInsightWidgets/Assets.xcassets/SpotifyAttribution.imageset")
+    let manifest = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Contents.json"))) as? [String: Any])
+    let images = try #require(manifest["images"] as? [[String: String]])
+    #expect(Set(images.compactMap { $0["scale"] }) == ["1x", "2x", "3x"])
+    for entry in images {
+        let scale = try #require(entry["scale"].flatMap { Int($0.dropLast()) })
+        let name = try #require(entry["filename"])
+        let bytes = try Data(contentsOf: root.appendingPathComponent(name))
+        #expect(bytes.prefix(8) == Data([137,80,78,71,13,10,26,10]))
+        let width = bytes[16..<20].reduce(0) { ($0 << 8) | Int($1) }
+        let height = bytes[20..<24].reduce(0) { ($0 << 8) | Int($1) }
+        #expect(width == 70 * scale && height == 21 * scale,
+                "Live Activity assets must be prepared at their actual display size, not merely framed smaller")
+    }
+}

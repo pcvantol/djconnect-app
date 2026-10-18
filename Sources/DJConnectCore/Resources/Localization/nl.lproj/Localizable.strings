@@ -1098,7 +1098,7 @@
 "ui.session.presence.balanced" = "Gebalanceerd";
 "ui.session.presence.talkative" = "Praatgraag";
 "ui.session.presence.presenter" = "Presentator";
-"ui.session.presence.title" = "DJ-aanwezigheid";
+"ui.session.presence.title" = "DJ aanwezigheid";
 "ui.session.presence.explanation" = "Hoeveel vertelt de DJ tijdens je sessie?";
 "ui.session.presence.confirmed" = "Bevestigd";
 "ui.session.presence.pending" = "Gekozen";
@@ -1263,7 +1263,7 @@
 "ui.dj_settings.voice" = "Stemvoorkeur";
 "ui.dj_settings.gender" = "Stemgender";
 "ui.dj_settings.mood" = "Stemming";
-"ui.dj_settings.presence" = "Aanwezigheid";
+"ui.dj_settings.presence" = "DJ aanwezigheid";
 "ui.dj_settings.output" = "Afspeelvoorkeur";
 "ui.dj_settings.defaults_scope" = "Startinstellingen voor je volgende sessie.";
 "ui.dj_settings.session_scope" = "Geldt nu en wordt onthouden voor je volgende sessie.";
@@ -1339,3 +1339,35 @@
 "ui.ask_dj.answer.unavailable" = "Ask DJ kan je vraag of verzoek helaas op dit moment niet beantwoorden.";
 "ui.ask_dj.answer.connection" = "Ask DJ kan je vraag of verzoek nu niet beantwoorden omdat de verbinding is onderbroken.";
 "ui.ask_dj.answer.context_changed" = "De sessiecontext is gewijzigd. Controleer je vraag voordat je die opnieuw verstuurt.";
+
+// Device-local Apple speech renderer
+"ui.device_speech.title" = "Op dit apparaat · Spraak";
+"ui.device_speech.enabled" = "Gebruik Apple TTS op dit apparaat";
+"ui.device_speech.explanation" = "Deze stemkeuze geldt alleen hier. Automatisch afspelen en Home Assistant-uitvoer blijven afzonderlijk ingesteld.";
+"ui.device_speech.gender" = "Stemtype";
+"ui.device_speech.system" = "Automatisch";
+"ui.device_speech.female" = "Vrouwelijk";
+"ui.device_speech.male" = "Mannelijk";
+"ui.device_speech.voice" = "Stem";
+"ui.device_speech.unavailable" = "Geen passende stem beschikbaar";
+"ui.device_speech.rate" = "Spreeksnelheid";
+"ui.device_speech.pitch" = "Toonhoogte";
+"ui.device_speech.stop" = "Stop voorbeeld";
+"ui.device_speech.preview" = "Luister naar voorbeeld";
+"ui.device_speech.pending" = "DJ-spraak op dit apparaat vereist ondersteuning van de verbonden Home Assistant.";
+"ui.device_speech.sample" = "Zet je muziek aan. DJConnect brengt die tot leven. Dit is een voorbeeld van de stem op dit apparaat.";
+
+"watch.session.current" = "Laatste DJ-moment";
+"watch.session.listen" = "Luister";
+"watch.session.stop_speech" = "Stoppen";
+"watch.session.speech_settings" = "Spraak op deze Watch";
+"watch.session.enable_speech" = "Schakel Apple TTS in om DJ-bijdragen op deze Watch te beluisteren.";
+"watch.session.speech_unavailable" = "Deze DJ-bijdrage kan nu niet worden afgespeeld. Probeer het opnieuw.";
+
+"ui.music.availability.unconfirmed" = "Niet te controleren";
+
+"ui.session.history.search_sessions" = "Zoek in eerdere sessies";
+"ui.session.history.search_loaded" = "Zoek in geladen sessies";
+
+"ui.feedback.issue.title" = "Feedback over de DJConnect-app";
+"ui.feedback.issue.intro" = "Beschrijf je feedback of je verzoek voor een nieuwe functie:";

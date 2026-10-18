@@ -472,8 +472,14 @@ local autoplay toggle is client runtime, never a shared Profile default.
 
 Speech3 prepares/replays the exact accepted owner contribution with settings,
 source, revision, retention and lifecycle fences. HA-configured synthesis uses
-the user's actual provider; native-device override and Preview remain separate
-open consumer/producer work. A player-start log is not acoustic completion.
+the user's actual provider. Device-local Apple voice preferences and the bounded
+static sample use one native speech renderer shared by iOS/iPadOS/macOS/watchOS.
+They do not write Profile settings or enable autoplay. Unknown/text_only policy
+blocks the sample. Enabling the override suppresses local HA synthesis; explicit
+HA speaker delivery remains independent. Speech3 currently rejects local_on_device;
+actual DJ contribution playback stays unavailable until Core delivers that grant.
+No legacy prepare1 or visible-text fallback substitutes for it. A player-start
+log is not acoustic completion.
 
 Private artwork preparation is viewport-driven, bounded and separate from pure
 history reads. Image GET and history GET share complete device/client query
@@ -511,3 +517,55 @@ context or transferUserInfo; eight requests and a20-second timeout/cancellation
 bound outstanding work. No native Watch runtime acceptance follows from the
 signed embedded build. Ordinary Watch personal mood hints have been retired;
 Demo state and genuinely local client controls remain device-local.
+
+
+## Watch Session native replay (2026-10-18, candidate40318)
+
+Watch main presentation puts current playback before the latest native-admitted
+Moment, then an explicitly expandable admitted Session flow (at most eight other
+cards). Original complete text, timestamps, attribution and display/source
+expiry remain authoritative. The four presence choices share the Core client
+presentation list; historical talkative still decodes without being selectable.
+
+The frozen Core local settings3 handoff bc6e080e authorizes manual Apple-native
+replay. Compact source revision/locale/attribution/expiry metadata accompanies
+only visible Watch cards, never executable speech segments, audio or an iPhone
+bearer. It is an internal interactive companion DTO, not a new backend API.
+The iPhone re-reads settings and active Session using the Watch's own identity,
+compares the original exact card, prepares processor local_on_device with only
+reference/intent/target and Watch identity, and re-reads both owners before reply.
+No operation replay is allowed. Old companions without metadata still display
+cards but cannot grant speech. No HA voice availability or HA audio asset is
+needed; native output cannot dispatch a speaker operation.
+
+The Watch's device-local opt-in/installed voice/gender/rate/pitch controls remain
+separate from shared Profile settings. A fresh renderer_pending grant must have
+exact text/reference/presentation/Persona/locale/attribution/settings revisions,
+no effective HA voice or audio asset, and a nonrenewable original deadline.
+One playback coordinator owns pending work and output. Stop/replacement,
+foreground loss, owner/setting/source withdrawal or expiry, navigation away,
+voice inventory/audio interruption/route change terminate output. text_only and
+unknown/invalid policy deny speech. There is no visible-text fallback, background
+speech queue or refresh/reconnect autoplay; automatic publication is not inferred
+from manual prepare or latest-card appearance.
+
+The broader iPhone/macOS contribution routing is still separate; this increment
+connects actual native Moment replay on Watch only. See
+[Watch evidence](feedback/APPLE_WATCH_SESSION_TTS_40318_20261018.md). Build/test
+qualification is not physical Watch UI, audible or Bluetooth acceptance.
+
+
+## Passive diagnostics and compact Session toolbar (2026-10-18)
+
+PassiveSessionSurfaceModel emits lifecycle-only diagnostics through the existing
+app logger: surface, fixed failure class, configuration booleans and field counts.
+It emits no source text, owner/reference IDs, grant IDs, raw server messages or
+credentials. Logging does not authorize/retry grants, extend deadlines or create
+another content store. Diagnostic privacy and single-attempt behavior are tested.
+
+Compact Session navigation uses a bounded horizontal row in one leading toolbar
+item with44point targets. Native UI qualification found that separate leading
+items let iOS hide the independent connection/refresh group. The bounded row
+preserves More first and source popover anchors; iPad retains direct expanded
+controls. Native simulator screenshots/tests qualify arrangement and search/menu
+interaction only, not physical performance or backend availability.

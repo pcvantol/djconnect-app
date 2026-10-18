@@ -1339,3 +1339,35 @@
 "ui.ask_dj.answer.unavailable" = "Ask DJ kann deine Frage oder Anfrage im Moment leider nicht beantworten.";
 "ui.ask_dj.answer.connection" = "Ask DJ kann deine Frage oder Anfrage gerade nicht beantworten, da die Verbindung unterbrochen wurde.";
 "ui.ask_dj.answer.context_changed" = "Der Sitzungskontext hat sich geändert. Prüfe deine Frage, bevor du sie erneut sendest.";
+
+// Device-local Apple speech renderer
+"ui.device_speech.title" = "Auf diesem Gerät · Sprache";
+"ui.device_speech.enabled" = "Apple TTS auf diesem Gerät verwenden";
+"ui.device_speech.explanation" = "Diese Stimme gilt nur hier. Automatische Wiedergabe und Home Assistant-Ausgabe bleiben getrennte Einstellungen.";
+"ui.device_speech.gender" = "Stimmtyp";
+"ui.device_speech.system" = "Automatisch";
+"ui.device_speech.female" = "Weiblich";
+"ui.device_speech.male" = "Männlich";
+"ui.device_speech.voice" = "Stimme";
+"ui.device_speech.unavailable" = "Keine passende Stimme verfügbar";
+"ui.device_speech.rate" = "Sprechgeschwindigkeit";
+"ui.device_speech.pitch" = "Tonhöhe";
+"ui.device_speech.stop" = "Hörprobe stoppen";
+"ui.device_speech.preview" = "Hörprobe anhören";
+"ui.device_speech.pending" = "DJ-Sprache auf diesem Gerät erfordert Unterstützung durch das verbundene Home Assistant.";
+"ui.device_speech.sample" = "Schalte deine Musik ein. DJConnect erweckt sie zum Leben. Dies ist eine Hörprobe der Stimme auf diesem Gerät.";
+
+"watch.session.current" = "Letzter DJ-Moment";
+"watch.session.listen" = "Anhören";
+"watch.session.stop_speech" = "Stoppen";
+"watch.session.speech_settings" = "Sprache auf dieser Watch";
+"watch.session.enable_speech" = "Aktiviere Apple TTS, um DJ-Beiträge auf dieser Watch anzuhören.";
+"watch.session.speech_unavailable" = "Dieser DJ-Beitrag kann gerade nicht abgespielt werden. Versuche es erneut.";
+
+"ui.music.availability.unconfirmed" = "Nicht überprüfbar";
+
+"ui.session.history.search_sessions" = "Frühere Sitzungen durchsuchen";
+"ui.session.history.search_loaded" = "Geladene Sitzungen durchsuchen";
+
+"ui.feedback.issue.title" = "Feedback zur DJConnect-App";
+"ui.feedback.issue.intro" = "Beschreibe dein Feedback oder deinen Funktionswunsch:";

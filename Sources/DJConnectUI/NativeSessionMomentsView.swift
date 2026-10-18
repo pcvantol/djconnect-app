@@ -19,6 +19,11 @@ extension View {
         modifier(DJAlbumArtworkGlassCard(artworkURL: artworkURL))
     }
 
+    /// A protected image supplies its already admitted pixel sample, never a URL/cache lookup.
+    func djAlbumArtworkGlassCard(tint: Color?) -> some View {
+        modifier(DJAlbumArtworkGlassSurface(tint: tint))
+    }
+
     @ViewBuilder func djSessionNavigationTitleStyle(compactPhone: Bool = false) -> some View {
         #if os(iOS)
         navigationBarTitleDisplayMode(compactPhone && UIDevice.current.userInterfaceIdiom == .phone ? .inline : .large)
@@ -34,8 +39,6 @@ private struct DJAlbumArtworkGlassCard: ViewModifier {
     let artworkURL: URL?
     @State private var sampledTint: Color?
     @State private var sampledURL: URL?
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
 
     init(artworkURL: URL?) {
         self.artworkURL = artworkURL
@@ -45,20 +48,8 @@ private struct DJAlbumArtworkGlassCard: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        let inset: CGFloat = 8
-        let shape = RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous)
-        let tint = sampledURL == artworkURL ? sampledTint : nil
         content
-            .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius - inset, style: .continuous))
-            .padding(inset)
-            .background { shape.fill(tint?.opacity(reduceTransparency || !glassEnabled ? 1 : 0.72) ?? .clear) }
-            .djSessionFrostedSurface()
-            .overlay {
-                if let tint {
-                    shape.stroke(tint.opacity(0.8), lineWidth: DJConnectCardAppearance.borderWidth)
-                        .allowsHitTesting(false)
-                }
-            }
+            .djAlbumArtworkGlassCard(tint: sampledURL == artworkURL ? sampledTint : nil)
             .task(id: artworkURL) {
                 guard let requestedURL = artworkURL else {
                     sampledTint = nil; sampledURL = nil; return
@@ -75,6 +66,29 @@ private struct DJAlbumArtworkGlassCard: ViewModifier {
                 guard !Task.isCancelled, requestedURL == artworkURL else { return }
                 sampledURL = requestedURL
                 sampledTint = color
+            }
+    }
+}
+
+/// Identical glass treatment for public player covers and ephemeral admitted artwork.
+private struct DJAlbumArtworkGlassSurface: ViewModifier {
+    let tint: Color?
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
+
+    func body(content: Content) -> some View {
+        let inset: CGFloat = 8
+        let shape = RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous)
+        content
+            .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius - inset, style: .continuous))
+            .padding(inset)
+            .background { shape.fill(tint?.opacity(reduceTransparency || !glassEnabled ? 1 : 0.72) ?? .clear) }
+            .djSessionFrostedSurface()
+            .overlay {
+                if let tint {
+                    shape.stroke(tint.opacity(0.8), lineWidth: DJConnectCardAppearance.borderWidth)
+                        .allowsHitTesting(false)
+                }
             }
     }
 }
@@ -364,25 +378,27 @@ struct NativeSessionMomentsView: View {
 
     private var musicContext: some View {
         SessionCurrentColumns(stacked: stacksCurrentOnPhone) {
-            ZStack {
-                CachedArtworkImage(url: musicArtworkURL, mode: .fit, usesAlbumGlassFrame: true) {
-                    AlbumArtworkPlaceholder(tint: djConnectAccent,
-                        isPlaying: session.broadcast.playback?.state == "playing" && !artworkIsPaused)
-                }
-                    .aspectRatio(1, contentMode: .fit)
-                artworkPlaybackOverlay
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .zIndex(1)
-                SessionArtworkTapSurface(action: handleArtworkTap, touchBegan: {
-                    if artworkIsPaused, playbackModel?.canUsePlaybackFeatures == true {
-                        hidesArtworkPlayOnTouch = true
-                        artworkTouchID = UUID()
-                    }
-                }, touchCancelled: { hidesArtworkPlayOnTouch = false })
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .zIndex(2)
+            CachedArtworkImage(url: musicArtworkURL, mode: .fit, usesAlbumGlassFrame: true, animatesArtworkChanges: true) {
+                AlbumArtworkPlaceholder(tint: djConnectAccent,
+                    isPlaying: session.broadcast.playback?.state == "playing" && !artworkIsPaused)
             }
                 .aspectRatio(1, contentMode: .fit)
+                // The base cover determines geometry. Neither the native hit
+                // surface nor an initially empty feedback view participates in sizing.
+                .overlay {
+                    SessionArtworkTapSurface(action: handleArtworkTap, touchBegan: {
+                        if artworkIsPaused, playbackModel?.canUsePlaybackFeatures == true {
+                            hidesArtworkPlayOnTouch = true
+                            artworkTouchID = UUID()
+                        }
+                    }, touchCancelled: { hidesArtworkPlayOnTouch = false })
+                }
+                // Paint feedback last, above the native touch plane and the
+                // complete glass/crossfade subtree; it never intercepts taps.
+                .overlay(alignment: .center) {
+                    artworkPlaybackOverlay
+                        .allowsHitTesting(false)
+                }
                 .frame(maxWidth: DJConnectAlbumArtworkLayout.maximumWidth(phone: stacksCurrentOnPhone))
                 .contentShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
                 .task(id: artworkFeedback?.id) {

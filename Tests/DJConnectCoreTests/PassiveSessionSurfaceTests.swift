@@ -417,3 +417,26 @@ private func passivePNG() throws -> Data {
     await preparation.value
     #expect(disabled == 1 && !model.enabled(.widget) && model.caches[.widget] == nil)
 }
+
+@Test @MainActor func passiveDiagnosticsIdentifyWidgetWithdrawalWithoutLeakingPrivateFieldsOrRetryingWrites() async throws {
+    let response = try passiveCurrent(), model = PassiveSessionSurfaceModel()
+    var events: [String] = [], writes = 0
+    model.onDiagnostic = { events.append($0) }
+    model.bind(owner: "SECRET_OWNER", sessionID: response.passive_session.session_id, foreground: true)
+    let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, _ in
+        writes += 1; return response
+    }, read: { _, _, _ in throw DJConnectError.routeMissing(message: "SECRET_SERVER_MESSAGE") }, image: { _, _ in Data() })
+    await model.reconcileAutomatic(surfaces: [.widget], services: services)
+    #expect(model.enabled(.widget) && model.caches[.widget] != nil)
+    model.refresh(services, force: true)
+    for _ in 0..<100 where model.busy(.widget) { await Task.yield() }
+    #expect(!model.enabled(.widget) && model.caches[.widget] == nil)
+    await model.reconcileAutomatic(surfaces: [.widget], services: services)
+    #expect(writes == 1)
+    #expect(events.contains("configuration widget=true live_activity=false"))
+    #expect(events.contains("read_failed surface=widget withdraws=true reason=route_missing"))
+    let log = events.joined()
+    for forbidden in ["SECRET", response.grant_id, response.passive_session.session_id, response.passive_session.binding_id] {
+        #expect(!log.contains(forbidden))
+    }
+}

@@ -251,9 +251,13 @@ private struct PassiveSessionContentView: View {
            let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
            CGImageSourceGetCount(source) == 1,
            let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-                kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 512
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                // Match the presentation's point size at Retina scale; a frame
+                // alone does not shrink the image archived by ActivityKit.
+                kCGImageSourceThumbnailMaxPixelSize: Int((large ? 104 : compact ? 32 : 56) * 3)
            ] as CFDictionary) {
-            Image(image, scale: 1, label: Text(artwork.alt_text[DJConnectLocalization.defaultDisplayLanguageCode()] ?? artwork.alt_text["en"] ?? ""))
+            Image(image, scale: 3, label: Text(artwork.alt_text[DJConnectLocalization.defaultDisplayLanguageCode()] ?? artwork.alt_text["en"] ?? ""))
                 .resizable().scaledToFit() // The granted cover must not be cropped.
         }
     }

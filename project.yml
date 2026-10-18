@@ -227,6 +227,7 @@ targets:
       - path: Apps/DJConnectWatch
       - path: Sources/DJConnectUI/AlbumArtworkPlaceholder.swift
       - path: Sources/DJConnectUI/DJConnectGlassAppearance.swift
+      - path: Sources/DJConnectUI/DeviceSpeechSettingsView.swift
       - path: Apps/Shared/Assets.xcassets
       - path: Sources/DJConnectCore/Resources
     dependencies:

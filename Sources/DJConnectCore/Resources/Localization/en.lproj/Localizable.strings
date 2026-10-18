@@ -1339,3 +1339,35 @@
 "ui.ask_dj.answer.unavailable" = "Ask DJ is unfortunately unable to answer your question or request right now.";
 "ui.ask_dj.answer.connection" = "Ask DJ cannot answer your question or request right now because the connection was interrupted.";
 "ui.ask_dj.answer.context_changed" = "The session context has changed. Review your question before sending it again.";
+
+// Device-local Apple speech renderer
+"ui.device_speech.title" = "On this device · Speech";
+"ui.device_speech.enabled" = "Use Apple TTS on this device";
+"ui.device_speech.explanation" = "This voice choice applies only here. Autoplay and Home Assistant output remain separate settings.";
+"ui.device_speech.gender" = "Voice type";
+"ui.device_speech.system" = "Automatic";
+"ui.device_speech.female" = "Female";
+"ui.device_speech.male" = "Male";
+"ui.device_speech.voice" = "Voice";
+"ui.device_speech.unavailable" = "No matching voice available";
+"ui.device_speech.rate" = "Speech rate";
+"ui.device_speech.pitch" = "Pitch";
+"ui.device_speech.stop" = "Stop sample";
+"ui.device_speech.preview" = "Listen to sample";
+"ui.device_speech.pending" = "DJ speech on this device requires support from the connected Home Assistant.";
+"ui.device_speech.sample" = "Turn on your music. DJConnect brings it to life. This is a sample of the voice on this device.";
+
+"watch.session.current" = "Latest DJ moment";
+"watch.session.listen" = "Listen";
+"watch.session.stop_speech" = "Stop";
+"watch.session.speech_settings" = "Speech on this Watch";
+"watch.session.enable_speech" = "Enable Apple TTS to listen to DJ contributions on this Watch.";
+"watch.session.speech_unavailable" = "This DJ contribution cannot be played right now. Try again.";
+
+"ui.music.availability.unconfirmed" = "Cannot verify";
+
+"ui.session.history.search_sessions" = "Search previous sessions";
+"ui.session.history.search_loaded" = "Search loaded sessions";
+
+"ui.feedback.issue.title" = "DJConnect app feedback";
+"ui.feedback.issue.intro" = "Please describe your feedback or feature request:";

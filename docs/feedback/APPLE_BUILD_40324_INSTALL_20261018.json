@@ -1,0 +1,49 @@
+{
+  "recorded_at": "2026-10-18T07:04:26.412708+00:00",
+  "build": "40324",
+  "authorization": "Owner explicitly requested installation on iPhone, MacBook and Mac mini; supersedes preservation of iPhone40315 baseline.",
+  "source_manifest_sha256": "0b685e818ad199adf8fd3a85136863111c2acdd21195b6e9ca8e41828bccc631",
+  "mac_archive_sha256": "32f30bcec6f3640d532bdacbe8b1faedc765a713bd600715a04d6ca032f4326d",
+  "devices": {
+    "iPhone": {
+      "before": "40315",
+      "installed": "40324",
+      "launch": "PASS",
+      "receipt": "/private/tmp/djc-passive-diagnostics-40324/iphone-installed-final.json",
+      "launch_receipt": "/private/tmp/djc-passive-diagnostics-40324/iphone-launched.json"
+    },
+    "MacBook": {
+      "before": "40314",
+      "installed": "40324",
+      "pid": 94661,
+      "signature": "PASS",
+      "path": "/Applications/DJConnect.app"
+    },
+    "Mac mini": {
+      "before": "40266",
+      "installed": "40324",
+      "pid": 7787,
+      "signature": "PASS",
+      "path": "/Applications/DJConnect.app"
+    },
+    "iPad": {
+      "installed": "40324",
+      "launch": "PASS",
+      "receipt": "/private/tmp/djc-passive-diagnostics-40324/ipad-installed-final.json",
+      "launch_receipt": "/private/tmp/djc-passive-diagnostics-40324/ipad-launched.json"
+    },
+    "Watch": {
+      "installed": "UNVERIFIED",
+      "status": "Device unavailable; direct installation timed out after 20 seconds.",
+      "candidate_build": "40324",
+      "receipt": "/private/tmp/djc-passive-diagnostics-40324/watch-install.json"
+    }
+  },
+  "limits": [
+    "Installed version and process/launch readback only, no visual or audible end-user acceptance.",
+    "Physical USB profiling remains deferred. Previous iPhone40315 runtime baseline is replaced.",
+    "Original history404, widget continuity and queue recurrence remain OPEN."
+  ],
+  "mac_restart": "Both AppleScript quit requests returned -128. Verified exact DJConnect process paths then SIGTERM, previous app bundles retained privately, installed and opened new apps. No app data or pairing reset.",
+  "updated_at": "2026-10-18T07:06:15.157110+00:00"
+}

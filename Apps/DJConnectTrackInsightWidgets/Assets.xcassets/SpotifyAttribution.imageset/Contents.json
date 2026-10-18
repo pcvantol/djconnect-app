@@ -1,15 +1,26 @@
 {
-  "images": [
+  "images" : [
     {
-      "filename": "Spotify_Full_Logo_RGB_White.png",
-      "idiom": "universal"
+      "filename" : "Spotify_Full_Logo_RGB_White.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    },
+    {
+      "filename" : "Spotify_Full_Logo_RGB_White@2x.png",
+      "idiom" : "universal",
+      "scale" : "2x"
+    },
+    {
+      "filename" : "Spotify_Full_Logo_RGB_White@3x.png",
+      "idiom" : "universal",
+      "scale" : "3x"
     }
   ],
-  "info": {
-    "author": "xcode",
-    "version": 1
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
   },
-  "properties": {
-    "template-rendering-intent": "original"
+  "properties" : {
+    "template-rendering-intent" : "original"
   }
 }

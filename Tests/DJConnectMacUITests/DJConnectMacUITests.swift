@@ -568,8 +568,8 @@ extension DJConnectMacUITests {
             }
             return button
         }
-        let values = ["music_only", "occasional", "balanced", "talkative", "presenter"]
-        let anchors = ["nl":["Alleen muziek","Af en toe","Gebalanceerd","Praatgraag","Presentator"],"en":["Music only","Occasionally","Balanced","Talkative","Presenter"],"de":["Nur Musik","Gelegentlich","Ausgewogen","Gesprächig","Moderator"],"fr":["Musique uniquement","De temps en temps","Équilibré","Bavard","Présentateur"],"es":["Solo música","De vez en cuando","Equilibrado","Conversador","Presentador"]]
+        let values = ["music_only", "occasional", "balanced", "presenter"]
+        let anchors = ["nl":["Alleen muziek","Af en toe","Gebalanceerd","Presentator"],"en":["Music only","Occasionally","Balanced","Presenter"],"de":["Nur Musik","Gelegentlich","Ausgewogen","Moderator"],"fr":["Musique uniquement","De temps en temps","Équilibré","Présentateur"],"es":["Solo música","De vez en cuando","Equilibrado","Presentador"]]
         for (offset, value) in values.enumerated() {
             guard let button = try await readyChoice(value) else { app.terminate(); return }
             if offset == 0 { _ = try await control("presence_delay_once") }
@@ -615,7 +615,7 @@ extension DJConnectMacUITests {
         XCTAssertEqual(pausedResult, .completed)
         let final = try await control("state")
         let finalRuntime = try XCTUnwrap(final["active"] as? [String: Any])
-        XCTAssertEqual(finalRuntime["presence_revision"] as? Int, 6)
+        XCTAssertEqual(finalRuntime["presence_revision"] as? Int, values.count + 1)
         XCTAssertEqual(finalRuntime["selected_presence"] as? String, "balanced")
         XCTAssertEqual(finalRuntime["now_playing"] as? NSDictionary, pausedRuntime["now_playing"] as? NSDictionary,
                        "Changing presence while paused must preserve actual playback")
@@ -628,6 +628,34 @@ extension DJConnectMacUITests {
         let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.descendants(matching: .any)["session-presence-slider"].firstMatch)
         let closedResult = await XCTWaiter.fulfillment(of: [closed], timeout: 5)
         XCTAssertEqual(closedResult, .completed, "Escape must close the native presence popover")
+
+        // Native mouse dismissal can restore the last field editor as first responder.
+        // That restoration must not expand the compact composer or move the feed.
+        let composer = app.descendants(matching: .any)["ask-dj-composer-input"].firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 6))
+        let outside = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.40))
+        outside.click()
+        let compact = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in composer.frame.height < 80 }, object: composer)
+        let compactResult = await XCTWaiter.fulfillment(of: [compact], timeout: 5)
+        XCTAssertEqual(compactResult, .completed)
+        let compactHeight = composer.frame.height
+        let compactY = composer.frame.minY
+        for _ in 0..<3 {
+            toggle.click()
+            XCTAssertTrue(app.descendants(matching: .any)["session-presence-slider"].firstMatch.waitForExistence(timeout: 5))
+            outside.click()
+            let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                object: app.descendants(matching: .any)["session-presence-slider"].firstMatch)
+            let dismissedResult = await XCTWaiter.fulfillment(of: [dismissed], timeout: 5)
+            XCTAssertEqual(dismissedResult, .completed)
+            try await Task.sleep(for: .milliseconds(350))
+            let stable = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                abs(composer.frame.height - compactHeight) < 2 && abs(composer.frame.minY - compactY) < 2
+            }, object: composer)
+            let stableResult = await XCTWaiter.fulfillment(of: [stable], timeout: 5)
+            XCTAssertEqual(stableResult, .completed,
+                           "Mouse dismissal must preserve compact composer geometry")
+        }
         app.terminate()
     }
 }

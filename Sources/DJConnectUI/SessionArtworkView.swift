@@ -17,9 +17,14 @@ extension DJConnectAppModel {
             return audience == .activeFlow && session.broadcast.nativeFlowMoments(at: Date()).contains { $0.id == id }
         case .entry(let id):
             if audience != .history && activeDJSession?.id != media.sessionID { return false }
-            let entries = sessionHistory.timelines.values.flatMap(\.entries)
-                + sessionHistory.historicalMatches.values.flatMap { $0 } + sessionHistory.searchMatches
-            return entries.contains { $0.id == id && $0.sessionID == media.sessionID && $0.isRetained() && $0.sessionMedia == media }
+            let matches: (DJConnectHistoryEntry) -> Bool = {
+                $0.id == id && $0.sessionID == media.sessionID && $0.isRetained() && $0.sessionMedia == media
+            }
+            // Short-circuit existing collections instead of copying every loaded
+            // timeline/search entry for each image on every scroll update.
+            return sessionHistory.timelines.values.contains { $0.entries.contains(where: matches) }
+                || sessionHistory.historicalMatches.values.contains { $0.contains(where: matches) }
+                || sessionHistory.searchMatches.contains(where: matches)
         }
     }
 
@@ -49,6 +54,7 @@ struct SessionArtworkView: View {
     @ObservedObject private var history: DJConnectSessionHistoryModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var pixels: DJConnectSessionArtworkImage?
+    @State private var artworkTint: Color?
     @State private var loadedKey: Key?
     @State private var generation = UUID()
 
@@ -81,10 +87,9 @@ struct SessionArtworkView: View {
                         .resizable().scaledToFit()
                         .frame(width: 100 * CGFloat(pixels.image.width) / CGFloat(max(pixels.image.width, pixels.image.height)),
                                height: 100 * CGFloat(pixels.image.height) / CGFloat(max(pixels.image.width, pixels.image.height)))
-                        .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius - 8, style: .continuous))
                         .accessibilityLabel(grant.altText?[language] ?? grant.altText?["en"] ?? "")
                         .accessibilityIdentifier("session-authorized-artwork")
-                        .padding(8).djSessionFrostedSurface()
+                        .djAlbumArtworkGlassCard(tint: artworkTint)
                     if showsAttribution {
                         Link(destination: source) {
                             logo.resizable().scaledToFit().frame(width: 70, height: 20)
@@ -99,16 +104,17 @@ struct SessionArtworkView: View {
         .task(id: key) {
             let currentKey = key
             let request = UUID(); generation = request
-            pixels = nil; loadedKey = nil
+            pixels = nil; loadedKey = nil; artworkTint = nil
             guard currentKey.active, spotifyAttributionLogo != nil,
                   let grant = media.admittedArtwork(session: media.sessionID, target: target, audience: audience),
                   let deadline = grant.expiresAt.flatMap(DJConnectHistoryEntry.date) else { return }
             defer {
-                if generation == request { pixels = nil; loadedKey = nil }
+                if generation == request { pixels = nil; loadedKey = nil; artworkTint = nil }
             }
             do {
                 let result = try await model.loadSessionArtwork(media, target: target, audience: audience)
                 guard !Task.isCancelled, currentKey == key, generation == request else { return }
+                artworkTint = averageArtworkColor(from: result.image)
                 pixels = result; loadedKey = currentKey
                 try await Task.sleep(for: .seconds(max(0, deadline.timeIntervalSinceNow)))
             } catch {

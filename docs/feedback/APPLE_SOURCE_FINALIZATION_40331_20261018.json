@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-18T07:50:03.154385+00:00",
+  "source_base": "f6b0a71b3d8a2076539a2aea5e853626558b04ad",
+  "source_branch": "codex/apple-history-row-play-launch",
+  "scope": "29 local commits plus delivered followups through ordinary build40331",
+  "full_swift_regression": {
+    "tests": 821,
+    "suites": 10,
+    "seconds": 90.555,
+    "result": "PASS",
+    "mode": "--no-parallel",
+    "initial_run": {
+      "result": "FAILED",
+      "issues": 5,
+      "cause": "Clean test source staging omitted repository workflow/release inputs. No tests or assertions changed. Added29 validation-only files and reran all821 tests."
+    }
+  },
+  "vibecast_qualification": {
+    "tests": 10,
+    "result": "PASS",
+    "seconds": 0.009,
+    "shipping_dependency": false,
+    "physical_admission": "NOT_QUALIFIED"
+  },
+  "checks": [
+    {
+      "name": "localizations",
+      "exit_code": 0
+    },
+    {
+      "name": "brand",
+      "exit_code": 0
+    },
+    {
+      "name": "registers",
+      "exit_code": 0
+    },
+    {
+      "name": "websocket",
+      "exit_code": 0
+    },
+    {
+      "name": "http",
+      "exit_code": 0
+    },
+    {
+      "name": "fixture-security",
+      "exit_code": 0
+    },
+    {
+      "name": "installation-hygiene",
+      "exit_code": 0
+    }
+  ],
+  "native_builds": {
+    "iOS_40331": "PASS includes Watch/widgets; signed ordinary build",
+    "macOS_40331": "PASS; strict deep signature verified",
+    "native_ui_followups": "40324 six iPhone and one iPad simulator cases PASS;40329 saved-session search PASS. Bounded source/builds only."
+  },
+  "installation": "APPLE_BUILD_40331_INSTALL_20261018.json",
+  "installed_source_manifest_sha256": "13c17017e872c71259faf302db479206eb96389b7a0e41451a838a8bc1de39d9",
+  "build_version_override": "CURRENT_PROJECT_VERSION=40331 (repository default40021 unchanged)",
+  "evidence_hashes": {
+    "swift-tests.log": "24c5a440d985d8756057c483401508e62675a9218f357c96c9e1493acc1b16fe",
+    "swift-tests-complete-inputs.log": "77b4408bfa974c3827138eeb71eeab7b4b33d2be8dfc2790d05a2bd50f344f84",
+    "vibecast-tests.log": "232bcc8d36df9dc72221b76e4b9a85305785e255e3c85e0681d91fbdbbec74d8",
+    "checks.json": "159b7b4cd68c3ea5cc0f5dc9182f582cba1f7b45e5770b14585513287ba9b44b",
+    "additional-validation-inputs.json": "fd89e1e7dc8dd6c40adaf9d100aec35976c5b68b7772077da3022de7783c2537"
+  },
+  "product_acceptance": "PARTIAL",
+  "full_current_independent_review": "NOT_RUN",
+  "source_pr": "PENDING",
+  "protected_merge": "NOT_RUN",
+  "post_merge_finalization": "NOT_RUN"
+}

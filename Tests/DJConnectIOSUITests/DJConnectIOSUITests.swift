@@ -5,6 +5,36 @@ import UIKit
 final class DJConnectIOSUITests: XCTestCase {
     private var lastScreenshotPNG: Data?
 
+    func testSavedSessionsSearchFiltersAndClears() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-DJCONNECTRuntimeFixture", "review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "review_demo"
+        app.launch()
+        let more = app.tabBars.buttons["Meer"].exists ? app.tabBars.buttons["Meer"] : app.buttons["Meer"].firstMatch
+        XCTAssertTrue(more.waitForExistence(timeout: 10))
+        more.tap()
+        let archive = app.buttons["Eerdere sessies"].firstMatch
+        XCTAssertTrue(archive.waitForExistence(timeout: 5))
+        archive.tap()
+        let row = app.buttons["saved-session-demo-evening"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        let search = app.buttons["saved-sessions-search-toggle"]
+        XCTAssertTrue(search.isHittable)
+        search.tap()
+        let field = app.textFields["saved-sessions-search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("zzzzgeenbestaandesessie")
+        XCTAssertTrue(app.staticTexts["Geen zoekresultaten"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(row.exists)
+        search.tap()
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        search.tap()
+        XCTAssertEqual(field.value as? String, "Zoek in geladen sessies")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "saved-sessions-search"; screenshot.lifetime = .keepAlways; add(screenshot)
+    }
+
     private struct ScreenshotScreen {
         let fileName: String
         let title: String
@@ -114,6 +144,14 @@ final class DJConnectIOSUITests: XCTestCase {
 
     private func openSettings(_ app: XCUIApplication) {
         tapTabOrMoreItem("Instellingen", in: app)
+    }
+
+    private func openSessionSearch(in app: XCUIApplication) {
+        let search = app.buttons["session-search-toggle"].firstMatch
+        if !search.exists { app.buttons["session-more-menu"].tap() }
+        XCTAssertTrue(search.waitForExistence(timeout: 5) && search.isHittable)
+        search.tap()
+        XCTAssertTrue(app.textFields["session-search-field"].waitForExistence(timeout: 5))
     }
 
     private func openNowPlayingTab(_ app: XCUIApplication) {
@@ -1002,7 +1040,7 @@ extension DJConnectIOSUITests {
         }
         XCTAssertTrue(app.staticTexts[momentText].firstMatch.exists)
         try saveHistoryScreenshot("ios-history-01-live-moment")
-        app.buttons["session-search-toggle"].tap()
+        openSessionSearch(in: app)
         let momentSearch = app.textFields["session-search-field"]
         momentSearch.tap(); momentSearch.typeText("geleidelijk\n")
         let selected = app.buttons["ask-entry-" + entryID]
@@ -1023,7 +1061,7 @@ extension DJConnectIOSUITests {
             XCTFail("No confirmed native reply; diagnostic only, not acceptance."); return
         }
         try saveHistoryScreenshot("ios-history-02-confirmed-text-turn")
-        app.buttons["session-search-toggle"].tap()
+        openSessionSearch(in: app)
         let search = app.textFields["session-search-field"]
         XCTAssertTrue(search.waitForExistence(timeout: 5)); search.tap(); search.typeText("ONE")
         XCTAssertTrue(app.staticTexts["session-search-count"].waitForExistence(timeout: 15))
@@ -1161,7 +1199,7 @@ extension DJConnectIOSUITests {
         XCTAssertLessThan(pinned.frame.height, app.frame.height * 0.6)
         try saveHistoryScreenshot("paired-ui-pinned-with-keyboard")
         draft.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 11))
-        app.buttons["session-search-toggle"].tap()
+        openSessionSearch(in: app)
         app.buttons["Zoeken sluiten"].firstMatch.tap()
         try saveHistoryScreenshot("paired-ios-01-authorized-native-snapshot")
         _ = try await control("update")
@@ -1633,10 +1671,21 @@ extension DJConnectIOSUITests {
     func testSessionRefreshIsRightmostToolbarAction() {
         let app = launchSessionUIDemo()
         let refresh = app.buttons["screen-refresh"].firstMatch
-        let search = app.buttons["session-search-toggle"].firstMatch
+        let leading = app.buttons[UIDevice.current.userInterfaceIdiom == .phone ? "session-more-menu" : "session-search-toggle"].firstMatch
+        let connection = app.buttons["session-connection-toggle"].firstMatch
         XCTAssertTrue(refresh.waitForExistence(timeout: 10))
-        XCTAssertTrue(search.waitForExistence(timeout: 5))
-        XCTAssertGreaterThan(refresh.frame.midX, search.frame.midX)
+        XCTAssertTrue(leading.waitForExistence(timeout: 5))
+        XCTAssertTrue(connection.exists)
+        XCTAssertLessThan(leading.frame.midX, app.frame.midX)
+        XCTAssertGreaterThan(connection.frame.midX, app.frame.midX)
+        XCTAssertGreaterThan(refresh.frame.midX, connection.frame.midX)
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            let ids = ["session-more-menu", "session-mood-toggle", "session-presence-toggle", "session-persona-toggle", "session-end-button"]
+            for (first, second) in zip(ids, ids.dropFirst()) {
+                XCTAssertTrue(app.buttons[first].exists && app.buttons[second].exists)
+                XCTAssertLessThan(app.buttons[first].frame.midX, app.buttons[second].frame.midX)
+            }
+        }
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "session-refresh-rightmost"; attachment.lifetime = .keepAlways; add(attachment)
     }
@@ -1700,33 +1749,31 @@ extension DJConnectIOSUITests {
         let app = launchSessionUIDemo(additionalArguments: ["--uitest-vibecast-dialog"])
         let menu = app.buttons["session-more-menu"]
         XCTAssertTrue(menu.waitForExistence(timeout: 10))
-        let toolbarIDs = ["session-connection-toggle", "session-mood-toggle", "session-presence-toggle",
-                          "session-end-button", "session-search-toggle", "session-more-menu"]
+        let toolbarIDs = ["session-connection-toggle", "session-mood-toggle", "session-presence-toggle", "session-persona-toggle",
+                          "session-end-button", "screen-refresh", "session-more-menu"]
         for identifier in toolbarIDs {
             XCTAssertTrue(app.buttons[identifier].exists && app.buttons[identifier].isHittable, identifier)
         }
         let toolbarBefore = XCTAttachment(screenshot: app.screenshot())
         toolbarBefore.name = "session-full-toolbar-before-opening-menu"; toolbarBefore.lifetime = .keepAlways; add(toolbarBefore)
         menu.tap()
-        let refresh = app.buttons["screen-refresh"]
-        XCTAssertTrue(refresh.waitForExistence(timeout: 5))
+        let search = app.buttons["session-search-toggle"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["session-handoff-toggle"].exists)
-        let originalFrame = refresh.frame
+        let originalFrame = search.frame
         let initial = XCTAttachment(screenshot: app.screenshot())
         initial.name = "session-menu-open-before-playback-ticks"; initial.lifetime = .keepAlways; add(initial)
         // Demo uses the same one-second native playback-progress updates, with
         // provider calls disabled. This is native UI stability, not live HA proof.
         for _ in 0..<8 {
             RunLoop.current.run(until: Date().addingTimeInterval(1))
-            XCTAssertTrue(refresh.exists)
-            XCTAssertEqual(refresh.label, "Vernieuwen")
-            XCTAssertFalse(refresh.isEnabled, "Demo permission remains stable while playback advances")
-            XCTAssertEqual(refresh.frame, originalFrame)
+            XCTAssertTrue(search.exists && search.isHittable)
+            XCTAssertEqual(search.frame, originalFrame)
         }
         let settled = XCTAttachment(screenshot: app.screenshot())
         settled.name = "session-menu-open-after-playback-ticks"; settled.lifetime = .keepAlways; add(settled)
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.65)).tap()
-        XCTAssertTrue(refresh.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(search.waitForNonExistence(timeout: 5))
         XCTAssertTrue(menu.isHittable)
         for identifier in toolbarIDs {
             XCTAssertTrue(app.buttons[identifier].exists && app.buttons[identifier].isHittable, identifier)
@@ -1760,7 +1807,8 @@ extension DJConnectIOSUITests {
             let mood = app.buttons["session-mood-toggle"].frame
             let refresh = app.buttons["screen-refresh"].frame
             XCTAssertLessThan(search.maxX, app.frame.midX)
-            XCTAssertGreaterThan(mood.minX, app.frame.midX)
+            XCTAssertLessThan(mood.minX, app.frame.midX)
+            XCTAssertGreaterThan(app.buttons["session-connection-toggle"].frame.midX, app.frame.midX)
             XCTAssertGreaterThan(refresh.minX, app.buttons["session-end-button"].frame.minX)
             let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
             shot.name = orientation == .portrait ? "ipad-split-toolbar-portrait" : "ipad-split-toolbar-landscape"
@@ -1903,7 +1951,7 @@ extension DJConnectIOSUITests {
         XCTAssertTrue(app.buttons["ask-dj-composer-send"].isHittable)
         app.buttons["ask-dj-composer-send"].tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
-        app.buttons["session-search-toggle"].tap()
+        openSessionSearch(in: app)
         let search = app.textFields["session-search-field"]
         XCTAssertTrue(search.waitForExistence(timeout: 5))
         XCTAssertEqual(search.placeholderValue, "Zoek in deze sessie")
@@ -1972,6 +2020,44 @@ extension DJConnectIOSUITests {
         XCTAssertEqual(input.value as? String, "")
         let message = app.staticTexts["Regel een" + extra].firstMatch
         XCTAssertTrue(message.waitForExistence(timeout: 5))
+    }
+
+    /// Opt-in native workload for Instruments. Uses isolated demo data, never a paired profile.
+    func testNowPlayingScrollProfileWorkload() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["DJC_SCROLL_PROFILE"] == "1" else {
+            throw XCTSkip("Run explicitly with DJC_SCROLL_PROFILE=1 and attach Instruments")
+        }
+        let glass = environment["DJC_SCROLL_PROFILE_GLASS"] != "0"
+        let app = launchSessionUIDemo(additionalArguments: ["-DJConnectGlassEffectsEnabled", glass ? "YES" : "NO"])
+        tapTabOrMoreItem("Speelt Nu", in: app)
+        let title = app.staticTexts["Midnight City"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        // The center intersects the seek slider and artwork gesture surface.
+        // Use the ScrollView's empty gutter and prove motion before profiling.
+        let lower = app.coordinate(withNormalizedOffset: CGVector(dx: 0.04, dy: 0.76))
+        let upper = app.coordinate(withNormalizedOffset: CGVector(dx: 0.04, dy: 0.32))
+        let originalY = title.frame.minY
+        lower.press(forDuration: 0.05, thenDragTo: upper)
+        let movedY = title.frame.minY
+        XCTAssertLessThan(movedY, originalY - 30, "The workload must move the page, not seek or operate artwork gestures")
+        print("DJC_SCROLL_PROFILE_VERIFIED original_y=\(originalY) moved_y=\(movedY) glass=\(glass)")
+        let moved = XCTAttachment(screenshot: app.screenshot()); moved.name = "now-playing-verified-scroll"; moved.lifetime = .keepAlways; add(moved)
+        upper.press(forDuration: 0.05, thenDragTo: lower)
+        print("DJC_SCROLL_PROFILE_READY epoch=\(Date().timeIntervalSince1970)")
+        RunLoop.current.run(until: Date().addingTimeInterval(25))
+        print("DJC_SCROLL_PROFILE_IDLE_BEGIN epoch=\(Date().timeIntervalSince1970)")
+        RunLoop.current.run(until: Date().addingTimeInterval(10))
+        print("DJC_SCROLL_PROFILE_SCROLL_BEGIN epoch=\(Date().timeIntervalSince1970)")
+        let options = XCTMeasureOptions(); options.iterationCount = 3
+        measure(metrics: [XCTClockMetric(), XCTCPUMetric(application: app), XCTMemoryMetric(application: app)], options: options) {
+            for _ in 0..<3 {
+                lower.press(forDuration: 0.05, thenDragTo: upper)
+                upper.press(forDuration: 0.05, thenDragTo: lower)
+            }
+        }
+        print("DJC_SCROLL_PROFILE_SCROLL_END epoch=\(Date().timeIntervalSince1970)")
+        RunLoop.current.run(until: Date().addingTimeInterval(10))
     }
 
     func testSessionTimelineScrollBenchmark() {
@@ -2148,8 +2234,8 @@ extension DJConnectIOSUITests {
         let placement = XCTAttachment(screenshot: app.screenshot())
         placement.name = "presence-native-placement-before-selection"
         placement.lifetime = .keepAlways; add(placement)
-        let values = ["music_only", "occasional", "balanced", "talkative", "presenter"]
-        let anchors = ["nl":["Alleen muziek","Af en toe","Gebalanceerd","Praatgraag","Presentator"],"en":["Music only","Occasionally","Balanced","Talkative","Presenter"],"de":["Nur Musik","Gelegentlich","Ausgewogen","Gesprächig","Moderator"],"fr":["Musique uniquement","De temps en temps","Équilibré","Bavard","Présentateur"],"es":["Solo música","De vez en cuando","Equilibrado","Conversador","Presentador"]]
+        let values = ["music_only", "occasional", "balanced", "presenter"]
+        let anchors = ["nl":["Alleen muziek","Af en toe","Gebalanceerd","Presentator"],"en":["Music only","Occasionally","Balanced","Presenter"],"de":["Nur Musik","Gelegentlich","Ausgewogen","Moderator"],"fr":["Musique uniquement","De temps en temps","Équilibré","Présentateur"],"es":["Solo música","De vez en cuando","Equilibrado","Presentador"]]
         for (offset, value) in values.enumerated() {
             let button = app.buttons["session-presence-choice-" + value]
             let viewport = app.scrollViews["session-presence-scroll"]
@@ -2224,7 +2310,7 @@ extension DJConnectIOSUITests {
         XCTAssertEqual(pausedResult, .completed)
         let final = try await control("state")
         let finalRuntime = try XCTUnwrap(final["active"] as? [String: Any])
-        XCTAssertEqual(finalRuntime["presence_revision"] as? Int, 6)
+        XCTAssertEqual(finalRuntime["presence_revision"] as? Int, values.count + 1)
         XCTAssertEqual(finalRuntime["selected_presence"] as? String, "balanced")
         XCTAssertEqual(finalRuntime["now_playing"] as? NSDictionary, pausedRuntime["now_playing"] as? NSDictionary,
                        "Changing presence while paused must preserve actual playback")
