@@ -1393,3 +1393,16 @@
 "ui.session.history.delete_all.message" = "You are permanently deleting %lld previous sessions from your profile. Your active session and sessions that end later will be kept.";
 "ui.session.history.delete_all.action" = "Delete";
 "ui.session.history.delete_all.failed" = "The previous sessions could not be deleted. Check your connection and try again.";
+
+// Private owner Session history summary
+"ui.session.summary.tracks" = "Registered tracks";
+"ui.session.summary.moments" = "Published DJ contributions";
+"ui.session.summary.retained" = "Retained DJ contributions";
+"ui.session.summary.mood" = "Predominant mood";
+"ui.session.summary.mixed" = "Mixed";
+"ui.session.summary.unknown" = "Unknown";
+"ui.session.summary.withdrawn" = "No longer available";
+"ui.session.summary.partial" = "Partially registered";
+"ui.session.summary.provisional" = "Provisional";
+"ui.session.summary.final" = "Final";
+"ui.session.summary.scope" = "Counts refer to registered track changes, not complete listens or exact play counts.";

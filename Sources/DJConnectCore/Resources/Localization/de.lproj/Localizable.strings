@@ -1393,3 +1393,16 @@
 "ui.session.history.delete_all.message" = "Du löschst %lld frühere Sitzungen dauerhaft aus deinem Profil. Deine aktive Sitzung und später beendete Sitzungen bleiben erhalten.";
 "ui.session.history.delete_all.action" = "Löschen";
 "ui.session.history.delete_all.failed" = "Die früheren Sitzungen konnten nicht gelöscht werden. Prüfe die Verbindung und versuche es erneut.";
+
+// Private owner Session history summary
+"ui.session.summary.tracks" = "Erfasste Titel";
+"ui.session.summary.moments" = "Veröffentlichte DJ-Beiträge";
+"ui.session.summary.retained" = "Aufbewahrte DJ-Beiträge";
+"ui.session.summary.mood" = "Vorherrschende Stimmung";
+"ui.session.summary.mixed" = "Gemischt";
+"ui.session.summary.unknown" = "Unbekannt";
+"ui.session.summary.withdrawn" = "Nicht mehr verfügbar";
+"ui.session.summary.partial" = "Teilweise erfasst";
+"ui.session.summary.provisional" = "Vorläufig";
+"ui.session.summary.final" = "Abschließend";
+"ui.session.summary.scope" = "Gezählt werden erfasste Titelwechsel, nicht vollständig gehörte Titel oder genaue Wiedergabevorgänge.";

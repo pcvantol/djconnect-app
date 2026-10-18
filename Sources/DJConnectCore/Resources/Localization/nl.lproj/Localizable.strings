@@ -1393,3 +1393,16 @@
 "ui.session.history.delete_all.message" = "Je verwijdert %lld eerdere sessies definitief uit je profiel. Je actieve sessie en later afgesloten sessies blijven behouden.";
 "ui.session.history.delete_all.action" = "Verwijderen";
 "ui.session.history.delete_all.failed" = "De eerdere sessies konden niet worden verwijderd. Controleer de verbinding en probeer opnieuw.";
+
+// Private owner Session history summary
+"ui.session.summary.tracks" = "Geregistreerde nummers";
+"ui.session.summary.moments" = "Gepubliceerde DJ-bijdragen";
+"ui.session.summary.retained" = "Bewaarde DJ-bijdragen";
+"ui.session.summary.mood" = "Overheersende mood";
+"ui.session.summary.mixed" = "Gemengd";
+"ui.session.summary.unknown" = "Onbekend";
+"ui.session.summary.withdrawn" = "Niet meer beschikbaar";
+"ui.session.summary.partial" = "Gedeeltelijk geregistreerd";
+"ui.session.summary.provisional" = "Voorlopig";
+"ui.session.summary.final" = "Definitief";
+"ui.session.summary.scope" = "Aantallen betreffen geregistreerde nummerwisselingen, niet volledig beluisterde nummers of exacte afspeelbeurten.";

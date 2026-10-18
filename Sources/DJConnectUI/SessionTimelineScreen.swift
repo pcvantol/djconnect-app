@@ -125,6 +125,9 @@ struct SavedSessionsView: View {
                                         .font(.body.weight(.medium)).foregroundStyle(.white).multilineTextAlignment(.leading)
                                     Text(text(session.lifecycleStatus == "INTERRUPTED" ? "ui.session.history.interrupted" : "ui.session.history.ended"))
                                         .font(.caption2.weight(.medium)).foregroundStyle(.white.opacity(0.78))
+                                    if history.summaryAvailable, let summary = session.summary {
+                                        SessionHistorySummaryView(summary: summary, language: model.language, compact: true)
+                                    }
                                 }
                                 Spacer(minLength: 8)
                                 Image(systemName: "chevron.right")
@@ -481,6 +484,9 @@ struct SessionTimelineScreen: View {
                                             .accessibilityIdentifier("session-archive-summary")
                                         Text(text(session.lifecycleStatus == "INTERRUPTED" ? "ui.session.history.interrupted" : "ui.session.history.ended"))
                                             .font(.caption).foregroundStyle(.secondary)
+                                        if history.summaryAvailable, let summary = session.summary {
+                                            SessionHistorySummaryView(summary: summary, language: model.language)
+                                        }
                                     }
                                     Label(text("ui.session.history.readonly"), systemImage: "lock")
                                         .font(.caption).foregroundStyle(.secondary)
