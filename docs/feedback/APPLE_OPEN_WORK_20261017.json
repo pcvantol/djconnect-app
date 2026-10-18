@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "as_of": "2026-10-18 Europe/Amsterdam; ordinary40331 installed/read back/launched on all5devices; sourcePR113 and formal source-main evidence PASS; separate Finalization pending",
+  "as_of": "2026-10-18 Europe/Amsterdam; ordinary40334 iPad/MacBook/Mac mini; history200 contract repair physically qualified; original404 and separate physical/audio/performance findings remain open",
   "owning_lane": "https://github.com/pcvantol/djconnect-app/issues/87",
   "writer": "Existing Apple writer; sourcePR113 protected-merged; codex/apple-40331-finalization changes documentation/evidence only;7recovery duplicate paths retained",
-  "head": "803d77c665701fc9fe3d3d5cc8ee0752597343a1 (protected source-main); separate documentary Finalization in progress",
-  "installed_baseline": "iPhone/iPad/Watch40331 installed, actual bundle versions read back and apps launched. MacBook/Mac mini40331 installed/read back/running, strict deep signatures PASS. Watch retried successfully after owner unlocked/placed near iPhone, previous40311. No physical Watch audio or CPU/GPU/memory acceptance; USB profiling deferred.",
+  "head": "7af44f735bced06a30b2c2b975d9a7a9e43e732c (reconciled main baseline);40334 repair in current worktree",
+  "installed_baseline": "iPad/MacBook/Mac mini ordinary40334 installed, actual versions read back and apps launched; strict signatures PASS, no diagnostic test bundles. Native paired history/reopen PASS on iPad and MacBook; Mac mini SKIP/unpaired. iPhone/Watch last confirmed40331, not updated in this repair. Physical USB profiling remains owner-deferred.",
   "items": [
     {
       "id": "lan-websocket",
@@ -291,13 +291,35 @@
     {
       "id": "session-iphone-stability",
       "status": "partial",
-      "evidence": "Physical phone40315/PID17305 logs: repeated history404. Read-only HA-dev current03:44Session ACTIVE/historyenabled/owner matches phone. Owner authorized existing-Core repair handoff, successfully sent. Client retry error-row removal/reinsert reproduced red2issues; corrected with full819tests/10suites PASS89.983s and signed iOS/Watch40323 build/276inputhashes PASS. APPLE_IPHONE_SESSION_DEBUG_40323_20261018.md. 40324 native simulator follow-up found leading-toolbar overflow hiding connection/refresh; bounded44pt row fixes it. Final iPhone6/6 and iPad1/1portrait/landscape PASS, screenshots viewed; full820testsPASS90.838s. APPLE_NATIVE_UI_WIDGET_DIAGNOSTICS_40324_20261018.md.",
+      "evidence": "Physical phone40315/PID17305 logs: repeated history404. Read-only HA-dev current03:44Session ACTIVE/historyenabled/owner matches phone. Owner authorized existing-Core repair handoff, successfully sent. Client retry error-row removal/reinsert reproduced red2issues; corrected with full819tests/10suites PASS89.983s and signed iOS/Watch40323 build/276inputhashes PASS. APPLE_IPHONE_SESSION_DEBUG_40323_20261018.md. 40324 native simulator follow-up found leading-toolbar overflow hiding connection/refresh; bounded44pt row fixes it. Final iPhone6/6 and iPad1/1portrait/landscape PASS, screenshots viewed; full820testsPASS90.838s. APPLE_NATIVE_UI_WIDGET_DIAGNOSTICS_40324_20261018.md. Current separate HTTP200 closed-decoder regression identified on iPad/MacBook: metadata narration basis rejected whole page. Explicit four bases/six kinds and negotiated v2 added;828testsPASS. Physical iPad40334 eighteen entries/six new narrations and MacBook40334 twelve entries/three new narrations read/reopen PASS/no duplicates; iPad40333 stop/start/archive/resume PASS. See APPLE_SESSION_HISTORY_REPAIR_40334_20261018.md. Core minimal history-only v2 installed199/199match; final native iPad+MacBookv2 same3entries/one narration/reopen/no duplicates PASS, iPadv2 lifecyclePASS; original404 remains unclosed.",
       "remaining": [
-        "Core must establish actual failed reference/origin and repair404; no server closure. Owner defers physical USB CPU/GPU/stutter profiling until tomorrow; phone40315 preserved;40323notinstalled."
+        "Original failed404 reference/root repair remains open. Current separate HTTP200 contract mismatch repaired and installed/qualified with Core. iPhone/Watch not updated in this repair. USB CPU/GPU/stutter qualification remains deferred by owner."
       ],
       "topic": "Fysieke iPhone sessieladen en springende feed",
       "owner": "Apple + Core",
-      "next_action": "Existing Core writer investigates404; preserve phone40315 for owner-requested USB baseline tomorrow; compare40323 after measurement."
+      "next_action": "Preserve original404, older/offline device installation and USB profiling as separate open findings; current HTTP200 contract repair is installed and physically qualified."
+    },
+    {
+      "id": "session-delete-single",
+      "status": "partial",
+      "topic": "Eén eerdere sessie uit het profiel verwijderen",
+      "owner": "Apple + Core",
+      "evidence": "Rood prullenbakje rechtsboven in archiefdetail, eigenaar-/revisiegebonden bevestiging en single-delete-v1; capability-gated. Consumer DTO/epoch/revision/unknown-outcome tests pass. See APPLE_SAVED_SESSION_DELETION_20261018.md. Consumer qualification: 8 tests / 43 cases; source only. Ordinary40335 installed on iPad/MacBook/Macmini; producer capability absent, deletion action remains hidden. No integrated deletion runtime qualification claimed.",
+      "remaining": [
+        "Core producer implementation/fixtures/exact qualified pin, integrated native confirmation and installed activation remain pending. No personal sessions deleted for tests."
+      ],
+      "next_action": "Qualify against Core producer fixtures before native/device enablement."
+    },
+    {
+      "id": "session-delete-all",
+      "status": "partial",
+      "topic": "Alle eerdere sessies in één bevestigde handeling uit het profiel verwijderen",
+      "owner": "Apple + Core",
+      "evidence": "Rode prullenbak direct na zoeken; server snapshot met exact aantal, nuldoelen zonder POST, één UUIDv7-mutatie; active Flow behouden en na-snapshot sessie herladen. Consumer checks include deferred timeline/profile-history races. See APPLE_SAVED_SESSION_DELETION_20261018.md. Consumer qualification: 8 tests / 43 cases; source only. Ordinary40335 installed on iPad/MacBook/Macmini; producer capability absent, deletion action remains hidden. No integrated deletion runtime qualification claimed.",
+      "remaining": [
+        "Core producer implementation/fixtures/exact qualified pin, integrated native confirmation and installed activation remain pending. No personal sessions deleted for tests."
+      ],
+      "next_action": "Qualify against Core producer fixtures before native/device enablement."
     }
   ],
   "qualification": {
@@ -644,5 +666,31 @@
     "post_merge_evidence": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED39110224530; durable asset independent SHA/canonical integrity and12required checks PASS",
     "documentary_finalization": "READY_FOR_SEPARATE_PR; approval/merge/readback not performed",
     "tde": "Observe workflow PASS; actual assessment FAIL/qualification FAILED3CRITICAL184HIGH; regression UNKNOWN; remains open"
+  },
+  "history_contract_repair_40334": {
+    "report": "docs/feedback/APPLE_SESSION_HISTORY_REPAIR_40334_20261018.md",
+    "full_suite": "828tests/10suites PASS91.278s",
+    "consumer_physical": "iPad/MacBook read/reopen PASS; iPad lifecycle PASS; Mac mini unpaired SKIP",
+    "core_v2_installed": "QUALIFIED_PRIVATE_HA_DEV_778610708c2a_199FILES_ZERO_MISMATCHES",
+    "original404": "OPEN_SEPARATE_FINDING",
+    "live_v2": "PASS capability2; v1typed409/noentries; v2schema2/declared2/limit20; final iPad+MacBook3entries/one narration/reopen/zero duplicates; iPad v2 lifecycle PASS"
+  },
+  "ui_followups_40335": {
+    "build": "40335",
+    "installed": [
+      "iPad",
+      "MacBook",
+      "Mac mini"
+    ],
+    "unavailable": [
+      "iPhone",
+      "Watch"
+    ],
+    "ordinary_builds": "iOS including Watch/widget and macOS signed build PASS",
+    "consumer_qualification": "834 tests /10 suites PASS; focused8 tests/43cases PASS",
+    "deletion_enablement": "NOT_ENABLED: Core producer implementation/fixtures/exact qualified pin absent; capability gates preserved",
+    "native_visual": "NOT_QUALIFIED: local native UI runner timed out enabling automation mode before test actions; own run stopped, no blind retry. Manual computer-use tool also cannot start due to symlinked writable-root configuration. Ordinary installed apps retained.",
+    "profiling": "OWNER_DEFERRED_UNTIL_TOMORROW",
+    "protected_delivery": "NOT_DELIVERED: current follow-up WIP remains separate from protected40331 source finalization"
   }
 }

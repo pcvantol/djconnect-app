@@ -107,9 +107,9 @@ private final class HistoryWireFixture: @unchecked Sendable {
     func close() { HistoryWireProtocol.unregister(hostname) }
     func record(_ request: URLRequest) { lock.withLock { captured.append(request) } }
     var requests: [URLRequest] { lock.withLock { captured } }
-    func client() -> DJConnectClient {
+    func client(historyContractVersion: Int = 1) -> DJConnectClient {
         DJConnectClient(baseURL: baseURL, identity: .init(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Test", clientType: .ios, firmware: "4.0.0-rc.1", platform: .ios),
-                        tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-fixture-token"), session: session())
+                        tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-fixture-token"), session: session(), historyContractVersion: historyContractVersion)
     }
     func session() -> URLSession {
         let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [HistoryWireProtocol.self]
@@ -217,6 +217,156 @@ private final class HistoryWireProtocol: URLProtocol, @unchecked Sendable {
     #expect(request.value(forHTTPHeaderField: "Cache-Control") == "no-store")
     #expect(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.contains(.init(name: "client_type", value: "ios")) == true)
     #expect(fixture.requests.allSatisfy { !$0.url!.path.contains("playback") && !$0.url!.path.hasSuffix("/start") })
+}
+
+@Test(arguments: ["owner_metadata_narration_v1", "public_artist_narration_v1"])
+func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis: String) async throws {
+    let receipt = try historyObject()
+    var timeline = try #require(receipt["archived_timeline"] as? [String: Any])
+    var entries = try #require(timeline["entries"] as? [[String: Any]])
+    let index = try #require(entries.firstIndex { $0["kind"] as? String == "dj_moment" })
+    entries[index]["archive_basis"] = basis
+    timeline["entries"] = entries
+    let data = try historyData(timeline)
+    let fixture = HistoryWireFixture { _ in (200, data, 0) }
+    defer { fixture.close() }
+    let page = try await fixture.client().sessionTimeline(sessionID: try #require(receipt["session_id"] as? String))
+    #expect(page.entries.count == entries.count)
+    #expect(page.entries[index].archiveBasis == basis)
+    #expect(page.entries.allSatisfy { $0.isContractValid })
+    #expect(page.entries[index].historicalViewOnly == true)
+    #expect(page.entries[index].currentDisplayAllowed == false)
+    #expect(fixture.requests.first?.value(forHTTPHeaderField: "Cache-Control") == "no-store")
+}
+
+@Test func sessionHistoryNarrationStillRequiresKnownBasisAndOwnerHistoryFences() throws {
+    let receipt = try historyObject()
+    let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
+    let entries = try #require(timeline["entries"] as? [[String: Any]])
+    var moment = try #require(entries.first { $0["kind"] as? String == "dj_moment" })
+    for basis in ["unqualified_future_basis", "", "spotify_owner_local_read_v1"] {
+        moment["archive_basis"] = basis
+        #expect(try !JSONDecoder().decode(DJConnectHistoryEntry.self, from: historyData(moment)).isContractValid)
+    }
+    moment["archive_basis"] = "owner_metadata_narration_v1"
+    for mutation: [String: Any] in [["historical_view_only": false], ["current_display_allowed": true], ["text": ""]] {
+        let invalid = moment.merging(mutation) { _, new in new }
+        #expect(try !JSONDecoder().decode(DJConnectHistoryEntry.self, from: historyData(invalid)).isContractValid)
+    }
+}
+
+@Test func sessionHistoryPinnedCoreNarrationAndReceiptPageLoadsAsOneWindow() async throws {
+    let raw = try historyFixture("retention-bases-v2")
+    #expect(SHA256.hash(data: raw).map { String(format: "%02x", $0) }.joined() == "da5d8674dc49adb1cc0fabcca51d4f8b730d31f1179462160d1f68aa97e19b14")
+    let receipt = try historyObject("retention-bases-v2")
+    let data = try historyData(try #require(receipt["tail_window"]))
+    let fixture = HistoryWireFixture { _ in (200, data, 0) }
+    defer { fixture.close() }
+    let page = try await fixture.client(historyContractVersion: 2).sessionTimeline(sessionID: "session-basis-contract", window: .tail)
+    #expect(page.entries.count == 6)
+    #expect(page.entries.allSatisfy { $0.isContractValid })
+    #expect(page.entries.map(\.kind) == [.djMoment, .djMoment, .djMoment, .djMoment, .djPublication, .djSilence])
+    #expect(page.entries[3].sources?.count == 2)
+    #expect(page.entries[3].sources?.first?["revision_url"] == "https://en.wikipedia.org/w/index.php?oldid=1")
+    for entry in page.entries.suffix(2) {
+        #expect(entry.text == nil && entry.sessionSpeech == nil && entry.sessionMedia == nil && entry.speechAvailable == false)
+    }
+}
+
+@Test @MainActor func sessionHistoryWithdrawalReplacesAcceptedTextWithSameIdentityReceipt() throws {
+    let receipt = try historyObject("retention-bases-v2")
+    let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: historyData(try #require(receipt["tail_window"])))
+    let withdrawn = try JSONDecoder().decode(DJConnectHistoryEntry.self, from: historyData(try #require(receipt["withdrawn_same_identity"])))
+    let original = try #require(page.entries.first { $0.id == withdrawn.id })
+    #expect(original.text?.isEmpty == false && original.kind == .djMoment)
+    #expect(withdrawn.order == original.order && withdrawn.isContractValid && withdrawn.isPublicationReceipt)
+    let cache = SessionTimelineRenderCache()
+    let epoch = UUID()
+    _ = cache.snapshot([original], sessionID: original.sessionID, epoch: epoch)
+    let replacement = cache.snapshot([withdrawn], sessionID: original.sessionID, epoch: epoch)
+    #expect(replacement.count == 1 && replacement[0].id == original.id)
+    #expect(replacement[0].entry.text == nil && replacement[0].message.text.isEmpty)
+    #expect(replacement[0].entry.sources == nil && replacement[0].entry.sessionSpeech == nil && replacement[0].entry.sessionMedia == nil)
+}
+
+@Test func sessionHistoryPublicationReceiptsCannotSmuggleContentOrSpeech() throws {
+    let receipt = try historyObject("retention-bases-v2")
+    let page = try #require(receipt["tail_window"] as? [String: Any])
+    let entries = try #require(page["entries"] as? [[String: Any]])
+    for entry in entries.suffix(2) {
+        for mutation: [String: Any] in [["text": "Unqualified content"], ["speech_available": true],
+                                        ["sources": [["provider": "unqualified"]]], ["historical_view_only": false],
+                                        ["current_display_allowed": true], ["content_state": "available"]] {
+            let invalid = entry.merging(mutation) { _, new in new }
+            #expect(try !JSONDecoder().decode(DJConnectHistoryEntry.self, from: historyData(invalid)).isContractValid)
+        }
+    }
+}
+
+@Test @MainActor func sessionHistoryNegotiationDropsOldCursorsAndRecoversAfterTypedUpgrade() async throws {
+    let receipt = try historyObject()
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    var timeline = try #require(receipt["archived_timeline"] as? [String: Any])
+    timeline["schema_version"] = 2; timeline["history_contract_version"] = 2
+    let version2 = try historyData(timeline)
+    let upgrade = try historyData(["success": false, "error": "history_contract_upgrade_required",
+        "required_history_contract_version": 2, "supported_history_contract_versions": [1, 2]])
+    let gate = HistoryAuthorityGate()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") {
+            var versions = ["session_conversation_history": 1, "session_flow_text_search": 1]
+            if gate.denied { versions["session_history_entries"] = 2 }
+            return (200, try historyData(["capabilities": ["session_conversation_history": true, "session_flow_text_search": true], "contract_versions": versions]), 0)
+        }
+        if request.url!.path.contains("/session/history/") { return gate.denied ? (200, version2, 0) : (409, upgrade, 0) }
+        return (200, profile, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    let id = try #require(receipt["session_id"] as? String)
+    await model.sessionHistory.loadTimeline(id)
+    #expect(model.sessionHistory.historyNeedsUpgrade)
+    #expect(model.pairingStatus == .paired)
+    #expect(model.sessionHistory.timelines[id]?.errorKey == "ui.session.history.update_required")
+    let attempts = fixture.requests.filter { $0.url!.path.contains("/session/history/") }.count
+    await model.sessionHistory.loadTimeline(id)
+    #expect(fixture.requests.filter { $0.url!.path.contains("/session/history/") }.count == attempts)
+    gate.denied = true
+    await model.sessionHistory.prepare()
+    #expect(model.sessionHistory.historyContractVersion == 2 && !model.sessionHistory.historyNeedsUpgrade)
+    #expect(model.sessionHistory.timelines.isEmpty && model.sessionHistory.listNextCursor == nil)
+    await model.sessionHistory.loadTimeline(id)
+    #expect(model.sessionHistory.timelines[id]?.errorKey == nil)
+    #expect(model.sessionHistory.timelines[id]?.entries.isEmpty == false)
+    let request = try #require(fixture.requests.last { $0.url!.path.contains("/session/history/") })
+    #expect(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.contains(.init(name: "history_contract_version", value: "2")) == true)
+}
+
+@Test func sessionHistoryVersionTwoStaysOnHistoryRoutesAndRequiresExactResponseVersion() async throws {
+    let receipt = try historyObject()
+    var opened = try #require(receipt["validated_open_target"] as? [String: Any])
+    opened["schema_version"] = 2; opened["history_contract_version"] = 2
+    let data = try historyData(opened)
+    let fixture = HistoryWireFixture { _ in (200, data, 0) }; defer { fixture.close() }
+    let client = fixture.client(historyContractVersion: 2)
+    for route in ["session/history", "session/history/synthetic", "session/history/synthetic/search"] {
+        let request = try client.sessionHistoryReadRequest(route: route)
+        #expect(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.contains(.init(name: "history_contract_version", value: "2")) == true)
+    }
+    for route in ["capabilities", "ask_dj/history"] {
+        let request = try client.sessionHistoryReadRequest(route: route)
+        #expect(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.contains { $0.name == "history_contract_version" } == false)
+    }
+    let response = try JSONDecoder().decode(DJConnectSessionOpenResponse.self, from: data)
+    _ = try await client.openSavedSession(.init(reference: response.entry.reference))
+    let request = try #require(fixture.requests.last)
+    let requestBody = try presenceRequestBody(request)
+    let payload = try #require(JSONSerialization.jsonObject(with: requestBody) as? [String: Any])
+    #expect(payload["history_contract_version"] as? Int == 2)
+    await #expect(throws: DJConnectError.invalidResponse) {
+        try await fixture.client().openSavedSession(.init(reference: response.entry.reference))
+    }
 }
 
 @Test func sessionHistoryVoiceUsesWavAndCapturedServerContext() async throws {
@@ -1319,22 +1469,11 @@ func pairedLiveActualProducerWithdrawsChangedProfileAndRejectsInvalidToken() asy
         let json: [String: Any] = ["session_id":"summary", "lifecycle_status":"ENDED", "created_at":"2026-10-11T10:00:00Z", "started_at":"2026-10-11T10:00:00Z", "ended_at":end, "interrupted_at":"", "revision":"r1", "read_only":true, "history_coverage":"retained"]
         let session = try JSONDecoder().decode(DJConnectSavedSession.self, from: JSONSerialization.data(withJSONObject: json))
         #expect(SessionArchiveSummary.text(session, language: "nl").contains("eindtijd onbekend"))
-        #expect(SessionArchiveSummary.savedNotice(session, language: "nl") == nil)
     }
 }
 
-@Test(arguments: ["nl", "en", "de", "fr", "es"])
-func sessionSavedNoticeUsesConfirmedDateDurationAndLocalizedArchive(language: String) throws {
-    let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: historyData(try #require(historyObject()["archived_timeline"])))
-    let zone = try #require(TimeZone(identifier: "Europe/Amsterdam"))
-    let notice = try #require(SessionArchiveSummary.savedNotice(page.session, language: language, timeZone: zone))
-    #expect(notice.contains(DJConnectLocalization.localized(key: "ui.session.history.title", language: language)))
-    #expect(notice.contains(SessionArchiveSummary.text(page.session, language: language, timeZone: zone, compact: true)))
-    #expect(!notice.contains("%@"))
-}
-
 @Test(arguments: ["saved", "end-failed", "archive-failed", "history-reset"])
-@MainActor func sessionSavedToastRequiresEndAndMatchingReadonlyArchive(outcome: String) async throws {
+@MainActor func sessionEndDoesNotShowSavedToastOrFetchArchive(outcome: String) async throws {
     var archive = try #require(historyObject()["archived_timeline"] as? [String: Any])
     let saved = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: historyData(archive)).session
     archive["entries"] = []
@@ -1368,11 +1507,8 @@ func sessionSavedNoticeUsesConfirmedDateDurationAndLocalizedArchive(language: St
         await ending.value
         #expect(!fixture.requests.contains { $0.url!.path.contains("/session/history/") })
     } else { await model.endDJSession() }
-    let expected = try #require(SessionArchiveSummary.savedNotice(saved, language: "nl"))
-    if outcome == "saved" {
-        #expect(model.userNotice?.text == expected)
-        #expect(model.userNotice?.systemImage == "checkmark.circle")
-    } else { #expect(model.userNotice?.text != expected) }
+    #expect(model.userNotice == nil)
+    #expect(!fixture.requests.contains { $0.url!.path.contains("/session/history/") })
     #expect((model.activeDJSession == nil) == (outcome != "end-failed"))
     #expect(!model.isLoadingDJSession)
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/end") }.count == 1)
@@ -1542,7 +1678,6 @@ private func activeMoodRuntimeWire() throws -> Data {
     let text = SessionArchiveSummary.text(session, language: "nl")
     #expect(text.contains("begintijd onbekend"))
     #expect(!text.contains("6 uur"))
-    #expect(SessionArchiveSummary.savedNotice(session, language: "nl") == nil)
 }
 
 @Test @MainActor func reviewDemoSessionsUseNativeModelsAndNeverBecomeLiveAuthority() async throws {
@@ -1589,7 +1724,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     await model.endDJSession()
     #expect(model.activeDJSession == nil)
     #expect(model.sessionHistory.sessions.first?.id == active.id && model.sessionHistory.sessions.first?.readOnly == true)
-    #expect(model.userNotice?.text == model.sessionHistory.sessions.first.flatMap { SessionArchiveSummary.savedNotice($0, language: model.language) })
+    #expect(model.userNotice == nil)
     #expect(model.playback?.trackName == "Midnight City")
     model.sendPlaybackCommand("next")
     for _ in 0..<20 where model.playback?.trackName != "Sweet Disposition" { await Task.yield() }
@@ -5270,4 +5405,297 @@ func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) asy
     session.sessionID = "new-empty-session"
     model.sessionHistory.reset()
     #expect(!model.sessionHistory.hasPlaybackForFirstPlayHelper(session))
+}
+
+@Test(arguments: [0, 1, 2]) func sessionArchiveDeletionCapabilityRequiresExactVersion(_ version: Int) throws {
+    let data = try historyData(["capabilities": ["session_conversation_history": true, "session_history_delete": true],
+                                "contract_versions": ["session_conversation_history": 1, "session_history_delete": version]])
+    let capabilities = try JSONDecoder().decode(DJConnectSessionHistoryCapabilities.self, from: data)
+    #expect(capabilities.deletionAvailable == (version == 1))
+}
+
+@Test(arguments: ["ok", "owner", "target", "operation", "schema", "deleted", "success"])
+func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutation: String) throws {
+    let action = DJConnectSessionDeleteRequest(sessionID: "archive-a", expectedRevision: "opaque-r1")
+    var object: [String: Any] = ["success": true, "schema_version": 1, "operation_id": action.operationID,
+                               "owner_profile_id": "profile-a", "deleted_session_id": action.sessionID, "deleted": true]
+    switch mutation {
+    case "owner": object["owner_profile_id"] = "profile-b"
+    case "target": object["deleted_session_id"] = "archive-b"
+    case "operation": object["operation_id"] = UUID().uuidString
+    case "schema": object["schema_version"] = 2
+    case "deleted": object["deleted"] = false
+    case "success": object["success"] = false
+    default: break
+    }
+    let receipt = try JSONDecoder().decode(DJConnectSessionDeleteResponse.self, from: historyData(object))
+    #expect(receipt.admits(action, owner: "profile-a") == (mutation == "ok"))
+}
+
+@Test(arguments: ["ok", "failure", "owner", "epoch", "stale-revision", "unsupported", "active"])
+@MainActor func sessionArchiveDeletionPreservesFailuresAndFencesStaleConfirmation(_ outcome: String) async throws {
+    let fixtureObject = try historyObject()
+    var archiveObject = try #require(fixtureObject["archived_timeline"] as? [String: Any])
+    if outcome == "active" {
+        var header = try #require(archiveObject["session"] as? [String: Any])
+        header["lifecycle_status"] = "ACTIVE"; header["read_only"] = false
+        archiveObject["session"] = header
+    }
+    let archiveData = try historyData(archiveObject)
+    let archive = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: archiveData).session
+    let profile = try historyData(try #require(fixtureObject["later_historical_answer"]))
+    let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_history_delete": outcome != "unsupported"],
+                               "contract_versions": ["session_conversation_history": 1, "session_history_delete": 1]])
+    let emptyList = try historyData(["success":true,"schema_version":1,"sessions":[],"revision":"after-delete","retention_days":30])
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("/ask_dj/history") { return (200, profile, 0) }
+        if path.hasSuffix("/session/history/delete") {
+            let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+            #expect(body["device_id"] as? String != nil)
+            #if os(macOS)
+            #expect(body["client_type"] as? String == "macos")
+            #else
+            #expect(body["client_type"] as? String == "ios")
+            #endif
+            #expect(body["confirmed"] as? Bool == true)
+            #expect(body["session_id"] as? String == archive.id)
+            #expect(body["expected_revision"] as? String == archive.revision.value)
+            #expect(request.httpMethod == "POST")
+            #expect(request.value(forHTTPHeaderField: "Cache-Control") == "no-store")
+            #expect(request.value(forHTTPHeaderField: "Referrer-Policy") == "no-referrer")
+            if outcome == "failure" { return (503, Data(#"{"success":false,"error":"history_delete_outcome_unknown"}"#.utf8), 0) }
+            let response = try historyData(["success":true,"schema_version":1,"operation_id":body["operation_id"]!,
+                                           "owner_profile_id":outcome == "owner" ? "profile-b" : "profile-a",
+                                           "deleted_session_id":archive.id,"deleted":true])
+            return (200, response, outcome == "epoch" ? 0.15 : 0)
+        }
+        if path.hasSuffix("/session/history") { return (200, emptyList, 0) }
+        return (200, archiveData, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare(); await history.loadTimeline(archive.id)
+    let original = history.timelines[archive.id]
+    let before = history.responseEpoch
+    let task = Task { @MainActor in await history.deleteSession(archive.id,
+        expectedRevision: archive.revision.value + (outcome == "stale-revision" ? "-changed" : ""), expectedEpoch: before) }
+    if outcome == "epoch" {
+        for _ in 0..<100 where !fixture.requests.contains(where: { $0.url!.path.hasSuffix("/delete") }) {
+            try await Task.sleep(for: .milliseconds(2))
+        }
+        history.reset()
+    }
+    let result = await task.value
+    #expect(result == (outcome == "ok"))
+    #expect(history.deletingSessionID == nil)
+    if outcome == "ok" {
+        #expect(history.timelines[archive.id] == nil && history.responseEpoch != before)
+        // Let the explicitly read-only refresh settle before retiring the fixture.
+        for _ in 0..<100 { await Task.yield() }
+    } else if outcome != "epoch" {
+        #expect(history.timelines[archive.id] == original && history.responseEpoch == before)
+    }
+    let requests = fixture.requests.filter { $0.url!.path.hasSuffix("/session/history/delete") }
+    #expect(requests.count == (["stale-revision", "unsupported", "active"].contains(outcome) ? 0 : 1))
+    for request in requests {
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic-fixture-token")
+    }
+    #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/end") || $0.url!.path.hasSuffix("/session/start") })
+}
+
+@Test(arguments: [0, 1, 2]) func sessionBulkDeletionRequiresItsOwnCapability(_ version: Int) throws {
+    let data = try historyData(["capabilities":["session_conversation_history":true,"session_history_bulk_delete":true],
+                               "contract_versions":["session_conversation_history":1,"session_history_bulk_delete":version]])
+    let caps = try JSONDecoder().decode(DJConnectSessionHistoryCapabilities.self, from: data)
+    #expect(caps.bulkDeletionAvailable == (version == 1))
+    #expect(!caps.deletionAvailable)
+}
+
+@Test(arguments: ["ok", "expired", "future", "unbounded", "negative", "owner", "schema"])
+func sessionBulkDeletionSnapshotRequiresOwnerAndBoundedExpiry(_ change: String) throws {
+    let now = Date(timeIntervalSince1970: 1_792_320_000)
+    let formatter = ISO8601DateFormatter()
+    var object: [String:Any] = ["success":true,"schema_version":1,"owner_profile_id":"profile-a","snapshot_id":"opaque-snapshot",
+        "target_count":2,"created_at":formatter.string(from: now),"expires_at":formatter.string(from: now.addingTimeInterval(300))]
+    switch change {
+    case "expired": object["expires_at"] = formatter.string(from: now)
+    case "future": object["created_at"] = formatter.string(from: now.addingTimeInterval(60))
+    case "unbounded": object["expires_at"] = formatter.string(from: now.addingTimeInterval(301))
+    case "negative": object["target_count"] = -1
+    case "owner": object["owner_profile_id"] = "profile-b"
+    case "schema": object["schema_version"] = 2
+    default: break
+    }
+    let snapshot = try JSONDecoder().decode(DJConnectSessionDeleteSnapshot.self, from: historyData(object))
+    #expect(snapshot.admits(owner:"profile-a",at:now) == (change == "ok"))
+    #expect(!DJConnectSessionDeleteRequest(sessionID:"a",expectedRevision:"r",operationID:UUID().uuidString).isValid)
+}
+
+private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var erased = false
+    private var holdNext = false
+    private var readHeld = false
+    var completed: Bool { lock.withLock { erased } }
+    var hasHeldRead: Bool { lock.withLock { readHeld } }
+    func armRead() { lock.withLock { holdNext = true; readHeld = false } }
+    func takeReadHold() -> Bool { lock.withLock {
+        guard holdNext else { return false }
+        holdNext = false; readHeld = true; return true
+    } }
+    func complete() { lock.withLock { erased = true } }
+}
+
+@Test(arguments: ["ok", "failure", "network", "owner", "count", "snapshot", "epoch", "zero", "expired", "unsupported"])
+@MainActor func sessionBulkDeletionIsOneSnapshotBoundOperationPreservingActiveFlow(_ outcome: String) async throws {
+    let fixtureObject = try historyObject()
+    let archiveObject = try #require(fixtureObject["archived_timeline"] as? [String: Any])
+    let archiveData = try historyData(archiveObject)
+    let archive = try JSONDecoder().decode(DJConnectSessionTimelinePage.self,from:archiveData).session
+    var newHeader = try #require(archiveObject["session"] as? [String:Any]); newHeader["session_id"] = "after-snapshot"
+    var activeHeader = newHeader; activeHeader["session_id"] = "active-preserved"; activeHeader["lifecycle_status"] = "ACTIVE"; activeHeader["read_only"] = false
+    var activePage = archiveObject; activePage["session"] = activeHeader; activePage["entries"] = []
+    let activePageData = try historyData(activePage)
+    let initialList = try historyData(["success":true,"schema_version":1,"sessions":[archiveObject["session"]!],"revision":"before","next_cursor":"unloaded-page","retention_days":30])
+    let refreshedList = try historyData(["success":true,"schema_version":1,"sessions":[newHeader],"revision":"after","retention_days":30])
+    var profileObject = try #require(fixtureObject["later_historical_answer"] as? [String:Any]); profileObject["historical_matches"] = []; profileObject["messages"] = []
+    let profile = try historyData(profileObject)
+    let caps = try historyData(["capabilities":["session_conversation_history":true,"session_history_bulk_delete":outcome != "unsupported"],
+                               "contract_versions":["session_conversation_history":1,"session_history_bulk_delete":1]])
+    let formatter = ISO8601DateFormatter(), now = Date()
+    let snapshotData = try historyData(["success":true,"schema_version":1,"owner_profile_id":"profile-a","snapshot_id":"opaque-all-pages",
+        "target_count":outcome == "zero" ? 0 : 2,"created_at":formatter.string(from:now),
+        "expires_at":formatter.string(from:now.addingTimeInterval(outcome == "expired" ? -1 : 300))])
+    let demo = try DJConnectDemoSessionData.make(language:"nl")
+    var active = demo.active; active.sessionID = "active-preserved"; active.broadcast.session.sessionID = active.sessionID
+    let activeObject = try JSONSerialization.jsonObject(with:JSONEncoder().encode(active))
+    let activeData = try historyData(["success":true,"active_session":activeObject])
+    let state = HistoryBulkDeleteFixtureState()
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        if path.hasSuffix("/capabilities") { return (200,caps,0) }
+        if path.hasSuffix("/ask_dj/history") { return (200,profile,0) }
+        if path.hasSuffix("/session/active") { return (200,activeData,0) }
+        if path.hasSuffix("/delete_snapshot") {
+            #expect(request.httpMethod == "GET")
+            #expect(request.value(forHTTPHeaderField:"Cache-Control") == "no-store")
+            return (200,snapshotData,0)
+        }
+        if path.hasSuffix("/delete_all") {
+            let body = try #require(JSONSerialization.jsonObject(with:presenceRequestBody(request)) as? [String:Any])
+            // The shared paired transport also carries its existing identity envelope.
+            #expect(Set(["device_id","client_type","snapshot_id","operation_id","confirmed"]).isSubset(of:Set(body.keys)))
+            #expect(body["session_ids"] == nil && body["query"] == nil && body["cursor"] == nil)
+            #expect(body["snapshot_id"] as? String == "opaque-all-pages" && body["confirmed"] as? Bool == true)
+            let operation = try #require(body["operation_id"] as? String)
+            #expect(operation.split(separator:"-")[2].hasPrefix("7"))
+            #expect(request.httpMethod == "POST" && request.value(forHTTPHeaderField:"Cache-Control") == "no-store")
+            #expect(request.value(forHTTPHeaderField:"Referrer-Policy") == "no-referrer")
+            if outcome == "network" { throw URLError(.timedOut) }
+            if outcome == "failure" { return (503,Data(#"{"success":false,"error":"history_delete_outcome_unknown"}"#.utf8),0) }
+            let ack = try historyData(["success":true,"schema_version":1,"operation_id":operation,
+                "owner_profile_id":outcome == "owner" ? "profile-b" : "profile-a",
+                "snapshot_id":outcome == "snapshot" ? "another-set" : "opaque-all-pages",
+                "deleted":true,"deleted_session_count":outcome == "count" ? 3 : 2])
+            if outcome == "ok" { state.complete() }
+            return (200,ack,outcome == "epoch" ? 0.15 : 0)
+        }
+        if path.hasSuffix("/session/history") { return (200,state.completed ? refreshedList : initialList,0) }
+        if path.hasSuffix("/active-preserved") { return (200,activePageData,0) }
+        return (200,archiveData,0)
+    }
+    defer { fixture.close() }
+    let (model,defaults,name) = fixture.model(); defer { defaults.removePersistentDomain(forName:name) }
+    let history = model.sessionHistory
+    #expect(await model.refreshActiveDJSession())
+    await history.prepare(); await history.loadSessions(); await history.loadTimeline(archive.id); await history.loadTimeline(active.id)
+    let activeBefore = model.activeDJSession
+    let liveBefore = history.timelines[active.id]
+    let epoch = history.responseEpoch
+    let archiveEpoch = history.archiveResponseEpoch
+    let snapshot = await history.prepareBulkDeletion(expectedEpoch:epoch)
+    if ["expired","unsupported"].contains(outcome) { #expect(snapshot == nil); return }
+    let prepared = try #require(snapshot)
+    #expect(prepared.targetCount == (outcome == "zero" ? 0 : 2)) // The server set includes an unloaded page.
+    let operation = Task { @MainActor in await history.deleteAllSessions(prepared,expectedEpoch:epoch) }
+    if outcome == "epoch" {
+        for _ in 0..<100 where !fixture.requests.contains(where: { $0.url!.path.hasSuffix("/delete_all") }) { try await Task.sleep(for:.milliseconds(2)) }
+        history.reset()
+    }
+    let success = await operation.value
+    #expect(success == (outcome == "ok"))
+    #expect(!history.bulkDeletionBusy)
+    if outcome == "ok" {
+        for _ in 0..<200 where !history.sessions.contains(where: { $0.id == "after-snapshot" }) { try await Task.sleep(for:.milliseconds(2)) }
+        #expect(history.sessions.map(\.id) == ["after-snapshot"])
+        #expect(history.timelines[archive.id] == nil)
+        #expect(history.historicalMatches.values.flatMap { $0 }.allSatisfy { $0.sessionID == active.id })
+        #expect(history.archiveResponseEpoch != archiveEpoch)
+        #expect(history.responseEpoch == epoch) // Active grants and pending intents keep their authority.
+        #expect(model.activeDJSession == activeBefore && history.timelines[active.id] == liveBefore)
+    } else if outcome != "epoch" { #expect(history.timelines[archive.id] != nil) }
+    let posts = fixture.requests.filter { $0.url!.path.hasSuffix("/delete_all") }
+    #expect(posts.count == (outcome == "zero" ? 0 : 1))
+    #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/end") || $0.url!.path.hasSuffix("/session/start") || $0.url!.path.hasSuffix("/session/history/delete") })
+}
+
+@Test(arguments:["timeline","conversation-history"])
+@MainActor func sessionBulkDeletionRejectsPreAcknowledgementArchiveCallbacks(_ read: String) async throws {
+    let object = try historyObject()
+    let timelineData = try historyData(try #require(object["archived_timeline"]))
+    let archive = try JSONDecoder().decode(DJConnectSessionTimelinePage.self,from:timelineData).session
+    let oldProfileObject = try #require(object["later_historical_answer"] as? [String:Any])
+    let oldProfile = try historyData(oldProfileObject)
+    var newProfileObject = oldProfileObject; newProfileObject["messages"] = []
+    let newProfile = try historyData(newProfileObject)
+    let decoded = try JSONDecoder().decode(DJConnectProfileConversationHistory.self,from:oldProfile)
+    #expect(!decoded.historicalMatches.values.flatMap { $0 }.isEmpty)
+    let caps = try historyData(["capabilities":["session_conversation_history":true,"session_history_bulk_delete":true],
+        "contract_versions":["session_conversation_history":1,"session_history_bulk_delete":1]])
+    let list = try historyData(["success":true,"schema_version":1,"sessions":[],"revision":"after","retention_days":30])
+    let date = ISO8601DateFormatter(), now = Date()
+    let snapshotData = try historyData(["success":true,"schema_version":1,"owner_profile_id":"profile-a","snapshot_id":"old-set",
+        "target_count":1,"created_at":date.string(from:now),"expires_at":date.string(from:now.addingTimeInterval(300))])
+    let state = HistoryBulkDeleteFixtureState(), gate = HistoryWireResponseGate()
+    defer { gate.release() }
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        if path.hasSuffix("/capabilities") { return (200,caps,0) }
+        if path.hasSuffix("/delete_snapshot") { return (200,snapshotData,0) }
+        if path.hasSuffix("/delete_all") {
+            let body = try #require(JSONSerialization.jsonObject(with:presenceRequestBody(request)) as? [String:Any])
+            state.complete()
+            return (200,try historyData(["success":true,"schema_version":1,"operation_id":body["operation_id"]!,
+                "owner_profile_id":"profile-a","snapshot_id":"old-set","deleted":true,"deleted_session_count":1]),0)
+        }
+        if path.hasSuffix("/session/history") { return (200,list,0) }
+        let isProfile = path.hasSuffix("/ask_dj/history")
+        if (read == "conversation-history" && isProfile || read == "timeline" && path.hasSuffix("/" + archive.id)), state.takeReadHold() {
+            throw HistoryWireHeldResponse(data:isProfile ? oldProfile : timelineData,gate:gate)
+        }
+        return (200,isProfile ? (state.completed ? newProfile : oldProfile) : timelineData,0)
+    }
+    defer { fixture.close() }
+    let (model,defaults,name) = fixture.model(); defer { defaults.removePersistentDomain(forName:name) }
+    let history = model.sessionHistory
+    await history.prepare(); await history.loadTimeline(archive.id)
+    state.armRead()
+    let oldRead = Task { @MainActor in
+        if read == "timeline" { await history.loadTimeline(archive.id) }
+        else { await history.refreshConversation() }
+    }
+    for _ in 0..<200 where !state.hasHeldRead { try await Task.sleep(for:.milliseconds(2)) }
+    #expect(state.hasHeldRead)
+    let epoch = history.responseEpoch
+    let snapshot = try #require(await history.prepareBulkDeletion(expectedEpoch:epoch))
+    #expect(await history.deleteAllSessions(snapshot,expectedEpoch:epoch))
+    gate.release(); await oldRead.value
+    for _ in 0..<100 { await Task.yield() }
+    #expect(history.responseEpoch == epoch)
+    #expect(history.timelines[archive.id] == nil)
+    #expect(history.historicalMatches.values.flatMap { $0 }.isEmpty)
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/delete_all") }.count == 1)
 }

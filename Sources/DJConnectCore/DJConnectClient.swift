@@ -16,6 +16,7 @@ public final class DJConnectClient: Sendable {
     public let baseURL: URL
     public let identity: DJConnectIdentity
     public let tokenStore: DJConnectTokenStore
+    public let historyContractVersion: Int
 
     private let session: URLSession
     private let hybridTransport: DJConnectHybridTransport?
@@ -37,11 +38,13 @@ public final class DJConnectClient: Sendable {
         hybridTransport: DJConnectHybridTransport? = nil,
         webSocketFastPath: (any DJConnectWebSocketFastPathTransport)? = nil,
         responseLogger: (@Sendable (_ requestSummary: String, _ statusCode: Int) -> Void)? = nil,
-        failureLogger: (@Sendable (_ details: DJConnectAPIFailureLogDetails) -> Void)? = nil
+        failureLogger: (@Sendable (_ details: DJConnectAPIFailureLogDetails) -> Void)? = nil,
+        historyContractVersion: Int = 1
     ) {
         self.baseURL = baseURL
         self.identity = identity
         self.tokenStore = tokenStore
+        self.historyContractVersion = historyContractVersion == 2 ? 2 : 1
         self.session = session
         self.hybridTransport = hybridTransport
         // Owner Session responses contain ephemeral Moment text. Keep this
@@ -652,10 +655,71 @@ public final class DJConnectClient: Sendable {
         return image
     }
 
+    public func prepareSavedSessionsDeletion(expectedOwner: String) async throws -> DJConnectSessionDeleteSnapshot {
+        let result: DJConnectSessionDeleteSnapshot = try await decodedResponse(
+            for: pairedOwnerReadRequest(path: Self.apiV1Path("session/history/delete_snapshot")), using: sessionProjectionSession)
+        guard result.admits(owner: expectedOwner) else { throw DJConnectError.invalidResponse }
+        return result
+    }
+
+    public func deleteAllSavedSessions(snapshot: DJConnectSessionDeleteSnapshot, expectedOwner: String,
+                                      operationID: String) async throws -> DJConnectSessionBulkDeleteResponse {
+        guard snapshot.admits(owner: expectedOwner), snapshot.targetCount > 0,
+              historyDeletionOperationIsValid(operationID) else {
+            throw DJConnectError.invalidResponse
+        }
+        let payload = HistoryBulkDeletePayload(deviceID: identity.deviceID, clientType: identity.clientType,
+            snapshotID: snapshot.snapshotID, operationID: operationID)
+        var request = try jsonRequest(path: Self.apiV1Path("session/history/delete_all"), payload: payload)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        request.setValue("no-referrer", forHTTPHeaderField: "Referrer-Policy")
+        let result: DJConnectSessionBulkDeleteResponse = try await decodedResponse(for: request, using: sessionProjectionSession)
+        guard result.admits(snapshot: snapshot, operationID: operationID, owner: expectedOwner) else { throw DJConnectError.invalidResponse }
+        return result
+    }
+
+    private struct HistoryBulkDeletePayload: Encodable {
+        let deviceID: String
+        let clientType: DJConnectClientType
+        let snapshotID: String
+        let operationID: String
+        let confirmed = true
+        enum CodingKeys: String, CodingKey {
+            case deviceID = "device_id", clientType = "client_type", snapshotID = "snapshot_id", operationID = "operation_id", confirmed
+        }
+    }
+
+    public func deleteSavedSession(_ action: DJConnectSessionDeleteRequest, expectedOwner: String) async throws -> DJConnectSessionDeleteResponse {
+        guard action.isValid, !expectedOwner.isEmpty else { throw DJConnectError.invalidResponse }
+        let payload = HistoryDeletePayload(deviceID: identity.deviceID, clientType: identity.clientType,
+            sessionID: action.sessionID, expectedRevision: action.expectedRevision, operationID: action.operationID)
+        var request = try jsonRequest(path: Self.apiV1Path("session/history/delete"), payload: payload)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        request.setValue("no-referrer", forHTTPHeaderField: "Referrer-Policy")
+        let response: DJConnectSessionDeleteResponse = try await decodedResponse(for: request, using: sessionProjectionSession)
+        guard response.admits(action, owner: expectedOwner) else { throw DJConnectError.invalidResponse }
+        return response
+    }
+
+    private struct HistoryDeletePayload: Encodable {
+        let deviceID: String
+        let clientType: DJConnectClientType
+        let sessionID: String
+        let expectedRevision: String
+        let operationID: String
+        let confirmed = true
+        enum CodingKeys: String, CodingKey {
+            case deviceID = "device_id", clientType = "client_type", sessionID = "session_id"
+            case expectedRevision = "expected_revision", operationID = "operation_id", confirmed
+        }
+    }
+
     public func savedSessions(cursor: String? = nil) async throws -> DJConnectSessionHistoryPage {
         let page: DJConnectSessionHistoryPage = try await decodedResponse(
             for: sessionHistoryReadRequest(route: "session/history", cursor: cursor), using: sessionProjectionSession)
-        guard page.success, page.schemaVersion == 1, page.sessions.count <= 50,
+        guard page.success, acceptsHistoryVersion(page.schemaVersion, declared: page.historyContractVersion), page.sessions.count <= 50,
               page.sessions.allSatisfy(\.isContractValid) else { throw DJConnectError.invalidResponse }
         return page
     }
@@ -668,7 +732,7 @@ public final class DJConnectClient: Sendable {
         if let anchorEntryID { query.append(URLQueryItem(name: "anchor_entry_id", value: anchorEntryID)) }
         let page: DJConnectSessionTimelinePage = try await decodedResponse(
             for: sessionHistoryReadRequest(route: "session/history/" + historyPathComponent(sessionID), cursor: cursor, queryItems: query, limit: limit), using: sessionProjectionSession)
-        guard page.success, page.schemaVersion == 1, page.session.isContractValid, page.session.id == sessionID,
+        guard page.success, acceptsHistoryVersion(page.schemaVersion, declared: page.historyContractVersion), page.session.isContractValid, page.session.id == sessionID,
               page.window == window?.rawValue, page.anchorEntryID == anchorEntryID,
               page.entries.count <= 50, page.entries.allSatisfy({ $0.sessionID == sessionID && $0.isContractValid }) else {
             throw DJConnectError.invalidResponse
@@ -687,7 +751,7 @@ public final class DJConnectClient: Sendable {
         let page: DJConnectSessionSearchPage = try await decodedResponse(for: sessionHistoryReadRequest(
             route: "session/history/" + historyPathComponent(sessionID) + "/search", cursor: cursor,
             queryItems: [URLQueryItem(name: "q", value: query)]), using: sessionProjectionSession)
-        guard page.success, page.schemaVersion == 1, page.sessionID == sessionID, page.query == query,
+        guard page.success, acceptsHistoryVersion(page.schemaVersion, declared: page.historyContractVersion), page.sessionID == sessionID, page.query == query,
               page.normalization == "NFKC-casefold", page.highlightUnits == "utf16",
               page.matches.count <= 50, page.returnedCount == page.matches.count,
               page.matches.allSatisfy({ $0.sessionID == sessionID && $0.isContractValid }),
@@ -699,10 +763,11 @@ public final class DJConnectClient: Sendable {
     }
 
     public func openSavedSession(_ action: DJConnectSessionOpenAction) async throws -> DJConnectSessionOpenResponse {
-        let payload = HistoryOpenPayload(deviceID: identity.deviceID, clientType: identity.clientType, action: action)
+        let payload = HistoryOpenPayload(deviceID: identity.deviceID, clientType: identity.clientType, action: action,
+            historyContractVersion: historyContractVersion == 2 ? 2 : nil)
         let response: DJConnectSessionOpenResponse = try await decodedResponse(
             for: jsonRequest(path: Self.apiV1Path("session/history/open"), payload: payload), using: sessionProjectionSession)
-        guard response.success, response.schemaVersion == 1, response.navigationOnly,
+        guard response.success, acceptsHistoryVersion(response.schemaVersion, declared: response.historyContractVersion), response.navigationOnly,
               response.session.isContractValid, response.entry.isContractValid, response.readOnly == response.session.readOnly,
               response.session.id == action.sessionID, response.entry.sessionID == action.sessionID,
               response.entry.id == action.entryID else { throw DJConnectError.invalidResponse }
@@ -757,9 +822,16 @@ public final class DJConnectClient: Sendable {
                                          queryItems: [URLQueryItem] = [], limit: Int = 20) throws -> URLRequest {
         guard (1...50).contains(limit) else { throw DJConnectError.invalidResponse }
         var items = queryItems
+        if historyContractVersion == 2, route == "session/history" || route.hasPrefix("session/history/") {
+            items.append(URLQueryItem(name: "history_contract_version", value: "2"))
+        }
         if route != "capabilities" { items.append(URLQueryItem(name: "limit", value: String(limit))) }
         if let cursor { items.append(URLQueryItem(name: "cursor", value: cursor)) }
         return try pairedOwnerReadRequest(path: Self.apiV1Path(route), queryItems: items)
+    }
+
+    private func acceptsHistoryVersion(_ schema: Int, declared: Int?) -> Bool {
+        schema == historyContractVersion && (historyContractVersion == 1 ? declared == nil || declared == 1 : declared == 2)
     }
 
     /// Resource and projection GETs share the complete paired request identity.
@@ -796,7 +868,8 @@ public final class DJConnectClient: Sendable {
         let deviceID: String
         let clientType: DJConnectClientType
         let action: DJConnectSessionOpenAction
-        enum CodingKeys: String, CodingKey { case deviceID = "device_id", clientType = "client_type", action }
+        let historyContractVersion: Int?
+        enum CodingKeys: String, CodingKey { case deviceID = "device_id", clientType = "client_type", action, historyContractVersion = "history_contract_version" }
     }
 
     public var fastPathDiagnostics: DJConnectFastPathDiagnostics {
@@ -1398,6 +1471,10 @@ public final class DJConnectClient: Sendable {
         try DJConnectIncomingPayloadLimiter.validate(contentLength: httpResponse.expectedContentLength)
         try DJConnectIncomingPayloadLimiter.validate(data)
 
+        if requestSession != nil, httpResponse.statusCode == 409,
+           (try? decoder.decode(DJConnectErrorEnvelope.self, from: data))?.error == "history_contract_upgrade_required" {
+            throw DJConnectSessionHistoryUpgradeRequired()
+        }
         if !acceptingStatuses.contains(httpResponse.statusCode), let error = classify(statusCode: httpResponse.statusCode, body: data) {
             let safeError = requestSession == nil ? error : Self.sessionProjectionError(error)
             logAPIFailure(request: request, statusCode: httpResponse.statusCode, body: requestSession == nil ? data : Data(), error: safeError)

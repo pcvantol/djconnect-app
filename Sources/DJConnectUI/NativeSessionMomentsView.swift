@@ -227,23 +227,24 @@ struct NativeSessionMomentsView: View {
     }
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { clock in
-            let current = currentMoment(at: clock.date)
-            VStack(alignment: .leading, spacing: 24) {
-                SessionCurrentColumns(stacked: true) {
-                    musicContext
+        VStack(alignment: .leading, spacing: 24) {
+            SessionCurrentColumns(stacked: true) {
+                // Keep the artwork's asynchronous crossfade outside the timeline's
+                // clock-driven rendering and the current DJ card's animation.
+                musicContext
+                TimelineView(.periodic(from: .now, by: 1)) { clock in
+                    let current = currentMoment(at: clock.date)
                     currentCard(current)
                         .modifier(CurrentMomentArtworkTint(artworkURL: musicArtworkURL))
                         .accessibilityIdentifier("session-current-card")
+                        .animation(djSessionReducedMotion(reduceMotion) ? nil : .easeInOut(duration: 0.2), value: current?.id)
                 }
-                .accessibilityElement(children: .contain)
-                .id("native-session-current")
-                .animation(djSessionReducedMotion(reduceMotion) ? nil : .easeInOut(duration: 0.2), value: current?.id)
-
             }
-            .frame(maxWidth: 1000, alignment: .leading)
-            .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .contain)
+            .id("native-session-current")
         }
+        .frame(maxWidth: 1000, alignment: .leading)
+        .frame(maxWidth: .infinity)
         .sheet(isPresented: Binding(get: { playbackModel?.momentTrackInsightTarget != nil }, set: { if !$0 { playbackModel?.dismissMomentTrackInsight() } })) {
             if let model = playbackModel {
                 #if os(macOS)

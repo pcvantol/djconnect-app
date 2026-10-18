@@ -51,7 +51,7 @@ struct NativeBottomTabBar: UIViewControllerRepresentable {
     private func hostedScreen(_ screen: AnyView, anchors: SessionIntroductionAnchors?, glassEnabled: Bool) -> AnyView {
         AnyView(screen.environment(\.sessionIntroductionAnchors, anchors).environment(\.colorScheme, .dark)
             .environment(\.djConnectGlassEffectsEnabled, glassEnabled)
-            .environment(\.scenePhase, scenePhase).tint(djConnectAccent))
+            .environment(\.scenePhase, scenePhase).tint(.white).accentColor(.white))
     }
 
     /// UIKit also updates the content safe area when hiding its tab bar, so

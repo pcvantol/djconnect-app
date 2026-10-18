@@ -3973,6 +3973,19 @@ public final class DJConnectAppModel: ObservableObject {
         conversationResultLeases = [:]; conversationResultLeaseOrder = []
     }
 
+    func withdrawDeletedSessionPresentation(_ sessionID: String, entries: [DJConnectHistoryEntry], invalidatingAllLeases: Bool = true) {
+        let messageIDs = Set(entries.compactMap(\.originMessageID))
+        let localIDs = Set(askDJMessages.filter { $0.serverID.map(messageIDs.contains) == true }.map(\.id))
+        askDJMessages.removeAll { localIDs.contains($0.id) }
+        liveConversationPresentations = liveConversationPresentations.filter { !messageIDs.contains($0.key) }
+        switch sharedSpeechReference {
+        case .entry(let sourceSession, _), .moment(let sourceSession, _):
+            if sourceSession == sessionID { stopResponsePlayback(clearText: false) }
+        default: break
+        }
+        if invalidatingAllLeases { invalidateConversationResultLeases() }
+    }
+
     @discardableResult func applyProfileConversationResponse(_ response: DJConnectAskDJMessageResponse, fallback: UUID?, sessionID: String? = nil) -> Bool {
         guard response.isPrivateEphemeralResponse || (response.historyRevision >= profileConversationHistoryRevision
               && response.clearRevision >= profileConversationClearRevision) else { return false }
@@ -6419,16 +6432,11 @@ public final class DJConnectAppModel: ObservableObject {
         if isDemoMode {
             if let id = activeDJSession?.id {
                 sessionHistory.archiveDemoSession(id)
-                if let saved = sessionHistory.sessions.first(where: { $0.id == id }),
-                   let notice = SessionArchiveSummary.savedNotice(saved, language: language) {
-                    userNotice = DJConnectUserNotice(text: notice, systemImage: "checkmark.circle", displayDuration: .seconds(6))
-                }
             }
             activeDJSession = nil; activeMoodAvailable = false; djSessionErrorMessage = nil; return
         }
         guard let sessionID = activeDJSession?.sessionID, !isLoadingDJSession else { return }
         let request = UUID()
-        let epoch = sessionHistory.responseEpoch
         sessionRequestGeneration = request
         isLoadingDJSession = true
         defer { if request == sessionRequestGeneration { isLoadingDJSession = false } }
@@ -6444,16 +6452,7 @@ public final class DJConnectAppModel: ObservableObject {
             vibeCastHandoffFailed = false
             stopSessionBroadcast()
             isLoadingDJSession = false
-            guard epoch == sessionHistory.responseEpoch, canRefreshSessionHistory, !Task.isCancelled else { return }
-            // Confirm the actual archive and server timestamps without replaying End.
-            let archive = try? await withHomeAssistantClient { client in
-                try await client.sessionTimeline(sessionID: sessionID, limit: 1).session
-            }
-            guard request == sessionRequestGeneration, epoch == sessionHistory.responseEpoch,
-                  canRefreshSessionHistory, !Task.isCancelled, activeDJSession == nil,
-                  let archive, archive.id == sessionID,
-                  let notice = SessionArchiveSummary.savedNotice(archive, language: language) else { return }
-            userNotice = DJConnectUserNotice(text: notice, systemImage: "checkmark.circle", displayDuration: .seconds(6))
+
         } catch {
             guard request == sessionRequestGeneration else { return }
             if (error as? DJConnectError)?.invalidatesSessionAuthority == true { clearSessionProjection() }
@@ -12286,7 +12285,8 @@ public final class DJConnectAppModel: ObservableObject {
                 Task { @MainActor in
                     self?.logAPIFailure(details)
                 }
-            }
+            },
+            historyContractVersion: sessionHistory.historyContractVersion
         )
     }
 
@@ -12397,6 +12397,7 @@ public final class DJConnectAppModel: ObservableObject {
         let localFastPath = localURL.flatMap { webSocketFastPathIfLocal($0) }
         let hybrid = sharedHybridTransport()
         let configuration = transportConfiguration(allowsRemoteHTTPFallback: identity.clientType != .watchos)
+        let historyContractVersion = sessionHistory.historyContractVersion
         // After an actual LAN failure, remote reads must not wait for the same
         // local timeout every two seconds. Periodically probe LAN again so
         // returning home restores the preferred local connection automatically.
@@ -12423,7 +12424,8 @@ public final class DJConnectAppModel: ObservableObject {
                         Task { @MainActor in
                             self?.logAPIFailure(details)
                         }
-                    }
+                    },
+                    historyContractVersion: historyContractVersion
                 )
             },
             modeReporter: { [weak self] mode, baseURL in

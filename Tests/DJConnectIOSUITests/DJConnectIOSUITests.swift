@@ -5,6 +5,42 @@ import UIKit
 final class DJConnectIOSUITests: XCTestCase {
     private var lastScreenshotPNG: Data?
 
+    func testSessionConversationContextMenuReusesPromptAndReportsAnswer() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-DJCONNECTRuntimeFixture", "review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "review_demo"
+        app.launch()
+        let tab = app.tabBars.buttons["DJ-sessie"]
+        if tab.waitForExistence(timeout: 10) { tab.tap() }
+        let composer = app.textViews.firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 10))
+        let prompt = "Vertel over de artiest"
+        composer.tap(); composer.typeText(prompt)
+        app.buttons["ask-dj-composer-send"].tap()
+        let question = app.staticTexts[prompt].firstMatch
+        for _ in 0..<8 where !question.isHittable { app.swipeUp() }
+        XCTAssertTrue(question.waitForExistence(timeout: 5))
+        question.press(forDuration: 1)
+        let reuse = app.buttons["Zet in prompt"].firstMatch
+        XCTAssertTrue(reuse.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Meld antwoord"].exists, "A question cannot be reported as an answer")
+        reuse.tap()
+        XCTAssertEqual(composer.value as? String, prompt)
+        XCTAssertTrue(app.buttons["ask-dj-composer-send"].isEnabled, "The reused prompt is ready to send")
+        app.buttons["ask-dj-composer-send"].tap()
+        let answer = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "In dit voorbeeld houdt de DJ de sfeer vast")).firstMatch
+        for _ in 0..<6 where !answer.isHittable { app.swipeDown() }
+        XCTAssertTrue(answer.isHittable)
+        answer.press(forDuration: 1)
+        XCTAssertTrue(reuse.waitForExistence(timeout: 5))
+        let report = app.buttons["Meld antwoord"].firstMatch
+        XCTAssertTrue(report.waitForExistence(timeout: 5))
+        let menu = XCTAttachment(screenshot: app.screenshot())
+        menu.name = "session-answer-context-menu"; menu.lifetime = .keepAlways; add(menu)
+        report.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["ask-dj-feedback-content"].firstMatch.waitForExistence(timeout: 5))
+    }
+
     func testSavedSessionsSearchFiltersAndClears() {
         let app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-DJCONNECTRuntimeFixture", "review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
