@@ -1417,3 +1417,5 @@
 "ui.device_stt.failed" = "L’enregistrement n’a pas pu être transcrit localement ou le contexte de discussion a changé. Réessayez. Aucun audio n’a été envoyé.";
 
 "appModel.now.playing.updating" = "Actualisation de la lecture en cours…";
+
+"appModel.discovery.updating" = "Actualisation de Découvrir…";
