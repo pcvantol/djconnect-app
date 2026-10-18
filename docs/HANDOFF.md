@@ -9,7 +9,8 @@ logging enabled and presents an inline localized retry explanation. All four
 confirmation/error strings exist in five languages. System/server logs and
 Profile data are outside this app-file operation. Unconfirmed preference changes
 and startup never delete logs. Six focused actual-file tests pass0.224s and
-1318-key/five-language validation passes; full/native checks follow separately.
+full850tests/10suites pass91.233s;1318-key/five-language and work-register/diff
+validation pass. Ordinary40342 build/installation readbacks follow separately.
 
 ## 2026-10-18 — Disabled app diagnostics by default
 
