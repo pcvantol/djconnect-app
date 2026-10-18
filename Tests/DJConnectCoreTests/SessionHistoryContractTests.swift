@@ -5849,3 +5849,49 @@ func sessionSearchAutomaticPagingFencesOldFootersAndRepeatedCursors(repeatsCurso
     #expect(await model.refreshNowPlaying() == false)
     #expect(!model.isRefreshing)
 }
+
+@Test @MainActor func discoveryManualRefreshSurvivesCancelledGestureAndSharesToolbarRequest() async throws {
+    let reads = HTTPRecoveryActiveReadCounter()
+    let wire = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/music_discovery/refresh") {
+            _ = reads.next()
+            return (200, Data(#"{"success":true,"enabled":true,"revision":42,"sections":[{"id":"tracks","title":"Tracks","items":[{"id":"track","kind":"track","title":"Backend recommendation","uri":"spotify:track:exact","reason":"Source"}]}]}"#.utf8), 0.15)
+        }
+        return (404, Data(), 0)
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model(); defer { defaults.removePersistentDomain(forName: name) }
+    let gesture = Task { await model.refreshMusicDiscovery() }
+    for _ in 0..<100 where reads.value == 0 { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(reads.value == 1)
+    gesture.cancel()
+    let toolbar = Task { await model.refreshMusicDiscovery() }
+    #expect(await gesture.value)
+    #expect(await toolbar.value)
+    #expect(reads.value == 1)
+    #expect(model.musicDiscoveryResponse?.revision == 42)
+    #expect(model.musicDiscoveryResponse?.visibleSections.first?.visibleItems.first?.title == "Backend recommendation")
+    #expect(model.musicDiscoveryErrorMessage == nil)
+    #expect(!model.isRefreshingMusicDiscovery)
+}
+
+@Test @MainActor func discoveryCancelledGestureStillRejectsResponseAfterSuspension() async throws {
+    let reads = HTTPRecoveryActiveReadCounter()
+    let wire = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/music_discovery/refresh") {
+            _ = reads.next()
+            return (200, Data(#"{"success":true,"enabled":true,"revision":42,"sections":[]}"#.utf8), 0.15)
+        }
+        return (404, Data(), 0)
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model(); defer { defaults.removePersistentDomain(forName: name) }
+    let gesture = Task { await model.refreshMusicDiscovery() }
+    for _ in 0..<100 where reads.value == 0 { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(reads.value == 1)
+    gesture.cancel()
+    model.markInactiveSession()
+    #expect(await gesture.value == false)
+    #expect(model.musicDiscoveryResponse == nil)
+    #expect(!model.isRefreshingMusicDiscovery)
+}

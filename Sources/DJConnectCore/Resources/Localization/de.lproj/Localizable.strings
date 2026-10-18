@@ -1417,3 +1417,5 @@
 "ui.device_stt.failed" = "Die Aufnahme konnte nicht lokal umgewandelt werden oder der Chat-Kontext hat sich geändert. Versuche es erneut. Es wurde kein Audio gesendet.";
 
 "appModel.now.playing.updating" = "Aktuelle Wiedergabe wird aktualisiert…";
+
+"appModel.discovery.updating" = "Entdecken wird aktualisiert…";

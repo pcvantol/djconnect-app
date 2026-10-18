@@ -1417,3 +1417,5 @@
 "ui.device_stt.failed" = "No se pudo transcribir la grabación localmente o cambió el contexto del chat. Inténtalo de nuevo. No se ha enviado audio.";
 
 "appModel.now.playing.updating" = "Actualizando la reproducción actual…";
+
+"appModel.discovery.updating" = "Actualizando Descubrir…";

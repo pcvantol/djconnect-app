@@ -1,3 +1,11 @@
+## 2026-10-18 — Discover gesture refresh
+
+Manual Discover refresh now shares a request between pull and toolbar callers
+and survives cancellation of the SwiftUI gesture task. Both actions show progress
+and the actual result. Existing epoch, source, foreground and response-generation
+checks still reject obsolete responses, including after suspension. Push refresh
+coalescing and initial-feed supersession retain their existing behavior.
+
 ## 2026-10-18 — no pull-to-refresh on empty feature screens
 
 Track Insight, Discover, Ask DJ and Music DNA remove the native refresh action

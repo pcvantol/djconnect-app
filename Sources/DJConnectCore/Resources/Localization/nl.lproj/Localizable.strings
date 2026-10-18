@@ -1417,3 +1417,5 @@
 "ui.device_stt.failed" = "De opname kon niet lokaal worden omgezet of de chatcontext is gewijzigd. Probeer opnieuw. Er is geen audio verstuurd.";
 
 "appModel.now.playing.updating" = "Speelt Nu bijwerken…";
+
+"appModel.discovery.updating" = "Ontdek bijwerken…";

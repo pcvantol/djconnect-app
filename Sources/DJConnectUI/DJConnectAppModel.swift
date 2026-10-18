@@ -1209,6 +1209,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var discoveryResponseGeneration = UUID()
     private var discoveryLoadGeneration = UUID()
     private var discoveryRefreshGeneration = UUID()
+    private var manualDiscoveryRefreshTask: Task<Bool, Never>?
     private var musicDiscoveryPushRefreshes: [String: Date] = [:]
     private var webSocketFastPathCache: [String: any DJConnectWebSocketFastPathTransport] = [:]
     private var sessionBroadcastTransport: DJConnectSessionBroadcastTransport?
@@ -8178,7 +8179,20 @@ public final class DJConnectAppModel: ObservableObject {
 
     @discardableResult
     public func refreshMusicDiscovery() async -> Bool {
-        await refreshMusicDiscovery(coalesce: false)
+        if let manualDiscoveryRefreshTask { return await manualDiscoveryRefreshTask.value }
+        let epoch = sessionHistory.responseEpoch
+        let source = musicDiscoveryPushCoalescingKey()
+        // SwiftUI can cancel the pull gesture before the backend finishes.
+        // Keep one manual request alive for both the gesture and toolbar button.
+        let task = Task { @MainActor in
+            guard sessionHistory.responseEpoch == epoch,
+                  musicDiscoveryPushCoalescingKey() == source else { return false }
+            return await refreshMusicDiscovery(coalesce: false)
+        }
+        manualDiscoveryRefreshTask = task
+        let result = await task.value
+        manualDiscoveryRefreshTask = nil
+        return result
     }
 
     @discardableResult

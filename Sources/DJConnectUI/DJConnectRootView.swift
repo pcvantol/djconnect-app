@@ -6501,6 +6501,7 @@ private struct MusicDiscoveryView: View {
     }
 
     private func refreshMusicDiscoveryWithToast() async {
+        statusToast = DJConnectVisualNotice(text: localizedKey(model.language, "appModel.discovery.updating"), systemImage: "wand.and.stars")
         let didRefresh = await model.refreshMusicDiscovery()
         let failureMessage = model.musicDiscoveryErrorMessage?.trimmingCharacters(in: .whitespacesAndNewlines)
         showStatusToast(
