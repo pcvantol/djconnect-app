@@ -46,6 +46,7 @@ import DJConnectCore
     private var discovering = false
     private var expiryTask: Task<Void, Never>?
     private var invalidationTask: Task<Void, Never>?
+    private var pendingInvalidations: Set<DJConnectPassiveSurface> = []
     private var lastInvalidationSequence = -1
     private var automaticAttempts: Set<DJConnectPassiveSurface> = []
     private var lastDiagnosticConfiguration: Set<DJConnectPassiveSurface>?
@@ -60,6 +61,7 @@ import DJConnectCore
             if foreground { lastRead = [:] }
             tasks.values.forEach { $0.cancel() }; tasks = [:]
             invalidationTask?.cancel(); invalidationTask = nil
+            pendingInvalidations = []
         }
         owner = nextOwner; sessionID = nextSession
         active = foreground && owner != nil && sessionID != nil
@@ -103,6 +105,7 @@ import DJConnectCore
         active = false; epoch = UUID(); discovering = false
         tasks.values.forEach { $0.cancel() }; tasks = [:]
         invalidationTask?.cancel(); invalidationTask = nil
+        pendingInvalidations = []
         // Already permitted OS snapshots keep only their original short deadlines.
     }
     /// History suspension is separate from passive consent. On foreground,
@@ -135,13 +138,14 @@ import DJConnectCore
         onDiagnostic?("authorize surface=\(surface.rawValue) enabled=\(enabled)")
         let task = Task { @MainActor [weak self] in
             guard let self else { return }
-            defer { if versions[surface] == version { tasks[surface] = nil } }
+            defer { finish(surface, captured: captured, version: version, services: services) }
             do {
                 let result = try await services.authorize(sessionID, surface, enabled)
                 guard current(captured, version, surface), !Task.isCancelled else { return }
                 if enabled {
-                    guard let result, result.validates(sessionID: sessionID, surface: surface),
-                          result.passive_session.cache_policy.locked_display else { throw DJConnectError.invalidResponse }
+                    // The DTO enforces locked display for Live Activities only.
+                    // A home-screen widget grant is independently valid without it.
+                    guard let result, result.validates(sessionID: sessionID, surface: surface) else { throw DJConnectError.invalidResponse }
                     grants[surface] = Grant(result)
                     try await accept(result, surface: surface, captured: captured, version: version, services: services)
                 } else { phases[surface] = .idle }
@@ -159,25 +163,41 @@ import DJConnectCore
     public func invalidate(sequence: Int, services: Services) {
         guard active, !grants.isEmpty, sequence > lastInvalidationSequence else { return }
         lastInvalidationSequence = sequence
+        pendingInvalidations.formUnion(grants.keys)
+        scheduleInvalidationRead(services)
+    }
+    private func scheduleInvalidationRead(_ services: Services) {
+        guard active, !pendingInvalidations.isEmpty else { return }
         guard invalidationTask == nil else { return }
         let captured = epoch
         let delay = max(0.25, 2 - Date().timeIntervalSince(lastRead.values.max() ?? .distantPast))
         invalidationTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(delay))
             guard let self, !Task.isCancelled, captured == epoch, active else { return }
-            invalidationTask = nil; refresh(services, force: true)
+            invalidationTask = nil
+            let selected = pendingInvalidations
+            pendingInvalidations = []
+            refresh(services, force: true, surfaces: selected)
         }
     }
     /// Called by the existing foreground coordinator, not a new polling loop.
     public func refresh(_ services: Services, force: Bool = false) {
+        refresh(services, force: force, surfaces: Set(grants.keys))
+    }
+    private func refresh(_ services: Services, force: Bool, surfaces: Set<DJConnectPassiveSurface>) {
         guard active, let sessionID else { return }
-        for (surface, grant) in grants {
-            guard !busy(surface), force || lastRead[surface].map({ Date().timeIntervalSince($0) >= 15 }) != false else { continue }
+        for (surface, grant) in grants where surfaces.contains(surface) {
+            if busy(surface) {
+                if force { pendingInvalidations.insert(surface) }
+                continue
+            }
+            guard force || lastRead[surface].map({ Date().timeIntervalSince($0) >= 15 }) != false else { continue }
+            pendingInvalidations.remove(surface)
             let captured = epoch, version = versions[surface] ?? UUID(); versions[surface] = version
             lastRead[surface] = Date()
             tasks[surface] = Task { @MainActor [weak self] in
                 guard let self else { return }
-                defer { if versions[surface] == version { tasks[surface] = nil } }
+                defer { finish(surface, captured: captured, version: version, services: services) }
                 do {
                     let result = try await services.read(sessionID, surface, grant.id)
                     guard current(captured, version, surface), !Task.isCancelled else { return }
@@ -195,6 +215,15 @@ import DJConnectCore
                 }
             }
         }
+    }
+    private func finish(_ surface: DJConnectPassiveSurface, captured: UUID, version: UUID, services: Services) {
+        guard epoch == captured, versions[surface] == version else { return }
+        tasks[surface] = nil
+        if grants[surface] == nil { pendingInvalidations.remove(surface) }
+        // Retain a publication hint that arrived during metadata/image IO. It
+        // schedules only a pure read of the existing grant, with the same rate
+        // bound and owner epoch; never a replayed authorization or new lease.
+        if active, pendingInvalidations.contains(surface) { scheduleInvalidationRead(services) }
     }
     private func current(_ captured: UUID, _ version: UUID, _ surface: DJConnectPassiveSurface) -> Bool {
         active && epoch == captured && versions[surface] == version

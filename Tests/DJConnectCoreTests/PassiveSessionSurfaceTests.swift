@@ -38,9 +38,69 @@ private func passiveCurrent(surface: DJConnectPassiveSurface = .widget, mutation
     }
     p = try #require(shifted(p) as? [String: Any])
     p["surface"] = surface.rawValue
-    var policy = try #require(p["cache_policy"] as? [String: Any]); policy["locked_display"] = true; p["cache_policy"] = policy
+    var policy = try #require(p["cache_policy"] as? [String: Any]); policy["locked_display"] = surface == .liveActivity; p["cache_policy"] = policy
     mutation(&p); root["passive_session"] = p
     return try passiveDecode(root)
+}
+
+@Test @MainActor func passiveHomeWidgetAcceptsItsOwnGrantWithoutLockedScreenPermission() async throws {
+    let response = try passiveCurrent()
+    #expect(response.passive_session.cache_policy.locked_display == false)
+    #expect(response.validates(sessionID: response.passive_session.session_id, surface: .widget))
+    let model = PassiveSessionSurfaceModel()
+    let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, _ in response },
+        read: { _, _, _ in response }, image: { _, _ in Data() })
+    model.bind(owner: "profile-A", sessionID: response.passive_session.session_id, foreground: true)
+    await model.discover(services)
+    await model.setEnabled(true, surface: .widget, services: services)
+    #expect(model.enabled(.widget))
+    #expect(model.caches[.widget]?.projection.currentContribution(at: Date())?.text == response.passive_session.contribution?.text)
+}
+
+@Test @MainActor func passiveLiveActivityStillRejectsMissingLockedScreenPermission() async throws {
+    let response = try passiveCurrent(surface: .liveActivity) { p in
+        var policy = p["cache_policy"] as! [String: Any]; policy["locked_display"] = false; p["cache_policy"] = policy
+    }
+    let model = PassiveSessionSurfaceModel()
+    let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, _ in response },
+        read: { _, _, _ in response }, image: { _, _ in Data() })
+    model.bind(owner: "profile-A", sessionID: response.passive_session.session_id, foreground: true)
+    await model.discover(services); await model.setEnabled(true, surface: .liveActivity, services: services)
+    #expect(!model.enabled(.liveActivity) && model.caches[.liveActivity] == nil)
+}
+
+@Test @MainActor func passivePublicationHintDuringImageLoadStillReadsNewestContribution() async throws {
+    let first = try passiveCurrent()
+    let newest = try passiveCurrent { p in
+        p["delivery_sequence"] = (p["delivery_sequence"] as! Int) + 1
+        var c = p["contribution"] as! [String: Any]
+        c["moment_id"] = "new-publication"; c["text"] = "Tweede voorbeeldbijdrage."; p["contribution"] = c
+    }
+    var releaseImage: CheckedContinuation<Data, Never>?
+    var imageCalls = 0, reads = 0, authorizes = 0
+    let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, _ in
+        authorizes += 1; return first
+    }, read: { _, _, _ in reads += 1; return newest }, image: { _, _ in
+        imageCalls += 1
+        if imageCalls == 1 { return await withCheckedContinuation { releaseImage = $0 } }
+        return Data()
+    })
+    let model = PassiveSessionSurfaceModel()
+    model.bind(owner: "A", sessionID: first.passive_session.session_id, foreground: true)
+    await model.discover(services)
+    let authorization = Task { await model.setEnabled(true, surface: .widget, services: services) }
+    for _ in 0..<100 where releaseImage == nil { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(releaseImage != nil)
+    model.invalidate(sequence: newest.passive_session.delivery_sequence, services: services)
+    try await Task.sleep(for: .milliseconds(350))
+    #expect(reads == 0) // The first permitted image is still in flight.
+    releaseImage?.resume(returning: Data())
+    await authorization.value
+    try await Task.sleep(for: .milliseconds(400))
+    #expect(reads == 1 && authorizes == 1)
+    #expect(model.caches[.widget]?.projection.contribution?.moment_id == "new-publication")
+    #expect(model.caches[.widget]?.projection.contribution?.expires_at == newest.passive_session.contribution?.expires_at)
+    model.bind(owner: nil, sessionID: nil, foreground: false)
 }
 
 @Test func pinnedPassiveProjectionPreservesTextSubjectDeadlinesAndNoGrantInCache() throws {
@@ -272,7 +332,7 @@ private func passivePNG() throws -> Data {
         #expect(body["contract_version"] as? Int == 1 && body["text"] == nil && body["url"] == nil)
         if request.url?.path.hasSuffix("authorize") == true {
             #expect(Set(body.keys) == ["device_id", "client_type", "contract_version", "session_id", "surface", "enabled", "os_snapshot_cache", "locked_display"])
-            #expect(body["os_snapshot_cache"] as? Bool == true && body["locked_display"] as? Bool == true)
+            #expect(body["os_snapshot_cache"] as? Bool == true && body["locked_display"] as? Bool == false)
         } else {
             #expect(Set(body.keys) == ["device_id", "client_type", "contract_version", "session_id", "surface", "grant_id"])
             #expect(body["grant_id"] as? String == response.grant_id)

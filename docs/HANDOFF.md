@@ -1,3 +1,13 @@
+## 2026-10-18 — Passive contribution grant and publication recovery
+
+Current Apple WIP is stacked on summary PR116. Two passive1 defects are
+reproduced/fixed: home widgets accept their own grant without locked-screen
+permission, and publication hints during artwork IO survive for a bounded pure
+reread. Focused18/full843testsPASS; original expiry/owner fences remain intact.
+Core's v1 narration compatibility repair and negotiated attribution/quiet-push
+contracts remain pending. No background delivery or installed widget acceptance
+is claimed. See [scope and evidence](feedback/APPLE_PASSIVE_CONTRIBUTIONS_20261018.md).
+
 ## 2026-10-18 — Apple history summary consumer
 
 The next existing-lane slice `HISTORY::APPLE::SUMMARY` consumes Core's already
