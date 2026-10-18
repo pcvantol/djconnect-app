@@ -816,6 +816,7 @@ public final class DJConnectAppModel: ObservableObject {
         didSet { updateWakeWordListeningForAvailability() }
     }
     @Published public var isPairing = false
+    private var manualRefreshTask: Task<Bool, Never>?
     @Published public var isRefreshing = false
     @Published public private(set) var isLoadingOutputs = false
     @Published public private(set) var pendingOutputSelectionID: String?
@@ -3316,7 +3317,23 @@ public final class DJConnectAppModel: ObservableObject {
 
     @discardableResult
     public func refreshNowPlaying() async -> Bool {
-        await runRefresh(reason: "Refresh completed", notifyUserOnError: true, forceCollections: true)
+        if let manualRefreshTask { return await manualRefreshTask.value }
+        // A pull gesture may cancel its SwiftUI task while the request is still useful.
+        // Share the operation with toolbar refreshes and wait for background refreshes.
+        let generation = pairedIdentityRecoveryGeneration
+        let task = Task { @MainActor in
+            while isRefreshing {
+                do { try await Task.sleep(for: .milliseconds(25)) }
+                catch { return false }
+                guard pairedIdentityRecoveryGeneration == generation else { return false }
+            }
+            guard !Task.isCancelled, pairedIdentityRecoveryGeneration == generation else { return false }
+            return await runRefresh(reason: "Refresh completed", notifyUserOnError: true, forceCollections: true)
+        }
+        manualRefreshTask = task
+        let result = await task.value
+        manualRefreshTask = nil
+        return result
     }
 
     public func refreshWebSocketFastPathStatus() {

@@ -5802,3 +5802,50 @@ func sessionSearchAutomaticPagingFencesOldFootersAndRepeatedCursors(repeatsCurso
     await history.moreSearch(expectedCursor: "next-search-page")
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/search") }.count == 2)
 }
+
+@Test @MainActor func manualRefreshSharesResultAndSurvivesGestureCancellation() async throws {
+    let reads = HTTPRecoveryActiveReadCounter()
+    let wire = HistoryWireFixture { request in
+        let body = try? JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
+        if body?["command"] as? String == "status" {
+            _ = reads.next()
+            return (200, Data(#"{"success":true,"playback":{"is_playing":false},"backend_available":true}"#.utf8), 0.15)
+        }
+        return (200, Data(#"{"success":true}"#.utf8), 0)
+    }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model(); defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    let gesture = Task { await model.refreshNowPlaying() }
+    for _ in 0..<100 where reads.value == 0 { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(reads.value == 1)
+    gesture.cancel()
+    let toolbar = Task { await model.refreshNowPlaying() }
+    #expect(await gesture.value)
+    #expect(await toolbar.value)
+    #expect(reads.value == 1)
+    #expect(!model.isRefreshing)
+    #expect(model.pairingStatus == .paired)
+}
+
+@Test @MainActor func manualRefreshWaitsForBusyRefreshInsteadOfReportingFailure() async throws {
+    let wire = HistoryWireFixture { _ in (200, Data(#"{"success":true}"#.utf8), 0) }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model(); defer { defaults.removePersistentDomain(forName: name) }
+    model.isDemoMode = true
+    model.isRefreshing = true
+    let refresh = Task { await model.refreshNowPlaying() }
+    await Task.yield()
+    model.isRefreshing = false
+    #expect(await refresh.value)
+    #expect(!model.isRefreshing)
+}
+
+@Test @MainActor func manualRefreshStillReportsRealTransportFailure() async throws {
+    let wire = HistoryWireFixture { _ in throw URLError(.cannotConnectToHost) }
+    defer { wire.close() }
+    let (model, defaults, name) = wire.model(); defer { defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    #expect(await model.refreshNowPlaying() == false)
+    #expect(!model.isRefreshing)
+}

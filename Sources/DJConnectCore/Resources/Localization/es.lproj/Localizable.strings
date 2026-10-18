@@ -1415,3 +1415,5 @@
 "ui.device_stt.unavailable" = "El reconocimiento de voz local de Apple no está disponible para este idioma o no tiene permiso. No se ha enviado audio.";
 
 "ui.device_stt.failed" = "No se pudo transcribir la grabación localmente o cambió el contexto del chat. Inténtalo de nuevo. No se ha enviado audio.";
+
+"appModel.now.playing.updating" = "Actualizando la reproducción actual…";

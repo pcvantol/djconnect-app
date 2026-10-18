@@ -3428,6 +3428,7 @@ struct NowPlayingView: View {
     }
 
     private func refreshNowPlayingWithToast() async {
+        statusToast = DJConnectVisualNotice(text: localizedKey(model.language, "appModel.now.playing.updating"), systemImage: "music.note")
         let didRefresh = await model.refreshNowPlaying()
         showStatusToast(
             didRefresh ? localizedKey(model.language, "appModel.now.playing.updated") : localizedKey(model.language, "appModel.now.playing.update.failed"),
@@ -9063,7 +9064,7 @@ private struct DJSessionView: View {
                         .ignoresSafeArea(.container)
                     SessionTimelineScreen(model: model, sessionID: session.id, activeSession: session,
                                           openQueueAction: openQueueAction,
-                                          refreshAction: { Task { await refreshNowPlayingWithToast() } })
+                                          refreshAction: { await refreshNowPlayingWithToast() })
                 } else {
                 DJConnectCanvasBackground()
                 ScrollView {
@@ -9677,6 +9678,7 @@ private struct IOSNowPlayingView: View {
     }
 
     private func refreshNowPlayingWithToast() async {
+        statusToast = DJConnectVisualNotice(text: localizedKey(model.language, "appModel.now.playing.updating"), systemImage: "music.note")
         let didRefresh = await model.refreshNowPlaying()
         showStatusToast(
             didRefresh ? localizedKey(model.language, "appModel.now.playing.updated") : localizedKey(model.language, "appModel.now.playing.update.failed"),
