@@ -1,3 +1,16 @@
+## 2026-10-18 — Confirm disable and delete app diagnostics
+
+Owner follow-up supersedes PR119's retained-history behavior for an explicit
+confirmed disable action. The Settings picker keeps the current level until
+confirmation; Cancel changes no preference or data. Confirm deletes the app's
+persistent diagnostic file, sets the local level tooff, and clears visible
+entries without emitting a replacement clear marker. A deletion error leaves
+logging enabled and presents an inline localized retry explanation. All four
+confirmation/error strings exist in five languages. System/server logs and
+Profile data are outside this app-file operation. Unconfirmed preference changes
+and startup never delete logs. Six focused actual-file tests pass0.224s and
+1318-key/five-language validation passes; full/native checks follow separately.
+
 ## 2026-10-18 — Disabled app diagnostics by default
 
 Owner requests an additional Disabled log level, default selection, and hiding

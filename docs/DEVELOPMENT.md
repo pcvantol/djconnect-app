@@ -119,8 +119,11 @@ Mode, returns to Now Playing, and reopens the pairing sheet.
 
 Log Level defaults to Disabled; no new app diagnostic entries are emitted or
 persisted in that mode, and Logs is hidden from More and the Mac sidebar. Existing
-explicit logging preferences and retained diagnostic files are preserved. Choose
-Info, Warning, Error or Debug in Settings to show Logs again. Set Log Level to
+explicit logging preferences are preserved. Selecting Disabled while logging is
+enabled asks for confirmation before switching off and deleting all visible and
+saved app diagnostic logs. Cancelling keeps the current level and logs; a delete
+failure leaves logging enabled and shows an error. Choose Info, Warning, Error
+or Debug in Settings to show Logs again. Set Log Level to
 Debug when validating pairing or backend flows.
 Expected debug coverage includes user actions, navigation/recovery flows, Home
 Assistant API calls, and iPhone-mediated Watch proxy actions. API log lines

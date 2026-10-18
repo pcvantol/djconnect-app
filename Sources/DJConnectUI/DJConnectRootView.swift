@@ -16904,6 +16904,8 @@ struct SettingsView: View {
     var returnToNowPlaying: () -> Void = {}
     @Environment(\.openURL) private var openURL
     @State private var isShowingResetPairingConfirmation = false
+    @State private var isShowingLoggingDisableConfirmation = false
+    @State private var diagnosticLogClearFailed = false
     @State private var isShowingMusicDNADisableConfirmation = false
     @State private var isShowingMusicDNAClearConfirmation = false
     @State private var askDJHistoryExportDocument: MusicDNAJSONDocument?
@@ -16920,6 +16922,17 @@ struct SettingsView: View {
     @State private var settingsFileExporterFilename = "DJConnect-export.json"
     @State private var musicDNAImportPreview: DJConnectMusicDNAImportPreview?
     @State private var musicDNAImportStatus: MusicDNAImportStatus = .ready
+
+    private var logLevelSelection: Binding<String> {
+        Binding(get: { model.logLevel }, set: { next in
+            diagnosticLogClearFailed = false
+            if next == "off", model.isDiagnosticLoggingEnabled {
+                isShowingLoggingDisableConfirmation = true
+            } else {
+                model.logLevel = next
+            }
+        })
+    }
 
     private var musicDNAEnabled: Bool {
         model.musicDNAProfileResponse?.enabled == true
@@ -17223,7 +17236,7 @@ struct SettingsView: View {
                         .djMusicDNASettingsListRow()
                     }
                     LabeledContent(localizedKey(model.language, "ui.log.level")) {
-                        Picker(localizedKey(model.language, "ui.log.level"), selection: $model.logLevel) {
+                        Picker(localizedKey(model.language, "ui.log.level"), selection: logLevelSelection) {
                             Text(localizedKey(model.language, "ui.log.disabled")).tag("off")
                             Text("Debug").tag("debug")
                             Text("Info").tag("info")
@@ -17233,6 +17246,12 @@ struct SettingsView: View {
                         .labelsHidden()
                     }
                     .djMusicDNASettingsListRow()
+                    if diagnosticLogClearFailed {
+                        Text(localizedKey(model.language, "ui.log.disable.failed"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .djMusicDNASettingsListRow()
+                    }
                 }
                 .djSettingsListRowBackground()
 
@@ -17396,6 +17415,18 @@ struct SettingsView: View {
             .ignoresSafeArea(edges: .bottom)
             .navigationTitle(localizedKey(model.language, "ui.settings"))
             .accessibilityIdentifier("screen-settings")
+            .alert(
+                localizedKey(model.language, "ui.log.disable.title"),
+                isPresented: $isShowingLoggingDisableConfirmation
+            ) {
+                Button(localizedKey(model.language, "ui.cancel"), role: .cancel) {}
+                Button(localizedKey(model.language, "ui.log.disable.confirm"), role: .destructive) {
+                    do { try model.disableDiagnosticLoggingAndClear() }
+                    catch { diagnosticLogClearFailed = true }
+                }
+            } message: {
+                Text(localizedKey(model.language, "ui.log.disable.message"))
+            }
             .alert(
                 localizedKey(model.language, "ui.pair.app.again.c2c7b2"),
                 isPresented: $isShowingResetPairingConfirmation

@@ -353,6 +353,10 @@
 "ui.wakeword.status" = "Wakeword status";
 "ui.log.level" = "Log Level";
 "ui.log.disabled" = "Disabled";
+"ui.log.disable.title" = "Disable logging?";
+"ui.log.disable.message" = "All visible and saved diagnostic logs on this device will be deleted.";
+"ui.log.disable.confirm" = "Disable and clear";
+"ui.log.disable.failed" = "The logs could not be cleared. Logging remains enabled. Try again.";
 "ui.warning" = "Warning";
 "ui.error" = "Error";
 "ui.how.it.works" = "How It Works";

@@ -353,6 +353,10 @@
 "ui.wakeword.status" = "Wakeword status";
 "ui.log.level" = "Log Level";
 "ui.log.disabled" = "Désactivé";
+"ui.log.disable.title" = "Désactiver la journalisation ?";
+"ui.log.disable.message" = "Tous les journaux de diagnostic affichés et enregistrés sur cet appareil seront supprimés.";
+"ui.log.disable.confirm" = "Désactiver et effacer";
+"ui.log.disable.failed" = "Les journaux n’ont pas pu être effacés. La journalisation reste activée. Réessayez.";
 "ui.warning" = "Warning";
 "ui.error" = "Error";
 "ui.how.it.works" = "How It Works";

@@ -9399,7 +9399,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func disabledDiagnosticLoggingPersistsWithoutAppendingOrDeletingHistory() throws {
+@Test func diagnosticLogPreferenceAloneCannotDeleteHistoryWithoutConfirmation() throws {
     let name = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: name))
     defaults.set("info", forKey: "DJConnectLogLevel")
@@ -9427,6 +9427,39 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(restored.isDiagnosticLoggingEnabled)
     restored.apply(error: .server(statusCode: 500, message: "logging-enabled-again"))
     #expect(restored.diagnosticLogLines.contains { $0.text.contains("logging-enabled-again") })
+}
+
+@MainActor
+@Test func confirmedDiagnosticLoggingDisableDeletesAllHistoryAndStaysOff() throws {
+    let name = "DJConnectTests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defaults.set("info", forKey: "DJConnectLogLevel")
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+    defer {
+        defaults.removePersistentDomain(forName: name)
+        try? FileManager.default.removeItem(at: directory)
+    }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false, diagnosticLogDirectory: directory)
+    model.apply(error: .server(statusCode: 500, message: "before-confirmed-disable"))
+    let file = directory.appendingPathComponent("djconnect.log")
+    #expect(try String(contentsOf: file, encoding: .utf8).contains("before-confirmed-disable"))
+    try model.disableDiagnosticLoggingAndClear()
+    #expect(model.logLevel == "off" && !model.isDiagnosticLoggingEnabled)
+    #expect(model.diagnosticLogLines.isEmpty)
+    #expect(!model.diagnosticExportText().contains("before-confirmed-disable"))
+    model.apply(error: .server(statusCode: 500, message: "after-confirmed-disable"))
+    model.recordPresentationState("after-confirmed-disable")
+    #expect(!FileManager.default.fileExists(atPath: file.path))
+    let restored = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(),
+        startBackgroundTasks: false, diagnosticLogDirectory: directory)
+    #expect(restored.logLevel == "off" && restored.diagnosticLogLines.isEmpty)
+    #expect(!FileManager.default.fileExists(atPath: file.path))
+    restored.logLevel = "info"
+    restored.apply(error: .server(statusCode: 500, message: "fresh-enabled-log"))
+    let fresh = try String(contentsOf: file, encoding: .utf8)
+    #expect(fresh.contains("fresh-enabled-log"))
+    #expect(!fresh.contains("before-confirmed-disable") && !fresh.contains("after-confirmed-disable"))
 }
 
 @MainActor

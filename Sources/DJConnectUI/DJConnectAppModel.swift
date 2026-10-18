@@ -13319,6 +13319,16 @@ public final class DJConnectAppModel: ObservableObject {
         log(.info, "Diagnostic log cleared")
     }
 
+    /// Called only after the user confirms disabling and deleting app logs.
+    public func disableDiagnosticLoggingAndClear() throws {
+        if let diagnosticLogFileURL,
+           FileManager.default.fileExists(atPath: diagnosticLogFileURL.path) {
+            try FileManager.default.removeItem(at: diagnosticLogFileURL)
+        }
+        logLevel = "off"
+        diagnosticLogLines.removeAll()
+    }
+
     public func diagnosticExportText() -> String {
         let tokenState = ((try? tokenStore.loadToken())?.isEmpty == false) ? "present" : "missing"
         let url = Self.normalizedHomeAssistantURL(from: homeAssistantURL)
