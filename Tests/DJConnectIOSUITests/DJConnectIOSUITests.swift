@@ -23,8 +23,10 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertTrue(composer.exists)
         composer.tap(); composer.typeText("Vertel over deze muziek")
         app.buttons["ask-dj-composer-send"].tap()
-        app.swipeDown()
-        XCTAssertTrue(card.exists)
+        let backToCurrent = app.buttons["session-jump-top"].firstMatch
+        if backToCurrent.waitForExistence(timeout: 5), backToCurrent.isHittable { backToCurrent.tap() }
+        for _ in 0..<8 where !avatar.exists { app.swipeDown() }
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
         XCTAssertEqual(avatars.count, 1)
         XCTAssertTrue(card.descendants(matching: .any)["session-dj-avatar"].firstMatch.exists)
         XCTAssertEqual(avatar.frame.width, before.width, accuracy: 1)
