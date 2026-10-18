@@ -11,9 +11,9 @@ Retained diagnostic files are preserved. No Profile/backend contract changes.
 Existing persistence/redaction tests explicitly opt in; screenshot walks that
 include Logs opt in through their launch argument domain. New actual-file
 regressions cover defaultoff/no-file and off persistence/no append/no deletion/
-re-enable. Six focused tests pass0.249s; Mac build-for-testing and1314-key
-five-language validation pass. Remaining full/native checks and ordinary
-installation readbacks follow separately.
+re-enable. Six focused tests pass0.249s; full849tests/10suites PASS91.212s;
+Mac and iOS build-for-testing,1314-key five-language validation and work-register/
+diff checks pass. Ordinary40341 build/installation readbacks follow separately.
 
 ## 2026-10-18 — UI consolidation and bounded cleanup
 
