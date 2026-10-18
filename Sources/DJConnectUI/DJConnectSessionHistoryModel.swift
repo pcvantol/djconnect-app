@@ -108,6 +108,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     @Published public private(set) var available = false
+    @Published public private(set) var summaryAvailable = false
     @Published public private(set) var bulkDeletionAvailable = false
     @Published public private(set) var bulkDeletionBusy = false
     private var archiveGeneration = UUID()
@@ -323,6 +324,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
                 captured = epoch
             }
             artworkAvailable = caps.artworkAvailable
+            summaryAvailable = caps.summaryAvailable
             deletionAvailable = caps.deletionAvailable
             bulkDeletionAvailable = caps.bulkDeletionAvailable
             available = caps.available; searchAvailable = caps.searchAvailable; momentInsightAvailable = caps.momentInsightAvailable
@@ -344,6 +346,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func reset() {
+        summaryAvailable = false
         deletionAvailable = false; bulkDeletionAvailable = false; bulkDeletionBusy = false; archiveGeneration = UUID(); archiveResponseEpoch = archiveGeneration; deletingSessionID = nil; deletionGeneration = UUID()
         historyContractVersion = 1
         historyNeedsUpgrade = false
@@ -368,6 +371,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func suspend(preservingVoicePreference: Bool = false, cancelPreparation: Bool = true) {
+        summaryAvailable = false
         deletionAvailable = false; bulkDeletionAvailable = false; bulkDeletionBusy = false; archiveGeneration = UUID(); archiveResponseEpoch = archiveGeneration; deletingSessionID = nil; deletionGeneration = UUID()
         if preservingVoicePreference { host?.invalidateActiveVoiceInventory() }
         else { host?.discardActiveVoicePreference() }

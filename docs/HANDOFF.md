@@ -1,3 +1,23 @@
+## 2026-10-18 — Apple history summary consumer
+
+The next existing-lane slice `HISTORY::APPLE::SUMMARY` consumes Core's already
+protected-delivered summary1 projection; no producer contract or Core source
+change. Owner list/archive header now render registered observations, semantic
+publication counts, optional retained counts and predominant Mood, gated by
+exact capability/version. Revision scalar types/as_of/state/bases/coverage are
+validated; malformed optional data never hides a valid Session. No local totals,
+new requests or passive/shared export. Full suite840/10PASS91.736s, focused6tests/
+29casesPASS,1313keys/fivelanguagesPASS; signed ordinary Mac/iOS/Watch/widgets40336buildsPASS. Installed/read back and
+opened40336 on iPad/MacBook/Mac mini; old Mac apps preserved, pairing retained.
+iPhone/Watch unavailable/last40331.
+Native visual/paired-device rendering and protected delivery remain open.
+See [scope and qualification](feedback/APPLE_HISTORY_SUMMARY_ADOPTION_20261018.md).
+
+Prior source work is merged via PR115/main `abcb7316d3189123302c7bddecf1815a3284ab56`.
+All candidate checks and the ordinary main CI tests/builds passed. Separate main
+native coverage could not initialize its IDE session; full formal release evidence
+remains unqualified. No SIP/security bypass; profiling stays owner-deferred.
+
 ## 2026-10-18 — Saved-session deletion consumer and pending UI follow-ups
 
 Single and bulk manual archive deletion are implemented as capability-gated Apple

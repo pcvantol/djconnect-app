@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "as_of": "2026-10-18 Europe/Amsterdam; ordinary40334 iPad/MacBook/Mac mini; history200 contract repair physically qualified; original404 and separate physical/audio/performance findings remain open",
+  "as_of": "2026-10-18 Europe/Amsterdam; prior sourcePR115 merged; ordinary40336 installed on three reachable devices; new history-summary consumer qualification",
   "owning_lane": "https://github.com/pcvantol/djconnect-app/issues/87",
-  "writer": "Existing Apple writer; sourcePR113 protected-merged; codex/apple-40331-finalization changes documentation/evidence only;7recovery duplicate paths retained",
-  "head": "7af44f735bced06a30b2c2b975d9a7a9e43e732c (reconciled main baseline);40334 repair in current worktree",
-  "installed_baseline": "iPad/MacBook/Mac mini ordinary40334 installed, actual versions read back and apps launched; strict signatures PASS, no diagnostic test bundles. Native paired history/reopen PASS on iPad and MacBook; Mac mini SKIP/unpaired. iPhone/Watch last confirmed40331, not updated in this repair. Physical USB profiling remains owner-deferred.",
+  "writer": "Existing sole Apple writer; seven pre-existing recovery duplicates preserved; no Core writer changes",
+  "head": "abcb7316d3189123302c7bddecf1815a3284ab56 (PR115 protected source-main); history summary consumer on codex/session-history-summary",
+  "installed_baseline": "iPad/MacBook/Mac mini ordinary40336 installed, versions read back and apps opened; strict signatures PASS, zero embedded diagnostic tests; old Mac apps preserved. Actual paired history/reopen repair remains the earlier40334 proof; summary rendering/native visual acceptance NOT_QUALIFIED. iPhone/Watch unavailable and last confirmed40331. Physical profiling remains owner-deferred.",
   "items": [
     {
       "id": "lan-websocket",
@@ -175,12 +175,12 @@
       "topic": "Gereviewde bronoplevering",
       "status": "partial",
       "owner": "Apple",
-      "evidence": "PR111 protected merged b47d17a3, exact qualified tree422cf117.784portable/784native tests and unsigned Applebuilds PASS; all premergechecks/Owner Authorization PASS. Both original checkouts clean main; WIP18/155paths preserved in stashes plus verified archives. MainCI39061192756/native coverage PASS; both artifact digests and coverage main SHA independently verified. Formal39061762379 refused unqualified evidence before publication.",
+      "evidence": "PR111 protected merged b47d17a3, exact qualified tree422cf117.784portable/784native tests and unsigned Applebuilds PASS; all premergechecks/Owner Authorization PASS. Both original checkouts clean main; WIP18/155paths preserved in stashes plus verified archives. MainCI39061192756/native coverage PASS; both artifact digests and coverage main SHA independently verified. Formal39061762379 refused unqualified evidence before publication. Current follow-ups PR115 protected merged abcb731; full candidate CI PASS and ordinary main CI job PASS. Native post-merge coverage could not initialize XCTest; formal release evidence remains unqualified.",
       "remaining": [
-        "Main CI/formal evidence and separate documentary Finalization pending; central collector truncates369files to300.",
-        "Independent current full technical/UX review is absent; original functional/device/provider acceptance stays open."
+        "Native main coverage/IDE-session environment repair and formal post-merge evidence qualification remain open.",
+        "Independent full technical/UX and original functional/device/provider acceptance remain open."
       ],
-      "next_action": "Complete exact-main evidence and documentary Finalization; keep independent review and physical acceptance separately open."
+      "next_action": "Preserve exact source-main receipt; repair native test environment without weakening qualification or bypassing SIP."
     },
     {
       "id": "iphone-output-transfer",
@@ -320,6 +320,17 @@
         "Core producer implementation/fixtures/exact qualified pin, integrated native confirmation and installed activation remain pending. No personal sessions deleted for tests."
       ],
       "next_action": "Qualify against Core producer fixtures before native/device enablement."
+    },
+    {
+      "id": "session-history-summary",
+      "topic": "Samenvatting van eerdere sessies",
+      "status": "partial",
+      "owner": "Apple (Core producer delivered)",
+      "evidence": "Private owner list/detail summary1 consumer; pinned Core ccbb839f fixtures and strict header/metric coherence.840tests/10suitesPASS91.736s; focused6tests/29casesPASS;1313localizationkeysPASS. See APPLE_HISTORY_SUMMARY_ADOPTION_20261018.md.",
+      "remaining": [
+        "Native visual/accessibility and actual paired-device summary acceptance, source review/protected delivery remain open; previous native XCTest startup blocker retained. No full product/hardware acceptance."
+      ],
+      "next_action": "Complete native builds and review; qualify actual paired summary/accessibility without local aggregation or shared-surface export."
     }
   ],
   "qualification": {
@@ -691,6 +702,15 @@
     "deletion_enablement": "NOT_ENABLED: Core producer implementation/fixtures/exact qualified pin absent; capability gates preserved",
     "native_visual": "NOT_QUALIFIED: local native UI runner timed out enabling automation mode before test actions; own run stopped, no blind retry. Manual computer-use tool also cannot start due to symlinked writable-root configuration. Ordinary installed apps retained.",
     "profiling": "OWNER_DEFERRED_UNTIL_TOMORROW",
-    "protected_delivery": "NOT_DELIVERED: current follow-up WIP remains separate from protected40331 source finalization"
+    "protected_delivery": "SOURCE_MERGED_PR115_MAIN_abcb731; candidate checks and ordinary main CI job PASS; native main coverage startup failure, formal release evidence NOT_QUALIFIED"
+  },
+  "history_summary_40336": {
+    "producer": "ccbb839f4e544b3739c31202685d147207e4c289",
+    "report": "APPLE_HISTORY_SUMMARY_ADOPTION_20261018.md",
+    "builds": "signed ordinaryMac/iOS includingWatch/widgets PASS",
+    "installation": "iPad/MacBook/Macmini40336 readback/launch PASS; no embedded tests; prior Mac apps preserved",
+    "native_visual": "NOT_QUALIFIED; prior XCTest IDE-session startup blocker remains",
+    "protected_delivery": "NOT_RUN this slice; new source branch",
+    "privacy": "owner-only; no additional reads/local totals/passive export"
   }
 }

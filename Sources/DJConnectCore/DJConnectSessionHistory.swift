@@ -74,6 +74,7 @@ public struct DJConnectSavedSession: Codable, Equatable, Sendable, Identifiable 
     public let revision: DJConnectHistoryRevision
     public let readOnly: Bool
     public let historyCoverage: String
+    public let summary: DJConnectSessionHistorySummary?
     public var id: String { sessionID }
     public var isContractValid: Bool {
         !sessionID.isEmpty && !revision.value.isEmpty && DJConnectHistoryEntry.date(createdAt) != nil &&
@@ -83,7 +84,35 @@ public struct DJConnectSavedSession: Codable, Equatable, Sendable, Identifiable 
     enum CodingKeys: String, CodingKey {
         case sessionID = "session_id", lifecycleStatus = "lifecycle_status", createdAt = "created_at"
         case startedAt = "started_at", endedAt = "ended_at", interruptedAt = "interrupted_at"
-        case revision, readOnly = "read_only", historyCoverage = "history_coverage"
+        case revision, summary, readOnly = "read_only", historyCoverage = "history_coverage"
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        sessionID = try c.decode(String.self, forKey: .sessionID)
+        lifecycleStatus = try c.decode(String.self, forKey: .lifecycleStatus)
+        createdAt = try c.decode(String.self, forKey: .createdAt)
+        startedAt = try c.decode(String.self, forKey: .startedAt)
+        endedAt = try c.decode(String.self, forKey: .endedAt)
+        interruptedAt = try c.decode(String.self, forKey: .interruptedAt)
+        revision = try c.decode(DJConnectHistoryRevision.self, forKey: .revision)
+        readOnly = try c.decode(Bool.self, forKey: .readOnly)
+        historyCoverage = try c.decode(String.self, forKey: .historyCoverage)
+        // An unsupported/malformed optional summary must not hide an otherwise valid Session.
+        if let candidate = try? c.decode(DJConnectSessionHistorySummary.self, forKey: .summary),
+           candidate.isCoherent(headerRevision: try c.superDecoder(forKey: .revision), readOnly: readOnly) {
+            summary = candidate
+        } else { summary = nil }
+    }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(sessionID, forKey: .sessionID); try c.encode(lifecycleStatus, forKey: .lifecycleStatus)
+        try c.encode(createdAt, forKey: .createdAt); try c.encode(startedAt, forKey: .startedAt)
+        try c.encode(endedAt, forKey: .endedAt); try c.encode(interruptedAt, forKey: .interruptedAt)
+        try c.encode(readOnly, forKey: .readOnly); try c.encode(historyCoverage, forKey: .historyCoverage)
+        if let summary {
+            try summary.encodeHeaderRevision(to: c.superEncoder(forKey: .revision))
+            try c.encode(summary, forKey: .summary)
+        } else { try c.encode(revision, forKey: .revision) }
     }
 }
 
@@ -367,6 +396,9 @@ public struct DJConnectSessionHistoryCapabilities: Decodable, Sendable {
     public let capabilities: [String: Bool]?
     public let contractVersions: [String: Int]?
     public var historyContractVersion: Int { contractVersions?["session_history_entries"] == 2 ? 2 : 1 }
+    public var summaryAvailable: Bool {
+        available && capabilities?["session_history_summary"] == true && contractVersions?["session_history_summary"] == 1
+    }
     public var bulkDeletionAvailable: Bool {
         available && capabilities?["session_history_bulk_delete"] == true && contractVersions?["session_history_bulk_delete"] == 1
     }

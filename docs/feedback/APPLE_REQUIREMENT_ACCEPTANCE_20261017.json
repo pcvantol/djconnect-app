@@ -17,7 +17,7 @@
     "CLOSED_BOUNDED": 22,
     "OPEN": 2,
     "PARKED": 1,
-    "PARTIAL": 21,
+    "PARTIAL": 22,
     "SUPERSEDED": 1
   },
   "requirements": [
@@ -428,6 +428,14 @@
       "source": "Directe gebruikersopdracht18okt2026; Core-owned single/bulk contracts selected before consumer implementation.",
       "evidence": "Rode prullenbak direct na zoeken; server snapshot met exact aantal, nuldoelen zonder POST, één UUIDv7-mutatie; active Flow behouden en na-snapshot sessie herladen. Consumer checks include deferred timeline/profile-history races. See APPLE_SAVED_SESSION_DELETION_20261018.md. Consumer qualification: 8 tests / 43 cases; source only.",
       "remaining": "Core producer implementation/fixtures/exact qualified pin, integrated native confirmation and installed activation remain pending. No personal sessions deleted for tests."
+    },
+    {
+      "id": "session-history-summary",
+      "status": "PARTIAL",
+      "requirement": "Privé server-owned historiesamenvatting met eerlijke aantallen, dekking en overheersende mood",
+      "source": "User next-lane-slice continuation; HISTORY::APPLE::SUMMARY; delivered Core source ccbb839f.",
+      "evidence": "Private owner list/detail summary1 consumer; pinned Core ccbb839f fixtures and strict header/metric coherence.840tests/10suitesPASS91.736s; focused6tests/29casesPASS;1313localizationkeysPASS. See APPLE_HISTORY_SUMMARY_ADOPTION_20261018.md.",
+      "remaining": "Native visual/accessibility and actual paired-device summary acceptance, source review/protected delivery remain open; previous native XCTest startup blocker retained. No full product/hardware acceptance."
     }
   ],
   "execution_feedback_40258": {
