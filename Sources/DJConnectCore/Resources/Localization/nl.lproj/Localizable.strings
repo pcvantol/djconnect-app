@@ -983,9 +983,7 @@
 "ui.session.history.loading" = "Sessies laden";
 "ui.session.history.unavailable" = "De sessiegeschiedenis is tijdelijk niet beschikbaar.";
 "ui.session.history.empty" = "Geen bewaarde sessies";
-"ui.session.history.ended" = "Afgesloten";
 "ui.session.history.interrupted" = "Onderbroken";
-"ui.session.history.more" = "Meer laden";
 "ui.session.history.readonly" = "Alleen-lezen sessie";
 "ui.session.history.no_entries" = "Deze sessie bevat geen bewaarde bijdragen.";
 "ui.session.history.changed" = "De context of historie is gewijzigd. Probeer opnieuw.";
@@ -1052,9 +1050,9 @@
 
 // Native invitation when no DJ Session is active.
 "ui.session.welcome.eyebrow" = "Welkom bij DJConnect";
-"ui.session.welcome.title" = "Jouw muziek.\nJouw moment.";
-"ui.session.welcome.subtitle" = "Geef je muziek de ruimte. Start een sessie en laat de DJ met je meeluisteren.";
-"ui.session.welcome.promise" = "Verhalen bij je muziek. Ruimte voor jouw vragen.";
+"ui.session.welcome.title" = "Jouw muziek.\nJouw DJ.";
+"ui.session.welcome.subtitle" = "Start een DJ-sessie en beleef je muziek op een nieuwe manier.";
+"ui.session.welcome.promise" = "Ontdek de verhalen achter je muziek. Praat met je DJ. Laat je verrassen.";
 "ui.session.welcome.mood" = "Hoe wil je luisteren?";
 
 "ui.session.music_duration" = "Verstreken tijd en totale duur";
@@ -1203,16 +1201,16 @@
 "ui.session.speech.recovery.retained" = "Je kunt de bijdrage blijven lezen en de sessie blijven bedienen.";
 
 // Confirmed active Session Persona; shared backend state.
-"ui.session.persona.title" = "Persona";
+"ui.session.persona.title" = "DJ karakter";
 "ui.session.persona.home_dj" = "Thuis-dj";
 "ui.session.persona.radio_dj" = "Radio-dj";
 "ui.session.persona.club_dj" = "Club-dj";
 "ui.session.persona.festival_dj" = "Festival-dj";
 "ui.session.persona.confirmed" = "Bevestigd";
-"ui.session.persona.pending" = "Persona wijzigen…";
-"ui.session.persona.unavailable" = "Persona is nu niet beschikbaar.";
-"ui.session.persona.conflict" = "De Persona is op een ander apparaat gewijzigd. Controleer de bevestigde keuze en kies opnieuw.";
-"ui.session.persona.failed" = "De wijziging is niet bevestigd. Controleer de actuele Persona voordat je opnieuw probeert.";
+"ui.session.persona.pending" = "DJ karakter wijzigen…";
+"ui.session.persona.unavailable" = "DJ karakter is nu niet beschikbaar.";
+"ui.session.persona.conflict" = "Het DJ karakter is op een ander apparaat gewijzigd. Controleer de bevestigde keuze en kies opnieuw.";
+"ui.session.persona.failed" = "De wijziging is niet bevestigd. Controleer het actuele DJ karakter voordat je opnieuw probeert.";
 
 "ui.session.voice.title" = "Stem";
 "ui.session.voice.scope" = "Je stemkeuze geldt voor jou in deze sessie op dit apparaat.";
@@ -1257,8 +1255,8 @@
 
 // Shared Profile and Session DJ settings contract3.
 "ui.dj_settings.profile" = "Profiel";
-"ui.dj_settings.title" = "DJ stem";
-"ui.dj_settings.persona" = "Persona";
+"ui.dj_settings.title" = "Spraakvoorkeuren";
+"ui.dj_settings.persona" = "DJ karakter";
 "ui.dj_settings.voice" = "Stemvoorkeur";
 "ui.dj_settings.gender" = "Stemgender";
 "ui.dj_settings.mood" = "Stemming";
@@ -1342,7 +1340,7 @@
 // Device-local Apple speech renderer
 "ui.device_speech.title" = "Op dit apparaat · Spraak";
 "ui.device_speech.enabled" = "Gebruik Apple TTS op dit apparaat";
-"ui.device_speech.explanation" = "Deze stemkeuze geldt alleen hier. Automatisch afspelen en Home Assistant-uitvoer blijven afzonderlijk ingesteld.";
+"ui.device_speech.explanation" = "Als je dit aanzet, leest een Apple-stem de DJ-bijdragen op dit apparaat voor. Hieronder kies je de stem, spreeksnelheid en toonhoogte. Automatisch afspelen en afspelen via Home Assistant stel je apart in.";
 "ui.device_speech.gender" = "Stemtype";
 "ui.device_speech.system" = "Automatisch";
 "ui.device_speech.female" = "Vrouwelijk";
@@ -1404,5 +1402,11 @@
 "ui.session.summary.withdrawn" = "Niet meer beschikbaar";
 "ui.session.summary.partial" = "Gedeeltelijk geregistreerd";
 "ui.session.summary.provisional" = "Voorlopig";
-"ui.session.summary.final" = "Definitief";
-"ui.session.summary.scope" = "Aantallen betreffen geregistreerde nummerwisselingen, niet volledig beluisterde nummers of exacte afspeelbeurten.";
+
+"ui.device_stt.enabled" = "Gebruik Apple STT op dit apparaat";
+
+"ui.device_stt.explanation" = "Zet je Ask DJ-opname op dit apparaat om naar tekst en verstuur die automatisch. Er gaat geen audio naar Home Assistant. Deze keuze geldt alleen hier.";
+
+"ui.device_stt.unavailable" = "Apple-spraakherkenning op dit apparaat is niet beschikbaar voor deze taal of heeft geen toestemming. Er is geen audio verstuurd.";
+
+"ui.device_stt.failed" = "De opname kon niet lokaal worden omgezet of de chatcontext is gewijzigd. Probeer opnieuw. Er is geen audio verstuurd.";

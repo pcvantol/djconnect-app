@@ -17,7 +17,7 @@
     "CLOSED_BOUNDED": 22,
     "OPEN": 2,
     "PARKED": 1,
-    "PARTIAL": 22,
+    "PARTIAL": 23,
     "SUPERSEDED": 1
   },
   "requirements": [
@@ -436,6 +436,14 @@
       "source": "User next-lane-slice continuation; HISTORY::APPLE::SUMMARY; delivered Core source ccbb839f.",
       "evidence": "Private owner list/detail summary1 consumer; pinned Core ccbb839f fixtures and strict header/metric coherence.840tests/10suitesPASS91.736s; focused6tests/29casesPASS;1313localizationkeysPASS. See APPLE_HISTORY_SUMMARY_ADOPTION_20261018.md.",
       "remaining": "Native visual/accessibility and actual paired-device summary acceptance, source review/protected delivery remain open; previous native XCTest startup blocker retained. No full product/hardware acceptance."
+    },
+    {
+      "id": "device-stt-local-input",
+      "requirement": "Apparaatgebonden Apple STT-toggle vervangt HA-audio door automatische Ask DJ-tekstinput",
+      "status": "PARTIAL",
+      "source": "Directe owneropdracht18okt2026",
+      "evidence": "Gedeelde iPhone/iPad/Mac-route, lokale herkenningsvereiste, geen audiofallback, vijf talen en3nieuwe gerichte regressiesPASS; full846testsPASS/native40338PASS. APPLE_DEVICE_STT_20261018.md.",
+      "remaining": "Werkelijke Speechtoestemming, ondersteunde lokale taalherkenning, microfoon/tekstverzending en fysieke/offlineacceptatie blijven apart; geen Watch-inputwijziging of beschermde bronreleaseclaim."
     }
   ],
   "execution_feedback_40258": {

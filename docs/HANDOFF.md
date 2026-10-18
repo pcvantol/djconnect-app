@@ -1,4 +1,124 @@
+## 2026-10-18 — UI consolidation and bounded cleanup
+
+Owner requests protected merges and thorough stale test/simulator/branch/worktree
+cleanup, with no residual work hidden by a source merge. PR116 protected merged
+as9f3d0fef; PR117 protected merged as6058ddd9. Each squash tree was verified equal
+to its qualified source tree. The latest UI/preferences/search work passes the
+full847-test/10-suite serial run94.336s; ordinary iOS/Watch/widgets and Mac40339
+builds passed before the unused-localization-only cleanup. Four unreferenced
+history UI keys (More/Ended/Final/counts disclaimer) are retired in all five
+locales;1313keys remain coherent. Active compatibility/security regression tests
+are retained; no test was deleted merely for exercising legacy input.
+
+Fresh local simulator inventory is empty. Two unused old simulator build caches
+were removed (486477824allocated bytes); screenshots, xcresult evidence, source,
+recovery apps and current qualification stages remain intact. Exact cleanup
+receipt: ignored build/qualification/finalization-20261018/cache-cleanup.json.
+Native/source merge does not qualify unavailable devices, provider audio or
+background transport. Existing Core writer is handling the remaining explicit
+producer/installed handoffs; no open acceptance item is silently marked closed.
+
+## 2026-10-18 — iPad and Mac Now Playing card width
+
+The playback card now shares the exact `IOSTrackHero` maximum-width value with
+the artwork above it. The constraint precedes its material/outline, keeping the
+visible bounds aligned in loaded and empty states. iPad playback controls remove
+their redundant inner padding and tighten the five-action row to5pt spacing so
+all44pt targets fit inside the270pt artwork column. The owner follow-up applies
+the same shared artwork width to the Mac playback card before its background
+and outline; its existing controls fit inside that column. iPhone layout is
+not changed. Native ordinary iOS/Watch/widget and Mac builds40339 and localization/diff
+validation pass; physical rotation/window pixel acceptance and installation
+remain open.
+
+## 2026-10-18 — Idle Session refresh presentation
+
+Owner follow-up removes `.refreshable` from the idle DJ-session welcome scroll
+view and removes its idle refresh toolbar action on iPhone/iPad/Mac. The existing
+active Session timeline owns its normal refresh controls. The active refresh
+callback checks Session identity before work and after each awaited read, so a
+late response cannot add a refresh result toast to a different/ended Session.
+Only UI/manual refresh is changed; no connection discovery/polling or history
+refresh policy was changed. Shared compilation and diff hygiene pass. Not yet installed.
+
+## 2026-10-18 — Configured TTS example still open
+
+The owner again requests the agreed TTS example in Speech preferences. It is
+still absent: the local Apple sample is a separate feature. Current Core source
+contains preview implementation/fixtures but its canonical handoff still says
+qualified producer pin and installed HA-dev capability are pending. The existing
+authorized Core writer was asked to complete qualification/delivery and provide
+the exact consumer handoff; Apple has not invented an endpoint or replayed a
+fake turn. See [preview request and current boundary](feedback/APPLE_VOICE_PREVIEW_CONSUMER_REQUEST_20261017.md).
+
+## 2026-10-18 — Speech preferences pop-out follow-up
+
+Owner-requested local WIP after installed40338: shared iPhone/iPad/Mac Voice
+pop-out is now titled "Spraakvoorkeuren" (five languages). Device Apple STT and
+TTS controls are moved from Settings into its distinct device section, below the
+existing output/voice/autoplay choices. An independently observed child keeps
+local controls reactive inside the equatable Profile editor, including without
+a server snapshot/text-only output. Existing private preference keys, input and
+output routing are retained. The TTS explanation now states what enabling it
+does. Shared compilation, six local speech/menu tests (0.422s),1317 localization
+keys and diff hygiene pass. Watch's separate native preferences screen remains unchanged. New build
+installation and physical pop-out/scroll acceptance remain open.
+
+Additional owner follow-up moves the existing voice-activation action, editable
+wake phrase and live activation status from Settings to that same observed
+device section. Existing prompt/permission handling and status explanations are
+reused; normal action labels stay white. Shared compilation and seven existing
+wake-word/local speech/menu tests pass (0.472s). No wake-word behavior or stored
+values are changed by moving the controls. Not yet installed.
+
+## 2026-10-18 — Automatic search pagination follow-up
+
+Owner-requested local WIP after PR118/installed40338: remove both manual
+"Meer laden" controls. Saved Sessions uses its existing lazy cursor footer during
+search as well as ordinary scrolling; the search field shows loading and no-match
+is withheld while more headers remain. Session Flow search buffers up to100
+matches automatically, then prefetches near the end through scrolling or result
+navigation. Cursor/generation/owner checks remain; stale expected cursors do not
+read and a repeated search cursor fails closed instead of looping. Four focused
+tests pass in2.354s, covering stale query/scope, list append/deduplication,
+transient/repeated-cursor/revision-change failures, and automatic search paging.
+Shared UI compilation and diff hygiene pass. Native visual
+acceptance and installation remain open for this follow-up.
+
+## 2026-10-18 — Installation-local Apple STT and UI refinements
+
+Apple STT is opt-in/defaultoff in the device speech section. Both shared
+composers recognize the temporary recording locally, insert the final text into
+the existing draft and submit once. Explicit supported on-device recognition,
+permission/locale checks, no WAV fallback, cancellation and owner/context/draft
+fences are implemented. No backend/Profile contract changed. Speech permission
+purposes and four new labels/errors are translated in five languages.
+Focused3testsPASS; full846/10PASS93.140s without parallel execution. Native signed
+ordinary40338 iOS/Watch/widgets and Mac builds, strict signatures, compiled
+permission strings, zero test bundles and163source/stage inputsPASS. Ordinary40338 installed/read back/opened on iPad/MacBook/Mac mini; previous
+Mac apps and pairing retained, defaultoff toggle. Actual microphone/TCC/STT
+accuracy/offline audio acceptance remains unqualified. Watch's
+own input route is unchanged. See [scope and evidence](feedback/APPLE_DEVICE_STT_20261018.md).
+
 ## 2026-10-18 — Passive contribution grant and publication recovery
+
+Owner follow-up: archive list/detail omit redundant ENDED ("Afgesloten") and
+final-summary ("Definitief") labels. INTERRUPTED remains visible as "Onderbroken";
+provisional summaries retain their qualifier. The redundant counts-scope footer
+is also removed at the owner's request. A white corresponding Mood symbol follows
+the predominant-Mood line in both list rows and details, using the existing
+selector symbols only for a known complete symbolic Mood. These refinements are included in the ordinary40338 products after PR117.
+List artwork/icon tiles now share the More-menu reference radius14pt: queue,
+playlists, saved-session leading tile, Music DNA tracks and Ask DJ media rows,
+including loading/error placeholders. An earlier compile attempt could not complete with only133MiB free; after space
+became available, full846tests and ordinary40338 native builds pass. No generated
+caches, active evidence or installed recovery apps were removed by this work.
+Native visual acceptance remains open.
+Settings follow-up: destructive buttons opt into interactive red-tinted glass
+through the existing button style, respecting the local glass preference and
+Reduce Transparency. Non-destructive settings labels explicitly use white text;
+content and navigation both supply white tint/accent to native controls. Red
+destructive roles and existing confirmations remain intact. Included in40338.
 
 Current Apple WIP is stacked on summary PR116. Two passive1 defects are
 reproduced/fixed: home widgets accept their own grant without locked-screen

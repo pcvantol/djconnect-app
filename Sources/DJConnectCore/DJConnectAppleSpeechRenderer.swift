@@ -82,3 +82,70 @@ private final class DeviceSpeechObservations {
     }
 }
 #endif
+
+#if canImport(Speech) && (os(iOS) || os(macOS))
+@preconcurrency import Speech
+import Foundation
+
+public enum DJConnectDeviceSTTError: Error, Sendable {
+    case permission, unavailable, failed, empty
+}
+
+/// Transient file recognition. Audio must stay on this device; no network fallback.
+@MainActor public final class DJConnectAppleSpeechTranscriber {
+    private var recognition: SFSpeechRecognitionTask?
+    private var continuation: CheckedContinuation<String, Error>?
+    private var timeout: Task<Void, Never>?
+    private var generation = UUID()
+    public init() {}
+
+    public static func isAvailable(language: String) -> Bool {
+        guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: language)) else { return false }
+        return recognizer.isAvailable && recognizer.supportsOnDeviceRecognition
+    }
+    public func cancel() {
+        finish(generation, result: .failure(CancellationError()))
+    }
+    public func transcribe(url: URL, language: String) async throws -> String {
+        cancel()
+        try Task.checkCancellation()
+        guard SFSpeechRecognizer.authorizationStatus() == .authorized else { throw DJConnectDeviceSTTError.permission }
+        guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: language)),
+              recognizer.isAvailable, recognizer.supportsOnDeviceRecognition else { throw DJConnectDeviceSTTError.unavailable }
+        let id = UUID(); generation = id
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { pending in
+                continuation = pending
+                let request = SFSpeechURLRecognitionRequest(url: url)
+                request.requiresOnDeviceRecognition = true
+                request.shouldReportPartialResults = false
+                request.taskHint = .dictation
+                recognition = recognizer.recognitionTask(with: request) { [weak self] result, error in
+                    let text = result?.isFinal == true ? result?.bestTranscription.formattedString : nil
+                    let failed = error != nil
+                    Task { @MainActor [weak self] in
+                        if let text {
+                            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                            self?.finish(id, result: trimmed.isEmpty ? .failure(DJConnectDeviceSTTError.empty) : .success(trimmed))
+                        } else if failed { self?.finish(id, result: .failure(DJConnectDeviceSTTError.failed)) }
+                    }
+                }
+                timeout = Task { @MainActor [weak self] in
+                    do { try await Task.sleep(for: .seconds(30)) } catch { return }
+                    self?.finish(id, result: .failure(DJConnectDeviceSTTError.failed))
+                }
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in self?.finish(id, result: .failure(CancellationError())) }
+        }
+    }
+    private func finish(_ id: UUID, result: Result<String, Error>) {
+        guard id == generation else { return }
+        generation = UUID()
+        let pending = continuation; continuation = nil
+        timeout?.cancel(); timeout = nil
+        recognition?.cancel(); recognition = nil
+        pending?.resume(with: result)
+    }
+}
+#endif

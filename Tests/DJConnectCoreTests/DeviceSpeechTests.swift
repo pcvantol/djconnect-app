@@ -115,3 +115,19 @@ import Testing
     #expect(!model.canPreviewDeviceSpeech)
     #expect(DJConnectDeviceSpeechPreferences.load(from: defaults).enabled)
 }
+
+@Test @MainActor func deviceSTTPreferenceIsLocalOptInAndCancelsCurrentCapture() throws {
+    let firstName = "device-stt-" + UUID().uuidString, secondName = "device-stt-" + UUID().uuidString
+    let first = try #require(UserDefaults(suiteName: firstName)), second = try #require(UserDefaults(suiteName: secondName))
+    defer { first.removePersistentDomain(forName: firstName); second.removePersistentDomain(forName: secondName) }
+    let model = DJConnectAppModel(defaults: first, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    #expect(!model.deviceSTTEnabled)
+    let operation = model.voiceOperationID
+    model.deviceSTTEnabled = true
+    #expect(model.voiceOperationID != operation)
+    #expect(first.bool(forKey: "DJConnectDeviceSTTEnabled.v1"))
+    let restored = DJConnectAppModel(defaults: first, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    let other = DJConnectAppModel(defaults: second, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    #expect(restored.deviceSTTEnabled && !other.deviceSTTEnabled)
+    #expect(!model.deviceSpeechPreferences.enabled && !model.localResponseAudioEnabled)
+}

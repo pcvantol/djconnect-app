@@ -5699,3 +5699,106 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     #expect(history.historicalMatches.values.flatMap { $0 }.isEmpty)
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/delete_all") }.count == 1)
 }
+
+@Test @MainActor func deviceSTTSubmitsOneTextTurnAndNeverAnAudioRequest() async throws {
+    let receipt = try historyObject()
+    let history = try historyData(try #require(receipt["later_historical_answer"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.httpMethod == "POST" { return (503, Data(), 0) }
+        return (200, history, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    model.deviceSTTEnabled = true
+    let context = DJConnectConversationContext(sessionID: model.activeDJSession?.sessionID, selectedEntry: model.sessionHistory.selectedEntry)
+    let operation = model.voiceOperationID
+    model.acceptDeviceSTTTranscript("  Speel Nirvana  ", operation: operation,
+        historyEpoch: model.sessionHistory.responseEpoch, context: context, originalDraft: "", captureLanguage: model.language)
+    try await Task.sleep(for: .milliseconds(150))
+    let posts = fixture.requests.filter { $0.httpMethod == "POST" }
+    #expect(posts.count == 1)
+    let body = try presenceRequestBody(#require(posts.first))
+    let payload = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+    #expect(payload["text"] as? String == "Speel Nirvana")
+    #expect(posts.allSatisfy { !$0.url!.path.hasSuffix("/voice") && $0.value(forHTTPHeaderField: "Content-Type")?.contains("json") == true })
+    #expect(model.askDJDraft.isEmpty)
+    let before = fixture.requests.count
+    model.acceptDeviceSTTTranscript("Speel Nirvana", operation: operation, historyEpoch: model.sessionHistory.responseEpoch,
+        context: context, originalDraft: "", captureLanguage: model.language)
+    await model.uploadRecordedVoiceWAV(Data([82,73,70,70]), operation: model.voiceOperationID, historyEpoch: model.sessionHistory.responseEpoch)
+    #expect(fixture.requests.count == before)
+}
+
+@Test @MainActor func deviceSTTRejectsStaleContextEmptyOrEditedDraftWithoutSending() async throws {
+    let fixture = HistoryWireFixture { _ in (503, Data(), 0) }; defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    model.deviceSTTEnabled = true
+    let context = DJConnectConversationContext(sessionID: model.activeDJSession?.sessionID, selectedEntry: model.sessionHistory.selectedEntry)
+    let operation = model.voiceOperationID, epoch = model.sessionHistory.responseEpoch, language = model.language
+    model.askDJDraft = "Keep this draft"
+    model.acceptDeviceSTTTranscript("Recognized", operation: operation, historyEpoch: epoch,
+        context: context, originalDraft: "", captureLanguage: language)
+    #expect(model.askDJDraft == "Keep this draft")
+    for (text, op, ep, ctx, lang) in [
+        (" ", operation, epoch, context, language),
+        ("Recognized", UUID(), epoch, context, language),
+        ("Recognized", operation, UUID(), context, language),
+        ("Recognized", operation, epoch, DJConnectConversationContext(sessionID: "different-session"), language),
+        ("Recognized", operation, epoch, context, "changed-language")
+    ] {
+        model.acceptDeviceSTTTranscript(text, operation: op, historyEpoch: ep, context: ctx,
+            originalDraft: "Keep this draft", captureLanguage: lang)
+    }
+    model.deviceSTTEnabled = false
+    model.acceptDeviceSTTTranscript("Recognized", operation: model.voiceOperationID, historyEpoch: epoch,
+        context: context, originalDraft: "Keep this draft", captureLanguage: language)
+    #expect(model.askDJDraft == "Keep this draft")
+    #expect(fixture.requests.isEmpty)
+}
+
+@Test(arguments: [false, true]) @MainActor
+func sessionSearchAutomaticPagingFencesOldFootersAndRepeatedCursors(repeatsCursor: Bool) async throws {
+    let receipt = try historyObject()
+    let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
+    let entries = try #require(timeline["entries"] as? [[String: Any]])
+    let sessionID = try #require(receipt["session_id"] as? String)
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let first = try historyData(["success":true,"schema_version":1,"session_id":sessionID,"query":"music","revision":"6:0:0",
+        "matches":[],"returned_count":0,"complete":false,"next_cursor":"next-search-page","normalization":"NFKC-casefold","highlight_units":"utf16"])
+    var final: [String: Any] = ["success":true,"schema_version":1,"session_id":sessionID,"query":"music","revision":"6:0:0",
+        "matches":entries,"returned_count":entries.count,"complete":!repeatsCursor,"normalization":"NFKC-casefold","highlight_units":"utf16"]
+    if repeatsCursor { final["next_cursor"] = "next-search-page" }
+    let finalData = try historyData(final)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/search") {
+            let cursor = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "cursor" })?.value
+            return (200, cursor == nil ? first : finalData, 0)
+        }
+        return (200, profile, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare()
+    history.search(sessionID: sessionID, query: "music")
+    for _ in 0..<200 {
+        if !history.searchLoading { break }
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(history.searchNextCursor == "next-search-page")
+    await history.moreSearch(expectedCursor: "old-footer")
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/search") }.count == 1)
+    await history.moreSearch(expectedCursor: "next-search-page")
+    if repeatsCursor {
+        #expect(history.searchErrorKey != nil && history.searchNextCursor == nil)
+    } else {
+        #expect(history.searchComplete && !history.searchMatches.isEmpty && history.searchNextCursor == nil)
+    }
+    await history.moreSearch(expectedCursor: "next-search-page")
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/search") }.count == 2)
+}

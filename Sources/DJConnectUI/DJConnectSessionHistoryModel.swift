@@ -785,8 +785,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
     }
 
-    public func moreSearch() async {
-        guard !searchLoading, let cursor = searchNextCursor else { return }
+    public func moreSearch(expectedCursor: String? = nil) async {
+        guard !searchLoading, !searchComplete, let cursor = searchNextCursor,
+              expectedCursor == nil || expectedCursor == cursor else { return }
         await loadSearch(sessionID: acceptedSearchSessionID, query: acceptedSearchQuery, cursor: cursor, generation: searchGeneration)
     }
 
@@ -797,7 +798,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         do {
             let page = try await host.withHomeAssistantClient { try await $0.searchSession(sessionID: sessionID, query: query, cursor: cursor) }
             guard captured == epoch, generation == searchGeneration, !Task.isCancelled else { return }
-            guard cursor == nil || searchRevision == page.revision.value else { throw DJConnectError.invalidResponse }
+            guard cursor == nil || (searchRevision == page.revision.value && page.nextCursor != cursor) else { throw DJConnectError.invalidResponse }
             searchMatches = try mergeEntries(cursor == nil ? [] : searchMatches, page.matches.filter { $0.isRetained() })
             searchRevision = page.revision.value; acceptedSearchQuery = query; acceptedSearchSessionID = sessionID
             searchNextCursor = page.nextCursor; searchComplete = page.complete

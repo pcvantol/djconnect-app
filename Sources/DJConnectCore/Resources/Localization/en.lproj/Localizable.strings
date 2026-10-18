@@ -983,9 +983,7 @@
 "ui.session.history.loading" = "Loading sessions";
 "ui.session.history.unavailable" = "Session history is temporarily unavailable.";
 "ui.session.history.empty" = "No saved sessions";
-"ui.session.history.ended" = "Ended";
 "ui.session.history.interrupted" = "Interrupted";
-"ui.session.history.more" = "Load more";
 "ui.session.history.readonly" = "Read-only session";
 "ui.session.history.no_entries" = "This session has no saved contributions.";
 "ui.session.history.changed" = "The context or history has changed. Please try again.";
@@ -1052,9 +1050,9 @@
 
 // Native invitation when no DJ Session is active.
 "ui.session.welcome.eyebrow" = "Welcome to DJConnect";
-"ui.session.welcome.title" = "Your music.\nYour moment.";
-"ui.session.welcome.subtitle" = "Make room for your music. Start a session and let the DJ listen along with you.";
-"ui.session.welcome.promise" = "Stories behind your music. Space for your questions.";
+"ui.session.welcome.title" = "Your music.\nYour DJ.";
+"ui.session.welcome.subtitle" = "Start a DJ session and experience your music in a new way.";
+"ui.session.welcome.promise" = "Discover the stories behind your music. Talk to your DJ. Let yourself be surprised.";
 "ui.session.welcome.mood" = "How do you want to listen?";
 
 "ui.session.music_duration" = "Elapsed time and total duration";
@@ -1203,16 +1201,16 @@
 "ui.session.speech.recovery.retained" = "You can still read the contribution and use the session controls.";
 
 // Confirmed active Session Persona; shared backend state.
-"ui.session.persona.title" = "Persona";
+"ui.session.persona.title" = "DJ character";
 "ui.session.persona.home_dj" = "Home DJ";
 "ui.session.persona.radio_dj" = "Radio DJ";
 "ui.session.persona.club_dj" = "Club DJ";
 "ui.session.persona.festival_dj" = "Festival DJ";
 "ui.session.persona.confirmed" = "Confirmed";
-"ui.session.persona.pending" = "Changing Persona…";
-"ui.session.persona.unavailable" = "Persona is currently unavailable.";
-"ui.session.persona.conflict" = "Persona changed on another device. Check the confirmed choice and choose again.";
-"ui.session.persona.failed" = "The change was not confirmed. Check the current Persona before trying again.";
+"ui.session.persona.pending" = "Changing DJ character…";
+"ui.session.persona.unavailable" = "DJ character is currently unavailable.";
+"ui.session.persona.conflict" = "The DJ character changed on another device. Check the confirmed choice and choose again.";
+"ui.session.persona.failed" = "The change was not confirmed. Check the current DJ character before trying again.";
 
 "ui.session.voice.title" = "Voice";
 "ui.session.voice.scope" = "Voice choice applies to you in this session on this device.";
@@ -1257,8 +1255,8 @@
 
 // Shared Profile and Session DJ settings contract3.
 "ui.dj_settings.profile" = "Profile";
-"ui.dj_settings.title" = "DJ voice";
-"ui.dj_settings.persona" = "Persona";
+"ui.dj_settings.title" = "Speech preferences";
+"ui.dj_settings.persona" = "DJ character";
 "ui.dj_settings.voice" = "Voice preference";
 "ui.dj_settings.gender" = "Voice gender";
 "ui.dj_settings.mood" = "Mood";
@@ -1342,7 +1340,7 @@
 // Device-local Apple speech renderer
 "ui.device_speech.title" = "On this device · Speech";
 "ui.device_speech.enabled" = "Use Apple TTS on this device";
-"ui.device_speech.explanation" = "This voice choice applies only here. Autoplay and Home Assistant output remain separate settings.";
+"ui.device_speech.explanation" = "When enabled, an Apple voice reads DJ contributions aloud on this device. Choose the voice, speaking rate and pitch below. Configure autoplay and playback through Home Assistant separately.";
 "ui.device_speech.gender" = "Voice type";
 "ui.device_speech.system" = "Automatic";
 "ui.device_speech.female" = "Female";
@@ -1404,5 +1402,11 @@
 "ui.session.summary.withdrawn" = "No longer available";
 "ui.session.summary.partial" = "Partially registered";
 "ui.session.summary.provisional" = "Provisional";
-"ui.session.summary.final" = "Final";
-"ui.session.summary.scope" = "Counts refer to registered track changes, not complete listens or exact play counts.";
+
+"ui.device_stt.enabled" = "Use Apple STT on this device";
+
+"ui.device_stt.explanation" = "Convert your Ask DJ recording to text on this device and send it automatically. No audio is sent to Home Assistant. This choice applies only here.";
+
+"ui.device_stt.unavailable" = "On-device Apple speech recognition is unavailable for this language or lacks permission. No audio was sent.";
+
+"ui.device_stt.failed" = "The recording could not be transcribed locally or the chat context changed. Try again. No audio was sent.";

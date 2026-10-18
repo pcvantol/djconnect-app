@@ -1,7 +1,7 @@
 "CFBundleDisplayName" = "DJConnect";
 "NSLocalNetworkUsageDescription" = "DJConnect se conecta a Home Assistant en tu red local.";
 "NSMicrophoneUsageDescription" = "DJConnect graba tu voz para enviar solicitudes musicales push-to-talk a Home Assistant.";
-"NSSpeechRecognitionUsageDescription" = "DJConnect usa el reconocimiento de voz para detectar la frase de activación.";
+"NSSpeechRecognitionUsageDescription" = "DJConnect usa el reconocimiento de voz para transcribir Ask DJ en este dispositivo y detectar la frase de activación.";
 "NSCameraUsageDescription" = "DJConnect usa la cámara solo para escanear el código QR de emparejamiento de Home Assistant o Apple Watch.";
 "Now Playing" = "Sonando ahora";
 "Control playback" = "Controlar reproducción";

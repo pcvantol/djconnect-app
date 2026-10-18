@@ -6,7 +6,7 @@ and deliver to client, configured HA speaker, or both according to confirmed
 Profile announcement_output. Text-only hides voice preference, preview and local
 autoplay; retained-voice explanation stays white. Never attach settings to a bubble.
 
-Current source has no voice-preview route/source grant. Existing speech prepare3
+At the original request, source had no voice-preview operation/source grant. Existing speech prepare3
 accepts only accepted turn/Moment/entry references, never arbitrary caller text.
 Do not fabricate a turn, mutate history, use an unrelated old bubble, call generic
 HA TTS services directly or substitute the Apple system voice.
@@ -27,3 +27,20 @@ Existing sole Core writer must update canonical SYNC_PROMPTS/design first and
 provide the actual wire contract. Apple can then implement typed transport and
 one Preview/Stop control in the popover using the common playback coordinator.
 No inactive Preview button is being shipped as if this capability already exists.
+
+## 18 October follow-up: still not delivered
+
+The owner again reports the agreed example missing from the renamed Speech
+preferences pop-out. Current Core main `28153891` contains a `speech/preview`
+producer and actual operation fixtures. However, its canonical SYNC/product
+handoff still explicitly withholds the qualified producer pin/consumer rollout
+and says the private installed HA-dev build predates it. This is source presence,
+not a qualified installed function. The Apple configured-provider consumer and
+Preview/Stop control are still absent.
+
+The existing authorized Core chat was asked to complete that qualification and
+HA-dev delivery and supply the exact contract/pin plus actual capability proof.
+Apple inspected the existing paired operation and bounded private-audio/playback
+owners for the follow-up. No new endpoint, fake contribution, arbitrary text or
+Apple-voice substitution was added. The separate device-native Apple sample is
+not completion of the configured HA voice preview request.

@@ -4,7 +4,7 @@
   "owning_lane": "https://github.com/pcvantol/djconnect-app/issues/87",
   "writer": "Existing sole Apple writer; seven pre-existing recovery duplicates preserved; no Core writer changes",
   "head": "abcb7316d3189123302c7bddecf1815a3284ab56 (PR115 protected main); summary PR116 head6a7fd8d; passive1 corrections stacked on codex/passive-session-contributions",
-  "installed_baseline": "40337 op iPad, MacBook en Mac mini teruggelezen en heropend; gewone signed builds, vorige Macapps bewaard. iPhone/Watch laatste bevestigde40331, niet opnieuw bereikbaar gekwalificeerd. Geen visuele/backgroundacceptatieclaim.",
+  "installed_baseline": "iPad/MacBook/Mac mini ordinary40338 installed/read back/opened; previous Mac apps/pairing preserved, defaultoff Apple STT. iPhone/Watch last confirmed40331. Actual local recognition, physical UI and background acceptance not claimed.",
   "items": [
     {
       "id": "lan-websocket",
@@ -329,6 +329,18 @@
         "Native visual/accessibility and actual paired-device summary acceptance, source review/protected delivery remain open; previous native XCTest startup blocker retained. No full product/hardware acceptance."
       ],
       "next_action": "Complete native builds and review; qualify actual paired summary/accessibility without local aggregation or shared-surface export."
+    },
+    {
+      "id": "device-stt",
+      "topic": "Apple STT als apparaatgebonden Ask DJ-input",
+      "status": "partial",
+      "owner": "Apple",
+      "evidence": "Defaultoff lokale toggle; native herkenning vereist on-device support in app-taal; gedeelde AskDJ/Sessionmicrofoon stuurt tekst via bestaande composer en send. Geen WAVfallback; epoch/context/draft/taal/cancel begrensd.3gerichte/846volledige testsPASS;1317keys/5talenPASS; signed40338iOS/Mac inclWatch/widgets/signatures/0testbundles/163stageinputsPASS. APPLE_DEVICE_STT_20261018.md. Gewone40338iPad/MacBook/Mac mini geinstalleerd/teruggelezen/heropend; vorigeMacapps bewaard.",
+      "remaining": [
+        "Fysieke microfoon-/Speechtoestemming, daadwerkelijke lokale transcriptie en offline audioacceptatie op ondersteunde talen/devices nog niet gekwalificeerd.",
+        "Watchinput blijft bestaand; geen nieuw backendcontract of Profileinstelling. Beschermde bronoplevering en fysieke UIacceptatie blijven apart."
+      ],
+      "next_action": "Werkelijke Speechtoestemming, lokale transcriptie en offline-audioacceptatie afzonderlijk kwalificeren."
     }
   ],
   "qualification": {
