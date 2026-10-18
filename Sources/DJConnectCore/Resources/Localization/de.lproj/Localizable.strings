@@ -1421,3 +1421,6 @@
 "ui.refresh.updated" = "Aktualisiert";
 
 "ui.refresh.failed" = "Aktualisierung fehlgeschlagen";
+
+"ui.session.start_here.title" = "Deine Session beginnt hier";
+"ui.session.start_here.detail" = "Mach Musik an oder sprich mit deinem DJ. DJConnect erweckt deine Session mit Beiträgen zum Leben, die zu deiner Musik passen.";

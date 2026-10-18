@@ -1,3 +1,10 @@
+## 2026-10-18 — Session start card copy
+
+The pre-playback Session card now says “Je sessie begint hier” with the requested
+Dutch explanation in a smaller body font underneath. All five app languages
+have equivalent copy. This is local to the Session card; the quiet-playing
+state and shared brand sentence retain their separate existing meaning.
+
 ## 2026-10-18 — integral manual refresh consistency
 
 Every iOS/iPadOS/macOS content-refresh gesture and toolbar action now delegates
