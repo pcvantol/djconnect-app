@@ -2,9 +2,9 @@
 
 Owning register: [Apple #87](https://github.com/pcvantol/djconnect-app/issues/87). CLOSED_BOUNDED sluit alleen de genoemde functionele implementatie of bewijslevering af. Parentwerk, gereviewde bronoplevering en toestelacceptatie blijven afzonderlijke grenzen.
 
-Actuele baseline: Ordinary40331 installed and read back on iPhone/iPad/MacBook/Mac mini. Watch unverified (tunnel/authentication failure); USB profiling deferred by owner. Full820tests previous40324 PASS; latest first-play regression PASS0.136s; native iOS/Mac40331 builds PASS. Source finalization underway.
+Actuele baseline: iPhone/iPad/Watch40331 installed, actual bundle versions read back and apps launched. MacBook/Mac mini40331 installed/read back/running, strict deep signatures PASS. Watch retried successfully after owner unlocked/placed near iPhone, previous40311. No physical Watch audio or CPU/GPU/memory acceptance; USB profiling deferred.
 
-Bron: 075895634feca03b5cc068b45a6fa7bfe781762e plus local follow-ups included in40315; not published/merged
+Bron: 803d77c665701fc9fe3d3d5cc8ee0752597343a1; sourcePR113 merged exact reviewed tree; documentary Finalization pending
 
 BLOCKED: 4; CLOSED_BOUNDED: 22; OPEN: 2; PARKED: 1; PARTIAL: 19; SUPERSEDED: 1
 

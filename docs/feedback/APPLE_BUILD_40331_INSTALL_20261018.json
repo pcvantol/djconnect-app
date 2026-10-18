@@ -30,18 +30,20 @@
       "path": "/Applications/DJConnect.app"
     },
     "Watch": {
-      "status": "UNVERIFIED",
-      "candidate": "40331",
-      "install_result": "CoreDevice4000/RemotePairing1001 tunnel negotiation timed out",
-      "macbook_read_result": "CoreDevice4000/RemotePairing1035 Bluetooth authentication failed",
-      "receipt": "/private/tmp/djc-install-40331/watch-install.json",
-      "user_unlock_request": "pending"
+      "before": "40311",
+      "installed": "40331",
+      "launch": "PASS",
+      "receipt": "/private/tmp/djc-install-40331/watch-installed.json",
+      "launch_receipt": "/private/tmp/djc-install-40331/watch-launch.json",
+      "retry_receipt": "/private/tmp/djc-install-40331/watch-install-retry.json",
+      "retry_condition": "Owner confirmed Watch unlocked beside iPhone; existing pairing succeeded, no reset."
     }
   },
   "limits": [
-    "No physical audio or visual acceptance claimed.",
-    "Watch may receive embedded app through iPhone, but installed version not read back.",
-    "No backend update included; Core-only fixes remain separately owned."
+    "Installed-version and launch/process readbacks do not constitute visual/audio acceptance.",
+    "No physical Watch TTS or CPU/GPU/memory acceptance.",
+    "Core/backend fixes remain independently owned; app install does not establish producer repair."
   ],
-  "data_preservation": "No uninstall or pairing reset. Previous Mac apps retained at /private/tmp/djc-mac-install-40331/previous.app on each host."
+  "data_preservation": "No uninstall or pairing reset. Previous Mac apps retained at /private/tmp/djc-mac-install-40331/previous.app on each host.",
+  "updated_at": "2026-10-18T08:10:16.306858+00:00"
 }

@@ -1,0 +1,26 @@
+{
+  "run": 39109183076,
+  "artifacts": [
+    {
+      "name": "apple-unsigned-build-artifacts",
+      "id": 12130255129,
+      "digest": "sha256:17e7b796d600a7967ea833c9ff772abcc947f994d9e6cda7a4ce8d27d2171be5",
+      "size_in_bytes": 83786322
+    },
+    {
+      "name": "thirdparty-update-report",
+      "id": 12130245235,
+      "digest": "sha256:101bb474893fb15203d42704b90a6660004d32471c85aabd0ecb18869bb69715",
+      "size_in_bytes": 1210
+    },
+    {
+      "name": "runner-evidence-apple",
+      "id": 12130185243,
+      "digest": "sha256:7ffeec94e8b3adcfc43cdc8bcbb995505d0b28e208be94d89e60ba7f0e46fc1a",
+      "size_in_bytes": 368
+    }
+  ],
+  "runner_zip_independently_hashed": "PASS",
+  "runner_git_sha_is_pr_merge_ref": "b93affc8060e75d3b91dd0b2316a017ee4975b3c",
+  "runner_tree_matches_candidate": "PASS"
+}

@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "as_of": "2026-10-18 Europe/Amsterdam;40331 installed on iPhone/iPad/MacBook/Mac mini; Watch pending; source finalization in progress",
+  "as_of": "2026-10-18 Europe/Amsterdam; ordinary40331 installed/read back/launched on all5devices; sourcePR113 and formal source-main evidence PASS; separate Finalization pending",
   "owning_lane": "https://github.com/pcvantol/djconnect-app/issues/87",
-  "writer": "Existing Apple writer on codex/apple-history-row-play-launch; follow-ups after protected PR112 remain local/unpublished",
-  "head": "075895634feca03b5cc068b45a6fa7bfe781762e",
-  "installed_baseline": "iPhone40331 and iPad40331 installed/read back/launched; MacBook40331 PID96898 and Mac mini40331 PID55792 installed/read back/running; strict Mac signatures PASS. Watch40331 candidate only: tunnel timeout and Bluetooth authentication failed, owner unlock pending. No physical audio/performance acceptance.",
+  "writer": "Existing Apple writer; sourcePR113 protected-merged; codex/apple-40331-finalization changes documentation/evidence only;7recovery duplicate paths retained",
+  "head": "803d77c665701fc9fe3d3d5cc8ee0752597343a1 (protected source-main); separate documentary Finalization in progress",
+  "installed_baseline": "iPhone/iPad/Watch40331 installed, actual bundle versions read back and apps launched. MacBook/Mac mini40331 installed/read back/running, strict deep signatures PASS. Watch retried successfully after owner unlocked/placed near iPhone, previous40311. No physical Watch audio or CPU/GPU/memory acceptance; USB profiling deferred.",
   "items": [
     {
       "id": "lan-websocket",
@@ -301,19 +301,19 @@
     }
   ],
   "qualification": {
-    "swift_tests": 784,
+    "swift_tests": 821,
     "swift_suites": 10,
     "result": "PASS",
-    "duration_seconds": 92.272,
+    "duration_seconds": 90.555,
     "mode": "--no-parallel",
     "code_includes_artwork_identity_fix": true,
-    "localization_keys": 1257,
+    "localization_keys": 1287,
     "languages": 5,
     "websocket_messages": 18,
     "websocket_routes": 16,
     "http_routes": 29,
-    "native_ios_build": "PASS40282 includes Watch/widgets",
-    "native_macos_build": "PASS40282",
+    "native_ios_build": "PASS ordinary40331 before install plus exact-source premerge unsignedCI",
+    "native_macos_build": "PASS ordinary40331 before install plus exact-source premerge unsignedCI",
     "signatures": "strict deep PASS",
     "physical_artwork_pixels": "3/3 ready grants load after fix; one dj_moment insufficient_identity",
     "physical_scroll": "Screenshot visually verified: artwork in playback and DJ-contribution bubbles after scrolling, no refresh tap. Decorative Image isHittable heuristic invalid; initial UI assertion failure preserved.",
@@ -620,20 +620,29 @@
     "publication": "NOT_RUN"
   },
   "source_finalization_40331": {
-    "status": "IN_PROGRESS",
+    "status": "SOURCE_MERGED_DOCUMENTARY_FINALIZATION_PENDING",
     "source_base": "075895634feca03b5cc068b45a6fa7bfe781762e",
     "installed_receipt": "APPLE_BUILD_40331_INSTALL_20261018.json",
     "full_regression": "821tests/10suites PASS90.555s;10 isolated VibeCast tests PASS;7 validation groups PASS",
-    "source_pr": "PENDING",
+    "source_pr": "https://github.com/pcvantol/djconnect-app/pull/113",
     "independent_review": "NOT_RUN current full candidate",
     "limits": [
-      "Watch installation unverified",
       "Original Session404 and widget continuity not closed",
       "Queue recurrence open",
       "USB CPU/GPU/memory qualification deferred",
       "Device TTS and VibeCast producer/runtime gates remain open",
-      "Special opening DJMoment assigned to existing Core writer; no Apple-generated narration"
+      "Special opening DJMoment assigned to existing Core writer; no Apple-generated narration",
+      "Watch40331 installation/launch PASS; physical Watch sound remains unaccepted"
     ],
-    "evidence": "APPLE_SOURCE_FINALIZATION_40331_20261018.json"
+    "evidence": "APPLE_SOURCE_FINALIZATION_40331_20261018.json",
+    "candidate_sha": "0386dc89788b8ce35fa579c9761c1e8eda7d7cf0",
+    "source_main": "803d77c665701fc9fe3d3d5cc8ee0752597343a1",
+    "tree": "0ff7976d529517295f56df281721c305e64f8522",
+    "premerge_ci": "PASS39109183076",
+    "trusted_delivery": "PASS39109183011 NORMAL_RISK; Owner Authorization NOT_REQUIRED",
+    "source_main_ci": "PASS39109669813 including native coverage",
+    "post_merge_evidence": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED39110224530; durable asset independent SHA/canonical integrity and12required checks PASS",
+    "documentary_finalization": "READY_FOR_SEPARATE_PR; approval/merge/readback not performed",
+    "tde": "Observe workflow PASS; actual assessment FAIL/qualification FAILED3CRITICAL184HIGH; regression UNKNOWN; remains open"
   }
 }
