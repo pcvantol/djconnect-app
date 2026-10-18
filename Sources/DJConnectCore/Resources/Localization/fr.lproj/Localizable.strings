@@ -983,9 +983,7 @@
 "ui.session.history.loading" = "Chargement des sessions";
 "ui.session.history.unavailable" = "L’historique des sessions est temporairement indisponible.";
 "ui.session.history.empty" = "Aucune session enregistrée";
-"ui.session.history.ended" = "Terminée";
 "ui.session.history.interrupted" = "Interrompue";
-"ui.session.history.more" = "Charger davantage";
 "ui.session.history.readonly" = "Session en lecture seule";
 "ui.session.history.no_entries" = "Cette session ne contient aucune contribution enregistrée.";
 "ui.session.history.changed" = "Le contexte ou l’historique a changé. Réessayez.";
@@ -1052,9 +1050,9 @@
 
 // Native invitation when no DJ Session is active.
 "ui.session.welcome.eyebrow" = "Bienvenue sur DJConnect";
-"ui.session.welcome.title" = "Votre musique.\nVotre moment.";
-"ui.session.welcome.subtitle" = "Faites place à la musique. Lancez une session et laissez le DJ vous accompagner.";
-"ui.session.welcome.promise" = "Des histoires musicales. Une place pour vos questions.";
+"ui.session.welcome.title" = "Votre musique.\nVotre DJ.";
+"ui.session.welcome.subtitle" = "Lancez une session DJ et découvrez votre musique autrement.";
+"ui.session.welcome.promise" = "Découvrez les histoires derrière votre musique. Parlez à votre DJ. Laissez-vous surprendre.";
 "ui.session.welcome.mood" = "Quelle ambiance vous tente ?";
 
 "ui.session.music_duration" = "Temps écoulé et durée totale";
@@ -1203,16 +1201,16 @@
 "ui.session.speech.recovery.retained" = "Vous pouvez toujours lire la contribution et utiliser les commandes de la session.";
 
 // Confirmed active Session Persona; shared backend state.
-"ui.session.persona.title" = "Persona";
+"ui.session.persona.title" = "Caractère du DJ";
 "ui.session.persona.home_dj" = "DJ à la maison";
 "ui.session.persona.radio_dj" = "DJ radio";
 "ui.session.persona.club_dj" = "DJ de club";
 "ui.session.persona.festival_dj" = "DJ de festival";
 "ui.session.persona.confirmed" = "Confirmée";
-"ui.session.persona.pending" = "Modification de la Persona…";
-"ui.session.persona.unavailable" = "La Persona est actuellement indisponible.";
-"ui.session.persona.conflict" = "La Persona a changé sur un autre appareil. Vérifiez le choix confirmé et choisissez à nouveau.";
-"ui.session.persona.failed" = "La modification n’a pas été confirmée. Vérifiez la Persona actuelle avant de réessayer.";
+"ui.session.persona.pending" = "Modification du caractère du DJ…";
+"ui.session.persona.unavailable" = "Le caractère du DJ est actuellement indisponible.";
+"ui.session.persona.conflict" = "Le caractère du DJ a changé sur un autre appareil. Vérifiez le choix confirmé et choisissez à nouveau.";
+"ui.session.persona.failed" = "La modification n’a pas été confirmée. Vérifiez le caractère actuel du DJ avant de réessayer.";
 
 "ui.session.voice.title" = "Voix";
 "ui.session.voice.scope" = "Le choix de voix s’applique à vous dans cette session sur cet appareil.";
@@ -1257,8 +1255,8 @@
 
 // Shared Profile and Session DJ settings contract3.
 "ui.dj_settings.profile" = "Profil";
-"ui.dj_settings.title" = "Voix du DJ";
-"ui.dj_settings.persona" = "Personnalité";
+"ui.dj_settings.title" = "Préférences vocales";
+"ui.dj_settings.persona" = "Caractère du DJ";
 "ui.dj_settings.voice" = "Préférence de voix";
 "ui.dj_settings.gender" = "Genre de voix";
 "ui.dj_settings.mood" = "Ambiance";
@@ -1342,7 +1340,7 @@
 // Device-local Apple speech renderer
 "ui.device_speech.title" = "Sur cet appareil · Voix";
 "ui.device_speech.enabled" = "Utiliser Apple TTS sur cet appareil";
-"ui.device_speech.explanation" = "Ce choix de voix ne concerne que cet appareil. La lecture automatique et la sortie Home Assistant restent des réglages distincts.";
+"ui.device_speech.explanation" = "Lorsque cette option est activée, une voix Apple lit les interventions du DJ sur cet appareil. Choisissez ci-dessous la voix, le débit et la hauteur. Réglez séparément la lecture automatique et la lecture via Home Assistant.";
 "ui.device_speech.gender" = "Type de voix";
 "ui.device_speech.system" = "Automatique";
 "ui.device_speech.female" = "Féminine";
@@ -1404,8 +1402,6 @@
 "ui.session.summary.withdrawn" = "Indisponible";
 "ui.session.summary.partial" = "Enregistré en partie";
 "ui.session.summary.provisional" = "Provisoire";
-"ui.session.summary.final" = "Définitif";
-"ui.session.summary.scope" = "Les nombres indiquent les changements de titre enregistrés, pas les écoutes complètes ni le nombre exact de lectures.";
 
 "ui.device_stt.enabled" = "Utiliser Apple STT sur cet appareil";
 

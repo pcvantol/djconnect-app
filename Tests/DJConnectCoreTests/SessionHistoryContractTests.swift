@@ -5758,3 +5758,47 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     #expect(model.askDJDraft == "Keep this draft")
     #expect(fixture.requests.isEmpty)
 }
+
+@Test(arguments: [false, true]) @MainActor
+func sessionSearchAutomaticPagingFencesOldFootersAndRepeatedCursors(repeatsCursor: Bool) async throws {
+    let receipt = try historyObject()
+    let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
+    let entries = try #require(timeline["entries"] as? [[String: Any]])
+    let sessionID = try #require(receipt["session_id"] as? String)
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let first = try historyData(["success":true,"schema_version":1,"session_id":sessionID,"query":"music","revision":"6:0:0",
+        "matches":[],"returned_count":0,"complete":false,"next_cursor":"next-search-page","normalization":"NFKC-casefold","highlight_units":"utf16"])
+    var final: [String: Any] = ["success":true,"schema_version":1,"session_id":sessionID,"query":"music","revision":"6:0:0",
+        "matches":entries,"returned_count":entries.count,"complete":!repeatsCursor,"normalization":"NFKC-casefold","highlight_units":"utf16"]
+    if repeatsCursor { final["next_cursor"] = "next-search-page" }
+    let finalData = try historyData(final)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/search") {
+            let cursor = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "cursor" })?.value
+            return (200, cursor == nil ? first : finalData, 0)
+        }
+        return (200, profile, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare()
+    history.search(sessionID: sessionID, query: "music")
+    for _ in 0..<200 {
+        if !history.searchLoading { break }
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(history.searchNextCursor == "next-search-page")
+    await history.moreSearch(expectedCursor: "old-footer")
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/search") }.count == 1)
+    await history.moreSearch(expectedCursor: "next-search-page")
+    if repeatsCursor {
+        #expect(history.searchErrorKey != nil && history.searchNextCursor == nil)
+    } else {
+        #expect(history.searchComplete && !history.searchMatches.isEmpty && history.searchNextCursor == nil)
+    }
+    await history.moreSearch(expectedCursor: "next-search-page")
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/search") }.count == 2)
+}

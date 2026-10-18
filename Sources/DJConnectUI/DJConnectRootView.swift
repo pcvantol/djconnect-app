@@ -9067,11 +9067,6 @@ private struct DJSessionView: View {
                         .padding(.vertical, 12)
                 }
                 .background(.clear)
-                .refreshable {
-                    if !model.isDemoMode, model.pairingStatus == .paired {
-                        await refreshNowPlayingWithToast()
-                    }
-                }
                 }
             }
             .djStatusToastOverlay(statusToast, screenImage: DJConnectFeatureSymbols.djSession)
@@ -9085,28 +9080,12 @@ private struct DJSessionView: View {
                     }
                 }
                 #endif
-                #if os(macOS)
                 sessionConnectionToolbar
-                if model.activeDJSession == nil {
-                    sessionRefreshToolbar
-                }
-                #else
-                sessionConnectionToolbar
-                if model.activeDJSession == nil {
-                    sessionRefreshToolbar
-                }
-                #endif
 
             }
             .djUserNoticeToast(model: model, screenImage: DJConnectFeatureSymbols.djSession)
         }
         .accessibilityIdentifier("screen-dj-session")
-    }
-
-    @ToolbarContentBuilder private var sessionRefreshToolbar: some ToolbarContent {
-        ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
-            RefreshButton(model: model) { Task { await refreshNowPlayingWithToast() } }
-        }
     }
 
     @ToolbarContentBuilder private var sessionConnectionToolbar: some ToolbarContent {
@@ -9120,9 +9099,12 @@ private struct DJSessionView: View {
     }
 
     private func refreshNowPlayingWithToast() async {
+        guard let sessionID = model.activeDJSession?.id else { return }
         statusToast = DJConnectVisualNotice(text: localizedKey(model.language, "ui.session.refresh.loading"), systemImage: DJConnectFeatureSymbols.djSession)
         _ = await model.refreshNowPlaying()
+        guard model.activeDJSession?.id == sessionID else { statusToast = nil; return }
         let didRefresh = await model.refreshActiveDJSession()
+        guard model.activeDJSession?.id == sessionID else { statusToast = nil; return }
         showStatusToast(
             didRefresh ? localizedKey(model.language, "ui.session.refresh.updated") : localizedKey(model.language, "ui.session.unavailable"),
             systemImage: DJConnectFeatureSymbols.djSession
@@ -9170,7 +9152,8 @@ private struct IdleDJSessionView: View {
                     }
                     .frame(maxWidth: .infinity)
                 }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true,
+                    dimsWhenDisabled: !model.isSchedulingProfileDJChoice && model.profileDJSettings.phase != .saving))
                 .disabled(model.isLoadingDJSession || (!model.isDemoMode && model.pairingStatus != .paired) || !model.canUsePlaybackFeatures || model.isSchedulingProfileDJChoice || (!model.isDemoMode && [.saving, .uncertain].contains(model.profileDJSettings.phase)))
                 .accessibilityIdentifier("session-welcome-start")
                 if !model.isDemoMode && (model.pairingStatus != .paired || !model.canUsePlaybackFeatures) {
@@ -9194,8 +9177,11 @@ private struct IdleDJSessionView: View {
     private func welcomeCopy(compactArtwork: Bool) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
-                Label(localizedKey(model.language, "ui.session.welcome.eyebrow"), systemImage: DJConnectFeatureSymbols.djSession)
+                Text(localizedKey(model.language, "ui.session.welcome.eyebrow"))
                     .font(.title3.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+                    .layoutPriority(1)
                     .foregroundStyle(Color(red: 0.89, green: 0.65, blue: 1))
                 if compactArtwork {
                     Spacer(minLength: 0)
@@ -9210,7 +9196,7 @@ private struct IdleDJSessionView: View {
             Text(localizedKey(model.language, "ui.session.welcome.subtitle"))
                 .font(.body).foregroundStyle(.white.opacity(0.82))
                 .fixedSize(horizontal: false, vertical: true)
-            Label(localizedKey(model.language, "ui.session.welcome.promise"), systemImage: "bubble.left.and.bubble.right")
+            Text(localizedKey(model.language, "ui.session.welcome.promise"))
                 .font(.subheadline).foregroundStyle(.white.opacity(0.65))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -9294,11 +9280,6 @@ private struct IdleSessionProfileChoices: View {
                 Text(text("ui.dj_settings." + state.phase.rawValue)).font(.callout)
             } else if model.isDemoMode {
                 Text(text("ui.dj_settings.demo_unavailable")).font(.callout)
-            }
-        }
-        .overlay(alignment: .bottomTrailing) {
-            if [.loading, .saving].contains(state.phase) || model.isSchedulingProfileDJChoice {
-                ProgressView().controlSize(.small).accessibilityLabel(text("ui.dj_settings.saving"))
             }
         }
         .accessibilityIdentifier("session-welcome-profile-choices")
@@ -9862,10 +9843,14 @@ private struct IOSTrackHero: View {
         model.playback
     }
 
+    private var artworkMaximumWidth: CGFloat {
+        DJConnectAlbumArtworkLayout.maximumWidth(phone: UIDevice.current.userInterfaceIdiom == .phone)
+    }
+
     var body: some View {
         VStack(spacing: 16) {
             AnimatedAlbumArtworkView(playback: playback,
-                maxWidth: DJConnectAlbumArtworkLayout.maximumWidth(phone: UIDevice.current.userInterfaceIdiom == .phone),
+                maxWidth: artworkMaximumWidth,
                 usesDemoArtwork: model.isDemoMode)
                 .accessibilityIdentifier("now-playing-artwork-card")
             playbackCard
@@ -9895,6 +9880,7 @@ private struct IOSTrackHero: View {
             IOSPlaybackSurface(model: model, openQueueAction: openQueueAction)
         }
         .padding(14)
+        .frame(maxWidth: artworkMaximumWidth)
         .background {
             NowPlayingArtworkCardBackground(tint: cardTint)
                 .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
@@ -9975,7 +9961,7 @@ private struct IOSPlaybackSurface: View {
                 }
             }
 
-            HStack(spacing: 12) {
+            HStack(spacing: UIDevice.current.userInterfaceIdiom == .pad ? 5 : 12) {
                 ShuffleModeButton(model: model)
                     .disabled(!canUsePlayback)
 
@@ -9992,7 +9978,7 @@ private struct IOSPlaybackSurface: View {
             }
         }
         .opacity(canUsePlayback ? 1 : 0.55)
-        .padding(14)
+        .padding(UIDevice.current.userInterfaceIdiom == .pad ? 0 : 14)
     }
 
     private func playbackButton(
@@ -10153,6 +10139,10 @@ struct TrackSummaryView: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var cardTint = Color(red: 0.22, green: 0.52, blue: 0.92)
 
+    private var artworkMaximumWidth: CGFloat {
+        DJConnectAlbumArtworkLayout.maximumWidth(phone: false)
+    }
+
     private var playback: DJConnectPlayback? {
         model.playback
     }
@@ -10160,7 +10150,7 @@ struct TrackSummaryView: View {
     var body: some View {
         VStack(spacing: 16) {
             AnimatedAlbumArtworkView(playback: playback,
-                maxWidth: DJConnectAlbumArtworkLayout.maximumWidth(phone: false), usesDemoArtwork: model.isDemoMode)
+                maxWidth: artworkMaximumWidth, usesDemoArtwork: model.isDemoMode)
                 .accessibilityIdentifier("now-playing-artwork-card")
             playbackCard
         }
@@ -10184,6 +10174,7 @@ struct TrackSummaryView: View {
             PlaybackControlsView(model: model)
         }
         .padding(16)
+        .frame(maxWidth: artworkMaximumWidth)
         .background {
             NowPlayingArtworkCardBackground(tint: cardTint)
                 .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
@@ -17224,39 +17215,6 @@ struct SettingsView: View {
                         }
                         .djMusicDNASettingsListRow()
                     }
-                    LabeledContent(localizedKey(model.language, "ui.wakeword")) {
-                        if model.wakeWordEnabled {
-                            Button {
-                                model.setWakeWordEnabled(false)
-                            } label: {
-                                Text(localizedKey(model.language, "ui.disable.voice.activation"))
-                                    .foregroundStyle(.white)
-                                    .foregroundColor(.white)
-                            }
-                            .foregroundStyle(.white)
-                            .foregroundColor(.white)
-                            .tint(.white)
-                        } else {
-                            Button {
-                                model.setWakeWordEnabled(true)
-                            } label: {
-                                Text(localizedKey(model.language, "ui.enable.voice.activation.321a28"))
-                                    .foregroundStyle(.white)
-                                    .foregroundColor(.white)
-                            }
-                            .foregroundStyle(.white)
-                            .foregroundColor(.white)
-                            .tint(.white)
-                        }
-                    }
-                    .djMusicDNASettingsListRow()
-                    wakeWordPhraseField(model)
-                        .djMusicDNASettingsListRow()
-                    LabeledContent(localizedKey(model.language, "ui.wakeword.status")) {
-                        Text(wakeWordStatusText(model))
-                            .foregroundStyle(.secondary)
-                    }
-                    .djMusicDNASettingsListRow()
                     LabeledContent(localizedKey(model.language, "ui.log.level")) {
                         Picker(localizedKey(model.language, "ui.log.level"), selection: $model.logLevel) {
                             Text("Debug").tag("debug")
@@ -17267,18 +17225,6 @@ struct SettingsView: View {
                         .labelsHidden()
                     }
                     .djMusicDNASettingsListRow()
-                }
-                .djSettingsListRowBackground()
-
-                SettingsGlassSection(title: localizedKey(model.language, "ui.device_speech.title")) {
-                    Toggle(localizedKey(model.language, "ui.device_stt.enabled"), isOn: $model.deviceSTTEnabled)
-                        .accessibilityIdentifier("device-stt-enabled")
-                    Text(localizedKey(model.language, "ui.device_stt.explanation"))
-                        .font(.caption).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    DeviceSpeechSettingsView(language: model.language, preferences: $model.deviceSpeechPreferences,
-                        previewAllowed: model.canPreviewDeviceSpeech, isSpeaking: model.deviceSpeechPreviewIsPlaying,
-                        preview: model.previewDeviceSpeech, stop: model.stopDeviceSpeechPreview)
                 }
                 .djSettingsListRowBackground()
 
@@ -18694,57 +18640,6 @@ private struct PermissionStatusRow: View {
         #else
         .padding(.vertical, 2)
         #endif
-    }
-}
-
-@ViewBuilder
-@MainActor
-private func wakeWordPhraseField(_ model: DJConnectAppModel) -> some View {
-    let phrase = Binding(
-        get: { model.wakeWordPhrase },
-        set: { model.wakeWordPhrase = $0 }
-    )
-    #if os(iOS)
-    LabeledContent(localizedKey(model.language, "ui.wake.word")) {
-        TextField(localizedKey(model.language, "ui.wake.word"), text: phrase)
-            .multilineTextAlignment(.trailing)
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled()
-    }
-    #else
-    LabeledContent(localizedKey(model.language, "ui.wake.word")) {
-        TextField(localizedKey(model.language, "ui.wake.word"), text: phrase)
-            .multilineTextAlignment(.trailing)
-            .frame(maxWidth: 320)
-    }
-    #endif
-}
-
-@MainActor
-private func wakeWordStatusText(_ model: DJConnectAppModel) -> String {
-    switch model.wakeWordStatus {
-    case .idle:
-        if model.wakeWordEnabled {
-            if model.pairingStatus != .paired || !model.isConnected {
-                return localizedKey(model.language, "ui.pair.home.assistant.first")
-            }
-            if !model.backendAvailable {
-                return localizedKey(model.language, "ui.playback.backend.unavailable")
-            }
-            if !model.voiceEnabled {
-                return localizedKey(model.language, "ui.voice.requests.unavailable")
-            }
-        }
-        return localizedKey(model.language, "ui.idle")
-    case .listening:
-        return localizedKey(model.language, "ui.listening.for.wake.word")
-    case .detected:
-        return localizedKey(model.language, "ui.wake.word.detected")
-    case .unavailable:
-        if model.isDemoMode {
-            return localizedKey(model.language, "ui.not.available.in.demo.mode")
-        }
-        return localizedKey(model.language, "ui.not.available")
     }
 }
 

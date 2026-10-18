@@ -150,12 +150,6 @@ struct SavedSessionsView: View {
                     if let cursor = history.listNextCursor {
                         ZStack {
                             Color.clear
-                            if !searchQuery.isEmpty {
-                                Button(text("ui.session.history.more")) {
-                                    Task { await history.loadNextSessionsPage(expectedCursor: cursor) }
-                                }
-                                .disabled(history.listLoading)
-                            }
                             if history.listLoading {
                                 ProgressView().tint(.white)
                                     .accessibilityLabel(text("ui.session.history.loading"))
@@ -166,8 +160,7 @@ struct SavedSessionsView: View {
                             .accessibilityIdentifier("saved-sessions-pagination")
                             // A new footer belongs to the next cursor. Lazy List/
                             // LazyVStack mounts it only when approaching the end.
-                            .task(id: searchQuery.isEmpty) {
-                                guard searchQuery.isEmpty else { return }
+                            .task(id: cursor) {
                                 await history.loadNextSessionsPage(expectedCursor: cursor)
                             }
                             .id(cursor)
@@ -184,6 +177,7 @@ struct SavedSessionsView: View {
                         promptKey: "ui.session.history.search_loaded",
                         fieldIdentifier: "saved-sessions-search-field",
                         countIdentifier: "saved-sessions-search-count",
+                        isLoading: history.listLoading || history.preparing,
                         text: $searchText, isFocused: $isSearchFocused,
                         resultCount: searchQuery.isEmpty ? 0 : filteredSessions.count,
                         selectedIndex: selectedSearchIndex,
@@ -298,6 +292,8 @@ struct SavedSessionsView: View {
 
     private var emptyTitle: String? {
         if initialLoadFinished, !searchQuery.isEmpty, filteredSessions.isEmpty, !history.sessions.isEmpty {
+            if let error = history.listErrorKey { return text(error) }
+            guard history.listNextCursor == nil, !history.listLoading else { return nil }
             return text("ui.no.search.results")
         }
         guard initialLoadFinished, history.sessions.isEmpty, !history.listLoading, !history.preparing else { return nil }
@@ -567,6 +563,11 @@ struct SessionTimelineScreen: View {
                                         .modifier(SessionRowFade(selected: selectedMatchID == entry.id || initialAnchor == entry.id || history.selectedEntry == entry.reference))
                                     .padding(.horizontal, 20)
                                     .id(entry.id).accessibilityElement(children: .contain).accessibilityIdentifier("session-entry-" + entry.id)
+                                    .onAppear {
+                                        if matchMap[entry.id] != nil {
+                                            Task { await loadMoreSearchIfNeeded(visibleMatchID: entry.id) }
+                                        }
+                                    }
                             }
                             if history.available && timeline.revision != nil && timeline.entries.isEmpty && timeline.errorKey == nil {
                                 Text(text(activeSession == nil ? "ui.session.history.no_entries" : "ui.session.history.no_entries_active")).padding(.horizontal, 20)
@@ -1096,6 +1097,17 @@ struct SessionTimelineScreen: View {
             } else { jump("current", proxy: proxy) }
         }
     }
+    private func loadMoreSearchIfNeeded(visibleMatchID: String? = nil) async {
+        guard searching, history.acceptedSearchSessionID == sessionID,
+              history.acceptedSearchQuery == query, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              history.searchErrorKey == nil, let cursor = history.searchNextCursor else { return }
+        let visibleIndex = visibleMatchID.flatMap { id in matches.firstIndex { $0.id == id } } ?? 0
+        // Fill a modest search buffer automatically; after that, prefetch only
+        // when scrolling to or navigating near the end of the known matches.
+        guard matches.count < 100 || max(selectedIndex, visibleIndex) >= matches.count - 3 else { return }
+        await history.moreSearch(expectedCursor: cursor)
+    }
+
     private func moveMatch(_ delta: Int, proxy: ScrollViewProxy) {
         guard !matches.isEmpty else { return }
         let index = (selectedIndex + delta + matches.count) % matches.count
@@ -1136,12 +1148,11 @@ struct SessionTimelineScreen: View {
                     Text(matches.isEmpty && history.searchComplete ? text("ui.session.history.no_match") :
                          text(history.searchComplete ? "ui.session.history.complete" : "ui.session.history.partial"))
                         .font(.caption).foregroundStyle(.secondary)
-                    if history.searchNextCursor != nil {
-                        Button(text("ui.session.history.more")) { Task { await history.moreSearch() } }
-                    }
                 }
             }
         }
+        .task(id: history.searchNextCursor) { await loadMoreSearchIfNeeded() }
+        .task(id: selectedMatchID) { await loadMoreSearchIfNeeded() }
         .onChange(of: matches.map(\.id)) {
             if let selectedMatchID, !matches.contains(where: { $0.id == selectedMatchID }) {
                 anchorGeneration = UUID(); self.selectedMatchID = nil

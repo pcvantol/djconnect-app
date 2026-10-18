@@ -983,9 +983,7 @@
 "ui.session.history.loading" = "Cargando sesiones";
 "ui.session.history.unavailable" = "El historial de sesiones no está disponible temporalmente.";
 "ui.session.history.empty" = "No hay sesiones guardadas";
-"ui.session.history.ended" = "Finalizada";
 "ui.session.history.interrupted" = "Interrumpida";
-"ui.session.history.more" = "Cargar más";
 "ui.session.history.readonly" = "Sesión de solo lectura";
 "ui.session.history.no_entries" = "Esta sesión no contiene aportaciones guardadas.";
 "ui.session.history.changed" = "El contexto o el historial ha cambiado. Inténtalo de nuevo.";
@@ -1052,9 +1050,9 @@
 
 // Native invitation when no DJ Session is active.
 "ui.session.welcome.eyebrow" = "Te damos la bienvenida a DJConnect";
-"ui.session.welcome.title" = "Tu música.\nTu momento.";
-"ui.session.welcome.subtitle" = "Dale espacio a tu música. Inicia una sesión y deja que el DJ te acompañe.";
-"ui.session.welcome.promise" = "Historias de tu música. Espacio para tus preguntas.";
+"ui.session.welcome.title" = "Tu música.\nTu DJ.";
+"ui.session.welcome.subtitle" = "Inicia una sesión DJ y vive tu música de una forma nueva.";
+"ui.session.welcome.promise" = "Descubre las historias detrás de tu música. Habla con tu DJ. Déjate sorprender.";
 "ui.session.welcome.mood" = "¿Cómo quieres escuchar?";
 
 "ui.session.music_duration" = "Tiempo transcurrido y duración total";
@@ -1203,16 +1201,16 @@
 "ui.session.speech.recovery.retained" = "Puedes seguir leyendo la contribución y usar los controles de la sesión.";
 
 // Confirmed active Session Persona; shared backend state.
-"ui.session.persona.title" = "Persona";
+"ui.session.persona.title" = "Carácter del DJ";
 "ui.session.persona.home_dj" = "DJ en casa";
 "ui.session.persona.radio_dj" = "DJ de radio";
 "ui.session.persona.club_dj" = "DJ de club";
 "ui.session.persona.festival_dj" = "DJ de festival";
 "ui.session.persona.confirmed" = "Confirmada";
-"ui.session.persona.pending" = "Cambiando Persona…";
-"ui.session.persona.unavailable" = "La Persona no está disponible en este momento.";
-"ui.session.persona.conflict" = "La Persona cambió en otro dispositivo. Revisa la opción confirmada y vuelve a elegir.";
-"ui.session.persona.failed" = "No se confirmó el cambio. Revisa la Persona actual antes de intentarlo de nuevo.";
+"ui.session.persona.pending" = "Cambiando el carácter del DJ…";
+"ui.session.persona.unavailable" = "El carácter del DJ no está disponible en este momento.";
+"ui.session.persona.conflict" = "El carácter del DJ cambió en otro dispositivo. Revisa la opción confirmada y vuelve a elegir.";
+"ui.session.persona.failed" = "No se confirmó el cambio. Revisa el carácter actual del DJ antes de intentarlo de nuevo.";
 
 "ui.session.voice.title" = "Voz";
 "ui.session.voice.scope" = "La voz elegida se aplica a ti en esta sesión en este dispositivo.";
@@ -1257,8 +1255,8 @@
 
 // Shared Profile and Session DJ settings contract3.
 "ui.dj_settings.profile" = "Perfil";
-"ui.dj_settings.title" = "Voz del DJ";
-"ui.dj_settings.persona" = "Personalidad";
+"ui.dj_settings.title" = "Preferencias de voz";
+"ui.dj_settings.persona" = "Carácter del DJ";
 "ui.dj_settings.voice" = "Preferencia de voz";
 "ui.dj_settings.gender" = "Género de voz";
 "ui.dj_settings.mood" = "Ánimo";
@@ -1342,7 +1340,7 @@
 // Device-local Apple speech renderer
 "ui.device_speech.title" = "En este dispositivo · Voz";
 "ui.device_speech.enabled" = "Usar Apple TTS en este dispositivo";
-"ui.device_speech.explanation" = "Esta voz se aplica solo aquí. La reproducción automática y la salida de Home Assistant siguen siendo ajustes separados.";
+"ui.device_speech.explanation" = "Al activar esta opción, una voz de Apple lee las intervenciones del DJ en este dispositivo. Elige abajo la voz, la velocidad y el tono. Configura por separado la reproducción automática y la reproducción mediante Home Assistant.";
 "ui.device_speech.gender" = "Tipo de voz";
 "ui.device_speech.system" = "Automático";
 "ui.device_speech.female" = "Femenina";
@@ -1404,8 +1402,6 @@
 "ui.session.summary.withdrawn" = "Ya no disponible";
 "ui.session.summary.partial" = "Registrado parcialmente";
 "ui.session.summary.provisional" = "Provisional";
-"ui.session.summary.final" = "Definitivo";
-"ui.session.summary.scope" = "Los recuentos reflejan cambios de canción registrados, no escuchas completas ni el número exacto de reproducciones.";
 
 "ui.device_stt.enabled" = "Usar Apple STT en este dispositivo";
 
