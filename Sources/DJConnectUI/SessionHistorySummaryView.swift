@@ -6,14 +6,22 @@ struct SessionHistorySummaryView: View {
     let summary: DJConnectSessionHistorySummary
     let language: String
     var compact = false
+    private var moodIcon: String? {
+        guard summary.mood.coverage == "complete", let value = summary.mood.value,
+              let index = ["chill", "groove", "energy", "party"].firstIndex(of: value) else { return nil }
+        return askDJMoodIcon(for: index)
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 2 : 6) {
-            ForEach(SessionHistorySummaryPresentation.lines(summary, language: language), id: \.self) { line in
-                Text(line).fixedSize(horizontal: false, vertical: true)
-            }
-            if !compact {
-                Text(DJConnectLocalization.localized(key: "ui.session.summary.scope", language: language))
-                    .font(.caption).fixedSize(horizontal: false, vertical: true)
+            ForEach(Array(SessionHistorySummaryPresentation.lines(summary, language: language).enumerated()), id: \.offset) { index, line in
+                HStack(spacing: 5) {
+                    Text(line).fixedSize(horizontal: false, vertical: true)
+                    if index == (summary.momentsRetained == nil ? 2 : 3), let moodIcon {
+                        Image(systemName: moodIcon)
+                            .foregroundStyle(.white)
+                            .accessibilityHidden(true)
+                    }
+                }
             }
         }
         .font(compact ? .caption : .callout)
@@ -48,7 +56,7 @@ enum SessionHistorySummaryPresentation {
             mood = value == "mixed" ? text("mixed") : DJConnectLocalization.localized(key: "ui.session.mood." + value, language: language)
         } else { mood = text("unknown") }
         result.append(text("mood") + ": " + mood)
-        result.append(text(summary.state))
+        if summary.state == "provisional" { result.append(text("provisional")) }
         return result
     }
 }

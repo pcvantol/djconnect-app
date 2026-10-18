@@ -3527,6 +3527,7 @@ struct DJConnectButtonStyle: ButtonStyle {
     var shape: ShapeKind = .capsule
     var expands = false
     var usesLiveGlass = true
+    var usesDestructiveGlass = false
     var iconDiameter: CGFloat = DJConnectButtonAppearance.iconSize
     var showsFocusIndicator = true
     var foregroundColor: Color? = nil
@@ -3563,7 +3564,11 @@ struct DJConnectButtonStyle: ButtonStyle {
                 switch role {
                 case .primary: outline.fill(DJConnectButtonAppearance.primaryGradient)
                 case .selected: outline.fill((selectionTint ?? djConnectAccent).opacity(0.22))
-                case .destructive: outline.fill(Color.red.opacity(0.12))
+                case .destructive:
+                    if usesDestructiveGlass && usesLiveGlass && glassEnabled && !reduceTransparency {
+                        outline.fill(Color.red.opacity(0.04))
+                            .glassEffect(.regular.tint(.red.opacity(0.12)).interactive(), in: outline)
+                    } else { outline.fill(Color.red.opacity(0.12)) }
                 case .secondary:
                     if usesLiveGlass && glassEnabled && !reduceTransparency { outline.fill(.white.opacity(0.04)).glassEffect(.regular.interactive(), in: outline) }
                     else { outline.fill(glassEnabled && !reduceTransparency ? Color.white.opacity(0.10) : DJConnectGlassAppearance.opaqueSurface) }
@@ -7082,7 +7087,7 @@ private struct MusicDNATrackListRow: View {
 
             }
             .frame(width: 42, height: 42)
-            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: DJConnectListTileStyle.cornerRadius, style: .continuous))
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
@@ -7102,7 +7107,7 @@ private struct MusicDNATrackListRow: View {
 
     private var placeholder: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
+            RoundedRectangle(cornerRadius: DJConnectListTileStyle.cornerRadius, style: .continuous)
                 .fill(.white.opacity(0.10))
             Image(systemName: "music.note")
                 .font(.footnote.weight(.bold))
@@ -10460,6 +10465,11 @@ struct FavoriteTrackButton: View {
     }
 }
 
+/// Shared rounding for leading artwork and icon tiles in list rows.
+enum DJConnectListTileStyle {
+    static let cornerRadius: CGFloat = 14
+}
+
 /// Shared queue/archive row surface; their leading glyph and trailing action remain distinct.
 struct DJConnectMediaRowSurface: ViewModifier {
     static let cornerRadius: CGFloat = 12
@@ -10562,7 +10572,7 @@ private struct QueueArtworkView: View {
         GeometryReader { proxy in
             CachedArtworkImage(url: url, mode: .fill) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 6)
+                    RoundedRectangle(cornerRadius: DJConnectListTileStyle.cornerRadius)
                         .fill(Color.secondary.opacity(0.14))
                     Image(systemName: fallbackSystemImage)
                         .font(.system(size: 18, weight: .semibold))
@@ -10573,7 +10583,7 @@ private struct QueueArtworkView: View {
             .clipped()
         }
         .aspectRatio(1, contentMode: .fit)
-        .djArtworkStyle(cornerRadius: 6)
+        .djArtworkStyle(cornerRadius: DJConnectListTileStyle.cornerRadius)
     }
 }
 
@@ -12571,7 +12581,7 @@ private struct AskDJItemList: View {
             }
             .frame(width: 42, height: 42)
             .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: DJConnectListTileStyle.cornerRadius, style: .continuous))
         } else {
             fallbackIcon(for: item)
                 .frame(width: 42, height: 42)
@@ -12580,7 +12590,7 @@ private struct AskDJItemList: View {
 
     private func fallbackIcon(for item: DJConnectAskDJHistoryItem) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: DJConnectListTileStyle.cornerRadius, style: .continuous)
                 .fill(.white.opacity(0.15))
             Image(systemName: iconName(for: item))
                 .font(.caption.weight(.bold))
@@ -12933,7 +12943,7 @@ private struct AskDJPlaybackActionStack: View {
             }
             .frame(width: 42, height: 42)
             .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: DJConnectListTileStyle.cornerRadius, style: .continuous))
         } else {
             fallbackIcon(for: action)
                 .frame(width: 42, height: 42)
@@ -12957,7 +12967,7 @@ private struct AskDJPlaybackActionStack: View {
     private func fallbackIcon(for action: DJConnectAskDJPlaybackAction?) -> some View {
         let type = action.map(mediaType(for:)) ?? .track
         return ZStack {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: DJConnectListTileStyle.cornerRadius, style: .continuous)
                 .fill(.white.opacity(0.16))
             Image(systemName: type.systemImage)
                 .font(.caption.weight(.bold))
@@ -16424,9 +16434,9 @@ private struct MoreNavigationRow: View {
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(djConnectAccent)
                     .frame(width: 44, height: 44)
-                    .background(djConnectAccent.opacity(0.14), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(djConnectAccent.opacity(0.14), in: RoundedRectangle(cornerRadius: DJConnectListTileStyle.cornerRadius, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        RoundedRectangle(cornerRadius: DJConnectListTileStyle.cornerRadius, style: .continuous)
                             .stroke(.white.opacity(0.12), lineWidth: 1)
                     }
                 Text(title)
@@ -17221,8 +17231,10 @@ struct SettingsView: View {
                             } label: {
                                 Text(localizedKey(model.language, "ui.disable.voice.activation"))
                                     .foregroundStyle(.white)
+                                    .foregroundColor(.white)
                             }
                             .foregroundStyle(.white)
+                            .foregroundColor(.white)
                             .tint(.white)
                         } else {
                             Button {
@@ -17230,8 +17242,10 @@ struct SettingsView: View {
                             } label: {
                                 Text(localizedKey(model.language, "ui.enable.voice.activation.321a28"))
                                     .foregroundStyle(.white)
+                                    .foregroundColor(.white)
                             }
                             .foregroundStyle(.white)
+                            .foregroundColor(.white)
                             .tint(.white)
                         }
                     }
@@ -17257,6 +17271,11 @@ struct SettingsView: View {
                 .djSettingsListRowBackground()
 
                 SettingsGlassSection(title: localizedKey(model.language, "ui.device_speech.title")) {
+                    Toggle(localizedKey(model.language, "ui.device_stt.enabled"), isOn: $model.deviceSTTEnabled)
+                        .accessibilityIdentifier("device-stt-enabled")
+                    Text(localizedKey(model.language, "ui.device_stt.explanation"))
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     DeviceSpeechSettingsView(language: model.language, preferences: $model.deviceSpeechPreferences,
                         previewAllowed: model.canPreviewDeviceSpeech, isSpeaking: model.deviceSpeechPreviewIsPlaying,
                         preview: model.previewDeviceSpeech, stop: model.stopDeviceSpeechPreview)
@@ -17270,8 +17289,10 @@ struct SettingsView: View {
                         } label: {
                             Text(localizedKey(model.language, "ui.export"))
                                 .foregroundStyle(.white)
+                                .foregroundColor(.white)
                         }
                         .foregroundStyle(.white)
+                        .foregroundColor(.white)
                         .tint(.white)
                         .disabled(!canUseAskDJHistoryExport)
                     }
@@ -17302,8 +17323,10 @@ struct SettingsView: View {
                             } label: {
                                 Text(localizedKey(model.language, "ui.turn.on"))
                                     .foregroundStyle(.white)
+                                    .foregroundColor(.white)
                             }
                             .foregroundStyle(.white)
+                            .foregroundColor(.white)
                             .tint(.white)
                             .disabled(model.isUpdatingMusicDNA || (!model.isDemoMode && model.pairingStatus != .paired))
                         }
@@ -17328,8 +17351,10 @@ struct SettingsView: View {
                         } label: {
                             Text(localizedKey(model.language, "ui.export"))
                                 .foregroundStyle(.white)
+                                .foregroundColor(.white)
                         }
                         .foregroundStyle(.white)
+                        .foregroundColor(.white)
                         .tint(.white)
                         .disabled(!canUseMusicDNAExport)
                     }
@@ -17341,8 +17366,10 @@ struct SettingsView: View {
                         } label: {
                             Text(localizedKey(model.language, "ui.import"))
                                 .foregroundStyle(.white)
+                                .foregroundColor(.white)
                         }
                         .foregroundStyle(.white)
+                        .foregroundColor(.white)
                         .tint(.white)
                         .disabled(!canUseMusicDNAImport)
                     }
@@ -17388,9 +17415,11 @@ struct SettingsView: View {
                                     systemImage: "checkmark.shield"
                                 )
                                 .foregroundStyle(.white)
+                                .foregroundColor(.white)
                             }
                         }
                         .foregroundStyle(.white)
+                        .foregroundColor(.white)
                         .tint(.white)
                         .disabled(model.isRequestingPermissions)
                         .djCompactSettingsListRow()
@@ -17399,6 +17428,8 @@ struct SettingsView: View {
                 .djSettingsListRowBackground()
 
                 }
+                .tint(.white)
+                .accentColor(.white)
                 .scrollContentBackgroundIfAvailable(.hidden)
                 .background(.clear)
                 .safeAreaInset(edge: .bottom) {
@@ -17516,8 +17547,9 @@ struct SettingsView: View {
                 model.startPairingWait()
             }
         }
-        .djConnectButtonStyle(DJConnectButtonStyle())
+        .djConnectButtonStyle(DJConnectButtonStyle(usesDestructiveGlass: true))
         .tint(.white)
+        .accentColor(.white)
         .background(DJConnectCanvasBackground())
     }
 

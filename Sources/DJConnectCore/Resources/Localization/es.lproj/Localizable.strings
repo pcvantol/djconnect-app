@@ -1406,3 +1406,11 @@
 "ui.session.summary.provisional" = "Provisional";
 "ui.session.summary.final" = "Definitivo";
 "ui.session.summary.scope" = "Los recuentos reflejan cambios de canción registrados, no escuchas completas ni el número exacto de reproducciones.";
+
+"ui.device_stt.enabled" = "Usar Apple STT en este dispositivo";
+
+"ui.device_stt.explanation" = "Convierte tu grabación de Ask DJ en texto en este dispositivo y envíalo automáticamente. No se envía audio a Home Assistant. Esta opción solo se aplica aquí.";
+
+"ui.device_stt.unavailable" = "El reconocimiento de voz local de Apple no está disponible para este idioma o no tiene permiso. No se ha enviado audio.";
+
+"ui.device_stt.failed" = "No se pudo transcribir la grabación localmente o cambió el contexto del chat. Inténtalo de nuevo. No se ha enviado audio.";

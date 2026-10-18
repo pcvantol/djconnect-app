@@ -60,6 +60,18 @@ cache for those request results.
 The app must never store Spotify, Sonos, Home Assistant long-lived access
 tokens, OpenAI, or playback backend credentials.
 
+Apple STT is a separate, opt-in installation-local input preference. On iOS,
+iPadOS and macOS, Ask DJ and the Session composer share the same microphone
+capture route. With this preference enabled, a temporary recording is recognized
+only when Apple reports on-device support for the app language; the recognition
+request explicitly requires on-device processing. Only the final text enters the
+existing Ask DJ draft/send path. It adds no backend contract or Profile setting.
+Recognition failure never falls back to HA audio. Capture cancellation, background,
+owner/session/selected-entry changes, changed language or a modified draft fence
+late results. Temporary recordings are removed on completion or cancellation.
+The existing wake recognizer also requires local processing while this option is
+enabled. Local STT does not enable TTS, autoplay or any HA speaker output.
+
 ## Targets
 
 `DJConnectCore`

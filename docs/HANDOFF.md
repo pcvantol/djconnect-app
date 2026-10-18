@@ -1,4 +1,37 @@
+## 2026-10-18 — Installation-local Apple STT and UI refinements
+
+Apple STT is opt-in/defaultoff in the device speech section. Both shared
+composers recognize the temporary recording locally, insert the final text into
+the existing draft and submit once. Explicit supported on-device recognition,
+permission/locale checks, no WAV fallback, cancellation and owner/context/draft
+fences are implemented. No backend/Profile contract changed. Speech permission
+purposes and four new labels/errors are translated in five languages.
+Focused3testsPASS; full846/10PASS93.140s without parallel execution. Native signed
+ordinary40338 iOS/Watch/widgets and Mac builds, strict signatures, compiled
+permission strings, zero test bundles and163source/stage inputsPASS. Ordinary40338 installed/read back/opened on iPad/MacBook/Mac mini; previous
+Mac apps and pairing retained, defaultoff toggle. Actual microphone/TCC/STT
+accuracy/offline audio acceptance remains unqualified. Watch's
+own input route is unchanged. See [scope and evidence](feedback/APPLE_DEVICE_STT_20261018.md).
+
 ## 2026-10-18 — Passive contribution grant and publication recovery
+
+Owner follow-up: archive list/detail omit redundant ENDED ("Afgesloten") and
+final-summary ("Definitief") labels. INTERRUPTED remains visible as "Onderbroken";
+provisional summaries retain their qualifier. The redundant counts-scope footer
+is also removed at the owner's request. A white corresponding Mood symbol follows
+the predominant-Mood line in both list rows and details, using the existing
+selector symbols only for a known complete symbolic Mood. These refinements are included in the ordinary40338 products after PR117.
+List artwork/icon tiles now share the More-menu reference radius14pt: queue,
+playlists, saved-session leading tile, Music DNA tracks and Ask DJ media rows,
+including loading/error placeholders. An earlier compile attempt could not complete with only133MiB free; after space
+became available, full846tests and ordinary40338 native builds pass. No generated
+caches, active evidence or installed recovery apps were removed by this work.
+Native visual acceptance remains open.
+Settings follow-up: destructive buttons opt into interactive red-tinted glass
+through the existing button style, respecting the local glass preference and
+Reduce Transparency. Non-destructive settings labels explicitly use white text;
+content and navigation both supply white tint/accent to native controls. Red
+destructive roles and existing confirmations remain intact. Included in40338.
 
 Current Apple WIP is stacked on summary PR116. Two passive1 defects are
 reproduced/fixed: home widgets accept their own grant without locked-screen

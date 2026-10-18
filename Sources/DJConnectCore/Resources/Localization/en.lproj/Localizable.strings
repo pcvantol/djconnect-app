@@ -1406,3 +1406,11 @@
 "ui.session.summary.provisional" = "Provisional";
 "ui.session.summary.final" = "Final";
 "ui.session.summary.scope" = "Counts refer to registered track changes, not complete listens or exact play counts.";
+
+"ui.device_stt.enabled" = "Use Apple STT on this device";
+
+"ui.device_stt.explanation" = "Convert your Ask DJ recording to text on this device and send it automatically. No audio is sent to Home Assistant. This choice applies only here.";
+
+"ui.device_stt.unavailable" = "On-device Apple speech recognition is unavailable for this language or lacks permission. No audio was sent.";
+
+"ui.device_stt.failed" = "The recording could not be transcribed locally or the chat context changed. Try again. No audio was sent.";

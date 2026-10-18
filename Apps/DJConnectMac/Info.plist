@@ -78,6 +78,6 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>DJConnect records your voice for push-to-talk music requests to Home Assistant.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>DJConnect uses speech recognition to detect the wake phrase.</string>
+	<string>DJConnect uses speech recognition for on-device Ask DJ transcription and wake phrase detection.</string>
 </dict>
 </plist>

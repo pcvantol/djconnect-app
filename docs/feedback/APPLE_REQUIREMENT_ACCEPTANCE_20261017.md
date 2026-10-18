@@ -6,7 +6,7 @@ Actuele baseline: iPad/MacBook/Mac mini ordinary40334 installed, actual versions
 
 Bron: 7af44f735bced06a30b2c2b975d9a7a9e43e732c baseline;40334 repair in current worktree, separately installed source inputs verified
 
-BLOCKED: 4; CLOSED_BOUNDED: 22; OPEN: 2; PARKED: 1; PARTIAL: 22; SUPERSEDED: 1
+BLOCKED: 4; CLOSED_BOUNDED: 22; OPEN: 2; PARKED: 1; PARTIAL: 23; SUPERSEDED: 1
 
 | Requirement / herkomst | Status | Bewezen | Nog open / bewijsgrens |
 |---|---|---|---|
@@ -62,5 +62,6 @@ BLOCKED: 4; CLOSED_BOUNDED: 22; OPEN: 2; PARKED: 1; PARTIAL: 22; SUPERSEDED: 1
 | session-delete-single — Eén eerdere sessie uit het profiel verwijderen | PARTIAL | Rood prullenbakje rechtsboven in archiefdetail, eigenaar-/revisiegebonden bevestiging en single-delete-v1; capability-gated. Consumer DTO/epoch/revision/unknown-outcome tests pass. See APPLE_SAVED_SESSION_DELETION_20261018.md. Consumer qualification: 8 tests / 43 cases; source only. | Core producer implementation/fixtures/exact qualified pin, integrated native confirmation and installed activation remain pending. No personal sessions deleted for tests. |
 | session-delete-all — Alle eerdere sessies in één bevestigde handeling uit het profiel verwijderen | PARTIAL | Rode prullenbak direct na zoeken; server snapshot met exact aantal, nuldoelen zonder POST, één UUIDv7-mutatie; active Flow behouden en na-snapshot sessie herladen. Consumer checks include deferred timeline/profile-history races. See APPLE_SAVED_SESSION_DELETION_20261018.md. Consumer qualification: 8 tests / 43 cases; source only. | Core producer implementation/fixtures/exact qualified pin, integrated native confirmation and installed activation remain pending. No personal sessions deleted for tests. |
 | session-history-summary — Privé server-owned historiesamenvatting met eerlijke aantallen, dekking en overheersende mood | PARTIAL | Private owner list/detail summary1 consumer; pinned Core ccbb839f fixtures and strict header/metric coherence.840tests/10suitesPASS91.736s; focused6tests/29casesPASS;1313localizationkeysPASS. See APPLE_HISTORY_SUMMARY_ADOPTION_20261018.md. | Native visual/accessibility and actual paired-device summary acceptance, source review/protected delivery remain open; previous native XCTest startup blocker retained. No full product/hardware acceptance. |
+| device-stt-local-input — Apparaatgebonden Apple STT-toggle vervangt HA-audio door automatische Ask DJ-tekstinput | PARTIAL | Gedeelde iPhone/iPad/Mac-route, lokale herkenningsvereiste, geen audiofallback, vijf talen en3nieuwe gerichte regressiesPASS; full846testsPASS/native40338PASS. APPLE_DEVICE_STT_20261018.md. | Werkelijke Speechtoestemming, ondersteunde lokale taalherkenning, microfoon/tekstverzending en fysieke/offlineacceptatie blijven apart; geen Watch-inputwijziging of beschermde bronreleaseclaim. |
 
 Bewijs en uitvoering: [integrale uitvoering](APPLE_INTEGRAL_EXECUTION_20261017.md). De JSON-bron naast dit document is leidend; deze Markdown wordt met Tools/qualification/validate_apple_work_registers.py --write bijgewerkt.

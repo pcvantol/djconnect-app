@@ -1406,3 +1406,11 @@
 "ui.session.summary.provisional" = "Vorläufig";
 "ui.session.summary.final" = "Abschließend";
 "ui.session.summary.scope" = "Gezählt werden erfasste Titelwechsel, nicht vollständig gehörte Titel oder genaue Wiedergabevorgänge.";
+
+"ui.device_stt.enabled" = "Apple STT auf diesem Gerät verwenden";
+
+"ui.device_stt.explanation" = "Wandle deine Ask DJ-Aufnahme auf diesem Gerät in Text um und sende ihn automatisch. Es wird kein Audio an Home Assistant gesendet. Diese Auswahl gilt nur hier.";
+
+"ui.device_stt.unavailable" = "Die lokale Apple-Spracherkennung ist für diese Sprache nicht verfügbar oder nicht erlaubt. Es wurde kein Audio gesendet.";
+
+"ui.device_stt.failed" = "Die Aufnahme konnte nicht lokal umgewandelt werden oder der Chat-Kontext hat sich geändert. Versuche es erneut. Es wurde kein Audio gesendet.";

@@ -1037,6 +1037,16 @@ public final class DJConnectAppModel: ObservableObject {
             stopResponsePlayback(clearText: false)
         }
     }
+    /// Installation-local input preference, never sent to a Profile or shared defaults.
+    @Published public var deviceSTTEnabled = false {
+        didSet {
+            guard deviceSTTEnabled != oldValue else { return }
+            stopWakeWordListening()
+            cancelVoiceRecording()
+            defaults.set(deviceSTTEnabled, forKey: "DJConnectDeviceSTTEnabled.v1")
+            resumeWakeWordListeningIfNeeded()
+        }
+    }
     @Published public private(set) var deviceSpeechPreviewIsPlaying = false
     @Published public var localResponseAudioEnabled = false {
         didSet {
@@ -1232,6 +1242,12 @@ public final class DJConnectAppModel: ObservableObject {
     private lazy var deviceSpeechRenderer = DJConnectAppleSpeechRenderer()
     #endif
     #if canImport(Speech) && canImport(AVFoundation)
+    private lazy var deviceSTTTranscriber = DJConnectAppleSpeechTranscriber()
+    private var deviceSTTTask: Task<Void, Never>?
+    private var voiceUsesDeviceSTT = false
+    private var voiceSTTContext: DJConnectConversationContext?
+    private var voiceSTTDraft = ""
+    private var voiceSTTLanguage = ""
     private var wakeAudioEngine: AVAudioEngine?
     private var wakeRecognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var wakeRecognitionTask: SFSpeechRecognitionTask?
@@ -1674,6 +1690,7 @@ public final class DJConnectAppModel: ObservableObject {
         Self.syncAskDJMoodToSharedDefaults(self.askDJMood)
         self.localResponseAudioEnabled = defaults.bool(forKey: localResponseAudioEnabledKey)
         self.deviceSpeechPreferences = DJConnectDeviceSpeechPreferences.load(from: defaults)
+        self.deviceSTTEnabled = defaults.bool(forKey: "DJConnectDeviceSTTEnabled.v1")
         self.djAnnouncementOutput = defaults.string(forKey: djAnnouncementOutputKey).flatMap(DJAnnouncementOutput.init(rawValue:)) ?? .clientDevice
         self.autoTrackInsightEnabled = defaults.bool(forKey: autoTrackInsightEnabledKey)
         self.webSocketFastPathEnabled = false
@@ -2228,8 +2245,8 @@ public final class DJConnectAppModel: ObservableObject {
         pairedIdentityRecoveryGeneration = UUID()
         dismissMomentTrackInsight()
         if enteringBackground && !isDemoMode {
+            if deviceSTTEnabled || sessionHistory.profileScopeActive { cancelVoiceRecording() }
             if sessionHistory.profileScopeActive {
-                cancelVoiceRecording()
                 clearAskDJHistoryLocally()
             }
             sessionHistory.suspend(preservingVoicePreference: true)
@@ -4768,6 +4785,12 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
 
+        #if canImport(Speech) && canImport(AVFoundation)
+        voiceUsesDeviceSTT = deviceSTTEnabled
+        voiceSTTContext = .init(sessionID: activeDJSession?.sessionID, selectedEntry: sessionHistory.selectedEntry)
+        voiceSTTDraft = askDJDraft
+        voiceSTTLanguage = language
+        #endif
         voiceStartTask?.cancel()
         isRecordingVoice = true
         voiceStatus = .listening
@@ -4788,6 +4811,19 @@ public final class DJConnectAppModel: ObservableObject {
                 resumeWakeWordListeningIfNeeded()
                 return
             }
+            #if canImport(Speech) && canImport(AVFoundation)
+            if voiceUsesDeviceSTT {
+                let speechGranted = await requestSpeechAccess()
+                guard !Task.isCancelled, isRecordingVoice else { return }
+                guard speechGranted,
+                      DJConnectAppleSpeechTranscriber.isAvailable(language: Self.speechLocaleIdentifier(for: language)) else {
+                    cancelVoiceRecording()
+                    voiceStatus = .unavailable
+                    voiceErrorMessage = localized(key: "ui.device_stt.unavailable")
+                    return
+                }
+            }
+            #endif
             playVoiceCue(.startListening)
             playVoiceHaptic(.startListening)
             try? await Task.sleep(for: .milliseconds(180))
@@ -4841,6 +4877,11 @@ public final class DJConnectAppModel: ObservableObject {
     /// a conversation turn as a side effect of navigation.
     public func cancelVoiceRecording() {
         voiceOperationGeneration = UUID()
+        #if canImport(Speech) && canImport(AVFoundation)
+        deviceSTTTask?.cancel(); deviceSTTTask = nil
+        deviceSTTTranscriber.cancel()
+        voiceSTTContext = nil
+        #endif
         sessionHistory.cancelVoiceContext()
         if case .voiceRecording = pendingPermissionRequest {
             pendingPermissionRequest = nil
@@ -4877,6 +4918,8 @@ public final class DJConnectAppModel: ObservableObject {
     /// Shared real capture submission; keeping operation identity prevents old uploads changing a new capture.
     func uploadRecordedVoiceWAV(_ data: Data, operation: UUID, historyEpoch: UUID) async {
         guard !isDemoMode else { return }
+        // Defense in depth: a local-STT selection can never fall through to HA audio.
+        guard !deviceSTTEnabled else { return }
         do {
             guard operation == voiceOperationGeneration, historyEpoch == sessionHistory.responseEpoch else { return }
             voiceStatus = .processing
@@ -4992,6 +5035,28 @@ public final class DJConnectAppModel: ObservableObject {
 
         let operation = voiceOperationGeneration
         let historyEpoch = sessionHistory.responseEpoch
+        #if canImport(Speech) && canImport(AVFoundation)
+        if voiceUsesDeviceSTT {
+            let context = voiceSTTContext, draft = voiceSTTDraft, captureLanguage = voiceSTTLanguage
+            deviceSTTTask = Task { @MainActor in
+                defer { try? FileManager.default.removeItem(at: url) }
+                do {
+                    let transcript = try await deviceSTTTranscriber.transcribe(url: url, language: Self.speechLocaleIdentifier(for: captureLanguage))
+                    guard !Task.isCancelled else { return }
+                    acceptDeviceSTTTranscript(transcript, operation: operation, historyEpoch: historyEpoch,
+                        context: context, originalDraft: draft, captureLanguage: captureLanguage)
+                } catch is CancellationError { return }
+                catch {
+                    guard operation == voiceOperationGeneration, historyEpoch == sessionHistory.responseEpoch else { return }
+                    sessionHistory.cancelVoiceContext()
+                    voiceStatus = .unavailable
+                    voiceErrorMessage = localized(key: "ui.device_stt.failed")
+                    resumeWakeWordListeningIfNeeded()
+                }
+            }
+            return
+        }
+        #endif
         Task {
             defer { try? FileManager.default.removeItem(at: url) }
             do {
@@ -5011,6 +5076,27 @@ public final class DJConnectAppModel: ObservableObject {
         dismissWakeWordListeningMessage()
         voiceErrorMessage = localized(key: "appModel.voice.recording.is.not.available.on.this.platform")
         #endif
+    }
+
+    func acceptDeviceSTTTranscript(_ transcript: String, operation: UUID, historyEpoch: UUID,
+        context: DJConnectConversationContext?, originalDraft: String, captureLanguage: String) {
+        guard deviceSTTEnabled, operation == voiceOperationGeneration,
+              historyEpoch == sessionHistory.responseEpoch else { return }
+        sessionHistory.cancelVoiceContext()
+        voiceStatus = .idle
+        let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, language == captureLanguage, askDJDraft == originalDraft,
+              context == DJConnectConversationContext(sessionID: activeDJSession?.sessionID, selectedEntry: sessionHistory.selectedEntry),
+              !isSendingAskDJText else {
+            voiceErrorMessage = localized(key: "ui.device_stt.failed")
+            resumeWakeWordListeningIfNeeded()
+            return
+        }
+        voiceOperationGeneration = UUID() // consume this recognition result exactly once
+        voiceErrorMessage = nil
+        askDJDraft = text
+        sendAskDJText()
+        resumeWakeWordListeningIfNeeded()
     }
 
     public func apply(playback: DJConnectPlayback?) {
@@ -14167,7 +14253,8 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         let locale = Locale(identifier: Self.speechLocaleIdentifier(for: language))
-        guard let recognizer = SFSpeechRecognizer(locale: locale), recognizer.isAvailable else {
+        guard let recognizer = SFSpeechRecognizer(locale: locale), recognizer.isAvailable,
+              !deviceSTTEnabled || recognizer.supportsOnDeviceRecognition else {
             wakeWordStatus = .unavailable
             log(.warning, "Wakeword speech recognizer is unavailable for \(locale.identifier)")
             return
@@ -14185,6 +14272,7 @@ public final class DJConnectAppModel: ObservableObject {
             let engine = AVAudioEngine()
             let request = SFSpeechAudioBufferRecognitionRequest()
             request.shouldReportPartialResults = true
+            request.requiresOnDeviceRecognition = deviceSTTEnabled
             let inputNode = engine.inputNode
             Self.installWakeWordAudioTap(on: inputNode, request: request)
             engine.prepare()

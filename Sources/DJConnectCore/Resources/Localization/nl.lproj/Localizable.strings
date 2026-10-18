@@ -1406,3 +1406,11 @@
 "ui.session.summary.provisional" = "Voorlopig";
 "ui.session.summary.final" = "Definitief";
 "ui.session.summary.scope" = "Aantallen betreffen geregistreerde nummerwisselingen, niet volledig beluisterde nummers of exacte afspeelbeurten.";
+
+"ui.device_stt.enabled" = "Gebruik Apple STT op dit apparaat";
+
+"ui.device_stt.explanation" = "Zet je Ask DJ-opname op dit apparaat om naar tekst en verstuur die automatisch. Er gaat geen audio naar Home Assistant. Deze keuze geldt alleen hier.";
+
+"ui.device_stt.unavailable" = "Apple-spraakherkenning op dit apparaat is niet beschikbaar voor deze taal of heeft geen toestemming. Er is geen audio verstuurd.";
+
+"ui.device_stt.failed" = "De opname kon niet lokaal worden omgezet of de chatcontext is gewijzigd. Probeer opnieuw. Er is geen audio verstuurd.";

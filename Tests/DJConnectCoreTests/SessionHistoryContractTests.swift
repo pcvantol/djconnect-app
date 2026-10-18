@@ -5699,3 +5699,62 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     #expect(history.historicalMatches.values.flatMap { $0 }.isEmpty)
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/delete_all") }.count == 1)
 }
+
+@Test @MainActor func deviceSTTSubmitsOneTextTurnAndNeverAnAudioRequest() async throws {
+    let receipt = try historyObject()
+    let history = try historyData(try #require(receipt["later_historical_answer"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.httpMethod == "POST" { return (503, Data(), 0) }
+        return (200, history, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    model.deviceSTTEnabled = true
+    let context = DJConnectConversationContext(sessionID: model.activeDJSession?.sessionID, selectedEntry: model.sessionHistory.selectedEntry)
+    let operation = model.voiceOperationID
+    model.acceptDeviceSTTTranscript("  Speel Nirvana  ", operation: operation,
+        historyEpoch: model.sessionHistory.responseEpoch, context: context, originalDraft: "", captureLanguage: model.language)
+    try await Task.sleep(for: .milliseconds(150))
+    let posts = fixture.requests.filter { $0.httpMethod == "POST" }
+    #expect(posts.count == 1)
+    let body = try presenceRequestBody(#require(posts.first))
+    let payload = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+    #expect(payload["text"] as? String == "Speel Nirvana")
+    #expect(posts.allSatisfy { !$0.url!.path.hasSuffix("/voice") && $0.value(forHTTPHeaderField: "Content-Type")?.contains("json") == true })
+    #expect(model.askDJDraft.isEmpty)
+    let before = fixture.requests.count
+    model.acceptDeviceSTTTranscript("Speel Nirvana", operation: operation, historyEpoch: model.sessionHistory.responseEpoch,
+        context: context, originalDraft: "", captureLanguage: model.language)
+    await model.uploadRecordedVoiceWAV(Data([82,73,70,70]), operation: model.voiceOperationID, historyEpoch: model.sessionHistory.responseEpoch)
+    #expect(fixture.requests.count == before)
+}
+
+@Test @MainActor func deviceSTTRejectsStaleContextEmptyOrEditedDraftWithoutSending() async throws {
+    let fixture = HistoryWireFixture { _ in (503, Data(), 0) }; defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    model.deviceSTTEnabled = true
+    let context = DJConnectConversationContext(sessionID: model.activeDJSession?.sessionID, selectedEntry: model.sessionHistory.selectedEntry)
+    let operation = model.voiceOperationID, epoch = model.sessionHistory.responseEpoch, language = model.language
+    model.askDJDraft = "Keep this draft"
+    model.acceptDeviceSTTTranscript("Recognized", operation: operation, historyEpoch: epoch,
+        context: context, originalDraft: "", captureLanguage: language)
+    #expect(model.askDJDraft == "Keep this draft")
+    for (text, op, ep, ctx, lang) in [
+        (" ", operation, epoch, context, language),
+        ("Recognized", UUID(), epoch, context, language),
+        ("Recognized", operation, UUID(), context, language),
+        ("Recognized", operation, epoch, DJConnectConversationContext(sessionID: "different-session"), language),
+        ("Recognized", operation, epoch, context, "changed-language")
+    ] {
+        model.acceptDeviceSTTTranscript(text, operation: op, historyEpoch: ep, context: ctx,
+            originalDraft: "Keep this draft", captureLanguage: lang)
+    }
+    model.deviceSTTEnabled = false
+    model.acceptDeviceSTTTranscript("Recognized", operation: model.voiceOperationID, historyEpoch: epoch,
+        context: context, originalDraft: "Keep this draft", captureLanguage: language)
+    #expect(model.askDJDraft == "Keep this draft")
+    #expect(fixture.requests.isEmpty)
+}

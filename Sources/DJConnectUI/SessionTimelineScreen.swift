@@ -44,7 +44,7 @@ struct SavedSessionsView: View {
     private var filteredSessions: [DJConnectSavedSession] {
         guard !searchQuery.isEmpty else { return history.sessions }
         return history.sessions.filter { session in
-            let status = text(session.lifecycleStatus == "INTERRUPTED" ? "ui.session.history.interrupted" : "ui.session.history.ended")
+            let status = session.lifecycleStatus == "INTERRUPTED" ? text("ui.session.history.interrupted") : ""
             return (SessionArchiveSummary.text(session, language: model.language) + " " + status)
                 .localizedStandardContains(searchQuery)
         }
@@ -118,13 +118,15 @@ struct SavedSessionsView: View {
                                 Image(systemName: "clock.arrow.circlepath")
                                     .font(.title2.weight(.medium)).foregroundStyle(djConnectAccent)
                                     .frame(width: 52, height: 52)
-                                    .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+                                    .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: DJConnectListTileStyle.cornerRadius, style: .continuous))
                                     .accessibilityHidden(true)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(SessionArchiveSummary.text(session, language: model.language))
                                         .font(.body.weight(.medium)).foregroundStyle(.white).multilineTextAlignment(.leading)
-                                    Text(text(session.lifecycleStatus == "INTERRUPTED" ? "ui.session.history.interrupted" : "ui.session.history.ended"))
-                                        .font(.caption2.weight(.medium)).foregroundStyle(.white.opacity(0.78))
+                                    if session.lifecycleStatus == "INTERRUPTED" {
+                                        Text(text("ui.session.history.interrupted"))
+                                            .font(.caption2.weight(.medium)).foregroundStyle(.white.opacity(0.78))
+                                    }
                                     if history.summaryAvailable, let summary = session.summary {
                                         SessionHistorySummaryView(summary: summary, language: model.language, compact: true)
                                     }
@@ -482,8 +484,10 @@ struct SessionTimelineScreen: View {
                                         Text(SessionArchiveSummary.text(session, language: model.language))
                                             .font(.headline).accessibilityAddTraits(.isHeader)
                                             .accessibilityIdentifier("session-archive-summary")
-                                        Text(text(session.lifecycleStatus == "INTERRUPTED" ? "ui.session.history.interrupted" : "ui.session.history.ended"))
-                                            .font(.caption).foregroundStyle(.secondary)
+                                        if session.lifecycleStatus == "INTERRUPTED" {
+                                            Text(text("ui.session.history.interrupted"))
+                                                .font(.caption).foregroundStyle(.secondary)
+                                        }
                                         if history.summaryAvailable, let summary = session.summary {
                                             SessionHistorySummaryView(summary: summary, language: model.language)
                                         }
