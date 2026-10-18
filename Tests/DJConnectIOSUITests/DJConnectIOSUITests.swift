@@ -5,6 +5,35 @@ import UIKit
 final class DJConnectIOSUITests: XCTestCase {
     private var lastScreenshotPNG: Data?
 
+    func testSessionAvatarStaysInsideSingleCurrentCard() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-DJCONNECTRuntimeFixture", "review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "review_demo"
+        app.launch()
+        let tab = app.tabBars.buttons["DJ-sessie"]
+        if tab.waitForExistence(timeout: 10) { tab.tap() }
+        let card = app.descendants(matching: .any)["session-current-card"].firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        let avatar = card.descendants(matching: .any)["session-dj-avatar"].firstMatch
+        XCTAssertTrue(avatar.exists, "The identity belongs inside the existing current bubble")
+        let avatars = app.descendants(matching: .any).matching(identifier: "session-dj-avatar")
+        XCTAssertEqual(avatars.count, 1, "No second persistent DJ identity/card")
+        let before = avatar.frame
+        let composer = app.textViews.firstMatch
+        XCTAssertTrue(composer.exists)
+        composer.tap(); composer.typeText("Vertel over deze muziek")
+        app.buttons["ask-dj-composer-send"].tap()
+        let backToCurrent = app.buttons["session-jump-top"].firstMatch
+        if backToCurrent.waitForExistence(timeout: 5), backToCurrent.isHittable { backToCurrent.tap() }
+        for _ in 0..<8 where !avatar.exists { app.swipeDown() }
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertEqual(avatars.count, 1)
+        XCTAssertTrue(card.descendants(matching: .any)["session-dj-avatar"].firstMatch.exists)
+        XCTAssertEqual(avatar.frame.width, before.width, accuracy: 1)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "session-pulse-existing-current-card"; shot.lifetime = .keepAlways; add(shot)
+    }
+
     func testSessionConversationContextMenuReusesPromptAndReportsAnswer() {
         let app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-DJCONNECTRuntimeFixture", "review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]

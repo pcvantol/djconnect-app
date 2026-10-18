@@ -1,3 +1,15 @@
+## 2026-10-18 — avatar graphics lane resumed after migration
+
+User selects existing lane continuation. Reused clean `feat/dj-persona-avatar`
+at main c012e5456d0b1eabbb390fc4d5b42ffb9cd13170 in the migrated Shared Data
+checkout. First local-graphics slice follows Apple127/Core1209's latest full-ring
+headphone refinement. Native vector and static menu derivative share geometry;
+one material current-card parent contains the avatar and every existing state.
+No backend activity/touch/audio wiring starts before Core's qualified handoff.
+See docs/design/DJ_PERSONA_AVATAR_V1.md. Validation/review/delivery pending; no
+installed or native acceptance claimed. Old `.xcode-derived` contains former
+Documents paths and is not used; new builds must use a fresh generated stage.
+
 ## 2026-10-18 — Session start card copy
 
 The pre-playback Session card now says “Je sessie begint hier” with the requested

@@ -1424,3 +1424,5 @@
 
 "ui.session.start_here.title" = "Je sessie begint hier";
 "ui.session.start_here.detail" = "Zet muziek aan of praat met je DJ. DJConnect brengt je sessie tot leven met bijdragen die passen bij wat je luistert.";
+
+"ui.session.avatar.label" = "Je DJ";

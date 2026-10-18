@@ -6,7 +6,37 @@ import ImageIO
 
 /// Shared feature identity across native tabs, sidebar, heroes and notices.
 enum DJConnectFeatureSymbols {
-    static let djSession = "opticaldisc"
+    static let djSession = "dj-session-pulse"
+
+    @MainActor static func image(_ name: String) -> Image {
+        guard name == djSession else { return Image(systemName: name) }
+        #if os(iOS)
+        return Image(uiImage: sessionImage).renderingMode(.template)
+        #elseif os(macOS)
+        return Image(nsImage: sessionImage).renderingMode(.template)
+        #else
+        return Image(systemName: "headphones")
+        #endif
+    }
+
+    #if os(iOS)
+    @MainActor private static let sessionImage: UIImage = {
+        let renderer = ImageRenderer(content: DJPersonaMenuSymbol())
+        renderer.scale = 3
+        return (renderer.uiImage ?? UIImage()).withRenderingMode(.alwaysTemplate)
+    }()
+    @MainActor static func uiImage(_ name: String) -> UIImage? {
+        name == djSession ? sessionImage : UIImage(systemName: name)
+    }
+    #elseif os(macOS)
+    @MainActor private static let sessionImage: NSImage = {
+        let renderer = ImageRenderer(content: DJPersonaMenuSymbol())
+        renderer.scale = 3
+        let image = renderer.nsImage ?? NSImage(size: NSSize(width: 26, height: 26))
+        image.isTemplate = true
+        return image
+    }()
+    #endif
 }
 
 /// Keep screen refresh at the platform's consistent action edge.
@@ -1182,7 +1212,7 @@ public struct DJConnectRootView: View {
                 .environment(\.djConnectContentSizeClass, horizontalSizeClass)
                 .safeAreaInset(edge: .bottom, spacing: 0) { nativeTabOfflineNotice }
                 .tabItem {
-                    Label(localizedKey(model.language, "ui.session.title"), systemImage: DJConnectFeatureSymbols.djSession)
+                    Label { Text(localizedKey(model.language, "ui.session.title")) } icon: { DJConnectFeatureSymbols.image(DJConnectFeatureSymbols.djSession) }
                 }
                 .tag(DJConnectSection.djSession)
             NowPlayingView(model: model) { selectedSection = .queue }
@@ -1591,7 +1621,7 @@ private struct SidebarItem: View {
             action()
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: systemImage)
+                DJConnectFeatureSymbols.image(systemImage)
                     .symbolRenderingMode(.monochrome)
                     .foregroundStyle(isSelected ? .white : djConnectAccent)
                     .frame(width: 28, alignment: .center)
@@ -14666,7 +14696,7 @@ private struct StatusToast: View {
     var systemImage = "play.fill"
 
     var body: some View {
-        Label(text, systemImage: systemImage)
+        Label { Text(text) } icon: { DJConnectFeatureSymbols.image(systemImage) }
             .font(.callout.weight(.semibold))
             .foregroundStyle(.white)
             .labelStyle(.titleAndIcon)
