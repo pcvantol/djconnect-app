@@ -1,3 +1,11 @@
+## 2026-10-18 — no pull-to-refresh on empty feature screens
+
+Track Insight, Discover, Ask DJ and Music DNA remove the native refresh action
+while their displayed content is empty. Track
+Insight requires an insight; Discover requires visible sections; Ask DJ requires
+messages; Music DNA requires an enabled, nonempty profile. Automatic initial
+loads and toolbar/retry actions remain available. Pull-to-refresh becomes available when content arrives.
+
 ## 2026-10-18 — consistent manual refresh
 
 Active DJ-session pull-to-refresh and toolbar refresh now share the same async
