@@ -1415,3 +1415,5 @@
 "ui.device_stt.unavailable" = "Apple-spraakherkenning op dit apparaat is niet beschikbaar voor deze taal of heeft geen toestemming. Er is geen audio verstuurd.";
 
 "ui.device_stt.failed" = "De opname kon niet lokaal worden omgezet of de chatcontext is gewijzigd. Probeer opnieuw. Er is geen audio verstuurd.";
+
+"appModel.now.playing.updating" = "Speelt Nu bijwerken…";

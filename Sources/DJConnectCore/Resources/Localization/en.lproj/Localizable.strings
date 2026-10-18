@@ -1415,3 +1415,5 @@
 "ui.device_stt.unavailable" = "On-device Apple speech recognition is unavailable for this language or lacks permission. No audio was sent.";
 
 "ui.device_stt.failed" = "The recording could not be transcribed locally or the chat context changed. Try again. No audio was sent.";
+
+"appModel.now.playing.updating" = "Updating Now Playing…";

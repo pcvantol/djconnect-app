@@ -333,7 +333,7 @@ struct SessionTimelineScreen: View {
     var activeSession: DJConnectSessionRuntime?
     var initialAnchor: String?
     var openQueueAction: () -> Void = {}
-    var refreshAction: (() -> Void)?
+    var refreshAction: (() async -> Void)?
     @StateObject private var renderCache = SessionTimelineRenderCache()
     @State private var sessionControlIntent: SessionControlIntent?
     @State private var showingDJVoice = false
@@ -373,11 +373,20 @@ struct SessionTimelineScreen: View {
     @Environment(\.scenePhase) private var scenePhase
 
     init(model: DJConnectAppModel, sessionID: String, activeSession: DJConnectSessionRuntime? = nil,
-         initialAnchor: String? = nil, openQueueAction: @escaping () -> Void = {}, refreshAction: (() -> Void)? = nil) {
+         initialAnchor: String? = nil, openQueueAction: @escaping () -> Void = {}, refreshAction: (() async -> Void)? = nil) {
         self.model = model; history = model.sessionHistory; self.sessionID = sessionID
         self.activeSession = activeSession; self.initialAnchor = initialAnchor; self.openQueueAction = openQueueAction
         self.refreshAction = refreshAction
     }
+    private func refreshTimeline() async {
+        // Keep both gestures on the same path, including the Session status toast.
+        await Task { @MainActor in
+            await refreshAction?()
+            await history.refreshConversation()
+            await history.refreshVisibleTimeline(sessionID, anchor: visibleEntry)
+        }.value
+    }
+
     private var usesFloatingComposer: Bool {
         #if os(iOS)
         activeSession != nil
@@ -662,8 +671,7 @@ struct SessionTimelineScreen: View {
                     .refreshable {
                         pullRefreshing = true
                         defer { pullRefreshing = false }
-                        await history.refreshConversation()
-                        await history.refreshVisibleTimeline(sessionID, anchor: visibleEntry)
+                        await refreshTimeline()
                     }
                 }
                 if activeSession != nil && !usesFloatingComposer && !searching {
@@ -731,8 +739,8 @@ struct SessionTimelineScreen: View {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     if activeSession == nil, history.deletionAvailable { archiveDeleteButton }
                     if activeSession != nil { SessionConnectionToolbarButton(model: model) }
-                    if let refreshAction {
-                        RefreshButton(model: model, action: refreshAction, isLoading: timeline.loading || retryRefreshing)
+                    if refreshAction != nil {
+                        RefreshButton(model: model, action: { Task { await refreshTimeline() } }, isLoading: timeline.loading || retryRefreshing)
                     }
                 }
                 #endif
@@ -743,11 +751,11 @@ struct SessionTimelineScreen: View {
                 if activeSession != nil {
                     ToolbarItemGroup(placement: .confirmationAction) {
                         SessionConnectionToolbarButton(model: model)
-                        if let refreshAction { RefreshButton(model: model, action: refreshAction, isLoading: timeline.loading || retryRefreshing) }
+                        if refreshAction != nil { RefreshButton(model: model, action: { Task { await refreshTimeline() } }, isLoading: timeline.loading || retryRefreshing) }
                     }
-                } else if let refreshAction {
+                } else if refreshAction != nil {
                     ToolbarItem(placement: .confirmationAction) {
-                        RefreshButton(model: model, action: refreshAction, isLoading: timeline.loading || retryRefreshing)
+                        RefreshButton(model: model, action: { Task { await refreshTimeline() } }, isLoading: timeline.loading || retryRefreshing)
                     }
                 }
                 #endif

@@ -1,3 +1,16 @@
+## 2026-10-18 — consistent manual refresh
+
+Active DJ-session pull-to-refresh and toolbar refresh now share the same async
+route, including loading/result notices and conversation/timeline reads. Idle
+sessions still have no manual refresh. Now Playing announces progress on both
+entry points. Manual playback refreshes share one request and wait for an
+in-flight background refresh instead of treating busy as failure. The shared
+request survives SwiftUI gesture cancellation; backend/transport errors still
+return failure and existing output/authority fences remain in place.
+
+Validation for this slice is recorded in the delivery PR; physical gesture
+acceptance remains separate from model tests and native compilation.
+
 ## 2026-10-18 — Confirm disable and delete app diagnostics
 
 Owner follow-up supersedes PR119's retained-history behavior for an explicit
