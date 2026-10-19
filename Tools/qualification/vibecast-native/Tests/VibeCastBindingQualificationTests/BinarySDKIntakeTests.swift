@@ -176,4 +176,32 @@ final class BinarySDKIntakeTests: XCTestCase {
         do { _ = try await task.value; XCTFail("Cancelled result must not escape") } catch BindingFailure.rejected {}
         _ = try await runner.perform(input, keyID: { self.key }, now: { self.start }, current: { true }, persist: { _, _ in }, sdk: { _, _ in Data([1]) })
     }
+    @MainActor func testClockRollbackBeforeAndAfterSDKCannotReleaseProof() async throws {
+        for beforeSDK in [true, false] {
+            let runner = BinarySDKIntake(), input = try registration()
+            var time = start + 5_000, calls = 0
+            do {
+                _ = try await runner.perform(input, keyID: { self.key }, now: { time }, current: { true }, persist: { _, _ in
+                    if beforeSDK { time -= 1_000 }
+                }, sdk: { _, _ in
+                    calls += 1
+                    if !beforeSDK { time -= 1_000 }
+                    return Data([1])
+                })
+                XCTFail("Clock rollback must reject even while wall time is inside the original window")
+            } catch BindingFailure.rejected {}
+            XCTAssertEqual(calls, beforeSDK ? 0 : 1)
+        }
+    }
+    @MainActor func testFrozenWallClockCannotExtendOriginalRemainingLifetime() async throws {
+        var fields = try FlatObject.parse(response()); fields["expires_at"] = .integer(start + 10)
+        let input = try BinarySDKInput.registration(response: json(fields), keyID: key, requestedAtMS: start, nowMS: start)
+        do {
+            _ = try await BinarySDKIntake().perform(input, keyID: { self.key }, now: { self.start }, current: { true }, persist: { _, _ in }, sdk: { _, _ in
+                try await Task.sleep(for: .milliseconds(30))
+                return Data([1])
+            })
+            XCTFail("Monotonic remaining lifetime must expire even if the wall clock freezes")
+        } catch BindingFailure.rejected {}
+    }
 }

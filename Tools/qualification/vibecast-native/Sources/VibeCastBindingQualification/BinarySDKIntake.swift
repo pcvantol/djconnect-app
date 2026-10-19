@@ -85,15 +85,27 @@ struct BinarySDKInput: Sendable {
         do {
             guard !busy else { throw BindingFailure.rejected }
             try Task.checkCancellation()
-            try input.check(keyID: keyID(), nowMS: now(), current: current())
+            let clock = ContinuousClock()
+            let started = clock.now
+            var lastObservedWall = now()
+            try input.check(keyID: keyID(), nowMS: lastObservedWall, current: current())
+            // Capture the original remaining lifetime once. A frozen/backward
+            // wall clock must never extend the SDK attempt across suspension.
+            let monotonicDeadline = started.advanced(by: .milliseconds(input.deadlineMS - lastObservedWall))
+            func recheck() throws {
+                let observed = now()
+                guard observed >= lastObservedWall, clock.now < monotonicDeadline else { throw BindingFailure.rejected }
+                try input.check(keyID: keyID(), nowMS: observed, current: current())
+                lastObservedWall = observed
+            }
             busy = true; defer { busy = false }
             let original = input.original, hash = input.hash
             try persist(original, hash)
             try Task.checkCancellation()
-            try input.check(keyID: keyID(), nowMS: now(), current: current())
+            try recheck()
             let proof = try await sdk(input.keyID, hash)
             try Task.checkCancellation()
-            try input.check(keyID: keyID(), nowMS: now(), current: current())
+            try recheck()
             let maximum = switch input.kind { case .registration: 32_768; case .assertion: 4_096 }
             guard !proof.isEmpty, proof.count <= maximum else { throw BindingFailure.rejected }
             return proof

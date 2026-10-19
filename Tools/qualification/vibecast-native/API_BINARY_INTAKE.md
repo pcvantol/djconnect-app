@@ -54,7 +54,7 @@ Build40380 is not silently added to the existing40227/40228/40230 allowlist.
 
 The private signed scratch host includes the qualification xctest bundle, is not
 an ordinary install/release and must not be distributed as one. Its89-file bundle
-manifest digest is e00da93334cbdf8e81a1aa9c01189f5b7287df1411374274c833b013d795e613
+manifest digest is 423016262f713dcfae1c7075edd372588d9c5b909928d078fef161a01b180baa
 (SHA256 of sorted compact JSON file/symlink manifest, without final newline).
 Raw app/profile archives are not published: profiles can contain device details.
 Local stage, executable/profile/manifest readbacks and source hashes remain under
@@ -119,18 +119,22 @@ by an old receipt merely because its displayed build number is40380.
 
 ## Executed qualification
 
-Twenty-two isolated Swift tests pass (the prior10 binding cases plus12 binary
+Twenty-four isolated Swift tests pass (the prior10 binding cases plus14 binary
 intake/dispatch cases). They prove decoded nonce vs base64-text hash, all three
 exact action-byte paths, response-vs-clientData size bounds, canonical encodings,
 duplicate/foreign/malformed JSON, original deadlines, persistence before a fake
 SDK sink, failed save/context/key/expiry refusal, late results/error redaction,
 proof bounds, nested serialization and cancellation retaining the slot until
-callback. These are injected closure tests, **not Apple SDK execution**.
+callback. Two regression tests first reproduced wall-clock rollback and a frozen
+wall clock. Both now reject: dispatch/release require nondecreasing wall time
+and the original remaining lifetime is fixed once against ContinuousClock,
+never renewed after persistence or an SDK await. These are injected closure tests, **not Apple SDK execution**.
 
 A clean tracked-source snapshot plus the explicit new qualification files built
 for generic iPhone/iOS including the real DeviceCheck callback paths and both
 test classes. Unsigned and subsequently development-signed build-for-testing40380
-both passed. codesign --verify --deep --strict passed on the resulting scratch
+both passed. After the clock correction the development-signed hosted build
+was rebuilt successfully against all five corrected source/test inputs. codesign --verify --deep --strict passed on the resulting scratch
 app. Actual profile, entitlements, certificate, bundle manifest and all five
 compiled-source hashes were read back. No physical tests, fresh nonce/key,
 SDK call, API request, installation or ordinary app replacement occurred.
