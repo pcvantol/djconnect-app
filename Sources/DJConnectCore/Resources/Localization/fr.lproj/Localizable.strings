@@ -1426,3 +1426,9 @@
 "ui.session.start_here.detail" = "Lancez de la musique ou parlez à votre DJ. DJConnect donne vie à votre session avec des interventions adaptées à ce que vous écoutez.";
 
 "ui.session.avatar.label" = "Votre DJ";
+"ui.session.avatar.activity.resting" = "Au repos";
+"ui.session.avatar.activity.listening" = "À l’écoute";
+"ui.session.avatar.activity.preparing" = "En préparation";
+"ui.session.avatar.activity.announcement" = "Annonce musicale";
+"ui.session.avatar.activity.speaking" = "Parle";
+"ui.session.avatar.activity.text" = "Réponse textuelle";

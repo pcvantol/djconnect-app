@@ -1,3 +1,28 @@
+## 2026-10-19 — observed foreground avatar activity
+
+Core delivered basic existing-signal qualification (1215/1216) and the separate
+explicit-touch producer (1217/1218). Current Core main/HA-dev pin is
+`f8b28d2b3713ae0bfe11a44d32634d821c914cc8`. Read-only installed-container hashing
+matches all205 integration files; no deployment or Core mutation was performed.
+This supersedes the older prerequisite statement below for Core1209 only.
+
+Selected Apple slice: foreground current-card inner glyphs and real capture /
+shared contribution audio observation, including both manual replay and future
+contribution autoplay. Session/owner epoch/connection/settings bind observations.
+Actual AVAudioRecorder.isRecording and AVAudioPlayer.isPlaying drive activity;
+permission/preparation flags, ready bytes and HA-speaker acknowledgements cannot
+claim listening/speaking. Typed admitted announcement keeps its note during the
+same contribution's actual audio; newer explicit capture/request/reply wins.
+Silence/music_only defaults to rest; a new native silence identity invalidates
+an older text glyph. Existing playback, speech rights and all card states remain.
+
+Dynamic foreground observations are not exported to widgets/ActivityKit/Island.
+Those retain the shared static mood/avatar and their existing expiring rights.
+Touch reactions are a separate next consumer slice, not implemented here.
+Core1210 suggestions/Help and1212 speech capability routes remain separate.
+No ordinary installation or physical/live-audio acceptance is claimed by this
+source slice. See docs/design/DJ_PERSONA_AVATAR_V1.md for validation readback.
+
 ## 2026-10-19 — UI follow-through and native Session acceptance slice
 
 User selects the next lane slice and open development work. Preserve the current

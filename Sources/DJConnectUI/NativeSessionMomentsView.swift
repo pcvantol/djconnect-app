@@ -264,7 +264,7 @@ struct NativeSessionMomentsView: View {
                 musicContext
                 TimelineView(.periodic(from: .now, by: 1)) { clock in
                     let current = currentMoment(at: clock.date)
-                    currentCard(current)
+                    currentCard(current, at: clock.date)
                         .modifier(CurrentMomentArtworkTint(artworkURL: musicArtworkURL))
                         .accessibilityIdentifier("session-current-card")
                         .animation(djSessionReducedMotion(reduceMotion) ? nil : .easeInOut(duration: 0.2), value: current?.id)
@@ -336,9 +336,11 @@ struct NativeSessionMomentsView: View {
         session.broadcast.presentations.last { $0.momentID == moment.id }
     }
 
-    func currentCard(_ moment: DJConnectMoment?) -> some View {
-        HStack(alignment: .top, spacing: 16) {
-            DJPersonaAvatarView(confirmedMood: isLiveUnavailable || isRecovering ? nil : session.selectedMood, language: language)
+    func currentCard(_ moment: DJConnectMoment?, at now: Date = Date()) -> some View {
+        let evidence = playbackModel?.personaEvidence(for: session, admittedMoment: moment, at: now) ?? .init()
+        return HStack(alignment: .top, spacing: 16) {
+            DJPersonaAvatarView(confirmedMood: isLiveUnavailable || isRecovering ? nil : session.selectedMood, language: language,
+                                activity: DJPersonaActivity.resolve(evidence), speechIsPlaying: evidence.speaking)
                 .frame(width: 80, height: 80)
                 .fixedSize()
             currentCardContent(moment)

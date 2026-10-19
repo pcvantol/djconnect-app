@@ -1426,3 +1426,9 @@
 "ui.session.start_here.detail" = "Play some music or talk to your DJ. DJConnect brings your session to life with contributions that match what you’re listening to.";
 
 "ui.session.avatar.label" = "Your DJ";
+"ui.session.avatar.activity.resting" = "At rest";
+"ui.session.avatar.activity.listening" = "Listening";
+"ui.session.avatar.activity.preparing" = "Preparing";
+"ui.session.avatar.activity.announcement" = "Music announcement";
+"ui.session.avatar.activity.speaking" = "Speaking";
+"ui.session.avatar.activity.text" = "Text response";

@@ -1426,3 +1426,9 @@
 "ui.session.start_here.detail" = "Zet muziek aan of praat met je DJ. DJConnect brengt je sessie tot leven met bijdragen die passen bij wat je luistert.";
 
 "ui.session.avatar.label" = "Je DJ";
+"ui.session.avatar.activity.resting" = "In rust";
+"ui.session.avatar.activity.listening" = "Luistert";
+"ui.session.avatar.activity.preparing" = "Bezig met voorbereiden";
+"ui.session.avatar.activity.announcement" = "Muziekaankondiging";
+"ui.session.avatar.activity.speaking" = "Spreekt";
+"ui.session.avatar.activity.text" = "Tekstantwoord";

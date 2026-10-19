@@ -1205,6 +1205,24 @@ public final class DJConnectAppModel: ObservableObject {
     }
     private var conversationResultLeases: [String: ConversationResultLease] = [:]
     private var conversationResultLeaseOrder: [String] = []
+    // Ephemeral renderer observations. Never persisted or exported to passive surfaces.
+    private struct PersonaObservationScope: Equatable {
+        let sessionID: String
+        let epoch: UUID
+        let connection: UUID
+        let settingsBinding: String
+    }
+    private struct PersonaSpeechObservation {
+        let scope: PersonaObservationScope
+        let reference: DJConnectSpeechReference
+        let deadline: Date
+    }
+    private var personaRequestScope: PersonaObservationScope?
+    private var personaVoiceScope: PersonaObservationScope?
+    private var personaSpeechObservation: PersonaSpeechObservation?
+    private var personaReplyScope: PersonaObservationScope?
+    private var personaReplyMomentID: String?
+    private var personaReplySilenceMomentID: String?
     private var liveConversationPresentations: [String: LiveConversationPresentation] = [:]
     private var liveConversationExpiryTask: Task<Void, Never>?
     private var pendingSelectedOutput: String?
@@ -4008,13 +4026,75 @@ public final class DJConnectAppModel: ObservableObject {
         return payload
     }
 
+    private func currentPersonaScope() -> PersonaObservationScope? {
+        guard isAppInForeground, sessionHistory.hasAuthorizedOwner, isConnected, backendAvailable,
+              !djSessionIsRecovering, !djSessionLiveUnavailable,
+              let session = activeDJSession, session.runtimeState == "active",
+              let binding = profileDJSettings.response?.binding else { return nil }
+        return .init(sessionID: session.id, epoch: sessionHistory.responseEpoch,
+                     connection: sessionBroadcastGeneration, settingsBinding: binding)
+    }
+
+    /// The supplied Moment has already passed native delivery/source/attribution admission.
+    /// This does not grant speech rights or read the optimistic playback/capture flags.
+    func personaEvidence(for session: DJConnectSessionRuntime, admittedMoment: DJConnectMoment?, at now: Date = Date()) -> DJPersonaActivity.Evidence {
+        var evidence = DJPersonaActivity.Evidence()
+        guard let scope = currentPersonaScope(), scope.sessionID == session.id else { return evidence }
+        evidence.authorized = true
+        let pending = sessionHistory.pendingTurns.contains {
+            $0.requestEpoch == scope.epoch && !$0.failed && !$0.contextChanged &&
+            $0.context.sessionID == scope.sessionID && $0.context.selectedEntry == nil
+        }
+        evidence.pending = personaRequestScope == scope && isSendingAskDJText && pending
+        if personaVoiceScope == scope {
+            #if canImport(AVFoundation)
+            evidence.capturing = voiceRecorder?.isRecording == true
+            #endif
+            evidence.pending = evidence.pending || voiceStatus == .processing
+        }
+        if let observation = personaSpeechObservation, observation.scope == scope, observation.deadline > now {
+            evidence.pending = evidence.pending || sharedSpeechIsPreparing
+            #if canImport(AVFoundation)
+            evidence.speaking = sharedResponseDataPlayer?.isPlaying == true
+            #endif
+            if case .moment(_, let id) = observation.reference { evidence.spokenMomentID = id }
+        }
+        if session.selectedPresence != .musicOnly, let moment = admittedMoment, moment.sessionID == scope.sessionID,
+           session.broadcast.nativeDelivery?.currentMomentID == moment.id,
+           session.broadcast.nativeDelivery?.currentSilenceMomentID == nil,
+           DJPersonaActivity.isObservedAnnouncement(moment) {
+            evidence.announcementID = moment.id
+        }
+        evidence.explicitReply = personaReplyScope == scope &&
+            personaReplyMomentID == session.broadcast.nativeDelivery?.currentMomentID &&
+            personaReplySilenceMomentID == session.broadcast.nativeDelivery?.currentSilenceMomentID &&
+            liveConversationPresentations.values.contains {
+                $0.epoch == scope.epoch && $0.sessionID == scope.sessionID && ($0.deadline == nil || $0.deadline! > now)
+            }
+        return evidence
+    }
+
     func beginProfileConversationText(text: String, clientMessageID: String) -> UUID? {
+        personaReplyScope = nil
+        personaRequestScope = sessionHistory.selectedEntry == nil ? currentPersonaScope() : nil
         playAskDJSendHaptic()
         askDJDraft = ""; askDJErrorMessage = nil; isSendingAskDJText = true
         return appendAskDJMessage(role: .user, text: text, clientMessageID: clientMessageID, status: .sending)
     }
-    func setProfileConversationSending(_ value: Bool) { isSendingAskDJText = value }
+    func setProfileConversationSending(_ value: Bool) {
+        if value {
+            personaReplyScope = nil
+            let scope = currentPersonaScope()
+            personaRequestScope = sessionHistory.pendingTurns.contains {
+                !$0.failed && !$0.contextChanged && $0.requestEpoch == scope?.epoch &&
+                $0.context.sessionID == scope?.sessionID && $0.context.selectedEntry == nil
+            } ? scope : nil
+        }
+        if !value { personaRequestScope = nil }
+        isSendingAskDJText = value
+    }
     func failProfileConversationText(id: UUID?, errorKey: String) {
+        personaRequestScope = nil
         isSendingAskDJText = false; askDJErrorMessage = localized(key: errorKey)
         if let id { updateAskDJMessageStatus(id: id, status: .failed) }
     }
@@ -4098,6 +4178,15 @@ public final class DJConnectAppModel: ObservableObject {
                 self.withdrawLiveConversationPresentations()
             }
         }
+        let currentScope = currentPersonaScope()
+        if currentScope != nil, (personaRequestScope == currentScope || (personaVoiceScope == currentScope && voiceStatus == .processing)),
+           sessionID == activeDJSession?.id, !liveConversationPresentations.isEmpty {
+            personaReplyScope = currentPersonaScope()
+            personaReplyMomentID = activeDJSession?.broadcast.nativeDelivery?.currentMomentID
+            personaReplySilenceMomentID = activeDJSession?.broadcast.nativeDelivery?.currentSilenceMomentID
+        }
+        personaRequestScope = nil
+        if voiceStatus == .processing { personaVoiceScope = nil }
         isSendingAskDJText = false; askDJErrorMessage = nil
         djResponseText = userFacingDJResponseText(response.assistantMessage?.text ?? response.djText ?? response.text) ?? ""
         return true
@@ -4822,6 +4911,8 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         voiceOperationGeneration = UUID()
+        personaReplyScope = nil
+        personaVoiceScope = sessionHistory.selectedEntry == nil ? currentPersonaScope() : nil
         stopResponsePlayback(clearText: true)
         stopWakeWordListening()
         guard voiceEnabled else {
@@ -4947,6 +5038,7 @@ public final class DJConnectAppModel: ObservableObject {
     /// Leaving a composer discards an unfinished capture rather than creating
     /// a conversation turn as a side effect of navigation.
     public func cancelVoiceRecording() {
+        personaVoiceScope = nil
         voiceOperationGeneration = UUID()
         #if canImport(Speech) && canImport(AVFoundation)
         deviceSTTTask?.cancel(); deviceSTTTask = nil
@@ -6252,6 +6344,19 @@ public final class DJConnectAppModel: ObservableObject {
         guard sourceDeadline > Date(),
               let ticket = responsePlaybackCoordinator.begin(deadline: attemptDeadline) else { return }
         let epoch = sessionHistory.responseEpoch
+        // Both manual replay and autoplay enter here. A turn must also belong
+        // to a currently accepted live Session response; history alone is insufficient.
+        if let scope = currentPersonaScope() {
+            let belongs: Bool
+            switch reference {
+            case .moment(let id, _), .entry(let id, _): belongs = id == scope.sessionID
+            case .turn:
+                belongs = personaReplyScope == scope && liveConversationPresentations.values.contains {
+                    $0.epoch == scope.epoch && $0.sessionID == scope.sessionID && $0.message.sessionSpeech?.reference == reference
+                }
+            }
+            if belongs { personaSpeechObservation = .init(scope: scope, reference: reference, deadline: attemptDeadline) }
+        }
         sharedSpeechReference = reference
         sharedSpeechIsPreparing = true
         sharedSpeechDelivery = [target == .haSpeaker ? "ha_speaker" : "local": "preparing"]
@@ -7324,6 +7429,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     #if canImport(AVFoundation)
     private func clearResponsePlaybackOutput() {
+        personaSpeechObservation = nil
         deviceSpeechRenderer.stop(); deviceSpeechPreviewIsPlaying = false
         responseAudioPlaybackTask?.cancel()
         responseAudioPlaybackTask = nil
@@ -11048,6 +11154,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     func withdrawLiveConversationPresentations() {
+        personaReplyScope = nil
         let ids = Set(liveConversationPresentations.keys)
         let ephemeralIDs = Set(liveConversationPresentations.filter { $0.value.isPrivateEphemeral }.keys)
         let questionIDs = Set(liveConversationPresentations.values.filter { $0.isPrivateEphemeral }.compactMap(\.questionID))
@@ -11064,6 +11171,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func clearAskDJHistoryLocally() {
+        personaReplyScope = nil
         invalidateConversationResultLeases()
         liveConversationPresentations = [:]
         liveConversationExpiryTask?.cancel(); liveConversationExpiryTask = nil
@@ -14521,8 +14629,10 @@ public final class DJConnectAppModel: ObservableObject {
             ]
             let recorder = try AVAudioRecorder(url: url, settings: settings)
             recorder.isMeteringEnabled = true
-            recorder.prepareToRecord()
-            recorder.record()
+            guard recorder.prepareToRecord(), recorder.record(), recorder.isRecording else {
+                try? FileManager.default.removeItem(at: url)
+                throw DJConnectError.invalidResponse
+            }
             voiceRecorder = recorder
             voiceRecordingURL = url
             voiceErrorMessage = nil

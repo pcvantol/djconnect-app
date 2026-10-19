@@ -139,6 +139,7 @@ public struct DJConnectNativeMomentDelivery: Codable, Equatable, Sendable {
     public var sessionID: String
     public var revision: String
     public var currentMomentID: String?
+    public var currentSilenceMomentID: String? = nil
     public var activeFlowMomentIDs: [String]
     public var admissions: [Admission]
     public var revocationScope: String
@@ -191,6 +192,7 @@ public struct DJConnectNativeMomentDelivery: Codable, Equatable, Sendable {
         sessionID = try c.decode(String.self, forKey: .sessionID)
         revision = try c.decode(String.self, forKey: .revision)
         currentMomentID = try c.decodeIfPresent(String.self, forKey: .currentMomentID)
+        currentSilenceMomentID = try c.decodeIfPresent(String.self, forKey: .currentSilenceMomentID)
         activeFlowMomentIDs = try c.decode([String].self, forKey: .activeFlowMomentIDs)
         admissions = try c.decode([Admission].self, forKey: .admissions)
         revocationScope = try c.decode(String.self, forKey: .revocationScope)
@@ -199,11 +201,13 @@ public struct DJConnectNativeMomentDelivery: Codable, Equatable, Sendable {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(schemaVersion, forKey: .schemaVersion); try c.encode(sessionID, forKey: .sessionID)
         try c.encode(revision, forKey: .revision); try c.encode(currentMomentID, forKey: .currentMomentID)
+        try c.encodeIfPresent(currentSilenceMomentID, forKey: .currentSilenceMomentID)
         try c.encode(activeFlowMomentIDs, forKey: .activeFlowMomentIDs)
         try c.encode(admissions, forKey: .admissions); try c.encode(revocationScope, forKey: .revocationScope)
     }
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version", sessionID = "session_id", revision
+        case currentSilenceMomentID = "current_silence_moment_id"
         case currentMomentID = "current_moment_id", activeFlowMomentIDs = "active_flow_moment_ids"
         case admissions, revocationScope = "revocation_scope"
     }
@@ -233,7 +237,7 @@ public extension DJConnectBroadcastState {
         guard session.runtimeState == "active", playback?.state == "playing",
               let authority = nativeDelivery, authority.schemaVersion == 1,
               authority.sessionID == session.sessionID, authority.revocationScope == "session",
-              !authority.revision.isEmpty, let id = authority.currentMomentID,
+              !authority.revision.isEmpty, authority.currentSilenceMomentID == nil, let id = authority.currentMomentID,
               let moment = djMoments.first(where: { $0.id == id }),
               moment.playbackItemID == playback?.itemID,
               admitted(moment, authority: authority, at: date, current: true, spotifyAttributionAvailable: spotifyAttributionAvailable) else { return nil }
