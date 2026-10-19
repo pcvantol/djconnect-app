@@ -76,7 +76,8 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
     let rep = try #require(NSBitmapImageRep(data: tiff))
     let png = try #require(rep.representation(using: .png, properties: [:]))
     #expect(image.size.width == 660)
-    #expect(image.size.height > 180)
+    // The compact side-by-side card must still fit the avatar and its insets.
+    #expect(image.size.height >= 168)
     if let directory = ProcessInfo.processInfo.environment["DJCONNECT_AVATAR_ARTIFACT_DIR"] {
         let folder = URL(fileURLWithPath: directory)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

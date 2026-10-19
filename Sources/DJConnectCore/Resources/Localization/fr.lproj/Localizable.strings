@@ -1143,7 +1143,7 @@
 
 "ui.push.configuration_needed" = "Configuration requise";
 "ui.push.registration_failed" = "Échec de l’enregistrement";
-"ui.push.registration_confirmed_detail" = "Le serveur a confirmé l’enregistrement push. Cela ne prouve pas la réception d’une notification.";
+"ui.push.registration_confirmed_detail" = "Cet appareil est enregistré pour les notifications push.";
 "ui.push.registration_pending_detail" = "L’enregistrement push de cet appareil n’est pas encore confirmé.";
 "ui.push.configuration_detail" = "Le service d’enregistrement de confiance ou la preuve d’amorçage manque. La configuration DJConnect doit être corrigée ; refaire l’association n’est pas une solution générale.";
 "ui.push.environment_detail" = "Les environnements push de l’app et du serveur ne correspondent pas. La configuration de l’app doit être corrigée.";

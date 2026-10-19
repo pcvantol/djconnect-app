@@ -1143,7 +1143,7 @@
 
 "ui.push.configuration_needed" = "Configuratie nodig";
 "ui.push.registration_failed" = "Registratie mislukt";
-"ui.push.registration_confirmed_detail" = "De server heeft de pushregistratie bevestigd. Dit bewijst nog niet dat een melding is bezorgd.";
+"ui.push.registration_confirmed_detail" = "Dit apparaat is geregistreerd voor pushnotificaties.";
 "ui.push.registration_pending_detail" = "Er is nog geen bevestigde pushregistratie voor dit apparaat.";
 "ui.push.configuration_detail" = "Push kan nog niet worden geregistreerd omdat de vertrouwde registratiedienst of het bootstrapbewijs ontbreekt. Dit vereist herstel van de DJConnect-configuratie; opnieuw koppelen is geen standaardoplossing.";
 "ui.push.environment_detail" = "De pushomgeving van de app en de server komt niet overeen. De appconfiguratie moet worden hersteld.";

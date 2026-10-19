@@ -1143,7 +1143,7 @@
 
 "ui.push.configuration_needed" = "Configuration needed";
 "ui.push.registration_failed" = "Registration failed";
-"ui.push.registration_confirmed_detail" = "The server confirmed push registration. This does not prove that a notification was delivered.";
+"ui.push.registration_confirmed_detail" = "This device is registered for push notifications.";
 "ui.push.registration_pending_detail" = "Push registration has not been confirmed for this device.";
 "ui.push.configuration_detail" = "Push cannot be registered because the trusted registration service or bootstrap proof is missing. DJConnect configuration needs repair; pairing again is not a general solution.";
 "ui.push.environment_detail" = "The app and server push environments do not match. The app configuration needs repair.";

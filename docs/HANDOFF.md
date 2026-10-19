@@ -1,3 +1,24 @@
+## 2026-10-19 — UI follow-through and native Session acceptance slice
+
+User selects the next lane slice and open development work. Preserve the current
+single writer/checkout and consolidate the accumulated owner-requested UI fixes:
+white Website link, plain push-registration copy, visible artwork gesture
+feedback, white native interactive-glass Favorite, top-aligned avatar/text, and
+shared mood-colored WidgetKit/ActivityKit avatar without the duplicate expanded
+Island icon. Existing palette/expiry/rights fences remain authoritative. No
+foreground capture/pending/speech state is exported into passive caches.
+
+Next bounded slice is native Session regression acceptance: isolated review_demo
+checks one avatar, side-by-side text, Favorite action, pause/resume and retained
+content. It makes no live backend request or personal mutation. Source builds
+and component renders already pass; actual UI-test result/review/CI/merge remain
+separate. No installation is selected in this continuation.
+
+Core1210 has no delivered catalogue and Core1212 explicitly remains planned;
+Core1209 has no qualified lifecycle handoff. Apple128's atomic suggestions/Help,
+Apple129 speech routes and Apple127 dynamic states therefore stay OPEN. Do not
+replace those prerequisites with local catalogues or inferred background states.
+
 ## 2026-10-19 — Now Playing album-tinted glass and interactive controls
 
 Owner asks for the playback controls card to use glass and follow album art,

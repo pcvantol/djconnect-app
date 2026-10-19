@@ -1143,7 +1143,7 @@
 
 "ui.push.configuration_needed" = "Se requiere configuración";
 "ui.push.registration_failed" = "Error de registro";
-"ui.push.registration_confirmed_detail" = "El servidor confirmó el registro push. Esto no demuestra que una notificación se haya entregado.";
+"ui.push.registration_confirmed_detail" = "Este dispositivo está registrado para recibir notificaciones push.";
 "ui.push.registration_pending_detail" = "El registro push de este dispositivo aún no se ha confirmado.";
 "ui.push.configuration_detail" = "Falta el servicio de registro de confianza o la prueba de arranque. Es necesario corregir la configuración de DJConnect; volver a vincular no es una solución general.";
 "ui.push.environment_detail" = "Los entornos push de la app y del servidor no coinciden. Es necesario corregir la configuración de la app.";
