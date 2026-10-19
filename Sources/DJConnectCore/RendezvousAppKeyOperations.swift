@@ -1,0 +1,83 @@
+import Foundation
+
+/// Process-wide sequencing for the complete App Attest sign → submit operation.
+/// The caller must revalidate its owner context and original deadlines after
+/// acquiring the slot, and resolve retries/outcome uncertainty inside its operation.
+/// This component neither authorizes an action nor generates or persists keys.
+public actor RendezvousAppKeyOperations {
+    public static let shared = RendezvousAppKeyOperations()
+
+    private struct Waiter {
+        let id: UUID
+        let continuation: CheckedContinuation<Void, any Error>
+    }
+    private struct Slot {
+        var owner: UUID
+        var waiters: [Waiter] = []
+    }
+    private var slots: [String: Slot] = [:]
+
+    // Production callers use the one shared instance across scans and actions.
+    init() {}
+
+    public enum Failure: Error, Sendable {
+        case emptyKeyIdentifier
+    }
+
+    public func perform<Value: Sendable>(
+        keyIdentifier: String,
+        operation: @Sendable () async throws -> Value
+    ) async throws -> Value {
+        guard !keyIdentifier.isEmpty else { throw Failure.emptyKeyIdentifier }
+        let id = UUID()
+        try await acquire(key: keyIdentifier, id: id)
+        defer { release(key: keyIdentifier, id: id) }
+        try Task.checkCancellation()
+        // Keep ownership through every suspension, including cancellation cleanup
+        // and the response to submission. Actor isolation alone is reentrant.
+        return try await operation()
+    }
+
+    private func acquire(key: String, id: UUID) async throws {
+        try await withTaskCancellationHandler {
+            try Task.checkCancellation()
+            try await withCheckedThrowingContinuation { continuation in
+                if var slot = slots[key] {
+                    slot.waiters.append(Waiter(id: id, continuation: continuation))
+                    slots[key] = slot
+                } else {
+                    slots[key] = Slot(owner: id)
+                    continuation.resume()
+                }
+            }
+        } onCancel: {
+            Task { await self.cancelWaiter(key: key, id: id) }
+        }
+    }
+
+    private func cancelWaiter(key: String, id: UUID) {
+        guard var slot = slots[key],
+              let index = slot.waiters.firstIndex(where: { $0.id == id }) else { return }
+        let waiter = slot.waiters.remove(at: index)
+        slots[key] = slot
+        waiter.continuation.resume(throwing: CancellationError())
+    }
+
+    private func release(key: String, id: UUID) {
+        guard var slot = slots[key], slot.owner == id else { return }
+        guard !slot.waiters.isEmpty else {
+            slots.removeValue(forKey: key)
+            return
+        }
+        let next = slot.waiters.removeFirst()
+        slot.owner = next.id
+        slots[key] = slot
+        next.continuation.resume()
+    }
+
+    // Scheduling barrier for deterministic concurrency qualification; no key IDs
+    // or assertion material are exposed through logging or product diagnostics.
+    func waitingOperationCount(for key: String) -> Int {
+        slots[key]?.waiters.count ?? 0
+    }
+}
