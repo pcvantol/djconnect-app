@@ -6453,9 +6453,6 @@ private struct MusicDiscoveryView: View {
                 #if os(macOS)
                 ConnectionStatusToolbar(model: model)
                 #endif
-                #if os(macOS)
-                ConnectionStatusToolbar(model: model)
-                #endif
                 ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
                     Button {
                         Task { await refreshMusicDiscoveryWithToast() }
@@ -6471,9 +6468,7 @@ private struct MusicDiscoveryView: View {
                     .accessibilityLabel(localizedKey(model.language, "ui.refresh.discover"))
                 }
                 #if !os(macOS)
-                #if !os(macOS)
                 ConnectionStatusToolbar(model: model)
-                #endif
                 #endif
             }
             .task(id: model.isDemoMode || (model.pairingStatus == .paired && model.isRuntimeCompatible)) {
