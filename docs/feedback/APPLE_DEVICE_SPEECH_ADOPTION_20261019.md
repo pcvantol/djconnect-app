@@ -23,7 +23,7 @@ native TTS preview/Watch preparation retain their independent existing admission
 Explicit text_only and prepare3/source fences remain authoritative.
 
 HA capture, final ordinary/profile audio submission, contribution replay/autoplay
-and Watch-proxied HA audio refresh through the same paired client's existing
+prepared-but-inactive HA touch synthesis/audio and Watch-proxied HA audio refresh through the same paired client's existing
 status route before use. The read bypasses caching, checks installation/locale
 and cancellation, then applies current UI/context checks before crossing the
 speech boundary. It performs no provider/model/audio work. There is no silent

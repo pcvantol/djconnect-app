@@ -4117,7 +4117,11 @@ public final class DJConnectAppModel: ObservableObject {
         personaReactions.start(.init(request: { [weak self] dispatched in
             guard let self, current() else { throw CancellationError() }
             return try await self.withHomeAssistantClient(allowsOperationReplay: false) {
-                try await $0.requestPersonaReaction(request, settings: settings, onOperationID: dispatched)
+                if request.processor == .haConfigured && settings.snapshot.effective.announcement_output.allowsClientAudio {
+                    try await self.requireHADeviceSpeech(client: $0, language: request.language, target: .local)
+                    guard current(), !Task.isCancelled else { throw CancellationError() }
+                }
+                return try await $0.requestPersonaReaction(request, settings: settings, onOperationID: dispatched)
             }
         }, cancel: { [weak self] id, reason in
             guard let self else { return }
@@ -4197,7 +4201,9 @@ public final class DJConnectAppModel: ObservableObject {
             return started && finished
         }
         let bytes = try await withHomeAssistantClient(allowsOperationReplay: false) {
-            try await $0.personaReactionAudio(reaction, request: request, settings: settings)
+            try await self.requireHADeviceSpeech(client: $0, language: request.language, target: .local)
+            guard current(), !Task.isCancelled, reaction.deadline.map({ $0 > Date() }) == true else { throw CancellationError() }
+            return try await $0.personaReactionAudio(reaction, request: request, settings: settings)
         }
         guard current(), !Task.isCancelled, reaction.deadline.map({ $0 > Date() }) == true else { throw CancellationError() }
         let player = try AVAudioPlayer(data: bytes)
