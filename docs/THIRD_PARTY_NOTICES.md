@@ -42,3 +42,10 @@ release in `build/release/thirdparty-update-report.txt`. When dependency
 versions change, the release preflight exits before publishing unless the
 notices, localized release notes, and release documentation have been reviewed
 and updated.
+
+## Inter 4.1 in Brand V2 graphics
+
+Brand V2 wordmarks contain outlined Inter lettering, copyright 2016 The Inter
+Project Authors, licensed under the SIL Open Font License 1.1. No font binary is
+shipped. Full license and upstream provenance: [license](../Tools/IconSource/BrandV2/LICENSE.txt)
+and [provenance](../Tools/IconSource/BrandV2/PROVENANCE.md).

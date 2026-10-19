@@ -1254,7 +1254,7 @@
 "ui.session.intro.sidebar.body" = "Utilisez la barre latérale pour passer entre la session DJ, la lecture en cours, Track Insight, Découvrir et les autres écrans.";
 
 // Shared main brand tagline: launch, About, setup and Watch About.
-"brand.tagline" = "Lancez votre musique. DJConnect lui donne vie.";
+"brand.tagline" = "Votre musique. Votre DJ.";
 
 // Shared Profile and Session DJ settings contract3.
 "ui.dj_settings.profile" = "Profil";
@@ -1355,7 +1355,7 @@
 "ui.device_speech.stop" = "Arrêter l’extrait";
 "ui.device_speech.preview" = "Écouter un extrait";
 "ui.device_speech.pending" = "La voix du DJ sur cet appareil nécessite la prise en charge par Home Assistant connecté.";
-"ui.device_speech.sample" = "Lancez votre musique. DJConnect lui donne vie. Voici un extrait de la voix de cet appareil.";
+"ui.device_speech.sample" = "Votre musique. Votre DJ. Voici un extrait de la voix de cet appareil.";
 
 "watch.session.current" = "Dernier moment DJ";
 "watch.session.listen" = "Écouter";
