@@ -1,5 +1,12 @@
 # VibeCast native qualification (API0.4 draft)
 
+The historical cases below retain their original evidence scope. The separate
+[API-issued binary SDK intake](API_BINARY_INTAKE.md) adds12 pure intake/dispatch
+cases (22 package cases total), a direct DeviceCheck hosted path and a concrete
+signed build40380 profile **proposal**, not API admission or a live proof.
+Source permission is now the released djc-rendezvous/1-implementation.1; historical
+draft labels here do not override that source release or grant runtime GO.
+
 Assignment `DJC-APPLE-VIBECAST-OWNER-SCANNER-V1-20261016`, existing Apple writer.
 This directory is isolated qualification tooling. It is not imported by shipping
 Sources, root Package.swift, project.yml or the checked-in Xcode project.
@@ -12,7 +19,7 @@ swift test --package-path Tools/qualification/vibecast-native \
   --scratch-path /private/tmp/djc-vibecast-binding-build --jobs 2
 ```
 
-The ten tests cover every captured submit/delete-key/recover-key field, exact
+The original ten tests cover every captured submit/delete-key/recover-key field, exact
 original-byte SHA256 and canonical base64url decoding (no reserialization), decoded duplicate JSON keys, malformed
 UTF8/JSON/types/limits, expiry equality, original transaction and context mismatch,
 monotone cancellation/rotation/background/pairing/Profile/route ABA, key changes

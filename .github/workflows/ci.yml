@@ -88,6 +88,9 @@ jobs:
       - name: Swift tests
         run: swift test --no-parallel
 
+      - name: VibeCast binary input qualification (no SDK)
+        run: swift test --package-path Tools/qualification/vibecast-native --scratch-path "$RUNNER_TEMP/djc-vibecast-binding" --jobs 2
+
       - name: macOS unsigned build
         run: |
           xcodebuild \

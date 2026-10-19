@@ -13,8 +13,8 @@ enum FlatValue: Equatable, Sendable {
 /// Foundation decodes each string (including escapes); this bounded recognizer
 /// rejects duplicate decoded keys before forming a dictionary. It is not a general JSON parser.
 struct FlatObject {
-    static func parse(_ data: Data) throws -> [String: FlatValue] {
-        guard !data.isEmpty, data.count <= 2048, String(data: data, encoding: .utf8) != nil else {
+    static func parse(_ data: Data, maximumBytes: Int = 2048) throws -> [String: FlatValue] {
+        guard !data.isEmpty, data.count <= maximumBytes, String(data: data, encoding: .utf8) != nil else {
             throw BindingFailure.rejected
         }
         let bytes = Array(data); var i = 0
@@ -29,7 +29,7 @@ struct FlatObject {
                 if bytes[i] == 92 { i += 2; continue }
                 if bytes[i] == 34 {
                     i += 1
-                    guard let value = try JSONSerialization.jsonObject(with: Data(bytes[start..<i]), options: [.fragmentsAllowed]) as? String else {
+                    guard let value = (try? JSONSerialization.jsonObject(with: Data(bytes[start..<i]), options: [.fragmentsAllowed])) as? String else {
                         throw BindingFailure.rejected
                     }
                     return value

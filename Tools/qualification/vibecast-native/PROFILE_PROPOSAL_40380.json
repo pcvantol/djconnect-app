@@ -1,0 +1,29 @@
+{
+  "bundle_id": "dev.djconnect.ios",
+  "build": "40380",
+  "team": "ZEML4LPXH4",
+  "application_identifier": "ZEML4LPXH4.dev.djconnect.ios",
+  "get_task_allow": true,
+  "app_attest_environment_entitlement": null,
+  "proposed_environment": "development; explicit API profile review and genuine AAGUID verification required",
+  "profile_uuid": "17969a71-9eec-40dc-a06f-e1bece5d4062",
+  "profile_sha256": "9243e1b2b3c829a86073ecf61f50e13cb7f0c9ab0630c9597ca3e9fa286629dd",
+  "signer_sha1": "9ae3c26d564cdc66671f3aeb5e9e9c7f2d0080aa",
+  "bundle_manifest_sha256": "e00da93334cbdf8e81a1aa9c01189f5b7287df1411374274c833b013d795e613",
+  "bundle_files": 89,
+  "strict_signature_verified": true,
+  "compiled_sources_sha256": {
+    "Tools/qualification/vibecast-native/Sources/VibeCastBindingQualification/Binding.swift": "04d2ffec0bec56b76b304b3bc0bdf8227497493e64480ff9e726c4e8c032f097",
+    "Tools/qualification/vibecast-native/Sources/VibeCastBindingQualification/BinarySDKIntake.swift": "7af9652d5a72ec60a30a2a0b7c108bd96404636dafa7d17b394031749900f33f",
+    "Tools/qualification/vibecast-native/APIBinaryHostedQualification.swift": "f406152f013f8edd8048e262bb6e2101b5050d0e38186908330c7ba538f3d792",
+    "Tools/qualification/vibecast-native/Tests/VibeCastBindingQualificationTests/BindingTests.swift": "01159d2c475129bf70759ed644805da7681b41058c123c02c4856ca85f937412",
+    "Tools/qualification/vibecast-native/Tests/VibeCastBindingQualificationTests/BinarySDKIntakeTests.swift": "e23feaa90c77c4a76a545400a7466283ce602fe8c8921aae7a19726e9665ac48"
+  },
+  "installed": false,
+  "SDK_calls": 0,
+  "API_profile_accepted": false,
+  "schema": "djc-api-binary-profile-proposal/1",
+  "status": "PROPOSED_NOT_API_ADMITTED",
+  "source_base": "88ace458534523d6ae6ebd04ccc15702954c4112",
+  "experiment": "One jointly admitted registration and one selected action; no automatic retry or replacement key"
+}

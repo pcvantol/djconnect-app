@@ -5,6 +5,8 @@ import UIKit
 
 /// Hosted diagnostic, deliberately independent of unfrozen rendezvous endpoints.
 /// Raw proofs remain in the app's protected container, never in test attachments/logs.
+/// Historical UTF8 synthetic-input diagnostic, NOT the API-issued binary intake.
+/// The separate APIBinaryHostedQualification uses decoded nonce/exact action bytes.
 @MainActor
 final class AppAttestQualification: XCTestCase {
     func testAppBoundDevelopmentCapture() async throws {
