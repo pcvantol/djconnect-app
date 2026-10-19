@@ -73,5 +73,15 @@ These are demo fixtures, not physical device or interaction acceptance.
 
 Focused native checks:3 tests/10 parameter cases PASS. The full application UI
 test is added but NOT_RUN: no local simulator devices are available on this host.
-Native iOS/macOS compilation succeeds with build40348. Full regression suite,
-independent review and protected delivery are recorded in the implementation PR.
+Native iOS/macOS compilation and strict signatures pass with build40348.
+Full regression:861 tests/10 suites PASS92.751s. The iOS UI test compiles but has
+not run. Local HTTP/WebSocket/security/localization/brand/register/install-hygiene
+checks pass;243 staged build inputs match the candidate. Independent automated
+review completed without findings on candidate `5d661066dc6b113a3723c09099c3700eb6692e21`.
+[PR130](https://github.com/pcvantol/djconnect-app/pull/130) protected-merged as
+`d95d3c3ebc8aae153c04d0bb3c5ce512a8afa3c5`; candidate/main tree equality was
+verified. Main CI39167432496 and formal run39168031661 PASS. The durable source asset
+and canonical JSON integrity were independently verified (12/12 formal checks).
+See docs/verification/avatar-graphics-finalization/. Documentary protected
+delivery remains pending; these receipts do not close the full avatar assignment. No physical
+installation, full-screen UI acceptance or completion of Apple127 is claimed.

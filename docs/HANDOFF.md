@@ -6,8 +6,12 @@ checkout. First local-graphics slice follows Apple127/Core1209's latest full-rin
 headphone refinement. Native vector and static menu derivative share geometry;
 one material current-card parent contains the avatar and every existing state.
 No backend activity/touch/audio wiring starts before Core's qualified handoff.
-See docs/design/DJ_PERSONA_AVATAR_V1.md. Validation/review/delivery pending; no
-installed or native acceptance claimed. Old `.xcode-derived` contains former
+See docs/design/DJ_PERSONA_AVATAR_V1.md. Source PR130 protected-merged as
+`d95d3c3ebc8aae153c04d0bb3c5ce512a8afa3c5`; independent automated review
+completed without findings on exact candidate `5d661066dc6b113a3723c09099c3700eb6692e21`.
+Full861tests/10suites PASS; ordinary signed iOS/macOS40348 and iOS UI-test
+compilation PASS. Main CI39167432496 and formal run39168031661 PASS; documentary delivery pending; no installed
+or full-app interaction acceptance claimed. Old `.xcode-derived` contains former
 Documents paths and is not used; new builds must use a fresh generated stage.
 
 ## 2026-10-18 — Session start card copy
