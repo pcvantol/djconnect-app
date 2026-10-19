@@ -11,8 +11,8 @@ enum DJConnectAlbumArtworkLayout {
 }
 
 extension View {
-    func djSessionFrostedSurface(cornerRadius: CGFloat = DJConnectCardAppearance.cornerRadius, currentMomentBorder: Bool = false) -> some View {
-        modifier(DJSessionGlassSurface(cornerRadius: cornerRadius, currentMomentBorder: currentMomentBorder))
+    func djSessionFrostedSurface(cornerRadius: CGFloat = DJConnectCardAppearance.cornerRadius, currentMomentBorder: Bool = false, mood: String? = nil) -> some View {
+        modifier(DJSessionGlassSurface(cornerRadius: cornerRadius, currentMomentBorder: currentMomentBorder, mood: mood))
     }
 
     func djAlbumArtworkGlassCard(artworkURL: URL? = nil) -> some View {
@@ -159,6 +159,7 @@ private struct CurrentMomentArtworkTint: ViewModifier {
 private struct DJSessionGlassSurface: ViewModifier {
     let cornerRadius: CGFloat
     var currentMomentBorder = false
+    var mood: String? = nil
     var surfaceTint: Color? = nil
     @Environment(\.currentMomentArtworkTint) private var artworkTint
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -166,6 +167,12 @@ private struct DJSessionGlassSurface: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         let tint = surfaceTint ?? (currentMomentBorder ? artworkTint : nil)
+        let moodColors = DJConnectSessionMoodTheme(sessionMood: mood).colorValues.map { value in
+            Color(red: Double((value >> 16) & 255) / 255,
+                  green: Double((value >> 8) & 255) / 255,
+                  blue: Double(value & 255) / 255)
+        }
+        let borderGradient = LinearGradient(colors: moodColors, startPoint: .topLeading, endPoint: .bottomTrailing)
         let bordered = content.background {
             if let tint {
                 shape.fill(LinearGradient(
@@ -174,8 +181,9 @@ private struct DJSessionGlassSurface: ViewModifier {
                     startPoint: .topLeading, endPoint: .bottomTrailing))
             }
         }.overlay {
-            shape.stroke(currentMomentBorder ? AnyShapeStyle(DJConnectCardAppearance.searchFocusGradient) : AnyShapeStyle(Color.white.opacity(DJConnectCardAppearance.borderOpacity)),
-                         lineWidth: DJConnectCardAppearance.borderWidth)
+            shape.stroke(currentMomentBorder ? AnyShapeStyle(borderGradient) : AnyShapeStyle(Color.white.opacity(DJConnectCardAppearance.borderOpacity)),
+                         lineWidth: DJConnectCardAppearance.borderWidth + (currentMomentBorder ? 1 : 0))
+                .allowsHitTesting(false)
         }
         if !glassEnabled || reduceTransparency {
             bordered.background(DJConnectGlassAppearance.opaqueSurface, in: shape)
@@ -348,7 +356,7 @@ struct NativeSessionMomentsView: View {
                 .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-        .djSessionFrostedSurface(currentMomentBorder: true)
+        .djSessionFrostedSurface(currentMomentBorder: true, mood: isLiveUnavailable || isRecovering ? nil : session.selectedMood)
     }
 
     @ViewBuilder private func currentCardContent(_ moment: DJConnectMoment?) -> some View {

@@ -43,7 +43,7 @@ import Testing
         #expect(speaker.isValid)
         #expect(DJConnectDeviceSpeechRouting.serverTarget(for: .both, nativeOverride: true, settings: speaker) == .haSpeaker)
         #expect(DJConnectDeviceSpeechRouting.serverTarget(for: .haSpeaker, nativeOverride: true, settings: speaker) == .haSpeaker)
-        #expect(DJConnectDeviceSpeechRouting.serverTarget(for: .local, nativeOverride: true, settings: speaker) == nil)
+        #expect(DJConnectDeviceSpeechRouting.serverTarget(for: .local, nativeOverride: true, settings: speaker) == .local)
         #expect(DJConnectDeviceSpeechRouting.serverTarget(for: .both, nativeOverride: false, settings: speaker) == .both)
     }
     for target: DJConnectSharedSpeechTarget in [.local, .haSpeaker, .both] {
@@ -52,7 +52,7 @@ import Testing
             let routed = DJConnectDeviceSpeechRouting.serverTarget(for: target, nativeOverride: native, settings: allowed)
             if !allowed.allowsSpeech(target) { #expect(routed == nil) }
             else if !native { #expect(routed == target) }
-            else { #expect(routed == (target == .local ? nil : .haSpeaker)) }
+            else { #expect(routed == (target == .local ? .local : .haSpeaker)) }
         }
     }
 }
@@ -101,12 +101,27 @@ import Testing
     #expect(!model.deviceSpeechPreviewIsPlaying)
     model.localResponseAudioEnabled = true
     func payload() -> DJConnectAskDJRequest { model.profileConversationPayload(text: "test", clientMessageID: UUID().uuidString, context: .init(sessionID: nil)) }
-    #expect(payload().audioResponse == .never) // no native + server double synthesis
+    #expect(payload().audioResponse == .always) // contract3 defers output; prepare selects exactly one processor
+    #expect(payload().speechContractVersion == 3)
     model.deviceSpeechPreferences.enabled = false
     #expect(model.localResponseAudioEnabled)
     #expect(payload().audioResponse == .always)
     #expect(payload().speechContractVersion == 3) // deferred autoplay intent, never inline synthesis
     #expect(!model.canUseHASpeechOutput(.local)) // real prepare still needs fresh discovery
+    var unavailable = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(current)) as? [String: Any])
+    unavailable["voice_availability"] = ["available": false, "reason": "voice_unavailable"]
+    current = try JSONDecoder().decode(DJConnectProfileDJSettingsResponse.self, from: JSONSerialization.data(withJSONObject: unavailable))
+    await model.profileDJSettings.refresh(.init(read: { current }, update: { _, _, _ in throw CancellationError() }, receipt: { _, _ in throw CancellationError() }))
+    #expect(!model.sharedDJSpeechAllowed && payload().audioResponse == .never)
+    model.deviceSpeechPreferences.enabled = true
+    #expect(model.sharedDJSpeechAllowed && model.canUseLocalDJSpeechOutput)
+    #expect(payload().audioResponse == .always) // native grant does not need an HA provider voice
+    #expect(!model.canUseHASpeechOutput(.local)) // no HA configuration admission is fabricated
+    model.deviceSpeechPreferences.voiceID = "removed-apple-voice"
+    #expect(!model.canUseLocalDJSpeechOutput && !model.sharedDJSpeechAllowed)
+    #expect(payload().audioResponse == .never)
+    model.deviceSpeechPreferences.voiceID = nil
+    #expect(model.canUseLocalDJSpeechOutput && model.sharedDJSpeechAllowed)
     current = try snapshot("text_only_zero_synthesis_old_audio_denied_and_owner_controls_removed")
     await model.profileDJSettings.refresh(.init(read: { current }, update: { _, _, _ in throw CancellationError() }, receipt: { _, _ in throw CancellationError() }))
     model.deviceSpeechPreferences.enabled = true

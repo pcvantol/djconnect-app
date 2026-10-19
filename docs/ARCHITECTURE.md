@@ -488,9 +488,13 @@ the user's actual provider. Device-local Apple voice preferences and the bounded
 static sample use one native speech renderer shared by iOS/iPadOS/macOS/watchOS.
 They do not write Profile settings or enable autoplay. Unknown/text_only policy
 blocks the sample. Enabling the override suppresses local HA synthesis; explicit
-HA speaker delivery remains independent. Speech3 currently rejects local_on_device;
-actual DJ contribution playback stays unavailable until Core delivers that grant.
-No legacy prepare1 or visible-text fallback substitutes for it. A player-start
+HA speaker delivery remains independent. Speech3 local_on_device admission now
+feeds the shared native renderer for manual and automatic contribution playback.
+Only admitted segments may be spoken; source/settings/revision/expiry fences remain
+mandatory. Native playback never fetches HA audio or falls back to visible text.
+The stored HA voice is hidden while Apple TTS is enabled and shown unchanged when
+it is disabled. Returning from Apple STT requalifies HA input with a fresh status
+read; capture still requires fresh admission. A player-start
 log is not acoustic completion.
 
 Private artwork preparation is viewport-driven, bounded and separate from pure
