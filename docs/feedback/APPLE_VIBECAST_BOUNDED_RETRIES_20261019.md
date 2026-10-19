@@ -55,10 +55,10 @@ separate lifecycle integration work; no generic failure authorizes key creation.
 
 ## Qualification
 
-Nine focused XCTest cases cover attestation/registration/recovery budgets,
+Eleven focused XCTest cases cover attestation/registration/recovery budgets,
 2s/5s boundaries, server delays, deadline equality and late success, wrong error
 classes, exhausted budgets, Codable in-flight/backoff restoration, wrong/duplicate
-completion identities, clock rollback, malformed budget and unknown schema. The review regression rejects restored elapsed/shortened backoff and retains legitimate early-poll and elapsed-real-time restoration. Decoding recomputes minimum eligibility from the recorded completion, rather than incorrectly restarting backoff after every observation. The new negative case fails against the original reviewed source in an isolated tiny package and passes after the fix.
+completion identities, clock rollback, malformed budget and unknown schema. The review regression rejects restored elapsed/shortened backoff and retains legitimate early-poll and elapsed-real-time restoration. Decoding recomputes minimum eligibility from the recorded completion, rather than incorrectly restarting backoff after every observation. The new negative cases fail against the preceding reviewed sources in an isolated tiny package and pass after the fixes. A further review regression checks the cumulative minimum timeline (first retry at least2s after origin, second at least7s) for completed and in-flight attempts. Every legitimate phase is round-tripped at its earliest boundary using a nonzero origin.
 Logs/receipts are under ignored
 `build/qualification/vibecast-bounded-retries/`. The first compile was restarted
 after an owned source edit changed its input during compilation; only the final

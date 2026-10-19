@@ -121,4 +121,42 @@ final class RendezvousRetryWindowTests: XCTestCase {
         _ = try window.reserve(at: 15_100)
         XCTAssertEqual(window.callsStarted, 3)
     }
+
+    func testImpossibleCompletedAndInFlightMultiCallTimelinesAreRejected() throws {
+        var window = try RendezvousRetryWindow(kind: .registration, startedAtMS: 0, deadlineMS: 120_000)
+        let first = try window.reserve(at: 0)
+        try window.complete(first, outcome: .responseLost, at: 0)
+        let second = try window.reserve(at: 2_000)
+        try window.complete(second, outcome: .responseLost, at: 2_000)
+        let original = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(window)) as? [String: Any])
+        for (count, completion, observation, eligibility, pending) in [
+            (2, 100, 100, 5_100, false),
+            (2, 100, 100, 100, true),
+            (3, 1_000, 6_100, 6_000, true)
+        ] {
+            var malformed = original
+            malformed["callsStarted"] = count
+            malformed["lastCompletionMS"] = completion
+            malformed["lastObservedMS"] = observation
+            malformed["notBeforeMS"] = eligibility
+            if pending { malformed["reservation"] = UUID().uuidString }
+            XCTAssertThrowsError(try JSONDecoder().decode(RendezvousRetryWindow.self, from: JSONSerialization.data(withJSONObject: malformed)))
+        }
+    }
+
+    func testEveryLegitimatePhaseRestoresAtMinimumTimelineWithNonzeroOrigin() throws {
+        var window = try RendezvousRetryWindow(kind: .registration, startedAtMS: 10_000, deadlineMS: 130_000)
+        func restored(_ value: RendezvousRetryWindow) throws -> RendezvousRetryWindow {
+            try JSONDecoder().decode(RendezvousRetryWindow.self, from: JSONEncoder().encode(value))
+        }
+        window = try restored(window)
+        for (index, now) in [10_000, 12_000, 17_000].enumerated() {
+            let id = try window.reserve(at: Int64(now))
+            window = try restored(window)
+            try window.complete(id, outcome: index == 2 ? .succeeded : .responseLost, at: Int64(now))
+            window = try restored(window)
+        }
+        XCTAssertTrue(window.isClosed)
+        XCTAssertEqual(window.callsStarted, 3)
+    }
 }

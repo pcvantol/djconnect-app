@@ -113,6 +113,32 @@ public struct RendezvousRetryWindow: Codable, Sendable {
               !(reservation != nil && ((callsStarted == 1) != (lastCompletionMS == nil))) else {
             throw Failure.invalidState
         }
+        // Even the fastest possible calls must have spent the preceding 2s/5s
+        // backoffs. Check both the current call and the last completed call;
+        // validating only the next delay would admit a forged earlier history.
+        let minimumElapsed: [Int64] = [0, 0, 2_000, 7_000]
+        let completedCalls = callsStarted - (reservation == nil ? 0 : 1)
+        guard completedCalls >= 0,
+              lastObservedMS - startedAtMS >= minimumElapsed[callsStarted],
+              notBeforeMS - startedAtMS >= minimumElapsed[callsStarted] else {
+            throw Failure.invalidState
+        }
+        if completedCalls > 0 {
+            guard let completion = lastCompletionMS,
+                  completion - startedAtMS >= minimumElapsed[completedCalls] else {
+                throw Failure.invalidState
+            }
+        }
+        if reservation != nil {
+            guard lastObservedMS >= notBeforeMS else { throw Failure.invalidState }
+            if callsStarted == 1 {
+                guard notBeforeMS == startedAtMS else { throw Failure.invalidState }
+            } else {
+                let delay: Int64 = callsStarted == 2 ? 2_000 : 5_000
+                guard let completion = lastCompletionMS, notBeforeMS >= completion,
+                      notBeforeMS - completion >= delay else { throw Failure.invalidState }
+            }
+        }
         if !isClosed, reservation == nil, callsStarted > 0 {
             guard let completion = lastCompletionMS else { throw Failure.invalidState }
             let delay: Int64 = callsStarted == 1 ? 2_000 : 5_000
