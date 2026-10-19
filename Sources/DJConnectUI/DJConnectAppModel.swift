@@ -6591,6 +6591,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         let preferences = deviceSpeechPreferences
         let nativeLocal = preferences.enabled && target == .local
+        guard nativeLocal || settings.voice_availability.available else { return }
         #if canImport(AVFoundation)
         personaReactions.cancel(.speechConflict)
         let attemptDeadline = min(sourceDeadline, Date().addingTimeInterval(300))
@@ -6745,7 +6746,7 @@ public final class DJConnectAppModel: ObservableObject {
         if isDemoMode { return true }
         guard let response = profileDJSettings.response else { return false }
         return profileDJSettings.active && ![.idle, .loading, .saving, .unavailable, .uncertain].contains(profileDJSettings.phase) &&
-            !response.requiresSelection && response.voice_availability.available &&
+            !response.requiresSelection && (deviceSpeechPreferences.enabled || response.voice_availability.available) &&
             response.snapshot.effective.announcement_output != .textOnly && !profileDJSettings.hasUncertainOperation
     }
 

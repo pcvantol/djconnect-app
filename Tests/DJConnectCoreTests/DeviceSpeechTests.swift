@@ -108,6 +108,15 @@ import Testing
     #expect(payload().audioResponse == .always)
     #expect(payload().speechContractVersion == 3) // deferred autoplay intent, never inline synthesis
     #expect(!model.canUseHASpeechOutput(.local)) // real prepare still needs fresh discovery
+    var unavailable = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(current)) as? [String: Any])
+    unavailable["voice_availability"] = ["available": false, "reason": "voice_unavailable"]
+    current = try JSONDecoder().decode(DJConnectProfileDJSettingsResponse.self, from: JSONSerialization.data(withJSONObject: unavailable))
+    await model.profileDJSettings.refresh(.init(read: { current }, update: { _, _, _ in throw CancellationError() }, receipt: { _, _ in throw CancellationError() }))
+    #expect(!model.sharedDJSpeechAllowed && payload().audioResponse == .never)
+    model.deviceSpeechPreferences.enabled = true
+    #expect(model.sharedDJSpeechAllowed && model.canUseLocalDJSpeechOutput)
+    #expect(payload().audioResponse == .always) // native grant does not need an HA provider voice
+    #expect(!model.canUseHASpeechOutput(.local)) // no HA configuration admission is fabricated
     current = try snapshot("text_only_zero_synthesis_old_audio_denied_and_owner_controls_removed")
     await model.profileDJSettings.refresh(.init(read: { current }, update: { _, _, _ in throw CancellationError() }, receipt: { _, _ in throw CancellationError() }))
     model.deviceSpeechPreferences.enabled = true
