@@ -269,10 +269,7 @@ struct ProfileDJSettingsEditor: View, Equatable {
             }, set: { choose(.init(output: DJAnnouncementOutput(rawValue: $0))) })) {
                 ForEach(response.allowed_values.announcement_output, id: \.self) { value in
                     Text(choice("output", value)).tag(value)
-                        .disabled(response.announcement_output.outputs.first(where: { $0.value == value })?.available != true ||
-                            (value == DJAnnouncementOutput.clientDevice.rawValue && !model.canUseHASpeechOutput(.local)) ||
-                            (value == DJAnnouncementOutput.haSpeaker.rawValue && !model.canUseHASpeechOutput(.haSpeaker)) ||
-                            (value == DJAnnouncementOutput.both.rawValue && !model.canUseHASpeechOutput(.both)))
+                        .disabled(response.announcement_output.outputs.first(where: { $0.value == value })?.available != true)
                 }
             }
             .pickerStyle(.menu).frame(minHeight: 44).disabled(!state.canEdit)

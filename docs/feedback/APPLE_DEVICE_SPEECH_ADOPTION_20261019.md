@@ -18,7 +18,9 @@ Presentation retains only a RAM snapshot bound to installation, endpoints,
 paired credential, authorized Profile and device language. Each in-flight read
 also fences the response epoch. Failed/missing status
 withdraws availability. HA input and output actions are unavailable without
-that evidence. Saved output/voice preferences remain unchanged. Apple STT and
+that evidence. Saved output/voice preferences remain unchanged. The Profile output picker remains
+governed by backend-advertised choices, including during runtime outages/backoff;
+only execution controls use ephemeral device availability. Apple STT and
 native TTS preview/Watch preparation retain their independent existing admission.
 Explicit text_only and prepare3/source fences remain authoritative.
 

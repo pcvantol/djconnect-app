@@ -62,6 +62,19 @@ public struct DJConnectDeviceSpeechAvailability: Codable, Equatable, Sendable {
         public let reason: String?
         public let locale: String?
         public let operational: Operational?
+        public let audio: Audio?
+        public let configuration_revision: String?
+        public let revision: String?
+        public struct Audio: Codable, Equatable, Sendable {
+            public let format: String
+            public let codec: String
+            public let sample_rate: Int
+            public let sample_width: Int
+            public let channels: Int
+            public var matchesCapture: Bool {
+                format == "wav" && codec == "pcm" && sample_rate == 16000 && sample_width == 2 && channels == 1
+            }
+        }
         public struct Operational: Codable, Equatable, Sendable {
             public let synthesis_state: String
             public let retry_after_seconds: Int
@@ -87,11 +100,14 @@ public struct DJConnectDeviceSpeechAvailability: Codable, Equatable, Sendable {
         return String(family)
     }
     public func allowsHAInput(locale: String) -> Bool {
-        qualifies(locale: locale) && ha_stt.isAvailable
+        qualifies(locale: locale) && ha_stt.isAvailable && Self.family(ha_stt.locale) == Self.family(locale) &&
+        ha_stt.audio?.matchesCapture == true
     }
     public func allowsHAOutput(_ target: DJConnectSharedSpeechTarget, locale: String) -> Bool {
-        qualifies(locale: locale) && ha_tts.isAvailable &&
-        (ha_tts.operational?.retry_after_seconds ?? 0) == 0 &&
-        (target == .local || ha_speaker_target.isAvailable)
+        guard qualifies(locale: locale), ha_tts.isAvailable, Self.family(ha_tts.locale) == Self.family(locale),
+              ha_tts.configuration_revision?.isEmpty == false, let operational = ha_tts.operational,
+              ["not_tested", "succeeded", "failed"].contains(operational.synthesis_state),
+              operational.retry_after_seconds == 0 else { return false }
+        return target == .local || (ha_speaker_target.isAvailable && ha_speaker_target.revision?.isEmpty == false)
     }
 }

@@ -208,3 +208,40 @@ private func availability(_ json: [String: Any]) throws -> DJConnectDeviceSpeech
         #expect(status.deviceSpeech == nil)
     }
 }
+
+@Test func deviceSpeechRequiresKnownOperationalEvidenceAndRetriesExpiredFailure() throws {
+    let original = try #require(availabilityCases().first?["snapshot"] as? [String: Any])
+    var route = try #require(original["ha_tts"] as? [String: Any])
+    route["operational"] = nil
+    var missing = original; missing["ha_tts"] = route
+    let unavailable = try availability(missing)
+    #expect(unavailable.ha_tts.isAvailable) // configuration remains independently valid
+    #expect(!unavailable.allowsHAOutput(.local, locale: "en-US"))
+    for state in ["not_tested", "succeeded", "failed", "unknown", "future"] {
+        for retry in [-1, 0, 1, 60] {
+            route["operational"] = ["synthesis_state": state, "retry_after_seconds": retry]
+            var json = original; json["ha_tts"] = route
+            let value = try availability(json)
+            #expect(value.ha_tts.isAvailable)
+            #expect(value.allowsHAOutput(.local, locale: "en-US") == (["not_tested", "succeeded", "failed"].contains(state) && retry == 0))
+        }
+    }
+}
+
+@Test func deviceSpeechRequiresCompatibleCaptureAndCurrentRouteMetadata() throws {
+    let item = try #require(availabilityCases().first { $0["case"] as? String == "configuration_stt_True_tts_True" })
+    let original = try #require(item["snapshot"] as? [String: Any])
+    for key in ["audio", "locale"] {
+        var json = original; var stt = try #require(json["ha_stt"] as? [String: Any]); stt[key] = nil; json["ha_stt"] = stt
+        #expect(!(try availability(json)).allowsHAInput(locale: "en-US"))
+    }
+    for key in ["operational", "locale", "configuration_revision"] {
+        var json = original; var tts = try #require(json["ha_tts"] as? [String: Any]); tts[key] = nil; json["ha_tts"] = tts
+        #expect(!(try availability(json)).allowsHAOutput(.local, locale: "en-US"))
+    }
+    var json = original; var stt = try #require(json["ha_stt"] as? [String: Any])
+    var audio = try #require(stt["audio"] as? [String: Any]); audio["sample_rate"] = 48000
+    stt["audio"] = audio; json["ha_stt"] = stt
+    #expect(!(try availability(json)).allowsHAInput(locale: "en-US"))
+    #expect((try availability(json)).allowsHAOutput(.local, locale: "en-US"))
+}
