@@ -44,7 +44,6 @@ public struct DeviceSpeechSettingsView: View {
                     .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .selected, selectionTint: .purple))
                     .disabled(!isSpeaking && (!previewAllowed || matching.isEmpty))
                     .accessibilityIdentifier("device-speech-preview")
-                Text(text("pending")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
         .task { voices = DJConnectAppleSpeechRenderer.voices() }
