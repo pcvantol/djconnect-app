@@ -256,3 +256,16 @@ func personaTouchRequiresItsOwnDiscoveryWithoutBreakingBasePersona(fault: String
         try await client.personaReactionAudio(result.persona_reaction, request: request, settings: settings)
     }
 }
+
+
+@Test @MainActor func personaTouchFailedAudioStartReleasesOutputImmediatelyButRetainsText() async throws {
+    let (_, _, result) = try touchCase()
+    let controller = PersonaReactionController()
+    var stopped = 0, cancellations = 0
+    controller.start(.init(request: { _ in result }, cancel: { _, _ in cancellations += 1 }, current: { true }, admitsSpeech: { _ in true },
+        play: { _, _ in false }, stop: { _ in stopped += 1 }, failure: {}, notice: nil))
+    #expect(await touchEventually { controller.notice != nil })
+    #expect(stopped == 1 && controller.isActive && controller.reaction?.id == result.persona_reaction.id)
+    #expect(!controller.preparing && !controller.speaking && cancellations == 0)
+    controller.cancel(.dismissed)
+}

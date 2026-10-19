@@ -84,7 +84,7 @@ enum PersonaReactionConsumerGate { static let isQualified = false }
                     guard self.run === current, !Task.isCancelled else { return }
                     self.preparing = false; self.speaking = false
                     if completed { self.cancel(.completed) }
-                    else { self.notice = "ui.session.reaction.speech_unavailable" }
+                    else { services.stop(.speechConflict); self.notice = "ui.session.reaction.speech_unavailable" }
                 } else {
                     self.preparing = false
                     if services.notice == nil { self.notice = "ui.session.reaction.speech_unavailable" }

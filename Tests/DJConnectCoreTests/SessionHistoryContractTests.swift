@@ -5978,3 +5978,39 @@ func sessionSearchAutomaticPagingFencesOldFootersAndRepeatedCursors(repeatsCurso
     #expect(controller.notice == nil)
     #expect(!controller.isRefreshing)
 }
+
+
+@Test(arguments: ["cancelled", "transient", "incompatible"]) @MainActor
+func personaTouchCapabilityRefreshWithdrawsStaleSupportExceptCancellation(fault: String) async throws {
+    let phase = HistoryAuthorityGate()
+    let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/persona-touch-discovery-installed-20261019.json")
+    let discovery = try Data(contentsOf: url)
+    let fixture = HistoryWireFixture { request in
+        guard request.url!.path.hasSuffix("/capabilities") else { return (404, Data(), 0) }
+        if !phase.denied { return (200, discovery, 0) }
+        if fault == "transient" { return (503, Data(#"{"error":"temporarily_unavailable"}"#.utf8), 0) }
+        if fault == "incompatible" { return (200, Data(#"{"active_session_persona":false}"#.utf8), 0) }
+        return (200, discovery, 0.2)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.refreshActiveMoodCapability()
+    #expect(model.activePersonaReactionAvailable)
+    let count = fixture.requests.count
+    phase.denied = true
+    if fault == "cancelled" {
+        let pending = Task { await model.refreshActiveMoodCapability() }
+        for _ in 0..<100 where fixture.requests.count == count { try await Task.sleep(for: .milliseconds(5)) }
+        #expect(fixture.requests.count > count && !model.activePersonaReactionAvailable)
+        pending.cancel(); await pending.value
+        #expect(model.activePersonaReactionAvailable)
+    } else {
+        await model.refreshActiveMoodCapability()
+        #expect(!model.activePersonaReactionAvailable)
+        phase.denied = false
+        await model.refreshActiveMoodCapability()
+        #expect(model.activePersonaReactionAvailable)
+    }
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+}

@@ -6153,13 +6153,15 @@ public final class DJConnectAppModel: ObservableObject {
     public func refreshActiveMoodCapability() async {
         guard !Task.isCancelled else { return }
         if isDemoMode {
+            activePersonaReactionAvailable = false
             activePersonaAvailable = false
             activeMoodAvailable = activeDJSession != nil
             activePresenceAvailable = activeDJSession?.confirmedPresence != nil
             activePresenceCapabilityStatus = activePresenceAvailable ? .supported : .unsupported
             return
         }
-        let previous = (mood: activeMoodAvailable, persona: activePersonaAvailable, presence: activePresenceAvailable, status: activePresenceCapabilityStatus, shared: activeSharedSettingsRequired)
+        let previous = (mood: activeMoodAvailable, persona: activePersonaAvailable, presence: activePresenceAvailable, status: activePresenceCapabilityStatus, shared: activeSharedSettingsRequired, reaction: activePersonaReactionAvailable)
+        activePersonaReactionAvailable = false
         activeMoodAvailable = false
         activePersonaAvailable = false
         activePresenceAvailable = false
@@ -6176,6 +6178,7 @@ public final class DJConnectAppModel: ObservableObject {
             // A newer read / owner transition always wins over this restoration.
             if (Task.isCancelled || cancelledRead), generation == moodCapabilityGeneration,
                epoch == sessionHistory.responseEpoch, isAppInForeground, pairingStatus == .paired {
+                activePersonaReactionAvailable = previous.reaction
                 activeSharedSettingsRequired = previous.shared
                 activeMoodAvailable = previous.mood
                 activePersonaAvailable = previous.persona
