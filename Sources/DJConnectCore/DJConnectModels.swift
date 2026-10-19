@@ -590,6 +590,7 @@ public enum DJConnectPairingURLPolicy {
 }
 
 public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
+    public var deviceSpeech: DJConnectDeviceSpeechAvailability?
     public var success: Bool
     public var deviceToken: String?
     public var token: String?
@@ -642,6 +643,7 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
 
     public init(
         success: Bool,
+        deviceSpeech: DJConnectDeviceSpeechAvailability? = nil,
         deviceToken: String? = nil,
         token: String? = nil,
         bearerToken: String? = nil,
@@ -675,6 +677,7 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         askDJAudioResponseSupported: Bool? = nil,
         djAnnouncement: DJAnnouncementCapabilities? = nil
     ) {
+        self.deviceSpeech = deviceSpeech
         self.success = success
         self.deviceToken = deviceToken
         self.token = token
@@ -743,6 +746,7 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         pairingSessionID = try container.decodeIfPresent(String.self, forKey: .pairingSessionID)
         djAnnouncement = try container.decodeIfPresent(DJAnnouncementCapabilities.self, forKey: .djAnnouncement)
         askDJSupported = try container.decodeIfPresent(Bool.self, forKey: .askDJSupported)
+        deviceSpeech = try? container.decodeIfPresent(DJConnectDeviceSpeechAvailability.self, forKey: .deviceSpeech)
         askDJVoiceSupported = try container.decodeIfPresent(Bool.self, forKey: .askDJVoiceSupported)
         askDJAudioResponseSupported = try container.decodeIfPresent(Bool.self, forKey: .askDJAudioResponseSupported)
     }
@@ -778,6 +782,7 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
         case integrationVersion = "integration_version"
         case pairingSessionID = "pairing_session_id"
         case askDJSupported = "ask_dj_supported"
+        case deviceSpeech = "device_speech"
         case askDJVoiceSupported = "ask_dj_voice_supported"
         case askDJAudioResponseSupported = "ask_dj_audio_response_supported"
         case djAnnouncement = "dj_announcement"
@@ -7608,6 +7613,7 @@ public enum DJConnectJSONValue: Codable, Equatable, Sendable {
 }
 
 public struct DJConnectEnvelope<T: Codable & Sendable>: Codable, Sendable {
+    public var deviceSpeech: DJConnectDeviceSpeechAvailability?
     public var success: Bool
     public var error: String?
     public var message: String?
@@ -7641,6 +7647,7 @@ public struct DJConnectEnvelope<T: Codable & Sendable>: Codable, Sendable {
     public var djAnnouncement: DJAnnouncementCapabilities?
 
     enum CodingKeys: String, CodingKey {
+        case deviceSpeech = "device_speech"
         case success
         case error
         case message
@@ -7676,6 +7683,43 @@ public struct DJConnectEnvelope<T: Codable & Sendable>: Codable, Sendable {
 }
 
 public extension DJConnectEnvelope {
+    /// An incompatible additive discovery snapshot cannot break ordinary playback/status.
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        deviceSpeech = try? values.decodeIfPresent(DJConnectDeviceSpeechAvailability.self, forKey: .deviceSpeech)
+        success = try values.decode(Bool.self, forKey: .success)
+        error = try values.decodeIfPresent(String.self, forKey: .error)
+        message = try values.decodeIfPresent(String.self, forKey: .message)
+        backendAvailable = try values.decodeIfPresent(Bool.self, forKey: .backendAvailable)
+        haVersion = try values.decodeIfPresent(String.self, forKey: .haVersion)
+        haMajorMinor = try values.decodeIfPresent(String.self, forKey: .haMajorMinor)
+        remoteSupported = try values.decodeIfPresent(Bool.self, forKey: .remoteSupported)
+        musicBackend = try values.decodeIfPresent(String.self, forKey: .musicBackend)
+        musicBackendName = try values.decodeIfPresent(String.self, forKey: .musicBackendName)
+        musicBackendAvailable = try values.decodeIfPresent(Bool.self, forKey: .musicBackendAvailable)
+        musicBackendRevision = try values.decodeIfPresent(Int.self, forKey: .musicBackendRevision)
+        musicBackendCapabilities = try values.decodeIfPresent(DJConnectMusicBackendCapabilities.self, forKey: .musicBackendCapabilities)
+        musicTargetPlayer = try values.decodeIfPresent(DJConnectMusicTargetPlayer.self, forKey: .musicTargetPlayer)
+        musicBackendError = try values.decodeIfPresent(String.self, forKey: .musicBackendError)
+        clientType = try values.decodeIfPresent(DJConnectClientType.self, forKey: .clientType)
+        deviceLanguage = try values.decodeIfPresent(String.self, forKey: .deviceLanguage)
+        language = try values.decodeIfPresent(String.self, forKey: .language)
+        playback = try values.decodeIfPresent(DJConnectPlayback.self, forKey: .playback)
+        data = try values.decodeIfPresent(T.self, forKey: .data)
+        pushSupported = try values.decodeIfPresent(Bool.self, forKey: .pushSupported)
+        pushRegistered = try values.decodeIfPresent(Bool.self, forKey: .pushRegistered)
+        pushEnvironment = try values.decodeIfPresent(DJConnectPushEnvironment.self, forKey: .pushEnvironment)
+        lastPushError = try values.decodeIfPresent(String.self, forKey: .lastPushError)
+        bootstrapProof = try values.decodeIfPresent(String.self, forKey: .bootstrapProof)
+        bootstrapProofExpiresAt = try values.decodeIfPresent(String.self, forKey: .bootstrapProofExpiresAt)
+        haLocalURL = try values.decodeIfPresent(String.self, forKey: .haLocalURL)
+        haRemoteURL = try values.decodeIfPresent(String.self, forKey: .haRemoteURL)
+        haInstallID = try values.decodeIfPresent(String.self, forKey: .haInstallID)
+        integrationVersion = try values.decodeIfPresent(String.self, forKey: .integrationVersion)
+        pairingSessionID = try values.decodeIfPresent(String.self, forKey: .pairingSessionID)
+        djAnnouncement = try values.decodeIfPresent(DJAnnouncementCapabilities.self, forKey: .djAnnouncement)
+    }
+
     var musicBackendSummary: DJConnectMusicBackendSummary {
         DJConnectMusicBackendSummary(
             remoteSupported: remoteSupported,

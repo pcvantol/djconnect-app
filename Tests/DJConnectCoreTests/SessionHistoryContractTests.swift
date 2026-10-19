@@ -587,13 +587,19 @@ private final class HistoryReplySequence: @unchecked Sendable {
     let receipt = try historyObject()
     let history = try historyData(try #require(receipt["later_historical_answer"]))
     let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let speechRoot = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/device-speech-core-604b80f8.json"))) as? [String: Any])
+    let speechCases = try #require(speechRoot["cases"] as? [[String: Any]])
+    let speech = try historyData(["success": true, "ha_install_id": "speech-install", "device_speech": try #require(speechCases.first { $0["case"] as? String == "configuration_stt_True_tts_True" }?["snapshot"])])
     let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/status") { return (200, speech, 0) }
         if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
         if request.url!.path.hasSuffix("/voice") { return (500, Data(#"{"success":false,"error":"voice_failed"}"#.utf8), 0.4) }
         return (200, history, 0)
     }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    defaults.set("speech-install", forKey: "DJConnectHAInstallID")
+    model.language = "en"
     await model.sessionHistory.prepare()
     model.sessionHistory.captureVoiceContext()
     let operation = model.voiceOperationID
@@ -6013,4 +6019,72 @@ func personaTouchCapabilityRefreshWithdrawsStaleSupportExceptCancellation(fault:
         #expect(model.activePersonaReactionAvailable)
     }
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+}
+
+@Test @MainActor func deviceSpeechStatusIsEphemeralScopedAndNeverOverridesApplePreference() throws {
+    let fixture = HistoryWireFixture { _ in (200, Data(), 0) }; defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    defaults.set("speech-install", forKey: "DJConnectHAInstallID")
+    let source = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/device-speech-core-604b80f8.json")
+    let root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: source)) as? [String: Any])
+    let cases = try #require(root["cases"] as? [[String: Any]])
+    var snapshot = try #require(cases.first { $0["case"] as? String == "configuration_stt_True_tts_True" }?["snapshot"] as? [String: Any])
+    snapshot["locale"] = model.currentRequestLocale
+    func apply(_ value: Any?, install: String = "speech-install") throws {
+        var body: [String: Any] = ["success": true, "ha_install_id": install]
+        body["device_speech"] = value
+        let status = try JSONDecoder().decode(DJConnectEnvelope<DJConnectPlayback>.self, from: historyData(body))
+        _ = model.applyStatusEndpoints(status, expectedLocal: model.haLocalURL, expectedRemote: model.haRemoteURL, expectedInstall: "speech-install")
+    }
+    #expect(!model.canUseVoiceInputRoute && !model.canUseHASpeechOutput(.local))
+    try apply(snapshot)
+    #expect(model.canUseVoiceInputRoute && model.canUseHASpeechOutput(.local))
+    #expect(!model.canUseHASpeechOutput(.haSpeaker))
+    model.language = "fr"
+    #expect(!model.canUseVoiceInputRoute && !model.canUseHASpeechOutput(.local))
+    model.language = try #require(snapshot["locale"] as? String)
+    try apply(nil)
+    #expect(!model.canUseVoiceInputRoute && !model.canUseHASpeechOutput(.local))
+    try apply(snapshot, install: "wrong-install")
+    #expect(!model.canUseVoiceInputRoute)
+    model.deviceSTTEnabled = true
+    #expect(model.canUseVoiceInputRoute)
+    try apply(nil)
+    #expect(model.deviceSTTEnabled && model.canUseVoiceInputRoute)
+    #expect(!model.canUseHASpeechOutput(.local))
+}
+
+@Test func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation() async throws {
+    let source = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/device-speech-core-604b80f8.json")
+    let root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: source)) as? [String: Any])
+    let cases = try #require(root["cases"] as? [[String: Any]])
+    let snapshot = try #require(cases.first?["snapshot"] as? [String: Any])
+    let body = try historyData(["success": true, "ha_install_id": "speech-install", "device_speech": snapshot])
+    let fixture = HistoryWireFixture { request in
+        #expect(request.url?.path == "/api/djconnect/v1/status")
+        #expect(request.cachePolicy == .reloadIgnoringLocalCacheData)
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        return (200, body, 0)
+    }; defer { fixture.close() }
+    let client = fixture.client()
+    #expect(try await client.currentDeviceSpeech(language: "en", expectedInstallationID: "speech-install") != nil)
+    #expect(try await client.currentDeviceSpeech(language: "en", expectedInstallationID: "wrong-install") == nil)
+    #expect(try await client.currentDeviceSpeech(language: "fr", expectedInstallationID: "speech-install") == nil)
+    #expect(fixture.requests.count == 3)
+}
+
+@Test @MainActor func deviceSpeechUnknownMetadataBlocksHAUploadWithoutSwitchingAppleInput() async throws {
+    let body = Data(#"{"success":true,"ha_install_id":"speech-install","voice_supported":true,"ask_dj_voice_supported":true}"#.utf8)
+    let fixture = HistoryWireFixture { _ in (200, body, 0) }; defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    defaults.set("speech-install", forKey: "DJConnectHAInstallID")
+    await model.uploadRecordedVoiceWAV(Data([82, 73, 70, 70]), operation: model.voiceOperationID, historyEpoch: model.sessionHistory.responseEpoch)
+    #expect(fixture.requests.count == 1)
+    #expect(fixture.requests.allSatisfy { $0.url?.path.hasSuffix("/status") == true })
+    #expect(!model.deviceSTTEnabled && !model.canUseVoiceInputRoute)
+    model.deviceSTTEnabled = true
+    await model.uploadRecordedVoiceWAV(Data([82, 73, 70, 70]), operation: model.voiceOperationID, historyEpoch: model.sessionHistory.responseEpoch)
+    #expect(fixture.requests.count == 1)
+    #expect(model.deviceSTTEnabled && model.canUseVoiceInputRoute)
 }

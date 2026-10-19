@@ -11001,7 +11001,7 @@ private struct AskDJView: View {
     }
 
     private var canUseVoiceInput: Bool {
-        model.voiceEnabled
+        model.canUseVoiceInputRoute
             && model.canUseAskDJFeatures
             && !model.isRefreshing
             && !model.isSendingAskDJText

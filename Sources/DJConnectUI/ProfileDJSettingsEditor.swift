@@ -269,7 +269,10 @@ struct ProfileDJSettingsEditor: View, Equatable {
             }, set: { choose(.init(output: DJAnnouncementOutput(rawValue: $0))) })) {
                 ForEach(response.allowed_values.announcement_output, id: \.self) { value in
                     Text(choice("output", value)).tag(value)
-                        .disabled(response.announcement_output.outputs.first(where: { $0.value == value })?.available != true)
+                        .disabled(response.announcement_output.outputs.first(where: { $0.value == value })?.available != true ||
+                            (value == DJAnnouncementOutput.clientDevice.rawValue && !model.canUseHASpeechOutput(.local)) ||
+                            (value == DJAnnouncementOutput.haSpeaker.rawValue && !model.canUseHASpeechOutput(.haSpeaker)) ||
+                            (value == DJAnnouncementOutput.both.rawValue && !model.canUseHASpeechOutput(.both)))
                 }
             }
             .pickerStyle(.menu).frame(minHeight: 44).disabled(!state.canEdit)
@@ -379,7 +382,8 @@ struct SharedDJSpeechActions: View {
         let ownsOutput = model.sharedSpeechReference == reference
         let active = ownsOutput && (model.sharedSpeechIsPlaying || preparing)
         let actionLabel = text(active ? "stop_local" : ownsOutput && model.sharedSpeechDelivery["local"] != nil ? "replay_local" : "listen_local")
-        if case .moment = reference, model.profileDJSettings.effective?.announcement_output != .clientDevice {
+        if case .moment = reference, model.canUseHASpeechOutput(.haSpeaker),
+           model.profileDJSettings.effective?.announcement_output != .clientDevice {
             Menu {
                 Button(text("target.ha_speaker")) { play(.haSpeaker) }
                     .disabled(model.profileDJSettings.response?.announcement_output.speaker_available != true)
@@ -406,7 +410,7 @@ struct SharedDJSpeechActions: View {
             .contentShape(Circle())
         }
         .djConnectPlainButtonStyle()
-        .disabled(!active && !model.sharedDJSpeechAllowed)
+        .disabled(!active && (!model.sharedDJSpeechAllowed || !model.canUseHASpeechOutput(.local)))
         .accessibilityLabel(actionLabel)
         .accessibilityValue(preparing ? text("delivery.preparing") : ownsOutput ? text("delivery." + (model.sharedSpeechDelivery["local"] ?? "ready")) : "")
         .accessibilityIdentifier(active ? "shared-speech-stop-local" : "shared-speech-listen-local")
