@@ -13559,7 +13559,7 @@ public final class DJConnectAppModel: ObservableObject {
                 mood: payload.mood,
                 djStyle: payload.djStyle,
                 musicDNAKey: payload.musicDNAKey,
-                language: payload.language ?? currentRequestLocale
+                language: locale
             )
             return try encoder.encode(response)
         case .pushRegister:
