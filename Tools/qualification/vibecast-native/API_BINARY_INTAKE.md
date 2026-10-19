@@ -54,7 +54,7 @@ Build40380 is not silently added to the existing40227/40228/40230 allowlist.
 
 The private signed scratch host includes the qualification xctest bundle, is not
 an ordinary install/release and must not be distributed as one. Its89-file bundle
-manifest digest is 423016262f713dcfae1c7075edd372588d9c5b909928d078fef161a01b180baa
+manifest digest is c60944174aaafb42cd254828617ec7d8d2018669b8319cb784fd8b86f4d42521
 (SHA256 of sorted compact JSON file/symlink manifest, without final newline).
 Raw app/profile archives are not published: profiles can contain device details.
 Local stage, executable/profile/manifest readbacks and source hashes remain under
@@ -119,16 +119,18 @@ by an old receipt merely because its displayed build number is40380.
 
 ## Executed qualification
 
-Twenty-four isolated Swift tests pass (the prior10 binding cases plus14 binary
+Twenty-six isolated Swift tests pass (the prior10 binding cases plus16 binary
 intake/dispatch cases). They prove decoded nonce vs base64-text hash, all three
 exact action-byte paths, response-vs-clientData size bounds, canonical encodings,
 duplicate/foreign/malformed JSON, original deadlines, persistence before a fake
 SDK sink, failed save/context/key/expiry refusal, late results/error redaction,
 proof bounds, nested serialization and cancellation retaining the slot until
-callback. Two regression tests first reproduced wall-clock rollback and a frozen
-wall clock. Both now reject: dispatch/release require nondecreasing wall time
-and the original remaining lifetime is fixed once against ContinuousClock,
-never renewed after persistence or an SDK await. These are injected closure tests, **not Apple SDK execution**.
+callback. Four regression tests first reproduced wall-clock rollback and a frozen
+wall clock both before dispatch and during the SDK call. They now reject:
+input construction preserves its wall-time observation and starts the original
+remaining lifetime against ContinuousClock. Dispatch/release cannot lower that
+wall baseline or renew the monotonic lifetime after input construction,
+persistence or an SDK await. These are injected closure tests, **not Apple SDK execution**.
 
 A clean tracked-source snapshot plus the explicit new qualification files built
 for generic iPhone/iOS including the real DeviceCheck callback paths and both

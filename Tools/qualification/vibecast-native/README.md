@@ -1,8 +1,8 @@
 # VibeCast native qualification (API0.4 draft)
 
 The historical cases below retain their original evidence scope. The separate
-[API-issued binary SDK intake](API_BINARY_INTAKE.md) adds14 pure intake/dispatch
-cases (24 package cases total), a direct DeviceCheck hosted path and a concrete
+[API-issued binary SDK intake](API_BINARY_INTAKE.md) adds16 pure intake/dispatch
+cases (26 package cases total), a direct DeviceCheck hosted path and a concrete
 signed build40380 profile **proposal**, not API admission or a live proof.
 Source permission is now the released djc-rendezvous/1-implementation.1; historical
 draft labels here do not override that source release or grant runtime GO.

@@ -12,14 +12,18 @@ struct BinarySDKInput: Sendable {
     let deadlineMS: Int64
     let requestedAtMS: Int64
     let original: Data
+    private let observedAtMS: Int64
+    private let lifetimeStart: ContinuousClock.Instant
     var hash: Data { Data(SHA256.hash(data: original)) }
-    private init(kind: Kind, keyID: String, challengeID: String, action: String, deadlineMS: Int64, requestedAtMS: Int64, original: Data) {
+    private init(kind: Kind, keyID: String, challengeID: String, action: String, deadlineMS: Int64, requestedAtMS: Int64, original: Data, observedAtMS: Int64, lifetimeStart: ContinuousClock.Instant) {
         self.kind = kind; self.keyID = keyID; self.deadlineMS = deadlineMS
         self.challengeID = challengeID; self.action = action
+        self.observedAtMS = observedAtMS; self.lifetimeStart = lifetimeStart
         self.requestedAtMS = requestedAtMS; self.original = original
     }
 
     static func registration(response: Data, keyID: String, requestedAtMS: Int64, nowMS: Int64) throws -> Self {
+        let lifetimeStart = ContinuousClock.now
         let fields = try responseFields(response, hasClientData: false)
         guard ClientDataExpectation.standardKey(keyID),
               case .string(let nonce)? = fields["challenge"], ClientDataExpectation.opaque(nonce),
@@ -27,12 +31,13 @@ struct BinarySDKInput: Sendable {
               case .integer(let deadline)? = fields["expires_at"] else { throw BindingFailure.rejected }
         let decoded = try decodeURL(nonce, limit: 32)
         guard decoded.count == 32 else { throw BindingFailure.rejected }
-        let input = Self(kind: .registration, keyID: keyID, challengeID: id, action: "register", deadlineMS: deadline, requestedAtMS: requestedAtMS, original: decoded)
+        let input = Self(kind: .registration, keyID: keyID, challengeID: id, action: "register", deadlineMS: deadline, requestedAtMS: requestedAtMS, original: decoded, observedAtMS: nowMS, lifetimeStart: lifetimeStart)
         try input.check(keyID: keyID, nowMS: nowMS, current: true)
         return input
     }
 
     static func action(response: Data, expectation: ClientDataExpectation, requestedAtMS: Int64, nowMS: Int64) throws -> Self {
+        let lifetimeStart = ContinuousClock.now
         let fields = try responseFields(response, hasClientData: true)
         guard fields["challenge_id"] == .string(expectation.challengeID),
               fields["challenge"] == .string(expectation.challenge),
@@ -43,7 +48,7 @@ struct BinarySDKInput: Sendable {
         // Validation never reserializes the bytes sent to the SDK.
         _ = try expectation.validate(original, at: nowMS)
         let input = Self(kind: .assertion, keyID: expectation.keyID, challengeID: expectation.challengeID, action: expectation.action.rawValue, deadlineMS: expectation.deadlineMS,
-                         requestedAtMS: requestedAtMS, original: original)
+                         requestedAtMS: requestedAtMS, original: original, observedAtMS: nowMS, lifetimeStart: lifetimeStart)
         try input.check(keyID: expectation.keyID, nowMS: nowMS, current: true)
         return input
     }
@@ -51,7 +56,9 @@ struct BinarySDKInput: Sendable {
     func check(keyID: String, nowMS: Int64, current: Bool) throws {
         guard current, self.keyID == keyID, requestedAtMS >= 0, deadlineMS > requestedAtMS,
               deadlineMS <= 9_007_199_254_740_991, deadlineMS - requestedAtMS <= 120_000,
-              nowMS >= requestedAtMS, nowMS < deadlineMS else { throw BindingFailure.rejected }
+              nowMS >= requestedAtMS, nowMS >= observedAtMS, nowMS < deadlineMS else { throw BindingFailure.rejected }
+        // Original remaining lifetime starts at input construction, never dispatch.
+        guard ContinuousClock.now < lifetimeStart.advanced(by: .milliseconds(deadlineMS - observedAtMS)) else { throw BindingFailure.rejected }
     }
 
     private static func responseFields(_ bytes: Data, hasClientData: Bool) throws -> [String: FlatValue] {
@@ -85,16 +92,11 @@ struct BinarySDKInput: Sendable {
         do {
             guard !busy else { throw BindingFailure.rejected }
             try Task.checkCancellation()
-            let clock = ContinuousClock()
-            let started = clock.now
             var lastObservedWall = now()
             try input.check(keyID: keyID(), nowMS: lastObservedWall, current: current())
-            // Capture the original remaining lifetime once. A frozen/backward
-            // wall clock must never extend the SDK attempt across suspension.
-            let monotonicDeadline = started.advanced(by: .milliseconds(input.deadlineMS - lastObservedWall))
             func recheck() throws {
                 let observed = now()
-                guard observed >= lastObservedWall, clock.now < monotonicDeadline else { throw BindingFailure.rejected }
+                guard observed >= lastObservedWall else { throw BindingFailure.rejected }
                 try input.check(keyID: keyID(), nowMS: observed, current: current())
                 lastObservedWall = observed
             }

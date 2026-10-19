@@ -204,4 +204,32 @@ final class BinarySDKIntakeTests: XCTestCase {
             XCTFail("Monotonic remaining lifetime must expire even if the wall clock freezes")
         } catch BindingFailure.rejected {}
     }
+    @MainActor func testConstructionTimeRollbackRejectsRegistrationAndActionsBeforePersist() async throws {
+        let observed = start + 5_000
+        var inputs = [try BinarySDKInput.registration(response: response(), keyID: key, requestedAtMS: start, nowMS: observed)]
+        for action in [ClientDataExpectation.Action.submit, .deleteKey, .recoverKey] {
+            let expected = expectation(action)
+            inputs.append(try .action(response: response(json(expected.fields())), expectation: expected, requestedAtMS: start, nowMS: observed))
+        }
+        for input in inputs {
+            var persisted = false, called = false
+            do {
+                _ = try await BinarySDKIntake().perform(input, keyID: { self.key }, now: { observed - 1_000 }, current: { true }, persist: { _, _ in persisted = true }, sdk: { _, _ in called = true; return Data([1]) })
+                XCTFail("Construction-time clock observation must not be reset")
+            } catch BindingFailure.rejected {}
+            XCTAssertFalse(persisted); XCTAssertFalse(called)
+        }
+    }
+    @MainActor func testFrozenClockBetweenConstructionAndDispatchDoesNotRenewLifetime() async throws {
+        var fields = try FlatObject.parse(response()); fields["expires_at"] = .integer(start + 10)
+        let input = try BinarySDKInput.registration(response: json(fields), keyID: key, requestedAtMS: start, nowMS: start)
+        try await Task.sleep(for: .milliseconds(30))
+        var persisted = false, called = false
+        do {
+            _ = try await BinarySDKIntake().perform(input, keyID: { self.key }, now: { self.start }, current: { true }, persist: { _, _ in persisted = true }, sdk: { _, _ in called = true; return Data([1]) })
+            XCTFail("Construction-to-dispatch elapsed time must consume original lifetime")
+        } catch BindingFailure.rejected {}
+        XCTAssertFalse(persisted); XCTAssertFalse(called)
+    }
+
 }
