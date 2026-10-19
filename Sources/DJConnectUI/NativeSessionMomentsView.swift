@@ -19,6 +19,11 @@ extension View {
         modifier(DJAlbumArtworkGlassCard(artworkURL: artworkURL))
     }
 
+    /// Player controls share the displayed cover's URL-fenced sample without artwork padding.
+    func djPlaybackArtworkGlassCard(artworkURL: URL?) -> some View {
+        modifier(DJAlbumArtworkGlassCard(artworkURL: artworkURL, playbackControls: true))
+    }
+
     /// A protected image supplies its already admitted pixel sample, never a URL/cache lookup.
     func djAlbumArtworkGlassCard(tint: Color?) -> some View {
         modifier(DJAlbumArtworkGlassSurface(tint: tint))
@@ -37,11 +42,13 @@ extension View {
 /// URL-bound state prevents a late previous-cover download from tinting the next cover.
 private struct DJAlbumArtworkGlassCard: ViewModifier {
     let artworkURL: URL?
+    let playbackControls: Bool
     @State private var sampledTint: Color?
     @State private var sampledURL: URL?
 
-    init(artworkURL: URL?) {
+    init(artworkURL: URL?, playbackControls: Bool = false) {
         self.artworkURL = artworkURL
+        self.playbackControls = playbackControls
         let cached = artworkURL.flatMap { DJConnectArtworkTintCache.shared.value(for: $0) }
         _sampledTint = State(initialValue: cached?.color)
         _sampledURL = State(initialValue: cached == nil ? nil : artworkURL)
@@ -49,7 +56,8 @@ private struct DJAlbumArtworkGlassCard: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .djAlbumArtworkGlassCard(tint: sampledURL == artworkURL ? sampledTint : nil)
+            .modifier(DJArtworkSampledSurface(tint: sampledURL == artworkURL ? sampledTint : nil,
+                                               playbackControls: playbackControls))
             .task(id: artworkURL) {
                 guard let requestedURL = artworkURL else {
                     sampledTint = nil; sampledURL = nil; return
@@ -67,6 +75,20 @@ private struct DJAlbumArtworkGlassCard: ViewModifier {
                 sampledURL = requestedURL
                 sampledTint = color
             }
+    }
+}
+
+private struct DJArtworkSampledSurface: ViewModifier {
+    let tint: Color?
+    let playbackControls: Bool
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if playbackControls {
+            content.modifier(DJSessionGlassSurface(cornerRadius: DJConnectCardAppearance.cornerRadius,
+                                                   surfaceTint: tint))
+        } else {
+            content.djAlbumArtworkGlassCard(tint: tint)
+        }
     }
 }
 
@@ -131,16 +153,18 @@ private struct CurrentMomentArtworkTint: ViewModifier {
 private struct DJSessionGlassSurface: ViewModifier {
     let cornerRadius: CGFloat
     var currentMomentBorder = false
+    var surfaceTint: Color? = nil
     @Environment(\.currentMomentArtworkTint) private var artworkTint
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
     @ViewBuilder func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        let tint = surfaceTint ?? (currentMomentBorder ? artworkTint : nil)
         let bordered = content.background {
-            if currentMomentBorder, let artworkTint {
+            if let tint {
                 shape.fill(LinearGradient(
-                    colors: [artworkTint.opacity(reduceTransparency ? 0.85 : 0.38),
-                             artworkTint.opacity(reduceTransparency ? 0.65 : 0.22)],
+                    colors: [tint.opacity(reduceTransparency ? 0.85 : 0.38),
+                             tint.opacity(reduceTransparency ? 0.65 : 0.22)],
                     startPoint: .topLeading, endPoint: .bottomTrailing))
             }
         }.overlay {
@@ -150,8 +174,8 @@ private struct DJSessionGlassSurface: ViewModifier {
         if !glassEnabled || reduceTransparency {
             bordered.background(DJConnectGlassAppearance.opaqueSurface, in: shape)
         } else if #available(iOS 26, macOS 26, watchOS 26, tvOS 26, *) {
-            if currentMomentBorder, let artworkTint {
-                bordered.glassEffect(.regular.tint(artworkTint.opacity(0.22)), in: shape)
+            if let tint {
+                bordered.glassEffect(.regular.tint(tint.opacity(0.22)), in: shape)
             } else {
                 #if os(iOS)
                 if currentMomentBorder && UIDevice.current.userInterfaceIdiom == .pad {

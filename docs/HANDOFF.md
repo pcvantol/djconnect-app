@@ -1,3 +1,17 @@
+## 2026-10-19 — Now Playing album-tinted glass and interactive controls
+
+Owner asks for the playback controls card to use glass and follow album art,
+plus interactive glass on Play/Favorite/Shuffle/Repeat. Both native player layouts
+now reuse the artwork URL-fenced tint sampler and shared glass compositor without
+image-only padding; their existing cover-aligned width remains unchanged. Missing
+or replaced artwork cannot retain the previous cover tint. Demo uses the same
+neutral placeholder choice as its displayed cover. Retired the old opaque player
+gradient and its duplicate unfenced tint task. Primary/selected button surfaces
+now opt into interactive glass; Favorite no longer disables it. Existing actions,
+selected states, accessibility/disabled behavior and Glass effects/Reduce
+Transparency fallbacks remain. Native build/review/visual proof follow separately;
+no backend change or physical functional acceptance is claimed.
+
 ## 2026-10-19 — consolidate all retained stashes
 
 All12 historical stash entries are compared against main17477f0, including
