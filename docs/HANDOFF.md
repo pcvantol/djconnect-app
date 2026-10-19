@@ -1,3 +1,22 @@
+## 2026-10-19 — explicit touch source readiness; activation BLOCKED
+
+Owner continues the open lane after PR135. Core37a574c9/f8b28d2b provides the
+explicit reaction/cancel producer. Its installed pure capability serializer is
+read back, and the original seven-operation fixture is imported unchanged.
+Apple implements dedicated typed operations through the existing paired owner,
+strict result/speech admission, one bounded transient controller and overlay,
+exclusive multi-tap/keyboard/VoiceOver alternatives and actual native renderer
+start/pause/continue/end observations. Native replay/autoplay avatar remains as
+already delivered by135; no passive activity export is added.
+
+A real producer gap blocks activation: remote withdrawal after downloaded bytes
+has no qualified consumer signal, and cancel-before-admission has no ordering
+/tombstone guarantee. Operation receipts cannot attest source validity.
+`PersonaReactionConsumerGate.isQualified` stays false; discovery cannot enable the
+control. [Exact source findings and required owner follow-up](feedback/APPLE_PERSONA_TOUCH_PRODUCER_GAPS_20261019.md).
+No invented API/heartbeat/permission override and no Core source/deployment change.
+Native/full audio and multi-device cancellation acceptance remain OPEN.
+
 ## 2026-10-19 — observed foreground avatar activity
 
 Core delivered basic existing-signal qualification (1215/1216) and the separate

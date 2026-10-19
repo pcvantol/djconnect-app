@@ -586,6 +586,39 @@ public final class DJConnectClient: Sendable {
         return bytes
     }
 
+    public func requestPersonaReaction(_ request: DJConnectPersonaReactionRequest, settings: DJConnectProfileDJSettingsResponse,
+                                       onOperationID: @escaping @Sendable (String) -> Void) async throws -> DJConnectPersonaReactionResult {
+        guard let hybridTransport, settings.isValid, !settings.requiresSelection,
+              settings.snapshot.session.map(DJConnectPersonaReactionContext.init) == request.session else { throw DJConnectHybridTransportError.unavailable }
+        let started = Date()
+        let (data, status) = try await hybridTransport.performPersonaReaction(.request, payload: encoder.encode(request), onOperationID: onOperationID)
+        guard status == 200, data.count <= 24_000 else { throw DJConnectError.invalidResponse }
+        let result = try decoder.decode(DJConnectPersonaReactionResult.self, from: data)
+        guard result.success, result.persona_reaction.admits(request: request, settings: settings, receipt: result.operation_receipt, started: started) else { throw DJConnectError.invalidResponse }
+        return result
+    }
+    public func cancelPersonaReaction(sessionID: String, reactionID: String, reason: DJConnectPersonaReactionCancellation) async throws {
+        guard let hybridTransport, !sessionID.isEmpty, UUID(uuidString: reactionID) != nil else { throw DJConnectHybridTransportError.unavailable }
+        struct Cancellation: Encodable {
+            let contract_version = 1
+            let session_id, reaction_id: String
+            let reason: DJConnectPersonaReactionCancellation
+        }
+        let (data, status) = try await hybridTransport.performPersonaReaction(.cancel, payload: encoder.encode(Cancellation(session_id: sessionID, reaction_id: reactionID, reason: reason)))
+        struct Cancelled: Decodable { let success, persona_reaction_cancelled: Bool }
+        let result = try decoder.decode(Cancelled.self, from: data)
+        guard status == 200, result.success, result.persona_reaction_cancelled else { throw DJConnectError.invalidResponse }
+    }
+    public func personaReactionAudio(_ reaction: DJConnectPersonaReaction, request original: DJConnectPersonaReactionRequest,
+                                    settings: DJConnectProfileDJSettingsResponse) async throws -> Data {
+        guard original.processor == .haConfigured, reaction.admitsSpeech(request: original, settings: settings),
+              let resource = reaction.speech.audio_reference else { throw DJConnectError.invalidResponse }
+        let request = try speechJSONRequest(path: "audio", payload: DJConnectSpeechAudioRequest(asset_id: resource.assetID))
+        let bytes = try await speechTransport.data(for: request, audio: true)
+        guard reaction.admitsSpeech(request: original, settings: settings) else { throw DJConnectError.invalidResponse }
+        return bytes
+    }
+
     private func speechJSONRequest<T: Encodable>(path: String, payload: T) throws -> URLRequest {
         _ = try makeDJConnectIdentity()
         var request = try authenticatedRequest(path: "/api/djconnect/v1/speech/" + path)

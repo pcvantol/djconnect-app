@@ -1432,3 +1432,12 @@
 "ui.session.avatar.activity.announcement" = "Muziekaankondiging";
 "ui.session.avatar.activity.speaking" = "Spreekt";
 "ui.session.avatar.activity.text" = "Tekstantwoord";
+"ui.session.reaction.check_in" = "Even bij je DJ inchecken";
+"ui.session.reaction.playful" = "Speelse reactie";
+"ui.session.reaction.easter_egg" = "Verrassingsreactie";
+"ui.session.reaction.hint" = "Tik op je DJ voor een reactie. Meer reacties vind je in het menu.";
+"ui.session.reaction.unavailable" = "Je DJ is even niet beschikbaar. Probeer het zo opnieuw.";
+"ui.session.reaction.speech_unavailable" = "Spraak is voor deze reactie niet beschikbaar.";
+"ui.session.reaction.text_only" = "Alleen tekst, zoals gekozen in je spraakvoorkeuren.";
+"ui.session.reaction.speaker_unavailable" = "Deze reactie is als tekst beschikbaar. Afspelen op je luidspreker is nu niet beschikbaar.";
+"ui.session.reaction.speaker_partial" = "Deze reactie speelt alleen op dit apparaat; afspelen op je luidspreker is nu niet beschikbaar.";

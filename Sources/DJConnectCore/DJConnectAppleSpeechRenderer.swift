@@ -19,7 +19,12 @@ private final class DeviceSpeechObservations {
     private var utteranceID: ObjectIdentifier?
     private var completion: (() -> Void)?
     private let observations = DeviceSpeechObservations()
+    /// Request activity remains compatible with preview controls. Actual output
+    /// is separately confirmed by identity-fenced AVSpeechSynthesizer delegates.
     public var onStateChange: ((Bool) -> Void)?
+    public var onPlaybackStateChange: ((Bool) -> Void)?
+    public var onPlaybackFinished: ((Bool) -> Void)?
+    public private(set) var isActuallySpeaking = false
     public private(set) var isSpeaking = false
     public override init() {
         super.init(); synthesizer.delegate = self
@@ -63,22 +68,42 @@ private final class DeviceSpeechObservations {
         isSpeaking = true; onStateChange?(true); synthesizer.speak(utterance)
         return true
     }
-    public func stop() {
+    public func stop() { end(completed: false) }
+    private func end(completed: Bool) {
+        let wasActive = utteranceID != nil
         utteranceID = nil; completion = nil
         synthesizer.stopSpeaking(at: .immediate)
+        if isActuallySpeaking { isActuallySpeaking = false; onPlaybackStateChange?(false) }
         if isSpeaking { isSpeaking = false; onStateChange?(false) }
+        if wasActive { onPlaybackFinished?(completed) }
     }
-    private func finished(_ id: ObjectIdentifier) {
+    private func observed(_ id: ObjectIdentifier, playing: Bool) {
+        guard utteranceID == id, isActuallySpeaking != playing else { return }
+        isActuallySpeaking = playing; onPlaybackStateChange?(playing)
+    }
+    private func finished(_ id: ObjectIdentifier, completed: Bool) {
         guard utteranceID == id else { return }
-        let done = completion; stop(); done?()
+        let done = completion; end(completed: completed); done?()
+    }
+    nonisolated public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        let id = ObjectIdentifier(utterance)
+        Task { @MainActor [weak self] in self?.observed(id, playing: true) }
+    }
+    nonisolated public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didContinue utterance: AVSpeechUtterance) {
+        let id = ObjectIdentifier(utterance)
+        Task { @MainActor [weak self] in self?.observed(id, playing: true) }
+    }
+    nonisolated public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didPause utterance: AVSpeechUtterance) {
+        let id = ObjectIdentifier(utterance)
+        Task { @MainActor [weak self] in self?.observed(id, playing: false) }
     }
     nonisolated public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         let id = ObjectIdentifier(utterance)
-        Task { @MainActor [weak self] in self?.finished(id) }
+        Task { @MainActor [weak self] in self?.finished(id, completed: true) }
     }
     nonisolated public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
         let id = ObjectIdentifier(utterance)
-        Task { @MainActor [weak self] in self?.finished(id) }
+        Task { @MainActor [weak self] in self?.finished(id, completed: false) }
     }
 }
 #endif

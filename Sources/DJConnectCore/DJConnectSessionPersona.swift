@@ -50,8 +50,19 @@ struct DJConnectPersonaCapability: Decodable, Sendable {
     let version: Int
     let path, method, authentication, ordering, scope: String
     let values: [String]
+    let touchReaction: DJConnectPersonaReactionCapability?
     enum CodingKeys: String, CodingKey {
+        case touchReaction = "touch_reaction"
         case available, version, path, method, authentication, ordering, scope, values
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        available = try c.decode(Bool.self, forKey: .available); version = try c.decode(Int.self, forKey: .version)
+        path = try c.decode(String.self, forKey: .path); method = try c.decode(String.self, forKey: .method)
+        authentication = try c.decode(String.self, forKey: .authentication); ordering = try c.decode(String.self, forKey: .ordering)
+        scope = try c.decode(String.self, forKey: .scope); values = try c.decode([String].self, forKey: .values)
+        // An unknown/malformed additive feature cannot break the base selector.
+        touchReaction = try? c.decode(DJConnectPersonaReactionCapability.self, forKey: .touchReaction)
     }
     var isSupported: Bool {
         available && version == 1 && path == "/api/djconnect/v1/session/persona" && method == "POST" &&
