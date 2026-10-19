@@ -130,8 +130,11 @@ private func pairingRecoveryClient(_ wire: PairingRecoveryWire, token: DJConnect
     #expect(wire.requests.count == 1)
 }
 
-@Test @MainActor func pairingCompletionAdoptsFinalInstallationOnlyForAcceptedPendingCredential() async throws {
-    let finalStatus = Data(#"{"success":true,"ha_install_id":"final-install","backend_available":false}"#.utf8)
+@Test(arguments: [nil, "backend_unavailable", "playback_backend_unavailable"] as [String?])
+@MainActor func pairingCompletionAdoptsFinalInstallationOnlyForAcceptedPendingCredential(backendFailure: String?) async throws {
+    var payload: [String: Any] = ["success": backendFailure == nil, "ha_install_id": "final-install", "backend_available": false]
+    if let backendFailure { payload["error"] = backendFailure }
+    let finalStatus = try JSONSerialization.data(withJSONObject: payload)
     let wire = PairingRecoveryWire { _, _ in (200, finalStatus) }
     defer { wire.close() }
     let (model, defaults, token, suite) = try pendingPairingModel(wire.session())
@@ -157,4 +160,17 @@ private func pairingRecoveryClient(_ wire: PairingRecoveryWire, token: DJConnect
     #expect(model.updateRequiredMessage != nil)
     #expect(defaults.string(forKey: "DJConnectHAInstallID") == "fixture-install")
     #expect(try token.loadToken() == "accepted-fixture-token")
+}
+
+@Test @MainActor func pairingBackendFailureWithoutRuntimeInstallationCannotCompleteSetup() async throws {
+    let wire = PairingRecoveryWire { _, attempt in
+        if attempt == 1 { return (200, Data(#"{"success":false,"error":"backend_unavailable","backend_available":false}"#.utf8)) }
+        return (200, pairingStatusSuccess)
+    }
+    defer { wire.close() }
+    let (model, defaults, token, suite) = try pendingPairingModel(wire.session())
+    defer { defaults.removePersistentDomain(forName: suite) }
+    try await model.waitForHomeAssistantPairingCompletion(client: pairingRecoveryClient(wire, token: token))
+    #expect(model.pairingStatus == .paired)
+    #expect(wire.requests == Array(repeating: "/api/djconnect/v1/status", count: 2))
 }

@@ -3295,7 +3295,7 @@ public final class DJConnectAppModel: ObservableObject {
                     wakewordPhrase: wakeWordPhrase, wakewordStatus: "\(wakeWordStatus)",
                     mood: confirmedSessionMoodInt, musicDNAKey: askDJMusicDNAKey))
                 guard current(), pairingStatus == .waitingForHomeAssistantCompletion else { return }
-                guard response.success, validateHomeAssistantVersion(haVersion: response.haVersion,
+                guard validateHomeAssistantVersion(haVersion: response.haVersion,
                     haMajorMinor: response.haMajorMinor, message: response.message) else { return }
                 // The setup flow's installation ID is provisional. Only this
                 // credential-bound completion read may adopt the runtime ID.
