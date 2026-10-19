@@ -364,6 +364,18 @@ public actor DJConnectHybridTransport {
     /// Returns the original handler body/status. Receipt-only acceptance is a typed outcome,
     /// never decoded as a second answer or converted to another execute request.
     public func perform(_ request: URLRequest) async throws -> (Data, Int) {
+        try await perform(request, operation: nil, payload: nil, onOperationID: nil)
+    }
+    /// These operations have no legacy endpoint. Preserve the ordinary operation
+    /// owner's identity, capacity, route qualification and uncertain-send recovery.
+    public func performPersonaReaction(_ operation: DJConnectPersonaReactionOperation, payload: Data,
+                                      onOperationID: (@Sendable (String) -> Void)? = nil) async throws -> (Data, Int) {
+        guard payload.count <= 60_000 else { throw DJConnectHybridTransportError.capacity }
+        let body = try JSONDecoder().decode(HybridObject.self, from: payload)
+        return try await perform(nil, operation: operation.rawValue, payload: body, onOperationID: onOperationID)
+    }
+    private func perform(_ request: URLRequest?, operation suppliedOperation: String?, payload suppliedPayload: HybridObject?,
+                         onOperationID: (@Sendable (String) -> Void)?) async throws -> (Data, Int) {
         try Task.checkCancellation()
         guard inFlight < 8 else { throw DJConnectHybridTransportError.capacity }
         inFlight += 1
@@ -371,9 +383,10 @@ public actor DJConnectHybridTransport {
         let epoch = generation
         let route = try await readyRoute()
         guard epoch == generation, foreground, !Task.isCancelled else { throw CancellationError() }
-        if Self.isActiveRead(request) { return try await activeRead(request, route: route, epoch: epoch) }
-        guard let operation = Self.operation(for: request), route.context["http_operations"]?.hybridStrings.contains(operation) == true,
-              let raw = request.httpBody, var payload = try? JSONDecoder().decode(HybridObject.self, from: raw) else { throw DJConnectHybridTransportError.unavailable }
+        if let request, Self.isActiveRead(request) { return try await activeRead(request, route: route, epoch: epoch) }
+        guard let operation = suppliedOperation ?? request.flatMap(Self.operation(for:)),
+              route.context["http_operations"]?.hybridStrings.contains(operation) == true,
+              var payload = suppliedPayload ?? request?.httpBody.flatMap({ try? JSONDecoder().decode(HybridObject.self, from: $0) }) else { throw DJConnectHybridTransportError.unavailable }
         // Existing identified envelopes may include device_token; the transport owns authentication.
         if let originalPayload = payload["payload"]?.hybridObject { payload = originalPayload }
         for key in ["device_token", "identity", "client_id", "device_name"] { payload.removeValue(forKey: key) }
@@ -384,6 +397,7 @@ public actor DJConnectHybridTransport {
         guard receipts.count + pendingIntents.count < 256 else { throw DJConnectHybridTransportError.capacity }
         let id = DJConnectOperationIdentity.uuidV7(milliseconds: nowMS)
         let operationEpoch = route.context["operation_epoch"]!.hybridString!
+        onOperationID?(id)
         let envelope: HybridObject = ["contract_version": .int(1), "operation_id": .string(id), "operation_epoch": .string(operationEpoch), "operation": .string(operation), "payload": .object(payload)]
         pendingIntents[id] = (operationEpoch, nowMS + 300_000)
         var response: (Data, Int)?

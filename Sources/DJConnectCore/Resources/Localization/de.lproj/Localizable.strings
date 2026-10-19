@@ -1432,3 +1432,12 @@
 "ui.session.avatar.activity.announcement" = "Musikankündigung";
 "ui.session.avatar.activity.speaking" = "Spricht";
 "ui.session.avatar.activity.text" = "Textantwort";
+"ui.session.reaction.check_in" = "Bei deinem DJ vorbeischauen";
+"ui.session.reaction.playful" = "Spielerische Reaktion";
+"ui.session.reaction.easter_egg" = "Überraschungsreaktion";
+"ui.session.reaction.hint" = "Tippe auf deinen DJ für eine Reaktion. Weitere Reaktionen findest du im Menü.";
+"ui.session.reaction.unavailable" = "Dein DJ ist kurz nicht verfügbar. Versuche es gleich noch einmal.";
+"ui.session.reaction.speech_unavailable" = "Sprachausgabe ist für diese Reaktion nicht verfügbar.";
+"ui.session.reaction.text_only" = "Nur Text, wie in deinen Spracheinstellungen gewählt.";
+"ui.session.reaction.speaker_unavailable" = "Diese Reaktion ist als Text verfügbar. Die Lautsprecherwiedergabe ist derzeit nicht verfügbar.";
+"ui.session.reaction.speaker_partial" = "Diese Reaktion wird nur auf diesem Gerät wiedergegeben; die Lautsprecherwiedergabe ist derzeit nicht verfügbar.";

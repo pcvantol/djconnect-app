@@ -664,6 +664,13 @@ struct SessionTimelineScreen: View {
                 }
             }
             .background(sessionBackground)
+            .overlay {
+                if activeSession != nil {
+                    PersonaReactionOverlay(controller: model.personaReactions, language: model.language, avatarFrame: model.personaAvatarFrame)
+                }
+            }
+            .djStatusToastOverlay(model.personaReactionNotice, screenImage: DJConnectFeatureSymbols.djSession)
+            .onDisappear { model.personaReactions.cancel(.dismissed) }
             .djStatusToastOverlay(manualRefresh.notice, screenImage: DJConnectFeatureSymbols.djSession)
             .sheet(item: $feedbackMessage) { message in
                 AskDJFeedbackPromptView(model: model, message: message)

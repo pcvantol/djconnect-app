@@ -1432,3 +1432,12 @@
 "ui.session.avatar.activity.announcement" = "Music announcement";
 "ui.session.avatar.activity.speaking" = "Speaking";
 "ui.session.avatar.activity.text" = "Text response";
+"ui.session.reaction.check_in" = "Check in with your DJ";
+"ui.session.reaction.playful" = "Playful reaction";
+"ui.session.reaction.easter_egg" = "Surprise reaction";
+"ui.session.reaction.hint" = "Tap your DJ for a reaction. More reactions are available in the menu.";
+"ui.session.reaction.unavailable" = "Your DJ is briefly unavailable. Try again shortly.";
+"ui.session.reaction.speech_unavailable" = "Speech is unavailable for this reaction.";
+"ui.session.reaction.text_only" = "Text only, as selected in your speech preferences.";
+"ui.session.reaction.speaker_unavailable" = "This reaction is available as text. Speaker playback is currently unavailable.";
+"ui.session.reaction.speaker_partial" = "This reaction plays on this device only; speaker playback is currently unavailable.";

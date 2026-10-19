@@ -394,3 +394,52 @@ private func hybridQualifiedLocalContext() -> HybridObject {
     #expect(requests[1].timeoutInterval == 8)
     #expect(await coordinator.snapshot().state == .remoteReady)
 }
+
+
+private actor PersonaTouchHybridWire: DJConnectHybridWire {
+    var requests: [URLRequest] = []
+    let supported: Bool
+    let loseExecute: Bool
+    init(supported: Bool, loseExecute: Bool = false) { self.supported = supported; self.loseExecute = loseExecute }
+    func socket(_ url: URL) async throws -> any DJConnectHybridSocket { throw URLError(.cannotConnectToHost) }
+    func http(_ request: URLRequest) async throws -> (Data, Int) {
+        requests.append(request)
+        if request.url!.path.hasSuffix("/context") {
+            var context = hybridContext()
+            if supported {
+                context["http_operations"] = .array([.string(DJConnectPersonaReactionOperation.request.rawValue), .string(DJConnectPersonaReactionOperation.cancel.rawValue)])
+            }
+            return (try JSONEncoder().encode(context), 200)
+        }
+        let body = try JSONDecoder().decode(HybridObject.self, from: request.httpBody!)
+        if loseExecute, request.url!.path.hasSuffix("/operation") { throw URLError(.networkConnectionLost) }
+        return (try JSONEncoder().encode(["success": DJConnectJSONValue.bool(true), "result_available": .bool(!loseExecute),
+                                         "operation_receipt": .object(hybridReceipt(body, available: !loseExecute))]), 200)
+    }
+    func recorded() -> [URLRequest] { requests }
+}
+
+@Test(arguments: [DJConnectPersonaReactionOperation.request, .cancel])
+func personaTouchUsesOnlyAdvertisedOrdinaryOperationAndOriginalRecoveryIdentity(operation: DJConnectPersonaReactionOperation) async throws {
+    for supported in [false, true] {
+        let wire = PersonaTouchHybridWire(supported: supported, loseExecute: true)
+        let transport = DJConnectHybridTransport(localURL: nil, remoteURL: URL(string: "https://remote.example"), expectedInstallID: "test-install",
+            identity: hybridIdentity(), tokenStore: DJConnectInMemoryTokenStore(token: "synthetic"), wire: wire)
+        do {
+            _ = try await transport.performPersonaReaction(operation, payload: Data(#"{"contract_version":1}"#.utf8))
+            Issue.record("Lost content must not be invented")
+        } catch DJConnectHybridTransportError.outcome(let receipt) { #expect(supported && receipt.phase == "confirmed") }
+        catch { #expect(!supported) }
+        let requests = await wire.recorded()
+        let executes = requests.filter { $0.url!.path.hasSuffix("/operation") }
+        let statuses = requests.filter { $0.url!.path.hasSuffix("/status") }
+        #expect(executes.count == (supported ? 1 : 0))
+        if supported {
+            let execute = try JSONDecoder().decode(HybridObject.self, from: #require(executes.first?.httpBody))
+            let status = try JSONDecoder().decode(HybridObject.self, from: #require(statuses.first?.httpBody))
+            #expect(execute["operation"] == .string(operation.rawValue))
+            #expect(execute["operation_id"] == status["operation_id"] && execute["operation_epoch"] == status["operation_epoch"])
+        }
+        #expect(!requests.contains { $0.url!.path.hasSuffix("/session/persona/reaction") })
+    }
+}

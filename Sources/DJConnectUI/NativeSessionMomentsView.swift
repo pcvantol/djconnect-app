@@ -339,10 +339,11 @@ struct NativeSessionMomentsView: View {
     func currentCard(_ moment: DJConnectMoment?, at now: Date = Date()) -> some View {
         let evidence = playbackModel?.personaEvidence(for: session, admittedMoment: moment, at: now) ?? .init()
         return HStack(alignment: .top, spacing: 16) {
-            DJPersonaAvatarView(confirmedMood: isLiveUnavailable || isRecovering ? nil : session.selectedMood, language: language,
-                                activity: DJPersonaActivity.resolve(evidence), speechIsPlaying: evidence.speaking)
-                .frame(width: 80, height: 80)
-                .fixedSize()
+            let avatar = DJPersonaAvatarView(confirmedMood: isLiveUnavailable || isRecovering ? nil : session.selectedMood, language: language,
+                                            activity: DJPersonaActivity.resolve(evidence), speechIsPlaying: evidence.speaking)
+                .frame(width: 80, height: 80).fixedSize()
+            if let playbackModel { PersonaReactionAvatar(model: playbackModel, avatar: avatar) }
+            else { avatar }
             currentCardContent(moment)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
         }

@@ -781,8 +781,25 @@ public final class DJConnectAppModel: ObservableObject {
     public let profileDJSettings = ProfileDJSettingsModel()
     private let profileDJChoiceScheduler = ProfileDJChoiceScheduler()
     @Published public private(set) var isSchedulingProfileDJChoice = false
+    let personaReactions = PersonaReactionController()
+    @Published private(set) var personaReactionNotice: DJConnectVisualNotice?
+    var personaAvatarFrame: CGRect = .zero
+    @Published private(set) var activePersonaReactionAvailable = false
+    private var personaReactionObservation: AnyCancellable?
+    private var personaReactionNoticeTask: Task<Void, Never>?
+    private var personaReactionScope: PersonaObservationScope?
+    private var personaReactionOutputReserved = false
+    private var personaReactionInterruptedWake = false
+    #if canImport(AVFoundation)
+    private lazy var personaReactionRenderer = DJConnectAppleSpeechRenderer()
+    private var personaReactionPlayer: AVAudioPlayer?
+    #if os(iOS)
+    private var personaReactionOwnsAudioSession = false
+    #endif
+    #endif
     private var profileDJSettingsObservation: AnyCancellable?
     private var localAudioRouteObservation: AnyCancellable?
+    private var personaReactionInterruption: AnyCancellable?
     @Published var localAudioRoute = DJConnectLocalAudioRoute()
     private var profileDJSettingsReadInProgress = false
     private var profileSettingsOwnerFence = DJConnectProfileSettingsOwnerFence()
@@ -1835,13 +1852,26 @@ public final class DJConnectAppModel: ObservableObject {
         profileDJSettingsObservation = profileDJSettings.objectWillChange.sink { [weak self] in
             self?.objectWillChange.send()
         }
+        personaReactionObservation = personaReactions.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         profileDJChoiceScheduler.pendingChanged = { [weak self] in self?.isSchedulingProfileDJChoice = $0 }
         refreshLocalAudioRoute()
         #if os(iOS)
         localAudioRouteObservation = NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)
-            .sink { [weak self] _ in
-                Task { @MainActor [weak self] in self?.refreshLocalAudioRoute() }
+            .sink { [weak self] note in
+                let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
+                let physicalChange = raw.map { [AVAudioSession.RouteChangeReason.newDeviceAvailable.rawValue,
+                    AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue, AVAudioSession.RouteChangeReason.override.rawValue,
+                    AVAudioSession.RouteChangeReason.routeConfigurationChange.rawValue,
+                    AVAudioSession.RouteChangeReason.noSuitableRouteForCategory.rawValue].contains($0) } == true
+                Task { @MainActor [weak self] in
+                    if physicalChange { self?.personaReactions.cancel(.speechConflict) }
+                    self?.refreshLocalAudioRoute()
+                }
             }
+        #endif
+        #if os(iOS)
+        personaReactionInterruption = NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)
+            .sink { [weak self] _ in Task { @MainActor [weak self] in self?.personaReactions.cancel(.speechConflict) } }
         #endif
         refreshPermissionStatuses()
         registerStoredPushTokenIfPossible()
@@ -2310,6 +2340,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func markInactiveSession(enteringBackground: Bool = true) {
+        personaReactions.cancel(.background)
         isAppInForeground = false
         passiveSurfaces.suspend()
         automaticPassiveTask?.cancel(); automaticPassiveTask = nil
@@ -4026,6 +4057,144 @@ public final class DJConnectAppModel: ObservableObject {
         return payload
     }
 
+    var presentsPersonaReactionControl: Bool {
+        PersonaReactionConsumerGate.isQualified && activePersonaReactionAvailable && currentPersonaScope() != nil && !isDemoMode &&
+        profileDJSettings.response?.snapshot.session?.session_id == activeDJSession?.id &&
+        profileDJSettings.response?.snapshot.activated == true && profileDJSettings.response?.snapshot.accepted_contract_version == 3 &&
+        profileDJSettings.response?.snapshot.output_choice_confirmed == true
+    }
+    var canStartPersonaReaction: Bool {
+        presentsPersonaReactionControl && !personaReactions.isActive && !isSendingAskDJText && !isRecordingVoice && voiceStatus != .processing &&
+        !sharedSpeechIsPreparing && !sharedSpeechIsPlaying && !deviceSpeechPreviewIsPlaying &&
+        !profileDJSettings.hasUncertainOperation && profileDJSettings.response?.requiresSelection == false &&
+        profileDJSettings.response?.snapshot.activated == true && profileDJSettings.response?.snapshot.accepted_contract_version == 3 &&
+        profileDJSettings.response?.snapshot.output_choice_confirmed == true
+    }
+    func requestPersonaReaction(_ kind: DJConnectPersonaReactionKind) {
+        guard canStartPersonaReaction, let scope = currentPersonaScope(), let settings = profileDJSettings.response,
+              let request = try? DJConnectPersonaReactionRequest(settings: settings, kind: kind, language: language,
+                  processor: deviceSpeechPreferences.enabled ? .localOnDevice : .haConfigured) else { return }
+        let preferences = deviceSpeechPreferences
+        let voiceRevision = settings.voice_revision
+        stopResponsePlayback(clearText: false)
+        personaReactionScope = scope
+        personaReplyScope = nil
+        personaReactionNotice = nil
+        let current: @MainActor () -> Bool = { [weak self] in
+            guard let self else { return false }
+            return self.currentPersonaScope() == scope && self.activePersonaReactionAvailable && !self.profileDJSettings.hasUncertainOperation &&
+                self.profileDJSettings.response?.voice_revision == voiceRevision && self.deviceSpeechPreferences == preferences &&
+                !self.isSendingAskDJText && !self.isRecordingVoice && self.voiceStatus != .processing &&
+                !self.sharedSpeechIsPreparing && !self.sharedSpeechIsPlaying && !self.deviceSpeechPreviewIsPlaying
+        }
+        let notice: String?
+        switch settings.snapshot.effective.announcement_output {
+        case .textOnly: notice = "ui.session.reaction.text_only"
+        case .haSpeaker: notice = "ui.session.reaction.speaker_unavailable"
+        case .both: notice = "ui.session.reaction.speaker_partial"
+        default: notice = nil
+        }
+        personaReactions.start(.init(request: { [weak self] dispatched in
+            guard let self, current() else { throw CancellationError() }
+            return try await self.withHomeAssistantClient(allowsOperationReplay: false) {
+                try await $0.requestPersonaReaction(request, settings: settings, onOperationID: dispatched)
+            }
+        }, cancel: { [weak self] id, reason in
+            guard let self else { return }
+            try? await self.withHomeAssistantClient(allowsOperationReplay: false) {
+                try await $0.cancelPersonaReaction(sessionID: request.session.session_id, reactionID: id, reason: reason)
+            }
+        }, current: current, admitsSpeech: { $0.admitsSpeech(request: request, settings: settings) },
+        play: { [weak self] reaction, observed in
+            guard let self, current() else { throw CancellationError() }
+            return try await self.playPersonaReaction(reaction, request: request, settings: settings,
+                                                     preferences: preferences, current: current, observed: observed)
+        }, stop: { [weak self] reason in self?.stopPersonaReactionOutput(reason) }, failure: { [weak self] in
+            guard let self else { return }
+            let notice = DJConnectVisualNotice(text: self.localized(key: "ui.session.reaction.unavailable"), systemImage: "sparkles")
+            self.personaReactionNotice = notice
+            self.personaReactionNoticeTask?.cancel()
+            self.personaReactionNoticeTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(3))
+                guard !Task.isCancelled, self?.personaReactionNotice?.id == notice.id else { return }
+                self?.personaReactionNotice = nil
+            }
+        }, notice: notice))
+    }
+    private func stopPersonaReactionOutput(_ reason: DJConnectPersonaReactionCancellation) {
+        #if canImport(AVFoundation)
+        personaReactionRenderer.stop()
+        personaReactionRenderer.onPlaybackStateChange = nil; personaReactionRenderer.onPlaybackFinished = nil
+        personaReactionPlayer?.stop(); personaReactionPlayer = nil
+        #if os(iOS)
+        if personaReactionOwnsAudioSession {
+            personaReactionOwnsAudioSession = false
+            // Release only this output's session, before another owner can
+            // activate capture/playback; avoid leaving music ducked after a tap.
+            if !isRecordingVoice && !sharedSpeechIsPreparing && !sharedSpeechIsPlaying && !deviceSpeechPreviewIsPlaying {
+                try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            }
+        }
+        #endif
+        #endif
+        personaReactionOutputReserved = false
+        resumePersonaInterruptedWakeIfNeeded()
+    }
+    private func resumePersonaInterruptedWakeIfNeeded() {
+        guard personaReactionInterruptedWake, !personaReactionOutputReserved,
+              !sharedSpeechIsPreparing, !sharedSpeechIsPlaying, !deviceSpeechPreviewIsPlaying else { return }
+        resumeWakeWordListeningIfNeeded()
+    }
+    private func playPersonaReaction(_ reaction: DJConnectPersonaReaction, request: DJConnectPersonaReactionRequest,
+                                    settings: DJConnectProfileDJSettingsResponse, preferences: DJConnectDeviceSpeechPreferences,
+                                    current: @escaping @MainActor () -> Bool, observed: @escaping @MainActor (Bool) -> Void) async throws -> Bool {
+        #if canImport(AVFoundation)
+        personaReactionInterruptedWake = personaReactionInterruptedWake || wakeWordStatus == .listening
+        personaReactionOutputReserved = true
+        stopWakeWordListening()
+        #if os(iOS)
+        try await configureDJConnectAudioSession(category: .playback, mode: .spokenAudio, options: [.duckOthers])
+        guard current(), !Task.isCancelled else { throw CancellationError() }
+        try await setDJConnectAudioSessionActive(true)
+        personaReactionOwnsAudioSession = true
+        #endif
+        guard current(), !Task.isCancelled else {
+            stopPersonaReactionOutput(.speechConflict)
+            throw CancellationError()
+        }
+        if request.processor == .localOnDevice {
+            var started = false, finished = false
+            personaReactionRenderer.onPlaybackStateChange = { playing in
+                if playing { started = true }; observed(playing)
+            }
+            personaReactionRenderer.onPlaybackFinished = { finished = $0 }
+            guard personaReactionRenderer.speak(reaction.text, locale: Self.speechLocaleIdentifier(for: reaction.locale),
+                                               preferences: preferences, completion: {}) else { return false }
+            while personaReactionRenderer.isSpeaking {
+                guard current(), !Task.isCancelled else { throw CancellationError() }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            return started && finished
+        }
+        let bytes = try await withHomeAssistantClient(allowsOperationReplay: false) {
+            try await $0.personaReactionAudio(reaction, request: request, settings: settings)
+        }
+        guard current(), !Task.isCancelled, reaction.deadline.map({ $0 > Date() }) == true else { throw CancellationError() }
+        let player = try AVAudioPlayer(data: bytes)
+        guard player.prepareToPlay(), player.play(), player.isPlaying else { return false }
+        personaReactionPlayer = player
+        observed(true)
+        while player.isPlaying {
+            guard current(), !Task.isCancelled else { throw CancellationError() }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        observed(false); personaReactionPlayer = nil
+        return true
+        #else
+        return false
+        #endif
+    }
+
     private func currentPersonaScope() -> PersonaObservationScope? {
         guard isAppInForeground, sessionHistory.hasAuthorizedOwner, isConnected, backendAvailable,
               !djSessionIsRecovering, !djSessionLiveUnavailable,
@@ -4065,16 +4234,22 @@ public final class DJConnectAppModel: ObservableObject {
            DJPersonaActivity.isObservedAnnouncement(moment) {
             evidence.announcementID = moment.id
         }
-        evidence.explicitReply = personaReplyScope == scope &&
+        if personaReactionScope == scope && personaReactions.isActive {
+            evidence.pending = evidence.pending || personaReactions.preparing
+            if personaReactions.speaking { evidence.speaking = true; evidence.spokenMomentID = nil }
+            evidence.explicitReply = personaReactions.reaction != nil
+        }
+        evidence.explicitReply = evidence.explicitReply || (personaReplyScope == scope &&
             personaReplyMomentID == session.broadcast.nativeDelivery?.currentMomentID &&
             personaReplySilenceMomentID == session.broadcast.nativeDelivery?.currentSilenceMomentID &&
             liveConversationPresentations.values.contains {
                 $0.epoch == scope.epoch && $0.sessionID == scope.sessionID && ($0.deadline == nil || $0.deadline! > now)
-            }
+            })
         return evidence
     }
 
     func beginProfileConversationText(text: String, clientMessageID: String) -> UUID? {
+        personaReactions.cancel(.askDJForeground)
         personaReplyScope = nil
         personaRequestScope = sessionHistory.selectedEntry == nil ? currentPersonaScope() : nil
         playAskDJSendHaptic()
@@ -4083,6 +4258,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
     func setProfileConversationSending(_ value: Bool) {
         if value {
+            personaReactions.cancel(.askDJForeground)
             personaReplyScope = nil
             let scope = currentPersonaScope()
             personaRequestScope = sessionHistory.pendingTurns.contains {
@@ -4157,6 +4333,7 @@ public final class DJConnectAppModel: ObservableObject {
     @discardableResult func applyProfileConversationResponse(_ response: DJConnectAskDJMessageResponse, fallback: UUID?, sessionID: String? = nil) -> Bool {
         guard response.isPrivateEphemeralResponse || (response.historyRevision >= profileConversationHistoryRevision
               && response.clearRevision >= profileConversationClearRevision) else { return false }
+        personaReactions.cancel(.askDJForeground)
         if !response.isPrivateEphemeralResponse, response.clearRevision > profileConversationClearRevision {
             sessionHistory.invalidateClearedConversation(); clearAskDJHistoryLocally()
         }
@@ -5976,13 +6153,15 @@ public final class DJConnectAppModel: ObservableObject {
     public func refreshActiveMoodCapability() async {
         guard !Task.isCancelled else { return }
         if isDemoMode {
+            activePersonaReactionAvailable = false
             activePersonaAvailable = false
             activeMoodAvailable = activeDJSession != nil
             activePresenceAvailable = activeDJSession?.confirmedPresence != nil
             activePresenceCapabilityStatus = activePresenceAvailable ? .supported : .unsupported
             return
         }
-        let previous = (mood: activeMoodAvailable, persona: activePersonaAvailable, presence: activePresenceAvailable, status: activePresenceCapabilityStatus, shared: activeSharedSettingsRequired)
+        let previous = (mood: activeMoodAvailable, persona: activePersonaAvailable, presence: activePresenceAvailable, status: activePresenceCapabilityStatus, shared: activeSharedSettingsRequired, reaction: activePersonaReactionAvailable)
+        activePersonaReactionAvailable = false
         activeMoodAvailable = false
         activePersonaAvailable = false
         activePresenceAvailable = false
@@ -5999,6 +6178,7 @@ public final class DJConnectAppModel: ObservableObject {
             // A newer read / owner transition always wins over this restoration.
             if (Task.isCancelled || cancelledRead), generation == moodCapabilityGeneration,
                epoch == sessionHistory.responseEpoch, isAppInForeground, pairingStatus == .paired {
+                activePersonaReactionAvailable = previous.reaction
                 activeSharedSettingsRequired = previous.shared
                 activeMoodAvailable = previous.mood
                 activePersonaAvailable = previous.persona
@@ -6010,6 +6190,7 @@ public final class DJConnectAppModel: ObservableObject {
             let caps = try await withHomeAssistantClient { try await $0.activeSessionMoodCapabilities() }
             guard generation == moodCapabilityGeneration, epoch == sessionHistory.responseEpoch, isAppInForeground, pairingStatus == .paired else { return }
             guard !Task.isCancelled else { return }
+            activePersonaReactionAvailable = caps.personaReactionAvailable
             activeSharedSettingsRequired = caps.sharedSettingsAvailable
             // Explicit legacy producer support only. A producer advertising
             // settings3 must never fall back to a legacy write after a failed read.
@@ -6340,6 +6521,7 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         #if canImport(AVFoundation)
+        personaReactions.cancel(.speechConflict)
         let attemptDeadline = min(sourceDeadline, Date().addingTimeInterval(300))
         guard sourceDeadline > Date(),
               let ticket = responsePlaybackCoordinator.begin(deadline: attemptDeadline) else { return }
@@ -6988,6 +7170,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func resetActivePersonaState() {
         personaOperationGeneration = UUID()
+        activePersonaReactionAvailable = false
         activePersonaAvailable = false; activePersonaPending = false; activePersonaError = nil
     }
 
@@ -7418,6 +7601,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func stopResponsePlayback(clearText: Bool) {
+        personaReactions.cancel(.speechConflict)
         cancelAutomaticSpeech()
         if clearText {
             djResponseText = ""
@@ -7443,6 +7627,7 @@ public final class DJConnectAppModel: ObservableObject {
         askDJAudioPlaybackState = .idle
         responseSpeechSynthesizer?.stopSpeaking(at: .immediate)
         responseSpeechSynthesizer = nil
+        resumePersonaInterruptedWakeIfNeeded()
     }
     #endif
 
@@ -7458,6 +7643,7 @@ public final class DJConnectAppModel: ObservableObject {
     public func previewDeviceSpeech() {
         #if canImport(AVFoundation)
         guard deviceSpeechPreferences.enabled, canPreviewDeviceSpeech else { return }
+        personaReactions.cancel(.speechConflict)
         let preferences = deviceSpeechPreferences, epoch = sessionHistory.responseEpoch
         guard let ticket = responsePlaybackCoordinator.begin(deadline: Date().addingTimeInterval(30)) else { return }
         // Own pending activation too: Stop/view dismissal can cancel before the
@@ -14025,6 +14211,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private var canListenForWakeWord: Bool {
         wakeWordEnabled
+            && !personaReactionOutputReserved
             && voiceEnabled
             && pairingStatus == .paired
             && isConnected
@@ -14226,6 +14413,9 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func startWakeWordListening() {
+        // A reaction can hand focus to another speech owner. Restore only the
+        // wake listener it interrupted, after that owner's output has ended.
+        if personaReactionInterruptedWake && (sharedSpeechIsPreparing || sharedSpeechIsPlaying || deviceSpeechPreviewIsPlaying) { return }
         guard wakeWordEnabled else {
             wakeWordStatus = .idle
             return
@@ -14247,6 +14437,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
             return
         }
+        personaReactionInterruptedWake = false
         #if canImport(Speech) && canImport(AVFoundation)
         #if os(iOS) && targetEnvironment(simulator)
         wakeWordStatus = .unavailable

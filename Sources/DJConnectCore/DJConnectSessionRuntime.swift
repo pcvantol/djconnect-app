@@ -471,6 +471,7 @@ public struct DJConnectActiveMoodCapabilities: Decodable, Sendable {
         case presenceContract = "active_session_presence"
         case personaContract = "active_session_persona"
     }
+    public var personaReactionAvailable: Bool { personaAvailable && personaContract?.touchReaction?.isSupported == true }
     public var personaAvailable: Bool {
         capabilities?["active_session_persona"] == true && contractVersions?["active_session_persona"] == 1 && personaContract?.isSupported == true
     }

@@ -140,3 +140,43 @@ The existing UI-test runner initialization limitation is not reclassified as PAS
 Native component render (static glyphs; this image does not demonstrate live audio):
 
 ![Six foreground activity glyphs](assets/dj-persona-graphics/session-activity-glyphs.png)
+
+
+## 19 October explicit-touch source readiness (inactive)
+
+The next consumer source uses Core's dedicated reaction/cancel operations, never
+synthetic Ask DJ text, a Moment reference or a new legacy endpoint. One RAM-only
+controller fences its request/renderer against its original identity/deadline,
+owner, Session, Broadcast generation, Settings3 binding and selected processor.
+It has no queue or automatic reaction retry. A pending dismissal captures a late
+operation ID for cancellation; late content and renderer callbacks remain inert.
+Native TTS actual start/pause/continue/end is observed separately from request
+activity. HA bytes use the existing private speech transport and byte validator.
+Text-only causes zero audio work; unqualified speaker/both output is explained.
+
+The sole temporary centered bubble animates from the permanent avatar's measured
+position, with static Reduced Motion and scroll fallback at large text sizes.
+Triple/double/single use exclusive recognizers; context-menu, keyboard and named
+VoiceOver choices offer the same closed semantics. All copy is in five languages.
+No second persistent avatar/card/history entry, local content catalogue or durable
+personal data is added. Locally observed input/other output/background/expiry/
+route/owner/settings transitions stop the owned player and dismiss the overlay.
+
+Activation remains deliberately OFF. The delivered producer has no qualified
+observation of remote post-delivery withdrawal and no pre-admission cancellation
+ordering guarantee. A journal receipt does not retain source rights. See the
+[owning-source findings](../feedback/APPLE_PERSONA_TOUCH_PRODUCER_GAPS_20261019.md).
+This readiness source and its mocked/native component tests are not physical
+speech/gesture/multi-device acceptance or completed Apple127. The Core owner must
+qualify those semantics and publish the handoff before activation is selected.
+
+
+Native opaque-fallback component renders (synthetic Core line; no actual speech,
+full-screen positioning, gesture or animation acceptance):
+
+![Compact touch bubble component](assets/dj-persona-graphics/touch-bubble-320.png)
+
+[Wide component](assets/dj-persona-graphics/touch-bubble-620.png).
+A full-overlay ImageRenderer attempt rendered only its background; those outputs
+were rejected and its dimension-only test was removed. Full native overlay /
+large-text scrolling / VoiceOver / multi-tap acceptance remains NOT_RUN.
