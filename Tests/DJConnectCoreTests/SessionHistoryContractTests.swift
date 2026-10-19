@@ -6055,7 +6055,8 @@ func personaTouchCapabilityRefreshWithdrawsStaleSupportExceptCancellation(fault:
     #expect(!model.canUseHASpeechOutput(.local))
 }
 
-@Test func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation() async throws {
+@Test(arguments: [DJConnectClientType.ios, .watchos])
+func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clientType: DJConnectClientType) async throws {
     let source = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/device-speech-core-604b80f8.json")
     let root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: source)) as? [String: Any])
     let cases = try #require(root["cases"] as? [[String: Any]])
@@ -6063,11 +6064,15 @@ func personaTouchCapabilityRefreshWithdrawsStaleSupportExceptCancellation(fault:
     let body = try historyData(["success": true, "ha_install_id": "speech-install", "device_speech": snapshot])
     let fixture = HistoryWireFixture { request in
         #expect(request.url?.path == "/api/djconnect/v1/status")
+        #expect(request.value(forHTTPHeaderField: "X-DJConnect-Client-Type") == clientType.rawValue)
         #expect(request.cachePolicy == .reloadIgnoringLocalCacheData)
         #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
         return (200, body, 0)
     }; defer { fixture.close() }
-    let client = fixture.client()
+    let identity = DJConnectIdentity(deviceID: clientType == .watchos ? "djconnect-watchos-ABCDEF123456" : "djconnect-ios-ABCDEF123456",
+        deviceName: "Fixture", clientType: clientType, firmware: "4.0.0", platform: clientType == .watchos ? .watchos : .ios)
+    let client = DJConnectClient(baseURL: fixture.baseURL, identity: identity,
+        tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-fixture-token"), session: fixture.session())
     #expect(try await client.currentDeviceSpeech(language: "en", expectedInstallationID: "speech-install") != nil)
     #expect(try await client.currentDeviceSpeech(language: "en", expectedInstallationID: "wrong-install") == nil)
     #expect(try await client.currentDeviceSpeech(language: "fr", expectedInstallationID: "speech-install") == nil)

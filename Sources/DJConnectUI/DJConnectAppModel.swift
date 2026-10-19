@@ -13541,7 +13541,19 @@ public final class DJConnectAppModel: ObservableObject {
             return try encoder.encode(response)
         case .voice:
             let payload = try decoder.decode(DJConnectWatchProxyVoicePayload.self, from: request.payload ?? Data())
-            try await requireHADeviceSpeech(client: client, language: payload.language ?? currentRequestLocale)
+            // Interactive Watch work has its own bearer/lifecycle. The phone
+            // foreground/Profile context must not gate or receive its discovery.
+            let locale = payload.language ?? currentRequestLocale
+            let watchID = watchProxyRegistration?.identity.deviceID
+            let watchToken = defaults.string(forKey: watchProxyDeviceTokenKey)
+            let install = defaults.string(forKey: haInstallIDKey) ?? ""
+            guard client.identity.clientType == .watchos, client.identity.deviceID == watchID,
+                  watchToken?.isEmpty == false, try client.tokenStore.loadToken() == watchToken else { throw CancellationError() }
+            let availability = try await client.currentDeviceSpeech(language: locale, expectedInstallationID: install)
+            guard !Task.isCancelled, watchProxyRegistration?.identity.deviceID == watchID,
+                  defaults.string(forKey: watchProxyDeviceTokenKey) == watchToken,
+                  defaults.string(forKey: haInstallIDKey) == install,
+                  availability?.allowsHAInput(locale: locale) == true else { throw DJConnectError.invalidResponse }
             let response = try await client.sendVoice(
                 wavData: payload.wavData,
                 mood: payload.mood,

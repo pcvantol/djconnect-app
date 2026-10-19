@@ -28,7 +28,9 @@ status route before use. The read bypasses caching, checks installation/locale
 and cancellation, then applies current UI/context checks before crossing the
 speech boundary. It performs no provider/model/audio work. There is no silent
 fallback between Apple and HA. Native Watch speech preparation is not gated by
-HA synthesis availability.
+HA synthesis availability. Interactive Watch HA input checks its own current
+registration/token and installation, without requiring the phone to be foreground
+or importing its metadata into the phone Profile presentation.
 
 Validation and delivery evidence is kept in build/qualification/device-speech-40354.
 Source tests/builds do not establish installed HA support, real microphone/STT,
