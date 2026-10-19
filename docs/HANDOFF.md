@@ -1,3 +1,15 @@
+## 2026-10-19 — pending Mac pairing installation transition
+
+MacBook40349 repeatedly received authenticated status HTTP200 but remained in
+setup. A bounded same-client status read confirmed success, compatible4.0.0-rc.1
+and a runtime installation ID different from the saved provisional setup ID.
+Pending completion now admits that transition only after the accepted token,
+operation, endpoint, previous installation and device context still match.
+Successful status metadata is retained even when playback is unavailable.
+Ordinary paired status keeps its existing installation mismatch guard. No reset,
+new pair POST, credential export or Core change. Regression validation and the
+repaired ordinary MacBook installation are being qualified.
+
 ## 2026-10-19 — Apple129 device speech availability adoption
 
 Next bounded slice adopts Core1221 schema1 paired/status metadata. HA input,

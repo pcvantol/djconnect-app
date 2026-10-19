@@ -9025,13 +9025,13 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
             #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer device-secret")
             return (
                 try httpResponse(for: request, statusCode: 200),
-                Data(#"{"success":true,"ha_major_minor":"3.2","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
+                Data(#"{"success":true,"ha_major_minor":"4.0","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
             )
         }
         if request.url?.path == "/api/djconnect/v1/command" {
             return (
                 try httpResponse(for: request, statusCode: 200),
-                Data(#"{"success":true,"ha_major_minor":"3.2","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
+                Data(#"{"success":true,"ha_major_minor":"4.0","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
             )
         }
         if request.url?.path == "/api/djconnect/v1/music_dna/profile" {
@@ -9160,7 +9160,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
             }
             return (
                 try httpResponse(for: request, statusCode: 200),
-                Data(#"{"success":true,"ha_major_minor":"3.2","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
+                Data(#"{"success":true,"ha_major_minor":"4.0","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
             )
         }
         if path == "/api/djconnect/v1/music_dna/profile" {
@@ -9172,7 +9172,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
         if path != "/api/djconnect/v1/pair" {
             return (
                 try httpResponse(for: request, statusCode: 200),
-                Data(#"{"success":true,"ha_major_minor":"3.2","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
+                Data(#"{"success":true,"ha_major_minor":"4.0","playback":{"has_playback":false},"music_backend_available":true}"#.utf8)
             )
         }
         return (

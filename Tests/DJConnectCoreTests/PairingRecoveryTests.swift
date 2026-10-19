@@ -93,7 +93,7 @@ private func pairingRecoveryClient(_ wire: PairingRecoveryWire, token: DJConnect
 }
 
 @Test @MainActor func pairingCompletionRejectsLateCredentialOrOperationReplacement() async throws {
-    for replaceToken in [false, true] {
+    for replacement in ["token", "operation", "endpoint", "installation"] {
         let bootstrap = PairingRecoveryWire { _, _ in (200, pairingStatusSuccess) }
         defer { bootstrap.close() }
         let (model, defaults, token, suite) = try pendingPairingModel(bootstrap.session())
@@ -101,8 +101,12 @@ private func pairingRecoveryClient(_ wire: PairingRecoveryWire, token: DJConnect
         var operationIsCurrent = true
         let wire = PairingRecoveryWire { _, _ in
             await MainActor.run {
-                if replaceToken { try? token.saveToken("replacement-fixture-token") }
-                else { operationIsCurrent = false }
+                switch replacement {
+                case "token": try? token.saveToken("replacement-fixture-token")
+                case "endpoint": model.apply(pairingResponse: .init(success: true, haLocalURL: "http://replacement.invalid:8123"), fallbackBaseURL: URL(string: "http://replacement.invalid:8123")!)
+                case "installation": UserDefaults(suiteName: suite)?.set("replacement-install", forKey: "DJConnectHAInstallID")
+                default: operationIsCurrent = false
+                }
             }
             return (200, pairingStatusSuccess)
         }
@@ -124,4 +128,49 @@ private func pairingRecoveryClient(_ wire: PairingRecoveryWire, token: DJConnect
     #expect(!defaults.bool(forKey: "DJConnectHomeAssistantSetupPending"))
     #expect(try token.loadToken() == nil)
     #expect(wire.requests.count == 1)
+}
+
+@Test(arguments: [nil, "backend_unavailable", "playback_backend_unavailable"] as [String?])
+@MainActor func pairingCompletionAdoptsFinalInstallationOnlyForAcceptedPendingCredential(backendFailure: String?) async throws {
+    var payload: [String: Any] = ["success": backendFailure == nil, "ha_install_id": "final-install", "backend_available": false]
+    if let backendFailure { payload["error"] = backendFailure }
+    let finalStatus = try JSONSerialization.data(withJSONObject: payload)
+    let wire = PairingRecoveryWire { _, _ in (200, finalStatus) }
+    defer { wire.close() }
+    let (model, defaults, token, suite) = try pendingPairingModel(wire.session())
+    defer { defaults.removePersistentDomain(forName: suite) }
+    try await model.waitForHomeAssistantPairingCompletion(client: pairingRecoveryClient(wire, token: token))
+    #expect(model.pairingStatus == .paired && model.isShowingPairingSuccess)
+    #expect(defaults.string(forKey: "DJConnectHAInstallID") == "final-install")
+    #expect(!defaults.bool(forKey: "DJConnectHomeAssistantSetupPending"))
+    #expect(!model.backendAvailable)
+    #expect(try token.loadToken() == "accepted-fixture-token")
+    #expect(wire.requests == ["/api/djconnect/v1/status"])
+}
+
+@Test @MainActor func pairingCompletionDoesNotAdmitIncompatibleIntegrationVersion() async throws {
+    let wire = PairingRecoveryWire { _, _ in
+        (200, Data(#"{"success":true,"ha_install_id":"final-install","ha_major_minor":"3.2"}"#.utf8))
+    }
+    defer { wire.close() }
+    let (model, defaults, token, suite) = try pendingPairingModel(wire.session())
+    defer { defaults.removePersistentDomain(forName: suite) }
+    try await model.waitForHomeAssistantPairingCompletion(client: pairingRecoveryClient(wire, token: token))
+    #expect(model.pairingStatus != .paired && !model.isShowingPairingSuccess)
+    #expect(model.updateRequiredMessage != nil)
+    #expect(defaults.string(forKey: "DJConnectHAInstallID") == "fixture-install")
+    #expect(try token.loadToken() == "accepted-fixture-token")
+}
+
+@Test @MainActor func pairingBackendFailureWithoutRuntimeInstallationCannotCompleteSetup() async throws {
+    let wire = PairingRecoveryWire { _, attempt in
+        if attempt == 1 { return (200, Data(#"{"success":false,"error":"backend_unavailable","backend_available":false}"#.utf8)) }
+        return (200, pairingStatusSuccess)
+    }
+    defer { wire.close() }
+    let (model, defaults, token, suite) = try pendingPairingModel(wire.session())
+    defer { defaults.removePersistentDomain(forName: suite) }
+    try await model.waitForHomeAssistantPairingCompletion(client: pairingRecoveryClient(wire, token: token))
+    #expect(model.pairingStatus == .paired)
+    #expect(wire.requests == Array(repeating: "/api/djconnect/v1/status", count: 2))
 }

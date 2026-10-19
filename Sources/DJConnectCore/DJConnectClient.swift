@@ -87,6 +87,22 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request)
     }
 
+    /// Setup completion is independent of playback backend readiness. Preserve
+    /// the authenticated HTTP200 metadata instead of losing its installation ID
+    /// to the ordinary playback-unavailable classifier.
+    public func postPairingCompletionStatus(_ payload: DJConnectStatusPayload) async throws -> DJConnectEnvelope<DJConnectPlayback> {
+        let request = try statusRequest(payload)
+        let (data, status) = try await dataAndStatusCodeResponse(for: request, acceptingStatuses: [200])
+        let response = try decoder.decode(DJConnectEnvelope<DJConnectPlayback>.self, from: data)
+        let backendOnlyFailure = ["backend_unavailable", "playback_backend_unavailable"].contains(response.error ?? "")
+        let hasRuntimeInstallation = response.haInstallID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        guard status == 200,
+              (response.success && response.error == nil) || (backendOnlyFailure && hasRuntimeInstallation) else {
+            throw classify(statusCode: status, body: data) ?? DJConnectError.invalidResponse
+        }
+        return response
+    }
+
     public func pair(_ payload: DJConnectPairingPayload) async throws -> DJConnectPairingResponse {
         let request = try pairingRequest(payload)
         let response: DJConnectPairingResponse = try await decodedResponse(for: request)
