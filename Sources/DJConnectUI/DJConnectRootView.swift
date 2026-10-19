@@ -10385,6 +10385,7 @@ struct FavoriteTrackButton: View {
         } label: {
             if model.isSavingCurrentTrack {
                 ProgressView()
+                    .tint(.white)
                     .controlSize(.small)
                     .frame(width: labelDiameter, height: labelDiameter)
             } else {
