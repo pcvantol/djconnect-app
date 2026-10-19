@@ -6676,8 +6676,9 @@ public final class DJConnectAppModel: ObservableObject {
                         self.sharedSpeechIsPlaying = playing
                         self.sharedSpeechDelivery["local"] = playing ? "playing" : "ready"
                     }
+                    deviceSpeechRenderer.onPlaybackFinished = { finished in completed = finished }
                     let started = deviceSpeechRenderer.speak(prepared.segments.map(\.text).joined(), locale: locale,
-                        preferences: preferences) { completed = true }
+                        preferences: preferences) {}
                     guard started else { throw DJConnectError.invalidResponse }
                     log(.info, "Playing admitted DJ contribution with Apple speech")
                     while deviceSpeechRenderer.isSpeaking && current() && !Task.isCancelled {
