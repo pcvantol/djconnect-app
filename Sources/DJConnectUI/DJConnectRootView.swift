@@ -3576,8 +3576,16 @@ struct DJConnectButtonStyle: ButtonStyle {
             .frame(maxWidth: expands ? .infinity : nil)
             .background {
                 switch role {
-                case .primary: outline.fill(DJConnectButtonAppearance.primaryGradient)
-                case .selected: outline.fill((selectionTint ?? djConnectAccent).opacity(0.22))
+                case .primary:
+                    if usesLiveGlass && glassEnabled && !reduceTransparency {
+                        outline.fill(DJConnectButtonAppearance.primaryGradient)
+                            .glassEffect(.regular.interactive(), in: outline)
+                    } else { outline.fill(DJConnectButtonAppearance.primaryGradient) }
+                case .selected:
+                    if usesLiveGlass && glassEnabled && !reduceTransparency {
+                        outline.fill((selectionTint ?? djConnectAccent).opacity(0.10))
+                            .glassEffect(.regular.tint((selectionTint ?? djConnectAccent).opacity(0.22)).interactive(), in: outline)
+                    } else { outline.fill((selectionTint ?? djConnectAccent).opacity(0.22)) }
                 case .destructive:
                     if usesDestructiveGlass && usesLiveGlass && glassEnabled && !reduceTransparency {
                         outline.fill(Color.red.opacity(0.04))
@@ -4023,41 +4031,9 @@ struct DJSessionPinnedMoodBackground: View {
     }
 }
 
-private struct NowPlayingArtworkCardBackground: View {
-    let tint: Color
-    var body: some View {
-        ZStack {
-            LinearGradient(colors: [tint.opacity(0.82), tint.opacity(0.34), .black.opacity(0.82)],
-                           startPoint: .topLeading, endPoint: .bottomTrailing)
-            RadialGradient(colors: [tint.opacity(0.38), .clear], center: .topLeading,
-                           startRadius: 20, endRadius: 520)
-        }
-    }
-}
-
 private func artworkTintColor(for playback: DJConnectPlayback?) -> Color {
     // Neutral while artwork loads; never pretend a title hash is a cover colour.
     Color(white: 0.22)
-}
-
-private func nowPlayingTrackKey(for playback: DJConnectPlayback?) -> String {
-    [
-        playback?.albumImageURL?.absoluteString,
-        playback?.trackName,
-        playback?.artistName,
-        playback?.contextURI
-    ]
-    .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-    .filter { !$0.isEmpty }
-    .joined(separator: "|")
-}
-
-private func sampledArtworkTint(for playback: DJConnectPlayback?) async -> Color {
-    let fallback = artworkTintColor(for: playback)
-    guard let url = playback?.albumImageURL else {
-        return fallback
-    }
-    return await DJConnectArtworkDataCache.shared.tint(for: url, fallback: fallback)
 }
 
 private func averageArtworkColor(from data: Data) -> Color? {
@@ -9799,7 +9775,6 @@ struct IOSConnectionCard: View {
 private struct IOSTrackHero: View {
     @ObservedObject var model: DJConnectAppModel
     var openQueueAction: () -> Void
-    @State private var cardTint = Color(red: 0.22, green: 0.52, blue: 0.92)
 
     private var playback: DJConnectPlayback? {
         model.playback
@@ -9843,15 +9818,8 @@ private struct IOSTrackHero: View {
         }
         .padding(14)
         .frame(maxWidth: artworkMaximumWidth)
-        .background {
-            NowPlayingArtworkCardBackground(tint: cardTint)
-                .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
-        }
-        .modifier(DJConnectCardOutline())
+        .djPlaybackArtworkGlassCard(artworkURL: model.isDemoMode ? nil : playback?.albumImageURL)
         .accessibilityIdentifier("now-playing-playback-card")
-        .task(id: nowPlayingTrackKey(for: playback)) {
-            cardTint = await sampledArtworkTint(for: playback)
-        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(nowPlayingAccessibilityLabel)
     }
@@ -10099,7 +10067,6 @@ struct SetupStatusView: View {
 
 struct TrackSummaryView: View {
     @ObservedObject var model: DJConnectAppModel
-    @State private var cardTint = Color(red: 0.22, green: 0.52, blue: 0.92)
 
     private var artworkMaximumWidth: CGFloat {
         DJConnectAlbumArtworkLayout.maximumWidth(phone: false)
@@ -10137,15 +10104,8 @@ struct TrackSummaryView: View {
         }
         .padding(16)
         .frame(maxWidth: artworkMaximumWidth)
-        .background {
-            NowPlayingArtworkCardBackground(tint: cardTint)
-                .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius, style: .continuous))
-        }
-        .modifier(DJConnectCardOutline())
+        .djPlaybackArtworkGlassCard(artworkURL: model.isDemoMode ? nil : playback?.albumImageURL)
         .accessibilityIdentifier("now-playing-playback-card")
-        .task(id: nowPlayingTrackKey(for: playback)) {
-            cardTint = await sampledArtworkTint(for: playback)
-        }
     }
 }
 
@@ -10409,7 +10369,7 @@ struct FavoriteTrackButton: View {
                     .frame(width: 44, height: 44)
             }
         }
-        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: isFavorite ? .selected : .secondary, shape: .icon, usesLiveGlass: false))
+        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: isFavorite ? .selected : .secondary, shape: .icon))
         .tint(isFavorite ? djConnectAccent : .white)
         .help(helpText)
         .accessibilityLabel(label)
