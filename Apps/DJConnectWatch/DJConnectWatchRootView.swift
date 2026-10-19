@@ -632,7 +632,7 @@ struct DJConnectWatchRootView: View {
         case 2:
             return "bolt.fill"
         default:
-            return "sparkles"
+            return "party.popper.fill"
         }
     }
 
@@ -1514,7 +1514,7 @@ struct DJConnectWatchRootView: View {
                 LazyVStack(spacing: 8) {
                     metricPanel(title: watchLocalizedKey(model.language, "watch.genres"), value: names(profile.favoriteGenres ?? []), icon: "music.note.list")
                     metricPanel(title: watchLocalizedKey(model.language, "watch.artists"), value: names(profile.favoriteArtists ?? []), icon: "person.2")
-                    metricPanel(title: watchLocalizedKey(model.language, "watch.mood"), value: mood(profile.mood), icon: "sparkles")
+                    metricPanel(title: watchLocalizedKey(model.language, "watch.mood"), value: mood(profile.mood), icon: moodIcon(for: profile.mood?.averageZone ?? profile.mood?.zone))
                     if let energyProfile = profile.energyProfile {
                         metricPanel(title: watchLocalizedKey(model.language, "ui.energy.profile"), value: energy(energyProfile), icon: "bolt.fill")
                     }
@@ -1522,7 +1522,7 @@ struct DJConnectWatchRootView: View {
                         metricPanel(title: watchLocalizedKey(model.language, "ui.listening.rhythm"), value: listeningRhythmText(listeningRhythm), icon: "clock")
                     }
                     if let moodMix = profile.moodMix, moodMix.isDisplayable {
-                        metricPanel(title: watchLocalizedKey(model.language, "ui.mood.mix"), value: moodMixText(moodMix), icon: "sparkles")
+                        metricPanel(title: watchLocalizedKey(model.language, "ui.mood.mix"), value: moodMixText(moodMix), icon: moodIcon(for: moodMix.topZone))
                     }
                     if let playtime = profile.playtime, playtime.isDisplayable {
                         metricPanel(title: watchLocalizedKey(model.language, "ui.playtime"), value: playtimeText(playtime), icon: "timer")
@@ -1617,6 +1617,16 @@ struct DJConnectWatchRootView: View {
                 .filter { !$0.isEmpty }
                 .joined(separator: " - ")
             return watchNonEmpty(summary, fallback: watchLocalizedKey(model.language, "watch.not.enough.signals"))
+        }
+
+        private func moodIcon(for zone: String?) -> String {
+            switch zone?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+            case "chill": "moon.zzz.fill"
+            case "groove": "waveform"
+            case "energy": "bolt.fill"
+            case "party": "party.popper.fill"
+            default: "sparkles"
+            }
         }
 
         private func energy(_ energyProfile: DJConnectMusicDNAEnergyProfile) -> String {

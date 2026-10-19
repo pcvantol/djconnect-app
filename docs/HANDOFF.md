@@ -1,3 +1,14 @@
+## 2026-10-19 — consolidate all retained stashes
+
+All12 historical stash entries are compared against main17477f0, including
+untracked files and screenshots. Only the Watch mood icon correction remains to
+recover; all other source changes are present, evolved or explicitly retired
+Party experiments. See [complete disposition](maintenance/STASH_CONSOLIDATION_20261019.md).
+Verified snapshots, original Git commits and hash manifest remain under
+`build/recovery/stash-consolidation-20261019/`; preserve during cleanup. Protected
+merge/readback and removal of exact audited stash refs form the next checkpoint.
+Existing Core-contract and native/physical acceptance gates remain open.
+
 ## 2026-10-18 — avatar graphics lane resumed after migration
 
 User selects existing lane continuation. Reused clean `feat/dj-persona-avatar`
