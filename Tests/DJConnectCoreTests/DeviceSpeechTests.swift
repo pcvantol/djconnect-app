@@ -43,7 +43,7 @@ import Testing
         #expect(speaker.isValid)
         #expect(DJConnectDeviceSpeechRouting.serverTarget(for: .both, nativeOverride: true, settings: speaker) == .haSpeaker)
         #expect(DJConnectDeviceSpeechRouting.serverTarget(for: .haSpeaker, nativeOverride: true, settings: speaker) == .haSpeaker)
-        #expect(DJConnectDeviceSpeechRouting.serverTarget(for: .local, nativeOverride: true, settings: speaker) == nil)
+        #expect(DJConnectDeviceSpeechRouting.serverTarget(for: .local, nativeOverride: true, settings: speaker) == .local)
         #expect(DJConnectDeviceSpeechRouting.serverTarget(for: .both, nativeOverride: false, settings: speaker) == .both)
     }
     for target: DJConnectSharedSpeechTarget in [.local, .haSpeaker, .both] {
@@ -52,7 +52,7 @@ import Testing
             let routed = DJConnectDeviceSpeechRouting.serverTarget(for: target, nativeOverride: native, settings: allowed)
             if !allowed.allowsSpeech(target) { #expect(routed == nil) }
             else if !native { #expect(routed == target) }
-            else { #expect(routed == (target == .local ? nil : .haSpeaker)) }
+            else { #expect(routed == (target == .local ? .local : .haSpeaker)) }
         }
     }
 }
@@ -101,7 +101,8 @@ import Testing
     #expect(!model.deviceSpeechPreviewIsPlaying)
     model.localResponseAudioEnabled = true
     func payload() -> DJConnectAskDJRequest { model.profileConversationPayload(text: "test", clientMessageID: UUID().uuidString, context: .init(sessionID: nil)) }
-    #expect(payload().audioResponse == .never) // no native + server double synthesis
+    #expect(payload().audioResponse == .always) // contract3 defers output; prepare selects exactly one processor
+    #expect(payload().speechContractVersion == 3)
     model.deviceSpeechPreferences.enabled = false
     #expect(model.localResponseAudioEnabled)
     #expect(payload().audioResponse == .always)

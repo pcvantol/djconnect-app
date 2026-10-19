@@ -1113,6 +1113,10 @@ public final class DJConnectAppModel: ObservableObject {
         voiceEnabled && (isRecordingVoice || isDemoMode || deviceSTTEnabled ||
             currentDeviceSpeechAvailability?.allowsHAInput(locale: currentRequestLocale) == true)
     }
+    public var canUseLocalDJSpeechOutput: Bool {
+        deviceSpeechPreferences.enabled || canUseHASpeechOutput(.local)
+    }
+
     public func canUseHASpeechOutput(_ target: DJConnectSharedSpeechTarget) -> Bool {
         isDemoMode || currentDeviceSpeechAvailability?.allowsHAOutput(target, locale: currentRequestLocale) == true
     }
@@ -1135,6 +1139,9 @@ public final class DJConnectAppModel: ObservableObject {
             stopWakeWordListening()
             cancelVoiceRecording()
             defaults.set(deviceSTTEnabled, forKey: "DJConnectDeviceSTTEnabled.v1")
+            if startBackgroundTasks && !deviceSTTEnabled {
+                Task { await refreshHAInputAvailabilityIfNeeded() }
+            }
             resumeWakeWordListeningIfNeeded()
         }
     }
@@ -2326,6 +2333,7 @@ public final class DJConnectAppModel: ObservableObject {
             guard isAppInForeground, !Task.isCancelled else { return }
             await refreshActiveDJSession()
             if activeDJSession != nil { await refreshActiveMoodCapability() }
+            if startBackgroundTasks { await refreshHAInputAvailabilityIfNeeded() }
         }
         // Preserve the failed-LAN cooldown across short interruptions. A real
         // network change clears it and immediately schedules a new status read.
@@ -4089,7 +4097,7 @@ public final class DJConnectAppModel: ObservableObject {
         // performs fresh device-speech admission. Do not erase that source intent.
         var payload = DJConnectAskDJRequest(identity: identity, text: text, clientMessageID: clientMessageID,
             inputType: "text", mood: confirmedSessionMoodInt, djStyle: "warm_radio_dj", musicDNAKey: askDJMusicDNAKey,
-            audioResponse: profileDJSettings.negotiated && localResponseAudioEnabled && !deviceSpeechPreferences.enabled && sharedDJSpeechAllowed &&
+            audioResponse: profileDJSettings.negotiated && localResponseAudioEnabled && sharedDJSpeechAllowed &&
                 profileDJSettings.effective?.announcement_output.allowsClientAudio == true ? .always : .never,
             djAnnouncementOutput: profileDJSettings.effective?.announcement_output ?? djAnnouncementOutput, language: currentRequestLocale)
         payload.conversationContext = context
@@ -4270,7 +4278,7 @@ public final class DJConnectAppModel: ObservableObject {
         if let observation = personaSpeechObservation, observation.scope == scope, observation.deadline > now {
             evidence.pending = evidence.pending || sharedSpeechIsPreparing
             #if canImport(AVFoundation)
-            evidence.speaking = sharedResponseDataPlayer?.isPlaying == true
+            evidence.speaking = sharedResponseDataPlayer?.isPlaying == true || deviceSpeechRenderer.isActuallySpeaking
             #endif
             if case .moment(_, let id) = observation.reference { evidence.spokenMomentID = id }
         }
@@ -6574,13 +6582,15 @@ public final class DJConnectAppModel: ObservableObject {
         target requestedTarget: DJConnectSharedSpeechTarget, original: DJConnectSessionSpeech?, automatic: Bool = false, sourceIsCurrent: @escaping @MainActor () -> Bool) {
         guard sharedDJSpeechAllowed, let settings = profileDJSettings.response, settings.allowsSpeech(requestedTarget), sourceIsCurrent() else { return }
         let unavailableLocalOverride = deviceSpeechPreferences.enabled && requestedTarget == .both
-        // Current prepare3 explicitly forbids local_on_device. Never bypass the
-        // settings fence using legacy prepare1, visible text or server audio.
+        // Native output uses the same prepare3 source/settings admission; never
+        // speak visible bubble text or bypass it with a legacy preparation.
         guard let target = DJConnectDeviceSpeechRouting.serverTarget(for: requestedTarget, nativeOverride: deviceSpeechPreferences.enabled, settings: settings) else {
             stopResponsePlayback(clearText: false)
             sharedSpeechReference = reference; sharedSpeechDelivery["local"] = "unavailable"
             return
         }
+        let preferences = deviceSpeechPreferences
+        let nativeLocal = preferences.enabled && target == .local
         #if canImport(AVFoundation)
         personaReactions.cancel(.speechConflict)
         let attemptDeadline = min(sourceDeadline, Date().addingTimeInterval(300))
@@ -6606,6 +6616,7 @@ public final class DJConnectAppModel: ObservableObject {
         if unavailableLocalOverride { sharedSpeechDelivery["local"] = "unavailable" }
         func current() -> Bool {
             sharedDJSpeechAllowed && epoch == sessionHistory.responseEpoch && isAppInForeground &&
+            deviceSpeechPreferences == preferences &&
             profileDJSettings.response?.binding == settings.binding &&
             profileDJSettings.response?.speechFence == settings.speechFence &&
             profileDJSettings.response?.voice_revision == settings.voice_revision &&
@@ -6618,9 +6629,12 @@ public final class DJConnectAppModel: ObservableObject {
             var stage = "prepare"
             do {
                 let result = try await withHomeAssistantClient(allowsOperationReplay: false) {
-                    try await self.requireHADeviceSpeech(client: $0, language: self.currentRequestLocale, target: target)
+                    if !nativeLocal {
+                        try await self.requireHADeviceSpeech(client: $0, language: self.currentRequestLocale, target: target)
+                    }
                     guard current(), !Task.isCancelled else { throw CancellationError() }
-                    return try await $0.prepareSharedDJSpeech(reference: reference, acceptedText: acceptedText, settings: settings, target: target, automatic: automatic)
+                    return try await $0.prepareSharedDJSpeech(reference: reference, acceptedText: acceptedText, settings: settings,
+                        target: target, automatic: automatic, processor: nativeLocal ? .localOnDevice : .haConfigured)
                 }
                 guard current(), !Task.isCancelled else { return }
                 sharedSpeechDelivery = result.delivery ?? [:]
@@ -6631,7 +6645,8 @@ public final class DJConnectAppModel: ObservableObject {
                     return
                 }
                 let prepared = result.session_speech
-                guard prepared.audioState == "ready", prepared.admits(reference: reference, text: acceptedText),
+                guard (nativeLocal ? DJConnectNativeSpeechAdmission.admits(prepared, reference: reference, text: acceptedText, settings: settings) : prepared.audioState == "ready"),
+                      prepared.admits(reference: reference, text: acceptedText),
                       original == nil || (prepared.textRevision == original?.textRevision && prepared.presentationRevision == original?.presentationRevision &&
                       prepared.persona == original?.persona && prepared.personaRevision == original?.personaRevision &&
                       prepared.locale == original?.locale && prepared.attribution == original?.attribution),
@@ -6642,6 +6657,36 @@ public final class DJConnectAppModel: ObservableObject {
                     } ?? "prepared_source_rejected"
                     log(.warning, "Session speech unavailable reason=\(reason)")
                     sharedSpeechDelivery["local"] = "unavailable"; responsePlaybackCoordinator.finish(ticket); return
+                }
+                if nativeLocal {
+                    stage = "native_output"
+                    guard let locale = prepared.locale else { throw DJConnectError.invalidResponse }
+                    #if os(iOS)
+                    try await configureDJConnectAudioSession(category: .playback, mode: .spokenAudio, options: [.duckOthers])
+                    guard current(), !Task.isCancelled else { return }
+                    try await setDJConnectAudioSessionActive(true)
+                    #endif
+                    guard current(), !Task.isCancelled else { return }
+                    var completed = false
+                    deviceSpeechRenderer.onStateChange = nil
+                    deviceSpeechRenderer.onPlaybackStateChange = { [weak self] playing in
+                        guard let self, self.responsePlaybackCoordinator.isCurrent(ticket),
+                              self.isAppInForeground, self.sessionHistory.responseEpoch == epoch else { return }
+                        self.sharedSpeechIsPreparing = false
+                        self.sharedSpeechIsPlaying = playing
+                        self.sharedSpeechDelivery["local"] = playing ? "playing" : "ready"
+                    }
+                    let started = deviceSpeechRenderer.speak(prepared.segments.map(\.text).joined(), locale: locale,
+                        preferences: preferences) { completed = true }
+                    guard started else { throw DJConnectError.invalidResponse }
+                    log(.info, "Playing admitted DJ contribution with Apple speech")
+                    while deviceSpeechRenderer.isSpeaking && current() && !Task.isCancelled {
+                        try await Task.sleep(for: .milliseconds(100))
+                    }
+                    guard current(), !Task.isCancelled else { return }
+                    sharedSpeechDelivery["local"] = completed ? "finished" : "failed"
+                    log(.info, "Apple DJ contribution playback finished")
+                    return
                 }
                 stage = "audio_fetch"
                 let bytes = try await withHomeAssistantClient(allowsOperationReplay: false) {
@@ -7950,6 +7995,22 @@ public final class DJConnectAppModel: ObservableObject {
             log(.debug, "Now Playing poll skipped: \(Self.describe(error))")
         } catch {
             log(.debug, "Now Playing poll skipped: \(error.localizedDescription)")
+        }
+    }
+
+    /// Requalify the input presentation when returning from native STT or a
+    /// menu interruption. Capture still performs its own fresh admission.
+    @discardableResult
+    func refreshHAInputAvailabilityIfNeeded() async -> Bool {
+        guard !deviceSTTEnabled, !isDemoMode, pairingStatus == .paired, isAppInForeground else { return false }
+        do {
+            try await withHomeAssistantClient { client in
+                try await self.requireHADeviceSpeech(client: client, language: self.currentRequestLocale)
+            }
+            return !deviceSTTEnabled && canUseVoiceInputRoute
+        } catch {
+            log(.debug, "HA voice input availability could not be refreshed")
+            return false
         }
     }
 

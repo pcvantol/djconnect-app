@@ -6111,3 +6111,28 @@ func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clie
     #expect(defaults.string(forKey: "DJConnectAskDJAudioResponseMode") == "always")
     #expect(model.localResponseAudioEnabled)
 }
+
+@Test @MainActor func switchingBackFromAppleSTTRequalifiesHAInputWithoutSendingAudio() async throws {
+    let source = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/device-speech-core-604b80f8.json")
+    let root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: source)) as? [String: Any])
+    let cases = try #require(root["cases"] as? [[String: Any]])
+    let snapshot = try #require(cases.first { $0["case"] as? String == "configuration_stt_True_tts_True" }?["snapshot"])
+    let bytes = try historyData(["success": true, "ha_install_id": "speech-install", "device_speech": snapshot])
+    let fixture = HistoryWireFixture { request in
+        #expect(request.url?.path == "/api/djconnect/v1/status")
+        return (200, bytes, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    defaults.set("speech-install", forKey: "DJConnectHAInstallID")
+    model.language = "en"
+    model.deviceSTTEnabled = true
+    #expect(model.canUseVoiceInputRoute)
+    model.deviceSTTEnabled = false
+    #expect(!model.canUseVoiceInputRoute)
+    #expect(await model.refreshHAInputAvailabilityIfNeeded())
+    #expect(model.canUseVoiceInputRoute && !model.deviceSTTEnabled)
+    #expect(!fixture.requests.isEmpty)
+    #expect(fixture.requests.allSatisfy { $0.url?.path == "/api/djconnect/v1/status" })
+}

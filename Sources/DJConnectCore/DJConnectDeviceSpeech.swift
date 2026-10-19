@@ -23,16 +23,15 @@ public struct DJConnectDeviceSpeechPreferences: Codable, Equatable, Sendable {
     }
 }
 
-/// The phone/macOS HA-audio path cannot silently substitute native synthesis.
-/// Native Watch playback uses an independently prepared settings3 grant below.
-/// Preserve an independently requested HA leg.
+/// Select a single local processor through prepare3, preserving any separately
+/// requested HA speaker leg. No visible text or HA client audio is a native grant.
 public enum DJConnectDeviceSpeechRouting {
     public static func serverTarget(for requested: DJConnectSharedSpeechTarget,
                                     nativeOverride: Bool,
                                     settings: DJConnectProfileDJSettingsResponse) -> DJConnectSharedSpeechTarget? {
         guard settings.allowsSpeech(requested) else { return nil }
         guard nativeOverride else { return requested }
-        return requested == .local ? nil : .haSpeaker
+        return requested == .local ? .local : .haSpeaker
     }
 }
 

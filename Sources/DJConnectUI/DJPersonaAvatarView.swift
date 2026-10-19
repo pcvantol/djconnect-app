@@ -152,14 +152,18 @@ struct DJPersonaGraphic: View {
                         .resizable().scaledToFit()
                         .frame(width: side * 0.30, height: side * 0.30)
                         .foregroundStyle(gradient)
-                        .contentTransition(animatesActivity ? .symbolEffect(.replace) : .identity)
-                        .animation(animatesActivity ? .easeInOut(duration: 0.2) : nil, value: activity)
+                        // Symbol replacement can slide the glyph outside its bounds on macOS.
+                        // Activity changes keep a stable center; only the halo pulses.
+                        .contentTransition(.identity)
                         .offset(y: side * 0.03)
                         .symbolEffect(.pulse, options: .repeating,
                                       isActive: animatesActivity && activity == .preparing)
                         .accessibilityHidden(true)
                 }
             }
+            // Fixed canvas isolates symbol/keyframe layout from the surrounding card.
+            .frame(width: side, height: side)
+            .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
         }
         .aspectRatio(1, contentMode: .fit)
     }

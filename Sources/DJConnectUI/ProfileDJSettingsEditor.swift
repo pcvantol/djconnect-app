@@ -216,6 +216,7 @@ struct ProfileDJSettingsEditor: View, Equatable {
         return VStack(alignment: .leading, spacing: 8) {
             outputField(response)
             if (review ? draft.announcement_output ?? e.announcement_output : e.announcement_output) != .textOnly {
+            HAProviderVoiceVisibility(model: model) {
             Text(text("voice")).font(.subheadline.weight(.semibold))
             Picker(text("voice"), selection: Binding(get: { voiceTag(voice) }, set: { tag in
                 if tag == "default" { choose(.init(voice: .init())) }
@@ -257,6 +258,7 @@ struct ProfileDJSettingsEditor: View, Equatable {
                 .disabled(!state.canEdit)
             }
             }
+            }
         }
     }
     private func outputField(_ response: DJConnectProfileDJSettingsResponse) -> some View {
@@ -277,6 +279,15 @@ struct ProfileDJSettingsEditor: View, Equatable {
             .accessibilityLabel(text("output"))
             .accessibilityIdentifier("dj-settings-output")
         }
+    }
+}
+
+/// Local presentation only: hiding HA controls never mutates the saved Profile voice.
+private struct HAProviderVoiceVisibility<Content: View>: View {
+    @ObservedObject var model: DJConnectAppModel
+    @ViewBuilder let content: () -> Content
+    var body: some View {
+        if !model.deviceSpeechPreferences.enabled { content() }
     }
 }
 
@@ -407,7 +418,7 @@ struct SharedDJSpeechActions: View {
             .contentShape(Circle())
         }
         .djConnectPlainButtonStyle()
-        .disabled(!active && (!model.sharedDJSpeechAllowed || !model.canUseHASpeechOutput(.local)))
+        .disabled(!active && (!model.sharedDJSpeechAllowed || !model.canUseLocalDJSpeechOutput))
         .accessibilityLabel(actionLabel)
         .accessibilityValue(preparing ? text("delivery.preparing") : ownsOutput ? text("delivery." + (model.sharedSpeechDelivery["local"] ?? "ready")) : "")
         .accessibilityIdentifier(active ? "shared-speech-stop-local" : "shared-speech-listen-local")
