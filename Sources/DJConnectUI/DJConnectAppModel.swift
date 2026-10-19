@@ -896,7 +896,15 @@ public final class DJConnectAppModel: ObservableObject {
             updateWakeWordListeningForAvailability()
         }
     }
-    @Published public var updateRequiredMessage: String?
+    @Published public var updateRequiredMessage: String? {
+        didSet {
+            if !isRuntimeCompatible {
+                refreshScheduler.cancelBackendRecovery()
+            } else if oldValue != nil {
+                scheduleBackendRecoveryRefresh(reason: "Runtime compatibility restored; rechecking playback backend")
+            }
+        }
+    }
     @Published public var pairingMessage: String?
     @Published public var userNotice: DJConnectUserNotice?
     @Published public var playback: DJConnectPlayback? { didSet { syncDemoSessionPlayback() } }
@@ -3608,7 +3616,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func scheduleBackendRecoveryRefresh(reason: String) {
-        guard startBackgroundTasks, isAppInForeground, !isDemoMode, pairingStatus == .paired, !backendAvailable, !isOfflineModeActive else {
+        guard startBackgroundTasks, isAppInForeground, isRuntimeCompatible, !isDemoMode, pairingStatus == .paired, !backendAvailable, !isOfflineModeActive else {
             return
         }
         refreshScheduler.scheduleBackendRecovery(
@@ -3616,7 +3624,7 @@ public final class DJConnectAppModel: ObservableObject {
                 guard let self else {
                     return false
                 }
-                return self.isAppInForeground && self.pairingStatus == .paired
+                return self.isAppInForeground && self.isRuntimeCompatible && self.pairingStatus == .paired
                     && !self.isDemoMode
                     && !self.backendAvailable
                     && !self.isOfflineModeActive

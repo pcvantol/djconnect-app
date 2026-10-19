@@ -6199,4 +6199,16 @@ func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clie
     for _ in 0..<250 where !model.backendAvailable { try await Task.sleep(for: .milliseconds(20)) }
     #expect(model.backendAvailable)
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/status") }.count > baseline)
+    // A version mismatch is not a transient music failure. It cancels an
+    // already scheduled retry and prevents new retries until compatibility returns.
+    model.apply(musicBackendSummary: .init(musicBackendAvailable: false))
+    model.updateRequiredMessage = "Update required"
+    let beforeMismatchWait = fixture.requests.filter { $0.url!.path.hasSuffix("/status") }.count
+    try await Task.sleep(for: .milliseconds(2300))
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/status") }.count == beforeMismatchWait)
+    #expect(!model.backendAvailable)
+    model.updateRequiredMessage = nil
+    for _ in 0..<250 where !model.backendAvailable { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(model.backendAvailable)
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/status") }.count > beforeMismatchWait)
 }

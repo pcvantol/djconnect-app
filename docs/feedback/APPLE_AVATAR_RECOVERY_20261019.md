@@ -15,7 +15,7 @@ All transitions to backend unavailable now schedule bounded recovery, including
 metadata-only failures. Foreground activation and the existing 10-second Session
 poll rearm recovery if needed. The recovery loop's own 2-to-10-second backoff
 replaces the unrelated eight-second full-refresh throttle. Recovery remains
-foreground-only and stops on restored availability, background, offline or pairing
+foreground-only and stops on restored availability, background, offline, runtime incompatibility or pairing
 withdrawal. Session discovery remains independent of music availability.
 
 Existing opt-in debug logs add boolean-only capture/output observation diagnostics;
