@@ -345,8 +345,6 @@ struct SessionTimelineScreen: View {
     @State private var visibleEntry: String?
     @State private var scrollAnchor: UnitPoint = .top
     @State private var submittedQuestion: SessionSubmittedQuestion?
-    @State private var questionLeadingRoom: CGFloat = 0
-    @State private var scrollViewportHeight: CGFloat = 0
     @State private var priorSearchPosition: String?
     @State private var query = ""
     @State private var searching = false
@@ -441,7 +439,6 @@ struct SessionTimelineScreen: View {
         let previous = model.askDJMessages.last(where: { $0.role == .user })?.id
         model.sendAskDJText()
         guard let question = model.askDJMessages.last(where: { $0.role == .user }), question.id != previous else { return }
-        questionLeadingRoom = scrollViewportHeight
         submittedQuestion = SessionSubmittedQuestion(sessionID: sessionID, localID: question.id, clientID: question.clientMessageID)
     }
 
@@ -578,14 +575,10 @@ struct SessionTimelineScreen: View {
                             Color.clear.frame(height: 1).id("tail")
                         }
                         .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity)
-                        .padding(.top, (activeSession != nil ? 0 : archivedTopPadding) + questionLeadingRoom).padding(.bottom, 20)
+                        .padding(.top, activeSession != nil ? 0 : archivedTopPadding).padding(.bottom, 20)
                         .scrollTargetLayout()
                         // Background updates never reveal pull-to-refresh or move the scroll offset.
                         }
-                    }
-                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
-                        scrollViewportHeight = height
-                        if submittedQuestion != nil { questionLeadingRoom = height }
                     }
                     .safeAreaInset(edge: .bottom, spacing: 0) {
                         if usesFloatingComposer && !searching {
@@ -798,7 +791,6 @@ struct SessionTimelineScreen: View {
                 feedbackMessage = nil
                 model.isShowingVibeCastSessionStart = false
                 submittedQuestion = nil
-                questionLeadingRoom = 0
             }
             .onChange(of: query) { _, value in sceneRestoreTask?.cancel(); anchorGeneration = UUID(); history.search(sessionID: sessionID, query: value) }
             .onChange(of: history.searchMatches) {
@@ -966,7 +958,6 @@ struct SessionTimelineScreen: View {
 
     private func clearReadingState() {
         submittedQuestion = nil
-        questionLeadingRoom = 0
         history.rememberReadingAnchor(visibleEntry, sessionID: sessionID)
         pagingTask?.cancel(); pagingTask = nil
         renderCache.clear()
@@ -1056,7 +1047,6 @@ struct SessionTimelineScreen: View {
         transaction.disablesAnimations = true
         withTransaction(transaction) {
             submittedQuestion = nil
-            questionLeadingRoom = 0
             scrollAnchor = .top
             visibleEntry = "current"
             currentHeaderVisible = true
@@ -1067,7 +1057,6 @@ struct SessionTimelineScreen: View {
 
     private func jump(_ id: String, proxy: ScrollViewProxy) {
         submittedQuestion = nil
-        questionLeadingRoom = 0
         sceneRestoreTask?.cancel()
         anchorGeneration = UUID()
         // One scroll controller: mixing proxy animation with the bound target can
