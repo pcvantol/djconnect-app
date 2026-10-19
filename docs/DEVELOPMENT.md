@@ -57,6 +57,12 @@ collection validation, and autonomous HTTP/WebSocket Home Assistant contract
 e2e. It
 intentionally does not sign, notarize, or upload release binaries.
 
+CI additionally runs the isolated VibeCast binding/binary-input Swift package
+with synthetic data and injected SDK closures. The separate hosted diagnostic
+is excluded from the ordinary project and is not armed by CI. Its exact-profile
+and joint-run gates are documented in
+[API binary intake](../Tools/qualification/vibecast-native/API_BINARY_INTAKE.md).
+
 ## Pairing The macOS App
 
 1. Open `DJConnectApp.xcodeproj` in Xcode.

@@ -1,5 +1,11 @@
 # Physical App Attest qualification (hosted diagnostic only)
 
+This is the historical synthetic UTF8 diagnostic. Do not use it for API-issued
+nonces/action bytes or treat its captures as server enrollment. The separate
+[API binary intake](../vibecast-native/API_BINARY_INTAKE.md) decodes the32-byte
+nonce and preserves exact action bytes; it requires its own reviewed app/build
+profile and explicit joint-run admission. Historical capture state is not reused.
+
 This XCTest bundle runs inside the actual signed `dev.djconnect.ios` app. It is
 not a scanner, enrollment endpoint client, or production verifier. The host must
 be the existing app target with the existing Team/App ID, not a standalone runner.

@@ -46,6 +46,7 @@ Useful commands:
 
 ```sh
 swift test --no-parallel
+swift test --package-path Tools/qualification/vibecast-native --scratch-path /tmp/djc-vibecast-binding --jobs 2
 python3 scripts/validate_localizations.py
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination generic/platform=iOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
@@ -55,6 +56,10 @@ xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration D
 `project.yml` is the source of truth for Xcode project settings. Regenerate the
 Xcode project only when project configuration changes require it, and keep the
 generated project diff focused.
+
+The isolated VibeCast package is also checked by CI. It uses synthetic inputs
+and injected SDK closures. Hosted App Attest capture is a separate, explicitly
+admitted operation; see [binary intake qualification](Tools/qualification/vibecast-native/API_BINARY_INTAKE.md).
 
 ## Cross-Repo Contract
 
