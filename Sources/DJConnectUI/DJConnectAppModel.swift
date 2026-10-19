@@ -3287,8 +3287,26 @@ public final class DJConnectAppModel: ObservableObject {
             do {
                 // Pairing completion belongs to this accepted credential and
                 // installation, independently of conversation/UI suspension.
-                try await refreshStatus(client: client, bindToHistoryEpoch: false, isStillValid: current)
-                guard current(), pairingStatus == .waitingForHomeAssistantCompletion || pairingStatus == .paired else { return }
+                let response = try await client.postPairingCompletionStatus(DJConnectStatusPayload(
+                    identity: identity, haPairingStatus: .paired, language: currentRequestLocale,
+                    logLevel: logLevel, appBuild: buildVersion, localAudioSupported: true,
+                    voiceSupported: voiceEnabled, haLocalURL: haLocalURL.isEmpty ? nil : haLocalURL,
+                    voiceEnabled: voiceEnabled, wakewordEnabled: wakeWordEnabled,
+                    wakewordPhrase: wakeWordPhrase, wakewordStatus: "\(wakeWordStatus)",
+                    mood: confirmedSessionMoodInt, musicDNAKey: askDJMusicDNAKey))
+                guard current(), pairingStatus == .waitingForHomeAssistantCompletion else { return }
+                guard response.success, validateHomeAssistantVersion(haVersion: response.haVersion,
+                    haMajorMinor: response.haMajorMinor, message: response.message) else { return }
+                // The setup flow's installation ID is provisional. Only this
+                // credential-bound completion read may adopt the runtime ID.
+                // There are no suspension points between admission and commit.
+                applyBootstrapContext(haInstallID: response.haInstallID,
+                    integrationVersion: response.integrationVersion, pairingSessionID: response.pairingSessionID)
+                apply(musicBackendSummary: response.musicBackendSummary)
+                apply(djAnnouncementCapabilities: response.djAnnouncement)
+                if let playback = response.playback { apply(playback: playback) }
+                backendAvailable = response.backendAvailable ?? true
+                authenticatedStatusOrigin = client.baseURL
                 completeHomeAssistantPairing()
                 return
             } catch is CancellationError {
