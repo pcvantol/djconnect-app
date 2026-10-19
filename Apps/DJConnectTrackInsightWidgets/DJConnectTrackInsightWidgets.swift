@@ -24,6 +24,18 @@ private extension DJConnectSessionMoodTheme {
                      blue: Double(value & 255) / 255 * 0.22)
     }
 }
+/// The same vector identity as the app, using only the admitted surface palette.
+/// No capture, pending-request or speech activity is inferred in an extension.
+private struct SessionSurfaceAvatar: View {
+    let theme: DJConnectSessionMoodTheme
+    let side: CGFloat
+    var body: some View {
+        DJPersonaAvatarView(confirmedMood: theme.rawValue,
+                            language: DJConnectLocalization.defaultDisplayLanguageCode())
+            .frame(width: side, height: side)
+    }
+}
+
 private struct SessionMoodBackground: View {
     let theme: DJConnectSessionMoodTheme
     var body: some View {
@@ -79,11 +91,7 @@ struct DJConnectSessionSurfaceView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 8 : 14) {
             HStack(spacing: 10) {
-                Image(systemName: "opticaldisc")
-                    .font(compact ? .title2 : .largeTitle)
-                    .foregroundStyle(theme.accent)
-                    .padding(compact ? 8 : 12)
-                    .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
+                SessionSurfaceAvatar(theme: theme, side: compact ? 40 : 64)
                 if !compact {
                     Text(text("ui.session.title")).font(.headline)
                 }
@@ -112,7 +120,7 @@ private struct DJConnectSessionWidgetView: View {
             if let rich {
                 PassiveSessionContentView(contribution: rich.projection.currentContribution(at: now),
                     playback: rich.projection.currentPlayback(at: now), cache: rich,
-                    compact: family == .systemSmall, large: family == .systemLarge, date: now)
+                    compact: family == .systemSmall, large: family == .systemLarge, theme: theme, date: now)
             } else {
                 DJConnectSessionSurfaceView(isActive: entry.isActive, compact: family == .systemSmall, theme: theme)
             }
@@ -156,25 +164,24 @@ struct DJConnectSessionActivityWidget: Widget {
         ActivityConfiguration(for: DJConnectSessionLiveActivityAttributes.self) { context in
             PassiveActivityBody(snapshot: context.state, stale: context.isStale)
                 .padding(16)
-                .background { SessionMoodBackground(theme: context.isStale ? .brand : (context.state.theme ?? .brand)) }
-                .activityBackgroundTint((context.isStale ? DJConnectSessionMoodTheme.brand : (context.state.theme ?? .brand)).darkTint)
+                .background { SessionMoodBackground(theme: context.isStale ? .brand : context.state.renderingTheme(at: Date())) }
+                .activityBackgroundTint((context.isStale ? DJConnectSessionMoodTheme.brand : context.state.renderingTheme(at: Date())).darkTint)
                 .activitySystemActionForegroundColor(.white)
                 .widgetURL(sessionURL)
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) { Image(systemName: "opticaldisc").foregroundStyle((context.isStale ? DJConnectSessionMoodTheme.brand : (context.state.theme ?? .brand)).accent) }
                 DynamicIslandExpandedRegion(.bottom) {
                     PassiveActivityBody(snapshot: context.state, stale: context.isStale)
                 }
             } compactLeading: {
-                Image(systemName: "opticaldisc").foregroundStyle((context.isStale ? DJConnectSessionMoodTheme.brand : (context.state.theme ?? .brand)).accent)
+                SessionSurfaceAvatar(theme: context.isStale ? .brand : context.state.renderingTheme(at: Date()), side: 22)
             } compactTrailing: {
                 Image(systemName: context.isStale ? "arrow.up.forward" : "music.note").foregroundStyle(.white)
             } minimal: {
-                Image(systemName: "opticaldisc").foregroundStyle((context.isStale ? DJConnectSessionMoodTheme.brand : (context.state.theme ?? .brand)).accent)
+                SessionSurfaceAvatar(theme: context.isStale ? .brand : context.state.renderingTheme(at: Date()), side: 20)
             }
             .widgetURL(sessionURL)
-            .keylineTint((context.isStale ? DJConnectSessionMoodTheme.brand : (context.state.theme ?? .brand)).accent)
+            .keylineTint((context.isStale ? DJConnectSessionMoodTheme.brand : context.state.renderingTheme(at: Date())).accent)
         }
     }
 }
@@ -188,11 +195,15 @@ private struct PassiveSessionContentView: View {
     let cache: DJConnectPassiveSurfaceCache?
     var compact = false
     var large = false
+    var theme: DJConnectSessionMoodTheme = .brand
     let date: Date
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 6 : 8) {
-            Label(text("ui.session.title"), systemImage: "opticaldisc")
-                .font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+            HStack(spacing: 8) {
+                SessionSurfaceAvatar(theme: theme, side: compact ? 24 : 36)
+                Text(text("ui.session.title"))
+                    .font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+            }
             if let playback {
                 HStack(alignment: .top, spacing: compact ? 6 : 12) {
                     if cache?.projection.currentArtwork(slot: "now_playing", at: date) != nil {
@@ -277,9 +288,10 @@ private struct PassiveActivityBody: View {
                     value.projection.delivery_sequence == rich.sequence && value.projection.contribution == rich.contribution &&
                     value.projection.now_playing == rich.nowPlaying ? value : nil
                 }
-            PassiveSessionContentView(contribution: rich.contribution, playback: rich.nowPlaying, cache: cache, date: now)
+            PassiveSessionContentView(contribution: rich.contribution, playback: rich.nowPlaying, cache: cache,
+                                      theme: snapshot.renderingTheme(at: now), date: now)
         } else {
-            DJConnectSessionSurfaceView(isActive: !stale && snapshot.isCurrent(at: now), theme: stale ? .brand : (snapshot.theme ?? .brand))
+            DJConnectSessionSurfaceView(isActive: !stale && snapshot.isCurrent(at: now), theme: stale ? .brand : snapshot.renderingTheme(at: now))
         }
     }
 }
@@ -368,7 +380,7 @@ private struct SessionMomentLayoutPreview: View {
                             attribution: "Voorbeeldbijdrage · geen live sessie") {
             ZStack {
                 LinearGradient(colors: theme.colors, startPoint: .topLeading, endPoint: .bottomTrailing)
-                Image(systemName: "opticaldisc").font(.system(size: 34)).foregroundStyle(.white.opacity(0.9))
+                SessionSurfaceAvatar(theme: theme, side: 46)
             }
         }
         .padding(16)

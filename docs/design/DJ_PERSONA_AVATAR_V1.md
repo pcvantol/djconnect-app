@@ -12,7 +12,16 @@ anchored headphone headband, rounded earcups and five central waveform bars.
 The 26-point template menu image is rendered from exactly that geometry; sidebar,
 SwiftUI tabs, UIKit bottom tabs and Session status icons share the same mark.
 No screenshot raster is used as an asset. Artwork's turntable/tonearm fallback is
-untouched. Watch and passive WidgetKit/ActivityKit surfaces remain separate.
+untouched. Watch remains separate. WidgetKit/ActivityKit now compile this same
+vector view directly, without linking the app UI module. Their avatar uses only
+the already admitted, expiring surface mood palette; compact/minimal Island and
+rich/fallback widget/activity layouts share it. The redundant expanded Island
+leading icon is removed. An expired/stale Activity uses brand colors.
+
+This passive presentation update does not export foreground capture, pending
+Ask DJ or speech activity. The passive contract does not carry those lifecycle
+observations; listening/thinking/speaking glyphs remain pending the qualified
+Core handoff. A colored avatar is not a claim of continuous background updates.
 
 `NativeSessionMomentsView.currentCard` is now the single persistent material
 container. Its avatar and existing content are children of that same container,

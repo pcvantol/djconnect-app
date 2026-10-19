@@ -296,6 +296,7 @@ targets:
     platform: iOS
     sources:
       - path: Apps/DJConnectTrackInsightWidgets
+      - path: Sources/DJConnectUI/DJPersonaAvatarView.swift
     dependencies:
       - target: DJConnectCoreIOS
     info:
@@ -317,6 +318,7 @@ targets:
     platform: macOS
     sources:
       - path: Apps/DJConnectTrackInsightWidgets
+      - path: Sources/DJConnectUI/DJPersonaAvatarView.swift
     dependencies:
       - target: DJConnectCoreMac
     info:

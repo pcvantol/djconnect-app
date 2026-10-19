@@ -238,6 +238,42 @@ final class DJConnectMacUITests: XCTestCase {
         try saveMomentScreenshot(app, "mac-05-player-no-session")
     }
 
+    func testReviewDemoSessionAvatarLayoutFavoriteAndArtworkControls() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--runtime-fixture=review_demo", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launchEnvironment["DJCONNECT_UITEST_RUNTIME_FIXTURE"] = "review_demo"
+        app.launch()
+        defer { app.terminate() }
+
+        let avatars = app.descendants(matching: .any).matching(identifier: "session-dj-avatar")
+        XCTAssertTrue(avatars.firstMatch.waitForExistence(timeout: 15))
+        XCTAssertEqual(avatars.count, 1, "The current Session must contain exactly one avatar")
+        let title = app.staticTexts["Een avond met de DJ"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(title.frame.minX, avatars.firstMatch.frame.maxX,
+                                    "Contribution text must start to the right of the avatar")
+        XCTAssertLessThan(title.frame.minY, avatars.firstMatch.frame.maxY,
+                          "Contribution text must begin alongside the avatar, not below it")
+
+        let favorite = app.buttons["session-favorite-button"]
+        XCTAssertTrue(favorite.isHittable)
+        XCTAssertEqual(favorite.label, "Zet in favorieten")
+        favorite.click()
+        XCTAssertTrue(app.buttons.matching(identifier: "session-favorite-button")
+            .matching(NSPredicate(format: "label == %@", "Haal uit favorieten")).firstMatch.waitForExistence(timeout: 5))
+        try saveMomentScreenshot(app, "mac-session-avatar-favorite")
+
+        let artwork = app.descendants(matching: .any)["session-music-artwork"].firstMatch
+        XCTAssertTrue(artwork.isHittable)
+        artwork.click()
+        XCTAssertTrue(app.staticTexts["Gepauzeerd"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(avatars.count, 1, "Pausing must preserve the same single avatar card")
+        try saveMomentScreenshot(app, "mac-session-avatar-paused")
+        artwork.click()
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertEqual(avatars.count, 1)
+    }
+
     private func saveMomentScreenshot(_ app: XCUIApplication, _ name: String) throws {
         let screenshot = app.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)

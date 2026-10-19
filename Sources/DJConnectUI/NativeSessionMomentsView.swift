@@ -105,7 +105,13 @@ private struct DJAlbumArtworkGlassSurface: ViewModifier {
             .clipShape(RoundedRectangle(cornerRadius: DJConnectCardAppearance.cornerRadius - inset, style: .continuous))
             .padding(inset)
             .background { shape.fill(tint?.opacity(reduceTransparency || !glassEnabled ? 1 : 0.72) ?? .clear) }
-            .djSessionFrostedSurface()
+            // Isolate the background from the Session's shared glass compositor;
+            // otherwise it can cover the pixels and later gesture feedback.
+            .background {
+                GlassEffectContainer(spacing: 0) {
+                    Color.clear.djSessionFrostedSurface()
+                }
+            }
             .overlay {
                 if let tint {
                     shape.stroke(tint.opacity(0.8), lineWidth: DJConnectCardAppearance.borderWidth)
@@ -331,10 +337,12 @@ struct NativeSessionMomentsView: View {
     }
 
     func currentCard(_ moment: DJConnectMoment?) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
+        HStack(alignment: .top, spacing: 16) {
             DJPersonaAvatarView(confirmedMood: isLiveUnavailable || isRecovering ? nil : session.selectedMood, language: language)
                 .frame(width: 80, height: 80)
+                .fixedSize()
             currentCardContent(moment)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .padding(24).frame(maxWidth: .infinity, alignment: .leading)
         .djSessionFrostedSurface(currentMomentBorder: true)
@@ -478,11 +486,11 @@ struct NativeSessionMomentsView: View {
         let generation = UUID()
         artworkActionGeneration = generation
         let epoch = playbackModel.sessionHistory.responseEpoch
-        // Acknowledge the gesture immediately. Resume hides Play while its request is pending.
+        // Acknowledge every gesture immediately, including resuming playback.
         playArtworkHaptic(command)
         withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.25, dampingFraction: 0.8)) {
             hidesArtworkPlayOnTouch = false
-            artworkFeedback = command == "play" ? nil : ArtworkFeedback(command: command)
+            artworkFeedback = ArtworkFeedback(command: command)
             if command == "play" {
                 artworkPausedOverride = false
                 artworkPlaybackConfirmationID = UUID()

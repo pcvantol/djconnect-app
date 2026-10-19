@@ -3575,26 +3575,30 @@ struct DJConnectButtonStyle: ButtonStyle {
             .frame(minHeight: DJConnectButtonAppearance.iconSize)
             .frame(maxWidth: expands ? .infinity : nil)
             .background {
-                switch role {
-                case .primary:
-                    if usesLiveGlass && glassEnabled && !reduceTransparency {
-                        outline.fill(DJConnectButtonAppearance.primaryGradient)
-                            .glassEffect(.regular.interactive(), in: outline)
-                    } else { outline.fill(DJConnectButtonAppearance.primaryGradient) }
-                case .selected:
-                    if usesLiveGlass && glassEnabled && !reduceTransparency {
-                        outline.fill((selectionTint ?? djConnectAccent).opacity(0.10))
-                            .glassEffect(.regular.tint((selectionTint ?? djConnectAccent).opacity(0.22)).interactive(), in: outline)
-                    } else { outline.fill((selectionTint ?? djConnectAccent).opacity(0.22)) }
-                case .destructive:
-                    if usesDestructiveGlass && usesLiveGlass && glassEnabled && !reduceTransparency {
-                        outline.fill(Color.red.opacity(0.04))
-                            .glassEffect(.regular.tint(.red.opacity(0.12)).interactive(), in: outline)
-                    } else { outline.fill(Color.red.opacity(0.12)) }
-                case .secondary:
-                    if usesLiveGlass && glassEnabled && !reduceTransparency { outline.fill(.white.opacity(0.04)).glassEffect(.regular.interactive(), in: outline) }
-                    else { outline.fill(glassEnabled && !reduceTransparency ? Color.white.opacity(0.10) : DJConnectGlassAppearance.opaqueSurface) }
-                case .tertiary: Color.clear
+                // Isolate button glass from surrounding card compositors so
+                // the label remains above the material on macOS.
+                GlassEffectContainer(spacing: 0) {
+                    switch role {
+                    case .primary:
+                        if usesLiveGlass && glassEnabled && !reduceTransparency {
+                            outline.fill(DJConnectButtonAppearance.primaryGradient)
+                                .glassEffect(.regular.interactive(), in: outline)
+                        } else { outline.fill(DJConnectButtonAppearance.primaryGradient) }
+                    case .selected:
+                        if usesLiveGlass && glassEnabled && !reduceTransparency {
+                            outline.fill((selectionTint ?? djConnectAccent).opacity(0.10))
+                                .glassEffect(.regular.tint((selectionTint ?? djConnectAccent).opacity(0.22)).interactive(), in: outline)
+                        } else { outline.fill((selectionTint ?? djConnectAccent).opacity(0.22)) }
+                    case .destructive:
+                        if usesDestructiveGlass && usesLiveGlass && glassEnabled && !reduceTransparency {
+                            outline.fill(Color.red.opacity(0.04))
+                                .glassEffect(.regular.tint(.red.opacity(0.12)).interactive(), in: outline)
+                        } else { outline.fill(Color.red.opacity(0.12)) }
+                    case .secondary:
+                        if usesLiveGlass && glassEnabled && !reduceTransparency { outline.fill(.white.opacity(0.04)).glassEffect(.regular.interactive(), in: outline) }
+                        else { outline.fill(glassEnabled && !reduceTransparency ? Color.white.opacity(0.10) : DJConnectGlassAppearance.opaqueSurface) }
+                    case .tertiary: Color.clear
+                    }
                 }
             }
             .overlay { outline.stroke(role == .selected ? (selectionTint ?? djConnectAccent).opacity(0.55) : .white.opacity(role == .tertiary ? 0 : 0.12), lineWidth: 1).allowsHitTesting(false) }
@@ -10336,6 +10340,11 @@ struct FavoriteTrackButton: View {
     @ObservedObject var model: DJConnectAppModel
     var identifier = "now-playing-favorite-button"
     var sessionContext: DJConnectSessionRuntime? = nil
+    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    // Native large glass adds its own padding around the 24-point glyph.
+    private var labelDiameter: CGFloat { glassEnabled && !reduceTransparency ? 24 : 44 }
 
     private var isFavorite: Bool {
         model.playback?.currentTrackFavoriteStatus == true
@@ -10352,6 +10361,23 @@ struct FavoriteTrackButton: View {
     }
 
     var body: some View {
+        if glassEnabled && !reduceTransparency {
+            // The native button style owns the press interaction. A glass
+            // background alone does not receive the button's touch lifecycle.
+            GlassEffectContainer(spacing: 0) {
+                favoriteButton
+                    .buttonStyle(.glass(.regular.tint(isFavorite ? djConnectAccent.opacity(0.22) : .clear).interactive()))
+                    .buttonBorderShape(.circle)
+                    .tint(.clear)
+                    .controlSize(.large)
+            }
+        } else {
+            favoriteButton
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: isFavorite ? .selected : .secondary, shape: .icon))
+        }
+    }
+
+    private var favoriteButton: some View {
         Button {
             DJConnectHaptics.selection()
             if let sessionContext { model.toggleSessionFavorite(sessionContext) }
@@ -10359,18 +10385,17 @@ struct FavoriteTrackButton: View {
         } label: {
             if model.isSavingCurrentTrack {
                 ProgressView()
+                    .tint(.white)
                     .controlSize(.small)
-                    .frame(width: 44, height: 44)
+                    .frame(width: labelDiameter, height: labelDiameter)
             } else {
                 Image(systemName: isFavorite ? "heart.fill" : "heart")
                     .font(.system(size: 22, weight: .semibold))
                     .symbolRenderingMode(.monochrome)
-                    .foregroundStyle(isFavorite ? djConnectAccent : .white)
-                    .frame(width: 44, height: 44)
+                    .foregroundStyle(.white)
+                    .frame(width: labelDiameter, height: labelDiameter)
             }
         }
-        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: isFavorite ? .selected : .secondary, shape: .icon))
-        .tint(isFavorite ? djConnectAccent : .white)
         .help(helpText)
         .accessibilityLabel(label)
         .accessibilityIdentifier(identifier)
@@ -17826,8 +17851,7 @@ private struct AboutView: View {
                             Link(destination: websiteURL) {
                                 Label("https://djconnect.dev", systemImage: "arrow.up.right.square")
                                     .font(.body)
-                                    .foregroundStyle(djConnectAccent)
-                                    .foregroundColor(djConnectAccent)
+                                    .foregroundStyle(.white)
                                     .textSelection(.enabled)
                             }
                             .djConnectLilacButton()
