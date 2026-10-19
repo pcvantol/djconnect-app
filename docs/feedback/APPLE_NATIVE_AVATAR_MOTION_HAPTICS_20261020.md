@@ -58,8 +58,11 @@ A separate unique-bundle Mac UI test app was built for existing avatar/favorite/
 artwork checks. Its first unsigned runner had an invalid resource signature;
 ordinary ad-hoc signing required production capabilities/profiles. A restricted
 sandbox diagnostic identity (no push/app-group rights) was then signed without
-account/profile changes. UI test execution/acceptance is still pending and must
-be recorded independently; compilation/signature alone is not a click PASS.
+account/profile changes. The repaired runner passed strict signature verification but did not enter its
+test within three minutes; only that owned run was interrupted. The alternative
+computer-use runtime could not initialize because of the configured symlinked
+writable root. UI interaction acceptance is NOT_RUN, not a product failure;
+compilation/signature alone is not a click PASS.
 No shipping entitlement or project identity was changed by these diagnostics.
 
 ## Still open
