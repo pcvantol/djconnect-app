@@ -1467,8 +1467,24 @@ struct SessionComposerContext: View {
                     .accessibilityIdentifier("session-question-context")
             }
             if let error = model.voiceErrorMessage {
-                Text(error).font(.caption).foregroundStyle(.red).accessibilityIdentifier("session-voice-error")
-                Text(text("ui.hold.to.record.a.voice.request.for.ask.dj")).font(.caption).foregroundStyle(.secondary)
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(error).font(.caption).foregroundStyle(.red)
+                            .accessibilityIdentifier("session-voice-error")
+                        Text(text("ui.hold.to.record.a.voice.request.for.ask.dj"))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Button { DJConnectHaptics.selection(); model.voiceErrorMessage = nil } label: {
+                        Image(systemName: "xmark").foregroundStyle(.white)
+                    }
+                    .djConnectButtonStyle(DJConnectButtonStyle(
+                        emphasis: .secondary, shape: .icon, usesLiveGlass: false, iconDiameter: 44
+                    ))
+                    .accessibilityLabel(text("ui.close"))
+                    .help(text("ui.close"))
+                    .accessibilityIdentifier("dismiss-session-voice-error")
+                }
             }
         }
     }
