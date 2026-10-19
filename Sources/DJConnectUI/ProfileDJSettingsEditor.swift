@@ -455,20 +455,23 @@ private func wakeWordPhraseField(_ model: DJConnectAppModel) -> some View {
         get: { model.wakeWordPhrase },
         set: { model.wakeWordPhrase = $0 }
     )
-    #if os(iOS)
     LabeledContent(speechPreferencesText(model, "ui.wake.word")) {
         TextField(speechPreferencesText(model, "ui.wake.word"), text: phrase)
+            .textFieldStyle(.plain)
+            .foregroundStyle(.white)
             .multilineTextAlignment(.trailing)
+            #if os(iOS)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
-    }
-    #else
-    LabeledContent(speechPreferencesText(model, "ui.wake.word")) {
-        TextField(speechPreferencesText(model, "ui.wake.word"), text: phrase)
-            .multilineTextAlignment(.trailing)
+            #endif
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            #if os(macOS)
             .frame(maxWidth: 320)
+            #endif
+            .djSessionFrostedSurface(cornerRadius: 14)
+            .accessibilityIdentifier("speech-preferences-wake-word")
     }
-    #endif
 }
 
 @MainActor
