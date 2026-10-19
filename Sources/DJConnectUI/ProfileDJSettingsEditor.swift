@@ -322,11 +322,8 @@ private struct DeviceSpeechPreferencesSection: View {
                     } label: {
                         Text(speechPreferencesText(model, "ui.enable.voice.activation.321a28"))
                             .foregroundStyle(.white)
-                            .foregroundColor(.white)
                     }
-                    .foregroundStyle(.white)
-                    .foregroundColor(.white)
-                    .tint(.white)
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .selected, selectionTint: .purple))
                 }
             }
             wakeWordPhraseField(model)
