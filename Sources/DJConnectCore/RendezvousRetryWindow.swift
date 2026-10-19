@@ -24,6 +24,7 @@ public struct RendezvousRetryWindow: Codable, Sendable {
     public private(set) var isClosed = false
     private var notBeforeMS: Int64
     private var lastObservedMS: Int64
+    private var lastCompletionMS: Int64?
 
     public init(kind: Kind, startedAtMS: Int64, deadlineMS: Int64) throws {
         guard startedAtMS >= 0, deadlineMS > startedAtMS,
@@ -55,6 +56,7 @@ public struct RendezvousRetryWindow: Codable, Sendable {
         guard reservation == id else { throw Failure.invalidState }
         guard retryNotBeforeMS.map({ $0 >= 0 }) ?? true else { throw Failure.invalidState }
         try observe(nowMS)
+        lastCompletionMS = nowMS
         reservation = nil
         guard nowMS < deadlineMS else { isClosed = true; throw Failure.expired }
         guard callsStarted < 3 else { isClosed = true; return }
@@ -78,7 +80,7 @@ public struct RendezvousRetryWindow: Codable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, kind, startedAtMS, deadlineMS, callsStarted, reservation, isClosed, notBeforeMS, lastObservedMS
+        case schemaVersion, kind, startedAtMS, deadlineMS, callsStarted, reservation, isClosed, notBeforeMS, lastObservedMS, lastCompletionMS
     }
 
     public init(from decoder: any Decoder) throws {
@@ -92,6 +94,7 @@ public struct RendezvousRetryWindow: Codable, Sendable {
         isClosed = try c.decode(Bool.self, forKey: .isClosed)
         notBeforeMS = try c.decode(Int64.self, forKey: .notBeforeMS)
         lastObservedMS = try c.decode(Int64.self, forKey: .lastObservedMS)
+        lastCompletionMS = try c.decodeIfPresent(Int64.self, forKey: .lastCompletionMS)
         guard startedAtMS >= 0, deadlineMS > startedAtMS,
               deadlineMS - startedAtMS <= 120_000,
               (0...3).contains(callsStarted), lastObservedMS >= startedAtMS,
@@ -101,6 +104,23 @@ public struct RendezvousRetryWindow: Codable, Sendable {
               !(callsStarted > 0 && !isClosed && reservation == nil && notBeforeMS <= startedAtMS),
               !(callsStarted == 3 && !isClosed && reservation == nil) else {
             throw Failure.invalidState
+        }
+        if let completion = lastCompletionMS {
+            guard completion >= startedAtMS, completion <= lastObservedMS,
+                  callsStarted > 0 else { throw Failure.invalidState }
+        }
+        guard !(isClosed && lastCompletionMS == nil),
+              !(reservation != nil && ((callsStarted == 1) != (lastCompletionMS == nil))) else {
+            throw Failure.invalidState
+        }
+        if !isClosed, reservation == nil, callsStarted > 0 {
+            guard let completion = lastCompletionMS else { throw Failure.invalidState }
+            let delay: Int64 = callsStarted == 1 ? 2_000 : 5_000
+            let (minimumEligibility, overflow) = completion.addingReportingOverflow(delay)
+            guard !overflow, notBeforeMS >= minimumEligibility,
+                  lastObservedMS >= deadlineMS || notBeforeMS > lastObservedMS else {
+                throw Failure.invalidState
+            }
         }
     }
 }

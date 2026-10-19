@@ -94,4 +94,31 @@ final class RendezvousRetryWindowTests: XCTestCase {
         XCTAssertThrowsError(try RendezvousRetryWindow(kind: .recovery, startedAtMS: -1, deadlineMS: 100))
         XCTAssertThrowsError(try RendezvousRetryWindow(kind: .recovery, startedAtMS: 0, deadlineMS: 120_001))
     }
+
+    func testRestoredBackoffRejectsElapsedAndShortenedEligibility() throws {
+        var window = try RendezvousRetryWindow(kind: .registration, startedAtMS: 0, deadlineMS: 120_000)
+        let first = try window.reserve(at: 0)
+        try window.complete(first, outcome: .responseLost, at: 100)
+        let original = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(window)) as? [String: Any])
+        for (eligibility, observation) in [(1, 10_000), (101, 100)] {
+            var malformed = original
+            malformed["notBeforeMS"] = eligibility
+            malformed["lastObservedMS"] = observation
+            XCTAssertThrowsError(try JSONDecoder().decode(RendezvousRetryWindow.self, from: JSONSerialization.data(withJSONObject: malformed)))
+        }
+    }
+
+    func testFailedEarlyReserveAndElapsedRealTimeRestoreWithoutExtendingBackoff() throws {
+        var window = try RendezvousRetryWindow(kind: .registration, startedAtMS: 0, deadlineMS: 120_000)
+        let first = try window.reserve(at: 0)
+        try window.complete(first, outcome: .responseLost, at: 100)
+        XCTAssertThrowsError(try window.reserve(at: 2_099))
+        window = try JSONDecoder().decode(RendezvousRetryWindow.self, from: JSONEncoder().encode(window))
+        let second = try window.reserve(at: 10_000)
+        try window.complete(second, outcome: .responseLost, at: 10_100)
+        XCTAssertThrowsError(try window.reserve(at: 15_099))
+        window = try JSONDecoder().decode(RendezvousRetryWindow.self, from: JSONEncoder().encode(window))
+        _ = try window.reserve(at: 15_100)
+        XCTAssertEqual(window.callsStarted, 3)
+    }
 }

@@ -13,7 +13,7 @@ operational and real-device acceptance remain separate.
 
 `RendezvousRetryWindow` is a versioned Codable install-local accounting value.
 It records one fixed deadline, consumed calls, one in-flight reservation and
-absolute next eligibility. Constructor limits the original window to120 seconds;
+absolute next eligibility and the original completion timestamp. Constructor limits the original window to120 seconds;
 expiry equality fails closed. Initial call plus at most two retries are allowed.
 The2s/5s delays start at the preceding completion, not at a newly generated
 challenge. Absolute Retry-After eligibility can only delay the next call.
@@ -55,10 +55,10 @@ separate lifecycle integration work; no generic failure authorizes key creation.
 
 ## Qualification
 
-Seven focused XCTest cases cover attestation/registration/recovery budgets,
+Nine focused XCTest cases cover attestation/registration/recovery budgets,
 2s/5s boundaries, server delays, deadline equality and late success, wrong error
 classes, exhausted budgets, Codable in-flight/backoff restoration, wrong/duplicate
-completion identities, clock rollback, malformed budget and unknown schema.
+completion identities, clock rollback, malformed budget and unknown schema. The review regression rejects restored elapsed/shortened backoff and retains legitimate early-poll and elapsed-real-time restoration. Decoding recomputes minimum eligibility from the recorded completion, rather than incorrectly restarting backoff after every observation. The new negative case fails against the original reviewed source in an isolated tiny package and passes after the fix.
 Logs/receipts are under ignored
 `build/qualification/vibecast-bounded-retries/`. The first compile was restarted
 after an owned source edit changed its input during compilation; only the final
