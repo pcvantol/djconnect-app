@@ -94,3 +94,49 @@ and canonical JSON integrity were independently verified (12/12 formal checks).
 See docs/verification/avatar-graphics-finalization/. Documentary protected
 delivery remains pending; these receipts do not close the full avatar assignment. No physical
 installation, full-screen UI acceptance or completion of Apple127 is claimed.
+
+
+## 19 October continuation — observed foreground activity
+
+Core1215/1216 qualify existing owner signals; Core1217/1218 deliver the separate
+touch producer. Read-only comparison of Core main
+`f8b28d2b3713ae0bfe11a44d32634d821c914cc8` against the running HA-dev container
+matches all205 regular integration files. This supersedes the historical
+not-yet-delivered prerequisite above for basic activity only. No new backend
+contract is invented by this consumer.
+
+The foreground current-card avatar now resolves capture, request/preparation,
+qualified observed-playback announcement, actual shared speech and accepted text.
+All local observations bind the active Session, authorized owner response epoch,
+Broadcast connection generation and confirmed settings binding. Actual recorder
+and player state is read; optimistic recording/playing flags and remote speaker
+acknowledgements cannot animate speaking. Manual replay and autoplay both use the
+same observed AVAudioPlayer. Audio preparation uses dots; actual capture has an inward halo and actual
+audio has an outward halo inside the anchored ring, and stop/failure/expiry/interruption returns to the remaining valid
+presentation. The same spoken announcement keeps its note; an unrelated spoken
+turn or newly accepted reply cannot be masked by an older announcement. Generic
+track stories cannot select the note: type, intent, observed-playback provenance,
+exact source references and native admission must all match.
+
+Intentional Silence and music_only default to rest when no genuine current
+interaction/audio takes priority. The decoder preserves the existing optional
+current_silence_moment_id; a new silence identity invalidates an older text
+presentation without inventing content or an audio grant. Conflicting current
+Moment/Silence authority cannot select current announcement content.
+
+The anchored outer geometry stays stable. Six glyph meanings have localized
+VoiceOver values in all five languages. Reduce Motion, low-power and serious /
+critical thermal state suppress pulse effects. Reduce Transparency/contrast and
+all current card messages/actions remain intact. No extra Flow timer is added:
+the existing current-card clock evaluates expiry/player state, while SwiftUI's
+bounded symbol effect runs inside the avatar. Passive surfaces default to static
+rest and never consume these foreground observations.
+
+Touch gestures/overlays/reaction synthesis remain the next separate consumer
+slice. Real microphone/real speaker output and physical installed acceptance
+remain OPEN; unit/native renders and unsigned compilation do not establish them.
+The existing UI-test runner initialization limitation is not reclassified as PASS.
+
+Native component render (static glyphs; this image does not demonstrate live audio):
+
+![Six foreground activity glyphs](assets/dj-persona-graphics/session-activity-glyphs.png)
