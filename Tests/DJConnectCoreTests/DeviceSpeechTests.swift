@@ -105,6 +105,8 @@ import Testing
     model.deviceSpeechPreferences.enabled = false
     #expect(model.localResponseAudioEnabled)
     #expect(payload().audioResponse == .always)
+    #expect(payload().speechContractVersion == 3) // deferred autoplay intent, never inline synthesis
+    #expect(!model.canUseHASpeechOutput(.local)) // real prepare still needs fresh discovery
     current = try snapshot("text_only_zero_synthesis_old_audio_denied_and_owner_controls_removed")
     await model.profileDJSettings.refresh(.init(read: { current }, update: { _, _, _ in throw CancellationError() }, receipt: { _, _ in throw CancellationError() }))
     model.deviceSpeechPreferences.enabled = true

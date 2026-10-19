@@ -1422,7 +1422,6 @@ public final class DJConnectAppModel: ObservableObject {
     private let askDJMessagesKey = "DJConnectAskDJMessages"
     private let askDJHistoryRevisionKey = "DJConnectAskDJHistoryRevision"
     private let askDJClearRevisionKey = "DJConnectAskDJClearRevision"
-    private let askDJAudioResponseModeKey = "DJConnectAskDJAudioResponseMode"
     private let localResponseAudioEnabledKey = "DJConnectLocalResponseAudioEnabled"
     private let djAnnouncementOutputKey = "DJConnectDJAnnouncementOutput"
     private let autoTrackInsightEnabledKey = "DJConnectAutoTrackInsightEnabled"
@@ -4067,9 +4066,12 @@ public final class DJConnectAppModel: ObservableObject {
         clearAskDJHistoryLocally(); applyAskDJHistory(response, forceClear: response.isClearAcknowledged)
     }
     func profileConversationPayload(text: String, clientMessageID: String, context: DJConnectConversationContext) -> DJConnectAskDJRequest {
+        // Core604b80f8 common Profile turns always defer synthesis. With contract3,
+        // audioResponse requests autoplay eligibility only; actual prepare3 below
+        // performs fresh device-speech admission. Do not erase that source intent.
         var payload = DJConnectAskDJRequest(identity: identity, text: text, clientMessageID: clientMessageID,
             inputType: "text", mood: confirmedSessionMoodInt, djStyle: "warm_radio_dj", musicDNAKey: askDJMusicDNAKey,
-            audioResponse: localResponseAudioEnabled && !deviceSpeechPreferences.enabled && sharedDJSpeechAllowed &&
+            audioResponse: profileDJSettings.negotiated && localResponseAudioEnabled && !deviceSpeechPreferences.enabled && sharedDJSpeechAllowed &&
                 profileDJSettings.effective?.announcement_output.allowsClientAudio == true ? .always : .never,
             djAnnouncementOutput: profileDJSettings.effective?.announcement_output ?? djAnnouncementOutput, language: currentRequestLocale)
         payload.conversationContext = context
@@ -8197,13 +8199,6 @@ public final class DJConnectAppModel: ObservableObject {
         localized(key: "demo.session.answer")
     }
 
-    private var askDJAudioResponseMode: DJConnectAskDJRequest.AudioResponse {
-        guard let rawValue = defaults.string(forKey: askDJAudioResponseModeKey) else {
-            return .auto
-        }
-        return DJConnectAskDJRequest.AudioResponse(rawValue: rawValue) ?? .auto
-    }
-
     public var selectableDJAnnouncementOutputs: [DJAnnouncementOutput] {
         djAnnouncementCapabilities.effectiveSupportedOutputs.filter { !djAnnouncementCapabilities.lockedOutputs.contains($0) }
     }
@@ -8241,7 +8236,7 @@ public final class DJConnectAppModel: ObservableObject {
         djAnnouncementOutput = fallback
     }
 
-    private func sendAskDJTextWithFallback(_ text: String, clientMessageID: String) async throws -> DJConnectAskDJMessageResponse {
+    func sendAskDJTextWithFallback(_ text: String, clientMessageID: String) async throws -> DJConnectAskDJMessageResponse {
         if sessionHistory.profileScopeActive {
             return try await sessionHistory.sendExistingText(text, clientMessageID: clientMessageID)
         }
@@ -8254,7 +8249,8 @@ public final class DJConnectAppModel: ObservableObject {
                 mood: confirmedSessionMoodInt,
                 djStyle: "warm_radio_dj",
                 musicDNAKey: askDJMusicDNAKey,
-                audioResponse: askDJAudioResponseMode,
+                // Unnegotiated compatibility text must not request inline HA synthesis.
+                audioResponse: .never,
                 djAnnouncementOutput: profileDJSettings.effective?.announcement_output ?? djAnnouncementOutput,
                 language: currentRequestLocale
             ))
@@ -13494,7 +13490,8 @@ public final class DJConnectAppModel: ObservableObject {
             let response = try await client.clearAskDJHistory(musicDNAKey: payload.musicDNAKey)
             return try encoder.encode(response)
         case .askDJMessage:
-            let payload = try decoder.decode(DJConnectAskDJRequest.self, from: request.payload ?? Data())
+            var payload = try decoder.decode(DJConnectAskDJRequest.self, from: request.payload ?? Data())
+            payload.audioResponse = .never // legacy Watch text has no negotiated deferred speech grant
             let response = try await client.sendAskDJMessage(payload)
             return try encoder.encode(response)
         case .askDJIdleSuggestion:

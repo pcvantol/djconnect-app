@@ -6093,3 +6093,21 @@ func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clie
     #expect(fixture.requests.count == 1)
     #expect(model.deviceSTTEnabled && model.canUseVoiceInputRoute)
 }
+
+@Test @MainActor func legacyAskDJTextNeverRequestsInlineSynthesisDespiteSavedAudioPreference() async throws {
+    let body = Data(#"{"success":true,"text":"Synthetic answer","dj_text":"Synthetic answer"}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        #expect(request.url?.path == "/api/djconnect/v1/ask_dj/message")
+        let payload = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+        #expect(payload["audio_response"] as? String == "never")
+        #expect(payload["client_message_id"] as? String == "fixed-legacy-text")
+        return (200, body, 0)
+    }; defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    defaults.set("always", forKey: "DJConnectAskDJAudioResponseMode")
+    model.localResponseAudioEnabled = true
+    let response = try await model.sendAskDJTextWithFallback("Synthetic question", clientMessageID: "fixed-legacy-text")
+    #expect(response.text == "Synthetic answer" && fixture.requests.count == 1)
+    #expect(defaults.string(forKey: "DJConnectAskDJAudioResponseMode") == "always")
+    #expect(model.localResponseAudioEnabled)
+}

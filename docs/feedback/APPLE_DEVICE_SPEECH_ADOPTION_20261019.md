@@ -37,3 +37,19 @@ or importing its metadata into the phone Profile presentation.
 Validation and delivery evidence is kept in build/qualification/device-speech-40354.
 Source tests/builds do not establish installed HA support, real microphone/STT,
 voice hearing or multi-device acceptance. Apple129 remains open for that proof.
+
+## Ask DJ text and deferred autoplay
+
+The pinned Core604b80f8 common dialogue path never synthesizes from a text request:
+ask_dj/__init__.py669-678 returns accepted_reference/deferred for current_turn;
+ask_dj/service.py441-461 uses requested audio only as autoplay eligibility on the
+accepted source. Profile settings3 always negotiates speech_contract_version3.
+That intent must survive provider loss so actual prepare3 can reauthorize it;
+the consumer's prepare3 route is freshly gated. The existing autoplay tests and
+Profile payload test preserve this behavior without treating the flag as audio.
+
+Unnegotiated compatibility text has no such producer guarantee. Phone fallback
+and Watch text (including old companion requests) therefore explicitly request
+never for inline audio, leaving text delivery intact and saved preferences alone.
+Native/manual source replay remains separately admitted. The obsolete private
+legacy audio-mode reader is retired; no stored user preference is erased.
