@@ -172,6 +172,8 @@ struct DJConnectSessionActivityWidget: Widget {
             DynamicIsland {
                 DynamicIslandExpandedRegion(.bottom) {
                     PassiveActivityBody(snapshot: context.state, stale: context.isStale)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 16)
                 }
             } compactLeading: {
                 SessionSurfaceAvatar(theme: context.isStale ? .brand : context.state.renderingTheme(at: Date()), side: 22)

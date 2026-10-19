@@ -145,6 +145,8 @@ struct ProfileDJSettingsEditor: View, Equatable {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .accessibilityAddTraits(.isHeader)
+                DeviceAppleSpeechPreferencesSection(model: model)
+                Divider()
                 if let response = state.response {
                     if response.requiresSelection {
                         Text(text("review_choices")).fixedSize(horizontal: false, vertical: true)
@@ -291,6 +293,31 @@ private struct HAProviderVoiceVisibility<Content: View>: View {
     }
 }
 
+/// Device speech route choices lead the speech menu, ahead of HA and wake controls.
+private struct DeviceAppleSpeechPreferencesSection: View {
+    @ObservedObject var model: DJConnectAppModel
+    private func text(_ key: String) -> String {
+        DJConnectLocalization.localized(key: key, language: model.language)
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle(text("ui.device_stt.enabled"), isOn: $model.deviceSTTEnabled)
+                .accessibilityIdentifier("device-stt-enabled")
+            Text(text("ui.device_stt.explanation"))
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            DeviceSpeechSettingsView(language: model.language, preferences: $model.deviceSpeechPreferences,
+                previewAllowed: model.canPreviewDeviceSpeech, isSpeaking: model.deviceSpeechPreviewIsPlaying,
+                preview: model.previewDeviceSpeech, stop: model.stopDeviceSpeechPreview)
+        }
+        .toggleStyle(SwitchToggleStyle(tint: DJConnectGlassAppearance.toggleTint))
+        .djConnectButtonStyle(DJConnectButtonStyle())
+        .tint(.white)
+        .accentColor(.white)
+        .accessibilityIdentifier("speech-preferences-apple-section")
+    }
+}
+
 /// Observe device preferences independently of the equatable Profile projection.
 /// Local input/output choices remain usable without a server settings snapshot.
 private struct DeviceSpeechPreferencesSection: View {
@@ -322,11 +349,8 @@ private struct DeviceSpeechPreferencesSection: View {
                     } label: {
                         Text(speechPreferencesText(model, "ui.enable.voice.activation.321a28"))
                             .foregroundStyle(.white)
-                            .foregroundColor(.white)
                     }
-                    .foregroundStyle(.white)
-                    .foregroundColor(.white)
-                    .tint(.white)
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .selected, selectionTint: .purple))
                 }
             }
             wakeWordPhraseField(model)
@@ -334,15 +358,7 @@ private struct DeviceSpeechPreferencesSection: View {
                 Text(wakeWordStatusText(model))
                     .foregroundStyle(.secondary)
             }
-            Divider()
-            Toggle(text("ui.device_stt.enabled"), isOn: $model.deviceSTTEnabled)
-                .accessibilityIdentifier("device-stt-enabled")
-            Text(text("ui.device_stt.explanation"))
-                .font(.caption).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            DeviceSpeechSettingsView(language: model.language, preferences: $model.deviceSpeechPreferences,
-                previewAllowed: model.canPreviewDeviceSpeech, isSpeaking: model.deviceSpeechPreviewIsPlaying,
-                preview: model.previewDeviceSpeech, stop: model.stopDeviceSpeechPreview)
+
         }
         .toggleStyle(SwitchToggleStyle(tint: DJConnectGlassAppearance.toggleTint))
         .djConnectButtonStyle(DJConnectButtonStyle())
@@ -439,20 +455,23 @@ private func wakeWordPhraseField(_ model: DJConnectAppModel) -> some View {
         get: { model.wakeWordPhrase },
         set: { model.wakeWordPhrase = $0 }
     )
-    #if os(iOS)
     LabeledContent(speechPreferencesText(model, "ui.wake.word")) {
         TextField(speechPreferencesText(model, "ui.wake.word"), text: phrase)
+            .textFieldStyle(.plain)
+            .foregroundStyle(.white)
             .multilineTextAlignment(.trailing)
+            #if os(iOS)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
-    }
-    #else
-    LabeledContent(speechPreferencesText(model, "ui.wake.word")) {
-        TextField(speechPreferencesText(model, "ui.wake.word"), text: phrase)
-            .multilineTextAlignment(.trailing)
+            #endif
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            #if os(macOS)
             .frame(maxWidth: 320)
+            #endif
+            .djSessionFrostedSurface(cornerRadius: 14)
+            .accessibilityIdentifier("speech-preferences-wake-word")
     }
-    #endif
 }
 
 @MainActor

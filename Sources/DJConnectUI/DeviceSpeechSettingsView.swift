@@ -41,9 +41,14 @@ public struct DeviceSpeechSettingsView: View {
                 Text(text("pitch"))
                 Slider(value: $preferences.pitch, in: 0.5...2).accessibilityLabel(text("pitch"))
                 Button(isSpeaking ? text("stop") : text("preview"), action: isSpeaking ? stop : preview)
+                    #if os(watchOS)
+                    .buttonStyle(.borderedProminent)
+                    .tint(.purple)
+                    #else
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .selected, selectionTint: .purple))
+                    #endif
                     .disabled(!isSpeaking && (!previewAllowed || matching.isEmpty))
                     .accessibilityIdentifier("device-speech-preview")
-                Text(text("pending")).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
         .task { voices = DJConnectAppleSpeechRenderer.voices() }

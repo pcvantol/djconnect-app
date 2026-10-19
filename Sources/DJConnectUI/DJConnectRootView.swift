@@ -1877,7 +1877,7 @@ private struct PairingSheetView: View {
                     Spacer(minLength: 0)
                 }
                 .padding(14)
-                .djConnectGradientCard()
+                .djSessionFrostedSurface()
 
                 #if os(iOS)
                 Button {
@@ -2360,7 +2360,7 @@ private struct PairingEditableURLCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .djConnectGradientCard()
+        .djSessionFrostedSurface()
         .overlay {
             DJConnectCardAppearance.shape
                 .stroke(!trimmedText.isEmpty && !isValid ? .orange.opacity(0.75) : .clear, lineWidth: 1)
@@ -2449,7 +2449,7 @@ private struct PairingCodeEntryCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .djConnectGradientCard()
+        .djSessionFrostedSurface()
         .overlay {
             DJConnectCardAppearance.shape
                 .stroke(!trimmedText.isEmpty && !isValid ? .orange.opacity(0.75) : .clear, lineWidth: 1)
@@ -3638,11 +3638,12 @@ private struct AnimatedAlbumArtworkView: View {
 
     var body: some View {
         CachedArtworkImage(url: usesDemoArtwork ? nil : playback?.albumImageURL, mode: .fit,
-                           usesAlbumGlassFrame: true, animatesArtworkChanges: true) {
+                           usesAlbumGlassFrame: false, animatesArtworkChanges: true) {
             AlbumArtworkPlaceholder(tint: artworkTintColor(for: playback), isPlaying: playback?.isPlaying == true)
         }
         .aspectRatio(1, contentMode: .fit)
         .frame(maxWidth: maxWidth)
+        .clipShape(DJConnectCardAppearance.shape)
         .frame(maxWidth: .infinity, alignment: .center)
     }
 }
@@ -6452,9 +6453,6 @@ private struct MusicDiscoveryView: View {
                 #if os(macOS)
                 ConnectionStatusToolbar(model: model)
                 #endif
-                #if os(macOS)
-                ConnectionStatusToolbar(model: model)
-                #endif
                 ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
                     Button {
                         Task { await refreshMusicDiscoveryWithToast() }
@@ -6470,9 +6468,7 @@ private struct MusicDiscoveryView: View {
                     .accessibilityLabel(localizedKey(model.language, "ui.refresh.discover"))
                 }
                 #if !os(macOS)
-                #if !os(macOS)
                 ConnectionStatusToolbar(model: model)
-                #endif
                 #endif
             }
             .task(id: model.isDemoMode || (model.pairingStatus == .paired && model.isRuntimeCompatible)) {
@@ -9796,6 +9792,10 @@ private struct IOSTrackHero: View {
                 .accessibilityIdentifier("now-playing-artwork-card")
             playbackCard
         }
+        .padding(20)
+        .frame(maxWidth: .infinity)
+        .djPlaybackArtworkGlassCard(artworkURL: model.isDemoMode ? nil : playback?.albumImageURL)
+        .accessibilityIdentifier("now-playing-card")
     }
 
     private var playbackCard: some View {
@@ -9820,9 +9820,6 @@ private struct IOSTrackHero: View {
             SeekControlsView(model: model)
             IOSPlaybackSurface(model: model, openQueueAction: openQueueAction)
         }
-        .padding(14)
-        .frame(maxWidth: artworkMaximumWidth)
-        .djPlaybackArtworkGlassCard(artworkURL: model.isDemoMode ? nil : playback?.albumImageURL)
         .accessibilityIdentifier("now-playing-playback-card")
         .accessibilityElement(children: .combine)
         .accessibilityLabel(nowPlayingAccessibilityLabel)
@@ -10087,6 +10084,10 @@ struct TrackSummaryView: View {
                 .accessibilityIdentifier("now-playing-artwork-card")
             playbackCard
         }
+        .padding(20)
+        .frame(maxWidth: .infinity)
+        .djPlaybackArtworkGlassCard(artworkURL: model.isDemoMode ? nil : playback?.albumImageURL)
+        .accessibilityIdentifier("now-playing-card")
     }
 
     private var playbackCard: some View {
@@ -10106,9 +10107,6 @@ struct TrackSummaryView: View {
             SeekControlsView(model: model)
             PlaybackControlsView(model: model)
         }
-        .padding(16)
-        .frame(maxWidth: artworkMaximumWidth)
-        .djPlaybackArtworkGlassCard(artworkURL: model.isDemoMode ? nil : playback?.albumImageURL)
         .accessibilityIdentifier("now-playing-playback-card")
     }
 }
