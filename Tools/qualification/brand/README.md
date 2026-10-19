@@ -23,6 +23,9 @@ manifest binding, all handoff/output hashes, output byte lengths and native PNG
 decoding/dimensions before creating output. Asset paths cannot escape the input
 root through parent traversal or symbolic links. The archive pin remains the
 caller's responsibility; a locally modified handoff cannot prove Git provenance.
+Rendering writes a unique temporary sibling directory, then renames it into
+place only after every artifact succeeds. Throwing failures remove that staging
+directory; an output path created concurrently is preserved and causes failure.
 
 `native-scale-matrix.png` shows16/20/24/32/40pt at1×/2×/3× as direct output pixels.
 It compares the literal Core ≤40**pixel** headset threshold (A) against the

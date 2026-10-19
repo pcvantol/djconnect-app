@@ -27,7 +27,14 @@ manifest pin, validates the handoff binding and hashes, and writes a new scratch
 directory. Ten checks passed: valid render, repeated render, equality of all five
 outputs, refusal of existing output, wrong manifest, wrong producer, input/output
 overlap, tampered asset, parent traversal and an escaping symbolic link. Failure
-checks verify no output directory is created. The tool compiles with swiftc and
+checks verify no output directory is created. Independent review then found
+that a later write failure could leave partial evidence. On the original
+candidate, observing publication reproduced an empty final directory before
+the artifacts were ready. The fix stages all files in a unique sibling and
+publishes the directory only on success. All ten checks passed again, plus two
+regressions: the first visible directory contains all five artifacts; and a
+concurrent destination collision fails, removes staging and preserves the other
+writer's sentinel. Final result: twelve checks PASS. The tool compiles with swiftc and
 runs independently of app targets. No runtime source change requires an app
 rebuild here; normal protected source checks remain required for merging it.
 

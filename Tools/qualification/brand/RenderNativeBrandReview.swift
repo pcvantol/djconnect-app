@@ -130,11 +130,16 @@ func run() throws {
         }
     }
     label("A: Core ≤40px rule. B: headset at ≤40pt, including Retina. Policy decision remains open.", 20, 25)
-    try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+    // Publish the evidence directory only once every artifact is complete. Keep
+    // staging on the destination filesystem so the final move is a rename.
+    let staging = output.deletingLastPathComponent()
+        .appendingPathComponent(".djc-brand-review-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: staging) }
     guard let png = bitmap.representation(using: .png, properties: [:]) else {
         throw ReviewFailure(description: "Cannot encode review PNG")
     }
-    let matrix = output.appendingPathComponent("native-scale-matrix.png")
+    let matrix = staging.appendingPathComponent("native-scale-matrix.png")
     try png.write(to: matrix, options: .atomic)
 
     // Opaque treatments use the existing generator's flat base colours only.
@@ -155,7 +160,7 @@ func run() throws {
         background.setFill()
         NSRect(x: 0, y: 0, width: 1024, height: 1024).fill()
         glass.draw(in: NSRect(x: 0, y: 0, width: 1024, height: 1024))
-        let url = output.appendingPathComponent("opaque-\(name)-1024.png")
+        let url = staging.appendingPathComponent("opaque-\(name)-1024.png")
         guard let rendered = context.makeImage(),
               let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
             throw ReviewFailure(description: "Cannot encode opaque treatment")
@@ -173,7 +178,8 @@ func run() throws {
         "opaqueTreatments": "existing flat base colours only; no dark overlay, tint transform or native system mask qualification"
     ]
     try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
-        .write(to: output.appendingPathComponent("readback.json"), options: .atomic)
+        .write(to: staging.appendingPathComponent("readback.json"), options: .atomic)
+    try FileManager.default.moveItem(at: staging, to: output)
     print("PASS: \(manifest.files.count) verified outputs; native scale matrix and three opaque base previews. Candidate only.")
 }
 
