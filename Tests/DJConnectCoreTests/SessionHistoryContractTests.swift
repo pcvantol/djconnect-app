@@ -6136,3 +6136,67 @@ func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clie
     #expect(!fixture.requests.isEmpty)
     #expect(fixture.requests.allSatisfy { $0.url?.path == "/api/djconnect/v1/status" })
 }
+
+
+@Test @MainActor func avatarAuthorityDoesNotDependOnPlaybackBackendAvailability() async throws {
+    let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let runtime = try activeMoodRuntimeWire()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, activeMoodCapsWire, 0) }
+        if request.url!.path.hasSuffix("/session/active") { return (200, runtime, 0) }
+        if request.url!.path.hasSuffix("ask_dj/history") { return (200, profile, 0) }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    await model.refreshActiveDJSession()
+    let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/profile-settings3-core-1329ad1.json")
+    let object = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+    let rows = try #require(object["cases"] as? [[String: Any]])
+    let settings = try JSONDecoder().decode(DJConnectProfileDJSettingsResponse.self,
+        from: historyData(try #require(rows.first { $0["case"] as? String == "paired_no_session_all_five" }?["response"])))
+    model.profileDJSettings.bind(owner: "avatar-fixture", active: true)
+    await model.profileDJSettings.refresh(.init(read: { settings }, update: { _, _, _ in throw CancellationError() }, receipt: { _, _ in throw CancellationError() }))
+    model.isConnected = true
+    model.backendAvailable = false
+    let session = try #require(model.activeDJSession)
+    let evidence = model.personaEvidence(for: session, admittedMoment: nil)
+    #expect(evidence.authorized)
+    #expect(!evidence.capturing && !evidence.speaking) // backend recovery alone never fabricates activity
+    #expect(DJPersonaActivity.resolve(evidence) == .resting)
+    model.isConnected = false
+    #expect(!model.personaEvidence(for: session, admittedMoment: nil).authorized)
+    model.isConnected = true
+    model.sessionHistory.suspend()
+    #expect(!model.personaEvidence(for: session, admittedMoment: nil).authorized)
+}
+
+@Test @MainActor func unavailableBackendMetadataSchedulesRecoveryWithoutManualRefresh() async throws {
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/status") { return (200, Data(#"{"success":true,"backend_available":true}"#.utf8), 0) }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let name = "backend-recovery-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defaults.set(fixture.baseURL.absoluteString, forKey: "DJConnectHomeAssistantURL")
+    defaults.set(fixture.baseURL.absoluteString, forKey: "DJConnectHALocalURL")
+    defaults.set("local", forKey: "DJConnectHAConnectionMode")
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-fixture-token"),
+        urlSession: fixture.session(), startBackgroundTasks: true)
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    // Finish the normal startup reads first, then simulate metadata-only failure.
+    try await Task.sleep(for: .seconds(2))
+    model.isConnected = true
+    model.pairingStatus = .paired
+    let baseline = fixture.requests.filter { $0.url!.path.hasSuffix("/status") }.count
+    model.apply(musicBackendSummary: .init(musicBackendAvailable: false))
+    #expect(!model.backendAvailable)
+    // This is below the independent 10-second poll: only the recovery task can repair it.
+    for _ in 0..<250 where !model.backendAvailable { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(model.backendAvailable)
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/status") }.count > baseline)
+}

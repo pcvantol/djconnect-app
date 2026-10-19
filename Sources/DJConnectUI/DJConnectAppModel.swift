@@ -890,6 +890,8 @@ public final class DJConnectAppModel: ObservableObject {
         didSet {
             if backendAvailable {
                 refreshScheduler.cancelBackendRecovery()
+            } else {
+                scheduleBackendRecoveryRefresh(reason: "Rechecking unavailable playback backend")
             }
             updateWakeWordListeningForAvailability()
         }
@@ -2365,6 +2367,7 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         refreshWebSocketFastPathStatus()
+        if !backendAvailable { scheduleBackendRecoveryRefresh(reason: "Resuming playback backend recovery") }
         log(.debug, "App became active; scheduling playback refresh")
         schedulePairedRefresh(
             reason: "Resume Now Playing refresh completed",
@@ -3605,7 +3608,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func scheduleBackendRecoveryRefresh(reason: String) {
-        guard startBackgroundTasks, !isDemoMode, pairingStatus == .paired, !backendAvailable, !isOfflineModeActive else {
+        guard startBackgroundTasks, isAppInForeground, !isDemoMode, pairingStatus == .paired, !backendAvailable, !isOfflineModeActive else {
             return
         }
         refreshScheduler.scheduleBackendRecovery(
@@ -3613,7 +3616,7 @@ public final class DJConnectAppModel: ObservableObject {
                 guard let self else {
                     return false
                 }
-                return self.pairingStatus == .paired
+                return self.isAppInForeground && self.pairingStatus == .paired
                     && !self.isDemoMode
                     && !self.backendAvailable
                     && !self.isOfflineModeActive
@@ -3625,7 +3628,9 @@ public final class DJConnectAppModel: ObservableObject {
                 self.log(.debug, reason)
                 _ = await self.runRefresh(
                     reason: "Playback backend recovery refresh completed",
-                    allowThrottle: true,
+                    // This loop already backs off from 2 to 10 seconds. The
+                    // normal eight-second refresh throttle must not suppress it.
+                    allowThrottle: false,
                     refreshCollections: false
                 )
             }
@@ -4259,12 +4264,19 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func currentPersonaScope() -> PersonaObservationScope? {
-        guard isAppInForeground, sessionHistory.hasAuthorizedOwner, isConnected, backendAvailable,
+        guard isAppInForeground, sessionHistory.hasAuthorizedOwner, isConnected,
               !djSessionIsRecovering, !djSessionLiveUnavailable,
               let session = activeDJSession, session.runtimeState == "active",
               let binding = profileDJSettings.response?.binding else { return nil }
         return .init(sessionID: session.id, epoch: sessionHistory.responseEpoch,
                      connection: sessionBroadcastGeneration, settingsBinding: binding)
+    }
+
+    private func tracePersonaActivity(_ event: String) {
+        guard DJConnectAppLogLevel.parse(logLevel) == .debug, let session = activeDJSession else { return }
+        let scope = currentPersonaScope()
+        let evidence = personaEvidence(for: session, admittedMoment: nil)
+        log(.debug, "Avatar \(event) authorized=\(evidence.authorized) capturing=\(evidence.capturing) speaking=\(evidence.speaking) capture_bound=\(personaVoiceScope != nil && personaVoiceScope == scope) output_bound=\(personaSpeechObservation != nil && personaSpeechObservation?.scope == scope)")
     }
 
     /// The supplied Moment has already passed native delivery/source/attribution admission.
@@ -6687,6 +6699,7 @@ public final class DJConnectAppModel: ObservableObject {
                         self.sharedSpeechIsPreparing = false
                         self.sharedSpeechIsPlaying = playing
                         self.sharedSpeechDelivery["local"] = playing ? "playing" : "ready"
+                        self.tracePersonaActivity(playing ? "native_output_started" : "native_output_stopped")
                     }
                     deviceSpeechRenderer.onPlaybackFinished = { finished in completed = finished }
                     let started = deviceSpeechRenderer.speak(prepared.segments.map(\.text).joined(), locale: locale,
@@ -6717,6 +6730,7 @@ public final class DJConnectAppModel: ObservableObject {
                 guard player.prepareToPlay(), current(), player.play() else { throw DJConnectError.invalidResponse }
                 sharedResponseDataPlayer = player; sharedSpeechIsPreparing = false; sharedSpeechIsPlaying = true
                 sharedSpeechDelivery["local"] = "playing"
+                tracePersonaActivity("ha_output_started")
                 log(.info, "Playing DJ contribution audio from configured Home Assistant provider")
                 while player.isPlaying && current() && !Task.isCancelled { try await Task.sleep(for: .milliseconds(100)) }
                 guard current(), !Task.isCancelled else { return }
@@ -7990,6 +8004,10 @@ public final class DJConnectAppModel: ObservableObject {
     func refreshForegroundStateFromPollTimer() async {
         guard isAppInForeground, pairingStatus == .paired, !isDemoMode,
               !isOfflineModeActive, !isRefreshing else { return }
+        // Session polling continues independently of music. Also rearm the
+        // bounded status recovery if metadata or a foreground interruption
+        // left the backend unavailable without a live recovery task.
+        if !backendAvailable { scheduleBackendRecoveryRefresh(reason: "Foreground poll rechecking playback backend") }
         await refreshProfileDJSettings()
         let previousSessionID = activeDJSession?.sessionID
         let refreshed = await refreshActiveDJSession()
@@ -13922,6 +13940,11 @@ public final class DJConnectAppModel: ObservableObject {
         active_output: \(activeOutput?.name ?? "missing") / \(activeOutput?.id ?? "missing")
         assist_pipeline_id: \(assistPipelineID.isEmpty ? "missing" : "present")
         backend_available: \(backendAvailable)
+        app_foreground: \(isAppInForeground)
+        ha_connected: \(isConnected)
+        persona_scope_available: \(currentPersonaScope() != nil)
+        persona_voice_scope_current: \(personaVoiceScope != nil && personaVoiceScope == currentPersonaScope())
+        persona_speech_scope_current: \(personaSpeechObservation != nil && personaSpeechObservation?.scope == currentPersonaScope())
         active_session_present: \(activeDJSession != nil)
         session_live_unavailable: \(djSessionLiveUnavailable)
         session_recovering: \(djSessionIsRecovering)
@@ -15008,6 +15031,7 @@ public final class DJConnectAppModel: ObservableObject {
             voiceErrorMessage = nil
             isRecordingVoice = true
             voiceStatus = .listening
+            tracePersonaActivity("capture_started")
             log(.info, "Voice recording started")
         } catch {
             isRecordingVoice = false
