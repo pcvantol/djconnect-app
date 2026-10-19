@@ -2657,7 +2657,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                     mood: backendMoodHint,
                     djStyle: djStyle,
                     musicDNAKey: musicDNAKey,
-                    audioResponse: deviceSpeechPreferences.enabled ? .never : .auto,
+                    audioResponse: .never, // manual native replay uses an independently admitted source
                     djAnnouncementOutput: .clientDevice,
                     language: currentRequestLocale
                 )

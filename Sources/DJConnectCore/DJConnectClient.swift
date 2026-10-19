@@ -68,6 +68,20 @@ public final class DJConnectClient: Sendable {
 
     deinit { sessionProjectionSession.invalidateAndCancel() }
 
+    /// Always re-read immediately before HA speech use; never use legacy support flags.
+    public func currentDeviceSpeech(language: String, expectedInstallationID: String) async throws -> DJConnectDeviceSpeechAvailability? {
+        let token = try tokenStore.loadToken()
+        guard token?.isEmpty == false else { return nil }
+        var request = try statusRequest(DJConnectStatusPayload(identity: identity, language: language))
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        let response: DJConnectEnvelope<DJConnectPlayback> = try await decodedResponse(for: request, using: sessionProjectionSession)
+        try Task.checkCancellation()
+        guard try tokenStore.loadToken() == token,
+              response.success, !expectedInstallationID.isEmpty, response.haInstallID == expectedInstallationID,
+              let snapshot = response.deviceSpeech, snapshot.qualifies(locale: language) else { return nil }
+        return snapshot
+    }
+
     public func postStatus(_ payload: DJConnectStatusPayload) async throws -> DJConnectEnvelope<DJConnectPlayback> {
         let request = try statusRequest(payload)
         return try await decodedResponse(for: request)

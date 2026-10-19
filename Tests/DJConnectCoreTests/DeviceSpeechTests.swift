@@ -105,6 +105,8 @@ import Testing
     model.deviceSpeechPreferences.enabled = false
     #expect(model.localResponseAudioEnabled)
     #expect(payload().audioResponse == .always)
+    #expect(payload().speechContractVersion == 3) // deferred autoplay intent, never inline synthesis
+    #expect(!model.canUseHASpeechOutput(.local)) // real prepare still needs fresh discovery
     current = try snapshot("text_only_zero_synthesis_old_audio_denied_and_owner_controls_removed")
     await model.profileDJSettings.refresh(.init(read: { current }, update: { _, _, _ in throw CancellationError() }, receipt: { _, _ in throw CancellationError() }))
     model.deviceSpeechPreferences.enabled = true
@@ -130,4 +132,118 @@ import Testing
     let other = DJConnectAppModel(defaults: second, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     #expect(restored.deviceSTTEnabled && !other.deviceSTTEnabled)
     #expect(!model.deviceSpeechPreferences.enabled && !model.localResponseAudioEnabled)
+}
+
+private func availabilityCases() throws -> [[String: Any]] {
+    let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/device-speech-core-604b80f8.json")
+    let root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+    return try #require(root["cases"] as? [[String: Any]])
+}
+private func availability(_ json: [String: Any]) throws -> DJConnectDeviceSpeechAvailability {
+    try JSONDecoder().decode(DJConnectDeviceSpeechAvailability.self, from: JSONSerialization.data(withJSONObject: json))
+}
+
+@Test func deviceSpeechUsesOriginalProducerCasesAndIndependentRoutes() throws {
+    let cases = try availabilityCases()
+    #expect(cases.count == 15)
+    for item in cases {
+        guard let json = item["snapshot"] as? [String: Any] else { continue }
+        let value = try availability(json)
+        let stt = try #require(json["ha_stt"] as? [String: Any])
+        let tts = try #require(json["ha_tts"] as? [String: Any])
+        let speaker = try #require(json["ha_speaker_target"] as? [String: Any])
+        #expect(value.allowsHAInput(locale: value.locale ?? "en") == (stt["available"] as? Bool == true))
+        let retry = (tts["operational"] as? [String: Any])?["retry_after_seconds"] as? Int ?? 0
+        #expect(value.allowsHAOutput(.local, locale: value.locale ?? "en") == (tts["available"] as? Bool == true && retry <= 0))
+        #expect(value.allowsHAOutput(.haSpeaker, locale: value.locale ?? "en") == (tts["available"] as? Bool == true && retry <= 0 && speaker["available"] as? Bool == true))
+        #expect(!value.allowsHAInput(locale: "und"))
+    }
+}
+
+@Test func deviceSpeechRejectsFutureVersionsStatesAndContradictoryAvailability() throws {
+    let original = try #require(availabilityCases().first?["snapshot"] as? [String: Any])
+    for version in [0, 2, 999] {
+        var json = original; json["schema_version"] = version
+        let value = try availability(json)
+        #expect(!value.allowsHAOutput(.local, locale: value.locale ?? "en"))
+        #expect(!value.allowsHAInput(locale: value.locale ?? "en"))
+    }
+    for state in ["unknown", "unsupported", "unavailable", "unconfigured", "future"] {
+        var json = original
+        var route = try #require(json["ha_tts"] as? [String: Any])
+        route["state"] = state; route["available"] = true; route["configured"] = true
+        json["ha_tts"] = route
+        let value = try availability(json)
+        #expect(!value.allowsHAOutput(.local, locale: value.locale ?? "en"))
+    }
+}
+
+@Test func deviceSpeechLegacySupportFlagsCannotQualifyRoutes() throws {
+    let decoder = JSONDecoder()
+    let absent = try decoder.decode(DJConnectEnvelope<DJConnectPlayback>.self,
+        from: Data(#"{"success":true,"voice_supported":true,"ask_dj_voice_supported":true}"#.utf8))
+    #expect(absent.deviceSpeech == nil)
+    var body: [String: Any] = ["success": true, "device_speech": try #require(availabilityCases().first?["snapshot"])]
+    let present = try decoder.decode(DJConnectEnvelope<DJConnectPlayback>.self, from: JSONSerialization.data(withJSONObject: body))
+    #expect(present.deviceSpeech?.ha_tts.isAvailable == true)
+    body["device_speech"] = nil
+    let pair = try decoder.decode(DJConnectPairingResponse.self, from: JSONSerialization.data(withJSONObject: body))
+    #expect(pair.deviceSpeech == nil)
+}
+
+@Test func deviceSpeechMatchesProducerLocaleFamilyWithoutBorrowingAnotherLanguage() throws {
+    let original = try #require(availabilityCases().first?["snapshot"] as? [String: Any])
+    let value = try availability(original)
+    #expect(value.qualifies(locale: "en-US"))
+    #expect(value.qualifies(locale: "en_GB"))
+    #expect(!value.qualifies(locale: "nl-NL"))
+    #expect(!value.qualifies(locale: ""))
+    #expect(!value.qualifies(locale: "-en"))
+}
+
+@Test func deviceSpeechMalformedDiscoveryDoesNotBreakOrdinaryStatus() throws {
+    for value: Any in ["future", ["schema_version": 2], ["schema_version": 1, "ha_stt": "changed"]] {
+        let body: [String: Any] = ["success": true, "device_speech": value, "ha_install_id": "same"]
+        let status = try JSONDecoder().decode(DJConnectEnvelope<DJConnectPlayback>.self,
+            from: JSONSerialization.data(withJSONObject: body))
+        #expect(status.success && status.haInstallID == "same")
+        #expect(status.deviceSpeech == nil)
+    }
+}
+
+@Test func deviceSpeechRequiresKnownOperationalEvidenceAndRetriesExpiredFailure() throws {
+    let original = try #require(availabilityCases().first?["snapshot"] as? [String: Any])
+    var route = try #require(original["ha_tts"] as? [String: Any])
+    route["operational"] = nil
+    var missing = original; missing["ha_tts"] = route
+    let unavailable = try availability(missing)
+    #expect(unavailable.ha_tts.isAvailable) // configuration remains independently valid
+    #expect(!unavailable.allowsHAOutput(.local, locale: "en-US"))
+    for state in ["not_tested", "succeeded", "failed", "unknown", "future"] {
+        for retry in [-1, 0, 1, 60] {
+            route["operational"] = ["synthesis_state": state, "retry_after_seconds": retry]
+            var json = original; json["ha_tts"] = route
+            let value = try availability(json)
+            #expect(value.ha_tts.isAvailable)
+            #expect(value.allowsHAOutput(.local, locale: "en-US") == (["not_tested", "succeeded", "failed"].contains(state) && retry == 0))
+        }
+    }
+}
+
+@Test func deviceSpeechRequiresCompatibleCaptureAndCurrentRouteMetadata() throws {
+    let item = try #require(availabilityCases().first { $0["case"] as? String == "configuration_stt_True_tts_True" })
+    let original = try #require(item["snapshot"] as? [String: Any])
+    for key in ["audio", "locale"] {
+        var json = original; var stt = try #require(json["ha_stt"] as? [String: Any]); stt[key] = nil; json["ha_stt"] = stt
+        #expect(!(try availability(json)).allowsHAInput(locale: "en-US"))
+    }
+    for key in ["operational", "locale", "configuration_revision"] {
+        var json = original; var tts = try #require(json["ha_tts"] as? [String: Any]); tts[key] = nil; json["ha_tts"] = tts
+        #expect(!(try availability(json)).allowsHAOutput(.local, locale: "en-US"))
+    }
+    var json = original; var stt = try #require(json["ha_stt"] as? [String: Any])
+    var audio = try #require(stt["audio"] as? [String: Any]); audio["sample_rate"] = 48000
+    stt["audio"] = audio; json["ha_stt"] = stt
+    #expect(!(try availability(json)).allowsHAInput(locale: "en-US"))
+    #expect((try availability(json)).allowsHAOutput(.local, locale: "en-US"))
 }

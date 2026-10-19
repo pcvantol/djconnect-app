@@ -51,3 +51,63 @@ public enum DJConnectNativeSpeechAdmission {
         prepared.expiresAt.flatMap(DJConnectHistoryEntry.date).map { $0.timeIntervalSince(now) <= 300.001 } == true
     }
 }
+
+/// Configuration evidence only. This snapshot never grants speech or proves audibility.
+/// Unknown versions/states remain decodable but cannot qualify an HA route.
+public struct DJConnectDeviceSpeechAvailability: Codable, Equatable, Sendable {
+    public struct Route: Codable, Equatable, Sendable {
+        public let state: String
+        public let configured: Bool?
+        public let available: Bool
+        public let reason: String?
+        public let locale: String?
+        public let operational: Operational?
+        public let audio: Audio?
+        public let configuration_revision: String?
+        public let revision: String?
+        public struct Audio: Codable, Equatable, Sendable {
+            public let format: String
+            public let codec: String
+            public let sample_rate: Int
+            public let sample_width: Int
+            public let channels: Int
+            public var matchesCapture: Bool {
+                format == "wav" && codec == "pcm" && sample_rate == 16000 && sample_width == 2 && channels == 1
+            }
+        }
+        public struct Operational: Codable, Equatable, Sendable {
+            public let synthesis_state: String
+            public let retry_after_seconds: Int
+        }
+        public var isAvailable: Bool { state == "available" && configured == true && available }
+    }
+    public let schema_version: Int
+    public let authority: String
+    public let locale: String?
+    public let revision: String
+    public let ha_stt: Route
+    public let ha_tts: Route
+    public let ha_speaker_target: Route
+
+    public func qualifies(locale requested: String) -> Bool {
+        schema_version == 1 && authority == "configured_ha_selection" && !revision.isEmpty &&
+        Self.family(locale) != nil && Self.family(locale) == Self.family(requested)
+    }
+    private static func family(_ value: String?) -> String? {
+        guard let value, value.count <= 32,
+              let family = value.replacingOccurrences(of: "_", with: "-").lowercased().split(separator: "-", omittingEmptySubsequences: false).first,
+              ["en", "nl", "de", "fr", "es"].contains(String(family)) else { return nil }
+        return String(family)
+    }
+    public func allowsHAInput(locale: String) -> Bool {
+        qualifies(locale: locale) && ha_stt.isAvailable && Self.family(ha_stt.locale) == Self.family(locale) &&
+        ha_stt.audio?.matchesCapture == true
+    }
+    public func allowsHAOutput(_ target: DJConnectSharedSpeechTarget, locale: String) -> Bool {
+        guard qualifies(locale: locale), ha_tts.isAvailable, Self.family(ha_tts.locale) == Self.family(locale),
+              ha_tts.configuration_revision?.isEmpty == false, let operational = ha_tts.operational,
+              ["not_tested", "succeeded", "failed"].contains(operational.synthesis_state),
+              operational.retry_after_seconds == 0 else { return false }
+        return target == .local || (ha_speaker_target.isAvailable && ha_speaker_target.revision?.isEmpty == false)
+    }
+}

@@ -1097,6 +1097,26 @@ public final class DJConnectAppModel: ObservableObject {
     }
     @Published public var language = "en"
     @Published public private(set) var appLanguageOverrideCode = ""
+    @Published private var deviceSpeechAvailability: DJConnectDeviceSpeechAvailability?
+    private var deviceSpeechContext: [String] = []
+    private var currentDeviceSpeechContext: [String] {
+        [haLocalURL, haRemoteURL, defaults.string(forKey: haInstallIDKey) ?? "",
+         (try? tokenStore.loadToken()) ?? "", sessionHistory.authorizedProfileID ?? "",
+         currentRequestLocale]
+    }
+    private var currentDeviceSpeechAvailability: DJConnectDeviceSpeechAvailability? {
+        guard !isDemoMode, pairingStatus == .paired, isAppInForeground,
+              deviceSpeechContext == currentDeviceSpeechContext else { return nil }
+        return deviceSpeechAvailability
+    }
+    public var canUseVoiceInputRoute: Bool {
+        voiceEnabled && (isRecordingVoice || isDemoMode || deviceSTTEnabled ||
+            currentDeviceSpeechAvailability?.allowsHAInput(locale: currentRequestLocale) == true)
+    }
+    public func canUseHASpeechOutput(_ target: DJConnectSharedSpeechTarget) -> Bool {
+        isDemoMode || currentDeviceSpeechAvailability?.allowsHAOutput(target, locale: currentRequestLocale) == true
+    }
+
     @Published public var voiceEnabled = true {
         didSet { updateWakeWordListeningForAvailability() }
     }
@@ -1402,7 +1422,6 @@ public final class DJConnectAppModel: ObservableObject {
     private let askDJMessagesKey = "DJConnectAskDJMessages"
     private let askDJHistoryRevisionKey = "DJConnectAskDJHistoryRevision"
     private let askDJClearRevisionKey = "DJConnectAskDJClearRevision"
-    private let askDJAudioResponseModeKey = "DJConnectAskDJAudioResponseMode"
     private let localResponseAudioEnabledKey = "DJConnectLocalResponseAudioEnabled"
     private let djAnnouncementOutputKey = "DJConnectDJAnnouncementOutput"
     private let autoTrackInsightEnabledKey = "DJConnectAutoTrackInsightEnabled"
@@ -4047,9 +4066,12 @@ public final class DJConnectAppModel: ObservableObject {
         clearAskDJHistoryLocally(); applyAskDJHistory(response, forceClear: response.isClearAcknowledged)
     }
     func profileConversationPayload(text: String, clientMessageID: String, context: DJConnectConversationContext) -> DJConnectAskDJRequest {
+        // Core604b80f8 common Profile turns always defer synthesis. With contract3,
+        // audioResponse requests autoplay eligibility only; actual prepare3 below
+        // performs fresh device-speech admission. Do not erase that source intent.
         var payload = DJConnectAskDJRequest(identity: identity, text: text, clientMessageID: clientMessageID,
             inputType: "text", mood: confirmedSessionMoodInt, djStyle: "warm_radio_dj", musicDNAKey: askDJMusicDNAKey,
-            audioResponse: localResponseAudioEnabled && !deviceSpeechPreferences.enabled && sharedDJSpeechAllowed &&
+            audioResponse: profileDJSettings.negotiated && localResponseAudioEnabled && !deviceSpeechPreferences.enabled && sharedDJSpeechAllowed &&
                 profileDJSettings.effective?.announcement_output.allowsClientAudio == true ? .always : .never,
             djAnnouncementOutput: profileDJSettings.effective?.announcement_output ?? djAnnouncementOutput, language: currentRequestLocale)
         payload.conversationContext = context
@@ -4097,7 +4119,11 @@ public final class DJConnectAppModel: ObservableObject {
         personaReactions.start(.init(request: { [weak self] dispatched in
             guard let self, current() else { throw CancellationError() }
             return try await self.withHomeAssistantClient(allowsOperationReplay: false) {
-                try await $0.requestPersonaReaction(request, settings: settings, onOperationID: dispatched)
+                if request.processor == .haConfigured && settings.snapshot.effective.announcement_output.allowsClientAudio {
+                    try await self.requireHADeviceSpeech(client: $0, language: request.language, target: .local)
+                    guard current(), !Task.isCancelled else { throw CancellationError() }
+                }
+                return try await $0.requestPersonaReaction(request, settings: settings, onOperationID: dispatched)
             }
         }, cancel: { [weak self] id, reason in
             guard let self else { return }
@@ -4177,7 +4203,9 @@ public final class DJConnectAppModel: ObservableObject {
             return started && finished
         }
         let bytes = try await withHomeAssistantClient(allowsOperationReplay: false) {
-            try await $0.personaReactionAudio(reaction, request: request, settings: settings)
+            try await self.requireHADeviceSpeech(client: $0, language: request.language, target: .local)
+            guard current(), !Task.isCancelled, reaction.deadline.map({ $0 > Date() }) == true else { throw CancellationError() }
+            return try await $0.personaReactionAudio(reaction, request: request, settings: settings)
         }
         guard current(), !Task.isCancelled, reaction.deadline.map({ $0 > Date() }) == true else { throw CancellationError() }
         let player = try AVAudioPlayer(data: bytes)
@@ -5136,6 +5164,21 @@ public final class DJConnectAppModel: ObservableObject {
         voiceErrorMessage = nil
 
         voiceStartTask = Task { @MainActor in
+            if !deviceSTTEnabled {
+                do {
+                    try await withHomeAssistantClient { client in
+                        try await self.requireHADeviceSpeech(client: client, language: self.currentRequestLocale)
+                    }
+                    guard !Task.isCancelled, isRecordingVoice else { return }
+                } catch {
+                    guard !Task.isCancelled, isRecordingVoice else { return }
+                    cancelVoiceRecording()
+                    _ = sessionHistory.withdrawAuthority(for: error)
+                    voiceStatus = .unavailable
+                    voiceErrorMessage = localized(key: "ui.voice.requests.unavailable")
+                    return
+                }
+            }
             let granted = await requestMicrophoneAccess()
             guard !Task.isCancelled, isRecordingVoice else {
                 return
@@ -6557,7 +6600,9 @@ public final class DJConnectAppModel: ObservableObject {
             var stage = "prepare"
             do {
                 let result = try await withHomeAssistantClient(allowsOperationReplay: false) {
-                    try await $0.prepareSharedDJSpeech(reference: reference, acceptedText: acceptedText, settings: settings, target: target, automatic: automatic)
+                    try await self.requireHADeviceSpeech(client: $0, language: self.currentRequestLocale, target: target)
+                    guard current(), !Task.isCancelled else { throw CancellationError() }
+                    return try await $0.prepareSharedDJSpeech(reference: reference, acceptedText: acceptedText, settings: settings, target: target, automatic: automatic)
                 }
                 guard current(), !Task.isCancelled else { return }
                 sharedSpeechDelivery = result.delivery ?? [:]
@@ -7255,6 +7300,10 @@ public final class DJConnectAppModel: ObservableObject {
               haLocalURL == expectedLocal, haRemoteURL == expectedRemote,
               defaults.string(forKey: haInstallIDKey) == expectedInstall,
               expectedInstall?.isEmpty == false, response.haInstallID == expectedInstall else { return false }
+        defer {
+            deviceSpeechContext = currentDeviceSpeechContext
+            deviceSpeechAvailability = response.deviceSpeech
+        }
         func endpoint(_ value: String?, remote: Bool) -> String? {
             guard let value, let c = URLComponents(string: value.trimmingCharacters(in: .whitespacesAndNewlines)),
                   c.user == nil, c.password == nil, c.query == nil, c.fragment == nil,
@@ -7285,6 +7334,8 @@ public final class DJConnectAppModel: ObservableObject {
         guard !endpointStatusRefreshInProgress,
               endpointStatusRefreshAt.map({ Date().timeIntervalSince($0) >= 60 }) ?? true else { return }
         endpointStatusRefreshInProgress = true
+        deviceSpeechAvailability = nil
+        let speechContext = currentDeviceSpeechContext
         defer { endpointStatusRefreshInProgress = false }
         let local = haLocalURL, remote = haRemoteURL, install = defaults.string(forKey: haInstallIDKey)
         let epoch = sessionHistory.responseEpoch
@@ -7295,7 +7346,8 @@ public final class DJConnectAppModel: ObservableObject {
                 localAudioSupported: true, voiceSupported: voiceEnabled, haLocalURL: local.isEmpty ? nil : local,
                 voiceEnabled: voiceEnabled, wakewordEnabled: wakeWordEnabled, wakewordPhrase: wakeWordPhrase,
                 wakewordStatus: "\(wakeWordStatus)", mood: confirmedSessionMoodInt, musicDNAKey: askDJMusicDNAKey))
-            guard !Task.isCancelled, epoch == sessionHistory.responseEpoch, isAppInForeground else { return }
+            guard !Task.isCancelled, epoch == sessionHistory.responseEpoch, isAppInForeground,
+                  speechContext == currentDeviceSpeechContext else { return }
             _ = applyStatusEndpoints(response, expectedLocal: local, expectedRemote: remote, expectedInstall: install)
         } catch {
             if (error as? DJConnectError)?.invalidatesSessionAuthority == true { throw error }
@@ -7308,6 +7360,8 @@ public final class DJConnectAppModel: ObservableObject {
                                isStillValid: (@MainActor () -> Bool)? = nil) async throws {
         let local = haLocalURL, remote = haRemoteURL, install = defaults.string(forKey: haInstallIDKey)
         let epoch = sessionHistory.responseEpoch
+        deviceSpeechAvailability = nil
+        let speechContext = currentDeviceSpeechContext
         do {
             guard isStillValid?() != false else { throw CancellationError() }
             log(.debug, "Posting status to Home Assistant")
@@ -7337,7 +7391,8 @@ public final class DJConnectAppModel: ObservableObject {
             ) else {
                 return
             }
-            guard (!bindToHistoryEpoch || epoch == sessionHistory.responseEpoch), haLocalURL == local, haRemoteURL == remote,
+            guard speechContext == currentDeviceSpeechContext,
+                  (!bindToHistoryEpoch || epoch == sessionHistory.responseEpoch), haLocalURL == local, haRemoteURL == remote,
                   defaults.string(forKey: haInstallIDKey) == install,
                   install == nil || response.haInstallID == nil || response.haInstallID == install else { throw CancellationError() }
             _ = applyStatusEndpoints(response, expectedLocal: local, expectedRemote: remote, expectedInstall: install)
@@ -7880,9 +7935,33 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    /// A fresh same-client read is configuration admission only. Prepare3/source rights
+    /// and actual runtime processing remain authoritative; no preference is rewritten.
+    func requireHADeviceSpeech(client: DJConnectClient, language: String,
+                                       target: DJConnectSharedSpeechTarget? = nil) async throws {
+        let context = currentDeviceSpeechContext, epoch = sessionHistory.responseEpoch
+        let updatesPresentation = client.identity.deviceID == identity.deviceID && language == currentRequestLocale
+        if updatesPresentation { deviceSpeechAvailability = nil }
+        let snapshot = try await client.currentDeviceSpeech(language: language, expectedInstallationID: defaults.string(forKey: haInstallIDKey) ?? "")
+        guard !Task.isCancelled, context == currentDeviceSpeechContext,
+              epoch == sessionHistory.responseEpoch, pairingStatus == .paired, isAppInForeground else { throw CancellationError() }
+        // A Watch locale may differ; it cannot overwrite this device's presentation.
+        if updatesPresentation {
+            deviceSpeechContext = context
+            deviceSpeechAvailability = snapshot
+        }
+        guard let snapshot,
+              target.map({ snapshot.allowsHAOutput($0, locale: language) }) ?? snapshot.allowsHAInput(locale: language)
+        else { throw DJConnectError.invalidResponse }
+    }
+
     private func sendVoiceWithFallback(wavData: Data) async throws -> DJConnectVoiceResponse {
-        try await withHomeAssistantClient { client in
-            try await client.sendVoice(
+        let operation = voiceOperationGeneration, epoch = sessionHistory.responseEpoch
+        return try await withHomeAssistantClient { client in
+            try await self.requireHADeviceSpeech(client: client, language: self.currentRequestLocale)
+            guard !self.deviceSTTEnabled, operation == self.voiceOperationGeneration,
+                  epoch == self.sessionHistory.responseEpoch else { throw CancellationError() }
+            return try await client.sendVoice(
                 wavData: wavData,
                 mood: confirmedSessionMoodInt,
                 djStyle: "warm_radio_dj",
@@ -8120,13 +8199,6 @@ public final class DJConnectAppModel: ObservableObject {
         localized(key: "demo.session.answer")
     }
 
-    private var askDJAudioResponseMode: DJConnectAskDJRequest.AudioResponse {
-        guard let rawValue = defaults.string(forKey: askDJAudioResponseModeKey) else {
-            return .auto
-        }
-        return DJConnectAskDJRequest.AudioResponse(rawValue: rawValue) ?? .auto
-    }
-
     public var selectableDJAnnouncementOutputs: [DJAnnouncementOutput] {
         djAnnouncementCapabilities.effectiveSupportedOutputs.filter { !djAnnouncementCapabilities.lockedOutputs.contains($0) }
     }
@@ -8164,7 +8236,7 @@ public final class DJConnectAppModel: ObservableObject {
         djAnnouncementOutput = fallback
     }
 
-    private func sendAskDJTextWithFallback(_ text: String, clientMessageID: String) async throws -> DJConnectAskDJMessageResponse {
+    func sendAskDJTextWithFallback(_ text: String, clientMessageID: String) async throws -> DJConnectAskDJMessageResponse {
         if sessionHistory.profileScopeActive {
             return try await sessionHistory.sendExistingText(text, clientMessageID: clientMessageID)
         }
@@ -8177,7 +8249,8 @@ public final class DJConnectAppModel: ObservableObject {
                 mood: confirmedSessionMoodInt,
                 djStyle: "warm_radio_dj",
                 musicDNAKey: askDJMusicDNAKey,
-                audioResponse: askDJAudioResponseMode,
+                // Unnegotiated compatibility text must not request inline HA synthesis.
+                audioResponse: .never,
                 djAnnouncementOutput: profileDJSettings.effective?.announcement_output ?? djAnnouncementOutput,
                 language: currentRequestLocale
             ))
@@ -13417,7 +13490,8 @@ public final class DJConnectAppModel: ObservableObject {
             let response = try await client.clearAskDJHistory(musicDNAKey: payload.musicDNAKey)
             return try encoder.encode(response)
         case .askDJMessage:
-            let payload = try decoder.decode(DJConnectAskDJRequest.self, from: request.payload ?? Data())
+            var payload = try decoder.decode(DJConnectAskDJRequest.self, from: request.payload ?? Data())
+            payload.audioResponse = .never // legacy Watch text has no negotiated deferred speech grant
             let response = try await client.sendAskDJMessage(payload)
             return try encoder.encode(response)
         case .askDJIdleSuggestion:
@@ -13464,12 +13538,25 @@ public final class DJConnectAppModel: ObservableObject {
             return try encoder.encode(response)
         case .voice:
             let payload = try decoder.decode(DJConnectWatchProxyVoicePayload.self, from: request.payload ?? Data())
+            // Interactive Watch work has its own bearer/lifecycle. The phone
+            // foreground/Profile context must not gate or receive its discovery.
+            let locale = payload.language ?? currentRequestLocale
+            let watchID = watchProxyRegistration?.identity.deviceID
+            let watchToken = defaults.string(forKey: watchProxyDeviceTokenKey)
+            let install = defaults.string(forKey: haInstallIDKey) ?? ""
+            guard client.identity.clientType == .watchos, client.identity.deviceID == watchID,
+                  watchToken?.isEmpty == false, try client.tokenStore.loadToken() == watchToken else { throw CancellationError() }
+            let availability = try await client.currentDeviceSpeech(language: locale, expectedInstallationID: install)
+            guard !Task.isCancelled, watchProxyRegistration?.identity.deviceID == watchID,
+                  defaults.string(forKey: watchProxyDeviceTokenKey) == watchToken,
+                  defaults.string(forKey: haInstallIDKey) == install,
+                  availability?.allowsHAInput(locale: locale) == true else { throw DJConnectError.invalidResponse }
             let response = try await client.sendVoice(
                 wavData: payload.wavData,
                 mood: payload.mood,
                 djStyle: payload.djStyle,
                 musicDNAKey: payload.musicDNAKey,
-                language: payload.language ?? currentRequestLocale
+                language: locale
             )
             return try encoder.encode(response)
         case .pushRegister:

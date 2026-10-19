@@ -926,7 +926,10 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         do {
             defer { if voiceClientID == id { cancelVoiceContext() } }
             let response = try await host.withHomeAssistantClient {
-                try await $0.sendSessionVoice(wavData: data, context: context, clientMessageID: id, language: payload.language ?? "en",
+                try await host.requireHADeviceSpeech(client: $0, language: payload.language ?? "en")
+                guard !host.deviceSTTEnabled, captured == self.epoch, self.voiceClientID == id,
+                      !Task.isCancelled else { throw CancellationError() }
+                return try await $0.sendSessionVoice(wavData: data, context: context, clientMessageID: id, language: payload.language ?? "en",
                                               mood: payload.mood, djStyle: payload.djStyle, musicDNAKey: payload.musicDNAKey)
             }
             guard captured == epoch else { throw CancellationError() }

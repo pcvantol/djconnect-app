@@ -50,11 +50,12 @@
       "topic": "HA-provider TTS, replay en autoplay",
       "status": "partial",
       "owner": "Apple + Core",
-      "evidence": "prepare3, tekst-only verberging, handmatig replay/on-demand en automatische nieuwe reply audio-start op iPhone aangetoond; lokale toggle blijft device-runtime. Verse hashreadback:installed session_speech.py wijkt af van Coreworkingfile; session_artwork.py matcht, http.py niet.",
+      "evidence": "prepare3, tekst-only verberging, handmatig replay/on-demand en automatische nieuwe reply audio-start op iPhone aangetoond; lokale toggle blijft device-runtime. Verse hashreadback:installed session_speech.py wijkt af van Coreworkingfile; session_artwork.py matcht, http.py niet. Apple129 source adoption: device_speech1 routes are independently qualified from Core1221; fresh same-client status before HA capture/upload/replay/autoplay, identity/locale fences and preserved saved preferences. APPLE_DEVICE_SPEECH_ADOPTION_20261019.md.",
       "remaining": [
         "Exacte gekwalificeerde Core-release op HA-dev/prod en generieke provider/targetmatrix nog open.",
         "Client/HA/beide, eerdere sessie na expiry, providerverschuiving/intrekking, achtergrondcancel en hoorbare afronding op vier targets nog niet integraal geaccepteerd.",
-        "Auto-startlog is geen akoestisch eindbewijs; eerdere offscreen-stop UI-probe faalde en blijft als failure geregistreerd."
+        "Auto-startlog is geen akoestisch eindbewijs; eerdere offscreen-stop UI-probe faalde en blijft als failure geregistreerd.",
+        "New metadata producer installation plus actual native/HA speech acceptance remain open; no ordinary installation in this source slice."
       ],
       "next_action": "Exacte gekwalificeerde Core-release op HA-dev/prod en generieke provider/targetmatrix nog open."
     },

@@ -1118,7 +1118,7 @@ struct SessionTimelineScreen: View {
     }
     private func sessionComposer(floating: Bool) -> some View {
         AskDJInputBar(model: model, canSend: canSend,
-                      canUseVoiceInput: (model.isDemoMode || model.canUseProfileConversation) && model.voiceEnabled,
+                      canUseVoiceInput: (model.isDemoMode || model.canUseProfileConversation) && model.canUseVoiceInputRoute,
                       isInputFocused: $inputFocused, sendAction: sendComposerQuestion,
                       floating: floating, placeholderKey: "ui.session.chat.placeholder",
                       surfaceColors: activeSession.map { DJConnectSessionMoodPalette(mood: $0.selectedMood).colors })

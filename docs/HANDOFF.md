@@ -1,3 +1,14 @@
+## 2026-10-19 — Apple129 device speech availability adoption
+
+Next bounded slice adopts Core1221 schema1 paired/status metadata. HA input,
+synthesis and speaker target eligibility are independent, refreshed before use,
+installation/locale/context fenced and never inferred from legacy flags.
+Saved preferences and independent Apple speech remain intact. Producer source
+and installed HA/native actual-speech acceptance are separate; last Core-declared
+HA-dev pin f8b28d2b lacks this new metadata. No ordinary install is selected.
+[Consumer scope and evidence boundaries](feedback/APPLE_DEVICE_SPEECH_ADOPTION_20261019.md).
+Touch activation remains blocked on the documented producer withdrawal gaps.
+
 ## 2026-10-19 — explicit touch source readiness; activation BLOCKED
 
 Owner continues the open lane after PR135. Core37a574c9/f8b28d2b provides the
