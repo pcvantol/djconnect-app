@@ -25,6 +25,9 @@ public struct RendezvousRetryWindow: Codable, Sendable {
     private var notBeforeMS: Int64
     private var lastObservedMS: Int64
     private var lastCompletionMS: Int64?
+    // The enclosing journal validates that its clock has not fallen behind
+    // either independently accounted SDK or registration window.
+    var observedAtMS: Int64 { lastObservedMS }
 
     public init(kind: Kind, startedAtMS: Int64, deadlineMS: Int64) throws {
         guard startedAtMS >= 0, deadlineMS > startedAtMS,

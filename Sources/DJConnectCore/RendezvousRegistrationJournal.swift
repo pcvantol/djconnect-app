@@ -1,14 +1,17 @@
 import CryptoKit
 import Foundation
 
-/// Prepared registration only: no SDK, HTTP, key creation, endpoint selection or
+/// Attestation/registration accounting only: no SDK, HTTP, key creation, endpoint selection or
 /// active-key adoption. The caller must qualify the original app/key/nonce and
 /// operation context before preparing, and again before sending returned bytes.
 public actor RendezvousRegistrationJournal {
     public static let shared = RendezvousRegistrationJournal(storage: RendezvousRepairKeychainStorage(
         service: "dev.djconnect.rendezvous.enrollment", account: "prepared-registration-v1"
     ))
-    public enum Phase: String, Codable, Sendable { case prepared, registrationUncertain, completed }
+    public enum Phase: String, Codable, Sendable { case attestationPending, prepared, registrationUncertain, completed }
+    public enum AttestationResult: Sendable {
+        case received(Data), serverUnavailable, terminalFailure
+    }
     public enum Failure: Error, Sendable { case invalidMaterial, invalidData, alreadyExists, missingState, wrongAttempt, unavailable }
     public struct Snapshot: Sendable {
         public let attemptIdentifier: UUID
@@ -17,6 +20,15 @@ public actor RendezvousRegistrationJournal {
         public let phase: Phase
         public let callsStarted: Int
         public let reservation: UUID?
+        public let attestationCallsStarted: Int
+        public let attestationReservation: UUID?
+    }
+    public struct AttestationCall: Sendable {
+        public let attemptIdentifier: UUID
+        public let reservation: UUID
+        public let keyIdentifier: String
+        public let deadlineMS: Int64
+        public let clientDataHash: Data
     }
     public struct Submission: Sendable {
         public let attemptIdentifier: UUID
@@ -30,20 +42,58 @@ public actor RendezvousRegistrationJournal {
 
     init(storage: any RendezvousRepairStorage) { self.storage = storage }
 
+    /// The caller has already admitted this existing key and server challenge.
+    /// Save their original binding before permitting any SDK invocation.
+    public func beginAttestation(keyIdentifier: String, challengeIdentifier: String, nonce: Data,
+                                 admittedAtMS: Int64, deadlineMS: Int64) throws -> UUID {
+        try refuseReplacement(at: admittedAtMS)
+        let record = try RegistrationRecord(key: keyIdentifier, challenge: challengeIdentifier,
+                                            nonce: nonce, attestation: nil,
+                                            startedAtMS: admittedAtMS, deadlineMS: deadlineMS)
+        try persist(record)
+        return record.id
+    }
+
+    /// The returned hash is SHA256 of the original stored server nonce bytes.
+    /// A restored in-flight reservation cannot authorize another SDK call.
+    public func reserveAttestation(attemptIdentifier: UUID, at nowMS: Int64) throws -> AttestationCall {
+        try mutate(attemptIdentifier, at: nowMS) { record in
+            guard record.phase == .attestationPending, let hash = record.nonceHash,
+                  var sdk = record.attestationWindow else { throw Failure.unavailable }
+            let reservation = try sdk.reserve(at: nowMS)
+            record.attestationWindow = sdk
+            return AttestationCall(attemptIdentifier: record.id, reservation: reservation,
+                                   keyIdentifier: record.key, deadlineMS: sdk.deadlineMS, clientDataHash: hash)
+        }
+    }
+
+    /// Only serverUnavailable permits another same-key/hash SDK call. Receiving
+    /// bounded proof saves the registration body once, within the original deadline.
+    public func completeAttestation(attemptIdentifier: UUID, reservation: UUID,
+                                    result: AttestationResult, at nowMS: Int64) throws {
+        try mutate(attemptIdentifier, at: nowMS) { record in
+            try record.completeAttestation(reservation, result: result, at: nowMS)
+        }
+    }
+
     /// Called after the original SDK attestation has been prepared. No prior
     /// attempt (including an uncertain/completed one) can be replaced here.
     public func prepare(keyIdentifier: String, challengeIdentifier: String, nonce: Data,
                         attestation: Data, admittedAtMS: Int64, deadlineMS: Int64) throws -> UUID {
-        if var existing = try read() {
-            try existing.observeAndExpire(at: admittedAtMS)
-            try persist(existing)
-            throw Failure.alreadyExists
-        }
+        try refuseReplacement(at: admittedAtMS)
         let record = try RegistrationRecord(key: keyIdentifier, challenge: challengeIdentifier,
                                             nonce: nonce, attestation: attestation,
                                             startedAtMS: admittedAtMS, deadlineMS: deadlineMS)
         try persist(record)
         return record.id
+    }
+
+    private func refuseReplacement(at nowMS: Int64) throws {
+        if var existing = try read() {
+            try existing.observeAndExpire(at: nowMS)
+            try persist(existing)
+            throw Failure.alreadyExists
+        }
     }
 
     /// Logical expiry is enforced before returning even this material-free view.
@@ -112,43 +162,88 @@ private extension RendezvousRetryWindow.Outcome {
 }
 
 private struct RegistrationRecord: Codable {
-    private let schemaVersion = 1
+    private let schemaVersion = 2
+    // Required in v2: missing SDK accounting is only valid for an explicitly
+    // imported, already prepared record (including a migrated v1 record).
+    private enum Admission: String, Codable { case preparedImport, trackedAttestation }
+    private let admission: Admission
     let id: UUID
     let key: String
     var phase: RendezvousRegistrationJournal.Phase = .prepared
     var window: RendezvousRetryWindow
+    var attestationWindow: RendezvousRetryWindow?
     private var lastObservedMS: Int64
     private var challenge: String?
     private var nonce: Data?
-    private var nonceHash: Data?
+    fileprivate var nonceHash: Data?
     fileprivate var request: Data?
     private var requestHash: Data?
 
-    init(key: String, challenge: String, nonce: Data, attestation: Data,
+    init(key: String, challenge: String, nonce: Data, attestation: Data?,
          startedAtMS: Int64, deadlineMS: Int64) throws {
         guard Self.validKey(key), Self.decodeURL(challenge)?.count == 32, nonce.count == 32,
-              !attestation.isEmpty, attestation.count <= 32_768,
+              attestation.map({ !$0.isEmpty && $0.count <= 32_768 }) ?? true,
               deadlineMS <= 9_007_199_254_740_991 else { throw RendezvousRegistrationJournal.Failure.invalidMaterial }
         id = UUID()
         self.key = key
         self.challenge = challenge
         self.nonce = nonce
         nonceHash = Self.hash(nonce)
-        request = try Self.body(key: key, challenge: challenge, attestation: Self.encodeURL(attestation))
-        requestHash = Self.hash(request!)
+        admission = attestation == nil ? .trackedAttestation : .preparedImport
+        if let attestation {
+            request = try Self.body(key: key, challenge: challenge, attestation: Self.encodeURL(attestation))
+            requestHash = Self.hash(request!)
+        } else {
+            phase = .attestationPending
+            attestationWindow = try RendezvousRetryWindow(kind: .appleAttestation, startedAtMS: startedAtMS, deadlineMS: deadlineMS)
+        }
         window = try RendezvousRetryWindow(kind: .registration, startedAtMS: startedAtMS, deadlineMS: deadlineMS)
         lastObservedMS = startedAtMS
     }
 
     var snapshot: RendezvousRegistrationJournal.Snapshot {
         .init(attemptIdentifier: id, keyIdentifier: key, deadlineMS: window.deadlineMS,
-              phase: phase, callsStarted: window.callsStarted, reservation: window.reservation)
+              phase: phase, callsStarted: window.callsStarted, reservation: window.reservation,
+              attestationCallsStarted: attestationWindow?.callsStarted ?? 0,
+              attestationReservation: attestationWindow?.reservation)
+    }
+
+    mutating func completeAttestation(_ reservation: UUID, result: RendezvousRegistrationJournal.AttestationResult,
+                                      at nowMS: Int64) throws {
+        guard phase == .attestationPending, var sdk = attestationWindow else {
+            throw RendezvousRegistrationJournal.Failure.unavailable
+        }
+        let outcome: RendezvousRetryWindow.Outcome
+        let proof: Data?
+        var invalidProof = false
+        switch result {
+        case .received(let data):
+            invalidProof = data.isEmpty || data.count > 32_768
+            outcome = invalidProof ? .terminalFailure : .succeeded
+            proof = invalidProof ? nil : data
+        case .serverUnavailable: outcome = .appleServerUnavailable; proof = nil
+        case .terminalFailure: outcome = .terminalFailure; proof = nil
+        }
+        try sdk.complete(reservation, outcome: outcome, at: nowMS)
+        // Construct before changing phase/accounting, so a failed construction
+        // never leaves a partially prepared record.
+        if let proof, let challenge {
+            let bytes = try Self.body(key: key, challenge: challenge, attestation: Self.encodeURL(proof))
+            request = bytes
+            requestHash = Self.hash(bytes)
+            phase = .prepared
+        } else if sdk.isClosed {
+            finish(as: .registrationUncertain)
+        }
+        attestationWindow = sdk
+        if invalidProof { throw RendezvousRegistrationJournal.Failure.invalidMaterial }
     }
 
     mutating func observeAndExpire(at nowMS: Int64) throws {
         guard nowMS >= lastObservedMS else { throw RendezvousRegistrationJournal.Failure.invalidData }
         lastObservedMS = nowMS
-        if phase == .prepared, nowMS >= window.deadlineMS { finish(as: .registrationUncertain) }
+        if phase == .prepared || phase == .attestationPending,
+           nowMS >= window.deadlineMS { finish(as: .registrationUncertain) }
     }
 
     mutating func finish(as phase: RendezvousRegistrationJournal.Phase) {
@@ -183,11 +278,17 @@ private struct RegistrationRecord: Codable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, id, key, phase, window, lastObservedMS, challenge, nonce, nonceHash, request, requestHash
+        case schemaVersion, admission, id, key, phase, window, attestationWindow, lastObservedMS, challenge, nonce, nonceHash, request, requestHash
     }
     init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        guard try c.decode(Int.self, forKey: .schemaVersion) == 1 else { throw RendezvousRegistrationJournal.Failure.invalidData }
+        let version = try c.decode(Int.self, forKey: .schemaVersion)
+        guard version == 1 || version == 2 else { throw RendezvousRegistrationJournal.Failure.invalidData }
+        admission = version == 1 ? .preparedImport : try c.decode(Admission.self, forKey: .admission)
+        attestationWindow = try c.decodeIfPresent(RendezvousRetryWindow.self, forKey: .attestationWindow)
+        guard version != 1 || (!c.contains(.attestationWindow) && !c.contains(.admission)) else {
+            throw RendezvousRegistrationJournal.Failure.invalidData
+        }
         id = try c.decode(UUID.self, forKey: .id)
         key = try c.decode(String.self, forKey: .key)
         phase = try c.decode(RendezvousRegistrationJournal.Phase.self, forKey: .phase)
@@ -200,12 +301,33 @@ private struct RegistrationRecord: Codable {
         requestHash = try c.decodeIfPresent(Data.self, forKey: .requestHash)
         guard Self.validKey(key), window.kind == .registration,
               window.deadlineMS <= 9_007_199_254_740_991,
-              lastObservedMS >= window.startedAtMS else { throw RendezvousRegistrationJournal.Failure.invalidData }
-        if phase == .prepared {
+              lastObservedMS >= window.observedAtMS else { throw RendezvousRegistrationJournal.Failure.invalidData }
+        if admission == .trackedAttestation {
+            guard let sdk = attestationWindow, sdk.kind == .appleAttestation,
+                  sdk.startedAtMS == window.startedAtMS, sdk.deadlineMS == window.deadlineMS,
+                  lastObservedMS >= sdk.observedAtMS else { throw RendezvousRegistrationJournal.Failure.invalidData }
+            if phase == .attestationPending {
+                guard !sdk.isClosed, window.callsStarted == 0, !window.isClosed else {
+                    throw RendezvousRegistrationJournal.Failure.invalidData
+                }
+            } else if phase == .prepared || phase == .completed || window.callsStarted > 0 {
+                guard sdk.isClosed, sdk.callsStarted > 0, sdk.reservation == nil else {
+                    throw RendezvousRegistrationJournal.Failure.invalidData
+                }
+            }
+        } else {
+            guard attestationWindow == nil, phase != .attestationPending else { throw RendezvousRegistrationJournal.Failure.invalidData }
+        }
+        if phase == .prepared || phase == .attestationPending {
             guard !window.isClosed, lastObservedMS < window.deadlineMS,
                   let challenge, Self.decodeURL(challenge)?.count == 32,
-                  let nonce, nonce.count == 32, nonceHash == Self.hash(nonce),
-                  let request, !request.isEmpty, request.count <= 65_536, requestHash == Self.hash(request),
+                  let nonce, nonce.count == 32, nonceHash == Self.hash(nonce) else {
+                throw RendezvousRegistrationJournal.Failure.invalidData
+            }
+            if phase == .attestationPending {
+                guard request == nil, requestHash == nil else { throw RendezvousRegistrationJournal.Failure.invalidData }
+            } else {
+                guard let request, !request.isEmpty, request.count <= 65_536, requestHash == Self.hash(request),
                   let object = try JSONSerialization.jsonObject(with: request) as? [String: String],
                   Set(object.keys) == Set(["v", "key_id", "challenge_id", "attestation"]),
                   object["v"] == "djc-rendezvous/1", object["key_id"] == key,
@@ -213,10 +335,13 @@ private struct RegistrationRecord: Codable {
                   let attestation = Self.decodeURL(encoded), !attestation.isEmpty, attestation.count <= 32_768,
                   request == (try Self.body(key: key, challenge: challenge, attestation: encoded)) else {
                 throw RendezvousRegistrationJournal.Failure.invalidData
+                }
             }
         } else {
             guard challenge == nil, nonce == nil, nonceHash == nil, request == nil, requestHash == nil,
-                  window.isClosed || lastObservedMS >= window.deadlineMS else { throw RendezvousRegistrationJournal.Failure.invalidData }
+                  window.isClosed || attestationWindow?.isClosed == true || lastObservedMS >= window.deadlineMS else {
+                throw RendezvousRegistrationJournal.Failure.invalidData
+            }
             if phase == .completed {
                 guard window.isClosed, window.callsStarted > 0, window.reservation == nil else { throw RendezvousRegistrationJournal.Failure.invalidData }
             }

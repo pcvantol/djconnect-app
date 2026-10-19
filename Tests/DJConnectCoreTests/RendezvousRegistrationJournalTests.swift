@@ -36,6 +36,254 @@ final class RendezvousRegistrationJournalTests: XCTestCase {
                                   attestation: proof, admittedAtMS: 0, deadlineMS: 120_000)
     }
 
+    private func begin(_ journal: RendezvousRegistrationJournal) async throws -> UUID {
+        try await journal.beginAttestation(keyIdentifier: key, challengeIdentifier: challenge,
+                                           nonce: nonce, admittedAtMS: 0, deadlineMS: 120_000)
+    }
+
+    func testSDKRetriesKeepOriginalHashDeadlineAndSeparateRegistrationBudgetAcrossRestart() async throws {
+        let store = Store(), subject = RendezvousRegistrationJournal(storage: store)
+        let id = try await begin(subject)
+        let first = try await subject.reserveAttestation(attemptIdentifier: id, at: 0)
+        XCTAssertEqual(first.clientDataHash, Data(SHA256.hash(data: nonce)))
+        XCTAssertEqual(first.keyIdentifier, key)
+        try await subject.completeAttestation(attemptIdentifier: id, reservation: first.reservation, result: .serverUnavailable, at: 100)
+        let restored = RendezvousRegistrationJournal(storage: store)
+        do { _ = try await restored.reserveAttestation(attemptIdentifier: id, at: 2_099); XCTFail() } catch {}
+        let second = try await restored.reserveAttestation(attemptIdentifier: id, at: 2_100)
+        XCTAssertEqual(second.clientDataHash, first.clientDataHash)
+        try await restored.completeAttestation(attemptIdentifier: id, reservation: second.reservation, result: .serverUnavailable, at: 2_200)
+        do { _ = try await restored.reserveAttestation(attemptIdentifier: id, at: 7_199); XCTFail() } catch {}
+        let third = try await restored.reserveAttestation(attemptIdentifier: id, at: 7_200)
+        XCTAssertEqual(third.clientDataHash, first.clientDataHash)
+        XCTAssertEqual(third.deadlineMS, 120_000)
+        try await restored.completeAttestation(attemptIdentifier: id, reservation: third.reservation,
+                                               result: .received(Data(repeating: 255, count: 32_768)), at: 7_300)
+        let prepared = try await RendezvousRegistrationJournal(storage: store).snapshot(at: 7_300)
+        XCTAssertEqual(prepared?.phase, .prepared)
+        XCTAssertEqual(prepared?.attestationCallsStarted, 3)
+        XCTAssertEqual(prepared?.callsStarted, 0)
+        let submission = try await restored.reserveSubmission(attemptIdentifier: id, at: 7_300)
+        XCTAssertEqual(submission.deadlineMS, 120_000)
+        let body = try JSONSerialization.jsonObject(with: submission.body) as! [String: String]
+        XCTAssertEqual(body["attestation"], url(Data(repeating: 255, count: 32_768)))
+        XCTAssertEqual(body["challenge_id"], challenge)
+        XCTAssertLessThanOrEqual(try store.read()!.count, 98_304)
+        try await restored.completeSubmission(attemptIdentifier: id, reservation: submission.reservation, outcome: .succeeded, at: 7_301)
+        let done = try await restored.snapshot(at: 7_301)
+        XCTAssertEqual(done?.phase, .completed)
+        XCTAssertEqual(done?.attestationCallsStarted, 3)
+        XCTAssertEqual(done?.callsStarted, 1)
+    }
+
+    func testRestoredSDKInFlightAndWrongCallbacksCannotReleaseOrReplaceAttempt() async throws {
+        let store = Store(), subject = RendezvousRegistrationJournal(storage: store)
+        let id = try await begin(subject)
+        let call = try await subject.reserveAttestation(attemptIdentifier: id, at: 0)
+        let restored = RendezvousRegistrationJournal(storage: store)
+        do { _ = try await restored.reserveAttestation(attemptIdentifier: id, at: 1); XCTFail() } catch {}
+        do { _ = try await restored.reserveSubmission(attemptIdentifier: id, at: 1); XCTFail() } catch {}
+        do { try await restored.completeAttestation(attemptIdentifier: UUID(), reservation: call.reservation, result: .received(proof), at: 1); XCTFail() } catch {}
+        do { try await restored.completeAttestation(attemptIdentifier: id, reservation: UUID(), result: .received(proof), at: 1); XCTFail() } catch {}
+        do { _ = try await begin(restored); XCTFail() } catch {}
+        do { _ = try await prepare(restored); XCTFail() } catch {}
+        let state = try await restored.snapshot(at: 1)
+        XCTAssertEqual(state?.phase, .attestationPending)
+        XCTAssertEqual(state?.attestationCallsStarted, 1)
+        XCTAssertEqual(state?.attestationReservation, call.reservation)
+        XCTAssertEqual(state?.callsStarted, 0)
+    }
+
+    func testSDKExhaustionAndTerminalFailurePurgeMaterialButRetainHandleAndCount() async throws {
+        for terminal in [false, true] {
+            let store = Store(), subject = RendezvousRegistrationJournal(storage: store)
+            let id = try await begin(subject)
+            for (index, at): (Int, Int64) in [0, 2_001, 7_002].enumerated() {
+                let call = try await subject.reserveAttestation(attemptIdentifier: id, at: at)
+                try await subject.completeAttestation(attemptIdentifier: id, reservation: call.reservation,
+                                                      result: terminal ? .terminalFailure : .serverUnavailable, at: at + 1)
+                if terminal || index == 2 {
+                    let state = try await subject.snapshot(at: at + 1)
+                    XCTAssertEqual(state?.phase, .registrationUncertain)
+                    XCTAssertEqual(state?.attestationCallsStarted, index + 1)
+                    XCTAssertEqual(state?.keyIdentifier, key)
+                    let object = try JSONSerialization.jsonObject(with: store.read()!) as! [String: Any]
+                    for field in ["challenge", "nonce", "nonceHash", "request", "requestHash"] { XCTAssertNil(object[field]) }
+                    do { _ = try await subject.reserveAttestation(attemptIdentifier: id, at: at + 2); XCTFail() } catch {}
+                    break
+                }
+            }
+        }
+    }
+
+    func testLateSDKProofCannotBeSavedOrSubmittedAtDeadlineEquality() async throws {
+        let store = Store(), subject = RendezvousRegistrationJournal(storage: store)
+        let id = try await begin(subject)
+        let call = try await subject.reserveAttestation(attemptIdentifier: id, at: 0)
+        do { try await subject.completeAttestation(attemptIdentifier: id, reservation: call.reservation, result: .received(proof), at: 120_000); XCTFail() } catch {}
+        let state = try await RendezvousRegistrationJournal(storage: store).snapshot(at: 120_001)
+        XCTAssertEqual(state?.phase, .registrationUncertain)
+        XCTAssertEqual(state?.attestationCallsStarted, 1)
+        // Cancellation is not assumed: the consumed SDK reservation remains known.
+        XCTAssertEqual(state?.attestationReservation, call.reservation)
+        let object = try JSONSerialization.jsonObject(with: store.read()!) as! [String: Any]
+        for field in ["challenge", "nonce", "nonceHash", "request", "requestHash"] { XCTAssertNil(object[field]) }
+        do { _ = try await subject.reserveSubmission(attemptIdentifier: id, at: 120_001); XCTFail() } catch {}
+    }
+
+    func testSDKSuccessDoesNotRenewDeadlineOrAcceptDuplicateProof() async throws {
+        let store = Store(), subject = RendezvousRegistrationJournal(storage: store)
+        let id = try await begin(subject)
+        let call = try await subject.reserveAttestation(attemptIdentifier: id, at: 119_998)
+        try await subject.completeAttestation(attemptIdentifier: id, reservation: call.reservation, result: .received(proof), at: 119_999)
+        do { try await subject.completeAttestation(attemptIdentifier: id, reservation: call.reservation, result: .received(Data([99])), at: 119_999); XCTFail() } catch {}
+        let submission = try await subject.reserveSubmission(attemptIdentifier: id, at: 119_999)
+        let body = try JSONSerialization.jsonObject(with: submission.body) as! [String: String]
+        XCTAssertEqual(body["attestation"], url(proof))
+        do { _ = try await subject.reserveAttestation(attemptIdentifier: id, at: 119_999); XCTFail() } catch {}
+        let state = try await subject.snapshot(at: 120_000)
+        XCTAssertEqual(state?.phase, .registrationUncertain)
+        XCTAssertEqual(state?.deadlineMS, 120_000)
+    }
+
+    func testInvalidSDKProofClosesAttemptInsteadOfGrantingAnotherCall() async throws {
+        for bytes in [Data(), Data(repeating: 1, count: 32_769)] {
+            let store = Store(), subject = RendezvousRegistrationJournal(storage: store)
+            let id = try await begin(subject)
+            let call = try await subject.reserveAttestation(attemptIdentifier: id, at: 0)
+            do { try await subject.completeAttestation(attemptIdentifier: id, reservation: call.reservation, result: .received(bytes), at: 1); XCTFail() } catch {}
+            let state = try await subject.snapshot(at: 1)
+            XCTAssertEqual(state?.phase, .registrationUncertain)
+            XCTAssertEqual(state?.attestationCallsStarted, 1)
+            XCTAssertNil(state?.attestationReservation)
+            do { _ = try await subject.reserveAttestation(attemptIdentifier: id, at: 2_001); XCTFail() } catch {}
+        }
+    }
+
+    func testFailedSDKBeginningsAndReservationWritesDoNotPermitCalls() async throws {
+        for committed in [false, true] {
+            let store = Store(), subject = RendezvousRegistrationJournal(storage: store)
+            store.faults(write: !committed, afterCommit: committed)
+            do { _ = try await begin(subject); XCTFail() } catch {}
+            store.faults()
+            if committed { do { _ = try await begin(subject); XCTFail() } catch {} }
+            else { _ = try await begin(subject) }
+            let state = try await subject.snapshot(at: 0)
+            let id = try XCTUnwrap(state?.attemptIdentifier)
+            store.faults(write: !committed, afterCommit: committed)
+            var calls = 0
+            do { _ = try await subject.reserveAttestation(attemptIdentifier: id, at: 0); calls += 1; XCTFail() } catch {}
+            XCTAssertEqual(calls, 0)
+            store.faults()
+            let restored = RendezvousRegistrationJournal(storage: store)
+            let saved = try await restored.snapshot(at: 0)
+            XCTAssertEqual(saved?.attestationCallsStarted, committed ? 1 : 0)
+            if committed { do { _ = try await restored.reserveAttestation(attemptIdentifier: id, at: 1); XCTFail() } catch {} }
+        }
+    }
+
+    func testAmbiguousSDKCompletionWriteCannotReopenSDKOrRegenerateProof() async throws {
+        for committed in [false, true] {
+            let store = Store(), subject = RendezvousRegistrationJournal(storage: store)
+            let id = try await begin(subject)
+            let call = try await subject.reserveAttestation(attemptIdentifier: id, at: 0)
+            store.faults(write: !committed, afterCommit: committed)
+            do { try await subject.completeAttestation(attemptIdentifier: id, reservation: call.reservation, result: .received(proof), at: 1); XCTFail() } catch {}
+            store.faults()
+            let restored = RendezvousRegistrationJournal(storage: store)
+            let state = try await restored.snapshot(at: 1)
+            XCTAssertEqual(state?.phase, committed ? .prepared : .attestationPending)
+            do { _ = try await restored.reserveAttestation(attemptIdentifier: id, at: 1); XCTFail() } catch {}
+            if !committed { do { _ = try await restored.reserveSubmission(attemptIdentifier: id, at: 1); XCTFail() } catch {} }
+        }
+    }
+
+    func testVersionOneMigrationPreservesOriginalRequestAndInFlightRegistrationBudget() async throws {
+        for phase in ["prepared", "registrationUncertain", "completed"] {
+            let store = Store(), subject = RendezvousRegistrationJournal(storage: store)
+            let id = try await prepare(subject)
+            let call = try await subject.reserveSubmission(attemptIdentifier: id, at: 0)
+            if phase != "prepared" {
+                try await subject.completeSubmission(attemptIdentifier: id, reservation: call.reservation,
+                                                     outcome: phase == "completed" ? .succeeded : .terminalFailure, at: 1)
+            }
+            var object = try JSONSerialization.jsonObject(with: store.read()!) as! [String: Any]
+            object["schemaVersion"] = 1
+            object.removeValue(forKey: "admission")
+            store.inject(try JSONSerialization.data(withJSONObject: object))
+            let restored = RendezvousRegistrationJournal(storage: store)
+            let state = try await restored.snapshot(at: 1)
+            XCTAssertEqual(state?.phase.rawValue, phase)
+            XCTAssertEqual(state?.callsStarted, 1)
+            XCTAssertEqual(state?.reservation, phase == "prepared" ? call.reservation : nil)
+            var migrated = try JSONSerialization.jsonObject(with: store.read()!) as! [String: Any]
+            XCTAssertEqual(migrated["schemaVersion"] as? Int, 2)
+            XCTAssertEqual(migrated["admission"] as? String, "preparedImport")
+            XCTAssertEqual(migrated["request"] as? String, object["request"] as? String)
+            do { _ = try await begin(restored); XCTFail() } catch {}
+            if phase == "prepared" {
+                try await restored.completeSubmission(attemptIdentifier: id, reservation: call.reservation, outcome: .responseLost, at: 2)
+                let retry = try await restored.reserveSubmission(attemptIdentifier: id, at: 2_002)
+                XCTAssertEqual(retry.body, call.body)
+                migrated = try JSONSerialization.jsonObject(with: store.read()!) as! [String: Any]
+                XCTAssertEqual((migrated["window"] as? [String: Any])?["callsStarted"] as? Int, 2)
+            }
+        }
+    }
+
+    func testMalformedSDKRecordCannotDropAccountingChangeHashOrSmugglePreparedBytes() async throws {
+        let store = Store(), subject = RendezvousRegistrationJournal(storage: store)
+        let id = try await begin(subject)
+        let call = try await subject.reserveAttestation(attemptIdentifier: id, at: 0)
+        let bytes = try store.read()!
+        for kind in 0..<11 {
+            var object = try JSONSerialization.jsonObject(with: bytes) as! [String: Any]
+            var sdk = object["attestationWindow"] as! [String: Any]
+            switch kind {
+            case 0: object.removeValue(forKey: "admission")
+            case 1: object.removeValue(forKey: "attestationWindow")
+            case 2: object["admission"] = "preparedImport"
+            case 3: sdk["kind"] = "registration"
+            case 4: sdk["deadlineMS"] = 119_999
+            case 5: object["nonceHash"] = Data(repeating: 0, count: 32).base64EncodedString()
+            case 6: object["request"] = Data([99]).base64EncodedString()
+            case 7: object["schemaVersion"] = 1
+            case 8: object["phase"] = "prepared"
+            case 9: sdk["lastObservedMS"] = 1 // journal clock cannot trail its nested window
+            default: var window = object["window"] as! [String: Any]; window["callsStarted"] = 1; window["reservation"] = UUID().uuidString; object["window"] = window
+            }
+            if kind != 1 { object["attestationWindow"] = sdk }
+            store.inject(try JSONSerialization.data(withJSONObject: object))
+            do { _ = try await subject.snapshot(at: 1); XCTFail("malformed SDK case \(kind)") } catch {}
+        }
+        store.inject(bytes)
+        try await subject.completeAttestation(attemptIdentifier: id, reservation: call.reservation, result: .received(proof), at: 1)
+        var object = try JSONSerialization.jsonObject(with: store.read()!) as! [String: Any]
+        object.removeValue(forKey: "attestationWindow")
+        store.inject(try JSONSerialization.data(withJSONObject: object))
+        do { _ = try await subject.snapshot(at: 1); XCTFail() } catch {}
+    }
+
+    func testConcurrentSDKReservationsHaveOnePersistedWinner() async throws {
+        let store = Store(), subject = RendezvousRegistrationJournal(storage: store)
+        let id = try await begin(subject)
+        let winners = await withTaskGroup(of: Bool.self) { group in
+            for _ in 0..<20 {
+                group.addTask {
+                    do { _ = try await subject.reserveAttestation(attemptIdentifier: id, at: 0); return true }
+                    catch { return false }
+                }
+            }
+            var count = 0
+            for await won in group { if won { count += 1 } }
+            return count
+        }
+        XCTAssertEqual(winners, 1)
+        let state = try await subject.snapshot(at: 0)
+        XCTAssertEqual(state?.attestationCallsStarted, 1)
+        XCTAssertEqual(state?.callsStarted, 0)
+    }
+
     func testRetriesAcrossRestartsReturnByteIdenticalClosedRegistrationBody() async throws {
         let store = Store()
         let journal = RendezvousRegistrationJournal(storage: store)
@@ -188,7 +436,7 @@ final class RendezvousRegistrationJournalTests: XCTestCase {
         for kind in 0..<10 {
             var object = try JSONSerialization.jsonObject(with: bytes) as! [String: Any]
             switch kind {
-            case 0: object["schemaVersion"] = 2
+            case 0: object["schemaVersion"] = 3
             case 1: object["key"] = "bad-key"
             case 2: object["nonceHash"] = Data(repeating: 0, count: 32).base64EncodedString()
             case 3: object["phase"] = "completed"
