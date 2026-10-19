@@ -21,26 +21,33 @@ when required. The default banner uses the existing five-language/app-override
 resolver. Watch About uses the same key only where it already showed the tagline.
 No tagline is added to widgets or other compact surfaces that did not have one.
 
-The system-owned iOS launch storyboard cannot invoke Swift localization. Its
-five `LaunchScreen.strings` files are generated from `brand.tagline`; the English
-storyboard base is checked against that same source. The old captioned raster
-asset is no longer shipped. The original artwork master remains under
-Tools/BrandAssets as historical source and must not be reintroduced as launch copy.
-The system launch uses the OS-selected app locale; runtime additionally honors
-the existing explicit in-app language override.
+The system-owned iOS launch storyboard is language-neutral: it contains only
+`LaunchIcon` and the product name `DJConnect`. It has no localized tagline or
+`LaunchScreen.strings` files. Runtime UI renders the localized tagline using the
+existing app-language override. The retired captioned raster remains excluded
+from shipped assets; historical artwork under Tools/BrandAssets must not be
+reintroduced as launch copy.
 
 After an approved translation edit:
 
 ```sh
-python3 Tools/validate_brand_tagline.py --write
 python3 Tools/validate_brand_tagline.py
 ```
 
-The validator checks exact translations, duplicate/parity errors, generated
-launch resources, active legacy source references and the retired captioned
+The validator checks exact translations, duplicate/parity errors, the language-neutral
+system launch, active legacy source references and the retired captioned
 raster. The Swift localization regression reads the actual shared module resources.
 
 Community/Personal tier propositions remain separate copy. Functional help,
 error descriptions, product capabilities and historical release evidence are
 not rewritten. App Store subtitle metadata remains a separate constrained field;
 do not abbreviate the main sentence into an unapproved slogan to fit it.
+
+## Brand V2 handoff
+
+Apple issue #138 tracks the approved headphones rebrand and the future English
+slogan `Your music. Your DJ.`. The table above describes the currently shipped
+resources, not the future Brand V2 translations. Consume only the reviewed Core
+#1223 master/wordmark manifest and exact source pin. The preliminary icon-only
+archive does not qualify the complete handoff; proposed localized translations
+remain unapproved. See [native asset preflight](feedback/APPLE_BRAND_V2_PREFLIGHT_20261019.md).
