@@ -145,6 +145,8 @@ struct ProfileDJSettingsEditor: View, Equatable {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .accessibilityAddTraits(.isHeader)
+                DeviceAppleSpeechPreferencesSection(model: model)
+                Divider()
                 if let response = state.response {
                     if response.requiresSelection {
                         Text(text("review_choices")).fixedSize(horizontal: false, vertical: true)
@@ -291,6 +293,31 @@ private struct HAProviderVoiceVisibility<Content: View>: View {
     }
 }
 
+/// Device speech route choices lead the speech menu, ahead of HA and wake controls.
+private struct DeviceAppleSpeechPreferencesSection: View {
+    @ObservedObject var model: DJConnectAppModel
+    private func text(_ key: String) -> String {
+        DJConnectLocalization.localized(key: key, language: model.language)
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle(text("ui.device_stt.enabled"), isOn: $model.deviceSTTEnabled)
+                .accessibilityIdentifier("device-stt-enabled")
+            Text(text("ui.device_stt.explanation"))
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            DeviceSpeechSettingsView(language: model.language, preferences: $model.deviceSpeechPreferences,
+                previewAllowed: model.canPreviewDeviceSpeech, isSpeaking: model.deviceSpeechPreviewIsPlaying,
+                preview: model.previewDeviceSpeech, stop: model.stopDeviceSpeechPreview)
+        }
+        .toggleStyle(SwitchToggleStyle(tint: DJConnectGlassAppearance.toggleTint))
+        .djConnectButtonStyle(DJConnectButtonStyle())
+        .tint(.white)
+        .accentColor(.white)
+        .accessibilityIdentifier("speech-preferences-apple-section")
+    }
+}
+
 /// Observe device preferences independently of the equatable Profile projection.
 /// Local input/output choices remain usable without a server settings snapshot.
 private struct DeviceSpeechPreferencesSection: View {
@@ -331,15 +358,7 @@ private struct DeviceSpeechPreferencesSection: View {
                 Text(wakeWordStatusText(model))
                     .foregroundStyle(.secondary)
             }
-            Divider()
-            Toggle(text("ui.device_stt.enabled"), isOn: $model.deviceSTTEnabled)
-                .accessibilityIdentifier("device-stt-enabled")
-            Text(text("ui.device_stt.explanation"))
-                .font(.caption).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            DeviceSpeechSettingsView(language: model.language, preferences: $model.deviceSpeechPreferences,
-                previewAllowed: model.canPreviewDeviceSpeech, isSpeaking: model.deviceSpeechPreviewIsPlaying,
-                preview: model.previewDeviceSpeech, stop: model.stopDeviceSpeechPreview)
+
         }
         .toggleStyle(SwitchToggleStyle(tint: DJConnectGlassAppearance.toggleTint))
         .djConnectButtonStyle(DJConnectButtonStyle())
