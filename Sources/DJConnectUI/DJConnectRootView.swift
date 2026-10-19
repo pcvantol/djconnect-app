@@ -1877,7 +1877,7 @@ private struct PairingSheetView: View {
                     Spacer(minLength: 0)
                 }
                 .padding(14)
-                .djConnectGradientCard()
+                .djSessionFrostedSurface()
 
                 #if os(iOS)
                 Button {
@@ -2360,7 +2360,7 @@ private struct PairingEditableURLCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .djConnectGradientCard()
+        .djSessionFrostedSurface()
         .overlay {
             DJConnectCardAppearance.shape
                 .stroke(!trimmedText.isEmpty && !isValid ? .orange.opacity(0.75) : .clear, lineWidth: 1)
@@ -2449,7 +2449,7 @@ private struct PairingCodeEntryCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .djConnectGradientCard()
+        .djSessionFrostedSurface()
         .overlay {
             DJConnectCardAppearance.shape
                 .stroke(!trimmedText.isEmpty && !isValid ? .orange.opacity(0.75) : .clear, lineWidth: 1)
