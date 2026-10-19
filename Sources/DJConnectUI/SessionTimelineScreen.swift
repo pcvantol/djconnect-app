@@ -685,11 +685,7 @@ struct SessionTimelineScreen: View {
                 ToolbarItemGroup(placement: .navigation) {
                     sessionSearchToolbarButton(proxy: proxy)
                     sessionToolbarActions(proxy: proxy)
-                    if activeSession != nil { SessionEndToolbarButton(model: model) }
-                }
-                if allowsHandoffPresentation {
-                    if #available(macOS 26.0, *) { ToolbarSpacer(.fixed, placement: .navigation) }
-                    ToolbarItem(placement: .navigation) {
+                    if allowsHandoffPresentation {
                         Button { model.isShowingVibeCastSessionStart = true } label: {
                             Image(systemName: "tv.badge.wifi")
                                 .foregroundStyle(model.vibeCastHandoffApproved ? djConnectAccent : .white)
@@ -697,6 +693,12 @@ struct SessionTimelineScreen: View {
                         .accessibilityLabel(text("ui.vibecast.handoff.title"))
                         .accessibilityIdentifier("session-handoff-toggle")
                         .help(text("ui.vibecast.handoff.title"))
+                    }
+                }
+                if activeSession != nil {
+                    if #available(macOS 26.0, *) { ToolbarSpacer(.fixed, placement: .navigation) }
+                    ToolbarItem(placement: .navigation) {
+                        SessionEndToolbarButton(model: model)
                     }
                 }
                 #endif
