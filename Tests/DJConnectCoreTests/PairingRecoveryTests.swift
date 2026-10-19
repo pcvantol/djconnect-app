@@ -144,3 +144,17 @@ private func pairingRecoveryClient(_ wire: PairingRecoveryWire, token: DJConnect
     #expect(try token.loadToken() == "accepted-fixture-token")
     #expect(wire.requests == ["/api/djconnect/v1/status"])
 }
+
+@Test @MainActor func pairingCompletionDoesNotAdmitIncompatibleIntegrationVersion() async throws {
+    let wire = PairingRecoveryWire { _, _ in
+        (200, Data(#"{"success":true,"ha_install_id":"final-install","ha_major_minor":"3.2"}"#.utf8))
+    }
+    defer { wire.close() }
+    let (model, defaults, token, suite) = try pendingPairingModel(wire.session())
+    defer { defaults.removePersistentDomain(forName: suite) }
+    try await model.waitForHomeAssistantPairingCompletion(client: pairingRecoveryClient(wire, token: token))
+    #expect(model.pairingStatus != .paired && !model.isShowingPairingSuccess)
+    #expect(model.updateRequiredMessage != nil)
+    #expect(defaults.string(forKey: "DJConnectHAInstallID") == "fixture-install")
+    #expect(try token.loadToken() == "accepted-fixture-token")
+}
