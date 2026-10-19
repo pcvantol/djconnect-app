@@ -1113,8 +1113,16 @@ public final class DJConnectAppModel: ObservableObject {
         voiceEnabled && (isRecordingVoice || isDemoMode || deviceSTTEnabled ||
             currentDeviceSpeechAvailability?.allowsHAInput(locale: currentRequestLocale) == true)
     }
+    private var canUseNativeDJSpeechOutput: Bool {
+        #if canImport(AVFoundation)
+        deviceSpeechPreferences.enabled && DJConnectAppleSpeechRenderer.selectedVoice(
+            locale: currentRequestLocale, preferences: deviceSpeechPreferences) != nil
+        #else
+        false
+        #endif
+    }
     public var canUseLocalDJSpeechOutput: Bool {
-        deviceSpeechPreferences.enabled || canUseHASpeechOutput(.local)
+        deviceSpeechPreferences.enabled ? canUseNativeDJSpeechOutput : canUseHASpeechOutput(.local)
     }
 
     public func canUseHASpeechOutput(_ target: DJConnectSharedSpeechTarget) -> Bool {
@@ -4098,6 +4106,7 @@ public final class DJConnectAppModel: ObservableObject {
         var payload = DJConnectAskDJRequest(identity: identity, text: text, clientMessageID: clientMessageID,
             inputType: "text", mood: confirmedSessionMoodInt, djStyle: "warm_radio_dj", musicDNAKey: askDJMusicDNAKey,
             audioResponse: profileDJSettings.negotiated && localResponseAudioEnabled && sharedDJSpeechAllowed &&
+                (!deviceSpeechPreferences.enabled || canUseNativeDJSpeechOutput) &&
                 profileDJSettings.effective?.announcement_output.allowsClientAudio == true ? .always : .never,
             djAnnouncementOutput: profileDJSettings.effective?.announcement_output ?? djAnnouncementOutput, language: currentRequestLocale)
         payload.conversationContext = context
@@ -6524,6 +6533,7 @@ public final class DJConnectAppModel: ObservableObject {
     private func startAutomaticSpeechIfNeeded() {
         guard automaticSpeechTask == nil, !automaticSpeechQueue.isEmpty,
               isAppInForeground, localResponseAudioEnabled, sharedDJSpeechAllowed,
+              (!deviceSpeechPreferences.enabled || canUseNativeDJSpeechOutput),
               profileDJSettings.effective?.announcement_output.allowsClientAudio == true else { return }
         let generation = automaticSpeechGeneration
         automaticSpeechTask = Task { @MainActor [weak self] in
@@ -6536,6 +6546,7 @@ public final class DJConnectAppModel: ObservableObject {
                     guard automaticSpeechGeneration == generation else { return }
                 }
                 guard isAppInForeground, localResponseAudioEnabled, sharedDJSpeechAllowed,
+              (!deviceSpeechPreferences.enabled || canUseNativeDJSpeechOutput),
                       profileDJSettings.effective?.announcement_output.allowsClientAudio == true else { return }
                 let item = automaticSpeechQueue.removeFirst()
                 guard item.epoch == sessionHistory.responseEpoch,
@@ -6591,7 +6602,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         let preferences = deviceSpeechPreferences
         let nativeLocal = preferences.enabled && target == .local
-        guard nativeLocal || settings.voice_availability.available else { return }
+        guard nativeLocal ? canUseNativeDJSpeechOutput : settings.voice_availability.available else { return }
         #if canImport(AVFoundation)
         personaReactions.cancel(.speechConflict)
         let attemptDeadline = min(sourceDeadline, Date().addingTimeInterval(300))
@@ -6746,7 +6757,7 @@ public final class DJConnectAppModel: ObservableObject {
         if isDemoMode { return true }
         guard let response = profileDJSettings.response else { return false }
         return profileDJSettings.active && ![.idle, .loading, .saving, .unavailable, .uncertain].contains(profileDJSettings.phase) &&
-            !response.requiresSelection && (deviceSpeechPreferences.enabled || response.voice_availability.available) &&
+            !response.requiresSelection && (canUseNativeDJSpeechOutput || response.voice_availability.available) &&
             response.snapshot.effective.announcement_output != .textOnly && !profileDJSettings.hasUncertainOperation
     }
 

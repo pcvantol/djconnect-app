@@ -117,6 +117,11 @@ import Testing
     #expect(model.sharedDJSpeechAllowed && model.canUseLocalDJSpeechOutput)
     #expect(payload().audioResponse == .always) // native grant does not need an HA provider voice
     #expect(!model.canUseHASpeechOutput(.local)) // no HA configuration admission is fabricated
+    model.deviceSpeechPreferences.voiceID = "removed-apple-voice"
+    #expect(!model.canUseLocalDJSpeechOutput && !model.sharedDJSpeechAllowed)
+    #expect(payload().audioResponse == .never)
+    model.deviceSpeechPreferences.voiceID = nil
+    #expect(model.canUseLocalDJSpeechOutput && model.sharedDJSpeechAllowed)
     current = try snapshot("text_only_zero_synthesis_old_audio_denied_and_owner_controls_removed")
     await model.profileDJSettings.refresh(.init(read: { current }, update: { _, _, _ in throw CancellationError() }, receipt: { _, _ in throw CancellationError() }))
     model.deviceSpeechPreferences.enabled = true
