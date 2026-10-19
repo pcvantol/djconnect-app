@@ -1514,7 +1514,7 @@ struct DJConnectWatchRootView: View {
                 LazyVStack(spacing: 8) {
                     metricPanel(title: watchLocalizedKey(model.language, "watch.genres"), value: names(profile.favoriteGenres ?? []), icon: "music.note.list")
                     metricPanel(title: watchLocalizedKey(model.language, "watch.artists"), value: names(profile.favoriteArtists ?? []), icon: "person.2")
-                    metricPanel(title: watchLocalizedKey(model.language, "watch.mood"), value: mood(profile.mood), icon: moodIcon(for: profile.mood?.averageZone ?? profile.mood?.zone))
+                    metricPanel(title: watchLocalizedKey(model.language, "watch.mood"), value: mood(profile.mood), icon: moodIcon(for: profile.mood?.zone))
                     if let energyProfile = profile.energyProfile {
                         metricPanel(title: watchLocalizedKey(model.language, "ui.energy.profile"), value: energy(energyProfile), icon: "bolt.fill")
                     }
