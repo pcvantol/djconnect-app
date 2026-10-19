@@ -6026,11 +6026,11 @@ func personaTouchCapabilityRefreshWithdrawsStaleSupportExceptCancellation(fault:
     let (model, defaults, name) = fixture.model()
     defer { defaults.removePersistentDomain(forName: name) }
     defaults.set("speech-install", forKey: "DJConnectHAInstallID")
+    model.language = "en"
     let source = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/device-speech-core-604b80f8.json")
     let root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: source)) as? [String: Any])
     let cases = try #require(root["cases"] as? [[String: Any]])
-    var snapshot = try #require(cases.first { $0["case"] as? String == "configuration_stt_True_tts_True" }?["snapshot"] as? [String: Any])
-    snapshot["locale"] = model.currentRequestLocale
+    let snapshot = try #require(cases.first { $0["case"] as? String == "configuration_stt_True_tts_True" }?["snapshot"] as? [String: Any])
     func apply(_ value: Any?, install: String = "speech-install") throws {
         var body: [String: Any] = ["success": true, "ha_install_id": install]
         body["device_speech"] = value
