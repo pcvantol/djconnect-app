@@ -144,10 +144,22 @@ struct DJPersonaGraphic: View {
         GeometryReader { geometry in
             let side = min(geometry.size.width, geometry.size.height)
             ZStack {
-                Circle().fill(Color.black.opacity(opaque ? 1 : 0.52)).padding(side * 0.15)
+                // A dark, feathered backing separates the entire headset from
+                // the mood-colored card, including its outer band and earcups.
+                // It belongs to this fixed canvas and never moves with activity.
+                if opaque {
+                    Circle().fill(Color.black)
+                } else {
+                    Circle().fill(RadialGradient(stops: [
+                        .init(color: .black.opacity(0.76), location: 0),
+                        .init(color: .black.opacity(0.56), location: 0.60),
+                        .init(color: .clear, location: 1)
+                    ], center: .center, startRadius: 0, endRadius: side * 0.52))
+                }
+                Circle().fill(Color.black.opacity(opaque ? 1 : 0.82)).padding(side * 0.15)
                 DJPersonaMark(includesWaveform: activity == .resting)
                     .fill(gradient)
-                    .shadow(color: opaque || highContrast ? .clear : (colors.first ?? .blue).opacity(0.35), radius: 4)
+                    .shadow(color: .black.opacity(0.85), radius: side * 0.035, y: side * 0.015)
                 if animatesActivity && (activity == .listening || speechIsPlaying) {
                     // Inward capture and outward output are deliberately distinct.
                     // This is a lifecycle pulse, never a fabricated audio envelope.
