@@ -205,3 +205,6 @@ pids/
 
 # Framework-specific generated output
 .gatsby/
+
+# Explicit opt-in Ask DJ hosted qualification project (never shipped).
+/DJConnectAskDJGolden.xcodeproj/
