@@ -39,6 +39,10 @@ def validate():
         entry = manifest[f'assets/djconnect/brand-v2/{name}']
         assert sha(path) == entry['sha256'], f'altered producer image: {path}'
         assert png(path) == (entry['width'], entry['height'], 6), f'RGBA dimensions: {path}'
+    ledger = json.loads((ROOT / 'docs/verification/APPLE_BRAND_V2_NATIVE_MANIFEST_20261020.json').read_text())
+    assert ledger['manifest_sha256'] == MANIFEST_SHA, 'native ledger producer mismatch'
+    generated_hashes = ledger['generated_icons']['files']
+    generated_paths = set()
     count = 0
     for name in ('AppIconIOS', 'AppIconMac', 'AppIconWatch'):
         directory = ASSETS / f'{name}.appiconset'
@@ -50,9 +54,13 @@ def validate():
             expected = round(float(entry['size'].split('x')[0]) * float(entry.get('scale', '1x')[:-1]))
             assert width == height == expected, f'wrong slot dimensions: {path}'
             assert color == 2, f'system icon must be opaque RGB: {path}'
+            relative = path.relative_to(ROOT).as_posix()
+            assert sha(path) == generated_hashes.get(relative), f'generated icon hash drift: {relative}'
+            generated_paths.add(relative)
             referenced.add(path)
         assert set(directory.glob('*.png')) == referenced, f'orphan PNG: {name}'
         count += len(referenced)
+    assert generated_paths == set(generated_hashes), 'native generated-icon ledger coverage mismatch'
     # These are source artwork documents, rather than a shipped font binary.
     assert sha(SOURCE / 'LICENSE.txt') == '262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a'
     print(f'PASS: {len(mapping)} exact producer imports, {count} opaque generated icon files across three catalogs, Inter license')
