@@ -1,5 +1,10 @@
 # DJConnect App
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/pcvantol/djconnect/7e14e5970b3f68d33d243ae6bab2b281fad59bb2/assets/djconnect/brand-v2/wordmark-primary-dark.png">
+  <img src="https://raw.githubusercontent.com/pcvantol/djconnect/7e14e5970b3f68d33d243ae6bab2b281fad59bb2/assets/djconnect/brand-v2/wordmark-primary-light.png" alt="DJConnect" width="640">
+</picture>
+
 Zet je muziek aan. DJConnect brengt die tot leven.
 
 This repository contains native iOS, macOS, and watchOS DJConnect clients that
