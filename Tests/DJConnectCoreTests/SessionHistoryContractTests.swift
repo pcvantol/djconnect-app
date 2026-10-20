@@ -6221,13 +6221,15 @@ func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clie
 private final class ForecastWireDataSlot: @unchecked Sendable {
     private let lock = NSLock()
     private var value: Data
+    private var reads = 0
+    func isFirstRead() -> Bool { lock.withLock { reads += 1; return reads == 1 } }
     init(_ value: Data) { self.value = value }
     func read() -> Data { lock.withLock { value } }
     func replace(_ next: Data) { lock.withLock { value = next } }
 }
 
 // Native Forecast crosses ordinary paired transport; all replies here are explicit fixtures.
-@Test(arguments: ["current", "background", "owner-reset", "context-same", "context-older", "persona-conflict", "unsequenced-live", "unsequenced-live-during-read", "context-locale", "context-direction"]) @MainActor
+@Test(arguments: ["current", "background", "owner-reset", "context-same", "context-older", "persona-conflict", "unsequenced-live", "unsequenced-live-during-read", "context-locale", "context-direction", "context-read-replacement"]) @MainActor
 func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: String) async throws {
     let fixtureRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let rows = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureRoot.appendingPathComponent("Fixtures/session-forecast-core-3cfa5512.json"))) as? [[String: Any]])
@@ -6260,7 +6262,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     var changed = runtime
     var live = try #require(changed["broadcast"] as? [String: Any])
     var tuple = try #require(live["session"] as? [String: Any])
-    if fence == "context-locale" {
+    if fence == "context-locale" || fence == "context-read-replacement" {
         tuple["locale"] = "fr"
     } else if fence == "context-direction" {
         var planner = try #require(live["planner"] as? [String: Any])
@@ -6291,6 +6293,9 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         if path.hasSuffix("/session/active") { return (200, runtimeReplies.read(), 0) }
         if path.hasSuffix("/session/forecast/" + id) {
             let reply = forecastReplies.read()
+            if fence == "context-read-replacement", forecastReplies.isFirstRead() {
+                throw HistoryWireHeldResponse(data: reply, gate: gate)
+            }
             if ["background", "owner-reset", "unsequenced-live-during-read"].contains(fence) { throw HistoryWireHeldResponse(data: reply, gate: gate) }
             return (200, reply, 0)
         }
@@ -6308,6 +6313,21 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         try await Task.sleep(for: .milliseconds(10))
     }
     #expect(fixture.requests.contains { $0.url?.path.hasSuffix("/session/forecast/" + id) == true })
+    if fence == "context-read-replacement" {
+        runtimeReplies.replace(runtimeReply)
+        projection["revision"] = (projection["revision"] as? Int ?? 0) + 1
+        response["forecast"] = projection
+        forecastReplies.replace(try historyData(response))
+        await model.refreshActiveDJSession()
+        await model.refreshSessionForecast()
+        #expect(fixture.requests.filter { $0.url?.path.hasSuffix("/session/forecast/" + id) == true }.count == 2)
+        #expect(model.visibleSessionForecast(at: Date())?.revision == projection["revision"] as? Int)
+        gate.release(); await task.value
+        #expect(model.visibleSessionForecast(at: Date())?.revision == projection["revision"] as? Int)
+        #expect(model.askDJDraft == "Keep this unsent question")
+        #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+        return
+    }
     if fence == "background" { model.markInactiveSession(); gate.release() }
     if fence == "owner-reset" { model.sessionHistory.reset(); gate.release() }
     if fence == "unsequenced-live-during-read" {

@@ -68,10 +68,15 @@ struct SessionForecastPanel<Header: View>: View {
     private struct RefreshContext: Equatable {
         let scope: DJConnectAppModel.ForecastScope?
         let ownerEpoch: UUID
+        let authority: UUID
+        let recovering: Bool
+        let unavailable: Bool
         let phase: ScenePhase
     }
     private var contextKey: RefreshContext {
-        .init(scope: model.sessionForecastRefreshScope, ownerEpoch: history.responseEpoch, phase: scenePhase)
+        .init(scope: model.sessionForecastRefreshScope, ownerEpoch: history.responseEpoch,
+              authority: model.forecastAuthorityGeneration, recovering: model.djSessionIsRecovering,
+              unavailable: model.djSessionLiveUnavailable, phase: scenePhase)
     }
     var body: some View {
         TimelineView(SessionEntryRefreshSchedule(deadlines: deadlines)) { clock in

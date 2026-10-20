@@ -981,6 +981,13 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var forecastAvailable = false
     @Published public private(set) var forecastLoading = false
     private var forecastGeneration = UUID()
+    @Published private(set) var forecastAuthorityGeneration = UUID()
+    private struct ForecastReadContext: Equatable {
+        let scope: ForecastScope
+        let ownerEpoch: UUID
+        let authority: UUID
+    }
+    private var forecastReadContext: ForecastReadContext?
     private var forecastEpoch: UUID?
     private var forecastExpiryTask: Task<Void, Never>?
     struct ForecastScope: Equatable {
@@ -1023,14 +1030,20 @@ public final class DJConnectAppModel: ObservableObject {
 
     public func refreshSessionForecast() async {
         guard canRefreshSessionHistory, isRuntimeCompatible, sessionHistory.hasAuthorizedOwner,
-              let session = activeDJSession, session.runtimeState == "active", !forecastLoading else { return }
+              !djSessionIsRecovering, !djSessionLiveUnavailable, haConnectionMode != .offline,
+              let session = activeDJSession, session.runtimeState == "active" else { return }
         let scope = ForecastScope(session)
-        let generation = UUID(); forecastGeneration = generation
         let epoch = sessionHistory.responseEpoch
+        let readContext = ForecastReadContext(scope: scope, ownerEpoch: epoch, authority: forecastAuthorityGeneration)
+        guard !forecastLoading || forecastReadContext != readContext else { return }
+        let generation = UUID(); forecastGeneration = generation
+        forecastReadContext = readContext
         if forecastEpoch != epoch { forecastCursor = nil }; forecastEpoch = epoch
         if forecastCursor?.sessionID != session.id { forecastCursor = .init(sessionID: session.id) }
         forecastLoading = true
-        defer { if forecastGeneration == generation { forecastLoading = false } }
+        defer {
+            if forecastGeneration == generation { forecastLoading = false; forecastReadContext = nil }
+        }
         do {
             let caps = try await withHomeAssistantClient { try await $0.activeSessionMoodCapabilities() }
             guard !Task.isCancelled, generation == forecastGeneration, epoch == sessionHistory.responseEpoch,
@@ -1072,7 +1085,8 @@ public final class DJConnectAppModel: ObservableObject {
 
     private func clearSessionForecast() {
         forecastExpiryTask?.cancel(); forecastExpiryTask = nil
-        forecastGeneration = UUID(); forecastLoading = false; forecastAvailable = false; forecastEpoch = nil; forecastScope = nil
+        forecastGeneration = UUID(); forecastAuthorityGeneration = UUID(); forecastReadContext = nil
+        forecastLoading = false; forecastAvailable = false; forecastEpoch = nil; forecastScope = nil
         forecastCursor?.withdraw()
     }
 
