@@ -6445,6 +6445,9 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_ACCESSIBILITY_DIR"] {
         try await recordForecastNativeAccessibility(model: model, directory: directory)
     }
+    if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_FILTER_DIR"] {
+        try await qualifyForecastNativeFilter(model: model, directory: directory)
+    }
     #endif
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" && !$0.url!.path.contains("/command") && !$0.url!.path.contains("/message") })
 }
@@ -6605,6 +6608,62 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         "flow_initial_offset": Double(originalFlowOffset.y), "flow_return_offset": Double(flow.contentView.bounds.origin.y)]
     try JSONSerialization.data(withJSONObject: metrics, options: [.sortedKeys, .prettyPrinted])
         .write(to: folder.appendingPathComponent("native-scroll-metrics.json"))
+}
+
+/// Filter only authored presentation; the producer projection and playback
+/// remain unchanged. Native screenshots complement the text-selection bridges.
+@MainActor private func qualifyForecastNativeFilter(model: DJConnectAppModel, directory: String) async throws {
+    let session = try #require(model.activeDJSession)
+    let projection = try #require(model.visibleSessionForecast(at: Date()))
+    _ = NSApplication.shared
+    let view = ForecastNativeHost(model: model, sessionID: session.id)
+        .environment(\.scenePhase, .active).environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark).frame(width: 600, height: 1400)
+    let host = NSHostingView(rootView: view)
+    let window = NSWindow(contentRect: CGRect(x: -2000, y: -2000, width: 600, height: 1400),
+        styleMask: [.borderless], backing: .buffered, defer: false)
+    window.appearance = NSAppearance(named: .darkAqua)
+    window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
+    defer { window.close() }
+    let folder = URL(fileURLWithPath: directory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
+    func search() -> NSTextField? {
+        let prompt = DJConnectLocalization.localized(key: "ui.session.forecast.search", language: model.language)
+        return descendants(host).compactMap { $0 as? NSTextField }.first { $0.placeholderString == prompt }
+    }
+    func capture(_ name: String) throws {
+        host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
+        let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: image)
+        try #require(image.representation(using: .png, properties: [:])).write(to: folder.appendingPathComponent(name + ".png"))
+        let nativeText = descendants(host).compactMap { view -> String? in
+            if let text = view as? NSTextView { return text.string }
+            return nil
+        }
+        try JSONSerialization.data(withJSONObject: ["query": search()?.stringValue ?? "", "native_selectable_text": nativeText], options: [.prettyPrinted, .sortedKeys])
+            .write(to: folder.appendingPathComponent(name + ".json"))
+    }
+    try await Task.sleep(for: .milliseconds(400))
+    let picker = try #require(descendants(host).compactMap { $0 as? NSSegmentedControl }.first { $0.segmentCount == 2 })
+    let action = try #require(picker.action)
+    picker.selectedSegment = 1
+    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
+    for _ in 0..<30 where search() == nil { try await Task.sleep(for: .milliseconds(50)) }
+    _ = try #require(search())
+    try capture("filter-01-all")
+    for (query, name) in [("STEADY", "filter-02-body-match"), ("MINUTES", "filter-03-title-match"), ("zz-no-authored-match-zz", "filter-04-none"), ("", "filter-05-cleared")] {
+        let field = try #require(search())
+        field.stringValue = query
+        field.delegate?.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: field))
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(search()?.stringValue == query)
+        #expect(model.visibleSessionForecast(at: Date()) == projection)
+        #expect(model.askDJDraft == "Keep this unsent question")
+        #expect(model.activeDJSession?.id == session.id)
+        #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
+        try capture(name)
+    }
 }
 
 /// Read this isolated host's public accessibility tree, without system VoiceOver
