@@ -206,14 +206,11 @@ struct DJConnectLaunchBanner: View {
 
     var body: some View {
         Group {
-            if dynamicTypeSize.isAccessibilitySize {
+            if dynamicTypeSize >= .xxxLarge {
                 verticalContent
             } else {
                 ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 14) {
-                        brandIcon
-                        brandText.frame(minWidth: 220)
-                    }
+                    canonicalWordmark.frame(minWidth: 360, maxWidth: 480)
                     verticalContent
                 }
             }
@@ -221,6 +218,32 @@ struct DJConnectLaunchBanner: View {
         .padding(18)
         .djSessionFrostedSurface()
         .accessibilityElement(children: .combine)
+    }
+
+    // App panels have dark canvases regardless of the system appearance. Core's
+    // "dark" wordmark supplies light lettering; "light" means dark lettering.
+    // Only English uses the baked primary slogan. Other languages retain native
+    // localized copy, also used by narrow and accessibility layouts.
+    private var canonicalWordmark: some View {
+        VStack(spacing: 7) {
+            wordmarkImage
+                .resizable()
+                .scaledToFit()
+                .accessibilityLabel(subtitle == "Your music. Your DJ." ? "DJConnect. \(subtitle)" : "DJConnect")
+            if subtitle != "Your music. Your DJ." {
+                tagline
+            }
+        }
+    }
+
+    private var wordmarkImage: Image {
+        let name = subtitle == "Your music. Your DJ." ? "BrandWordmarkPrimaryDark" : "BrandWordmarkCompactDark"
+        #if os(iOS)
+        if let image = UIImage(named: name) { return Image(uiImage: image) }
+        #elseif os(macOS)
+        if let image = NSImage(named: name) { return Image(nsImage: image) }
+        #endif
+        return Image(name)
     }
 
     private var verticalContent: some View {
@@ -245,38 +268,24 @@ struct DJConnectLaunchBanner: View {
                 .minimumScaleFactor(0.62)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
-            Text(subtitle)
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.72))
-                .fixedSize(horizontal: false, vertical: true)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
+            tagline
         }
+    }
+
+    private var tagline: some View {
+        Text(subtitle)
+            .font(.headline.weight(.semibold))
+            .foregroundStyle(.white.opacity(0.72))
+            .fixedSize(horizontal: false, vertical: true)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
     }
 }
 
-/// Keep the recognizable brand artwork inside one shared, beveled glass tile.
-/// Launch, About and service sheets must not fall back to the bare app-icon image.
+/// The approved artwork already contains its glass rim. Do not add a second tile.
 struct DJConnectGlassBrandIcon: View {
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 23, style: .continuous)
         DJConnectAppIconView()
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .padding(6)
-            .djSessionFrostedSurface(cornerRadius: 23)
-            .overlay {
-                shape.fill(LinearGradient(stops: [
-                    .init(color: .white.opacity(0.24), location: 0),
-                    .init(color: .white.opacity(0.04), location: 0.42),
-                    .init(color: .clear, location: 0.52)
-                ], startPoint: .topLeading, endPoint: .bottomTrailing))
-                shape.strokeBorder(DJConnectCardAppearance.searchFocusGradient,
-                                   lineWidth: DJConnectCardAppearance.borderWidth)
-                    .blur(radius: 2).opacity(0.40)
-                shape.strokeBorder(DJConnectCardAppearance.searchFocusGradient,
-                                   lineWidth: DJConnectCardAppearance.borderWidth)
-            }
-            .shadow(color: .black.opacity(0.20), radius: 12, y: 6)
             .accessibilityHidden(true)
     }
 }

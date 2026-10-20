@@ -1,4 +1,4 @@
-# API-issued binary SDK intake — build40380 proposal
+# API-issued binary SDK intake — current build40381 proposal
 
 This is the separate path requested in API90 comment6277830018. It is not the
 historical AppAttestQualification UTF8 synthetic-input diagnostic, the synthetic
@@ -38,7 +38,7 @@ must never re-attest an old diagnostic/uncertain key with a new nonce; key setup
 is a separate jointly admitted step. An occupied marker means stop for explicit
 reconciliation, never delete the marker and try another key.
 
-## Concrete proposed signed profile
+## Historical build40380 signed profile
 
 [PROFILE_PROPOSAL_40380.json](PROFILE_PROPOSAL_40380.json) records actual readback
 and source hashes, not an approval. App host is dev.djconnect.ios, TeamZEML4LPXH4,
@@ -62,7 +62,13 @@ build/qualification/vibecast-binary-sdk-intake and /tmp/djc-api-binary-40380-*.
 Signed-source hashes must match this proposal; a changed artifact is not covered
 by an old receipt merely because its displayed build number is40380.
 
-## Joint-run gate and private transfer
+## Joint-run gate and private transfer — build40381
+
+Use the corrected [PROFILE_PROPOSAL_40381.json](PROFILE_PROPOSAL_40381.json) and
+its exact compiled-input/artifact hashes below. The build40380 profile and
+qualification above are historical evidence; they do not admit the current build.
+Prepare and validate the descriptor against the actual40381 host before requesting
+a fresh challenge. Keep the durable40380 directory namespace unchanged.
 
 1. API first reviews/accepts the exact proposed profile/artifact/source and names
    the qualified original120s experiment. Existing dependency comments, including
@@ -84,7 +90,7 @@ by an old receipt merely because its displayed build number is40380.
    whole app container. No shared/public uploads, XCTest attachments or raw logs.
 4. Each stage contains admission.json, request-context.json and
    challenge-response.json. Admission is exactly
-   `{v:"djc-api-binary-qualification/1",team_id:"ZEML4LPXH4",bundle_id:"dev.djconnect.ios",build:"40380",environment:"development",api_review_receipt:"<EXACT-ACCEPTED-API90-RECEIPT>"}`.
+   `{v:"djc-api-binary-qualification/1",team_id:"ZEML4LPXH4",bundle_id:"dev.djconnect.ios",build:"40381",environment:"development",api_review_receipt:"<EXACT-ACCEPTED-API90-RECEIPT>"}`.
    This local receipt field is operator bookkeeping, **not machine proof of human
    review/authority**. The operator must independently verify the actual receipt
    and exact artifact before arming; a matching string/URL cannot authorize SDK
@@ -150,3 +156,30 @@ CI now runs the pure isolated package with no credentials/hardware opt-in, in
 addition to ordinary Swift/native build checks. That does not arm hosted capture.
 The shipping scanner, genuine SDK/API joint proof, agreed profile and physical
 private-transfer readiness remain explicit separate gates.
+
+
+## Corrected build40381 candidate — 20 October 2026
+
+[PROFILE_PROPOSAL_40381.json](PROFILE_PROPOSAL_40381.json) is a new, separate
+proposal containing the protected PR160 expiry correction. Both the test host
+bundle guard and explicit private admission descriptor require40381. The durable
+attempt directory deliberately remains `DJConnect/APIBinaryQualification40380`:
+a new build must not bypass an occupied registration/action marker. Historical
+attempt state, old40380 proposal/artifact and independent admission gates remain
+unchanged. No migration, deletion, new key, capture or SDK execution occurred.
+
+The actual generic-iPhone build-for-testing succeeded using the existing Team,
+Apple Development identity and existing exact profile without provisioning
+updates. Both produced and preserved bundles pass strict nested signature
+verification. All89regular bundle files and five compiled qualification inputs
+are SHA256-bound; the copied artifact root is private. Source-base5173de1 and
+separate test-target overlay are recorded; only the two build guards changed.
+The earlier private prototype with a new state-directory name was superseded
+before external proposal and retained separately as non-admitted evidence.
+
+This is compiled/signed diagnostic evidence, not a protected delivery receipt,
+API policy acceptance, actual DeviceCheck request, install or physical test.
+After exact source review/delivery, API separately reviews this exact candidate
+profile/artifact and both owners arrange private-transfer/device readiness before
+one bounded original120s registration and selected action. Never reuse old
+40380/40227/40228/40230 approval or reset a consumed/uncertain marker.

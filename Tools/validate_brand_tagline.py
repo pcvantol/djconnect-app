@@ -13,11 +13,11 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 LANGUAGES = ('en', 'nl', 'de', 'fr', 'es')
 EXPECTED = {
-    'en': 'Play your music. DJConnect brings it to life.',
-    'nl': 'Zet je muziek aan. DJConnect brengt die tot leven.',
-    'de': 'Mach deine Musik an. DJConnect erweckt sie zum Leben.',
-    'fr': 'Lancez votre musique. DJConnect lui donne vie.',
-    'es': 'Pon tu música. DJConnect le da vida.',
+    'en': 'Your music. Your DJ.',
+    'nl': 'Jouw muziek. Jouw DJ.',
+    'de': 'Deine Musik. Dein DJ.',
+    'fr': 'Votre musique. Votre DJ.',
+    'es': 'Tu música. Tu DJ.',
 }
 LEGACY = ('ui.music.control.with.character', 'watch.music.control.with.character',
           'launch.music.control.with.character', 'Muziekbediening met karakter',
@@ -33,6 +33,7 @@ def validate(write=False):
         values = {key: json.loads(value) for key, value in rows}
         assert len(values) == len(rows), f'duplicate localization key: {language}'
         assert values.get('brand.tagline') == EXPECTED[language], f'incorrect brand sentence: {language}'
+        assert values.get('ui.device_speech.sample', '').startswith(EXPECTED[language] + ' '), f'stale spoken brand preview: {language}'
         assert not any(old in source for old in LEGACY), f'legacy tagline: {path}'
         key_sets.append(set(values))
     assert all(keys == key_sets[0] for keys in key_sets), 'five-language localization key mismatch'
@@ -53,7 +54,7 @@ def validate(write=False):
     assert 'localized(key: "brand.tagline")' in launch
     assert 'DJConnectLaunchBanner()' in root
     assert 'watchLocalizedKey(model.language, "brand.tagline")' in watch
-    assert 'Text(subtitle)\n                .font(.headline.weight(.semibold))\n                .foregroundStyle(.white.opacity(0.72))\n                .fixedSize(horizontal: false, vertical: true)' in launch
+    assert 'Text(subtitle)\n            .font(.headline.weight(.semibold))\n            .foregroundStyle(.white.opacity(0.72))\n            .fixedSize(horizontal: false, vertical: true)' in launch
     print(f'PASS: exact brand sentence in {len(LANGUAGES)} languages; {len(key_sets[0])} matching keys; language-neutral system launch; active legacy references/raster absent')
 
 
