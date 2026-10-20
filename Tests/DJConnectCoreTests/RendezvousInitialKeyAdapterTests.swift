@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import Testing
 @testable import DJConnectCore
 
@@ -52,13 +53,19 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
             "transaction_id":"00000000-0000-4000-8000-000000000001","generation":1,
             "expires_at":now+120000,"browser_key_thumbprint":token,"qr_capability":token]),as:UTF8.self))
     }
+    func challenge() throws -> DJConnectRendezvousEnrollmentChallenge {
+        let now = Int64(Date().timeIntervalSince1970*1000), up = ProcessInfo.processInfo.systemUptime
+        return try .parse(JSONSerialization.data(withJSONObject:["v":"djc-rendezvous/1",
+            "challenge_id":String(repeating:"A",count:43),"challenge":String(repeating:"A",count:43),
+            "expires_at":min(now+120000,qr.expiresAtMS)]),requestedAtMS:now,requestedUptime:up,nowMS:now,uptime:up)
+    }
     func run() async throws {
         try await RendezvousInitialKeyAdapter(sdk:sdk).generate(qr:qr,appContext:context,
             lifecycle:RendezvousKeyLifecycleJournal(storage:store),
             registration:RendezvousRegistrationJournal(storage:registrationStore),
             recovery:RendezvousRecoveryJournal(storage:recoveryStore),
             repair:RendezvousRepairJournal(storage:repairStore),
-            isAdmitted:{ self.admitted && self.admission.get() },finishEnrollment:{ _,key in
+            isAdmitted:{ self.admitted && self.admission.get() },prepareEnrollment:{_,_ in try self.challenge()},finishEnrollment:{ _,key,_,_ in
                 #expect(key == Data(repeating:3,count:32).base64EncodedString()); self.finishes += 1
                 if self.finishFails { throw InitialStore.Failure.unavailable }
             })
@@ -135,7 +142,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
         lifecycle:RendezvousKeyLifecycleJournal(storage:f.store),
         registration:RendezvousRegistrationJournal(storage:f.registrationStore),
         recovery:RendezvousRecoveryJournal(storage:InitialStore()),repair:RendezvousRepairJournal(storage:InitialStore()),
-        isAdmitted:{ admission.get() },finishEnrollment:{ _,_ in Issue.record("Must not enroll") })
+        isAdmitted:{ admission.get() },prepareEnrollment:{_,_ in try f.challenge()},finishEnrollment:{ _,_,_,_ in Issue.record("Must not enroll") })
     }
     #expect(f.sdk.calls == 0)
     #expect(try await f.handles().first?.phase == .generationPending)
@@ -186,7 +193,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
             }).generate(qr:f.qr,appContext:f.context,lifecycle:RendezvousKeyLifecycleJournal(storage:f.store),
                 registration:RendezvousRegistrationJournal(storage:f.registrationStore),
                 recovery:RendezvousRecoveryJournal(storage:f.recoveryStore),repair:RendezvousRepairJournal(storage:f.repairStore),
-                isAdmitted:{true},finishEnrollment:{_,_ in Issue.record("No enrollment")})
+                isAdmitted:{true},prepareEnrollment:{_,_ in try f.challenge()},finishEnrollment:{_,_,_,_ in Issue.record("No enrollment")})
         }
     }
     #expect(f.sdk.calls == 0 && f.finishes == 0)
@@ -264,21 +271,21 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     try await first.value; try await second.value; try await third.value; try await fourth.value
     #expect(gate.completed == 4)
 }
-@Test @MainActor func rendezvousInitialGenerationReentersEnrollmentJournalWithoutReleasingBoundary() async throws {
+@Test @MainActor func rendezvousInitialGenerationCommitsExactAttemptBeforeEnrollmentContinuation() async throws {
     let f = try InitialFixture()
     let operation = Task {
             try await RendezvousInitialKeyAdapter(sdk:f.sdk).generate(qr:f.qr,appContext:f.context,
                 lifecycle:RendezvousKeyLifecycleJournal(storage:f.store),
                 registration:RendezvousRegistrationJournal(storage:f.registrationStore),
                 recovery:RendezvousRecoveryJournal(storage:f.recoveryStore),repair:RendezvousRepairJournal(storage:f.repairStore),
-                isAdmitted:{true},finishEnrollment:{_,key in
+                isAdmitted:{true},prepareEnrollment:{_,_ in try f.challenge()},finishEnrollment:{_,key,attempt,challenge in
                     let now = Int64(Date().timeIntervalSince1970*1000)
                     let enrollment = RendezvousRegistrationJournal(storage:f.registrationStore)
-                    _ = try await RendezvousAppKeyOperations.shared.perform(keyIdentifier:key) {
-                        try await enrollment.beginAttestation(keyIdentifier:key,
-                            challengeIdentifier:String(repeating:"A",count:43),nonce:Data(repeating:0,count:32),
-                            admittedAtMS:now,deadlineMS:now+120000)
+                    let call = try await RendezvousAppKeyOperations.shared.perform(keyIdentifier:key) {
+                        try await enrollment.reserveAttestation(attemptIdentifier:attempt,at:now)
                     }
+                    #expect(call.keyIdentifier == key && call.challengeIdentifier == challenge.identifier)
+                    #expect(call.deadlineMS == challenge.expiresAtMS)
                     f.finishes += 1
                 })
     }
@@ -313,10 +320,11 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     try await RendezvousInitialKeyAdapter(sdk:f.sdk).generate(qr:f.qr,appContext:f.context,
         lifecycle:RendezvousKeyLifecycleJournal(storage:f.store),registration:journal,
         recovery:RendezvousRecoveryJournal(storage:f.recoveryStore),repair:RendezvousRepairJournal(storage:f.repairStore),
-        isAdmitted:{true},finishEnrollment:{_,key in
+        isAdmitted:{true},prepareEnrollment:{_,_ in try f.challenge()},finishEnrollment:{_,key,attempt,challenge in
             let now = Int64(Date().timeIntervalSince1970*1000)
-            _ = try await journal.beginAttestation(keyIdentifier:key,challengeIdentifier:token,
-                nonce:Data(repeating:0,count:32),admittedAtMS:now,deadlineMS:now+120000)
+            let state = try #require(await journal.snapshot(at:now))
+            #expect(state.keyIdentifier == key && state.attemptIdentifier == attempt)
+            #expect(state.deadlineMS == challenge.expiresAtMS)
             f.finishes += 1
         })
     let task = try #require(legacy)
@@ -395,4 +403,79 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     lease.close()
     #expect(try f.recoveryStore.read() == nil)
     #expect(try f.repairStore.read() == nil)
+}
+
+@Test @MainActor func rendezvousInitialEnrollmentChildrenCannotSelectDifferentAttempt() async throws {
+    let f = try InitialFixture(), journal = RendezvousRegistrationJournal(storage:InitialStore())
+    let wrongToken = Data(repeating:1,count:32).base64EncodedString().replacingOccurrences(of:"+",with:"-").replacingOccurrences(of:"/",with:"_").replacingOccurrences(of:"=",with:"")
+    var intended:DJConnectRendezvousEnrollmentChallenge?
+    try await RendezvousInitialKeyAdapter(sdk:f.sdk).generate(qr:f.qr,appContext:f.context,
+        lifecycle:RendezvousKeyLifecycleJournal(storage:f.store),registration:journal,
+        recovery:RendezvousRecoveryJournal(storage:f.recoveryStore),repair:RendezvousRepairJournal(storage:f.repairStore),
+        isAdmitted:{true},prepareEnrollment:{_,key in
+            let challenge = try f.challenge(); intended = challenge
+            let now = Int64(Date().timeIntervalSince1970*1000)
+            let child = Task {
+                try await journal.beginAttestation(keyIdentifier:key,challengeIdentifier:wrongToken,
+                    nonce:Data(repeating:1,count:32),admittedAtMS:now,deadlineMS:challenge.expiresAtMS)
+            }
+            let preparedChild = Task {
+                try await journal.prepare(keyIdentifier:key,challengeIdentifier:wrongToken,nonce:Data(repeating:1,count:32),
+                    attestation:Data([1]),admittedAtMS:now,deadlineMS:challenge.expiresAtMS)
+            }
+            await #expect(throws:(any Error).self) { try await child.value }
+            await #expect(throws:(any Error).self) { try await preparedChild.value }
+            return challenge
+        },finishEnrollment:{_,key,attempt,challenge in
+            #expect(challenge.identifier == intended?.identifier)
+            let call = try await journal.reserveAttestation(attemptIdentifier:attempt,at:Int64(Date().timeIntervalSince1970*1000))
+            #expect(call.keyIdentifier == key && call.challengeIdentifier == challenge.identifier)
+            #expect(call.clientDataHash == Data(SHA256.hash(data:challenge.nonce)))
+            #expect(call.deadlineMS == challenge.expiresAtMS)
+            f.finishes += 1
+        })
+    #expect(f.sdk.calls == 1 && f.finishes == 1)
+}
+@Test @MainActor func rendezvousInitialEnrollmentAdmissionIsOneShotAcrossJournals() async throws {
+    let f = try InitialFixture(), firstStore = InitialStore(), secondStore = InitialStore()
+    let key = Data(repeating:3,count:32).base64EncodedString(), challenge = try f.challenge()
+    let cap = RendezvousInitialRegistrationAdmission(key:key,challenge:challenge,qr:f.qr,at:Int64(Date().timeIntervalSince1970*1000))
+    let first = RendezvousRegistrationJournal(storage:firstStore), second = RendezvousRegistrationJournal(storage:secondStore)
+    let id = try await first.beginInitialAttestation(cap)
+    let call = try await first.reserveAttestation(attemptIdentifier:id,at:Int64(Date().timeIntervalSince1970*1000))
+    #expect(call.challengeIdentifier == challenge.identifier && call.clientDataHash == Data(SHA256.hash(data:challenge.nonce)))
+    await #expect(throws:(any Error).self) { try await second.beginInitialAttestation(cap) }
+    #expect(try secondStore.read() == nil)
+}
+@Test @MainActor func rendezvousInitialEnrollmentAdmissionFailureNeverRefundsClaim() async throws {
+    for committed in [false,true] {
+        let f = try InitialFixture(), store = InitialStore(), secondStore = InitialStore()
+        let key = Data(repeating:3,count:32).base64EncodedString(), challenge = try f.challenge()
+        let cap = RendezvousInitialRegistrationAdmission(key:key,challenge:challenge,qr:f.qr,at:Int64(Date().timeIntervalSince1970*1000))
+        store.beforeWrite = !committed; store.afterWrite = committed
+        await #expect(throws:(any Error).self) {
+            try await RendezvousRegistrationJournal(storage:store).beginInitialAttestation(cap)
+        }
+        store.beforeWrite = false; store.afterWrite = false
+        await #expect(throws:(any Error).self) {
+            try await RendezvousRegistrationJournal(storage:secondStore).beginInitialAttestation(cap)
+        }
+        #expect(try secondStore.read() == nil)
+        if committed {
+            #expect(try await RendezvousRegistrationJournal(storage:store).snapshot(at:Int64(Date().timeIntervalSince1970*1000))?.keyIdentifier == key)
+        }
+    }
+}
+@Test @MainActor func rendezvousInitialEnrollmentOwnerLossAfterChallengeNeverCreatesAttempt() async throws {
+    let f = try InitialFixture()
+    await #expect(throws:(any Error).self) {
+        try await RendezvousInitialKeyAdapter(sdk:f.sdk).generate(qr:f.qr,appContext:f.context,
+            lifecycle:RendezvousKeyLifecycleJournal(storage:f.store),registration:RendezvousRegistrationJournal(storage:f.registrationStore),
+            recovery:RendezvousRecoveryJournal(storage:f.recoveryStore),repair:RendezvousRepairJournal(storage:f.repairStore),
+            isAdmitted:{f.admitted},prepareEnrollment:{_,_ in f.admitted = false; return try f.challenge()},
+            finishEnrollment:{_,_,_,_ in Issue.record("Must not enroll")})
+    }
+    #expect(f.sdk.calls == 1 && f.finishes == 0)
+    #expect(try f.registrationStore.read() == nil)
+    #expect(try await f.handles().first?.keyIdentifier != nil)
 }

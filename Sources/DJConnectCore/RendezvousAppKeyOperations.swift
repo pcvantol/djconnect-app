@@ -95,8 +95,8 @@ public actor RendezvousAppKeyOperations {
 }
 
 
-/// Ephemeral, key-bound reentrancy for only the initial registration creator.
-/// Never persisted/exported. Child tasks lose access once the parent scope ends.
+/// Ephemeral key-bound ordering scope; it grants NO journal creation access.
+/// It permits only non-waiting per-key acquisition and is never persisted/exported.
 final class RendezvousInitialEnrollmentLease:@unchecked Sendable {
     private let lock = NSLock()
     private var open = true

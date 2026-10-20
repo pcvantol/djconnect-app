@@ -47,15 +47,22 @@ public actor RendezvousRegistrationJournal {
     /// Save their original binding before permitting any SDK invocation.
     public func beginAttestation(keyIdentifier: String, challengeIdentifier: String, nonce: Data,
                                  admittedAtMS: Int64, deadlineMS: Int64) async throws -> UUID {
-        if let lease = RendezvousAppKeyOperations.initialEnrollmentLease {
-            return try lease.withAccess(keyIdentifier:keyIdentifier) {
-                try self.beginAttestationLocked(keyIdentifier:keyIdentifier,challengeIdentifier:challengeIdentifier,
-                    nonce:nonce,admittedAtMS:admittedAtMS,deadlineMS:deadlineMS)
-            }
-        }
+        guard RendezvousAppKeyOperations.initialEnrollmentLease == nil else { throw Failure.unavailable }
         return try await RendezvousAppKeyOperations.shared.perform(keyIdentifier:RendezvousAppKeyOperations.installationAdmissionSlot) {
             try await self.beginAttestationLocked(keyIdentifier:keyIdentifier,challengeIdentifier:challengeIdentifier,
                 nonce:nonce,admittedAtMS:admittedAtMS,deadlineMS:deadlineMS)
+        }
+    }
+    /// Only the initial adapter owns this one-shot exact attempt, before it
+    /// invokes downstream enrollment. No descendant receives creation authority.
+    func beginInitialAttestation(_ admission:RendezvousInitialRegistrationAdmission) throws -> UUID {
+        try admission.consume { material in
+            try refuseReplacement(at:material.admittedAtMS)
+            let record = try RegistrationRecord(key:material.key,challenge:material.challenge.identifier,
+                nonce:material.challenge.nonce,attestation:nil,startedAtMS:material.admittedAtMS,
+                deadlineMS:material.challenge.expiresAtMS,identifier:material.identifier)
+            try persist(record)
+            return record.id
         }
     }
     private func beginAttestationLocked(keyIdentifier:String,challengeIdentifier:String,nonce:Data,
@@ -94,12 +101,7 @@ public actor RendezvousRegistrationJournal {
     /// attempt (including an uncertain/completed one) can be replaced here.
     public func prepare(keyIdentifier: String, challengeIdentifier: String, nonce: Data,
                         attestation: Data, admittedAtMS: Int64, deadlineMS: Int64) async throws -> UUID {
-        if let lease = RendezvousAppKeyOperations.initialEnrollmentLease {
-            return try lease.withAccess(keyIdentifier:keyIdentifier) {
-                try self.prepareLocked(keyIdentifier:keyIdentifier,challengeIdentifier:challengeIdentifier,
-                    nonce:nonce,attestation:attestation,admittedAtMS:admittedAtMS,deadlineMS:deadlineMS)
-            }
-        }
+        guard RendezvousAppKeyOperations.initialEnrollmentLease == nil else { throw Failure.unavailable }
         return try await RendezvousAppKeyOperations.shared.perform(keyIdentifier:RendezvousAppKeyOperations.installationAdmissionSlot) {
             try await self.prepareLocked(keyIdentifier:keyIdentifier,challengeIdentifier:challengeIdentifier,
                 nonce:nonce,attestation:attestation,admittedAtMS:admittedAtMS,deadlineMS:deadlineMS)
@@ -207,11 +209,11 @@ private struct RegistrationRecord: Codable {
     private var requestHash: Data?
 
     init(key: String, challenge: String, nonce: Data, attestation: Data?,
-         startedAtMS: Int64, deadlineMS: Int64) throws {
+         startedAtMS: Int64, deadlineMS: Int64, identifier:UUID = UUID()) throws {
         guard Self.validKey(key), Self.decodeURL(challenge)?.count == 32, nonce.count == 32,
               attestation.map({ !$0.isEmpty && $0.count <= 32_768 }) ?? true,
               deadlineMS <= 9_007_199_254_740_991 else { throw RendezvousRegistrationJournal.Failure.invalidMaterial }
-        id = UUID()
+        id = identifier
         self.key = key
         self.challenge = challenge
         self.nonce = nonce
@@ -372,6 +374,35 @@ private struct RegistrationRecord: Codable {
             if phase == .completed {
                 guard window.isClosed, window.callsStarted > 0, window.reservation == nil else { throw RendezvousRegistrationJournal.Failure.invalidData }
             }
+        }
+    }
+}
+
+
+/// The adapter retains this capability; it is never passed to a callback/task.
+/// Its only use consumes one exact key/challenge/nonce/deadline/attempt tuple.
+final class RendezvousInitialRegistrationAdmission:@unchecked Sendable {
+    struct Material:Sendable {
+        let identifier:UUID
+        let key:String
+        let challenge:DJConnectRendezvousEnrollmentChallenge
+        let admittedAtMS:Int64
+    }
+    private let lock = NSLock()
+    private var consumed = false
+    private let material:Material
+    private let qr:DJConnectRendezvousQR
+    init(key:String,challenge:DJConnectRendezvousEnrollmentChallenge,qr:DJConnectRendezvousQR,at nowMS:Int64) {
+        material = .init(identifier:UUID(),key:key,challenge:challenge,admittedAtMS:nowMS); self.qr = qr
+    }
+    func consume<Value>(operation:(Material)throws->Value) throws -> Value {
+        try lock.withLock {
+            guard !consumed,!Task.isCancelled,qr.isCurrent(),material.challenge.isCurrent(),
+                  DJConnectRendezvousSubmitChallenge.canonicalKeyID(material.key) else {
+                throw RendezvousRegistrationJournal.Failure.unavailable
+            }
+            consumed = true // Failed/uncertain persistence never grants a replay.
+            return try operation(material)
         }
     }
 }

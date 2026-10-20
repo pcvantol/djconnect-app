@@ -451,3 +451,55 @@ build-for-testing PASS: `/tmp/djc-initial-enrollment-priority-ios-build.log`.
 No genuine SDK, Keychain or hardware effect was executed. Both dfa P1 and the
 separate no-major-issues receipt remain historical evidence; this new source
 requires its own exact-head reviews/CI and gives no merge/runtime admission.
+
+
+## P1 follow-up: one selected enrollment attempt, no descendant creation grant
+
+Exact0114786 review5586109903/P1-4325835085 found that an exact-key task-local
+creation lease still allowed any same-key descendant to race the intended
+challenge/nonce or prepared attestation into the immutable journal. Source011 is
+therefore not a clean final admission, even though its CI passed.
+
+The initial adapter now requires a typed prepareEnrollment result and commits the
+selected registration attempt itself **before** invoking finishEnrollment. It
+validates the returned original challenge and owner/QR/cancellation, binds the
+lifecycle enrollment deadline, rechecks after persistence and creates an internal
+one-shot admission containing a fresh attempt UUID plus exact key, typed challenge,
+nonce and original deadline. That admission is retained by the adapter; it is not
+passed to either callback or stored in TaskLocal. Consumption and synchronous
+journal creation share a lock. Consumption is not refunded by failed or uncertain
+storage, and the record persists the selected UUID without changing its JSON
+schema. Downstream receives the already committed attempt ID and typed challenge.
+
+The task-local object now grants **no journal creation access**, even to its own
+key. Both public registration creators reject it, as do recovery/repair and
+recursive initial generation. Its only remaining purpose is scoped, non-waiting
+per-key acquisition while initial ordering is held; it is not SDK permission.
+Queued outside legacy creators still wait until the selected initial attempt is
+written and cannot replace it. Prior descriptions of same-key public journal
+reentry are superseded by this stricter ownership.
+
+A concrete test spawns concurrent same-key children during challenge preparation:
+one tries another challenge/nonce and one tries prepared attestation import. Both
+are refused; the selected parent challenge is committed and reserveAttestation
+returns its exact original nonce SHA256, key, deadline and attempt. Other tests
+prove one-shot use across different journals, failed/commit-then-error consumption,
+owner withdrawal after the challenge before any attempt is created, priority over
+queued outside writers and ordinary canonical per-key continuation.24 focused
+functions PASS: `/tmp/djc-initial-attempt-binding-final.log`. All use synthetic
+SDK/challenges and memory journals; no real SDK, Keychain or hardware effects.
+
+This increment is still UNWIRED/source-only. Actual qualified challenge transport,
+complete registration/assertion/submit orchestration, active-key admission,
+rotation/recovery and Core B consent remain open. No automatic retry/new challenge
+or new key is authorized by callback/storage uncertainty. No old-source overwrite
+counterrun was retried or claimed.
+
+
+Final attempt-binding increment: full serial73XCTest(2 intentional skips,
+0 failures) plus966SwiftTesting functions in10suites PASS:
+`/tmp/djc-initial-attempt-binding-full.log`. Final unsigned iOS simulator
+build-for-testing PASS: `/tmp/djc-initial-attempt-binding-ios-build.log`.
+No genuine SDK, Keychain or hardware effect was executed. New exact-head
+code/security review and CI are required; source011 P1 and green CI remain
+separate historical evidence, not current admission. No merge permission.

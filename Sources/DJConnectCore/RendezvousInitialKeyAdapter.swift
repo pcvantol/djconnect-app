@@ -32,17 +32,19 @@ import DeviceCheck
     public func generateInitialAndFinishEnrollment(
         qr:DJConnectRendezvousQR,appContext:Data,
         isAdmitted:@escaping @MainActor @Sendable ()->Bool,
-        finishEnrollment:@escaping @MainActor @Sendable (UUID,String) async throws->Void
+        prepareEnrollment:@escaping @MainActor @Sendable (UUID,String) async throws->DJConnectRendezvousEnrollmentChallenge,
+        finishEnrollment:@escaping @MainActor @Sendable (UUID,String,UUID,DJConnectRendezvousEnrollmentChallenge) async throws->Void
     ) async throws {
         try await generate(qr:qr,appContext:appContext,lifecycle:.shared,
             registration:.shared,recovery:.shared,repair:.shared,
-            isAdmitted:isAdmitted,finishEnrollment:finishEnrollment)
+            isAdmitted:isAdmitted,prepareEnrollment:prepareEnrollment,finishEnrollment:finishEnrollment)
     }
     func generate(qr:DJConnectRendezvousQR,appContext:Data,
         lifecycle:RendezvousKeyLifecycleJournal,registration:RendezvousRegistrationJournal,
         recovery:RendezvousRecoveryJournal,repair:RendezvousRepairJournal,
         isAdmitted:@escaping @MainActor @Sendable ()->Bool,
-        finishEnrollment:@escaping @MainActor @Sendable (UUID,String) async throws->Void
+        prepareEnrollment:@escaping @MainActor @Sendable (UUID,String) async throws->DJConnectRendezvousEnrollmentChallenge,
+        finishEnrollment:@escaping @MainActor @Sendable (UUID,String,UUID,DJConnectRendezvousEnrollmentChallenge) async throws->Void
     ) async throws {
         guard sdk.isSupported else { throw Failure.unsupported }
         guard RendezvousAppKeyOperations.initialEnrollmentLease == nil else { throw Failure.staleContext }
@@ -52,21 +54,34 @@ import DeviceCheck
             keyIdentifier:RendezvousAppKeyOperations.installationAdmissionSlot) { [self] in
             let (identifier,key) = try await perform(qr:qr,appContext:appContext,lifecycle:lifecycle,
                 registration:registration,recovery:recovery,repair:repair,isAdmitted:isAdmitted)
-            try await finishInitialEnrollment(identifier:identifier,key:key,qr:qr,
-                isAdmitted:isAdmitted,finishEnrollment:finishEnrollment)
+            try await finishInitialEnrollment(identifier:identifier,key:key,qr:qr,appContext:appContext,
+                lifecycle:lifecycle,registration:registration,isAdmitted:isAdmitted,
+                prepareEnrollment:prepareEnrollment,finishEnrollment:finishEnrollment)
         }
     }
-    private func finishInitialEnrollment(identifier:UUID,key:String,qr:DJConnectRendezvousQR,
+    private func finishInitialEnrollment(identifier:UUID,key:String,qr:DJConnectRendezvousQR,appContext:Data,
+        lifecycle:RendezvousKeyLifecycleJournal,registration:RendezvousRegistrationJournal,
         isAdmitted:@escaping @MainActor @Sendable ()->Bool,
-        finishEnrollment:@escaping @MainActor @Sendable (UUID,String) async throws->Void) async throws {
+        prepareEnrollment:@escaping @MainActor @Sendable (UUID,String) async throws->DJConnectRendezvousEnrollmentChallenge,
+        finishEnrollment:@escaping @MainActor @Sendable (UUID,String,UUID,DJConnectRendezvousEnrollmentChallenge) async throws->Void) async throws {
         try Task.checkCancellation()
         guard sdk.isSupported,isAdmitted(),qr.isCurrent() else { throw Failure.staleContext }
         let lease = RendezvousInitialEnrollmentLease(key:key,qr:qr)
         defer { lease.close() }
-        // Keep already-queued legacy writers behind this enrollment. Only its
-        // exact-key registration creation can reenter the held installation slot.
+        // The scope denies all public journal creation, including descendants.
+        // The adapter alone commits one selected attempt before downstream work.
         try await RendezvousAppKeyOperations.$initialEnrollmentLease.withValue(lease) {
-            try await finishEnrollment(identifier,key)
+            let challenge = try await prepareEnrollment(identifier,key)
+            try Task.checkCancellation()
+            guard sdk.isSupported,isAdmitted(),qr.isCurrent(),challenge.isCurrent() else { throw Failure.staleContext }
+            try await lifecycle.bindEnrollment(identifier,deadlineMS:challenge.expiresAtMS,appContext:appContext,at:Self.now())
+            try Task.checkCancellation()
+            guard isAdmitted(),qr.isCurrent(),challenge.isCurrent() else { throw Failure.staleContext }
+            let admission = RendezvousInitialRegistrationAdmission(key:key,challenge:challenge,qr:qr,at:Self.now())
+            let attempt = try await registration.beginInitialAttestation(admission)
+            try Task.checkCancellation()
+            guard isAdmitted(),qr.isCurrent(),challenge.isCurrent() else { throw Failure.staleContext }
+            try await finishEnrollment(identifier,key,attempt,challenge)
         }
         try Task.checkCancellation()
         guard sdk.isSupported,isAdmitted(),qr.isCurrent() else { throw Failure.staleContext }
