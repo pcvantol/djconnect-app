@@ -30,9 +30,11 @@ final class DJConnectSessionArtworkTransport: Sendable {
     private static let budget = SessionArtworkBudget()
     private let session: URLSession
     private let preparationSession: URLSession
+    private let preparationTaskCreated:(@MainActor @Sendable (URLSessionDataTask)->Void)?
     static let maximumBytes = 2 * 1024 * 1024
 
-    init(configuration: URLSessionConfiguration) {
+    init(configuration: URLSessionConfiguration, preparationTaskCreated:(@MainActor @Sendable (URLSessionDataTask)->Void)? = nil) {
+        self.preparationTaskCreated = preparationTaskCreated
         configuration.urlCache = nil
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         configuration.httpCookieStorage = nil
@@ -59,11 +61,12 @@ final class DJConnectSessionArtworkTransport: Sendable {
         }
     }
 
-    func prepare(_ request: URLRequest) async throws -> Data {
+    func prepare(_ request: URLRequest, isCurrent: (@MainActor @Sendable () -> Bool)? = nil) async throws -> Data {
         try await Self.budget.acquire()
         do {
             let (data, _) = try await responseData(request, using: preparationSession,
-                maximumBytes: 64 * 1024, allowedMIMEs: ["application/json"])
+                maximumBytes: 64 * 1024, allowedMIMEs: ["application/json"],
+                isCurrent:isCurrent,taskCreated:preparationTaskCreated)
             await Self.budget.release()
             return data
         } catch {
@@ -79,32 +82,26 @@ final class DJConnectSessionArtworkTransport: Sendable {
     }
 
     private func responseData(_ request: URLRequest, using transport: URLSession,
-                              maximumBytes: Int, allowedMIMEs: [String]) async throws -> (Data, String) {
-        let (bytes, response) = try await transport.bytes(for: request)
-        defer { bytes.task.cancel() }
-        guard let response = response as? HTTPURLResponse, response.url == request.url else { throw DJConnectError.invalidResponse }
-        switch response.statusCode {
-        case 200: break
-        case 401: throw DJConnectError.authStale(statusCode: 401, message: nil)
-        case 403: throw DJConnectError.profile(code: .profileAccessDenied, statusCode: 403, message: nil)
-        case 404, 410: throw DJConnectError.routeMissing(message: nil)
-        default: throw DJConnectError.server(statusCode: response.statusCode, message: nil)
-        }
-        guard response.expectedContentLength <= Int64(maximumBytes) else {
-            throw DJConnectError.payloadTooLarge(limitBytes: maximumBytes, actualBytes: nil)
-        }
-        guard let mime = response.mimeType?.lowercased(), allowedMIMEs.contains(mime) else { throw DJConnectError.invalidResponse }
-        var data = Data()
-        for try await byte in bytes {
-            try Task.checkCancellation()
-            guard data.count < maximumBytes else {
-                throw DJConnectError.payloadTooLarge(limitBytes: maximumBytes, actualBytes: data.count + 1)
-            }
-            data.append(byte)
-        }
-        try Task.checkCancellation()
-        guard response.expectedContentLength < 0 || data.count == response.expectedContentLength else { throw DJConnectError.invalidResponse }
-        return (data, mime)
+                              maximumBytes: Int, allowedMIMEs: [String],
+                              isCurrent:(@MainActor @Sendable ()->Bool)? = nil,
+                              taskCreated:(@MainActor @Sendable (URLSessionDataTask)->Void)? = nil) async throws -> (Data, String) {
+        let response = try await DJConnectBoundedHTTPTransport.send(request,using:transport,maximumBytes:maximumBytes,
+            beforeDispatch:{
+                // Budget and executor hops may outlive the credential owner.
+                // This check and synchronous resume share one actor segment.
+                if let isCurrent,!isCurrent() { throw CancellationError() }
+            },taskCreated:taskCreated,validateResponse:{ response in
+                switch response.statusCode {
+                case 200: break
+                case 401: throw DJConnectError.authStale(statusCode:401,message:nil)
+                case 403: throw DJConnectError.profile(code:.profileAccessDenied,statusCode:403,message:nil)
+                case 404,410: throw DJConnectError.routeMissing(message:nil)
+                default: throw DJConnectError.server(statusCode:response.statusCode,message:nil)
+                }
+                guard let mime = response.mimeType?.lowercased(),allowedMIMEs.contains(mime) else { throw DJConnectError.invalidResponse }
+                return mime
+            })
+        return (response.data,response.mime)
     }
 
     static func decode(_ data: Data, mime: String, width: Int, height: Int) throws -> DJConnectSessionArtworkImage {

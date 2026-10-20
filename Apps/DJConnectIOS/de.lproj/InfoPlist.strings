@@ -2,7 +2,7 @@
 "NSLocalNetworkUsageDescription" = "DJConnect verbindet sich mit Home Assistant in deinem lokalen Netzwerk.";
 "NSMicrophoneUsageDescription" = "DJConnect nimmt deine Stimme für Push-to-Talk-Musikwünsche an Home Assistant auf.";
 "NSSpeechRecognitionUsageDescription" = "DJConnect verwendet Spracherkennung für lokale Ask DJ-Transkription und die Erkennung des Aktivierungssatzes.";
-"NSCameraUsageDescription" = "DJConnect verwendet die Kamera nur, um den Kopplungs-QR-Code von Home Assistant oder der Apple Watch zu scannen.";
+"NSCameraUsageDescription" = "DJConnect verwendet die Kamera nur zum Scannen von QR-Codes für Home Assistant, die Apple-Watch-Kopplung oder die VibeCast-TV-Verknüpfung.";
 "Now Playing" = "Läuft gerade";
 "Control playback" = "Wiedergabe steuern";
 "Ask DJ" = "Ask DJ";

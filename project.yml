@@ -15,7 +15,10 @@ settings:
     MARKETING_VERSION: "4.0.0"
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
-packages: {}
+packages:
+  JOSESwift:
+    url: https://github.com/airsidemobile/JOSESwift.git
+    revision: c2664a902e75c0426a1d43132bd4babc6fd173d3
 targets:
   DJConnectCoreIOS:
     type: framework
@@ -23,6 +26,8 @@ targets:
     sources:
       - path: Sources/DJConnectCore
       - path: Sources/DJConnectCore/Resources
+    dependencies:
+      - package: JOSESwift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.ios
@@ -35,6 +40,8 @@ targets:
     sources:
       - path: Sources/DJConnectCore
       - path: Sources/DJConnectCore/Resources
+    dependencies:
+      - package: JOSESwift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.mac
@@ -47,6 +54,8 @@ targets:
     sources:
       - path: Sources/DJConnectCore
       - path: Sources/DJConnectCore/Resources
+    dependencies:
+      - package: JOSESwift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.watch
@@ -104,7 +113,7 @@ targets:
             CFBundleURLSchemes:
               - djconnect
         LSApplicationCategoryType: public.app-category.music
-        NSCameraUsageDescription: DJConnect uses the camera only to scan the pairing QR code from Home Assistant or Apple Watch.
+        NSCameraUsageDescription: DJConnect uses the camera only to scan QR codes for Home Assistant, Apple Watch pairing, or VibeCast TV linking.
         UILaunchStoryboardName: LaunchScreen
         UIApplicationShortcutItems:
           - UIApplicationShortcutItemIconSymbolName: music.note
@@ -343,6 +352,7 @@ targets:
     dependencies:
       - target: DJConnectCoreMac
       - target: DJConnectUIMac
+      - package: JOSESwift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.core.tests

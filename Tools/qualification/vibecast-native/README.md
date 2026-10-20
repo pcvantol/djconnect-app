@@ -1,3 +1,9 @@
+> Product integration follow-up (20 October 2026): draft PR164 separately adds
+> the same pinned JOSESwift revision to the shipping project for destination
+> encryption. This package and its diagnostic hosts remain isolated and are
+> not imported into the product. Statements below about no app dependency
+> describe the original qualification checkpoint, not current product WIP.
+
 # VibeCast native qualification (API0.4 draft)
 
 The historical cases below retain their original evidence scope. The separate

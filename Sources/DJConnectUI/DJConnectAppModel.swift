@@ -5,6 +5,9 @@ import Foundation
 import ImageIO
 import Network
 import OSLog
+#if os(iOS) && canImport(DeviceCheck)
+import DeviceCheck
+#endif
 #if canImport(Security)
 import Security
 #endif
@@ -775,6 +778,167 @@ struct DJConnectLocalAudioRoute: Equatable, Sendable {
 
 @MainActor
 public final class DJConnectAppModel: ObservableObject {
+    @Published var isShowingRendezvous = false
+    @Published private(set) var rendezvousStatusKey = "ui.rendezvous.scan"
+    @Published private(set) var rendezvousBusy = false
+    @Published private(set) var rendezvousHasQR = false
+    private var rendezvousQR: DJConnectRendezvousQR?
+    private var rendezvousOperation = UUID()
+    private var rendezvousDestination: DJConnectDisplayOwnerContext?
+    private var rendezvousEnvelope: DJConnectRendezvousDestination.Envelope?
+
+    @Published private(set) var displayConsentState: DJConnectDisplayConsentSession.State = .idle
+    @Published private(set) var displayConsentExistingShare: DJConnectDisplayConsentSession.ExistingShare?
+    private var displayConsentFlow: DJConnectDisplayConsentSession?
+    private var displayConsentOperation = UUID()
+    private var displayConsentOwner: (@MainActor @Sendable () -> Bool)?
+    var canResolveDisplayConsent: Bool {
+        !isDemoMode && identity.clientType == .ios && pairingStatus == .paired && isAppInForeground &&
+            activeDJSession?.runtimeState == "active" && sessionHistory.authorizedProfileID != nil
+    }
+    func resetDisplayConsent() { cancelDisplayConsent(); displayConsentState = .idle }
+
+    func cancelDisplayConsent() {
+        let uncertain = displayConsentFlow?.state == .approving || displayConsentFlow?.state == .uncertain
+        displayConsentOperation = UUID()
+        displayConsentFlow?.withdraw(); displayConsentFlow = nil; displayConsentOwner = nil
+        displayConsentExistingShare = nil
+        displayConsentState = uncertain ? .uncertain : .unavailable
+    }
+    func resolveDisplayConsent(code: String) async {
+        cancelDisplayConsent()
+        guard !isDemoMode, identity.clientType == .ios, pairingStatus == .paired, isAppInForeground,
+              let session = activeDJSession, session.runtimeState == "active",
+              let profile = sessionHistory.authorizedProfileID,
+              let installation = defaults.string(forKey: haInstallIDKey), !installation.isEmpty else { return }
+        let operation = UUID(); displayConsentOperation = operation
+        let epoch = sessionHistory.responseEpoch, connection = sessionBroadcastGeneration
+        let scope = currentDeviceSpeechContext
+        let owner: @MainActor @Sendable () -> Bool = { [weak self] in
+            guard let self else { return false }
+            return self.displayConsentOperation == operation && !self.isDemoMode && self.isAppInForeground &&
+                self.pairingStatus == .paired && self.activeDJSession?.id == session.id &&
+                self.activeDJSession?.runtimeState == "active" && self.sessionHistory.responseEpoch == epoch &&
+                self.sessionHistory.authorizedProfileID == profile && self.sessionBroadcastGeneration == connection &&
+                self.currentDeviceSpeechContext == scope && self.defaults.string(forKey: self.haInstallIDKey) == installation
+        }
+        displayConsentOwner = owner
+        displayConsentState = .resolving
+        do {
+            // Select one qualified client; the coordinator owns both requests.
+            // No transport fallback or automatic replay can repeat an approval.
+            let client = try await withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) { $0 }
+            guard owner(), !Task.isCancelled else { throw CancellationError() }
+            let flow = try DJConnectDisplayConsentSession(client: client, installationID: installation,
+                sessionID: session.id, pairedLocalOrigin: Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()), isCurrent: owner)
+            displayConsentFlow = flow
+            try await flow.resolve(code: code)
+            guard owner(), !Task.isCancelled else { throw CancellationError() }
+            displayConsentExistingShare = flow.existingShare
+            displayConsentState = flow.state
+        } catch {
+            guard displayConsentOperation == operation else { return }
+            cancelDisplayConsent()
+        }
+    }
+    func approveDisplayConsent() async {
+        guard displayConsentState == .ready, let flow = displayConsentFlow else { return }
+        guard displayConsentOwner?() == true else { cancelDisplayConsent(); return }
+        let operation = displayConsentOperation
+        let share: DJConnectDisplayClaim.Share = displayConsentExistingShare.map {
+            .existing(id: $0.identifier, generation: $0.generation)
+        } ?? .createTwoHours
+        displayConsentState = .approving
+        do { _ = try await flow.approve(share: share) } catch { }
+        guard displayConsentOperation == operation else { return }
+        displayConsentState = flow.state
+        refreshDisplayConsentPresentation()
+    }
+    func refreshDisplayConsentPresentation() {
+        guard let flow = displayConsentFlow else { return }
+        guard displayConsentOwner?() == true else { cancelDisplayConsent(); return }
+        if flow.state == .approved {
+            _ = flow.receipt // Rechecks original owner/token and trusted clocks.
+            displayConsentState = flow.state
+        } else if flow.state == .ready && flow.resolvedClaim?.isCurrent() != true {
+            cancelDisplayConsent()
+        }
+    }
+
+    /// Read-only support check: never generates a key, attestation or assertion.
+    var rendezvousAttestationSupported: Bool {
+        #if os(iOS) && canImport(DeviceCheck)
+        DCAppAttestService.shared.isSupported
+        #else
+        false
+        #endif
+    }
+    func receiveRendezvousQR(_ value: String) {
+        cancelRendezvous()
+        isShowingRendezvous = true
+        do {
+            rendezvousQR = try DJConnectRendezvousQR.parse(value)
+            rendezvousHasQR = true
+            rendezvousStatusKey = "ui.rendezvous.choose"
+        } catch { rendezvousStatusKey = "ui.rendezvous.invalid" }
+    }
+    func cancelRendezvous() {
+        cancelDisplayConsent()
+        rendezvousOperation = UUID()
+        rendezvousQR = nil; rendezvousDestination = nil; rendezvousEnvelope = nil
+        rendezvousHasQR = false; rendezvousBusy = false
+        rendezvousStatusKey = "ui.rendezvous.scan"
+    }
+    /// Explicit selection of the one saved installation. No implicit Session start
+    /// and no display approval are conferred by this destination preparation.
+    func prepareRendezvousDestination() async {
+        guard !rendezvousBusy, let qr = rendezvousQR, qr.isCurrent(),
+              !isDemoMode, pairingStatus == .paired, isAppInForeground else {
+            rendezvousStatusKey = "ui.rendezvous.invalid"; return
+        }
+        // Unsupported simulator is a finite stop before network or SDK effects.
+        guard rendezvousAttestationSupported else {
+            rendezvousStatusKey = "ui.rendezvous.unsupported"; return
+        }
+        guard let profile = sessionHistory.authorizedProfileID,
+              let installation = defaults.string(forKey: haInstallIDKey), !installation.isEmpty else {
+            rendezvousStatusKey = "ui.rendezvous.invalid"; return
+        }
+        let operation = UUID(); rendezvousOperation = operation
+        let epoch = sessionHistory.responseEpoch
+        let scope = currentDeviceSpeechContext
+        rendezvousBusy = true
+        defer { if rendezvousOperation == operation { rendezvousBusy = false } }
+        do {
+            let browserKey = try await DJConnectRendezvousService().inspect(qr)
+            guard !Task.isCancelled, rendezvousOperation == operation, qr.isCurrent(),
+                  pairingStatus == .paired, isAppInForeground, sessionHistory.responseEpoch == epoch,
+                  currentDeviceSpeechContext == scope else { return }
+            let context = try await withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
+                try await $0.displayOwnerContext(expectedInstallationID: installation,
+                    pairedLocalOrigin: Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()), isCurrent: { [weak self] in
+                    guard let self else { return false }
+                    return !Task.isCancelled && self.rendezvousOperation == operation && qr.isCurrent() &&
+                        self.pairingStatus == .paired && self.isAppInForeground &&
+                        self.sessionHistory.responseEpoch == epoch && self.currentDeviceSpeechContext == scope
+                })
+            }
+            guard !Task.isCancelled, rendezvousOperation == operation, qr.isCurrent(),
+                  pairingStatus == .paired, isAppInForeground,
+                  sessionHistory.responseEpoch == epoch, sessionHistory.authorizedProfileID == profile,
+                  currentDeviceSpeechContext == scope else { return }
+            let envelope = try DJConnectRendezvousDestination.encrypt(qr:qr, browserKey:browserKey, owner:context)
+            guard qr.isCurrent(), rendezvousOperation == operation, sessionHistory.responseEpoch == epoch,
+                  currentDeviceSpeechContext == scope else { return }
+            rendezvousDestination = context; rendezvousEnvelope = envelope
+            // Proof/enrollment/submission still require the genuine SDK adapter.
+            // A prepared owner route must never be presented as completed handoff.
+            rendezvousStatusKey = "ui.rendezvous.notReady"
+        } catch {
+            guard rendezvousOperation == operation else { return }
+            rendezvousStatusKey = "ui.rendezvous.failed"
+        }
+    }
     public lazy var sessionHistory = DJConnectSessionHistoryModel(host: self)
     public let passiveSurfaces = PassiveSessionSurfaceModel()
     private var passiveSurfaceObservation: AnyCancellable?
@@ -821,10 +985,17 @@ public final class DJConnectAppModel: ObservableObject {
         sessionHistory.profileScopeActive ? canUseProfileConversation : canUsePlaybackFeatures
     }
     @Published public var homeAssistantURL = "" {
-        didSet { defaults.set(homeAssistantURL, forKey: homeAssistantURLKey) }
+        didSet {
+            if oldValue != homeAssistantURL { cancelRendezvous() }
+            defaults.set(homeAssistantURL, forKey: homeAssistantURLKey)
+        }
     }
-    @Published public private(set) var haLocalURL = ""
-    @Published public private(set) var haRemoteURL = ""
+    @Published public private(set) var haLocalURL = "" {
+        didSet { if oldValue != haLocalURL { cancelRendezvous() } }
+    }
+    @Published public private(set) var haRemoteURL = "" {
+        didSet { if oldValue != haRemoteURL { cancelRendezvous() } }
+    }
     @Published public private(set) var haConnectionMode: DJConnectHAConnectionMode = .offline
     @Published public private(set) var pushNotificationStatus = DJConnectPushNotificationStatus()
     @Published public private(set) var remoteSupported = false
@@ -850,6 +1021,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
     @Published public var pairingStatus: DJConnectPairingStatus = .unpaired {
         didSet {
+            if oldValue != pairingStatus { cancelRendezvous() }
             if startBackgroundTasks, oldValue != .paired, pairingStatus == .paired {
                 schedulePairedRefresh(reason: "Pairing became online")
                 updateNowPlayingPollTimer()
@@ -912,6 +1084,7 @@ public final class DJConnectAppModel: ObservableObject {
         didSet {
             if oldValue?.id != activeDJSession?.id ||
                 (oldValue?.runtimeState == "active" && activeDJSession?.runtimeState != "active") {
+                cancelDisplayConsent()
                 stopResponsePlayback(clearText: false)
                 resetActivePersonaState()
                 discardActiveVoicePreference()
@@ -2386,6 +2559,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func markInactiveSession(enteringBackground: Bool = true) {
+        cancelRendezvous()
         personaReactions.cancel(.background)
         isAppInForeground = false
         passiveSurfaces.suspend()
@@ -3038,6 +3212,12 @@ public final class DJConnectAppModel: ObservableObject {
 
     @discardableResult
     public func handlePairingQRCode(_ value: String) -> Bool {
+        // TV QR is a closed JSON capability, not a pairing URL. Even malformed
+        // JSON must not reset an existing pairing or enter the deep-link path.
+        if value.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("{") {
+            receiveRendezvousQR(value)
+            return false
+        }
         guard let url = URL(string: value.trimmingCharacters(in: .whitespacesAndNewlines)) else {
             pairingStatus = .unpaired
             isPairing = false

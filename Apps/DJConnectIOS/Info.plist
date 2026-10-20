@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>DJConnectTrustedPairingIssuerBaseURL</key>
-	<string>https://api.djconnect.dev</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -33,6 +31,8 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>DJConnectTrustedPairingIssuerBaseURL</key>
+	<string>https://api.djconnect.dev</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.music</string>
 	<key>NSAppTransportSecurity</key>
@@ -42,6 +42,11 @@
 		<key>NSExceptionDomains</key>
 		<dict>
 			<key>10.0.0.0/8</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+			<key>127.0.0.0/8</key>
 			<dict>
 				<key>NSExceptionAllowsInsecureHTTPLoads</key>
 				<true/>
@@ -56,7 +61,7 @@
 				<key>NSExceptionAllowsInsecureHTTPLoads</key>
 				<true/>
 			</dict>
-			<key>127.0.0.0/8</key>
+			<key>::1/128</key>
 			<dict>
 				<key>NSExceptionAllowsInsecureHTTPLoads</key>
 				<true/>
@@ -71,11 +76,6 @@
 				<key>NSExceptionAllowsInsecureHTTPLoads</key>
 				<true/>
 			</dict>
-			<key>::1/128</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
 		</dict>
 	</dict>
 	<key>NSBonjourServices</key>
@@ -83,7 +83,7 @@
 		<string>_home-assistant._tcp.</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>DJConnect uses the camera only to scan the pairing QR code from Home Assistant or Apple Watch.</string>
+	<string>DJConnect uses the camera only to scan QR codes for Home Assistant, Apple Watch pairing, or VibeCast TV linking.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>DJConnect connects to Home Assistant on your local network.</string>
 	<key>NSMicrophoneUsageDescription</key>

@@ -20,9 +20,13 @@ let package = Package(
             targets: ["DJConnectUI"]
         )
     ],
+    dependencies: [
+        .package(url: "https://github.com/airsidemobile/JOSESwift.git", revision: "c2664a902e75c0426a1d43132bd4babc6fd173d3")
+    ],
     targets: [
         .target(
             name: "DJConnectCore",
+            dependencies: [.product(name: "JOSESwift", package: "JOSESwift")],
             resources: [
                 .process("Resources")
             ]
@@ -33,7 +37,7 @@ let package = Package(
         ),
         .testTarget(
             name: "DJConnectCoreTests",
-            dependencies: ["DJConnectCore", "DJConnectUI"],
+            dependencies: ["DJConnectCore", "DJConnectUI", .product(name: "JOSESwift", package: "JOSESwift")],
             resources: [
                 .process("../Fixtures")
             ]

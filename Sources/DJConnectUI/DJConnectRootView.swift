@@ -234,6 +234,7 @@ private enum DJConnectRootSheet: String, Identifiable {
     case wakeWordActivationPrompt
     case feedback
     case vibeCastSessionStart
+    case rendezvous
     case permissionExplanation
     case musicDNAOptIn
     case sessionHistory
@@ -1348,6 +1349,7 @@ public struct DJConnectRootView: View {
         if showingFeedback {
             return .feedback
         }
+        if model.isShowingRendezvous { return .rendezvous }
         if model.isShowingVibeCastSessionStart, model.activeDJSession != nil {
             return .vibeCastSessionStart
         }
@@ -1408,6 +1410,8 @@ public struct DJConnectRootView: View {
             FeedbackPromptView(model: model)
                 .tint(.white)
                 .accentColor(.white)
+        case .rendezvous:
+            VibeCastRendezvousView(model: model)
         case .vibeCastSessionStart:
             VibeCastSessionStartDialog(model: model)
         case .permissionExplanation:
@@ -1454,6 +1458,9 @@ public struct DJConnectRootView: View {
             model.dismissWakeWordActivationPrompt()
         case .feedback:
             showingFeedback = false
+        case .rendezvous:
+            model.cancelRendezvous()
+            model.isShowingRendezvous = false
         case .vibeCastSessionStart:
             model.isShowingVibeCastSessionStart = false
         case .permissionExplanation:
@@ -2545,8 +2552,10 @@ private struct PairingCameraConsentSheet: View {
     }
 }
 
-private struct PairingQRScannerView: View {
+struct PairingQRScannerView: View {
     let language: String
+    var instructionsKey = "ui.scan.the.djconnect.qr.code.shown.by.home.assistant"
+    var confirmsDetection = true
     let onCode: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var didDetectCode = false
@@ -2556,6 +2565,11 @@ private struct PairingQRScannerView: View {
             ZStack {
                 PairingQRScannerRepresentable { value in
                     guard !didDetectCode else { return }
+                    if !confirmsDetection {
+                        didDetectCode = true
+                        onCode(value)
+                        return
+                    }
                     DJConnectHaptics.success()
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
                         didDetectCode = true
@@ -2567,12 +2581,12 @@ private struct PairingQRScannerView: View {
                 }
                     .ignoresSafeArea()
                 VStack {
-                    if didDetectCode {
+                    if didDetectCode && confirmsDetection {
                         PairingQRSuccessOverlay(language: language)
                             .transition(.scale(scale: 0.92).combined(with: .opacity))
                     }
                     Spacer()
-                    Text(localizedKey(language, "ui.scan.the.djconnect.qr.code.shown.by.home.assistant"))
+                    Text(localizedKey(language, instructionsKey))
                         .font(.headline)
                         .multilineTextAlignment(.center)
                         .padding(16)
@@ -9389,9 +9403,15 @@ struct VibeCastSessionStartDialog: View {
 struct VibeCastHandoffForm: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var vibeCastHandoffCode = ""
+    @State private var showingDisplayConsent = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
+            Button(localizedKey(model.language, "ui.displayConsent.open")) { showingDisplayConsent = true }
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                .disabled(!model.canResolveDisplayConsent)
+                .accessibilityIdentifier("display-consent-open")
+                .sheet(isPresented: $showingDisplayConsent) { VibeCastDisplayConsentForm(model: model) }
             Text(localizedKey(model.language, "ui.vibecast.handoff.instructions"))
                 .font(.callout).foregroundStyle(.white.opacity(0.82))
                 .fixedSize(horizontal: false, vertical: true)
@@ -9426,6 +9446,51 @@ struct VibeCastHandoffForm: View {
         #endif
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("vibecast-handoff-form")
+    }
+}
+
+struct VibeCastDisplayConsentForm: View {
+    @ObservedObject var model: DJConnectAppModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var code = ""
+    private var busy: Bool { model.displayConsentState == .resolving || model.displayConsentState == .approving }
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text(localizedKey(model.language, "ui.displayConsent.title")).font(.title2.bold())
+                Text(localizedKey(model.language, "ui.displayConsent.instructions"))
+                VibeCastCodeEntry(code: $code, accessibilityLabel: localizedKey(model.language, "ui.vibecast.handoff.code"))
+                    .frame(height: 64).disabled(busy || model.displayConsentState == .ready || model.displayConsentState == .approved || model.displayConsentState == .uncertain)
+                if model.displayConsentState == .idle || model.displayConsentState == .unavailable {
+                    Button(localizedKey(model.language, "ui.displayConsent.lookup")) {
+                        resignPlatformFirstResponder()
+                        Task { await model.resolveDisplayConsent(code: code) }
+                    }.disabled(code.count != 6 || busy)
+                    .accessibilityIdentifier("display-consent-lookup")
+                }
+                if model.displayConsentState == .ready {
+                    Text(localizedKey(model.language, model.displayConsentExistingShare == nil ? "ui.displayConsent.create" : "ui.displayConsent.existing"))
+                    Button(localizedKey(model.language, "ui.displayConsent.confirm")) { Task { await model.approveDisplayConsent() } }
+                        .accessibilityIdentifier("display-consent-confirm")
+                }
+                if busy { ProgressView() }
+                if model.displayConsentState == .approved { Text(localizedKey(model.language, "ui.displayConsent.approved")) }
+                if model.displayConsentState == .uncertain { Text(localizedKey(model.language, "ui.displayConsent.uncertain")) }
+                if model.displayConsentState == .unavailable { Text(localizedKey(model.language, "ui.displayConsent.unavailable")) }
+                Button(localizedKey(model.language, "ui.not.now.b1e535")) { model.cancelDisplayConsent(); dismiss() }
+                    .accessibilityIdentifier("display-consent-close")
+            }.padding(28)
+        }
+        .accessibilityIdentifier("display-consent-form")
+        .onChange(of: code) { _, _ in model.resetDisplayConsent() }
+        .onAppear { model.resetDisplayConsent() }
+        .onDisappear { model.cancelDisplayConsent() }
+        .task {
+            while !Task.isCancelled {
+                model.refreshDisplayConsentPresentation()
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+        }
     }
 }
 
@@ -17133,6 +17198,16 @@ struct SettingsView: View {
             ZStack {
                 DJConnectCanvasBackground()
                 SettingsContentContainer {
+                #if os(iOS)
+                SettingsGlassSection(title: "VibeCast") {
+                    Button(localizedKey(model.language, "ui.rendezvous.scan")) {
+                        model.cancelRendezvous()
+                        model.isShowingRendezvous = true
+                    }
+                    .disabled(model.isDemoMode || model.pairingStatus != .paired)
+                    .accessibilityIdentifier("vibecast-rendezvous-open")
+                }
+                #endif
                 SettingsGlassSection(title: localizedKey(model.language, "ui.app")) {
                     LabeledContent(localizedKey(model.language, "ui.app.language")) {
                         Picker(localizedKey(model.language, "ui.app.language"), selection: $model.appLanguageSelectionCode) {
@@ -18082,6 +18157,9 @@ private struct LegalNoticesView: View {
 
                         SettingsSection(title: "OSS", showsDivider: false) {
                             SelectableValue(localizedKey(language, "ui.djconnect.uses.apple.platform.frameworks.and.swift.package.manager.third"))
+                            DisclosureGroup("JOSESwift 3.0.0 · Apache License 2.0") {
+                                SelectableValue(DJConnectThirdPartyNotices.joseSwiftLicense)
+                            }
                         }
                         .padding(24)
                         .frame(maxWidth: .infinity, alignment: .leading)

@@ -1441,3 +1441,24 @@
 "ui.session.reaction.text_only" = "Texte uniquement, selon vos préférences vocales.";
 "ui.session.reaction.speaker_unavailable" = "Cette réaction est disponible en texte. La lecture sur une enceinte est actuellement indisponible.";
 "ui.session.reaction.speaker_partial" = "Cette réaction est lue uniquement sur cet appareil ; la lecture sur une enceinte est actuellement indisponible.";
+
+// VibeCast rendezvous: routing preparation is distinct from display consent.
+"ui.rendezvous.scan" = "Scanner le code QR du téléviseur";
+"ui.rendezvous.choose" = "Choisissez votre Home Assistant associé. Seule son adresse d’affichage sera partagée avec ce téléviseur.";
+"ui.rendezvous.invalid" = "Ce code QR est invalide ou a expiré. Scannez un nouveau code sur le téléviseur.";
+"ui.rendezvous.savedHA" = "Utiliser mon Home Assistant associé";
+"ui.rendezvous.confirm" = "Confirmer Home Assistant";
+"ui.rendezvous.unsupported" = "Cet appareil ne permet pas l’association sécurisée du téléviseur. Aucune requête envoyée.";
+"ui.rendezvous.notReady" = "L’association sécurisée du téléviseur n’est pas encore prête. Rien n’a été envoyé au téléviseur.";
+"ui.rendezvous.failed" = "Home Assistant n’a pas pu préparer l’adresse d’affichage. Scannez un nouveau code et réessayez.";
+
+"ui.displayConsent.open" = "Connecter un écran VibeCast";
+"ui.displayConsent.title" = "Partager la Session actuelle";
+"ui.displayConsent.instructions" = "Saisissez le code affiché sur votre écran VibeCast. La recherche du code ne partage rien.";
+"ui.displayConsent.lookup" = "Rechercher l’écran";
+"ui.displayConsent.create" = "Partager uniquement votre DJ Session actuelle avec cet écran pendant deux heures ?";
+"ui.displayConsent.existing" = "Autoriser cet écran à utiliser le partage existant de votre Session actuelle, sans prolonger son expiration ?";
+"ui.displayConsent.confirm" = "Autoriser cet écran";
+"ui.displayConsent.approved" = "Écran autorisé pour votre Session actuelle.";
+"ui.displayConsent.uncertain" = "L’autorisation n’a pas été confirmée. Vérifiez l’écran avant une nouvelle demande.";
+"ui.displayConsent.unavailable" = "Le code de l’écran ou la Session actuelle n’est plus disponible.";

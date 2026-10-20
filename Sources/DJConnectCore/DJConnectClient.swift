@@ -82,6 +82,69 @@ public final class DJConnectClient: Sendable {
         return snapshot
     }
 
+    /// Fresh owner route from the explicitly selected saved installation. Both
+    /// requests use ordinary HA credentials, bounded no-cache/no-redirect transport.
+    /// Never send those credentials to the public rendezvous service.
+    public func displayOwnerContext(expectedInstallationID: String, pairedLocalOrigin: URL?,
+                                    isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectDisplayOwnerContext {
+        guard !expectedInstallationID.isEmpty, identity.clientType == .ios,
+              DJConnectHybridTransport.trustedOrigin(baseURL) ||
+                (baseURL == pairedLocalOrigin && DJConnectHybridLocalPolicy.isLocalCandidate(baseURL)) else { throw DJConnectError.invalidResponse }
+        let originalToken = try loadedToken()
+        var installationRequest = try authenticatedRequest(path: "/api/djconnect/v1/transport/context")
+        installationRequest.httpMethod = "POST"
+        installationRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        installationRequest.httpBody = Data(#"{"contract_version":1}"#.utf8)
+        guard await isCurrent(), try loadedToken() == originalToken else { throw DJConnectError.invalidResponse }
+        let installationData = try await sessionArtworkTransport.prepare(installationRequest, isCurrent: {
+            isCurrent() && (try? self.tokenStore.loadToken()) == originalToken
+        })
+        let installation = try decoder.decode(HybridObject.self, from: installationData)
+        try Task.checkCancellation()
+        guard await isCurrent(), installation["success"] == .bool(true), installation["contract_version"] == .int(1),
+              installation["ha_install_id"] == .string(expectedInstallationID),
+              DJConnectHybridLocalPolicy.acceptsContext(installation, origin:baseURL, pairedLocalOrigin:pairedLocalOrigin),
+              installation["operation_lifetime_ms"] == .int(300000),
+              installation["operation_epoch"]?.hybridString?.isEmpty == false,
+              installation["server_time_ms"]?.hybridInt != nil,
+              try loadedToken() == originalToken else { throw DJConnectError.invalidResponse }
+        var request = try authenticatedRequest(path: "/api/djconnect/v1/display/owner/context")
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["contract_version": 1,
+            "identity": ["device_id": identity.deviceID, "client_type": identity.clientType.rawValue]])
+        guard await isCurrent(), try loadedToken() == originalToken else { throw DJConnectError.invalidResponse }
+        let data = try await sessionArtworkTransport.prepare(request, isCurrent: {
+            isCurrent() && (try? self.tokenStore.loadToken()) == originalToken
+        })
+        try Task.checkCancellation()
+        guard await isCurrent(), try loadedToken() == originalToken else { throw DJConnectError.invalidResponse }
+        let context = try decoder.decode(DJConnectDisplayOwnerContext.self, from: data)
+        guard context.isAdmissible else { throw DJConnectError.invalidResponse }
+        return context
+    }
+
+    // Only the Core B coordinator invokes these two ordinary paired routes.
+    // It first validates a fresh selected-installation/owner context. The same
+    // predicate is carried through the budget hop into synchronous dispatch.
+    func displayConsentExchange(path: String, body: Data,
+                                isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> Data {
+        guard ["resolve", "approve"].contains(path), identity.clientType == .ios else {
+            throw DJConnectError.invalidResponse
+        }
+        let originalToken = try loadedToken()
+        var request = try authenticatedRequest(path: "/api/djconnect/v1/display/owner/" + path)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+        let data = try await sessionArtworkTransport.prepare(request, isCurrent: {
+            isCurrent() && (try? self.tokenStore.loadToken()) == originalToken
+        })
+        try Task.checkCancellation()
+        guard await isCurrent(), try loadedToken() == originalToken else { throw DJConnectError.invalidResponse }
+        return data
+    }
+
     public func postStatus(_ payload: DJConnectStatusPayload) async throws -> DJConnectEnvelope<DJConnectPlayback> {
         let request = try statusRequest(payload)
         return try await decodedResponse(for: request)

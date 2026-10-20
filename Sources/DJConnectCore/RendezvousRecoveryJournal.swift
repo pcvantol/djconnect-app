@@ -43,7 +43,15 @@ public actor RendezvousRecoveryJournal {
     /// clientData is the original decoded server byte string, never a rebuilt
     /// dictionary. All parsed fields must match this captured recovery context.
     public func begin(keyIdentifier: String, challengeIdentifier: String, nonce: Data, clientData: Data,
-                      admittedAtMS: Int64, deadlineMS: Int64) throws -> UUID {
+                      admittedAtMS: Int64, deadlineMS: Int64) async throws -> UUID {
+        guard RendezvousAppKeyOperations.initialEnrollmentLease == nil else { throw Failure.unavailable }
+        return try await RendezvousAppKeyOperations.shared.perform(keyIdentifier:RendezvousAppKeyOperations.installationAdmissionSlot) {
+            try await self.beginLocked(keyIdentifier:keyIdentifier,challengeIdentifier:challengeIdentifier,
+                nonce:nonce,clientData:clientData,admittedAtMS:admittedAtMS,deadlineMS:deadlineMS)
+        }
+    }
+    private func beginLocked(keyIdentifier:String,challengeIdentifier:String,nonce:Data,clientData:Data,
+                              admittedAtMS:Int64,deadlineMS:Int64) throws -> UUID {
         if var existing = try read() {
             try existing.observe(at: admittedAtMS)
             try persist(existing)
