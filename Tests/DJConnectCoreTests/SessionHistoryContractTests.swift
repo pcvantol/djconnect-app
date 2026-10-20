@@ -7,6 +7,10 @@ import ImageIO
 import Combine
 @testable import DJConnectCore
 @testable import DJConnectUI
+#if os(macOS)
+import AppKit
+import SwiftUI
+#endif
 
 @Test @MainActor func sessionHistoryPhysicalTestEndpointRequiresExplicitBoundedLaunch() {
     let host = "192.168.1.134"
@@ -6318,5 +6322,70 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         }
         #expect(model.askDJDraft == "Keep this unsent question")
     }
+    #if os(macOS)
+    if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_NATIVE_DIR"] {
+        try await qualifyForecastNativeSwitch(model: model, directory: directory)
+    }
+    #endif
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" && !$0.url!.path.contains("/command") && !$0.url!.path.contains("/message") })
 }
+
+#if os(macOS)
+/// Explicit local test window with synthetic paired transport; no ordinary app launch.
+@MainActor private func qualifyForecastNativeSwitch(model: DJConnectAppModel, directory: String) async throws {
+    let session = try #require(model.activeDJSession)
+    let folder = URL(fileURLWithPath: directory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    _ = NSApplication.shared
+    let view = SessionTimelineScreen(model: model, sessionID: session.id, activeSession: session)
+        .environment(\.scenePhase, .active).environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark)
+        .frame(width: 430, height: 900)
+    let host = NSHostingView(rootView: view)
+    let window = NSWindow(contentRect: CGRect(x: -2000, y: -2000, width: 430, height: 900),
+                          styleMask: [.borderless], backing: .buffered, defer: false)
+    window.appearance = NSAppearance(named: .darkAqua)
+    window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
+    defer { window.close() }
+    func descendants(_ root: NSView) -> [NSView] { [root] + root.subviews.flatMap(descendants) }
+    func forecastSearch() -> NSTextField? {
+        let placeholder = DJConnectLocalization.localized(key: "ui.session.forecast.search", language: model.language)
+        return descendants(host).compactMap { $0 as? NSTextField }.first { $0.placeholderString == placeholder }
+    }
+    func hasPanel() -> Bool { forecastSearch() != nil }
+    func capture(_ name: String) throws {
+        host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
+        let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: image)
+        let data = try #require(image.representation(using: .png, properties: [:]))
+        try data.write(to: folder.appendingPathComponent(name + ".png"))
+    }
+    try await Task.sleep(for: .milliseconds(350))
+    host.layoutSubtreeIfNeeded()
+    let picker = try #require(descendants(host).compactMap { $0 as? NSSegmentedControl }.first { $0.segmentCount == 2 })
+    #expect(picker.selectedSegment == 0 && !hasPanel())
+    try capture("flow-before")
+    picker.selectedSegment = 1
+    let action = try #require(picker.action)
+    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
+    for _ in 0..<30 where !hasPanel() { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(picker.selectedSegment == 1 && hasPanel())
+    let search = try #require(forecastSearch())
+    search.stringValue = "Catalog"
+    search.delegate?.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: search))
+    #expect(model.askDJDraft == "Keep this unsent question")
+    try capture("forecast-selected")
+    picker.selectedSegment = 0
+    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
+    for _ in 0..<30 where hasPanel() { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(picker.selectedSegment == 0 && !hasPanel())
+    #expect(model.askDJDraft == "Keep this unsent question")
+    try capture("flow-returned")
+    picker.selectedSegment = 1
+    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
+    for _ in 0..<30 where !hasPanel() { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(forecastSearch()?.stringValue == "Catalog")
+    #expect(model.askDJDraft == "Keep this unsent question")
+    try capture("forecast-restored-search")
+}
+#endif

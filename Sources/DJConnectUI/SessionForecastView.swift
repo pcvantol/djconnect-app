@@ -30,12 +30,14 @@ struct SessionForecastTextView: View {
                 .fixedSize(horizontal: false, vertical: true).textSelection(.enabled).id("forecast-summary")
             ForEach(projection.sections.filter { query.isEmpty || ($0.title + " " + $0.text).localizedCaseInsensitiveContains(query) }) { section in
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(section.title).font(.headline).accessibilityAddTraits(.isHeader)
+                    Text(section.title).font(.headline).foregroundStyle(.white).accessibilityAddTraits(.isHeader)
                     Text(text("ui.session.forecast.claim." + section.claim_type))
-                        .font(.caption).foregroundStyle(.secondary)
-                    Text(section.text).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                        .font(.caption).foregroundStyle(.white.opacity(0.78))
+                    Text(section.text).foregroundStyle(.white).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
                     if let source = section.source_url.flatMap(URL.init(string:)) {
-                        Link(text("ui.session.forecast.source"), destination: source).frame(minHeight: 44)
+                        Link(destination: source) {
+                            Text(text("ui.session.forecast.source")).underline().foregroundStyle(.white)
+                        }.frame(minHeight: 44)
                     }
                 }
                 .padding(20).frame(maxWidth: .infinity, alignment: .leading)
