@@ -85,6 +85,9 @@ jobs:
       - name: Validate Apple work register projections
         run: /usr/bin/python3 Tools/qualification/validate_apple_work_registers.py
 
+      - name: Client Golden orchestration checks (no live calls)
+        run: /usr/bin/python3 -m unittest discover -s Tools/qualification/askdj-golden -p 'test_*.py'
+
       - name: Swift tests
         run: swift test --no-parallel
 
