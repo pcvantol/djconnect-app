@@ -6399,6 +6399,54 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
 }
 
 #if os(macOS)
+@MainActor private final class ForecastNativeOpenedURLs {
+    var values: [URL] = []
+}
+
+@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_NATIVE_DIR"] != nil)) @MainActor
+func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let rows = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-forecast-core-3cfa5512.json"))) as? [[String: Any]])
+    let response = try JSONDecoder().decode(DJConnectSessionForecastResponse.self,
+        from: historyData(try #require(rows.first?["owner_read"])))
+    let projection = response.forecast
+    #expect(projection.structurallyValid)
+    let urls = projection.sections.compactMap { $0.source_url.flatMap(URL.init(string:)) }
+    #expect(urls.count == 1)
+    let opened = ForecastNativeOpenedURLs()
+    _ = NSApplication.shared
+    let view = SessionForecastTextView(projection: projection, language: "en")
+        .environment(\.openURL, OpenURLAction { url in
+            opened.values.append(url)
+            return .handled // No system/browser launch or external request.
+        })
+        .environment(\.colorScheme, .dark).preferredColorScheme(.dark)
+        .foregroundStyle(.white).padding(20).frame(width: 430, height: 900)
+    let host = NSHostingView(rootView: view)
+    let window = NSWindow(contentRect: CGRect(x: -2000, y: -2000, width: 430, height: 900),
+                          styleMask: [.borderless], backing: .buffered, defer: false)
+    window.appearance = NSAppearance(named: .darkAqua)
+    window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
+    defer { window.close() }
+    try await Task.sleep(for: .milliseconds(350))
+    host.layoutSubtreeIfNeeded()
+    func descendants(_ root: NSView) -> [NSView] { [root] + root.subviews.flatMap(descendants) }
+    // This isolated component contains exactly one Link and no other buttons.
+    // Its sole native bridge is identifiable without guessing an empty label.
+    let buttons = descendants(host).compactMap { $0 as? NSButton }
+    #expect(buttons.count == urls.count)
+    let source = try #require(buttons.count == 1 ? buttons.first : nil)
+    source.performClick(nil)
+    for _ in 0..<30 where opened.values.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(opened.values == urls)
+    let directory = try #require(ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_NATIVE_DIR"])
+    let folder = URL(fileURLWithPath: directory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+    host.cacheDisplay(in: host.bounds, to: image)
+    try #require(image.representation(using: .png, properties: [:])).write(to: folder.appendingPathComponent("isolated-source-link.png"))
+}
+
 @MainActor private struct ForecastNativeHost: View {
     @ObservedObject var model: DJConnectAppModel
     let sessionID: String
