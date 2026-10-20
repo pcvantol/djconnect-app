@@ -54,9 +54,15 @@ struct BinarySDKInput: Sendable {
     }
 
     func check(keyID: String, nowMS: Int64, current: Bool) throws {
+        // The API starts its TTL at server challenge creation, after the client
+        // sent its original request. Do not mistake outbound latency for TTL.
+        // At receipt only the remaining window can be bounded; the original
+        // absolute deadline and original requestedAtMS are never rewritten.
         guard current, self.keyID == keyID, requestedAtMS >= 0, deadlineMS > requestedAtMS,
-              deadlineMS <= 9_007_199_254_740_991, deadlineMS - requestedAtMS <= 120_000,
-              nowMS >= requestedAtMS, nowMS >= observedAtMS, nowMS < deadlineMS else { throw BindingFailure.rejected }
+              deadlineMS <= 9_007_199_254_740_991,
+              observedAtMS >= requestedAtMS, observedAtMS < deadlineMS,
+              deadlineMS - observedAtMS <= 120_000,
+              nowMS >= observedAtMS, nowMS < deadlineMS else { throw BindingFailure.rejected }
         // Original remaining lifetime starts at input construction, never dispatch.
         guard ContinuousClock.now < lifetimeStart.advanced(by: .milliseconds(deadlineMS - observedAtMS)) else { throw BindingFailure.rejected }
     }
