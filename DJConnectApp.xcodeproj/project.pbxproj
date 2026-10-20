@@ -120,6 +120,7 @@
 		616CA7395FB12A4DFF8573A9 /* DJConnectSpeechPlaybackRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481A2DADE9DB2613A7205A6 /* DJConnectSpeechPlaybackRuntime.swift */; };
 		62C056EAF00D88CE83B60055 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = E54C36B6AA97FCEC5A0E5E48 /* InfoPlist.strings */; };
 		62EA653D2F7EDB550EA7A093 /* DJConnectLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DFC8884D473895FD28BE17D /* DJConnectLocalization.swift */; };
+		63DDAE37380258DF53D3A02F /* NativeAvatarMotionQualificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83725B09F1134B71BA011A10 /* NativeAvatarMotionQualificationTests.swift */; };
 		64372C30C7DFE96C70150D4E /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 36C561DF0639DA1A6347591D /* Localizable.strings */; };
 		6539BE83AAA93940251CD547 /* DJConnectCoreIOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DE473A51768FAF83BB87904A /* DJConnectCoreIOS.framework */; };
 		65FB209AB918FFADAC61EF28 /* DJConnectRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A925089414284E0693A9FD97 /* DJConnectRootView.swift */; };
@@ -605,6 +606,7 @@
 		7DBA451278004E4A63F441AD /* RendezvousRegistrationJournalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendezvousRegistrationJournalTests.swift; sourceTree = "<group>"; };
 		7EE6EA4325E589B23D9C7E7A /* DJConnectSessionHistorySummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionHistorySummary.swift; sourceTree = "<group>"; };
 		814F5EB18CCB8118C90D4F5A /* DJConnectClientContractFixtureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectClientContractFixtureTests.swift; sourceTree = "<group>"; };
+		83725B09F1134B71BA011A10 /* NativeAvatarMotionQualificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAvatarMotionQualificationTests.swift; sourceTree = "<group>"; };
 		8559C062E8B01097AFFB103A /* NativeSessionMomentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSessionMomentsView.swift; sourceTree = "<group>"; };
 		872A79FAE7E92E9EBB96CE3B /* DJConnectIOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectIOSApp.swift; sourceTree = "<group>"; };
 		8856F701CA981D3A16595DFF /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -940,6 +942,7 @@
 				DD4921C1293A50DA9EA51B5E /* HybridLocalPolicyTests.swift */,
 				B913B7AB20FB17F7A798C9DF /* HybridTransportTests.swift */,
 				364D76BD4811E1D2049CE566 /* MomentContractTests.swift */,
+				83725B09F1134B71BA011A10 /* NativeAvatarMotionQualificationTests.swift */,
 				2DDCB0288272A23AD390F064 /* NativeMomentAdmissionTests.swift */,
 				89C47A6D0B5B8EB0BBCEF7A9 /* PairingRecoveryTests.swift */,
 				6C33F89588A6335EBD3C9175 /* PassiveSessionSurfaceTests.swift */,
@@ -1574,6 +1577,7 @@
 				37470A8E956B26B40B193884 /* HybridLocalPolicyTests.swift in Sources */,
 				4EAFABE97F8F8FB37DA4834E /* HybridTransportTests.swift in Sources */,
 				9166598D891703B55C073284 /* MomentContractTests.swift in Sources */,
+				63DDAE37380258DF53D3A02F /* NativeAvatarMotionQualificationTests.swift in Sources */,
 				FAB4349305D9E5C1D8B8C946 /* NativeMomentAdmissionTests.swift in Sources */,
 				67BF92B4DA594421990FFAEF /* PairingRecoveryTests.swift in Sources */,
 				EDDD89EEAF5EF584B2AB3319 /* PassiveSessionSurfaceTests.swift in Sources */,

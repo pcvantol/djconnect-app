@@ -120,12 +120,12 @@ func personaTouchRespectsOutputWithoutSubstitutingClientAudio(output: DJAnnounce
     var continuation: CheckedContinuation<DJConnectPersonaReactionResult, Error>?
     var dispatched: (@Sendable (String) -> Void)?
     var cancels: [(String, DJConnectPersonaReactionCancellation)] = []
-    var plays = 0, stops = 0, requests = 0
+    var plays = 0, stops = 0, requests = 0, feedback = 0
     let services = PersonaReactionController.Services(request: { callback in
         requests += 1; dispatched = callback
         return try await withCheckedThrowingContinuation { continuation = $0 }
     }, cancel: { cancels.append(($0, $1)) }, current: { true }, admitsSpeech: { _ in true },
-    play: { _, _ in plays += 1; return true }, stop: { _ in stops += 1 }, failure: {}, notice: nil)
+    play: { _, _ in plays += 1; return true }, stop: { _ in stops += 1 }, failure: {}, notice: nil, admittedFeedback: { feedback += 1 })
     controller.start(services)
     #expect(await touchEventually { continuation != nil })
     controller.start(services) // A second gesture cannot create a queue.
@@ -133,7 +133,7 @@ func personaTouchRespectsOutputWithoutSubstitutingClientAudio(output: DJAnnounce
     dispatched?(result.persona_reaction.id)
     continuation?.resume(returning: result)
     #expect(await touchEventually { !cancels.isEmpty })
-    #expect(requests == 1 && plays == 0 && stops == 1)
+    #expect(requests == 1 && plays == 0 && stops == 1 && feedback == 0)
     #expect(cancels.count == 1 && cancels[0].0 == result.persona_reaction.id && cancels[0].1 == .background)
     #expect(controller.reaction == nil && !controller.preparing && !controller.speaking)
 }
@@ -143,10 +143,12 @@ func personaTouchRespectsOutputWithoutSubstitutingClientAudio(output: DJAnnounce
     let controller = PersonaReactionController()
     var observed: (@MainActor (Bool) -> Void)?
     var completion: CheckedContinuation<Bool, Error>?
+    var feedback = 0
     controller.start(.init(request: { _ in result }, cancel: { _, _ in }, current: { true }, admitsSpeech: { _ in true },
         play: { _, report in observed = report; return try await withCheckedThrowingContinuation { completion = $0 } },
-        stop: { _ in }, failure: {}, notice: nil))
+        stop: { _ in }, failure: {}, notice: nil, admittedFeedback: { feedback += 1 }))
     #expect(await touchEventually { observed != nil })
+    #expect(feedback == 1)
     #expect(controller.preparing && !controller.speaking)
     observed?(true)
     #expect(controller.speaking && !controller.preparing)
@@ -156,6 +158,7 @@ func personaTouchRespectsOutputWithoutSubstitutingClientAudio(output: DJAnnounce
     observed?(true); completion?.resume(returning: true)
     await Task.yield()
     #expect(!controller.speaking && !controller.isActive && controller.reaction == nil)
+    #expect(feedback == 1, "Audio callbacks and cancellation cannot repeat admission feedback")
 }
 
 @MainActor private final class TouchTestAuthority { var current = true }
@@ -267,5 +270,23 @@ func personaTouchRequiresItsOwnDiscoveryWithoutBreakingBasePersona(fault: String
     #expect(await touchEventually { controller.notice != nil })
     #expect(stopped == 1 && controller.isActive && controller.reaction?.id == result.persona_reaction.id)
     #expect(!controller.preparing && !controller.speaking && cancellations == 0)
+    controller.cancel(.dismissed)
+}
+
+@Test @MainActor func personaTouchStaleResponseCannotEmitAdmissionFeedback() async throws {
+    let (_, _, result) = try touchCase()
+    let controller = PersonaReactionController()
+    let authority = TouchTestAuthority()
+    var continuation: CheckedContinuation<DJConnectPersonaReactionResult, Error>?
+    var feedback = 0
+    controller.start(.init(request: { _ in
+        try await withCheckedThrowingContinuation { continuation = $0 }
+    }, cancel: { _, _ in }, current: { authority.current }, admitsSpeech: { _ in false },
+    play: { _, _ in false }, stop: { _ in }, failure: {}, notice: nil, admittedFeedback: { feedback += 1 }))
+    #expect(await touchEventually { continuation != nil })
+    authority.current = false
+    continuation?.resume(returning: result)
+    for _ in 0..<20 { await Task.yield() }
+    #expect(feedback == 0 && controller.reaction == nil)
     controller.cancel(.dismissed)
 }
