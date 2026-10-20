@@ -40,7 +40,9 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
         }
     }
     .foregroundStyle(.white).padding(24)
-    .background(Color(red: 0.07, green: 0.06, blue: 0.20))
+    // Deliberately bright violet: the identity must remain readable on the
+    // mood glass surface, rather than only on a near-black preview canvas.
+    .background(Color(red: 0.36, green: 0.18, blue: 0.60))
     let renderer = ImageRenderer(content: preview)
     renderer.scale = 2
     let image = try #require(renderer.nsImage)
