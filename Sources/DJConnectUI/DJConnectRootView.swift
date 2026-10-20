@@ -9536,6 +9536,7 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
         if code != context.coordinator.lastEmittedCode { context.coordinator.sync(code) }
         for (index, field) in context.coordinator.fields.enumerated() {
             field.accessibilityLabel = "\(accessibilityLabel), \(index + 1) / 6"
+            field.isEnabled = context.environment.isEnabled
         }
     }
 

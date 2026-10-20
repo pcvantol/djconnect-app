@@ -285,6 +285,67 @@ extension DisplayConsentSessionTests {
         return (model, defaults, suite, store)
     }
 
+    /// Native input controls must follow the production form's disabled states.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_INPUT_STATES_DIR"] != nil))
+    func actualIOSNativeInputConsentStates() async throws {
+        let folder = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_INPUT_STATES_DIR"]))
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        var observations: [[String: Any]] = []
+        for mode in ["normal", "unknown"] {
+            let (model, defaults, suite, _) = try await makeNativeModel(mode)
+            defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+            let session = try #require(model.activeDJSession)
+            let root = VibeCastDisplayConsentForm(model: model)
+                .environment(\.colorScheme, .dark).preferredColorScheme(.dark)
+            let controller = UIHostingController(rootView: root)
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 430, height: 932))
+            window.overrideUserInterfaceStyle = .dark
+            window.rootViewController = controller; window.makeKeyAndVisible()
+            defer { window.isHidden = true; window.rootViewController = nil }
+            func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+            func fields() -> [UITextField] {
+                descendants(controller.view).compactMap { $0 as? UITextField }
+                    .filter { $0.accessibilityIdentifier?.hasPrefix("vibecast-handoff-digit-") == true }.sorted { $0.tag < $1.tag }
+            }
+            func capture(_ stage: String, enabled: Bool) throws {
+                window.layoutIfNeeded()
+                let values = fields()
+                #expect(values.count == 6)
+                #expect(values.allSatisfy { $0.isEnabled == enabled }, "Native UITextField enablement must match the form's state")
+                #expect(values.map { $0.text ?? "" } == Array(repeating: "0", count: 6))
+                observations.append(["mode": mode, "stage": stage, "state": String(describing: model.displayConsentState), "enabled": values.map(\.isEnabled),
+                    "first_responder": values.map(\.isFirstResponder), "digits": values.map { $0.text ?? "" }])
+                let image = UIGraphicsImageRenderer(bounds: window.bounds).image { context in window.layer.render(in: context.cgContext) }
+                try #require(image.pngData()).write(to: folder.appendingPathComponent(mode + "-" + stage + ".png"))
+            }
+            try await Task.sleep(for: .milliseconds(350))
+            let first = try #require(fields().first)
+            _ = first.delegate?.textField?(first, shouldChangeCharactersIn: NSRange(location: 0, length: 0), replacementString: "000000")
+            try await Task.sleep(for: .milliseconds(100))
+            try capture("idle", enabled: true)
+            // Deliberate model transition, not a claimed native button tap.
+            await model.resolveDisplayConsent(code: "000000")
+            try await Task.sleep(for: .milliseconds(150))
+            #expect(model.displayConsentState == .ready)
+            try capture("ready", enabled: false)
+            await model.approveDisplayConsent()
+            try await Task.sleep(for: .milliseconds(150))
+            #expect(model.displayConsentState == (mode == "normal" ? .approved : .uncertain))
+            try capture("terminal", enabled: false)
+            await model.approveDisplayConsent()
+            #expect(ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count == 1)
+            model.sessionHistory.suspend(); model.refreshDisplayConsentPresentation()
+            try await Task.sleep(for: .milliseconds(150))
+            #expect(model.displayConsentState == (mode == "normal" ? .unavailable : .uncertain))
+            #expect(!model.canResolveDisplayConsent)
+            try capture("withdrawn", enabled: mode == "normal")
+            #expect(model.activeDJSession?.id == session.id)
+            #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
+        }
+        try JSONSerialization.data(withJSONObject: observations, options: [.prettyPrinted, .sortedKeys])
+            .write(to: folder.appendingPathComponent("native-input-states.json"))
+    }
+
     /// Exercise actual UIKit fields and coordinator callbacks; no physical
     /// typing, backend lookup, approval, or accessibility bridge is required.
     @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_DIGITS_DIR"] != nil))
