@@ -1,6 +1,7 @@
 """Pure orchestration regressions; synthetic data is NOT live provider evidence."""
 import copy
 import unittest
+from unittest.mock import patch
 import golden
 import run_hosted
 from pathlib import Path
@@ -22,9 +23,9 @@ class GoldenTests(unittest.TestCase):
         self.assertEqual(len(set(ids)), 167)
 
     def test_whole_chain_is_pinned_and_unarmed(self):
-        p = golden.plan(self.context(), ['ASKDJ-FLOW-information-not-action'])
+        p = golden.plan(self.context(), ['ASKDJ-FLOW-open-musical-wish'])
         self.assertFalse(p['execute'])
-        self.assertEqual(len(p['steps']), 4)
+        self.assertEqual(len(p['steps']), 3)
         self.assertEqual(p['steps'][1]['model_policy'], 'one_or_two')
 
     def test_budget_identity_and_new_language_fail_closed(self):
@@ -97,9 +98,9 @@ class GoldenTests(unittest.TestCase):
 
     def test_full_release_coverage_and_candidate_binding(self):
         ids=[s['id'] for f in golden.catalog()['families'] for s in f['steps']]
-        r=dict(status='PASS_SELECTED_SET', paid_attempts=1, passed_case_ids=ids, catalog_sha256=golden.CATALOG_SHA,
+        r=dict(schema_version=2, provider_receipt_sha256s=['1'*64], status='PASS_SELECTED_SET', paid_attempts=1, passed_case_ids=ids, catalog_sha256=golden.CATALOG_SHA,
                app_executable_sha256='a'*64, core_install_receipt_sha256='b'*64, producer_commit='c'*40)
-        self.assertEqual(golden.release_gate([r])['status'], 'PASS_CORE_CLIENT_GOLDEN')
+        self.assertIn('unhandled_core_model_policy', golden.release_gate([r])['findings'])
         zero=copy.deepcopy(r);zero['paid_attempts']=0
         self.assertIn('no_real_model_calls',golden.release_gate([zero])['findings'])
         self.assertEqual(golden.release_gate([r,r])['status'], 'FAIL')
@@ -109,6 +110,37 @@ class GoldenTests(unittest.TestCase):
         self.assertEqual(golden.release_gate([old])['status'], 'FAIL')
         invalid=copy.deepcopy(r);invalid['producer_commit']='not-a-commit'
         self.assertEqual(golden.release_gate([invalid])['status'], 'FAIL')
+
+    def test_unhandled_policies_fail_at_planning_and_reconciliation(self):
+        for family in golden.catalog()['families']:
+            unsupported = [s for s in family['steps'] if s['model_policy'] not in golden.MODEL_POLICY_RANGES]
+            if not unsupported:
+                continue
+            with self.subTest(family=family['id']):
+                with self.assertRaisesRegex(ValueError, 'unhandled_core_model_policy'):
+                    golden.plan(self.context(), [family['id']])
+                for step in unsupported:
+                    n,p=self.evidence(step['id'])
+                    p['cases'][0]['provider_attempts']=[]
+                    p['observed_total_provider_attempts']=0
+                    self.assertIn('unhandled_core_model_policy', golden.reconcile(n,p,'4'*40)['findings'])
+
+    def test_cross_batch_receipt_uniqueness_and_legacy_schema(self):
+        n,p=self.evidence()
+        first=golden.reconcile(n,p,'4'*40)
+        second=copy.deepcopy(first)
+        second['passed_case_ids']=['synthetic-second-case']
+        # Tiny component fixture, never evidence of full canonical matrix PASS.
+        steps=[dict(id=i,model_policy='one_or_two') for i in first['passed_case_ids']+second['passed_case_ids']]
+        with patch.object(golden, 'catalog', return_value={'families':[{'steps':steps}]}):
+            self.assertIn('reused_provider_receipt_across_batches', golden.release_gate([first,second])['findings'])
+            second['provider_receipt_sha256s']=['6'*64]
+            self.assertEqual(golden.release_gate([first,second])['status'],'PASS_CORE_CLIENT_GOLDEN')
+            second['schema_version']=1
+            self.assertIn('unverified_batch_schema', golden.release_gate([first,second])['findings'])
+            second['schema_version']=2
+            second['provider_receipt_sha256s']=[]
+            self.assertIn('provider_receipt_count_mismatch', golden.release_gate([first,second])['findings'])
 
 
 if __name__ == '__main__':

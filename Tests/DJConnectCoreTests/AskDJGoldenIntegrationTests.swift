@@ -40,6 +40,7 @@ final class AskDJGoldenIntegrationTests: XCTestCase {
         let requestLimit = try XCTUnwrap(plan["request_limit"] as? Int)
         let maxCalls = try XCTUnwrap(plan["max_model_calls"] as? Int)
         let attempts = try XCTUnwrap(plan["model_attempts_per_turn"] as? Int)
+        try require(steps.allSatisfy { ["zero", "one_or_two"].contains($0["model_policy"] as? String ?? "") }, "unhandled_core_model_policy")
         let reservedCalls = steps.reduce(0) { $0 + (($1["model_policy"] as? String) == "zero" ? 0 : attempts) }
         try require(!steps.isEmpty && steps.count <= requestLimit && requestLimit <= 40 &&
                     (1...2).contains(attempts) && reservedCalls <= maxCalls && (1...40).contains(maxCalls), "budget")

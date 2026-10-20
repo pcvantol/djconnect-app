@@ -79,3 +79,21 @@ awaits qualified localized exports. The first joint run and independent answer/
 effect quality review remain required. Source/CI success must not close #158.
 
 Runbook: [real-client Golden qualification](../../Tools/qualification/askdj-golden/README.md).
+
+
+Review hardening (20 October): only canonical `zero` and `one_or_two`
+policies have numeric consumer adapters. Every other policy is refused in plan,
+native preflight, reconciliation and release aggregation pending qualified Core
+adapters. Therefore the complete 167-step gate cannot currently PASS. No prose
+policy is interpreted as permission for a model call or assumed local outcome.
+Reconciled batch schema 2 retains each provider receipt hash; aggregation rejects
+legacy batches, missing/count-mismatched identities and receipts reused across
+batches, even with distinct case coverage.
+
+Core also confirmed that agent-call ceilings do not bound transport attempts:
+the inspected HA OpenAI SDK defaults to two retries. Fixture admission must prove
+and enforce actual SDK/HA transport-attempt bounds before I/O. The client budget
+is only an admission declaration, not provider enforcement. No retry setting or
+HA installation was changed, and no real provider/session run was performed.
+
+Both P1 counterexamples reproduced against 0b22e71: unsupported `two` with no provider attempts and two disjoint matrix batches reusing one receipt incorrectly passed. Corrected code refuses both. Ten pure regression tests PASS; affected Swift native test compiles and intentionally SKIPs unarmed, with no network/model call.

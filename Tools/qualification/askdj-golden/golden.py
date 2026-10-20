@@ -13,6 +13,8 @@ import uuid
 HERE = Path(__file__).resolve().parent
 CATALOG_SHA = 'f54eaffb4d3caa7760a2462e6e4f50943b670409581cbdc04a58c70b00dd1359'
 CORE_COMMIT = '8b221d07fe2215d9516d18fe92c832332c7a16ab'
+# Only qualified numeric semantics; prose policies require Core outcome adapters.
+MODEL_POLICY_RANGES = {'zero': (0, 0), 'one_or_two': (1, 2)}
 
 
 def valid_digest(value, length=64):
@@ -54,6 +56,8 @@ def plan(context, families):
     if not families or len(set(families)) != len(families) or any(f not in by_id for f in families):
         raise ValueError('unknown_or_duplicate_family')
     steps = [dict(s, family=f) for f in families for s in by_id[f]['steps']]
+    if any(s.get('model_policy') not in MODEL_POLICY_RANGES for s in steps):
+        raise ValueError('unhandled_core_model_policy')
     if not 1 <= len(steps) <= context['request_limit'] <= 40:
         raise ValueError('request_budget')
     if not 1 <= context['model_attempts_per_turn'] <= 2:
@@ -123,11 +127,12 @@ def reconcile(native, producer, expected_producer_sha):
         if row.get('semantic_verdict') != 'PASS' or row.get('effects_verdict') != 'PASS':
             failures.append('core_semantic_or_effect_failure')
         attempts = row.get('provider_attempts', [])
-        policy = case.get('model_policy')
-        if policy == 'zero' and attempts:
-            failures.append('unexpected_model_use')
-        if policy == 'one_or_two' and not 1 <= len(attempts) <= 2:
-            failures.append('required_model_missing')
+        policy = original.get('model_policy')
+        limits = MODEL_POLICY_RANGES.get(policy)
+        if limits is None:
+            failures.append('unhandled_core_model_policy')
+        elif not limits[0] <= len(attempts) <= limits[1]:
+            failures.append('model_policy_attempt_count')
         if len(attempts) > native.get('model_attempts_per_turn', 0):
             failures.append('per_turn_model_budget')
         for attempt in attempts:
@@ -146,23 +151,28 @@ def reconcile(native, producer, expected_producer_sha):
     if type(native.get('max_model_calls')) is not int or not 1 <= native['max_model_calls'] <= 40 or not 0 <= total <= native['max_model_calls']:
         failures.append('overall_model_budget')
     # No native diagnostic-only report is a production release approval.
-    return {'schema_version': 1, 'status': 'FAIL' if failures else 'PASS_SELECTED_SET',
+    return {'schema_version': 2, 'status': 'FAIL' if failures else 'PASS_SELECTED_SET',
             'catalog_sha256': native.get('catalog_sha256'),
             'app_executable_sha256': native.get('app_executable_sha256'),
             'core_install_receipt_sha256': native.get('core_install_receipt_sha256'),
             'producer_commit': expected_producer_sha,
             'passed_case_ids': [] if failures else expected,
             'findings': sorted(set(failures)), 'cases': len(cases), 'paid_attempts': total,
+            'provider_receipt_sha256s': sorted(a for a in attempt_ids if valid_digest(a)),
             'native_ui_gestures': 'NOT_RUN', 'physical_audio': 'NOT_RUN',
             'release_authorization': 'NOT_GRANTED'}
 
 
 def release_gate(receipts):
-    required = {s['id'] for f in catalog()['families'] for s in f['steps']}
+    known = {s['id']: s for f in catalog()['families'] for s in f['steps']}
+    required = set(known)
     seen = []
     bindings = set()
+    provider_ids = set()
     failures = []
     for receipt in receipts:
+        if receipt.get('schema_version') != 2:
+            failures.append('unverified_batch_schema')
         if receipt.get('status') != 'PASS_SELECTED_SET':
             failures.append('failed_or_unverified_batch')
         if receipt.get('catalog_sha256') != CATALOG_SHA:
@@ -171,6 +181,17 @@ def release_gate(receipts):
             failures.append('invalid_candidate_pin')
         if type(receipt.get('paid_attempts')) is not int or receipt['paid_attempts'] < 0:
             failures.append('invalid_model_usage')
+        identities = receipt.get('provider_receipt_sha256s')
+        if not isinstance(identities, list) or any(not valid_digest(a) for a in identities):
+            failures.append('missing_provider_receipt_identities')
+        else:
+            if len(identities) != receipt.get('paid_attempts'):
+                failures.append('provider_receipt_count_mismatch')
+            if len(set(identities)) != len(identities) or provider_ids.intersection(identities):
+                failures.append('reused_provider_receipt_across_batches')
+            provider_ids.update(identities)
+        if any(known.get(i, {}).get('model_policy') not in MODEL_POLICY_RANGES for i in receipt.get('passed_case_ids', [])):
+            failures.append('unhandled_core_model_policy')
         bindings.add(tuple(receipt.get(k) for k in ('catalog_sha256', 'app_executable_sha256', 'core_install_receipt_sha256', 'producer_commit')))
         seen.extend(receipt.get('passed_case_ids', []))
     if len(bindings) != 1 or any(not v for binding in bindings for v in binding):

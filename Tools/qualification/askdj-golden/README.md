@@ -101,7 +101,7 @@ consumer export. Merely changing a language field does not translate a Golden ca
    python3 Tools/qualification/askdj-golden/golden.py inventory
    python3 Tools/qualification/askdj-golden/golden.py plan \
      --context /private/tmp/djc-golden/context.json \
-     --family ASKDJ-FLOW-information-not-action \
+     --family ASKDJ-FLOW-open-musical-wish \
      --output /private/tmp/djc-golden/plan.json
    ```
 
@@ -213,3 +213,19 @@ python3 Tools/qualification/askdj-golden/import_catalog.py \
   --core-repo /path/to/core-checkout --output /private/tmp/reproduced-catalog.json
 cmp Tools/qualification/askdj-golden/core-catalog.json /private/tmp/reproduced-catalog.json
 ```
+
+
+Review hardening (20 October): only canonical `zero` and `one_or_two`
+policies have numeric consumer adapters. Every other policy is refused in plan,
+native preflight, reconciliation and release aggregation pending qualified Core
+adapters. Therefore the complete 167-step gate cannot currently PASS. No prose
+policy is interpreted as permission for a model call or assumed local outcome.
+Reconciled batch schema 2 retains each provider receipt hash; aggregation rejects
+legacy batches, missing/count-mismatched identities and receipts reused across
+batches, even with distinct case coverage.
+
+Core also confirmed that agent-call ceilings do not bound transport attempts:
+the inspected HA OpenAI SDK defaults to two retries. Fixture admission must prove
+and enforce actual SDK/HA transport-attempt bounds before I/O. The client budget
+is only an admission declaration, not provider enforcement. No retry setting or
+HA installation was changed, and no real provider/session run was performed.
