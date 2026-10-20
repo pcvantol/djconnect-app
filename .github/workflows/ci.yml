@@ -79,6 +79,9 @@ jobs:
       - name: Validate shared brand tagline
         run: /usr/bin/python3 Tools/validate_brand_tagline.py
 
+      - name: Validate pinned Brand V2 assets
+        run: /usr/bin/python3 Tools/validate_brand_assets.py
+
       - name: Ordinary app installation hygiene
         run: /usr/bin/python3 -m unittest discover -s Tools/qualification -p 'test_*.py'
 
