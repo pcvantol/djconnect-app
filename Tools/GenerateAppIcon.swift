@@ -123,7 +123,7 @@ let iconSets: [IconSet] = [
     )
 ]
 
-func loadSourceIcon() throws -> CGImage {
+func loadSourceIcon(at sourceIcon: URL) throws -> CGImage {
     guard let source = CGImageSourceCreateWithURL(sourceIcon as CFURL, nil),
           let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
         throw NSError(
@@ -207,7 +207,8 @@ func writePNG(image: CGImage, to url: URL) throws {
     }
 }
 
-let source = try loadSourceIcon()
+let source = try loadSourceIcon(at: sourceIcon)
+let headset = try loadSourceIcon(at: root.appendingPathComponent("Tools/IconSource/BrandV2/headset-master.png"))
 
 let legacyIconset = assetsCatalog.appendingPathComponent("AppIcon.appiconset")
 if FileManager.default.fileExists(atPath: legacyIconset.path) {
@@ -279,8 +280,9 @@ for iconSet in iconSets {
         guard let pixels = Int(pixelsText) else {
             continue
         }
+        // Owner-approved threshold is output pixels, not logical points.
         try writePNG(
-            image: try renderIcon(from: source, pixels: pixels, appearance: appearance),
+            image: try renderIcon(from: pixels <= 40 ? headset : source, pixels: pixels, appearance: appearance),
             to: iconsetURL.appendingPathComponent(filename)
         )
     }
