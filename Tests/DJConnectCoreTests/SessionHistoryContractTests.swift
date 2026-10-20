@@ -6227,7 +6227,7 @@ private final class ForecastWireDataSlot: @unchecked Sendable {
 }
 
 // Native Forecast crosses ordinary paired transport; all replies here are explicit fixtures.
-@Test(arguments: ["current", "background", "owner-reset", "context-same", "context-older", "persona-conflict"]) @MainActor
+@Test(arguments: ["current", "background", "owner-reset", "context-same", "context-older", "persona-conflict", "unsequenced-live", "unsequenced-live-during-read"]) @MainActor
 func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: String) async throws {
     let fixtureRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let rows = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureRoot.appendingPathComponent("Fixtures/session-forecast-core-3cfa5512.json"))) as? [[String: Any]])
@@ -6282,7 +6282,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         if path.hasSuffix("/session/active") { return (200, runtimeReplies.read(), 0) }
         if path.hasSuffix("/session/forecast/" + id) {
             let reply = forecastReplies.read()
-            if ["background", "owner-reset"].contains(fence) { throw HistoryWireHeldResponse(data: reply, gate: gate) }
+            if ["background", "owner-reset", "unsequenced-live-during-read"].contains(fence) { throw HistoryWireHeldResponse(data: reply, gate: gate) }
             return (200, reply, 0)
         }
         if path.hasSuffix("/ask_dj/history") { return (200, history, 0) }
@@ -6301,9 +6301,19 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     #expect(fixture.requests.contains { $0.url?.path.hasSuffix("/session/forecast/" + id) == true })
     if fence == "background" { model.markInactiveSession(); gate.release() }
     if fence == "owner-reset" { model.sessionHistory.reset(); gate.release() }
+    if fence == "unsequenced-live-during-read" {
+        model.applySessionBroadcastEvent(.init(eventType: "playback_updated", sessionID: id, payload: .init()))
+        gate.release()
+    }
     await task.value
     #expect(model.askDJDraft == "Keep this unsent question")
-    #expect((model.visibleSessionForecast(at: Date()) == nil) == ["background", "owner-reset"].contains(fence))
+    #expect((model.visibleSessionForecast(at: Date()) == nil) == ["background", "owner-reset", "unsequenced-live-during-read"].contains(fence))
+    if fence == "unsequenced-live" {
+        model.applySessionBroadcastEvent(.init(eventType: "playback_updated", sessionID: id, payload: .init()))
+        #expect(model.forecastCursor?.projection == nil)
+        #expect(model.visibleSessionForecast(at: Date()) == nil)
+        #expect(model.askDJDraft == "Keep this unsent question")
+    }
     if fence.hasPrefix("context-") || fence == "persona-conflict" {
         runtimeReplies.replace(runtimeReply)
         await model.refreshActiveDJSession()

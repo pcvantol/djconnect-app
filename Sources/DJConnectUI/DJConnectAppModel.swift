@@ -7464,7 +7464,7 @@ public final class DJConnectAppModel: ObservableObject {
         djSessionLiveUnavailable = false
     }
 
-    private func applySessionBroadcastEvent(_ event: DJConnectSessionBroadcastEvent) {
+    func applySessionBroadcastEvent(_ event: DJConnectSessionBroadcastEvent) {
         guard let active = activeDJSession, active.sessionID == event.sessionID else { return }
         if event.eventType == "runtime_ended" || event.eventType == "broadcast_stopped" {
             if event.payload.nativeDelivery?.revocationScope == "subscription" {
@@ -7482,7 +7482,11 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         activeDJSession = active.applying(broadcastEvent: event)
-        if let sequence = event.deliverySequence, sequence > (active.broadcast.delivery?.snapshotWatermark ?? -1), forecastAvailable {
+        if event.deliverySequence == nil {
+            // The reducer denied native authority. Revoke the separate cursor
+            // and any owner read that started before that denial as well.
+            clearSessionForecast()
+        } else if let sequence = event.deliverySequence, sequence > (active.broadcast.delivery?.snapshotWatermark ?? -1), forecastAvailable {
             acceptSessionForecast(event.payload.sessionForecast)
         }
         if let hint = event.payload.passiveSurfaceInvalidation, hint.validates(sessionID: active.id) {
