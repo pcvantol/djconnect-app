@@ -6229,7 +6229,7 @@ private final class ForecastWireDataSlot: @unchecked Sendable {
 }
 
 // Native Forecast crosses ordinary paired transport; all replies here are explicit fixtures.
-@Test(arguments: ["current", "background", "owner-reset", "context-same", "context-older", "persona-conflict", "unsequenced-live", "unsequenced-live-during-read", "context-locale", "context-direction", "context-read-replacement"]) @MainActor
+@Test(arguments: ["current", "background", "owner-reset", "context-same", "context-older", "persona-conflict", "unsequenced-live", "unsequenced-live-during-read", "context-locale", "context-direction", "context-read-replacement", "transport-recovery", "disconnect-during-read"]) @MainActor
 func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: String) async throws {
     let fixtureRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let rows = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureRoot.appendingPathComponent("Fixtures/session-forecast-core-3cfa5512.json"))) as? [[String: Any]])
@@ -6293,7 +6293,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         if path.hasSuffix("/session/active") { return (200, runtimeReplies.read(), 0) }
         if path.hasSuffix("/session/forecast/" + id) {
             let reply = forecastReplies.read()
-            if fence == "context-read-replacement", forecastReplies.isFirstRead() {
+            if ["context-read-replacement", "disconnect-during-read"].contains(fence), forecastReplies.isFirstRead() {
                 throw HistoryWireHeldResponse(data: reply, gate: gate)
             }
             if ["background", "owner-reset", "unsequenced-live-during-read"].contains(fence) { throw HistoryWireHeldResponse(data: reply, gate: gate) }
@@ -6306,6 +6306,11 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
     await model.sessionHistory.prepare()
     await model.refreshActiveDJSession()
+    // This fixture drives snapshots explicitly; cancel automatic live fallback
+    // before testing controlled owner reads and held-response ordering.
+    let initialSnapshot = try #require(model.activeDJSession).broadcast
+    model.stopSessionBroadcast()
+    model.applySessionBroadcastSnapshot(initialSnapshot)
     #expect(model.sessionHistory.hasAuthorizedOwner && model.activeDJSession?.id == id)
     model.askDJDraft = "Keep this unsent question"
     let task = Task { await model.refreshSessionForecast() }
@@ -6313,12 +6318,26 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         try await Task.sleep(for: .milliseconds(10))
     }
     #expect(fixture.requests.contains { $0.url?.path.hasSuffix("/session/forecast/" + id) == true })
+    if fence == "disconnect-during-read" {
+        let snapshot = try #require(model.activeDJSession).broadcast
+        model.sessionBroadcastDidDisconnect()
+        model.applySessionBroadcastSnapshot(snapshot)
+        await model.refreshSessionForecast()
+        #expect(fixture.requests.filter { $0.url?.path.hasSuffix("/session/forecast/" + id) == true }.count == 2)
+        #expect(model.visibleSessionForecast(at: Date()) != nil)
+        gate.release(); await task.value
+        #expect(model.visibleSessionForecast(at: Date()) != nil)
+        #expect(model.askDJDraft == "Keep this unsent question")
+        #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+        return
+    }
     if fence == "context-read-replacement" {
         runtimeReplies.replace(runtimeReply)
         projection["revision"] = (projection["revision"] as? Int ?? 0) + 1
         response["forecast"] = projection
         forecastReplies.replace(try historyData(response))
-        await model.refreshActiveDJSession()
+        let latest = try await fixture.client().activeSession()
+        model.applySessionBroadcastSnapshot(try #require(latest.resolvedSession).personaSafeBroadcast)
         await model.refreshSessionForecast()
         #expect(fixture.requests.filter { $0.url?.path.hasSuffix("/session/forecast/" + id) == true }.count == 2)
         #expect(model.visibleSessionForecast(at: Date())?.revision == projection["revision"] as? Int)
@@ -6337,6 +6356,15 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     await task.value
     #expect(model.askDJDraft == "Keep this unsent question")
     #expect((model.visibleSessionForecast(at: Date()) == nil) == ["background", "owner-reset", "unsequenced-live-during-read"].contains(fence))
+    if fence == "transport-recovery" {
+        let original = try #require(model.visibleSessionForecast(at: Date()))
+        let snapshot = try #require(model.activeDJSession).broadcast
+        model.stopSessionBroadcast()
+        #expect(model.visibleSessionForecast(at: Date()) == nil)
+        model.applySessionBroadcastSnapshot(snapshot)
+        await model.refreshSessionForecast()
+        #expect(model.visibleSessionForecast(at: Date()) == original)
+    }
     if fence == "unsequenced-live" {
         model.applySessionBroadcastEvent(.init(eventType: "playback_updated", sessionID: id, payload: .init()))
         #expect(model.forecastCursor?.projection == nil)
@@ -6345,7 +6373,8 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     }
     if fence.hasPrefix("context-") || fence == "persona-conflict" {
         runtimeReplies.replace(runtimeReply)
-        await model.refreshActiveDJSession()
+        let latest = try await fixture.client().activeSession()
+        model.applySessionBroadcastSnapshot(try #require(latest.resolvedSession).personaSafeBroadcast)
         #expect(model.activeDJSession?.id == id)
         if fence == "persona-conflict" { #expect(model.activeDJSession?.confirmedPersona == nil) }
         #expect(model.visibleSessionForecast(at: Date()) == nil)
@@ -6370,13 +6399,21 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
 }
 
 #if os(macOS)
+@MainActor private struct ForecastNativeHost: View {
+    @ObservedObject var model: DJConnectAppModel
+    let sessionID: String
+    var body: some View {
+        SessionTimelineScreen(model: model, sessionID: sessionID, activeSession: model.activeDJSession)
+    }
+}
+
 /// Explicit local test window with synthetic paired transport; no ordinary app launch.
 @MainActor private func qualifyForecastNativeSwitch(model: DJConnectAppModel, directory: String) async throws {
     let session = try #require(model.activeDJSession)
     let folder = URL(fileURLWithPath: directory)
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     _ = NSApplication.shared
-    let view = SessionTimelineScreen(model: model, sessionID: session.id, activeSession: session)
+    let view = ForecastNativeHost(model: model, sessionID: session.id)
         .environment(\.scenePhase, .active).environment(\.colorScheme, .dark)
         .preferredColorScheme(.dark)
         .frame(width: 430, height: 900)
@@ -6426,5 +6463,11 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     #expect(forecastSearch()?.stringValue == "Catalog")
     #expect(model.askDJDraft == "Keep this unsent question")
     try capture("forecast-restored-search")
+    model.applySessionBroadcastEvent(.init(eventType: "runtime_ended", sessionID: session.id, payload: .init()))
+    for _ in 0..<30 where hasPanel() { try await Task.sleep(for: .milliseconds(50)) }
+    try await Task.sleep(for: .milliseconds(150))
+    #expect(model.activeDJSession == nil && !hasPanel())
+    #expect(!descendants(host).compactMap { $0 as? NSSegmentedControl }.contains { $0.segmentCount == 2 })
+    try capture("ended-session-flow")
 }
 #endif

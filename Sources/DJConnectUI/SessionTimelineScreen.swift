@@ -402,6 +402,7 @@ struct SessionTimelineScreen: View {
         false
         #endif
     }
+    private var displayingForecast: Bool { showsForecast && activeSession != nil }
     private var timeline: DJConnectSessionHistoryModel.Timeline { history.timelines[sessionID] ?? .init() }
     private struct SubmittedTurnNavigation: Equatable {
         let target: String?
@@ -656,9 +657,9 @@ struct SessionTimelineScreen: View {
                         defer { pullRefreshing = false }
                         await refreshTimeline()
                     }
-                    .opacity(showsForecast ? 0 : 1)
-                    .allowsHitTesting(!showsForecast)
-                    .accessibilityHidden(showsForecast)
+                    .opacity(displayingForecast ? 0 : 1)
+                    .allowsHitTesting(!displayingForecast)
+                    .accessibilityHidden(displayingForecast)
                     if showsForecast, let activeSession {
                         SessionForecastPanel(model: model, position: $forecastPosition, query: $forecastQuery) { scrollingCurrent(activeSession) }
                     }
@@ -684,6 +685,9 @@ struct SessionTimelineScreen: View {
                 }
             }
             .background(sessionBackground)
+            .onChange(of: activeSession == nil) { _, ended in
+                if ended { showsForecast = false }
+            }
             .onChange(of: showsForecast) { _, value in
                 if value { inputFocused = false; searchFocused = false }
             }
@@ -867,10 +871,15 @@ struct SessionTimelineScreen: View {
                     }
                 }
             }
-            .onDisappear { clearReadingState(); history.cancelArtworkQueue() }
+            .onDisappear(perform: timelineDidDisappear)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(activeSession == nil ? "screen-history-timeline" : "screen-session-conversation")
         }
+    }
+
+    private func timelineDidDisappear() {
+        clearReadingState()
+        history.cancelArtworkQueue()
     }
 
     private var archiveDeleteButton: some View {

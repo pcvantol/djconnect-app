@@ -1047,12 +1047,16 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             let caps = try await withHomeAssistantClient { try await $0.activeSessionMoodCapabilities() }
             guard !Task.isCancelled, generation == forecastGeneration, epoch == sessionHistory.responseEpoch,
-                  canRefreshSessionHistory, activeDJSession.map(ForecastScope.init) == scope else { return }
+                  canRefreshSessionHistory, !djSessionIsRecovering, !djSessionLiveUnavailable,
+                  readContext.authority == forecastAuthorityGeneration,
+                  activeDJSession.map(ForecastScope.init) == scope else { return }
             forecastAvailable = caps.forecastAvailable
             guard forecastAvailable else { forecastCursor?.withdraw(); return }
             let projection = try await withHomeAssistantClient { try await $0.sessionForecast(sessionID: session.id) }
             guard !Task.isCancelled, generation == forecastGeneration, epoch == sessionHistory.responseEpoch,
-                  canRefreshSessionHistory, activeDJSession.map(ForecastScope.init) == scope else { return }
+                  canRefreshSessionHistory, !djSessionIsRecovering, !djSessionLiveUnavailable,
+                  readContext.authority == forecastAuthorityGeneration,
+                  activeDJSession.map(ForecastScope.init) == scope else { return }
             acceptSessionForecast(projection)
         } catch {
             if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled { return }
@@ -7294,9 +7298,7 @@ public final class DJConnectAppModel: ObservableObject {
                 onDisconnected: { [weak self] in
                     await MainActor.run {
                         guard let self, self.sessionBroadcastGeneration == generation else { return }
-                        self.activeDJSession?.broadcast.clearNativeAuthority()
-                        self.sessionContributionRecoveryNeeded = true
-                        self.djSessionIsRecovering = self.activeDJSession != nil
+                        self.sessionBroadcastDidDisconnect()
                     }
                 },
                 onConnectionUnavailable: { [weak self] in
@@ -7459,7 +7461,14 @@ public final class DJConnectAppModel: ObservableObject {
         stopSessionBroadcast()
     }
 
-    private func stopSessionBroadcast() {
+    func sessionBroadcastDidDisconnect() {
+        clearSessionForecast()
+        activeDJSession?.broadcast.clearNativeAuthority()
+        sessionContributionRecoveryNeeded = true
+        djSessionIsRecovering = activeDJSession != nil
+    }
+
+    func stopSessionBroadcast() {
         clearSessionForecast()
         sessionContributionRecoveryTask?.cancel(); sessionContributionRecoveryTask = nil
         sessionContributionRecoveryNeeded = true
@@ -7474,7 +7483,7 @@ public final class DJConnectAppModel: ObservableObject {
         Task { await transport?.stop() }
     }
 
-    private func applySessionBroadcastSnapshot(_ snapshot: DJConnectBroadcastState) {
+    func applySessionBroadcastSnapshot(_ snapshot: DJConnectBroadcastState) {
         guard let active = activeDJSession, active.sessionID == snapshot.session.sessionID else { return }
         activeDJSession = active.applying(broadcastState: snapshot)
         if (snapshot.delivery?.snapshotWatermark ?? 0) >= (active.broadcast.delivery?.snapshotWatermark ?? 0), forecastAvailable {
