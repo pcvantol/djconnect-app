@@ -1455,3 +1455,23 @@
 "ui.session.forecast.claim.intention" = "Intención";
 "ui.session.forecast.claim.conditional_target" = "Objetivo posible";
 "ui.session.forecast.search" = "Buscar en la previsión";
+// VibeCast rendezvous: routing preparation is distinct from display consent.
+"ui.rendezvous.scan" = "Escanear código QR del televisor";
+"ui.rendezvous.choose" = "Elige tu Home Assistant vinculado. Solo se compartirá su dirección de pantalla con este televisor.";
+"ui.rendezvous.invalid" = "Este código QR no es válido o ha caducado. Escanea un nuevo código en el televisor.";
+"ui.rendezvous.savedHA" = "Usar mi Home Assistant vinculado";
+"ui.rendezvous.confirm" = "Confirmar Home Assistant";
+"ui.rendezvous.unsupported" = "Este dispositivo no admite la vinculación segura del televisor. No se envió ninguna solicitud.";
+"ui.rendezvous.notReady" = "La vinculación segura del televisor aún no está lista. No se envió nada al televisor.";
+"ui.rendezvous.failed" = "Home Assistant no pudo preparar la dirección de pantalla. Escanea un nuevo código e inténtalo de nuevo.";
+
+"ui.displayConsent.open" = "Conectar una pantalla VibeCast";
+"ui.displayConsent.title" = "Compartir la Session actual";
+"ui.displayConsent.instructions" = "Introduce el código de tu pantalla VibeCast. Buscar el código no comparte nada.";
+"ui.displayConsent.lookup" = "Buscar pantalla";
+"ui.displayConsent.create" = "¿Compartir solo tu DJ Session actual con esta pantalla durante dos horas?";
+"ui.displayConsent.existing" = "¿Permitir que esta pantalla use el permiso existente de tu Session actual sin prolongar su vencimiento?";
+"ui.displayConsent.confirm" = "Permitir esta pantalla";
+"ui.displayConsent.approved" = "Pantalla autorizada para tu Session actual.";
+"ui.displayConsent.uncertain" = "No se confirmó el permiso. Comprueba la pantalla antes de una nueva solicitud.";
+"ui.displayConsent.unavailable" = "El código de pantalla o la Session actual ya no está disponible.";

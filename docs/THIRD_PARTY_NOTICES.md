@@ -1,9 +1,11 @@
 # Third-Party Notices
 
 DJConnect is built from the app source in this repository and Apple platform
-SDK frameworks. The repository currently does not declare external runtime
-Swift package dependencies in `Package.swift` or external Xcode package
-dependencies in `project.yml`.
+SDK frameworks. VibeCast destination encryption uses JOSESwift 3.0.0, pinned in
+both `Package.swift` and `project.yml` to immutable revision
+`c2664a902e75c0426a1d43132bd4babc6fd173d3`. Its upstream Apache License 2.0
+text is bundled in DJConnectCore and available in the native Legal → OSS view.
+This dependency is source preparation, not genuine SDK/runtime acceptance.
 
 The DJConnect app source in this repository is distributed under the MIT
 License. See [LICENSE](../LICENSE).
@@ -21,6 +23,7 @@ this file in the same change as:
 
 | Component | Purpose | License / Terms |
 | --- | --- | --- |
+| JOSESwift 3.0.0 | RFC7516 RSA-OAEP-256 / A256GCM destination encryption; no algorithm negotiation or custom primitives | Apache License 2.0; copyright 2024 Airside Mobile Inc.; [bundled license](../Sources/DJConnectCore/Resources/ThirdParty/JOSESwift-LICENSE.txt) |
 | Swift Standard Library | Swift runtime support | Swift project license and runtime library exception |
 | Apple SDK frameworks | iOS and macOS app runtime, UI, media, networking, security, logging and diagnostics | Apple Developer Program License Agreement and SDK terms |
 

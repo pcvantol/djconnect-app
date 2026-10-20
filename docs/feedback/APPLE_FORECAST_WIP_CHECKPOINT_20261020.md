@@ -35,3 +35,24 @@ The requested extra cursor recreation (4323408004) was already handled by the ex
 Bounded source-link activation diagnostic: the in-process native host exposes a SwiftUIAppKitButton with empty title, accessibility label and attributed title; neither attempted selector established which control was the source Link. No Link activation/browser opening occurred, and probe changes were restored exactly. Diagnostic logs /tmp/djc-forecast-source-link-native.log and /tmp/djc-forecast-source-link-accessible-native.log; local receipt build/qualification/forecast/native-source-link-probe.json; patch retained privately. Source-link/VoiceOver acceptance remains OPEN; do not repeat the unchanged host-control probe.
 
 Isolated native source-Link qualification: a separate NSHostingView/NSWindow hosts only SessionForecastTextView with the original Core transport fixture. It contains exactly one Link and no other buttons, so the sole real AppKit button is identifiable without the empty-label ambiguity of the full screen. performClick dispatch records exactly the producer section source URL through an intercepted OpenURLAction, returning handled; no browser/system URL launch or external request occurs. New opt-in forecastNativeSourceLinkOpensOnlyProducerDestination PASS (/tmp/djc-forecast-isolated-source-link-native.log), inspected image /private/tmp/djc-forecast-isolated-source-link-native/isolated-source-link.png. It is disabled in ordinary CI unless DJCONNECT_FORECAST_NATIVE_DIR is explicit. This proves the isolated component's native action/destination, not full-screen control acquisition, keyboard/VoiceOver or physical gesture acceptance. No production code changed in this follow-up. Product implementatione31b99b exact CI succeeded and review6287962217 completed/no findings; fresh exact-head checks follow the test/receipt addition.
+
+
+## Existing-source consolidation for device deployment — 2026-10-20
+
+Integrated protected main8adbdac5ea3b1cdd9e14df67f9608f374610dda0, including
+merged VibeCast164 and Finalization165. Additive project and localization
+conflicts preserve both sides; all localization keys/values from both parents
+were checked unchanged. Core consent/transport and Forecast/view source bytes
+remain equal to their respective immutable parents.
+
+Combined qualification:73XCTest(two intentional skips/zero failures) and
+1011SwiftTesting tests in13suites PASS;1367 localization keys and ordinary
+installer/register checks PASS. Signed generic-iOS build40400 with existing
+Apple Development identity/profiles PASS; strict deep signature verification
+PASS. The initial explicit certificate fingerprint conflicted with automatic
+signing; using existing Apple Development selection corrected the build
+without credential changes. Device installation is authorized but pending.
+
+No new Forecast behavior, producer contract or native acceptance claim is
+introduced. Existing physical/keyboard/VoiceOver/scroll/server/provider gates
+remain open. Logs and additive-resolution proof retained privately.
