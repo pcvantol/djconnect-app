@@ -797,3 +797,25 @@ memory fixtures only; no HA/SDK/Keychain/provider/physical/public effects.
 The native consent UI remains UNWIRED; product prepare NOTREADY. No merge grant.
 The earlier b0 CI/TDE success does not qualify this correction. Separate owning
 security completion remains absent. New exact-source review/CI are required.
+
+## Retained Core B receipt revocation —20Oct2026
+
+Exact7d review P2/4327611885 found that a caller-retained approve return value
+checked clocks only, despite flow.receipt checking owner/token. The inline review
+labels this a completed security review of7d; owning summary security metadata
+remained NULL, so no whole-PR security approval is inferred.
+An actual7d source counterproof failed with6issues in1test
+/tmp/djc-retained-receipt-negative.log. The same test now checks the retained
+value BEFORE consulting flow.receipt, for owner withdrawal/token rotation/explicit
+withdraw and subsequent owner/token restoration.
+
+Returned Receipt.isCurrent now requires MainActor and a weak original-session
+authority predicate. Copies share the original terminal owner/token revocation
+latch; destroyed session or withdrawal fails closed without retaining the owner.
+Clock bounds remain independent. No UI wiring, new transport or SDK effect.
+FINAL12focusedfunctions PASS /tmp/djc-retained-receipt-targeted.log; FINALserial
+73XCTest(2intentionalSKIP/0fail)+998SwiftTesting13suites PASS
+/tmp/djc-retained-receipt-full.log; FINALunsignediOSbuild-for-testing PASS
+/tmp/djc-retained-receipt-ios.log. No HA/SDK/Keychain/provider/physical/public
+effects. Product preparation NOTREADY, native consent UI still UNWIRED.
+Predecessor7d primaryCI39459341075 succeeded but does not qualify this correction.

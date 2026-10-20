@@ -170,14 +170,16 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
     @Test func completedReceiptCannotOutliveOwnerOrToken() async throws {
         for kind in ["owner", "token", "dismiss"] {
             let (flow, store, authority) = try make(); try await flow.resolve(code: "000000")
-            _ = try await flow.approve(share: .createTwoHours)
-            #expect(flow.receipt != nil)
+            let retained = try await flow.approve(share: .createTwoHours)
+            #expect(flow.receipt != nil && retained.isCurrent())
             if kind == "owner" { authority.withdraw() }
             if kind == "token" { try store.saveToken("replacement") }
             if kind == "dismiss" { flow.withdraw() }
+            #expect(!retained.isCurrent())
             #expect(flow.receipt == nil)
             if kind == "owner" { authority.restore() }
             if kind == "token" { try store.saveToken("synthetic-owner") }
+            #expect(!retained.isCurrent())
             #expect(flow.receipt == nil && flow.state == .unavailable)
         }
     }

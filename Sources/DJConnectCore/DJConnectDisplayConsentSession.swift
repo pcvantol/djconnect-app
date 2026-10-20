@@ -20,8 +20,9 @@ import CryptoKit
         fileprivate let admittedAt: Date
         fileprivate let requestedUptime: TimeInterval
         fileprivate let deadline: TimeInterval
-        public func isCurrent(now: Date = Date(), uptime: TimeInterval = ProcessInfo.processInfo.systemUptime) -> Bool {
-            now.timeIntervalSince1970.isFinite && now >= admittedAt && now < expiresAt &&
+        fileprivate let authorityIsCurrent: @MainActor @Sendable () -> Bool
+        @MainActor public func isCurrent(now: Date = Date(), uptime: TimeInterval = ProcessInfo.processInfo.systemUptime) -> Bool {
+            authorityIsCurrent() && now.timeIntervalSince1970.isFinite && now >= admittedAt && now < expiresAt &&
             uptime.isFinite && uptime >= requestedUptime && uptime < deadline
         }
     }
@@ -56,6 +57,13 @@ import CryptoKit
         self.client = client; self.installationID = installationID; self.sessionID = sessionID
         self.pairedLocalOrigin = pairedLocalOrigin; self.isOwnerCurrent = isCurrent
         tokenDigest = Data(SHA256.hash(data: Data(token.utf8)))
+    }
+    private func receiptAuthorityIsCurrent() -> Bool {
+        guard state == .approved else { return false }
+        guard current() else {
+            storedReceipt = nil; state = .unavailable; return false
+        }
+        return true
     }
     private func current() -> Bool {
         guard !Task.isCancelled, isOwnerCurrent(), let token = try? client.tokenStore.loadToken() else { return false }
@@ -160,7 +168,8 @@ import CryptoKit
             guard now >= requestedAt, now < effectiveExpiry, deadline.isFinite,
                   uptime >= requestedUptime, uptime < deadline else { throw DJConnectError.invalidResponse }
             let result = Receipt(displayID: value.display_id, shareID: value.share_id, shareGeneration: value.share_generation,
-                sessionID: sessionID, expiresAt: effectiveExpiry, admittedAt: now, requestedUptime: requestedUptime, deadline: deadline)
+                sessionID: sessionID, expiresAt: effectiveExpiry, admittedAt: now, requestedUptime: requestedUptime, deadline: deadline,
+                authorityIsCurrent: { [weak self] in self?.receiptAuthorityIsCurrent() ?? false })
             storedReceipt = result; state = .approved; return result
         } catch {
             withdraw(); state = possibleEffect ? .uncertain : .unavailable; throw error
