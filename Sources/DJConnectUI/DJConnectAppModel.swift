@@ -1190,10 +1190,16 @@ public final class DJConnectAppModel: ObservableObject {
     var sessionForecastRefreshScope: ForecastScope? { activeDJSession.map(ForecastScope.init) }
     private var forecastScope: ForecastScope?
 
+    /// Shared read/presentation admission; retry must not advertise an operation
+    /// that the current owner or runtime cannot perform.
+    var canRefreshSessionForecast: Bool {
+        canRefreshSessionHistory && isRuntimeCompatible && sessionHistory.hasAuthorizedOwner &&
+            !djSessionIsRecovering && !djSessionLiveUnavailable && haConnectionMode != .offline &&
+            activeDJSession?.runtimeState == "active"
+    }
+
     public func visibleSessionForecast(at date: Date) -> DJConnectSessionForecast? {
-        guard canRefreshSessionHistory, isRuntimeCompatible, haConnectionMode != .offline,
-              sessionHistory.hasAuthorizedOwner, !djSessionIsRecovering, !djSessionLiveUnavailable,
-              let session = activeDJSession, session.runtimeState == "active", forecastAvailable,
+        guard canRefreshSessionForecast, let session = activeDJSession, forecastAvailable,
               forecastEpoch == sessionHistory.responseEpoch,
               forecastCursor?.sessionID == session.id, forecastScope == ForecastScope(session) else { return nil }
         if forecastCursor?.projection?.current_anchor != nil && session.broadcast.playback?.state != "playing" { return nil }
@@ -1202,9 +1208,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func refreshSessionForecast() async {
-        guard canRefreshSessionHistory, isRuntimeCompatible, sessionHistory.hasAuthorizedOwner,
-              !djSessionIsRecovering, !djSessionLiveUnavailable, haConnectionMode != .offline,
-              let session = activeDJSession, session.runtimeState == "active" else { return }
+        guard canRefreshSessionForecast, let session = activeDJSession else { return }
         let scope = ForecastScope(session)
         let epoch = sessionHistory.responseEpoch
         let readContext = ForecastReadContext(scope: scope, ownerEpoch: epoch, authority: forecastAuthorityGeneration)

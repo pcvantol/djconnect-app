@@ -114,7 +114,7 @@ struct SessionForecastPanel<Header: View>: View {
                                 .fixedSize(horizontal: false, vertical: true)
                             Button(text("ui.refresh.page")) { Task { await model.refreshSessionForecast() } }
                                 .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
-                                .disabled(model.forecastLoading || !model.canRefreshSessionHistory)
+                                .disabled(model.forecastLoading || !model.canRefreshSessionForecast)
                         }
                     }.padding(.horizontal, 20)
                 }.padding(.vertical, 16)

@@ -6448,6 +6448,10 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_FILTER_DIR"] {
         try await qualifyForecastNativeFilter(model: model, directory: directory)
     }
+    if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_WITHDRAWAL_DIR"] {
+        try await qualifyForecastNativeWithdrawal(model: model, directory: directory,
+            readCount: { fixture.requests.filter { $0.url!.path.contains("/session/forecast/") }.count })
+    }
     #endif
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" && !$0.url!.path.contains("/command") && !$0.url!.path.contains("/message") })
 }
@@ -6608,6 +6612,63 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         "flow_initial_offset": Double(originalFlowOffset.y), "flow_return_offset": Double(flow.contentView.bounds.origin.y)]
     try JSONSerialization.data(withJSONObject: metrics, options: [.sortedKeys, .prettyPrinted])
         .write(to: folder.appendingPathComponent("native-scroll-metrics.json"))
+}
+
+/// Actual production panel and native captures of owner withdrawal. Its custom
+/// SwiftUI retry style has no NSButton bridge; do not claim native AX state.
+@MainActor private func qualifyForecastNativeWithdrawal(model: DJConnectAppModel, directory: String, readCount: () -> Int) async throws {
+    let session = try #require(model.activeDJSession)
+    #expect(model.sessionHistory.hasAuthorizedOwner)
+    #expect(model.canRefreshSessionForecast)
+    #expect(model.visibleSessionForecast(at: Date()) != nil)
+    _ = NSApplication.shared
+    let view = SessionForecastPanel(model: model, viewport: SessionForecastViewport(), query: .constant("")) { EmptyView() }
+        .environment(\.scenePhase, .active).environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark).frame(width: 600, height: 1000)
+    let host = NSHostingView(rootView: view)
+    let window = NSWindow(contentRect: CGRect(x: -2000, y: -2000, width: 600, height: 1000),
+        styleMask: [.borderless], backing: .buffered, defer: false)
+    window.appearance = NSAppearance(named: .darkAqua)
+    window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
+    defer { window.close() }
+    let folder = URL(fileURLWithPath: directory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
+    func capture(_ name: String) throws {
+        host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
+        let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: image)
+        try #require(image.representation(using: .png, properties: [:])).write(to: folder.appendingPathComponent(name + ".png"))
+    }
+    try await Task.sleep(for: .milliseconds(400))
+    try capture("withdrawal-01-authorized")
+    let reads = readCount()
+    model.sessionHistory.suspend()
+    #expect(!model.sessionHistory.hasAuthorizedOwner)
+    #expect(!model.canRefreshSessionForecast)
+    #expect(model.visibleSessionForecast(at: Date()) == nil)
+    try await Task.sleep(for: .milliseconds(250))
+    host.layoutSubtreeIfNeeded()
+    try capture("withdrawal-02-owner-suspended")
+    let nativeControls = descendants(host).compactMap { view -> [String: Any]? in
+        guard let control = view as? NSControl else { return nil }
+        return ["type": String(describing: type(of: control)), "enabled": control.isEnabled]
+    }
+    try JSONSerialization.data(withJSONObject: ["read_admitted_after_withdrawal": model.canRefreshSessionForecast, "native_controls": nativeControls, "forecast_reads_before": reads,
+        "forecast_reads_after": readCount()], options: [.prettyPrinted, .sortedKeys])
+        .write(to: folder.appendingPathComponent("native-withdrawal-metrics.json"))
+    #expect(readCount() == reads)
+    #expect(model.askDJDraft == "Keep this unsent question")
+    #expect(model.activeDJSession?.id == session.id)
+    #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
+    await model.sessionHistory.prepare()
+    for _ in 0..<30 where model.visibleSessionForecast(at: Date()) == nil { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(model.canRefreshSessionForecast)
+    #expect(model.visibleSessionForecast(at: Date()) != nil)
+    #expect(model.askDJDraft == "Keep this unsent question")
+    #expect(model.activeDJSession?.id == session.id)
+    #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
+    try capture("withdrawal-03-owner-restored")
 }
 
 /// Filter only authored presentation; the producer projection and playback
