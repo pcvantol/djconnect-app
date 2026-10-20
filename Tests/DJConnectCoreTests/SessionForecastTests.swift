@@ -144,6 +144,27 @@ private func forecastDecode(_ object: Any) throws -> DJConnectSessionForecast {
     #expect(decoded.structurallyValid && decoded.imagery.isEmpty && decoded.summary == original.summary)
 }
 
+
+@Test(arguments: ["", "short", String(repeating: "A", count: 23), "../outside", "valid?query=1", "spotify:artist:6eUKZXaKkcviH0Ku9w2n3V", String(repeating: "é", count: 22)])
+func forecastOptionalArtRequiresCanonicalArtistIdentity(_ artistID: String) throws {
+    let read = try #require(forecastCases().first?["owner_read"] as? [String: Any])
+    var object = try #require(read["forecast"] as? [String: Any])
+    let original = try forecastDecode(object)
+    var image = try #require((object["imagery"] as? [[String: Any]])?.first)
+    var subject = try #require(image["subject"] as? [String: Any])
+    subject["id"] = "spotify:artist:" + artistID
+    image["subject"] = subject
+    let url = "https://open.spotify.com/artist/" + artistID.replacingOccurrences(of: "spotify:artist:", with: "")
+    image["source_url"] = url
+    var attribution = try #require(image["attribution"] as? [String: Any])
+    attribution["url"] = url; image["attribution"] = attribution
+    object["imagery"] = [image]
+    let decoded = try forecastDecode(object)
+    let issued = try #require(DJConnectSessionForecast.timestamp(decoded.issued_at))
+    #expect(decoded.structurallyValid && decoded.summary == original.summary)
+    #expect(decoded.imagery.first?.admittedPath(sessionID: decoded.session_id, at: issued) == nil)
+}
+
 #if os(macOS)
 @Test @MainActor func forecastNativeTextRendersAllAuthoredLocalesAndLargeType() throws {
     for item in try forecastCases() where item["persona"] as? String == "home_dj" {

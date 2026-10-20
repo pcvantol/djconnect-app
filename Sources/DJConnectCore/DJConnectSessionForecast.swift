@@ -41,10 +41,14 @@ public struct DJConnectSessionForecast: Codable, Equatable, Sendable {
         public let url: String
         public let cache_policy: String
         public func admittedPath(sessionID: String, at date: Date) -> String? {
-            guard role == "current", subject.type == "artist", !subject.name.isEmpty, subject.name.count <= 300,
-                  subject.id.hasPrefix("spotify:artist:"), usage_basis == "spotify_display_current_only",
+            let identity = subject.id.split(separator: ":", omittingEmptySubsequences: false)
+            let base62 = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".utf8)
+            guard identity.count == 3, identity[0] == "spotify", identity[1] == "artist",
+                  identity[2].utf8.count == 22, identity[2].utf8.allSatisfy({ base62.contains($0) }),
+                  role == "current", subject.type == "artist", !subject.name.isEmpty, subject.name.count <= 300,
+                  usage_basis == "spotify_display_current_only",
                   attribution.provider == "Spotify", attribution.mark == "spotify", attribution.url == source_url,
-                  source_url == "https://open.spotify.com/artist/" + subject.id.replacingOccurrences(of: "spotify:artist:", with: ""),
+                  source_url == "https://open.spotify.com/artist/" + String(identity[2]),
                   cache_policy == "active_session_no_store", let deadline = DJConnectSessionForecast.timestamp(expires_at),
                   date < deadline, let parts = URLComponents(string: url), parts.scheme == nil, parts.host == nil,
                   parts.query == nil, parts.fragment == nil, parts.percentEncodedPath == url else { return nil }

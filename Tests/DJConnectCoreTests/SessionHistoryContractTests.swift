@@ -6215,8 +6215,8 @@ func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clie
 }
 
 // Native Forecast crosses ordinary paired transport; all replies here are explicit fixtures.
-@Test(arguments: [false, true]) @MainActor
-func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(background: Bool) async throws {
+@Test(arguments: ["current", "background", "owner-reset"]) @MainActor
+func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: String) async throws {
     let fixtureRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let rows = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureRoot.appendingPathComponent("Fixtures/session-forecast-core-3cfa5512.json"))) as? [[String: Any]])
     var response = try #require(rows.first?["owner_read"] as? [String: Any])
@@ -6250,7 +6250,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(backgrou
         if path.hasSuffix("/capabilities") { return (200, caps, 0) }
         if path.hasSuffix("/session/active") { return (200, runtimeReply, 0) }
         if path.hasSuffix("/session/forecast/" + id) {
-            if background { throw HistoryWireHeldResponse(data: forecastReply, gate: gate) }
+            if fence != "current" { throw HistoryWireHeldResponse(data: forecastReply, gate: gate) }
             return (200, forecastReply, 0)
         }
         if path.hasSuffix("/ask_dj/history") { return (200, history, 0) }
@@ -6267,9 +6267,10 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(backgrou
         try await Task.sleep(for: .milliseconds(10))
     }
     #expect(fixture.requests.contains { $0.url?.path.hasSuffix("/session/forecast/" + id) == true })
-    if background { model.markInactiveSession(); gate.release() }
+    if fence == "background" { model.markInactiveSession(); gate.release() }
+    if fence == "owner-reset" { model.sessionHistory.reset(); gate.release() }
     await task.value
     #expect(model.askDJDraft == "Keep this unsent question")
-    #expect((model.visibleSessionForecast(at: Date()) == nil) == background)
+    #expect((model.visibleSessionForecast(at: Date()) == nil) == (fence != "current"))
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" && !$0.url!.path.contains("/command") && !$0.url!.path.contains("/message") })
 }
