@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "parent_sha": "5af721f451aef1791f5f44554fd82b6770dc03d9",
+  "production_changed": false,
+  "ios_unit_passed": 1,
+  "ios_unit_failed": 0,
+  "ios_unit_skipped": 0,
+  "native_visual_observation": "THREE_FINAL_UIKIT_WINDOW_RENDERS_INSPECTED",
+  "public_disabled_trait": "INCONCLUSIVE_PUBLIC_UIKIT_ELEMENTS",
+  "native_lookup_activated": false,
+  "lookup_fallback": "ACTUAL_IOS_MODEL_METHOD",
+  "approval_posts": 0,
+  "owned_device": "B62B723C-74D1-499C-AFA4-1FB5FF33ECD3",
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Tests/DJConnectCoreTests/DisplayConsentSessionTests.swift",
+      "sha256": "32ead77330636370564a3a6dd3685533900fa00a2e34f83728bb843f81610387"
+    },
+    {
+      "path": "Sources/DJConnectUI/DJConnectRootView.swift",
+      "sha256": "4d6b919cda6a8ddbc0e1ac606c36c1a0f345be4a8eea41a030843d5dbab56460"
+    },
+    {
+      "path": "Sources/DJConnectUI/DJConnectAppModel.swift",
+      "sha256": "75a0d8bddcdc3fc5b3a1da9cbfb5de4980e71b6534f0ad0a5192c5ccdd3b601e"
+    },
+    {
+      "path": "Tools/qualification/vibecast-product/prepare_native_consent_tests.py",
+      "sha256": "28e2cf80ea7d16cb4586f0ec64e17fd193ee83f5b950983afc906706cae3289e"
+    },
+    {
+      "path": "Tests/Fixtures/session-history-active-session-before-auth-failure.json",
+      "sha256": "4c7e565f7b10705164f78681bf9f7a30d156fef668a06d7084fd203cf0393e2d"
+    },
+    {
+      "path": "Tests/Fixtures/session-history-producer-receipt.json",
+      "sha256": "d4b901aa3d6ec7d7e93767c2efc538dddc5f92dc2e3cbaa9213e03b0da471f93"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/enumeration.log",
+      "sha256": "734f2f2f76fced81171836e050a46283da3b084d76643b6b6ce8b1c7b33290ed"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/probe.log",
+      "sha256": "af73ac459acc671f82f4f708394f69c28c1cc65f4b8e2e8c452314c9a8d33dca"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/uikit-unit-enabled.log",
+      "sha256": "78c8649fb32bcea999876e6d51f4311226960b6fb98e18bd8b8513b91303aae8"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/uikit-unit-final.log",
+      "sha256": "46f11f5240757ac18033509cdcafc5a777b2091b8f9cbc4313ca0d503c10f71f"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/uikit-unit-initial.log",
+      "sha256": "1b5539e985274413919dcb9191e24fc8500d8e9b31f76e4f392459b748077cba"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/uikit-unit-selected.log",
+      "sha256": "db49b8bcff429053854061404dace6081bfe3abd40bc909417db36f771756fc2"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/enabled-summary.json",
+      "sha256": "e8d16ff9130c2606879a7b336c74d5d5cc538d24e3bc5288bf429267e7d0830d"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/final-summary.json",
+      "sha256": "7634a63b5754a92f21d2363ea9d97423d47100a8fab64344493a659a94697500"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/project.json",
+      "sha256": "263c9ac2c2d85b26f9d1b189151a131aca8256a4afc704e9e866f0f6435a2cd6"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/enumeration.json",
+      "sha256": "4e590dfcf395b23dbb05df1d1e1092423f6d7c63ff85f5c4a774e3c8747c7bc1"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/observations-final/uikit-01-code.json",
+      "sha256": "251eb32ca745a6e149814dccf238c32c86a7e0bc72c65055702d3a47c32ee72e"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/observations-final/uikit-01-code.png",
+      "sha256": "d4d967d86bad30921f582de4838f0c091ef384cea778f44d25ed805ff9c0ac98"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/observations-final/uikit-02-ready.json",
+      "sha256": "2aae1a5e3bfd2e850d34e72969106778fcee0520432cb902aa12a3b3b052a43c"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/observations-final/uikit-02-ready.png",
+      "sha256": "69f58a2718be95e9b73ab1cd18acf5662d6bd6a9a1f1da98701a009e6a5c9fe4"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/observations-final/uikit-03-withdrawn.json",
+      "sha256": "251eb32ca745a6e149814dccf238c32c86a7e0bc72c65055702d3a47c32ee72e"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/observations-final/uikit-03-withdrawn.png",
+      "sha256": "f411a6454624e06b3ba9e6c10b54925725c2e22ced782c8db0a121ae6f1cd2b7"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/observations-final/uikit-consent-result.json",
+      "sha256": "6c7af2d83abe94991eda8d0657e5af16d4d7604f51cac166c75075a8e0d74f50"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/uikit-unit-final.xcresult/Info.plist",
+      "sha256": "d725f4f635eed55b49c9529e97ded8592f72cb6f2a9c0051fdad95964b83db5a"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/uikit-unit-final.xcresult/database.sqlite3",
+      "sha256": "fa4d265d5f7f55926296b79fb67f1aca3ff044c7972ae8ffe853ba52ed9ab81b"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/derived/Build/Products/Debug-iphonesimulator/NativeConsentTests.xctest/NativeConsentTests",
+      "sha256": "526e80883c663859b2be6a002c6e3e032460a86685dc80ae178e79075ed85e5c"
+    },
+    {
+      "path": "/private/tmp/djc-consent-uikit-20261021/derived/Build/Products/Debug-iphonesimulator/DJConnectUI.framework/DJConnectUI",
+      "sha256": "633c19c8344376b668edd449e265f65a5c395d625b78eee86dfba777998ded4f"
+    }
+  ]
+}

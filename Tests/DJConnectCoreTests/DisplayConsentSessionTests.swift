@@ -1,6 +1,8 @@
 import Foundation
 import Testing
 #if os(iOS)
+import UIKit
+import SwiftUI
 import XCTest
 @testable import DJConnectUI
 #endif
@@ -281,6 +283,88 @@ extension DisplayConsentSessionTests {
         defaults.set("fixture-install", forKey: "DJConnectHAInstallID")
         #expect(model.canResolveDisplayConsent)
         return (model, defaults, suite, store)
+    }
+
+    /// Opt-in in-process UIKit observation, independent of the UI-testing runner.
+    /// Public automation/container metadata may be unavailable in a unit host;
+    /// preserve that limitation rather than manufacturing an enabled-state PASS.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_UIKIT_DIR"] != nil))
+    func actualIOSNativeFormWithdrawalObservation() async throws {
+        let (model, defaults, suite, _) = try await makeNativeModel()
+        defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+        let directory = try #require(ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_UIKIT_DIR"])
+        let folder = URL(fileURLWithPath: directory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let root = VibeCastDisplayConsentForm(model: model)
+            .environment(\.colorScheme, .dark).preferredColorScheme(.dark)
+        let controller = UIHostingController(rootView: root)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 430, height: 932))
+        window.overrideUserInterfaceStyle = .dark
+        window.rootViewController = controller; window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil }
+        func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+        func nodes() -> [NSObject] {
+            var seen = Set<ObjectIdentifier>()
+            func visit(_ node: NSObject, depth: Int = 0) -> [NSObject] {
+                guard depth < 35, seen.insert(ObjectIdentifier(node)).inserted else { return [] }
+                var children = node.accessibilityElements ?? []
+                children += node.automationElements ?? []
+                let count = node.accessibilityElementCount()
+                if count > 0 && count < 200 {
+                    children += (0..<count).compactMap { node.accessibilityElement(at: $0) }
+                }
+                if let view = node as? UIView { children += view.subviews }
+                return [node] + children.compactMap { $0 as? NSObject }.flatMap { visit($0, depth: depth + 1) }
+            }
+            return visit(window)
+        }
+        func identifier(_ node: NSObject) -> String? { (node as? UIAccessibilityIdentification)?.accessibilityIdentifier }
+        func capture(_ name: String) throws -> [NSObject] {
+            controller.view.layoutIfNeeded(); window.layoutIfNeeded()
+            let values = nodes()
+            let rows: [[String: Any]] = values.map { node in
+                ["type": String(describing: type(of: node)), "identifier": identifier(node) ?? "",
+                 "label": node.accessibilityLabel ?? "", "traits": node.accessibilityTraits.rawValue,
+                 "exposed": node.isAccessibilityElement]
+            }
+            try JSONSerialization.data(withJSONObject: rows, options: [.prettyPrinted, .sortedKeys])
+                .write(to: folder.appendingPathComponent(name + ".json"))
+            let image = UIGraphicsImageRenderer(bounds: window.bounds).image { context in window.layer.render(in: context.cgContext) }
+            try #require(image.pngData()).write(to: folder.appendingPathComponent(name + ".png"))
+            return values
+        }
+        try await Task.sleep(for: .milliseconds(350))
+        let fields = descendants(controller.view).compactMap { $0 as? UITextField }
+            .filter { $0.accessibilityIdentifier?.hasPrefix("vibecast-handoff-digit-") == true }.sorted { $0.tag < $1.tag }
+        #expect(fields.count == 6)
+        let first = try #require(fields.first)
+        _ = first.delegate?.textField?(first, shouldChangeCharactersIn: NSRange(location: 0, length: 0), replacementString: "000000")
+        try await Task.sleep(for: .milliseconds(150))
+        let before = try capture("uikit-01-code")
+        let lookupBefore = before.first { identifier($0) == "display-consent-lookup" }
+        let beforeLookupEnabled = lookupBefore.map { !$0.accessibilityTraits.contains(.notEnabled) }
+        if let beforeLookupEnabled { #expect(beforeLookupEnabled) }
+        // Model fallback remains explicitly separate from native activation.
+        let activated = lookupBefore?.accessibilityActivate() ?? false
+        if activated {
+            for _ in 0..<30 where model.displayConsentState != .ready { try await Task.sleep(for: .milliseconds(50)) }
+        } else { await model.resolveDisplayConsent(code: "000000") }
+        #expect(model.displayConsentState == .ready)
+        _ = try capture("uikit-02-ready")
+        model.sessionHistory.suspend(); model.refreshDisplayConsentPresentation()
+        try await Task.sleep(for: .milliseconds(300))
+        let after = try capture("uikit-03-withdrawn")
+        let lookupAfter = after.first { identifier($0) == "display-consent-lookup" }
+        let afterLookupDisabled = lookupAfter.map { $0.accessibilityTraits.contains(.notEnabled) }
+        if let afterLookupDisabled { #expect(afterLookupDisabled) }
+        #expect(model.displayConsentState == .unavailable && !model.canResolveDisplayConsent)
+        let approvalPosts = ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count
+        #expect(approvalPosts == 0)
+        let qualified = beforeLookupEnabled == true && afterLookupDisabled == true
+        try JSONSerialization.data(withJSONObject: ["qualification": qualified ? "PUBLIC_UIKIT_DISABLED_TRAIT_OBSERVED" : "INCONCLUSIVE_PUBLIC_UIKIT_ELEMENTS",
+            "native_lookup_activated": activated, "before_lookup_found": lookupBefore != nil,
+            "after_lookup_found": lookupAfter != nil, "approval_posts": approvalPosts], options: [.prettyPrinted, .sortedKeys])
+            .write(to: folder.appendingPathComponent("uikit-consent-result.json"))
     }
 
     @Test func actualIOSModelLookupThenExplicitConfirmation() async throws {
