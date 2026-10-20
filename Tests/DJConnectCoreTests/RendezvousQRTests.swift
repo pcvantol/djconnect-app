@@ -7,6 +7,7 @@ private let rendezvousQRFixture = #"{"type":"djc-rendezvous-qr","v":"djc-rendezv
 @Test func rendezvousQRPreservesOriginalWallAndMonotonicExpiry() throws {
     let value = try DJConnectRendezvousQR.parse(rendezvousQRFixture, at: 1000, uptime: 10)
     #expect(value.isCurrent(at: 1001, uptime: 11))
+    #expect(value.originalMonotonicDeadline == 130)
     #expect(!value.isCurrent(at: 121000, uptime: 11))
     #expect(!value.isCurrent(at: 999, uptime: 11))
     #expect(!value.isCurrent(at: 1001, uptime: 130))

@@ -35,9 +35,9 @@ Typed service endpoints and strict enrollment/submit challenges retain original
 request deadlines. All eleven captured submit client_data fields are compared;
 SHA256 uses the original decoded bytes, which are retained for exact echo.
 
-**Still missing:** durable genuine App Attest key/enrollment/assertion adapter,
-SDK attempt accounting integrated with the existing journals, final submission
-orchestration,
+**Still missing:** durable key generation/active-key lifecycle and complete
+product enrollment/assertion/submission orchestration (source-only enrollment
+adapter progress is recorded below),
 complete lifecycle/adversarial review, current paired HA/runtime acceptance and
 positive genuine browser handoff. A prepared route currently ends with an
 explicit not-ready message. No success or display consent is inferred.
@@ -128,7 +128,7 @@ https://github.com/pcvantol/djconnect-api/issues/90#issuecomment-6288860618
 - Localization validator PASS, 1345 keys on this branch. This is separate from
   the unmerged Forecast branch's localization count.
 
-The real App Attest adapter and final submit orchestration remain open. The
+The complete App Attest product wiring and final submit orchestration remain open. The
 separate Core B owner resolve/approve consumer also needs its own native wiring
 and explicit current-Session consent. Existing six-digit Session handoff is
 preserved and is not promoted into a B contract substitute. Nothing here starts
@@ -170,3 +170,64 @@ the locator/response URL metadata to loopback. Body/status/crypto are unchanged.
 This is Mac native Swift HTTP plus software crypto with a synthetic HA route. It
 is not public TLS/edge, browser UI, positive iOS App Attest, physical or full-chain
 acceptance. Existing simulator unsupported evidence remains separate.
+
+## Journal-to-SDK enrollment adapter (source only, not wired to product UI)
+
+`RendezvousAppAttestAdapter` now connects an already-admitted existing key and
+original typed challenge to the genuine iOS `DCAppAttestService.attestKey`.
+Its public initializer always selects Apple's SDK; the provider seam is internal
+and used only by synthetic tests. It creates no key, adopts no active lease,
+allocates no challenge and performs no HTTP by itself. Product preparation still
+reports not ready; this component is not permission for a physical run.
+
+The adapter acquires the shared complete per-key queue, persists the existing
+journal's consumed reservation before SDK I/O, then checks owner/QR/challenge
+again after the storage actor hop. Key, attempt, original challenge ID, original
+nonce hash and deadline must match. The journal exposes the stored challenge ID
+in its reservation; its durable schema/bytes are unchanged. A required caller
+registration-completion closure stays inside the same key slot through its
+outcome reconciliation. That future orchestrator must use original saved request
+bytes, revalidate before HTTP and avoid recursively taking the same slot.
+
+Single-shot callback handling bounds the wait by both original monotonic
+QR/challenge deadlines and remaining wall time. Cancellation, timeout and late
+or duplicate callbacks cannot renew a reservation. Proof is saved only while
+context remains current; failed/uncertain writes stop progression. Only Apple's
+specific serverUnavailable error permits the existing same-key/hash journal
+backoff, without scheduling an automatic retry. SDK error metadata is not logged
+or propagated. No recovery/registration namespace is reset or reused for a new
+key or new challenge.
+
+Synthetic tests exercise failed and commit-then-error storage, restart with an
+occupied reservation, different challenge/same nonce, changed context across
+storage and callback, cancellation, missing/late/duplicate callbacks, original
+deadline bound, immediate retry denial and held registration blocking a second
+same-key SDK call. These are injected providers and memory stores, not real SDK
+proof. The public adapter's iOS system branch is compiled separately below.
+
+Remaining: durable generation/active-key admission and complete 24h/two-handle/
+30-day/day27 lifecycle, assertion/submit accounting and final product orchestration,
+plus the independent Core B consent consumer. Do not bridge these gaps with an
+old diagnostic handle, an unqualified server fixture, a fake verifier or a local
+active-key assertion. All genuine/installed/physical acceptance remains open.
+
+Final source validation for the adapter increment:
+
+- Ten adapter/callback functions plus QR/enrollment original-deadline functions
+  PASS (12 total): `/tmp/djc-rendezvous-sdk-completion-final.log`.
+- 23 existing registration-journal XCTest cases plus nine adapter functions
+  passed before the final completion-uncertainty case was added:
+  `/tmp/djc-rendezvous-sdk-registration-final.log`.
+- Final serial full suite: **73 XCTest / 2 skipped / 0 failed**, plus
+  **926 Swift Testing cases / 10 suites / 0 failed**:
+  `/tmp/djc-rendezvous-sdk-final-full-regressions.log`.
+- Final unsigned iOS simulator build-for-testing PASS, including the genuine
+  system SDK branch: `/tmp/djc-rendezvous-ios-sdk-adapter-final-build.log`.
+- Earlier intermediate compile failure exposing the journal's private challenge
+  ID was fixed with file-scoped access only; the failed logs remain separate.
+  The earlier 924-case full run predates the final registration closure and
+  completion-uncertainty case; only the 926-case run qualifies this final source.
+
+No genuine SDK/key call was executed. The existing unsupported simulator UI
+receipt predates this unwired component and is not promoted to positive proof.
+Exact-head review/CI and separate security review remain delivery gates.

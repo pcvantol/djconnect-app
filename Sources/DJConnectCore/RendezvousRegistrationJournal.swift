@@ -27,6 +27,7 @@ public actor RendezvousRegistrationJournal {
         public let attemptIdentifier: UUID
         public let reservation: UUID
         public let keyIdentifier: String
+        public let challengeIdentifier: String
         public let deadlineMS: Int64
         public let clientDataHash: Data
     }
@@ -58,12 +59,12 @@ public actor RendezvousRegistrationJournal {
     /// A restored in-flight reservation cannot authorize another SDK call.
     public func reserveAttestation(attemptIdentifier: UUID, at nowMS: Int64) throws -> AttestationCall {
         try mutate(attemptIdentifier, at: nowMS) { record in
-            guard record.phase == .attestationPending, let hash = record.nonceHash,
+            guard record.phase == .attestationPending, let hash = record.nonceHash, let challenge = record.challenge,
                   var sdk = record.attestationWindow else { throw Failure.unavailable }
             let reservation = try sdk.reserve(at: nowMS)
             record.attestationWindow = sdk
             return AttestationCall(attemptIdentifier: record.id, reservation: reservation,
-                                   keyIdentifier: record.key, deadlineMS: sdk.deadlineMS, clientDataHash: hash)
+                                   keyIdentifier: record.key, challengeIdentifier: challenge, deadlineMS: sdk.deadlineMS, clientDataHash: hash)
         }
     }
 
@@ -173,7 +174,7 @@ private struct RegistrationRecord: Codable {
     var window: RendezvousRetryWindow
     var attestationWindow: RendezvousRetryWindow?
     private var lastObservedMS: Int64
-    private var challenge: String?
+    fileprivate var challenge: String?
     private var nonce: Data?
     fileprivate var nonceHash: Data?
     fileprivate var request: Data?

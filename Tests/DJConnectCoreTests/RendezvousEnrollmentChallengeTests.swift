@@ -9,6 +9,7 @@ import Testing
     let challenge = try DJConnectRendezvousEnrollmentChallenge.parse(data,requestedAtMS:1000,requestedUptime:10,nowMS:2000,uptime:11)
     #expect(challenge.nonce == Data(repeating:0,count:32))
     #expect(challenge.expiresAtMS == 121000)
+    #expect(challenge.originalMonotonicDeadline == 130)
     #expect(challenge.isCurrent(at:2001,uptime:11.1))
     #expect(!challenge.isCurrent(at:1999,uptime:11.1))
     #expect(!challenge.isCurrent(at:2001,uptime:130))

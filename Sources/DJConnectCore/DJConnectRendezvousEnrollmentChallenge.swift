@@ -23,6 +23,8 @@ public struct DJConnectRendezvousEnrollmentChallenge: Sendable {
         guard uptime < deadline else { throw DJConnectError.invalidResponse }
         return .init(identifier:id,nonce:nonce,expiresAtMS:expiry,admittedAtMS:nowMS,requestedUptime:requestedUptime,monotonicDeadline:deadline)
     }
+    // Internal callback bound; never refreshed when an SDK wait begins.
+    var originalMonotonicDeadline: TimeInterval { monotonicDeadline }
     public func isCurrent(at nowMS:Int64 = Int64(Date().timeIntervalSince1970 * 1000),
                           uptime:TimeInterval = ProcessInfo.processInfo.systemUptime) -> Bool {
         nowMS >= admittedAtMS && nowMS < expiresAtMS && uptime.isFinite && uptime >= requestedUptime && uptime < monotonicDeadline
