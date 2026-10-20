@@ -285,6 +285,72 @@ extension DisplayConsentSessionTests {
         return (model, defaults, suite, store)
     }
 
+    /// The production form refresh task must remove expired claim/receipt UI.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_EXPIRY_DIR"] != nil))
+    func actualIOSNativeConsentExpiryPresentation() async throws {
+        let folder = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_EXPIRY_DIR"]))
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        var observations: [[String: Any]] = []
+        for mode in ["short-claim", "short-receipt"] {
+            let (model, defaults, suite, _) = try await makeNativeModel(mode)
+            defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+            let session = try #require(model.activeDJSession)
+            let epoch = model.sessionHistory.responseEpoch
+            let root = VibeCastDisplayConsentForm(model: model)
+                .environment(\.colorScheme, .dark).preferredColorScheme(.dark)
+            let controller = UIHostingController(rootView: root)
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 430, height: 932))
+            window.overrideUserInterfaceStyle = .dark
+            window.rootViewController = controller; window.makeKeyAndVisible()
+            defer { window.isHidden = true; window.rootViewController = nil }
+            func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+            func fields() -> [UITextField] {
+                descendants(controller.view).compactMap { $0 as? UITextField }
+                    .filter { $0.accessibilityIdentifier?.hasPrefix("vibecast-handoff-digit-") == true }.sorted { $0.tag < $1.tag }
+            }
+            func capture(_ stage: String) throws -> [UITextField] {
+                window.layoutIfNeeded()
+                let values = fields()
+                observations.append(["mode": mode, "stage": stage, "time": Date().timeIntervalSince1970,
+                    "state": String(describing: model.displayConsentState), "enabled": values.map(\.isEnabled),
+                    "digits": values.map { $0.text ?? "" }, "request_count": ConsentWire.requests.count,
+                    "request_routes": ConsentWire.requests.map { ($0.httpMethod ?? "GET") + " " + ($0.url?.path ?? "") },
+                    "owner_request_count": ConsentWire.requests.filter { $0.url?.path.contains("/owner/") == true }.count])
+                let image = UIGraphicsImageRenderer(bounds: window.bounds).image { context in window.layer.render(in: context.cgContext) }
+                try #require(image.pngData()).write(to: folder.appendingPathComponent(mode + "-" + stage + ".png"))
+                return values
+            }
+            try await Task.sleep(for: .milliseconds(350))
+            let first = try #require(fields().first)
+            _ = first.delegate?.textField?(first, shouldChangeCharactersIn: NSRange(location: 0, length: 0), replacementString: "000000")
+            try await Task.sleep(for: .milliseconds(100))
+            // Explicit model transitions, not native button taps.
+            await model.resolveDisplayConsent(code: "000000")
+            #expect(model.displayConsentState == .ready)
+            if mode == "short-receipt" { await model.approveDisplayConsent() }
+            try await Task.sleep(for: .milliseconds(100))
+            #expect(model.displayConsentState == (mode == "short-claim" ? .ready : .approved))
+            let before = try capture("before-expiry")
+            #expect(before.count == 6 && before.allSatisfy { !$0.isEnabled })
+            let requestsBefore = ConsentWire.requests.filter { $0.url?.path.contains("/owner/") == true }.count
+            // Real clocks only; the mounted production form's 250 ms task
+            // performs its ordinary refresh. No model refresh/getter injection.
+            try await Task.sleep(for: .milliseconds(1500))
+            let after = try capture("after-expiry")
+            #expect(model.displayConsentState == .unavailable)
+            #expect(after.count == 6 && after.allSatisfy(\.isEnabled))
+            #expect(after.map { $0.text ?? "" } == Array(repeating: "0", count: 6))
+            #expect(ConsentWire.requests.filter { $0.url?.path.contains("/owner/") == true }.count == requestsBefore)
+            #expect(ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count == (mode == "short-claim" ? 0 : 1))
+            #expect(model.canResolveDisplayConsent)
+            #expect(model.sessionHistory.responseEpoch == epoch)
+            #expect(model.activeDJSession?.id == session.id)
+            #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
+        }
+        try JSONSerialization.data(withJSONObject: observations, options: [.prettyPrinted, .sortedKeys])
+            .write(to: folder.appendingPathComponent("native-consent-expiry.json"))
+    }
+
     /// Native input controls must follow the production form's disabled states.
     @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_INPUT_STATES_DIR"] != nil))
     func actualIOSNativeInputConsentStates() async throws {
