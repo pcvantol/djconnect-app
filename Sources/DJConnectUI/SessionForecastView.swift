@@ -65,16 +65,17 @@ struct SessionForecastPanel<Header: View>: View {
         [model.forecastCursor?.projection?.valid_until.flatMap(DJConnectSessionForecast.timestamp)].compactMap { $0 }
             + (model.forecastCursor?.projection?.imagery.compactMap { DJConnectSessionForecast.timestamp($0.expires_at) } ?? [])
     }
-    private struct RefreshContext: Equatable {
+    struct RefreshContext: Equatable {
         let scope: DJConnectAppModel.ForecastScope?
         let ownerEpoch: UUID
+        let ownerReady: Bool
         let authority: UUID
         let recovering: Bool
         let unavailable: Bool
         let phase: ScenePhase
     }
-    private var contextKey: RefreshContext {
-        .init(scope: model.sessionForecastRefreshScope, ownerEpoch: history.responseEpoch,
+    var contextKey: RefreshContext {
+        .init(scope: model.sessionForecastRefreshScope, ownerEpoch: history.responseEpoch, ownerReady: history.hasAuthorizedOwner,
               authority: model.forecastAuthorityGeneration, recovering: model.djSessionIsRecovering,
               unavailable: model.djSessionLiveUnavailable, phase: scenePhase)
     }

@@ -6229,7 +6229,7 @@ private final class ForecastWireDataSlot: @unchecked Sendable {
 }
 
 // Native Forecast crosses ordinary paired transport; all replies here are explicit fixtures.
-@Test(arguments: ["current", "background", "owner-reset", "context-same", "context-older", "persona-conflict", "unsequenced-live", "unsequenced-live-during-read", "context-locale", "context-direction", "context-read-replacement", "transport-recovery", "disconnect-during-read"]) @MainActor
+@Test(arguments: ["current", "background", "owner-reset", "context-same", "context-older", "persona-conflict", "unsequenced-live", "unsequenced-live-during-read", "context-locale", "context-direction", "context-read-replacement", "transport-recovery", "disconnect-during-read", "sequenced-event-withdrawal", "sequenced-snapshot-withdrawal", "sequenced-withdrawal-equal-read"]) @MainActor
 func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: String) async throws {
     let fixtureRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let rows = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureRoot.appendingPathComponent("Fixtures/session-forecast-core-3cfa5512.json"))) as? [[String: Any]])
@@ -6296,7 +6296,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
             if ["context-read-replacement", "disconnect-during-read"].contains(fence), forecastReplies.isFirstRead() {
                 throw HistoryWireHeldResponse(data: reply, gate: gate)
             }
-            if ["background", "owner-reset", "unsequenced-live-during-read"].contains(fence) { throw HistoryWireHeldResponse(data: reply, gate: gate) }
+            if ["background", "owner-reset", "unsequenced-live-during-read", "sequenced-event-withdrawal", "sequenced-snapshot-withdrawal"].contains(fence) { throw HistoryWireHeldResponse(data: reply, gate: gate) }
             return (200, reply, 0)
         }
         if path.hasSuffix("/ask_dj/history") { return (200, history, 0) }
@@ -6304,7 +6304,14 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    let panel = SessionForecastPanel(model: model, position: .constant(nil), query: .constant("")) { EmptyView() }
+    let beforeOwner = panel.contextKey
     await model.sessionHistory.prepare()
+    if fence == "current" {
+        #expect(model.sessionHistory.hasAuthorizedOwner)
+        #expect(beforeOwner.ownerEpoch == panel.contextKey.ownerEpoch)
+        #expect(beforeOwner != panel.contextKey, "Owner readiness must restart the panel task without waiting thirty seconds")
+    }
     await model.refreshActiveDJSession()
     // This fixture drives snapshots explicitly; cancel automatic live fallback
     // before testing controlled owner reads and held-response ordering.
@@ -6318,6 +6325,26 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         try await Task.sleep(for: .milliseconds(10))
     }
     #expect(fixture.requests.contains { $0.url?.path.hasSuffix("/session/forecast/" + id) == true })
+    if fence == "sequenced-event-withdrawal" || fence == "sequenced-snapshot-withdrawal" {
+        let watermark = model.activeDJSession?.broadcast.delivery?.snapshotWatermark ?? 0
+        let originalAuthority = model.forecastAuthorityGeneration
+        if fence == "sequenced-event-withdrawal" {
+            var event = DJConnectSessionBroadcastEvent(eventType: "forecast_changed", sessionID: id, payload: .init())
+            event.deliverySequence = watermark + 1
+            model.applySessionBroadcastEvent(event)
+        } else {
+            var snapshot = try #require(model.activeDJSession).broadcast
+            snapshot.delivery = .init(snapshotWatermark: watermark + 1)
+            snapshot.sessionForecast = nil
+            model.applySessionBroadcastSnapshot(snapshot)
+        }
+        #expect(model.forecastAuthorityGeneration != originalAuthority)
+        gate.release(); await task.value
+        #expect(model.visibleSessionForecast(at: Date()) == nil, "A held owner read cannot undo newer live withdrawal")
+        #expect(model.askDJDraft == "Keep this unsent question")
+        #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+        return
+    }
     if fence == "disconnect-during-read" {
         let snapshot = try #require(model.activeDJSession).broadcast
         model.sessionBroadcastDidDisconnect()
@@ -6356,6 +6383,19 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     await task.value
     #expect(model.askDJDraft == "Keep this unsent question")
     #expect((model.visibleSessionForecast(at: Date()) == nil) == ["background", "owner-reset", "unsequenced-live-during-read"].contains(fence))
+    if fence == "sequenced-withdrawal-equal-read" {
+        let floor = try #require(model.forecastCursor?.revisionFloor)
+        let watermark = model.activeDJSession?.broadcast.delivery?.snapshotWatermark ?? 0
+        var event = DJConnectSessionBroadcastEvent(eventType: "forecast_changed", sessionID: id, payload: .init())
+        event.deliverySequence = watermark + 1
+        model.applySessionBroadcastEvent(event)
+        let deniedAuthority = model.forecastAuthorityGeneration
+        await model.refreshSessionForecast()
+        #expect(model.forecastCursor?.revisionFloor == floor)
+        #expect(model.visibleSessionForecast(at: Date()) == nil)
+        #expect(model.forecastAuthorityGeneration == deniedAuthority, "An equal owner reply must not restart the task repeatedly")
+        #expect(!model.forecastLoading)
+    }
     if fence == "transport-recovery" {
         let original = try #require(model.visibleSessionForecast(at: Date()))
         let snapshot = try #require(model.activeDJSession).broadcast

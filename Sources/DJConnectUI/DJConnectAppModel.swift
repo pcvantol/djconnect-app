@@ -1239,9 +1239,15 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func acceptSessionForecast(_ incoming: DJConnectSessionForecast?) {
+    private func acceptSessionForecast(_ incoming: DJConnectSessionForecast?, invalidatesPendingReads: Bool = false) {
         let previousRevision = forecastCursor?.revisionFloor ?? -1
         forecastCursor?.receive(incoming)
+        if invalidatesPendingReads, forecastCursor?.projection == nil {
+            // A newer live denial also revokes owner reads already in flight.
+            // Keep the cursor's revision floor; this is not transport recovery.
+            forecastGeneration = UUID(); forecastAuthorityGeneration = UUID()
+            forecastReadContext = nil; forecastLoading = false
+        }
         // Rejected/equal revisions retain their original authoring context.
         // A read or event cannot relabel old content after a context change.
         if let cursor = forecastCursor, cursor.revisionFloor > previousRevision, cursor.projection != nil {
@@ -7667,7 +7673,7 @@ public final class DJConnectAppModel: ObservableObject {
         guard let active = activeDJSession, active.sessionID == snapshot.session.sessionID else { return }
         activeDJSession = active.applying(broadcastState: snapshot)
         if (snapshot.delivery?.snapshotWatermark ?? 0) >= (active.broadcast.delivery?.snapshotWatermark ?? 0), forecastAvailable {
-            acceptSessionForecast(snapshot.sessionForecast)
+            acceptSessionForecast(snapshot.sessionForecast, invalidatesPendingReads: true)
         }
         djSessionIsRecovering = false
         djSessionLiveUnavailable = false
@@ -7696,7 +7702,7 @@ public final class DJConnectAppModel: ObservableObject {
             // and any owner read that started before that denial as well.
             clearSessionForecast()
         } else if let sequence = event.deliverySequence, sequence > (active.broadcast.delivery?.snapshotWatermark ?? -1), forecastAvailable {
-            acceptSessionForecast(event.payload.sessionForecast)
+            acceptSessionForecast(event.payload.sessionForecast, invalidatesPendingReads: true)
         }
         if let hint = event.payload.passiveSurfaceInvalidation, hint.validates(sessionID: active.id) {
             passiveSurfaces.invalidate(sequence: hint.delivery_sequence, services: passiveSurfaceServices)

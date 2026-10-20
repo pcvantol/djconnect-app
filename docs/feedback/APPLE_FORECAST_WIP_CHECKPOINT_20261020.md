@@ -56,3 +56,29 @@ without credential changes. Device installation is authorized but pending.
 No new Forecast behavior, producer contract or native acceptance claim is
 introduced. Existing physical/keyboard/VoiceOver/scroll/server/provider gates
 remain open. Logs and additive-resolution proof retained privately.
+
+
+## Consolidation review correction — sequenced withdrawal and owner readiness
+
+Exact51e72f3 review5589915019 found twoP2 issues:4328863923 allowed a held
+owner read to undo a newer sequenced live withdrawal;4328863950 omitted owner
+readiness from the panel task identity. The pre-fix paired counterproof failed
+five assertions across initial owner readiness, live-event withdrawal and
+snapshot withdrawal; it is retained privately without overwriting source.
+
+A live admission that withdraws the Forecast cursor now rotates pending-read
+and refresh authority while retaining its revision floor. Owner-read rejection
+does not rotate task authority, preventing a repeated-refresh loop on an equal
+withdrawn revision. The observed history owner scope publishes readiness; the
+panel task identity includes that readiness independently of the unchanged
+owner epoch. Test-only task-key access is module-internal, not public API.
+
+Final combined73XCTest(two intentional skips/zero failures)+1011SwiftTesting
+tests in13suites PASS, including16paired Forecast scenarios and the equal-read
+no-loop check. Existing-development-signed iOS/Watch and Mac builds40401 PASS;
+strict deep signature and actual bundle40401 verification PASS. Initial
+11function/15case focused PASS preceded the final live-only invalidation and
+equal-read regression; the final full run covers those changes. Installed40400
+is historical until the new40401 in-place installation/readback completes.
+No launch, provider request, physical SDK experiment or product acceptance
+claim follows from these local fixtures, builds or source corrections.
