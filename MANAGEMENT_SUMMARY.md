@@ -1,5 +1,35 @@
 # DJConnect App Management Summary
 
+## Current consolidation — 2026-10-20
+
+The owner selected consolidation of existing Apple work and installation on all
+Apple devices. [PR #164](https://github.com/pcvantol/djconnect-app/pull/164)
+merged normally as `f5dac83da8d90a23db8a50a6b9a45a4e69a1fcb8` from reviewed
+`2e00228eacecda1ef42ee199b6fd1fab8e4a93f2`; both trees are
+`41c90c8df30f76e990312089c5e46ce86c7003cd`. Candidate CI and Trusted Delivery
+passed, and exact code review completed without findings. The separate owning
+security summary has no completion receipt; no separate security GO is claimed.
+
+The source includes VibeCast QR preparation and separate explicit current-Session
+screen consent in the native UI. Local verification passed 73 XCTest tests
+(two intentional skips), 1000 Swift Testing tests, the unsigned iOS build and
+1355 localization keys. Source consolidation is not product acceptance:
+positive native consent lookup/confirmation/withdrawal qualification and the
+App Attest admission/enrollment/assertion/exact-submit chain remain open.
+
+[PR #162](https://github.com/pcvantol/djconnect-app/pull/162) still requires
+current-main integration and protected delivery. Device installation is now
+explicitly authorized through existing signing routes; installed proof is
+pending. Existing Profile/pairing state, unique refs, work and evidence remain
+preserved. Golden execution remains gated on qualified Core and explicit run
+conditions; pending producer consumers and Brand2.0.1 adoption remain open.
+No new feature or model/provider budget is selected.
+
+Repository State: `MERGED_UNRECONCILED` until this governance-only Finalization
+merges; then `MERGED_RECONCILED` for PR164. Workspace State: `CLEAN_PRESERVED`,
+with cleanup pending after consolidation. Earlier sections below are historical.
+See [the consolidation history](docs/history/prompts/2026-10-20-apple-164-consolidation-finalization.md).
+
 ## Current Session header refinement — 2026-10-12
 
 Owner-requested header correction is source-delivered through [PR #101](https://github.com/pcvantol/djconnect-app/pull/101), reviewed head `c5af1f07c8440a6e6f90b0a186d04aaea07f0dd4`, protected source-main `03d02a40c4caa9b5d37c8767e49f87b88cf106a3`. Both trees are `af668f407b18246157217157ceafacb7e4d51d2b`; parent is prior reconciled main `c045473`. Official Owner Authorization38210333937 and premerge CI38208915501 PASS. Source-main CI/coverage38210411713 and durable exact-SHA evidence38211003692 independently verified PASS. This separate [Finalization candidate](docs/history/prompts/2026-10-12-apple-session-header-finalization.md) requires its own publication/protected-merge authority.
