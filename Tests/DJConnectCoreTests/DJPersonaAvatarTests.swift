@@ -200,3 +200,20 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
     broadcast.nativeDelivery?.currentSilenceMomentID = "conflicting-silence"
     #expect(broadcast.nativeCurrentMoment(at: now, spotifyAttributionAvailable: true) == nil)
 }
+
+#if os(macOS)
+@Test @MainActor func personaOpaqueBackingCoversOuterHeadsetOnBrightMood() throws {
+    for activity in DJPersonaActivity.allCases {
+        let view = DJPersonaGraphic(colors: [.pink, .purple], highContrast: false, opaque: true,
+                                    activity: activity)
+            .frame(width: 200, height: 200).background(Color(red: 0.7, green: 0.3, blue: 0.9))
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 1
+        let tiff = try #require(renderer.nsImage?.tiffRepresentation)
+        let rep = try #require(NSBitmapImageRep(data: tiff))
+        // Inside the full-size backing, outside both central disc and headset.
+        let pixel = try #require(rep.colorAt(x: 10, y: 100)?.usingColorSpace(.deviceRGB))
+        #expect(pixel.redComponent < 0.05 && pixel.greenComponent < 0.05 && pixel.blueComponent < 0.05)
+    }
+}
+#endif

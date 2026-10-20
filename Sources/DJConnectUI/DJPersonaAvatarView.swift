@@ -147,7 +147,9 @@ struct DJPersonaGraphic: View {
                 // A dark, feathered backing separates the entire headset from
                 // the mood-colored card, including its outer band and earcups.
                 // It belongs to this fixed canvas and never moves with activity.
-                if !opaque {
+                if opaque {
+                    Circle().fill(Color.black)
+                } else {
                     Circle().fill(RadialGradient(stops: [
                         .init(color: .black.opacity(0.76), location: 0),
                         .init(color: .black.opacity(0.56), location: 0.60),
