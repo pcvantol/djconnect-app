@@ -64,8 +64,14 @@ public final class DJConnectRendezvousService: Sendable {
         return try .parse(data,requestedAtMS:requested,requestedUptime:up)
     }
     public func register(originalBody:Data, qr:DJConnectRendezvousQR) async throws -> Int64 {
+        try await register(originalBody:originalBody,qr:qr,beforeDispatch:{})
+    }
+    // The enrollment coordinator rechecks owner/challenge authority after the
+    // executor hop, immediately before the fixed-origin transport dispatch.
+    func register(originalBody:Data,qr:DJConnectRendezvousQR,
+                  beforeDispatch:@escaping @MainActor @Sendable () throws -> Void) async throws -> Int64 {
         guard originalBody.count <= 65536 else { throw DJConnectError.invalidResponse }
-        let data = try await post(path:"attestation/register",body:originalBody,status:201,qr:qr)
+        let data = try await post(path:"attestation/register",body:originalBody,status:201,qr:qr,beforeDispatch:beforeDispatch)
         let fields = try RendezvousFlatJSON.parse(data,maximumBytes:4096)
         guard Set(fields.keys) == ["v","key_expires_at"], fields["v"] == .string("djc-rendezvous/1"),
               case let .integer(expiry)? = fields["key_expires_at"], expiry > Int64(Date().timeIntervalSince1970 * 1000) else { throw DJConnectError.invalidResponse }
@@ -87,7 +93,8 @@ public final class DJConnectRendezvousService: Sendable {
               fields["accepted"] == .bool(true), fields["operation_id"] == .string(challenge.identifier),
               challenge.isCurrent() else { throw DJConnectError.invalidResponse }
     }
-    private func post(path:String,body:Data,status:Int,qr:DJConnectRendezvousQR) async throws -> Data {
+    @MainActor private func post(path:String,body:Data,status:Int,qr:DJConnectRendezvousQR,
+                      beforeDispatch:(@MainActor @Sendable () throws -> Void)? = nil) async throws -> Data {
         try Task.checkCancellation()
         guard qr.isCurrent() else { throw DJConnectRendezvousQR.Failure.expired }
         let url = URL(string:DJConnectRendezvousQR.serviceOrigin + "/v1/rendezvous/" + path)!
@@ -96,6 +103,12 @@ public final class DJConnectRendezvousService: Sendable {
         request.setValue("application/json",forHTTPHeaderField:"Accept")
         request.setValue("identity",forHTTPHeaderField:"Accept-Encoding")
         request.httpBody = body
+        // Keep the UI authority check and dispatch in one actor segment.
+        // Returning from an awaited check to a generic executor would reopen a
+        // scheduling gap in which the owner could already have changed.
+        try beforeDispatch?()
+        try Task.checkCancellation()
+        guard qr.isCurrent() else { throw DJConnectRendezvousQR.Failure.expired }
         let (bytes, response) = try await session.bytes(for: request)
         defer { bytes.task.cancel() }
         guard let http = response as? HTTPURLResponse, http.statusCode == status, http.url == url,

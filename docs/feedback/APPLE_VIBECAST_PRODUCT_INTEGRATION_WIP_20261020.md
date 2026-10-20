@@ -503,3 +503,84 @@ build-for-testing PASS: `/tmp/djc-initial-attempt-binding-ios-build.log`.
 No genuine SDK, Keychain or hardware effect was executed. New exact-head
 code/security review and CI are required; source011 P1 and green CI remain
 separate historical evidence, not current admission. No merge permission.
+
+## Original-byte enrollment registration completion (20 October, current increment)
+
+Predecessor91ab963 now has exact completed code review6288651716 with no findings
+or unresolved findings, plus successful CI39438063457/Trusted Delivery. Earlier
+unbound receipt6293174748 was insufficient; explicit binding request6293234390
+produced the exact result. Separate security completion remains absent.
+
+RendezvousEnrollmentRegistration joins the existing admitted-key SDK adapter to
+fixed-origin registration, retaining the canonical per-key slot through SDK,
+original-byte transport and durable completion. Its public initializer uses the
+genuine SDK and product service only; tests inject the existing internal SDK and
+URLProtocol seams. The caller supplies an already committed exact attempt (also
+compatible with the initial adapter continuation), not new creation authority.
+
+Registration reservation is durably consumed before sending its original stored
+body. Owner, cancellation, original QR and enrollment challenge are rechecked
+after the journal actor hop and again on the main actor immediately before the
+service dispatch. A closed201 response must have its original valid expiry no
+more than30days away; completion must persist before any receipt returns. Receipt
+diagnostics are redacted. This does not activate a key or confer app/environment,
+server-clock, SDK-run or product admission.
+
+Generic503/transport/schema/owner-loss outcomes do not prove replay-eligible
+response loss. This source bridge conservatively closes that submission as
+registrationUncertain, preserving occupancy for separately admitted same-key
+recovery. It performs no automatic retry, replacement or new challenge. A failed
+or committed-then-error completion write returns no receipt and is never retried.
+Full explicit original-proof replay/recovery orchestration remains separate.
+
+API114 protectedc8c576320801b9740ee120715c0b24b4dc133673/Finalization6293344991
+was read-only inspected against9c3f284. Its authorize/lookupSubmit internal faults
+use redacted503; known invalid proof/context401 remains. Unknown commit is not a
+new or renewed lease; DELETE503 may coexist with erasure/tombstone and later401.
+Helper27e9 and wire remain unchanged. Local source-hash intake is
+build/qualification/vibecast-product-integration/api-authorization-114-intake.json.
+No API runtime repin, unchanged historical HTTP rerun or new verifier grant.
+
+Independent backlog audit also found Apple129 already adopted the schema1 speech
+producer through PR137/f97d5431. Its fixture is byte-equal to Coreff175834 metadata
+SHA111c71284630366d3fd8a19946013b853f78c6d02f784fa60cdf7596ebef4f6b.
+Core1212/6264416817 reports that producer installed in HA-dev; Apple did not repeat
+that installation or actual speech. The older speech receipt's installed f8b pin
+is historical, not an open producer-source prerequisite. Native permissions,
+route selection, actual STT/TTS and audibility remain separate acceptance work.
+No duplicate speech implementation, audio/model/provider effect or unchanged tests.
+
+This new registration bridge remains UNWIRED, product preparation NOT READY.
+Stable app/environment/server-clock/legacy admission, active adoption, initial
+challenge transport wiring, replacement/recovery, assertion/exact-byte submit,
+and separate Core B current-Session consent remain OPEN. No physical SDK,
+Keychain, ordinary app installation or public service effect is executed.
+
+Qualification of this increment uses actual shipping service URLProtocol with
+synthetic SDK proof and memory journals, never a fake verifier or genuine proof.
+Eight new functions cover exact persisted-body equality and before-I/O accounting,
+failed/committed-then-error reservation writes (zero requests), authority withdrawal
+after reservation and at the transport dispatch hook,503/malformed/expired/31-day
+response refusal, completion storage uncertainty, owner withdrawal after a reply,
+and owner withdrawal during successful durable completion (no returned receipt).
+The actual API server is not executed in these new tests.
+
+First new test compilation failed on a test-only base64 initializer reference;
+fixed with an explicit closure, failure log retained in
+`/tmp/djc-enrollment-registration-first.log`. The next six-function run passed.
+A subsequent combined parallel run passed all new tests but failed the existing
+installation-waiter-count assertion because independent tests shared the global
+slot; `/tmp/djc-enrollment-registration-final.log` is retained and is not a pass.
+The required serial rerun passed38functions; no production behavior was changed
+to relax that assertion. The final transport refinement places preflight and
+network dispatch in the same main-actor segment, closing an executor-return gap.
+Final39focusedfunctions PASS in
+`/tmp/djc-enrollment-registration-dispatch-final.log`. Final unsigned iOS
+build-for-testing PASS in `/tmp/djc-enrollment-registration-ios-final-build.log`;
+genuine branches compile, no SDK execution or new UI/device acceptance claimed.
+
+Final full serial regression on the same final dispatch source:73XCTest
+(2 intentional skips,0failures) plus974SwiftTesting functions in11suites PASS,
+`/tmp/djc-enrollment-registration-dispatch-full-final.log`. The earlier full974
+run before the last actor refinement is kept separately and is not substituted
+for this final run. New exact-head code/security review and CI are required.
