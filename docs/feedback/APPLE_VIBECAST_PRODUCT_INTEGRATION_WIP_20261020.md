@@ -777,3 +777,23 @@ including ABA withdrawal, and explicitly call withdraw on dismissal. Native
 localized presentation/confirmation, independent currentSession binding and UI
 qualification remain next; A key/admission/assertion/exact-submit/full chain also
 remain OPEN. ProductprepareNOTREADY and no merge164/162permission remain.
+
+## Core B approval receipt lifetime correction —20Oct2026
+
+Exact b0 review5588177958 found P2/4327431552: the approval receipt
+ignored a shorter share_expires_in. An actual b0 source counterproof failed
+/tmp/djc-display-consent-receipt-negative.log; no old-source overwrite was used.
+The receipt now clamps both original request wall and monotonic clocks to the
+reported remaining lifetime, absolute server expiry and original offered share
+deadlines. Equality, rollback, elapsed monotonic time and invalid time fail closed.
+The displayed receipt also checks current owner/token and latches observed
+withdrawal; restoring an old token/owner cannot revive it.
+
+FINAL22targetedfunctions PASS /tmp/djc-display-consent-receipt-final-targeted.log.
+FINALserial73XCTest(2intentionalSKIP/0fail)+998SwiftTesting13suites PASS
+/tmp/djc-display-consent-receipt-full.log. FINALunsignediOSbuild-for-testing PASS
+/tmp/djc-display-consent-receipt-ios.log. Tests use actual client/URLProtocol and
+memory fixtures only; no HA/SDK/Keychain/provider/physical/public effects.
+The native consent UI remains UNWIRED; product prepare NOTREADY. No merge grant.
+The earlier b0 CI/TDE success does not qualify this correction. Separate owning
+security completion remains absent. New exact-source review/CI are required.

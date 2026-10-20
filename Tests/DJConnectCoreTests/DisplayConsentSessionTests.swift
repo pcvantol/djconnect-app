@@ -8,14 +8,17 @@ private final class ConsentAuthority: @unchecked Sendable {
     private let lock = NSLock(); private var value = true
     func get() -> Bool { lock.withLock { value } }
     func withdraw() { lock.withLock { value = false } }
+    func restore() { lock.withLock { value = true } }
 }
 private final class ConsentWire: URLProtocol, @unchecked Sendable {
     private static let lock = NSLock()
     nonisolated(unsafe) private static var mode = "normal"
     nonisolated(unsafe) private static var calls: [URLRequest] = []
     nonisolated(unsafe) private static var ownerReads = 0
+    nonisolated(unsafe) private static var approvalAt: Date?
     nonisolated(unsafe) private static var approvalAction: (@Sendable () -> Void)?
-    static func reset(_ mode: String = "normal") { lock.withLock { Self.mode = mode; calls = []; ownerReads = 0; approvalAction = nil } }
+    static func reset(_ mode: String = "normal") { lock.withLock { Self.mode = mode; calls = []; ownerReads = 0; approvalAction = nil; approvalAt = nil } }
+    static var approvalStartedAt: Date? { lock.withLock { approvalAt } }
     static func onApproval(_ action: @escaping @Sendable () -> Void) { lock.withLock { approvalAction = action } }
     static var requests: [URLRequest] { lock.withLock { calls } }
     override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "127.0.0.1" }
@@ -53,13 +56,13 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
                 "browser_generation": String(repeating: "C", count: 42) + "A", "issuer_epoch": consentEpoch,
                 "expires_in": mode == "short-claim" ? 1.0 : 90.0, "expires_at": expiry(mode == "short-claim" ? 1.0 : 90)]) { _, new in new }
         } else if path.hasSuffix("/owner/approve") {
-            Self.lock.withLock { Self.approvalAction }?()
+            Self.lock.withLock { Self.approvalAt = Date(); return Self.approvalAction }?()
             if mode == "unknown" { status = 503; value = [:] }
             else {
                 value.merge(["state": "approved", "display_id": String(repeating: "F", count: 42) + "A",
                     "session_id": mode == "bad-receipt" ? "other-session" : "fixture-session",
                     "share_id": consentShare, "share_generation": 1,
-                    "share_expires_in": 3599.0, "share_expires_at": expiry(3599)]) { _, new in new }
+                    "share_expires_in": mode == "short-receipt" ? 1.0 : 3599.0, "share_expires_at": expiry(3599)]) { _, new in new }
             }
         } else { status = 404 }
         let bytes = try! JSONSerialization.data(withJSONObject: value)
@@ -151,6 +154,32 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
         await #expect(throws: (any Error).self) { _ = try await flow.approve(share: .createTwoHours) }
         #expect(flow.state == .unavailable && flow.resolvedClaim == nil)
         #expect(ConsentWire.requests.count == count)
+    }
+    @Test func reportedRemainingLifetimeBoundsReceipt() async throws {
+        let (flow, _, _) = try make("short-receipt"); try await flow.resolve(code: "000000")
+        let receipt = try await flow.approve(share: .createTwoHours)
+        let dispatched = try #require(ConsentWire.approvalStartedAt)
+        #expect(receipt.expiresAt <= dispatched.addingTimeInterval(1))
+        #expect(receipt.isCurrent())
+        #expect(!receipt.isCurrent(now: receipt.expiresAt))
+        #expect(!receipt.isCurrent(now: Date().addingTimeInterval(-10)))
+        #expect(!receipt.isCurrent(uptime: ProcessInfo.processInfo.systemUptime + 2))
+        #expect(!receipt.isCurrent(uptime: 0))
+        #expect(!receipt.isCurrent(uptime: .infinity))
+    }
+    @Test func completedReceiptCannotOutliveOwnerOrToken() async throws {
+        for kind in ["owner", "token", "dismiss"] {
+            let (flow, store, authority) = try make(); try await flow.resolve(code: "000000")
+            _ = try await flow.approve(share: .createTwoHours)
+            #expect(flow.receipt != nil)
+            if kind == "owner" { authority.withdraw() }
+            if kind == "token" { try store.saveToken("replacement") }
+            if kind == "dismiss" { flow.withdraw() }
+            #expect(flow.receipt == nil)
+            if kind == "owner" { authority.restore() }
+            if kind == "token" { try store.saveToken("synthetic-owner") }
+            #expect(flow.receipt == nil && flow.state == .unavailable)
+        }
     }
     @Test func concurrentConfirmationsCannotSendTwoApprovals() async throws {
         let (flow, _, _) = try make(); try await flow.resolve(code: "000000")
