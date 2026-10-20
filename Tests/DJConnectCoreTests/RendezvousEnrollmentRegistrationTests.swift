@@ -36,15 +36,19 @@ private final class EnrollmentWire:URLProtocol,@unchecked Sendable {
     nonisolated(unsafe) private static var status = 201
     nonisolated(unsafe) private static var body = Data()
     nonisolated(unsafe) private static var received:(@Sendable ()->Void)?
-    static func configure(store:EnrollmentStore,status:Int = 201,body:Data,received:(@Sendable ()->Void)? = nil) {
-        lock.withLock { self.store = store; self.status = status; self.body = body; self.received = received; bodies = []; states = [] }
+    nonisolated(unsafe) private static var headers = ["Content-Type":"application/json"]
+    nonisolated(unsafe) private static var hold = false
+    static func configure(store:EnrollmentStore,status:Int = 201,body:Data,received:(@Sendable ()->Void)? = nil,
+        headers:[String:String] = ["Content-Type":"application/json"],hold:Bool = false) {
+        lock.withLock { self.store = store; self.status = status; self.body = body; self.received = received
+            self.headers = headers; self.hold = hold; bodies = []; states = [] }
     }
     static var requests:[Data] { lock.withLock { bodies } }
     static var snapshots:[Data] { lock.withLock { states } }
     override class func canInit(with request:URLRequest)->Bool { true }
     override class func canonicalRequest(for request:URLRequest)->URLRequest { request }
     override func startLoading() {
-        let (status,body,callback) = Self.lock.withLock { ()->(Int,Data,(@Sendable ()->Void)?) in
+        let (status,body,callback,headers,hold) = Self.lock.withLock { ()->(Int,Data,(@Sendable ()->Void)?,[String:String],Bool) in
             var data = request.httpBody ?? Data()
             if let stream = request.httpBodyStream {
                 stream.open(); defer { stream.close() }
@@ -56,13 +60,14 @@ private final class EnrollmentWire:URLProtocol,@unchecked Sendable {
             }
             Self.bodies.append(data)
             if let state = try? Self.store?.read() { Self.states.append(state) }
-            return (Self.status,Self.body,Self.received)
+            return (Self.status,Self.body,Self.received,Self.headers,Self.hold)
         }
         #expect(request.url?.absoluteString == "https://api.djconnect.dev/v1/rendezvous/attestation/register")
         #expect(request.value(forHTTPHeaderField:"Authorization") == nil)
         callback?()
+        if hold { return }
         client?.urlProtocol(self,didReceive:HTTPURLResponse(url:request.url!,statusCode:status,httpVersion:nil,
-            headerFields:["Content-Type":"application/json"])!,cacheStoragePolicy:.notAllowed)
+            headerFields:headers)!,cacheStoragePolicy:.notAllowed)
         client?.urlProtocol(self,didLoad:body); client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}
@@ -205,5 +210,66 @@ private func enrollmentResponse(expiry:Int64) throws -> Data {
         }
         #expect(EnrollmentWire.requests.count == 1)
         #expect(try await journal.snapshot(at:Int64(Date().timeIntervalSince1970*1000))?.phase == .completed)
+    }
+    @Test func taskIsCreatedAndResumedBeforeNextMainActorTurn() async throws {
+        let store = EnrollmentStore()
+        let (_,_,_,qr,challenge,_) = try await enrollmentSetup(store:store)
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [EnrollmentWire.self]
+        var observedTask:URLSessionDataTask?
+        let service = DJConnectRendezvousService(configuration:config,taskCreated:{observedTask = $0})
+        EnrollmentWire.configure(store:store,body:try enrollmentResponse(expiry:challenge.expiresAtMS+1000))
+        var probe:Task<Void,Never>?
+        _ = try await service.register(originalBody:Data("{}".utf8),qr:qr,beforeDispatch:{
+            #expect(observedTask?.state == .suspended)
+            probe = Task { @MainActor in
+                // This is exactly where a queued UI owner cancellation runs.
+                // Foundation's task must already exist and have been resumed.
+                guard let task = observedTask else { Issue.record("No task before actor release"); return }
+                #expect(task.state != .suspended)
+            }
+        })
+        await probe?.value
+        #expect(EnrollmentWire.requests.count == 1)
+    }
+    @Test func streamedBodyExceedingBoundIsRejected() async throws {
+        let store = EnrollmentStore()
+        let (subject,journal,id,qr,challenge,_) = try await enrollmentSetup(store:store)
+        EnrollmentWire.configure(store:store,body:Data(repeating:32,count:4097))
+        await #expect(throws:(any Error).self) {
+            _ = try await subject.enrollExistingKey(keyIdentifier:enrollmentKey,attemptIdentifier:id,
+                qr:qr,challenge:challenge,journal:journal,isCurrent:{true})
+        }
+        #expect(EnrollmentWire.requests.count == 1)
+        #expect(try await journal.snapshot(at:Int64(Date().timeIntervalSince1970*1000))?.phase == .registrationUncertain)
+    }
+    @Test func streamingResponsePreservesHeaderAndLengthGuards() async throws {
+        for headers in [["Content-Type":"application/json","Content-Length":"4097"],
+                        ["Content-Type":"application/json","Content-Encoding":"gzip"],
+                        ["Content-Type":"text/plain"],
+                        ["Content-Type":"application/json","Content-Length":"1000"]] {
+            let store = EnrollmentStore()
+            let (subject,journal,id,qr,challenge,_) = try await enrollmentSetup(store:store)
+            EnrollmentWire.configure(store:store,body:try enrollmentResponse(expiry:challenge.expiresAtMS+1000),headers:headers)
+            await #expect(throws:(any Error).self) {
+                _ = try await subject.enrollExistingKey(keyIdentifier:enrollmentKey,attemptIdentifier:id,
+                    qr:qr,challenge:challenge,journal:journal,isCurrent:{true})
+            }
+            #expect(EnrollmentWire.requests.count == 1)
+            #expect(try await journal.snapshot(at:Int64(Date().timeIntervalSince1970*1000))?.phase == .registrationUncertain)
+        }
+    }
+    @Test func cancellationFinishesWithoutWaitingForServerCallback() async throws {
+        let store = EnrollmentStore()
+        let (_,_,_,qr,_,_) = try await enrollmentSetup(store:store)
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [EnrollmentWire.self]
+        let service = DJConnectRendezvousService(configuration:config)
+        EnrollmentWire.configure(store:store,body:Data(),hold:true)
+        let work = Task { try await service.register(originalBody:Data("{}".utf8),qr:qr,beforeDispatch:{}) }
+        let clock = ContinuousClock(), deadline = clock.now.advanced(by:.seconds(1))
+        while EnrollmentWire.requests.isEmpty && clock.now < deadline { try await Task.sleep(for:.milliseconds(1)) }
+        #expect(EnrollmentWire.requests.count == 1)
+        work.cancel()
+        await #expect(throws:(any Error).self) { _ = try await work.value }
+        #expect(EnrollmentWire.requests.count == 1)
     }
 }

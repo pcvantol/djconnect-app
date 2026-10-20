@@ -584,3 +584,60 @@ Final full serial regression on the same final dispatch source:73XCTest
 `/tmp/djc-enrollment-registration-dispatch-full-final.log`. The earlier full974
 run before the last actor refinement is kept separately and is not substituted
 for this final run. New exact-head code/security review and CI are required.
+
+## P1: synchronous task start before actor suspension (20 October)
+
+Exact6a26bcd review5586830348 found P1/4326407738: awaiting
+URLSession.bytes(for:) can release the main actor before Foundation creates or
+resumes its request. The earlier same-actor guard alone did not close that gap;
+its green CI does not erase the finding.
+
+The service now creates a URLSessionDataTask synchronously in the actor segment,
+sets its per-task streaming delegate, rechecks owner/cancellation/original QR and
+resumes the task synchronously before its first await. Only awaiting the result
+happens afterward. A refused preflight cancels the still-suspended task. An
+internal observer permits inspecting the actual Foundation task in qualification;
+product initialization supplies no observer or substitute task/session factory.
+
+The per-task delegate rejects redirects, wrong URL/status/MIME/encoding, oversized
+content length and body data beyond4096bytes, and mismatched final length. A lock
+protects response admission, buffered bytes and one completion. A response that
+beats continuation installation remains available; cancellation finishes waiting
+without requiring a server callback and cancels the task. No automatic retry or
+new registration authority is introduced. Post-response coordinator fences and
+persist-before-I/O/complete-before-receipt accounting remain unchanged.
+
+43focusedfunctions PASS: `/tmp/djc-rendezvous-sync-dispatch-targeted-final.log`.
+The actual Foundation task is suspended at preflight and already resumed before a
+queued next-main-actor-turn probe; real URLProtocol tests also reject streamed
+oversize/encoding/MIME/declared-length mismatch and complete a canceled held
+request without callback or resend. These use synthetic bodies/SDK/memory stores,
+not actual API/genuine proof. A first optional URLSession-subclass scheduling
+probe failed to compile because that initializer was not inherited; the log is
+retained at `/tmp/djc-rendezvous-sync-dispatch-scheduling.log`. It was replaced
+with observing the actual normal-session task; no production subclass/factory is
+exposed. No old-source overwrite counterrun or old-source failure is claimed.
+
+Read-only API115 source3458ad603350ab9481073277c7dbe561433b4453 and
+Finalization6293803436 were inspected againstc8. Only unusable server-owned
+assertion policy changes failure type to existing redacted503; predicate/order/
+deadline and healthy proof/context401 remain. Original known-bound expiry keeps
+priority; unknown deadlines are not guessed. No runtime repin, unchanged proof
+rerun, nonce/lease refresh or automatic retry. Source-hash intake:
+build/qualification/vibecast-product-integration/api-policy-115-intake.json.
+
+Pi requested a read-only review of exact PR1119f555826. One P2 was independently
+found: malformed/empty/non-object401/403 becomes uncertain/invalid before the
+transport's denied classification, preventing the controller's denial withdrawal.
+An offline unmodified-method AST counterproof confirmed malformed401/403 become
+uncertain while JSON401/403 become denied. The short bounded report was sent to
+the existing Pi chat only after Peter explicitly approved that message here.
+No Pi source/device/HA changes or independent full-suite acceptance claimed.
+
+Final same-source serial regression:73XCTest(2intentional skips,0failures) plus
+978SwiftTesting functions in11suites PASS:
+`/tmp/djc-rendezvous-sync-dispatch-full-final.log`. Final unsigned iOS
+build-for-testing PASS: `/tmp/djc-rendezvous-sync-dispatch-ios-final.log`.
+No genuine SDK/Keychain/physical/public effect or product wiring was performed.
+New exact-head review/CI are required;6a's P1 remains historical evidence and
+its successful CI is not a corrected-source result.

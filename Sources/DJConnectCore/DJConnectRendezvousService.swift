@@ -34,14 +34,83 @@ private final class RendezvousRedirectGuard: NSObject, URLSessionTaskDelegate, S
                     completionHandler: @escaping @Sendable (URLRequest?) -> Void) { completionHandler(nil) }
 }
 
+/// One bounded streaming result, including callbacks that beat the awaiting
+/// continuation. This delegate cannot redirect, buffer an unbounded body, or
+/// complete twice when cancellation races a network callback.
+private final class RendezvousHTTPReply:NSObject,URLSessionDataDelegate,@unchecked Sendable {
+    private let lock = NSLock()
+    private let url:URL
+    private let status:Int
+    private let qr:DJConnectRendezvousQR
+    private var expectedLength:Int64 = -1
+    private var admitted = false
+    private var body = Data()
+    private var result:Result<Data,any Error>?
+    private var continuation:CheckedContinuation<Data,any Error>?
+    init(url:URL,status:Int,qr:DJConnectRendezvousQR) { self.url = url; self.status = status; self.qr = qr }
+    func value() async throws -> Data {
+        try await withCheckedThrowingContinuation { next in
+            let ready = lock.withLock { ()->Result<Data,any Error>? in
+                if let result { return result }
+                continuation = next; return nil
+            }
+            if let ready { next.resume(with:ready) }
+        }
+    }
+    func cancel() { finish(.failure(CancellationError())) }
+    private func finish(_ outcome:Result<Data,any Error>) {
+        let waiting = lock.withLock { ()->CheckedContinuation<Data,any Error>? in
+            guard result == nil else { return nil }
+            result = outcome
+            let waiting = continuation; continuation = nil; body = Data()
+            return waiting
+        }
+        waiting?.resume(with:outcome)
+    }
+    func urlSession(_ session:URLSession,task:URLSessionTask,willPerformHTTPRedirection response:HTTPURLResponse,
+        newRequest request:URLRequest,completionHandler:@escaping @Sendable (URLRequest?)->Void) {
+        completionHandler(nil)
+    }
+    func urlSession(_ session:URLSession,dataTask:URLSessionDataTask,didReceive response:URLResponse,
+        completionHandler:@escaping @Sendable (URLSession.ResponseDisposition)->Void) {
+        let allowed = lock.withLock { ()->Bool in
+            guard result == nil, !admitted, qr.isCurrent(),
+                  let http = response as? HTTPURLResponse,http.statusCode == status,http.url == url,
+                  http.mimeType?.lowercased() == "application/json",
+                  http.value(forHTTPHeaderField:"Content-Encoding") == nil,
+                  http.expectedContentLength <= 4096 else { return false }
+            admitted = true; expectedLength = http.expectedContentLength; return true
+        }
+        completionHandler(allowed ? .allow : .cancel)
+        if !allowed { finish(.failure(DJConnectError.invalidResponse)) }
+    }
+    func urlSession(_ session:URLSession,dataTask:URLSessionDataTask,didReceive data:Data) {
+        let allowed = lock.withLock { ()->Bool in
+            guard result == nil,admitted,qr.isCurrent(),data.count <= 4096-body.count else { return false }
+            body.append(data); return true
+        }
+        if !allowed { finish(.failure(DJConnectError.invalidResponse)); dataTask.cancel() }
+    }
+    func urlSession(_ session:URLSession,task:URLSessionTask,didCompleteWithError error:(any Error)?) {
+        let outcome:Result<Data,any Error> = lock.withLock {
+            guard result == nil,error == nil,admitted,qr.isCurrent(),
+                  expectedLength < 0 || expectedLength == body.count else { return .failure(DJConnectError.invalidResponse) }
+            return .success(body)
+        }
+        finish(outcome)
+    }
+}
+
 /// Fixed-origin public service. Never receives HA tokens, identity or Profile
 /// headers. No redirects, cookies, cache, transport retries or background tasks.
 public final class DJConnectRendezvousService: Sendable {
     private let session: URLSession
+    private let taskCreated:(@MainActor @Sendable (URLSessionDataTask)->Void)?
     public convenience init() { self.init(configuration:.ephemeral) }
     // Module-internal configuration seam for isolated qualification URLProtocol.
     // Product callers have only the fixed-origin, ephemeral public initializer.
-    init(configuration:URLSessionConfiguration) {
+    init(configuration:URLSessionConfiguration, taskCreated:(@MainActor @Sendable (URLSessionDataTask)->Void)? = nil) {
+        self.taskCreated = taskCreated
         configuration.urlCache = nil; configuration.httpCookieStorage = nil
         configuration.urlCredentialStorage = nil; configuration.httpShouldSetCookies = false
         configuration.timeoutIntervalForRequest = 8; configuration.timeoutIntervalForResource = 8
@@ -103,25 +172,31 @@ public final class DJConnectRendezvousService: Sendable {
         request.setValue("application/json",forHTTPHeaderField:"Accept")
         request.setValue("identity",forHTTPHeaderField:"Accept-Encoding")
         request.httpBody = body
+        let reply = RendezvousHTTPReply(url:url,status:status,qr:qr)
+        let task = session.dataTask(with:request)
+        task.delegate = reply
+        // Internal observation only; product initialization has no observer.
+        taskCreated?(task)
+        defer { task.cancel() }
         // Keep the UI authority check and dispatch in one actor segment.
         // Returning from an awaited check to a generic executor would reopen a
         // scheduling gap in which the owner could already have changed.
         try beforeDispatch?()
         try Task.checkCancellation()
         guard qr.isCurrent() else { throw DJConnectRendezvousQR.Failure.expired }
-        let (bytes, response) = try await session.bytes(for: request)
-        defer { bytes.task.cancel() }
-        guard let http = response as? HTTPURLResponse, http.statusCode == status, http.url == url,
-              http.mimeType?.lowercased() == "application/json", http.value(forHTTPHeaderField: "Content-Encoding") == nil,
-              http.expectedContentLength <= 4096 else { throw DJConnectError.invalidResponse }
-        var data = Data()
-        for try await byte in bytes {
+        // dataTask creation and resume are synchronous. Do not replace this with
+        // bytes(for:)/data(for:): entering either async API can release this actor
+        // before Foundation has created or resumed its underlying request.
+        task.resume()
+        let data = try await withTaskCancellationHandler {
             try Task.checkCancellation()
-            guard data.count < 4096, qr.isCurrent() else { throw DJConnectError.invalidResponse }
-            data.append(byte)
+            return try await reply.value()
+        } onCancel: {
+            task.cancel()
+            reply.cancel()
         }
         try Task.checkCancellation()
-        guard qr.isCurrent(), http.expectedContentLength < 0 || http.expectedContentLength == data.count else { throw DJConnectError.invalidResponse }
+        guard qr.isCurrent() else { throw DJConnectRendezvousQR.Failure.expired }
         return data
     }
 }
