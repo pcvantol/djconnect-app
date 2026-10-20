@@ -211,3 +211,78 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     try manager.createSymbolicLink(at:parent,withDestinationURL:root.appendingPathComponent("missing-parent"))
     #expect(try !RendezvousInitialKeyAdapter.historicalStateIsClear(at:root))
 }
+
+@MainActor private final class InitialSerializationGate {
+    var entered = false
+    var completed = 0
+    private var continuation:CheckedContinuation<Void,Never>?
+    func hold() async { entered = true; await withCheckedContinuation { continuation = $0 } }
+    func release() { continuation?.resume(); continuation = nil }
+}
+@Test @MainActor func rendezvousLegacyCreationWaitsForInitialGenerationBoundary() async throws {
+    let gate = InitialSerializationGate(), key = Data(repeating:3,count:32).base64EncodedString()
+    let token = String(repeating:"A",count:43), now:Int64 = 1000, expiry:Int64 = 121000
+    let stores = (0..<4).map { _ in InitialStore() }
+    let owner = Task {
+        try await RendezvousAppKeyOperations.shared.perform(keyIdentifier:RendezvousAppKeyOperations.installationAdmissionSlot) {
+            await gate.hold()
+        }
+    }
+    for _ in 0..<1000 { if gate.entered { break }; await Task.yield() }
+    #expect(gate.entered)
+    let first = Task {
+        _ = try await RendezvousRegistrationJournal(storage:stores[0]).beginAttestation(keyIdentifier:key,
+            challengeIdentifier:token,nonce:Data(repeating:0,count:32),admittedAtMS:now,deadlineMS:expiry)
+        gate.completed += 1
+    }
+    let second = Task {
+        _ = try await RendezvousRegistrationJournal(storage:stores[1]).prepare(keyIdentifier:key,
+            challengeIdentifier:token,nonce:Data(repeating:0,count:32),attestation:Data([1]),admittedAtMS:now,deadlineMS:expiry)
+        gate.completed += 1
+    }
+    let third = Task {
+        let bytes = try JSONSerialization.data(withJSONObject:["v":"djc-rendezvous/1","action":"recover-key",
+            "service_origin":DJConnectRendezvousQR.serviceOrigin,"key_id":key,"challenge_id":token,
+            "challenge":token,"expires_at":expiry])
+        _ = try await RendezvousRecoveryJournal(storage:stores[2]).begin(keyIdentifier:key,
+            challengeIdentifier:token,nonce:Data(repeating:0,count:32),clientData:bytes,admittedAtMS:now,deadlineMS:expiry)
+        gate.completed += 1
+    }
+    let fourth = Task {
+        _ = try await RendezvousRepairJournal(storage:stores[3]).beginPause(keyIdentifier:key,at:now)
+        gate.completed += 1
+    }
+    for _ in 0..<2000 {
+        if await RendezvousAppKeyOperations.shared.waitingOperationCount(for:RendezvousAppKeyOperations.installationAdmissionSlot) == 4 { break }
+        await Task.yield()
+    }
+    #expect(gate.completed == 0)
+    for store in stores { #expect(try store.read() == nil) }
+    gate.release()
+    try await owner.value
+    try await first.value; try await second.value; try await third.value; try await fourth.value
+    #expect(gate.completed == 4)
+}
+@Test @MainActor func rendezvousInitialGenerationReleasesBoundaryBeforeEnrollmentJournalCreation() async throws {
+    let f = try InitialFixture()
+    let operation = Task {
+            try await RendezvousInitialKeyAdapter(sdk:f.sdk).generate(qr:f.qr,appContext:f.context,
+                lifecycle:RendezvousKeyLifecycleJournal(storage:f.store),
+                registration:RendezvousRegistrationJournal(storage:f.registrationStore),
+                recovery:RendezvousRecoveryJournal(storage:f.recoveryStore),repair:RendezvousRepairJournal(storage:f.repairStore),
+                isAdmitted:{true},finishEnrollment:{_,key in
+                    let now = Int64(Date().timeIntervalSince1970*1000)
+                    _ = try await RendezvousRegistrationJournal(storage:f.registrationStore).beginAttestation(keyIdentifier:key,
+                        challengeIdentifier:String(repeating:"A",count:43),nonce:Data(repeating:0,count:32),
+                        admittedAtMS:now,deadlineMS:now+120000)
+                    f.finishes += 1
+                })
+    }
+    let watchdog = Task {
+        do { try await Task.sleep(for:.seconds(2)) } catch { return }
+        operation.cancel()
+    }
+    defer { watchdog.cancel() }
+    try await operation.value
+    #expect(f.sdk.calls == 1 && f.finishes == 1)
+}

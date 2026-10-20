@@ -6,6 +6,8 @@ import Foundation
 /// This component neither authorizes an action nor generates or persists keys.
 public actor RendezvousAppKeyOperations {
     public static let shared = RendezvousAppKeyOperations()
+    // Shared by initial generation and every legacy journal creation entry point.
+    static let installationAdmissionSlot = "rendezvous-initial-generation-v1"
 
     private struct Waiter {
         let id: UUID

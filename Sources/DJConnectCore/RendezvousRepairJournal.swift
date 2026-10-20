@@ -84,7 +84,12 @@ public actor RendezvousRepairJournal {
 
     /// Repeated pause entry preserves all counters, including after completion.
     /// Another key cannot replace this unresolved ledger through this API.
-    public func beginPause(keyIdentifier: String, at nowMS: Int64) throws -> RendezvousRepairWindow {
+    public func beginPause(keyIdentifier: String, at nowMS: Int64) async throws -> RendezvousRepairWindow {
+        try await RendezvousAppKeyOperations.shared.perform(keyIdentifier:RendezvousAppKeyOperations.installationAdmissionSlot) {
+            try await self.beginPauseLocked(keyIdentifier:keyIdentifier,at:nowMS)
+        }
+    }
+    private func beginPauseLocked(keyIdentifier:String,at nowMS:Int64) throws -> RendezvousRepairWindow {
         if let current = try snapshot() {
             guard current.keyIdentifier == keyIdentifier else { throw Failure.wrongKey }
             return current

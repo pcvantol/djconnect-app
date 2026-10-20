@@ -46,7 +46,14 @@ public actor RendezvousRegistrationJournal {
     /// The caller has already admitted this existing key and server challenge.
     /// Save their original binding before permitting any SDK invocation.
     public func beginAttestation(keyIdentifier: String, challengeIdentifier: String, nonce: Data,
-                                 admittedAtMS: Int64, deadlineMS: Int64) throws -> UUID {
+                                 admittedAtMS: Int64, deadlineMS: Int64) async throws -> UUID {
+        try await RendezvousAppKeyOperations.shared.perform(keyIdentifier:RendezvousAppKeyOperations.installationAdmissionSlot) {
+            try await self.beginAttestationLocked(keyIdentifier:keyIdentifier,challengeIdentifier:challengeIdentifier,
+                nonce:nonce,admittedAtMS:admittedAtMS,deadlineMS:deadlineMS)
+        }
+    }
+    private func beginAttestationLocked(keyIdentifier:String,challengeIdentifier:String,nonce:Data,
+                                       admittedAtMS:Int64,deadlineMS:Int64) throws -> UUID {
         try refuseReplacement(at: admittedAtMS)
         let record = try RegistrationRecord(key: keyIdentifier, challenge: challengeIdentifier,
                                             nonce: nonce, attestation: nil,
@@ -80,7 +87,14 @@ public actor RendezvousRegistrationJournal {
     /// Called after the original SDK attestation has been prepared. No prior
     /// attempt (including an uncertain/completed one) can be replaced here.
     public func prepare(keyIdentifier: String, challengeIdentifier: String, nonce: Data,
-                        attestation: Data, admittedAtMS: Int64, deadlineMS: Int64) throws -> UUID {
+                        attestation: Data, admittedAtMS: Int64, deadlineMS: Int64) async throws -> UUID {
+        try await RendezvousAppKeyOperations.shared.perform(keyIdentifier:RendezvousAppKeyOperations.installationAdmissionSlot) {
+            try await self.prepareLocked(keyIdentifier:keyIdentifier,challengeIdentifier:challengeIdentifier,
+                nonce:nonce,attestation:attestation,admittedAtMS:admittedAtMS,deadlineMS:deadlineMS)
+        }
+    }
+    private func prepareLocked(keyIdentifier:String,challengeIdentifier:String,nonce:Data,attestation:Data,
+                               admittedAtMS:Int64,deadlineMS:Int64) throws -> UUID {
         try refuseReplacement(at: admittedAtMS)
         let record = try RegistrationRecord(key: keyIdentifier, challenge: challengeIdentifier,
                                             nonce: nonce, attestation: attestation,

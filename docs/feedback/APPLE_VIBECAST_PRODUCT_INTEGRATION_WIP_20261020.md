@@ -353,3 +353,53 @@ Final initial-generation increment validation:
   Prior76bc8ea code review receipt6291346854 and CI/Trusted Delivery are green;
   they qualify that predecessor, not this new source. New exact-head code and
   separate security reviews/CI remain pending. No merge admission.
+
+
+## P1 review correction: shared installation admission boundary
+
+Exact64cfdc2 review5585494047 raised P1/4325336580: initial generation held an
+installation slot, but the older journal creation methods did not acquire that
+slot. A legacy writer could therefore occupy a journal between separate snapshot
+awaits and the SDK call. A separate no-major-issues receipt and green64 CI do not
+supersede this concrete finding; do not describe64 as an unqualified clean review.
+
+The four existing creation entry points now acquire the same process-wide
+installation slot: registration beginAttestation/prepare, recovery begin and
+repair beginPause. Their private actor-isolated bodies and durable schemas remain
+unchanged. Initial generation holds that shared boundary through all occupancy
+checks, durable reservation, SDK callback and storage of the generated handle.
+It releases the installation boundary **before** invoking the caller enrollment
+closure, because that closure must create the registration journal through the
+same boundary. The persisted lifecycle row already blocks repeated initial
+creation. Admission/QR/cancellation is checked again after release and after
+completion; canonical per-key sign/submit sequencing remains separate. No
+installation→per-key nested lock dependency is introduced.
+
+The old claim that the installation slot spans the complete enrollment closure
+is superseded by this correction. These are process-local serialization and
+source-only accounting, not proof of cross-process hardware inventory or genuine
+runtime admission. Product preparation remains unwired/NOT READY.
+
+A focused test holds the actual shared boundary while all four real journal
+creation entry points attempt writes: each waits with no bytes written, then all
+complete after release. A second bounded test runs the actual initial adapter and
+creates its registration journal from the enrollment continuation, proving that
+this handoff does not recursively deadlock. All15 selected initial/boundary tests
+PASS: `/tmp/djc-install-serialization-final2.log`.
+
+The first new bounded test used a task-group closure that hit a Swift region
+isolation-checker compile error; it was replaced with a cancellable watchdog and
+the failure log is retained separately. An optional old-source counterrun was
+not executed: automatic approval rejected temporarily overwriting uncommitted
+journal changes with HEAD because of possible WIP loss. No alternate overwrite,
+checkout or worktree bypass was attempted. The current-source boundary tests
+above were used without changing the saved implementation.
+
+
+Final correction qualification: full serial73XCTest(2 intentional skips/0 failures)
+plus957SwiftTesting functions in10suites PASS:
+`/tmp/djc-install-serialization-full.log`. Final unsigned iOS simulator
+build-for-testing PASS: `/tmp/djc-install-serialization-ios-build.log`.
+The new bounded concurrency tests use memory journals and a synthetic SDK; no
+real SDK, Keychain or hardware effect was executed. New exact-head review/CI is
+required; no merge/physical/product admission is implied.

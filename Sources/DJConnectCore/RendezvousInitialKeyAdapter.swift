@@ -10,7 +10,7 @@ import DeviceCheck
 
 /// Source-only initial-generation bridge; not wired to product preparation.
 /// A caller must independently admit this app/environment and physical effect.
-/// The fixed installation slot spans legacy occupancy checks through enrollment.
+/// The shared installation slot spans legacy occupancy checks through key storage.
 /// This initial-only adapter never repairs, rotates, resets or adopts a lease.
 @MainActor public final class RendezvousInitialKeyAdapter {
     public enum Failure:Error,Sendable { case unsupported, staleContext, legacyOccupancy, generationFailed }
@@ -47,18 +47,24 @@ import DeviceCheck
         guard sdk.isSupported else { throw Failure.unsupported }
         // Not a key handle: fixed non-base64 namespace for installation-level
         // initial generation, separate from the eventual canonical per-key slot.
-        try await RendezvousAppKeyOperations.shared.perform(keyIdentifier:"rendezvous-initial-generation-v1") { [self] in
+        let (identifier,key) = try await RendezvousAppKeyOperations.shared.perform(
+            keyIdentifier:RendezvousAppKeyOperations.installationAdmissionSlot) { [self] in
             try await perform(qr:qr,appContext:appContext,lifecycle:lifecycle,
-                registration:registration,recovery:recovery,repair:repair,
-                isAdmitted:isAdmitted,finishEnrollment:finishEnrollment)
+                registration:registration,recovery:recovery,repair:repair,isAdmitted:isAdmitted)
         }
+        // Release before enrollment: its journal creation takes this same slot.
+        // The persisted lifecycle row already prevents another initial generation.
+        try Task.checkCancellation()
+        guard isAdmitted(),qr.isCurrent() else { throw Failure.staleContext }
+        try await finishEnrollment(identifier,key)
+        try Task.checkCancellation()
+        guard isAdmitted(),qr.isCurrent() else { throw Failure.staleContext }
     }
     private func perform(qr:DJConnectRendezvousQR,appContext:Data,
         lifecycle:RendezvousKeyLifecycleJournal,registration:RendezvousRegistrationJournal,
         recovery:RendezvousRecoveryJournal,repair:RendezvousRepairJournal,
-        isAdmitted:@escaping @MainActor @Sendable ()->Bool,
-        finishEnrollment:@escaping @MainActor @Sendable (UUID,String) async throws->Void
-    ) async throws {
+        isAdmitted:@escaping @MainActor @Sendable ()->Bool
+    ) async throws -> (UUID,String) {
         func validate() throws {
             try Task.checkCancellation()
             guard sdk.isSupported,isAdmitted(),qr.isCurrent() else { throw Failure.staleContext }
@@ -94,8 +100,7 @@ import DeviceCheck
         // This is install-local accounting, not enrollment/active-key adoption.
         try await lifecycle.completeGeneration(reservation.identifier,keyIdentifier:key,appContext:appContext,at:Self.now())
         try validate()
-        try await finishEnrollment(reservation.identifier,key)
-        try validate()
+        return (reservation.identifier,key)
     }
     // Preserve the historical host's stable occupied-attempt namespace. Presence
     // of any item (including a symlink), or an unreadable path, blocks generation.
