@@ -641,3 +641,57 @@ build-for-testing PASS: `/tmp/djc-rendezvous-sync-dispatch-ios-final.log`.
 No genuine SDK/Keychain/physical/public effect or product wiring was performed.
 New exact-head review/CI are required;6a's P1 remains historical evidence and
 its successful CI is not a corrected-source result.
+
+## Two further authority findings on exact9752b79 (20 October)
+
+Review5587125883 added P1/4326634856 (cancellation handler installed only after
+resume) and P1/4326634881 (credentialed HA owner-context transport still awaited
+bytes(for:) after its actor check). An earlier no-findings snapshot was superseded
+by these concrete findings.975 primary CI39445406359 and Trusted Delivery passed;
+that does not clear the findings or establish corrected-source acceptance.
+
+DJConnectBoundedHTTPTransport now owns one shared internal bounded delegate and
+dispatch sequence. Its cancellation handler is installed before the operation's
+last cancellation/authority checks and synchronous resume, explicitly isolated to
+MainActor. External cancellation can therefore cancel the suspended network task
+before a following resume; already-canceled tasks cannot release bytes. A queued
+main-actor owner change cannot interleave between the last check and resume. The
+public rendezvous transport and credentialed owner preparation both use this
+sequence; task creation alone remains non-dispatching and every refusal cancels it.
+
+Owner preparation carries its existing isCurrent/token guard past the budget and
+executor hops into the actual protected dispatch segment. Both transport/context
+and display/owner/context use it. This changes no owner endpoint, credential,
+request body, qualified local policy, operation lifetime or successful response
+meaning. Image load/preparation retain their existing bounded budget, MIME/size,
+redirect/cache/cookie policy and static-image decoding. Authorization/status
+classification precedes optional body metadata; malformed/oversized denial cannot
+mask authStale/profileAccessDenied. The shared delegate preserves bounded buffered
+data, final Content-Length checks and single completion across early callbacks and
+cancellation. No application retry, extra SDK call or active-key adoption is added.
+
+20targeted functions PASS: `/tmp/djc-http-authority-regression-final.log`.
+A different thread cancels the parent inside the preflight checkpoint: the actual
+Foundation task is already canceled before preflight returns, and zero protocol
+requests occur. Both credentialed owner routes are tested with an actual task
+suspended at the guard and resumed before a queued owner-withdrawal actor turn;
+refused authority sends zero requests. Synthetic401/403 with text MIME and huge
+Content-Length still return the existing typed authorization denials. Existing
+actual-client legacy-local refusal/qualified2requests/owner-withdrawal tests pass.
+These are URLProtocol/memory/synthetic proof cases, not live HA, genuine SDK,
+installed/native-positive or physical qualification. No old-source overwrite
+counterrun or old failure is claimed.
+
+Peter restated VibeCast completion/review as current priority, with Forecast
+qualification, Golden only under qualified Core/run conditions, qualified-contract
+consumers and separately authorized physical SDK work following. The received
+Brand assets remain a separate pending handoff; they do not preempt that selection.
+A broader Pi release-source review was requested after the narrow P2 closure; no
+broad PR111/operational GO or new physical authority has been given by Apple.
+
+Final same-source full serial regression PASS:73XCTest(2intentional skips,
+0failures)+982SwiftTesting/12suites in `/tmp/djc-http-authority-full-final.log`.
+Final unsigned iOS build-for-testing PASS: `/tmp/djc-http-authority-ios-final.log`.
+No genuine SDK/Keychain/physical/public effect or new UI acceptance was executed.
+Corrected-source exact review and CI remain required; the separate security review
+has no completed result yet.

@@ -28,6 +28,10 @@ private final class EnrollmentStore:RendezvousRepairStorage,@unchecked Sendable 
         calls += 1; return Data([1,2,3])
     }
 }
+@MainActor private final class EnrollmentCancellation {
+    var work:Task<Int64,any Error>?
+    var networkTask:URLSessionDataTask?
+}
 private final class EnrollmentWire:URLProtocol,@unchecked Sendable {
     private static let lock = NSLock()
     nonisolated(unsafe) private static var bodies:[Data] = []
@@ -271,5 +275,26 @@ private func enrollmentResponse(expiry:Int64) throws -> Data {
         work.cancel()
         await #expect(throws:(any Error).self) { _ = try await work.value }
         #expect(EnrollmentWire.requests.count == 1)
+    }
+    @Test func externalCancellationIsInstalledBeforeDispatchPreflight() async throws {
+        let store = EnrollmentStore(), cancellation = EnrollmentCancellation()
+        let (_,_,_,qr,_,_) = try await enrollmentSetup(store:store)
+        let config = URLSessionConfiguration.ephemeral;config.protocolClasses = [EnrollmentWire.self]
+        let service = DJConnectRendezvousService(configuration:config,taskCreated:{cancellation.networkTask = $0})
+        EnrollmentWire.configure(store:store,body:Data())
+        cancellation.work = Task {
+            try await service.register(originalBody:Data("{}".utf8),qr:qr,beforeDispatch:{
+                let work = try #require(cancellation.work)
+                let networkTask = try #require(cancellation.networkTask)
+                #expect(networkTask.state == .suspended)
+                // A different thread cancels before resume. The installed
+                // handler must cancel the network task before returning here.
+                DispatchQueue.global().sync { work.cancel() }
+                #expect(networkTask.state == .canceling || networkTask.state == .completed)
+            })
+        }
+        let work = try #require(cancellation.work)
+        await #expect(throws:(any Error).self) { _ = try await work.value }
+        #expect(EnrollmentWire.requests.isEmpty)
     }
 }
