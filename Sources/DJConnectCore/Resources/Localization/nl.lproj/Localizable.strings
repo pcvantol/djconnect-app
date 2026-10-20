@@ -1254,7 +1254,7 @@
 "ui.session.intro.sidebar.body" = "Via de zijbalk wissel je tussen DJ-sessie, Speelt Nu, Track Insight, Ontdek en de andere schermen.";
 
 // Shared main brand tagline: launch, About, setup and Watch About.
-"brand.tagline" = "Zet je muziek aan. DJConnect brengt die tot leven.";
+"brand.tagline" = "Jouw muziek. Jouw DJ.";
 
 // Shared Profile and Session DJ settings contract3.
 "ui.dj_settings.profile" = "Profiel";
@@ -1355,7 +1355,7 @@
 "ui.device_speech.stop" = "Stop voorbeeld";
 "ui.device_speech.preview" = "Luister naar voorbeeld";
 "ui.device_speech.pending" = "DJ-spraak op dit apparaat vereist ondersteuning van de verbonden Home Assistant.";
-"ui.device_speech.sample" = "Zet je muziek aan. DJConnect brengt die tot leven. Dit is een voorbeeld van de stem op dit apparaat.";
+"ui.device_speech.sample" = "Jouw muziek. Jouw DJ. Dit is een voorbeeld van de stem op dit apparaat.";
 
 "watch.session.current" = "Laatste DJ-moment";
 "watch.session.listen" = "Luister";

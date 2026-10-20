@@ -1869,41 +1869,13 @@ struct DJConnectWatchRootView: View {
 /// aligned with DJConnectGlassBrandIcon without importing the full phone UI.
 private struct DJConnectWatchGlassBrandIcon: View {
     let size: CGFloat
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
+    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
-        let corner = size * 0.25
-        let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
-        Image("LaunchIcon")
+        Image(size * displayScale <= 40 ? "BrandHeadset" : "LaunchIcon")
             .resizable()
             .scaledToFit()
-            .clipShape(RoundedRectangle(cornerRadius: corner - 2, style: .continuous))
-            .padding(3)
             .frame(width: size, height: size)
-            .background {
-                if #available(watchOS 26, *), glassEnabled && !reduceTransparency {
-                    shape.fill(.clear).glassEffect(.regular, in: shape)
-                } else if !glassEnabled || reduceTransparency {
-                    shape.fill(watchDeepNavy)
-                } else {
-                    shape.fill(DJConnectMaterial(.ultraThin))
-                }
-            }
-            .overlay {
-                shape.fill(LinearGradient(stops: [
-                    .init(color: .white.opacity(0.24), location: 0),
-                    .init(color: .white.opacity(0.04), location: 0.42),
-                    .init(color: .clear, location: 0.52)
-                ], startPoint: .topLeading, endPoint: .bottomTrailing))
-                let neon = LinearGradient(colors: [.white.opacity(0.92),
-                    Color(red: 0.16, green: 0.56, blue: 1.0),
-                    Color(red: 0.84, green: 0.22, blue: 0.96)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing)
-                let width = max(1.25, size * 3 / 84)
-                shape.strokeBorder(neon, lineWidth: width).blur(radius: 1).opacity(0.40)
-                shape.strokeBorder(neon, lineWidth: width)
-            }
             .accessibilityHidden(true)
     }
 }

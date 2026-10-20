@@ -4721,14 +4721,15 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
 
 @Test func sharedBrandTaglineUsesExactApprovedCopyInEveryLanguage() {
     let expected = [
-        "en": "Play your music. DJConnect brings it to life.",
-        "nl": "Zet je muziek aan. DJConnect brengt die tot leven.",
-        "de": "Mach deine Musik an. DJConnect erweckt sie zum Leben.",
-        "fr": "Lancez votre musique. DJConnect lui donne vie.",
-        "es": "Pon tu música. DJConnect le da vida."
+        "en": "Your music. Your DJ.",
+        "nl": "Jouw muziek. Jouw DJ.",
+        "de": "Deine Musik. Dein DJ.",
+        "fr": "Votre musique. Votre DJ.",
+        "es": "Tu música. Tu DJ."
     ]
     for language in DJConnectLocalization.supportedLanguageCodes {
         #expect(DJConnectLocalization.localized(key: "brand.tagline", language: language) == expected[language])
+        #expect(DJConnectLocalization.localized(key: "ui.device_speech.sample", language: language).hasPrefix((expected[language] ?? "") + " "))
     }
     #expect(DJConnectLocalization.localized(key: "brand.tagline", language: "nl-NL") == expected["nl"])
     #expect(DJConnectLocalization.localized(key: "brand.tagline", language: "unsupported") == expected["en"])

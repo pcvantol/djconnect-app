@@ -1,5 +1,16 @@
 # Technische designbeslissingen
 
+## Brand V2 native adoption — 2026-10-20
+
+Apple #138 consumes the immutable Core #1223 original headset assets after source
+and separate Finalization. The app icon generator selects the frameless headset
+through 40 output pixels and glass above that size. Runtime images preserve
+producer alpha; native views do not add a second border. English wide layouts
+use the primary wordmark; localized layouts use the compact wordmark with native
+text, with native scalable fallbacks at narrow widths and large type. Producer
+pins and Inter OFL provenance are recorded in `Tools/IconSource/BrandV2/README.md`.
+This is presentation-only; Persona and backend contracts remain independent.
+
 ## Current Session controls and glass followup — 2026-10-12
 
 Build40016 is local on `codex/apple-session-mood-toolbar`, based on reconciled main7900ec7. Toolbar mood/status popovers, bound End confirmation, top-right glyphs, native glass rendering and playback time labels are implemented across shared Apple UI. Full477-test run PASS; bounded native iPhone/iPad controls PASS. Physical scroll acceptance, final Mac screen proof, publication and40016 installation are pending; ordinary physical iPad/MacBook40015 remains installed. No Core/backend mutation or Store/HA release. See [current qualification](verification/SESSION_CONTROLS_GLASS_20261012.md). The previous sections below are historical delivery snapshots.

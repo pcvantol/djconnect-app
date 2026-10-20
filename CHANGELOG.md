@@ -6,6 +6,9 @@ All notable changes to DJConnect App are documented here.
 
 ### Changed
 
+- Adopt the approved Brand V2 headset across Apple app icons and brand panels,
+  with “Your music. Your DJ.” and the existing five-language welcome translations.
+
 - Share one translated brand tagline across launch, setup, About and Watch About
   in Dutch, English, German, French and Spanish; adapt compact banners to retain
   the complete text and localize the system launch screen without baked-in copy.
