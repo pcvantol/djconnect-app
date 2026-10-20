@@ -62,7 +62,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
                 value.merge(["state": "approved", "display_id": String(repeating: "F", count: 42) + "A",
                     "session_id": mode == "bad-receipt" ? "other-session" : "fixture-session",
                     "share_id": consentShare, "share_generation": 1,
-                    "share_expires_in": mode == "short-receipt" ? 1.0 : 3599.0, "share_expires_at": expiry(3599)]) { _, new in new }
+                    "share_expires_in": mode == "short-receipt" ? 1.0 : 3599.0, "share_expires_at": expiry(mode == "short-absolute-receipt" ? 1.0 : 3599)]) { _, new in new }
             }
         } else { status = 404 }
         let bytes = try! JSONSerialization.data(withJSONObject: value)
@@ -169,6 +169,16 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
         try await Task.sleep(for: .milliseconds(1100))
         #expect(!receipt.isCurrent())
         #expect(flow.receipt == nil)
+    }
+    @Test func earlierAbsoluteReceiptExpiryAlsoBoundsMonotonicTime() async throws {
+        let (flow, _, _) = try make("short-absolute-receipt")
+        try await flow.resolve(code: "000000")
+        let receipt = try await flow.approve(share: .createTwoHours)
+        let originalWall = Date(), originalTick = ProcessInfo.processInfo.systemUptime
+        #expect(receipt.isCurrent())
+        // Wall clock restored inside the original valid interval after the
+        // shorter absolute expiry has passed in monotonic time.
+        #expect(!receipt.isCurrent(now: originalWall, uptime: originalTick + 2))
     }
     @Test func completedReceiptCannotOutliveOwnerOrToken() async throws {
         for kind in ["owner", "token", "dismiss"] {

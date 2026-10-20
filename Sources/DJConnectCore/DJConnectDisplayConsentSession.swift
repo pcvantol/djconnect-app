@@ -169,7 +169,7 @@ import CryptoKit
             // independent upper bounds, not replacements for one another.
             let now = Date(), uptime = ProcessInfo.processInfo.systemUptime
             let effectiveExpiry = min(min(expiry, maxExpiry), requestedAt.addingTimeInterval(value.share_expires_in))
-            let deadline = min(maxDeadline, requestedUptime + value.share_expires_in)
+            let deadline = min(maxDeadline, requestedUptime + min(value.share_expires_in, effectiveExpiry.timeIntervalSince(requestedAt)))
             guard now >= requestedAt, now < effectiveExpiry, deadline.isFinite,
                   uptime >= requestedUptime, uptime < deadline else { throw DJConnectError.invalidResponse }
             let result = Receipt(displayID: value.display_id, shareID: value.share_id, shareGeneration: value.share_generation,

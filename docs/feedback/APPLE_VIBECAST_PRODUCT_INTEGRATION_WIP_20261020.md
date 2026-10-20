@@ -840,3 +840,22 @@ FINALserial73XCTest(2intentionalSKIP/0fail)+998SwiftTesting13suites PASS
 /tmp/djc-receipt-trusted-clock-ios.log. Priorc34CIgreen does not erase the P2.
 Source UNWIRED/productprepareNOTREADY; no HA/SDK/Keychain/model/physical/public
 effect or merge approval. New exact review/CI required.
+
+## Absolute receipt expiry also limits monotonic time —20Oct2026
+
+Exactc145 review P2/4327989949 found the monotonic receipt bound used relative
+share_expires_in but omitted an earlier absolute share_expires_at. The current
+source now converts the already-clamped effective absolute expiry relative to
+the ORIGINAL request wall time into an additional original-uptime upper bound.
+The shortest of original offered deadline, relative lifetime and effective
+absolute expiry wins; rollback cannot outlive either backend limit.
+
+Actualc145 counterproof1testFAILED /tmp/djc-receipt-absolute-deadline-negative.log
+with absolute1s/relative3599s and wall restored to original valid interval after
+2smonotonic passage. FINAL13focusedfunctionsPASS
+/tmp/djc-receipt-absolute-deadline-targeted.log. FINALserial73XCTest
+(2intentionalSKIP/0fail)+999SwiftTesting13suitesPASS
+/tmp/djc-receipt-absolute-deadline-full.log. FINALunsignediOSbuild-for-testing
+PASS /tmp/djc-receipt-absolute-deadline-ios.log. No HA/SDK/Keychain/model/physical/
+public effects; native UI still UNWIRED/productNOTREADY/no merge permission.
+Predecessorc145CIgreen does not erase its P2; new exact reviews/CI required.
