@@ -231,3 +231,55 @@ Final source validation for the adapter increment:
 No genuine SDK/key call was executed. The existing unsupported simulator UI
 receipt predates this unwired component and is not promoted to positive proof.
 Exact-head review/CI and separate security review remain delivery gates.
+
+
+## Install-local key lifecycle accounting (source only)
+
+The resumed six-hour Apple window adds `RendezvousKeyLifecycleJournal`, using
+one fixed Keychain address and a stable, independently qualified app/environment
+context digest. The released API828 implementation contract and its Apple ACK
+already close the generic local 24-hour/two-handle/day27-day30 policy question;
+older candidate headers do not reopen it. This increment introduces no contract
+change, genuine SDK call, HTTP call or runtime admission.
+
+A generation reservation is persisted before a future caller may invoke the SDK.
+Unknown callbacks keep their slot occupied after restart. Bare generated handles
+cannot become active: the caller must supply an independently validated server
+registration/recovery receipt with an immutable original expiry. Replacement
+requires the original recovery pause plus24hours, explicit foreground retry and
+the retained one-replacement-per24-hour allowance. A pending replacement and the
+old handle consume both slots; recovering the old key cannot discard the pending
+slot and enable a third key. Day27 foreground rollover and day30 absolute expiry
+are separate. Acknowledged replacement retires old local references only; local
+expiry disposal is not remote revocation or hardware key erasure.
+
+Failed and commit-then-error storage writes never return a reservation/active
+key. Repeated pauses preserve their original timestamp. Malformed records,
+changed context, clock rollback, contradictory phases, extended leases and
+out-of-range persisted timestamps fail closed, with bounds checked before
+arithmetic. Tests use synthetic handles, injected memory storage and supplied
+clocks; they neither read nor write real Keychain state.
+
+The component remains UNWIRED. An empty lifecycle row is **not** proof that older
+registration/recovery/repair journals or hardware handles are absent. Before any
+initial generation the future orchestrator must reconcile that occupancy and
+qualify the stable context digest and server-time source. Existing immutable
+attempt journals cannot be reset or silently repurposed for rotation. This
+increment does not solve generation SDK admission, actual cadence/throttle/fraud
+qualification, assertion/submit accounting, final enrollment orchestration or
+Core B resolve/approve and explicit current-Session consent. Product preparation
+still reports NOT READY. No physical test or merge admission follows.
+
+Validation:
+
+- Full serial suite before the final stored-timestamp hardening:73 XCTest,
+  2 intentional skips,0 failures;941 Swift Testing functions in10 suites PASS:
+  `/tmp/djc-key-lifecycle-full-regressions.log`.
+- Final targeted lifecycle suite:16 functions PASS, including six overflowing
+  stored-timestamp cases and five forged-history cases:
+  `/tmp/djc-key-lifecycle-overflow-final.log`.
+- Final unsigned iOS simulator build-for-testing PASS:
+  `/tmp/djc-key-lifecycle-ios-build.log`.
+- Canonical XcodeGen project registers the new source/test files. No unchanged
+  unsupported-UI or local HTTP probe was rerun; their historical evidence remains
+  separate. Exact new-head code/security review and CI remain pending.
