@@ -987,6 +987,8 @@ public final class DJConnectAppModel: ObservableObject {
         let sessionID: String
         let mood: String
         let moodRevision: Int?
+        let locale: String?
+        let direction: String
         let presence: DJConnectSessionPresenceValue?
         let presenceRevision: Int?
         let persona: DJConnectSessionPersonaValue?
@@ -996,6 +998,8 @@ public final class DJConnectAppModel: ObservableObject {
         let playbackState: String?
         init(_ session: DJConnectSessionRuntime) {
             sessionID = session.id; mood = session.selectedMood; moodRevision = session.confirmedMoodRevision
+            locale = session.broadcast.session.locale
+            direction = session.broadcast.planner.currentDirection
             presence = session.confirmedPresence?.selectedPresence; presenceRevision = session.presenceRevisionFloor
             persona = session.confirmedPersona?.selectedPersona; personaRevision = session.personaRevisionFloor
             playbackID = session.broadcast.playback?.itemID; playbackSource = session.broadcast.playback?.sourceURL

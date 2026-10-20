@@ -6227,7 +6227,7 @@ private final class ForecastWireDataSlot: @unchecked Sendable {
 }
 
 // Native Forecast crosses ordinary paired transport; all replies here are explicit fixtures.
-@Test(arguments: ["current", "background", "owner-reset", "context-same", "context-older", "persona-conflict", "unsequenced-live", "unsequenced-live-during-read"]) @MainActor
+@Test(arguments: ["current", "background", "owner-reset", "context-same", "context-older", "persona-conflict", "unsequenced-live", "unsequenced-live-during-read", "context-locale", "context-direction"]) @MainActor
 func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: String) async throws {
     let fixtureRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let rows = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureRoot.appendingPathComponent("Fixtures/session-forecast-core-3cfa5512.json"))) as? [[String: Any]])
@@ -6260,7 +6260,16 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     var changed = runtime
     var live = try #require(changed["broadcast"] as? [String: Any])
     var tuple = try #require(live["session"] as? [String: Any])
-    if fence == "persona-conflict" {
+    if fence == "context-locale" {
+        tuple["locale"] = "fr"
+    } else if fence == "context-direction" {
+        var planner = try #require(live["planner"] as? [String: Any])
+        planner["current_direction"] = "building_energy"
+        var direction = try #require(planner["session_direction"] as? [String: Any])
+        direction["direction"] = "building_energy"
+        planner["session_direction"] = direction
+        live["planner"] = planner
+    } else if fence == "persona-conflict" {
         tuple["dj_persona"] = "club_dj" // Contradicts retained home_dj at revision0.
     } else {
         changed["selected_mood"] = "changed-context"; changed["mood_revision"] = 1
