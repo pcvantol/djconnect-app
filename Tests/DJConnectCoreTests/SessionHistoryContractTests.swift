@@ -6240,7 +6240,8 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     let id = try #require(runtime["session_id"] as? String)
     projection["session_id"] = id; response["session_id"] = id
     projection["issued_at"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1))
-    projection["valid_until"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(90))
+    let nativeExpiryProbe = fence == "current" && ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_EXPIRY_DIR"] != nil
+    projection["valid_until"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(nativeExpiryProbe ? 6 : 90))
     projection["imagery"] = [] // Byte transport is qualified separately; no fabricated photo in this test.
     response["forecast"] = projection
     var forecastReply = try historyData(response)
@@ -6452,6 +6453,10 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         try await qualifyForecastNativeWithdrawal(model: model, directory: directory,
             readCount: { fixture.requests.filter { $0.url!.path.contains("/session/forecast/") }.count })
     }
+    if nativeExpiryProbe, let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_EXPIRY_DIR"] {
+        try await qualifyForecastNativeExpiry(model: model, directory: directory,
+            readCount: { fixture.requests.filter { $0.url!.path.contains("/session/forecast/") }.count })
+    }
     #endif
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" && !$0.url!.path.contains("/command") && !$0.url!.path.contains("/message") })
 }
@@ -6612,6 +6617,58 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         "flow_initial_offset": Double(originalFlowOffset.y), "flow_return_offset": Double(flow.contentView.bounds.origin.y)]
     try JSONSerialization.data(withJSONObject: metrics, options: [.sortedKeys, .prettyPrinted])
         .write(to: folder.appendingPathComponent("native-scroll-metrics.json"))
+}
+
+/// Let the production panel's expiry schedule run against an actual short
+/// synthetic lease. No clock injection, forced refresh, or owner withdrawal.
+@MainActor private func qualifyForecastNativeExpiry(model: DJConnectAppModel, directory: String, readCount: () -> Int) async throws {
+    let session = try #require(model.activeDJSession)
+    let projection = try #require(model.visibleSessionForecast(at: Date()))
+    let validity = try #require(projection.valid_until)
+    let deadline = try #require(DJConnectSessionForecast.timestamp(validity))
+    let epoch = model.sessionHistory.responseEpoch
+    _ = NSApplication.shared
+    let view = SessionForecastPanel(model: model, viewport: SessionForecastViewport(), query: .constant("")) { EmptyView() }
+        .background(DJConnectCanvasBackground())
+        .environment(\.scenePhase, .active).environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark).frame(width: 600, height: 1000)
+    let host = NSHostingView(rootView: view)
+    let window = NSWindow(contentRect: CGRect(x: -2000, y: -2000, width: 600, height: 1000),
+        styleMask: [.borderless], backing: .buffered, defer: false)
+    window.appearance = NSAppearance(named: .darkAqua)
+    window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
+    defer { window.close() }
+    let folder = URL(fileURLWithPath: directory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    func capture(_ name: String) throws {
+        host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
+        let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: image)
+        try #require(image.representation(using: .png, properties: [:])).write(to: folder.appendingPathComponent(name + ".png"))
+    }
+    try await Task.sleep(for: .milliseconds(400))
+    #expect(Date() < deadline)
+    #expect(model.visibleSessionForecast(at: Date()) != nil)
+    try capture("expiry-01-current")
+    let reads = readCount()
+    let wait = deadline.timeIntervalSinceNow + 0.4
+    #expect(wait > 0 && wait < 8, "The native expiry probe must stay bounded")
+    try await Task.sleep(for: .seconds(max(0.2, min(8, wait))))
+    // Capture first: the assertion below must not be responsible for changing
+    // the panel from authored content to its expired/unavailable presentation.
+    try capture("expiry-02-expired")
+    #expect(Date() > deadline)
+    #expect(model.visibleSessionForecast(at: Date()) == nil)
+    #expect(model.sessionHistory.hasAuthorizedOwner && model.canRefreshSessionForecast)
+    #expect(model.sessionHistory.responseEpoch == epoch)
+    #expect(readCount() == reads)
+    #expect(model.askDJDraft == "Keep this unsent question")
+    #expect(model.activeDJSession?.id == session.id)
+    #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
+    try JSONSerialization.data(withJSONObject: ["valid_until": validity,
+        "captured_after": ISO8601DateFormatter().string(from: Date()), "owner_retained": model.sessionHistory.hasAuthorizedOwner,
+        "refresh_admitted": model.canRefreshSessionForecast, "forecast_reads_before": reads, "forecast_reads_after": readCount()],
+        options: [.prettyPrinted, .sortedKeys]).write(to: folder.appendingPathComponent("native-expiry-metrics.json"))
 }
 
 /// Actual production panel and native captures of owner withdrawal. Its custom
