@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import Combine
 import DJConnectCore
 
 /// Repository-owned Session Pulse geometry shared by the rich identity and menu mark.
@@ -80,9 +81,16 @@ struct DJPersonaAvatarView: View {
     let language: String
     var activity: DJPersonaActivity? = nil
     var speechIsPlaying = false
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var resourcesPermitMotion = Self.resourcesPermitMotionNow()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
+
+    private static func resourcesPermitMotionNow() -> Bool {
+        !ProcessInfo.processInfo.isLowPowerModeEnabled &&
+            [.nominal, .fair].contains(ProcessInfo.processInfo.thermalState)
+    }
 
     private var theme: DJConnectSessionMoodTheme {
         switch confirmedMood {
@@ -105,8 +113,15 @@ struct DJPersonaAvatarView: View {
     var body: some View {
         DJPersonaGraphic(colors: colors, highContrast: contrast == .increased, opaque: reduceTransparency,
                          activity: activity ?? .resting, speechIsPlaying: speechIsPlaying,
-                         animatesActivity: !reduceMotion && !ProcessInfo.processInfo.isLowPowerModeEnabled &&
-                            [.nominal, .fair].contains(ProcessInfo.processInfo.thermalState))
+                         animatesActivity: scenePhase == .active && !reduceMotion && resourcesPermitMotion)
+            .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)
+                .merge(with: NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification))
+                .receive(on: RunLoop.main)) { _ in
+                resourcesPermitMotion = Self.resourcesPermitMotionNow()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { resourcesPermitMotion = Self.resourcesPermitMotionNow() }
+            }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(DJConnectLocalization.localized(key: "ui.session.avatar.label", language: language))
             .accessibilityValue(activity.map { DJConnectLocalization.localized(key: "ui.session.avatar.activity." + $0.rawValue, language: language) } ?? "")

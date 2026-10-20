@@ -8,9 +8,10 @@ final class BinarySDKIntakeTests: XCTestCase {
     let start: Int64 = 1_800_000_000_000
     let key = Data(repeating: 7, count: 32).base64EncodedString()
     func token(_ value: UInt8) -> String { base64url(Data(repeating: value, count: 32)) }
-    func expectation(_ action: ClientDataExpectation.Action) -> ClientDataExpectation {
-        .init(action: action, keyID: key, challengeID: token(8), challenge: token(9), deadlineMS: start + 120_000,
-              scan: action == .submit ? .init(transaction: "12345678-1234-4123-8123-123456789abc", generation: 1, browserThumbprint: token(1), deadlineMS: start + 120_000) : nil,
+    func expectation(_ action: ClientDataExpectation.Action, deadlineMS: Int64? = nil) -> ClientDataExpectation {
+        let deadline = deadlineMS ?? start + 120_000
+        return .init(action: action, keyID: key, challengeID: token(8), challenge: token(9), deadlineMS: deadline,
+              scan: action == .submit ? .init(transaction: "12345678-1234-4123-8123-123456789abc", generation: 1, browserThumbprint: token(1), deadlineMS: deadline) : nil,
               envelopeDigest: action == .submit ? token(2) : nil)
     }
     func json(_ fields: [String: FlatValue]) throws -> Data {
@@ -18,8 +19,8 @@ final class BinarySDKIntakeTests: XCTestCase {
             switch v { case .string(let s): return s; case .integer(let i): return i }
         }, options: [.sortedKeys, .withoutEscapingSlashes])
     }
-    func response(_ original: Data? = nil) throws -> Data {
-        var fields: [String: FlatValue] = ["v":.string("djc-rendezvous/1"), "challenge_id":.string(token(8)), "challenge":.string(token(9)), "expires_at":.integer(start + 120_000)]
+    func response(_ original: Data? = nil, deadlineMS: Int64? = nil) throws -> Data {
+        var fields: [String: FlatValue] = ["v":.string("djc-rendezvous/1"), "challenge_id":.string(token(8)), "challenge":.string(token(9)), "expires_at":.integer(deadlineMS ?? start + 120_000)]
         if let original { fields["client_data"] = .string(base64url(original)) }
         return try json(fields)
     }
@@ -79,11 +80,45 @@ final class BinarySDKIntakeTests: XCTestCase {
             fields[field] = field == "expires_at" ? .integer(start + 119_999) : .string("changed")
             XCTAssertThrowsError(try BinarySDKInput.action(response: json(fields), expectation: expected, requestedAtMS: start, nowMS: start))
         }
-        for requested in [-1, start - 1, start + 120_000] {
+        for requested in [-1, start + 120_000] {
             XCTAssertThrowsError(try BinarySDKInput.action(response: response(original), expectation: expected, requestedAtMS: requested, nowMS: start))
         }
         XCTAssertThrowsError(try BinarySDKInput.action(response: response(original), expectation: expected, requestedAtMS: start, nowMS: start + 120_000))
     }
+    func testServerCreationAfterOriginalRequestKeepsValidRegistrationAndAllActions() throws {
+        // API90 counterexample: request1000, server creation1001, expiry121001,
+        // receipt1002. Transport time before server creation is not server TTL.
+        let requested: Int64 = 1_000, deadline: Int64 = 121_001, observed: Int64 = 1_002
+        var inputs = [try BinarySDKInput.registration(response: response(deadlineMS: deadline),
+            keyID: key, requestedAtMS: requested, nowMS: observed)]
+        for action in [ClientDataExpectation.Action.submit, .deleteKey, .recoverKey] {
+            let expected = expectation(action, deadlineMS: deadline)
+            inputs.append(try .action(response: response(json(expected.fields()), deadlineMS: deadline),
+                expectation: expected, requestedAtMS: requested, nowMS: observed))
+        }
+        for input in inputs {
+            XCTAssertEqual(input.requestedAtMS, requested)
+            XCTAssertEqual(input.deadlineMS, deadline)
+            XCTAssertNoThrow(try input.check(keyID: key, nowMS: deadline - 1, current: true))
+            XCTAssertThrowsError(try input.check(keyID: key, nowMS: deadline, current: true))
+        }
+    }
+
+    func testObservedRemainingWindowRejectsTooLongDeadlineAndClockRollback() throws {
+        let requested: Int64 = 1_000, observed: Int64 = 1_002
+        let maximum = observed + 120_000
+        XCTAssertNoThrow(try BinarySDKInput.registration(response: response(deadlineMS: maximum),
+            keyID: key, requestedAtMS: requested, nowMS: observed))
+        for deadline in [maximum + 1, Int64.max, observed, observed - 1] {
+            XCTAssertThrowsError(try BinarySDKInput.registration(response: response(deadlineMS: deadline),
+                keyID: key, requestedAtMS: requested, nowMS: observed))
+        }
+        XCTAssertThrowsError(try BinarySDKInput.registration(response: response(deadlineMS: maximum),
+            keyID: key, requestedAtMS: observed + 1, nowMS: observed))
+        XCTAssertThrowsError(try BinarySDKInput.registration(response: response(deadlineMS: maximum),
+            keyID: key, requestedAtMS: Int64.min, nowMS: observed))
+    }
+
     func testMalformedJSONErrorsAreRedacted() throws {
         let invalid = Data("{\"v\":\"\\q\"}".utf8)
         do { _ = try BinarySDKInput.registration(response: invalid, keyID: key, requestedAtMS: start, nowMS: start); XCTFail() }

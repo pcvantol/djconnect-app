@@ -58,8 +58,8 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
 #endif
 
 #if os(macOS)
-@Test(arguments: ["moment", "quiet", "paused", "recovering", "unavailable"])
-@MainActor func personaCurrentCardRenderingRetainsEveryState(state: String) throws {
+@Test(arguments: ["moment", "quiet", "paused", "recovering", "unavailable"], [CGFloat(320), CGFloat(620)])
+@MainActor func personaCurrentCardRenderingRetainsEveryState(state: String, width: CGFloat) throws {
     var session = try DJConnectDemoSessionData.make(language: "nl").active
     if state == "quiet" { session.broadcast.djMoments = [] }
     if state == "paused" { session.broadcast.playback?.state = "paused" }
@@ -68,7 +68,7 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
     if state == "moment" { #expect(moment != nil) }
     let view = current.currentCard(moment)
         .environment(\.djConnectGlassEffectsEnabled, false)
-        .frame(width: 620).padding(20)
+        .frame(width: width).padding(20)
         .foregroundStyle(.white).background(Color(red: 0.07, green: 0.06, blue: 0.20))
     let renderer = ImageRenderer(content: view)
     renderer.scale = 1
@@ -76,13 +76,13 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
     let tiff = try #require(image.tiffRepresentation)
     let rep = try #require(NSBitmapImageRep(data: tiff))
     let png = try #require(rep.representation(using: .png, properties: [:]))
-    #expect(image.size.width == 660)
+    #expect(image.size.width == width + 40)
     // The compact side-by-side card must still fit the avatar and its insets.
     #expect(image.size.height >= 168)
     if let directory = ProcessInfo.processInfo.environment["DJCONNECT_AVATAR_ARTIFACT_DIR"] {
         let folder = URL(fileURLWithPath: directory)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try png.write(to: folder.appendingPathComponent("session-current-" + state + ".png"))
+        try png.write(to: folder.appendingPathComponent("session-current-" + state + "-\(Int(width)).png"))
     }
 }
 #endif
