@@ -312,6 +312,31 @@ public final class DJConnectClient: Sendable {
         return try await decodedResponse(for: request, using: sessionProjectionSession)
     }
 
+    public func sessionForecastRequest(sessionID: String) throws -> URLRequest {
+        try pairedOwnerReadRequest(path: Self.apiV1Path("session/forecast/" + historyPathComponent(sessionID)),
+                                   queryItems: [.init(name: "contract_version", value: "1")])
+    }
+
+    public func sessionForecast(sessionID: String) async throws -> DJConnectSessionForecast {
+        let response: DJConnectSessionForecastResponse = try await decodedResponse(
+            for: sessionForecastRequest(sessionID: sessionID), using: sessionProjectionSession)
+        guard response.success, response.contract_version == 1, response.session_id == sessionID,
+              response.forecast.session_id == sessionID, response.forecast.structurallyValid else {
+            throw DJConnectError.invalidResponse
+        }
+        return response.forecast
+    }
+
+    public func sessionForecastArtwork(_ image: DJConnectSessionForecast.Imagery, sessionID: String) async throws -> DJConnectSessionArtworkImage {
+        guard let path = image.admittedPath(sessionID: sessionID, at: Date()) else { throw DJConnectError.invalidResponse }
+        // This is Core's headerless managed display reference, never its external source URL.
+        var request = URLRequest(url: endpoint(path: path))
+        request.httpMethod = "GET"
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        return try await sessionArtworkTransport.loadForecast(request)
+    }
+
     public func activeSessionMoodCapabilities() async throws -> DJConnectActiveMoodCapabilities {
         try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
     }

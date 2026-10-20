@@ -347,6 +347,9 @@ struct SessionTimelineScreen: View {
     @State private var submittedQuestion: SessionSubmittedQuestion?
     @State private var priorSearchPosition: String?
     @State private var query = ""
+    @State private var showsForecast = false
+    @State private var forecastPosition: String?
+    @State private var forecastQuery = ""
     @State private var searching = false
     @State private var selectedMatchID: String?
     private var retryRefreshing: Bool { manualRefresh.isRefreshing }
@@ -462,6 +465,14 @@ struct SessionTimelineScreen: View {
         }
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
+                if activeSession != nil {
+                    Picker(text("ui.session.forecast.mode"), selection: $showsForecast) {
+                        Text(text("ui.session.forecast.flow")).tag(false)
+                        Text(text("ui.session.forecast.tab")).tag(true)
+                    }
+                    .pickerStyle(.segmented).padding(.horizontal, 20).padding(.vertical, 10)
+                    .accessibilityIdentifier("session-flow-forecast-picker")
+                }
                 TimelineView(SessionEntryRefreshSchedule(deadlines: retentionDeadlines)) { clock in
                     let preparedEntries = renderCache.snapshot(timeline.entries, sessionID: sessionID, epoch: history.responseEpoch, at: clock.date)
                     ScrollView {
@@ -639,17 +650,25 @@ struct SessionTimelineScreen: View {
                     .task(id: submittedQuestionTarget) {
                         guard let target = submittedQuestionTarget else { return }
                         await Task.yield()
-                        guard !Task.isCancelled, submittedQuestionTarget == target, !searching else { return }
+                        guard !Task.isCancelled, submittedQuestionTarget == target, !searching, !showsForecast else { return }
                         sceneRestoreTask?.cancel(); anchorGeneration = UUID()
                         withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) {
                             scrollAnchor = .bottom
                             visibleEntry = target
                         }
                     }
-                    .djContentRefreshable(enabled: !model.isDemoMode && model.pairingStatus == .paired) {
+                    .djContentRefreshable(enabled: !showsForecast && !model.isDemoMode && model.pairingStatus == .paired) {
                         pullRefreshing = true
                         defer { pullRefreshing = false }
                         await refreshTimeline()
+                    }
+                    .opacity(showsForecast ? 0 : 1)
+                    .allowsHitTesting(!showsForecast)
+                    .accessibilityHidden(showsForecast)
+                    .overlay {
+                        if showsForecast, let activeSession {
+                            SessionForecastPanel(model: model, position: $forecastPosition, query: $forecastQuery) { scrollingCurrent(activeSession) }
+                        }
                     }
                 }
                 if activeSession != nil && !usesFloatingComposer && !searching {
@@ -657,6 +676,9 @@ struct SessionTimelineScreen: View {
                 }
             }
             .background(sessionBackground)
+            .onChange(of: showsForecast) { _, value in
+                if value { inputFocused = false; searchFocused = false }
+            }
             .overlay {
                 if activeSession != nil {
                     PersonaReactionOverlay(controller: model.personaReactions, language: model.language, avatarFrame: model.personaAvatarFrame)

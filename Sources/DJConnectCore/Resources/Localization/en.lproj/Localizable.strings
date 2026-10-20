@@ -1441,3 +1441,17 @@
 "ui.session.reaction.text_only" = "Text only, as selected in your speech preferences.";
 "ui.session.reaction.speaker_unavailable" = "This reaction is available as text. Speaker playback is currently unavailable.";
 "ui.session.reaction.speaker_partial" = "This reaction plays on this device only; speaker playback is currently unavailable.";
+
+// Native Session Forecast
+"ui.session.forecast.mode" = "View";
+"ui.session.forecast.flow" = "Flow";
+"ui.session.forecast.tab" = "Preview";
+"ui.session.forecast.title" = "Preview · ~15 min";
+"ui.session.forecast.notice" = "A direction for the coming minutes. Music and contributions may change.";
+"ui.session.forecast.loading" = "Loading the preview…";
+"ui.session.forecast.unavailable" = "A current preview is not available.";
+"ui.session.forecast.source" = "Source";
+"ui.session.forecast.claim.current" = "Playing now";
+"ui.session.forecast.claim.intention" = "Intention";
+"ui.session.forecast.claim.conditional_target" = "Conditional aim";
+"ui.session.forecast.search" = "Search the preview";

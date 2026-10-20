@@ -6212,3 +6212,63 @@ func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clie
     #expect(model.backendAvailable)
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/status") }.count > beforeMismatchWait)
 }
+
+// Native Forecast crosses ordinary paired transport; all replies here are explicit fixtures.
+@Test(arguments: [false, true]) @MainActor
+func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(background: Bool) async throws {
+    let fixtureRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let rows = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureRoot.appendingPathComponent("Fixtures/session-forecast-core-3cfa5512.json"))) as? [[String: Any]])
+    var response = try #require(rows.first?["owner_read"] as? [String: Any])
+    var projection = try #require(response["forecast"] as? [String: Any])
+    var runtimeBody = try #require(JSONSerialization.jsonObject(with: activeMoodRuntimeWire()) as? [String: Any])
+    var runtime = try #require(runtimeBody["session"] as? [String: Any])
+    let id = try #require(runtime["session_id"] as? String)
+    projection["session_id"] = id; response["session_id"] = id
+    projection["issued_at"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1))
+    projection["valid_until"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(90))
+    projection["imagery"] = [] // Byte transport is qualified separately; no fabricated photo in this test.
+    response["forecast"] = projection
+    let forecastReply = try historyData(response)
+    let anchor = try #require(projection["current_anchor"] as? [String: Any])
+    var broadcast = try #require(runtime["broadcast"] as? [String: Any])
+    broadcast["playback"] = ["state": "playing", "item_id": anchor["item_id"]!, "source_url": anchor["source_url"]!]
+    runtime["broadcast"] = broadcast; runtimeBody["session"] = runtime
+    let runtimeReply = try historyData(runtimeBody)
+    let history = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let capability: [String: Any] = ["available": true, "version": 1,
+        "path": "/api/djconnect/v1/session/forecast/{session_id}", "method": "GET",
+        "authentication": "paired_device_bearer", "scope": "active_device_bound_owner_session",
+        "live_field": "session_forecast", "live_event": "forecast_changed", "nominal_window_seconds": 900,
+        "history": false, "emitted_imagery_roles": ["current"], "qualified_upcoming_media": false]
+    let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_forecast": true],
+        "contract_versions": ["session_conversation_history": 1, "session_forecast": 1], "session_forecast": capability])
+    let gate = HistoryWireResponseGate()
+    defer { gate.release() }
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("/session/active") { return (200, runtimeReply, 0) }
+        if path.hasSuffix("/session/forecast/" + id) {
+            if background { throw HistoryWireHeldResponse(data: forecastReply, gate: gate) }
+            return (200, forecastReply, 0)
+        }
+        if path.hasSuffix("/ask_dj/history") { return (200, history, 0) }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    await model.refreshActiveDJSession()
+    #expect(model.sessionHistory.hasAuthorizedOwner && model.activeDJSession?.id == id)
+    model.askDJDraft = "Keep this unsent question"
+    let task = Task { await model.refreshSessionForecast() }
+    for _ in 0..<100 where !fixture.requests.contains(where: { $0.url?.path.hasSuffix("/session/forecast/" + id) == true }) {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(fixture.requests.contains { $0.url?.path.hasSuffix("/session/forecast/" + id) == true })
+    if background { model.markInactiveSession(); gate.release() }
+    await task.value
+    #expect(model.askDJDraft == "Keep this unsent question")
+    #expect((model.visibleSessionForecast(at: Date()) == nil) == background)
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" && !$0.url!.path.contains("/command") && !$0.url!.path.contains("/message") })
+}

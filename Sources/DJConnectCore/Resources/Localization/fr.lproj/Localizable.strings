@@ -1441,3 +1441,17 @@
 "ui.session.reaction.text_only" = "Texte uniquement, selon vos préférences vocales.";
 "ui.session.reaction.speaker_unavailable" = "Cette réaction est disponible en texte. La lecture sur une enceinte est actuellement indisponible.";
 "ui.session.reaction.speaker_partial" = "Cette réaction est lue uniquement sur cet appareil ; la lecture sur une enceinte est actuellement indisponible.";
+
+// Native Session Forecast
+"ui.session.forecast.mode" = "Vue";
+"ui.session.forecast.flow" = "Flow";
+"ui.session.forecast.tab" = "Aperçu";
+"ui.session.forecast.title" = "Aperçu · env. 15 min";
+"ui.session.forecast.notice" = "Une direction pour les prochaines minutes. La musique et les interventions peuvent changer.";
+"ui.session.forecast.loading" = "Chargement de l’aperçu…";
+"ui.session.forecast.unavailable" = "Aucun aperçu actuel n’est disponible.";
+"ui.session.forecast.source" = "Source";
+"ui.session.forecast.claim.current" = "En cours";
+"ui.session.forecast.claim.intention" = "Intention";
+"ui.session.forecast.claim.conditional_target" = "Objectif possible";
+"ui.session.forecast.search" = "Rechercher dans l’aperçu";

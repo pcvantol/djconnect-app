@@ -72,6 +72,23 @@ final class DJConnectSessionArtworkTransport: Sendable {
         }
     }
 
+    /// Forecast v1 supplies no dimensions; inspect bounded static bytes before
+    /// using the same strict type/dimension/thumbnail decoder as Session art.
+    func loadForecast(_ request: URLRequest) async throws -> DJConnectSessionArtworkImage {
+        try await Self.budget.acquire()
+        do {
+            let (data, mime) = try await responseData(request, using: session,
+                maximumBytes: Self.maximumBytes, allowedMIMEs: ["image/png", "image/jpeg"])
+            guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+                  let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+                  let width = properties[kCGImagePropertyPixelWidth] as? Int,
+                  let height = properties[kCGImagePropertyPixelHeight] as? Int else { throw DJConnectError.invalidResponse }
+            let result = try Self.decode(data, mime: mime, width: width, height: height)
+            await Self.budget.release()
+            return result
+        } catch { await Self.budget.release(); throw error }
+    }
+
     private func download(_ request: URLRequest, width: Int, height: Int) async throws -> DJConnectSessionArtworkImage {
         let (data, mime) = try await responseData(request, using: session,
             maximumBytes: Self.maximumBytes, allowedMIMEs: ["image/png", "image/jpeg"])
