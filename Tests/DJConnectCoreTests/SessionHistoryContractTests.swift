@@ -6214,14 +6214,22 @@ func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clie
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/status") }.count > beforeMismatchWait)
 }
 
+private final class ForecastWireDataSlot: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Data
+    init(_ value: Data) { self.value = value }
+    func read() -> Data { lock.withLock { value } }
+    func replace(_ next: Data) { lock.withLock { value = next } }
+}
+
 // Native Forecast crosses ordinary paired transport; all replies here are explicit fixtures.
-@Test(arguments: ["current", "background", "owner-reset"]) @MainActor
+@Test(arguments: ["current", "background", "owner-reset", "context-same", "context-older", "persona-conflict"]) @MainActor
 func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: String) async throws {
     let fixtureRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let rows = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureRoot.appendingPathComponent("Fixtures/session-forecast-core-3cfa5512.json"))) as? [[String: Any]])
     var response = try #require(rows.first?["owner_read"] as? [String: Any])
     var projection = try #require(response["forecast"] as? [String: Any])
-    var runtimeBody = try #require(JSONSerialization.jsonObject(with: activeMoodRuntimeWire()) as? [String: Any])
+    var runtimeBody = try #require(JSONSerialization.jsonObject(with: activePersonaRuntimeWire()) as? [String: Any])
     var runtime = try #require(runtimeBody["session"] as? [String: Any])
     let id = try #require(runtime["session_id"] as? String)
     projection["session_id"] = id; response["session_id"] = id
@@ -6229,12 +6237,12 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     projection["valid_until"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(90))
     projection["imagery"] = [] // Byte transport is qualified separately; no fabricated photo in this test.
     response["forecast"] = projection
-    let forecastReply = try historyData(response)
+    var forecastReply = try historyData(response)
     let anchor = try #require(projection["current_anchor"] as? [String: Any])
     var broadcast = try #require(runtime["broadcast"] as? [String: Any])
     broadcast["playback"] = ["state": "playing", "item_id": anchor["item_id"]!, "source_url": anchor["source_url"]!]
     runtime["broadcast"] = broadcast; runtimeBody["session"] = runtime
-    let runtimeReply = try historyData(runtimeBody)
+    var runtimeReply = try historyData(runtimeBody)
     let history = try historyData(try #require(historyObject()["later_historical_answer"]))
     let capability: [String: Any] = ["available": true, "version": 1,
         "path": "/api/djconnect/v1/session/forecast/{session_id}", "method": "GET",
@@ -6243,15 +6251,35 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         "history": false, "emitted_imagery_roles": ["current"], "qualified_upcoming_media": false]
     let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_forecast": true],
         "contract_versions": ["session_conversation_history": 1, "session_forecast": 1], "session_forecast": capability])
+    let originalRuntimeReply = runtimeReply
+    let originalForecastReply = forecastReply
+    var changed = runtime
+    var live = try #require(changed["broadcast"] as? [String: Any])
+    var tuple = try #require(live["session"] as? [String: Any])
+    if fence == "persona-conflict" {
+        tuple["dj_persona"] = "club_dj" // Contradicts retained home_dj at revision0.
+    } else {
+        changed["selected_mood"] = "changed-context"; changed["mood_revision"] = 1
+        tuple["selected_mood"] = "changed-context"; tuple["mood_revision"] = 1
+    }
+    live["session"] = tuple; changed["broadcast"] = live
+    runtimeBody["session"] = changed; runtimeReply = try historyData(runtimeBody)
+    if fence == "context-older" {
+        projection["revision"] = max(0, (projection["revision"] as? Int ?? 1) - 1)
+        response["forecast"] = projection; forecastReply = try historyData(response)
+    }
+    let runtimeReplies = ForecastWireDataSlot(originalRuntimeReply)
+    let forecastReplies = ForecastWireDataSlot(originalForecastReply)
     let gate = HistoryWireResponseGate()
     defer { gate.release() }
     let fixture = HistoryWireFixture { request in
         let path = request.url!.path
         if path.hasSuffix("/capabilities") { return (200, caps, 0) }
-        if path.hasSuffix("/session/active") { return (200, runtimeReply, 0) }
+        if path.hasSuffix("/session/active") { return (200, runtimeReplies.read(), 0) }
         if path.hasSuffix("/session/forecast/" + id) {
-            if fence != "current" { throw HistoryWireHeldResponse(data: forecastReply, gate: gate) }
-            return (200, forecastReply, 0)
+            let reply = forecastReplies.read()
+            if ["background", "owner-reset"].contains(fence) { throw HistoryWireHeldResponse(data: reply, gate: gate) }
+            return (200, reply, 0)
         }
         if path.hasSuffix("/ask_dj/history") { return (200, history, 0) }
         return (404, Data(), 0)
@@ -6271,6 +6299,24 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     if fence == "owner-reset" { model.sessionHistory.reset(); gate.release() }
     await task.value
     #expect(model.askDJDraft == "Keep this unsent question")
-    #expect((model.visibleSessionForecast(at: Date()) == nil) == (fence != "current"))
+    #expect((model.visibleSessionForecast(at: Date()) == nil) == ["background", "owner-reset"].contains(fence))
+    if fence.hasPrefix("context-") || fence == "persona-conflict" {
+        runtimeReplies.replace(runtimeReply)
+        await model.refreshActiveDJSession()
+        #expect(model.activeDJSession?.id == id)
+        if fence == "persona-conflict" { #expect(model.activeDJSession?.confirmedPersona == nil) }
+        #expect(model.visibleSessionForecast(at: Date()) == nil)
+        forecastReplies.replace(forecastReply)
+        await model.refreshSessionForecast()
+        #expect(model.visibleSessionForecast(at: Date()) == nil)
+        if fence.hasPrefix("context-") {
+            projection["revision"] = (try #require((try JSONSerialization.jsonObject(with: originalForecastReply) as? [String: Any])?["forecast"] as? [String: Any])["revision"] as? Int ?? 0) + 1
+            response["forecast"] = projection
+            forecastReplies.replace(try historyData(response))
+            await model.refreshSessionForecast()
+            #expect(model.visibleSessionForecast(at: Date()) != nil)
+        }
+        #expect(model.askDJDraft == "Keep this unsent question")
+    }
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" && !$0.url!.path.contains("/command") && !$0.url!.path.contains("/message") })
 }

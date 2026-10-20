@@ -997,7 +997,7 @@ public final class DJConnectAppModel: ObservableObject {
         init(_ session: DJConnectSessionRuntime) {
             sessionID = session.id; mood = session.selectedMood; moodRevision = session.confirmedMoodRevision
             presence = session.confirmedPresence?.selectedPresence; presenceRevision = session.presenceRevisionFloor
-            persona = session.selectedPersona; personaRevision = session.personaRevision
+            persona = session.confirmedPersona?.selectedPersona; personaRevision = session.personaRevisionFloor
             playbackID = session.broadcast.playback?.itemID; playbackSource = session.broadcast.playback?.sourceURL
             playbackState = session.broadcast.playback?.state
         }
@@ -1044,8 +1044,13 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func acceptSessionForecast(_ incoming: DJConnectSessionForecast?) {
-        forecastScope = activeDJSession.map(ForecastScope.init)
+        let previousRevision = forecastCursor?.revisionFloor ?? -1
         forecastCursor?.receive(incoming)
+        // Rejected/equal revisions retain their original authoring context.
+        // A read or event cannot relabel old content after a context change.
+        if let cursor = forecastCursor, cursor.revisionFloor > previousRevision, cursor.projection != nil {
+            forecastScope = activeDJSession.map(ForecastScope.init)
+        }
         forecastExpiryTask?.cancel(); forecastExpiryTask = nil
         guard let lifetime = forecastCursor?.remainingLifetime, forecastCursor?.projection != nil else { return }
         let epoch = forecastEpoch
