@@ -285,6 +285,82 @@ extension DisplayConsentSessionTests {
         return (model, defaults, suite, store)
     }
 
+    /// Exercise actual UIKit fields and coordinator callbacks; no physical
+    /// typing, backend lookup, approval, or accessibility bridge is required.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_DIGITS_DIR"] != nil))
+    func actualIOSNativeCodeEntryEditingAndFocus() async throws {
+        let (model, defaults, suite, _) = try await makeNativeModel()
+        defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+        let session = try #require(model.activeDJSession)
+        let folder = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_DIGITS_DIR"]))
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let root = VibeCastDisplayConsentForm(model: model)
+            .environment(\.colorScheme, .dark).preferredColorScheme(.dark)
+        let controller = UIHostingController(rootView: root)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 430, height: 932))
+        window.overrideUserInterfaceStyle = .dark
+        window.rootViewController = controller; window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil }
+        func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+        func currentFields() -> [UITextField] {
+            descendants(controller.view).compactMap { $0 as? UITextField }
+                .filter { $0.accessibilityIdentifier?.hasPrefix("vibecast-handoff-digit-") == true }.sorted { $0.tag < $1.tag }
+        }
+        var observations: [[String: Any]] = []
+        func capture(_ name: String) throws {
+            window.layoutIfNeeded()
+            let fields = currentFields()
+            observations.append(["stage": name, "digits": fields.map { $0.text ?? "" },
+                "focused_index": fields.firstIndex { $0.isFirstResponder } ?? -1])
+            let image = UIGraphicsImageRenderer(bounds: window.bounds).image { context in window.layer.render(in: context.cgContext) }
+            try #require(image.pngData()).write(to: folder.appendingPathComponent(name + ".png"))
+        }
+        try await Task.sleep(for: .milliseconds(350))
+        let fields = currentFields()
+        try #require(fields.count == 6)
+        func insert(_ text: String, at index: Int) {
+            let accepted = fields[index].delegate?.textField?(fields[index], shouldChangeCharactersIn: NSRange(location: 0, length: 0), replacementString: text)
+            #expect(accepted == false, "The native coordinator owns the aggregate six-digit edit")
+        }
+        insert("123456", at: 3)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(fields.map { $0.text ?? "" } == ["1", "2", "3", "4", "5", "6"])
+        #expect(fields[5].isFirstResponder)
+        try capture("digits-01-paste-from-later-cell")
+        fields[5].deleteBackward()
+        try await Task.sleep(for: .milliseconds(80))
+        #expect(fields.map { $0.text ?? "" } == ["1", "2", "3", "4", "5", ""])
+        #expect(fields[5].isFirstResponder)
+        fields[5].deleteBackward()
+        try await Task.sleep(for: .milliseconds(80))
+        #expect(fields.map { $0.text ?? "" } == ["1", "2", "3", "4", "", ""])
+        #expect(fields[4].isFirstResponder)
+        try capture("digits-02-empty-backspace")
+        insert("x654321y", at: 4)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(fields.map { $0.text ?? "" } == ["6", "5", "4", "3", "2", "1"])
+        #expect(fields[5].isFirstResponder)
+        fields[2].becomeFirstResponder()
+        insert("９x", at: 2)
+        try await Task.sleep(for: .milliseconds(80))
+        #expect(fields.map { $0.text ?? "" } == ["6", "5", "4", "3", "2", "1"])
+        #expect(fields[2].isFirstResponder)
+        let identities = fields.map(ObjectIdentifier.init)
+        model.applySessionBroadcastSnapshot(session.broadcast)
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(currentFields().map(ObjectIdentifier.init) == identities)
+        #expect(fields.map { $0.text ?? "" } == ["6", "5", "4", "3", "2", "1"])
+        #expect(fields[2].isFirstResponder)
+        #expect(model.activeDJSession?.id == session.id)
+        #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
+        #expect(model.displayConsentState == .idle)
+        #expect(!ConsentWire.requests.contains { $0.url?.path.contains("/owner/") == true })
+        try capture("digits-03-snapshot-preserves-input")
+        try JSONSerialization.data(withJSONObject: ["stages": observations,
+            "owner_requests": ConsentWire.requests.filter { $0.url?.path.contains("/owner/") == true }.count],
+            options: [.prettyPrinted, .sortedKeys]).write(to: folder.appendingPathComponent("native-digits-result.json"))
+    }
+
     /// Opt-in in-process UIKit observation, independent of the UI-testing runner.
     /// Public automation/container metadata may be unavailable in a unit host;
     /// preserve that limitation rather than manufacturing an enabled-state PASS.

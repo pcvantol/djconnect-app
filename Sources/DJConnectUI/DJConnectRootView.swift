@@ -9522,7 +9522,7 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
             field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             field.accessibilityLabel = "\(accessibilityLabel), \(index + 1) / 6"
             field.accessibilityIdentifier = "vibecast-handoff-digit-\(index)"
-            field.emptyDelete = { [weak coordinator = context.coordinator] in coordinator?.deleteBefore(index) }
+            field.deleteDigit = { [weak coordinator = context.coordinator] in coordinator?.deleteDigit(index) }
             stack.addArrangedSubview(field)
             context.coordinator.fields.append(field)
         }
@@ -9540,11 +9540,8 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
     }
 
     final class DigitField: UITextField {
-        var emptyDelete: (() -> Void)?
-        override func deleteBackward() {
-            if (text ?? "").isEmpty { emptyDelete?() }
-            else { super.deleteBackward() }
-        }
+        var deleteDigit: (() -> Void)?
+        override func deleteBackward() { deleteDigit?() }
     }
 
     final class Coordinator: NSObject, UITextFieldDelegate {
@@ -9571,6 +9568,12 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
             lastEmittedCode = digits.joined()
             code.wrappedValue = lastEmittedCode
             refresh()
+        }
+        func deleteDigit(_ index: Int) {
+            // UIKit's text deletion need not enter shouldChangeCharactersIn.
+            // Keep the aggregate binding authoritative for filled cells too.
+            if digits[index].isEmpty { deleteBefore(index) }
+            else { digits[index] = ""; emit() }
         }
         func deleteBefore(_ index: Int) {
             guard index > 0 else { return }
