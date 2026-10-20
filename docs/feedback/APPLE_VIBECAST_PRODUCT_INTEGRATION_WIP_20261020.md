@@ -684,7 +684,8 @@ counterrun or old failure is claimed.
 
 Peter restated VibeCast completion/review as current priority, with Forecast
 qualification, Golden only under qualified Core/run conditions, qualified-contract
-consumers and separately authorized physical SDK work following. The received
+consumers following. Physical SDK testing still waits for specific device,
+transfer and test permission; task selection did not grant it. The received
 Brand assets remain a separate pending handoff; they do not preempt that selection.
 A broader Pi release-source review was requested after the narrow P2 closure; no
 broad PR111/operational GO or new physical authority has been given by Apple.
@@ -695,3 +696,38 @@ Final unsigned iOS build-for-testing PASS: `/tmp/djc-http-authority-ios-final.lo
 No genuine SDK/Keychain/physical/public effect or new UI acceptance was executed.
 Corrected-source exact review and CI remain required; the separate security review
 has no completed result yet.
+
+## Core B resolved-claim source preparation —20Oct2026
+
+Predecessorf4 exact primaryCI39448313517 and Trusted Delivery qualification
+SUCCESS; exact code summary6288651716 completed/no findings. Supplemental
+API consumer receipt90/6294808750 matches the three transport source hashes and
+reports scoped security+UX/privacy noP1/P2 for that seven-file delta. It does not
+replace the owning separate security review, whose completion remains absent.
+
+New DJConnectDisplayClaim is source-only, not a B transport or UI approval.
+It consumes the released Core8b owner-resolve shape, including fractional
+expires_in and ISO8601 expiry. Original request wall/uptime plus original server
+expiry bound parsing and every later approval-body construction; parsing/display
+cannot restart120seconds. It rejects malformed code/tokens, mismatched epoch,
+invalid version/types, expired/overlong lifetimes and wall/monotonic rollback.
+The internal approval-body builder preserves exact claim/generation/code/epoch,
+explicit Session and paired iOS identity. Create is explicit consenttrue7200;
+existing-share mode contains only its exact ID/generation and no renewal.
+No browser secret, bearer, Profile choice or AppAttest effect is constructed.
+Future paired transport must still fresh-read installation/currentSession/epoch,
+verify selected existing share, carry owner/token/UI-consent fences to actual
+synchronous dispatch, classify unknown outcomes without replay, and then wire UI.
+Those tasks remain OPEN; claim/request bytes alone confer no dispatch authority.
+
+Four focused functions PASS /tmp/djc-display-claim-targeted.log, including the
+exact protectedCore8b isolated-HA resolve response from fixture SHA589e92cb…,
+with its published nonfunctional IDs and historical injected clocks. This is
+parser evidence, not another HA execution. FINAL full serial regression:
+73XCTest(2intentionalSKIP/0fail)+986SwiftTesting/12suites PASS
+/tmp/djc-display-claim-full.log. FINAL unsigned iOS build-for-testing PASS
+/tmp/djc-display-claim-ios.log. Initial test-only identity initializer compile
+failure retained /tmp/djc-display-claim-first.log; no product/runtime failure
+claim. XcodeGen adds only the new source/test references. UIprepare remains
+NOTREADY, source components UNWIRED; no SDK/Keychain/HA/physical/public effects
+and no merge permission. New exact-head review/CI is required.
