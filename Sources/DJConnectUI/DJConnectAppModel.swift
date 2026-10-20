@@ -787,6 +787,84 @@ public final class DJConnectAppModel: ObservableObject {
     private var rendezvousDestination: DJConnectDisplayOwnerContext?
     private var rendezvousEnvelope: DJConnectRendezvousDestination.Envelope?
 
+    @Published private(set) var displayConsentState: DJConnectDisplayConsentSession.State = .idle
+    @Published private(set) var displayConsentExistingShare: DJConnectDisplayConsentSession.ExistingShare?
+    private var displayConsentFlow: DJConnectDisplayConsentSession?
+    private var displayConsentOperation = UUID()
+    private var displayConsentOwner: (@MainActor @Sendable () -> Bool)?
+    var canResolveDisplayConsent: Bool {
+        !isDemoMode && identity.clientType == .ios && pairingStatus == .paired && isAppInForeground &&
+            activeDJSession?.runtimeState == "active" && sessionHistory.authorizedProfileID != nil
+    }
+    func resetDisplayConsent() { cancelDisplayConsent(); displayConsentState = .idle }
+
+    func cancelDisplayConsent() {
+        let uncertain = displayConsentFlow?.state == .approving || displayConsentFlow?.state == .uncertain
+        displayConsentOperation = UUID()
+        displayConsentFlow?.withdraw(); displayConsentFlow = nil; displayConsentOwner = nil
+        displayConsentExistingShare = nil
+        displayConsentState = uncertain ? .uncertain : .unavailable
+    }
+    func resolveDisplayConsent(code: String) async {
+        cancelDisplayConsent()
+        guard !isDemoMode, identity.clientType == .ios, pairingStatus == .paired, isAppInForeground,
+              let session = activeDJSession, session.runtimeState == "active",
+              let profile = sessionHistory.authorizedProfileID,
+              let installation = defaults.string(forKey: haInstallIDKey), !installation.isEmpty else { return }
+        let operation = UUID(); displayConsentOperation = operation
+        let epoch = sessionHistory.responseEpoch, connection = sessionBroadcastGeneration
+        let scope = currentDeviceSpeechContext
+        let owner: @MainActor @Sendable () -> Bool = { [weak self] in
+            guard let self else { return false }
+            return self.displayConsentOperation == operation && !self.isDemoMode && self.isAppInForeground &&
+                self.pairingStatus == .paired && self.activeDJSession?.id == session.id &&
+                self.activeDJSession?.runtimeState == "active" && self.sessionHistory.responseEpoch == epoch &&
+                self.sessionHistory.authorizedProfileID == profile && self.sessionBroadcastGeneration == connection &&
+                self.currentDeviceSpeechContext == scope && self.defaults.string(forKey: self.haInstallIDKey) == installation
+        }
+        displayConsentOwner = owner
+        displayConsentState = .resolving
+        do {
+            // Select one qualified client; the coordinator owns both requests.
+            // No transport fallback or automatic replay can repeat an approval.
+            let client = try await withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) { $0 }
+            guard owner(), !Task.isCancelled else { throw CancellationError() }
+            let flow = try DJConnectDisplayConsentSession(client: client, installationID: installation,
+                sessionID: session.id, pairedLocalOrigin: Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()), isCurrent: owner)
+            displayConsentFlow = flow
+            try await flow.resolve(code: code)
+            guard owner(), !Task.isCancelled else { throw CancellationError() }
+            displayConsentExistingShare = flow.existingShare
+            displayConsentState = flow.state
+        } catch {
+            guard displayConsentOperation == operation else { return }
+            cancelDisplayConsent()
+        }
+    }
+    func approveDisplayConsent() async {
+        guard displayConsentState == .ready, let flow = displayConsentFlow else { return }
+        guard displayConsentOwner?() == true else { cancelDisplayConsent(); return }
+        let operation = displayConsentOperation
+        let share: DJConnectDisplayClaim.Share = displayConsentExistingShare.map {
+            .existing(id: $0.identifier, generation: $0.generation)
+        } ?? .createTwoHours
+        displayConsentState = .approving
+        do { _ = try await flow.approve(share: share) } catch { }
+        guard displayConsentOperation == operation else { return }
+        displayConsentState = flow.state
+        refreshDisplayConsentPresentation()
+    }
+    func refreshDisplayConsentPresentation() {
+        guard let flow = displayConsentFlow else { return }
+        guard displayConsentOwner?() == true else { cancelDisplayConsent(); return }
+        if flow.state == .approved {
+            _ = flow.receipt // Rechecks original owner/token and trusted clocks.
+            displayConsentState = flow.state
+        } else if flow.state == .ready && flow.resolvedClaim?.isCurrent() != true {
+            cancelDisplayConsent()
+        }
+    }
+
     /// Read-only support check: never generates a key, attestation or assertion.
     var rendezvousAttestationSupported: Bool {
         #if os(iOS) && canImport(DeviceCheck)
@@ -805,6 +883,7 @@ public final class DJConnectAppModel: ObservableObject {
         } catch { rendezvousStatusKey = "ui.rendezvous.invalid" }
     }
     func cancelRendezvous() {
+        cancelDisplayConsent()
         rendezvousOperation = UUID()
         rendezvousQR = nil; rendezvousDestination = nil; rendezvousEnvelope = nil
         rendezvousHasQR = false; rendezvousBusy = false
@@ -1005,6 +1084,7 @@ public final class DJConnectAppModel: ObservableObject {
         didSet {
             if oldValue?.id != activeDJSession?.id ||
                 (oldValue?.runtimeState == "active" && activeDJSession?.runtimeState != "active") {
+                cancelDisplayConsent()
                 stopResponsePlayback(clearText: false)
                 resetActivePersonaState()
                 discardActiveVoicePreference()

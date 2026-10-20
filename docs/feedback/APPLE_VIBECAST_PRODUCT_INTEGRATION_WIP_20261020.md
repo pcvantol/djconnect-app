@@ -859,3 +859,45 @@ with absolute1s/relative3599s and wall restored to original valid interval after
 PASS /tmp/djc-receipt-absolute-deadline-ios.log. No HA/SDK/Keychain/model/physical/
 public effects; native UI still UNWIRED/productNOTREADY/no merge permission.
 Predecessorc145CIgreen does not erase its P2; new exact reviews/CI required.
+
+## Native Core B Session consent wiring —20Oct2026
+
+After Peter explicitly redirected work back to Apple and objected to waiting
+without implementing, the native presentation/model work proceeded independently
+of the unchanged9ec receipt source under its still-running review. This does NOT
+claim9ec review completion. No further Pi delivery review was performed.
+
+The existing VibeCast dialog now offers a distinct Link a VibeCast screen entry
+and a separate native form. The legacy handoff endpoint/form remains separate.
+The new form first resolves a six-digit Core B screen code without approval, then
+shows an explicit create2h or existing-share-without-extension confirmation.
+Only that confirmation calls the source coordinator's approve once. Five locales
+provide lookup/consent/approved/unavailable/uncertain presentation; unknown results
+request an actual screen check and offer no automatic resend.
+
+AppModel retains one coordinator/client, original Session ID/Profile epoch/owner,
+HA install/route-token context, broadcast generation and UI intent generation.
+Its required owner predicate crosses all asynchronous preparation. Session change
+or active-to-inactive, route/pairing/background and dismissal withdraw the intent;
+current presentation rechecks owner/receipt expiry. Code editing creates a new
+explicit intent. The ordinary client is selected once with replay disabled and
+retained across lookup/explicit confirmation. No Session start, App Attest, TV A
+request, key operation or invented producer endpoint is added.
+
+FINAL14targetedfunctionsPASS /tmp/djc-native-consent-targeted.log predates the
+additional no-current-Session AppModel test. FINALsame-source full serial
+73XCTest(2intentionalSKIP/0fail)+1000SwiftTesting13suitesPASS
+/tmp/djc-native-consent-full.log includes the actualAppModel/URLProtocol spy test
+showing0requests without current Session across paired/unpaired/background cases.
+Existing Core B positive actualClient/URLProtocol tests remain synthetic component
+proofs, not a new positive AppModel/installed UI claim. FINALunsignediOS
+build-for-testingPASS /tmp/djc-native-consent-ios-final.log; initial same-source
+iOS compile also passed /tmp/djc-native-consent-ios-build.log. Localization
+validator1355keysPASS /tmp/djc-native-consent-localizations.log. No actual native
+consent tap/positive simulator Session/HA/runtime/SDK/Keychain/provider/physical/
+public acceptance is claimed; that UI qualification remains OPEN.
+
+Core B is now WIRED IN SOURCE to the native form/AppModel, not fully qualified.
+A preparation remainsNOTREADY: full genuine admission/enrollment/assertion/exact
+submit orchestration and its separate qualifications remain OPEN. NoFeatureDONE,
+merge164/162permission or physical grant. New exact source reviews/CI required.

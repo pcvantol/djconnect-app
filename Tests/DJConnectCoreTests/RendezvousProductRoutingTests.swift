@@ -40,3 +40,40 @@ import Testing
     model.pairingStatus = .unpaired
     #expect(!model.rendezvousHasQR)
 }
+
+private final class NativeConsentRejectionWire: URLProtocol, @unchecked Sendable {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var count = 0
+    static func reset() { lock.withLock { count = 0 } }
+    static var requests: Int { lock.withLock { count } }
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        Self.lock.withLock { Self.count += 1 }
+        client?.urlProtocol(self, didFailWithError: URLError(.cancelled))
+    }
+    override func stopLoading() {}
+}
+@MainActor @Test func nativeDisplayConsentNeverDispatchesWithoutCurrentSession() async throws {
+    let suite = "djc-native-consent-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [NativeConsentRejectionWire.self]
+    NativeConsentRejectionWire.reset()
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-owner"),
+        urlSession: URLSession(configuration: configuration), startBackgroundTasks: false)
+    model.homeAssistantURL = "https://ha.example.com"
+    for paired in [false, true] {
+        model.pairingStatus = paired ? .paired : .unpaired
+        model.resetDisplayConsent()
+        #expect(model.displayConsentState == .idle && !model.canResolveDisplayConsent)
+        await model.resolveDisplayConsent(code: "000000")
+        await model.approveDisplayConsent()
+        #expect(model.displayConsentState == .unavailable)
+        #expect(NativeConsentRejectionWire.requests == 0)
+    }
+    model.markInactiveSession()
+    await model.resolveDisplayConsent(code: "000000")
+    #expect(!model.canResolveDisplayConsent && NativeConsentRejectionWire.requests == 0)
+}

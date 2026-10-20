@@ -1451,3 +1451,14 @@
 "ui.rendezvous.unsupported" = "Dit apparaat ondersteunt veilig TV-koppelen niet. Er is geen verzoek verstuurd.";
 "ui.rendezvous.notReady" = "Veilig TV-koppelen is nog niet gereed. Er is niets naar de TV verstuurd.";
 "ui.rendezvous.failed" = "Home Assistant kon het schermadres niet voorbereiden. Scan een nieuwe code en probeer opnieuw.";
+
+"ui.displayConsent.open" = "Een VibeCast-scherm koppelen";
+"ui.displayConsent.title" = "De huidige Session delen";
+"ui.displayConsent.instructions" = "Vul de code op je VibeCast-scherm in. De code opzoeken deelt nog niets.";
+"ui.displayConsent.lookup" = "Scherm opzoeken";
+"ui.displayConsent.create" = "Alleen je huidige DJ Session twee uur met dit scherm delen?";
+"ui.displayConsent.existing" = "Dit scherm toegang geven via de bestaande deeltoestemming voor je huidige Session, zonder de eindtijd te verlengen?";
+"ui.displayConsent.confirm" = "Dit scherm toestaan";
+"ui.displayConsent.approved" = "Scherm toegestaan voor je huidige Session.";
+"ui.displayConsent.uncertain" = "De toestemming is niet bevestigd. Controleer het scherm voordat je een nieuw verzoek start.";
+"ui.displayConsent.unavailable" = "De schermcode of huidige Session is niet meer beschikbaar.";

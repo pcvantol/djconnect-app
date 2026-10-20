@@ -1451,3 +1451,14 @@
 "ui.rendezvous.unsupported" = "This device does not support secure TV linking. No request was sent.";
 "ui.rendezvous.notReady" = "Secure TV linking is not ready. Nothing has been sent to the TV.";
 "ui.rendezvous.failed" = "Home Assistant could not prepare the display address. Scan a new code and try again.";
+
+"ui.displayConsent.open" = "Link a VibeCast screen";
+"ui.displayConsent.title" = "Share the current Session";
+"ui.displayConsent.instructions" = "Enter the code shown on your VibeCast screen. Looking up the code does not share anything.";
+"ui.displayConsent.lookup" = "Look up screen";
+"ui.displayConsent.create" = "Share only your current DJ Session with this screen for two hours?";
+"ui.displayConsent.existing" = "Allow this screen to use the existing share for your current Session, without extending its expiry?";
+"ui.displayConsent.confirm" = "Allow this screen";
+"ui.displayConsent.approved" = "Screen approved for your current Session.";
+"ui.displayConsent.uncertain" = "Approval was not confirmed. Check the screen before starting a new request.";
+"ui.displayConsent.unavailable" = "The screen code or current Session is no longer available.";
