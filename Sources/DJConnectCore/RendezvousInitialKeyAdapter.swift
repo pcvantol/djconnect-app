@@ -10,7 +10,7 @@ import DeviceCheck
 
 /// Source-only initial-generation bridge; not wired to product preparation.
 /// A caller must independently admit this app/environment and physical effect.
-/// The shared installation slot spans legacy occupancy checks through key storage.
+/// The shared installation slot spans legacy checks through initial enrollment.
 /// This initial-only adapter never repairs, rotates, resets or adopts a lease.
 @MainActor public final class RendezvousInitialKeyAdapter {
     public enum Failure:Error,Sendable { case unsupported, staleContext, legacyOccupancy, generationFailed }
@@ -45,20 +45,31 @@ import DeviceCheck
         finishEnrollment:@escaping @MainActor @Sendable (UUID,String) async throws->Void
     ) async throws {
         guard sdk.isSupported else { throw Failure.unsupported }
+        guard RendezvousAppKeyOperations.initialEnrollmentLease == nil else { throw Failure.staleContext }
         // Not a key handle: fixed non-base64 namespace for installation-level
         // initial generation, separate from the eventual canonical per-key slot.
-        let (identifier,key) = try await RendezvousAppKeyOperations.shared.perform(
+        try await RendezvousAppKeyOperations.shared.perform(
             keyIdentifier:RendezvousAppKeyOperations.installationAdmissionSlot) { [self] in
-            try await perform(qr:qr,appContext:appContext,lifecycle:lifecycle,
+            let (identifier,key) = try await perform(qr:qr,appContext:appContext,lifecycle:lifecycle,
                 registration:registration,recovery:recovery,repair:repair,isAdmitted:isAdmitted)
+            try await finishInitialEnrollment(identifier:identifier,key:key,qr:qr,
+                isAdmitted:isAdmitted,finishEnrollment:finishEnrollment)
         }
-        // Release before enrollment: its journal creation takes this same slot.
-        // The persisted lifecycle row already prevents another initial generation.
+    }
+    private func finishInitialEnrollment(identifier:UUID,key:String,qr:DJConnectRendezvousQR,
+        isAdmitted:@escaping @MainActor @Sendable ()->Bool,
+        finishEnrollment:@escaping @MainActor @Sendable (UUID,String) async throws->Void) async throws {
         try Task.checkCancellation()
-        guard isAdmitted(),qr.isCurrent() else { throw Failure.staleContext }
-        try await finishEnrollment(identifier,key)
+        guard sdk.isSupported,isAdmitted(),qr.isCurrent() else { throw Failure.staleContext }
+        let lease = RendezvousInitialEnrollmentLease(key:key,qr:qr)
+        defer { lease.close() }
+        // Keep already-queued legacy writers behind this enrollment. Only its
+        // exact-key registration creation can reenter the held installation slot.
+        try await RendezvousAppKeyOperations.$initialEnrollmentLease.withValue(lease) {
+            try await finishEnrollment(identifier,key)
+        }
         try Task.checkCancellation()
-        guard isAdmitted(),qr.isCurrent() else { throw Failure.staleContext }
+        guard sdk.isSupported,isAdmitted(),qr.isCurrent() else { throw Failure.staleContext }
     }
     private func perform(qr:DJConnectRendezvousQR,appContext:Data,
         lifecycle:RendezvousKeyLifecycleJournal,registration:RendezvousRegistrationJournal,

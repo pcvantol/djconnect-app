@@ -8,6 +8,7 @@ public actor RendezvousAppKeyOperations {
     public static let shared = RendezvousAppKeyOperations()
     // Shared by initial generation and every legacy journal creation entry point.
     static let installationAdmissionSlot = "rendezvous-initial-generation-v1"
+    @TaskLocal static var initialEnrollmentLease:RendezvousInitialEnrollmentLease?
 
     private struct Waiter {
         let id: UUID
@@ -23,7 +24,7 @@ public actor RendezvousAppKeyOperations {
     init() {}
 
     public enum Failure: Error, Sendable {
-        case emptyKeyIdentifier
+        case emptyKeyIdentifier, invalidInitialEnrollmentLease, initialEnrollmentKeyBusy
     }
 
     public func perform<Value: Sendable>(
@@ -32,7 +33,16 @@ public actor RendezvousAppKeyOperations {
     ) async throws -> Value {
         guard !keyIdentifier.isEmpty else { throw Failure.emptyKeyIdentifier }
         let id = UUID()
-        try await acquire(key: keyIdentifier, id: id)
+        if let lease = Self.initialEnrollmentLease,keyIdentifier != Self.installationAdmissionSlot {
+            // Initial enrollment already owns the installation slot. Never wait
+            // for a key owner that could itself be waiting to create a journal.
+            try lease.withAccess(keyIdentifier:keyIdentifier) {
+                guard slots[keyIdentifier] == nil else { throw Failure.initialEnrollmentKeyBusy }
+                slots[keyIdentifier] = Slot(owner:id)
+            }
+        } else {
+            try await acquire(key: keyIdentifier, id: id)
+        }
         defer { release(key: keyIdentifier, id: id) }
         try Task.checkCancellation()
         // Keep ownership through every suspension, including cancellation cleanup
@@ -81,5 +91,27 @@ public actor RendezvousAppKeyOperations {
     // or assertion material are exposed through logging or product diagnostics.
     func waitingOperationCount(for key: String) -> Int {
         slots[key]?.waiters.count ?? 0
+    }
+}
+
+
+/// Ephemeral, key-bound reentrancy for only the initial registration creator.
+/// Never persisted/exported. Child tasks lose access once the parent scope ends.
+final class RendezvousInitialEnrollmentLease:@unchecked Sendable {
+    private let lock = NSLock()
+    private var open = true
+    private let key:String
+    private let qr:DJConnectRendezvousQR
+    init(key:String,qr:DJConnectRendezvousQR) { self.key = key; self.qr = qr }
+    func close() { lock.withLock { open = false } }
+    func withAccess<Value>(keyIdentifier:String,operation:()throws->Value) throws -> Value {
+        try lock.withLock {
+            guard open,keyIdentifier == key,!Task.isCancelled,qr.isCurrent() else {
+                throw RendezvousAppKeyOperations.Failure.invalidInitialEnrollmentLease
+            }
+            // No suspension between validation and durable creation. Closing an
+            // inherited lease cannot race a late child's synchronous write.
+            return try operation()
+        }
     }
 }

@@ -403,3 +403,51 @@ build-for-testing PASS: `/tmp/djc-install-serialization-ios-build.log`.
 The new bounded concurrency tests use memory journals and a synthetic SDK; no
 real SDK, Keychain or hardware effect was executed. New exact-head review/CI is
 required; no merge/physical/product admission is implied.
+
+
+## P1 follow-up: initial enrollment precedes queued legacy creation
+
+Exactdfa731e review5585759031/P1-4325553234 found a second ordering defect:
+releasing installation admission before enrollment allowed an already-queued
+legacy registration creator to fill the immutable journal first. The generated
+key could then never enroll. The separate no-major-issues receipt/green dfa CI do
+not supersede this concrete finding.
+
+Initial generation now keeps installation admission through its enrollment
+continuation. A task-local, exact-key-bound, ephemeral lease allows only that
+registration creator to reenter without reacquiring the held slot. Lease closure
+is synchronized with the complete synchronous journal-creation write, so an
+inherited child cannot write after the scope closes. Wrong keys, expired QR,
+cancellation, closed scope and recovery/repair reentry are refused. This is not
+SDK permission or a durable enrollment/active-key claim. Public callers cannot
+construct or replace the internal lease.
+
+While initial enrollment owns installation admission, the canonical per-key queue
+uses an immediate claim: if already occupied, it refuses rather than waiting for
+an owner that might itself be waiting to create a journal. The generated handle
+remains durable on that refusal; no fresh generation/retry is authorized. Ordinary
+per-key FIFO behavior is unchanged outside this scoped path. Recursive initial
+generation within the scope is refused. These rules replace the preceding
+release-before-enrollment/no-nesting description; the new nested per-key claim
+cannot wait while holding installation admission.
+
+The concrete race test queues an actual other-key legacy registration during the
+synthetic SDK callback. The initial enrollment writes its correct key first; the
+queued legacy writer then fails replacement and cannot poison the journal.
+Additional tests cover actual canonical per-key enrollment plus journal creation,
+wrong-key and closed leases, an inherited child attempting late creation, busy
+per-key refusal and finite recovery/repair refusal. Final20 focused functions
+PASS: `/tmp/djc-initial-enrollment-priority-final3.log`. One earlier test compile
+failed because the Testing macro could not infer a throwing closure; an explicit
+read fixed that test-only expression, and the failed log is retained separately.
+No old-source overwrite or rejected counterrun was retried. Tests use synthetic
+providers and memory stores; source remains UNWIRED and product NOT READY.
+
+
+Final enrollment-priority correction: full serial73XCTest(2 intentional skips,
+0 failures) plus962SwiftTesting functions in10suites PASS:
+`/tmp/djc-initial-enrollment-priority-full.log`. Final unsigned iOS simulator
+build-for-testing PASS: `/tmp/djc-initial-enrollment-priority-ios-build.log`.
+No genuine SDK, Keychain or hardware effect was executed. Both dfa P1 and the
+separate no-major-issues receipt remain historical evidence; this new source
+requires its own exact-head reviews/CI and gives no merge/runtime admission.

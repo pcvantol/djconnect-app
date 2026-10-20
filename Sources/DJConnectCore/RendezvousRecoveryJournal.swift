@@ -44,7 +44,8 @@ public actor RendezvousRecoveryJournal {
     /// dictionary. All parsed fields must match this captured recovery context.
     public func begin(keyIdentifier: String, challengeIdentifier: String, nonce: Data, clientData: Data,
                       admittedAtMS: Int64, deadlineMS: Int64) async throws -> UUID {
-        try await RendezvousAppKeyOperations.shared.perform(keyIdentifier:RendezvousAppKeyOperations.installationAdmissionSlot) {
+        guard RendezvousAppKeyOperations.initialEnrollmentLease == nil else { throw Failure.unavailable }
+        return try await RendezvousAppKeyOperations.shared.perform(keyIdentifier:RendezvousAppKeyOperations.installationAdmissionSlot) {
             try await self.beginLocked(keyIdentifier:keyIdentifier,challengeIdentifier:challengeIdentifier,
                 nonce:nonce,clientData:clientData,admittedAtMS:admittedAtMS,deadlineMS:deadlineMS)
         }

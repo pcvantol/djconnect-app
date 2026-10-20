@@ -47,7 +47,13 @@ public actor RendezvousRegistrationJournal {
     /// Save their original binding before permitting any SDK invocation.
     public func beginAttestation(keyIdentifier: String, challengeIdentifier: String, nonce: Data,
                                  admittedAtMS: Int64, deadlineMS: Int64) async throws -> UUID {
-        try await RendezvousAppKeyOperations.shared.perform(keyIdentifier:RendezvousAppKeyOperations.installationAdmissionSlot) {
+        if let lease = RendezvousAppKeyOperations.initialEnrollmentLease {
+            return try lease.withAccess(keyIdentifier:keyIdentifier) {
+                try self.beginAttestationLocked(keyIdentifier:keyIdentifier,challengeIdentifier:challengeIdentifier,
+                    nonce:nonce,admittedAtMS:admittedAtMS,deadlineMS:deadlineMS)
+            }
+        }
+        return try await RendezvousAppKeyOperations.shared.perform(keyIdentifier:RendezvousAppKeyOperations.installationAdmissionSlot) {
             try await self.beginAttestationLocked(keyIdentifier:keyIdentifier,challengeIdentifier:challengeIdentifier,
                 nonce:nonce,admittedAtMS:admittedAtMS,deadlineMS:deadlineMS)
         }
@@ -88,7 +94,13 @@ public actor RendezvousRegistrationJournal {
     /// attempt (including an uncertain/completed one) can be replaced here.
     public func prepare(keyIdentifier: String, challengeIdentifier: String, nonce: Data,
                         attestation: Data, admittedAtMS: Int64, deadlineMS: Int64) async throws -> UUID {
-        try await RendezvousAppKeyOperations.shared.perform(keyIdentifier:RendezvousAppKeyOperations.installationAdmissionSlot) {
+        if let lease = RendezvousAppKeyOperations.initialEnrollmentLease {
+            return try lease.withAccess(keyIdentifier:keyIdentifier) {
+                try self.prepareLocked(keyIdentifier:keyIdentifier,challengeIdentifier:challengeIdentifier,
+                    nonce:nonce,attestation:attestation,admittedAtMS:admittedAtMS,deadlineMS:deadlineMS)
+            }
+        }
+        return try await RendezvousAppKeyOperations.shared.perform(keyIdentifier:RendezvousAppKeyOperations.installationAdmissionSlot) {
             try await self.prepareLocked(keyIdentifier:keyIdentifier,challengeIdentifier:challengeIdentifier,
                 nonce:nonce,attestation:attestation,admittedAtMS:admittedAtMS,deadlineMS:deadlineMS)
         }
