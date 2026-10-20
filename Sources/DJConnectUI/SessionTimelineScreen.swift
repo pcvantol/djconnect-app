@@ -403,6 +403,14 @@ struct SessionTimelineScreen: View {
         #endif
     }
     private var timeline: DJConnectSessionHistoryModel.Timeline { history.timelines[sessionID] ?? .init() }
+    private struct SubmittedTurnNavigation: Equatable {
+        let target: String?
+        let showsForecast: Bool
+        let searching: Bool
+    }
+    private var submittedTurnNavigation: SubmittedTurnNavigation {
+        .init(target: submittedQuestionTarget, showsForecast: showsForecast, searching: searching)
+    }
     private var submittedQuestionTarget: String? {
         submittedQuestion?.target(sessionID: sessionID, pending: history.pendingTurns,
             entries: timeline.entries, current: model.currentSessionConversationMessages(sessionID: sessionID))
@@ -633,7 +641,7 @@ struct SessionTimelineScreen: View {
                     }
                     .defaultScrollAnchor(.top, for: .initialOffset)
                     .scrollPosition(id: $visibleEntry, anchor: scrollAnchor)
-                    .task(id: submittedQuestionTarget) {
+                    .task(id: submittedTurnNavigation) {
                         guard let target = submittedQuestionTarget else { return }
                         await Task.yield()
                         guard !Task.isCancelled, submittedQuestionTarget == target, !searching, !showsForecast else { return }

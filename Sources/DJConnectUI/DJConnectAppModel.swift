@@ -983,7 +983,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var forecastGeneration = UUID()
     private var forecastEpoch: UUID?
     private var forecastExpiryTask: Task<Void, Never>?
-    private struct ForecastScope: Equatable {
+    struct ForecastScope: Equatable {
         let sessionID: String
         let mood: String
         let moodRevision: Int?
@@ -1006,6 +1006,8 @@ public final class DJConnectAppModel: ObservableObject {
             playbackState = session.broadcast.playback?.state
         }
     }
+    /// The panel's task and admission gate share the exact same material context.
+    var sessionForecastRefreshScope: ForecastScope? { activeDJSession.map(ForecastScope.init) }
     private var forecastScope: ForecastScope?
 
     public func visibleSessionForecast(at date: Date) -> DJConnectSessionForecast? {

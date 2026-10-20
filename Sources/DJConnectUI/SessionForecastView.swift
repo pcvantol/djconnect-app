@@ -65,12 +65,13 @@ struct SessionForecastPanel<Header: View>: View {
         [model.forecastCursor?.projection?.valid_until.flatMap(DJConnectSessionForecast.timestamp)].compactMap { $0 }
             + (model.forecastCursor?.projection?.imagery.compactMap { DJConnectSessionForecast.timestamp($0.expires_at) } ?? [])
     }
-    private var contextKey: String {
-        let session = model.activeDJSession
-        return [session?.id ?? "", String(describing: history.responseEpoch), String(describing: scenePhase),
-                session?.selectedMood ?? "", String(describing: session?.confirmedPresence),
-                String(describing: session?.selectedPersona), session?.broadcast.playback?.itemID ?? "",
-                session?.broadcast.playback?.state ?? "", session?.broadcast.playback?.sourceURL ?? ""].joined(separator: "|")
+    private struct RefreshContext: Equatable {
+        let scope: DJConnectAppModel.ForecastScope?
+        let ownerEpoch: UUID
+        let phase: ScenePhase
+    }
+    private var contextKey: RefreshContext {
+        .init(scope: model.sessionForecastRefreshScope, ownerEpoch: history.responseEpoch, phase: scenePhase)
     }
     var body: some View {
         TimelineView(SessionEntryRefreshSchedule(deadlines: deadlines)) { clock in
