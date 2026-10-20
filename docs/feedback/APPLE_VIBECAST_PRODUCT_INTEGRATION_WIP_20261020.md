@@ -17,7 +17,7 @@ numbers, noncanonical tokens and non-v4 UUIDs. It retains the original remaining
 120-second wall/monotonic lifetime and rejects clock rollback. Public inspect
 uses only the fixed API origin, no HA credentials, redirects, cookies or cache,
 and bounds streamed JSON. The returned exact RSA2048/e65537 JWK must match the
-QR's RFC7638 thumbprint, generation and original deadline.
+QR's transaction ID, RFC7638 thumbprint, generation and original deadline.
 
 Supported-path preparation reads the selected HA's authenticated transport
 installation context, then its owner display context. Those are bounded
@@ -71,8 +71,8 @@ explicit not-ready message. No success or display consent is inferred.
   by using the canonical localization API. Failure log retained separately at
   `/tmp/djc-rendezvous-product-first.log`.
 
-API's new local HTTP target remains separately gated pending its protected
-supplier-pin repair/final receipt. Genuine verifier defaults are unchanged;
+API's local HTTP target is finalized at protected 828fbaf; its bounded Apple
+HTTP/software interop result is recorded below. Genuine verifier defaults are unchanged;
 no simulator/40381/debug trust grant was added. Existing PRIVATE40381 remains
 PREPARED_ONLY. No physical device action, public deployment or credential transfer.
 
@@ -100,7 +100,8 @@ Actual denied-camera Settings interaction remains unqualified.
 Protected API runtime handoff was read independently at
 828fbaf300ca369dcc753b676295e84094d5e8c6; runtime file SHA256
 27e9f5ae2a7b7350f3ae51352cf4efb023ec17f79bc8f42968cc3bdfbfe34854
-matches. This is intake only: the API target has not been executed by Apple.
+matches. The initial read-only intake was later followed by the explicitly
+bounded local HTTP/software execution below.
 Its local HTTP derivative retains the genuine verifier; no fake/simulator/40381
 trust grant or public activation is inferred. Finalization:
 https://github.com/pcvantol/djconnect-api/issues/90#issuecomment-6288860618
@@ -132,3 +133,40 @@ separate Core B owner resolve/approve consumer also needs its own native wiring
 and explicit current-Session consent. Existing six-digit Session handoff is
 preserved and is not promoted into a B contract substitute. Nothing here starts
 a Session, grants B display access, admits a physical SDK run or activates API.
+
+## Actual native HTTP / software JOSE interop
+
+The protected API828 real-root local derivative was executed read-only with its
+qualified dependencies and genuine verifier defaults unchanged. A Node software
+RSA recipient created one transaction; the actual native Mac Swift service sent
+inspect, shipping JOSESwift encrypted the destination, and API's provenance-checked
+JOSE 6.2.12 independently decrypted and compared all eight plaintext fields and
+exact protected headers/digest. The transaction was then cancelled. Actual POSTs:
+create 201 → inspect 200 → cancel 200. No enrollment, submit or SDK call occurred.
+
+This exposed a real Apple defect: inspect accepted only five fields, omitting the
+released transaction_id. An actual HTTP 200 with the released six-field response
+and a pure released-schema fixture both failed before correction. The parser now
+requires exactly six fields and binds transaction_id to the original QR. Missing,
+wrong and unknown fields are rejected. Negative logs:
+`/tmp/djc-native-api-http-schema-negative-confirmed.log`,
+`/private/tmp/djc-rendezvous-http-CzOQ6R/native-test.log`,
+`/tmp/djc-rendezvous-inspect-released-schema-negative.log`.
+
+Success receipt: `/private/tmp/djc-rendezvous-http-JCzSK8/receipt.json`;
+`/tmp/djc-native-api-http-final.log`. Targeted regression log:
+`/tmp/djc-rendezvous-http-schema-final.log` (eleven executed functions plus one
+opt-in skip; the opt-in test executed separately against the real local target).
+Earlier setup/Swift concurrency/path-normalization failures are retained and are
+not product counterexamples. Canonical private-root/owner/permission/symlink
+checks remain; Foundation may normalize /private/tmp to /tmp.
+
+Reproduction: precompile the current Swift tests, then explicitly run
+`Tools/qualification/vibecast-product/run_api_http.mjs` with the exact clean
+API828 checkout, prepared Swift scratch and the provenance-checked JOSE package.
+The runner uses a new private capability/ephemeral server and closes it in finally;
+it does not start the public service. Its test-only URLProtocol translates only
+the locator/response URL metadata to loopback. Body/status/crypto are unchanged.
+This is Mac native Swift HTTP plus software crypto with a synthetic HA route. It
+is not public TLS/edge, browser UI, positive iOS App Attest, physical or full-chain
+acceptance. Existing simulator unsupported evidence remains separate.

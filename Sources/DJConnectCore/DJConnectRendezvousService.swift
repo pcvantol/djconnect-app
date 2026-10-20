@@ -6,8 +6,9 @@ public struct DJConnectRendezvousBrowserKey: Equatable, Sendable {
     public let thumbprint: String
     static func parse(_ data: Data, for qr: DJConnectRendezvousQR) throws -> Self {
         let value = try RendezvousFlatJSON.parse(data, maximumBytes: 4096)
-        guard Set(value.keys) == ["v", "browser_public_key", "browser_key_thumbprint", "generation", "expires_at"],
+        guard Set(value.keys) == ["v", "transaction_id", "browser_public_key", "browser_key_thumbprint", "generation", "expires_at"],
               value["v"] == .string("djc-rendezvous/1"),
+              value["transaction_id"] == .string(qr.transactionID),
               value["browser_key_thumbprint"] == .string(qr.browserKeyThumbprint),
               value["generation"] == .integer(qr.generation), value["expires_at"] == .integer(qr.expiresAtMS),
               case let .object(jwk)? = value["browser_public_key"], Set(jwk.keys) == ["kty", "n", "e"],
@@ -37,8 +38,10 @@ private final class RendezvousRedirectGuard: NSObject, URLSessionTaskDelegate, S
 /// headers. No redirects, cookies, cache, transport retries or background tasks.
 public final class DJConnectRendezvousService: Sendable {
     private let session: URLSession
-    public init() {
-        let configuration = URLSessionConfiguration.ephemeral
+    public convenience init() { self.init(configuration:.ephemeral) }
+    // Module-internal configuration seam for isolated qualification URLProtocol.
+    // Product callers have only the fixed-origin, ephemeral public initializer.
+    init(configuration:URLSessionConfiguration) {
         configuration.urlCache = nil; configuration.httpCookieStorage = nil
         configuration.urlCredentialStorage = nil; configuration.httpShouldSetCookies = false
         configuration.timeoutIntervalForRequest = 8; configuration.timeoutIntervalForResource = 8

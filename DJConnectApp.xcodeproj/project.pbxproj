@@ -66,6 +66,7 @@
 		2F8073EDEA1FB3873E118794 /* JOSESwift-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 53B6C3DF83F55342C594BF75 /* JOSESwift-LICENSE.txt */; };
 		2FFC4608E6BF4D8EECCFC2B4 /* DJConnectSpeechVoicePreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACB3AAAC43237F3304AEEFA6 /* DJConnectSpeechVoicePreference.swift */; };
 		30511F254DD0BBF8DBDA8618 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 41225F05C17EE00301FF6706 /* InfoPlist.strings */; };
+		3074DC4C718EF8B243420BA6 /* RendezvousHTTPInteropTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18875F32AC3756200F2E7128 /* RendezvousHTTPInteropTests.swift */; };
 		30C63E92E0B6AF0C2CDAF8D0 /* DJConnectWatchProxyModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 906371AAB99C0F06424B1789 /* DJConnectWatchProxyModels.swift */; };
 		312D80D38F14BD2E8517B580 /* DJConnectSpeechPlaybackRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9481A2DADE9DB2613A7205A6 /* DJConnectSpeechPlaybackRuntime.swift */; };
 		338CA547424C9136D333C86A /* DJConnectTrackInsightWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D28D4FC8C6E0AEC5D2C3EC /* DJConnectTrackInsightWidgets.swift */; };
@@ -582,6 +583,7 @@
 		16845A0EFC30777F34D9B019 /* DJConnectWatchComplications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchComplications.swift; sourceTree = "<group>"; };
 		175EDF7175EC7D4B19AFF364 /* DJConnectGlassAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectGlassAppearance.swift; sourceTree = "<group>"; };
 		17919B283CC14F9BC5B8D295 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		18875F32AC3756200F2E7128 /* RendezvousHTTPInteropTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendezvousHTTPInteropTests.swift; sourceTree = "<group>"; };
 		1C1AEB2C655A789533668440 /* DJConnectWatchComplications.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DJConnectWatchComplications.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DB174465C70FE0A0870D342 /* DJConnectIOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DJConnectIOS.entitlements; sourceTree = "<group>"; };
 		1DFC8884D473895FD28BE17D /* DJConnectLocalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectLocalization.swift; sourceTree = "<group>"; };
@@ -1046,6 +1048,7 @@
 				F0D0920CE93DE97375475F7C /* RendezvousAppKeyOperationsTests.swift */,
 				8580F9BB0E48DE7199A1913B /* RendezvousDestinationTests.swift */,
 				E0DF4F30A6227179E1DDA94F /* RendezvousEnrollmentChallengeTests.swift */,
+				18875F32AC3756200F2E7128 /* RendezvousHTTPInteropTests.swift */,
 				4A302BBB4FDA2BC7AB2C1D4E /* RendezvousInspectTests.swift */,
 				2AE5D50E601B5FEC6BEBBBE6 /* RendezvousOwnerTransportTests.swift */,
 				35CF38B4CD164B34EFC81240 /* RendezvousProductRoutingTests.swift */,
@@ -1716,6 +1719,7 @@
 				7E7A8643492BCCA5BA67CF55 /* RendezvousAppKeyOperationsTests.swift in Sources */,
 				F797A2DF20921E5419DFB534 /* RendezvousDestinationTests.swift in Sources */,
 				73B3730AB95B304646011A2C /* RendezvousEnrollmentChallengeTests.swift in Sources */,
+				3074DC4C718EF8B243420BA6 /* RendezvousHTTPInteropTests.swift in Sources */,
 				8F551ECCB881806DDC5E7CCE /* RendezvousInspectTests.swift in Sources */,
 				69E9A4C526BB661624A37E55 /* RendezvousOwnerTransportTests.swift in Sources */,
 				F83CD39E20AE4B9ABAB23141 /* RendezvousProductRoutingTests.swift in Sources */,

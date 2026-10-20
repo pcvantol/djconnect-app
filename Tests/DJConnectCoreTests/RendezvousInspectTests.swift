@@ -14,12 +14,15 @@ import Testing
         "transaction_id":"00000000-0000-4000-8000-000000000001", "generation":1, "expires_at":121000,
         "browser_key_thumbprint":thumbprint, "qr_capability":String(repeating:"A",count:43)]
     let qr = try DJConnectRendezvousQR.parse(String(decoding: JSONSerialization.data(withJSONObject: qrObject), as: UTF8.self), at:1000, uptime:10)
-    let response: [String: Any] = ["v":"djc-rendezvous/1", "browser_public_key":["kty":"RSA", "n":n, "e":"AQAB"], "browser_key_thumbprint":thumbprint,
+    let response: [String: Any] = ["v":"djc-rendezvous/1", "transaction_id":qr.transactionID, "browser_public_key":["kty":"RSA", "n":n, "e":"AQAB"], "browser_key_thumbprint":thumbprint,
         "generation":1, "expires_at":121000]
     let data = try JSONSerialization.data(withJSONObject: response, options:.sortedKeys)
     #expect(try DJConnectRendezvousBrowserKey.parse(data, for:qr).modulus == bytes)
     let text = String(decoding:data,as:UTF8.self)
-    for bad in [text.replacingOccurrences(of:"\"generation\":1",with:"\"generation\":2"),
+    for bad in [text.replacingOccurrences(of:"\"transaction_id\":\"\(qr.transactionID)\",",with:""),
+                text.replacingOccurrences(of:"\"v\":",with:"\"unexpected\":0,\"v\":"),
+                text.replacingOccurrences(of:qr.transactionID,with:"00000000-0000-4000-8000-000000000002"),
+                text.replacingOccurrences(of:"\"generation\":1",with:"\"generation\":2"),
                 text.replacingOccurrences(of:"121000",with:"121001"),
                 text.replacingOccurrences(of:"AQAB",with:"Aw"),
                 text.replacingOccurrences(of:"\"kty\":\"RSA\"",with:"\"kty\":\"RSA\",\"kt\\u0079\":\"RSA\""),

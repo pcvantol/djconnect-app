@@ -18,7 +18,7 @@ import Testing
         "transaction_id":"00000000-0000-4000-8000-000000000001","generation":1,"expires_at":expiry,
         "browser_key_thumbprint":thumbprint,"qr_capability":String(repeating:"A",count:43)]
     let qr = try DJConnectRendezvousQR.parse(String(decoding:JSONSerialization.data(withJSONObject:qrObject),as:UTF8.self))
-    let response: [String:Any] = ["v":"djc-rendezvous/1","browser_public_key":["kty":"RSA","n":jwk.modulus,"e":"AQAB"],
+    let response: [String:Any] = ["v":"djc-rendezvous/1","transaction_id":qr.transactionID,"browser_public_key":["kty":"RSA","n":jwk.modulus,"e":"AQAB"],
         "browser_key_thumbprint":thumbprint,"generation":1,"expires_at":expiry]
     let browserKey = try DJConnectRendezvousBrowserKey.parse(JSONSerialization.data(withJSONObject:response),for:qr)
     let owner = try JSONDecoder().decode(DJConnectDisplayOwnerContext.self,from:JSONSerialization.data(withJSONObject:[
