@@ -283,3 +283,73 @@ Validation:
 - Canonical XcodeGen project registers the new source/test files. No unchanged
   unsupported-UI or local HTTP probe was rerun; their historical evidence remains
   separate. Exact new-head code/security review and CI remain pending.
+
+
+## Initial-generation SDK bridge (unwired source)
+
+`RendezvousInitialKeyAdapter` adds the genuine iOS generateKey bridge for an
+independently admitted initial-generation operation. The public initializer fixes
+the Apple provider and the real historical-state check; injection remains
+internal and synthetic. It is not connected to product preparation and executes
+no genuine effect in this qualification.
+
+One fixed installation operation slot spans registration/recovery/repair journal
+occupancy checks, lifecycle reservation, the SDK callback and the required
+caller enrollment-completion closure. Any occupied, malformed or unreadable
+older journal stops initial generation. The stable historical binary-host attempt
+namespace also blocks on any item, including a broken link or unexpected parent
+link. Its contents are never read, migrated, deleted or reset. This does not
+prove hardware inventory absence; qualified app/environment, foreground consent,
+legacy reconciliation and the physical effect grant remain caller prerequisites.
+
+After the durable reservation write, admission/cancellation/QR validity is checked
+again immediately before the SDK. Callback waits use the original QR monotonic
+expiry and remaining wall time, via the existing single-completion gate. Unknown,
+failed or malformed results preserve an occupied generation-unknown slot; no
+retry creates another key. A known key callback is persisted even if the UI owner
+was lost, but does not proceed to enrollment in that context. Failed/uncertain
+completion persistence prevents enrollment. Callback handles are not active
+leases. Enrollment failure retains the existing generated handle and cannot
+restart initial generation. The existing enrollment adapter separately holds the
+canonical per-key slot; the initial installation slot is a distinct namespace.
+
+This is initial-only: replacement/rollover SDK wiring, qualified context/time and
+full enrollment/assertion/submit orchestration remain open, along with Core B
+explicit current-Session consent. The UI continues to report NOT READY. No
+physical SDK call, ordinary app update or public activation was executed.
+
+Synthetic tests cover durable-before-SDK observation, restart/unknown result,
+unsupported/missing admission, failed and commit-then-error writes before SDK and
+at callback completion, owner loss during persistence/callback, enrollment failure,
+malformed callback, valid older enrollment occupancy, three malformed legacy
+journals, historical occupancy/unreadability and real filesystem presence/link
+checks confined to a freshly created synthetic temporary subtree. No real
+Keychain or private historical contents were read by tests.
+
+Read-only new API source intake: protected379d70b558508f747d578d7b7d90a665bad7ffc8
+changes only the existing unusable-enrollment-policy branch to the existing
+service_unavailable503. A postcommit503 can leave one installed server key with
+its original expiry, so it is an unknown outcome, never evidence for another
+initial generation, fresh challenge or automatic retry. The released policy
+predicate, crypto/deadlines/budgets and runtime helper remain unchanged. Exact
+source/docs/helper hashes are recorded locally in
+`build/qualification/vibecast-product-integration/api-policy-379-intake.json`.
+The earlier API828 HTTP evidence remains historical and was not rerun/promoted.
+No consumer ACK or API change was requested.
+
+
+Final initial-generation increment validation:
+
+- Final36 targeted lifecycle/enrollment/generation functions PASS:
+  `/tmp/djc-initial-generation-final4.log` (including the new synthetic
+  historical-path filesystem checks).
+- Final serial full suite:73 XCTest,2 intentional skips,0 failures;
+  955 Swift Testing functions in10 suites PASS:
+  `/tmp/djc-initial-generation-full.log`.
+- Final unsigned iOS simulator build-for-testing PASS, compiling the genuine
+  generateKey branch without executing it:
+  `/tmp/djc-initial-generation-ios-build.log`.
+- No actual SDK, hardware-key, Keychain or HTTP call was made by these tests.
+  Prior76bc8ea code review receipt6291346854 and CI/Trusted Delivery are green;
+  they qualify that predecessor, not this new source. New exact-head code and
+  separate security reviews/CI remain pending. No merge admission.
