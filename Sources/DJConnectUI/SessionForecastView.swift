@@ -49,16 +49,30 @@ struct SessionForecastTextView: View {
     }
 }
 
+/// Transient viewport state belongs to the native screen, not a Profile.
+/// Recording geometry must not invalidate the full Flow for every scroll pixel.
+@MainActor final class SessionForecastViewport {
+    private(set) var offset: CGFloat = 0
+    func record(_ value: CGFloat) {
+        guard value.isFinite else { return }
+        offset = max(0, value)
+    }
+}
+
 struct SessionForecastPanel<Header: View>: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
     let header: Header
-    @Binding var position: String?
+    let viewport: SessionForecastViewport
+    @State private var position: ScrollPosition
     @Binding var query: String
     @Environment(\.scenePhase) private var scenePhase
-    init(model: DJConnectAppModel, position: Binding<String?>, query: Binding<String>, @ViewBuilder header: () -> Header) {
+    init(model: DJConnectAppModel, viewport: SessionForecastViewport, query: Binding<String>, @ViewBuilder header: () -> Header) {
         self.model = model; history = model.sessionHistory; self.header = header()
-        _position = position; _query = query
+        self.viewport = viewport; _query = query
+        // The panel is removed while Flow is selected. Restore its device-local
+        // viewport even when no authored text ID intersects the top edge.
+        _position = State(initialValue: ScrollPosition(y: viewport.offset))
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     private var deadlines: [Date] {
@@ -104,7 +118,13 @@ struct SessionForecastPanel<Header: View>: View {
                         }
                     }.padding(.horizontal, 20)
                 }.padding(.vertical, 16)
-            }.scrollPosition(id: $position, anchor: .top)
+            }
+            .scrollPosition($position)
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { _, value in
+                viewport.record(value)
+            }
         }
         .accessibilityIdentifier("session-forecast-panel")
         .task(id: contextKey) {

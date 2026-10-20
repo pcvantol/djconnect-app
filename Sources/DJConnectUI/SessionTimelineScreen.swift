@@ -348,7 +348,7 @@ struct SessionTimelineScreen: View {
     @State private var priorSearchPosition: String?
     @State private var query = ""
     @State private var showsForecast = false
-    @State private var forecastPosition: String?
+    @State private var forecastViewport = SessionForecastViewport()
     @State private var forecastQuery = ""
     @State private var searching = false
     @State private var selectedMatchID: String?
@@ -661,7 +661,7 @@ struct SessionTimelineScreen: View {
                     .allowsHitTesting(!displayingForecast)
                     .accessibilityHidden(displayingForecast)
                     if showsForecast, let activeSession {
-                        SessionForecastPanel(model: model, position: $forecastPosition, query: $forecastQuery) { scrollingCurrent(activeSession) }
+                        SessionForecastPanel(model: model, viewport: forecastViewport, query: $forecastQuery) { scrollingCurrent(activeSession) }
                     }
                     }
                     .safeAreaInset(edge: .bottom, spacing: 0) {

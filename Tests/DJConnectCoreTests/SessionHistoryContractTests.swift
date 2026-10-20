@@ -6306,7 +6306,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
-    let panel = SessionForecastPanel(model: model, position: .constant(nil), query: .constant("")) { EmptyView() }
+    let panel = SessionForecastPanel(model: model, viewport: SessionForecastViewport(), query: .constant("")) { EmptyView() }
     let beforeOwner = panel.contextKey
     await model.sessionHistory.prepare()
     if fence == "current" {
@@ -6439,6 +6439,9 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     if keyboardProbe, let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_KEYBOARD_DIR"] {
         try await qualifyForecastNativeKeyboard(model: model, directory: directory)
     }
+    if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_SCROLL_DIR"] {
+        try await qualifyForecastNativeScroll(model: model, directory: directory)
+    }
     #endif
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" && !$0.url!.path.contains("/command") && !$0.url!.path.contains("/message") })
 }
@@ -6500,6 +6503,10 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     }
     #expect(picker.selectedSegment == 0)
     let flow = try #require(field("ui.session.history.search"), "Command-F must expose the actual Flow search field")
+    // Mounting the field may precede AppKit's asynchronous focus bridge.
+    for _ in 0..<30 where flow.currentEditor() == nil || window.firstResponder !== flow.currentEditor() {
+        try await Task.sleep(for: .milliseconds(50))
+    }
     #expect(flow.currentEditor() != nil && window.firstResponder === flow.currentEditor(), "Visible Flow search must own native text focus")
     #expect(model.askDJDraft == "Keep this unsent question")
     try capture("keyboard-02-flow-search")
@@ -6517,6 +6524,84 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     #expect(model.activeDJSession?.id == session.id)
     #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
     try capture("keyboard-03-flow-search-closed")
+}
+
+/// Native end-of-content restoration is a semantic boundary check, not an
+/// arbitrary pixel-offset promise or physical wheel/trackpad qualification.
+@MainActor private func qualifyForecastNativeScroll(model: DJConnectAppModel, directory: String) async throws {
+    let session = try #require(model.activeDJSession)
+    _ = NSApplication.shared
+    let view = ForecastNativeHost(model: model, sessionID: session.id)
+        .environment(\.scenePhase, .active).environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark).frame(width: 600, height: 900)
+    let host = NSHostingView(rootView: view)
+    let window = NSWindow(contentRect: CGRect(x: -2000, y: -2000, width: 600, height: 900),
+        styleMask: [.borderless], backing: .buffered, defer: false)
+    window.appearance = NSAppearance(named: .darkAqua)
+    window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
+    defer { window.close() }
+    let folder = URL(fileURLWithPath: directory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
+    func forecastField() -> NSTextField? {
+        let prompt = DJConnectLocalization.localized(key: "ui.session.forecast.search", language: model.language)
+        return descendants(host).compactMap { $0 as? NSTextField }.first { $0.placeholderString == prompt }
+    }
+    func capture(_ name: String) throws {
+        host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
+        let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: image)
+        try #require(image.representation(using: .png, properties: [:])).write(to: folder.appendingPathComponent(name + ".png"))
+    }
+    func limit(_ scroll: NSScrollView) -> CGFloat {
+        max(0, (scroll.documentView?.bounds.height ?? 0) - scroll.contentView.bounds.height)
+    }
+    try await Task.sleep(for: .milliseconds(400))
+    host.layoutSubtreeIfNeeded()
+    let picker = try #require(descendants(host).compactMap { $0 as? NSSegmentedControl }.first { $0.segmentCount == 2 })
+    let action = try #require(picker.action)
+    let flow = try #require(descendants(host).compactMap { $0 as? NSScrollView }
+        .filter { !($0.documentView is NSTextView) }.max { $0.bounds.width * $0.bounds.height < $1.bounds.width * $1.bounds.height })
+    let originalFlowOffset = flow.contentView.bounds.origin
+    picker.selectedSegment = 1
+    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
+    for _ in 0..<30 where forecastField() == nil { try await Task.sleep(for: .milliseconds(50)) }
+    let scroll = try #require(forecastField()?.enclosingScrollView, "Locate the Forecast's actual native scroll container")
+    host.layoutSubtreeIfNeeded()
+    let bottom = limit(scroll)
+    #expect(bottom > 100, "The fixture must have genuinely scrollable Forecast content")
+    scroll.contentView.scroll(to: NSPoint(x: 0, y: bottom))
+    scroll.reflectScrolledClipView(scroll.contentView)
+    try await Task.sleep(for: .milliseconds(250))
+    #expect(scroll.contentView.bounds.origin.y >= bottom - 4)
+    try capture("scroll-01-forecast-end")
+    picker.selectedSegment = 0
+    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
+    for _ in 0..<30 where forecastField() != nil { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(abs(flow.contentView.bounds.origin.y - originalFlowOffset.y) < 4)
+    #expect(model.askDJDraft == "Keep this unsent question")
+    try capture("scroll-02-flow-independent")
+    picker.selectedSegment = 1
+    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
+    for _ in 0..<30 where forecastField() == nil { try await Task.sleep(for: .milliseconds(50)) }
+    let restored = try #require(forecastField()?.enclosingScrollView)
+    for _ in 0..<30 where restored.contentView.bounds.origin.y < limit(restored) - 4 {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    #expect(limit(restored) > 100)
+    #expect(restored.contentView.bounds.origin.y >= limit(restored) - 4,
+            "Returning to Forecast must restore its end-of-content position")
+    #expect(model.askDJDraft == "Keep this unsent question")
+    #expect(model.activeDJSession?.id == session.id)
+    #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
+    try capture("scroll-03-forecast-restored")
+    let metrics: [String: Any] = ["forecast_max_offset": Double(bottom),
+        "forecast_original_end": Double(scroll.contentView.bounds.origin.y),
+        "forecast_restored_offset": Double(restored.contentView.bounds.origin.y),
+        "forecast_restored_max": Double(limit(restored)),
+        "flow_initial_offset": Double(originalFlowOffset.y), "flow_return_offset": Double(flow.contentView.bounds.origin.y)]
+    try JSONSerialization.data(withJSONObject: metrics, options: [.sortedKeys, .prettyPrinted])
+        .write(to: folder.appendingPathComponent("native-scroll-metrics.json"))
 }
 
 @MainActor private final class ForecastNativeOpenedURLs {

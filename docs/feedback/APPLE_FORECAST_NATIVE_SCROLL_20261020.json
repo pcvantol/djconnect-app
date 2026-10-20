@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "parent_sha": "ab36e9bcd34fd2c3973253617bcb10623bb7156e",
+  "publication": "LOCAL_ONLY",
+  "negative": {
+    "forecast_before": 246,
+    "forecast_restored": 0,
+    "assertion_issues": 1
+  },
+  "final": {
+    "mac_executed_functions": 10,
+    "mac_skipped_functions": 1,
+    "lifecycle_cases": 16,
+    "canonical_artist_cases": 7,
+    "native_keyboard": "PASS",
+    "native_scroll": "PASS",
+    "forecast_before": 246,
+    "forecast_restored": 246,
+    "flow_before": 0,
+    "flow_restored": 0,
+    "ios_build_for_testing": "PASS"
+  },
+  "evidence": [
+    {
+      "path": "Sources/DJConnectUI/SessionForecastView.swift",
+      "sha256": "7e51d397dd3f3161e8c613bdd34d264834fb755f51d96bee7474afbd521c94d3"
+    },
+    {
+      "path": "Sources/DJConnectUI/SessionTimelineScreen.swift",
+      "sha256": "2cf38e4d5293f7d9291daa4dfa7b623f6dff19f9b0189a74f6c4203ee7c354ec"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/SessionHistoryContractTests.swift",
+      "sha256": "695cbdfb73b240620fcebf06ea7451a15615188cd7ee031c0266e643f6d613ec"
+    },
+    {
+      "path": "Tests/Fixtures/session-forecast-core-3cfa5512.json",
+      "sha256": "909c9bc4f882f5db84b0b92a4fef4102c3f8d123337cf0770160f590fba24cac"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-scroll-20261020.log",
+      "sha256": "acc10ce18cceedb0d35037212a2eb23881674a5e33ccd1cb402651013e5c560b"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-scroll-qualified-20261020.log",
+      "sha256": "9c19cc2d96a2a8965bf72243cf82a3237fd3f2b9859062fa94d69b20839d01ee"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-viewport-final-20261020.log",
+      "sha256": "d05c0b08c9eaae536f1ad90ff9bcfc996a9524ef3660e572cdb8780f1c590900"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-viewport-ios-build-20261020.log",
+      "sha256": "2b5dba9cf15dcee969819e0ca5e4e39e5d4bd6f463a1ba3e5377ae34d9937b68"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-scroll-20261020/native-scroll-metrics.json",
+      "sha256": "5249f76dfa88650437814bcfea16924f3ab42d3273edca960d01c2cf244efd5b"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-scroll-20261020/scroll-01-forecast-end.png",
+      "sha256": "55be3a645aaefc0ed1c5365789f3c08b7192d8879509cfad4bde97831ce5eeed"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-scroll-20261020/scroll-02-flow-independent.png",
+      "sha256": "a9ba406b56b8349929b48b2219d64af18330ac7ebca57e728f1350595b52657a"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-scroll-20261020/scroll-03-forecast-restored.png",
+      "sha256": "7d8350a20b0e93bce2b811484ebdfc123c6f54cb8f309adcec78ddc88f299976"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-scroll-qualified-20261020/native-scroll-metrics.json",
+      "sha256": "f51ff48b79745d4a6d9f7707c9a5d006c7a1a7c8339007cc0cc099b162c9e740"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-scroll-qualified-20261020/scroll-01-forecast-end.png",
+      "sha256": "bcb3f66ecc2214dac8b823ef81a7538ceaec099efb64089d21b292e3b18b0791"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-scroll-qualified-20261020/scroll-02-flow-independent.png",
+      "sha256": "7f57b33de262d4e7084856c7f07c507abb3c669aff4404785a003017e87fad8d"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-scroll-qualified-20261020/scroll-03-forecast-restored.png",
+      "sha256": "bcb3f66ecc2214dac8b823ef81a7538ceaec099efb64089d21b292e3b18b0791"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-scroll-qualified-keyboard-20261020/keyboard-01-forecast.png",
+      "sha256": "c230eb61c3075e47e93cc587995837974aca1bc5338ae3f8aa8589228aa271dd"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-scroll-qualified-keyboard-20261020/keyboard-02-flow-search.png",
+      "sha256": "7ca30b472e0efedcdc2e03df87e1030d163512dad50c67a3732e1096cddc491b"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-scroll-qualified-keyboard-20261020/keyboard-03-flow-search-closed.png",
+      "sha256": "03afaf09fdd6eb51e5a50a9e93b4cae0addb02e7b350e489e2e7abff6f8e5e9d"
+    }
+  ]
+}
