@@ -4193,7 +4193,8 @@ public final class DJConnectAppModel: ObservableObject {
                 guard !Task.isCancelled, self?.personaReactionNotice?.id == notice.id else { return }
                 self?.personaReactionNotice = nil
             }
-        }, notice: notice))
+        }, notice: notice, admittedFeedback: { DJConnectHaptics.success() }))
+        if personaReactions.isActive { DJConnectHaptics.selection() }
     }
     private func stopPersonaReactionOutput(_ reason: DJConnectPersonaReactionCancellation) {
         #if canImport(AVFoundation)

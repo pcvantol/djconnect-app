@@ -19,6 +19,8 @@ enum PersonaReactionConsumerGate { static let isQualified = false }
         var stop: @MainActor (DJConnectPersonaReactionCancellation) -> Void
         var failure: @MainActor () -> Void
         var notice: String?
+        /// Foreground presentation feedback, once per accepted current response.
+        var admittedFeedback: @MainActor () -> Void = {}
     }
     @MainActor private final class Run {
         let services: Services
@@ -74,6 +76,7 @@ enum PersonaReactionConsumerGate { static let isQualified = false }
                 current.id = result.persona_reaction.id
                 self.reaction = result.persona_reaction
                 self.notice = services.notice
+                services.admittedFeedback()
                 if services.admitsSpeech(result.persona_reaction) {
                     let completed = try await services.play(result.persona_reaction) { [weak self, current] playing in
                         guard let self, self.run === current, services.current(),
