@@ -1441,3 +1441,13 @@
 "ui.session.reaction.text_only" = "Solo texto, según tus preferencias de voz.";
 "ui.session.reaction.speaker_unavailable" = "Esta reacción está disponible como texto. La reproducción en altavoces no está disponible ahora.";
 "ui.session.reaction.speaker_partial" = "Esta reacción se reproduce solo en este dispositivo; la reproducción en altavoces no está disponible ahora.";
+
+// VibeCast rendezvous: routing preparation is distinct from display consent.
+"ui.rendezvous.scan" = "Escanear código QR del televisor";
+"ui.rendezvous.choose" = "Elige tu Home Assistant vinculado. Solo se compartirá su dirección de pantalla con este televisor.";
+"ui.rendezvous.invalid" = "Este código QR no es válido o ha caducado. Escanea un nuevo código en el televisor.";
+"ui.rendezvous.savedHA" = "Usar mi Home Assistant vinculado";
+"ui.rendezvous.confirm" = "Confirmar Home Assistant";
+"ui.rendezvous.unsupported" = "Este dispositivo no admite la vinculación segura del televisor. No se envió ninguna solicitud.";
+"ui.rendezvous.notReady" = "La vinculación segura del televisor aún no está lista. No se envió nada al televisor.";
+"ui.rendezvous.failed" = "Home Assistant no pudo preparar la dirección de pantalla. Escanea un nuevo código e inténtalo de nuevo.";

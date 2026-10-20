@@ -234,6 +234,7 @@ private enum DJConnectRootSheet: String, Identifiable {
     case wakeWordActivationPrompt
     case feedback
     case vibeCastSessionStart
+    case rendezvous
     case permissionExplanation
     case musicDNAOptIn
     case sessionHistory
@@ -1348,6 +1349,7 @@ public struct DJConnectRootView: View {
         if showingFeedback {
             return .feedback
         }
+        if model.isShowingRendezvous { return .rendezvous }
         if model.isShowingVibeCastSessionStart, model.activeDJSession != nil {
             return .vibeCastSessionStart
         }
@@ -1408,6 +1410,8 @@ public struct DJConnectRootView: View {
             FeedbackPromptView(model: model)
                 .tint(.white)
                 .accentColor(.white)
+        case .rendezvous:
+            VibeCastRendezvousView(model: model)
         case .vibeCastSessionStart:
             VibeCastSessionStartDialog(model: model)
         case .permissionExplanation:
@@ -1454,6 +1458,9 @@ public struct DJConnectRootView: View {
             model.dismissWakeWordActivationPrompt()
         case .feedback:
             showingFeedback = false
+        case .rendezvous:
+            model.cancelRendezvous()
+            model.isShowingRendezvous = false
         case .vibeCastSessionStart:
             model.isShowingVibeCastSessionStart = false
         case .permissionExplanation:
@@ -2545,8 +2552,10 @@ private struct PairingCameraConsentSheet: View {
     }
 }
 
-private struct PairingQRScannerView: View {
+struct PairingQRScannerView: View {
     let language: String
+    var instructionsKey = "ui.scan.the.djconnect.qr.code.shown.by.home.assistant"
+    var confirmsDetection = true
     let onCode: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var didDetectCode = false
@@ -2556,6 +2565,11 @@ private struct PairingQRScannerView: View {
             ZStack {
                 PairingQRScannerRepresentable { value in
                     guard !didDetectCode else { return }
+                    if !confirmsDetection {
+                        didDetectCode = true
+                        onCode(value)
+                        return
+                    }
                     DJConnectHaptics.success()
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
                         didDetectCode = true
@@ -2567,12 +2581,12 @@ private struct PairingQRScannerView: View {
                 }
                     .ignoresSafeArea()
                 VStack {
-                    if didDetectCode {
+                    if didDetectCode && confirmsDetection {
                         PairingQRSuccessOverlay(language: language)
                             .transition(.scale(scale: 0.92).combined(with: .opacity))
                     }
                     Spacer()
-                    Text(localizedKey(language, "ui.scan.the.djconnect.qr.code.shown.by.home.assistant"))
+                    Text(localizedKey(language, instructionsKey))
                         .font(.headline)
                         .multilineTextAlignment(.center)
                         .padding(16)
@@ -17133,6 +17147,16 @@ struct SettingsView: View {
             ZStack {
                 DJConnectCanvasBackground()
                 SettingsContentContainer {
+                #if os(iOS)
+                SettingsGlassSection(title: "VibeCast") {
+                    Button(localizedKey(model.language, "ui.rendezvous.scan")) {
+                        model.cancelRendezvous()
+                        model.isShowingRendezvous = true
+                    }
+                    .disabled(model.isDemoMode || model.pairingStatus != .paired)
+                    .accessibilityIdentifier("vibecast-rendezvous-open")
+                }
+                #endif
                 SettingsGlassSection(title: localizedKey(model.language, "ui.app")) {
                     LabeledContent(localizedKey(model.language, "ui.app.language")) {
                         Picker(localizedKey(model.language, "ui.app.language"), selection: $model.appLanguageSelectionCode) {

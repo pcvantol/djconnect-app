@@ -55,6 +55,13 @@ struct DJConnectIOSApp: App {
                 model.applyUITestRuntimeFixture(runtimeFixture,
                     physicalTestHost: bundledPhysicalTest ? bundledPhysicalTestURL.flatMap { URL(string: $0)?.host } : nil)
             }
+            #if targetEnvironment(simulator)
+            // Test-owned preferences/token store above. Inject raw QR through
+            // the shipping dispatcher; this is not optical camera qualification.
+            if let qr = processInfo.environment["DJCONNECT_UITEST_RENDEZVOUS_QR"] {
+                _ = model.handlePairingQRCode(qr)
+            }
+            #endif
             return model
         }
         #endif

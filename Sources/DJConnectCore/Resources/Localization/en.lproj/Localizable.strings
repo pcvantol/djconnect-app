@@ -1441,3 +1441,13 @@
 "ui.session.reaction.text_only" = "Text only, as selected in your speech preferences.";
 "ui.session.reaction.speaker_unavailable" = "This reaction is available as text. Speaker playback is currently unavailable.";
 "ui.session.reaction.speaker_partial" = "This reaction plays on this device only; speaker playback is currently unavailable.";
+
+// VibeCast rendezvous: routing preparation is distinct from display consent.
+"ui.rendezvous.scan" = "Scan TV QR code";
+"ui.rendezvous.choose" = "Choose your linked Home Assistant. This only sends its display address to this TV.";
+"ui.rendezvous.invalid" = "This QR code is invalid or has expired. Scan a new code on the TV.";
+"ui.rendezvous.savedHA" = "Use my linked Home Assistant";
+"ui.rendezvous.confirm" = "Confirm Home Assistant";
+"ui.rendezvous.unsupported" = "This device does not support secure TV linking. No request was sent.";
+"ui.rendezvous.notReady" = "Secure TV linking is not ready. Nothing has been sent to the TV.";
+"ui.rendezvous.failed" = "Home Assistant could not prepare the display address. Scan a new code and try again.";

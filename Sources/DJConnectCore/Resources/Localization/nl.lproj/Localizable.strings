@@ -1441,3 +1441,13 @@
 "ui.session.reaction.text_only" = "Alleen tekst, zoals gekozen in je spraakvoorkeuren.";
 "ui.session.reaction.speaker_unavailable" = "Deze reactie is als tekst beschikbaar. Afspelen op je luidspreker is nu niet beschikbaar.";
 "ui.session.reaction.speaker_partial" = "Deze reactie speelt alleen op dit apparaat; afspelen op je luidspreker is nu niet beschikbaar.";
+
+// VibeCast rendezvous: routing preparation is distinct from display consent.
+"ui.rendezvous.scan" = "Scan TV-QR-code";
+"ui.rendezvous.choose" = "Kies je gekoppelde Home Assistant. Alleen het schermadres wordt met deze TV gedeeld.";
+"ui.rendezvous.invalid" = "Deze QR-code is ongeldig of verlopen. Scan een nieuwe code op de TV.";
+"ui.rendezvous.savedHA" = "Gebruik mijn gekoppelde Home Assistant";
+"ui.rendezvous.confirm" = "Bevestig Home Assistant";
+"ui.rendezvous.unsupported" = "Dit apparaat ondersteunt veilig TV-koppelen niet. Er is geen verzoek verstuurd.";
+"ui.rendezvous.notReady" = "Veilig TV-koppelen is nog niet gereed. Er is niets naar de TV verstuurd.";
+"ui.rendezvous.failed" = "Home Assistant kon het schermadres niet voorbereiden. Scan een nieuwe code en probeer opnieuw.";

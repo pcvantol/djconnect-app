@@ -1441,3 +1441,13 @@
 "ui.session.reaction.text_only" = "Nur Text, wie in deinen Spracheinstellungen gewählt.";
 "ui.session.reaction.speaker_unavailable" = "Diese Reaktion ist als Text verfügbar. Die Lautsprecherwiedergabe ist derzeit nicht verfügbar.";
 "ui.session.reaction.speaker_partial" = "Diese Reaktion wird nur auf diesem Gerät wiedergegeben; die Lautsprecherwiedergabe ist derzeit nicht verfügbar.";
+
+// VibeCast rendezvous: routing preparation is distinct from display consent.
+"ui.rendezvous.scan" = "TV-QR-Code scannen";
+"ui.rendezvous.choose" = "Wähle dein verbundenes Home Assistant. Nur die Anzeigeadresse wird mit diesem TV geteilt.";
+"ui.rendezvous.invalid" = "Dieser QR-Code ist ungültig oder abgelaufen. Scanne einen neuen Code am TV.";
+"ui.rendezvous.savedHA" = "Mein verbundenes Home Assistant verwenden";
+"ui.rendezvous.confirm" = "Home Assistant bestätigen";
+"ui.rendezvous.unsupported" = "Dieses Gerät unterstützt keine sichere TV-Verknüpfung. Es wurde keine Anfrage gesendet.";
+"ui.rendezvous.notReady" = "Die sichere TV-Verknüpfung ist noch nicht bereit. Es wurde nichts an den TV gesendet.";
+"ui.rendezvous.failed" = "Home Assistant konnte die Anzeigeadresse nicht vorbereiten. Scanne einen neuen Code und versuche es erneut.";
