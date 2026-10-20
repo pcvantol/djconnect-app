@@ -18106,6 +18106,9 @@ private struct LegalNoticesView: View {
 
                         SettingsSection(title: "OSS", showsDivider: false) {
                             SelectableValue(localizedKey(language, "ui.djconnect.uses.apple.platform.frameworks.and.swift.package.manager.third"))
+                            DisclosureGroup("JOSESwift 3.0.0 · Apache License 2.0") {
+                                SelectableValue(DJConnectThirdPartyNotices.joseSwiftLicense)
+                            }
                         }
                         .padding(24)
                         .frame(maxWidth: .infinity, alignment: .leading)

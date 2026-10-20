@@ -785,6 +785,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var rendezvousQR: DJConnectRendezvousQR?
     private var rendezvousOperation = UUID()
     private var rendezvousDestination: DJConnectDisplayOwnerContext?
+    private var rendezvousEnvelope: DJConnectRendezvousDestination.Envelope?
 
     /// Read-only support check: never generates a key, attestation or assertion.
     var rendezvousAttestationSupported: Bool {
@@ -805,7 +806,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
     func cancelRendezvous() {
         rendezvousOperation = UUID()
-        rendezvousQR = nil; rendezvousDestination = nil
+        rendezvousQR = nil; rendezvousDestination = nil; rendezvousEnvelope = nil
         rendezvousHasQR = false; rendezvousBusy = false
         rendezvousStatusKey = "ui.rendezvous.scan"
     }
@@ -830,12 +831,13 @@ public final class DJConnectAppModel: ObservableObject {
         rendezvousBusy = true
         defer { if rendezvousOperation == operation { rendezvousBusy = false } }
         do {
-            _ = try await DJConnectRendezvousService().inspect(qr)
+            let browserKey = try await DJConnectRendezvousService().inspect(qr)
             guard !Task.isCancelled, rendezvousOperation == operation, qr.isCurrent(),
                   pairingStatus == .paired, isAppInForeground, sessionHistory.responseEpoch == epoch,
                   currentDeviceSpeechContext == scope else { return }
             let context = try await withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
-                try await $0.displayOwnerContext(expectedInstallationID: installation, isCurrent: { [weak self] in
+                try await $0.displayOwnerContext(expectedInstallationID: installation,
+                    pairedLocalOrigin: Self.normalizedHomeAssistantURL(from: localHomeAssistantURL()), isCurrent: { [weak self] in
                     guard let self else { return false }
                     return !Task.isCancelled && self.rendezvousOperation == operation && qr.isCurrent() &&
                         self.pairingStatus == .paired && self.isAppInForeground &&
@@ -846,7 +848,10 @@ public final class DJConnectAppModel: ObservableObject {
                   pairingStatus == .paired, isAppInForeground,
                   sessionHistory.responseEpoch == epoch, sessionHistory.authorizedProfileID == profile,
                   currentDeviceSpeechContext == scope else { return }
-            rendezvousDestination = context
+            let envelope = try DJConnectRendezvousDestination.encrypt(qr:qr, browserKey:browserKey, owner:context)
+            guard qr.isCurrent(), rendezvousOperation == operation, sessionHistory.responseEpoch == epoch,
+                  currentDeviceSpeechContext == scope else { return }
+            rendezvousDestination = context; rendezvousEnvelope = envelope
             // Proof/enrollment/submission still require the genuine SDK adapter.
             // A prepared owner route must never be presented as completed handoff.
             rendezvousStatusKey = "ui.rendezvous.notReady"

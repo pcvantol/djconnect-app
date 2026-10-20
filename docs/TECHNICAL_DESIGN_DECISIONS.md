@@ -1,5 +1,16 @@
 # Technische designbeslissingen
 
+## VibeCast product encryption preparation — 2026-10-20
+
+The coordinated native integration reuses JOSESwift 3.0.0 at immutable source
+c2664a902e75c0426a1d43132bd4babc6fd173d3, previously qualified separately with
+API software interop. Both SwiftPM and Xcode pin the same revision. The product
+uses only RSA-OAEP-256/A256GCM with the exact admitted browser JWK/thumbprint,
+fixed protected header and closed destination payload. It never builds custom
+OAEP/AES primitives or puts HA credentials/identity in the JWE. Native Legal
+ships the upstream Apache 2.0 license. Software encryption/decryption tests are
+separate from genuine App Attest, deployment and positive browser handoff.
+
 ## Brand V2 native adoption — 2026-10-20
 
 Apple #138 consumes the immutable Core #1223 original headset assets after source

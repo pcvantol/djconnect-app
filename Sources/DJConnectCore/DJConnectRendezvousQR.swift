@@ -49,9 +49,10 @@ public struct DJConnectRendezvousQR: Equatable, Sendable, CustomStringConvertibl
 
 /// Limited to bounded string/integer/object wire schemas. Decode keys
 /// before duplicate detection; Foundation validates each JSON string's escapes.
-/// Booleans, arrays, fractional/negative/unsafe integers and duplicate aliases fail.
+/// Arrays, fractional/negative/unsafe integers and duplicate aliases fail.
+/// Schema callers compare booleans separately; booleans never become integers.
 enum RendezvousFlatJSON {
-    indirect enum Value: Equatable { case string(String), integer(Int64), object([String: Value]) }
+    indirect enum Value: Equatable { case string(String), integer(Int64), bool(Bool), object([String: Value]) }
     static func parse(_ data: Data, maximumBytes: Int) throws -> [String: Value] {
         func reject() -> DJConnectRendezvousQR.Failure { .invalid }
         guard !data.isEmpty, data.count <= maximumBytes, String(data: data, encoding: .utf8) != nil else { throw reject() }
@@ -86,6 +87,8 @@ enum RendezvousFlatJSON {
                 let value: Value
                 if bytes[index] == 34 { value = .string(try string()) }
                 else if bytes[index] == 123 { value = .object(try objectValue(depth: depth + 1)) }
+                else if bytes[index...].starts(with: Array("true".utf8)) { index += 4; value = .bool(true) }
+                else if bytes[index...].starts(with: Array("false".utf8)) { index += 5; value = .bool(false) }
                 else {
                     let start = index
                     while index < bytes.count, (48...57).contains(bytes[index]) { index += 1 }

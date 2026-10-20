@@ -6,6 +6,10 @@ All notable changes to DJConnect App are documented here.
 
 ### Changed
 
+- Prepare native VibeCast TV QR routing and destination encryption with pinned
+  JOSESwift 3.0.0 and bundled Apache 2.0 notices. Genuine secure handoff remains
+  incomplete; simulator support checks do not establish physical acceptance.
+
 - Adopt the approved Brand V2 headset across Apple app icons and brand panels,
   with “Your music. Your DJ.” and the existing five-language welcome translations.
 

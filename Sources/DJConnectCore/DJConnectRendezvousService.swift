@@ -48,16 +48,56 @@ public final class DJConnectRendezvousService: Sendable {
     deinit { session.invalidateAndCancel() }
     public func inspect(_ qr: DJConnectRendezvousQR) async throws -> DJConnectRendezvousBrowserKey {
         guard qr.isCurrent() else { throw DJConnectRendezvousQR.Failure.expired }
-        let url = URL(string: DJConnectRendezvousQR.serviceOrigin + "/v1/rendezvous/inspect")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"; request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["v": "djc-rendezvous/1",
+        let body = try JSONSerialization.data(withJSONObject: ["v": "djc-rendezvous/1",
             "transaction_id": qr.transactionID, "generation": qr.generation, "qr_capability": qr.capability])
+        let data = try await post(path:"inspect",body:body,status:200,qr:qr)
+        return try DJConnectRendezvousBrowserKey.parse(data, for: qr)
+    }
+    public func registrationChallenge(keyID:String, qr:DJConnectRendezvousQR) async throws -> DJConnectRendezvousEnrollmentChallenge {
+        guard DJConnectRendezvousSubmitChallenge.canonicalKeyID(keyID) else { throw DJConnectError.invalidResponse }
+        let requested = Int64(Date().timeIntervalSince1970 * 1000), up = ProcessInfo.processInfo.systemUptime
+        let body = try JSONSerialization.data(withJSONObject:["v":"djc-rendezvous/1","key_id":keyID,"action":"register"])
+        let data = try await post(path:"attestation/challenge",body:body,status:200,qr:qr)
+        return try .parse(data,requestedAtMS:requested,requestedUptime:up)
+    }
+    public func register(originalBody:Data, qr:DJConnectRendezvousQR) async throws -> Int64 {
+        guard originalBody.count <= 65536 else { throw DJConnectError.invalidResponse }
+        let data = try await post(path:"attestation/register",body:originalBody,status:201,qr:qr)
+        let fields = try RendezvousFlatJSON.parse(data,maximumBytes:4096)
+        guard Set(fields.keys) == ["v","key_expires_at"], fields["v"] == .string("djc-rendezvous/1"),
+              case let .integer(expiry)? = fields["key_expires_at"], expiry > Int64(Date().timeIntervalSince1970 * 1000) else { throw DJConnectError.invalidResponse }
+        return expiry
+    }
+    public func submitChallenge(qr:DJConnectRendezvousQR,keyID:String,envelope:DJConnectRendezvousDestination.Envelope) async throws -> DJConnectRendezvousSubmitChallenge {
+        guard DJConnectRendezvousSubmitChallenge.canonicalKeyID(keyID) else { throw DJConnectError.invalidResponse }
+        let requested = Int64(Date().timeIntervalSince1970 * 1000), up = ProcessInfo.processInfo.systemUptime
+        let body = try JSONSerialization.data(withJSONObject:["v":"djc-rendezvous/1","transaction_id":qr.transactionID,
+            "generation":qr.generation,"qr_capability":qr.capability,"key_id":keyID,"envelope_digest":envelope.digest])
+        let data = try await post(path:"submit-challenge",body:body,status:200,qr:qr)
+        return try .parse(data,qr:qr,keyID:keyID,envelopeDigest:envelope.digest,requestedAtMS:requested,requestedUptime:up)
+    }
+    public func submit(originalBody:Data, qr:DJConnectRendezvousQR, challenge:DJConnectRendezvousSubmitChallenge) async throws {
+        guard originalBody.count <= 32768, challenge.isCurrent() else { throw DJConnectError.invalidResponse }
+        let data = try await post(path:"submit",body:originalBody,status:202,qr:qr)
+        let fields = try RendezvousFlatJSON.parse(data,maximumBytes:4096)
+        guard Set(fields.keys) == ["v","accepted","operation_id"], fields["v"] == .string("djc-rendezvous/1"),
+              fields["accepted"] == .bool(true), fields["operation_id"] == .string(challenge.identifier),
+              challenge.isCurrent() else { throw DJConnectError.invalidResponse }
+    }
+    private func post(path:String,body:Data,status:Int,qr:DJConnectRendezvousQR) async throws -> Data {
+        try Task.checkCancellation()
+        guard qr.isCurrent() else { throw DJConnectRendezvousQR.Failure.expired }
+        let url = URL(string:DJConnectRendezvousQR.serviceOrigin + "/v1/rendezvous/" + path)!
+        var request = URLRequest(url:url)
+        request.httpMethod = "POST"; request.setValue("application/json",forHTTPHeaderField:"Content-Type")
+        request.setValue("application/json",forHTTPHeaderField:"Accept")
+        request.setValue("identity",forHTTPHeaderField:"Accept-Encoding")
+        request.httpBody = body
         let (bytes, response) = try await session.bytes(for: request)
         defer { bytes.task.cancel() }
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200, http.url == url,
-              http.mimeType?.lowercased() == "application/json", http.expectedContentLength <= 4096 else { throw DJConnectError.invalidResponse }
+        guard let http = response as? HTTPURLResponse, http.statusCode == status, http.url == url,
+              http.mimeType?.lowercased() == "application/json", http.value(forHTTPHeaderField: "Content-Encoding") == nil,
+              http.expectedContentLength <= 4096 else { throw DJConnectError.invalidResponse }
         var data = Data()
         for try await byte in bytes {
             try Task.checkCancellation()
@@ -66,6 +106,6 @@ public final class DJConnectRendezvousService: Sendable {
         }
         try Task.checkCancellation()
         guard qr.isCurrent(), http.expectedContentLength < 0 || http.expectedContentLength == data.count else { throw DJConnectError.invalidResponse }
-        return try DJConnectRendezvousBrowserKey.parse(data, for: qr)
+        return data
     }
 }

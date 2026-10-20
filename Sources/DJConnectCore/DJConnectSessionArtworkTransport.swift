@@ -59,9 +59,13 @@ final class DJConnectSessionArtworkTransport: Sendable {
         }
     }
 
-    func prepare(_ request: URLRequest) async throws -> Data {
+    func prepare(_ request: URLRequest, isCurrent: (@MainActor @Sendable () -> Bool)? = nil) async throws -> Data {
         try await Self.budget.acquire()
         do {
+            // A budget actor hop may outlive the captured owner. Recheck at the
+            // actual credential-release boundary, rather than only in the caller.
+            try Task.checkCancellation()
+            if let isCurrent, !(await isCurrent()) { throw CancellationError() }
             let (data, _) = try await responseData(request, using: preparationSession,
                 maximumBytes: 64 * 1024, allowedMIMEs: ["application/json"])
             await Self.budget.release()

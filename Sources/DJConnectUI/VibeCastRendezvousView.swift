@@ -2,6 +2,7 @@ import DJConnectCore
 import SwiftUI
 #if os(iOS)
 import AVFoundation
+import UIKit
 #endif
 
 /// Shared product presentation. It never displays the QR capability or owner
@@ -10,6 +11,8 @@ struct VibeCastRendezvousView: View {
     @ObservedObject var model: DJConnectAppModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
+    @State private var cameraDenied = false
     @State private var scanning = false
     @State private var selectedInstallation = false
     var body: some View {
@@ -26,6 +29,7 @@ struct VibeCastRendezvousView: View {
                             if AVCaptureDevice.authorizationStatus(for: .video) == .authorized { authorized = true }
                             else { authorized = await AVCaptureDevice.requestAccess(for: .video) }
                             if authorized { scanning = true }
+                            else { cameraDenied = true }
                         }
                     }.accessibilityIdentifier("vibecast-rendezvous-scan")
                     #endif
@@ -49,6 +53,12 @@ struct VibeCastRendezvousView: View {
                 }
             }
             #if os(iOS)
+            .alert(rendezvousText(model.language, "ui.camera.access.is.disabled.enable.it.in.settings.to.scan"), isPresented:$cameraDenied) {
+                Button(rendezvousText(model.language, "ui.open.settings")) {
+                    if let settings = URL(string:UIApplication.openSettingsURLString) { openURL(settings) }
+                }
+                Button(rendezvousText(model.language, "ui.cancel"), role:.cancel) {}
+            }
             .fullScreenCover(isPresented: $scanning) {
                 PairingQRScannerView(language: model.language, instructionsKey: "ui.rendezvous.scan", confirmsDetection: false) { value in
                     scanning = false; selectedInstallation = false
