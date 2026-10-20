@@ -9,9 +9,14 @@ public struct DJConnectDisplayOwnerContext: Decodable, Equatable, Sendable {
     public let displayEntryURL: String
     public let routeTrust: String
     public let issuerEpoch: String
+    public let shareID: String?
+    public let shareGeneration: Int?
+    public let expiresAt: String?
+    public let expiresIn: Double?
     enum CodingKeys: String, CodingKey {
         case success, contractVersion = "contract_version", sessionID = "session_id"
         case displayEntryURL = "display_entry_url", routeTrust = "route_trust", issuerEpoch = "issuer_epoch"
+        case shareID = "share_id", shareGeneration = "share_generation", expiresAt = "expires_at", expiresIn = "expires_in"
     }
     public var isAdmissible: Bool {
         guard success, contractVersion == 1, routeTrust == "paired_owner_response",

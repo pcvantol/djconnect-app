@@ -731,3 +731,49 @@ failure retained /tmp/djc-display-claim-first.log; no product/runtime failure
 claim. XcodeGen adds only the new source/test references. UIprepare remains
 NOTREADY, source components UNWIRED; no SDK/Keychain/HA/physical/public effects
 and no merge permission. New exact-head review/CI is required.
+
+## Core B paired resolve/approval coordinator —20Oct2026
+
+Predecessor34cf exact code summary was refreshed COMPLETED/no findings/no
+unresolved after the source-rebutted lifetime_seconds finding; CI39451705894 and
+Trusted Delivery SUCCESS. The initial P2 and exactCore8b rebuttal remain history,
+not silently erased. Separate owning security completion remains absent.
+
+New MainActor DJConnectDisplayConsentSession owns one foreground explicit intent
+for an immutable client/installation/Session with an original token digest and
+required caller owner/UI revision predicate. Resolve reads qualified transport
+and owner context before the ordinary paired owner/resolve route; it never
+approves. Approval must be separately called for a current resolved claim and
+chosen new7200s-consent or original offered existing share. It re-reads selected
+installation/currentSession/epoch/canonical destination/share before effect.
+Both requests carry the owner/token/claim predicates through the shared budget
+hop to synchronous dispatch. Concurrent/repeated confirmations cannot execute
+a second approval. No automatic replay, Session start, public A call, collection
+secret, display bearer or SDK operation is introduced.
+
+Generic503, invalid/mismatched approval, canceled/withdrawn authority after a
+possible effect become terminal uncertain with no receipt/resend. Changes
+rejected during pure preflight become unavailable without approval. An initial
+focused run caught that preflight status was incorrectly uncertain; source was
+fixed rather than weakening the three failing assertions. That failure is
+retained /tmp/djc-display-consent-first.log. Whole-second ISO dates are accepted
+alongside Core's fractional timestamps. Existing share expiry is clamped to the
+original offer/fresh context; receipt never extends that displayed deadline.
+
+20focused functions PASS /tmp/djc-display-consent-final-targeted.log, before a
+test-only scheduling-margin refinement from50ms to1s for the original-expiry
+case. FINAL same-source full serial73XCTest(2intentionalSKIP/0fail)+996SwiftTesting
+13suites PASS /tmp/djc-display-consent-full.log includes all those new checks.
+FINAL unsigned iOS build-for-testing PASS /tmp/djc-display-consent-ios.log.
+Actual DJConnectClient plus Foundation URLProtocol/memory fixtures demonstrate
+lookup without approval, one explicit effect, fresh Session/epoch/share
+withdrawal, exact existing-share choice, token/owner/dismissal/expiry rejection,
+no receipt after owner loss, unknown response/no replay and concurrent refusal.
+No actual HA/runtime/SDK/Keychain/provider/physical/public effects were executed.
+
+This source coordinator is still UNWIRED to the shipping native consent view.
+Its caller must capture all UI/Profile/Session/route/background revisions,
+including ABA withdrawal, and explicitly call withdraw on dismissal. Native
+localized presentation/confirmation, independent currentSession binding and UI
+qualification remain next; A key/admission/assertion/exact-submit/full chain also
+remain OPEN. ProductprepareNOTREADY and no merge164/162permission remain.

@@ -33,15 +33,13 @@ public struct DJConnectDisplayClaim: Sendable {
               requestedUptime.isFinite, requestedUptime >= 0, uptime.isFinite, uptime >= requestedUptime,
               now >= requestedAt else { throw DJConnectError.invalidResponse }
         let wire = try JSONDecoder().decode(Wire.self, from: data)
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         guard wire.success, wire.contract_version == 1,
               DJConnectRendezvousQR.canonicalToken(wire.claim_id),
               DJConnectRendezvousQR.canonicalToken(wire.browser_generation),
               DJConnectRendezvousQR.canonicalToken(wire.issuer_epoch),
               wire.issuer_epoch == expectedIssuerEpoch,
               wire.expires_in.isFinite, wire.expires_in > 0, wire.expires_in <= 120,
-              let expiry = formatter.date(from: wire.expires_at), expiry > now,
+              let expiry = displayWireDate(wire.expires_at), expiry > now,
               expiry.timeIntervalSince(requestedAt) <= 120 else { throw DJConnectError.invalidResponse }
         let deadline = requestedUptime + min(wire.expires_in, expiry.timeIntervalSince(requestedAt))
         guard deadline.isFinite, uptime < deadline else { throw DJConnectError.invalidResponse }
@@ -91,4 +89,13 @@ public struct DJConnectDisplayClaim: Sendable {
             "browser_generation": browserGeneration, "code": code, "share": choice
         ], options: [.sortedKeys])
     }
+}
+
+// Core's datetime.isoformat can omit the fraction when microseconds are zero.
+func displayWireDate(_ text: String) -> Date? {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let value = formatter.date(from: text) { return value }
+    formatter.formatOptions = [.withInternetDateTime]
+    return formatter.date(from: text)
 }

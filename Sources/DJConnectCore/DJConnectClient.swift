@@ -124,6 +124,27 @@ public final class DJConnectClient: Sendable {
         return context
     }
 
+    // Only the Core B coordinator invokes these two ordinary paired routes.
+    // It first validates a fresh selected-installation/owner context. The same
+    // predicate is carried through the budget hop into synchronous dispatch.
+    func displayConsentExchange(path: String, body: Data,
+                                isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> Data {
+        guard ["resolve", "approve"].contains(path), identity.clientType == .ios else {
+            throw DJConnectError.invalidResponse
+        }
+        let originalToken = try loadedToken()
+        var request = try authenticatedRequest(path: "/api/djconnect/v1/display/owner/" + path)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+        let data = try await sessionArtworkTransport.prepare(request, isCurrent: {
+            isCurrent() && (try? self.tokenStore.loadToken()) == originalToken
+        })
+        try Task.checkCancellation()
+        guard await isCurrent(), try loadedToken() == originalToken else { throw DJConnectError.invalidResponse }
+        return data
+    }
+
     public func postStatus(_ payload: DJConnectStatusPayload) async throws -> DJConnectEnvelope<DJConnectPlayback> {
         let request = try statusRequest(payload)
         return try await decodedResponse(for: request)
