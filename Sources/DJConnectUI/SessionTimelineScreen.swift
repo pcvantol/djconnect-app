@@ -347,6 +347,9 @@ struct SessionTimelineScreen: View {
     @State private var submittedQuestion: SessionSubmittedQuestion?
     @State private var priorSearchPosition: String?
     @State private var query = ""
+    @State private var showsForecast = false
+    @State private var forecastPosition: String?
+    @State private var forecastQuery = ""
     @State private var searching = false
     @State private var selectedMatchID: String?
     private var retryRefreshing: Bool { manualRefresh.isRefreshing }
@@ -399,7 +402,16 @@ struct SessionTimelineScreen: View {
         false
         #endif
     }
+    private var displayingForecast: Bool { showsForecast && activeSession != nil }
     private var timeline: DJConnectSessionHistoryModel.Timeline { history.timelines[sessionID] ?? .init() }
+    private struct SubmittedTurnNavigation: Equatable {
+        let target: String?
+        let showsForecast: Bool
+        let searching: Bool
+    }
+    private var submittedTurnNavigation: SubmittedTurnNavigation {
+        .init(target: submittedQuestionTarget, showsForecast: showsForecast, searching: searching)
+    }
     private var submittedQuestionTarget: String? {
         submittedQuestion?.target(sessionID: sessionID, pending: history.pendingTurns,
             entries: timeline.entries, current: model.currentSessionConversationMessages(sessionID: sessionID))
@@ -462,8 +474,17 @@ struct SessionTimelineScreen: View {
         }
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
+                if activeSession != nil {
+                    Picker(text("ui.session.forecast.mode"), selection: $showsForecast) {
+                        Text(text("ui.session.forecast.flow")).tag(false)
+                        Text(text("ui.session.forecast.tab")).tag(true)
+                    }
+                    .pickerStyle(.segmented).padding(.horizontal, 20).padding(.vertical, 10)
+                    .accessibilityIdentifier("session-flow-forecast-picker")
+                }
                 TimelineView(SessionEntryRefreshSchedule(deadlines: retentionDeadlines)) { clock in
                     let preparedEntries = renderCache.snapshot(timeline.entries, sessionID: sessionID, epoch: history.responseEpoch, at: clock.date)
+                    ZStack {
                     ScrollView {
                         DJSessionGlassGroup {
                         LazyVStack(alignment: .leading, spacing: 18) {
@@ -580,21 +601,6 @@ struct SessionTimelineScreen: View {
                         // Background updates never reveal pull-to-refresh or move the scroll offset.
                         }
                     }
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
-                        if usesFloatingComposer && !searching {
-                            Color.clear.frame(height: floatingComposerHeight + composerBottomPadding + 8)
-                                .allowsHitTesting(false)
-                        }
-                    }
-                    .overlay(alignment: .bottom) {
-                        if usesFloatingComposer && !searching {
-                            sessionComposer(floating: true)
-                                .djFloatingAskDJWidth(maximum: 1000)
-                                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { floatingComposerHeight = $0 }
-                                .padding(.horizontal, 12)
-                                .padding(.bottom, composerBottomPadding)
-                        }
-                    }
                     .safeAreaInset(edge: .top, spacing: 0) {
                         VStack(spacing: 0) {
                             if searching {
@@ -636,27 +642,55 @@ struct SessionTimelineScreen: View {
                     }
                     .defaultScrollAnchor(.top, for: .initialOffset)
                     .scrollPosition(id: $visibleEntry, anchor: scrollAnchor)
-                    .task(id: submittedQuestionTarget) {
+                    .task(id: submittedTurnNavigation) {
                         guard let target = submittedQuestionTarget else { return }
                         await Task.yield()
-                        guard !Task.isCancelled, submittedQuestionTarget == target, !searching else { return }
+                        guard !Task.isCancelled, submittedQuestionTarget == target, !searching, !showsForecast else { return }
                         sceneRestoreTask?.cancel(); anchorGeneration = UUID()
                         withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) {
                             scrollAnchor = .bottom
                             visibleEntry = target
                         }
                     }
-                    .djContentRefreshable(enabled: !model.isDemoMode && model.pairingStatus == .paired) {
+                    .djContentRefreshable(enabled: !showsForecast && !model.isDemoMode && model.pairingStatus == .paired) {
                         pullRefreshing = true
                         defer { pullRefreshing = false }
                         await refreshTimeline()
                     }
+                    .opacity(displayingForecast ? 0 : 1)
+                    .allowsHitTesting(!displayingForecast)
+                    .accessibilityHidden(displayingForecast)
+                    if showsForecast, let activeSession {
+                        SessionForecastPanel(model: model, position: $forecastPosition, query: $forecastQuery) { scrollingCurrent(activeSession) }
+                    }
+                    }
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        if usesFloatingComposer && (!searching || showsForecast) {
+                            Color.clear.frame(height: floatingComposerHeight + composerBottomPadding + 8)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                    .overlay(alignment: .bottom) {
+                        if usesFloatingComposer && (!searching || showsForecast) {
+                            sessionComposer(floating: true)
+                                .djFloatingAskDJWidth(maximum: 1000)
+                                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { floatingComposerHeight = $0 }
+                                .padding(.horizontal, 12)
+                                .padding(.bottom, composerBottomPadding)
+                        }
+                    }
                 }
-                if activeSession != nil && !usesFloatingComposer && !searching {
+                if activeSession != nil && !usesFloatingComposer && (!searching || showsForecast) {
                     sessionComposer(floating: false)
                 }
             }
             .background(sessionBackground)
+            .onChange(of: activeSession == nil) { _, ended in
+                if ended { showsForecast = false }
+            }
+            .onChange(of: showsForecast) { _, value in
+                if value { inputFocused = false; searchFocused = false }
+            }
             .overlay {
                 if activeSession != nil {
                     PersonaReactionOverlay(controller: model.personaReactions, language: model.language, avatarFrame: model.personaAvatarFrame)
@@ -754,8 +788,7 @@ struct SessionTimelineScreen: View {
             .overlay(alignment: .topTrailing) {
                 SessionControlPopoverHost(model: model, intent: $sessionControlIntent, showsHandoff: allowsHandoffPresentation,
                     searchAction: {
-                        if searching { closeSearch(proxy: proxy) }
-                        else { priorSearchPosition = visibleEntry; inputFocused = false; searching = true; searchFocused = true }
+                        toggleFlowSearch(proxy: proxy)
                     })
 
             }
@@ -838,10 +871,15 @@ struct SessionTimelineScreen: View {
                     }
                 }
             }
-            .onDisappear { clearReadingState(); history.cancelArtworkQueue() }
+            .onDisappear(perform: timelineDidDisappear)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(activeSession == nil ? "screen-history-timeline" : "screen-session-conversation")
         }
+    }
+
+    private func timelineDidDisappear() {
+        clearReadingState()
+        history.cancelArtworkQueue()
     }
 
     private var archiveDeleteButton: some View {
@@ -944,10 +982,19 @@ struct SessionTimelineScreen: View {
         }
     }
 
+    private func toggleFlowSearch(proxy: ScrollViewProxy) {
+        let returningFromForecast = showsForecast
+        showsForecast = false
+        if searching && !returningFromForecast { closeSearch(proxy: proxy); return }
+        if !searching { priorSearchPosition = visibleEntry }
+        inputFocused = false
+        searching = true
+        searchFocused = true
+    }
+
     private func sessionSearchToolbarButton(proxy: ScrollViewProxy) -> some View {
         Button {
-            if searching { closeSearch(proxy: proxy) }
-            else { priorSearchPosition = visibleEntry; inputFocused = false; searching = true; searchFocused = true }
+            toggleFlowSearch(proxy: proxy)
         } label: {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(searching ? djConnectAccent : .primary)

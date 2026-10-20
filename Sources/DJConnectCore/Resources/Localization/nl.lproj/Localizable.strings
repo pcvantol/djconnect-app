@@ -1442,6 +1442,19 @@
 "ui.session.reaction.speaker_unavailable" = "Deze reactie is als tekst beschikbaar. Afspelen op je luidspreker is nu niet beschikbaar.";
 "ui.session.reaction.speaker_partial" = "Deze reactie speelt alleen op dit apparaat; afspelen op je luidspreker is nu niet beschikbaar.";
 
+// Native Session Forecast
+"ui.session.forecast.mode" = "Weergave";
+"ui.session.forecast.flow" = "Flow";
+"ui.session.forecast.tab" = "Vooruitblik";
+"ui.session.forecast.title" = "Vooruitblik · ±15 min";
+"ui.session.forecast.notice" = "Een richting voor de komende minuten. Muziek en bijdragen kunnen veranderen.";
+"ui.session.forecast.loading" = "Vooruitblik laden…";
+"ui.session.forecast.unavailable" = "Er is nu geen actuele vooruitblik beschikbaar.";
+"ui.session.forecast.source" = "Bron";
+"ui.session.forecast.claim.current" = "Speelt nu";
+"ui.session.forecast.claim.intention" = "Voornemen";
+"ui.session.forecast.claim.conditional_target" = "Mogelijke richting";
+"ui.session.forecast.search" = "Zoek in de vooruitblik";
 // VibeCast rendezvous: routing preparation is distinct from display consent.
 "ui.rendezvous.scan" = "Scan TV-QR-code";
 "ui.rendezvous.choose" = "Kies je gekoppelde Home Assistant. Alleen het schermadres wordt met deze TV gedeeld.";

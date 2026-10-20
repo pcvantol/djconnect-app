@@ -1150,6 +1150,129 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var vibeCastHandoffApproved = false
     @Published public private(set) var vibeCastHandoffFailed = false
     @Published public private(set) var vibeCastHandoffErrorKey: String?
+    @Published public private(set) var forecastCursor: DJConnectForecastCursor?
+    @Published public private(set) var forecastAvailable = false
+    @Published public private(set) var forecastLoading = false
+    private var forecastGeneration = UUID()
+    @Published private(set) var forecastAuthorityGeneration = UUID()
+    private struct ForecastReadContext: Equatable {
+        let scope: ForecastScope
+        let ownerEpoch: UUID
+        let authority: UUID
+    }
+    private var forecastReadContext: ForecastReadContext?
+    private var forecastEpoch: UUID?
+    private var forecastExpiryTask: Task<Void, Never>?
+    struct ForecastScope: Equatable {
+        let sessionID: String
+        let mood: String
+        let moodRevision: Int?
+        let locale: String?
+        let direction: String
+        let presence: DJConnectSessionPresenceValue?
+        let presenceRevision: Int?
+        let persona: DJConnectSessionPersonaValue?
+        let personaRevision: Int?
+        let playbackID: String?
+        let playbackSource: String?
+        let playbackState: String?
+        init(_ session: DJConnectSessionRuntime) {
+            sessionID = session.id; mood = session.selectedMood; moodRevision = session.confirmedMoodRevision
+            locale = session.broadcast.session.locale
+            direction = session.broadcast.planner.currentDirection
+            presence = session.confirmedPresence?.selectedPresence; presenceRevision = session.presenceRevisionFloor
+            persona = session.confirmedPersona?.selectedPersona; personaRevision = session.personaRevisionFloor
+            playbackID = session.broadcast.playback?.itemID; playbackSource = session.broadcast.playback?.sourceURL
+            playbackState = session.broadcast.playback?.state
+        }
+    }
+    /// The panel's task and admission gate share the exact same material context.
+    var sessionForecastRefreshScope: ForecastScope? { activeDJSession.map(ForecastScope.init) }
+    private var forecastScope: ForecastScope?
+
+    public func visibleSessionForecast(at date: Date) -> DJConnectSessionForecast? {
+        guard canRefreshSessionHistory, isRuntimeCompatible, haConnectionMode != .offline,
+              sessionHistory.hasAuthorizedOwner, !djSessionIsRecovering, !djSessionLiveUnavailable,
+              let session = activeDJSession, session.runtimeState == "active", forecastAvailable,
+              forecastEpoch == sessionHistory.responseEpoch,
+              forecastCursor?.sessionID == session.id, forecastScope == ForecastScope(session) else { return nil }
+        if forecastCursor?.projection?.current_anchor != nil && session.broadcast.playback?.state != "playing" { return nil }
+        return forecastCursor?.visible(playbackItemID: session.broadcast.playback?.itemID,
+                                       playbackSource: session.broadcast.playback?.sourceURL, at: date)
+    }
+
+    public func refreshSessionForecast() async {
+        guard canRefreshSessionHistory, isRuntimeCompatible, sessionHistory.hasAuthorizedOwner,
+              !djSessionIsRecovering, !djSessionLiveUnavailable, haConnectionMode != .offline,
+              let session = activeDJSession, session.runtimeState == "active" else { return }
+        let scope = ForecastScope(session)
+        let epoch = sessionHistory.responseEpoch
+        let readContext = ForecastReadContext(scope: scope, ownerEpoch: epoch, authority: forecastAuthorityGeneration)
+        guard !forecastLoading || forecastReadContext != readContext else { return }
+        let generation = UUID(); forecastGeneration = generation
+        forecastReadContext = readContext
+        if forecastEpoch != epoch { forecastCursor = nil }; forecastEpoch = epoch
+        if forecastCursor?.sessionID != session.id { forecastCursor = .init(sessionID: session.id) }
+        forecastLoading = true
+        defer {
+            if forecastGeneration == generation { forecastLoading = false; forecastReadContext = nil }
+        }
+        do {
+            let caps = try await withHomeAssistantClient { try await $0.activeSessionMoodCapabilities() }
+            guard !Task.isCancelled, generation == forecastGeneration, epoch == sessionHistory.responseEpoch,
+                  canRefreshSessionHistory, !djSessionIsRecovering, !djSessionLiveUnavailable,
+                  readContext.authority == forecastAuthorityGeneration,
+                  activeDJSession.map(ForecastScope.init) == scope else { return }
+            forecastAvailable = caps.forecastAvailable
+            guard forecastAvailable else { forecastCursor?.withdraw(); return }
+            let projection = try await withHomeAssistantClient { try await $0.sessionForecast(sessionID: session.id) }
+            guard !Task.isCancelled, generation == forecastGeneration, epoch == sessionHistory.responseEpoch,
+                  canRefreshSessionHistory, !djSessionIsRecovering, !djSessionLiveUnavailable,
+                  readContext.authority == forecastAuthorityGeneration,
+                  activeDJSession.map(ForecastScope.init) == scope else { return }
+            acceptSessionForecast(projection)
+        } catch {
+            if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled { return }
+            guard generation == forecastGeneration, epoch == sessionHistory.responseEpoch else { return }
+            forecastCursor?.withdraw()
+            _ = sessionHistory.withdrawAuthority(for: error)
+        }
+    }
+
+    private func acceptSessionForecast(_ incoming: DJConnectSessionForecast?, invalidatesPendingReads: Bool = false) {
+        let previousRevision = forecastCursor?.revisionFloor ?? -1
+        forecastCursor?.receive(incoming)
+        if invalidatesPendingReads, forecastCursor?.projection == nil {
+            // A newer live denial also revokes owner reads already in flight.
+            // Keep the cursor's revision floor; this is not transport recovery.
+            forecastGeneration = UUID(); forecastAuthorityGeneration = UUID()
+            forecastReadContext = nil; forecastLoading = false
+        }
+        // Rejected/equal revisions retain their original authoring context.
+        // A read or event cannot relabel old content after a context change.
+        if let cursor = forecastCursor, cursor.revisionFloor > previousRevision, cursor.projection != nil {
+            forecastScope = activeDJSession.map(ForecastScope.init)
+        }
+        forecastExpiryTask?.cancel(); forecastExpiryTask = nil
+        guard let lifetime = forecastCursor?.remainingLifetime, forecastCursor?.projection != nil else { return }
+        let epoch = forecastEpoch
+        let sessionID = forecastCursor?.sessionID
+        let revision = forecastCursor?.revisionFloor
+        forecastExpiryTask = Task { @MainActor [weak self] in
+            do { try await Task.sleep(for: .seconds(lifetime)) } catch { return }
+            guard let self, !Task.isCancelled, self.forecastEpoch == epoch,
+                  self.forecastCursor?.sessionID == sessionID, self.forecastCursor?.revisionFloor == revision else { return }
+            self.forecastCursor?.withdraw()
+        }
+    }
+
+    private func clearSessionForecast() {
+        forecastExpiryTask?.cancel(); forecastExpiryTask = nil
+        forecastGeneration = UUID(); forecastAuthorityGeneration = UUID(); forecastReadContext = nil
+        forecastLoading = false; forecastAvailable = false; forecastEpoch = nil; forecastScope = nil
+        forecastCursor?.withdraw()
+    }
+
     private var vibeCastHandoffGeneration = UUID()
     @Published public private(set) var momentTrackInsightTarget: DJConnectMomentInsightReference?
     @Published public private(set) var momentTrackInsight: TrackInsight?
@@ -7361,9 +7484,7 @@ public final class DJConnectAppModel: ObservableObject {
                 onDisconnected: { [weak self] in
                     await MainActor.run {
                         guard let self, self.sessionBroadcastGeneration == generation else { return }
-                        self.activeDJSession?.broadcast.clearNativeAuthority()
-                        self.sessionContributionRecoveryNeeded = true
-                        self.djSessionIsRecovering = self.activeDJSession != nil
+                        self.sessionBroadcastDidDisconnect()
                     }
                 },
                 onConnectionUnavailable: { [weak self] in
@@ -7499,6 +7620,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func resetActiveMoodState() {
+        clearSessionForecast()
         activeSharedSettingsRequired = false
         presenceGeneration = UUID(); presenceIntent = UUID()
         presenceTask?.cancel(); presenceTask = nil
@@ -7525,7 +7647,15 @@ public final class DJConnectAppModel: ObservableObject {
         stopSessionBroadcast()
     }
 
-    private func stopSessionBroadcast() {
+    func sessionBroadcastDidDisconnect() {
+        clearSessionForecast()
+        activeDJSession?.broadcast.clearNativeAuthority()
+        sessionContributionRecoveryNeeded = true
+        djSessionIsRecovering = activeDJSession != nil
+    }
+
+    func stopSessionBroadcast() {
+        clearSessionForecast()
         sessionContributionRecoveryTask?.cancel(); sessionContributionRecoveryTask = nil
         sessionContributionRecoveryNeeded = true
         guard !isDemoMode else { return }
@@ -7539,14 +7669,17 @@ public final class DJConnectAppModel: ObservableObject {
         Task { await transport?.stop() }
     }
 
-    private func applySessionBroadcastSnapshot(_ snapshot: DJConnectBroadcastState) {
+    func applySessionBroadcastSnapshot(_ snapshot: DJConnectBroadcastState) {
         guard let active = activeDJSession, active.sessionID == snapshot.session.sessionID else { return }
         activeDJSession = active.applying(broadcastState: snapshot)
+        if (snapshot.delivery?.snapshotWatermark ?? 0) >= (active.broadcast.delivery?.snapshotWatermark ?? 0), forecastAvailable {
+            acceptSessionForecast(snapshot.sessionForecast, invalidatesPendingReads: true)
+        }
         djSessionIsRecovering = false
         djSessionLiveUnavailable = false
     }
 
-    private func applySessionBroadcastEvent(_ event: DJConnectSessionBroadcastEvent) {
+    func applySessionBroadcastEvent(_ event: DJConnectSessionBroadcastEvent) {
         guard let active = activeDJSession, active.sessionID == event.sessionID else { return }
         if event.eventType == "runtime_ended" || event.eventType == "broadcast_stopped" {
             if event.payload.nativeDelivery?.revocationScope == "subscription" {
@@ -7564,6 +7697,13 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         activeDJSession = active.applying(broadcastEvent: event)
+        if event.deliverySequence == nil {
+            // The reducer denied native authority. Revoke the separate cursor
+            // and any owner read that started before that denial as well.
+            clearSessionForecast()
+        } else if let sequence = event.deliverySequence, sequence > (active.broadcast.delivery?.snapshotWatermark ?? -1), forecastAvailable {
+            acceptSessionForecast(event.payload.sessionForecast, invalidatesPendingReads: true)
+        }
         if let hint = event.payload.passiveSurfaceInvalidation, hint.validates(sessionID: active.id) {
             passiveSurfaces.invalidate(sequence: hint.delivery_sequence, services: passiveSurfaceServices)
         }

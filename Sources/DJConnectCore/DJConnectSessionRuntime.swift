@@ -171,6 +171,7 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
     public var sessionSpeech: [DJConnectSessionSpeech] = []
     public var sessionMedia: [DJConnectSessionMedia] = []
     public var nativeDelivery: DJConnectNativeMomentDelivery? = nil
+        public var sessionForecast: DJConnectSessionForecast? = nil
     public var djMoments: [DJConnectMoment] = []
     public var presentations: [DJConnectPresentation] = []
     public var playback: DJConnectSessionPlayback? = nil
@@ -186,6 +187,7 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
         case session, planner
         case sessionMedia = "session_media"
         case nativeDelivery = "native_delivery"
+            case sessionForecast = "session_forecast"
         case djMoments = "dj_moments", presentations, playback
         case delivery = "broadcast"
         case sessionFlow = "session_flow"
@@ -205,6 +207,7 @@ public struct DJConnectBroadcastState: Codable, Equatable, Sendable {
         delivery = try? c.decode(Delivery.self, forKey: .delivery)
         sessionMedia = Array(((try? c.decode([LossyBroadcastValue<DJConnectSessionMedia>].self, forKey: .sessionMedia))?.compactMap(\.value) ?? []).prefix(64))
         nativeDelivery = try? c.decode(DJConnectNativeMomentDelivery.self, forKey: .nativeDelivery)
+            sessionForecast = try? c.decode(DJConnectSessionForecast.self, forKey: .sessionForecast)
         struct PrivateSpeech: Decodable { let schema_version: Int; let moments: [DJConnectOptionalSessionSpeech] }
         struct SpeechKey: CodingKey {
             let stringValue: String; let intValue: Int? = nil
@@ -310,6 +313,7 @@ public struct DJConnectSessionBroadcastEvent: Codable, Equatable, Sendable {
         public var sessionFlow: DJConnectSessionFlow?
         public var sessionMedia: [DJConnectSessionMedia] = []
         public var nativeDelivery: DJConnectNativeMomentDelivery? = nil
+        public var sessionForecast: DJConnectSessionForecast? = nil
         public var djMoment: DJConnectMoment? = nil
         public var presentation: DJConnectPresentation? = nil
         public var playback: DJConnectSessionPlayback? = nil
@@ -322,6 +326,7 @@ public struct DJConnectSessionBroadcastEvent: Codable, Equatable, Sendable {
             case session, planner, playback, presentation
             case sessionMedia = "session_media"
             case nativeDelivery = "native_delivery"
+            case sessionForecast = "session_forecast"
             case djMoment = "dj_moment"
             case sessionFlow = "session_flow"
         }
@@ -333,6 +338,7 @@ public struct DJConnectSessionBroadcastEvent: Codable, Equatable, Sendable {
             sessionFlow = try? c.decode(DJConnectSessionFlow.self, forKey: .sessionFlow)
             sessionMedia = Array(((try? c.decode([LossyBroadcastValue<DJConnectSessionMedia>].self, forKey: .sessionMedia))?.compactMap(\.value) ?? []).prefix(64))
             nativeDelivery = try? c.decode(DJConnectNativeMomentDelivery.self, forKey: .nativeDelivery)
+            sessionForecast = try? c.decode(DJConnectSessionForecast.self, forKey: .sessionForecast)
             djMoment = try? c.decode(DJConnectMoment.self, forKey: .djMoment)
             presentation = try? c.decode(DJConnectPresentation.self, forKey: .presentation)
             playback = try? c.decode(DJConnectSessionPlayback.self, forKey: .playback)
@@ -431,6 +437,7 @@ public extension DJConnectSessionRuntime {
         state.sessionSpeech = broadcastEvent.payload.sessionSpeech
         state.sessionMedia = broadcastEvent.payload.sessionMedia
         state.nativeDelivery = broadcastEvent.payload.nativeDelivery
+        state.sessionForecast = broadcastEvent.payload.sessionForecast
         if let sequence = broadcastEvent.deliverySequence { state.delivery = .init(snapshotWatermark: sequence) }
         if let playback = broadcastEvent.payload.playback { state.playback = playback }
         if let moment = broadcastEvent.payload.djMoment, moment.sessionID == sessionID,
@@ -466,10 +473,15 @@ public struct DJConnectActiveMoodCapabilities: Decodable, Sendable {
     let contract: Contract?
     let presenceContract: DJConnectPresenceCapability?
     let personaContract: DJConnectPersonaCapability?
+    let forecastContract: DJConnectForecastCapability?
     enum CodingKeys: String, CodingKey {
         case capabilities, contractVersions = "contract_versions", contract = "active_session_mood"
         case presenceContract = "active_session_presence"
         case personaContract = "active_session_persona"
+        case forecastContract = "session_forecast"
+    }
+    public var forecastAvailable: Bool {
+        capabilities?["session_forecast"] == true && contractVersions?["session_forecast"] == 1 && forecastContract?.supported == true
     }
     public var personaReactionAvailable: Bool { personaAvailable && personaContract?.touchReaction?.isSupported == true }
     public var personaAvailable: Bool {

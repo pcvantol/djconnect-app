@@ -228,6 +228,7 @@ public extension DJConnectMoment {
 
 public extension DJConnectBroadcastState {
     mutating func clearNativeAuthority() {
+        sessionForecast = nil
         nativeDelivery = nil
         sessionMedia = []
         djMoments = []

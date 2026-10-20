@@ -148,7 +148,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     public private(set) var historyContractVersion = 1
     @Published public private(set) var historyNeedsUpgrade = false
     private var epoch = UUID()
-    private var ownerScope: String? {
+    @Published private var ownerScope: String? {
         didSet { if ownerScope != oldValue { host?.activeVoiceOwnerDidChange() } }
     }
     var authorizedProfileID: String? { ownerScope }

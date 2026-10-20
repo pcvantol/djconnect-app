@@ -7,6 +7,10 @@ import ImageIO
 import Combine
 @testable import DJConnectCore
 @testable import DJConnectUI
+#if os(macOS)
+import AppKit
+import SwiftUI
+#endif
 
 @Test @MainActor func sessionHistoryPhysicalTestEndpointRequiresExplicitBoundedLaunch() {
     let host = "192.168.1.134"
@@ -6213,3 +6217,345 @@ func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clie
     #expect(model.backendAvailable)
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/status") }.count > beforeMismatchWait)
 }
+
+private final class ForecastWireDataSlot: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Data
+    private var reads = 0
+    func isFirstRead() -> Bool { lock.withLock { reads += 1; return reads == 1 } }
+    init(_ value: Data) { self.value = value }
+    func read() -> Data { lock.withLock { value } }
+    func replace(_ next: Data) { lock.withLock { value = next } }
+}
+
+// Native Forecast crosses ordinary paired transport; all replies here are explicit fixtures.
+@Test(arguments: ["current", "background", "owner-reset", "context-same", "context-older", "persona-conflict", "unsequenced-live", "unsequenced-live-during-read", "context-locale", "context-direction", "context-read-replacement", "transport-recovery", "disconnect-during-read", "sequenced-event-withdrawal", "sequenced-snapshot-withdrawal", "sequenced-withdrawal-equal-read"]) @MainActor
+func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: String) async throws {
+    let fixtureRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let rows = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureRoot.appendingPathComponent("Fixtures/session-forecast-core-3cfa5512.json"))) as? [[String: Any]])
+    var response = try #require(rows.first?["owner_read"] as? [String: Any])
+    var projection = try #require(response["forecast"] as? [String: Any])
+    var runtimeBody = try #require(JSONSerialization.jsonObject(with: activePersonaRuntimeWire()) as? [String: Any])
+    var runtime = try #require(runtimeBody["session"] as? [String: Any])
+    let id = try #require(runtime["session_id"] as? String)
+    projection["session_id"] = id; response["session_id"] = id
+    projection["issued_at"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1))
+    projection["valid_until"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(90))
+    projection["imagery"] = [] // Byte transport is qualified separately; no fabricated photo in this test.
+    response["forecast"] = projection
+    var forecastReply = try historyData(response)
+    let anchor = try #require(projection["current_anchor"] as? [String: Any])
+    var broadcast = try #require(runtime["broadcast"] as? [String: Any])
+    broadcast["playback"] = ["state": "playing", "item_id": anchor["item_id"]!, "source_url": anchor["source_url"]!]
+    runtime["broadcast"] = broadcast; runtimeBody["session"] = runtime
+    var runtimeReply = try historyData(runtimeBody)
+    let history = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let capability: [String: Any] = ["available": true, "version": 1,
+        "path": "/api/djconnect/v1/session/forecast/{session_id}", "method": "GET",
+        "authentication": "paired_device_bearer", "scope": "active_device_bound_owner_session",
+        "live_field": "session_forecast", "live_event": "forecast_changed", "nominal_window_seconds": 900,
+        "history": false, "emitted_imagery_roles": ["current"], "qualified_upcoming_media": false]
+    let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_forecast": true],
+        "contract_versions": ["session_conversation_history": 1, "session_forecast": 1], "session_forecast": capability])
+    let originalRuntimeReply = runtimeReply
+    let originalForecastReply = forecastReply
+    var changed = runtime
+    var live = try #require(changed["broadcast"] as? [String: Any])
+    var tuple = try #require(live["session"] as? [String: Any])
+    if fence == "context-locale" || fence == "context-read-replacement" {
+        tuple["locale"] = "fr"
+    } else if fence == "context-direction" {
+        var planner = try #require(live["planner"] as? [String: Any])
+        planner["current_direction"] = "building_energy"
+        var direction = try #require(planner["session_direction"] as? [String: Any])
+        direction["direction"] = "building_energy"
+        planner["session_direction"] = direction
+        live["planner"] = planner
+    } else if fence == "persona-conflict" {
+        tuple["dj_persona"] = "club_dj" // Contradicts retained home_dj at revision0.
+    } else {
+        changed["selected_mood"] = "changed-context"; changed["mood_revision"] = 1
+        tuple["selected_mood"] = "changed-context"; tuple["mood_revision"] = 1
+    }
+    live["session"] = tuple; changed["broadcast"] = live
+    runtimeBody["session"] = changed; runtimeReply = try historyData(runtimeBody)
+    if fence == "context-older" {
+        projection["revision"] = max(0, (projection["revision"] as? Int ?? 1) - 1)
+        response["forecast"] = projection; forecastReply = try historyData(response)
+    }
+    let runtimeReplies = ForecastWireDataSlot(originalRuntimeReply)
+    let forecastReplies = ForecastWireDataSlot(originalForecastReply)
+    let gate = HistoryWireResponseGate()
+    defer { gate.release() }
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("/session/active") { return (200, runtimeReplies.read(), 0) }
+        if path.hasSuffix("/session/forecast/" + id) {
+            let reply = forecastReplies.read()
+            if ["context-read-replacement", "disconnect-during-read"].contains(fence), forecastReplies.isFirstRead() {
+                throw HistoryWireHeldResponse(data: reply, gate: gate)
+            }
+            if ["background", "owner-reset", "unsequenced-live-during-read", "sequenced-event-withdrawal", "sequenced-snapshot-withdrawal"].contains(fence) { throw HistoryWireHeldResponse(data: reply, gate: gate) }
+            return (200, reply, 0)
+        }
+        if path.hasSuffix("/ask_dj/history") { return (200, history, 0) }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    let panel = SessionForecastPanel(model: model, position: .constant(nil), query: .constant("")) { EmptyView() }
+    let beforeOwner = panel.contextKey
+    await model.sessionHistory.prepare()
+    if fence == "current" {
+        #expect(model.sessionHistory.hasAuthorizedOwner)
+        #expect(beforeOwner.ownerEpoch == panel.contextKey.ownerEpoch)
+        #expect(beforeOwner != panel.contextKey, "Owner readiness must restart the panel task without waiting thirty seconds")
+    }
+    await model.refreshActiveDJSession()
+    // This fixture drives snapshots explicitly; cancel automatic live fallback
+    // before testing controlled owner reads and held-response ordering.
+    let initialSnapshot = try #require(model.activeDJSession).broadcast
+    model.stopSessionBroadcast()
+    model.applySessionBroadcastSnapshot(initialSnapshot)
+    #expect(model.sessionHistory.hasAuthorizedOwner && model.activeDJSession?.id == id)
+    model.askDJDraft = "Keep this unsent question"
+    let task = Task { await model.refreshSessionForecast() }
+    for _ in 0..<100 where !fixture.requests.contains(where: { $0.url?.path.hasSuffix("/session/forecast/" + id) == true }) {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(fixture.requests.contains { $0.url?.path.hasSuffix("/session/forecast/" + id) == true })
+    if fence == "sequenced-event-withdrawal" || fence == "sequenced-snapshot-withdrawal" {
+        let watermark = model.activeDJSession?.broadcast.delivery?.snapshotWatermark ?? 0
+        let originalAuthority = model.forecastAuthorityGeneration
+        if fence == "sequenced-event-withdrawal" {
+            var event = DJConnectSessionBroadcastEvent(eventType: "forecast_changed", sessionID: id, payload: .init())
+            event.deliverySequence = watermark + 1
+            model.applySessionBroadcastEvent(event)
+        } else {
+            var snapshot = try #require(model.activeDJSession).broadcast
+            snapshot.delivery = .init(snapshotWatermark: watermark + 1)
+            snapshot.sessionForecast = nil
+            model.applySessionBroadcastSnapshot(snapshot)
+        }
+        #expect(model.forecastAuthorityGeneration != originalAuthority)
+        gate.release(); await task.value
+        #expect(model.visibleSessionForecast(at: Date()) == nil, "A held owner read cannot undo newer live withdrawal")
+        #expect(model.askDJDraft == "Keep this unsent question")
+        #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+        return
+    }
+    if fence == "disconnect-during-read" {
+        let snapshot = try #require(model.activeDJSession).broadcast
+        model.sessionBroadcastDidDisconnect()
+        model.applySessionBroadcastSnapshot(snapshot)
+        await model.refreshSessionForecast()
+        #expect(fixture.requests.filter { $0.url?.path.hasSuffix("/session/forecast/" + id) == true }.count == 2)
+        #expect(model.visibleSessionForecast(at: Date()) != nil)
+        gate.release(); await task.value
+        #expect(model.visibleSessionForecast(at: Date()) != nil)
+        #expect(model.askDJDraft == "Keep this unsent question")
+        #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+        return
+    }
+    if fence == "context-read-replacement" {
+        runtimeReplies.replace(runtimeReply)
+        projection["revision"] = (projection["revision"] as? Int ?? 0) + 1
+        response["forecast"] = projection
+        forecastReplies.replace(try historyData(response))
+        let latest = try await fixture.client().activeSession()
+        model.applySessionBroadcastSnapshot(try #require(latest.resolvedSession).personaSafeBroadcast)
+        await model.refreshSessionForecast()
+        #expect(fixture.requests.filter { $0.url?.path.hasSuffix("/session/forecast/" + id) == true }.count == 2)
+        #expect(model.visibleSessionForecast(at: Date())?.revision == projection["revision"] as? Int)
+        gate.release(); await task.value
+        #expect(model.visibleSessionForecast(at: Date())?.revision == projection["revision"] as? Int)
+        #expect(model.askDJDraft == "Keep this unsent question")
+        #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+        return
+    }
+    if fence == "background" { model.markInactiveSession(); gate.release() }
+    if fence == "owner-reset" { model.sessionHistory.reset(); gate.release() }
+    if fence == "unsequenced-live-during-read" {
+        model.applySessionBroadcastEvent(.init(eventType: "playback_updated", sessionID: id, payload: .init()))
+        gate.release()
+    }
+    await task.value
+    #expect(model.askDJDraft == "Keep this unsent question")
+    #expect((model.visibleSessionForecast(at: Date()) == nil) == ["background", "owner-reset", "unsequenced-live-during-read"].contains(fence))
+    if fence == "sequenced-withdrawal-equal-read" {
+        let floor = try #require(model.forecastCursor?.revisionFloor)
+        let watermark = model.activeDJSession?.broadcast.delivery?.snapshotWatermark ?? 0
+        var event = DJConnectSessionBroadcastEvent(eventType: "forecast_changed", sessionID: id, payload: .init())
+        event.deliverySequence = watermark + 1
+        model.applySessionBroadcastEvent(event)
+        let deniedAuthority = model.forecastAuthorityGeneration
+        await model.refreshSessionForecast()
+        #expect(model.forecastCursor?.revisionFloor == floor)
+        #expect(model.visibleSessionForecast(at: Date()) == nil)
+        #expect(model.forecastAuthorityGeneration == deniedAuthority, "An equal owner reply must not restart the task repeatedly")
+        #expect(!model.forecastLoading)
+    }
+    if fence == "transport-recovery" {
+        let original = try #require(model.visibleSessionForecast(at: Date()))
+        let snapshot = try #require(model.activeDJSession).broadcast
+        model.stopSessionBroadcast()
+        #expect(model.visibleSessionForecast(at: Date()) == nil)
+        model.applySessionBroadcastSnapshot(snapshot)
+        await model.refreshSessionForecast()
+        #expect(model.visibleSessionForecast(at: Date()) == original)
+    }
+    if fence == "unsequenced-live" {
+        model.applySessionBroadcastEvent(.init(eventType: "playback_updated", sessionID: id, payload: .init()))
+        #expect(model.forecastCursor?.projection == nil)
+        #expect(model.visibleSessionForecast(at: Date()) == nil)
+        #expect(model.askDJDraft == "Keep this unsent question")
+    }
+    if fence.hasPrefix("context-") || fence == "persona-conflict" {
+        runtimeReplies.replace(runtimeReply)
+        let latest = try await fixture.client().activeSession()
+        model.applySessionBroadcastSnapshot(try #require(latest.resolvedSession).personaSafeBroadcast)
+        #expect(model.activeDJSession?.id == id)
+        if fence == "persona-conflict" { #expect(model.activeDJSession?.confirmedPersona == nil) }
+        #expect(model.visibleSessionForecast(at: Date()) == nil)
+        forecastReplies.replace(forecastReply)
+        await model.refreshSessionForecast()
+        #expect(model.visibleSessionForecast(at: Date()) == nil)
+        if fence.hasPrefix("context-") {
+            projection["revision"] = (try #require((try JSONSerialization.jsonObject(with: originalForecastReply) as? [String: Any])?["forecast"] as? [String: Any])["revision"] as? Int ?? 0) + 1
+            response["forecast"] = projection
+            forecastReplies.replace(try historyData(response))
+            await model.refreshSessionForecast()
+            #expect(model.visibleSessionForecast(at: Date()) != nil)
+        }
+        #expect(model.askDJDraft == "Keep this unsent question")
+    }
+    #if os(macOS)
+    if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_NATIVE_DIR"] {
+        try await qualifyForecastNativeSwitch(model: model, directory: directory)
+    }
+    #endif
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" && !$0.url!.path.contains("/command") && !$0.url!.path.contains("/message") })
+}
+
+#if os(macOS)
+@MainActor private final class ForecastNativeOpenedURLs {
+    var values: [URL] = []
+}
+
+@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_NATIVE_DIR"] != nil)) @MainActor
+func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let rows = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-forecast-core-3cfa5512.json"))) as? [[String: Any]])
+    let response = try JSONDecoder().decode(DJConnectSessionForecastResponse.self,
+        from: historyData(try #require(rows.first?["owner_read"])))
+    let projection = response.forecast
+    #expect(projection.structurallyValid)
+    let urls = projection.sections.compactMap { $0.source_url.flatMap(URL.init(string:)) }
+    #expect(urls.count == 1)
+    let opened = ForecastNativeOpenedURLs()
+    _ = NSApplication.shared
+    let view = SessionForecastTextView(projection: projection, language: "en")
+        .environment(\.openURL, OpenURLAction { url in
+            opened.values.append(url)
+            return .handled // No system/browser launch or external request.
+        })
+        .environment(\.colorScheme, .dark).preferredColorScheme(.dark)
+        .foregroundStyle(.white).padding(20).frame(width: 430, height: 900)
+    let host = NSHostingView(rootView: view)
+    let window = NSWindow(contentRect: CGRect(x: -2000, y: -2000, width: 430, height: 900),
+                          styleMask: [.borderless], backing: .buffered, defer: false)
+    window.appearance = NSAppearance(named: .darkAqua)
+    window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
+    defer { window.close() }
+    try await Task.sleep(for: .milliseconds(350))
+    host.layoutSubtreeIfNeeded()
+    func descendants(_ root: NSView) -> [NSView] { [root] + root.subviews.flatMap(descendants) }
+    // This isolated component contains exactly one Link and no other buttons.
+    // Its sole native bridge is identifiable without guessing an empty label.
+    let buttons = descendants(host).compactMap { $0 as? NSButton }
+    #expect(buttons.count == urls.count)
+    let source = try #require(buttons.count == 1 ? buttons.first : nil)
+    source.performClick(nil)
+    for _ in 0..<30 where opened.values.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(opened.values == urls)
+    let directory = try #require(ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_NATIVE_DIR"])
+    let folder = URL(fileURLWithPath: directory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+    host.cacheDisplay(in: host.bounds, to: image)
+    try #require(image.representation(using: .png, properties: [:])).write(to: folder.appendingPathComponent("isolated-source-link.png"))
+}
+
+@MainActor private struct ForecastNativeHost: View {
+    @ObservedObject var model: DJConnectAppModel
+    let sessionID: String
+    var body: some View {
+        SessionTimelineScreen(model: model, sessionID: sessionID, activeSession: model.activeDJSession)
+    }
+}
+
+/// Explicit local test window with synthetic paired transport; no ordinary app launch.
+@MainActor private func qualifyForecastNativeSwitch(model: DJConnectAppModel, directory: String) async throws {
+    let session = try #require(model.activeDJSession)
+    let folder = URL(fileURLWithPath: directory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    _ = NSApplication.shared
+    let view = ForecastNativeHost(model: model, sessionID: session.id)
+        .environment(\.scenePhase, .active).environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark)
+        .frame(width: 430, height: 900)
+    let host = NSHostingView(rootView: view)
+    let window = NSWindow(contentRect: CGRect(x: -2000, y: -2000, width: 430, height: 900),
+                          styleMask: [.borderless], backing: .buffered, defer: false)
+    window.appearance = NSAppearance(named: .darkAqua)
+    window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
+    defer { window.close() }
+    func descendants(_ root: NSView) -> [NSView] { [root] + root.subviews.flatMap(descendants) }
+    func forecastSearch() -> NSTextField? {
+        let placeholder = DJConnectLocalization.localized(key: "ui.session.forecast.search", language: model.language)
+        return descendants(host).compactMap { $0 as? NSTextField }.first { $0.placeholderString == placeholder }
+    }
+    func hasPanel() -> Bool { forecastSearch() != nil }
+    func capture(_ name: String) throws {
+        host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
+        let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: image)
+        let data = try #require(image.representation(using: .png, properties: [:]))
+        try data.write(to: folder.appendingPathComponent(name + ".png"))
+    }
+    try await Task.sleep(for: .milliseconds(350))
+    host.layoutSubtreeIfNeeded()
+    let picker = try #require(descendants(host).compactMap { $0 as? NSSegmentedControl }.first { $0.segmentCount == 2 })
+    #expect(picker.selectedSegment == 0 && !hasPanel())
+    try capture("flow-before")
+    picker.selectedSegment = 1
+    let action = try #require(picker.action)
+    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
+    for _ in 0..<30 where !hasPanel() { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(picker.selectedSegment == 1 && hasPanel())
+    let search = try #require(forecastSearch())
+    search.stringValue = "Catalog"
+    search.delegate?.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: search))
+    #expect(model.askDJDraft == "Keep this unsent question")
+    try capture("forecast-selected")
+    picker.selectedSegment = 0
+    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
+    for _ in 0..<30 where hasPanel() { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(picker.selectedSegment == 0 && !hasPanel())
+    #expect(model.askDJDraft == "Keep this unsent question")
+    try capture("flow-returned")
+    picker.selectedSegment = 1
+    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
+    for _ in 0..<30 where !hasPanel() { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(forecastSearch()?.stringValue == "Catalog")
+    #expect(model.askDJDraft == "Keep this unsent question")
+    try capture("forecast-restored-search")
+    model.applySessionBroadcastEvent(.init(eventType: "runtime_ended", sessionID: session.id, payload: .init()))
+    for _ in 0..<30 where hasPanel() { try await Task.sleep(for: .milliseconds(50)) }
+    try await Task.sleep(for: .milliseconds(150))
+    #expect(model.activeDJSession == nil && !hasPanel())
+    #expect(!descendants(host).compactMap { $0 as? NSSegmentedControl }.contains { $0.segmentCount == 2 })
+    try capture("ended-session-flow")
+}
+#endif

@@ -1442,6 +1442,19 @@
 "ui.session.reaction.speaker_unavailable" = "Diese Reaktion ist als Text verfügbar. Die Lautsprecherwiedergabe ist derzeit nicht verfügbar.";
 "ui.session.reaction.speaker_partial" = "Diese Reaktion wird nur auf diesem Gerät wiedergegeben; die Lautsprecherwiedergabe ist derzeit nicht verfügbar.";
 
+// Native Session Forecast
+"ui.session.forecast.mode" = "Ansicht";
+"ui.session.forecast.flow" = "Flow";
+"ui.session.forecast.tab" = "Ausblick";
+"ui.session.forecast.title" = "Ausblick · ca. 15 Min.";
+"ui.session.forecast.notice" = "Eine Richtung für die kommenden Minuten. Musik und Beiträge können sich ändern.";
+"ui.session.forecast.loading" = "Ausblick wird geladen…";
+"ui.session.forecast.unavailable" = "Aktuell ist kein Ausblick verfügbar.";
+"ui.session.forecast.source" = "Quelle";
+"ui.session.forecast.claim.current" = "Läuft gerade";
+"ui.session.forecast.claim.intention" = "Vorhaben";
+"ui.session.forecast.claim.conditional_target" = "Mögliche Richtung";
+"ui.session.forecast.search" = "Ausblick durchsuchen";
 // VibeCast rendezvous: routing preparation is distinct from display consent.
 "ui.rendezvous.scan" = "TV-QR-Code scannen";
 "ui.rendezvous.choose" = "Wähle dein verbundenes Home Assistant. Nur die Anzeigeadresse wird mit diesem TV geteilt.";
