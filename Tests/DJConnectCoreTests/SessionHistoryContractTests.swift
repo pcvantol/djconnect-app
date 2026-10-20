@@ -6255,8 +6255,10 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         "authentication": "paired_device_bearer", "scope": "active_device_bound_owner_session",
         "live_field": "session_forecast", "live_event": "forecast_changed", "nominal_window_seconds": 900,
         "history": false, "emitted_imagery_roles": ["current"], "qualified_upcoming_media": false]
-    let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_forecast": true],
-        "contract_versions": ["session_conversation_history": 1, "session_forecast": 1], "session_forecast": capability])
+    let keyboardProbe = fence == "current" && ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_KEYBOARD_DIR"] != nil
+    let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_forecast": true,
+        "session_flow_text_search": keyboardProbe],
+        "contract_versions": ["session_conversation_history": 1, "session_forecast": 1, "session_flow_text_search": 1], "session_forecast": capability])
     let originalRuntimeReply = runtimeReply
     let originalForecastReply = forecastReply
     var changed = runtime
@@ -6434,11 +6436,89 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_NATIVE_DIR"] {
         try await qualifyForecastNativeSwitch(model: model, directory: directory)
     }
+    if keyboardProbe, let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_KEYBOARD_DIR"] {
+        try await qualifyForecastNativeKeyboard(model: model, directory: directory)
+    }
     #endif
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" && !$0.url!.path.contains("/command") && !$0.url!.path.contains("/message") })
 }
 
 #if os(macOS)
+/// Own offscreen test window can receive native key-equivalent dispatch without
+/// injecting system keyboard events or opening an ordinary installed app.
+@MainActor private final class ForecastKeyboardWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+}
+
+@MainActor private func qualifyForecastNativeKeyboard(model: DJConnectAppModel, directory: String) async throws {
+    let session = try #require(model.activeDJSession)
+    #expect(model.sessionHistory.searchAvailable)
+    _ = NSApplication.shared
+    let view = NavigationStack { ForecastNativeHost(model: model, sessionID: session.id) }
+        .environment(\.scenePhase, .active).environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark).frame(width: 600, height: 900)
+    let host = NSHostingView(rootView: view)
+    let window = ForecastKeyboardWindow(contentRect: CGRect(x: -2000, y: -2000, width: 600, height: 900),
+        styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+    window.appearance = NSAppearance(named: .darkAqua)
+    window.isReleasedWhenClosed = false; window.contentView = host
+    window.orderBack(nil); window.makeKey()
+    defer { window.close() }
+    let folder = URL(fileURLWithPath: directory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
+    func field(_ key: String) -> NSTextField? {
+        let prompt = DJConnectLocalization.localized(key: key, language: model.language)
+        return descendants(host).compactMap { $0 as? NSTextField }.first { $0.placeholderString == prompt }
+    }
+    func capture(_ name: String) throws {
+        host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
+        let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: image)
+        try #require(image.representation(using: .png, properties: [:])).write(to: folder.appendingPathComponent(name + ".png"))
+    }
+    func commandF() throws {
+        let event = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command,
+            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+            context: nil, characters: "f", charactersIgnoringModifiers: "f", isARepeat: false, keyCode: 3))
+        #expect(window.performKeyEquivalent(with: event), "The native window must handle Command-F")
+    }
+    try await Task.sleep(for: .milliseconds(500))
+    host.layoutSubtreeIfNeeded()
+    let picker = try #require(descendants(host).compactMap { $0 as? NSSegmentedControl }.first { $0.segmentCount == 2 })
+    let action = try #require(picker.action)
+    picker.selectedSegment = 1
+    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
+    for _ in 0..<30 where field("ui.session.forecast.search") == nil { try await Task.sleep(for: .milliseconds(50)) }
+    let forecast = try #require(field("ui.session.forecast.search"))
+    forecast.stringValue = "Catalog"
+    forecast.delegate?.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: forecast))
+    try capture("keyboard-01-forecast")
+    try commandF()
+    for _ in 0..<30 where picker.selectedSegment != 0 || field("ui.session.history.search") == nil {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    #expect(picker.selectedSegment == 0)
+    let flow = try #require(field("ui.session.history.search"), "Command-F must expose the actual Flow search field")
+    #expect(flow.currentEditor() != nil && window.firstResponder === flow.currentEditor(), "Visible Flow search must own native text focus")
+    #expect(model.askDJDraft == "Keep this unsent question")
+    try capture("keyboard-02-flow-search")
+    picker.selectedSegment = 1
+    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
+    for _ in 0..<30 where field("ui.session.forecast.search") == nil { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(field("ui.session.forecast.search")?.stringValue == "Catalog")
+    try commandF() // An already-open Flow search must be restored, not closed.
+    for _ in 0..<30 where picker.selectedSegment != 0 { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(picker.selectedSegment == 0 && field("ui.session.history.search") != nil)
+    try commandF() // In Flow, the same shortcut retains its ordinary close action.
+    for _ in 0..<30 where field("ui.session.history.search") != nil { try await Task.sleep(for: .milliseconds(50)) }
+    #expect(field("ui.session.history.search") == nil)
+    #expect(model.askDJDraft == "Keep this unsent question")
+    #expect(model.activeDJSession?.id == session.id)
+    #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
+    try capture("keyboard-03-flow-search-closed")
+}
+
 @MainActor private final class ForecastNativeOpenedURLs {
     var values: [URL] = []
 }
