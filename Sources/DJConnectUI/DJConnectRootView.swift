@@ -9465,7 +9465,7 @@ struct VibeCastDisplayConsentForm: View {
                     Button(localizedKey(model.language, "ui.displayConsent.lookup")) {
                         resignPlatformFirstResponder()
                         Task { await model.resolveDisplayConsent(code: code) }
-                    }.disabled(code.count != 6 || busy)
+                    }.disabled(code.count != 6 || busy || !model.canResolveDisplayConsent)
                     .accessibilityIdentifier("display-consent-lookup")
                 }
                 if model.displayConsentState == .ready {
