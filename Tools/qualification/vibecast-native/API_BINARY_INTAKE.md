@@ -150,3 +150,30 @@ CI now runs the pure isolated package with no credentials/hardware opt-in, in
 addition to ordinary Swift/native build checks. That does not arm hosted capture.
 The shipping scanner, genuine SDK/API joint proof, agreed profile and physical
 private-transfer readiness remain explicit separate gates.
+
+
+## Corrected build40381 candidate — 20 October 2026
+
+[PROFILE_PROPOSAL_40381.json](PROFILE_PROPOSAL_40381.json) is a new, separate
+proposal containing the protected PR160 expiry correction. Both the test host
+bundle guard and explicit private admission descriptor require40381. The durable
+attempt directory deliberately remains `DJConnect/APIBinaryQualification40380`:
+a new build must not bypass an occupied registration/action marker. Historical
+attempt state, old40380 proposal/artifact and independent admission gates remain
+unchanged. No migration, deletion, new key, capture or SDK execution occurred.
+
+The actual generic-iPhone build-for-testing succeeded using the existing Team,
+Apple Development identity and existing exact profile without provisioning
+updates. Both produced and preserved bundles pass strict nested signature
+verification. All89regular bundle files and five compiled qualification inputs
+are SHA256-bound; the copied artifact root is private. Source-base5173de1 and
+separate test-target overlay are recorded; only the two build guards changed.
+The earlier private prototype with a new state-directory name was superseded
+before external proposal and retained separately as non-admitted evidence.
+
+This is compiled/signed diagnostic evidence, not a protected delivery receipt,
+API policy acceptance, actual DeviceCheck request, install or physical test.
+After exact source review/delivery, API separately reviews this exact candidate
+profile/artifact and both owners arrange private-transfer/device readiness before
+one bounded original120s registration and selected action. Never reuse old
+40380/40227/40228/40230 approval or reset a consumed/uncertain marker.

@@ -18,7 +18,7 @@ import CryptoKit
     }
     private func capture() async throws {
         guard Bundle.main.bundleIdentifier == "dev.djconnect.ios",
-              Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String == "40380",
+              Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String == "40381",
               !ProcessInfo.processInfo.isiOSAppOnMac, DCAppAttestService.shared.isSupported else { throw BindingFailure.rejected }
         let fm = FileManager.default
         let support = try fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
@@ -40,7 +40,7 @@ import CryptoKit
         guard Set(admission.keys) == Set(["v", "team_id", "bundle_id", "build", "environment", "api_review_receipt"]),
               admission["v"] == .string("djc-api-binary-qualification/1"),
               admission["team_id"] == .string("ZEML4LPXH4"), admission["bundle_id"] == .string("dev.djconnect.ios"),
-              admission["build"] == .string("40380"), admission["environment"] == .string("development"),
+              admission["build"] == .string("40381"), admission["environment"] == .string("development"),
               case .string(let receipt)? = admission["api_review_receipt"],
               receipt.range(of: "^https://github.com/pcvantol/djconnect-api/issues/90#issuecomment-[0-9]+$", options: .regularExpression) != nil else { throw BindingFailure.rejected }
         let contextBytes = try read("request-context.json", maximum: 2_048)
