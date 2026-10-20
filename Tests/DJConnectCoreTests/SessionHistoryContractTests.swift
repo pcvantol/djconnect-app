@@ -6442,6 +6442,9 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_SCROLL_DIR"] {
         try await qualifyForecastNativeScroll(model: model, directory: directory)
     }
+    if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_ACCESSIBILITY_DIR"] {
+        try await recordForecastNativeAccessibility(model: model, directory: directory)
+    }
     #endif
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" && !$0.url!.path.contains("/command") && !$0.url!.path.contains("/message") })
 }
@@ -6602,6 +6605,81 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         "flow_initial_offset": Double(originalFlowOffset.y), "flow_return_offset": Double(flow.contentView.bounds.origin.y)]
     try JSONSerialization.data(withJSONObject: metrics, options: [.sortedKeys, .prettyPrinted])
         .write(to: folder.appendingPathComponent("native-scroll-metrics.json"))
+}
+
+/// Read this isolated host's public accessibility tree, without system VoiceOver
+/// or cross-process accessibility access. Spoken traversal remains unqualified.
+@MainActor private func recordForecastNativeAccessibility(model: DJConnectAppModel, directory: String) async throws {
+    let session = try #require(model.activeDJSession)
+    _ = NSApplication.shared
+    let view = ForecastNativeHost(model: model, sessionID: session.id)
+        .environment(\.scenePhase, .active).environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark).frame(width: 600, height: 900)
+    let host = NSHostingView(rootView: view)
+    let window = NSWindow(contentRect: CGRect(x: -2000, y: -2000, width: 600, height: 900),
+        styleMask: [.borderless], backing: .buffered, defer: false)
+    window.appearance = NSAppearance(named: .darkAqua)
+    window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
+    defer { window.close() }
+    let folder = URL(fileURLWithPath: directory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
+    func snapshot(_ name: String) throws {
+        host.layoutSubtreeIfNeeded()
+        var seen = Set<ObjectIdentifier>()
+        func tree(_ object: AnyObject, depth: Int = 0) -> [[String: Any]] {
+            guard depth < 40, seen.insert(ObjectIdentifier(object)).inserted else { return [] }
+            var row: [String: Any] = ["depth": depth, "type": String(describing: type(of: object))]
+            // SwiftUI's virtual accessibility nodes need not declare the complete
+            // AppKit protocol. Query only public object-valued selectors they expose.
+            func attribute(_ name: String) -> Any? {
+                guard let node = object as? NSObject else { return nil }
+                let selector = NSSelectorFromString(name)
+                guard node.responds(to: selector) else { return nil }
+                return node.perform(selector)?.takeUnretainedValue()
+            }
+            for key in ["Role", "Label", "Value", "Identifier"] {
+                row[key.lowercased()] = attribute("accessibility" + key).map { String(describing: $0) }
+            }
+            let children = attribute("accessibilityChildren") as? [AnyObject] ?? []
+            row["child_count"] = children.count
+            return [row] + children.flatMap { tree($0, depth: depth + 1) }
+        }
+        let rows = tree(host)
+        // A test-only offscreen hosting view may not vend virtual SwiftUI
+        // children. Preserve that limitation rather than claiming full traversal.
+        let controls: [[String: Any]] = descendants(host).compactMap { view in
+            guard view is NSControl else { return nil }
+            var row: [String: Any] = ["type": String(describing: type(of: view)),
+                "role": view.accessibilityRole()?.rawValue ?? "", "label": view.accessibilityLabel() ?? "",
+                "exposed": view.isAccessibilityElement(), "hidden": view.isHiddenOrHasHiddenAncestor]
+            if let field = view as? NSTextField {
+                row["placeholder"] = field.placeholderString ?? ""
+                row["text"] = field.stringValue
+            }
+            if let segmented = view as? NSSegmentedControl {
+                row["segments"] = (0..<segmented.segmentCount).map { segmented.label(forSegment: $0) ?? "" }
+                row["selection"] = segmented.selectedSegment
+            }
+            return row
+        }
+        try JSONSerialization.data(withJSONObject: ["qualification": "INCONCLUSIVE_HOST_ACCESSIBILITY_TREE", "public_tree": rows, "native_controls": controls], options: [.prettyPrinted, .sortedKeys])
+            .write(to: folder.appendingPathComponent(name + ".json"))
+    }
+    try await Task.sleep(for: .milliseconds(400))
+    try snapshot("accessibility-01-flow")
+    let picker = try #require(descendants(host).compactMap { $0 as? NSSegmentedControl }.first { $0.segmentCount == 2 })
+    picker.selectedSegment = 1
+    #expect(NSApp.sendAction(try #require(picker.action), to: picker.target, from: picker))
+    try await Task.sleep(for: .milliseconds(300))
+    try snapshot("accessibility-02-forecast")
+    picker.selectedSegment = 0
+    #expect(NSApp.sendAction(try #require(picker.action), to: picker.target, from: picker))
+    try await Task.sleep(for: .milliseconds(150))
+    try snapshot("accessibility-03-flow-return")
+    #expect(model.askDJDraft == "Keep this unsent question")
+    #expect(model.activeDJSession?.id == session.id)
+    #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
 }
 
 @MainActor private final class ForecastNativeOpenedURLs {
