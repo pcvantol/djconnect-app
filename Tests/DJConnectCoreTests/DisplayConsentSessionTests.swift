@@ -285,6 +285,74 @@ extension DisplayConsentSessionTests {
         return (model, defaults, suite, store)
     }
 
+    /// Public UIKeyInput insertion, without directly invoking the delegate.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_KEYINPUT_DIR"] != nil))
+    func actualIOSNativeCodeUIKeyInput() async throws {
+        let (model, defaults, suite, _) = try await makeNativeModel()
+        defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+        let session = try #require(model.activeDJSession)
+        let folder = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_KEYINPUT_DIR"]))
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let controller = UIHostingController(rootView: VibeCastDisplayConsentForm(model: model)
+            .environment(\.colorScheme, .dark).preferredColorScheme(.dark))
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 430, height: 932))
+        window.overrideUserInterfaceStyle = .dark
+        window.rootViewController = controller; window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil }
+        func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+        try await Task.sleep(for: .milliseconds(350))
+        let fields = descendants(controller.view).compactMap { $0 as? UITextField }
+            .filter { $0.accessibilityIdentifier?.hasPrefix("vibecast-handoff-digit-") == true }.sorted { $0.tag < $1.tag }
+        try #require(fields.count == 6)
+        var observations: [[String: Any]] = []
+        func capture(_ name: String) throws {
+            window.layoutIfNeeded()
+            observations.append(["stage": name, "digits": fields.map { $0.text ?? "" },
+                "focused_index": fields.firstIndex { $0.isFirstResponder } ?? -1])
+            let image = UIGraphicsImageRenderer(bounds: window.bounds).image { context in window.layer.render(in: context.cgContext) }
+            try #require(image.pngData()).write(to: folder.appendingPathComponent(name + ".png"))
+        }
+        fields[0].becomeFirstResponder()
+        for (index, digit) in "123456".enumerated() {
+            let focused = try #require(fields.first { $0.isFirstResponder })
+            focused.insertText(String(digit))
+            try await Task.sleep(for: .milliseconds(60))
+            #expect(fields[index].text == String(digit))
+            #expect(fields[min(5, index + 1)].isFirstResponder)
+        }
+        #expect(fields.map { $0.text ?? "" } == ["1", "2", "3", "4", "5", "6"])
+        try capture("keyinput-01-sequential")
+        fields[3].becomeFirstResponder(); fields[3].insertText("654321")
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(fields.map { $0.text ?? "" } == ["6", "5", "4", "3", "2", "1"])
+        #expect(fields[5].isFirstResponder)
+        fields[2].becomeFirstResponder()
+        fields[2].selectedTextRange = fields[2].textRange(from: fields[2].beginningOfDocument, to: fields[2].endOfDocument)
+        fields[2].insertText("9")
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(fields.map { $0.text ?? "" } == ["6", "5", "9", "3", "2", "1"])
+        #expect(fields[3].isFirstResponder)
+        try capture("keyinput-02-replaced")
+        fields[5].deleteBackward(); fields[5].deleteBackward()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(fields.map { $0.text ?? "" } == ["6", "5", "9", "3", "", ""])
+        #expect(fields[4].isFirstResponder)
+        fields[4].insertText("９x")
+        try await Task.sleep(for: .milliseconds(80))
+        #expect(fields.map { $0.text ?? "" } == ["6", "5", "9", "3", "", ""])
+        #expect(fields[4].isFirstResponder)
+        model.applySessionBroadcastSnapshot(session.broadcast)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(fields.map { $0.text ?? "" } == ["6", "5", "9", "3", "", ""])
+        #expect(model.activeDJSession?.id == session.id)
+        #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
+        #expect(model.displayConsentState == .idle)
+        #expect(!ConsentWire.requests.contains { $0.url?.path.contains("/owner/") == true })
+        try capture("keyinput-03-backspace-invalid-and-update")
+        try JSONSerialization.data(withJSONObject: observations, options: [.prettyPrinted, .sortedKeys])
+            .write(to: folder.appendingPathComponent("native-keyinput.json"))
+    }
+
     /// Real native hierarchy removal must run the production disappearance fence.
     @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_LIFECYCLE_DIR"] != nil))
     func actualIOSNativeConsentFormLifecycle() async throws {

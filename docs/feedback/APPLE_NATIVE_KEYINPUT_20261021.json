@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "parent_sha": "3e07f730440ed59278a9593a3a04135b2e5d2eda",
+  "production_changed": true,
+  "negative": {
+    "passed": 0,
+    "failed": 1,
+    "skipped": 0,
+    "first_digits": [
+      "123456",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  },
+  "qualified": {
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "inspected_keyinput_renders": 3
+  },
+  "physical_keyboard_failure_proven": false,
+  "owner_requests": 0,
+  "owned_device": "B62B723C-74D1-499C-AFA4-1FB5FF33ECD3",
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Sources/DJConnectUI/DJConnectRootView.swift",
+      "sha256": "169b0fd5cb0733856fabf6c94f5459f5d1ba6c9b1245251976bca420d4e8206b"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/DisplayConsentSessionTests.swift",
+      "sha256": "6e37b319b2d5913229c731269388db249dc721b989aa7192e9f12d23cb82922f"
+    },
+    {
+      "path": "Tools/qualification/vibecast-product/prepare_native_consent_tests.py",
+      "sha256": "28e2cf80ea7d16cb4586f0ec64e17fd193ee83f5b950983afc906706cae3289e"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/final.log",
+      "sha256": "3be41f427e119443bac5028781d4b6ecfb36803fc77294a7bff04becf71567f3"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/initial-summary.json",
+      "sha256": "1d25088b568b5368d58d4c4c9be34d4feae9f46547f3c82a674e073ae17c148c"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/initial-test-source.swift",
+      "sha256": "6e37b319b2d5913229c731269388db249dc721b989aa7192e9f12d23cb82922f"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/qualified.log",
+      "sha256": "a42ceb23728cca0f8f9f65b6f817275a694c121661eecf6f129a5e125b1dde38"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/qualified-summary.json",
+      "sha256": "a48464bef8f05e1ac879ffc51d735b55ed89a77a278bf8569830239b09759787"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/project.json",
+      "sha256": "263c9ac2c2d85b26f9d1b189151a131aca8256a4afc704e9e866f0f6435a2cd6"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/final.xcresult/Info.plist",
+      "sha256": "1f609344ed8bdbf3e079f120874c54f9261843c8deeecb8a791d2c880480e821"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/final.xcresult/database.sqlite3",
+      "sha256": "4bc2a0b8c4f20b2af155b9bae2a8aca4d95f630c02bc2834f0d5ebdb81c4c104"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/qualified.xcresult/Info.plist",
+      "sha256": "69b5189dc7384ab57a7e0eeb23d7d9378cc95b235809b46bdba65ea42aa7343d"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/qualified.xcresult/database.sqlite3",
+      "sha256": "9c0f5beeb368bf27ff679af406a3405e5e2429d67725b22c10ca75ca5f59c1a3"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/observations/keyinput-01-sequential.png",
+      "sha256": "2383e3e9dd45934e1552094bccd9cae007daed2a7a9b1d6fd7291b8d9f2bac90"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/observations/keyinput-02-replaced.png",
+      "sha256": "989ea9081c20cc29e33b542f880ae4521ed4ec3d1ee13a9c09eb72abbaee1775"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/observations/keyinput-03-backspace-invalid-and-update.png",
+      "sha256": "635fd6a70be0fa19ec6009f8ba4592294b8bc1ba5b5c7a9d8097859bf088c425"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/observations/native-keyinput.json",
+      "sha256": "49a3fc09e497daa663b8a1dde7175fa5551083cb35c0dd9644d9a2779d5b747d"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/observations-qualified/keyinput-01-sequential.png",
+      "sha256": "6ccc93ff1fd24bf7a719c9a73de657896be771d571585a200979f8b351c9ad05"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/observations-qualified/keyinput-02-replaced.png",
+      "sha256": "fc5e8aacc9a363e0be731bfb92d7735d1cc7e01128e67dec1a9f471ed5e05061"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/observations-qualified/keyinput-03-backspace-invalid-and-update.png",
+      "sha256": "1231bf9b861c1cd112832e1307a8efba6dc50f8ac7db0c7b7d8db37a45ae7fdc"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/observations-qualified/native-keyinput.json",
+      "sha256": "1719297f0f6d8f72d72b4f8fc416582742f7eeabb3524e8dcf160711b407dc89"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/delegate-regression/digits-01-paste-from-later-cell.png",
+      "sha256": "6ccc93ff1fd24bf7a719c9a73de657896be771d571585a200979f8b351c9ad05"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/delegate-regression/digits-02-empty-backspace.png",
+      "sha256": "cceeb20c805901082778ae3a3b8fde1a6cd9a40e007f9f88f92c01216217dc87"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/delegate-regression/digits-03-snapshot-preserves-input.png",
+      "sha256": "18df3d4ba90aeb43f32ce9d7a847c4938cc9f173870f07af25cddd028b5ea7fb"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/delegate-regression/native-digits-result.json",
+      "sha256": "7f6ac986caf386a47dc639398c95244452971545f863c9d3c1e1c6d397562204"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/derived/Build/Products/Debug-iphonesimulator/DJConnectUI.framework/DJConnectUI",
+      "sha256": "e36c77639e635f036e0371cc8a1d932d0c4621264b5a54a74bec78a67d44877e"
+    },
+    {
+      "path": "/private/tmp/djc-native-keyinput-20261021/derived/Build/Products/Debug-iphonesimulator/NativeConsentTests.xctest/NativeConsentTests",
+      "sha256": "8a6f373617fe04f30ca98d866cef72eae3700a75695473e971a63de1263fe60c"
+    }
+  ]
+}

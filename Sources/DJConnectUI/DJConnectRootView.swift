@@ -9523,6 +9523,7 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
             field.accessibilityLabel = "\(accessibilityLabel), \(index + 1) / 6"
             field.accessibilityIdentifier = "vibecast-handoff-digit-\(index)"
             field.deleteDigit = { [weak coordinator = context.coordinator] in coordinator?.deleteDigit(index) }
+            field.insertDigits = { [weak coordinator = context.coordinator] in coordinator?.insert($0, at: index) }
             stack.addArrangedSubview(field)
             context.coordinator.fields.append(field)
         }
@@ -9542,7 +9543,9 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
 
     final class DigitField: UITextField {
         var deleteDigit: (() -> Void)?
+        var insertDigits: ((String) -> Void)?
         override func deleteBackward() { deleteDigit?() }
+        override func insertText(_ text: String) { insertDigits?(text) }
     }
 
     final class Coordinator: NSObject, UITextFieldDelegate {
@@ -9591,14 +9594,17 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
                 emit()
                 return false
             }
+            insert(string, at: index)
+            return false
+        }
+        func insert(_ string: String, at index: Int) {
             let clean = Array(string.filter { $0.isASCII && $0.isNumber }).map(String.init)
-            guard !clean.isEmpty else { return false }
+            guard !clean.isEmpty else { return }
             // Full-code paste/autofill replaces all six, even from a later cell.
             let start = clean.count >= 6 ? 0 : index
             for (offset, digit) in clean.prefix(6 - start).enumerated() { digits[start + offset] = digit }
             fields[min(5, start + clean.count)].becomeFirstResponder()
             emit()
-            return false
         }
     }
 }
