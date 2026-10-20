@@ -285,6 +285,72 @@ extension DisplayConsentSessionTests {
         return (model, defaults, suite, store)
     }
 
+    /// Real native hierarchy removal must run the production disappearance fence.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_LIFECYCLE_DIR"] != nil))
+    func actualIOSNativeConsentFormLifecycle() async throws {
+        let (model, defaults, suite, _) = try await makeNativeModel()
+        defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+        let session = try #require(model.activeDJSession)
+        let epoch = model.sessionHistory.responseEpoch
+        let folder = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_LIFECYCLE_DIR"]))
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        func makeController() -> UIViewController {
+            UIHostingController(rootView: VibeCastDisplayConsentForm(model: model)
+                .environment(\.colorScheme, .dark).preferredColorScheme(.dark))
+        }
+        let firstController = makeController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 430, height: 932))
+        window.overrideUserInterfaceStyle = .dark
+        window.rootViewController = firstController; window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil }
+        func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+        func fields() -> [UITextField] {
+            descendants(window).compactMap { $0 as? UITextField }
+                .filter { $0.accessibilityIdentifier?.hasPrefix("vibecast-handoff-digit-") == true }.sorted { $0.tag < $1.tag }
+        }
+        var observations: [[String: Any]] = []
+        func capture(_ name: String) throws {
+            window.layoutIfNeeded()
+            observations.append(["stage": name, "state": String(describing: model.displayConsentState),
+                "field_count": fields().count, "digits": fields().map { $0.text ?? "" },
+                "owner_request_count": ConsentWire.requests.filter { $0.url?.path.contains("/owner/") == true }.count])
+            let image = UIGraphicsImageRenderer(bounds: window.bounds).image { context in window.layer.render(in: context.cgContext) }
+            try #require(image.pngData()).write(to: folder.appendingPathComponent(name + ".png"))
+        }
+        try await Task.sleep(for: .milliseconds(350))
+        let first = try #require(fields().first)
+        _ = first.delegate?.textField?(first, shouldChangeCharactersIn: NSRange(location: 0, length: 0), replacementString: "000000")
+        try await Task.sleep(for: .milliseconds(100))
+        await model.resolveDisplayConsent(code: "000000") // Explicit model lookup, not a native button tap.
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(model.displayConsentState == .ready)
+        try capture("lifecycle-01-ready")
+        let ownerRequests = ConsentWire.requests.filter { $0.url?.path.contains("/owner/") == true }.count
+        // Keep the old controller alive: cancellation must follow disappearance,
+        // not rely on its deallocation or a manual model cancellation call.
+        window.rootViewController = UIViewController()
+        try await Task.sleep(for: .milliseconds(350))
+        #expect(firstController.view.window == nil)
+        #expect(model.displayConsentState == .unavailable)
+        #expect(fields().isEmpty)
+        try capture("lifecycle-02-removed")
+        await model.approveDisplayConsent()
+        #expect(!ConsentWire.requests.contains { $0.url?.path.hasSuffix("/owner/approve") == true })
+        let secondController = makeController()
+        window.rootViewController = secondController
+        try await Task.sleep(for: .milliseconds(350))
+        #expect(model.displayConsentState == .idle && model.canResolveDisplayConsent)
+        #expect(fields().count == 6 && fields().allSatisfy(\.isEnabled))
+        #expect(fields().allSatisfy { ($0.text ?? "").isEmpty })
+        #expect(ConsentWire.requests.filter { $0.url?.path.contains("/owner/") == true }.count == ownerRequests)
+        #expect(model.sessionHistory.responseEpoch == epoch)
+        #expect(model.activeDJSession?.id == session.id)
+        #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
+        try capture("lifecycle-03-remounted")
+        try JSONSerialization.data(withJSONObject: observations, options: [.prettyPrinted, .sortedKeys])
+            .write(to: folder.appendingPathComponent("native-consent-lifecycle.json"))
+    }
+
     /// The production form refresh task must remove expired claim/receipt UI.
     @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_EXPIRY_DIR"] != nil))
     func actualIOSNativeConsentExpiryPresentation() async throws {

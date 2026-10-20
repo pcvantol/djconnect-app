@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "parent_sha": "4debebe94de7ba85db30f8381eab9b2de1c589e2",
+  "production_changed": false,
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "inspected_window_renders": 3,
+  "owner_requests": [
+    2,
+    2,
+    2
+  ],
+  "approval_requests": 0,
+  "old_controller_retained": true,
+  "manual_model_cancellation": false,
+  "physical_dismissal": false,
+  "owned_device": "B62B723C-74D1-499C-AFA4-1FB5FF33ECD3",
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Sources/DJConnectUI/DJConnectRootView.swift",
+      "sha256": "4be6009743ce5b19da21edba93d4680d5af151e1bc89dd036b2859ba04699601"
+    },
+    {
+      "path": "Sources/DJConnectUI/DJConnectAppModel.swift",
+      "sha256": "75a0d8bddcdc3fc5b3a1da9cbfb5de4980e71b6534f0ad0a5192c5ccdd3b601e"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/DisplayConsentSessionTests.swift",
+      "sha256": "0b6796dbe91b8b613bc3d71096f0b02bbafb443bb2e3740d77442a368b2e4281"
+    },
+    {
+      "path": "Tools/qualification/vibecast-product/prepare_native_consent_tests.py",
+      "sha256": "28e2cf80ea7d16cb4586f0ec64e17fd193ee83f5b950983afc906706cae3289e"
+    },
+    {
+      "path": "/private/tmp/djc-apple-lane87-readonly-20261021.json",
+      "sha256": "1ea9dddcca86d42c71b5765e5db43c2278cb68a28c4341325a18d36b786809f9"
+    },
+    {
+      "path": "/private/tmp/djc-consent-lifecycle-20261021/final.log",
+      "sha256": "f387b1f0f6c659f05393332d547eec89c59bb33c6c6266debf5af8d09475a98d"
+    },
+    {
+      "path": "/private/tmp/djc-consent-lifecycle-20261021/final-summary.json",
+      "sha256": "a42056ae1251776815b8d5e0591d0610cac080a1cd77f922495edb3d064d4c61"
+    },
+    {
+      "path": "/private/tmp/djc-consent-lifecycle-20261021/project.json",
+      "sha256": "263c9ac2c2d85b26f9d1b189151a131aca8256a4afc704e9e866f0f6435a2cd6"
+    },
+    {
+      "path": "/private/tmp/djc-consent-lifecycle-20261021/final.xcresult/Info.plist",
+      "sha256": "5fbe63e15842c3969e364613cecac8ae7ec1ccb471fc244f5301ffbf19395838"
+    },
+    {
+      "path": "/private/tmp/djc-consent-lifecycle-20261021/final.xcresult/database.sqlite3",
+      "sha256": "ee46b32866d61e3c486d1fc48ad51b7e05ca934233624d734b5b52b108fe3cb5"
+    },
+    {
+      "path": "/private/tmp/djc-consent-lifecycle-20261021/observations/lifecycle-01-ready.png",
+      "sha256": "69f58a2718be95e9b73ab1cd18acf5662d6bd6a9a1f1da98701a009e6a5c9fe4"
+    },
+    {
+      "path": "/private/tmp/djc-consent-lifecycle-20261021/observations/lifecycle-02-removed.png",
+      "sha256": "e6a7038d229787ee015fbfa55129cf14901aef8db5562dcd786ba02ae34b9f08"
+    },
+    {
+      "path": "/private/tmp/djc-consent-lifecycle-20261021/observations/lifecycle-03-remounted.png",
+      "sha256": "18b55e15327de76516b783e6160760bae009e93466974e1f83a0ae9feda16ce1"
+    },
+    {
+      "path": "/private/tmp/djc-consent-lifecycle-20261021/observations/native-consent-lifecycle.json",
+      "sha256": "80b37f5bb4011e22b815f4823cf6898e76a7f91289d7c9123a05fb843902ee05"
+    },
+    {
+      "path": "/private/tmp/djc-consent-lifecycle-20261021/derived/Build/Products/Debug-iphonesimulator/DJConnectUI.framework/DJConnectUI",
+      "sha256": "23ad7254f3d674e03fc7645543b64d189ed6cbd81d75b9b879cbb0eb5161246d"
+    },
+    {
+      "path": "/private/tmp/djc-consent-lifecycle-20261021/derived/Build/Products/Debug-iphonesimulator/NativeConsentTests.xctest/NativeConsentTests",
+      "sha256": "91da88054b471bc33cf4f8fad622d3acadabf493cf7a84328e124f04fa5007c4"
+    }
+  ]
+}
