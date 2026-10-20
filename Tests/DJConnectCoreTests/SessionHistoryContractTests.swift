@@ -6256,10 +6256,37 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         "authentication": "paired_device_bearer", "scope": "active_device_bound_owner_session",
         "live_field": "session_forecast", "live_event": "forecast_changed", "nominal_window_seconds": 900,
         "history": false, "emitted_imagery_roles": ["current"], "qualified_upcoming_media": false]
+    let populatedFlowProbe = fence == "current" && ProcessInfo.processInfo.environment["DJCONNECT_POPULATED_FLOW_DIR"] != nil
+    let populatedFlowReply: Data?
+    let populatedFlowPageReply: Data?
+    if populatedFlowProbe {
+        let producer = try historyObject("retention-bases-v2")
+        let tail = try #require(producer["tail_window"] as? [String: Any])
+        let producerSession = try #require((tail["session"] as? [String: Any])?["session_id"] as? String)
+        // Preserve authored rows, retention bases and window metadata. Only bind
+        // this qualified synthetic response to the current test runtime identity.
+        func rebind(_ value: Any) -> Any {
+            if let text = value as? String, text == producerSession { return id }
+            if let object = value as? [String: Any] { return object.mapValues(rebind) }
+            if let array = value as? [Any] { return array.map(rebind) }
+            return value
+        }
+        let rebound = try #require(rebind(tail) as? [String: Any])
+        populatedFlowReply = try historyData(rebound)
+        // The screen also prefetches an ordinary page. Derive only its envelope
+        // from the same six admitted rows; do not fabricate additional entries.
+        var ordinary = rebound
+        for key in ["window", "anchor_entry_id", "window_limit", "scanned_order_min", "scanned_order_max", "scan_complete"] {
+            ordinary.removeValue(forKey: key)
+        }
+        populatedFlowPageReply = try historyData(ordinary)
+    } else { populatedFlowReply = nil; populatedFlowPageReply = nil }
     let keyboardProbe = fence == "current" && ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_KEYBOARD_DIR"] != nil
+    var historyVersions = ["session_conversation_history": 1, "session_forecast": 1, "session_flow_text_search": 1]
+    if populatedFlowProbe { historyVersions["session_history_entries"] = 2 }
     let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_forecast": true,
         "session_flow_text_search": keyboardProbe],
-        "contract_versions": ["session_conversation_history": 1, "session_forecast": 1, "session_flow_text_search": 1], "session_forecast": capability])
+        "contract_versions": historyVersions, "session_forecast": capability])
     let originalRuntimeReply = runtimeReply
     let originalForecastReply = forecastReply
     var changed = runtime
@@ -6302,6 +6329,14 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
             if ["background", "owner-reset", "unsequenced-live-during-read", "sequenced-event-withdrawal", "sequenced-snapshot-withdrawal"].contains(fence) { throw HistoryWireHeldResponse(data: reply, gate: gate) }
             return (200, reply, 0)
         }
+        if path.hasSuffix("/session/history/" + id), let populatedFlowReply, let populatedFlowPageReply {
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            guard request.httpMethod == "GET", query.contains(URLQueryItem(name: "limit", value: "20")),
+                  query.contains(URLQueryItem(name: "history_contract_version", value: "2")) else { return (400, Data(), 0) }
+            if query.contains(URLQueryItem(name: "window", value: "tail")) { return (200, populatedFlowReply, 0) }
+            if !query.contains(where: { $0.name == "window" || $0.name == "cursor" }) { return (200, populatedFlowPageReply, 0) }
+            return (404, Data(), 0)
+        }
         if path.hasSuffix("/ask_dj/history") { return (200, history, 0) }
         return (404, Data(), 0)
     }
@@ -6312,7 +6347,8 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     await model.sessionHistory.prepare()
     if fence == "current" {
         #expect(model.sessionHistory.hasAuthorizedOwner)
-        #expect(beforeOwner.ownerEpoch == panel.contextKey.ownerEpoch)
+        if populatedFlowProbe { #expect(beforeOwner.ownerEpoch != panel.contextKey.ownerEpoch) }
+        else { #expect(beforeOwner.ownerEpoch == panel.contextKey.ownerEpoch) }
         #expect(beforeOwner != panel.contextKey, "Owner readiness must restart the panel task without waiting thirty seconds")
     }
     await model.refreshActiveDJSession()
@@ -6456,6 +6492,9 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     if nativeExpiryProbe, let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_EXPIRY_DIR"] {
         try await qualifyForecastNativeExpiry(model: model, directory: directory,
             readCount: { fixture.requests.filter { $0.url!.path.contains("/session/forecast/") }.count })
+    }
+    if populatedFlowProbe, let directory = ProcessInfo.processInfo.environment["DJCONNECT_POPULATED_FLOW_DIR"] {
+        try await recordPopulatedFlowNativePosition(model: model, directory: directory)
     }
     #endif
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" && !$0.url!.path.contains("/command") && !$0.url!.path.contains("/message") })
@@ -6617,6 +6656,82 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
         "flow_initial_offset": Double(originalFlowOffset.y), "flow_return_offset": Double(flow.contentView.bounds.origin.y)]
     try JSONSerialization.data(withJSONObject: metrics, options: [.sortedKeys, .prettyPrinted])
         .write(to: folder.appendingPathComponent("native-scroll-metrics.json"))
+}
+
+/// Retained producer rows render natively, but synthetic wheel input may be
+/// unavailable offscreen. Zero offset must never count as a position PASS.
+@MainActor private func recordPopulatedFlowNativePosition(model: DJConnectAppModel, directory: String) async throws {
+    let session = try #require(model.activeDJSession)
+    _ = NSApplication.shared
+    let view = ForecastNativeHost(model: model, sessionID: session.id)
+        .environment(\.scenePhase, .active).environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark).frame(width: 600, height: 900)
+    let host = NSHostingView(rootView: view)
+    let window = NSWindow(contentRect: CGRect(x: -2000, y: -2000, width: 600, height: 900),
+        styleMask: [.borderless], backing: .buffered, defer: false)
+    window.appearance = NSAppearance(named: .darkAqua)
+    window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
+    defer { window.close() }
+    let folder = URL(fileURLWithPath: directory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
+    func search() -> NSTextField? {
+        let prompt = DJConnectLocalization.localized(key: "ui.session.forecast.search", language: model.language)
+        return descendants(host).compactMap { $0 as? NSTextField }.first { $0.placeholderString == prompt }
+    }
+    func capture(_ name: String) throws {
+        host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
+        let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: image)
+        try #require(image.representation(using: .png, properties: [:])).write(to: folder.appendingPathComponent(name + ".png"))
+    }
+    for _ in 0..<40 where model.sessionHistory.timelines[session.id]?.entries.count != 6 {
+        try await Task.sleep(for: .milliseconds(50))
+    }
+    let timeline = try #require(model.sessionHistory.timelines[session.id])
+    #expect(timeline.entries.count == 6 && timeline.errorKey == nil)
+    #expect(timeline.entries.allSatisfy { $0.isRetained() })
+    let entries = timeline.entries.map(\.id)
+    try await Task.sleep(for: .milliseconds(200))
+    host.layoutSubtreeIfNeeded()
+    let flow = try #require(descendants(host).compactMap { $0 as? NSScrollView }
+        .filter { !($0.documentView is NSTextView) }.max { $0.bounds.width * $0.bounds.height < $1.bounds.width * $1.bounds.height })
+    let maximum = max(0, (flow.documentView?.bounds.height ?? 0) - flow.contentView.bounds.height)
+    #expect(maximum > 150, "The admitted populated Flow must be genuinely scrollable")
+    let wheel = try #require(CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1,
+        wheel1: -400, wheel2: 0, wheel3: 0))
+    wheel.location = CGPoint(x: 300, y: 450)
+    let event = try #require(NSEvent(cgEvent: wheel))
+    window.sendEvent(event)
+    try await Task.sleep(for: .milliseconds(250))
+    let position = flow.contentView.bounds.origin.y
+    let inputAvailable = position > 100
+    try capture("populated-flow-01-before-switch")
+    let picker = try #require(descendants(host).compactMap { $0 as? NSSegmentedControl }.first { $0.segmentCount == 2 })
+    let action = try #require(picker.action)
+    picker.selectedSegment = 1
+    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
+    for _ in 0..<30 where search() == nil { try await Task.sleep(for: .milliseconds(50)) }
+    _ = try #require(search())
+    try capture("populated-flow-02-forecast")
+    picker.selectedSegment = 0
+    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
+    for _ in 0..<30 where search() != nil { try await Task.sleep(for: .milliseconds(50)) }
+    try await Task.sleep(for: .milliseconds(150))
+    let returnedFlow = try #require(descendants(host).compactMap { $0 as? NSScrollView }
+        .filter { !($0.documentView is NSTextView) }.max { $0.bounds.width * $0.bounds.height < $1.bounds.width * $1.bounds.height })
+    if inputAvailable { #expect(abs(returnedFlow.contentView.bounds.origin.y - position) < 4) }
+    #expect(model.sessionHistory.timelines[session.id]?.entries.map(\.id) == entries)
+    #expect(model.sessionHistory.timelines[session.id]?.errorKey == nil)
+    #expect(model.askDJDraft == "Keep this unsent question")
+    #expect(model.activeDJSession?.id == session.id)
+    #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
+    try capture("populated-flow-03-return")
+    try JSONSerialization.data(withJSONObject: ["qualification": inputAvailable ? "NONZERO_POSITION_CHECK_AVAILABLE" : "INCONCLUSIVE_NATIVE_WHEEL_INPUT",
+        "synthetic_wheel_window_number": event.windowNumber, "host_window_number": window.windowNumber,
+        "scrolling_delta_y": event.scrollingDeltaY, "entry_ids": entries, "maximum_offset": Double(maximum),
+        "reading_offset": Double(position), "return_offset": Double(returnedFlow.contentView.bounds.origin.y), "same_native_container": returnedFlow === flow],
+        options: [.prettyPrinted, .sortedKeys]).write(to: folder.appendingPathComponent("native-populated-flow-metrics.json"))
 }
 
 /// Let the production panel's expiry schedule run against an actual short
