@@ -1,5 +1,9 @@
 import Foundation
 import Testing
+#if os(iOS)
+import XCTest
+@testable import DJConnectUI
+#endif
 @testable import DJConnectCore
 
 private let consentEpoch = String(repeating: "A", count: 43)
@@ -12,12 +16,14 @@ private final class ConsentAuthority: @unchecked Sendable {
 }
 private final class ConsentWire: URLProtocol, @unchecked Sendable {
     private static let lock = NSLock()
+    nonisolated(unsafe) private static var bootstrap: [String: Data] = [:]
+    static func installBootstrap(_ responses: [String: Data]) { lock.withLock { bootstrap = responses } }
     nonisolated(unsafe) private static var mode = "normal"
     nonisolated(unsafe) private static var calls: [URLRequest] = []
     nonisolated(unsafe) private static var ownerReads = 0
     nonisolated(unsafe) private static var approvalAt: Date?
     nonisolated(unsafe) private static var approvalAction: (@Sendable () -> Void)?
-    static func reset(_ mode: String = "normal") { lock.withLock { Self.mode = mode; calls = []; ownerReads = 0; approvalAction = nil; approvalAt = nil } }
+    static func reset(_ mode: String = "normal") { lock.withLock { Self.mode = mode; bootstrap = [:]; calls = []; ownerReads = 0; approvalAction = nil; approvalAt = nil } }
     static var approvalStartedAt: Date? { lock.withLock { approvalAt } }
     static func onApproval(_ action: @escaping @Sendable () -> Void) { lock.withLock { approvalAction = action } }
     static var requests: [URLRequest] { lock.withLock { calls } }
@@ -29,6 +35,12 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
             Self.calls.append(request)
             if path.hasSuffix("/owner/context") { Self.ownerReads += 1 }
             return (Self.mode, Self.ownerReads)
+        }
+        if let bytes = Self.lock.withLock({ Self.bootstrap[path] }) {
+            client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200,
+                httpVersion: nil, headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"])!, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: bytes); client?.urlProtocolDidFinishLoading(self)
+            return
         }
         var value: [String: Any] = ["success": true, "contract_version": 1]
         var status = 200
@@ -223,3 +235,127 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
     #expect(displayWireDate("2026-10-20T16:00:00.123456+00:00") != nil)
     #expect(displayWireDate("not-a-date") == nil)
 }
+
+#if os(iOS)
+private final class NativeConsentFixtureBundle: NSObject {}
+
+/// Actual iOS AppModel over a URLProtocol wire. Synthetic isolated owner/HTTP
+/// responses, not installed HA, native taps, App Attest or physical acceptance.
+extension DisplayConsentSessionTests {
+    private func makeNativeModel(_ mode: String = "normal") async throws -> (DJConnectAppModel, UserDefaults, String, DJConnectInMemoryTokenStore) {
+        ConsentWire.reset(mode)
+        func fixture(_ name: String) throws -> [String: Any] {
+            let url = try #require(Bundle(for: NativeConsentFixtureBundle.self).url(forResource: name, withExtension: "json"))
+            return try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        }
+        var session = try #require(fixture("session-history-active-session-before-auth-failure")["response"] as? [String: Any])
+        // The fixture's producer bytes stay unchanged on disk. Only the wire's
+        // synthetic Session identifier is rebound to the existing consent fixture.
+        func rebind(_ value: Any) -> Any {
+            if let text = value as? String, text.hasPrefix("session-6cf3c555") { return "fixture-session" }
+            if let dict = value as? [String: Any] { return dict.mapValues(rebind) }
+            if let array = value as? [Any] { return array.map(rebind) }
+            return value
+        }
+        session = try #require(rebind(session) as? [String: Any])
+        let history = try #require(fixture("session-history-producer-receipt")["later_historical_answer"])
+        let caps: [String: Any] = ["capabilities": ["session_conversation_history": true, "session_flow_text_search": true],
+            "contract_versions": ["session_conversation_history": 1, "session_flow_text_search": 1]]
+        ConsentWire.installBootstrap(try ["/api/djconnect/v1/session/active": JSONSerialization.data(withJSONObject: session),
+            "/api/djconnect/v1/capabilities": JSONSerialization.data(withJSONObject: caps),
+            "/api/djconnect/v1/ask_dj/history": JSONSerialization.data(withJSONObject: history)])
+        let suite = "native-display-consent-" + UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defaults.set("http://127.0.0.1:18801", forKey: "DJConnectHomeAssistantURL")
+        defaults.set("http://127.0.0.1:18801", forKey: "DJConnectHALocalURL")
+        let store = DJConnectInMemoryTokenStore(token: "synthetic-owner")
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [ConsentWire.self]
+        let model = DJConnectAppModel(defaults: defaults, tokenStore: store,
+            urlSession: URLSession(configuration: config), startBackgroundTasks: false)
+        model.pairingStatus = .paired
+        #expect(model.identity.clientType == .ios)
+        #expect(await model.refreshActiveDJSession())
+        await model.sessionHistory.prepare()
+        #expect(model.activeDJSession?.id == "fixture-session")
+        #expect(model.sessionHistory.authorizedProfileID == "profile-a")
+        defaults.set("fixture-install", forKey: "DJConnectHAInstallID")
+        #expect(model.canResolveDisplayConsent)
+        return (model, defaults, suite, store)
+    }
+
+    @Test func actualIOSModelLookupThenExplicitConfirmation() async throws {
+        let (model, defaults, suite, _) = try await makeNativeModel()
+        defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+        await model.resolveDisplayConsent(code: "000000")
+        #expect(model.displayConsentState == .ready)
+        #expect(!ConsentWire.requests.contains { $0.url?.path.hasSuffix("/owner/approve") == true })
+        await model.approveDisplayConsent()
+        #expect(model.displayConsentState == .approved)
+        await model.approveDisplayConsent()
+        #expect(ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count == 1)
+    }
+
+    @Test func actualIOSModelWithdrawalPreventsLateApproval() async throws {
+        for reason in ["dismiss", "background", "profile", "token", "route", "installation", "pairing", "session"] {
+            let (model, defaults, suite, store) = try await makeNativeModel()
+            defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+            await model.resolveDisplayConsent(code: "000000")
+            #expect(model.displayConsentState == .ready)
+            switch reason {
+            case "session":
+                ConsentWire.installBootstrap(["/api/djconnect/v1/session/active": Data(#"{"success":true,"session":null}"#.utf8)])
+                #expect(await model.refreshActiveDJSession())
+                #expect(model.activeDJSession == nil)
+            case "dismiss": model.cancelDisplayConsent()
+            case "background": model.markInactiveSession()
+            case "profile": model.sessionHistory.suspend()
+            case "token": try store.saveToken("replacement")
+            case "route": model.homeAssistantURL = "https://different.invalid"
+            case "installation": defaults.set("replacement-install", forKey: "DJConnectHAInstallID")
+            default: model.pairingStatus = .unpaired
+            }
+            await model.approveDisplayConsent()
+            #expect(model.displayConsentState != .approved)
+            #expect(!ConsentWire.requests.contains { $0.url?.path.hasSuffix("/owner/approve") == true })
+        }
+    }
+
+    @Test func actualIOSModelUnknownApprovalDoesNotReplay() async throws {
+        let (model, defaults, suite, _) = try await makeNativeModel("unknown")
+        defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+        await model.resolveDisplayConsent(code: "000000")
+        #expect(model.displayConsentState == .ready)
+        await model.approveDisplayConsent()
+        #expect(model.displayConsentState == .uncertain)
+        await model.approveDisplayConsent()
+        #expect(ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count == 1)
+    }
+
+    @Test func actualIOSModelExistingSharePreservesOriginalChoice() async throws {
+        let (model, defaults, suite, _) = try await makeNativeModel("existing")
+        defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+        await model.resolveDisplayConsent(code: "000000")
+        #expect(model.displayConsentState == .ready)
+        #expect(model.displayConsentExistingShare?.identifier == consentShare)
+        #expect(model.displayConsentExistingShare?.generation == 1)
+        await model.approveDisplayConsent()
+        #expect(model.displayConsentState == .approved)
+        #expect(ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count == 1)
+    }
+
+    @Test func actualIOSModelApprovedPresentationWithdrawsWithOwner() async throws {
+        let (model, defaults, suite, _) = try await makeNativeModel()
+        defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+        await model.resolveDisplayConsent(code: "000000")
+        await model.approveDisplayConsent()
+        #expect(model.displayConsentState == .approved)
+        model.sessionHistory.suspend()
+        model.refreshDisplayConsentPresentation()
+        #expect(model.displayConsentState == .unavailable)
+        #expect(model.displayConsentExistingShare == nil)
+        await model.approveDisplayConsent()
+        #expect(ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count == 1)
+    }
+
+}
+#endif
