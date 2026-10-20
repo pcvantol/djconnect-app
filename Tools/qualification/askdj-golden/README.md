@@ -35,7 +35,9 @@ client, automatic paid CI job or release authorization.
   reconciliation. Missing opt-in is also explicitly skipped, not runtime PASS.
 - Private Core/provider reconciliation rejects incomplete/zero-required-model,
   failed/reused provider receipts, wrong turn/answer, semantic/effect failure,
-  mixed identity and overspent budget. `agent_calls`, latency or plausible prose
+  mixed identity and overspent budget. Exact questions/model policies are checked
+  against the pinned catalogue; the final gate rejects other catalogue versions
+  even when their case IDs happen to match. `agent_calls`, latency or plausible prose
   never substitutes completed provider evidence.
 - A selected subset can only be `PASS_SELECTED_SET`. The separate release gate
   requires coverage of **all 167** pinned cases on one app binary, Core installation

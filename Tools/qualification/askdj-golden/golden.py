@@ -15,6 +15,10 @@ CATALOG_SHA = 'f54eaffb4d3caa7760a2462e6e4f50943b670409581cbdc04a58c70b00dd1359'
 CORE_COMMIT = '8b221d07fe2215d9516d18fe92c832332c7a16ab'
 
 
+def valid_digest(value, length=64):
+    return isinstance(value, str) and len(value) == length and all(c in "0123456789abcdef" for c in value)
+
+
 def digest(data):
     return hashlib.sha256(data).hexdigest()
 
@@ -84,7 +88,7 @@ def reconcile(native, producer, expected_producer_sha):
     its exporter. Caller supplies the independently reviewed producer commit.
     """
     failures = []
-    if len(expected_producer_sha) != 40 or producer.get('producer_commit') != expected_producer_sha:
+    if not valid_digest(expected_producer_sha, 40) or producer.get('producer_commit') != expected_producer_sha:
         failures.append('producer_pin')
     for key in ('run_id', 'catalog_sha256', 'session_sha256', 'profile_sha256', 'app_executable_sha256', 'core_install_receipt_sha256'):
         if not native.get(key) or native.get(key) != producer.get(key):
@@ -93,7 +97,7 @@ def reconcile(native, producer, expected_producer_sha):
         failures.append('unqualified_catalog_or_export')
     if native.get('status') != 'CLIENT_EXERCISED_NOT_RELEASE_PASS':
         failures.append('native_run_not_completed')
-    known = {s['id'] for f in catalog()['families'] for s in f['steps']}
+    known = {s['id']: s for f in catalog()['families'] for s in f['steps']}
     if any(case_id not in known for case_id in native.get('expected_case_ids', [])):
         failures.append('unknown_core_scenario')
     cases = native.get('cases', [])
@@ -106,10 +110,15 @@ def reconcile(native, producer, expected_producer_sha):
     total = 0
     attempt_ids = set()
     for case, row in zip(cases, rows):
+        original = known.get(case.get('id'), {})
+        if case.get('question_sha256') != digest(original.get('question', '').encode()):
+            failures.append('canonical_question_mismatch')
+        if case.get('model_policy') != original.get('model_policy'):
+            failures.append('canonical_model_policy_mismatch')
         if case.get('status') != 'CLIENT_ACCEPTED_PROVIDER_UNVERIFIED' or case.get('native_bubble_rendered') is not True:
             failures.append('native_failure')
         for key in ('client_message_sha256', 'server_turn_sha256', 'answer_sha256', 'question_sha256', 'session_entry_sha256'):
-            if not case.get(key) or case.get(key) != row.get(key):
+            if not valid_digest(case.get(key)) or case.get(key) != row.get(key):
                 failures.append('turn_binding_' + key)
         if row.get('semantic_verdict') != 'PASS' or row.get('effects_verdict') != 'PASS':
             failures.append('core_semantic_or_effect_failure')
@@ -125,7 +134,7 @@ def reconcile(native, producer, expected_producer_sha):
             # Includes failed attempts in the budget; no successful retry hiding.
             total += 1
             aid = attempt.get('provider_receipt_sha256')
-            if not isinstance(aid, str) or len(aid) != 64 or aid in attempt_ids:
+            if not valid_digest(aid) or aid in attempt_ids:
                 failures.append('missing_or_reused_provider_receipt')
             attempt_ids.add(aid)
             if attempt.get('attempted') is not True or attempt.get('completed') is not True or not attempt.get('model'):
@@ -134,7 +143,7 @@ def reconcile(native, producer, expected_producer_sha):
                 failures.append('provider_usage_missing')
     if producer.get('unattributed_provider_attempts') != 0 or producer.get('observed_total_provider_attempts') != total:
         failures.append('unbound_or_unreported_model_usage')
-    if not 0 <= total <= native.get('max_model_calls', 0):
+    if type(native.get('max_model_calls')) is not int or not 1 <= native['max_model_calls'] <= 40 or not 0 <= total <= native['max_model_calls']:
         failures.append('overall_model_budget')
     # No native diagnostic-only report is a production release approval.
     return {'schema_version': 1, 'status': 'FAIL' if failures else 'PASS_SELECTED_SET',
@@ -156,13 +165,19 @@ def release_gate(receipts):
     for receipt in receipts:
         if receipt.get('status') != 'PASS_SELECTED_SET':
             failures.append('failed_or_unverified_batch')
+        if receipt.get('catalog_sha256') != CATALOG_SHA:
+            failures.append('catalog_version_mismatch')
+        if any(not valid_digest(receipt.get(k)) for k in ('app_executable_sha256', 'core_install_receipt_sha256')) or not valid_digest(receipt.get('producer_commit'), 40):
+            failures.append('invalid_candidate_pin')
+        if type(receipt.get('paid_attempts')) is not int or receipt['paid_attempts'] < 0:
+            failures.append('invalid_model_usage')
         bindings.add(tuple(receipt.get(k) for k in ('catalog_sha256', 'app_executable_sha256', 'core_install_receipt_sha256', 'producer_commit')))
         seen.extend(receipt.get('passed_case_ids', []))
     if len(bindings) != 1 or any(not v for binding in bindings for v in binding):
         failures.append('mixed_or_missing_candidate_bindings')
     if len(set(seen)) != len(seen):
         failures.append('duplicate_case_coverage')
-    if sum(r.get('paid_attempts', 0) for r in receipts) <= 0:
+    if sum(r.get('paid_attempts', 0) for r in receipts if type(r.get('paid_attempts')) is int) <= 0:
         failures.append('no_real_model_calls')
     if set(seen) != required:
         failures.append('incomplete_core_matrix')

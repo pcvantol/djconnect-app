@@ -45,15 +45,16 @@ class GoldenTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             run_hosted.configure({}, Path('/p'), Path('/plan'), Path('/out'))
 
-    def evidence(self):
+    def evidence(self, case_id='ASKDJ-FLOW-information-not-action-step-2'):
+        original=next(s for f in golden.catalog()['families'] for s in f['steps'] if s['id']==case_id)
         # Only a parser regression fixture, deliberately labelled non-runtime.
         keys = dict(run_id='test-run', catalog_sha256=golden.CATALOG_SHA, profile_sha256='a'*64,
                     session_sha256='b'*64, app_executable_sha256='c'*64, core_install_receipt_sha256='d'*64)
-        case = dict(id='ASKDJ-FLOW-information-not-action-step-2', client_message_sha256='e'*64, server_turn_sha256='f'*64,
-                    answer_sha256='1'*64, question_sha256='2'*64, session_entry_sha256='5'*64,
-                    native_bubble_rendered=True, model_policy='one_or_two',
+        case = dict(id=case_id, client_message_sha256='e'*64, server_turn_sha256='f'*64,
+                    answer_sha256='1'*64, question_sha256=golden.digest(original['question'].encode()), session_entry_sha256='5'*64,
+                    native_bubble_rendered=True, model_policy=original['model_policy'],
                     status='CLIENT_ACCEPTED_PROVIDER_UNVERIFIED')
-        native = dict(keys, cases=[case], expected_case_ids=['ASKDJ-FLOW-information-not-action-step-2'], max_model_calls=2,
+        native = dict(keys, cases=[case], expected_case_ids=[case_id], max_model_calls=2,
                       model_attempts_per_turn=2, status='CLIENT_EXERCISED_NOT_RELEASE_PASS')
         row = dict(case, semantic_verdict='PASS', effects_verdict='PASS',
                    provider_attempts=[dict(provider_receipt_sha256='3'*64, model='synthetic-test-only',
@@ -77,14 +78,17 @@ class GoldenTests(unittest.TestCase):
             self.assertEqual(golden.reconcile(n,q,'4'*40)['status'], 'FAIL')
         q=copy.deepcopy(p);q['cases'][0]['provider_attempts']*=2
         self.assertIn('missing_or_reused_provider_receipt', golden.reconcile(n,q,'4'*40)['findings'])
+        for key,value in [('question_sha256','2'*64),('model_policy','zero')]:
+            bad_n,bad_p=copy.deepcopy(n),copy.deepcopy(p)
+            bad_n['cases'][0][key]=value;bad_p['cases'][0][key]=value
+            self.assertEqual(golden.reconcile(bad_n,bad_p,'4'*40)['status'],'FAIL')
 
     def test_accepted_client_without_producer_is_not_release_pass(self):
         n,p=self.evidence()
         subset=golden.reconcile(n,p,'4'*40)
         self.assertEqual(subset['status'], 'PASS_SELECTED_SET')
         self.assertEqual(golden.release_gate([subset])['status'], 'FAIL')
-        zero_n,zero_p=copy.deepcopy(n),copy.deepcopy(p)
-        zero_n['cases'][0]['model_policy']='zero'
+        zero_n,zero_p=self.evidence('ASKDJ-FLOW-information-not-action-step-3')
         zero_p['cases'][0]['provider_attempts']=[]
         zero_p['observed_total_provider_attempts']=0
         self.assertEqual(golden.reconcile(zero_n,zero_p,'4'*40)['status'], 'PASS_SELECTED_SET')
@@ -101,6 +105,10 @@ class GoldenTests(unittest.TestCase):
         self.assertEqual(golden.release_gate([r,r])['status'], 'FAIL')
         t=copy.deepcopy(r);t['app_executable_sha256']='other'
         self.assertEqual(golden.release_gate([r,t])['status'], 'FAIL')
+        old=copy.deepcopy(r);old['catalog_sha256']='a'*64
+        self.assertEqual(golden.release_gate([old])['status'], 'FAIL')
+        invalid=copy.deepcopy(r);invalid['producer_commit']='not-a-commit'
+        self.assertEqual(golden.release_gate([invalid])['status'], 'FAIL')
 
 
 if __name__ == '__main__':

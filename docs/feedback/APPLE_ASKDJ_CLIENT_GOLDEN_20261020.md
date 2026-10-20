@@ -43,7 +43,11 @@ remain separate from this model/send/render/readback check.
 - Eight pure orchestration regressions PASS: exact inventory, complete chains,
   budget/identity/language rejection, target-specific xctestrun preparation, missing
   or reused/failed provider evidence, candidate mismatch and partial/full coverage.
-  These use synthetic parser inputs, not runtime provider proof.
+  These use synthetic parser inputs, not runtime provider proof. A subsequent
+  negative regression reproduced a wrong-catalogue full-matrix false PASS; the
+  gate now rejects that receipt explicitly, validates exact candidate pin shapes,
+  and binds each question digest and model policy to the immutable Core catalogue.
+  All eight expanded regressions PASS after the repair.
 - Full Swift suite PASS:72XCTest cases with1intentional opt-in SKIP;901Swift Testing
   cases PASS. Subsequent affected native qualification compile/unarmed-skip checks
   cover the final bubble/timeline/installation guard refinements.
