@@ -21,7 +21,12 @@ import CryptoKit
         fileprivate let requestedUptime: TimeInterval
         fileprivate let deadline: TimeInterval
         fileprivate let authorityIsCurrent: @MainActor @Sendable () -> Bool
-        @MainActor public func isCurrent(now: Date = Date(), uptime: TimeInterval = ProcessInfo.processInfo.systemUptime) -> Bool {
+        @MainActor public func isCurrent() -> Bool {
+            isCurrent(now: Date(), uptime: ProcessInfo.processInfo.systemUptime)
+        }
+        // Internal clock injection supports boundary tests; public consumers
+        // cannot replace the clocks used for displayed authority.
+        @MainActor func isCurrent(now: Date, uptime: TimeInterval) -> Bool {
             authorityIsCurrent() && now.timeIntervalSince1970.isFinite && now >= admittedAt && now < expiresAt &&
             uptime.isFinite && uptime >= requestedUptime && uptime < deadline
         }

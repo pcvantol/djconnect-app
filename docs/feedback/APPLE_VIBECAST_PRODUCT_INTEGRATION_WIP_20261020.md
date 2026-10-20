@@ -819,3 +819,24 @@ FINAL12focusedfunctions PASS /tmp/djc-retained-receipt-targeted.log; FINALserial
 /tmp/djc-retained-receipt-ios.log. No HA/SDK/Keychain/provider/physical/public
 effects. Product preparation NOTREADY, native consent UI still UNWIRED.
 Predecessor7d primaryCI39459341075 succeeded but does not qualify this correction.
+
+## Trusted public receipt clocks —20Oct2026
+
+Exactc34 review P2/4327847671 found public isCurrent(now:uptime:) could be
+repeatedly supplied captured old clock values. Public isCurrent() now reads
+Date/systemUptime itself; explicit clock injection is internal with both arguments
+required. External non-testable module compilation accepts isCurrent() and rejects
+clock injection (argument passed to call that takes no arguments):
+/tmp/djc-receipt-public-valid-current.log and
+/tmp/djc-receipt-public-injection-current.log. The first attempted module path
+was a historical19Oct artifact lacking this type; both failed with unknown type,
+retained as harness diagnostics rather than product evidence. Current SwiftPM
+module is out/Products/Debug, verified by the positive current-module compile.
+
+FINAL12focusedfunctions PASS /tmp/djc-receipt-trusted-clock-targeted.log; includes
+actual1.1s passage beyond a1s receipt followed by public isCurrent()==false.
+FINALserial73XCTest(2intentionalSKIP/0fail)+998SwiftTesting13suites PASS
+/tmp/djc-receipt-trusted-clock-full.log. FINALunsignediOSbuild-for-testing PASS
+/tmp/djc-receipt-trusted-clock-ios.log. Priorc34CIgreen does not erase the P2.
+Source UNWIRED/productprepareNOTREADY; no HA/SDK/Keychain/model/physical/public
+effect or merge approval. New exact review/CI required.

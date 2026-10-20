@@ -161,11 +161,14 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
         let dispatched = try #require(ConsentWire.approvalStartedAt)
         #expect(receipt.expiresAt <= dispatched.addingTimeInterval(1))
         #expect(receipt.isCurrent())
-        #expect(!receipt.isCurrent(now: receipt.expiresAt))
-        #expect(!receipt.isCurrent(now: Date().addingTimeInterval(-10)))
-        #expect(!receipt.isCurrent(uptime: ProcessInfo.processInfo.systemUptime + 2))
-        #expect(!receipt.isCurrent(uptime: 0))
-        #expect(!receipt.isCurrent(uptime: .infinity))
+        #expect(!receipt.isCurrent(now: receipt.expiresAt, uptime: ProcessInfo.processInfo.systemUptime))
+        #expect(!receipt.isCurrent(now: Date().addingTimeInterval(-10), uptime: ProcessInfo.processInfo.systemUptime))
+        #expect(!receipt.isCurrent(now: Date(), uptime: ProcessInfo.processInfo.systemUptime + 2))
+        #expect(!receipt.isCurrent(now: Date(), uptime: 0))
+        #expect(!receipt.isCurrent(now: Date(), uptime: .infinity))
+        try await Task.sleep(for: .milliseconds(1100))
+        #expect(!receipt.isCurrent())
+        #expect(flow.receipt == nil)
     }
     @Test func completedReceiptCannotOutliveOwnerOrToken() async throws {
         for kind in ["owner", "token", "dismiss"] {
