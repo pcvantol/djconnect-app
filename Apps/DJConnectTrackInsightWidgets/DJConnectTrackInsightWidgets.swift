@@ -115,7 +115,8 @@ private struct DJConnectSessionWidgetView: View {
     var body: some View {
         let now = max(entry.date, Date())
         let rich = entry.rich.flatMap { $0.isCurrent(at: now) ? $0 : nil }
-        let theme = rich.map { DJConnectSessionMoodTheme(sessionMood: $0.projection.mood.value) } ?? entry.theme
+        let theme = DJConnectSessionSurfaceSnapshot.widgetTheme(confirmedSession: entry.snapshot,
+            passiveMood: rich?.projection.mood.value, fallback: entry.theme, at: now)
         Group {
             if let rich {
                 PassiveSessionContentView(contribution: rich.projection.currentContribution(at: now),

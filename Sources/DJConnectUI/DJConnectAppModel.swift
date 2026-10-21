@@ -1099,7 +1099,8 @@ public final class DJConnectAppModel: ObservableObject {
                 invalidateSessionPlaybackActions()
                 sessionHistory.discardLiveResponses()
             }
-            syncSessionSurfaces(observedSession: true)
+            let moodChanged = oldValue?.id == activeDJSession?.id && oldValue?.selectedMood != activeDJSession?.selectedMood
+            syncSessionSurfaces(observedSession: true, refreshPassiveImmediately: moodChanged)
             observeSessionSpeechAutoplay()
         }
     }
@@ -10337,14 +10338,14 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func syncSessionSurfaces(observedSession: Bool = false) {
+    private func syncSessionSurfaces(observedSession: Bool = false, refreshPassiveImmediately: Bool = false) {
         // Isolated fixtures/Demo must never touch the installed shared group.
         guard startBackgroundTasks, !monkeyTestingMode,
               !DJConnectLocalization.isQualificationProcess else { return }
         bindPassiveSessionSurfaces()
         if observedSession { hasObservedSessionSurfaceAuthority = true }
         scheduleAutomaticPassiveSessionSurfaces()
-        passiveSurfaces.refresh(passiveSurfaceServices)
+        passiveSurfaces.refresh(passiveSurfaceServices, force: refreshPassiveImmediately)
         let now = Date()
         let epoch = sessionHistory.responseEpoch
         // Conversation suspension changes history's epoch on every background
