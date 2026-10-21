@@ -6,6 +6,7 @@ struct SessionHistorySummaryView: View {
     let summary: DJConnectSessionHistorySummary
     let language: String
     var compact = false
+    var showsMood = true
     private var moodIcon: String? {
         guard summary.mood.coverage == "complete", let value = summary.mood.value,
               let index = ["chill", "groove", "energy", "party"].firstIndex(of: value) else { return nil }
@@ -13,10 +14,10 @@ struct SessionHistorySummaryView: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 2 : 6) {
-            ForEach(Array(SessionHistorySummaryPresentation.lines(summary, language: language).enumerated()), id: \.offset) { index, line in
+            ForEach(Array(SessionHistorySummaryPresentation.lines(summary, language: language, includesMood: showsMood).enumerated()), id: \.offset) { index, line in
                 HStack(spacing: 5) {
                     Text(line).fixedSize(horizontal: false, vertical: true)
-                    if index == (summary.momentsRetained == nil ? 2 : 3), let moodIcon {
+                    if showsMood, index == (summary.momentsRetained == nil ? 2 : 3), let moodIcon {
                         Image(systemName: moodIcon)
                             .foregroundStyle(.white)
                             .accessibilityHidden(true)
@@ -32,7 +33,7 @@ struct SessionHistorySummaryView: View {
 }
 
 enum SessionHistorySummaryPresentation {
-    static func lines(_ summary: DJConnectSessionHistorySummary, language: String) -> [String] {
+    static func lines(_ summary: DJConnectSessionHistorySummary, language: String, includesMood: Bool = true) -> [String] {
         func text(_ suffix: String) -> String {
             DJConnectLocalization.localized(key: "ui.session.summary." + suffix, language: language)
         }
@@ -55,7 +56,7 @@ enum SessionHistorySummaryPresentation {
         else if let value = summary.mood.value {
             mood = value == "mixed" ? text("mixed") : DJConnectLocalization.localized(key: "ui.session.mood." + value, language: language)
         } else { mood = text("unknown") }
-        result.append(text("mood") + ": " + mood)
+        if includesMood { result.append(text("mood") + ": " + mood) }
         if summary.state == "provisional" { result.append(text("provisional")) }
         return result
     }

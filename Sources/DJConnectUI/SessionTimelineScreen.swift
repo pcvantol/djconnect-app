@@ -20,6 +20,29 @@ func savedSessionNavigationTitle(_ sessionID: String, history: DJConnectSessionH
     return String(format: DJConnectLocalization.localized(key: "ui.session.history.detail.title", language: language), formatter.string(from: date))
 }
 
+/// Use only the admitted aggregate, never infer a historical mood from tracks.
+struct SavedSessionMoodAvatar: View {
+    let summary: DJConnectSessionHistorySummary?
+    let language: String
+    private var mood: String? {
+        guard summary?.mood.coverage == "complete" else { return nil }
+        return summary?.mood.value
+    }
+    var body: some View {
+        let colors = DJConnectSessionMoodTheme(sessionMood: mood).colorValues.map {
+            Color(red: Double(($0 >> 16) & 255) / 255,
+                  green: Double(($0 >> 8) & 255) / 255,
+                  blue: Double($0 & 255) / 255)
+        }
+        DJPersonaMark(includesWaveform: false, includesInnerRing: false)
+            .fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
+            .accessibilityLabel(DJConnectLocalization.localized(key: "ui.session.avatar.label", language: language))
+            .accessibilityValue(DJConnectLocalization.localized(
+                key: mood == nil ? "ui.session.summary.unknown" : mood == "mixed" ? "ui.session.summary.mixed" : "ui.session.mood." + mood!,
+                language: language))
+    }
+}
+
 struct SavedSessionsView: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
@@ -120,11 +143,9 @@ struct SavedSessionsView: View {
                         HStack(spacing: 8) {
                         Button { openedSessionID.wrappedValue = session.id } label: {
                             HStack(spacing: 12) {
-                                Image(systemName: "clock.arrow.circlepath")
-                                    .font(.title2.weight(.medium)).foregroundStyle(djConnectAccent)
+                                SavedSessionMoodAvatar(summary: history.summaryAvailable ? session.summary : nil,
+                                                       language: model.language)
                                     .frame(width: 52, height: 52)
-                                    .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: DJConnectListTileStyle.cornerRadius, style: .continuous))
-                                    .accessibilityHidden(true)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(SessionArchiveSummary.text(session, language: model.language))
                                         .font(.body.weight(.medium)).foregroundStyle(.white).multilineTextAlignment(.leading)
@@ -133,7 +154,7 @@ struct SavedSessionsView: View {
                                             .font(.caption2.weight(.medium)).foregroundStyle(.white.opacity(0.78))
                                     }
                                     if history.summaryAvailable, let summary = session.summary {
-                                        SessionHistorySummaryView(summary: summary, language: model.language, compact: true)
+                                        SessionHistorySummaryView(summary: summary, language: model.language, compact: true, showsMood: false)
                                     }
                                 }
                                 Spacer(minLength: 8)
