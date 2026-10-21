@@ -14,7 +14,7 @@ final class RendezvousRepairKeychainStorage: RendezvousRepairStorage {
     private let service: String
     private let account: String
 
-    init(service: String = "dev.djconnect.rendezvous.repair", account: String = "paused-recovery-v1") {
+    init(service: String = RendezvousBuildProfile.storageNamespace + ".repair", account: String = "paused-recovery-v1") {
         self.service = service
         self.account = account
     }

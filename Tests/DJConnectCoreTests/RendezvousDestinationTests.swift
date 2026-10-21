@@ -32,7 +32,7 @@ import Testing
     let fields = try #require(JSONSerialization.jsonObject(with:decoded) as? [String:Any])
     #expect(Set(fields.keys) == ["v","transaction_id","generation","browser_key_thumbprint","expires_at","bootstrap_origin","display_entry_url","issuer_epoch"])
     #expect(fields["display_entry_url"] as? String == owner.displayEntryURL)
-    #expect(fields["bootstrap_origin"] as? String == "https://vibecast.tv")
+    #expect(fields["bootstrap_origin"] as? String == RendezvousBuildProfile.browserOrigin)
     #expect((fields["expires_at"] as? NSNumber)?.int64Value == expiry)
     let header = try JWE(compactSerialization:first.compact).header
     #expect(header.typ == "djc-rendezvous-destination+jwe")

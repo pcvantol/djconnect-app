@@ -1,9 +1,23 @@
 import Foundation
 
+/// One immutable build profile. The separate unsigned QA project defines the
+/// condition; shipping targets have no runtime host/profile selector.
+enum RendezvousBuildProfile {
+    #if DJCONNECT_VIBECAST_FIXED_QA
+    static let serviceOrigin = "https://api-vibecast-qa.djconnect.dev"
+    static let browserOrigin = "https://qa.vibecast.tv"
+    static let storageNamespace = "dev.djconnect.rendezvous.fixedqa"
+    #else
+    static let serviceOrigin = "https://api.djconnect.dev"
+    static let browserOrigin = "https://vibecast.tv"
+    static let storageNamespace = "dev.djconnect.rendezvous"
+    #endif
+}
+
 /// A short-lived browser capability, never a URL to open or owner authority.
 /// Wire: protected API djc-rendezvous/1-implementation.1, QR maximum1024 UTF8 bytes.
 public struct DJConnectRendezvousQR: Equatable, Sendable, CustomStringConvertible, CustomDebugStringConvertible {
-    public static let serviceOrigin = "https://api.djconnect.dev"
+    public static let serviceOrigin = RendezvousBuildProfile.serviceOrigin
     public let transactionID: String
     public let generation: Int64
     public let expiresAtMS: Int64

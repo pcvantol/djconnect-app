@@ -17,7 +17,7 @@ public enum DJConnectRendezvousDestination {
         let plaintext = try JSONSerialization.data(withJSONObject: ["v":"djc-rendezvous/1",
             "transaction_id":qr.transactionID, "generation":qr.generation,
             "browser_key_thumbprint":qr.browserKeyThumbprint, "expires_at":qr.expiresAtMS,
-            "bootstrap_origin":"https://vibecast.tv", "display_entry_url":owner.displayEntryURL,
+            "bootstrap_origin":RendezvousBuildProfile.browserOrigin, "display_entry_url":owner.displayEntryURL,
             "issuer_epoch":owner.issuerEpoch], options:.sortedKeys)
         guard plaintext.count <= 2048 else { throw DJConnectError.invalidResponse }
         let jwk = RSAPublicKey(modulus: encode(browserKey.modulus), exponent: "AQAB")

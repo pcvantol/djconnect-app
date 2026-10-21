@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "scope": "UNSIGNED_FIXED_QA_ORIGIN_BINDING_ONLY",
+  "source_base": "b4de259bceb612a9847aaf8fe6ec7fc1d50e1fde",
+  "source_sha": null,
+  "source_dirty_at_verification": true,
+  "api_source": "3b43332bb28ed4aea228938f2d3a61796c8c3f33",
+  "api_run": 39615718356,
+  "api_artifact": 12352870721,
+  "api_zip_sha256": "bcc58bb532a4cf46da8860811be0137a57186a71b714f35fc18a4768a9fdcd85",
+  "fixtures": {
+    "rendezvous-fixed-qa-api-3b43332.json": "3d99505e746237f111866a611cf3ced950ee07668fdb81040bc7745f663b7085",
+    "rendezvous-fixed-qa-wire-3b43332.json": "24ab72719195f7971e070e56c52ceea7e67e02ee1bd7c6946eca99883194505f"
+  },
+  "verification": {
+    "baseline_qa_parser": "EXPECTED_FAILURE",
+    "production_xctest": 71,
+    "production_swift_testing": 83,
+    "qa_xctest": 13,
+    "qa_swift_testing": 6,
+    "final_failures": 0,
+    "unsigned_ios_build": "PASS",
+    "recorded_inputs_unchanged": 168,
+    "shipping_qa_condition": false
+  },
+  "evidence_sha256": {
+    "baseline-tests.log": "c57133dd49a23dfa158a6a2e292a2e4a5f7b3f45148874bca23ce40807ea0883",
+    "qualified-tests-v4.log": "33be236e3fe7bc843b85a97cdab98cd94b8fa8e6ec522bbc8b0c82ff38eb050b",
+    "production-tests-v4.log": "34c660c70058026600ff7fd15d61ed6e1cedb74b3ef05b522634759d5acc3def",
+    "ios-build-v3.log": "93f13eea382f3b0d09ea7ca1033eb9fe9e6598973fe0fdda072f863798f250ee",
+    "unsigned-build-readback.json": "f27fa12d37e35399f46fe1e610565a82538a9676449533116edcbb190e31c327",
+    "qualified-project-v4/source-inputs.json": "9b571ebde7a4f828331b2f927a3c54ae2c4dc721cba1d3a8d5d34239bd81e075"
+  },
+  "operational_admission": null,
+  "current_signed_apple_profile": null,
+  "activation_allowed": false,
+  "sdk_effects": false,
+  "installation": false
+}
