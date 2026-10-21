@@ -705,7 +705,12 @@ struct SessionTimelineScreen: View {
                     .overlay(alignment: .top) {
                         if activeSession != nil {
                             VStack(spacing: 0) {
-                                SessionModeToggleButtons(showsForecast: $showsForecast, language: model.language)
+                                SessionModeToggleButtons(showsForecast: $showsForecast, language: model.language,
+                                    openVibeScape: VibeScapeAvailability.previewEnabled ? {
+                                        inputFocused = false; searchFocused = false
+                                        model.vibeScapeReturnToForecast = showsForecast
+                                        model.isShowingVibeScape = true
+                                    } : nil)
                                     .padding(.horizontal, 20)
                                     #if os(iOS)
                                     .padding(.top, 4).padding(.bottom, 10)
@@ -746,6 +751,9 @@ struct SessionTimelineScreen: View {
             }
             .onChange(of: showsForecast) { _, value in
                 if value { inputFocused = false; searchFocused = false }
+            }
+            .onChange(of: model.isShowingVibeScape) { _, visible in
+                if !visible { showsForecast = model.vibeScapeReturnToForecast }
             }
             .overlay {
                 if activeSession != nil {
@@ -1307,11 +1315,19 @@ struct SessionTimelineScreen: View {
 struct SessionModeToggleButtons: View {
     @Binding var showsForecast: Bool
     let language: String
+    var openVibeScape: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 4) {
             modeButton(forecast: false, key: "ui.session.forecast.flow")
             modeButton(forecast: true, key: "ui.session.forecast.tab")
+            if let openVibeScape {
+                Button("VibeScape", action: openVibeScape)
+                    .font(.headline).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.74)
+                    .frame(maxWidth: .infinity,minHeight:48)
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis:.secondary,shape:.segmented,expands:true,usesLiveGlass:true))
+                    .accessibilityIdentifier("session-vibescape-toggle")
+            }
         }
         .padding(DJConnectCardAppearance.segmentedContentInset)
         .djSessionFrostedSurface()

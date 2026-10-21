@@ -1509,3 +1509,12 @@
 "ui.rendezvous.accepted" = "Die Adresse wurde gesendet. Fahre am TV fort und bestätige die Bildschirmfreigabe in Home Assistant.";
 "ui.rendezvous.uncertain" = "Wir konnten nicht bestätigen, ob die Adresse gesendet wurde. Prüfe den TV, bevor du es erneut versuchst.";
 "ui.rendezvous.repairNeeded" = "Die sichere Verknüpfung konnte nicht vorbereitet werden. Versuche es später erneut.";
+
+// VibeScape preview: ephemeral native visuals.
+"ui.vibescape.dynamics" = "Dynamik";
+"ui.vibescape.calm" = "Ruhig";
+"ui.vibescape.intense" = "Intensiv";
+"ui.vibescape.follow" = "DJ folgen";
+"ui.vibescape.unavailable" = "Visuals sind auf diesem Gerät nicht verfügbar.";
+"ui.vibescape.voice.unavailable" = "Visuelle Sprachsteuerung ist noch nicht verfügbar.";
+"ui.vibescape.voice.label" = "Über die Visuals sprechen";

@@ -938,6 +938,7 @@ public struct DJConnectRootView: View {
             #if os(iOS)
             .background(.clear)
             #endif
+            .accessibilityHidden(model.isShowingVibeScape)
             #if DEBUG
             if model.isUITestRuntimeFixtureActive {
                 Color.clear
@@ -972,6 +973,14 @@ public struct DJConnectRootView: View {
         .tint(.white)
         .accentColor(.white)
         .environment(\.sessionIntroductionAnchors, introductionAnchors)
+        .overlay {
+            if VibeScapeAvailability.previewEnabled, model.isShowingVibeScape {
+                VibeScapeScreen(model: model)
+            }
+        }
+        #if os(macOS)
+        .toolbar(model.isShowingVibeScape ? .hidden : .automatic, for: .windowToolbar)
+        #endif
         .accessibilityHidden(model.isSessionIntroductionPresented)
         .overlay {
             if model.isSessionIntroductionPresented {
@@ -986,6 +995,9 @@ public struct DJConnectRootView: View {
         }
         .onChange(of: model.isDiagnosticLoggingEnabled) { _, enabled in
             if !enabled, selectedSection == .logs { selectedSection = .settings }
+        }
+        .onChange(of: selectedSection) { _, section in
+            if section != .djSession { model.isShowingVibeScape = false }
         }
         .onChange(of: model.activeDJSession?.id) { _, sessionID in
             if sessionID == nil { model.dismissSessionIntroduction() }

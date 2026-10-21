@@ -1509,3 +1509,12 @@
 "ui.rendezvous.accepted" = "L’adresse a été envoyée. Continuez sur le téléviseur et autorisez le partage dans Home Assistant.";
 "ui.rendezvous.uncertain" = "Nous n’avons pas pu confirmer l’envoi de l’adresse. Vérifiez le téléviseur avant de réessayer.";
 "ui.rendezvous.repairNeeded" = "La connexion sécurisée n’a pas pu être préparée. Réessayez plus tard.";
+
+// VibeScape preview: ephemeral native visuals.
+"ui.vibescape.dynamics" = "Dynamique";
+"ui.vibescape.calm" = "Calme";
+"ui.vibescape.intense" = "Intense";
+"ui.vibescape.follow" = "Suivre le DJ";
+"ui.vibescape.unavailable" = "Les visuels ne sont pas disponibles sur cet appareil.";
+"ui.vibescape.voice.unavailable" = "La commande vocale des visuels n’est pas encore disponible.";
+"ui.vibescape.voice.label" = "Parler des visuels";

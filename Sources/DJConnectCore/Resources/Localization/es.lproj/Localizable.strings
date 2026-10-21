@@ -1509,3 +1509,12 @@
 "ui.rendezvous.accepted" = "Se ha enviado la dirección. Continúa en el TV y autoriza compartir la pantalla en Home Assistant.";
 "ui.rendezvous.uncertain" = "No hemos podido confirmar si se envió la dirección. Revisa el TV antes de intentarlo de nuevo.";
 "ui.rendezvous.repairNeeded" = "No se pudo preparar la conexión segura. Inténtalo de nuevo más tarde.";
+
+// VibeScape preview: ephemeral native visuals.
+"ui.vibescape.dynamics" = "Dinámica";
+"ui.vibescape.calm" = "Tranquila";
+"ui.vibescape.intense" = "Intensa";
+"ui.vibescape.follow" = "Seguir al DJ";
+"ui.vibescape.unavailable" = "Los visuales no están disponibles en este dispositivo.";
+"ui.vibescape.voice.unavailable" = "El control de voz de los visuales aún no está disponible.";
+"ui.vibescape.voice.label" = "Hablar sobre los visuales";

@@ -785,6 +785,17 @@ struct DJConnectLocalAudioRoute: Equatable, Sendable {
 
 @MainActor
 public final class DJConnectAppModel: ObservableObject {
+    // View-lifetime presentation only. Never a Profile/defaults/cache field.
+    @Published var isShowingVibeScape = false {
+        didSet {
+            guard oldValue != isShowingVibeScape else { return }
+            if isShowingVibeScape {
+                cancelVoiceRecording()
+                stopWakeWordListening()
+            } else { resumeWakeWordListeningIfNeeded() }
+        }
+    }
+    var vibeScapeReturnToForecast = false
     @Published var isShowingRendezvous = false
     @Published private(set) var rendezvousStatusKey = "ui.rendezvous.scan"
     @Published private(set) var rendezvousBusy = false
@@ -1026,7 +1037,7 @@ public final class DJConnectAppModel: ObservableObject {
         canRefreshSessionHistory && !sessionHistory.contentDeletionBusy && isRuntimeCompatible && haConnectionMode != .offline
     }
     public var canUseAskDJFeatures: Bool {
-        sessionHistory.profileScopeActive ? canUseProfileConversation : canUsePlaybackFeatures
+        !isShowingVibeScape && (sessionHistory.profileScopeActive ? canUseProfileConversation : canUsePlaybackFeatures)
     }
     @Published public var homeAssistantURL = "" {
         didSet {
@@ -4858,6 +4869,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func sendAskDJText() {
+        guard !isShowingVibeScape else { return }
         if sessionHistory.profileScopeActive {
             sessionHistory.sendText()
             return
@@ -5565,6 +5577,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func startVoiceRecording() {
+        guard !isShowingVibeScape else { return }
         if isDemoMode { playDemoVoiceExample(); return }
         guard !isRecordingVoice, voiceStatus != .processing else {
             return
@@ -5839,6 +5852,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func stopVoiceRecordingAndUpload() {
+        guard !isShowingVibeScape else { cancelVoiceRecording(); return }
         guard isRecordingVoice else {
             return
         }
@@ -14837,6 +14851,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     private var canListenForWakeWord: Bool {
         wakeWordEnabled
+            && !isShowingVibeScape
             && !personaReactionOutputReserved
             && voiceEnabled
             && pairingStatus == .paired
@@ -15273,6 +15288,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func beginWakeWordListening() async {
+        guard !isShowingVibeScape else { return }
         guard wakeAudioEngine == nil else {
             return
         }
@@ -15296,6 +15312,7 @@ public final class DJConnectAppModel: ObservableObject {
             try await setDJConnectAudioSessionActive(true, options: .notifyOthersOnDeactivation)
             #endif
 
+            guard !isShowingVibeScape, canListenForWakeWord else { return }
             let engine = AVAudioEngine()
             let request = SFSpeechAudioBufferRecognitionRequest()
             request.shouldReportPartialResults = true
@@ -15311,7 +15328,8 @@ public final class DJConnectAppModel: ObservableObject {
 
             wakeRecognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
                 Task { @MainActor in
-                    guard let self else { return }
+                    guard let self, !self.isShowingVibeScape,
+                          self.wakeRecognitionRequest === request else { return }
                     if let result {
                         let transcript = result.bestTranscription.formattedString
                         self.log(.debug, "Wakeword transcript: \(transcript)")
