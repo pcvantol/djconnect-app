@@ -3560,6 +3560,7 @@ struct DJConnectButtonStyle: ButtonStyle {
     var showsFocusIndicator = true
     var foregroundColor: Color? = nil
     var selectionTint: Color? = nil
+    var primaryFill: Color? = nil
     var dimsWhenDisabled = true
     @Environment(\.isFocused) private var isFocused
     @Environment(\.isEnabled) private var isEnabled
@@ -3595,9 +3596,9 @@ struct DJConnectButtonStyle: ButtonStyle {
                     switch role {
                     case .primary:
                         if usesLiveGlass && glassEnabled && !reduceTransparency {
-                            outline.fill(DJConnectButtonAppearance.primaryGradient)
+                            outline.fill(primaryFill.map { AnyShapeStyle($0) } ?? AnyShapeStyle(DJConnectButtonAppearance.primaryGradient))
                                 .glassEffect(.regular.interactive(), in: outline)
-                        } else { outline.fill(DJConnectButtonAppearance.primaryGradient) }
+                        } else { outline.fill(primaryFill.map { AnyShapeStyle($0) } ?? AnyShapeStyle(DJConnectButtonAppearance.primaryGradient)) }
                     case .selected:
                         if usesLiveGlass && glassEnabled && !reduceTransparency {
                             outline.fill((selectionTint ?? djConnectAccent).opacity(0.10))
@@ -9994,7 +9995,7 @@ private struct IOSPlaybackSurface: View {
                 .frame(width: size, height: size)
                 .foregroundStyle(.white)
         }
-        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: prominent ? .primary : .secondary, shape: .icon, iconDiameter: size))
+        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: prominent ? .primary : .secondary, shape: .icon, iconDiameter: size, primaryFill: djConnectAccent))
         .disabled(!canUsePlayback)
         .accessibilityLabel(accessibilityLabel)
     }
@@ -10011,7 +10012,7 @@ private struct QueueNavigationButton: View {
         } label: {
             Image(systemName: "music.note.list")
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.82))
+                .foregroundStyle(.white.opacity(0.68))
                 .frame(width: 44, height: 44)
         }
         .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
@@ -10344,7 +10345,7 @@ struct PlaybackControlsView: View {
                         .frame(width: 44, height: 44)
                         .foregroundStyle(.white)
                 }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, shape: .icon))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, shape: .icon, primaryFill: djConnectAccent))
                 .help(model.isPlaying ? localizedKey(model.language, "ui.pause") : localizedKey(model.language, "ui.play"))
                 .accessibilityLabel(model.isPlaying ? localizedKey(model.language, "ui.pause") : localizedKey(model.language, "ui.play"))
                 .disabled(!canUsePlayback)
@@ -10407,7 +10408,7 @@ struct FavoriteTrackButton: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     // Native large glass adds its own padding around the 24-point glyph.
-    private var labelDiameter: CGFloat { glassEnabled && !reduceTransparency ? 24 : 44 }
+    private var labelDiameter: CGFloat { sessionContext != nil && glassEnabled && !reduceTransparency ? 24 : 44 }
 
     private var isFavorite: Bool {
         model.playback?.currentTrackFavoriteStatus == true
@@ -10424,7 +10425,7 @@ struct FavoriteTrackButton: View {
     }
 
     var body: some View {
-        if glassEnabled && !reduceTransparency {
+        if sessionContext != nil && glassEnabled && !reduceTransparency {
             // The native button style owns the press interaction. A glass
             // background alone does not receive the button's touch lifecycle.
             GlassEffectContainer(spacing: 0) {
@@ -10455,7 +10456,7 @@ struct FavoriteTrackButton: View {
                 Image(systemName: isFavorite ? "heart.fill" : "heart")
                     .font(.system(size: 22, weight: .semibold))
                     .symbolRenderingMode(.monochrome)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(sessionContext != nil ? .white : (isFavorite ? djConnectAccent : .white.opacity(0.68)))
                     .frame(width: labelDiameter, height: labelDiameter)
             }
         }
