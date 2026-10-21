@@ -18478,6 +18478,10 @@ private struct SettingsContentContainer<Content: View>: View {
             .frame(maxWidth: maximumContentWidth)
             .padding(.horizontal, djConnectScreenHorizontalPadding)
             .padding(.vertical, djConnectScreenVerticalPadding)
+            #if os(iOS)
+            // Keep the final permissions card scrollable above the floating tab bar.
+            .padding(.bottom, 96)
+            #endif
             .frame(maxWidth: .infinity, alignment: .top)
             #endif
         }
