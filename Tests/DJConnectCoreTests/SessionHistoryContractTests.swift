@@ -6741,7 +6741,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
-    let panel = SessionForecastPanel(model: model, position: .constant(nil), query: .constant("")) { EmptyView() }
+    let panel = SessionForecastContent(model: model, query: .constant(""))
     let beforeOwner = panel.contextKey
     await model.sessionHistory.prepare()
     if fence == "current" {

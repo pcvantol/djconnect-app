@@ -49,16 +49,35 @@ struct SessionForecastTextView: View {
     }
 }
 
+/// Standalone scroll host used by isolated component qualification.
+/// The live Session embeds only SessionForecastContent below its shared header.
 struct SessionForecastPanel<Header: View>: View {
     @ObservedObject var model: DJConnectAppModel
-    @ObservedObject private var history: DJConnectSessionHistoryModel
     let header: Header
     @Binding var position: String?
     @Binding var query: String
-    @Environment(\.scenePhase) private var scenePhase
     init(model: DJConnectAppModel, position: Binding<String?>, query: Binding<String>, @ViewBuilder header: () -> Header) {
-        self.model = model; history = model.sessionHistory; self.header = header()
+        self.model = model; self.header = header()
         _position = position; _query = query
+    }
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                header
+                SessionForecastContent(model: model, query: $query)
+            }
+        }.scrollPosition(id: $position, anchor: .top)
+    }
+}
+
+/// Lower content only: playback, artwork and persona stay owned by the Session.
+struct SessionForecastContent: View {
+    @ObservedObject var model: DJConnectAppModel
+    @ObservedObject private var history: DJConnectSessionHistoryModel
+    @Binding var query: String
+    @Environment(\.scenePhase) private var scenePhase
+    init(model: DJConnectAppModel, query: Binding<String>) {
+        self.model = model; history = model.sessionHistory; _query = query
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     private var deadlines: [Date] {
@@ -81,30 +100,25 @@ struct SessionForecastPanel<Header: View>: View {
     }
     var body: some View {
         TimelineView(SessionEntryRefreshSchedule(deadlines: deadlines)) { clock in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    header
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(text("ui.session.forecast.title")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
-                        Text(text("ui.session.forecast.notice")).font(.callout).foregroundStyle(.secondary)
-                        TextField(text("ui.session.forecast.search"), text: $query)
-                            .textFieldStyle(.plain).padding(12).djSessionFrostedSurface()
-                            .accessibilityLabel(text("ui.session.forecast.search"))
-                        if scenePhase == .active, let projection = model.visibleSessionForecast(at: clock.date) {
-                            ForEach(Array(projection.imagery.enumerated()), id: \.offset) { _, image in
-                                SessionForecastArtwork(model: model, projection: projection, artwork: image)
-                            }
-                            SessionForecastTextView(projection: projection, language: model.language, query: query)
-                        } else {
-                            Text(text(model.forecastLoading ? "ui.session.forecast.loading" : "ui.session.forecast.unavailable"))
-                                .fixedSize(horizontal: false, vertical: true)
-                            Button(text("ui.refresh.page")) { Task { await model.refreshSessionForecast() } }
-                                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
-                                .disabled(model.forecastLoading || !model.canRefreshSessionHistory)
-                        }
-                    }.padding(.horizontal, 20)
-                }.padding(.bottom, 16)
-            }.scrollPosition(id: $position, anchor: .top)
+            VStack(alignment: .leading, spacing: 12) {
+                Text(text("ui.session.forecast.title")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
+                Text(text("ui.session.forecast.notice")).font(.callout).foregroundStyle(.secondary)
+                TextField(text("ui.session.forecast.search"), text: $query)
+                    .textFieldStyle(.plain).padding(12).djSessionFrostedSurface()
+                    .accessibilityLabel(text("ui.session.forecast.search"))
+                if scenePhase == .active, let projection = model.visibleSessionForecast(at: clock.date) {
+                    ForEach(Array(projection.imagery.enumerated()), id: \.offset) { _, image in
+                        SessionForecastArtwork(model: model, projection: projection, artwork: image)
+                    }
+                    SessionForecastTextView(projection: projection, language: model.language, query: query)
+                } else {
+                    Text(text(model.forecastLoading ? "ui.session.forecast.loading" : "ui.session.forecast.unavailable"))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(text("ui.refresh.page")) { Task { await model.refreshSessionForecast() } }
+                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
+                        .disabled(model.forecastLoading || !model.canRefreshSessionHistory)
+                }
+            }.padding(.horizontal, 20).padding(.bottom, 16)
         }
         .accessibilityIdentifier("session-forecast-panel")
         .task(id: contextKey) {

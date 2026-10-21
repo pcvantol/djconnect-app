@@ -62,6 +62,30 @@ final class ForecastHeaderAlignmentTests: XCTestCase {
         }
     }
 
+    @MainActor func testForecastContentAddsNoScrollHost() async throws {
+        let suite = "forecast-content-layout-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(),
+                                      startBackgroundTasks: false)
+        defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+        _ = NSApplication.shared
+        let host = NSHostingView(rootView:
+            SessionForecastContent(model: model, query: .constant(""))
+                .environment(\.scenePhase, .background).frame(width: 640, height: 300))
+        let window = NSWindow(contentRect: .init(x: -3000, y: -3000, width: 640, height: 300),
+                              styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = host
+        window.orderBack(nil)
+        defer { window.close() }
+        try await Task.sleep(for: .milliseconds(150))
+        host.layoutSubtreeIfNeeded()
+        func scrollHosts(_ view: NSView) -> Int {
+            (view is NSScrollView ? 1 : 0) + view.subviews.reduce(0) { $0 + scrollHosts($1) }
+        }
+        XCTAssertEqual(scrollHosts(host), 0, "The lower Forecast content must share the Session's scroll host")
+    }
+
     /// Actual Forecast panel in an isolated native host, with the same supplied
     /// header as a plain scroll view. No ordinary app, paired owner or live HTTP.
     @MainActor func testForecastAddsNoTopInsetToSharedHeader() async throws {
