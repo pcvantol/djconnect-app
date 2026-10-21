@@ -103,7 +103,7 @@ struct SessionForecastPanel<Header: View>: View {
                                 .disabled(model.forecastLoading || !model.canRefreshSessionHistory)
                         }
                     }.padding(.horizontal, 20)
-                }.padding(.vertical, 16)
+                }.padding(.bottom, 16)
             }.scrollPosition(id: $position, anchor: .top)
         }
         .accessibilityIdentifier("session-forecast-panel")
