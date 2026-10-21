@@ -74,3 +74,112 @@ import Testing
         #expect(throws: (any Error).self) { try parse(response(JSONSerialization.data(withJSONObject: extended), expiry: 121001)) }
     }
 }
+
+private final class RecoveryTransportWire: URLProtocol, @unchecked Sendable {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var expiry: Int64 = 0
+    nonisolated(unsafe) private static var requests: [(String, Data)] = []
+    static func reset(expiry: Int64) { lock.withLock { Self.expiry = expiry; requests = [] } }
+    static var captured: [(String, Data)] { lock.withLock { requests } }
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        do {
+            var body = request.httpBody ?? Data()
+            if let stream = request.httpBodyStream, body.isEmpty {
+                stream.open(); defer { stream.close() }
+                var buffer = [UInt8](repeating: 0, count: 512)
+                while stream.hasBytesAvailable {
+                    let count = stream.read(&buffer, maxLength: buffer.count)
+                    guard count >= 0, body.count + count <= 16384 else { throw URLError(.badServerResponse) }
+                    if count == 0 { break }; body.append(contentsOf: buffer.prefix(count))
+                }
+            }
+            let path = try #require(request.url?.path)
+            let expiry = Self.lock.withLock { Self.requests.append((path, body)); return Self.expiry }
+            #expect(request.url?.host == URL(string: DJConnectRendezvousQR.serviceOrigin)?.host)
+            #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+            #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
+            let fields = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+            let response: Data
+            if path.hasSuffix("/attestation/challenge") {
+                #expect(Set(fields.keys) == ["v", "key_id", "action"])
+                #expect(fields["action"] as? String == "recover-key")
+                let token = String(repeating: "A", count: 43)
+                let now = Int64(Date().timeIntervalSince1970 * 1000)
+                let original = try JSONSerialization.data(withJSONObject: ["v": "djc-rendezvous/1",
+                    "action": "recover-key", "service_origin": DJConnectRendezvousQR.serviceOrigin,
+                    "key_id": try #require(fields["key_id"]), "challenge_id": token,
+                    "challenge": token, "expires_at": now + 60000], options: .sortedKeys)
+                response = try JSONSerialization.data(withJSONObject: ["v": "djc-rendezvous/1",
+                    "challenge_id": token, "challenge": token, "expires_at": now + 60000,
+                    "client_data": submissionB64(original)])
+            } else {
+                #expect(path.hasSuffix("/attestation/recover"))
+                response = try JSONSerialization.data(withJSONObject: ["v": "djc-rendezvous/1", "key_expires_at": expiry])
+            }
+            client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200,
+                httpVersion: nil, headerFields: ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: response); client?.urlProtocolDidFinishLoading(self)
+        } catch { client?.urlProtocol(self, didFailWithError: error) }
+    }
+    override func stopLoading() {}
+}
+
+@Suite(.serialized) @MainActor struct RendezvousRecoveryTransportTests {
+    private func service() -> DJConnectRendezvousService {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RecoveryTransportWire.self]
+        return .init(configuration: configuration)
+    }
+    @Test func exactJournalBytesRecoverWithoutAnyBrowserQR() async throws {
+        let expiry = submissionNow() + 20 * 86400000
+        RecoveryTransportWire.reset(expiry: expiry)
+        let service = service(), key = Data(repeating: 3, count: 32).base64EncodedString()
+        let challenge = try await service.recoveryChallenge(keyID: key, isCurrent: { true })
+        let journal = RendezvousRecoveryJournal(storage: SubmissionStore())
+        let attempt = try await journal.begin(keyIdentifier: key, challengeIdentifier: challenge.identifier,
+            nonce: challenge.nonce, clientData: challenge.originalClientData,
+            admittedAtMS: submissionNow(), deadlineMS: challenge.expiresAtMS)
+        let call = try await journal.reserveAssertion(attemptIdentifier: attempt, at: submissionNow())
+        #expect(call.clientDataHash == challenge.clientDataHash)
+        try await journal.completeAssertion(attemptIdentifier: attempt, reservation: call.reservation,
+            result: .received(Data([1, 2, 3])), at: submissionNow()) // Synthetic, no SDK effect.
+        let request = try await journal.reserveSubmission(attemptIdentifier: attempt, at: submissionNow())
+        let received = try await service.recover(originalBody: request.body, challenge: challenge,
+            expectedOriginalExpiryMS: expiry, isCurrent: { true })
+        #expect(received == expiry)
+        #expect(RecoveryTransportWire.captured.last?.1 == request.body)
+        try await journal.completeSubmission(attemptIdentifier: attempt, reservation: request.reservation,
+            outcome: .succeeded, at: submissionNow())
+        #expect(try await journal.snapshot(at: submissionNow())?.phase == .completed)
+    }
+    @Test func staleOwnerMismatchedBodyAndChangedExpiryCannotBeAdopted() async throws {
+        let expiry = submissionNow() + 20 * 86400000
+        RecoveryTransportWire.reset(expiry: expiry)
+        let service = service(), key = Data(repeating: 3, count: 32).base64EncodedString()
+        var checks = 0
+        await #expect(throws: (any Error).self) {
+            _ = try await service.recoveryChallenge(keyID: key, isCurrent: { checks += 1; return checks < 2 })
+        }
+        #expect(RecoveryTransportWire.captured.isEmpty)
+        let challenge = try await service.recoveryChallenge(keyID: key, isCurrent: { true })
+        let valid: [String: Any] = ["v": "djc-rendezvous/1", "key_id": key,
+            "challenge_id": challenge.identifier, "client_data": submissionB64(challenge.originalClientData), "assertion": "AQID"]
+        let original = try JSONSerialization.data(withJSONObject: valid)
+        for field in valid.keys {
+            var changed = valid; changed[field] = "changed"
+            let body = try JSONSerialization.data(withJSONObject: changed)
+            await #expect(throws: (any Error).self) {
+                _ = try await service.recover(originalBody: body, challenge: challenge,
+                                              expectedOriginalExpiryMS: expiry, isCurrent: { true })
+            }
+        }
+        #expect(RecoveryTransportWire.captured.count == 1)
+        await #expect(throws: (any Error).self) {
+            _ = try await service.recover(originalBody: original, challenge: challenge,
+                                          expectedOriginalExpiryMS: expiry + 1, isCurrent: { true })
+        }
+        #expect(RecoveryTransportWire.captured.count == 2)
+    }
+}

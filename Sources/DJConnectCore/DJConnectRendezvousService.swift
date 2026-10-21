@@ -104,11 +104,73 @@ public final class DJConnectRendezvousService: Sendable {
               fields["accepted"] == .bool(true), fields["operation_id"] == .string(challenge.identifier),
               challenge.isCurrent() else { throw DJConnectError.invalidResponse }
     }
+    /// Management recovery is independent of a scanned browser transaction.
+    /// The caller must already hold the full per-key queue and explicit budget.
+    @MainActor func recoveryChallenge(keyID: String,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectRendezvousRecoveryChallenge {
+        try Task.checkCancellation()
+        guard isCurrent(), DJConnectRendezvousSubmitChallenge.canonicalKeyID(keyID) else { throw DJConnectError.invalidResponse }
+        let clock = RendezvousManagementRequestClock()
+        let body = try JSONSerialization.data(withJSONObject: ["v": "djc-rendezvous/1", "key_id": keyID, "action": "recover-key"])
+        let data = try await fixedPost(path: "attestation/challenge", body: body, status: 200,
+            beforeDispatch: {
+                guard isCurrent(), clock.isCurrent() else { throw DJConnectError.invalidResponse }
+            }, bodyCurrent: { clock.isCurrent() })
+        guard isCurrent() else { throw DJConnectError.invalidResponse }
+        return try .parse(data, keyIdentifier: keyID, requestedAtMS: clock.requestedAtMS,
+                          requestedUptime: clock.requestedUptime)
+    }
+
+    @MainActor func recover(originalBody: Data, challenge: DJConnectRendezvousRecoveryChallenge,
+        expectedOriginalExpiryMS: Int64?, isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> Int64 {
+        try Task.checkCancellation()
+        guard isCurrent(), challenge.isCurrent(), originalBody.count <= 16_384 else { throw DJConnectError.invalidResponse }
+        let fields = try RendezvousFlatJSON.parse(originalBody, maximumBytes: 16_384)
+        let original = Self.base64URL(challenge.originalClientData)
+        guard Set(fields.keys) == ["v", "key_id", "challenge_id", "client_data", "assertion"],
+              fields["v"] == .string("djc-rendezvous/1"), fields["key_id"] == .string(challenge.keyIdentifier),
+              fields["challenge_id"] == .string(challenge.identifier), fields["client_data"] == .string(original),
+              case let .string(proof)? = fields["assertion"], Self.isBoundedAssertion(proof) else { throw DJConnectError.invalidResponse }
+        let data = try await fixedPost(path: "attestation/recover", body: originalBody, status: 200,
+            beforeDispatch: {
+                guard isCurrent(), challenge.isCurrent() else { throw DJConnectError.invalidResponse }
+            }, bodyCurrent: { challenge.isCurrent() })
+        guard isCurrent(), challenge.isCurrent() else { throw DJConnectError.invalidResponse }
+        let receipt = try RendezvousFlatJSON.parse(data, maximumBytes: 4096)
+        let now = Int64(Date().timeIntervalSince1970 * 1000)
+        guard Set(receipt.keys) == ["v", "key_expires_at"], receipt["v"] == .string("djc-rendezvous/1"),
+              case let .integer(expiry)? = receipt["key_expires_at"], expiry > now,
+              expiry - now <= 30 * 86_400_000,
+              expectedOriginalExpiryMS.map({ $0 == expiry }) ?? true else { throw DJConnectError.invalidResponse }
+        return expiry
+    }
+    private static func base64URL(_ data: Data) -> String {
+        data.base64EncodedString().replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+    }
+    private static func isBoundedAssertion(_ encoded: String) -> Bool {
+        guard !encoded.isEmpty, encoded.utf8.count <= 5462,
+              encoded.utf8.allSatisfy({ (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 45 || $0 == 95 }) else { return false }
+        let text = encoded.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        guard let data = Data(base64Encoded: text + String(repeating: "=", count: (4 - text.count % 4) % 4)) else { return false }
+        return !data.isEmpty && data.count <= 4096 && base64URL(data) == encoded
+    }
     @MainActor private func post(path:String,body:Data,status:Int,qr:DJConnectRendezvousQR,
                       beforeDispatch:(@MainActor @Sendable () throws -> Void)? = nil,
                       bodyCurrent:(@Sendable ()->Bool)? = nil) async throws -> Data {
         try Task.checkCancellation()
         guard qr.isCurrent() else { throw DJConnectRendezvousQR.Failure.expired }
+        return try await fixedPost(path: path, body: body, status: status, beforeDispatch: {
+            try beforeDispatch?()
+            guard qr.isCurrent() else { throw DJConnectRendezvousQR.Failure.expired }
+        }, bodyCurrent: { qr.isCurrent() && (bodyCurrent?() ?? true) })
+    }
+
+    @MainActor private func fixedPost(path: String, body: Data, status: Int,
+        beforeDispatch: @escaping @MainActor @Sendable () throws -> Void,
+        bodyCurrent: @escaping @Sendable () -> Bool) async throws -> Data {
+        try Task.checkCancellation()
+        guard bodyCurrent() else { throw DJConnectError.invalidResponse }
         let url = URL(string:DJConnectRendezvousQR.serviceOrigin + "/v1/rendezvous/" + path)!
         var request = URLRequest(url:url)
         request.httpMethod = "POST"; request.setValue("application/json",forHTTPHeaderField:"Content-Type")
@@ -116,14 +178,22 @@ public final class DJConnectRendezvousService: Sendable {
         request.setValue("identity",forHTTPHeaderField:"Accept-Encoding")
         request.httpBody = body
         let response = try await DJConnectBoundedHTTPTransport.send(request,using:session,maximumBytes:4096,
-            beforeDispatch:{
-                try beforeDispatch?()
-                guard qr.isCurrent() else { throw DJConnectRendezvousQR.Failure.expired }
-            },isBodyCurrent:{qr.isCurrent() && (bodyCurrent?() ?? true)},taskCreated:taskCreated,validateResponse:{ http in
+            beforeDispatch: beforeDispatch, isBodyCurrent: bodyCurrent, taskCreated:taskCreated,validateResponse:{ http in
                 guard http.statusCode == status,http.mimeType?.lowercased() == "application/json",
                       http.value(forHTTPHeaderField:"Content-Encoding") == nil else { throw DJConnectError.invalidResponse }
                 return "application/json"
             })
         return response.data
+    }
+}
+
+/// Local management request upper bound. Never reconstructed from a newer QR.
+private struct RendezvousManagementRequestClock: Sendable {
+    let requestedAtMS = Int64(Date().timeIntervalSince1970 * 1000)
+    let requestedUptime = ProcessInfo.processInfo.systemUptime
+    func isCurrent() -> Bool {
+        let now = Int64(Date().timeIntervalSince1970 * 1000), uptime = ProcessInfo.processInfo.systemUptime
+        return now >= requestedAtMS && now - requestedAtMS < 120_000
+            && uptime.isFinite && uptime >= requestedUptime && uptime - requestedUptime < 120
     }
 }

@@ -84,3 +84,21 @@ and the four strict recovery-challenge regressions. Synthetic injected providers
 remain internal-only test seams; they are not genuine native proof. A future
 real effect admission still requires the reviewed exact signed profile and
 finite authorized run, not changing a local preference or the API guard alone.
+
+## Recovery HTTP transport
+
+The management challenge/recover endpoints now use the same bounded fixed-origin
+transport as enrollment/submission, without deriving their lifetime from a new
+browser QR. The response parser binds the existing key and recover-key action;
+recover sends the journal's exact persisted bytes, checks the challenge/body
+identity and canonical bounded assertion encoding, and rejects a changed known
+original key expiry. Owner context is rechecked immediately before dispatch and
+after the bounded response. No redirect/cookie/credential/retry path is added.
+
+Two intercepted-HTTP regressions exercise actual challenge parsing, durable
+memory journal reservations and exact request-body readback without any browser
+QR, then stale-owner denial, changed request fields and changed original expiry.
+All 100 production-origin Rendezvous tests passed. These are synthetic requests
+with synthetic proof bytes, not server-verifier or native acceptance. The full
+explicit recovery/repair-budget orchestration and replacement/rollover UI are
+still open; the default native effects remain closed.
