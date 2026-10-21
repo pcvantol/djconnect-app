@@ -10395,8 +10395,8 @@ struct FavoriteTrackButton: View {
     @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
-    // Native large glass adds its own padding around the 24-point glyph.
-    private var labelDiameter: CGFloat { sessionContext != nil && glassEnabled && !reduceTransparency ? 24 : 44 }
+    // Leave four extra points around the Session glyph inside native glass.
+    private var labelDiameter: CGFloat { sessionContext != nil && glassEnabled && !reduceTransparency ? 32 : 44 }
 
     private var isFavorite: Bool {
         model.playback?.currentTrackFavoriteStatus == true
