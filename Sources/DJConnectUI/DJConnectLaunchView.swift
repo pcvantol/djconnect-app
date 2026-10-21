@@ -218,20 +218,19 @@ struct DJConnectLaunchBanner: View {
     }
 
     private var content: some View {
-        ViewThatFits(in: .horizontal) {
-            brandRow(icon: iconSize, name: nameSize, slogan: taglineSize)
-                .fixedSize(horizontal: true, vertical: false)
-            brandRow(icon: min(iconSize * 0.76, 80), name: nameSize * 0.87, slogan: taglineSize * 0.8)
-        }
+        // One horizontal lockup at every width. Scale each single text line
+        // inside the icon's height instead of ever stacking it below the icon.
+        brandRow(icon: min(iconSize, 96), name: min(nameSize, 36), slogan: min(taglineSize, 24))
         .frame(maxWidth: 480, alignment: .leading)
         .frame(maxWidth: .infinity)
     }
 
     private func brandRow(icon: CGFloat, name: CGFloat, slogan: CGFloat) -> some View {
-        HStack(alignment: .center, spacing: 16) {
+        HStack(alignment: .center, spacing: 12) {
             DJConnectGlassBrandIcon()
                 .frame(width: icon, height: icon)
             brandText(name: name, slogan: slogan)
+                .frame(height: icon, alignment: .center)
         }
     }
 
@@ -241,7 +240,7 @@ struct DJConnectLaunchBanner: View {
                 .font(.system(size: name, weight: .bold, design: .default))
                 .foregroundStyle(.white)
                 .lineLimit(1)
-                .minimumScaleFactor(0.62)
+                .minimumScaleFactor(0.2)
                 .frame(maxWidth: .infinity, alignment: .leading)
             tagline(size: slogan)
         }
@@ -252,7 +251,7 @@ struct DJConnectLaunchBanner: View {
             .font(.system(size: size, weight: .semibold))
             .foregroundStyle(.white.opacity(0.72))
             .lineLimit(1)
-            .minimumScaleFactor(0.4)
+            .minimumScaleFactor(0.2)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
