@@ -1492,7 +1492,7 @@
 
 /* Server-confirmed individual content deletion. */
 "ui.content.delete.action" = "Bijdrage verwijderen";
-"ui.content.delete.confirm" = "Deze bijdrage verwijderen?";
+"ui.content.delete.confirm" = "Wil je deze bijdrage verwijderen?";
 "ui.content.delete.unit.moment" = "DJ-moment";
 "ui.content.delete.unit.exchange" = "Volledige vraag en antwoord";
 "ui.content.delete.unit.attempt" = "Oorspronkelijk openstaand verzoek";

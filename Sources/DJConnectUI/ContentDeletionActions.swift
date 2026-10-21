@@ -73,17 +73,6 @@ private struct ContentDeletionActions: ViewModifier {
             Label(text("ui.content.delete.action"), systemImage: "trash")
         }.disabled(!enabled).accessibilityIdentifier("content-delete-" + target.target_id)
     }
-    private func summary(_ scope: DJConnectContentDeleteScope) -> String {
-        let removed = scope.affected_entries.filter { $0.disposition == "remove" }.count
-        let unavailable = scope.affected_entries.filter { $0.disposition == "unavailable" }.count
-        return text("ui.content.delete.unit." + scope.unit.kind) + "\n\n" +
-            String(format: text("ui.content.delete.scope"), removed, unavailable,
-                scope.removed_message_ids.count, scope.unavailable_message_ids.count,
-                scope.affected_moments.count, scope.fenced_request_count) + "\n\n" +
-            text("ui.content.delete.playback")
-            + "\n" + String(format: text("ui.content.delete.expires"),
-                DJConnectHistoryEntry.date(scope.expires_at)?.formatted(date: .abbreviated, time: .standard) ?? scope.expires_at)
-    }
     func body(content: Content) -> some View {
         Group {
             if target.kind == "moment", history.contentMomentWasWithdrawn(sessionID: target.session_id, momentID: target.target_id) {
@@ -123,7 +112,7 @@ private struct ContentDeletionActions: ViewModifier {
                         if !deleted { failed = true }
                     }
                 }.accessibilityIdentifier("content-delete-confirm")
-            } message: { scope in Text(summary(scope)) }
+            } message: { _ in Text(text("ui.content.delete.playback")) }
             .alert(text(history.hasUnconfirmedDeletion ? "ui.session.history.delete.unconfirmed" : "ui.session.history.delete.failed"), isPresented: $failed) {
                 Button(text("ui.close"), role: .cancel) {}
             }
