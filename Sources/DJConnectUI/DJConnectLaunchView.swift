@@ -226,6 +226,7 @@ struct DJConnectLaunchBanner: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity)
     }
 
     // App panels have dark canvases regardless of the system appearance. Core's
@@ -282,7 +283,7 @@ struct DJConnectLaunchBanner: View {
 
     private var tagline: some View {
         Text(subtitle)
-            .font(.headline.weight(.semibold))
+            .font(.title3.weight(.semibold))
             .foregroundStyle(.white.opacity(0.72))
             .fixedSize(horizontal: false, vertical: true)
             .multilineTextAlignment(.center)
