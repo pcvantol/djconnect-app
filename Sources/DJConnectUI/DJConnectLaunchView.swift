@@ -133,20 +133,17 @@ private struct DJConnectLaunchView: View {
     private func compactLaunch(bannerWidth: CGFloat, availableHeight: CGFloat) -> some View {
         ScrollView {
             VStack(spacing: 24) {
-                DJConnectLaunchBanner()
-                    .frame(width: bannerWidth)
-                VStack(spacing: 24) {
-                    DJSessionWelcomeArtwork()
-                        .frame(height: (bannerWidth - 36) * 0.72)
-                        .accessibilityHidden(true)
-                    launchStatus
-                }
-                .frame(maxWidth: .infinity)
-                .padding(18)
-                .djSessionFrostedSurface()
-                .frame(width: bannerWidth)
-                .accessibilityIdentifier("launch-content-card")
+                DJConnectLaunchBanner(showsCardBackground: false)
+                DJSessionWelcomeArtwork()
+                    .frame(height: (bannerWidth - 36) * 0.72)
+                    .accessibilityHidden(true)
+                launchStatus
             }
+            .frame(maxWidth: .infinity)
+            .padding(18)
+            .djSessionFrostedSurface()
+            .frame(width: bannerWidth)
+            .accessibilityIdentifier("launch-content-card")
             .frame(maxWidth: .infinity, minHeight: max(0, availableHeight - 48))
             .padding(.vertical, 24)
             .accessibilityElement(children: .combine)
@@ -202,9 +199,23 @@ private struct DJConnectLaunchCanvasBackground: View {
 
 struct DJConnectLaunchBanner: View {
     var subtitle: String = DJConnectLocalization.localized(key: "brand.tagline")
+    var showsCardBackground = true
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
+    @ViewBuilder
     var body: some View {
+        if showsCardBackground {
+            content
+                .padding(18)
+                .djSessionFrostedSurface()
+                .accessibilityElement(children: .combine)
+        } else {
+            content
+                .accessibilityElement(children: .combine)
+        }
+    }
+
+    private var content: some View {
         Group {
             if dynamicTypeSize >= .xxxLarge {
                 verticalContent
@@ -215,9 +226,6 @@ struct DJConnectLaunchBanner: View {
                 }
             }
         }
-        .padding(18)
-        .djSessionFrostedSurface()
-        .accessibilityElement(children: .combine)
     }
 
     // App panels have dark canvases regardless of the system appearance. Core's
