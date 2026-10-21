@@ -36,6 +36,34 @@ private func historyObject(_ name: String = "producer-receipt") throws -> [Strin
 }
 private func historyData(_ value: Any) throws -> Data { try JSONSerialization.data(withJSONObject: value) }
 
+@Test(arguments: ["text", "voice", "setting_feedback", "unknown", "", "SETTING_FEEDBACK"])
+func sessionTimelineRecognizesOnlyQualifiedConversationInputTypes(_ input: String) throws {
+    let receipt = try historyObject()
+    var body = try #require(receipt["archived_timeline"] as? [String: Any])
+    var rows = try #require(body["entries"] as? [[String: Any]])
+    var count = 0
+    for index in rows.indices where ["conversation_user", "conversation_dj"].contains(rows[index]["kind"] as? String ?? "") {
+        rows[index]["input_type"] = input
+        count += 1
+    }
+    #expect(count >= 2)
+    body["entries"] = rows
+    let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: historyData(body))
+    let valid = ["text", "voice", "setting_feedback"].contains(input)
+    #expect(page.entries.allSatisfy(\.isContractValid) == valid)
+    #expect(page.entries.count == rows.count)
+}
+
+/// Optional local readback; personal response bytes never become a fixture or test output.
+@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CAPTURED_TIMELINE_FILE"] != nil))
+func sessionTimelineValidatesPrivateCapturedReadback() throws {
+    let path = try #require(ProcessInfo.processInfo.environment["DJCONNECT_CAPTURED_TIMELINE_FILE"])
+    let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: Data(contentsOf: URL(fileURLWithPath: path)))
+    #expect(page.success && page.session.isContractValid)
+    #expect(page.entries.count <= 50)
+    #expect(page.entries.allSatisfy { $0.sessionID == page.session.id && $0.isContractValid })
+}
+
 @Test func askDJAnswerContextUsesRetainedServerIdentityOnly() throws {
     let receipt = try historyObject()
     let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self,

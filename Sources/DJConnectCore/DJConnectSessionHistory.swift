@@ -210,7 +210,7 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
                 .contains(archiveBasis ?? "") && text?.isEmpty == false
         case .conversationUser, .conversationDJ:
             return turnID?.isEmpty == false && originMessageID?.isEmpty == false && clientMessageID?.isEmpty == false &&
-                ["text", "voice"].contains(inputType ?? "") && context?.sessionID == sessionID &&
+                ["text", "voice", "setting_feedback"].contains(inputType ?? "") && context?.sessionID == sessionID &&
                 role == (kind == .conversationUser ? "user" : "assistant")
         case .djPublication, .djSilence:
             guard momentID?.isEmpty == false, text == nil, speechAvailable == false,
