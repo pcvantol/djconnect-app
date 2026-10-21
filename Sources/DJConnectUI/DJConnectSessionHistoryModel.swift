@@ -753,7 +753,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             if navigate { openTarget = action.reference }
             return true
         }
-        guard available, !historyNeedsUpgrade, let host, host.canRefreshSessionHistory else { return false }
+        guard available, !historyNeedsUpgrade, let owner = ownerScope, !owner.isEmpty,
+              let host, host.canRefreshSessionHistory else { return false }
         navigationErrorKey = nil
         let captured = epoch; let generation = UUID(); navigationGeneration = generation
         timelineGenerations[action.sessionID] = generation
@@ -761,7 +762,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         defer { if timelineNavigations[action.sessionID] == generation { timelineNavigations[action.sessionID] = nil } }
         do {
             let response = try await host.withHomeAssistantClient { try await $0.openSavedSession(action) }
-            guard captured == epoch, generation == navigationGeneration, timelineGenerations[action.sessionID] == generation, response.entry.isRetained() else { return false }
+            guard captured == epoch, ownerScope == owner, generation == navigationGeneration, timelineGenerations[action.sessionID] == generation, response.entry.isRetained() else { return false }
             var timeline = timelines[action.sessionID] ?? Timeline()
             if navigate && timeline.revision != response.session.revision.value { timeline.entries = [] }
             timeline.session = response.session; timeline.revision = response.session.revision.value
@@ -771,7 +772,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             if navigate { openTarget = action.reference }
             return true
         } catch {
-            guard captured == epoch, generation == navigationGeneration, timelineGenerations[action.sessionID] == generation else { return false }
+            guard captured == epoch, ownerScope == owner, generation == navigationGeneration, timelineGenerations[action.sessionID] == generation else { return false }
             if requireHistoryUpgrade(for: error) { return false }
             if withdrawAuthority(for: error) { return false }
             timelines[action.sessionID] = nil

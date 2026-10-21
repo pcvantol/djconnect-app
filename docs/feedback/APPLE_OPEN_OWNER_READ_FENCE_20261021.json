@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "parent_sha": "381a24e44660dd4ce0a58a5144315b9d54272963",
+  "production_changed": true,
+  "initial": {
+    "failed_functions": 1,
+    "issues": 4,
+    "test_error": "GET-only expectation omitted existing read-only navigation POST"
+  },
+  "negative_refined": {
+    "failed_functions": 1,
+    "issues": 3,
+    "requests_before": 3,
+    "requests_after": 4
+  },
+  "qualified": {
+    "passed_functions": 6,
+    "failed_functions": 0
+  },
+  "allowed_synthetic_routes": "GET or POST ending /session/history/open only",
+  "new_ios_runtime": false,
+  "native_ui_qualified": false,
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Sources/DJConnectUI/DJConnectSessionHistoryModel.swift",
+      "sha256": "50ea98a2b796509bcac4e0a55acb90999961e049e4a55bc88b6a5aaf3520fcd7"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/SessionHistoryContractTests.swift",
+      "sha256": "c508505193f2de38b82186cfd230ebc8df91314123b10ae1746ff36787eb64e1"
+    },
+    {
+      "path": "Tests/Fixtures/session-history-producer-receipt.json",
+      "sha256": "d4b901aa3d6ec7d7e93767c2efc538dddc5f92dc2e3cbaa9213e03b0da471f93"
+    },
+    {
+      "path": "/private/tmp/djc-open-owner-fence-20261021/before-history-model.swift",
+      "sha256": "1a4f2e03026aede9699a1f0045b7ae3b485ac9641e3e0c1d89f5f9d374d399df"
+    },
+    {
+      "path": "/private/tmp/djc-open-owner-fence-20261021/initial-test-source.swift",
+      "sha256": "b6d81233a51ece3f6fe5221743aea27e565db028c31fa736843c4d808c5eab0c"
+    },
+    {
+      "path": "/private/tmp/djc-open-owner-fence-20261021/initial.log",
+      "sha256": "9fe7de429b6726d0163a75c7f1511243c3d56592322f11e58df5802775a18e9c"
+    },
+    {
+      "path": "/private/tmp/djc-open-owner-fence-20261021/negative-refined.log",
+      "sha256": "352a38089982ccd8df0f6a6c00122d263ef4c8def65f7321191cd21482a31f53"
+    },
+    {
+      "path": "/private/tmp/djc-open-owner-fence-20261021/qualified.log",
+      "sha256": "0776b02d948eded10b0d777914a0446573bca0612c58aa33a9e1ee899e75c2f9"
+    }
+  ]
+}

@@ -526,6 +526,40 @@ private final class HistoryReplySequence: @unchecked Sendable {
     func next() -> Data { lock.withLock { let i = min(index, values.count - 1); index += 1; return values[i] } }
 }
 
+@Test @MainActor func sessionHistoryOpenRejectsOwnerlessReadUntilRequalified() async throws {
+    let receipt = try historyObject()
+    let history = try historyData(try #require(receipt["later_historical_answer"]))
+    let opened = try historyData(try #require(receipt["validated_open_target"]))
+    let answer = try JSONDecoder().decode(DJConnectSessionConversationResponse.self, from: history)
+    let action = try #require(answer.historicalMatches.first?.openAction)
+    let target = try JSONDecoder().decode(DJConnectSessionOpenResponse.self, from: opened)
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/open") { return (200, opened, 0) }
+        return (200, history, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    let admitted = await model.sessionHistory.open(action)
+    try #require(admitted && model.sessionHistory.openTarget == action.reference)
+    try #require(model.sessionHistory.timelines[action.sessionID]?.entries.map(\.id) == [target.entry.id])
+    model.sessionHistory.suspend()
+    try #require(!model.sessionHistory.hasAuthorizedOwner && model.sessionHistory.timelines.isEmpty)
+    let requestCount = fixture.requests.count
+    let ownerless = await model.sessionHistory.open(action)
+    #expect(!ownerless)
+    #expect(fixture.requests.count == requestCount)
+    #expect(model.sessionHistory.openTarget == nil && model.sessionHistory.timelines.isEmpty)
+    await model.sessionHistory.prepare()
+    try #require(model.sessionHistory.hasAuthorizedOwner)
+    let restored = await model.sessionHistory.open(action)
+    #expect(restored && model.sessionHistory.openTarget == action.reference)
+    #expect(model.sessionHistory.timelines[action.sessionID]?.entries.map(\.id) == [target.entry.id])
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" || ($0.httpMethod == "POST" && $0.url!.path.hasSuffix("/session/history/open")) })
+}
+
 @Test @MainActor func sessionHistoryProfileChangeDiscardsLatePreviouslyAuthorizedOpen() async throws {
     let receipt = try historyObject()
     let original = try historyData(try #require(receipt["later_historical_answer"]))
