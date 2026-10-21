@@ -662,7 +662,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     public func loadTimeline(_ sessionID: String, more: Bool = false, window: DJConnectHistoryWindow? = nil,
                              anchorEntryID: String? = nil, limit: Int = 20, preserveLoadedEntries: Bool = false) async -> Bool {
         if host?.isDemoMode == true { return false }
-        guard available, !historyNeedsUpgrade, let host, host.canRefreshSessionHistory, !(timelines[sessionID]?.loading ?? false),
+        guard available, !historyNeedsUpgrade, let owner = ownerScope, !owner.isEmpty,
+              let host, host.canRefreshSessionHistory, !(timelines[sessionID]?.loading ?? false),
               timelineNavigations[sessionID] == nil else { return false }
         let cursor = more ? timelines[sessionID]?.nextCursor : nil
         if more && cursor == nil { return false }
@@ -675,7 +676,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             let page = try await host.withHomeAssistantClient {
                 try await $0.sessionTimeline(sessionID: sessionID, cursor: cursor, window: window, anchorEntryID: anchorEntryID, limit: limit)
             }
-            guard captured == epoch, timelineGenerations[sessionID] == generation else { return false }
+            guard captured == epoch, ownerScope == owner, timelineGenerations[sessionID] == generation else { return false }
             guard cursor == nil || timelines[sessionID]?.revision == page.revision.value else { throw DJConnectError.invalidResponse }
             var previous = cursor == nil && window == nil && !preserveLoadedEntries ? [] : timelines[sessionID]?.entries ?? []
             if window != nil, let lower = page.scannedOrderMin, let upper = page.scannedOrderMax {

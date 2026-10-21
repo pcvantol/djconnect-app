@@ -4505,6 +4505,35 @@ private func providerGenderOptions(_ row: [String: Any]) throws -> DJConnectSpee
 
 }
 
+@Test @MainActor func sessionTimelineRejectsOwnerlessReadUntilRequalified() async throws {
+    let receipt = try historyObject()
+    let page = try historyData(try #require(receipt["archived_timeline"]))
+    let decoded = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: page)
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") {
+            return (200, Data(#"{"capabilities":{"session_conversation_history":true},"contract_versions":{"session_conversation_history":1}}"#.utf8), 0)
+        }
+        return (200, request.url!.path.hasSuffix("ask_dj/history") ? profile : page, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare()
+    #expect(await history.loadTimeline(decoded.session.id))
+    let admitted = try #require(history.timelines[decoded.session.id])
+    try #require(!admitted.entries.isEmpty)
+    history.suspend()
+    let count = fixture.requests.count
+    #expect(!(await history.loadTimeline(decoded.session.id)))
+    #expect(fixture.requests.count == count)
+    #expect(history.authorizedProfileID == nil && history.timelines.isEmpty)
+    await history.prepare()
+    #expect(await history.loadTimeline(decoded.session.id))
+    #expect(history.timelines[decoded.session.id]?.entries.map(\.id) == admitted.entries.map(\.id))
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+}
+
 @Test @MainActor func savedSessionsRejectOwnerlessReadsUntilRequalified() async throws {
     let receipt = try historyObject()
     let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
