@@ -63,7 +63,29 @@ def validate():
     assert generated_paths == set(generated_hashes), 'native generated-icon ledger coverage mismatch'
     # These are source artwork documents, rather than a shipped font binary.
     assert sha(SOURCE / 'LICENSE.txt') == '262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a'
-    print(f'PASS: {len(mapping)} exact producer imports, {count} opaque generated icon files across three catalogs, Inter license')
+    adaptive = ROOT / 'Apps/Shared/AppIconAdaptive.icon'
+    provenance = json.loads((ROOT / 'Tools/IconSource/AdaptiveHeadphone/provenance.json').read_text())
+    assert provenance['source_revision'] == 'c49d49186951ed3a4eaf3cc50778e48e04cbbef9'
+    foreground = ROOT / provenance['consumer_path']
+    assert sha(foreground) == provenance['source_sha256'] == 'f69eb72b882f08c0dacbd3efa7e83165a56a01763aaa18e48557c03b65e11322'
+    assert png(foreground) == (1254, 1254, 6), 'adaptive source must retain original RGBA canvas'
+    document = json.loads((adaptive / 'icon.json').read_text())
+    assert document['supported-platforms'] == {'squares': 'shared', 'circles': ['watchOS']}
+    assert len(document['groups']) == 1
+    layers = document['groups'][0]['layers']
+    assert len(layers) == 1 and layers[0]['image-name'] == 'headphone.png'
+    assert layers[0]['position'] == {'scale': 0.64, 'translation-in-points': [0, 0]}
+    assert {x.get('appearance', 'default') for x in document['fill-specializations']} == {'default', 'dark'}
+    assert set((adaptive / 'Assets').iterdir()) == {foreground}, 'unexpected adaptive image/wordmark'
+    project = (ROOT / 'project.yml').read_text()
+    assert project.count('ASSETCATALOG_COMPILER_APPICON_NAME: AppIconAdaptive') == 3
+    assert project.count('- path: Apps/Shared/AppIconAdaptive.icon') == 3
+    generated = (ROOT / 'DJConnectApp.xcodeproj/project.pbxproj').read_text()
+    assert generated.count('ASSETCATALOG_COMPILER_APPICON_NAME = AppIconAdaptive;') == 6
+    qa = (ROOT / 'Tools/qualification/vibecast-fixed-qa/prepare_fixed_qa.py').read_text()
+    assert '"ASSETCATALOG_COMPILER_APPICON_NAME": "AppIconAdaptive"' in qa
+    assert '"Apps/Shared/AppIconAdaptive.icon"' in qa
+    print(f'PASS: {len(mapping)} exact producer imports, {count} retained opaque legacy icons, adaptive headphone source and native project wiring, Inter license')
 
 
 if __name__ == '__main__':

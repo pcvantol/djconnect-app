@@ -68,19 +68,20 @@ def prepare(destination: Path, jose: Path) -> None:
             "VibeCastFixedQAIOS": {
                 "type": "application", "platform": "iOS",
                 "sources": [{"path": str(root / "Apps/DJConnectIOS"), "excludes": ["Info.plist"]},
-                            {"path": str(root / "Apps/Shared/Assets.xcassets")}],
+                            {"path": str(root / "Apps/Shared/Assets.xcassets")},
+                            {"path": str(root / "Apps/Shared/AppIconAdaptive.icon")}],
                 "dependencies": [{"target": "FixedQACoreIOS"}, {"target": "FixedQAUIIOS"}],
                 "info": {"path": str(destination / "FixedQA-Info.plist"), "properties": qa_info},
                 "settings": {"base": {"PRODUCT_BUNDLE_IDENTIFIER": "dev.djconnect.ios.vibecastqa",
                                       "PRODUCT_NAME": "DJConnectVibeCastQA", "TARGETED_DEVICE_FAMILY": "1,2",
-                                      "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIconIOS"}}}},
+                                      "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIconAdaptive"}}}},
         "schemes": {
             "FixedQAContractTests": {"build": {"targets": {"FixedQAContractTests": "all"}},
                                      "test": {"targets": ["FixedQAContractTests"], "parallelizable": False}},
             "VibeCastFixedQAIOS": {"build": {"targets": {"VibeCastFixedQAIOS": "all"}}}}}
     spec = destination / "project.json"
     spec.write_text(json.dumps(project, indent=2) + "\n")
-    files = [path for directory in ("Sources/DJConnectCore", "Sources/DJConnectUI", "Apps/DJConnectIOS", "Apps/Shared/Assets.xcassets")
+    files = [path for directory in ("Sources/DJConnectCore", "Sources/DJConnectUI", "Apps/DJConnectIOS", "Apps/Shared/Assets.xcassets", "Apps/Shared/AppIconAdaptive.icon")
              for path in (root / directory).rglob("*") if path.is_file()]
     files += [root / "Tests/DJConnectCoreTests" / name for name in TEST_SOURCES]
     files += [root / "Tests/Fixtures" / name for name in ("rendezvous-fixed-qa-api-3b43332.json", "rendezvous-fixed-qa-wire-3b43332.json")]
