@@ -12058,7 +12058,7 @@ struct AskDJMessageBubble: View {
     }
 
     private var sourceLinks: [DJConnectResponseLink] {
-        message.links.filter(\.isSourceLike)
+        message.sourceLinksForDisplay
     }
 
     private var shouldAttachImagesToPlaybackActions: Bool {
@@ -13281,7 +13281,7 @@ private struct AskDJMarkdownText: View {
     }
 }
 
-private extension DJConnectResponseLink {
+extension DJConnectResponseLink {
     var isSourceLike: Bool {
         let values = [kind, source]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }

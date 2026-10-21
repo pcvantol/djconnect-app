@@ -570,6 +570,13 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         playbackActions
     }
 
+    /// A producer may include the same citation in both links and sources.
+    /// Keep distinct destinations even when they share a provider or title.
+    var sourceLinksForDisplay: [DJConnectResponseLink] {
+        var seen = Set<String>()
+        return links.filter { $0.isSourceLike && seen.insert($0.url.absoluteString).inserted }
+    }
+
     /// Match only an explicit server action; a history URI alone grants no playback.
     func playbackAction(forHistoryItem item: DJConnectAskDJHistoryItem) -> DJConnectAskDJPlaybackAction? {
         guard let uri = item.uri, !uri.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
