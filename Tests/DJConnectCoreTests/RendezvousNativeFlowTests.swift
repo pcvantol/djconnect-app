@@ -224,9 +224,9 @@ private enum FlowWaitFailure: Error { case deadline }
 @MainActor @Test func rendezvousUnadmittedNativeEntryHasNoSDKEffects() async throws {
     var effects = 0
     #expect(!RendezvousNativeAdmission.isAdmitted)
-    for _ in ["generateKey", "attestKey", "generateAssertion"] {
+    for action in RendezvousNativeEffect.allCases {
         #expect(throws: RendezvousNativeAdmission.Failure.notAdmitted) {
-            try RendezvousNativeAdmission.perform { effects += 1 }
+            try RendezvousNativeAdmission.perform(action) { effects += 1 }
         }
     }
     #expect(effects == 0)

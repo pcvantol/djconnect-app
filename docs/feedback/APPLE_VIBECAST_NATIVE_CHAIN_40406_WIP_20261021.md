@@ -102,3 +102,24 @@ All 100 production-origin Rendezvous tests passed. These are synthetic requests
 with synthetic proof bytes, not server-verifier or native acceptance. The full
 explicit recovery/repair-budget orchestration and replacement/rollover UI are
 still open; the default native effects remain closed.
+
+## Owner-requested real test follow-up
+
+The owner explicitly requested a usable Apple/API test, not only source staging.
+A real existing-profile signed 40406 build was produced and independently
+checked by the API owner; its native gate remains closed. The new source keeps
+all shipping/ordinary QA builds unselected and adds one separately generated
+fixed-QA run policy for the next signed candidate40407. It binds the physical
+foreground iOS app, exact bundle/build and embedded development profile digest,
+fixed service/browser tuple and a finite selection window. Protected durable
+accounting admits exactly one generation, one attestation and one assertion in
+order, within the original600-second run; no write uncertainty, callback error,
+clock rollback, restart or new QR refunds an effect.
+
+The final signed artifact hash is bound externally by the installer/API run
+manifest, not recursively embedded in the binary. The generator refuses signed
+preparation from source absent in local protected origin/main. Unsigned selected
+policy compilation is available for review without installation or SDK effects.
+Default unadmitted and synthetic provider tests remain separate. Provider QA
+publication, exact final signed readback, finite API activation and real iPad/TV
+interaction are not inferred from this source or the closed40406 signature.

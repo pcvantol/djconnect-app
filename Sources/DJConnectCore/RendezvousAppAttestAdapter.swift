@@ -92,7 +92,7 @@ import DeviceCheck
 @MainActor private final class SystemRendezvousAttestationSDK: RendezvousAttestationSDK {
     var isSupported:Bool {
         #if os(iOS) && canImport(DeviceCheck)
-        RendezvousNativeAdmission.isAdmitted && DCAppAttestService.shared.isSupported
+        RendezvousNativeAdmission.canContinueInFlight && DCAppAttestService.shared.isSupported
         #else
         false
         #endif
@@ -107,7 +107,7 @@ import DeviceCheck
                 reply.start(continuation,deadline:deadline)
                 guard reply.isWaiting, !Task.isCancelled else { reply.finish(.failure(.sdkFailed)); return }
                 do {
-                    try RendezvousNativeAdmission.perform {
+                    try RendezvousNativeAdmission.perform(.attestKey) {
                         DCAppAttestService.shared.attestKey(key,clientDataHash:hash) { data,error in
                             // Do not retain/forward arbitrary SDK error metadata.
                             let result:Result<Data,RendezvousAppAttestAdapter.Failure>

@@ -159,7 +159,7 @@ import DeviceCheck
 @MainActor private final class SystemRendezvousGenerationSDK:RendezvousGenerationSDK {
     var isSupported:Bool {
         #if os(iOS) && canImport(DeviceCheck)
-        RendezvousNativeAdmission.isAdmitted && DCAppAttestService.shared.isSupported
+        RendezvousNativeAdmission.canContinueInFlight && DCAppAttestService.shared.isSupported
         #else
         false
         #endif
@@ -174,7 +174,7 @@ import DeviceCheck
                 reply.start(continuation,deadline:deadline)
                 guard reply.isWaiting,!Task.isCancelled else { reply.finish(.failure(.sdkFailed)); return }
                 do {
-                    try RendezvousNativeAdmission.perform {
+                    try RendezvousNativeAdmission.perform(.generateKey) {
                         DCAppAttestService.shared.generateKey { key,error in
                             let result:Result<Data,RendezvousAppAttestAdapter.Failure>
                             if error == nil,let key,DJConnectRendezvousSubmitChallenge.canonicalKeyID(key) {

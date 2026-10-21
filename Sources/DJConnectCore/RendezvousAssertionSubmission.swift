@@ -124,7 +124,7 @@ import DeviceCheck
     private static let occupancy = RendezvousAssertionOccupancy()
     var isSupported: Bool {
         #if os(iOS) && canImport(DeviceCheck)
-        RendezvousNativeAdmission.isAdmitted && DCAppAttestService.shared.isSupported
+        RendezvousNativeAdmission.canContinueInFlight && DCAppAttestService.shared.isSupported
         #else
         false
         #endif
@@ -142,7 +142,7 @@ import DeviceCheck
                 do { call = try Self.occupancy.reserve(key) }
                 catch { reply.finish(.failure(.sdkFailed)); return }
                 do {
-                    try RendezvousNativeAdmission.perform {
+                    try RendezvousNativeAdmission.perform(.generateAssertion) {
                         DCAppAttestService.shared.generateAssertion(key, clientDataHash: hash) { proof, error in
                             Task { @MainActor in
                                 Self.occupancy.complete(key, call: call)

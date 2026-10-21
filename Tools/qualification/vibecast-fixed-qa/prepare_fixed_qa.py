@@ -18,7 +18,7 @@ FLAG = "DJCONNECT_VIBECAST_FIXED_QA"
 TEST_SOURCES = ("RendezvousBuildProfileTests.swift", "RendezvousDestinationTests.swift",
                 "RendezvousSubmitChallengeTests.swift", "RendezvousRecoveryJournalTests.swift",
                 "RendezvousSubmissionTests.swift", "RendezvousNativeFlowTests.swift",
-                "RendezvousRecoveryChallengeTests.swift")
+                "RendezvousRecoveryChallengeTests.swift", "RendezvousNativeRunGateTests.swift")
 
 
 def git(root: Path, *args: str) -> str:
