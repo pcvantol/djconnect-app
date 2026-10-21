@@ -173,3 +173,39 @@ private final class SummaryFixtureBundle: NSObject {}
             .write(to: folder.appendingPathComponent("native-french-permission-layout.json"))
     }
 }
+
+@Suite(.serialized) @MainActor struct NativeGermanSpanishPermissionTests {
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_PERMISSION_DE_ES_DIR"] != nil))
+    func actualNativeGermanSpanishPermissionRows() async throws {
+        let folder = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_PERMISSION_DE_ES_DIR"]))
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let cases: [(String, String, String, DJConnectPermissionStatus)] = [
+            ("french-01-microphone", "ui.microphone", "ui.needed.for.push.to.talk.voice.requests", .unavailable),
+            ("french-02-speech", "ui.speech.recognition", "ui.needed.for.the.foreground.wake.phrase", .unknown),
+            ("french-03-notifications", "ui.notifications", "ui.needed.for.server.push.notifications.when.ask.dj.answers", .granted)]
+        var observations: [[String: Any]] = []
+        for language in ["de", "es"] {
+        for (name, titleKey, detailKey, status) in cases {
+            let name = name.replacingOccurrences(of: "french", with: language)
+            let title = DJConnectLocalization.localized(key: titleKey, language: language)
+            let detail = DJConnectLocalization.localized(key: detailKey, language: language)
+            let root = PermissionStatusRow(title: title, detail: detail, status: status, language: language)
+                .frame(width: 288, alignment: .leading).padding(16)
+                .environment(\.colorScheme, .dark).environment(\.dynamicTypeSize, .accessibility5)
+            let controller = UIHostingController(rootView: root); controller.safeAreaRegions = []
+            let size = controller.sizeThatFits(in: CGSize(width: 320, height: 10000))
+            #expect(size.width <= 320.5 && size.height > 0 && size.height < 4000)
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: max(400, ceil(size.height) + 64)))
+            window.backgroundColor = .black; window.overrideUserInterfaceStyle = .dark
+            window.rootViewController = controller; window.makeKeyAndVisible()
+            try await Task.sleep(for: .milliseconds(150)); window.layoutIfNeeded()
+            let image = UIGraphicsImageRenderer(bounds: window.bounds).image { window.layer.render(in: $0.cgContext) }
+            try #require(image.pngData()).write(to: folder.appendingPathComponent(name + ".png"))
+            observations.append(["stage": name, "language": language, "title": title, "detail": detail, "height": size.height])
+            window.isHidden = true; window.rootViewController = nil
+        }
+        }
+        try JSONSerialization.data(withJSONObject: observations, options: [.prettyPrinted, .sortedKeys])
+            .write(to: folder.appendingPathComponent("native-de-es-permission-layout.json"))
+    }
+}
