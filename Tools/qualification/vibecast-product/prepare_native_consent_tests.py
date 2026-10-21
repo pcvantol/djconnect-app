@@ -49,6 +49,8 @@ def prepare(destination: Path, jose: Path, with_ui: bool = False, with_summary: 
         "schemes": {"NativeConsentTests": {"build": {"targets": {"NativeConsentTests": "all"}},
                                          "test": {"targets": ["NativeConsentTests"]}}}}
     if with_summary:
+        project["targets"]["NativeConsentTests"]["sources"].append({
+            "path": str(root / "Tests/Fixtures/session-history-summary-final-list.json"), "buildPhase": "resources"})
         project["targets"]["NativeSummaryTests"] = {
             "type": "bundle.unit-test", "platform": "iOS",
             "sources": [{"path": str(root / "Tools/qualification/native-history-summary/NativeHistorySummaryTests.swift")}] + [

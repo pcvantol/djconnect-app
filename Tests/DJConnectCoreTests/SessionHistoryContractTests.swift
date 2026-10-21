@@ -4505,6 +4505,36 @@ private func providerGenderOptions(_ row: [String: Any]) throws -> DJConnectSpee
 
 }
 
+@Test @MainActor func savedSessionsRejectOwnerlessReadsUntilRequalified() async throws {
+    let receipt = try historyObject()
+    let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
+    let row = try #require(timeline["session"] as? [String: Any])
+    let page = try historyData(["success": true, "schema_version": 1, "sessions": [row],
+        "revision": try #require(timeline["revision"]), "retention_days": 30])
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") {
+            return (200, Data(#"{"capabilities":{"session_conversation_history":true},"contract_versions":{"session_conversation_history":1}}"#.utf8), 0)
+        }
+        return (200, request.url!.path.hasSuffix("/session/history") ? page : profile, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare()
+    #expect(await history.loadSessions())
+    let admitted = history.sessions
+    #expect(admitted.count == 1)
+    history.suspend()
+    let count = fixture.requests.count
+    #expect(!(await history.loadSessions()))
+    #expect(fixture.requests.count == count)
+    #expect(history.authorizedProfileID == nil && history.sessions.isEmpty)
+    await history.restoreVisibleSessions()
+    #expect(history.authorizedProfileID != nil)
+    #expect(history.sessions == admitted)
+}
+
 @Test @MainActor func savedSessionsLazyPagingAppendsOnceAndStopsAtEnd() async throws {
     let receipt = try historyObject()
     let timeline = try #require(receipt["archived_timeline"] as? [String: Any])

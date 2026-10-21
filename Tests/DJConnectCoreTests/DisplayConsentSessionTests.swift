@@ -244,7 +244,7 @@ private final class NativeConsentFixtureBundle: NSObject {}
 /// Actual iOS AppModel over a URLProtocol wire. Synthetic isolated owner/HTTP
 /// responses, not installed HA, native taps, App Attest or physical acceptance.
 extension DisplayConsentSessionTests {
-    private func makeNativeModel(_ mode: String = "normal") async throws -> (DJConnectAppModel, UserDefaults, String, DJConnectInMemoryTokenStore) {
+    private func makeNativeModel(_ mode: String = "normal", summaryArchive: Bool = false) async throws -> (DJConnectAppModel, UserDefaults, String, DJConnectInMemoryTokenStore) {
         ConsentWire.reset(mode)
         func fixture(_ name: String) throws -> [String: Any] {
             let url = try #require(Bundle(for: NativeConsentFixtureBundle.self).url(forResource: name, withExtension: "json"))
@@ -261,11 +261,22 @@ extension DisplayConsentSessionTests {
         }
         session = try #require(rebind(session) as? [String: Any])
         let history = try #require(fixture("session-history-producer-receipt")["later_historical_answer"])
-        let caps: [String: Any] = ["capabilities": ["session_conversation_history": true, "session_flow_text_search": true],
+        var caps: [String: Any] = ["capabilities": ["session_conversation_history": true, "session_flow_text_search": true],
             "contract_versions": ["session_conversation_history": 1, "session_flow_text_search": 1]]
-        ConsentWire.installBootstrap(try ["/api/djconnect/v1/session/active": JSONSerialization.data(withJSONObject: session),
+        if summaryArchive {
+            var flags = try #require(caps["capabilities"] as? [String: Any])
+            var versions = try #require(caps["contract_versions"] as? [String: Any])
+            flags["session_history_summary"] = true; versions["session_history_summary"] = 1
+            caps["capabilities"] = flags; caps["contract_versions"] = versions
+        }
+        var bootstrap = try ["/api/djconnect/v1/session/active": JSONSerialization.data(withJSONObject: session),
             "/api/djconnect/v1/capabilities": JSONSerialization.data(withJSONObject: caps),
-            "/api/djconnect/v1/ask_dj/history": JSONSerialization.data(withJSONObject: history)])
+            "/api/djconnect/v1/ask_dj/history": JSONSerialization.data(withJSONObject: history)]
+        if summaryArchive {
+            bootstrap["/api/djconnect/v1/session/history"] = try JSONSerialization.data(withJSONObject:
+                #require(fixture("session-history-summary-final-list")["body"] as? [String: Any]))
+        }
+        ConsentWire.installBootstrap(bootstrap)
         let suite = "native-display-consent-" + UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: suite))
         defaults.set("http://127.0.0.1:18801", forKey: "DJConnectHomeAssistantURL")
@@ -283,6 +294,63 @@ extension DisplayConsentSessionTests {
         defaults.set("fixture-install", forKey: "DJConnectHAInstallID")
         #expect(model.canResolveDisplayConsent)
         return (model, defaults, suite, store)
+    }
+
+    /// Actual archive list over the qualified owner and unchanged summary fixture.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_ARCHIVE_DIR"] != nil))
+    func actualIOSNativeArchiveSummaryWithdrawal() async throws {
+        let (model, defaults, suite, _) = try await makeNativeModel(summaryArchive: true)
+        defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+        let session = try #require(model.activeDJSession)
+        #expect(await model.sessionHistory.loadSessions())
+        let saved = try #require(model.sessionHistory.sessions.first)
+        let admitted = try #require(saved.summary)
+        #expect(model.sessionHistory.summaryAvailable && model.sessionHistory.authorizedProfileID == "profile-a")
+        let folder = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_ARCHIVE_DIR"]))
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let controller = UIHostingController(rootView: SavedSessionsView(model: model)
+            .environment(\.colorScheme, .dark).preferredColorScheme(.dark))
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 430, height: 932))
+        window.backgroundColor = .black; window.overrideUserInterfaceStyle = .dark
+        window.rootViewController = controller; window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil }
+        func archiveReads() -> [URLRequest] {
+            ConsentWire.requests.filter { $0.url?.path == "/api/djconnect/v1/session/history" }
+        }
+        var observations: [[String: Any]] = []
+        func capture(_ name: String) throws {
+            window.layoutIfNeeded()
+            observations.append(["stage": name, "summary_available": model.sessionHistory.summaryAvailable,
+                "owner": model.sessionHistory.authorizedProfileID ?? "", "session_count": model.sessionHistory.sessions.count,
+                "archive_reads": archiveReads().count, "preparing": model.sessionHistory.preparing])
+            let image = UIGraphicsImageRenderer(bounds: window.bounds).image { context in window.layer.render(in: context.cgContext) }
+            try #require(image.pngData()).write(to: folder.appendingPathComponent(name + ".png"))
+        }
+        try await Task.sleep(for: .milliseconds(650))
+        #expect(model.sessionHistory.sessions.count == 1)
+        #expect(model.sessionHistory.sessions.first?.summary == admitted)
+        try capture("archive-01-authorized")
+        let readsBefore = archiveReads().count
+        model.sessionHistory.suspend()
+        #expect(!(await model.sessionHistory.loadSessions()), "Ownerless archive reads must not restart after suspension")
+        try await Task.sleep(for: .milliseconds(350))
+        #expect(model.sessionHistory.authorizedProfileID == nil && !model.sessionHistory.summaryAvailable)
+        #expect(model.sessionHistory.sessions.isEmpty)
+        #expect(archiveReads().count == readsBefore)
+        try capture("archive-02-withdrawn")
+        // Explicit synthetic owner requalification; no automatic retry is claimed.
+        await model.sessionHistory.restoreVisibleSessions()
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(model.sessionHistory.authorizedProfileID == "profile-a" && model.sessionHistory.summaryAvailable)
+        #expect(model.sessionHistory.sessions.first?.id == saved.id)
+        #expect(model.sessionHistory.sessions.first?.summary == admitted)
+        #expect(archiveReads().allSatisfy { $0.httpMethod == "GET" })
+        #expect(!ConsentWire.requests.contains { $0.httpMethod != "GET" })
+        #expect(model.activeDJSession?.id == session.id)
+        #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
+        try capture("archive-03-reauthorized")
+        try JSONSerialization.data(withJSONObject: observations, options: [.prettyPrinted, .sortedKeys])
+            .write(to: folder.appendingPathComponent("native-archive-withdrawal.json"))
     }
 
     /// Public UIKeyInput insertion, without directly invoking the delegate.

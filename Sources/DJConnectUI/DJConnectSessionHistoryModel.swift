@@ -629,7 +629,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     @discardableResult
     public func loadSessions(more: Bool = false) async -> Bool {
         if host?.isDemoMode == true { return available }
-        guard available, !historyNeedsUpgrade, !(more && listLoading), let host, host.canRefreshSessionHistory else { return false }
+        guard available, !historyNeedsUpgrade, let owner = ownerScope, !owner.isEmpty,
+              !(more && listLoading), let host, host.canRefreshSessionHistory else { return false }
         let cursor = more ? listNextCursor : nil
         if more && cursor == nil { return false }
         let generation = UUID(); listGeneration = generation
@@ -638,7 +639,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         defer { if generation == listGeneration { listLoading = false } }
         do {
             let page = try await host.withHomeAssistantClient { try await $0.savedSessions(cursor: cursor) }
-            guard captured == epoch, generation == listGeneration else { return false }
+            guard captured == epoch, ownerScope == owner, generation == listGeneration else { return false }
             guard cursor == nil || listRevision == page.revision.value else { throw DJConnectError.invalidResponse }
             guard cursor == nil || page.nextCursor != cursor else { throw DJConnectError.invalidResponse }
             let old = cursor == nil ? [] : sessions
@@ -1053,6 +1054,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     public func restoreVisibleSessions() async {
         await prepare()
+        guard hasAuthorizedOwner, !Task.isCancelled else { return }
         await loadSessions()
     }
 
