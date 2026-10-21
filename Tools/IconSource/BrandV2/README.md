@@ -15,6 +15,10 @@ Mapping of immutable producer files:
 - `headset-master.png` -> this directory and BrandHeadset imageset.
 - Four `wordmark-{primary,compact}-{light,dark}.png` files -> matching BrandWordmark imagesets.
 
+The app now selects `AppIconAdaptive.icon` (owner request, 21 October 2026); see
+`docs/BRANDING.md` and `Tools/IconSource/AdaptiveHeadphone/provenance.json`. The
+following generator mapping remains the immutable legacy catalog recipe.
+
 Run `swift Tools/GenerateAppIcon.swift` from the repository root. All app icon
 catalog PNGs are derived from these inputs. Output sizes <=40 pixels use the
 headset master without its glass frame; larger output sizes use the glass mark.

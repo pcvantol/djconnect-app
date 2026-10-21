@@ -106,6 +106,7 @@
 		44255B6E7E053BAEEB46C0FA /* DJConnectDisplayOwnerContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = E28508F5705AFA5B50672D67 /* DJConnectDisplayOwnerContext.swift */; };
 		442DFD79FFD229971488AB87 /* DJConnectTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23742113397B7D6D33BD468B /* DJConnectTransport.swift */; };
 		450D56287AFE95B95CA839BB /* SessionForecastTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 743F0F0B93B60BDB0FF7E5E9 /* SessionForecastTests.swift */; };
+		4556FE6A91141FB0362412EC /* AppIconAdaptive.icon in Resources */ = {isa = PBXBuildFile; fileRef = 2D5D3959D8BBE49EDB2987EC /* AppIconAdaptive.icon */; };
 		455ACB420477E110C2A50FBD /* DJPersonaAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23A7014620D352A6EC019D9E /* DJPersonaAvatarView.swift */; };
 		45D7DD4033BB22EC310977B6 /* SessionForecastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C002F6255A070F54D84F5BB /* SessionForecastView.swift */; };
 		4698DAB6EF42C5AD5FDE9F9A /* ArtworkPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A943EC6D586E6780FE893F05 /* ArtworkPresentationTests.swift */; };
@@ -209,6 +210,7 @@
 		7E7A8643492BCCA5BA67CF55 /* RendezvousAppKeyOperationsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D0920CE93DE97375475F7C /* RendezvousAppKeyOperationsTests.swift */; };
 		7F0DD7C2F3FD22424E18360A /* DJConnectRendezvousService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E27DEC516DE919C4D60C3CCF /* DJConnectRendezvousService.swift */; };
 		80B39545A0B8C21D625630D0 /* DJConnectRendezvousEnrollmentChallenge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 208104B8926CAEA4266B64D3 /* DJConnectRendezvousEnrollmentChallenge.swift */; };
+		80E50B7C8DEB38A8EA0C7538 /* AppIconAdaptive.icon in Resources */ = {isa = PBXBuildFile; fileRef = 2D5D3959D8BBE49EDB2987EC /* AppIconAdaptive.icon */; };
 		810ED9A2FC88386F6072B1ED /* DJConnectHybridLocalPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB320DAAAE1348B8FDDCC435 /* DJConnectHybridLocalPolicy.swift */; };
 		8119BDB5607FF03C896163A8 /* DJConnectSpeechMP3Validation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF18D4579B1DC3D320F9B698 /* DJConnectSpeechMP3Validation.swift */; };
 		81506862F7DD6B1BF10F5A63 /* DJConnectGlassAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 175EDF7175EC7D4B19AFF364 /* DJConnectGlassAppearance.swift */; };
@@ -251,6 +253,7 @@
 		9E93FCBEF87FF7A0CA35BD6E /* DJConnectLogRedactor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F35AC3F11DF3D57017CB5E27 /* DJConnectLogRedactor.swift */; };
 		9F61A93F86FFC9DFF2CEE9E3 /* DJConnectWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = F9F25D6F893095773FAE9540 /* DJConnectWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A09C47447F27E4F8B8E6DCB5 /* DJConnectKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3C709B1C49EF89F2A88DA2 /* DJConnectKeychain.swift */; };
+		A109D3FF24AA4527F2156006 /* AppIconAdaptive.icon in Resources */ = {isa = PBXBuildFile; fileRef = 2D5D3959D8BBE49EDB2987EC /* AppIconAdaptive.icon */; };
 		A25BCD06EA48A1B723AA06D9 /* RendezvousRegistrationJournal.swift in Sources */ = {isa = PBXBuildFile; fileRef = F181F08E3D3EF1B1329E1A21 /* RendezvousRegistrationJournal.swift */; };
 		A3525972DA1AA628E9B4AFC3 /* DJConnectWatchComplications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16845A0EFC30777F34D9B019 /* DJConnectWatchComplications.swift */; };
 		A45FC5CC1953CBA0861251A1 /* DJConnectRendezvousSubmitChallenge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840BB7CBD23A4F6C9B351A85 /* DJConnectRendezvousSubmitChallenge.swift */; };
@@ -658,6 +661,7 @@
 		2AE5D50E601B5FEC6BEBBBE6 /* RendezvousOwnerTransportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendezvousOwnerTransportTests.swift; sourceTree = "<group>"; };
 		2CF7AA85DF29BCD64C3B2B05 /* SessionHistoryContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHistoryContractTests.swift; sourceTree = "<group>"; };
 		2D2ACCDC8D8A8F263007390F /* DJConnectSessionSpeech.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionSpeech.swift; sourceTree = "<group>"; };
+		2D5D3959D8BBE49EDB2987EC /* AppIconAdaptive.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIconAdaptive.icon; sourceTree = "<group>"; };
 		2DDCB0288272A23AD390F064 /* NativeMomentAdmissionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMomentAdmissionTests.swift; sourceTree = "<group>"; };
 		2E3C709B1C49EF89F2A88DA2 /* DJConnectKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectKeychain.swift; sourceTree = "<group>"; };
 		30E3F5AB8079C533BE43DF01 /* DJConnectDeviceSpeech.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectDeviceSpeech.swift; sourceTree = "<group>"; };
@@ -1052,6 +1056,7 @@
 		462C66C37EDC061C7898F3BA /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				2D5D3959D8BBE49EDB2987EC /* AppIconAdaptive.icon */,
 				93BE51ADEAE2C4D8EA9988F1 /* Assets.xcassets */,
 			);
 			path = Shared;
@@ -1713,6 +1718,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				80E50B7C8DEB38A8EA0C7538 /* AppIconAdaptive.icon in Resources */,
 				91902E73987090C9E154E5B1 /* Assets.xcassets in Resources */,
 				29B857CB82C69FD7F31F7105 /* InfoPlist.strings in Resources */,
 				1C7C9EA113FEA37E8C411BD8 /* JOSESwift-LICENSE.txt in Resources */,
@@ -1742,6 +1748,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A109D3FF24AA4527F2156006 /* AppIconAdaptive.icon in Resources */,
 				F8505F3454ADD573DC9F6DEE /* Assets.xcassets in Resources */,
 				57922B420212AF2949802251 /* InfoPlist.strings in Resources */,
 			);
@@ -1788,6 +1795,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4556FE6A91141FB0362412EC /* AppIconAdaptive.icon in Resources */,
 				CFC1ABCE87D4E965FC2943F5 /* Assets.xcassets in Resources */,
 				62C056EAF00D88CE83B60055 /* InfoPlist.strings in Resources */,
 				D7843393898D7718815669DC /* LaunchScreen.storyboard in Resources */,
@@ -2409,7 +2417,7 @@
 		038958C7586A8055BFB4D9F8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconIOS;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconAdaptive;
 				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectIOS/DJConnectIOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = Apps/DJConnectIOS/Info.plist;
@@ -2466,7 +2474,7 @@
 		26FB2040B236AC8ED062F91B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconIOS;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconAdaptive;
 				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectIOS/DJConnectIOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = Apps/DJConnectIOS/Info.plist;
@@ -2509,7 +2517,7 @@
 		325BAB9DBC435CA56A80FAB8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconMac;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconAdaptive;
 				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectMac/DJConnectMac.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -2663,7 +2671,7 @@
 		3E933C22FD66E4EEEC46EBB5 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconMac;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconAdaptive;
 				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectMac/DJConnectMac.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -2908,7 +2916,7 @@
 		B47E3D5578D9B2B3E1EF27F2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconWatch;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconAdaptive;
 				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectWatch/DJConnectWatch.entitlements;
 				INFOPLIST_FILE = Apps/DJConnectWatch/Info.plist;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.djconnect.ios.watch;
@@ -2980,7 +2988,7 @@
 		D9568E2023F707D75227E525 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconWatch;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconAdaptive;
 				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectWatch/DJConnectWatch.entitlements;
 				INFOPLIST_FILE = Apps/DJConnectWatch/Info.plist;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.djconnect.ios.watch;
