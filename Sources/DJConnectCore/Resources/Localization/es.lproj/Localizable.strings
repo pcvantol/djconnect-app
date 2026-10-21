@@ -1502,3 +1502,5 @@
 "ui.content.delete.status" = "Consultar estado de eliminación";
 
 "ui.session.search.clear" = "Borrar términos de búsqueda";
+
+"ui.session.playback.speaker_question" = "Mostrar altavoces disponibles.";

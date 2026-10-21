@@ -36,6 +36,79 @@ private func historyObject(_ name: String = "producer-receipt") throws -> [Strin
 }
 private func historyData(_ value: Any) throws -> Data { try JSONSerialization.data(withJSONObject: value) }
 
+@Test(arguments: ["missing", "wrong_session", "withdrawn", "known"])
+@MainActor func artworkSpeakerChoiceUsesScopedConversationAndPreservesDraft(_ state: String) async throws {
+    let receipt = try historyObject()
+    let sessionID = try #require(receipt["session_id"] as? String)
+    let timeline = try historyData(try #require(receipt["archived_timeline"]))
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    var runtime = try #require(JSONSerialization.jsonObject(with: activeMoodRuntimeWire()) as? [String: Any])
+    var session = try #require(runtime["session"] as? [String: Any]); session["session_id"] = sessionID
+    var broadcast = try #require(session["broadcast"] as? [String: Any])
+    var sessionFields = try #require(broadcast["session"] as? [String: Any]); sessionFields["session_id"] = sessionID
+    broadcast["session"] = sessionFields; session["broadcast"] = broadcast; runtime["session"] = session
+    let runtimeData = try historyData(runtime)
+    var answer = try #require(receipt["text_turn"] as? [String: Any])
+    let historyBody = try #require(receipt["later_historical_answer"] as? [String: Any])
+    answer["history_revision"] = (historyBody["history_revision"] as? Int ?? 0) + 1
+    answer["clear_revision"] = historyBody["clear_revision"]
+    var conversation = try #require(answer["conversation"] as? [String: Any])
+    conversation["context"] = ["session_id": sessionID]
+    conversation["entry_ids"] = []
+    answer["conversation"] = conversation
+    let output: [String: Any] = ["id":"speaker-choice", "title":"Speaker A", "kind":"output", "command":"set_output", "value":["device_id":"speaker-a"]]
+    var assistant = try #require(answer["assistant_message"] as? [String: Any]); assistant["playback_actions"] = [output]
+    answer["assistant_message"] = assistant; answer["playback_actions"] = [output]
+    answer["messages"] = (answer["messages"] as? [[String: Any]] ?? []).map { message in
+        var message = message
+        if message["role"] as? String == "assistant" { message["playback_actions"] = [output] }
+        return message
+    }
+    let response = try historyData(answer)
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        if path.hasSuffix("/capabilities") { return (200, activeMoodCapsWire, 0) }
+        if path.hasSuffix("/session/active") { return (200, runtimeData, 0) }
+        if path.hasSuffix("/ask_dj/message") { return (200, response, 0) }
+        if path.contains("/session/history") { return (200, timeline, 0) }
+        return (200, profile, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare(); await model.refreshActiveDJSession()
+    model.isConnected = true
+    model.askDJDraft = "Keep this unsent draft"
+    let selected = DJConnectSessionEntryReference(sessionID: sessionID, entryID: "selected-context")
+    model.sessionHistory.selectedEntry = selected
+    if state == "withdrawn" { model.sessionHistory.suspend() }
+    if state == "known" {
+        model.isConnected = true
+        model.apply(playback: try JSONDecoder().decode(DJConnectPlayback.self, from: Data(#"{"device":{"id":"speaker-a","name":"Speaker A","active":true},"is_playing":true}"#.utf8)))
+    }
+    let accepted = model.sessionHistory.requestSessionSpeakerChoice(sessionID: state == "wrong_session" ? "other-session" : sessionID)
+    #expect(accepted == (state == "missing"))
+    if accepted {
+        #expect(!model.sessionHistory.requestSessionSpeakerChoice(sessionID: sessionID))
+        let turn = try #require(model.sessionHistory.pendingTurns.first)
+        #expect(turn.context.sessionID == sessionID && turn.context.selectedEntry == nil)
+        for _ in 0..<100 where model.isSendingAskDJText { try await Task.sleep(for: .milliseconds(20)) }
+        let posts = fixture.requests.filter { $0.httpMethod == "POST" && $0.url!.path.hasSuffix("/ask_dj/message") }
+        #expect(posts.count == 1)
+        let post = try #require(posts.first)
+        let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(post)) as? [String: Any])
+        #expect(body["text"] as? String == DJConnectLocalization.localized(key: "ui.session.playback.speaker_question", language: model.language))
+        #expect(model.sessionHistory.responseEpoch == turn.requestEpoch)
+        #expect(model.sessionHistory.hasAuthorizedOwner)
+        #expect(model.sessionHistory.pendingTurns.isEmpty, "Pending failure: \(model.sessionHistory.pendingTurns.map { $0.failureKey ?? "none" })")
+        #expect(model.askDJMessages.contains { $0.playbackActions.contains(where: \.isOutputAction) })
+    } else {
+        #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/ask_dj/message") })
+    }
+    #expect(model.askDJDraft == "Keep this unsent draft")
+    #expect(!fixture.requests.contains { $0.httpMethod == "POST" && $0.url!.path.hasSuffix("/command") })
+}
+
 @Test(arguments: ["text", "voice", "setting_feedback", "unknown", "", "SETTING_FEEDBACK"])
 func sessionTimelineRecognizesOnlyQualifiedConversationInputTypes(_ input: String) throws {
     let receipt = try historyObject()

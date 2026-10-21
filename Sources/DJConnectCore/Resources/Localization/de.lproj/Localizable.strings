@@ -1502,3 +1502,5 @@
 "ui.content.delete.status" = "Löschstatus prüfen";
 
 "ui.session.search.clear" = "Suchbegriffe löschen";
+
+"ui.session.playback.speaker_question" = "Verfügbare Lautsprecher anzeigen.";

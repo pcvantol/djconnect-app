@@ -1502,3 +1502,5 @@
 "ui.content.delete.status" = "Vérifier la suppression";
 
 "ui.session.search.clear" = "Effacer les termes de recherche";
+
+"ui.session.playback.speaker_question" = "Afficher les enceintes disponibles.";

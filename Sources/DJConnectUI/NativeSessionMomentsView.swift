@@ -230,6 +230,7 @@ struct NativeSessionMomentsView: View {
     var artworkBaseURL: URL? = nil
     var playbackOutputName: String? = nil
     var playbackModel: DJConnectAppModel? = nil
+    var onPlaybackOutputQuestion: () -> Void = {}
     @Environment(\.scenePhase) private var scenePhase
     @State private var artworkFeedback: ArtworkFeedback?
     @State private var artworkActionGeneration = UUID()
@@ -494,6 +495,13 @@ struct NativeSessionMomentsView: View {
               playbackModel.activeDJSession?.id == session.id,
               playbackModel.activeDJSession?.runtimeState == "active" else {
             hidesArtworkPlayOnTouch = false
+            return
+        }
+        if ["play", "pause"].contains(command), playbackModel.needsSessionPlaybackOutputSelection {
+            hidesArtworkPlayOnTouch = false
+            if playbackModel.sessionHistory.requestSessionSpeakerChoice(sessionID: session.id) {
+                onPlaybackOutputQuestion()
+            }
             return
         }
         let isSkip = command == "next" || command == "previous"

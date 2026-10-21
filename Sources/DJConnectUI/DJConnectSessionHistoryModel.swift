@@ -1055,18 +1055,35 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     public func sendText() {
         if host?.isDemoMode == true { host?.sendAskDJText(); return }
-        guard profileScopeActive, let host, host.canUseProfileConversation, !host.isSendingAskDJText else { return }
-        guard let capturedOwner = ownerScope else { host.failProfileConversationText(id: nil, errorKey: "ui.ask_dj.answer.unavailable"); return }
-        let text = host.askDJDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
+        guard let host else { return }
+        _ = enqueueText(host.askDJDraft, context: currentContext(), preservingComposer: false)
+    }
+
+    @discardableResult
+    func requestSessionSpeakerChoice(sessionID: String) -> Bool {
+        guard let host, !host.isDemoMode, host.canUsePlaybackFeatures,
+              !host.djSessionIsRecovering, !host.djSessionLiveUnavailable,
+              host.activeDJSession?.id == sessionID, host.activeDJSession?.runtimeState == "active",
+              host.needsSessionPlaybackOutputSelection else { return false }
+        return enqueueText(DJConnectLocalization.localized(key: "ui.session.playback.speaker_question", language: host.language),
+                           context: .init(sessionID: sessionID, selectedEntry: nil), preservingComposer: true)
+    }
+
+    private func enqueueText(_ original: String, context: DJConnectConversationContext, preservingComposer: Bool) -> Bool {
+        guard profileScopeActive, let host, host.canUseProfileConversation, !host.isSendingAskDJText else { return false }
+        guard let capturedOwner = ownerScope else { host.failProfileConversationText(id: nil, errorKey: "ui.ask_dj.answer.unavailable"); return false }
+        let text = original.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return false }
+        let draft = host.askDJDraft
         let id = UUID().uuidString
         let localID = host.beginProfileConversationText(text: text, clientMessageID: id)
-        let context = currentContext()
+        if preservingComposer { host.askDJDraft = draft }
         let turn = PendingTurn(id: id, text: text, context: context, localMessageID: localID,
             payload: host.profileConversationPayload(text: text, clientMessageID: id, context: context), requestEpoch: epoch, ownerScope: capturedOwner)
         pendingTurns.append(turn)
-        selectedEntry = nil
+        if !preservingComposer { selectedEntry = nil }
         Task { await submit(turn) }
+        return true
     }
 
     public func retry(_ turn: PendingTurn) {

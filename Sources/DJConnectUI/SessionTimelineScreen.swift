@@ -1106,7 +1106,14 @@ struct SessionTimelineScreen: View {
             isLiveUnavailable: model.djSessionLiveUnavailable,
             retryConnection: { Task { await model.retryDJSessionConnection() } },
             artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL),
-            playbackOutputName: model.sessionPlaybackOutputName, playbackModel: model)
+            playbackOutputName: model.sessionPlaybackOutputName, playbackModel: model,
+            onPlaybackOutputQuestion: {
+                showsForecast = false
+                query = ""; searchFocused = false
+                if let question = model.askDJMessages.last(where: { $0.role == .user }) {
+                    submittedQuestion = SessionSubmittedQuestion(sessionID: sessionID, localID: question.id, clientID: question.clientMessageID)
+                }
+            })
             if showsFirstPlayHelper {
                 Button {
                     guard model.activeDJSession?.id == sessionID,

@@ -1502,3 +1502,5 @@
 "ui.content.delete.status" = "Controleer verwijderstatus";
 
 "ui.session.search.clear" = "Zoektermen wissen";
+
+"ui.session.playback.speaker_question" = "Toon beschikbare speakers.";

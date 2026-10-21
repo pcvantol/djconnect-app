@@ -1345,6 +1345,9 @@ public final class DJConnectAppModel: ObservableObject {
         guard let device = playback?.device, device.active != false, device.cached != true else { return nil }
         return currentPlaybackBluetoothDeviceName ?? device.name
     }
+    var needsSessionPlaybackOutputSelection: Bool {
+        isNoOutputSelected || sessionPlaybackOutputName == nil
+    }
     @Published public var djResponseText = ""
     @Published public private(set) var askDJMessages: [DJConnectAskDJMessage] = []
     @Published public private(set) var askDJScrollRequestID: UUID?

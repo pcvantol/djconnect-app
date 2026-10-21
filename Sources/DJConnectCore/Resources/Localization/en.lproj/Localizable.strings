@@ -1502,3 +1502,5 @@
 "ui.content.delete.status" = "Check deletion status";
 
 "ui.session.search.clear" = "Clear search terms";
+
+"ui.session.playback.speaker_question" = "Show available speakers.";
