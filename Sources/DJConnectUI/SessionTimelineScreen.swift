@@ -491,6 +491,7 @@ struct SessionTimelineScreen: View {
                         LazyVStack(alignment: .leading, spacing: 18) {
                             if let activeSession {
                                 scrollingCurrent(activeSession).id("current")
+                                searchBar(proxy: proxy).id("flow-search")
                             }
                             if activeSession == nil {
                                 VStack(alignment: .leading, spacing: 6) {
@@ -604,7 +605,7 @@ struct SessionTimelineScreen: View {
                     }
                     .safeAreaInset(edge: .top, spacing: 0) {
                         VStack(spacing: 0) {
-                            if searching {
+                            if searching && activeSession == nil {
                                 TimelineView(SessionEntryRefreshSchedule(deadlines: history.searchMatches.compactMap { DJConnectHistoryEntry.date($0.retainedUntil) })) { _ in searchBar(proxy: proxy) }
                             }
                         }
@@ -715,10 +716,25 @@ struct SessionTimelineScreen: View {
             composerKeyboardVisible = false
         }
         #endif
+            .background {
+                if activeSession != nil {
+                    // Retain Command-F without an additional visible search control.
+                    Button {
+                        showsForecast = false
+                        inputFocused = false
+                        proxy.scrollTo("flow-search", anchor: .top)
+                        searchFocused = true
+                    } label: { EmptyView() }
+                    .keyboardShortcut("f", modifiers: .command)
+                    .disabled(!history.searchAvailable)
+                    .hidden()
+                    .accessibilityHidden(true)
+                }
+            }
             .toolbar {
                 #if os(macOS)
                 ToolbarItemGroup(placement: .navigation) {
-                    sessionSearchToolbarButton(proxy: proxy)
+                    if activeSession == nil { sessionSearchToolbarButton(proxy: proxy) }
                     sessionToolbarActions(proxy: proxy)
                     if allowsHandoffPresentation {
                         Button { model.isShowingVibeCastSessionStart = true } label: {
@@ -744,7 +760,6 @@ struct SessionTimelineScreen: View {
                     }
                 } else if usesExpandedToolbar {
                     ToolbarItemGroup(placement: .topBarLeading) {
-                        sessionSearchToolbarButton(proxy: proxy)
                         sessionToolbarActions(proxy: proxy)
                     }
                 } else {
@@ -787,10 +802,7 @@ struct SessionTimelineScreen: View {
                 confirmation: $deleteConfirmation, isPresented: $confirmingDelete))
             #if os(iOS)
             .overlay(alignment: .topTrailing) {
-                SessionControlPopoverHost(model: model, intent: $sessionControlIntent, showsHandoff: allowsHandoffPresentation,
-                    searchAction: {
-                        toggleFlowSearch(proxy: proxy)
-                    })
+                SessionControlPopoverHost(model: model, intent: $sessionControlIntent, showsHandoff: allowsHandoffPresentation)
 
             }
             #endif
@@ -828,10 +840,21 @@ struct SessionTimelineScreen: View {
                 model.isShowingVibeCastSessionStart = false
                 submittedQuestion = nil
             }
-            .onChange(of: query) { _, value in sceneRestoreTask?.cancel(); anchorGeneration = UUID(); history.search(sessionID: sessionID, query: value) }
+            .onChange(of: query) { _, value in
+                sceneRestoreTask?.cancel(); anchorGeneration = UUID()
+                if activeSession != nil {
+                    if !searching && !value.isEmpty { priorSearchPosition = visibleEntry }
+                    searching = !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    if !searching { selectedMatchID = nil }
+                }
+                history.search(sessionID: sessionID, query: value)
+            }
             .onChange(of: history.searchMatches) {
                 guard searching, !matches.isEmpty else { return }
                 if !matches.contains(where: { $0.id == selectedMatchID }) {
+                    // Keep the inline field visible while typing. Navigation to
+                    // a Flow result is explicit through Return or the arrows.
+                    if activeSession != nil { selectedMatchID = nil; return }
                     selectedMatchID = matches.first?.id
                     if let id = selectedMatchID { Task { await selectAnchor(id, proxy: proxy, searchRequest: true) } }
                 }
@@ -1150,7 +1173,9 @@ struct SessionTimelineScreen: View {
 
     private func moveMatch(_ delta: Int, proxy: ScrollViewProxy) {
         guard !matches.isEmpty else { return }
-        let index = (selectedIndex + delta + matches.count) % matches.count
+        let index = selectedMatchID == nil
+            ? (delta < 0 ? matches.count - 1 : 0)
+            : (selectedIndex + delta + matches.count) % matches.count
         selectedMatchID = matches[index].id
         let id = matches[index].id
         Task { await selectAnchor(id, proxy: proxy, searchRequest: true) }
@@ -1166,6 +1191,32 @@ struct SessionTimelineScreen: View {
 
     @ViewBuilder private func searchBar(proxy: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: 8) {
+            if activeSession != nil {
+                TextField(text("ui.session.history.search"), text: $query)
+                    .textFieldStyle(.plain).padding(12).djSessionFrostedSurface()
+                    .focused($searchFocused)
+                    .accessibilityLabel(text("ui.session.history.search"))
+                    .accessibilityIdentifier("session-search-field")
+                    .disabled(!history.searchAvailable)
+                    .onSubmit { moveMatch(1, proxy: proxy) }
+                if searching {
+                    HStack {
+                        if history.searchLoading { ProgressView().controlSize(.small) }
+                        Text("\(history.acceptedSearchSessionID == sessionID && history.acceptedSearchQuery == query ? matches.count : 0)").monospacedDigit()
+                            .accessibilityIdentifier("session-search-count")
+                        Spacer()
+                        Button { moveMatch(-1, proxy: proxy) } label: { Image(systemName: "chevron.up") }
+                            .accessibilityLabel(text("ui.previous.result"))
+                            .disabled(matches.isEmpty)
+                        Button { moveMatch(1, proxy: proxy) } label: { Image(systemName: "chevron.down") }
+                            .accessibilityLabel(text("ui.next.result"))
+                            .disabled(matches.isEmpty)
+                        Button { closeSearch(proxy: proxy) } label: { Image(systemName: "xmark") }
+                            .accessibilityLabel(text("ui.close"))
+                    }
+                    .font(.caption)
+                }
+            } else {
             AskDJSearchBar(language: model.language, promptKey: "ui.session.history.search",
                            fieldIdentifier: "session-search-field", countIdentifier: "session-search-count",
                            isLoading: history.searchLoading, text: $query, isFocused: $searchFocused,
@@ -1180,6 +1231,7 @@ struct SessionTimelineScreen: View {
                                #endif
                                moveMatch(1, proxy: proxy)
                            })
+            }
             if let key = history.searchErrorKey {
                 Text(text(key))
                 Button(text("ui.retry")) { history.search(sessionID: sessionID, query: query) }
