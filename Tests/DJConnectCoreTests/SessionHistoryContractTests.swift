@@ -446,6 +446,47 @@ func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis:
     #expect(fixture.requests.allSatisfy { !$0.url!.path.contains("playback") && !$0.url!.path.hasSuffix("/start") && !$0.url!.path.hasSuffix("/end") })
 }
 
+@Test @MainActor func sessionHistorySearchRejectsOwnerlessReadUntilRequalified() async throws {
+    let receipt = try historyObject()
+    let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
+    let entries = try #require(timeline["entries"] as? [[String: Any]])
+    let sessionID = try #require(receipt["session_id"] as? String)
+    let history = try historyData(try #require(receipt["later_historical_answer"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    // Synthetic search envelope reuses the unchanged retained producer entries.
+    let search = try historyData(["success":true,"schema_version":1,"session_id":sessionID,"query":"old","revision":"6:0:0",
+        "matches":entries,"returned_count":entries.count,"total_count":entries.count,"complete":true,"normalization":"NFKC-casefold","highlight_units":"utf16"])
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/search") { return (200, search, 0) }
+        return (200, history, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    model.sessionHistory.search(sessionID: sessionID, query: "old")
+    try await Task.sleep(for: .milliseconds(600))
+    let admittedIDs = model.sessionHistory.searchMatches.map(\.id)
+    try #require(admittedIDs.count == entries.count && model.sessionHistory.searchComplete)
+    model.sessionHistory.suspend()
+    try #require(!model.sessionHistory.hasAuthorizedOwner && model.sessionHistory.searchMatches.isEmpty)
+    let requestCount = fixture.requests.count
+    model.sessionHistory.search(sessionID: sessionID, query: "old")
+    #expect(!model.sessionHistory.searchLoading)
+    try await Task.sleep(for: .milliseconds(600))
+    #expect(fixture.requests.count == requestCount)
+    #expect(model.sessionHistory.searchMatches.isEmpty)
+    #expect(model.sessionHistory.acceptedSearchQuery.isEmpty)
+    #expect(!model.sessionHistory.searchLoading)
+    await model.sessionHistory.prepare()
+    try #require(model.sessionHistory.hasAuthorizedOwner)
+    model.sessionHistory.search(sessionID: sessionID, query: "old")
+    try await Task.sleep(for: .milliseconds(600))
+    #expect(model.sessionHistory.searchMatches.map(\.id) == admittedIDs)
+    #expect(model.sessionHistory.searchComplete && !model.sessionHistory.searchLoading)
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+}
+
 @Test @MainActor func sessionHistoryWindowsKeepLoadedCanonicalEntriesAndFindTailBeyondPage() async throws {
     let receipt = try historyObject("window-producer-receipt")
     let first = try historyData(try #require(receipt["first_page"]))

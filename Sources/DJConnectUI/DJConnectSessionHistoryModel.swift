@@ -796,7 +796,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
         searchTask?.cancel(); searchGeneration = UUID(); searchLoading = false
         clearSearchResults()
-        guard searchAvailable, !historyNeedsUpgrade, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard searchAvailable, !historyNeedsUpgrade, let owner = ownerScope, !owner.isEmpty,
+              host?.canRefreshSessionHistory == true, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let generation = searchGeneration
         searchLoading = true
         searchTask = Task { [weak self] in
@@ -813,12 +814,13 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     private func loadSearch(sessionID: String, query: String, cursor: String?, generation: UUID) async {
-        guard !historyNeedsUpgrade, let host else { return }
+        guard !historyNeedsUpgrade, let owner = ownerScope, !owner.isEmpty,
+              let host, host.canRefreshSessionHistory else { return }
         let captured = epoch; searchLoading = true
         defer { if generation == searchGeneration { searchLoading = false } }
         do {
             let page = try await host.withHomeAssistantClient { try await $0.searchSession(sessionID: sessionID, query: query, cursor: cursor) }
-            guard captured == epoch, generation == searchGeneration, !Task.isCancelled else { return }
+            guard captured == epoch, ownerScope == owner, generation == searchGeneration, !Task.isCancelled else { return }
             guard cursor == nil || (searchRevision == page.revision.value && page.nextCursor != cursor) else { throw DJConnectError.invalidResponse }
             searchMatches = try mergeEntries(cursor == nil ? [] : searchMatches, page.matches.filter { $0.isRetained() })
             searchRevision = page.revision.value; acceptedSearchQuery = query; acceptedSearchSessionID = sessionID
@@ -826,7 +828,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             searchTotal = page.totalCount; searchErrorKey = nil
         } catch {
             guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
-            guard captured == epoch, generation == searchGeneration, !Task.isCancelled else { return }
+            guard captured == epoch, ownerScope == owner, generation == searchGeneration, !Task.isCancelled else { return }
             if requireHistoryUpgrade(for: error) { return }
             if withdrawAuthority(for: error) { return }
             clearSearchResults(); searchErrorKey = errorKey(error)
