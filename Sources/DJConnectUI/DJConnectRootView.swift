@@ -15030,28 +15030,14 @@ private struct GameModePicker: View {
                         .frame(height: 44)
 
                 }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: selection == game ? .selected : .tertiary, shape: .segmented, expands: true))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: selection == game ? .selected : .tertiary, shape: .segmented, expands: true, usesLiveGlass: true))
                 .contentShape(DJConnectCardAppearance.segmentedItemShape)
                 .accessibilityAddTraits(selection == game ? [.isSelected] : [])
             }
         }
         .padding(DJConnectCardAppearance.segmentedContentInset)
         .frame(minHeight: 60)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.04, green: 0.03, blue: 0.13).opacity(0.96),
-                    Color(red: 0.11, green: 0.05, blue: 0.24).opacity(0.96)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: DJConnectCardAppearance.shape
-        )
-        .overlay {
-            DJConnectCardAppearance.shape
-                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
-        }
+        .djSessionFrostedSurface()
     }
 }
 
@@ -15190,7 +15176,6 @@ private struct LocalGameSurface: View {
             .frame(maxWidth: .infinity)
             .onGeometryChange(for: CGSize.self) { $0.size } action: { canvasSize = $0 }
             .background(gameHeightReader("canvas"))
-            .background(.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
             .accessibilityIdentifier("games-surface")
             .accessibilityLabel(game.title)
             .accessibilityValue(gameAccessibilityValue)
@@ -15228,22 +15213,7 @@ private struct LocalGameSurface: View {
                 .accessibilityValue(gameAccessibilityValue)
         }
         .padding(18)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color.black.opacity(0.62),
-                    Color(red: 0.13, green: 0.06, blue: 0.24).opacity(0.88),
-                    Color(red: 0.06, green: 0.10, blue: 0.22).opacity(0.72)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: DJConnectCardAppearance.shape
-        )
-        .overlay {
-            DJConnectCardAppearance.shape
-                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
-        }
+        .djSessionFrostedSurface()
         .focusable(true)
         .focusEffectDisabled()
         .focused($isGameFocused)
@@ -15277,7 +15247,6 @@ private struct LocalGameSurface: View {
         ZStack {
             Canvas { context, size in
                 let rect = CGRect(origin: .zero, size: size)
-                context.fill(Path(roundedRect: rect, cornerRadius: 8), with: .color(Color.black.opacity(0.62)))
                 context.stroke(Path(roundedRect: rect.insetBy(dx: 1, dy: 1), cornerRadius: 8), with: .color(.white.opacity(0.10)), lineWidth: 1)
                 drawGame(in: &context, size: size, isPlaying: isPlaying)
                 if Date() < flashUntil {
