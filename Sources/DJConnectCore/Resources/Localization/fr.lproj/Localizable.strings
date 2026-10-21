@@ -1475,3 +1475,15 @@
 "ui.displayConsent.approved" = "Écran autorisé pour votre Session actuelle.";
 "ui.displayConsent.uncertain" = "L’autorisation n’a pas été confirmée. Vérifiez l’écran avant une nouvelle demande.";
 "ui.displayConsent.unavailable" = "Le code de l’écran ou la Session actuelle n’est plus disponible.";
+
+/* Home Assistant speech configuration; never an audio-success claim. */
+"ui.ha_speech.configuration" = "Configuration Home Assistant";
+"ui.ha_speech.input" = "Reconnaissance vocale";
+"ui.ha_speech.output" = "Synthèse vocale";
+"ui.ha_speech.speaker" = "Enceinte de destination";
+"ui.ha_speech.configured" = "Configuré";
+"ui.ha_speech.unconfigured" = "Non configuré";
+"ui.ha_speech.unavailable" = "Temporairement indisponible";
+"ui.ha_speech.unsupported" = "Non pris en charge";
+"ui.ha_speech.unknown" = "Inconnu";
+"ui.ha_speech.retry_delay" = "La synthèse vocale est temporairement suspendue après une tentative échouée.";

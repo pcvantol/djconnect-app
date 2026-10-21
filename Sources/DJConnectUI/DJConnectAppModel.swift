@@ -1415,6 +1415,12 @@ public final class DJConnectAppModel: ObservableObject {
               deviceSpeechContext == currentDeviceSpeechContext else { return nil }
         return deviceSpeechAvailability
     }
+    /// Read-only configuration presentation; never grants an audio operation.
+    var haSpeechConfiguration: DJConnectDeviceSpeechAvailability? {
+        guard let snapshot = currentDeviceSpeechAvailability,
+              snapshot.qualifies(locale: currentRequestLocale) else { return nil }
+        return snapshot
+    }
     public var canUseVoiceInputRoute: Bool {
         voiceEnabled && (isRecordingVoice || isDemoMode || deviceSTTEnabled ||
             currentDeviceSpeechAvailability?.allowsHAInput(locale: currentRequestLocale) == true)

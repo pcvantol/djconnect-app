@@ -1475,3 +1475,15 @@
 "ui.displayConsent.approved" = "Bildschirm für deine aktuelle Session freigegeben.";
 "ui.displayConsent.uncertain" = "Die Freigabe wurde nicht bestätigt. Prüfe den Bildschirm vor einer neuen Anfrage.";
 "ui.displayConsent.unavailable" = "Bildschirmcode oder aktuelle Session nicht mehr verfügbar.";
+
+/* Home Assistant speech configuration; never an audio-success claim. */
+"ui.ha_speech.configuration" = "Home Assistant-Konfiguration";
+"ui.ha_speech.input" = "Spracherkennung";
+"ui.ha_speech.output" = "Sprachausgabe";
+"ui.ha_speech.speaker" = "Lautsprecherziel";
+"ui.ha_speech.configured" = "Konfiguriert";
+"ui.ha_speech.unconfigured" = "Nicht konfiguriert";
+"ui.ha_speech.unavailable" = "Vorübergehend nicht verfügbar";
+"ui.ha_speech.unsupported" = "Nicht unterstützt";
+"ui.ha_speech.unknown" = "Unbekannt";
+"ui.ha_speech.retry_delay" = "Die Sprachausgabe pausiert vorübergehend nach einem fehlgeschlagenen Versuch.";

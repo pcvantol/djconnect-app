@@ -1475,3 +1475,15 @@
 "ui.displayConsent.approved" = "Scherm toegestaan voor je huidige Session.";
 "ui.displayConsent.uncertain" = "De toestemming is niet bevestigd. Controleer het scherm voordat je een nieuw verzoek start.";
 "ui.displayConsent.unavailable" = "De schermcode of huidige Session is niet meer beschikbaar.";
+
+/* Home Assistant speech configuration; never an audio-success claim. */
+"ui.ha_speech.configuration" = "Home Assistant-configuratie";
+"ui.ha_speech.input" = "Spraakherkenning";
+"ui.ha_speech.output" = "Spraakuitvoer";
+"ui.ha_speech.speaker" = "Speakerdoel";
+"ui.ha_speech.configured" = "Geconfigureerd";
+"ui.ha_speech.unconfigured" = "Niet geconfigureerd";
+"ui.ha_speech.unavailable" = "Tijdelijk niet beschikbaar";
+"ui.ha_speech.unsupported" = "Niet ondersteund";
+"ui.ha_speech.unknown" = "Onbekend";
+"ui.ha_speech.retry_delay" = "Spraakuitvoer is tijdelijk gepauzeerd na een mislukte poging.";

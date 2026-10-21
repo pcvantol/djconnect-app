@@ -6044,12 +6044,15 @@ func personaTouchCapabilityRefreshWithdrawsStaleSupportExceptCancellation(fault:
     }
     #expect(!model.canUseVoiceInputRoute && !model.canUseHASpeechOutput(.local))
     try apply(snapshot)
+    #expect(model.haSpeechConfiguration != nil)
     #expect(model.canUseVoiceInputRoute && model.canUseHASpeechOutput(.local))
     #expect(!model.canUseHASpeechOutput(.haSpeaker))
     model.language = "fr"
+    #expect(model.haSpeechConfiguration == nil)
     #expect(!model.canUseVoiceInputRoute && !model.canUseHASpeechOutput(.local))
     model.language = try #require(snapshot["locale"] as? String)
     try apply(nil)
+    #expect(model.haSpeechConfiguration == nil)
     #expect(!model.canUseVoiceInputRoute && !model.canUseHASpeechOutput(.local))
     try apply(snapshot, install: "wrong-install")
     #expect(!model.canUseVoiceInputRoute)
