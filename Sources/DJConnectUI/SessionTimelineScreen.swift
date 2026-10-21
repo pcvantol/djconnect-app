@@ -119,6 +119,7 @@ struct SavedSessionsView: View {
                         .accessibilityIdentifier("saved-sessions-refresh-error")
                     }
                     ForEach(filteredSessions) { session in
+                        HStack(spacing: 8) {
                         Button { openedSessionID.wrappedValue = session.id } label: {
                             HStack(spacing: 12) {
                                 Image(systemName: "clock.arrow.circlepath")
@@ -148,6 +149,11 @@ struct SavedSessionsView: View {
                         .buttonStyle(DJConnectMediaRowButtonStyle())
                         .accessibilityIdentifier("saved-session-" + session.id)
                         .id(session.id)
+                        .frame(maxWidth: .infinity)
+                        if history.deletionAvailable {
+                            SavedSessionDeleteButton(history: history, language: model.language, sessionID: session.id)
+                        }
+                        }
                         .frame(maxWidth: rowMaxWidth, alignment: .leading).frame(maxWidth: .infinity)
                         .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
                         .listRowBackground(Color.clear)
@@ -2642,6 +2648,7 @@ private struct SessionArchiveDeletionConfirmation: ViewModifier {
     let language: String
     @Binding var confirmation: SessionDeleteConfirmation?
     @Binding var isPresented: Bool
+    var dismissOnSuccess: Bool = true
     @State private var failed = false
     @State private var presentationGeneration = UUID()
     @Environment(\.dismiss) private var dismiss
@@ -2657,7 +2664,7 @@ private struct SessionArchiveDeletionConfirmation: ViewModifier {
                         let deleted = await history.deleteSession(request.sessionID, expectedRevision: request.revision,
                                                                   expectedEpoch: request.epoch)
                         guard generation == presentationGeneration else { return }
-                        if deleted { dismiss() }
+                        if deleted { if dismissOnSuccess { dismiss() } }
                         else if request.epoch == history.responseEpoch { failed = true }
                     }
                 }
@@ -2674,6 +2681,51 @@ private struct SessionArchiveDeletionConfirmation: ViewModifier {
                 presentationGeneration = UUID(); isPresented = false; confirmation = nil; failed = false
             }
             .onDisappear { presentationGeneration = UUID(); isPresented = false; confirmation = nil }
+    }
+}
+
+/// A separate row action avoids nesting destructive controls in the open button.
+private struct SavedSessionDeleteButton: View {
+    @ObservedObject var history: DJConnectSessionHistoryModel
+    let language: String
+    let sessionID: String
+    @State private var preparing = false
+    @State private var preparationGeneration = UUID()
+    @State private var confirmation: SessionDeleteConfirmation?
+    @State private var confirming = false
+    @State private var failed = false
+    private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
+    var body: some View {
+        Button(role: .destructive) {
+            guard !preparing, history.canDeleteSession(sessionID) else { return }
+            let epoch = history.responseEpoch, generation = UUID()
+            preparationGeneration = generation; preparing = true
+            Task { @MainActor in
+                let revision = await history.prepareSessionDeletion(sessionID, expectedEpoch: epoch)
+                guard generation == preparationGeneration else { return }
+                preparing = false
+                guard epoch == history.responseEpoch, !Task.isCancelled else { return }
+                guard let revision else { failed = true; return }
+                confirmation = .init(sessionID: sessionID, revision: revision, epoch: epoch)
+                confirming = true
+            }
+        } label: {
+            Image(systemName: "trash").foregroundStyle(.red)
+                .frame(minWidth: 44, minHeight: 44)
+        }
+        .buttonStyle(.borderless)
+        .disabled(preparing || !history.canDeleteSession(sessionID) || history.deletingSessionID != nil)
+        .opacity(!preparing && history.canDeleteSession(sessionID) && history.deletingSessionID == nil ? 1 : 0.4)
+        .accessibilityLabel(text("ui.session.history.delete.title"))
+        .accessibilityIdentifier("saved-session-delete-" + sessionID)
+        .help(text("ui.session.history.delete.title"))
+        .modifier(SessionArchiveDeletionConfirmation(history: history, language: language,
+            confirmation: $confirmation, isPresented: $confirming, dismissOnSuccess: false))
+        .alert(text("ui.session.history.delete.failed"), isPresented: $failed) {
+            Button(text("ui.close"), role: .cancel) {}
+        }
+        .onChange(of: history.responseEpoch) { _, _ in preparationGeneration = UUID(); preparing = false; failed = false }
+        .onDisappear { preparationGeneration = UUID(); preparing = false }
     }
 }
 
