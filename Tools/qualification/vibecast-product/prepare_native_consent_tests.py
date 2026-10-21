@@ -55,7 +55,7 @@ def prepare(destination: Path, jose: Path, with_ui: bool = False, with_summary: 
             "type": "bundle.unit-test", "platform": "iOS",
             "sources": [{"path": str(root / "Tools/qualification/native-history-summary/NativeHistorySummaryTests.swift")}] + [
                 {"path": str(root / "Tests/Fixtures" / name), "buildPhase": "resources"}
-                for name in ("session-history-summary-final-list.json", "session-history-summary-summary-states.json",
+                for name in ("session-history-summary-final-list.json", "session-history-summary-final-detail.json", "session-history-summary-summary-states.json",
                              "session-history-summary-provenance.json")],
             "dependencies": [{"target": "ConsentCore"}, {"target": "ConsentUI"}],
             "settings": {"base": {"PRODUCT_BUNDLE_IDENTIFIER": "dev.djconnect.qualification.nativesummary.tests",
