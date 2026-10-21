@@ -41,8 +41,7 @@ import Testing
                 #expect(image.width == width)
                 #expect(image.height > 80 && image.height < 900)
                 if width == 600 && !largeText {
-                    // Missing raster wordmarks acquire a square layout; the real
-                    // wide artwork must keep its 4:1 / 27:7 proportions.
+                    // The icon and both native text lines share one compact row.
                     #expect(image.height < 240)
                 }
                 let bitmap = NSBitmapImageRep(cgImage: image)
