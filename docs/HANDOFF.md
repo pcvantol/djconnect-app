@@ -1,5 +1,27 @@
 ## 2026-10-21 — Native display-consent qualification / PR167
 
+## 2026-10-21 — Apple client consolidation / PR169
+
+PR169 merged the reviewed-by-author client candidate `d2b1482` as `9980279`.
+Main CI/coverage 39626856219 and formal reconciliation 39628569024 PASS; canonical
+integrity, runner/main binding, coverage ZIP digest and 12/12 required checks are
+verified. This is source qualification, not full product acceptance.
+
+Ordinary development build 40405 is installed, signature/full-bundle verified
+and running on Mac mini. iPad installation lost its connection and its installed
+version is unconfirmed. iPhone/Watch are deferred by the owner until tomorrow;
+MacBook is unreachable. No data wipe, uninstall or pairing reset occurred.
+
+The approved cleanup removed 79 stale local branches with original history held
+under two local archive tags, plus one exact-duplicate temporary recovery app,
+one duplicate test-products directory and the owned simulator. One worktree,
+no stashes; unique historical products/bundles and test evidence remain.
+
+Music DNA artwork, current Track Insight, sparse automatic contributions,
+historical-track playback and genuine VibeCast SDK/QA remain separately open.
+See [the exact delivery receipt](feedback/APPLE_OCT21_MAIN_DELIVERY_20261021.json) for hashes and remaining boundaries.
+This separate documentary Finalization changes no compiled inputs.
+
 Source [PR167](https://github.com/pcvantol/djconnect-app/pull/167) merged approved
 `8462454f4c662259b0fd47f4bd78c2545f41daa0` as
 `b90b40071f9eadbe81dc084f815213a4fabd066e`; both trees are
@@ -9,7 +31,7 @@ files changed; production sources and shipping targets are unchanged.
 The original isolated actual-iOS-model qualification recorded18PASS/0fail/0skip
 and13 targeted Mac tests PASS. PR CI39555114674, main CI/coverage39555773003 and
 formal reconciliation39558770094 PASS. Independent durable-asset digest,
-canonical integrity,12/12required checks, runner main-SHA and coverage ZIP/main
+canonical integrity,12/12 required checks, runner main-SHA and coverage ZIP/main
 binding are verified in [the portable source receipt](feedback/APPLE_CONSENT_167_SOURCE_EVIDENCE_20261021.json).
 The separate TDE-observe workflow39555772553 succeeded, but its assessment and
 qualification report BLOCKED: `store requires validated canonical evidence`.
