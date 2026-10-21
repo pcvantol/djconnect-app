@@ -674,7 +674,7 @@ struct SessionTimelineScreen: View {
                             .help(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
                             .accessibilityIdentifier("session-jump-top")
                             .padding(16)
-                            .padding(.bottom, !searching && usesFloatingComposer ? floatingComposerHeight + 8 : 8)
+                            .padding(.bottom, !searching && !showsForecast && usesFloatingComposer ? floatingComposerHeight + 8 : 8)
                         }
                     }
                     .defaultScrollAnchor(.top, for: .initialOffset)
@@ -715,13 +715,13 @@ struct SessionTimelineScreen: View {
                         }
                     }
                     .safeAreaInset(edge: .bottom, spacing: 0) {
-                        if usesFloatingComposer && (!searching || showsForecast) {
+                        if usesFloatingComposer && !searching && !showsForecast {
                             Color.clear.frame(height: floatingComposerHeight + composerBottomPadding + 8)
                                 .allowsHitTesting(false)
                         }
                     }
                     .overlay(alignment: .bottom) {
-                        if usesFloatingComposer && (!searching || showsForecast) {
+                        if usesFloatingComposer && !searching && !showsForecast {
                             sessionComposer(floating: true)
                                 .djFloatingAskDJWidth(maximum: 1000)
                                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { floatingComposerHeight = $0 }
@@ -730,7 +730,7 @@ struct SessionTimelineScreen: View {
                         }
                     }
                 }
-                if activeSession != nil && !usesFloatingComposer && (!searching || showsForecast) {
+                if activeSession != nil && !usesFloatingComposer && !searching && !showsForecast {
                     sessionComposer(floating: false)
                 }
             }
