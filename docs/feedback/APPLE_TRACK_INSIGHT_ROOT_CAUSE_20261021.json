@@ -1,0 +1,25 @@
+{
+  "status": "OPEN: producer current-subject binding required before client mutation",
+  "apple_source": "a30b692",
+  "core_inspected_source": "00904153cb02e4cfa6f00b59625af86a99f0ebc4",
+  "evidence_kind": "Exact local source trace and offline AST predicate evaluation; no live Track Insight request or response captured",
+  "findings": [
+    "Apple ordinary current Track Insight requests supply explicit playback title and artist.",
+    "Core disables automatic current target and current_knowledge_context when either explicit name is supplied.",
+    "The paired delivery commit_guard fallback uses qualified_context={} and _unmeasured_detail.",
+    "That fallback returns unmeasured_metadata_only_v1 and null energy/danceability/intensity, matching the displayed fallback category.",
+    "Qualified credit/interpretation analysis separately also returns null measured metrics; fixing routing alone does not create audio measurements."
+  ],
+  "unsafe_shortcut_rejected": "Removing names alone may cause automatic resolution to a retained explicit Moment target. Need explicit current-track subject and response identity guards.",
+  "owner_coordination": "Existing Core owner notified with exact predicates, current-versus-explicit target distinction and fixture request. No new producer contract delivered yet.",
+  "effects": {
+    "live_model_calls": 0,
+    "provider_calls": 0,
+    "production_edits": 0,
+    "deployments": 0
+  },
+  "receipt": {
+    "path": "/Volumes/Shared Data/tmp/pcvantol/djc-track-insight-root-cause-20261021/request-routing-audit.json",
+    "sha256": "8e9061ad0ccca7776273d49a600a5cdbeb717f16f4fb5857830a72b7b095b94d"
+  }
+}
