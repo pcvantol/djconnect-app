@@ -1487,3 +1487,5 @@
 "ui.ha_speech.unsupported" = "No compatible";
 "ui.ha_speech.unknown" = "Desconocido";
 "ui.ha_speech.retry_delay" = "La síntesis de voz está temporalmente en pausa tras un intento fallido.";
+
+"ui.session.history.delete.unconfirmed" = "La eliminación aún no está confirmada. No se enviará una nueva solicitud de eliminación. Actualizar solo lee el historial.";

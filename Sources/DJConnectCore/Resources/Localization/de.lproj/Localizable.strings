@@ -1487,3 +1487,5 @@
 "ui.ha_speech.unsupported" = "Nicht unterstützt";
 "ui.ha_speech.unknown" = "Unbekannt";
 "ui.ha_speech.retry_delay" = "Die Sprachausgabe pausiert vorübergehend nach einem fehlgeschlagenen Versuch.";
+
+"ui.session.history.delete.unconfirmed" = "Die Löschung ist noch nicht bestätigt. Es wird kein neuer Löschauftrag gesendet. Aktualisieren liest nur den Verlauf.";

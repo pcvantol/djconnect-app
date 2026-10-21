@@ -1487,3 +1487,5 @@
 "ui.ha_speech.unsupported" = "Non pris en charge";
 "ui.ha_speech.unknown" = "Inconnu";
 "ui.ha_speech.retry_delay" = "La synthèse vocale est temporairement suspendue après une tentative échouée.";
+
+"ui.session.history.delete.unconfirmed" = "La suppression n’est pas encore confirmée. Aucune nouvelle demande de suppression ne sera envoyée. L’actualisation ne fait que lire l’historique.";

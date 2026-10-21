@@ -72,11 +72,12 @@ struct SavedSessionsView: View {
         else { content }
     }
     private var showsListHeader: Bool {
+        if history.hasUnconfirmedDeletion { return true }
         #if os(macOS)
-        !initialLoadFinished || history.listLoading || history.preparing
+        return !initialLoadFinished || history.listLoading || history.preparing
         #else
         // Keep the iOS native refresh bridge mounted even after loading.
-        true
+        return true
         #endif
     }
     private var content: some View {
@@ -84,6 +85,11 @@ struct SavedSessionsView: View {
             savedSessionsContainer {
                 if showsListHeader {
                 VStack(alignment: .leading, spacing: 16) {
+                    if history.hasUnconfirmedDeletion {
+                        Text(text("ui.session.history.delete.unconfirmed"))
+                            .font(.callout).fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("history-deletion-unconfirmed")
+                    }
                     #if !os(iOS)
                     if !initialLoadFinished || history.listLoading || history.preparing {
                         ProgressView().controlSize(.large).tint(.white)
@@ -226,6 +232,7 @@ struct SavedSessionsView: View {
                     if history.bulkDeletionAvailable {
                         SavedSessionsDeleteAllButton(language: model.language,
                             isEnabled: history.canPrepareBulkDeletion,
+                            hasUnconfirmedDeletion: history.hasUnconfirmedDeletion,
                             contextEpoch: history.responseEpoch, archiveEpoch: history.archiveResponseEpoch) {
                             isSearchFocused = false
                             let epoch = history.responseEpoch
@@ -608,6 +615,12 @@ struct SessionTimelineScreen: View {
                     }
                     .safeAreaInset(edge: .top, spacing: 0) {
                         VStack(spacing: 0) {
+                            if activeSession == nil && history.hasUnconfirmedDeletion {
+                                Text(text("ui.session.history.delete.unconfirmed"))
+                                    .font(.callout).fixedSize(horizontal: false, vertical: true)
+                                    .padding(.horizontal, 20).padding(.vertical, 10)
+                                    .accessibilityIdentifier("history-deletion-unconfirmed")
+                            }
                             if searching && activeSession == nil {
                                 TimelineView(SessionEntryRefreshSchedule(deadlines: history.searchMatches.compactMap { DJConnectHistoryEntry.date($0.retainedUntil) })) { _ in searchBar(proxy: proxy) }
                             }
@@ -2650,7 +2663,7 @@ private struct SessionArchiveDeletionConfirmation: ViewModifier {
                 }
                 .accessibilityIdentifier("session-delete-confirm")
             } message: { _ in Text(text("ui.session.history.delete.message")) }
-            .alert(text("ui.session.history.delete.failed"), isPresented: $failed) {
+            .alert(text(history.hasUnconfirmedDeletion ? "ui.session.history.delete.unconfirmed" : "ui.session.history.delete.failed"), isPresented: $failed) {
                 Button(text("ui.close"), role: .cancel) {}
             }
             .tint(.white)
@@ -2673,6 +2686,7 @@ private struct SavedSessionsDeleteAllButton: View {
     }
     let language: String
     let isEnabled: Bool
+    let hasUnconfirmedDeletion: Bool
     let contextEpoch: UUID
     let archiveEpoch: UUID
     let prepareDeletion: @MainActor () async -> PreparedAction?
@@ -2720,7 +2734,7 @@ private struct SavedSessionsDeleteAllButton: View {
             }
             .accessibilityIdentifier("saved-sessions-delete-all-confirm")
         } message: { Text(String(format: text("message"), Int64(targetCount))) }
-        .alert(text("failed"), isPresented: $failed) {
+        .alert(hasUnconfirmedDeletion ? DJConnectLocalization.localized(key: "ui.session.history.delete.unconfirmed", language: language) : text("failed"), isPresented: $failed) {
             Button(DJConnectLocalization.localized(key: "ui.close", language: language), role: .cancel) {}
         }
         .tint(.white)

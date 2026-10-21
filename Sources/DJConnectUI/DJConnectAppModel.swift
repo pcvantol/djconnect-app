@@ -1421,6 +1421,27 @@ public final class DJConnectAppModel: ObservableObject {
               snapshot.qualifies(locale: currentRequestLocale) else { return nil }
         return snapshot
     }
+    // Local request recovery only: no credentials or conversation content in the journal.
+    func historyDeletionScope(owner: String, bindCredential: Bool = false) -> String {
+        // Metadata/credential changes may withdraw execution authority, but
+        // must never hide an unresolved operation or permit a fresh ID.
+        var fields = [owner, identity.deviceID, identity.clientType.rawValue]
+        if bindCredential {
+            fields += [defaults.string(forKey: haInstallIDKey) ?? "", haLocalURL, haRemoteURL,
+                       (try? tokenStore.loadToken()) ?? "", DJConnectApplicationVersion.releaseVersion,
+                       DJConnectApplicationVersion.buildVersion, identity.deviceName]
+        }
+        let bytes = fields.map { "\($0.utf8.count):\($0)" }.joined()
+        return SHA256.hash(data: Data(bytes.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+    var historyDeletionJournalData: Data? { defaults.data(forKey: "DJConnectHistoryDeletionJournal.v1") }
+    @discardableResult func storeHistoryDeletionJournal(_ data: Data?) -> Bool {
+        if let data { defaults.set(data, forKey: "DJConnectHistoryDeletionJournal.v1") }
+        else { defaults.removeObject(forKey: "DJConnectHistoryDeletionJournal.v1") }
+        // Unlike cosmetic preferences, this request fence must finish its write
+        // before a destructive request can leave the client.
+        return defaults.synchronize()
+    }
     public var canUseVoiceInputRoute: Bool {
         voiceEnabled && (isRecordingVoice || isDemoMode || deviceSTTEnabled ||
             currentDeviceSpeechAvailability?.allowsHAInput(locale: currentRequestLocale) == true)

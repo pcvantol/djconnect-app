@@ -1487,3 +1487,5 @@
 "ui.ha_speech.unsupported" = "Not supported";
 "ui.ha_speech.unknown" = "Unknown";
 "ui.ha_speech.retry_delay" = "Speech output is temporarily paused after a failed attempt.";
+
+"ui.session.history.delete.unconfirmed" = "Deletion is not yet confirmed. No new deletion request will be sent. Refresh only reads the history.";

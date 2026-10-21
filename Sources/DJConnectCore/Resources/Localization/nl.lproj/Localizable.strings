@@ -1487,3 +1487,5 @@
 "ui.ha_speech.unsupported" = "Niet ondersteund";
 "ui.ha_speech.unknown" = "Onbekend";
 "ui.ha_speech.retry_delay" = "Spraakuitvoer is tijdelijk gepauzeerd na een mislukte poging.";
+
+"ui.session.history.delete.unconfirmed" = "De verwijdering is nog niet bevestigd. Er wordt geen nieuwe verwijderopdracht verstuurd. Vernieuwen leest alleen de geschiedenis.";

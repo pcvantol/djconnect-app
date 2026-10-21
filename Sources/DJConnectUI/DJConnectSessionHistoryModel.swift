@@ -116,6 +116,51 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     @Published public private(set) var deletionAvailable = false
     @Published public private(set) var deletingSessionID: String?
     private var deletionGeneration = UUID()
+    struct PendingDeletion: Codable {
+        let owner, scope, binding, operationID: String
+        let single: DJConnectSessionDeleteRequest?
+        let bulk: DJConnectSessionDeleteSnapshot?
+        var isValid: Bool {
+            !owner.isEmpty && scope.count == 64 && binding.count == 64 && UUID(uuidString: operationID) != nil &&
+            ((single?.isValid == true && single?.operationID == operationID && bulk == nil) ||
+             (single == nil && bulk?.ownerProfileID == owner && (bulk?.targetCount ?? 0) > 0))
+        }
+    }
+    @Published private var deletionJournal: [String: PendingDeletion] = [:]
+    private var invalidDeletionJournal = false
+    public var hasUnconfirmedDeletion: Bool {
+        guard let host, let ownerScope else { return false }
+        return invalidDeletionJournal || deletionJournal[host.historyDeletionScope(owner: ownerScope)] != nil
+    }
+    private func saveDeletionJournal() -> Bool {
+        guard let host, let data = try? JSONEncoder().encode(deletionJournal), data.count <= 262_144 else { return false }
+        return host.storeHistoryDeletionJournal(data) && host.historyDeletionJournalData == data
+    }
+    private func retainDeletion(owner: String, operationID: String, single: DJConnectSessionDeleteRequest? = nil,
+                                bulk: DJConnectSessionDeleteSnapshot? = nil) -> PendingDeletion? {
+        guard let host, !invalidDeletionJournal, deletionJournal.count < 32 else { return nil }
+        let scope = host.historyDeletionScope(owner: owner)
+        guard deletionJournal[scope] == nil else { return nil }
+        let record = PendingDeletion(owner: owner, scope: scope, binding: host.historyDeletionScope(owner: owner, bindCredential: true),
+                                     operationID: operationID, single: single, bulk: bulk)
+        guard record.isValid else { return nil }
+        deletionJournal[scope] = record
+        guard saveDeletionJournal() else { invalidDeletionJournal = true; return nil }
+        return record
+    }
+    private func finishDeletion(_ record: PendingDeletion) {
+        guard deletionJournal[record.scope]?.operationID == record.operationID else { return }
+        deletionJournal[record.scope] = nil
+        if !saveDeletionJournal() { invalidDeletionJournal = true }
+    }
+    private func deletionWasDefinitivelyRejected(_ error: Error) -> Bool {
+        switch error as? DJConnectError {
+        case .server(let status, _): return [400, 409].contains(status)
+        case .authStale, .routeMissing: return true
+        case .profile(_, let status, _): return [400, 401, 403, 409].contains(status)
+        default: return false
+        }
+    }
     @Published public private(set) var preparing = false
     @Published public private(set) var searchAvailable = false
     @Published public private(set) var momentInsightAvailable = false
@@ -249,7 +294,15 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         })
     }
 
-    init(host: DJConnectAppModel) { self.host = host }
+    init(host: DJConnectAppModel) {
+        self.host = host
+        if let data = host.historyDeletionJournalData {
+            if data.count <= 262_144, let records = try? JSONDecoder().decode([String: PendingDeletion].self, from: data),
+               records.count <= 32, records.allSatisfy({ $0.key == $0.value.scope && $0.value.isValid }) {
+                deletionJournal = records
+            } else { invalidDeletionJournal = true }
+        }
+    }
 
     /// Explicit, ephemeral review examples; never an owner grant or backend history.
     func installDemo(_ data: DJConnectDemoSessionData, preservingArchives: Bool = false) {
@@ -404,7 +457,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public var canPrepareBulkDeletion: Bool {
-        bulkDeletionAvailable && !bulkDeletionBusy && deletingSessionID == nil && !historyNeedsUpgrade
+        bulkDeletionAvailable && !bulkDeletionBusy && deletingSessionID == nil && !historyNeedsUpgrade && !hasUnconfirmedDeletion
             && ownerScope != nil && host?.canRefreshSessionHistory == true
     }
 
@@ -432,15 +485,19 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         bulkDeletionBusy = true
         defer { if expectedEpoch == epoch { bulkDeletionBusy = false } }
         let operationID = DJConnectOperationIdentity.uuidV7(milliseconds: Int(Date().timeIntervalSince1970 * 1000))
+        guard let pending = retainDeletion(owner: ownerScope, operationID: operationID, bulk: snapshot) else { return false }
         do {
             let receipt = try await host.withHomeAssistantClient(allowsOperationReplay: false) {
                 try await $0.deleteAllSavedSessions(snapshot: snapshot, expectedOwner: ownerScope, operationID: operationID)
             }
             guard expectedEpoch == epoch, self.ownerScope == ownerScope, host.canRefreshSessionHistory,
+                  pending.binding == host.historyDeletionScope(owner: ownerScope, bindCredential: true),
                   receipt.admits(snapshot: snapshot, operationID: operationID, owner: ownerScope), !Task.isCancelled else { return false }
+            finishDeletion(pending)
             invalidateArchiveProjections()
             return true
         } catch {
+            if deletionWasDefinitivelyRejected(error) { finishDeletion(pending) }
             if expectedEpoch == epoch { _ = withdrawAuthority(for: error) }
             return false
         }
@@ -481,7 +538,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func canDeleteSession(_ sessionID: String) -> Bool {
-        guard deletionAvailable, !bulkDeletionBusy, !historyNeedsUpgrade, ownerScope != nil, let host,
+        guard deletionAvailable, !bulkDeletionBusy, !historyNeedsUpgrade, !hasUnconfirmedDeletion, ownerScope != nil, let host,
               host.canRefreshSessionHistory, host.activeDJSession?.id != sessionID,
               let session = timelines[sessionID]?.session ?? sessions.first(where: { $0.id == sessionID }) else { return false }
         return session.isContractValid && session.readOnly && ["ENDED", "INTERRUPTED"].contains(session.lifecycleStatus)
@@ -503,16 +560,20 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         let generation = UUID(); deletionGeneration = generation; deletingSessionID = sessionID
         defer { if deletionGeneration == generation { deletingSessionID = nil } }
         let action = DJConnectSessionDeleteRequest(sessionID: sessionID, expectedRevision: expectedRevision)
+        guard let pending = retainDeletion(owner: ownerScope, operationID: action.operationID, single: action) else { return false }
         do {
             let receipt = try await host.withHomeAssistantClient(allowsOperationReplay: false) {
                 try await $0.deleteSavedSession(action, expectedOwner: ownerScope)
             }
             guard expectedEpoch == epoch, generation == deletionGeneration, self.ownerScope == ownerScope,
+                  pending.binding == host.historyDeletionScope(owner: ownerScope, bindCredential: true),
                   host.canRefreshSessionHistory, host.activeDJSession?.id != sessionID,
                   receipt.admits(action, owner: ownerScope), !Task.isCancelled else { return false }
+            finishDeletion(pending)
             invalidateDeletedSessions([sessionID])
             return true
         } catch {
+            if deletionWasDefinitivelyRejected(error) { finishDeletion(pending) }
             guard expectedEpoch == epoch, generation == deletionGeneration else { return false }
             if withdrawAuthority(for: error) { return false }
             // No automatic mutation retry, including ambiguous delivery outcomes.

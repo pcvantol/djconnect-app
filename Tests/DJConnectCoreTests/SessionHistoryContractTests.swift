@@ -5443,6 +5443,118 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     #expect(receipt.admits(action, owner: "profile-a") == (mutation == "ok"))
 }
 
+@Test(arguments: ["malformed", "oversized"])
+@MainActor func invalidDeletionJournalCannotEnableAnotherMutation(_ mode: String) async throws {
+    let producer = try historyObject()
+    let archiveData = try historyData(try #require(producer["archived_timeline"]))
+    let archive = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: archiveData).session
+    let profile = try historyData(try #require(producer["later_historical_answer"]))
+    let caps = try historyData(["capabilities": ["session_conversation_history": true,
+        "session_history_delete": true, "session_history_bulk_delete": true],
+        "contract_versions": ["session_conversation_history": 1,"session_history_delete": 1,"session_history_bulk_delete": 1]])
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/ask_dj/history") { return (200, profile, 0) }
+        return (200, archiveData, 0)
+    }
+    defer { fixture.close() }
+    let (original, defaults, name) = fixture.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    original.storeHistoryDeletionJournal(mode == "malformed" ? Data("bad-json".utf8) : Data(repeating: 0, count: 262_145))
+    let reopened = DJConnectAppModel(defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-fixture-token"),
+        urlSession: fixture.session(), startBackgroundTasks: false)
+    let history = reopened.sessionHistory
+    await history.prepare(); #expect(await history.loadTimeline(archive.id))
+    #expect(history.hasUnconfirmedDeletion)
+    #expect(!history.canPrepareBulkDeletion && !history.canDeleteSession(archive.id))
+    #expect(await history.deleteSession(archive.id, expectedRevision: archive.revision.value, expectedEpoch: history.responseEpoch) == false)
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+}
+
+@Test(arguments: ["single", "bulk"])
+@MainActor func deletionJournalBlocksNewOperationAfterUnknownResult(_ outcome: String) async throws {
+    let producer = try historyObject()
+    let archiveData = try historyData(try #require(producer["archived_timeline"]))
+    let archive = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: archiveData).session
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let wire = try #require(JSONSerialization.jsonObject(with: Data(contentsOf:
+        root.appendingPathComponent("Fixtures/archive-deletion-core-bbb7a23d.json"))) as? [String: Any])
+    let examples = try #require(wire["examples"] as? [String: Any])
+    let pendingData = try historyData(try #require(examples["pending_response"]))
+    var snapshot = try #require(examples["snapshot_response"] as? [String: Any])
+    snapshot["created_at"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1))
+    snapshot["expires_at"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(240))
+    let snapshotData = try historyData(snapshot)
+    let caps = try historyData(["capabilities": ["session_conversation_history": true,
+        "session_history_delete": true, "session_history_bulk_delete": true],
+        "contract_versions": ["session_conversation_history": 1,"session_history_delete": 1,"session_history_bulk_delete": 1]])
+    let profile = try historyData(try #require(producer["later_historical_answer"]))
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("/ask_dj/history") { return (200, profile, 0) }
+        if path.hasSuffix("/delete_snapshot") { return (200, snapshotData, 0) }
+        if request.httpMethod == "POST" { return (503, pendingData, 0) }
+        return (200, archiveData, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare(); #expect(await history.loadTimeline(archive.id))
+    // Both operation kinds must survive the same ambiguous producer response.
+    let bulk = outcome == "bulk"
+    if bulk {
+        let prepared = try #require(await history.prepareBulkDeletion(expectedEpoch: history.responseEpoch))
+        #expect(await history.deleteAllSessions(prepared, expectedEpoch: history.responseEpoch) == false)
+    } else {
+        #expect(await history.deleteSession(archive.id, expectedRevision: archive.revision.value, expectedEpoch: history.responseEpoch) == false)
+    }
+    #expect(history.hasUnconfirmedDeletion)
+    defaults.set("synthetic-resolved-installation", forKey: "DJConnectHAInstallID")
+    #expect(history.hasUnconfirmedDeletion)
+    let stored = try #require(model.historyDeletionJournalData)
+    let records = try JSONDecoder().decode([String: DJConnectSessionHistoryModel.PendingDeletion].self, from: stored)
+    let saved = try #require(records.values.first)
+    #expect(saved.owner == "profile-a")
+    #expect(saved.single?.expectedRevision == (bulk ? nil : archive.revision.value))
+    #expect(saved.bulk?.snapshotID == (bulk ? snapshot["snapshot_id"] as? String : nil))
+    let storedText = String(decoding: stored, as: UTF8.self)
+    #expect(!storedText.contains("synthetic-fixture-token") && !storedText.contains(fixture.baseURL.absoluteString))
+    #expect(await history.prepareSessionDeletion(archive.id, expectedEpoch: history.responseEpoch) == nil)
+    #expect(await history.prepareBulkDeletion(expectedEpoch: history.responseEpoch) == nil)
+    #expect(await history.deleteSession(archive.id, expectedRevision: archive.revision.value, expectedEpoch: history.responseEpoch) == false)
+    // Reconstruct the actual model from the same installation-local preferences.
+    let reopened = DJConnectAppModel(defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-fixture-token"),
+        urlSession: fixture.session(), startBackgroundTasks: false)
+    await reopened.sessionHistory.prepare()
+    #expect(reopened.sessionHistory.hasUnconfirmedDeletion)
+    #expect(!reopened.sessionHistory.canPrepareBulkDeletion)
+    #expect(model.historyDeletionJournalData == stored)
+    let posts = fixture.requests.filter { $0.httpMethod == "POST" }
+    #expect(posts.count == 1)
+    let post = try #require(posts.first)
+    let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(post)) as? [String: Any])
+    #expect(body["operation_id"] as? String == saved.operationID)
+    // An old/expired recorded operation remains unresolved; age must never mint a new ID.
+    let oldID = DJConnectOperationIdentity.uuidV7(milliseconds: Int(Date().addingTimeInterval(-600).timeIntervalSince1970 * 1000))
+    let oldSingle = saved.single.map { DJConnectSessionDeleteRequest(sessionID: $0.sessionID,
+        expectedRevision: $0.expectedRevision, operationID: oldID) }
+    let old = DJConnectSessionHistoryModel.PendingDeletion(owner: saved.owner, scope: saved.scope,
+        binding: saved.binding, operationID: oldID, single: oldSingle, bulk: saved.bulk)
+    model.storeHistoryDeletionJournal(try JSONEncoder().encode([saved.scope: old]))
+    let expired = DJConnectAppModel(defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-fixture-token"),
+        urlSession: fixture.session(), startBackgroundTasks: false)
+    await expired.sessionHistory.prepare()
+    #expect(expired.sessionHistory.hasUnconfirmedDeletion)
+    #expect(!expired.sessionHistory.canPrepareBulkDeletion)
+    #expect(!expired.sessionHistory.canDeleteSession(archive.id))
+    #expect(fixture.requests.filter { $0.httpMethod == "POST" }.count == 1)
+}
+
 @Test(arguments: ["fresh", "failure", "withdrawn", "became-active"])
 @MainActor func archiveDeletionConfirmationRequiresFreshDetail(_ outcome: String) async throws {
     let producer = try historyObject()
@@ -5485,7 +5597,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
 }
 
-@Test(arguments: ["ok", "failure", "owner", "epoch", "stale-revision", "unsupported", "active"])
+@Test(arguments: ["ok", "failure", "conflict", "owner", "epoch", "stale-revision", "unsupported", "active"])
 @MainActor func sessionArchiveDeletionPreservesFailuresAndFencesStaleConfirmation(_ outcome: String) async throws {
     let fixtureObject = try historyObject()
     var archiveObject = try #require(fixtureObject["archived_timeline"] as? [String: Any])
@@ -5519,6 +5631,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
             #expect(request.value(forHTTPHeaderField: "Cache-Control") == "no-store")
             #expect(request.value(forHTTPHeaderField: "Referrer-Policy") == "no-referrer")
             if outcome == "failure" { return (503, Data(#"{"success":false,"error":"history_delete_outcome_unknown"}"#.utf8), 0) }
+            if outcome == "conflict" { return (409, Data(#"{"success":false,"error":"history_revision_conflict"}"#.utf8), 0) }
             let response = try historyData(["success":true,"schema_version":1,"operation_id":body["operation_id"]!,
                                            "owner_profile_id":outcome == "owner" ? "profile-b" : "profile-a",
                                            "deleted_session_id":archive.id,"deleted":true])
@@ -5544,6 +5657,8 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     let result = await task.value
     #expect(result == (outcome == "ok"))
     #expect(history.deletingSessionID == nil)
+    if ["ok", "conflict"].contains(outcome) { #expect(!history.hasUnconfirmedDeletion) }
+    if ["failure", "owner"].contains(outcome) { #expect(history.hasUnconfirmedDeletion) }
     if outcome == "ok" {
         #expect(history.timelines[archive.id] == nil && history.responseEpoch != before)
         // Let the explicitly read-only refresh settle before retiring the fixture.
@@ -5602,7 +5717,7 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     func complete() { lock.withLock { erased = true } }
 }
 
-@Test(arguments: ["ok", "failure", "network", "owner", "count", "snapshot", "epoch", "zero", "expired", "unsupported"])
+@Test(arguments: ["ok", "failure", "conflict", "network", "owner", "count", "snapshot", "epoch", "zero", "expired", "unsupported"])
 @MainActor func sessionBulkDeletionIsOneSnapshotBoundOperationPreservingActiveFlow(_ outcome: String) async throws {
     let fixtureObject = try historyObject()
     let archiveObject = try #require(fixtureObject["archived_timeline"] as? [String: Any])
@@ -5649,6 +5764,7 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
             #expect(request.value(forHTTPHeaderField:"Referrer-Policy") == "no-referrer")
             if outcome == "network" { throw URLError(.timedOut) }
             if outcome == "failure" { return (503,Data(#"{"success":false,"error":"history_delete_outcome_unknown"}"#.utf8),0) }
+            if outcome == "conflict" { return (409,Data(#"{"success":false,"error":"history_delete_snapshot_conflict"}"#.utf8),0) }
             let ack = try historyData(["success":true,"schema_version":1,"operation_id":operation,
                 "owner_profile_id":outcome == "owner" ? "profile-b" : "profile-a",
                 "snapshot_id":outcome == "snapshot" ? "another-set" : "opaque-all-pages",
@@ -5664,7 +5780,11 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     let (model,defaults,name) = fixture.model(); defer { defaults.removePersistentDomain(forName:name) }
     let history = model.sessionHistory
     #expect(await model.refreshActiveDJSession())
-    await history.prepare(); await history.loadSessions(); await history.loadTimeline(archive.id); await history.loadTimeline(active.id)
+    await history.prepare(); await history.loadSessions(); await history.loadTimeline(archive.id)
+    let activeReadLoaded = await history.loadTimeline(active.id)
+    #expect(activeReadLoaded)
+    #expect(history.timelines[active.id]?.loading == false)
+    print("BULK_ACTIVE_BASELINE outcome=\(outcome) loaded=\(activeReadLoaded) loading=\(String(describing: history.timelines[active.id]?.loading))")
     let activeBefore = model.activeDJSession
     let liveBefore = history.timelines[active.id]
     let epoch = history.responseEpoch
@@ -5681,6 +5801,8 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     let success = await operation.value
     #expect(success == (outcome == "ok"))
     #expect(!history.bulkDeletionBusy)
+    if ["ok", "conflict"].contains(outcome) { #expect(!history.hasUnconfirmedDeletion) }
+    if ["failure", "network", "owner", "count", "snapshot"].contains(outcome) { #expect(history.hasUnconfirmedDeletion) }
     if outcome == "ok" {
         for _ in 0..<200 where !history.sessions.contains(where: { $0.id == "after-snapshot" }) { try await Task.sleep(for:.milliseconds(2)) }
         #expect(history.sessions.map(\.id) == ["after-snapshot"])
@@ -5688,6 +5810,10 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
         #expect(history.historicalMatches.values.flatMap { $0 }.allSatisfy { $0.sessionID == active.id })
         #expect(history.archiveResponseEpoch != archiveEpoch)
         #expect(history.responseEpoch == epoch) // Active grants and pending intents keep their authority.
+        if history.timelines[active.id] != liveBefore {
+            let after = history.timelines[active.id]
+            print("BULK_ACTIVE_DIAGNOSTIC loading=\(String(describing: liveBefore?.loading))->\(String(describing: after?.loading)) entries=\(liveBefore?.entries.count ?? -1)->\(after?.entries.count ?? -1) revision=\(String(describing: liveBefore?.revision))->\(String(describing: after?.revision)) windowed=\(String(describing: liveBefore?.windowed))->\(String(describing: after?.windowed)) headerEqual=\(liveBefore?.session == after?.session) cursorEqual=\(liveBefore?.nextCursor == after?.nextCursor) errorEqual=\(liveBefore?.errorKey == after?.errorKey)")
+        }
         #expect(model.activeDJSession == activeBefore && history.timelines[active.id] == liveBefore)
     } else if outcome != "epoch" { #expect(history.timelines[archive.id] != nil) }
     let posts = fixture.requests.filter { $0.url!.path.hasSuffix("/delete_all") }

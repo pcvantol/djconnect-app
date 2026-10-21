@@ -420,7 +420,7 @@ public struct DJConnectSessionHistoryCapabilities: Decodable, Sendable {
     enum CodingKeys: String, CodingKey { case capabilities, contractVersions = "contract_versions" }
 }
 
-public struct DJConnectSessionDeleteRequest: Sendable {
+public struct DJConnectSessionDeleteRequest: Codable, Sendable {
     public let sessionID: String
     public let expectedRevision: String
     public let operationID: String
@@ -470,7 +470,7 @@ private final class SessionHistoryDateParser: @unchecked Sendable {
     }
 }
 
-public struct DJConnectSessionDeleteSnapshot: Decodable, Sendable {
+public struct DJConnectSessionDeleteSnapshot: Codable, Sendable {
     public let success: Bool
     public let schemaVersion: Int
     public let ownerProfileID: String
