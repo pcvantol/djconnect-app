@@ -1,5 +1,25 @@
 # Apple129: selection-bound device speech availability
 
+## Producer handoff refresh — 21 October 2026
+
+Fresh read-only Core #1212 now confirms the protected Finalization pin
+`ff1758344a863d2ec897b993c76b9c73a93c1631` and declares its HA-dev installation
+with 206 integration files verified. This supersedes the historical installed-pin
+statement below. That is producer-reported installed metadata evidence, not a
+fresh Apple runtime/STT/TTS/hearing observation.
+
+Independent local readback of that immutable producer pin confirms the original
+15-case `ha-status-metadata.json` is byte-identical to the Apple fixture:
+SHA-256 `111c71284630366d3fd8a19946013b853f78c6d02f784fa60cdf7596ebef4f6b`.
+No fixture or protocol update is needed for this handoff. The consumer contract
+at that pin hashes to `074892c1aacfd7ea18c4fa425c296840fea9a44a8c99d0b7d03e52e2d33bfdee`.
+Raw readback: `/private/tmp/djc-apple129-producer-readback-20261021.json`.
+No unchanged green model checks were rerun, audio generated, OS permission queried
+or backend mutated. Native route presentation, actual speech and physical
+acceptance remain separate work; Apple129 is not closed by this reconciliation.
+
+Source: https://github.com/pcvantol/djconnect/issues/1212
+
 Bounded consumer slice for Core source1221, merge
 604b80f806425cb53165a17faf783bfd6248af17. The original fifteen-case metadata
 receipt is imported byte-for-byte as Tests/Fixtures/device-speech-core-604b80f8.json.
