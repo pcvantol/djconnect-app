@@ -10540,18 +10540,6 @@ private struct RowPlayIndicator: View {
             .font(.system(size: 15, weight: .bold))
             .foregroundStyle(.white)
             .frame(width: 30, height: 30)
-            .background(
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.84, green: 0.18, blue: 1.0),
-                        Color(red: 0.16, green: 0.56, blue: 1.0)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ),
-                in: Circle()
-            )
-            .shadow(color: Color(red: 0.84, green: 0.18, blue: 1.0).opacity(0.28), radius: 8, y: 3)
             .accessibilityHidden(true)
     }
 }
