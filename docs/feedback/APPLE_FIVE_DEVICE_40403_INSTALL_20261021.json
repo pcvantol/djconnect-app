@@ -1,0 +1,148 @@
+{
+  "time_utc": "2026-10-21T12:32:58.457382+00:00",
+  "source_commit": "624e8aec24e321f4a7ca3846304367e560bd8996",
+  "version": "4.0.0",
+  "build": "40403",
+  "kind": "OWNER_REQUESTED_LOCAL_DEVELOPMENT_INSTALL",
+  "source_inputs_reverified": 210,
+  "source_clean_before_report": true,
+  "devices": [
+    {
+      "device": "iphone",
+      "version": "4.0.0",
+      "build": "40403",
+      "install": "PASS",
+      "readback": "PASS",
+      "launch": "PASS",
+      "process_id": 29108
+    },
+    {
+      "device": "ipad",
+      "version": "4.0.0",
+      "build": "40403",
+      "install": "PASS",
+      "readback": "PASS",
+      "launch": "PASS",
+      "process_id": 1299
+    },
+    {
+      "device": "watch",
+      "version": "4.0.0",
+      "build": "40403",
+      "install": "PASS",
+      "readback": "PASS",
+      "launch": "PASS",
+      "process_id": 9095
+    },
+    {
+      "device": "macmini",
+      "version": "4.0.0",
+      "build": "40403",
+      "install": "PASS",
+      "readback": "PASS",
+      "launch": "PASS",
+      "process_id": 20841,
+      "executable_sha256": "d1d6cf30712ef1bd00b0756d1cea573f515f994a52a0a6c1cfbeee880fda0fa3",
+      "strict_signature": "PASS"
+    },
+    {
+      "device": "macbook",
+      "version": "4.0.0",
+      "build": "40403",
+      "install": "PASS",
+      "readback": "PASS",
+      "launch": "PASS",
+      "process_id": 56512,
+      "executable_sha256": "d1d6cf30712ef1bd00b0756d1cea573f515f994a52a0a6c1cfbeee880fda0fa3",
+      "strict_signature": "PASS"
+    }
+  ],
+  "recovery_duplicate_apps_removed": 2,
+  "preserved_data": "No app uninstall, data wipe or pairing reset performed.",
+  "limits": [
+    "Installation and launch verified; physical swipe/context-menu/delete-confirmation interactions and audio behavior not qualified by this installation.",
+    "Local development candidate; no PR, merge, TestFlight or App Store publication performed."
+  ],
+  "evidence": [
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/source-manifest.json",
+      "sha256": "c9f121561a96e1604a5bdc40fdac321092db2cf7d97f870bf368f7cc28c9846f"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/artifacts.json",
+      "sha256": "60886c0a4865226084c858d47fbf11b3ca96478192aff20b4add89c9f7296ac2"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/ios-build.log",
+      "sha256": "02bf8794d043aedd0df785b2ed725f938da940499d8c6e36eacc5758ed3d1802"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/mac-build.log",
+      "sha256": "fd23b6dd18ff32bb17338316c753b927a3117f3cd030b1388177a8602d59d780"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/macmini-install.log",
+      "sha256": "b0aa3d6b9032835f43da90f5c56900506e2c5dafe6f1e04a1040663c30bb7360"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/macbook-install.log",
+      "sha256": "0ee1b1d3c511e67667831a119f2c0393c65d1394f3333b4292820c0a71d7228c"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/macmini-readback.json",
+      "sha256": "db87206e8b307ec8c6c5376136d0627eee421e8923eff934c3707627bf1a2e0e"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/macbook-readback.json",
+      "sha256": "82ae19789edb48b150e807102df5b47e4c0af178c28079d9cc93141941cdba07"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/macbook-launch.log",
+      "sha256": "760ec0d39f613644d6282adbb31f3d53dd0d7edfc02025ab708e3219f3f6392a"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/recovery-duplicate-proof.json",
+      "sha256": "7f68c671c8a538c4d7e1cd0cde2c0dd20207fa4c79e9c421e9d7c0d3ed7e0310"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/recovery-cleanup.json",
+      "sha256": "20d3511c3b7a4af02961e1403ff441933b01ebe40bc1c6eb02e99f5177ccfc97"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/iphone-install.json",
+      "sha256": "2fdd6332120c9594fe50b1210347780b9a67a039532eeb28de965067a85b47c3"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/iphone-readback.json",
+      "sha256": "bea32d617fb97d408ecb6d0780bc1c19b7c81a674226021e5a5e04a78acfa9b1"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/iphone-launch.json",
+      "sha256": "539ed7dc82b5977981d770d5c256a21c4a825a8be71cfc1e09b8ef2955f681d2"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/ipad-install.json",
+      "sha256": "41a0c7a07bf863b16dcb957281ba53f72f1683212d70830a60d4a18d5766da79"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/ipad-readback.json",
+      "sha256": "d84bcfd834df9e9c11a059434fb9d023bc39a1ad003a2b9091b4fb773a59b78c"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/ipad-launch.json",
+      "sha256": "55353e2e8b892a1cda7cdee07679a567afdd36ffc2a43c71aa1f1f2a9b721269"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/watch-install.json",
+      "sha256": "f852b96d9e84d15137a5d53857f751e278452c10b0df06fc271d3f6928e50b2b"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/watch-readback.json",
+      "sha256": "6a2fd53e88444273d07b7cf1a68370e468421cf00eb6c288ec1548348692a268"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-624e8ae-five-device-40403-20261021/watch-launch.json",
+      "sha256": "9e9e8f872b1de00db492747c688aa40d1c65eaa6d5e994c5999f80141ccc5d18"
+    }
+  ]
+}
