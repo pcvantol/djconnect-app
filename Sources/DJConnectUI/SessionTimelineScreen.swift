@@ -362,6 +362,7 @@ struct SessionTimelineScreen: View {
     @State private var priorSearchPosition: String?
     @State private var query = ""
     @State private var showsForecast = false
+    @State private var modeOverlayHeight: CGFloat = 84
     @State private var forecastPosition: String?
     @State private var forecastQuery = ""
     @State private var searching = false
@@ -488,15 +489,6 @@ struct SessionTimelineScreen: View {
         }
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
-                if activeSession != nil {
-                    SessionModeToggleButtons(showsForecast: $showsForecast, language: model.language)
-                        .padding(.horizontal, 20)
-                        #if os(iOS)
-                        .padding(.top, 4).padding(.bottom, 10)
-                        #else
-                        .padding(.vertical, 10)
-                        #endif
-                }
                 TimelineView(SessionEntryRefreshSchedule(deadlines: retentionDeadlines)) { clock in
                     let preparedEntries = renderCache.snapshot(timeline.entries, sessionID: sessionID, epoch: history.responseEpoch, at: clock.date)
                     ZStack {
@@ -623,9 +615,10 @@ struct SessionTimelineScreen: View {
                         // Background updates never reveal pull-to-refresh or move the scroll offset.
                         }
                     }
+                    .contentMargins(.top, activeSession != nil ? modeOverlayHeight : 0, for: .scrollContent)
                     .safeAreaInset(edge: .top, spacing: 0) {
                         VStack(spacing: 0) {
-                            if history.hasUnconfirmedDeletion {
+                            if activeSession == nil && history.hasUnconfirmedDeletion {
                                 ContentDeletionPendingNotice(model: model)
                                     .padding(.horizontal, 20).padding(.vertical, 10)
                             }
@@ -684,6 +677,24 @@ struct SessionTimelineScreen: View {
                         defer { pullRefreshing = false }
                         await refreshTimeline()
                     }
+                    }
+                    .overlay(alignment: .top) {
+                        if activeSession != nil {
+                            VStack(spacing: 0) {
+                                SessionModeToggleButtons(showsForecast: $showsForecast, language: model.language)
+                                    .padding(.horizontal, 20)
+                                    #if os(iOS)
+                                    .padding(.top, 4).padding(.bottom, 10)
+                                    #else
+                                    .padding(.vertical, 10)
+                                    #endif
+                                if history.hasUnconfirmedDeletion {
+                                    ContentDeletionPendingNotice(model: model)
+                                        .padding(.horizontal, 20).padding(.vertical, 10)
+                                }
+                            }
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { modeOverlayHeight = $0 }
+                        }
                     }
                     .safeAreaInset(edge: .bottom, spacing: 0) {
                         if usesFloatingComposer && (!searching || showsForecast) {
