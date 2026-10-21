@@ -11657,6 +11657,7 @@ struct AskDJSearchBar: View {
     var promptKey: String? = nil
     var fieldIdentifier = "ask-dj-search-field"
     var countIdentifier = "ask-dj-search-count"
+    var closeLabelKey = "ui.close.search"
     var isLoading = false
     @Binding var text: String
     var isFocused: FocusState<Bool>.Binding
@@ -11711,8 +11712,8 @@ struct AskDJSearchBar: View {
             Button(action: closeAction) {
                 Image(systemName: "xmark")
             }
-            .help(localizedKey(language, "ui.close.search"))
-            .accessibilityLabel(localizedKey(language, "ui.close.search"))
+            .help(localizedKey(language, closeLabelKey))
+            .accessibilityLabel(localizedKey(language, closeLabelKey))
         }
         .djConnectPlainButtonStyle()
         .foregroundStyle(.white.opacity(0.86))

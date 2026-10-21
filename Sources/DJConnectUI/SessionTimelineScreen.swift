@@ -1224,52 +1224,19 @@ struct SessionTimelineScreen: View {
 
     @ViewBuilder private func searchBar(proxy: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            if activeSession != nil {
-                HStack(spacing: 0) {
-                    TextField(text("ui.session.history.search"), text: $query)
-                        .textFieldStyle(.plain).padding(12)
-                        .focused($searchFocused)
-                        .accessibilityLabel(text("ui.session.history.search"))
-                        .accessibilityIdentifier("session-search-field")
-                        .disabled(!history.searchAvailable)
-                        .onSubmit { moveMatch(1, proxy: proxy) }
-                    SessionSearchClearButton(query: $query, language: model.language,
-                                             identifier: "session-search-clear") { searchFocused = true }
-                }
-                .djSessionFrostedSurface()
-                if searching {
-                    HStack {
-                        if history.searchLoading { ProgressView().controlSize(.small) }
-                        Text("\(history.acceptedSearchSessionID == sessionID && history.acceptedSearchQuery == query ? matches.count : 0)").monospacedDigit()
-                            .accessibilityIdentifier("session-search-count")
-                        Spacer()
-                        Button { moveMatch(-1, proxy: proxy) } label: { Image(systemName: "chevron.up") }
-                            .accessibilityLabel(text("ui.previous.result"))
-                            .disabled(matches.isEmpty)
-                        Button { moveMatch(1, proxy: proxy) } label: { Image(systemName: "chevron.down") }
-                            .accessibilityLabel(text("ui.next.result"))
-                            .disabled(matches.isEmpty)
-                        Button { closeSearch(proxy: proxy) } label: { Image(systemName: "xmark") }
-                            .accessibilityLabel(text("ui.close"))
-                    }
-                    .font(.caption)
-                }
-            } else {
             AskDJSearchBar(language: model.language, promptKey: "ui.session.history.search",
                            fieldIdentifier: "session-search-field", countIdentifier: "session-search-count",
+                           closeLabelKey: activeSession != nil ? "ui.session.search.clear" : "ui.close.search",
                            isLoading: history.searchLoading, text: $query, isFocused: $searchFocused,
-                           resultCount: history.acceptedSearchQuery == query ? matches.count : 0,
+                           resultCount: history.acceptedSearchSessionID == sessionID && history.acceptedSearchQuery == query ? matches.count : 0,
                            selectedIndex: selectedIndex,
                            previousAction: { moveMatch(-1, proxy: proxy) },
                            nextAction: { moveMatch(1, proxy: proxy) },
-                           closeAction: { closeSearch(proxy: proxy) },
-                           submitAction: {
-                               #if os(iOS)
-                               searchFocused = false
-                               #endif
-                               moveMatch(1, proxy: proxy)
-                           })
-            }
+                           closeAction: {
+                               if activeSession != nil { query = ""; searchFocused = true }
+                               else { closeSearch(proxy: proxy) }
+                           },
+                           submitAction: { moveMatch(1, proxy: proxy) })
             if let key = history.searchErrorKey {
                 Text(text(key))
                 Button(text("ui.retry")) { history.search(sessionID: sessionID, query: query) }
@@ -1292,31 +1259,6 @@ struct SessionTimelineScreen: View {
         .onKeyPress(.escape) { closeSearch(proxy: proxy); return .handled }
         .onKeyPress(.upArrow) { moveMatch(-1, proxy: proxy); return .handled }
         .onKeyPress(.downArrow) { moveMatch(1, proxy: proxy); return .handled }
-    }
-}
-
-struct SessionSearchClearButton: View {
-    @Binding var query: String
-    let language: String
-    let identifier: String
-    var onClear: () -> Void = {}
-
-    var body: some View {
-        if !query.isEmpty {
-            Button {
-                query = ""
-                onClear()
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.body)
-                    .foregroundStyle(.white.opacity(0.72))
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(DJConnectLocalization.localized(key: "ui.session.search.clear", language: language))
-            .accessibilityIdentifier(identifier)
-        }
     }
 }
 
