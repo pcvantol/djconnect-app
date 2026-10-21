@@ -197,6 +197,10 @@ struct SavedSessionsView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .accessibilityIdentifier("saved-sessions-list")
+            .djConnectFindShortcut {
+                isSearchVisible = true
+                DispatchQueue.main.async { isSearchFocused = true }
+            }
             .background(DJConnectCanvasBackground())
             .safeAreaInset(edge: .top) {
                 if isSearchVisible {

@@ -11492,6 +11492,7 @@ private struct AskDJView: View {
 
     var body: some View {
         navigationContent
+        .djConnectFindShortcut(action: showAskDJSearch)
         .background(DJConnectCanvasBackground())
         #if os(iOS)
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
@@ -11561,14 +11562,22 @@ private struct AskDJView: View {
     }
 
     private func toggleAskDJSearch() {
-        followsSubmittedQuestion = false
-        dismissAskDJKeyboard()
         if isSearchVisible {
+            followsSubmittedQuestion = false
+            dismissAskDJKeyboard()
             dismissAskDJSearch()
         } else {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                isSearchVisible = true
-            }
+            showAskDJSearch()
+        }
+    }
+
+    private func showAskDJSearch() {
+        followsSubmittedQuestion = false
+        dismissAskDJKeyboard()
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+            isSearchVisible = true
+        }
+        DispatchQueue.main.async {
             isSearchFocused = true
         }
     }
@@ -11649,6 +11658,18 @@ private struct AskDJView: View {
     private static func trimmedNonEmpty(_ value: String?) -> String? {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed?.isEmpty == false ? trimmed : nil
+    }
+}
+
+extension View {
+    /// Use the same native key-equivalent route as Logs, without a visible control.
+    func djConnectFindShortcut(action: @escaping () -> Void) -> some View {
+        background {
+            Button("", action: action)
+                .keyboardShortcut("f", modifiers: .command)
+                .hidden()
+                .accessibilityHidden(true)
+        }
     }
 }
 
@@ -14235,6 +14256,7 @@ struct QueueView: View {
             .djContentRefreshable(enabled: !model.isDemoMode && canUsePlayback) { await refreshQueueWithToast() }
             .navigationTitle(screenTitle(model.language, key: "Queue", isDemoMode: model.isDemoMode))
             .accessibilityIdentifier("screen-queue")
+            .djConnectFindShortcut(action: showQueueSearch)
             .scrollContentBackgroundIfAvailable(.hidden)
             .background(DJConnectCanvasBackground())
             #if os(iOS)
@@ -14539,6 +14561,7 @@ struct PlaylistsView: View {
             .djContentRefreshable(enabled: !model.isDemoMode && canUsePlayback) { await refreshPlaylistsWithToast() }
             .navigationTitle(screenTitle(model.language, key: "ui.playlists", isDemoMode: model.isDemoMode))
             .accessibilityIdentifier("screen-playlists")
+            .djConnectFindShortcut(action: showPlaylistSearch)
             .scrollContentBackgroundIfAvailable(.hidden)
             .background(DJConnectCanvasBackground())
             #if os(iOS)
