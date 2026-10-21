@@ -52,7 +52,7 @@ import Foundation
                   call.deadlineMS == challenge.expiresAtMS else { throw Failure.invalidBinding }
             expiry = try await service.register(originalBody:call.body,qr:qr,beforeDispatch:{
                 try Self.validate(qr:qr,challenge:challenge,isCurrent:isCurrent)
-            })
+            },isResponseCurrent:{challenge.isCurrent()})
             try Self.validate(qr:qr,challenge:challenge,isCurrent:isCurrent)
             let now = Self.now(), maximumLifetime:Int64 = 30 * 86_400_000
             guard expiry > now, expiry - now <= maximumLifetime,

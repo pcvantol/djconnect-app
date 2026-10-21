@@ -25,8 +25,14 @@ Initial focused memory/fake-SDK/intercepted-HTTP tests passed12 functions across
 two suites. They exercise fresh enrollment, binary-nonce hashing, original-byte
 assertions, active-key reuse, lost201/202, owner withdrawal, FIFO and duplicate
 callbacks. These are synthetic executions, not genuine App Attest evidence.
-Compilation/regression continues after further original-deadline/body-fence
-and finite-test-wait corrections; final same-source iOS/QA/full evidence is pending.
+After the original-deadline/body-fence and finite-test-wait corrections,
+the v3 fixed-QA run passed 13 XCTest and 18 Swift Testing cases (31 total).
+The same 173 recorded source inputs compiled successfully for real iphoneos
+with signing disabled, bundle dev.djconnect.ios.vibecastqa/build40406.
+The actual unsigned executable SHA256 was
+379ba49da1abeaeda0b627777071de35ba895fd0ef7f8bfab9d68e3af9bd85a1.
+These WIP inputs were recorded as dirty, without a qualified source SHA. Full
+production regressions and all signed/native/profile evidence remain pending.
 
 API implementation remains the already released
 `djc-rendezvous/1-implementation.1`, source
