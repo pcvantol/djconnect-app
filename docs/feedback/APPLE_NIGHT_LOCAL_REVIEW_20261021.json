@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "base_sha": "aa9785361e6d41f9c086765fc3b9db28669184b8",
-  "reviewed_source_sha": "fbebed7d02587e1bbab531c7bb7f2fdd78a20089",
+  "reviewed_source_sha": "26c5d3c851cbbc29e927acf727b9fdd1b6e9a4f0",
   "review_type": "AUTHOR_SELF_REVIEW_NOT_INDEPENDENT_APPROVAL",
   "new_product_defect_found": false,
   "production_files": [
@@ -329,6 +329,36 @@
         "docs/feedback/APPLE_DE_ES_PERMISSION_COPY_20261021.md"
       ],
       "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "ea2d58534e0d026c0c3707f4a9332f97e4e6cf2c",
+      "title": "Record bounded Apple night source review and local delivery manifest",
+      "production_paths": [],
+      "reports": [
+        "docs/feedback/APPLE_NIGHT_LOCAL_REVIEW_20261021.json",
+        "docs/feedback/APPLE_NIGHT_LOCAL_REVIEW_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "7730ffb01bb699a91e22a648a2f0965feceed33a",
+      "title": "Qualify native consent dismissal while approval is in flight",
+      "production_paths": [],
+      "reports": [
+        "docs/feedback/APPLE_CONSENT_INFLIGHT_LIFECYCLE_20261021.json",
+        "docs/feedback/APPLE_CONSENT_INFLIGHT_LIFECYCLE_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "26c5d3c851cbbc29e927acf727b9fdd1b6e9a4f0",
+      "title": "Qualify native Mac permission row presentation",
+      "production_paths": [],
+      "reports": [
+        "docs/feedback/APPLE_MAC_PERMISSION_NATIVE_20261021.json",
+        "docs/feedback/APPLE_MAC_PERMISSION_NATIVE_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
     }
   ],
   "receipt_verification": {
@@ -341,5 +371,12 @@
     "sha256": "bd53f78c4f18941d62fd7296a1c17ffb5e44498594e449975ec5890720e98c18"
   },
   "publication": "LOCAL_ONLY_NO_APPROVAL_GRANTED",
-  "deadline_utc": "2026-10-21T04:21:53Z"
+  "deadline_utc": "2026-10-21T04:21:53Z",
+  "incremental_receipt_verification": {
+    "new_hashes_passed": 27,
+    "previous_audit_intact": true,
+    "cumulative_recorded_hash_checks": 486,
+    "path": "/private/tmp/djc-apple-final-handoff-20261021/incremental-verification.json",
+    "sha256": "a061aabfe38b5896765370828b5e084a75b14199fe159b5ffe09990532ae48cc"
+  }
 }

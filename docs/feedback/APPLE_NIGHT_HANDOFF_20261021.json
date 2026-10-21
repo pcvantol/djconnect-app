@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "candidate_sha": "26c5d3c851cbbc29e927acf727b9fdd1b6e9a4f0",
+  "base_sha": "aa9785361e6d41f9c086765fc3b9db28669184b8",
+  "production_files_unchanged_since": "fbebed7d02587e1bbab531c7bb7f2fdd78a20089",
+  "candidate_commits": 29,
+  "publication": "LOCAL_ONLY_NO_APPROVAL_GRANTED",
+  "automation_state_at_handoff": "ACTIVE",
+  "deadline_utc": "2026-10-21T04:21:53Z",
+  "lane_last_comment_utc": "2026-10-20T16:22:00Z",
+  "own_jobs_active": false,
+  "owned_simulator_state": "Shutdown",
+  "integrity_checks_recorded": 486,
+  "evidence": [
+    {
+      "path": "/private/tmp/djc-apple-final-handoff-20261021/incremental-verification.json",
+      "sha256": "a061aabfe38b5896765370828b5e084a75b14199fe159b5ffe09990532ae48cc"
+    },
+    {
+      "path": "/private/tmp/djc-apple-lane87-readonly-20261021-0340.json",
+      "sha256": "1ea9dddcca86d42c71b5765e5db43c2278cb68a28c4341325a18d36b786809f9"
+    }
+  ]
+}

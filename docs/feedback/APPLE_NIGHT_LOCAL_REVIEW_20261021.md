@@ -1,6 +1,6 @@
 # Local Apple night-work review and delivery manifest — 21 October 2026
 
-Author self-review of the clean accumulated candidate `fbebed7d02587e1bbab531c7bb7f2fdd78a20089` against protected base `aa9785361e6d41f9c086765fc3b9db28669184b8`. The JSON lists all26 exact commits, their changed production paths and reports. This is a local review/handoff artifact; it grants no independent review, source-candidate publication, PR, merge, CI or release approval.
+Author self-review of the clean accumulated candidate `26c5d3c851cbbc29e927acf727b9fdd1b6e9a4f0` against protected base `aa9785361e6d41f9c086765fc3b9db28669184b8`. The JSON lists all29 exact commits, their changed production paths and reports. This is a local review/handoff artifact; it grants no independent review, source-candidate publication, PR, merge, CI or release approval.
 
 Eight production files change: three locale tables and five UI/model sources. The review inspected the complete production diff and relevant callers, owner preparation/suspension, query debounce/dispatch, input binding/focus and Forecast read/presentation paths. No additional demonstrated product defect was found. This is bounded source review, not proof that no defect exists.
 
@@ -27,6 +27,12 @@ The UIKit coordinator now weakly connects native insert/delete callbacks to the 
 - Native component summary/permission captures do not establish full-root navigation, actual installed HA/Profile/receiver, physical device or OS permission acceptance. This stack has not been ordinarily installed/deployed.
 - The original8462454 branch was pushed before draft-PR auto-review rejection. Every successor remains local; no PR or external status report was created. Specific pending publication permission for8462454 does not cover this candidate. Prior ordinary app-start/register/Core/API publication rejections remain closed.
 
-No unchanged green suites were rerun for this review. Disk remains tight (last789Mi available); no new native build was started. Unique evidence/WIP and all26 branches/commits remain preserved. The prior deletion affected only two specifically owned reproducible compiler-cache directories, documented in its report. No own job remains and no recovery bundle, Core change, provider/SDK/physical/system-permission operation occurred.
+No unchanged green suites were rerun for this review. Disk remains tight (last789Mi available); no new native build was started. Unique evidence/WIP and all29 branches/commits remain preserved. The prior deletion affected only two specifically owned reproducible compiler-cache directories, documented in its report. No own job remains and no recovery bundle, Core change, provider/SDK/physical/system-permission operation occurred.
 
 The timer remains active only until21Oct06:21:53Amsterdam/04:21:53Z. The final wake must checkpoint and pause the automation without extending it. Source/test integrity and this manifest do not imply final product acceptance or external-delivery permission.
+
+## Incremental completion readback at03:40UTC
+
+Production hashes remain identical to the prior reviewed eight-file candidate. The in-flight native consent hierarchy case7730ffb now completes1PASS, with one approval POST and late acknowledgement ignored after remount; its four renders are inspected. Native Mac permission rows26c5d3c complete1PASS with three inspected narrow/wide renders. Neither changes production behavior. The updated manifest includes29commits.
+
+The earlier459hash audit is intact;27new hashes from the review manifest and two new qualification receipts all match, yielding486recorded successful integrity checks. This does not aggregate test coverage or repeat old tests. The raw incremental audit is separately hashed in the JSON. Fresh lane87 still ends20Oct16:22UTC with408comments; no new task/producer grant. B62 is Shutdown, no own jobs remain; disk781Mi available. See APPLE_NIGHT_HANDOFF_20261021.md for current gap classification and delivery boundary.
