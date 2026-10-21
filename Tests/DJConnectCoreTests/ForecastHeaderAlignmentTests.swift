@@ -17,6 +17,51 @@ private struct ForecastHeaderMarker: NSViewRepresentable {
 }
 
 final class ForecastHeaderAlignmentTests: XCTestCase {
+    @MainActor func testNativeSessionModeGlassButtons() async throws {
+        guard let path = ProcessInfo.processInfo.environment["DJCONNECT_SESSION_MODE_GLASS_DIR"] else {
+            throw XCTSkip("Native mode-button rendering is opt-in")
+        }
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency else {
+            throw XCTSkip("Native glass rendering follows the system transparency preference")
+        }
+        let folder = URL(fileURLWithPath: path)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        _ = NSApplication.shared
+        var interactiveHost = true
+        for width: CGFloat in [320, 640] {
+            for forecast in [false, true] {
+                let host = NSHostingView(rootView:
+                    SessionModeToggleButtons(showsForecast: .constant(forecast), language: "nl")
+                        .padding(.vertical, 16)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(LinearGradient(colors: [.green.opacity(0.5), .black],
+                                                   startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .environment(\.djConnectGlassEffectsEnabled, true)
+                        .preferredColorScheme(.dark))
+                let window = NSWindow(contentRect: .init(x: 100, y: 100, width: width, height: 100),
+                                      styleMask: [.titled], backing: .buffered, defer: false)
+                window.isReleasedWhenClosed = false
+                window.title = "DJConnect mode controls — isolated preview"
+                window.contentView = host
+                window.makeKeyAndOrderFront(nil)
+                NSApplication.shared.activate()
+                try await Task.sleep(for: .milliseconds(250))
+                host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
+                interactiveHost = interactiveHost && NSApplication.shared.isActive && window.isKeyWindow
+                print("NATIVE_MODE_WINDOW active=\(NSApplication.shared.isActive) key=\(window.isKeyWindow)")
+                let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+                host.cacheDisplay(in: host.bounds, to: bitmap)
+                try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+                    .write(to: folder.appendingPathComponent("\(forecast ? "forecast" : "flow")-\(Int(width)).png"))
+                window.close()
+                XCTAssertEqual(host.bounds.width, width)
+            }
+        }
+        guard interactiveHost else {
+            throw XCTSkip("Inactive native host: captures do not qualify glass chrome or selected appearance")
+        }
+    }
+
     /// Actual Forecast panel in an isolated native host, with the same supplied
     /// header as a plain scroll view. No ordinary app, paired owner or live HTTP.
     @MainActor func testForecastAddsNoTopInsetToSharedHeader() async throws {

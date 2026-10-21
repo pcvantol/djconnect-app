@@ -1,0 +1,77 @@
+{
+  "recorded_at": "2026-10-21T07:49:04.824388+00:00",
+  "base_commit": "e587fa3de0bd12de1f8549af6f74a58d3831a9a3",
+  "branch": "codex/apple-session-native-mode-toggles",
+  "publication": "LOCAL_ONLY",
+  "change": {
+    "controls": "Two native SwiftUI Buttons with interactive .glass style and capsule shape",
+    "labels": [
+      "ui.session.forecast.flow",
+      "ui.session.forecast.tab"
+    ],
+    "visible_group_label_removed": "ui.session.forecast.mode",
+    "selection": "Existing showsForecast boolean; selecting either mode sets its value, selecting active mode keeps it selected",
+    "accessibility": "Selected trait on active button; individual stable identifiers; no AX/VoiceOver acceptance claimed",
+    "fallback": "Existing opaque button styling when Glass preference disabled or system reduces transparency"
+  },
+  "validation": {
+    "native_mac_module_and_tests_compile": "PASS",
+    "final_native_probe": "1 SKIP / 0 FAIL; INCONCLUSIVE_INACTIVE_NATIVE_HOST",
+    "widths_points": [
+      320,
+      640
+    ],
+    "supplied_selections": [
+      "Flow",
+      "Vooruitblik"
+    ],
+    "native_host_active": false,
+    "native_host_key_window": false,
+    "glass_chrome_selected_appearance": "NOT_QUALIFIED",
+    "initial_compile_failure": "Test attempted writing readonly accessibilityReduceTransparency environment; harness corrected to respect actual system setting. No production change needed.",
+    "earlier_capture_recorders": "Completed but inactive captures do not qualify glass chrome or selected appearance",
+    "ordinary_app_installation": "NOT_RUN; build40402 unchanged"
+  },
+  "evidence_files": [
+    {
+      "path": "/Volumes/Shared Data/GitHub/djconnect-app/Sources/DJConnectUI/SessionTimelineScreen.swift",
+      "sha256": "6688513ef018ff091507aac644f634500f2d5715927d7582897dfd598c9fce0f"
+    },
+    {
+      "path": "/Volumes/Shared Data/GitHub/djconnect-app/Tests/DJConnectCoreTests/ForecastHeaderAlignmentTests.swift",
+      "sha256": "9164d1e911613c1d4792b564c90d8531e3fc1f92ceb50322855fcdabb9d5b2a5"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-mode-glass-20261021/initial-build.log",
+      "sha256": "57eacb4a17abc83b26cf4d847360c6221598cf4d5c0a7c99fd14a860d3ebc475"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-mode-glass-20261021/inactive-host.log",
+      "sha256": "c7d5dd7bd04bf97cf7eb5847a24b9b16954ac5d2b327c13549d6fc32d20e3edf"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-mode-glass-20261021/active-host.log",
+      "sha256": "1b0bd4a380258df8acb1bfacd8a219b0dd5ff965e768ee574b108b447afdf5b5"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-mode-glass-20261021/final.log",
+      "sha256": "f56d664a17c54c20eaba83d33f1810814a70191bf03a901f380603bc1b79c3b3"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-mode-glass-20261021/observations-final/flow-320.png",
+      "sha256": "988ecc5402f140c60cf5dbdd2fccc8ed5f80252747bbbc2b9fbec62c088a2963"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-mode-glass-20261021/observations-final/flow-640.png",
+      "sha256": "f66ccf06746fc9cd6b15d888daec8c8d86b341b58b6c3016e8cdc02087937b80"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-mode-glass-20261021/observations-final/forecast-320.png",
+      "sha256": "988ecc5402f140c60cf5dbdd2fccc8ed5f80252747bbbc2b9fbec62c088a2963"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-mode-glass-20261021/observations-final/forecast-640.png",
+      "sha256": "f66ccf06746fc9cd6b15d888daec8c8d86b341b58b6c3016e8cdc02087937b80"
+    }
+  ]
+}

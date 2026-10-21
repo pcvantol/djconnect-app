@@ -475,12 +475,8 @@ struct SessionTimelineScreen: View {
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
                 if activeSession != nil {
-                    Picker(text("ui.session.forecast.mode"), selection: $showsForecast) {
-                        Text(text("ui.session.forecast.flow")).tag(false)
-                        Text(text("ui.session.forecast.tab")).tag(true)
-                    }
-                    .pickerStyle(.segmented).padding(.horizontal, 20).padding(.vertical, 10)
-                    .accessibilityIdentifier("session-flow-forecast-picker")
+                    SessionModeToggleButtons(showsForecast: $showsForecast, language: model.language)
+                        .padding(.horizontal, 20).padding(.vertical, 10)
                 }
                 TimelineView(SessionEntryRefreshSchedule(deadlines: retentionDeadlines)) { clock in
                     let preparedEntries = renderCache.snapshot(timeline.entries, sessionID: sessionID, epoch: history.responseEpoch, at: clock.date)
@@ -1201,6 +1197,51 @@ struct SessionTimelineScreen: View {
         .onKeyPress(.escape) { closeSearch(proxy: proxy); return .handled }
         .onKeyPress(.upArrow) { moveMatch(-1, proxy: proxy); return .handled }
         .onKeyPress(.downArrow) { moveMatch(1, proxy: proxy); return .handled }
+    }
+}
+
+struct SessionModeToggleButtons: View {
+    @Binding var showsForecast: Bool
+    let language: String
+    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        DJSessionGlassGroup {
+            HStack(spacing: 10) {
+                modeButton(forecast: false, key: "ui.session.forecast.flow")
+                modeButton(forecast: true, key: "ui.session.forecast.tab")
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("session-flow-forecast-picker")
+    }
+
+    private func modeButton(forecast: Bool, key: String) -> some View {
+        let selected = showsForecast == forecast
+        let button = Button {
+            showsForecast = forecast
+        } label: {
+            Text(DJConnectLocalization.localized(key: key, language: language))
+                .font(.headline)
+                .padding(.horizontal, 8).padding(.vertical, 4)
+        }
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier(forecast ? "session-forecast-toggle" : "session-flow-toggle")
+
+        return Group {
+            if glassEnabled && !reduceTransparency {
+                button
+                    .buttonStyle(.glass(.regular.tint(selected ? djConnectAccent.opacity(0.40) : .clear).interactive()))
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.large)
+                    .foregroundStyle(.white)
+            } else {
+                button.djConnectButtonStyle(DJConnectButtonStyle(emphasis: selected ? .selected : .secondary,
+                                                                 usesLiveGlass: false))
+            }
+        }
     }
 }
 
