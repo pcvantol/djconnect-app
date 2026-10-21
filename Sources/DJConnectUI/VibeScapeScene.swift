@@ -170,3 +170,89 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         salt = 0; turns = 0; deadline = 0; lastUptime = 0
     }
 }
+
+
+/// Local request coordination, NOT a Core request/response DTO or an authority
+/// grant. A future qualified adapter must supply the original source deadline
+/// and a closure that rechecks the SAME original owner/session/source lease.
+/// No transcript, response payload, wire token or durable store lives here.
+@MainActor final class VisualDirectorTurnFence {
+    struct Turn: Equatable, Sendable {
+        let id: UUID
+        let scene: VibeScapeRenderTicket
+        let deadline: TimeInterval
+    }
+    private struct Pending {
+        let turn: Turn
+        let started: TimeInterval
+        let isCurrent: () -> Bool
+    }
+    private let visit: VisualDirectorVisit
+    private var pending: Pending?
+    private var visitID: UUID?
+    private var attempts = 0
+    private var subscription: AnyCancellable?
+    private var expiryTask: Task<Void, Never>?
+
+    init(visit: VisualDirectorVisit) {
+        self.visit = visit
+        subscription = visit.$ticket.sink { [weak self] next in
+            guard let self else { return }
+            if self.visitID != next?.visit {
+                self.cancel(); self.visitID = next?.visit; self.attempts = 0
+            } else if let pending = self.pending, pending.turn.scene != next {
+                self.cancel()
+            }
+        }
+    }
+
+    /// One in-flight turn, at most32 attempts during the same continuous visit.
+    /// Thirty seconds is a local maximum, never an extension of a shorter Core
+    /// lease or a promise about the producer's eventual wire contract.
+    func begin(originalSourceDeadline: TimeInterval,
+               isCurrent: @escaping () -> Bool) -> Turn? {
+        let time = visit.now()
+        guard visit.isCurrent, let scene = visit.ticket, scene.occurrence != nil,
+              originalSourceDeadline.isFinite, originalSourceDeadline > time else { return nil }
+        if let pending, (time < pending.started || time >= pending.turn.deadline) { cancel() }
+        guard pending == nil else { return nil }
+        if visitID != scene.visit { visitID = scene.visit; attempts = 0 }
+        guard attempts < 32, isCurrent(), visit.isCurrent, visit.ticket == scene, pending == nil else { return nil }
+        // Read time again after owner checks: they cannot renew the old lease.
+        let admittedAt = visit.now()
+        let deadline = min(originalSourceDeadline, time + 30)
+        guard admittedAt >= time, admittedAt < deadline else { return nil }
+        attempts += 1
+        let turn = Turn(id: UUID(), scene: scene, deadline: deadline)
+        pending = Pending(turn: turn, started: time, isCurrent: isCurrent)
+        expiryTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(deadline-admittedAt))
+            guard !Task.isCancelled, let self, self.pending?.turn == turn else { return }
+            self.cancel()
+        }
+        return turn
+    }
+
+    /// The callback is never called for a stale/cancelled/duplicate turn, even
+    /// if a replacement request has the same base scene revision. Clearing the
+    /// reservation precedes any application; GPU completion remains separate.
+    @discardableResult func complete(_ turn: Turn, apply: () -> Bool) -> Bool {
+        guard let pending, pending.turn == turn else { return false }
+        let time = visit.now()
+        guard time.isFinite, time >= pending.started, time < turn.deadline,
+              visit.isCurrent, visit.ticket == turn.scene, pending.isCurrent(),
+              visit.now() >= time, visit.now() < turn.deadline,
+              visit.isCurrent, visit.ticket == turn.scene,
+              self.pending?.turn == turn else {
+            if self.pending?.turn == turn { cancel() }
+            return false
+        }
+        cancel()
+        return apply()
+    }
+
+    func cancel() {
+        pending = nil
+        expiryTask?.cancel(); expiryTask = nil
+    }
+}

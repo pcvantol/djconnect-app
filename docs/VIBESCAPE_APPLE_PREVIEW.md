@@ -48,6 +48,33 @@ cancels ordinary voice capture and suspends wake-word listening; general text,
 recording and upload entry points refuse while the visual view is active. A
 stale wake recognizer cannot log or route its callback into this visit.
 
+## Local interpretation-turn fence (still no transport)
+
+`VisualDirectorTurnFence` is a client-local helper, not a Core DTO, endpoint or
+new authority grant. It accepts an already-qualified adapter's original source
+deadline and a synchronous check of that same original authorization. Each turn
+has a new local UUID, even after cancellation at an unchanged scene revision.
+It admits one request at a time and at most32 attempts during one continuous
+visit, counting cancellations and no-effect results. A track change does not
+refund the budget. A source lease cannot extend an earlier turn; the local
+maximum is30seconds and a shorter original source deadline always wins.
+
+Visit exit/revoke, reentry, a track/revision change and expiry cancel the pending
+turn and release its captured context. Completion checks the original turn,
+scene, source authorization and monotonic deadline again, consumes the turn
+before invoking a local application callback and refuses duplicates. It does
+not emit a GPU acknowledgment or a success toast. It holds no transcript,
+response body, wire token or persistent state. Production integration remains
+absent until the actual Core context/contract is delivered; the preview still
+has no authoritative occurrence and therefore cannot start interpreted turns.
+
+Six additional native tests cover same-revision cancellation/replacement,
+source renewal versus original expiry, clock rollback, owner/revision/exit
+withdrawal, attempt budget across tracks, missing context and immediate release
+of a captured context object. Together with the existing eight, all14VibeScape
+tests pass. Previous full-suite/build/GPU results remain bound to their original
+heads; this local follow-up does not inherit native voice or hardware acceptance.
+
 ## Explicitly unresolved producer/UI boundaries
 
 Core confirmed that current `item_id` is a recording hash and `updated_at` is a

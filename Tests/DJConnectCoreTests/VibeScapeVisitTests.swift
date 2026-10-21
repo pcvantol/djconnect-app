@@ -118,3 +118,86 @@ import DJConnectCore
         model.isShowingVibeScape = false
     }
 }
+
+
+@Suite @MainActor struct VibeScapeTurnFenceTests {
+    @Test func cancelledTurnCannotReplaceNewTurnAtSameSceneRevision() throws {
+        let visit = VisualDirectorVisit(); visit.enter(mood:"groove",occurrence:"A",salt:1)
+        let fence = VisualDirectorTurnFence(visit:visit)
+        let old = try #require(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{true}))
+        fence.cancel()
+        let next = try #require(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{true}))
+        #expect(old.scene == next.scene && old.id != next.id)
+        var applications = 0
+        #expect(!fence.complete(old) { applications += 1; return true })
+        #expect(fence.complete(next) { applications += 1; return true })
+        #expect(!fence.complete(next) { applications += 1; return true })
+        #expect(applications == 1)
+        #expect(visit.appliedRevision == nil) // Interpretation is not GPU ACK.
+    }
+    @Test func originalLeaseCannotBeExtendedByLaterContextOrClockRollback() throws {
+        let visit = VisualDirectorVisit(); var time:TimeInterval = 100
+        visit.now = {time}; visit.enter(mood:nil,occurrence:"A",salt:1)
+        let fence = VisualDirectorTurnFence(visit:visit)
+        let old = try #require(fence.begin(originalSourceDeadline:105,isCurrent:{true}))
+        time = 106
+        let fresh = try #require(fence.begin(originalSourceDeadline:200,isCurrent:{true}))
+        #expect(fresh.deadline == 136)
+        #expect(!fence.complete(old) { Issue.record("Expired source renewed"); return true })
+        time = 99
+        #expect(!fence.complete(fresh) { Issue.record("Clock rollback accepted"); return true })
+    }
+    @Test func sceneChangeRevokeAndOwnerLossPreventCallback() throws {
+        let visit = VisualDirectorVisit(); visit.enter(mood:nil,occurrence:"A",salt:1)
+        let fence = VisualDirectorTurnFence(visit:visit)
+        var owner = true
+        let old = try #require(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{owner}))
+        _ = visit.setDynamics(0.2)
+        #expect(!fence.complete(old) { Issue.record("Old revision applied"); return true })
+        let next = try #require(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{owner}))
+        owner = false
+        #expect(!fence.complete(next) { Issue.record("Revoked owner applied"); return true })
+        owner = true
+        let last = try #require(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{owner}))
+        visit.revoke()
+        #expect(!fence.complete(last) { Issue.record("Exited visit applied"); return true })
+    }
+    @Test func rejectedOrCancelledTurnsConsumeBoundedAttemptBudget() throws {
+        let visit = VisualDirectorVisit(); visit.enter(mood:nil,occurrence:"A",salt:1)
+        let fence = VisualDirectorTurnFence(visit:visit)
+        for _ in 0..<32 {
+            _ = try #require(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{true}))
+            #expect(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{true}) == nil)
+            fence.cancel()
+        }
+        #expect(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{true}) == nil)
+        visit.trackChanged(mood:nil,occurrence:"B")
+        #expect(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{true}) == nil)
+        visit.enter(mood:nil,occurrence:"B",salt:2)
+        #expect(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{true}) != nil)
+        fence.cancel()
+    }
+    @Test func exitImmediatelyReleasesCapturedOriginalContext() throws {
+        final class Context {}
+        let visit = VisualDirectorVisit(); visit.enter(mood:nil,occurrence:"A",salt:1)
+        let fence = VisualDirectorTurnFence(visit:visit)
+        var context: Context? = Context()
+        weak var retained = context
+        let turn = fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{ [context] in context != nil })
+        _ = try #require(turn)
+        context = nil
+        #expect(retained != nil)
+        visit.revoke()
+        #expect(retained == nil)
+    }
+    @Test func unknownOccurrenceOrInvalidSourceDeadlineCannotStart() {
+        let visit = VisualDirectorVisit(); visit.enter(mood:nil,occurrence:nil,salt:1)
+        let fence = VisualDirectorTurnFence(visit:visit)
+        #expect(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{true}) == nil)
+        visit.enter(mood:nil,occurrence:"A",salt:1)
+        for deadline in [TimeInterval.nan,.infinity,visit.now()-1] {
+            #expect(fence.begin(originalSourceDeadline:deadline,isCurrent:{true}) == nil)
+        }
+        #expect(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{false}) == nil)
+    }
+}
