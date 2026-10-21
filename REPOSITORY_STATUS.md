@@ -1,45 +1,42 @@
+# DJConnect Repository Status
+
 ## 2026-10-21 — Native display-consent qualification / PR167
 
-Source [PR167](https://github.com/pcvantol/djconnect-app/pull/167) merged the
-explicitly approved candidate `8462454f4c662259b0fd47f4bd78c2545f41daa0` as
-`b90b40071f9eadbe81dc084f815213a4fabd066e`. Candidate and merge share tree
+Source [PR167](https://github.com/pcvantol/djconnect-app/pull/167) merged approved
+`8462454f4c662259b0fd47f4bd78c2545f41daa0` as
+`b90b40071f9eadbe81dc084f815213a4fabd066e`; both trees are
 `cb5964628621a7543419e5a373a4509180e9844f`. Only five test/tooling/evidence
 files changed; production sources and shipping targets are unchanged.
 
-Qualification:18 isolated actual-iOS-model tests PASS/0fail/0skip and13 targeted
-Mac tests PASS, as recorded in the original qualification receipt. These are
-synthetic transport/model checks, not native button, physical, VoiceOver,
-installed-HA or receiver acceptance. Later night-work commits remain separately
-preserved locally and are neither published nor included in this installation.
+The original isolated actual-iOS-model qualification recorded18PASS/0fail/0skip
+and13 targeted Mac tests PASS. PR CI39555114674, main CI/coverage39555773003 and
+formal reconciliation39558770094 PASS. Independent durable-asset digest,
+canonical integrity,12/12required checks, runner main-SHA and coverage ZIP/main
+binding are verified in [the portable source receipt](docs/feedback/APPLE_CONSENT_167_SOURCE_EVIDENCE_20261021.json).
+The separate TDE-observe workflow39555772553 succeeded, but its assessment and
+qualification report BLOCKED: `store requires validated canonical evidence`.
+No substantive TDE qualification or independent review is claimed.
 
-Owner-authorized development-signed build40402 from exact merged source is
-installed and independently read back on iPhone, iPad and Mac mini. The Mac
-installed executable matches its candidate and strict deep signature passes;
-the ordinary Mac app is running. MacBook installation remains pending because
-all established network routes are unavailable. Watch remains deferred.
+Development-signed build40402 from exact merged source is installed and
+independently read back on iPhone, iPad, Mac mini and MacBook. Both Mac
+executables match the candidate, strict deep signatures pass and ordinary apps
+are running. All208source/resource/project/dependency inputs match merged main.
+This documentary Finalization changes no compiled inputs. Later night-work
+commits remain locally preserved and excluded from publication/installation.
 
-Owner-requested cleanup removed60 old local recovery-app copies and the one
-temporary backup created by this installation after replacement verification.
-Current apps, app data/pairings, Git/source, unique test evidence and local night
-branches are preserved. MacBook recovery copies remain pending connectivity.
+Owner-requested cleanup removed75local and MacBook recovery-app copies,
+including each replacement's temporary backup only after verification.
+Current apps, data/pairings, Git/source, unique test evidence and local night
+branches remain preserved. No new recovery bundle or automation extension.
+The stuck old PR TDE job39555113965 was cancelled with explicit owner approval;
+a targeted Apple listener restart restored the queue without a running worker.
 
-Source-main CI39555773003 is queued. Its only Apple runner is held by a
-non-starting TDE-observe job39555113965; the owner explicitly authorized its
-cancellation after automatic approval initially rejected it. Ordinary and force
-cancel requests were submitted; completion and required post-merge evidence are
-still pending. This report does not assert CI PASS or formal reconciliation.
-
-Repository State: `MERGED_UNRECONCILED` for167; documentary Finalization remains
-pending main CI, qualified formal evidence and protected documentary delivery.
-Product Acceptance: `PARTIAL`. No new Core/backend/provider/SDK/OS-permission or
-physical acceptance is inferred. No night automation was resumed.
-
-Local portable-delivery checkpoint and install/cleanup receipts are under
-`/Volumes/Shared Data/tmp/pcvantol/djc-pr167-delivery-20261021/`,
-`djc-recovery-app-cleanup-20261021.json` and
-`djc-recovery-build-cleanup-20261021.json` in the same parent directory.
-
-# DJConnect Repository Status
+Repository State: source-main is qualified; `MERGED_UNRECONCILED` until this
+separate documentary Finalization merges, then `MERGED_RECONCILED` for167.
+Workspace State: `CLEAN_PRESERVED`. Product Acceptance: `PARTIAL`.
+Synthetic model tests and install readbacks do not close native button,
+physical/audio, VoiceOver, installed-HA/receiver, producer or full-chain SDK
+gates. Watch remains deferred. No Core/backend/provider/OS-permission change.
 
 ## Current consolidated Apple source — 2026-10-20
 

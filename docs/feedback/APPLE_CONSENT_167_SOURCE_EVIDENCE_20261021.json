@@ -1,0 +1,54 @@
+{
+  "source_pr": 167,
+  "candidate": "8462454f4c662259b0fd47f4bd78c2545f41daa0",
+  "source_main": "b90b40071f9eadbe81dc084f815213a4fabd066e",
+  "tree": "cb5964628621a7543419e5a373a4509180e9844f",
+  "candidate_main_tree_equality": "PASS",
+  "pr_ci_run": 39555114674,
+  "pr_ci": "PASS",
+  "main_ci_run": 39555773003,
+  "main_ci": "PASS",
+  "formal_run": 39558770094,
+  "formal_outcome": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+  "formal_required_checks": {
+    "post_merge_build_validation": "PASS",
+    "post_merge_ci": "PASS",
+    "post_merge_coverage": "PASS",
+    "post_merge_governance": "PASS",
+    "post_merge_lint": "PASS",
+    "post_merge_static_analysis": "PASS",
+    "post_merge_tests": "PASS",
+    "required_checks": "PASS",
+    "software_assurance": "PASS",
+    "trusted_delivery": "PASS",
+    "verification": "PASS",
+    "workflow_integrity": "PASS"
+  },
+  "durable_asset_sha256": "d88acea51de78956367e12864219fb6d308a584ebf6130f880ec7100d5cac3dd",
+  "canonical_integrity_sha256": "956785a5d24e4da8be65e649c56628ecba3ae3b236561aa97ed956534da85d14",
+  "runner_readback": {
+    "runner_name": "djconnect-apple-macos-macmini",
+    "runner_os": "macOS",
+    "runner_arch": "ARM64",
+    "required_role": "apple",
+    "git_sha": "b90b40071f9eadbe81dc084f815213a4fabd066e",
+    "xcode": "Xcode 27.1;Build version 27A9275;",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)"
+  },
+  "coverage_readback": {
+    "run": 39555773003,
+    "artifact_id": 12326650586,
+    "zip_sha256": "38693bb9d7b68a922d48ddbf0685dd9787161656248f88a723765c37c1218a36",
+    "github_digest_matches": true,
+    "embedded_main_sha": "b90b40071f9eadbe81dc084f815213a4fabd066e",
+    "coverage_json_sha256": "8eceac59f3220202030c05cac82f55f07286dd92756855b65cf26bad1ff40c8a",
+    "summary": {
+      "coveredLines": 61446,
+      "executableLines": 114780,
+      "lineCoverage": 0.5353371667537898
+    }
+  },
+  "compiled_source_inputs_matching_main": 208,
+  "compiled_source_mismatches": [],
+  "limits": "Source/software/install evidence only; no physical UI/audio/VoiceOver/HA/receiver acceptance; later local night commits excluded."
+}
