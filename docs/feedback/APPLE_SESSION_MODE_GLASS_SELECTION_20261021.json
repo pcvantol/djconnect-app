@@ -1,0 +1,40 @@
+{
+  "base_commit": "c6576aa",
+  "source_path": "Sources/DJConnectUI/SessionTimelineScreen.swift",
+  "source_sha256": "89ebda457deff4224934283b1d64dc5ae6676343153caf2d0b9cba997adfd376",
+  "change": "Flow/Forecast share one frosted segmented selection bar, selected/secondary live glass button roles and magenta selection tint from the existing presence/mood/persona button implementation. Equal-width 48pt labels, max 420pt bar, existing identifiers and selection binding retained.",
+  "validation": {
+    "native_mac_compile": "PASS",
+    "targeted_test": "SKIP_INACTIVE_HOST",
+    "passed": 0,
+    "skipped": 1,
+    "failed": 0,
+    "diff_check": "PASS"
+  },
+  "limits": [
+    "Inactive AppKit host had active=false/key=false for all four captures; visual glass/selection acceptance remains unqualified.",
+    "No new device installation performed."
+  ],
+  "evidence": [
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-mode-selection-20261021/native.log",
+      "sha256": "2dee58210010885a54566b093a406ef39b568acdcceb5292f5e5d0cd954be28b"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-mode-selection-20261021/renders/flow-320.png",
+      "sha256": "e2a1d6e71ca361eebb72e751678259cac508c53971661009d5e7d7a2d1c56e44"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-mode-selection-20261021/renders/flow-640.png",
+      "sha256": "07fd7dbc60726600825931302237726d3fcb2b3c23b2edc304558cd5813cd543"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-mode-selection-20261021/renders/forecast-320.png",
+      "sha256": "66546767ce392f642ebcca04aba6c58aac5f54ba0dc812b40eccabb6fd729123"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-mode-selection-20261021/renders/forecast-640.png",
+      "sha256": "8377057c2e181c355dfcfeb490b2cab59aeb4365b9bb6fb396da6bd56358a7f0"
+    }
+  ]
+}

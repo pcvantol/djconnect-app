@@ -1292,16 +1292,15 @@ struct SessionTimelineScreen: View {
 struct SessionModeToggleButtons: View {
     @Binding var showsForecast: Bool
     let language: String
-    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        DJSessionGlassGroup {
-            HStack(spacing: 10) {
-                modeButton(forecast: false, key: "ui.session.forecast.flow")
-                modeButton(forecast: true, key: "ui.session.forecast.tab")
-            }
+        HStack(spacing: 4) {
+            modeButton(forecast: false, key: "ui.session.forecast.flow")
+            modeButton(forecast: true, key: "ui.session.forecast.tab")
         }
+        .padding(DJConnectCardAppearance.segmentedContentInset)
+        .djSessionFrostedSurface()
+        .frame(maxWidth: 420)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("session-flow-forecast-picker")
@@ -1309,28 +1308,25 @@ struct SessionModeToggleButtons: View {
 
     private func modeButton(forecast: Bool, key: String) -> some View {
         let selected = showsForecast == forecast
-        let button = Button {
+        return Button {
+            DJConnectHaptics.selection()
             showsForecast = forecast
         } label: {
             Text(DJConnectLocalization.localized(key: key, language: language))
                 .font(.headline)
-                .padding(.horizontal, 8).padding(.vertical, 4)
+                .foregroundStyle(.white.opacity(selected ? 1 : 0.78))
+                .lineLimit(1)
+                .minimumScaleFactor(0.74)
+                .frame(maxWidth: .infinity, minHeight: 48)
         }
+        .djConnectButtonStyle(DJConnectButtonStyle(
+            emphasis: selected ? .selected : .secondary,
+            shape: .segmented, expands: true, usesLiveGlass: true,
+            foregroundColor: .white.opacity(selected ? 1 : 0.78),
+            selectionTint: djConnectAccent
+        ))
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier(forecast ? "session-forecast-toggle" : "session-flow-toggle")
-
-        return Group {
-            if glassEnabled && !reduceTransparency {
-                button
-                    .buttonStyle(.glass(.regular.tint(selected ? djConnectAccent.opacity(0.40) : .clear).interactive()))
-                    .buttonBorderShape(.capsule)
-                    .controlSize(.large)
-                    .foregroundStyle(.white)
-            } else {
-                button.djConnectButtonStyle(DJConnectButtonStyle(emphasis: selected ? .selected : .secondary,
-                                                                 usesLiveGlass: false))
-            }
-        }
     }
 }
 
