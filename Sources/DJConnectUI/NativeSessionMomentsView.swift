@@ -29,9 +29,10 @@ extension View {
         modifier(DJAlbumArtworkGlassSurface(tint: tint))
     }
 
-    @ViewBuilder func djSessionNavigationTitleStyle(compactPhone: Bool = false) -> some View {
+    @ViewBuilder func djSessionNavigationTitleStyle() -> some View {
         #if os(iOS)
-        navigationBarTitleDisplayMode(compactPhone && UIDevice.current.userInterfaceIdiom == .phone ? .inline : .large)
+        // The session has no title; reserve only the toolbar on both iPhone and iPad.
+        navigationBarTitleDisplayMode(.inline)
         #else
         self
         #endif

@@ -9059,7 +9059,7 @@ private struct DJSessionView: View {
                 }
             }
             .navigationTitle("")
-            .djSessionNavigationTitleStyle(compactPhone: true)
+            .djSessionNavigationTitleStyle()
             .toolbar {
                 #if os(iOS)
                 if model.shouldShowAppleWatchPairingReminder {

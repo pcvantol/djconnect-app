@@ -476,7 +476,12 @@ struct SessionTimelineScreen: View {
             VStack(spacing: 0) {
                 if activeSession != nil {
                     SessionModeToggleButtons(showsForecast: $showsForecast, language: model.language)
-                        .padding(.horizontal, 20).padding(.vertical, 10)
+                        .padding(.horizontal, 20)
+                        #if os(iOS)
+                        .padding(.top, 4).padding(.bottom, 10)
+                        #else
+                        .padding(.vertical, 10)
+                        #endif
                 }
                 TimelineView(SessionEntryRefreshSchedule(deadlines: retentionDeadlines)) { clock in
                     let preparedEntries = renderCache.snapshot(timeline.entries, sessionID: sessionID, epoch: history.responseEpoch, at: clock.date)
