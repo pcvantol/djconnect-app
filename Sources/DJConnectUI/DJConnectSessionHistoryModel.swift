@@ -111,11 +111,71 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     @Published public private(set) var summaryAvailable = false
     @Published public private(set) var bulkDeletionAvailable = false
     @Published public private(set) var bulkDeletionBusy = false
+    @Published public private(set) var contentDeletionAvailable = false
+    @Published public private(set) var contentDeletionBusy = false
+    struct PendingContentDeletion: Codable {
+        let owner, scope, binding: String
+        let prepared: DJConnectContentDeleteScope
+        let request: DJConnectContentDeleteRequest
+        var isValid: Bool {
+            !owner.isEmpty && scope.count == 64 && binding.count == 64 && request.isValid &&
+            prepared.owner_profile_id == owner && prepared.confirmation_id == request.confirmation_id
+        }
+    }
+    @Published private var contentDeletionJournal: [String: PendingContentDeletion] = [:]
+    private var invalidContentDeletionJournal = false
+    @Published private var withdrawnContentMoments: Set<String> = []
     private var archiveGeneration = UUID()
     @Published public private(set) var archiveResponseEpoch = UUID()
     @Published public private(set) var deletionAvailable = false
     @Published public private(set) var deletingSessionID: String?
     private var deletionGeneration = UUID()
+    struct PendingDeletion: Codable {
+        let owner, scope, binding, operationID: String
+        let single: DJConnectSessionDeleteRequest?
+        let bulk: DJConnectSessionDeleteSnapshot?
+        var isValid: Bool {
+            !owner.isEmpty && scope.count == 64 && binding.count == 64 && UUID(uuidString: operationID) != nil &&
+            ((single?.isValid == true && single?.operationID == operationID && bulk == nil) ||
+             (single == nil && bulk?.ownerProfileID == owner && (bulk?.targetCount ?? 0) > 0))
+        }
+    }
+    @Published private var deletionJournal: [String: PendingDeletion] = [:]
+    private var invalidDeletionJournal = false
+    public var hasUnconfirmedDeletion: Bool {
+        guard let host, let ownerScope else { return false }
+        let scope = host.historyDeletionScope(owner: ownerScope)
+        return invalidDeletionJournal || invalidContentDeletionJournal || deletionJournal[scope] != nil || contentDeletionJournal[scope] != nil
+    }
+    private func saveDeletionJournal() -> Bool {
+        guard let host, let data = try? JSONEncoder().encode(deletionJournal), data.count <= 262_144 else { return false }
+        return host.storeHistoryDeletionJournal(data) && host.historyDeletionJournalData == data
+    }
+    private func retainDeletion(owner: String, operationID: String, single: DJConnectSessionDeleteRequest? = nil,
+                                bulk: DJConnectSessionDeleteSnapshot? = nil) -> PendingDeletion? {
+        guard let host, !invalidDeletionJournal, deletionJournal.count < 32 else { return nil }
+        let scope = host.historyDeletionScope(owner: owner)
+        guard deletionJournal[scope] == nil else { return nil }
+        let record = PendingDeletion(owner: owner, scope: scope, binding: host.historyDeletionScope(owner: owner, bindCredential: true),
+                                     operationID: operationID, single: single, bulk: bulk)
+        guard record.isValid else { return nil }
+        deletionJournal[scope] = record
+        guard saveDeletionJournal() else { invalidDeletionJournal = true; return nil }
+        return record
+    }
+    private func finishDeletion(_ record: PendingDeletion) {
+        guard deletionJournal[record.scope]?.operationID == record.operationID else { return }
+        deletionJournal[record.scope] = nil
+        if !saveDeletionJournal() { invalidDeletionJournal = true }
+    }
+    private func deletionWasDefinitivelyRejected(_ error: Error) -> Bool {
+        switch error as? DJConnectError {
+        case .server(let status, _): return [400, 409].contains(status)
+        case .authStale, .routeMissing: return true
+        case .profile(_, let status, _): return [400, 401, 403, 409].contains(status)
+        default: return false
+        }
+    }
     @Published public private(set) var preparing = false
     @Published public private(set) var searchAvailable = false
     @Published public private(set) var momentInsightAvailable = false
@@ -249,7 +309,22 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         })
     }
 
-    init(host: DJConnectAppModel) { self.host = host }
+    init(host: DJConnectAppModel) {
+        self.host = host
+        if let data = host.contentDeletionJournalData {
+            if data.count <= 262_144,
+               let records = try? JSONDecoder().decode([String: PendingContentDeletion].self, from: data),
+               records.count <= 32, records.allSatisfy({ $0.key == $0.value.scope && $0.value.isValid }) {
+                contentDeletionJournal = records
+            } else { invalidContentDeletionJournal = true }
+        }
+        if let data = host.historyDeletionJournalData {
+            if data.count <= 262_144, let records = try? JSONDecoder().decode([String: PendingDeletion].self, from: data),
+               records.count <= 32, records.allSatisfy({ $0.key == $0.value.scope && $0.value.isValid }) {
+                deletionJournal = records
+            } else { invalidDeletionJournal = true }
+        }
+    }
 
     /// Explicit, ephemeral review examples; never an owner grant or backend history.
     func installDemo(_ data: DJConnectDemoSessionData, preservingArchives: Bool = false) {
@@ -327,6 +402,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             summaryAvailable = caps.summaryAvailable
             deletionAvailable = caps.deletionAvailable
             bulkDeletionAvailable = caps.bulkDeletionAvailable
+            contentDeletionAvailable = caps.contentDeletionAvailable
             available = caps.available; searchAvailable = caps.searchAvailable; momentInsightAvailable = caps.momentInsightAvailable
             if available && !profileScopeActive {
                 while host.isSendingAskDJText || host.isRecordingVoice || host.voiceStatus == .processing {
@@ -346,6 +422,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func reset() {
+        contentDeletionAvailable = false
         summaryAvailable = false
         deletionAvailable = false; bulkDeletionAvailable = false; bulkDeletionBusy = false; archiveGeneration = UUID(); archiveResponseEpoch = archiveGeneration; deletingSessionID = nil; deletionGeneration = UUID()
         historyContractVersion = 1
@@ -370,9 +447,14 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         clearSearch(); navigationErrorKey = nil; timelineGenerations = [:]; timelineNavigations = [:]
     }
 
-    public func suspend(preservingVoicePreference: Bool = false, cancelPreparation: Bool = true) {
+    public func suspend(preservingVoicePreference: Bool = false, cancelPreparation: Bool = true,
+                        preservingArchiveNavigation: Bool = false) {
+        contentDeletionAvailable = false
         summaryAvailable = false
-        deletionAvailable = false; bulkDeletionAvailable = false; bulkDeletionBusy = false; archiveGeneration = UUID(); archiveResponseEpoch = archiveGeneration; deletingSessionID = nil; deletionGeneration = UUID()
+        deletionAvailable = false; bulkDeletionAvailable = false; bulkDeletionBusy = false
+        archiveGeneration = UUID()
+        if !preservingArchiveNavigation { archiveResponseEpoch = archiveGeneration }
+        deletingSessionID = nil; deletionGeneration = UUID()
         if preservingVoicePreference { host?.invalidateActiveVoiceInventory() }
         else { host?.discardActiveVoicePreference() }
         host?.invalidateSessionPlaybackActions()
@@ -390,7 +472,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         listLoading = false; listNextCursor = nil; listRevision = nil
         searchTask?.cancel(); searchTask = nil
         timelines = [:]; sessions = []; historicalMatches = [:]; searchMatches = []; readingAnchors = [:]
-        selectedEntry = nil; openTarget = nil; voiceContext = nil; voiceClientID = nil; voicePayload = nil
+        selectedEntry = nil
+        if !preservingArchiveNavigation { openTarget = nil }
+        voiceContext = nil; voiceClientID = nil; voicePayload = nil
         clearSearch()
         pendingTurns = []; host?.setProfileConversationSending(false)
     }
@@ -404,7 +488,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public var canPrepareBulkDeletion: Bool {
-        bulkDeletionAvailable && !bulkDeletionBusy && deletingSessionID == nil && !historyNeedsUpgrade
+        bulkDeletionAvailable && !contentDeletionBusy && !bulkDeletionBusy && deletingSessionID == nil && !historyNeedsUpgrade && !hasUnconfirmedDeletion
             && ownerScope != nil && host?.canRefreshSessionHistory == true
     }
 
@@ -432,15 +516,19 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         bulkDeletionBusy = true
         defer { if expectedEpoch == epoch { bulkDeletionBusy = false } }
         let operationID = DJConnectOperationIdentity.uuidV7(milliseconds: Int(Date().timeIntervalSince1970 * 1000))
+        guard let pending = retainDeletion(owner: ownerScope, operationID: operationID, bulk: snapshot) else { return false }
         do {
             let receipt = try await host.withHomeAssistantClient(allowsOperationReplay: false) {
                 try await $0.deleteAllSavedSessions(snapshot: snapshot, expectedOwner: ownerScope, operationID: operationID)
             }
             guard expectedEpoch == epoch, self.ownerScope == ownerScope, host.canRefreshSessionHistory,
+                  pending.binding == host.historyDeletionScope(owner: ownerScope, bindCredential: true),
                   receipt.admits(snapshot: snapshot, operationID: operationID, owner: ownerScope), !Task.isCancelled else { return false }
+            finishDeletion(pending)
             invalidateArchiveProjections()
             return true
         } catch {
+            if deletionWasDefinitivelyRejected(error) { finishDeletion(pending) }
             if expectedEpoch == epoch { _ = withdrawAuthority(for: error) }
             return false
         }
@@ -480,11 +568,143 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
     }
 
+    func contentDeletionTarget(for message: DJConnectAskDJMessage) -> DJConnectContentDeleteTarget? {
+        if let entry = contextEntry(for: message) {
+            return .init(kind: "entry", sessionID: entry.sessionID, targetID: entry.id)
+        }
+        if let id = message.serverID, !id.isEmpty {
+            // Explicit standalone scope; never substitute the current Session.
+            return .init(kind: "message", sessionID: "", targetID: id)
+        }
+        if let turn = pendingTurns.first(where: { $0.id == message.clientMessageID }) {
+            return .init(kind: "request", sessionID: turn.context.sessionID ?? "", targetID: turn.id)
+        }
+        return nil
+    }
+    func canDeleteContent(_ target: DJConnectContentDeleteTarget) -> Bool {
+        target.isValid && contentDeletionAvailable && !contentDeletionBusy && !hasUnconfirmedDeletion &&
+        !bulkDeletionBusy && deletingSessionID == nil && hasAuthorizedOwner && host?.canRefreshSessionHistory == true && host?.isDemoMode == false
+        && contentDeletionPreservesOtherWork(target)
+    }
+    private func contentDeletionPreservesOtherWork(_ target: DJConnectContentDeleteTarget) -> Bool {
+        // The cache epoch fence must not discard an unrelated request in flight.
+        pendingTurns.allSatisfy { target.kind == "request" && $0.id == target.target_id } &&
+        host?.isRecordingVoice == false && host?.voiceStatus != .processing
+    }
+    func contentMomentWasWithdrawn(sessionID: String, momentID: String) -> Bool {
+        guard let ownerScope, let host else { return false }
+        return withdrawnContentMoments.contains(host.historyDeletionScope(owner: ownerScope) + "\u{0}" + sessionID + "\u{0}" + momentID)
+    }
+    func prepareContentDeletion(_ target: DJConnectContentDeleteTarget, expectedEpoch: UUID) async -> DJConnectContentDeleteScope? {
+        guard expectedEpoch == epoch, canDeleteContent(target), let owner = ownerScope, let host else { return nil }
+        let binding = host.historyDeletionScope(owner: owner, bindCredential: true)
+        do {
+            let scope = try await host.withHomeAssistantClient(allowsOperationReplay: false) {
+                try await $0.prepareContentDeletion(target, expectedOwner: owner)
+            }
+            guard epoch == expectedEpoch, ownerScope == owner, canDeleteContent(target),
+                  binding == host.historyDeletionScope(owner: owner, bindCredential: true),
+                  scope.admits(target: target, owner: owner), !Task.isCancelled else { return nil }
+            return scope
+        } catch { return nil }
+    }
+    private func saveContentDeletionJournal() -> Bool {
+        guard let host, let data = try? JSONEncoder().encode(contentDeletionJournal), data.count <= 262_144 else { return false }
+        return host.storeContentDeletionJournal(data) && host.contentDeletionJournalData == data
+    }
+    @discardableResult func deleteContent(_ prepared: DJConnectContentDeleteScope, expectedEpoch: UUID) async -> Bool {
+        guard expectedEpoch == epoch, canDeleteContent(prepared.target), let owner = ownerScope, let host,
+              prepared.admits(target: prepared.target, owner: owner), contentDeletionJournal.count < 32 else { return false }
+        let key = host.historyDeletionScope(owner: owner)
+        let record = PendingContentDeletion(owner: owner, scope: key,
+            binding: host.historyDeletionScope(owner: owner, bindCredential: true), prepared: prepared,
+            request: .init(identity: host.identity, confirmationID: prepared.confirmation_id))
+        guard record.isValid, contentDeletionJournal[key] == nil else { return false }
+        contentDeletionJournal[key] = record
+        guard saveContentDeletionJournal() else { invalidContentDeletionJournal = true; return false }
+        contentDeletionBusy = true
+        defer { contentDeletionBusy = false }
+        do {
+            let receipt = try await host.withHomeAssistantClient(allowsOperationReplay: false) {
+                try await $0.deleteContent(record.request, scope: prepared, expectedOwner: owner)
+            }
+            guard expectedEpoch == epoch, ownerScope == owner, host.canRefreshSessionHistory,
+                  record.binding == host.historyDeletionScope(owner: owner, bindCredential: true),
+                  receipt.admits(scope: prepared, request: record.request, owner: owner), !Task.isCancelled else { return false }
+            return await finishContentDeletion(record, receipt: receipt)
+        } catch {
+            if deletionWasDefinitivelyRejected(error) {
+                contentDeletionJournal[key] = nil
+                if !saveContentDeletionJournal() { invalidContentDeletionJournal = true }
+            }
+            return false
+        }
+    }
+
+    var canCheckContentDeletionStatus: Bool {
+        guard contentDeletionAvailable, !contentDeletionBusy, let host, let ownerScope,
+              let record = contentDeletionJournal[host.historyDeletionScope(owner: ownerScope)] else { return false }
+        return host.canRefreshSessionHistory && contentDeletionPreservesOtherWork(record.prepared.target) &&
+            record.binding == host.historyDeletionScope(owner: ownerScope, bindCredential: true)
+    }
+    @discardableResult func checkContentDeletionStatus() async -> Bool {
+        guard canCheckContentDeletionStatus, let host, let owner = ownerScope,
+              let record = contentDeletionJournal[host.historyDeletionScope(owner: owner)] else { return false }
+        let captured = epoch
+        contentDeletionBusy = true; defer { contentDeletionBusy = false }
+        do {
+            let status = try await host.withHomeAssistantClient(allowsOperationReplay: false) {
+                try await $0.contentDeletionStatus(record.request, scope: record.prepared, expectedOwner: owner)
+            }
+            guard epoch == captured, ownerScope == owner, host.canRefreshSessionHistory,
+                  record.binding == host.historyDeletionScope(owner: owner, bindCredential: true),
+                  status.admits(scope: record.prepared, request: record.request, owner: owner),
+                  status.state == "completed", let receipt = status.receipt, !Task.isCancelled else { return false }
+            return await finishContentDeletion(record, receipt: receipt)
+        } catch { return false } // A failed read never settles an earlier unknown POST.
+    }
+    private func finishContentDeletion(_ record: PendingContentDeletion, receipt: DJConnectContentDeleteReceipt) async -> Bool {
+        guard let host, ownerScope == record.owner,
+              receipt.admits(scope: record.prepared, request: record.request, owner: record.owner) else { return false }
+        for moment in record.prepared.affected_moments {
+            withdrawnContentMoments.insert(record.scope + "\u{0}" + moment.session_id + "\u{0}" + moment.moment_id)
+        }
+        host.withdrawDeletedContentPresentation(receipt, target: record.prepared.target)
+        // Fence pre-erasure work and grants; restore independent server projections.
+        let activeID = host.activeDJSession?.id
+        // A scoped content deletion invalidates data and in-flight reads, not
+        // the Session page itself. Whole-session erasure/authority loss still
+        // use the ordinary navigation-invalidating suspension.
+        suspend(preservingArchiveNavigation: true)
+        await prepare()
+        guard ownerScope == record.owner, host.canRefreshSessionHistory, !Task.isCancelled else { return false }
+        guard await loadSessions() else { return false }
+        for id in Set(receipt.affected_entries.map(\.session_id)) {
+            guard await loadTimeline(id) else { return false }
+        }
+        if activeID != nil { guard await host.refreshActiveDJSession() else { return false } }
+        guard ownerScope == record.owner,
+              record.binding == host.historyDeletionScope(owner: record.owner, bindCredential: true),
+              contentDeletionJournal[record.scope]?.request == record.request else { return false }
+        contentDeletionJournal[record.scope] = nil
+        guard saveContentDeletionJournal() else { invalidContentDeletionJournal = true; return false }
+        return true
+    }
+
     public func canDeleteSession(_ sessionID: String) -> Bool {
-        guard deletionAvailable, !bulkDeletionBusy, !historyNeedsUpgrade, ownerScope != nil, let host,
+        guard deletionAvailable, !contentDeletionBusy, !bulkDeletionBusy, !historyNeedsUpgrade, !hasUnconfirmedDeletion, ownerScope != nil, let host,
               host.canRefreshSessionHistory, host.activeDJSession?.id != sessionID,
               let session = timelines[sessionID]?.session ?? sessions.first(where: { $0.id == sessionID }) else { return false }
         return session.isContractValid && session.readOnly && ["ENDED", "INTERRUPTED"].contains(session.lifecycleStatus)
+    }
+
+    /// A list revision or previously loaded detail is not fresh deletion consent.
+    public func prepareSessionDeletion(_ sessionID: String, expectedEpoch: UUID) async -> String? {
+        guard expectedEpoch == epoch, canDeleteSession(sessionID), let owner = ownerScope else { return nil }
+        guard await loadTimeline(sessionID, preserveLoadedEntries: true), expectedEpoch == epoch,
+              ownerScope == owner, canDeleteSession(sessionID), !Task.isCancelled,
+              let detail = timelines[sessionID]?.session else { return nil }
+        return detail.revision.value
     }
 
     @discardableResult public func deleteSession(_ sessionID: String, expectedRevision: String, expectedEpoch: UUID) async -> Bool {
@@ -494,16 +714,20 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         let generation = UUID(); deletionGeneration = generation; deletingSessionID = sessionID
         defer { if deletionGeneration == generation { deletingSessionID = nil } }
         let action = DJConnectSessionDeleteRequest(sessionID: sessionID, expectedRevision: expectedRevision)
+        guard let pending = retainDeletion(owner: ownerScope, operationID: action.operationID, single: action) else { return false }
         do {
             let receipt = try await host.withHomeAssistantClient(allowsOperationReplay: false) {
                 try await $0.deleteSavedSession(action, expectedOwner: ownerScope)
             }
             guard expectedEpoch == epoch, generation == deletionGeneration, self.ownerScope == ownerScope,
+                  pending.binding == host.historyDeletionScope(owner: ownerScope, bindCredential: true),
                   host.canRefreshSessionHistory, host.activeDJSession?.id != sessionID,
                   receipt.admits(action, owner: ownerScope), !Task.isCancelled else { return false }
+            finishDeletion(pending)
             invalidateDeletedSessions([sessionID])
             return true
         } catch {
+            if deletionWasDefinitivelyRejected(error) { finishDeletion(pending) }
             guard expectedEpoch == epoch, generation == deletionGeneration else { return false }
             if withdrawAuthority(for: error) { return false }
             // No automatic mutation retry, including ambiguous delivery outcomes.
@@ -629,7 +853,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     @discardableResult
     public func loadSessions(more: Bool = false) async -> Bool {
         if host?.isDemoMode == true { return available }
-        guard available, !historyNeedsUpgrade, !(more && listLoading), let host, host.canRefreshSessionHistory else { return false }
+        guard available, !historyNeedsUpgrade, let owner = ownerScope, !owner.isEmpty,
+              !(more && listLoading), let host, host.canRefreshSessionHistory else { return false }
         let cursor = more ? listNextCursor : nil
         if more && cursor == nil { return false }
         let generation = UUID(); listGeneration = generation
@@ -638,7 +863,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         defer { if generation == listGeneration { listLoading = false } }
         do {
             let page = try await host.withHomeAssistantClient { try await $0.savedSessions(cursor: cursor) }
-            guard captured == epoch, generation == listGeneration else { return false }
+            guard captured == epoch, ownerScope == owner, generation == listGeneration else { return false }
             guard cursor == nil || listRevision == page.revision.value else { throw DJConnectError.invalidResponse }
             guard cursor == nil || page.nextCursor != cursor else { throw DJConnectError.invalidResponse }
             let old = cursor == nil ? [] : sessions
@@ -661,7 +886,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     public func loadTimeline(_ sessionID: String, more: Bool = false, window: DJConnectHistoryWindow? = nil,
                              anchorEntryID: String? = nil, limit: Int = 20, preserveLoadedEntries: Bool = false) async -> Bool {
         if host?.isDemoMode == true { return false }
-        guard available, !historyNeedsUpgrade, let host, host.canRefreshSessionHistory, !(timelines[sessionID]?.loading ?? false),
+        guard available, !historyNeedsUpgrade, let owner = ownerScope, !owner.isEmpty,
+              let host, host.canRefreshSessionHistory, !(timelines[sessionID]?.loading ?? false),
               timelineNavigations[sessionID] == nil else { return false }
         let cursor = more ? timelines[sessionID]?.nextCursor : nil
         if more && cursor == nil { return false }
@@ -674,7 +900,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             let page = try await host.withHomeAssistantClient {
                 try await $0.sessionTimeline(sessionID: sessionID, cursor: cursor, window: window, anchorEntryID: anchorEntryID, limit: limit)
             }
-            guard captured == epoch, timelineGenerations[sessionID] == generation else { return false }
+            guard captured == epoch, ownerScope == owner, timelineGenerations[sessionID] == generation else { return false }
             guard cursor == nil || timelines[sessionID]?.revision == page.revision.value else { throw DJConnectError.invalidResponse }
             var previous = cursor == nil && window == nil && !preserveLoadedEntries ? [] : timelines[sessionID]?.entries ?? []
             if window != nil, let lower = page.scannedOrderMin, let upper = page.scannedOrderMax {
@@ -751,7 +977,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             if navigate { openTarget = action.reference }
             return true
         }
-        guard available, !historyNeedsUpgrade, let host, host.canRefreshSessionHistory else { return false }
+        guard available, !historyNeedsUpgrade, let owner = ownerScope, !owner.isEmpty,
+              let host, host.canRefreshSessionHistory else { return false }
         navigationErrorKey = nil
         let captured = epoch; let generation = UUID(); navigationGeneration = generation
         timelineGenerations[action.sessionID] = generation
@@ -759,7 +986,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         defer { if timelineNavigations[action.sessionID] == generation { timelineNavigations[action.sessionID] = nil } }
         do {
             let response = try await host.withHomeAssistantClient { try await $0.openSavedSession(action) }
-            guard captured == epoch, generation == navigationGeneration, timelineGenerations[action.sessionID] == generation, response.entry.isRetained() else { return false }
+            guard captured == epoch, ownerScope == owner, generation == navigationGeneration, timelineGenerations[action.sessionID] == generation, response.entry.isRetained() else { return false }
             var timeline = timelines[action.sessionID] ?? Timeline()
             if navigate && timeline.revision != response.session.revision.value { timeline.entries = [] }
             timeline.session = response.session; timeline.revision = response.session.revision.value
@@ -769,7 +996,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             if navigate { openTarget = action.reference }
             return true
         } catch {
-            guard captured == epoch, generation == navigationGeneration, timelineGenerations[action.sessionID] == generation else { return false }
+            guard captured == epoch, ownerScope == owner, generation == navigationGeneration, timelineGenerations[action.sessionID] == generation else { return false }
             if requireHistoryUpgrade(for: error) { return false }
             if withdrawAuthority(for: error) { return false }
             timelines[action.sessionID] = nil
@@ -794,7 +1021,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
         searchTask?.cancel(); searchGeneration = UUID(); searchLoading = false
         clearSearchResults()
-        guard searchAvailable, !historyNeedsUpgrade, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard searchAvailable, !historyNeedsUpgrade, let owner = ownerScope, !owner.isEmpty,
+              host?.canRefreshSessionHistory == true, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let generation = searchGeneration
         searchLoading = true
         searchTask = Task { [weak self] in
@@ -811,12 +1039,13 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     private func loadSearch(sessionID: String, query: String, cursor: String?, generation: UUID) async {
-        guard !historyNeedsUpgrade, let host else { return }
+        guard !historyNeedsUpgrade, let owner = ownerScope, !owner.isEmpty,
+              let host, host.canRefreshSessionHistory else { return }
         let captured = epoch; searchLoading = true
         defer { if generation == searchGeneration { searchLoading = false } }
         do {
             let page = try await host.withHomeAssistantClient { try await $0.searchSession(sessionID: sessionID, query: query, cursor: cursor) }
-            guard captured == epoch, generation == searchGeneration, !Task.isCancelled else { return }
+            guard captured == epoch, ownerScope == owner, generation == searchGeneration, !Task.isCancelled else { return }
             guard cursor == nil || (searchRevision == page.revision.value && page.nextCursor != cursor) else { throw DJConnectError.invalidResponse }
             searchMatches = try mergeEntries(cursor == nil ? [] : searchMatches, page.matches.filter { $0.isRetained() })
             searchRevision = page.revision.value; acceptedSearchQuery = query; acceptedSearchSessionID = sessionID
@@ -824,7 +1053,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             searchTotal = page.totalCount; searchErrorKey = nil
         } catch {
             guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
-            guard captured == epoch, generation == searchGeneration, !Task.isCancelled else { return }
+            guard captured == epoch, ownerScope == owner, generation == searchGeneration, !Task.isCancelled else { return }
             if requireHistoryUpgrade(for: error) { return }
             if withdrawAuthority(for: error) { return }
             clearSearchResults(); searchErrorKey = errorKey(error)
@@ -841,18 +1070,35 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     public func sendText() {
         if host?.isDemoMode == true { host?.sendAskDJText(); return }
-        guard profileScopeActive, let host, host.canUseProfileConversation, !host.isSendingAskDJText else { return }
-        guard let capturedOwner = ownerScope else { host.failProfileConversationText(id: nil, errorKey: "ui.ask_dj.answer.unavailable"); return }
-        let text = host.askDJDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
+        guard let host else { return }
+        _ = enqueueText(host.askDJDraft, context: currentContext(), preservingComposer: false)
+    }
+
+    @discardableResult
+    func requestSessionSpeakerChoice(sessionID: String) -> Bool {
+        guard let host, !host.isDemoMode, host.canUsePlaybackFeatures,
+              !host.djSessionIsRecovering, !host.djSessionLiveUnavailable,
+              host.activeDJSession?.id == sessionID, host.activeDJSession?.runtimeState == "active",
+              host.needsSessionPlaybackOutputSelection else { return false }
+        return enqueueText(DJConnectLocalization.localized(key: "ui.session.playback.speaker_question", language: host.language),
+                           context: .init(sessionID: sessionID, selectedEntry: nil), preservingComposer: true)
+    }
+
+    private func enqueueText(_ original: String, context: DJConnectConversationContext, preservingComposer: Bool) -> Bool {
+        guard profileScopeActive, let host, host.canUseProfileConversation, !host.isSendingAskDJText else { return false }
+        guard let capturedOwner = ownerScope else { host.failProfileConversationText(id: nil, errorKey: "ui.ask_dj.answer.unavailable"); return false }
+        let text = original.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return false }
+        let draft = host.askDJDraft
         let id = UUID().uuidString
         let localID = host.beginProfileConversationText(text: text, clientMessageID: id)
-        let context = currentContext()
+        if preservingComposer { host.askDJDraft = draft }
         let turn = PendingTurn(id: id, text: text, context: context, localMessageID: localID,
             payload: host.profileConversationPayload(text: text, clientMessageID: id, context: context), requestEpoch: epoch, ownerScope: capturedOwner)
         pendingTurns.append(turn)
-        selectedEntry = nil
+        if !preservingComposer { selectedEntry = nil }
         Task { await submit(turn) }
+        return true
     }
 
     public func retry(_ turn: PendingTurn) {
@@ -1053,6 +1299,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     public func restoreVisibleSessions() async {
         await prepare()
+        guard hasAuthorizedOwner, !Task.isCancelled else { return }
         await loadSessions()
     }
 

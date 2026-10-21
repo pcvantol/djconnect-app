@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "parent_sha": "317cbfd42365e9527eea6464518cc3a963d92159",
+  "production_changed": true,
+  "initial_status": "INCOMPLETE_XCODE_FINALIZATION_AND_CORRECTED_UNCERTAINTY_EXPECTATION",
+  "final_passed": 1,
+  "final_failed": 0,
+  "final_skipped": 0,
+  "synthetic_approval_requests_per_mode": 1,
+  "final_renders": 8,
+  "inspected_final_renders": 4,
+  "public_lookup_disabled_trait": "STILL_UNQUALIFIED",
+  "owned_device": "B62B723C-74D1-499C-AFA4-1FB5FF33ECD3",
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Sources/DJConnectUI/DJConnectRootView.swift",
+      "sha256": "4be6009743ce5b19da21edba93d4680d5af151e1bc89dd036b2859ba04699601"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/DisplayConsentSessionTests.swift",
+      "sha256": "571d72bb401d5bd1c010c1a5b19612a7c14c57640ccae0f18c692edfd32d096c"
+    },
+    {
+      "path": "Tools/qualification/vibecast-product/prepare_native_consent_tests.py",
+      "sha256": "28e2cf80ea7d16cb4586f0ec64e17fd193ee83f5b950983afc906706cae3289e"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/initial.log",
+      "sha256": "19f9e596e32e0dd66b7e62ab1184379ff211b7242ec32ecd0548235d8fc8f1fb"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/initial-test-source.swift",
+      "sha256": "93aeb9cfa927d413ad6b0d1cbd80d867a0c43a88e5f2cc7f48d77d4cb8bacaeb"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/final.log",
+      "sha256": "39daf7488cf2980571c61c3512785360bf5b32d8a7dccb54cf3001fb1dda5be9"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/final-summary.json",
+      "sha256": "06032c4d10410b322c4ed4dbd5936a83bd48abb2333c05003c81aca060b4f515"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/project.json",
+      "sha256": "263c9ac2c2d85b26f9d1b189151a131aca8256a4afc704e9e866f0f6435a2cd6"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/final.xcresult/Info.plist",
+      "sha256": "b20e8460779cc0084b07408731ce55c35a2b2672c92ef80dd30f9d9b0b8a1752"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/final.xcresult/database.sqlite3",
+      "sha256": "0f58dbb9e45ab34ce4ab56fb7fa2f1eff12c7cf09d590cc6ac2783ec6e8ded48"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations/native-input-states.json",
+      "sha256": "03c7dfae1f9e446003c50988a50871fc121f1e716909ca0011bd2f78e4beb117"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations/normal-idle.png",
+      "sha256": "d4d967d86bad30921f582de4838f0c091ef384cea778f44d25ed805ff9c0ac98"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations/normal-ready.png",
+      "sha256": "69f58a2718be95e9b73ab1cd18acf5662d6bd6a9a1f1da98701a009e6a5c9fe4"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations/normal-terminal.png",
+      "sha256": "eaa4946511ab61857cdc3f9cd71aea1bd53f0c1a3dfebd6be1f30d7c3a104b3f"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations/normal-withdrawn.png",
+      "sha256": "f411a6454624e06b3ba9e6c10b54925725c2e22ced782c8db0a121ae6f1cd2b7"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations/unknown-idle.png",
+      "sha256": "d4d967d86bad30921f582de4838f0c091ef384cea778f44d25ed805ff9c0ac98"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations/unknown-ready.png",
+      "sha256": "69f58a2718be95e9b73ab1cd18acf5662d6bd6a9a1f1da98701a009e6a5c9fe4"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations/unknown-terminal.png",
+      "sha256": "b262b4b2cb5f6c2ea700640a96515c79fdc96c0fe3a5c784de38b2fd4d710622"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations/unknown-withdrawn.png",
+      "sha256": "b262b4b2cb5f6c2ea700640a96515c79fdc96c0fe3a5c784de38b2fd4d710622"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations-final/native-input-states.json",
+      "sha256": "fd75a26283d73645b7d81674396080f9a6a2ca360066f284fad72e15686d036d"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations-final/normal-idle.png",
+      "sha256": "d4d967d86bad30921f582de4838f0c091ef384cea778f44d25ed805ff9c0ac98"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations-final/normal-ready.png",
+      "sha256": "69f58a2718be95e9b73ab1cd18acf5662d6bd6a9a1f1da98701a009e6a5c9fe4"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations-final/normal-terminal.png",
+      "sha256": "eaa4946511ab61857cdc3f9cd71aea1bd53f0c1a3dfebd6be1f30d7c3a104b3f"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations-final/normal-withdrawn.png",
+      "sha256": "7e3fd5255163ae35cad09c23a3b77539142f6845a40047ab0b1d57ba8bdb3d64"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations-final/unknown-idle.png",
+      "sha256": "d4d967d86bad30921f582de4838f0c091ef384cea778f44d25ed805ff9c0ac98"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations-final/unknown-ready.png",
+      "sha256": "69f58a2718be95e9b73ab1cd18acf5662d6bd6a9a1f1da98701a009e6a5c9fe4"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations-final/unknown-terminal.png",
+      "sha256": "b262b4b2cb5f6c2ea700640a96515c79fdc96c0fe3a5c784de38b2fd4d710622"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/observations-final/unknown-withdrawn.png",
+      "sha256": "b262b4b2cb5f6c2ea700640a96515c79fdc96c0fe3a5c784de38b2fd4d710622"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/derived/Build/Products/Debug-iphonesimulator/DJConnectUI.framework/DJConnectUI",
+      "sha256": "fe104ead617ab0d806bdb4cdb6ee56adf067b8d44c344671de63d1454a74575b"
+    },
+    {
+      "path": "/private/tmp/djc-consent-input-states-20261021/derived/Build/Products/Debug-iphonesimulator/NativeConsentTests.xctest/NativeConsentTests",
+      "sha256": "b02928b2cf0a68e646bd7e8edbc79366eae1a9ea49fcaf084f2a41bcefff624a"
+    }
+  ]
+}

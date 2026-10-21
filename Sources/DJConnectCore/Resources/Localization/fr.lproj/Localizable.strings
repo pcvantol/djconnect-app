@@ -366,7 +366,7 @@
 "ui.clear" = "Clear";
 "ui.permissions" = "Permissions";
 "ui.microphone" = "Microphone";
-"ui.speech.recognition" = "Speech Recognition";
+"ui.speech.recognition" = "Reconnaissance vocale";
 "ui.notifications" = "Notifications";
 "ui.request.permissions" = "Request Permissions";
 "ui.pair.app.again.c2c7b2" = "Pair App Again?";
@@ -443,11 +443,11 @@
 "ui.listening.for.wake.word" = "Listening for wake word";
 "ui.wake.word.detected" = "Wake word detected";
 "ui.not.available.in.demo.mode" = "Not available in Demo Mode";
-"ui.not.available" = "Not available";
-"ui.ask.when.needed" = "Ask when needed";
-"ui.allowed" = "Allowed";
-"ui.denied" = "Denied";
-"ui.restricted" = "Restricted";
+"ui.not.available" = "Non disponible";
+"ui.ask.when.needed" = "Demander si nécessaire";
+"ui.allowed" = "Autorisé";
+"ui.denied" = "Refusé";
+"ui.restricted" = "Restreint";
 "mac.about" = "A propos";
 "mac.about.djconnect" = "About DJConnect";
 "widget.nothing.playing" = "Nothing playing";
@@ -837,9 +837,9 @@
 "ui.music.dna.is.enabled.home.assistant.can.use.future.listening" = "Music DNA est active. Home Assistant peut utiliser les futurs signaux d'ecoute pour creer cote serveur un profil de gout prive et ameliorer le contexte Ask DJ.";
 "ui.music.dna.is.disabled.no.listening.profile.is.being.built" = "Music DNA est desactive. Aucun profil d'ecoute n'est construit, et la desactivation a deja efface le profil appris.";
 "ui.djconnect.is.still.checking.the.current.music.dna.status" = "DJConnect is still checking the current Music DNA status.";
-"ui.needed.for.push.to.talk.voice.requests" = "Needed for push-to-talk voice requests.";
-"ui.needed.for.the.foreground.wake.phrase" = "Needed for the foreground wake phrase.";
-"ui.needed.for.server.push.notifications.when.ask.dj.answers" = "Needed for server push notifications when Ask DJ answers.";
+"ui.needed.for.push.to.talk.voice.requests" = "Nécessaire pour les requêtes vocales en maintenant le bouton enfoncé.";
+"ui.needed.for.the.foreground.wake.phrase" = "Nécessaire pour la phrase d’activation lorsque l’app est au premier plan.";
+"ui.needed.for.server.push.notifications.when.ask.dj.answers" = "Nécessaire pour les notifications push du serveur lorsque Ask DJ répond.";
 "ui.this.clears.the.local.djconnect.pairing.and.opens.pairing.setup" = "This clears the local DJConnect pairing and opens pairing setup again.";
 "ui.this.turns.off.music.dna.and.removes.your.listening.profile" = "This turns off Music DNA and removes your listening profile data from the server.";
 "ui.in.the.real.app.this.clears.learned.music.dna.on" = "In the real app this clears learned Music DNA on your Home Assistant backend. Because this is demo mode, the fictional sample profile stays visible.";
@@ -1475,3 +1475,32 @@
 "ui.displayConsent.approved" = "Écran autorisé pour votre Session actuelle.";
 "ui.displayConsent.uncertain" = "L’autorisation n’a pas été confirmée. Vérifiez l’écran avant une nouvelle demande.";
 "ui.displayConsent.unavailable" = "Le code de l’écran ou la Session actuelle n’est plus disponible.";
+
+/* Home Assistant speech configuration; never an audio-success claim. */
+"ui.ha_speech.configuration" = "Configuration Home Assistant";
+"ui.ha_speech.input" = "Reconnaissance vocale";
+"ui.ha_speech.output" = "Synthèse vocale";
+"ui.ha_speech.speaker" = "Enceinte de destination";
+"ui.ha_speech.configured" = "Configuré";
+"ui.ha_speech.unconfigured" = "Non configuré";
+"ui.ha_speech.unavailable" = "Temporairement indisponible";
+"ui.ha_speech.unsupported" = "Non pris en charge";
+"ui.ha_speech.unknown" = "Inconnu";
+"ui.ha_speech.retry_delay" = "La synthèse vocale est temporairement suspendue après une tentative échouée.";
+
+"ui.session.history.delete.unconfirmed" = "La suppression n’est pas encore confirmée. Aucune nouvelle demande de suppression ne sera envoyée. L’actualisation ne fait que lire l’historique.";
+
+/* Server-confirmed individual content deletion. */
+"ui.content.delete.action" = "Supprimer la contribution";
+"ui.content.delete.confirm" = "Supprimer cette contribution ?";
+"ui.content.delete.unit.moment" = "Moment du DJ";
+"ui.content.delete.unit.exchange" = "Question et réponse complètes";
+"ui.content.delete.unit.attempt" = "Demande initiale en attente";
+"ui.content.delete.scope" = "Lignes : %d supprimées, %d indisponibles. Messages : %d supprimés, %d indisponibles. Moments du DJ : %d. Demandes bloquées : %d.";
+"ui.content.delete.playback" = "La session et la lecture musicale sont conservées.";
+"ui.content.delete.expires" = "Valable jusqu’à %@";
+"ui.content.delete.status" = "Vérifier la suppression";
+
+"ui.session.search.clear" = "Effacer les termes de recherche";
+
+"ui.session.playback.speaker_question" = "Afficher les enceintes disponibles.";

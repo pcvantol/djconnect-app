@@ -191,3 +191,19 @@ import DJConnectUI
     DJConnectSessionSurfacePresentation.userDismissed(identity, activityID: "new", in: defaults)
     #expect(!DJConnectSessionSurfacePresentation.canRequest(identity, build: "2", in: defaults))
 }
+
+@Test func confirmedSessionMoodImmediatelyOutranksOlderRichWidgetPalette() throws {
+    let now = Date(timeIntervalSince1970: 1_790_000_000)
+    let before = DJConnectSessionSurfaceSnapshot(observedAt: now, theme: .chill)
+    let changed = DJConnectSessionSurfaceSnapshot(observedAt: now.addingTimeInterval(1), theme: .party)
+    let readback = now.addingTimeInterval(1)
+    #expect(DJConnectSessionSurfaceSnapshot.widgetTheme(confirmedSession: changed, passiveMood: "chill", fallback: .groove, at: readback) == .party)
+    #expect(DJConnectSessionSurfaceSnapshot.needsWidgetReload(current: changed, previous: before,
+        lastReloadAt: now, at: readback))
+    #expect(!DJConnectSessionSurfaceSnapshot.needsWidgetReload(current: before, previous: before,
+        lastReloadAt: now, at: readback))
+    #expect(DJConnectSessionSurfaceSnapshot.widgetTheme(confirmedSession: changed, passiveMood: "groove", fallback: .brand,
+        at: now.addingTimeInterval(122)) == .groove)
+    #expect(DJConnectSessionSurfaceSnapshot.widgetTheme(confirmedSession: nil, passiveMood: nil, fallback: .energy, at: now) == .energy)
+    #expect(changed.expiresAt == changed.observedAt.addingTimeInterval(120))
+}

@@ -6,6 +6,13 @@ All notable changes to DJConnect App are documented here.
 
 ### Changed
 
+- Unify Session Flow/Forecast headers, visible search and glass selection;
+  align hero/game cards and playback controls with the shared glass style.
+- Improve Session contribution deletion, saved-Session presentation, Mac find
+  and mouse-back navigation, source deduplication and the two-line brand banner.
+- Refresh widgets on confirmed Session mood changes and move the expanded
+  Dynamic Island Spotify credit to the top trailing corner.
+
 - Prepare native VibeCast TV QR routing and destination encryption with pinned
   JOSESwift 3.0.0 and bundled Apache 2.0 notices. Genuine secure handoff remains
   incomplete; simulator support checks do not establish physical acceptance.

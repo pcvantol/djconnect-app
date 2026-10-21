@@ -1,0 +1,35 @@
+{
+  "base": "bcdbd06",
+  "scope": "macOS standard mouse-back button routes to the visible navigation destination dismiss action.",
+  "implementation": {
+    "button_number": 3,
+    "scope": "local events in the destination own window, only while visible/active; no attached sheet",
+    "navigation": "SwiftUI dismiss, same one-level pop as native back arrow",
+    "integration": "Both app navigationDestination declarations"
+  },
+  "validation": {
+    "native_Mac_navigation_test": "1 PASS: two nested pages pop one at a time; middle/forward/nil-window ignored; no active handler at root",
+    "unsigned_iOS_iPadOS_compile": "PASS",
+    "diff_check": "PASS"
+  },
+  "limitations": [
+    "Test invokes the same AppKit event-routing handler in a real offscreen SwiftUI NavigationStack. It is not a physical mouse or OS-posted input test.",
+    "Cmd+[ fallback probe did not navigate and was discarded; negative log retained."
+  ],
+  "installed": false,
+  "published": false,
+  "evidence": [
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-mouse-back-navigation-20261021/final-native-test.log",
+      "sha256": "e47232b437bbd8daba0fdefee36c4038558afc7721ae7893919f0595a44dea97"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-mouse-back-navigation-20261021/ios-build.log",
+      "sha256": "5917e3cbe7f01f39638d5f5f2b74ce99b1d94ff61e2317af2e1e28ae6eb84919"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-mouse-back-navigation-20261021/native-back-route.log",
+      "sha256": "7d7b7a44caa79bd3ad57570d14574e77299627f3e4f8b52875cf2ace22d0c2ee"
+    }
+  ]
+}

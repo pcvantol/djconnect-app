@@ -29,9 +29,10 @@ extension View {
         modifier(DJAlbumArtworkGlassSurface(tint: tint))
     }
 
-    @ViewBuilder func djSessionNavigationTitleStyle(compactPhone: Bool = false) -> some View {
+    @ViewBuilder func djSessionNavigationTitleStyle() -> some View {
         #if os(iOS)
-        navigationBarTitleDisplayMode(compactPhone && UIDevice.current.userInterfaceIdiom == .phone ? .inline : .large)
+        // The session has no title; reserve only the toolbar on both iPhone and iPad.
+        navigationBarTitleDisplayMode(.inline)
         #else
         self
         #endif
@@ -229,6 +230,7 @@ struct NativeSessionMomentsView: View {
     var artworkBaseURL: URL? = nil
     var playbackOutputName: String? = nil
     var playbackModel: DJConnectAppModel? = nil
+    var onPlaybackOutputQuestion: () -> Void = {}
     @Environment(\.scenePhase) private var scenePhase
     @State private var artworkFeedback: ArtworkFeedback?
     @State private var artworkActionGeneration = UUID()
@@ -331,7 +333,11 @@ struct NativeSessionMomentsView: View {
         #endif
     }
 
-    private func currentMoment(at date: Date) -> DJConnectMoment? { session.broadcast.nativeCurrentMoment(at: date, spotifyAttributionAvailable: spotifyAttributionLogo != nil) }
+    private func currentMoment(at date: Date) -> DJConnectMoment? {
+        guard let moment = session.broadcast.nativeCurrentMoment(at: date, spotifyAttributionAvailable: spotifyAttributionLogo != nil),
+              playbackModel?.sessionHistory.contentMomentWasWithdrawn(sessionID: session.id, momentID: moment.id) != true else { return nil }
+        return moment
+    }
 
     private func kind(_ moment: DJConnectMoment) -> String {
         let mapped = ["track": "track_context", "artist": "artist_story", "album": "album_story", "genre": "genre_story", "session": "session_direction"][moment.type] ?? moment.type
@@ -392,6 +398,7 @@ struct NativeSessionMomentsView: View {
                 artworkModel: playbackModel,
                 speech: session.broadcast.sessionSpeech.first { $0.reference == .moment(sessionID: session.id, momentID: moment.id) })
                 .id(moment.id)
+                .djContentDeletion(model: playbackModel, target: .init(kind: "moment", sessionID: session.id, targetID: moment.id))
                 .transition(.opacity)
                 .accessibilityIdentifier("session-current-moment")
         } else {
@@ -488,6 +495,13 @@ struct NativeSessionMomentsView: View {
               playbackModel.activeDJSession?.id == session.id,
               playbackModel.activeDJSession?.runtimeState == "active" else {
             hidesArtworkPlayOnTouch = false
+            return
+        }
+        if ["play", "pause"].contains(command), playbackModel.needsSessionPlaybackOutputSelection {
+            hidesArtworkPlayOnTouch = false
+            if playbackModel.sessionHistory.requestSessionSpeakerChoice(sessionID: session.id) {
+                onPlaybackOutputQuestion()
+            }
             return
         }
         let isSkip = command == "next" || command == "previous"

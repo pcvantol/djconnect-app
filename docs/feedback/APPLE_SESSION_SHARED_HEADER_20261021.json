@@ -1,0 +1,63 @@
+{
+  "base_commit": "e75e6d4",
+  "change": "One live Session scroll host and one current artwork/playback/persona header; only lower Flow/Forecast branch switches. Forecast content inherits the same 1000pt width cap and header geometry.",
+  "validation": {
+    "mac_compile": "PASS",
+    "native_layout_tests_passed": 2,
+    "owner_context_function_passed": 1,
+    "owner_context_cases_passed": 16,
+    "failed": 0,
+    "skipped": 0,
+    "header_top_difference_at_500_and_900": 0,
+    "diff_check": "PASS"
+  },
+  "source": [
+    {
+      "path": "Sources/DJConnectUI/SessionTimelineScreen.swift",
+      "sha256": "f8612355a2971f770632122d81c6dfa8a9b5155773822375217dcc9585e30eb9"
+    },
+    {
+      "path": "Sources/DJConnectUI/SessionForecastView.swift",
+      "sha256": "0b504b5f5f34b528290dd5eb003369f120376e610fd4fb56c32019ed92cca0bc"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/ForecastHeaderAlignmentTests.swift",
+      "sha256": "1a3e45e310f88b224cdfa78043ca5784827610fdec114cc4a2175d867ddc4af7"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/SessionHistoryContractTests.swift",
+      "sha256": "1330567e7582e3f7a5ec9a46bdd1b2ed30d195caf59a94c89f9a4d9b02727dfe"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-shared-header-20261021/qualified.log",
+      "sha256": "06f37425028108ad37fa0b30dbc89f9ea08bdd05391f5ab6d4eef0283a05a77c"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-shared-header-20261021/renders/geometry.json",
+      "sha256": "491d60a5e769bfdf68c1e2cb377a20226d16aeb6ae3d4a70fcfc1a8c8b1db364"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-shared-header-20261021/renders/flow-500.png",
+      "sha256": "2da2e959c2a46aa9c86b35d970e95c218905197bc39fcbb24a026c0819e0b5c2"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-shared-header-20261021/renders/flow-900.png",
+      "sha256": "68a79fced63a20cc2144a86be96930c1b5a3b6e5ab4a9157d098c140821e70b1"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-shared-header-20261021/renders/forecast-500.png",
+      "sha256": "2b2cecbaf0224a3abb88084177641c535e70fc6a8a37e45a7b3f97d6946dbfe5"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-shared-header-20261021/renders/forecast-900.png",
+      "sha256": "ba059a55e285bf09668f6a6f6ed125b41e3820599647e8c5761579cd008341c7"
+    }
+  ],
+  "limits": [
+    "Native tests cover a supplied marker header and actual lower Forecast component, not physical full-root switching or artwork/AV playback continuity.",
+    "No new iOS build, installation or physical acceptance claimed."
+  ],
+  "retained": "Forecast owner/epoch/scene/freshness refresh context retained on lower component; Flow and Forecast query/position state retained on Session owner; standalone panel wrapper remains for existing component qualification."
+}

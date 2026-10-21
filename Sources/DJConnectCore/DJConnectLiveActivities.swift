@@ -164,6 +164,14 @@ public struct DJConnectSessionSurfaceSnapshot: Codable, Equatable, Hashable, Sen
         isCurrent(at: now) ? (theme ?? .brand) : .brand
     }
 
+    /// A separately confirmed Session palette outranks an older rich-content
+    /// cache. Neither source extends the other's original lifetime.
+    public static func widgetTheme(confirmedSession: Self?, passiveMood: String?,
+                                   fallback: DJConnectSessionMoodTheme, at now: Date) -> DJConnectSessionMoodTheme {
+        if let confirmedSession, confirmedSession.isCurrent(at: now), let theme = confirmedSession.theme { return theme }
+        return passiveMood.map { DJConnectSessionMoodTheme(sessionMood: $0) } ?? fallback
+    }
+
     public static func needsWidgetReload(current: Self?, previous: Self?, lastReloadAt: Date?, at now: Date) -> Bool {
         if (current == nil) != (previous == nil) || current?.theme != previous?.theme { return true }
         guard current != nil else { return false }

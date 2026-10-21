@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "qualification": "ACTUAL_ISOLATED_HA_PAIRED_HTTP_TLS_WEBSOCKET_STORE_SQLITE_SEPARATE_PROCESS_RECOVERY_SYNTHETIC_ONLY",
+  "ha_sdk_version": "2026.10.0",
+  "source_pins": {
+    "custom_components/djconnect/__init__.py": "48c232f3e091264e6cad6973e41eb00909935e33b7a90eaf78b5ab6b561e225b",
+    "custom_components/djconnect/api_handlers.py": "17badb1fa52334b2edf1c39dcfc9336a49260048ebeffc4cc447a2bd078ccc58",
+    "custom_components/djconnect/ask_dj_history.py": "35b0546bc4b3600dce454578da770c9aff157e4b4f30b7e4fec14d83f46e4bee",
+    "custom_components/djconnect/history_deletion.py": "adf077184493e6f9a5a6b57ce21f13815e188da5b711d23226d9fffb5ebcf5f4",
+    "custom_components/djconnect/history_deletion_api.py": "a241679fbd6222c57856eb28a1f376610b82e9e0a17cf4597695406ddfd781f6",
+    "custom_components/djconnect/history_deletion_snapshots.py": "e51d1d5718564aa0ee7722252356cc7b1566b14154d65de500f7a36f56519dff",
+    "custom_components/djconnect/capability_contract.py": "a285cef477601e424784aff62b17998b1489c76a2d30a1fe83a9a983ccc37775",
+    "custom_components/djconnect/http.py": "896a28662074f4e0c4f70b8933fabcf1d3610ce09427245aaa94ab91f2827fdb",
+    "custom_components/djconnect/hybrid_service.py": "b25320b38560df85dc4b081d6f70c88aadb29e98685459a7f76554b9a2060fae",
+    "custom_components/djconnect/dj_response.py": "ce7b655d27a388133f7dd24c96b109b510a64850804c834a923b9e5c6802e5e0",
+    "custom_components/djconnect/session_speech.py": "8828c93525d97eb34bb0f436bb70478df9353c4da6327ac8aa6f106b2d9cbef6",
+    "custom_components/djconnect/historical_projection_query.py": "bce8d7a865fecb782915fdf9a52476b383f64cbf393c03516180efe2be415e4f",
+    "custom_components/djconnect/ask_dj/dialogue.py": "37d8adfd92ace3321fe4d626d44f723ed15feedce638df1cc3a1dc77a24d7e99",
+    "custom_components/djconnect/persistence/history.py": "397bf38af386981d95264ef2947967d76c4abfd595b61eb6aa2cfddc83240431",
+    "custom_components/djconnect/persistence/history_deletion.py": "f490041440cb303c3d3e155d873b4ece48589824d6d1be0a7d74f526a362a556",
+    "custom_components/djconnect/persistence/schema.py": "33261a8d773cd2bb6073e54e9bd84507b3d9536dd5f190e0e00d791bd7d2813e",
+    "custom_components/djconnect/persistence/bootstrap.py": "101bb88060dc666fb2d0d3880dbf8c12e9fb26d6d5bcbcdc876419f65d953d4b"
+  },
+  "harness": "scripts/verification/verify_archive_deletion_http.py",
+  "harness_sha256": "687678b21354f2bddbeba20d5c1ea49a62b5eac032068a6108fe7cbf7ca766a0",
+  "actual_ha_receipt_sha256": "d4666be49cb8cdc0330547b365539ddb4d6afbfcd8ddb4cf0ac80a50939c7c0e",
+  "requests_observed": 34,
+  "cases": [
+    "actual_paired_foreign_target_hidden",
+    "actual_store_save_lost_ack_no_success_or_reread",
+    "separate_process_durable_sqlite_store_recovery",
+    "exact_completed_receipt_after_process_recovery",
+    "actual_bulk_snapshot_new_completion_active_foreign_playback_preserved",
+    "actual_paired_websocket_keeps_original_active_session_across_bulk_erasure"
+  ],
+  "paired_identity": {
+    "device_id": "djconnect-ios-ABCDEF123456",
+    "client_type": "ios"
+  },
+  "examples": {
+    "single_request": {
+      "session_id": "session-a429e03bf6de435a800652905940b183",
+      "expected_revision": "3:ENDED:0:1:1dfb6d4cac35f95a:retention:1:0:delete:60a1e0b8b5c91198449439a9352f2bef4d4618099612f02ac2d28ccc403b3f09",
+      "operation_id": "01a15d9f-516a-7000-8000-000000000001",
+      "confirmed": true,
+      "history_contract_version": 2
+    },
+    "pending_response": {
+      "success": false,
+      "error": "history_delete_outcome_unknown"
+    },
+    "single_response": {
+      "success": true,
+      "schema_version": 1,
+      "operation_id": "01a15d9f-516a-7000-8000-000000000001",
+      "owner_profile_id": "profile-a",
+      "deleted": true,
+      "deleted_session_id": "session-a429e03bf6de435a800652905940b183"
+    },
+    "snapshot_response": {
+      "success": true,
+      "schema_version": 1,
+      "owner_profile_id": "profile-a",
+      "snapshot_id": "krMXHBtpKCyZxvTotDsicw3hNADqOjMh9ytbA2Yu8vE",
+      "target_count": 3,
+      "created_at": "2026-10-21T08:41:26.237638+00:00",
+      "expires_at": "2026-10-21T08:46:26.237638+00:00"
+    },
+    "bulk_request": {
+      "snapshot_id": "krMXHBtpKCyZxvTotDsicw3hNADqOjMh9ytbA2Yu8vE",
+      "operation_id": "01a15d9f-580f-7000-8000-000000000002",
+      "confirmed": true
+    },
+    "bulk_response": {
+      "success": true,
+      "schema_version": 1,
+      "operation_id": "01a15d9f-580f-7000-8000-000000000002",
+      "owner_profile_id": "profile-a",
+      "deleted": true,
+      "snapshot_id": "krMXHBtpKCyZxvTotDsicw3hNADqOjMh9ytbA2Yu8vE",
+      "deleted_session_count": 3
+    }
+  },
+  "source_unchanged": true,
+  "model_provider_calls": 0,
+  "installed": "NOT_RUN",
+  "native": "NOT_RUN",
+  "audible": "NOT_RUN",
+  "individual_content_deletion": "OPEN_CORE1225"
+}

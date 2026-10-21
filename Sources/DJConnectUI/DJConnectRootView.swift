@@ -291,32 +291,9 @@ private struct DJConnectGradientCardStyle: ViewModifier {
     }
 }
 
-private struct DJConnectHeroCardStyle: ViewModifier {
-    var colors: [Color]? = nil
-
-    func body(content: Content) -> some View {
-        content
-            .background {
-                ZStack {
-                    if colors != nil {
-                        DJConnectCardAppearance.shape.fill(.black.opacity(0.60))
-                    }
-                    DJConnectCardAppearance.shape.fill(
-                        LinearGradient(
-                            colors: colors?.map { $0.opacity(0.42) } ?? [Color(red: 0.08, green: 0.15, blue: 0.32),
-                                     Color(red: 0.13, green: 0.09, blue: 0.27),
-                                     Color(red: 0.17, green: 0.08, blue: 0.32)],
-                            startPoint: .leading, endPoint: .trailing)
-                    )
-                }
-            }
-            .modifier(DJConnectCardOutline())
-    }
-}
-
 private extension View {
-    func djConnectHeroCard(colors: [Color]? = nil) -> some View {
-        modifier(DJConnectHeroCardStyle(colors: colors))
+    func djConnectHeroCard() -> some View {
+        djSessionFrostedSurface()
     }
 
     func djConnectGradientCard() -> some View {
@@ -3560,6 +3537,7 @@ struct DJConnectButtonStyle: ButtonStyle {
     var showsFocusIndicator = true
     var foregroundColor: Color? = nil
     var selectionTint: Color? = nil
+    var primaryFill: Color? = nil
     var dimsWhenDisabled = true
     @Environment(\.isFocused) private var isFocused
     @Environment(\.isEnabled) private var isEnabled
@@ -3595,9 +3573,9 @@ struct DJConnectButtonStyle: ButtonStyle {
                     switch role {
                     case .primary:
                         if usesLiveGlass && glassEnabled && !reduceTransparency {
-                            outline.fill(DJConnectButtonAppearance.primaryGradient)
+                            outline.fill(primaryFill.map { AnyShapeStyle($0) } ?? AnyShapeStyle(DJConnectButtonAppearance.primaryGradient))
                                 .glassEffect(.regular.interactive(), in: outline)
-                        } else { outline.fill(DJConnectButtonAppearance.primaryGradient) }
+                        } else { outline.fill(primaryFill.map { AnyShapeStyle($0) } ?? AnyShapeStyle(DJConnectButtonAppearance.primaryGradient)) }
                     case .selected:
                         if usesLiveGlass && glassEnabled && !reduceTransparency {
                             outline.fill((selectionTint ?? djConnectAccent).opacity(0.10))
@@ -4936,11 +4914,6 @@ private struct MusicDNASectionGrid: View {
                 MusicDNAPanel(title: localizedKey(model.language, "ui.music.dna.discovery.feedback"), value: discoveryFeedbackText(discoveryFeedback), icon: "sparkles")
             }
         }
-        if let privacyDashboard = profile.privacyDashboard, privacyDashboard.isDisplayable {
-            musicDNAPanel {
-                MusicDNAPanel(title: localizedKey(model.language, "ui.music.dna.privacy.dashboard"), value: privacyDashboardText(privacyDashboard), icon: "lock.shield")
-            }
-        }
         if let basisSignals {
             musicDNAPanel {
                 if !basisTracks.isEmpty {
@@ -5209,10 +5182,6 @@ private struct MusicDNASectionGrid: View {
             lines.append(counts)
         }
         return lines.joined(separator: "\n").ifEmpty(localizedKey(model.language, "ui.not.enough.signals"))
-    }
-
-    private func privacyDashboardText(_ dashboard: DJConnectMusicDNAPrivacyDashboard) -> String {
-        MusicDNAPrivacySummary.text(dashboard, language: model.language)
     }
 
     private func energySignals(_ values: [DJConnectMusicDNAEnergySignal]) -> String {
@@ -7452,7 +7421,7 @@ private struct TrackInsightHero: View {
         .padding(14)
         .frame(maxWidth: .infinity)
         .clipped()
-        .djConnectHeroCard(colors: profile.colors)
+        .djConnectHeroCard()
     }
 }
 
@@ -8753,7 +8722,8 @@ private struct TrackInsightAnalysisCard: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             if let credit = insight.verifiedCredit {
-                Link("\(credit.source.provider) · \(credit.source.license)", destination: credit.source.url)
+                Link(credit.source.license == "Spotify metadata display"
+                     ? credit.source.provider : "\(credit.source.provider) · \(credit.source.license)", destination: credit.source.url)
                     .font(.caption).tint(djConnectAccent)
                 if insight.summary != credit.context {
                     MusicDNACompactPanelHeader(title: localizedKey(language, "ui.trackInsight.interpretation"), icon: "text.bubble")
@@ -9059,7 +9029,7 @@ private struct DJSessionView: View {
                 }
             }
             .navigationTitle("")
-            .djSessionNavigationTitleStyle(compactPhone: true)
+            .djSessionNavigationTitleStyle()
             .toolbar {
                 #if os(iOS)
                 if model.shouldShowAppleWatchPairingReminder {
@@ -9403,15 +9373,12 @@ struct VibeCastSessionStartDialog: View {
 struct VibeCastHandoffForm: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var vibeCastHandoffCode = ""
-    @State private var showingDisplayConsent = false
 
     var body: some View {
+        #if os(iOS)
+        VibeCastDisplayConsentForm(model: model, embedded: true)
+        #else
         VStack(alignment: .leading, spacing: 18) {
-            Button(localizedKey(model.language, "ui.displayConsent.open")) { showingDisplayConsent = true }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
-                .disabled(!model.canResolveDisplayConsent)
-                .accessibilityIdentifier("display-consent-open")
-                .sheet(isPresented: $showingDisplayConsent) { VibeCastDisplayConsentForm(model: model) }
             Text(localizedKey(model.language, "ui.vibecast.handoff.instructions"))
                 .font(.callout).foregroundStyle(.white.opacity(0.82))
                 .fixedSize(horizontal: false, vertical: true)
@@ -9446,40 +9413,20 @@ struct VibeCastHandoffForm: View {
         #endif
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("vibecast-handoff-form")
+        #endif
     }
 }
 
 struct VibeCastDisplayConsentForm: View {
     @ObservedObject var model: DJConnectAppModel
+    var embedded = false
     @Environment(\.dismiss) private var dismiss
     @State private var code = ""
     private var busy: Bool { model.displayConsentState == .resolving || model.displayConsentState == .approving }
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text(localizedKey(model.language, "ui.displayConsent.title")).font(.title2.bold())
-                Text(localizedKey(model.language, "ui.displayConsent.instructions"))
-                VibeCastCodeEntry(code: $code, accessibilityLabel: localizedKey(model.language, "ui.vibecast.handoff.code"))
-                    .frame(height: 64).disabled(busy || model.displayConsentState == .ready || model.displayConsentState == .approved || model.displayConsentState == .uncertain)
-                if model.displayConsentState == .idle || model.displayConsentState == .unavailable {
-                    Button(localizedKey(model.language, "ui.displayConsent.lookup")) {
-                        resignPlatformFirstResponder()
-                        Task { await model.resolveDisplayConsent(code: code) }
-                    }.disabled(code.count != 6 || busy)
-                    .accessibilityIdentifier("display-consent-lookup")
-                }
-                if model.displayConsentState == .ready {
-                    Text(localizedKey(model.language, model.displayConsentExistingShare == nil ? "ui.displayConsent.create" : "ui.displayConsent.existing"))
-                    Button(localizedKey(model.language, "ui.displayConsent.confirm")) { Task { await model.approveDisplayConsent() } }
-                        .accessibilityIdentifier("display-consent-confirm")
-                }
-                if busy { ProgressView() }
-                if model.displayConsentState == .approved { Text(localizedKey(model.language, "ui.displayConsent.approved")) }
-                if model.displayConsentState == .uncertain { Text(localizedKey(model.language, "ui.displayConsent.uncertain")) }
-                if model.displayConsentState == .unavailable { Text(localizedKey(model.language, "ui.displayConsent.unavailable")) }
-                Button(localizedKey(model.language, "ui.not.now.b1e535")) { model.cancelDisplayConsent(); dismiss() }
-                    .accessibilityIdentifier("display-consent-close")
-            }.padding(28)
+        Group {
+            if embedded { formContent }
+            else { ScrollView { formContent.padding(28) } }
         }
         .accessibilityIdentifier("display-consent-form")
         .onChange(of: code) { _, _ in model.resetDisplayConsent() }
@@ -9491,6 +9438,40 @@ struct VibeCastDisplayConsentForm: View {
                 try? await Task.sleep(for: .milliseconds(250))
             }
         }
+    }
+
+    private var formContent: some View {
+            VStack(alignment: .leading, spacing: 20) {
+                if !embedded {
+                    Text(localizedKey(model.language, "ui.displayConsent.title")).font(.title2.bold())
+                }
+                Text(localizedKey(model.language, "ui.displayConsent.instructions"))
+                VibeCastCodeEntry(code: $code, accessibilityLabel: localizedKey(model.language, "ui.vibecast.handoff.code"))
+                    .frame(height: 64).disabled(busy || model.displayConsentState == .ready || model.displayConsentState == .approved || model.displayConsentState == .uncertain)
+                if model.displayConsentState == .idle || model.displayConsentState == .unavailable {
+                    Button(localizedKey(model.language, "ui.displayConsent.lookup")) {
+                        resignPlatformFirstResponder()
+                        Task { await model.resolveDisplayConsent(code: code) }
+                    }
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                    .disabled(code.count != 6 || busy || !model.canResolveDisplayConsent)
+                    .accessibilityIdentifier("display-consent-lookup")
+                }
+                if model.displayConsentState == .ready {
+                    Text(localizedKey(model.language, model.displayConsentExistingShare == nil ? "ui.displayConsent.create" : "ui.displayConsent.existing"))
+                    Button(localizedKey(model.language, "ui.displayConsent.confirm")) { Task { await model.approveDisplayConsent() } }
+                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                        .accessibilityIdentifier("display-consent-confirm")
+                }
+                if busy { ProgressView() }
+                if model.displayConsentState == .approved { Text(localizedKey(model.language, "ui.displayConsent.approved")) }
+                if model.displayConsentState == .uncertain { Text(localizedKey(model.language, "ui.displayConsent.uncertain")) }
+                if model.displayConsentState == .unavailable { Text(localizedKey(model.language, "ui.displayConsent.unavailable")) }
+                if !embedded {
+                    Button(localizedKey(model.language, "ui.not.now.b1e535")) { model.cancelDisplayConsent(); dismiss() }
+                        .accessibilityIdentifier("display-consent-close")
+                }
+            }
     }
 }
 
@@ -9522,7 +9503,8 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
             field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             field.accessibilityLabel = "\(accessibilityLabel), \(index + 1) / 6"
             field.accessibilityIdentifier = "vibecast-handoff-digit-\(index)"
-            field.emptyDelete = { [weak coordinator = context.coordinator] in coordinator?.deleteBefore(index) }
+            field.deleteDigit = { [weak coordinator = context.coordinator] in coordinator?.deleteDigit(index) }
+            field.insertDigits = { [weak coordinator = context.coordinator] in coordinator?.insert($0, at: index) }
             stack.addArrangedSubview(field)
             context.coordinator.fields.append(field)
         }
@@ -9536,15 +9518,15 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
         if code != context.coordinator.lastEmittedCode { context.coordinator.sync(code) }
         for (index, field) in context.coordinator.fields.enumerated() {
             field.accessibilityLabel = "\(accessibilityLabel), \(index + 1) / 6"
+            field.isEnabled = context.environment.isEnabled
         }
     }
 
     final class DigitField: UITextField {
-        var emptyDelete: (() -> Void)?
-        override func deleteBackward() {
-            if (text ?? "").isEmpty { emptyDelete?() }
-            else { super.deleteBackward() }
-        }
+        var deleteDigit: (() -> Void)?
+        var insertDigits: ((String) -> Void)?
+        override func deleteBackward() { deleteDigit?() }
+        override func insertText(_ text: String) { insertDigits?(text) }
     }
 
     final class Coordinator: NSObject, UITextFieldDelegate {
@@ -9572,6 +9554,12 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
             code.wrappedValue = lastEmittedCode
             refresh()
         }
+        func deleteDigit(_ index: Int) {
+            // UIKit's text deletion need not enter shouldChangeCharactersIn.
+            // Keep the aggregate binding authoritative for filled cells too.
+            if digits[index].isEmpty { deleteBefore(index) }
+            else { digits[index] = ""; emit() }
+        }
         func deleteBefore(_ index: Int) {
             guard index > 0 else { return }
             digits[index - 1] = ""
@@ -9587,14 +9575,17 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
                 emit()
                 return false
             }
+            insert(string, at: index)
+            return false
+        }
+        func insert(_ string: String, at index: Int) {
             let clean = Array(string.filter { $0.isASCII && $0.isNumber }).map(String.init)
-            guard !clean.isEmpty else { return false }
+            guard !clean.isEmpty else { return }
             // Full-code paste/autofill replaces all six, even from a later cell.
             let start = clean.count >= 6 ? 0 : index
             for (offset, digit) in clean.prefix(6 - start).enumerated() { digits[start + offset] = digit }
             fields[min(5, start + clean.count)].becomeFirstResponder()
             emit()
-            return false
         }
     }
 }
@@ -9994,7 +9985,7 @@ private struct IOSPlaybackSurface: View {
                 .frame(width: size, height: size)
                 .foregroundStyle(.white)
         }
-        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: prominent ? .primary : .secondary, shape: .icon, iconDiameter: size))
+        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: prominent ? .primary : .secondary, shape: .icon, iconDiameter: size, primaryFill: djConnectAccent))
         .disabled(!canUsePlayback)
         .accessibilityLabel(accessibilityLabel)
     }
@@ -10011,7 +10002,7 @@ private struct QueueNavigationButton: View {
         } label: {
             Image(systemName: "music.note.list")
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.82))
+                .foregroundStyle(.white.opacity(0.68))
                 .frame(width: 44, height: 44)
         }
         .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
@@ -10344,7 +10335,7 @@ struct PlaybackControlsView: View {
                         .frame(width: 44, height: 44)
                         .foregroundStyle(.white)
                 }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, shape: .icon))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, shape: .icon, primaryFill: djConnectAccent))
                 .help(model.isPlaying ? localizedKey(model.language, "ui.pause") : localizedKey(model.language, "ui.play"))
                 .accessibilityLabel(model.isPlaying ? localizedKey(model.language, "ui.pause") : localizedKey(model.language, "ui.play"))
                 .disabled(!canUsePlayback)
@@ -10406,8 +10397,8 @@ struct FavoriteTrackButton: View {
     @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
-    // Native large glass adds its own padding around the 24-point glyph.
-    private var labelDiameter: CGFloat { glassEnabled && !reduceTransparency ? 24 : 44 }
+    // Leave four extra points around the Session glyph inside native glass.
+    private var labelDiameter: CGFloat { sessionContext != nil && glassEnabled && !reduceTransparency ? 32 : 44 }
 
     private var isFavorite: Bool {
         model.playback?.currentTrackFavoriteStatus == true
@@ -10424,12 +10415,12 @@ struct FavoriteTrackButton: View {
     }
 
     var body: some View {
-        if glassEnabled && !reduceTransparency {
+        if sessionContext != nil && glassEnabled && !reduceTransparency {
             // The native button style owns the press interaction. A glass
             // background alone does not receive the button's touch lifecycle.
             GlassEffectContainer(spacing: 0) {
                 favoriteButton
-                    .buttonStyle(.glass(.regular.tint(isFavorite ? djConnectAccent.opacity(0.22) : .clear).interactive()))
+                    .buttonStyle(.glass(.regular.tint(.clear).interactive()))
                     .buttonBorderShape(.circle)
                     .tint(.clear)
                     .controlSize(.large)
@@ -10455,7 +10446,7 @@ struct FavoriteTrackButton: View {
                 Image(systemName: isFavorite ? "heart.fill" : "heart")
                     .font(.system(size: 22, weight: .semibold))
                     .symbolRenderingMode(.monochrome)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(sessionContext != nil ? .white : (isFavorite ? djConnectAccent : .white.opacity(0.68)))
                     .frame(width: labelDiameter, height: labelDiameter)
             }
         }
@@ -11151,6 +11142,9 @@ private struct AskDJView: View {
 
     private var content: some View {
             VStack(spacing: 0) {
+                if history.hasUnconfirmedDeletion {
+                    ContentDeletionPendingNotice(model: model).padding(.horizontal, 20).padding(.vertical, 10)
+                }
                 GeometryReader { geometry in
                     let contentWidth = min(maxContentWidth(for: geometry.size), geometry.size.width)
                     ScrollViewReader { proxy in
@@ -11238,6 +11232,7 @@ private struct AskDJView: View {
                                                     AnyView(SharedDJSpeechActions(model: model, speech: message.sessionSpeech, acceptedText: message.text))
                                                 } : nil
                                             )
+                                            .djContentDeletion(model: model, target: isAskDJHistoryStale ? nil : history.contentDeletionTarget(for: message))
                                             .id(message.id)
                                         }
                                     }
@@ -11498,6 +11493,7 @@ private struct AskDJView: View {
 
     var body: some View {
         navigationContent
+        .djConnectFindShortcut(action: showAskDJSearch)
         .background(DJConnectCanvasBackground())
         #if os(iOS)
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
@@ -11567,14 +11563,22 @@ private struct AskDJView: View {
     }
 
     private func toggleAskDJSearch() {
-        followsSubmittedQuestion = false
-        dismissAskDJKeyboard()
         if isSearchVisible {
+            followsSubmittedQuestion = false
+            dismissAskDJKeyboard()
             dismissAskDJSearch()
         } else {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                isSearchVisible = true
-            }
+            showAskDJSearch()
+        }
+    }
+
+    private func showAskDJSearch() {
+        followsSubmittedQuestion = false
+        dismissAskDJKeyboard()
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+            isSearchVisible = true
+        }
+        DispatchQueue.main.async {
             isSearchFocused = true
         }
     }
@@ -11658,12 +11662,25 @@ private struct AskDJView: View {
     }
 }
 
+extension View {
+    /// Use the same native key-equivalent route as Logs, without a visible control.
+    func djConnectFindShortcut(action: @escaping () -> Void) -> some View {
+        background {
+            Button("", action: action)
+                .keyboardShortcut("f", modifiers: .command)
+                .hidden()
+                .accessibilityHidden(true)
+        }
+    }
+}
+
 struct AskDJSearchBar: View {
     let language: String
     var scopeName: String = "Ask DJ"
     var promptKey: String? = nil
     var fieldIdentifier = "ask-dj-search-field"
     var countIdentifier = "ask-dj-search-count"
+    var closeLabelKey = "ui.close.search"
     var isLoading = false
     @Binding var text: String
     var isFocused: FocusState<Bool>.Binding
@@ -11718,8 +11735,8 @@ struct AskDJSearchBar: View {
             Button(action: closeAction) {
                 Image(systemName: "xmark")
             }
-            .help(localizedKey(language, "ui.close.search"))
-            .accessibilityLabel(localizedKey(language, "ui.close.search"))
+            .help(localizedKey(language, closeLabelKey))
+            .accessibilityLabel(localizedKey(language, closeLabelKey))
         }
         .djConnectPlainButtonStyle()
         .foregroundStyle(.white.opacity(0.86))
@@ -11894,6 +11911,7 @@ private struct AskDJOfflineNotice: View {
 
 /// Native conversation rendering shared with Session timelines.
 struct AskDJMessageBubble: View {
+    @Environment(\.djContentDeleteAction) private var contentDeleteAction
     let message: DJConnectAskDJMessage
     let language: String
     let isStaleHistory: Bool
@@ -11931,6 +11949,11 @@ struct AskDJMessageBubble: View {
         }
         .padding(.trailing, contextQuestionAction != nil && !renderablePlaybackActions.isEmpty ? 36 : 0)
         .contextMenu {
+            if let contentDeleteAction {
+                Button(role: .destructive, action: contentDeleteAction) {
+                    Label(localizedKey(language, "ui.content.delete.action"), systemImage: "trash")
+                }
+            }
             if (!isReadOnly || allowsConversationMenu) && canSetPrompt && !isStaleHistory {
                 Button {
                     DJConnectHaptics.selection()
@@ -12057,7 +12080,7 @@ struct AskDJMessageBubble: View {
     }
 
     private var sourceLinks: [DJConnectResponseLink] {
-        message.links.filter(\.isSourceLike)
+        message.sourceLinksForDisplay
     }
 
     private var shouldAttachImagesToPlaybackActions: Bool {
@@ -13280,7 +13303,7 @@ private struct AskDJMarkdownText: View {
     }
 }
 
-private extension DJConnectResponseLink {
+extension DJConnectResponseLink {
     var isSourceLike: Bool {
         let values = [kind, source]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
@@ -14234,6 +14257,7 @@ struct QueueView: View {
             .djContentRefreshable(enabled: !model.isDemoMode && canUsePlayback) { await refreshQueueWithToast() }
             .navigationTitle(screenTitle(model.language, key: "Queue", isDemoMode: model.isDemoMode))
             .accessibilityIdentifier("screen-queue")
+            .djConnectFindShortcut(action: showQueueSearch)
             .scrollContentBackgroundIfAvailable(.hidden)
             .background(DJConnectCanvasBackground())
             #if os(iOS)
@@ -14538,6 +14562,7 @@ struct PlaylistsView: View {
             .djContentRefreshable(enabled: !model.isDemoMode && canUsePlayback) { await refreshPlaylistsWithToast() }
             .navigationTitle(screenTitle(model.language, key: "ui.playlists", isDemoMode: model.isDemoMode))
             .accessibilityIdentifier("screen-playlists")
+            .djConnectFindShortcut(action: showPlaylistSearch)
             .scrollContentBackgroundIfAvailable(.hidden)
             .background(DJConnectCanvasBackground())
             #if os(iOS)
@@ -15031,28 +15056,14 @@ private struct GameModePicker: View {
                         .frame(height: 44)
 
                 }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: selection == game ? .selected : .tertiary, shape: .segmented, expands: true))
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: selection == game ? .selected : .tertiary, shape: .segmented, expands: true, usesLiveGlass: true))
                 .contentShape(DJConnectCardAppearance.segmentedItemShape)
                 .accessibilityAddTraits(selection == game ? [.isSelected] : [])
             }
         }
         .padding(DJConnectCardAppearance.segmentedContentInset)
         .frame(minHeight: 60)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.04, green: 0.03, blue: 0.13).opacity(0.96),
-                    Color(red: 0.11, green: 0.05, blue: 0.24).opacity(0.96)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: DJConnectCardAppearance.shape
-        )
-        .overlay {
-            DJConnectCardAppearance.shape
-                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
-        }
+        .djSessionFrostedSurface()
     }
 }
 
@@ -15191,7 +15202,6 @@ private struct LocalGameSurface: View {
             .frame(maxWidth: .infinity)
             .onGeometryChange(for: CGSize.self) { $0.size } action: { canvasSize = $0 }
             .background(gameHeightReader("canvas"))
-            .background(.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
             .accessibilityIdentifier("games-surface")
             .accessibilityLabel(game.title)
             .accessibilityValue(gameAccessibilityValue)
@@ -15229,22 +15239,7 @@ private struct LocalGameSurface: View {
                 .accessibilityValue(gameAccessibilityValue)
         }
         .padding(18)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color.black.opacity(0.62),
-                    Color(red: 0.13, green: 0.06, blue: 0.24).opacity(0.88),
-                    Color(red: 0.06, green: 0.10, blue: 0.22).opacity(0.72)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: DJConnectCardAppearance.shape
-        )
-        .overlay {
-            DJConnectCardAppearance.shape
-                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
-        }
+        .djSessionFrostedSurface()
         .focusable(true)
         .focusEffectDisabled()
         .focused($isGameFocused)
@@ -15272,13 +15267,17 @@ private struct LocalGameSurface: View {
             isGameFocused = false
             reset()
         }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                resetButton
+            }
+        }
     }
 
     private var gameCanvas: some View {
         ZStack {
             Canvas { context, size in
                 let rect = CGRect(origin: .zero, size: size)
-                context.fill(Path(roundedRect: rect, cornerRadius: 8), with: .color(Color.black.opacity(0.62)))
                 context.stroke(Path(roundedRect: rect.insetBy(dx: 1, dy: 1), cornerRadius: 8), with: .color(.white.opacity(0.10)), lineWidth: 1)
                 drawGame(in: &context, size: size, isPlaying: isPlaying)
                 if Date() < flashUntil {
@@ -15346,7 +15345,7 @@ private struct LocalGameSurface: View {
     @ViewBuilder
     private var controlsView: some View {
         if game == .pacman {
-            LazyVGrid(columns: controlColumns(count: 5), spacing: 10) {
+            LazyVGrid(columns: controlColumns(count: 4), spacing: 10) {
                 directionButton(localizedKey(language, "ui.up"), icon: "chevron.up") {
                     setPacmanDirection(dx: 0, dy: -1)
                 }
@@ -15359,12 +15358,11 @@ private struct LocalGameSurface: View {
                 directionButton(localizedKey(language, "ui.right"), icon: "chevron.right") {
                     setPacmanDirection(dx: 1, dy: 0)
                 }
-                resetButton
             }
             .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
             .controlSize(.large)
         } else {
-            LazyVGrid(columns: controlColumns(count: game == .pong ? 3 : 4), spacing: 10) {
+            LazyVGrid(columns: controlColumns(count: game == .pong ? 2 : 3), spacing: 10) {
                 directionButton(primaryMoveLabel, icon: primaryMoveIcon) {
                     move(-1)
                 }
@@ -15384,7 +15382,6 @@ private struct LocalGameSurface: View {
                     .help(localizedKey(language, "ui.fire"))
                 }
 
-                resetButton
             }
             .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
             .controlSize(.large)
@@ -15419,6 +15416,7 @@ private struct LocalGameSurface: View {
                 .frame(height: 24)
         }
         .help(localizedKey(language, "ui.reset"))
+        .accessibilityIdentifier("games-restart")
     }
 
     private var pacmanColumnCount: Int { 9 }
@@ -16385,7 +16383,7 @@ private struct MoreView: View {
             }
             .background(DJConnectCanvasBackground())
             .navigationTitle(screenTitle(model.language, key: "More", isDemoMode: model.isDemoMode))
-            .navigationDestination(item: $destinationSelection) { destination($0) }
+            .navigationDestination(item: $destinationSelection) { destination($0).djConnectMouseBackNavigation() }
         }
     }
     private func routeRequestedSection() {
@@ -17198,16 +17196,6 @@ struct SettingsView: View {
             ZStack {
                 DJConnectCanvasBackground()
                 SettingsContentContainer {
-                #if os(iOS)
-                SettingsGlassSection(title: "VibeCast") {
-                    Button(localizedKey(model.language, "ui.rendezvous.scan")) {
-                        model.cancelRendezvous()
-                        model.isShowingRendezvous = true
-                    }
-                    .disabled(model.isDemoMode || model.pairingStatus != .paired)
-                    .accessibilityIdentifier("vibecast-rendezvous-open")
-                }
-                #endif
                 SettingsGlassSection(title: localizedKey(model.language, "ui.app")) {
                     LabeledContent(localizedKey(model.language, "ui.app.language")) {
                         Picker(localizedKey(model.language, "ui.app.language"), selection: $model.appLanguageSelectionCode) {
@@ -18660,22 +18648,34 @@ private func copyText(_ text: String) {
     #endif
 }
 
-private struct PermissionStatusRow: View {
+struct PermissionStatusRow: View {
     let title: String
     let detail: String
     let status: DJConnectPermissionStatus
     let language: String
 
+    private var statusLabel: some View {
+        Label(permissionStatusText(status, language: language), systemImage: permissionStatusIcon(status))
+            .foregroundStyle(permissionStatusColor(status))
+            .labelStyle(.titleAndIcon)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(title)
-                    .foregroundStyle(.primary)
-                Spacer(minLength: 12)
-                Label(permissionStatusText(status, language: language), systemImage: permissionStatusIcon(status))
-                    .foregroundStyle(permissionStatusColor(status))
-                    .labelStyle(.titleAndIcon)
-                    .lineLimit(1)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text(title)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: true, vertical: false)
+                    Spacer(minLength: 12)
+                    statusLabel.fixedSize(horizontal: true, vertical: false)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    statusLabel.fixedSize(horizontal: false, vertical: true)
+                }
             }
             Text(detail)
                 .font(.caption)

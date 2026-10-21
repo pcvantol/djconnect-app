@@ -210,7 +210,7 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
                 .contains(archiveBasis ?? "") && text?.isEmpty == false
         case .conversationUser, .conversationDJ:
             return turnID?.isEmpty == false && originMessageID?.isEmpty == false && clientMessageID?.isEmpty == false &&
-                ["text", "voice"].contains(inputType ?? "") && context?.sessionID == sessionID &&
+                ["text", "voice", "setting_feedback"].contains(inputType ?? "") && context?.sessionID == sessionID &&
                 role == (kind == .conversationUser ? "user" : "assistant")
         case .djPublication, .djSilence:
             guard momentID?.isEmpty == false, text == nil, speechAvailable == false,
@@ -405,6 +405,9 @@ public struct DJConnectSessionHistoryCapabilities: Decodable, Sendable {
     public var deletionAvailable: Bool {
         available && capabilities?["session_history_delete"] == true && contractVersions?["session_history_delete"] == 1
     }
+    public var contentDeletionAvailable: Bool {
+        available && capabilities?["session_content_delete"] == true && contractVersions?["session_content_delete"] == 1
+    }
     public var artworkAvailable: Bool {
         capabilities?["session_artwork"] == true && contractVersions?["session_artwork"] == 1
     }
@@ -420,7 +423,7 @@ public struct DJConnectSessionHistoryCapabilities: Decodable, Sendable {
     enum CodingKeys: String, CodingKey { case capabilities, contractVersions = "contract_versions" }
 }
 
-public struct DJConnectSessionDeleteRequest: Sendable {
+public struct DJConnectSessionDeleteRequest: Codable, Sendable {
     public let sessionID: String
     public let expectedRevision: String
     public let operationID: String
@@ -470,7 +473,7 @@ private final class SessionHistoryDateParser: @unchecked Sendable {
     }
 }
 
-public struct DJConnectSessionDeleteSnapshot: Decodable, Sendable {
+public struct DJConnectSessionDeleteSnapshot: Codable, Sendable {
     public let success: Bool
     public let schemaVersion: Int
     public let ownerProfileID: String

@@ -49,16 +49,56 @@ struct SessionForecastTextView: View {
     }
 }
 
+/// Standalone scroll host used by isolated component qualification.
+/// The live Session embeds only SessionForecastContent below its shared header.
+/// Transient viewport state belongs to the native screen, not a Profile.
+/// Recording geometry must not invalidate the full Flow for every scroll pixel.
+@MainActor final class SessionForecastViewport {
+    private(set) var offset: CGFloat = 0
+    func record(_ value: CGFloat) {
+        guard value.isFinite else { return }
+        offset = max(0, value)
+    }
+}
+
 struct SessionForecastPanel<Header: View>: View {
     @ObservedObject var model: DJConnectAppModel
-    @ObservedObject private var history: DJConnectSessionHistoryModel
     let header: Header
-    @Binding var position: String?
+    let viewport: SessionForecastViewport
+    @State private var position: ScrollPosition
     @Binding var query: String
     @Environment(\.scenePhase) private var scenePhase
-    init(model: DJConnectAppModel, position: Binding<String?>, query: Binding<String>, @ViewBuilder header: () -> Header) {
-        self.model = model; history = model.sessionHistory; self.header = header()
-        _position = position; _query = query
+    init(model: DJConnectAppModel, viewport: SessionForecastViewport, query: Binding<String>, @ViewBuilder header: () -> Header) {
+        self.model = model; self.header = header()
+        self.viewport = viewport; _query = query
+        // The panel is removed while Flow is selected. Restore its device-local
+        // viewport even when no authored text ID intersects the top edge.
+        _position = State(initialValue: ScrollPosition(y: viewport.offset))
+    }
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                header
+                SessionForecastContent(model: model, query: $query)
+            }
+        }
+        .scrollPosition($position)
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y + geometry.contentInsets.top
+        } action: { _, value in viewport.record(value) }
+    }
+}
+
+/// Lower content only: playback, artwork and persona stay owned by the Session.
+struct SessionForecastContent: View {
+    @ObservedObject var model: DJConnectAppModel
+    @ObservedObject private var history: DJConnectSessionHistoryModel
+    @Binding var query: String
+    @State private var selectedSearchID: String?
+    @FocusState private var searchFocused: Bool
+    @Environment(\.scenePhase) private var scenePhase
+    init(model: DJConnectAppModel, query: Binding<String>) {
+        self.model = model; history = model.sessionHistory; _query = query
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     private var deadlines: [Date] {
@@ -81,31 +121,40 @@ struct SessionForecastPanel<Header: View>: View {
     }
     var body: some View {
         TimelineView(SessionEntryRefreshSchedule(deadlines: deadlines)) { clock in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    header
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(text("ui.session.forecast.title")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
-                        Text(text("ui.session.forecast.notice")).font(.callout).foregroundStyle(.secondary)
-                        TextField(text("ui.session.forecast.search"), text: $query)
-                            .textFieldStyle(.plain).padding(12).djSessionFrostedSurface()
-                            .accessibilityLabel(text("ui.session.forecast.search"))
-                        if scenePhase == .active, let projection = model.visibleSessionForecast(at: clock.date) {
-                            ForEach(Array(projection.imagery.enumerated()), id: \.offset) { _, image in
-                                SessionForecastArtwork(model: model, projection: projection, artwork: image)
-                            }
-                            SessionForecastTextView(projection: projection, language: model.language, query: query)
-                        } else {
-                            Text(text(model.forecastLoading ? "ui.session.forecast.loading" : "ui.session.forecast.unavailable"))
-                                .fixedSize(horizontal: false, vertical: true)
-                            Button(text("ui.refresh.page")) { Task { await model.refreshSessionForecast() } }
-                                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
-                                .disabled(model.forecastLoading || !model.canRefreshSessionHistory)
+            ScrollViewReader { proxy in
+                let resultIDs = scenePhase == .active && !query.isEmpty
+                    ? (model.visibleSessionForecast(at: clock.date)?.sections.filter {
+                        ($0.title + " " + $0.text).localizedCaseInsensitiveContains(query)
+                    }.map(\.id) ?? []) : []
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(text("ui.session.forecast.title")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
+                    Text(text("ui.session.forecast.notice")).font(.callout).foregroundStyle(.secondary)
+                    AskDJSearchBar(language: model.language, promptKey: "ui.session.forecast.search",
+                                   fieldIdentifier: "session-forecast-search-field", countIdentifier: "session-forecast-search-count",
+                                   closeLabelKey: "ui.session.search.clear",
+                                   text: $query, isFocused: $searchFocused,
+                                   resultCount: resultIDs.count,
+                                   selectedIndex: selectedSearchID.flatMap { resultIDs.firstIndex(of: $0) } ?? 0,
+                                   previousAction: { moveSearch(-1, resultIDs: resultIDs, proxy: proxy) },
+                                   nextAction: { moveSearch(1, resultIDs: resultIDs, proxy: proxy) },
+                                   closeAction: { query = ""; selectedSearchID = nil; searchFocused = true },
+                                   submitAction: { moveSearch(1, resultIDs: resultIDs, proxy: proxy) })
+                    if scenePhase == .active, let projection = model.visibleSessionForecast(at: clock.date) {
+                        ForEach(Array(projection.imagery.enumerated()), id: \.offset) { _, image in
+                            SessionForecastArtwork(model: model, projection: projection, artwork: image)
                         }
-                    }.padding(.horizontal, 20)
-                }.padding(.vertical, 16)
-            }.scrollPosition(id: $position, anchor: .top)
+                        SessionForecastTextView(projection: projection, language: model.language, query: query)
+                    } else {
+                        Text(text(model.forecastLoading ? "ui.session.forecast.loading" : "ui.session.forecast.unavailable"))
+                            .fixedSize(horizontal: false, vertical: true)
+                        Button(text("ui.refresh.page")) { Task { await model.refreshSessionForecast() } }
+                            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
+                            .disabled(model.forecastLoading || !model.canRefreshSessionForecast)
+                    }
+                }.padding(.horizontal, 20).padding(.bottom, 16)
+            }
         }
+        .onChange(of: query) { selectedSearchID = nil }
         .accessibilityIdentifier("session-forecast-panel")
         .task(id: contextKey) {
             guard scenePhase == .active else { return }
@@ -115,6 +164,15 @@ struct SessionForecastPanel<Header: View>: View {
             }
         }
     }
+    private func moveSearch(_ delta: Int, resultIDs: [String], proxy: ScrollViewProxy) {
+        guard !resultIDs.isEmpty else { return }
+        let current = selectedSearchID.flatMap { resultIDs.firstIndex(of: $0) }
+        let next = current.map { ($0 + delta + resultIDs.count) % resultIDs.count }
+            ?? (delta < 0 ? resultIDs.count - 1 : 0)
+        selectedSearchID = resultIDs[next]
+        proxy.scrollTo(resultIDs[next], anchor: .top)
+    }
+
 }
 
 private struct SessionForecastArtwork: View {

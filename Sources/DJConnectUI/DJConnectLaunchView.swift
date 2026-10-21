@@ -133,20 +133,17 @@ private struct DJConnectLaunchView: View {
     private func compactLaunch(bannerWidth: CGFloat, availableHeight: CGFloat) -> some View {
         ScrollView {
             VStack(spacing: 24) {
-                DJConnectLaunchBanner()
-                    .frame(width: bannerWidth)
-                VStack(spacing: 24) {
-                    DJSessionWelcomeArtwork()
-                        .frame(height: (bannerWidth - 36) * 0.72)
-                        .accessibilityHidden(true)
-                    launchStatus
-                }
-                .frame(maxWidth: .infinity)
-                .padding(18)
-                .djSessionFrostedSurface()
-                .frame(width: bannerWidth)
-                .accessibilityIdentifier("launch-content-card")
+                DJConnectLaunchBanner(showsCardBackground: false)
+                DJSessionWelcomeArtwork()
+                    .frame(height: (bannerWidth - 36) * 0.72)
+                    .accessibilityHidden(true)
+                launchStatus
             }
+            .frame(maxWidth: .infinity)
+            .padding(18)
+            .djSessionFrostedSurface()
+            .frame(width: bannerWidth)
+            .accessibilityIdentifier("launch-content-card")
             .frame(maxWidth: .infinity, minHeight: max(0, availableHeight - 48))
             .padding(.vertical, 24)
             .accessibilityElement(children: .combine)
@@ -202,83 +199,61 @@ private struct DJConnectLaunchCanvasBackground: View {
 
 struct DJConnectLaunchBanner: View {
     var subtitle: String = DJConnectLocalization.localized(key: "brand.tagline")
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    var showsCardBackground = true
+    @ScaledMetric(relativeTo: .title) private var iconSize = 84.0
+    @ScaledMetric(relativeTo: .title) private var nameSize = 30.0
+    @ScaledMetric(relativeTo: .title3) private var taglineSize = 20.0
 
+    @ViewBuilder
     var body: some View {
-        Group {
-            if dynamicTypeSize >= .xxxLarge {
-                verticalContent
-            } else {
-                ViewThatFits(in: .horizontal) {
-                    canonicalWordmark.frame(minWidth: 360, maxWidth: 480)
-                    verticalContent
-                }
-            }
-        }
-        .padding(18)
-        .djSessionFrostedSurface()
-        .accessibilityElement(children: .combine)
-    }
-
-    // App panels have dark canvases regardless of the system appearance. Core's
-    // "dark" wordmark supplies light lettering; "light" means dark lettering.
-    // Only English uses the baked primary slogan. Other languages retain native
-    // localized copy, also used by narrow and accessibility layouts.
-    private var canonicalWordmark: some View {
-        VStack(spacing: 7) {
-            wordmarkImage
-                .resizable()
-                .scaledToFit()
-                .accessibilityLabel(subtitle == "Your music. Your DJ." ? "DJConnect. \(subtitle)" : "DJConnect")
-            if subtitle != "Your music. Your DJ." {
-                tagline
-            }
+        if showsCardBackground {
+            content
+                .padding(18)
+                .djSessionFrostedSurface()
+                .accessibilityElement(children: .combine)
+        } else {
+            content
+                .accessibilityElement(children: .combine)
         }
     }
 
-    private var wordmarkImage: Image {
-        let name = subtitle == "Your music. Your DJ." ? "BrandWordmarkPrimaryDark" : "BrandWordmarkCompactDark"
-        #if os(iOS)
-        if let image = UIImage(named: name) { return Image(uiImage: image) }
-        #elseif os(macOS)
-        if let image = NSImage(named: name) { return Image(nsImage: image) }
-        #endif
-        return Image(name)
-    }
-
-    private var verticalContent: some View {
-        VStack(spacing: 14) {
-            brandIcon
-            brandText
+    private var content: some View {
+        ViewThatFits(in: .horizontal) {
+            brandRow(icon: iconSize, name: nameSize, slogan: taglineSize)
+                .fixedSize(horizontal: true, vertical: false)
+            brandRow(icon: min(iconSize * 0.76, 80), name: nameSize * 0.87, slogan: taglineSize * 0.8)
         }
+        .frame(maxWidth: 480, alignment: .leading)
         .frame(maxWidth: .infinity)
     }
 
-    private var brandIcon: some View {
-        DJConnectGlassBrandIcon()
-            .frame(width: 84, height: 84)
-    }
-
-    private var brandText: some View {
-        VStack(alignment: .center, spacing: 7) {
-            Text("DJConnect")
-                .font(.system(size: 34, weight: .bold, design: .default))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.62)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-            tagline
+    private func brandRow(icon: CGFloat, name: CGFloat, slogan: CGFloat) -> some View {
+        HStack(alignment: .center, spacing: 16) {
+            DJConnectGlassBrandIcon()
+                .frame(width: icon, height: icon)
+            brandText(name: name, slogan: slogan)
         }
     }
 
-    private var tagline: some View {
+    private func brandText(name: CGFloat, slogan: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("DJConnect")
+                .font(.system(size: name, weight: .bold, design: .default))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.62)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            tagline(size: slogan)
+        }
+    }
+
+    private func tagline(size: CGFloat) -> some View {
         Text(subtitle)
-            .font(.headline.weight(.semibold))
+            .font(.system(size: size, weight: .semibold))
             .foregroundStyle(.white.opacity(0.72))
-            .fixedSize(horizontal: false, vertical: true)
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
+            .lineLimit(1)
+            .minimumScaleFactor(0.4)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

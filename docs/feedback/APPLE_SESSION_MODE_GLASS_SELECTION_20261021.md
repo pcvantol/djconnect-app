@@ -1,0 +1,5 @@
+# Flow/Forecast glass selection — 21 October 2026
+
+Replace the separate platform glass button styles with one shared frosted selection bar. Both options now use the existing presence/mood/persona `DJConnectButtonStyle` selected/secondary segmented roles with live glass, white labels and magenta selection tint. Labels have equal widths and 48pt minimum height; the centered bar is bounded to 420pt. Existing localization, selection binding and accessibility identifiers remain; the shared glass preference and Reduce Transparency fallback continue to apply.
+
+Validation: native Mac compile PASS, diff whitespace check PASS. Existing targeted `ForecastHeaderAlignmentTests/testNativeSessionModeGlassButtons` compiled and completed with **0 pass, 1 skip, 0 failures** because its AppKit host remained inactive/non-key in all four captures. The captured images do not qualify glass chrome or selected appearance. No device installation or physical visual acceptance is claimed. Private log and captures are hashed in the adjacent JSON.

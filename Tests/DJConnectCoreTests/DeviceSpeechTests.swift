@@ -3,6 +3,41 @@ import Testing
 @testable import DJConnectCore
 @testable import DJConnectUI
 
+@Test func haSpeechConfigurationPresentationUsesQualifiedProducerStates() throws {
+    let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/device-speech-core-604b80f8.json")
+    let root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+    let cases = try #require(root["cases"] as? [[String: Any]])
+    typealias S = HASpeechConfigurationStatus
+    let expected: [String: [S]] = [
+        "ordinary_pair": [.unconfigured, .configured, .unconfigured],
+        "configuration_stt_False_tts_False": [.unconfigured, .unconfigured, .unconfigured],
+        "configuration_stt_True_tts_False": [.configured, .unconfigured, .unconfigured],
+        "configuration_stt_False_tts_True": [.unconfigured, .configured, .unconfigured],
+        "configuration_stt_True_tts_True": [.configured, .configured, .unconfigured],
+        "locale_mismatch": [.unsupported, .unsupported, .unconfigured],
+        "preferred_changed": [.unconfigured, .unconfigured, .unconfigured],
+        "explicit_ignores_other_preferred": [.configured, .configured, .unconfigured],
+        "explicit_missing_no_borrow": [.unknown, .unknown, .unconfigured],
+        "same_owner_recent_failure": [.configured, .configured, .unconfigured],
+        "expired_observation": [.configured, .configured, .unconfigured],
+        "speaker_target_without_synthesis": [.configured, .unconfigured, .configured],
+        "speaker_target_withdrawal": [.configured, .unconfigured, .unavailable],
+        "stt_entity_removed": [.unknown, .unconfigured, .unavailable],
+        "wrong_token": [.unknown, .unknown, .unknown]
+    ]
+    #expect(cases.count == expected.count)
+    for item in cases {
+        let name = try #require(item["case"] as? String)
+        let snapshot = try (item["snapshot"] as? [String: Any]).map {
+            try JSONDecoder().decode(DJConnectDeviceSpeechAvailability.self,
+                from: JSONSerialization.data(withJSONObject: $0))
+        }
+        #expect([S(snapshot?.ha_stt), S(snapshot?.ha_tts), S(snapshot?.ha_speaker_target)] == expected[name])
+    }
+    #expect(S(nil) == .unknown)
+}
+
 @Test func deviceSpeechPreferencesAreOptInBoundedAndInstallationLocal() throws {
     let a = "device-speech-a-" + UUID().uuidString, b = "device-speech-b-" + UUID().uuidString
     let first = UserDefaults(suiteName: a)!, second = UserDefaults(suiteName: b)!

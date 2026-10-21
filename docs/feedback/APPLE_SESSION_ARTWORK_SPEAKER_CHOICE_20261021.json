@@ -1,0 +1,25 @@
+{
+  "base": "b2d575575c454f9098fbb109353351a26586ce98",
+  "branch": "codex/apple-session-artwork-speaker-choice",
+  "scope": "Active Session album-art play/pause requests existing Ask DJ speaker choices when output is missing.",
+  "tests": {
+    "functions": 2,
+    "parameterized_cases": 8,
+    "failures": 0,
+    "fixture": "Immediate synthetic transport response; not delayed/live-broadcast qualification"
+  },
+  "ios_compile": "DJConnectUIIOS unsigned BUILD SUCCEEDED",
+  "localization": "1389 keys / five locales PASS",
+  "installed": false,
+  "published": false,
+  "evidence": [
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-artwork-speaker-choice-20261021/final.log",
+      "sha256": "93c1aaa5c24cb2e01134e6f6f098926260bb311e65096bb0f1fffd59a390a3f7"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-artwork-speaker-choice-20261021/ios-build.log",
+      "sha256": "235d4ab22d8a9a09cbda9011f6ab69aca5ceaf5511af9de117ffeed1955a913a"
+    }
+  ]
+}

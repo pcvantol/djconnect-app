@@ -309,12 +309,70 @@ private struct DeviceAppleSpeechPreferencesSection: View {
             DeviceSpeechSettingsView(language: model.language, preferences: $model.deviceSpeechPreferences,
                 previewAllowed: model.canPreviewDeviceSpeech, isSpeaking: model.deviceSpeechPreviewIsPlaying,
                 preview: model.previewDeviceSpeech, stop: model.stopDeviceSpeechPreview)
+            HASpeechConfigurationView(model: model)
         }
         .toggleStyle(SwitchToggleStyle(tint: DJConnectGlassAppearance.toggleTint))
         .djConnectButtonStyle(DJConnectButtonStyle())
         .tint(.white)
         .accentColor(.white)
         .accessibilityIdentifier("speech-preferences-apple-section")
+    }
+}
+
+enum HASpeechConfigurationStatus: String {
+    case configured, unconfigured, unavailable, unsupported, unknown
+
+    init(_ route: DJConnectDeviceSpeechAvailability.Route?) {
+        guard let route else { self = .unknown; return }
+        if route.isAvailable { self = .configured; return }
+        guard !route.available else { self = .unknown; return }
+        switch route.state {
+        case "unconfigured" where route.configured == false: self = .unconfigured
+        case "unavailable": self = .unavailable
+        case "unsupported": self = .unsupported
+        default: self = .unknown
+        }
+    }
+}
+
+/// Configuration and retry delay are distinct; neither proves speech playback.
+struct HASpeechConfigurationView: View {
+    @ObservedObject var model: DJConnectAppModel
+    private func text(_ key: String) -> String {
+        DJConnectLocalization.localized(key: key, language: model.language)
+    }
+    var body: some View {
+        let snapshot = model.haSpeechConfiguration
+        VStack(alignment: .leading, spacing: 8) {
+            Text(text("ui.ha_speech.configuration")).font(.subheadline.weight(.semibold))
+                .accessibilityAddTraits(.isHeader)
+            row("input", snapshot?.ha_stt)
+            row("output", snapshot?.ha_tts)
+            row("speaker", snapshot?.ha_speaker_target)
+            if let output = snapshot?.ha_tts, output.isAvailable,
+               output.operational?.synthesis_state == "failed",
+               (output.operational?.retry_after_seconds ?? 0) > 0 {
+                Text(text("ui.ha_speech.retry_delay"))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityIdentifier("ha-speech-configuration")
+    }
+    private func row(_ key: String, _ route: DJConnectDeviceSpeechAvailability.Route?) -> some View {
+        let label = text("ui.ha_speech." + key)
+        let status = text("ui.ha_speech." + HASpeechConfigurationStatus(route).rawValue)
+        return ViewThatFits(in: .horizontal) {
+            LabeledContent(label) { Text(status) }
+                .fixedSize(horizontal: true, vertical: true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(label)
+                Text(status)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("ha-speech-configuration-" + key)
     }
 }
 

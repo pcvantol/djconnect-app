@@ -20,6 +20,29 @@ func savedSessionNavigationTitle(_ sessionID: String, history: DJConnectSessionH
     return String(format: DJConnectLocalization.localized(key: "ui.session.history.detail.title", language: language), formatter.string(from: date))
 }
 
+/// Use only the admitted aggregate, never infer a historical mood from tracks.
+struct SavedSessionMoodAvatar: View {
+    let summary: DJConnectSessionHistorySummary?
+    let language: String
+    private var mood: String? {
+        guard summary?.mood.coverage == "complete" else { return nil }
+        return summary?.mood.value
+    }
+    var body: some View {
+        let colors = DJConnectSessionMoodTheme(sessionMood: mood).colorValues.map {
+            Color(red: Double(($0 >> 16) & 255) / 255,
+                  green: Double(($0 >> 8) & 255) / 255,
+                  blue: Double($0 & 255) / 255)
+        }
+        DJPersonaMark(includesWaveform: false, includesInnerRing: false)
+            .fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
+            .accessibilityLabel(DJConnectLocalization.localized(key: "ui.session.avatar.label", language: language))
+            .accessibilityValue(DJConnectLocalization.localized(
+                key: mood == nil ? "ui.session.summary.unknown" : mood == "mixed" ? "ui.session.summary.mixed" : "ui.session.mood." + mood!,
+                language: language))
+    }
+}
+
 struct SavedSessionsView: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
@@ -72,11 +95,12 @@ struct SavedSessionsView: View {
         else { content }
     }
     private var showsListHeader: Bool {
+        if history.hasUnconfirmedDeletion { return true }
         #if os(macOS)
-        !initialLoadFinished || history.listLoading || history.preparing
+        return !initialLoadFinished || history.listLoading || history.preparing
         #else
         // Keep the iOS native refresh bridge mounted even after loading.
-        true
+        return true
         #endif
     }
     private var content: some View {
@@ -84,6 +108,9 @@ struct SavedSessionsView: View {
             savedSessionsContainer {
                 if showsListHeader {
                 VStack(alignment: .leading, spacing: 16) {
+                    if history.hasUnconfirmedDeletion {
+                        ContentDeletionPendingNotice(model: model)
+                    }
                     #if !os(iOS)
                     if !initialLoadFinished || history.listLoading || history.preparing {
                         ProgressView().controlSize(.large).tint(.white)
@@ -113,13 +140,12 @@ struct SavedSessionsView: View {
                         .accessibilityIdentifier("saved-sessions-refresh-error")
                     }
                     ForEach(filteredSessions) { session in
+                        HStack(spacing: 8) {
                         Button { openedSessionID.wrappedValue = session.id } label: {
                             HStack(spacing: 12) {
-                                Image(systemName: "clock.arrow.circlepath")
-                                    .font(.title2.weight(.medium)).foregroundStyle(djConnectAccent)
+                                SavedSessionMoodAvatar(summary: history.summaryAvailable ? session.summary : nil,
+                                                       language: model.language)
                                     .frame(width: 52, height: 52)
-                                    .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: DJConnectListTileStyle.cornerRadius, style: .continuous))
-                                    .accessibilityHidden(true)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(SessionArchiveSummary.text(session, language: model.language))
                                         .font(.body.weight(.medium)).foregroundStyle(.white).multilineTextAlignment(.leading)
@@ -128,7 +154,7 @@ struct SavedSessionsView: View {
                                             .font(.caption2.weight(.medium)).foregroundStyle(.white.opacity(0.78))
                                     }
                                     if history.summaryAvailable, let summary = session.summary {
-                                        SessionHistorySummaryView(summary: summary, language: model.language, compact: true)
+                                        SessionHistorySummaryView(summary: summary, language: model.language, compact: true, showsMood: false)
                                     }
                                 }
                                 Spacer(minLength: 8)
@@ -142,6 +168,8 @@ struct SavedSessionsView: View {
                         .buttonStyle(DJConnectMediaRowButtonStyle())
                         .accessibilityIdentifier("saved-session-" + session.id)
                         .id(session.id)
+                        .frame(maxWidth: .infinity)
+                        }
                         .frame(maxWidth: rowMaxWidth, alignment: .leading).frame(maxWidth: .infinity)
                         .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
                         .listRowBackground(Color.clear)
@@ -169,6 +197,10 @@ struct SavedSessionsView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .accessibilityIdentifier("saved-sessions-list")
+            .djConnectFindShortcut {
+                isSearchVisible = true
+                DispatchQueue.main.async { isSearchFocused = true }
+            }
             .background(DJConnectCanvasBackground())
             .safeAreaInset(edge: .top) {
                 if isSearchVisible {
@@ -207,6 +239,7 @@ struct SavedSessionsView: View {
             .navigationDestination(item: openedSessionID) { sessionID in
                 SessionTimelineScreen(model: model, sessionID: sessionID)
                     .navigationTitle(detailTitle(sessionID: sessionID))
+                    .djConnectMouseBackNavigation()
             }
             .navigationTitle(text("ui.session.history.title") + (model.isDemoMode ? " (demo)" : ""))
             .scrollBounceBehavior(.always)
@@ -226,6 +259,7 @@ struct SavedSessionsView: View {
                     if history.bulkDeletionAvailable {
                         SavedSessionsDeleteAllButton(language: model.language,
                             isEnabled: history.canPrepareBulkDeletion,
+                            hasUnconfirmedDeletion: history.hasUnconfirmedDeletion,
                             contextEpoch: history.responseEpoch, archiveEpoch: history.archiveResponseEpoch) {
                             isSearchFocused = false
                             let epoch = history.responseEpoch
@@ -298,7 +332,8 @@ struct SavedSessionsView: View {
         }
         guard initialLoadFinished, history.sessions.isEmpty, !history.listLoading, !history.preparing else { return nil }
         if let error = history.listErrorKey { return text(error) }
-        return text(history.available ? "ui.session.history.empty" : "ui.session.history.unavailable")
+        return text(history.available && (model.isDemoMode || history.hasAuthorizedOwner)
+            ? "ui.session.history.empty" : "ui.session.history.unavailable")
     }
     private func refresh() async {
         await manualRefresh.run(model: model, systemImage: "clock.arrow.circlepath") {
@@ -316,6 +351,9 @@ struct SessionTimelineScreen: View {
     @StateObject private var manualRefresh = DJConnectManualRefreshController()
     @State private var deleteConfirmation: SessionDeleteConfirmation?
     @State private var confirmingDelete = false
+    @State private var preparingDelete = false
+    @State private var deletePreparationFailed = false
+    @State private var deletePreparationGeneration = UUID()
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
     let sessionID: String
@@ -348,6 +386,7 @@ struct SessionTimelineScreen: View {
     @State private var priorSearchPosition: String?
     @State private var query = ""
     @State private var showsForecast = false
+    @State private var modeOverlayHeight: CGFloat = 84
     @State private var forecastPosition: String?
     @State private var forecastQuery = ""
     @State private var searching = false
@@ -474,14 +513,6 @@ struct SessionTimelineScreen: View {
         }
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
-                if activeSession != nil {
-                    Picker(text("ui.session.forecast.mode"), selection: $showsForecast) {
-                        Text(text("ui.session.forecast.flow")).tag(false)
-                        Text(text("ui.session.forecast.tab")).tag(true)
-                    }
-                    .pickerStyle(.segmented).padding(.horizontal, 20).padding(.vertical, 10)
-                    .accessibilityIdentifier("session-flow-forecast-picker")
-                }
                 TimelineView(SessionEntryRefreshSchedule(deadlines: retentionDeadlines)) { clock in
                     let preparedEntries = renderCache.snapshot(timeline.entries, sessionID: sessionID, epoch: history.responseEpoch, at: clock.date)
                     ZStack {
@@ -491,109 +522,116 @@ struct SessionTimelineScreen: View {
                             if let activeSession {
                                 scrollingCurrent(activeSession).id("current")
                             }
-                            if activeSession == nil {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    if let session = timeline.session ?? history.sessions.first(where: { $0.id == sessionID }) {
-                                        Text(SessionArchiveSummary.text(session, language: model.language))
-                                            .font(.headline).accessibilityAddTraits(.isHeader)
-                                            .accessibilityIdentifier("session-archive-summary")
-                                        if session.lifecycleStatus == "INTERRUPTED" {
-                                            Text(text("ui.session.history.interrupted"))
-                                                .font(.caption).foregroundStyle(.secondary)
-                                        }
-                                        if history.summaryAvailable, let summary = session.summary {
-                                            SessionHistorySummaryView(summary: summary, language: model.language)
-                                        }
-                                    }
-                                    Label(text("ui.session.history.readonly"), systemImage: "lock")
-                                        .font(.caption).foregroundStyle(.secondary)
+                            if displayingForecast {
+                                SessionForecastContent(model: model, query: $forecastQuery)
+                            } else {
+                                if activeSession != nil {
+                                    searchBar(proxy: proxy).id("flow-search")
                                 }
-                                .padding(.horizontal, 20)
-                                .id("current")
-                            }
-                            if let key = timeline.errorKey, activeSession == nil || history.available {
-                                VStack(alignment: .leading, spacing: 16) {
-                                    Text(text(key)).fixedSize(horizontal: false, vertical: true)
-                                        .foregroundStyle(.white.opacity(0.82))
-                                    Button {
-                                        Task { await refreshTimeline() }
-                                    } label: {
-                                        Label(text("ui.refresh.page"), systemImage: "arrow.clockwise")
+                                if activeSession == nil {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        if let session = timeline.session ?? history.sessions.first(where: { $0.id == sessionID }) {
+                                            Text(SessionArchiveSummary.text(session, language: model.language))
+                                                .font(.headline).accessibilityAddTraits(.isHeader)
+                                                .accessibilityIdentifier("session-archive-summary")
+                                            if session.lifecycleStatus == "INTERRUPTED" {
+                                                Text(text("ui.session.history.interrupted"))
+                                                    .font(.caption).foregroundStyle(.secondary)
+                                            }
+                                            if history.summaryAvailable, let summary = session.summary {
+                                                SessionHistorySummaryView(summary: summary, language: model.language)
+                                            }
+                                        }
+                                        Label(text("ui.session.history.readonly"), systemImage: "lock")
+                                            .font(.caption).foregroundStyle(.secondary)
                                     }
-                                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
-                                    .disabled(retryRefreshing || timeline.loading)
-                                    .accessibilityIdentifier("session-timeline-retry")
+                                    .padding(.horizontal, 20)
+                                    .id("current")
                                 }
-                                .padding(.horizontal, 20).padding(.vertical, 12)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .accessibilityIdentifier("session-timeline-error")
-                            }
-                            ForEach(history.pendingTurns.reversed().filter { $0.context.sessionID == sessionID }) { turn in
-                                SessionPendingConversationBubble(model: model, history: history, turn: turn,
-                                    setPromptAction: setConversationPrompt, feedbackAction: reportConversation)
-                                .padding(.horizontal, 20)
-                                .id("pending-" + turn.id)
-                            }
-                            if activeSession != nil {
-                                ForEach(model.currentSessionConversationMessages(sessionID: sessionID, at: clock.date).reversed()) { message in
-                                    SessionCurrentConversationBubble(model: model, message: message,
+                                if let key = timeline.errorKey, activeSession == nil || history.available {
+                                    VStack(alignment: .leading, spacing: 16) {
+                                        Text(text(key)).fixedSize(horizontal: false, vertical: true)
+                                            .foregroundStyle(.white.opacity(0.82))
+                                        Button {
+                                            Task { await refreshTimeline() }
+                                        } label: {
+                                            Label(text("ui.refresh.page"), systemImage: "arrow.clockwise")
+                                        }
+                                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
+                                        .disabled(retryRefreshing || timeline.loading)
+                                        .accessibilityIdentifier("session-timeline-retry")
+                                    }
+                                    .padding(.horizontal, 20).padding(.vertical, 12)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .accessibilityIdentifier("session-timeline-error")
+                                }
+                                ForEach(history.pendingTurns.reversed().filter { $0.context.sessionID == sessionID }) { turn in
+                                    SessionPendingConversationBubble(model: model, history: history, turn: turn,
                                         setPromptAction: setConversationPrompt, feedbackAction: reportConversation)
-                                        .padding(.horizontal, 20)
-                                        .id("current-conversation-" + message.id.uuidString)
+                                    .padding(.horizontal, 20)
+                                    .id("pending-" + turn.id)
                                 }
-                            }
-                            // Match Ask DJ: newest retained contribution first; current remains the top anchor.
-                            ForEach(preparedEntries.reversed().filter { $0.isRetained(at: clock.date) }) { prepared in
-                                let entry = prepared.entry
-                                let liveMessage = history.liveMessage(for: entry, activeSessionID: activeSession?.id)
-                                let actionEpoch = history.responseEpoch
-                                SessionEntryView(entry: entry, language: model.language,
-                                    messageAdapter: liveMessage ?? prepared.message, contextEpoch: actionEpoch,
-                                    opensActiveComposer: activeSession != nil,
-                                    allowsPlaybackActions: liveMessage != nil,
-                                    playingActionID: model.playingAskDJActionID,
-                                    artworkModel: model,
-                                    setPromptAction: { prompt in
-                                        guard history.responseEpoch == actionEpoch, entry.isRetained() else { return }
-                                        setConversationPrompt(prompt)
-                                    },
-                                    feedbackAction: { message in
-                                        guard history.responseEpoch == actionEpoch, entry.isRetained() else { return }
-                                        reportConversation(message)
-                                    },
-                                    playAction: { action in history.playLiveAction(action, for: entry, expectedEpoch: actionEpoch) },
-                                    highlights: matchMap[entry.id]?.text == entry.text ? (matchMap[entry.id]?.highlights ?? []) : [],
-                                    isSelectedMatch: selectedMatchID == entry.id || initialAnchor == entry.id,
-                                    selected: history.selectedEntry == entry.reference) {
-                                        history.selectedEntry = entry.reference
-                                        if activeSession == nil {
-                                            history.openTarget = nil
-                                            model.performHomeScreenAction(.askDJ)
-                                        } else { inputFocused = true }
+                                if activeSession != nil {
+                                    ForEach(model.currentSessionConversationMessages(sessionID: sessionID, at: clock.date).reversed()) { message in
+                                        SessionCurrentConversationBubble(model: model, message: message,
+                                            setPromptAction: setConversationPrompt, feedbackAction: reportConversation)
+                                            .padding(.horizontal, 20)
+                                            .id("current-conversation-" + message.id.uuidString)
                                     }
-                                    .equatable()
-                                        .modifier(SessionRowFade(selected: selectedMatchID == entry.id || initialAnchor == entry.id || history.selectedEntry == entry.reference))
-                                    .padding(.horizontal, 20)
-                                    .id(entry.id).accessibilityElement(children: .contain).accessibilityIdentifier("session-entry-" + entry.id)
-                                    .onAppear {
-                                        if matchMap[entry.id] != nil {
-                                            Task { await loadMoreSearchIfNeeded(visibleMatchID: entry.id) }
+                                }
+                                // Match Ask DJ: newest retained contribution first; current remains the top anchor.
+                                ForEach(preparedEntries.reversed().filter { $0.isRetained(at: clock.date) }) { prepared in
+                                    let entry = prepared.entry
+                                    let liveMessage = history.liveMessage(for: entry, activeSessionID: activeSession?.id)
+                                    let actionEpoch = history.responseEpoch
+                                    SessionEntryView(entry: entry, language: model.language,
+                                        messageAdapter: liveMessage ?? prepared.message, contextEpoch: actionEpoch,
+                                        opensActiveComposer: activeSession != nil,
+                                        allowsPlaybackActions: liveMessage != nil,
+                                        playingActionID: model.playingAskDJActionID,
+                                        artworkModel: model,
+                                        setPromptAction: { prompt in
+                                            guard history.responseEpoch == actionEpoch, entry.isRetained() else { return }
+                                            setConversationPrompt(prompt)
+                                        },
+                                        feedbackAction: { message in
+                                            guard history.responseEpoch == actionEpoch, entry.isRetained() else { return }
+                                            reportConversation(message)
+                                        },
+                                        playAction: { action in history.playLiveAction(action, for: entry, expectedEpoch: actionEpoch) },
+                                        highlights: matchMap[entry.id]?.text == entry.text ? (matchMap[entry.id]?.highlights ?? []) : [],
+                                        isSelectedMatch: selectedMatchID == entry.id || initialAnchor == entry.id,
+                                        selected: history.selectedEntry == entry.reference) {
+                                            history.selectedEntry = entry.reference
+                                            if activeSession == nil {
+                                                history.openTarget = nil
+                                                model.performHomeScreenAction(.askDJ)
+                                            } else { inputFocused = true }
                                         }
-                                    }
+                                        .equatable()
+                                            .modifier(SessionRowFade(selected: selectedMatchID == entry.id || initialAnchor == entry.id || history.selectedEntry == entry.reference))
+                                        .padding(.horizontal, 20)
+                                        .id(entry.id).accessibilityElement(children: .contain).accessibilityIdentifier("session-entry-" + entry.id)
+                                        .onAppear {
+                                            if matchMap[entry.id] != nil {
+                                                Task { await loadMoreSearchIfNeeded(visibleMatchID: entry.id) }
+                                            }
+                                        }
+                                }
+                                if history.available && timeline.revision != nil && timeline.entries.isEmpty && timeline.errorKey == nil {
+                                    Text(text(activeSession == nil ? "ui.session.history.no_entries" : "ui.session.history.no_entries_active")).padding(.horizontal, 20)
+                                }
+                                if let startMetadata {
+                                    Label(startMetadata, systemImage: "clock")
+                                        .font(.callout).foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                                        .djSessionFrostedSurface()
+                                        .padding(.horizontal, 20)
+                                        .accessibilityIdentifier("session-start-metadata")
+                                }
+                                Color.clear.frame(height: 1).id("tail")
                             }
-                            if history.available && timeline.revision != nil && timeline.entries.isEmpty && timeline.errorKey == nil {
-                                Text(text(activeSession == nil ? "ui.session.history.no_entries" : "ui.session.history.no_entries_active")).padding(.horizontal, 20)
-                            }
-                            if let startMetadata {
-                                Label(startMetadata, systemImage: "clock")
-                                    .font(.callout).foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-                                    .djSessionFrostedSurface()
-                                    .padding(.horizontal, 20)
-                                    .accessibilityIdentifier("session-start-metadata")
-                            }
-                            Color.clear.frame(height: 1).id("tail")
                         }
                         .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity)
                         .padding(.top, activeSession != nil ? 0 : archivedTopPadding).padding(.bottom, 20)
@@ -601,9 +639,14 @@ struct SessionTimelineScreen: View {
                         // Background updates never reveal pull-to-refresh or move the scroll offset.
                         }
                     }
+                    .contentMargins(.top, activeSession != nil ? modeOverlayHeight : 0, for: .scrollContent)
                     .safeAreaInset(edge: .top, spacing: 0) {
                         VStack(spacing: 0) {
-                            if searching {
+                            if activeSession == nil && history.hasUnconfirmedDeletion {
+                                ContentDeletionPendingNotice(model: model)
+                                    .padding(.horizontal, 20).padding(.vertical, 10)
+                            }
+                            if searching && activeSession == nil {
                                 TimelineView(SessionEntryRefreshSchedule(deadlines: history.searchMatches.compactMap { DJConnectHistoryEntry.date($0.retainedUntil) })) { _ in searchBar(proxy: proxy) }
                             }
                         }
@@ -637,11 +680,12 @@ struct SessionTimelineScreen: View {
                             .help(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
                             .accessibilityIdentifier("session-jump-top")
                             .padding(16)
-                            .padding(.bottom, !searching && usesFloatingComposer ? floatingComposerHeight + 8 : 8)
+                            .padding(.bottom, !searching && !showsForecast && usesFloatingComposer ? floatingComposerHeight + 8 : 8)
                         }
                     }
                     .defaultScrollAnchor(.top, for: .initialOffset)
-                    .scrollPosition(id: $visibleEntry, anchor: scrollAnchor)
+                    .scrollPosition(id: displayingForecast ? $forecastPosition : $visibleEntry,
+                                    anchor: displayingForecast ? .top : scrollAnchor)
                     .task(id: submittedTurnNavigation) {
                         guard let target = submittedQuestionTarget else { return }
                         await Task.yield()
@@ -657,21 +701,33 @@ struct SessionTimelineScreen: View {
                         defer { pullRefreshing = false }
                         await refreshTimeline()
                     }
-                    .opacity(displayingForecast ? 0 : 1)
-                    .allowsHitTesting(!displayingForecast)
-                    .accessibilityHidden(displayingForecast)
-                    if showsForecast, let activeSession {
-                        SessionForecastPanel(model: model, position: $forecastPosition, query: $forecastQuery) { scrollingCurrent(activeSession) }
                     }
+                    .overlay(alignment: .top) {
+                        if activeSession != nil {
+                            VStack(spacing: 0) {
+                                SessionModeToggleButtons(showsForecast: $showsForecast, language: model.language)
+                                    .padding(.horizontal, 20)
+                                    #if os(iOS)
+                                    .padding(.top, 4).padding(.bottom, 10)
+                                    #else
+                                    .padding(.vertical, 10)
+                                    #endif
+                                if history.hasUnconfirmedDeletion {
+                                    ContentDeletionPendingNotice(model: model)
+                                        .padding(.horizontal, 20).padding(.vertical, 10)
+                                }
+                            }
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { modeOverlayHeight = $0 }
+                        }
                     }
                     .safeAreaInset(edge: .bottom, spacing: 0) {
-                        if usesFloatingComposer && (!searching || showsForecast) {
+                        if usesFloatingComposer && !searching && !showsForecast {
                             Color.clear.frame(height: floatingComposerHeight + composerBottomPadding + 8)
                                 .allowsHitTesting(false)
                         }
                     }
                     .overlay(alignment: .bottom) {
-                        if usesFloatingComposer && (!searching || showsForecast) {
+                        if usesFloatingComposer && !searching && !showsForecast {
                             sessionComposer(floating: true)
                                 .djFloatingAskDJWidth(maximum: 1000)
                                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { floatingComposerHeight = $0 }
@@ -680,7 +736,7 @@ struct SessionTimelineScreen: View {
                         }
                     }
                 }
-                if activeSession != nil && !usesFloatingComposer && (!searching || showsForecast) {
+                if activeSession != nil && !usesFloatingComposer && !searching && !showsForecast {
                     sessionComposer(floating: false)
                 }
             }
@@ -714,10 +770,25 @@ struct SessionTimelineScreen: View {
             composerKeyboardVisible = false
         }
         #endif
+            .background {
+                if activeSession != nil {
+                    // Retain Command-F without an additional visible search control.
+                    Button {
+                        showsForecast = false
+                        inputFocused = false
+                        proxy.scrollTo("flow-search", anchor: .top)
+                        searchFocused = true
+                    } label: { EmptyView() }
+                    .keyboardShortcut("f", modifiers: .command)
+                    .disabled(!history.searchAvailable)
+                    .hidden()
+                    .accessibilityHidden(true)
+                }
+            }
             .toolbar {
                 #if os(macOS)
                 ToolbarItemGroup(placement: .navigation) {
-                    sessionSearchToolbarButton(proxy: proxy)
+                    if activeSession == nil { sessionSearchToolbarButton(proxy: proxy) }
                     sessionToolbarActions(proxy: proxy)
                     if allowsHandoffPresentation {
                         Button { model.isShowingVibeCastSessionStart = true } label: {
@@ -743,7 +814,6 @@ struct SessionTimelineScreen: View {
                     }
                 } else if usesExpandedToolbar {
                     ToolbarItemGroup(placement: .topBarLeading) {
-                        sessionSearchToolbarButton(proxy: proxy)
                         sessionToolbarActions(proxy: proxy)
                     }
                 } else {
@@ -786,10 +856,7 @@ struct SessionTimelineScreen: View {
                 confirmation: $deleteConfirmation, isPresented: $confirmingDelete))
             #if os(iOS)
             .overlay(alignment: .topTrailing) {
-                SessionControlPopoverHost(model: model, intent: $sessionControlIntent, showsHandoff: allowsHandoffPresentation,
-                    searchAction: {
-                        toggleFlowSearch(proxy: proxy)
-                    })
+                SessionControlPopoverHost(model: model, intent: $sessionControlIntent, showsHandoff: allowsHandoffPresentation)
 
             }
             #endif
@@ -827,10 +894,21 @@ struct SessionTimelineScreen: View {
                 model.isShowingVibeCastSessionStart = false
                 submittedQuestion = nil
             }
-            .onChange(of: query) { _, value in sceneRestoreTask?.cancel(); anchorGeneration = UUID(); history.search(sessionID: sessionID, query: value) }
+            .onChange(of: query) { _, value in
+                sceneRestoreTask?.cancel(); anchorGeneration = UUID()
+                if activeSession != nil {
+                    if !searching && !value.isEmpty { priorSearchPosition = visibleEntry }
+                    searching = !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    if !searching { selectedMatchID = nil }
+                }
+                history.search(sessionID: sessionID, query: value)
+            }
             .onChange(of: history.searchMatches) {
                 guard searching, !matches.isEmpty else { return }
                 if !matches.contains(where: { $0.id == selectedMatchID }) {
+                    // Keep the inline field visible while typing. Navigation to
+                    // a Flow result is explicit through Return or the arrows.
+                    if activeSession != nil { selectedMatchID = nil; return }
                     selectedMatchID = matches.first?.id
                     if let id = selectedMatchID { Task { await selectAnchor(id, proxy: proxy, searchRequest: true) } }
                 }
@@ -878,21 +956,35 @@ struct SessionTimelineScreen: View {
     }
 
     private func timelineDidDisappear() {
+        deletePreparationGeneration = UUID()
+        preparingDelete = false
         clearReadingState()
         history.cancelArtworkQueue()
     }
 
     private var archiveDeleteButton: some View {
         Button(role: .destructive) {
-            guard history.canDeleteSession(sessionID),
-                  let session = history.timelines[sessionID]?.session ?? history.sessions.first(where: { $0.id == sessionID }) else { return }
+            guard history.canDeleteSession(sessionID), !preparingDelete else { return }
             inputFocused = false; searchFocused = false
-            deleteConfirmation = .init(sessionID: sessionID, revision: session.revision.value, epoch: history.responseEpoch)
-            confirmingDelete = true
+            let epoch = history.responseEpoch, generation = UUID()
+            deletePreparationGeneration = generation
+            preparingDelete = true
+            Task { @MainActor in
+                let revision = await history.prepareSessionDeletion(sessionID, expectedEpoch: epoch)
+                guard generation == deletePreparationGeneration else { return }
+                preparingDelete = false
+                guard epoch == history.responseEpoch, !Task.isCancelled else { return }
+                guard let revision else { deletePreparationFailed = true; return }
+                deleteConfirmation = .init(sessionID: sessionID, revision: revision, epoch: epoch)
+                confirmingDelete = true
+            }
         } label: {
             Image(systemName: "trash").foregroundStyle(.red)
         }
-        .disabled(!history.canDeleteSession(sessionID) || history.deletingSessionID != nil)
+        .disabled(preparingDelete || !history.canDeleteSession(sessionID) || history.deletingSessionID != nil)
+        .alert(text("ui.session.history.delete.failed"), isPresented: $deletePreparationFailed) {
+            Button(text("ui.close"), role: .cancel) {}
+        }
         .accessibilityLabel(text("ui.session.history.delete.title"))
         .accessibilityIdentifier("session-delete-button")
         .help(text("ui.session.history.delete.title"))
@@ -1020,7 +1112,14 @@ struct SessionTimelineScreen: View {
             isLiveUnavailable: model.djSessionLiveUnavailable,
             retryConnection: { Task { await model.retryDJSessionConnection() } },
             artworkBaseURL: URL(string: model.haLocalURL.isEmpty ? model.homeAssistantURL : model.haLocalURL),
-            playbackOutputName: model.sessionPlaybackOutputName, playbackModel: model)
+            playbackOutputName: model.sessionPlaybackOutputName, playbackModel: model,
+            onPlaybackOutputQuestion: {
+                showsForecast = false
+                query = ""; searchFocused = false
+                if let question = model.askDJMessages.last(where: { $0.role == .user }) {
+                    submittedQuestion = SessionSubmittedQuestion(sessionID: sessionID, localID: question.id, clientID: question.clientMessageID)
+                }
+            })
             if showsFirstPlayHelper {
                 Button {
                     guard model.activeDJSession?.id == sessionID,
@@ -1149,7 +1248,9 @@ struct SessionTimelineScreen: View {
 
     private func moveMatch(_ delta: Int, proxy: ScrollViewProxy) {
         guard !matches.isEmpty else { return }
-        let index = (selectedIndex + delta + matches.count) % matches.count
+        let index = selectedMatchID == nil
+            ? (delta < 0 ? matches.count - 1 : 0)
+            : (selectedIndex + delta + matches.count) % matches.count
         selectedMatchID = matches[index].id
         let id = matches[index].id
         Task { await selectAnchor(id, proxy: proxy, searchRequest: true) }
@@ -1167,18 +1268,17 @@ struct SessionTimelineScreen: View {
         VStack(alignment: .leading, spacing: 8) {
             AskDJSearchBar(language: model.language, promptKey: "ui.session.history.search",
                            fieldIdentifier: "session-search-field", countIdentifier: "session-search-count",
+                           closeLabelKey: activeSession != nil ? "ui.session.search.clear" : "ui.close.search",
                            isLoading: history.searchLoading, text: $query, isFocused: $searchFocused,
-                           resultCount: history.acceptedSearchQuery == query ? matches.count : 0,
+                           resultCount: history.acceptedSearchSessionID == sessionID && history.acceptedSearchQuery == query ? matches.count : 0,
                            selectedIndex: selectedIndex,
                            previousAction: { moveMatch(-1, proxy: proxy) },
                            nextAction: { moveMatch(1, proxy: proxy) },
-                           closeAction: { closeSearch(proxy: proxy) },
-                           submitAction: {
-                               #if os(iOS)
-                               searchFocused = false
-                               #endif
-                               moveMatch(1, proxy: proxy)
-                           })
+                           closeAction: {
+                               if activeSession != nil { query = ""; searchFocused = true }
+                               else { closeSearch(proxy: proxy) }
+                           },
+                           submitAction: { moveMatch(1, proxy: proxy) })
             if let key = history.searchErrorKey {
                 Text(text(key))
                 Button(text("ui.retry")) { history.search(sessionID: sessionID, query: query) }
@@ -1201,6 +1301,47 @@ struct SessionTimelineScreen: View {
         .onKeyPress(.escape) { closeSearch(proxy: proxy); return .handled }
         .onKeyPress(.upArrow) { moveMatch(-1, proxy: proxy); return .handled }
         .onKeyPress(.downArrow) { moveMatch(1, proxy: proxy); return .handled }
+    }
+}
+
+struct SessionModeToggleButtons: View {
+    @Binding var showsForecast: Bool
+    let language: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            modeButton(forecast: false, key: "ui.session.forecast.flow")
+            modeButton(forecast: true, key: "ui.session.forecast.tab")
+        }
+        .padding(DJConnectCardAppearance.segmentedContentInset)
+        .djSessionFrostedSurface()
+        .frame(maxWidth: 420)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("session-flow-forecast-picker")
+    }
+
+    private func modeButton(forecast: Bool, key: String) -> some View {
+        let selected = showsForecast == forecast
+        return Button {
+            DJConnectHaptics.selection()
+            showsForecast = forecast
+        } label: {
+            Text(DJConnectLocalization.localized(key: key, language: language))
+                .font(.headline)
+                .foregroundStyle(.white.opacity(selected ? 1 : 0.78))
+                .lineLimit(1)
+                .minimumScaleFactor(0.74)
+                .frame(maxWidth: .infinity, minHeight: 48)
+        }
+        .djConnectButtonStyle(DJConnectButtonStyle(
+            emphasis: selected ? .selected : .secondary,
+            shape: .segmented, expands: true, usesLiveGlass: true,
+            foregroundColor: .white.opacity(selected ? 1 : 0.78),
+            selectionTint: djConnectAccent
+        ))
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier(forecast ? "session-forecast-toggle" : "session-flow-toggle")
     }
 }
 
@@ -1241,6 +1382,8 @@ struct SessionEntryView: View, Equatable {
     var opensActiveComposer = false
     var allowsPlaybackActions = false
     var playingActionID: String? = nil
+    var replayAction: (() -> Void)? = nil
+    var isReplayBusy = false
     var artworkModel: DJConnectAppModel? = nil
     var setPromptAction: (String) -> Void = { _ in }
     var feedbackAction: (DJConnectAskDJMessage) -> Void = { _ in }
@@ -1253,6 +1396,7 @@ struct SessionEntryView: View, Equatable {
         lhs.entry == rhs.entry && lhs.language == rhs.language && lhs.messageAdapter == rhs.messageAdapter &&
         lhs.contextEpoch == rhs.contextEpoch && lhs.opensActiveComposer == rhs.opensActiveComposer &&
         lhs.allowsPlaybackActions == rhs.allowsPlaybackActions && lhs.playingActionID == rhs.playingActionID &&
+        (lhs.replayAction != nil) == (rhs.replayAction != nil) && lhs.isReplayBusy == rhs.isReplayBusy &&
         lhs.artworkModel === rhs.artworkModel && lhs.highlights == rhs.highlights && lhs.isSelectedMatch == rhs.isSelectedMatch && lhs.selected == rhs.selected
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
@@ -1302,7 +1446,7 @@ struct SessionEntryView: View, Equatable {
                                 playbackDescription
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
-                            .padding(.trailing, 40)
+                            .padding(.trailing, replayAction != nil ? 88 : 40)
                         } else {
                             entryArtwork
                             entryHeading
@@ -1326,7 +1470,29 @@ struct SessionEntryView: View, Equatable {
                     }
                     .padding(20)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .overlay(alignment: .topTrailing) { askButton.padding(8) }
+                    .overlay(alignment: .topTrailing) {
+                        HStack(spacing: 0) {
+                            if let replayAction {
+                                Button {
+                                    DJConnectHaptics.selection()
+                                    replayAction()
+                                } label: {
+                                    Group {
+                                        if isReplayBusy { ProgressView().controlSize(.small).tint(.white) }
+                                        else { Image(systemName: "play.fill").font(.system(size: 18, weight: .semibold)) }
+                                    }
+                                    .foregroundStyle(.white)
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(Rectangle())
+                                }
+                                .djConnectPlainButtonStyle()
+                                .disabled(isReplayBusy)
+                                .accessibilityLabel(text("ui.play.now"))
+                                .accessibilityIdentifier("play-entry-" + entry.id)
+                            }
+                            askButton
+                        }.padding(8)
+                    }
                     .overlay {
                         if isSelectedMatch {
                             RoundedRectangle(cornerRadius: DJConnectCardAppearance.conversationCornerRadius, style: .continuous)
@@ -1344,6 +1510,9 @@ struct SessionEntryView: View, Equatable {
             }
         }
         .padding(4)
+        .djContentDeletion(model: artworkModel, target: entry.isRetained() &&
+            [DJConnectHistoryEntry.Kind.djMoment, .conversationUser, .conversationDJ].contains(entry.kind)
+            ? .init(kind: "entry", sessionID: entry.sessionID, targetID: entry.id) : nil)
     }
     private var horizontalPlayback: Bool {
         guard entry.kind == .playbackObserved else { return false }
@@ -1417,7 +1586,8 @@ struct SessionEntryView: View, Equatable {
         guard let source = sourceAttributions.first(where: { [$0["url"], $0["url_previous"], $0["revision_url"]].contains(url.absoluteString) }) else {
             return url.host ?? ""
         }
-        let label = [source["provider"], source["license"]].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+        let license = source["license"] == "Spotify metadata display" ? nil : source["license"]
+        let label = [source["provider"], license].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
         return source["revision_url"] == url.absoluteString ? label + " · " + text("ui.session.history.source_revision") : label
     }
 }
@@ -2476,6 +2646,7 @@ private struct SessionCurrentConversationBubble: View {
             setPromptAction: setPromptAction, isReadOnly: true, allowsConversationMenu: true, allowsSessionPlaybackActions: true,
             speechEnabled: model.sharedDJSpeechAllowed,
             sharedSpeechActions: { AnyView(SharedDJSpeechActions(model: model, speech: message.sessionSpeech, acceptedText: message.text)) })
+            .djContentDeletion(model: model, target: model.sessionHistory.contentDeletionTarget(for: message))
     }
 }
 
@@ -2514,6 +2685,7 @@ private struct SessionArchiveDeletionConfirmation: ViewModifier {
     let language: String
     @Binding var confirmation: SessionDeleteConfirmation?
     @Binding var isPresented: Bool
+    var dismissOnSuccess: Bool = true
     @State private var failed = false
     @State private var presentationGeneration = UUID()
     @Environment(\.dismiss) private var dismiss
@@ -2529,13 +2701,13 @@ private struct SessionArchiveDeletionConfirmation: ViewModifier {
                         let deleted = await history.deleteSession(request.sessionID, expectedRevision: request.revision,
                                                                   expectedEpoch: request.epoch)
                         guard generation == presentationGeneration else { return }
-                        if deleted { dismiss() }
+                        if deleted { if dismissOnSuccess { dismiss() } }
                         else if request.epoch == history.responseEpoch { failed = true }
                     }
                 }
                 .accessibilityIdentifier("session-delete-confirm")
             } message: { _ in Text(text("ui.session.history.delete.message")) }
-            .alert(text("ui.session.history.delete.failed"), isPresented: $failed) {
+            .alert(text(history.hasUnconfirmedDeletion ? "ui.session.history.delete.unconfirmed" : "ui.session.history.delete.failed"), isPresented: $failed) {
                 Button(text("ui.close"), role: .cancel) {}
             }
             .tint(.white)
@@ -2558,6 +2730,7 @@ private struct SavedSessionsDeleteAllButton: View {
     }
     let language: String
     let isEnabled: Bool
+    let hasUnconfirmedDeletion: Bool
     let contextEpoch: UUID
     let archiveEpoch: UUID
     let prepareDeletion: @MainActor () async -> PreparedAction?
@@ -2605,7 +2778,7 @@ private struct SavedSessionsDeleteAllButton: View {
             }
             .accessibilityIdentifier("saved-sessions-delete-all-confirm")
         } message: { Text(String(format: text("message"), Int64(targetCount))) }
-        .alert(text("failed"), isPresented: $failed) {
+        .alert(hasUnconfirmedDeletion ? DJConnectLocalization.localized(key: "ui.session.history.delete.unconfirmed", language: language) : text("failed"), isPresented: $failed) {
             Button(DJConnectLocalization.localized(key: "ui.close", language: language), role: .cancel) {}
         }
         .tint(.white)

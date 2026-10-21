@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "parent_sha": "1da6158e070566f4ceffeb1ab9befbed721bb4e9",
+  "production_changed": true,
+  "mac_regression_functions_passed": 5,
+  "new_mac_owner_fence_test_passed": 1,
+  "preliminary_native_result": "0_PASS_1_FAIL_PREPARATION_PREREQUISITE",
+  "refined_native_result": "INCOMPLETE_FINALIZATION",
+  "corrected_native_result": "INCOMPLETE_FINALIZATION",
+  "inspected_corrected_window_renders": 3,
+  "corrected_archive_gets": [
+    2,
+    2,
+    3
+  ],
+  "corrected_session_counts": [
+    1,
+    0,
+    1
+  ],
+  "unavailable_copy_followup": "OPEN",
+  "owned_device": "B62B723C-74D1-499C-AFA4-1FB5FF33ECD3",
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Sources/DJConnectUI/DJConnectSessionHistoryModel.swift",
+      "sha256": "c5a1661fe144771b19b0258e4cbc49023197ca50d52860ed72db9159436e2f92"
+    },
+    {
+      "path": "Sources/DJConnectUI/SessionTimelineScreen.swift",
+      "sha256": "2cf38e4d5293f7d9291daa4dfa7b623f6dff19f9b0189a74f6c4203ee7c354ec"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/DisplayConsentSessionTests.swift",
+      "sha256": "077cc8263c8b94eb707d0a8336bc525b803ecf893c73d9abd240f5ad5d92b843"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/SessionHistoryContractTests.swift",
+      "sha256": "2e113afb572ca39cf2736f58aea33f04d76445a0417cf8761c29252598bbad15"
+    },
+    {
+      "path": "Tools/qualification/vibecast-product/prepare_native_consent_tests.py",
+      "sha256": "b35cff88c0ed1d57ec086d6d0279a6e9e1a0633dbd220f333a9e750ccbc67250"
+    },
+    {
+      "path": "Tests/Fixtures/session-history-summary-provenance.json",
+      "sha256": "bdb896e4264dac78919664699eb5d70e1ee13da19edf186f02a47ab875d89ee5"
+    },
+    {
+      "path": "Tests/Fixtures/session-history-summary-final-list.json",
+      "sha256": "613464a3f2f8994e82f87903416034cfc24dd28c13fe0db19e48b513debe68a0"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/before-history-model.swift",
+      "sha256": "7ce557e1fcdb2243f02f71d9405afa766082dd0a058492c56e259045904384ca"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/final.log",
+      "sha256": "7c3b0adebf04acc2f455f174b1f61b467de69ae708cfc52d11de4bd5c6984a3a"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/initial-summary.json",
+      "sha256": "a73d64b4ca8392017569eac36fc3971ccb8ba1add25db4d06aec195bc1e718c7"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/initial-test-source.swift",
+      "sha256": "d03bad629f9added2411a46b32bbb6f7cbc2c322133fd2e17becbf0a4a39680e"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/negative.log",
+      "sha256": "21467f8d323d9fde5e56f90b87934e6a00a62df1e19a7731d8a2592e869e91c6"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/negative-test-source.swift",
+      "sha256": "077cc8263c8b94eb707d0a8336bc525b803ecf893c73d9abd240f5ad5d92b843"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/qualified.log",
+      "sha256": "ad6b0a38d619caaa060953dcb10ed09ecbc2518503e186aac9b55f2645892fb0"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/mac-regression.log",
+      "sha256": "011a22170318697239cf940fc7ddcf10e292fc9394dd2e2919d334eec21cbdad"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/mac-native-regression.log",
+      "sha256": "e0daa4170d6a0a1d166c7ae2eb9282931633946fba44404f298413b789abc923"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/mac-owner-fence.log",
+      "sha256": "10a00a6f788fd606f2c37cdb96e4089648550f3194941bfcd750cf97faa216cf"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/project.json",
+      "sha256": "3646b421a720762c34901e6c2e8cb2f928e28d3e833edf80d6dc3490da1589f8"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/final.xcresult/Info.plist",
+      "sha256": "b01618679ed25632bb1d68e3422f189292991a91730b379a388575f7088f354d"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/final.xcresult/database.sqlite3",
+      "sha256": "afef99dc7f1f661a1bcb658391efc66a636752e99d782e015378eeb85c081de7"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/observations/archive-01-authorized.png",
+      "sha256": "5cd06db5a7a8ba678d929bdaa8ed613eefb07edd6ab547cdbf7c5ba587495073"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/observations/archive-02-withdrawn.png",
+      "sha256": "1d65f1f0a6abb06d5e7f586b5fa5d54685acc42de222bd9342ce52abbd51454d"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/observations/archive-03-reauthorized.png",
+      "sha256": "3f09a78b57df2ec8875103a18cb908af09a720b6bef4360dcf158174dd185f76"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/observations/native-archive-withdrawal.json",
+      "sha256": "5fbfbae9d55df2763183c172d4dec2ce679e4c90e09fa1c92550e397800cbe5a"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/observations-negative/archive-01-authorized.png",
+      "sha256": "3f09a78b57df2ec8875103a18cb908af09a720b6bef4360dcf158174dd185f76"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/observations-negative/archive-02-withdrawn.png",
+      "sha256": "1d65f1f0a6abb06d5e7f586b5fa5d54685acc42de222bd9342ce52abbd51454d"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/observations-negative/archive-03-reauthorized.png",
+      "sha256": "3f09a78b57df2ec8875103a18cb908af09a720b6bef4360dcf158174dd185f76"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/observations-negative/native-archive-withdrawal.json",
+      "sha256": "3253876f4040933a4ec6e5734bb0237d2ae543a7c1f072b0004e86959904ec54"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/observations-qualified/archive-01-authorized.png",
+      "sha256": "3f09a78b57df2ec8875103a18cb908af09a720b6bef4360dcf158174dd185f76"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/observations-qualified/archive-02-withdrawn.png",
+      "sha256": "8dbcd8284fd7f8200e2c5d5bec9425ce04217cdaaca43a19b3c62f53dabf24cd"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/observations-qualified/archive-03-reauthorized.png",
+      "sha256": "276019060eb12e17d4cf8323fb11d2319affc53574b19f6130fc73c9d527890a"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/observations-qualified/native-archive-withdrawal.json",
+      "sha256": "16ea8f18d75cca531d2daf3f33d67248909a8e33e5473b1ddda47791e5485703"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/derived/Build/Products/Debug-iphonesimulator/DJConnectUI.framework/DJConnectUI",
+      "sha256": "caeda90ca97978ede8bb60ef74486a9179fc2b3a20361f3a8e2e2e71338e58bf"
+    },
+    {
+      "path": "/private/tmp/djc-native-archive-20261021/derived/Build/Products/Debug-iphonesimulator/NativeConsentTests.xctest/NativeConsentTests",
+      "sha256": "f2e3358587ee7356bf1bf6ce52b4a9e2462af7966b4da15bc5ac802be6aa9dad"
+    }
+  ]
+}

@@ -7,13 +7,16 @@ import DJConnectCore
 /// No state, timer, audio inference or network operation belongs in this shape.
 struct DJPersonaMark: Shape {
     var includesWaveform = true
+    var includesInnerRing = true
     func path(in rect: CGRect) -> Path {
         let side = min(rect.width, rect.height)
         let origin = CGPoint(x: rect.midX - side / 2, y: rect.midY - side / 2)
         var mark = Path()
-        var ring = Path()
-        ring.addEllipse(in: CGRect(x: 22, y: 25, width: 56, height: 56))
-        mark.addPath(ring.strokedPath(StrokeStyle(lineWidth: 4.5)))
+        if includesInnerRing {
+            var ring = Path()
+            ring.addEllipse(in: CGRect(x: 22, y: 25, width: 56, height: 56))
+            mark.addPath(ring.strokedPath(StrokeStyle(lineWidth: 4.5)))
+        }
         var headphones = Path()
         headphones.move(to: CGPoint(x: 13, y: 57))
         headphones.addCurve(to: CGPoint(x: 87, y: 57),

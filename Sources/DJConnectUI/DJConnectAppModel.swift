@@ -570,6 +570,13 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         playbackActions
     }
 
+    /// A producer may include the same citation in both links and sources.
+    /// Keep distinct destinations even when they share a provider or title.
+    var sourceLinksForDisplay: [DJConnectResponseLink] {
+        var seen = Set<String>()
+        return links.filter { $0.isSourceLike && seen.insert($0.url.absoluteString).inserted }
+    }
+
     /// Match only an explicit server action; a history URI alone grants no playback.
     func playbackAction(forHistoryItem item: DJConnectAskDJHistoryItem) -> DJConnectAskDJPlaybackAction? {
         guard let uri = item.uri, !uri.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -979,7 +986,7 @@ public final class DJConnectAppModel: ObservableObject {
     public var canRefreshSessionHistory: Bool { isAppInForeground && pairingStatus == .paired && !isDemoMode }
     public var canUseProfileConversation: Bool {
         sessionHistory.available && sessionHistory.profileScopeActive && sessionHistory.hasAuthorizedOwner &&
-        canRefreshSessionHistory && isRuntimeCompatible && haConnectionMode != .offline
+        canRefreshSessionHistory && !sessionHistory.contentDeletionBusy && isRuntimeCompatible && haConnectionMode != .offline
     }
     public var canUseAskDJFeatures: Bool {
         sessionHistory.profileScopeActive ? canUseProfileConversation : canUsePlaybackFeatures
@@ -1099,7 +1106,8 @@ public final class DJConnectAppModel: ObservableObject {
                 invalidateSessionPlaybackActions()
                 sessionHistory.discardLiveResponses()
             }
-            syncSessionSurfaces(observedSession: true)
+            let moodChanged = oldValue?.id == activeDJSession?.id && oldValue?.selectedMood != activeDJSession?.selectedMood
+            syncSessionSurfaces(observedSession: true, refreshPassiveImmediately: moodChanged)
             observeSessionSpeechAutoplay()
         }
     }
@@ -1190,10 +1198,16 @@ public final class DJConnectAppModel: ObservableObject {
     var sessionForecastRefreshScope: ForecastScope? { activeDJSession.map(ForecastScope.init) }
     private var forecastScope: ForecastScope?
 
+    /// Shared read/presentation admission; retry must not advertise an operation
+    /// that the current owner or runtime cannot perform.
+    var canRefreshSessionForecast: Bool {
+        canRefreshSessionHistory && isRuntimeCompatible && sessionHistory.hasAuthorizedOwner &&
+            !djSessionIsRecovering && !djSessionLiveUnavailable && haConnectionMode != .offline &&
+            activeDJSession?.runtimeState == "active"
+    }
+
     public func visibleSessionForecast(at date: Date) -> DJConnectSessionForecast? {
-        guard canRefreshSessionHistory, isRuntimeCompatible, haConnectionMode != .offline,
-              sessionHistory.hasAuthorizedOwner, !djSessionIsRecovering, !djSessionLiveUnavailable,
-              let session = activeDJSession, session.runtimeState == "active", forecastAvailable,
+        guard canRefreshSessionForecast, let session = activeDJSession, forecastAvailable,
               forecastEpoch == sessionHistory.responseEpoch,
               forecastCursor?.sessionID == session.id, forecastScope == ForecastScope(session) else { return nil }
         if forecastCursor?.projection?.current_anchor != nil && session.broadcast.playback?.state != "playing" { return nil }
@@ -1202,9 +1216,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func refreshSessionForecast() async {
-        guard canRefreshSessionHistory, isRuntimeCompatible, sessionHistory.hasAuthorizedOwner,
-              !djSessionIsRecovering, !djSessionLiveUnavailable, haConnectionMode != .offline,
-              let session = activeDJSession, session.runtimeState == "active" else { return }
+        guard canRefreshSessionForecast, let session = activeDJSession else { return }
         let scope = ForecastScope(session)
         let epoch = sessionHistory.responseEpoch
         let readContext = ForecastReadContext(scope: scope, ownerEpoch: epoch, authority: forecastAuthorityGeneration)
@@ -1344,6 +1356,9 @@ public final class DJConnectAppModel: ObservableObject {
         guard let device = playback?.device, device.active != false, device.cached != true else { return nil }
         return currentPlaybackBluetoothDeviceName ?? device.name
     }
+    var needsSessionPlaybackOutputSelection: Bool {
+        isNoOutputSelected || sessionPlaybackOutputName == nil
+    }
     @Published public var djResponseText = ""
     @Published public private(set) var askDJMessages: [DJConnectAskDJMessage] = []
     @Published public private(set) var askDJScrollRequestID: UUID?
@@ -1414,6 +1429,39 @@ public final class DJConnectAppModel: ObservableObject {
         guard !isDemoMode, pairingStatus == .paired, isAppInForeground,
               deviceSpeechContext == currentDeviceSpeechContext else { return nil }
         return deviceSpeechAvailability
+    }
+    /// Read-only configuration presentation; never grants an audio operation.
+    var haSpeechConfiguration: DJConnectDeviceSpeechAvailability? {
+        guard let snapshot = currentDeviceSpeechAvailability,
+              snapshot.qualifies(locale: currentRequestLocale) else { return nil }
+        return snapshot
+    }
+    // Local request recovery only: no credentials or conversation content in the journal.
+    func historyDeletionScope(owner: String, bindCredential: Bool = false) -> String {
+        // Metadata/credential changes may withdraw execution authority, but
+        // must never hide an unresolved operation or permit a fresh ID.
+        var fields = [owner, identity.deviceID, identity.clientType.rawValue]
+        if bindCredential {
+            fields += [defaults.string(forKey: haInstallIDKey) ?? "", haLocalURL, haRemoteURL,
+                       (try? tokenStore.loadToken()) ?? "", DJConnectApplicationVersion.releaseVersion,
+                       DJConnectApplicationVersion.buildVersion, identity.deviceName]
+        }
+        let bytes = fields.map { "\($0.utf8.count):\($0)" }.joined()
+        return SHA256.hash(data: Data(bytes.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+    var historyDeletionJournalData: Data? { defaults.data(forKey: "DJConnectHistoryDeletionJournal.v1") }
+    var contentDeletionJournalData: Data? { defaults.data(forKey: "DJConnectContentDeletionJournal.v1") }
+    @discardableResult func storeContentDeletionJournal(_ data: Data?) -> Bool {
+        if let data { defaults.set(data, forKey: "DJConnectContentDeletionJournal.v1") }
+        else { defaults.removeObject(forKey: "DJConnectContentDeletionJournal.v1") }
+        return defaults.synchronize()
+    }
+    @discardableResult func storeHistoryDeletionJournal(_ data: Data?) -> Bool {
+        if let data { defaults.set(data, forKey: "DJConnectHistoryDeletionJournal.v1") }
+        else { defaults.removeObject(forKey: "DJConnectHistoryDeletionJournal.v1") }
+        // Unlike cosmetic preferences, this request fence must finish its write
+        // before a destructive request can leave the client.
+        return defaults.synchronize()
     }
     public var canUseVoiceInputRoute: Bool {
         voiceEnabled && (isRecordingVoice || isDemoMode || deviceSTTEnabled ||
@@ -4702,6 +4750,16 @@ public final class DJConnectAppModel: ObservableObject {
 
     func invalidateConversationResultLeases() {
         conversationResultLeases = [:]; conversationResultLeaseOrder = []
+    }
+
+    func withdrawDeletedContentPresentation(_ receipt: DJConnectContentDeleteReceipt, target: DJConnectContentDeleteTarget) {
+        let ids = Set(receipt.removed_message_ids + receipt.unavailable_message_ids)
+        askDJMessages.removeAll { $0.serverID.map(ids.contains) == true ||
+            (target.kind == "request" && $0.clientMessageID == target.target_id) }
+        liveConversationPresentations = liveConversationPresentations.filter { !ids.contains($0.key) }
+        invalidateConversationResultLeases()
+        stopResponsePlayback(clearText: true)
+        dismissMomentTrackInsight()
     }
 
     func withdrawDeletedSessionPresentation(_ sessionID: String, entries: [DJConnectHistoryEntry], invalidatingAllLeases: Bool = true) {
@@ -10294,14 +10352,14 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    private func syncSessionSurfaces(observedSession: Bool = false) {
+    private func syncSessionSurfaces(observedSession: Bool = false, refreshPassiveImmediately: Bool = false) {
         // Isolated fixtures/Demo must never touch the installed shared group.
         guard startBackgroundTasks, !monkeyTestingMode,
               !DJConnectLocalization.isQualificationProcess else { return }
         bindPassiveSessionSurfaces()
         if observedSession { hasObservedSessionSurfaceAuthority = true }
         scheduleAutomaticPassiveSessionSurfaces()
-        passiveSurfaces.refresh(passiveSurfaceServices)
+        passiveSurfaces.refresh(passiveSurfaceServices, force: refreshPassiveImmediately)
         let now = Date()
         let epoch = sessionHistory.responseEpoch
         // Conversation suspension changes history's epoch on every background

@@ -1,0 +1,19 @@
+{
+  "scope": "Deduplicate Ask DJ source presentation by exact destination URL, preserving first row and distinct destinations.",
+  "base": "865c1e1",
+  "test": "1 PASS / 0 failures",
+  "compile": "macOS shared UI and unsigned iOS/iPadOS PASS",
+  "artwork": "OPEN: current artist information producer explicitly returns images: []; Core owner registered exact-track qualified artwork follow-up. No current-playback fallback.",
+  "installed": false,
+  "published": false,
+  "evidence": [
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-askdj-source-dedup-20261021/final-test.log",
+      "sha256": "06e6748db6cd5bc29c53ab3066848f73cedf82e9b670faa2e2408cb2c9a7d592"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-askdj-source-dedup-20261021/final-ios-build.log",
+      "sha256": "7fc5008d16517f5868b269de4c16525e459964c37a3359eb422b26a90ee093d9"
+    }
+  ]
+}

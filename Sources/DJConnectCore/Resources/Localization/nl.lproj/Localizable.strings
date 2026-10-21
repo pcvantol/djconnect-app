@@ -1475,3 +1475,32 @@
 "ui.displayConsent.approved" = "Scherm toegestaan voor je huidige Session.";
 "ui.displayConsent.uncertain" = "De toestemming is niet bevestigd. Controleer het scherm voordat je een nieuw verzoek start.";
 "ui.displayConsent.unavailable" = "De schermcode of huidige Session is niet meer beschikbaar.";
+
+/* Home Assistant speech configuration; never an audio-success claim. */
+"ui.ha_speech.configuration" = "Home Assistant-configuratie";
+"ui.ha_speech.input" = "Spraakherkenning";
+"ui.ha_speech.output" = "Spraakuitvoer";
+"ui.ha_speech.speaker" = "Speakerdoel";
+"ui.ha_speech.configured" = "Geconfigureerd";
+"ui.ha_speech.unconfigured" = "Niet geconfigureerd";
+"ui.ha_speech.unavailable" = "Tijdelijk niet beschikbaar";
+"ui.ha_speech.unsupported" = "Niet ondersteund";
+"ui.ha_speech.unknown" = "Onbekend";
+"ui.ha_speech.retry_delay" = "Spraakuitvoer is tijdelijk gepauzeerd na een mislukte poging.";
+
+"ui.session.history.delete.unconfirmed" = "De verwijdering is nog niet bevestigd. Er wordt geen nieuwe verwijderopdracht verstuurd. Vernieuwen leest alleen de geschiedenis.";
+
+/* Server-confirmed individual content deletion. */
+"ui.content.delete.action" = "Bijdrage verwijderen";
+"ui.content.delete.confirm" = "Wil je deze bijdrage verwijderen?";
+"ui.content.delete.unit.moment" = "DJ-moment";
+"ui.content.delete.unit.exchange" = "Volledige vraag en antwoord";
+"ui.content.delete.unit.attempt" = "Oorspronkelijk openstaand verzoek";
+"ui.content.delete.scope" = "Rijen: %d verwijderd, %d onbeschikbaar. Berichten: %d verwijderd, %d onbeschikbaar. DJ-momenten: %d. Geblokkeerde verzoeken: %d.";
+"ui.content.delete.playback" = "De sessie en muziekweergave blijven behouden.";
+"ui.content.delete.expires" = "Geldig tot %@";
+"ui.content.delete.status" = "Controleer verwijderstatus";
+
+"ui.session.search.clear" = "Zoektermen wissen";
+
+"ui.session.playback.speaker_question" = "Toon beschikbare speakers.";

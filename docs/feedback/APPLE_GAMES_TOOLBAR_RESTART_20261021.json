@@ -1,0 +1,22 @@
+{
+  "base": "aaf2fbb32a72210141d2852b0da287f76322a2bf",
+  "scope": "Move existing selected-game reset action to primary toolbar action; remove resets from game-card control grids.",
+  "validation": {
+    "macOS_UI_compile": "PASS",
+    "iOS_iPadOS_UI_unsigned_compile": "PASS",
+    "diff_check": "PASS",
+    "native_runtime": "not exercised"
+  },
+  "installation": false,
+  "publication": false,
+  "evidence": [
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-games-toolbar-restart-20261021/mac-build.log",
+      "sha256": "7d84605f98f6fe6aa28d5891b2a170d17c24a1f8303dcdb764eefa87c0ce6c42"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-games-toolbar-restart-20261021/ios-build.log",
+      "sha256": "ced90ebe40b8903bc662ddfd87b2bcdd0f6171be0cf9b4141fd44696c1255587"
+    }
+  ]
+}

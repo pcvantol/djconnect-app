@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "parent_sha": "427ee4aeda9f6f5a6f8d2c0d6a919b39cab2aa02",
+  "production_changed": false,
+  "qualified": {
+    "passed_tests": 1,
+    "failed_tests": 0,
+    "skipped_tests": 0,
+    "runtime_warnings": 0,
+    "renders_inspected": 3
+  },
+  "full_detail_page_qualified": false,
+  "integrated_owner_ui_qualified": false,
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Tools/qualification/native-history-summary/NativeHistorySummaryTests.swift",
+      "sha256": "72c91654cffb7fde76a36ce06bee096fe969a12e2dd8b7353039f65cce89efe8"
+    },
+    {
+      "path": "Tools/qualification/vibecast-product/prepare_native_consent_tests.py",
+      "sha256": "01b81486c48d995373c41763adc9b761c26b9cd437de1f77015b986f68c4e887"
+    },
+    {
+      "path": "Tests/Fixtures/session-history-summary-final-detail.json",
+      "sha256": "8312a77c92036504cc6de15a0028b7f33017137aaf779874fc687df661e0cf5b"
+    },
+    {
+      "path": "/private/tmp/djc-native-detail-summary-20261021/final.log",
+      "sha256": "d1a845e94dfe24ae65d15f492bf5a9184762d568fd0323987e94e54b46b5af9e"
+    },
+    {
+      "path": "/private/tmp/djc-native-detail-summary-20261021/final-summary.json",
+      "sha256": "944a9910afd21b64a3b73e6c8ef750146e2f2dc7a1f1f210bc7ebd4c317b7eff"
+    },
+    {
+      "path": "/private/tmp/djc-native-detail-summary-20261021/observations/native-detail-summary-layout.json",
+      "sha256": "e12a9ea1352331914626215f9704a344b43a8b4ea92fa9e0924800169594e063"
+    },
+    {
+      "path": "/private/tmp/djc-native-detail-summary-20261021/observations/detail-01-dutch.png",
+      "sha256": "ed2d26ce430e2960dd8e8619de12290dd5ace3a55d6375ffdc253d59299e7b05"
+    },
+    {
+      "path": "/private/tmp/djc-native-detail-summary-20261021/observations/detail-02-dutch-accessibility5.png",
+      "sha256": "52a8c3ed92f4edcf5301060f5bd74abf9ee97be1547bafc896b871433cf59671"
+    },
+    {
+      "path": "/private/tmp/djc-native-detail-summary-20261021/observations/detail-03-narrow-french-accessibility5.png",
+      "sha256": "0f2b2fc1f50b878f3633b4ea6c0c86370c0b4671cac26aa09ea1f3a43f3eff3c"
+    }
+  ]
+}
