@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "parent_sha": "ade91f1a401148aa9f72e187e7b20fc0d68599ab",
+  "qualification": "INCONCLUSIVE_HOST_ACCESSIBILITY_TREE",
+  "production_changed": false,
+  "final_fixture_cases_passed": 16,
+  "accessibility_qualified": false,
+  "voiceover_qualified": false,
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Tests/DJConnectCoreTests/SessionHistoryContractTests.swift",
+      "sha256": "84e0f05980c3068b58b3f3930fbc70001233949fce8bed0ada04dc6484841799"
+    },
+    {
+      "path": "Tests/Fixtures/session-forecast-core-3cfa5512.json",
+      "sha256": "909c9bc4f882f5db84b0b92a4fef4102c3f8d123337cf0770160f590fba24cac"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-accessibility-probe-20261020.log",
+      "sha256": "1bb6485de135d2883c8b56ec3869a5fee0d0c937e76dfd559b6c27294d49c271"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-accessibility-probe-20261020/accessibility-01-flow.json",
+      "sha256": "0db6d2e0c069a901938774eb3d08be09eb4422397758a15d195848076506bdb6"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-accessibility-probe-20261020/accessibility-02-forecast.json",
+      "sha256": "0db6d2e0c069a901938774eb3d08be09eb4422397758a15d195848076506bdb6"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-accessibility-probe-20261020/accessibility-03-flow-return.json",
+      "sha256": "0db6d2e0c069a901938774eb3d08be09eb4422397758a15d195848076506bdb6"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-accessibility-tree-20261020.log",
+      "sha256": "27bea6b4427d4902348f1c5a84d9870586a2fc4b33654bb214b5000d12edd6fb"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-accessibility-tree-20261020/accessibility-01-flow.json",
+      "sha256": "8014af7fec900baef4ebe1f7e86c1114828a77a66ac4ade1ce18b5caeed81987"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-accessibility-tree-20261020/accessibility-02-forecast.json",
+      "sha256": "8014af7fec900baef4ebe1f7e86c1114828a77a66ac4ade1ce18b5caeed81987"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-accessibility-tree-20261020/accessibility-03-flow-return.json",
+      "sha256": "8014af7fec900baef4ebe1f7e86c1114828a77a66ac4ade1ce18b5caeed81987"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-accessibility-controls-20261020.log",
+      "sha256": "db3c264cc3b65d3ce15d4fad6e56d64675e4fd0ad9b7e90b146dd07632830498"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-accessibility-controls-20261020/accessibility-01-flow.json",
+      "sha256": "f8ddc1642869ddddf8a6c73b675055133132ba75d8ca1b6dace2f6de969f6bb1"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-accessibility-controls-20261020/accessibility-02-forecast.json",
+      "sha256": "8a5fd871f55872f1b99580ac1e1f3313fbff0207001be63bd6928199b36eaa20"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-accessibility-controls-20261020/accessibility-03-flow-return.json",
+      "sha256": "f8ddc1642869ddddf8a6c73b675055133132ba75d8ca1b6dace2f6de969f6bb1"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-accessibility-final-20261020.log",
+      "sha256": "ab768daab4d4ebcb84015eff495e98c412e17a12fccad5c7887359d5cb0b1157"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-accessibility-final-20261020/accessibility-01-flow.json",
+      "sha256": "6b40cddaab57ccc5ad032a78609df08ea1b661f56f35b4aa3fd059c24a089ad1"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-accessibility-final-20261020/accessibility-02-forecast.json",
+      "sha256": "91e39340a6052295d77c44b29f85ba8489753c700b2430bec72726a982894198"
+    },
+    {
+      "path": "/private/tmp/djc-forecast-accessibility-final-20261020/accessibility-03-flow-return.json",
+      "sha256": "6b40cddaab57ccc5ad032a78609df08ea1b661f56f35b4aa3fd059c24a089ad1"
+    }
+  ]
+}

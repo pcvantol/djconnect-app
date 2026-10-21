@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "parent_sha": "bf182125fe2badfcba51a5c6f170793b673942d1",
+  "translated_existing_values": 9,
+  "localization_keys_validated": 1367,
+  "qualified": {
+    "passed_tests": 1,
+    "failed_tests": 0,
+    "skipped_tests": 0,
+    "runtime_warnings": 0,
+    "renders_inspected": 3
+  },
+  "os_permissions_requested": false,
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Sources/DJConnectCore/Resources/Localization/fr.lproj/Localizable.strings",
+      "sha256": "cb2b2b5361b4d8f7e4962c0d985684b73cfcdff7be7f428945f41380960f67bc"
+    },
+    {
+      "path": "Tools/qualification/native-history-summary/NativeHistorySummaryTests.swift",
+      "sha256": "9991b2851f081b5bccfd1cbcd14c3add564fdaecdf119af900aadbaef0f07b30"
+    },
+    {
+      "path": "/private/tmp/djc-french-permission-20261021/before-fr.strings",
+      "sha256": "dc028dadee35ac7730b7ffb04f24348816efdf49b15a759a696de86e64048554"
+    },
+    {
+      "path": "/private/tmp/djc-french-permission-20261021/changed-keys.json",
+      "sha256": "3a3c68916290de3a9a29fb427d4a9d462a8a8b8ccd31b157f240fa91bb7de392"
+    },
+    {
+      "path": "/private/tmp/djc-french-permission-20261021/localization.log",
+      "sha256": "92b21a16365c012f0d11e2f1945bd2f3923877d08dc72b1077662e249eb2a736"
+    },
+    {
+      "path": "/private/tmp/djc-french-permission-20261021/final.log",
+      "sha256": "0bd4fe3f63fb3682693363e2344c904a63bd98cd928c19f4ce074f2496213162"
+    },
+    {
+      "path": "/private/tmp/djc-french-permission-20261021/final-summary.json",
+      "sha256": "c1940a8e080ff3b5573884011a5dbb7aef937fc22b58ec0e7023b577e43a2cd5"
+    },
+    {
+      "path": "/private/tmp/djc-french-permission-20261021/observations/french-01-microphone.png",
+      "sha256": "e4eb42240eb91ead7edddc98d9c46325d6f6416432eb46bba911197b70ecc427"
+    },
+    {
+      "path": "/private/tmp/djc-french-permission-20261021/observations/french-02-speech.png",
+      "sha256": "059e07096c80119ff1560c045d3d2c21dd03db5ae5a3fb1d483d35d6e068c20a"
+    },
+    {
+      "path": "/private/tmp/djc-french-permission-20261021/observations/french-03-notifications.png",
+      "sha256": "2f8ec79111033db3191624280d4650fae6d24adf291f09853783133f20416ba8"
+    },
+    {
+      "path": "/private/tmp/djc-french-permission-20261021/observations/native-french-permission-layout.json",
+      "sha256": "b1440acfeb8b91ccd07e63ba877a50887280a71793ce8e46dcce745e46111127"
+    }
+  ]
+}

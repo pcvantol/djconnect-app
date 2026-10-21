@@ -1,0 +1,15 @@
+# Native consent disappearance during approval — 21 October 2026
+
+Successor to `ea2d58534e0d026c0c3707f4a9332f97e4e6cf2c`. Tests only; production behavior unchanged. Earlier native lifecycle proof covered a ready claim only. The new opt-in `actualIOSNativeConsentInflightLifecycle()` uses the real iOS model/form and existing synthetic URLProtocol, with a test-only delayed-approval mode that returns the same ordinary approval receipt after two seconds. No producer facts or endpoint are changed.
+
+The selected test completed **1PASS/0fail/0skip**, complete xcresult and no runtime warnings. All4 UIKit window-layer renders were inspected: approving with000000/disabled native fields; removed hierarchy; remounted empty idle form before acknowledgement; unchanged empty idle form after late acknowledgement. The first UIHostingController stays alive while detached, so production onDisappear, rather than deallocation or a manual cancellation call, supplies the fence.
+
+Model/property assertions prove disappearance changes approving→uncertain while the approval task is pending. Remount executes the existing onAppear reset to idle with six empty enabled fields before completion. The late result cannot revive approved state; a repeated explicit model approve does nothing. Exactly one synthetic resolve and one synthetic approval POST occur, with Session ID/playback/history response epoch retained. The blank removed-host capture is not an uncertainty-banner screenshot: uncertainty is an asserted model state while the form is absent.
+
+This is native hierarchy removal/remount plus model methods, not physical close/swipe, native button taps, OS screenshots, VoiceOver, full-root navigation, installed HA/receiver or server acceptance. It does not close the old public SwiftUI disabled-trait XCTest UI assertion or incomplete full archive runner. No ordinary app, SDK/provider or physical effect occurs.
+
+Disk preflight969Mi allowed a bounded incremental build in the existing owned `/private/tmp/djc-consent-lifecycle-20261021` project/derived directory. Old results/renders/logs remain intact; its scheme was backed up and restored after completion. The shared compiled binary now represents current source, not an immutable earlier binary. New evidence is `/private/tmp/djc-consent-inflight-lifecycle-20261021/{previous-scheme.xcscheme,final.log,final.xcresult,final-summary.json,observations/}`.
+
+The summary write and initial scheme-restore here-document hit no-space after the test had already completed. After confirming no build process, only that owned build’s reproducible ModuleCache.noindex20M and Index.noindex49M were removed. Binaries, intermediates, raw results, renders, logs and unique source were preserved; summary readback and scheme restoration then succeeded without a test rerun. Own B62 is Shutdown, others untouched, no own job remains. Further simulator builds require a fresh disk decision; no unowned cleanup is authorized.
+
+`git diff --check` passes. No unchanged green tests were repeated; no production correction was needed. No push, PR, external report, deployment or recovery bundle occurred.

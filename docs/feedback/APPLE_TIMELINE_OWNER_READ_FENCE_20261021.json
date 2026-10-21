@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "parent_sha": "9928aa335a72cf92802a917ed88e1f8e2f57c321",
+  "production_changed": true,
+  "negative": {
+    "failed_tests": 1,
+    "issues": 3,
+    "requests_before": 3,
+    "requests_after": 4
+  },
+  "qualified": {
+    "passed_tests": 6,
+    "failed_tests": 0
+  },
+  "native_ui_qualified": false,
+  "new_ios_runtime": false,
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Sources/DJConnectUI/DJConnectSessionHistoryModel.swift",
+      "sha256": "21c1dacda90ac9c2f68e69031a903b889a7d49e9393ea7e5f321337862c8cf15"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/SessionHistoryContractTests.swift",
+      "sha256": "fe8abe581597c1d2a146fb8de382dbab9ea4406af34d188793df42ac6ba722c5"
+    },
+    {
+      "path": "Tests/Fixtures/session-history-producer-receipt.json",
+      "sha256": "d4b901aa3d6ec7d7e93767c2efc538dddc5f92dc2e3cbaa9213e03b0da471f93"
+    },
+    {
+      "path": "/private/tmp/djc-timeline-owner-fence-20261021/before-history-model.swift",
+      "sha256": "c5a1661fe144771b19b0258e4cbc49023197ca50d52860ed72db9159436e2f92"
+    },
+    {
+      "path": "/private/tmp/djc-timeline-owner-fence-20261021/negative.log",
+      "sha256": "4a49ad24ab9ac1ee9c1140d69f4fcbe09af0fba52456df1d70e1d65f22f49bbc"
+    },
+    {
+      "path": "/private/tmp/djc-timeline-owner-fence-20261021/qualified.log",
+      "sha256": "9b1e7bc6737a8a4a2c501a29d839296a4150c090bb9b1390e3d425957f2d026e"
+    }
+  ]
+}

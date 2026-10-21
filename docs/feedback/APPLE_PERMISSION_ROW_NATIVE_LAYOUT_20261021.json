@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "parent_sha": "c1525c322992e509a81279baea68f1a98981c102",
+  "production_changed": true,
+  "before": {
+    "passed_tests": 1,
+    "failed_tests": 0,
+    "visual_truncation_observed": true,
+    "renders_inspected": 3
+  },
+  "qualified": {
+    "passed_tests": 1,
+    "failed_tests": 0,
+    "skipped_tests": 0,
+    "runtime_warnings": 0,
+    "renders_inspected": 3,
+    "macos_compile": "PASS"
+  },
+  "french_translation_qualified": false,
+  "os_permission_requests": false,
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Sources/DJConnectUI/DJConnectRootView.swift",
+      "sha256": "e80924cf291d6e6963cd844f26a081b82eb168437838856a502185ca0ccbd1be"
+    },
+    {
+      "path": "Tools/qualification/native-history-summary/NativeHistorySummaryTests.swift",
+      "sha256": "c784adb9de37b0e3937ed608795caee09744bd8bc4c427f80c9cd4ce750b752c"
+    },
+    {
+      "path": "/private/tmp/djc-native-permission-row-20261021/before-root.swift",
+      "sha256": "7ddc341a0733b2b52f48e448e66f001809f86db01f83b67af193bd0b37b78f67"
+    },
+    {
+      "path": "/private/tmp/djc-native-permission-row-20261021/before.log",
+      "sha256": "5cfd905c2d0650011d6a211df652dc850a12fb11f639b3f297e020a15a010091"
+    },
+    {
+      "path": "/private/tmp/djc-native-permission-row-20261021/before-summary.json",
+      "sha256": "55ca28fb489f4fd77d55e409336ebb574384de75927355ae4cf94d62c1794714"
+    },
+    {
+      "path": "/private/tmp/djc-native-permission-row-20261021/qualified.log",
+      "sha256": "94313f03b10c38521c2a140e66561792d94455a2af509f7058ae462e61c554f0"
+    },
+    {
+      "path": "/private/tmp/djc-native-permission-row-20261021/qualified-summary.json",
+      "sha256": "994eda7f4eb89e67169e11063df383c62ecdd13088053b7188f2b5922c542b43"
+    },
+    {
+      "path": "/private/tmp/djc-native-permission-row-20261021/mac-build.log",
+      "sha256": "bbd574cd23d479f325e4e87f68dbf7bf9e1dce51cc4f392ad484e6ac0bb3f516"
+    },
+    {
+      "path": "/private/tmp/djc-native-permission-row-20261021/before/native-permission-layout.json",
+      "sha256": "6ef0aa20cb265bc92e1b5a8d55c18c6bacda704a28d25b4869ece532bb1a4dd1"
+    },
+    {
+      "path": "/private/tmp/djc-native-permission-row-20261021/before/permission-01-default.png",
+      "sha256": "82a4dd529a2d98132740a83ee3081c9fb8478dec2fac4747529bd2e976a63c1b"
+    },
+    {
+      "path": "/private/tmp/djc-native-permission-row-20261021/before/permission-02-large.png",
+      "sha256": "21833ce13604556e7ff981e50db4b05901dac27cef7a2ac531c7037f31ebee00"
+    },
+    {
+      "path": "/private/tmp/djc-native-permission-row-20261021/before/permission-03-french-large.png",
+      "sha256": "b74a3189b2ca083a16ccf5b755786795d84a8a450eaf1976c7d1ec81521222d6"
+    },
+    {
+      "path": "/private/tmp/djc-native-permission-row-20261021/qualified/native-permission-layout.json",
+      "sha256": "8a3a0feaf86d4a3591a97d65fb92e57782ad560a63bfbaee5ea81489a75e077c"
+    },
+    {
+      "path": "/private/tmp/djc-native-permission-row-20261021/qualified/permission-01-default.png",
+      "sha256": "31f819bcb9a1e3b1c9830842ed8e89ab2c373716916a46d4ccd032397d72bc7c"
+    },
+    {
+      "path": "/private/tmp/djc-native-permission-row-20261021/qualified/permission-02-large.png",
+      "sha256": "87de5aaf3759f16a35c167b5aeafef7400150dad2f12ab75f129ef9b60cf6e86"
+    },
+    {
+      "path": "/private/tmp/djc-native-permission-row-20261021/qualified/permission-03-french-large.png",
+      "sha256": "40d5f0f6fd9372b630d90a5bd3f4e5bc7995dd2fae4b86b70c54d908ebf11f50"
+    }
+  ]
+}

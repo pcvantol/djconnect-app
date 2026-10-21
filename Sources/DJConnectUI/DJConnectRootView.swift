@@ -9503,7 +9503,8 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
             field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             field.accessibilityLabel = "\(accessibilityLabel), \(index + 1) / 6"
             field.accessibilityIdentifier = "vibecast-handoff-digit-\(index)"
-            field.emptyDelete = { [weak coordinator = context.coordinator] in coordinator?.deleteBefore(index) }
+            field.deleteDigit = { [weak coordinator = context.coordinator] in coordinator?.deleteDigit(index) }
+            field.insertDigits = { [weak coordinator = context.coordinator] in coordinator?.insert($0, at: index) }
             stack.addArrangedSubview(field)
             context.coordinator.fields.append(field)
         }
@@ -9517,15 +9518,15 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
         if code != context.coordinator.lastEmittedCode { context.coordinator.sync(code) }
         for (index, field) in context.coordinator.fields.enumerated() {
             field.accessibilityLabel = "\(accessibilityLabel), \(index + 1) / 6"
+            field.isEnabled = context.environment.isEnabled
         }
     }
 
     final class DigitField: UITextField {
-        var emptyDelete: (() -> Void)?
-        override func deleteBackward() {
-            if (text ?? "").isEmpty { emptyDelete?() }
-            else { super.deleteBackward() }
-        }
+        var deleteDigit: (() -> Void)?
+        var insertDigits: ((String) -> Void)?
+        override func deleteBackward() { deleteDigit?() }
+        override func insertText(_ text: String) { insertDigits?(text) }
     }
 
     final class Coordinator: NSObject, UITextFieldDelegate {
@@ -9553,6 +9554,12 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
             code.wrappedValue = lastEmittedCode
             refresh()
         }
+        func deleteDigit(_ index: Int) {
+            // UIKit's text deletion need not enter shouldChangeCharactersIn.
+            // Keep the aggregate binding authoritative for filled cells too.
+            if digits[index].isEmpty { deleteBefore(index) }
+            else { digits[index] = ""; emit() }
+        }
         func deleteBefore(_ index: Int) {
             guard index > 0 else { return }
             digits[index - 1] = ""
@@ -9568,14 +9575,17 @@ private struct VibeCastCodeEntry: UIViewRepresentable {
                 emit()
                 return false
             }
+            insert(string, at: index)
+            return false
+        }
+        func insert(_ string: String, at index: Int) {
             let clean = Array(string.filter { $0.isASCII && $0.isNumber }).map(String.init)
-            guard !clean.isEmpty else { return false }
+            guard !clean.isEmpty else { return }
             // Full-code paste/autofill replaces all six, even from a later cell.
             let start = clean.count >= 6 ? 0 : index
             for (offset, digit) in clean.prefix(6 - start).enumerated() { digits[start + offset] = digit }
             fields[min(5, start + clean.count)].becomeFirstResponder()
             emit()
-            return false
         }
     }
 }
@@ -18638,22 +18648,34 @@ private func copyText(_ text: String) {
     #endif
 }
 
-private struct PermissionStatusRow: View {
+struct PermissionStatusRow: View {
     let title: String
     let detail: String
     let status: DJConnectPermissionStatus
     let language: String
 
+    private var statusLabel: some View {
+        Label(permissionStatusText(status, language: language), systemImage: permissionStatusIcon(status))
+            .foregroundStyle(permissionStatusColor(status))
+            .labelStyle(.titleAndIcon)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(title)
-                    .foregroundStyle(.primary)
-                Spacer(minLength: 12)
-                Label(permissionStatusText(status, language: language), systemImage: permissionStatusIcon(status))
-                    .foregroundStyle(permissionStatusColor(status))
-                    .labelStyle(.titleAndIcon)
-                    .lineLimit(1)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text(title)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: true, vertical: false)
+                    Spacer(minLength: 12)
+                    statusLabel.fixedSize(horizontal: true, vertical: false)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    statusLabel.fixedSize(horizontal: false, vertical: true)
+                }
             }
             Text(detail)
                 .font(.caption)

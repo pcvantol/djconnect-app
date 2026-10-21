@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "parent_sha": "76fb06cdf363954033ba858c455dc9bf6750d192",
+  "translated_existing_values": 22,
+  "localization_keys_validated": 1367,
+  "qualified": {
+    "passed_tests": 1,
+    "failed_tests": 0,
+    "skipped_tests": 0,
+    "runtime_warnings": 0,
+    "renders_inspected": 6
+  },
+  "os_permissions_requested": false,
+  "removed_own_reproducible_caches": [
+    "derived/ModuleCache.noindex",
+    "derived/Index.noindex"
+  ],
+  "publication": "LOCAL_ONLY",
+  "evidence": [
+    {
+      "path": "Sources/DJConnectCore/Resources/Localization/de.lproj/Localizable.strings",
+      "sha256": "65758376bc077e8ad7eb64a45bd6700659f3a851a85d23d5a9bbac9635a443b7"
+    },
+    {
+      "path": "Sources/DJConnectCore/Resources/Localization/es.lproj/Localizable.strings",
+      "sha256": "1a6e3147cffa6ed9e7e3087da4fb91e5a50b4a1942803200210d63674482eb69"
+    },
+    {
+      "path": "Tools/qualification/native-history-summary/NativeHistorySummaryTests.swift",
+      "sha256": "abbc6067b1e4f46d8e3fc718d79d6732fc6fc30cd7e3a5b9e48923cc3a5fea63"
+    },
+    {
+      "path": "/private/tmp/djc-de-es-permission-20261021/before-de.strings",
+      "sha256": "b592683367c2896b43210ca261c2032f56138b5145568f9da1502f0bc8c63b52"
+    },
+    {
+      "path": "/private/tmp/djc-de-es-permission-20261021/before-es.strings",
+      "sha256": "0f924363ce3802387835901260eae16848cc4b732a6f488d96cc94bd96ad7ff5"
+    },
+    {
+      "path": "/private/tmp/djc-de-es-permission-20261021/changed-keys.json",
+      "sha256": "cc1a584bd144e1383d16e3164103469b409ff169835c19bd8c91289c5301c1d8"
+    },
+    {
+      "path": "/private/tmp/djc-de-es-permission-20261021/localization.log",
+      "sha256": "92b21a16365c012f0d11e2f1945bd2f3923877d08dc72b1077662e249eb2a736"
+    },
+    {
+      "path": "/private/tmp/djc-de-es-permission-20261021/final.log",
+      "sha256": "c6cfb4bb595409c94eb8b369862537248534c3366773a97e0a65565d829b6ac5"
+    },
+    {
+      "path": "/private/tmp/djc-de-es-permission-20261021/final-summary.json",
+      "sha256": "e5ce5a56fdd3f99402bb60ce2308ee9f53686f762de4c31221671ee501ba0ef5"
+    },
+    {
+      "path": "/private/tmp/djc-de-es-permission-20261021/observations/de-01-microphone.png",
+      "sha256": "149357f23a41b7f54a2cf7ae596fdf8206cedbd546a00c1828ece3ead135bb9d"
+    },
+    {
+      "path": "/private/tmp/djc-de-es-permission-20261021/observations/de-02-speech.png",
+      "sha256": "63194b3fa8040942b0437266f7140bb7d03b08d3f32032b78f91a2d9f8ce3914"
+    },
+    {
+      "path": "/private/tmp/djc-de-es-permission-20261021/observations/de-03-notifications.png",
+      "sha256": "a4244e877b964ca6791b26ca3f057f543bc8fe8ff3184a9e9c1dda63d8520ba1"
+    },
+    {
+      "path": "/private/tmp/djc-de-es-permission-20261021/observations/es-01-microphone.png",
+      "sha256": "3e222379c5a4eaaa951ba4816dcba7980ac9ab5be8728173e1a26c32d4451831"
+    },
+    {
+      "path": "/private/tmp/djc-de-es-permission-20261021/observations/es-02-speech.png",
+      "sha256": "4b89f01eb2d84c27b885a12841d52374574480f64ac7c8bcd7b9bb9946f907de"
+    },
+    {
+      "path": "/private/tmp/djc-de-es-permission-20261021/observations/es-03-notifications.png",
+      "sha256": "a2854d65dbc2939a5dd821587054094c19512dd9c4c42e2a820b2e7bd1627ffb"
+    },
+    {
+      "path": "/private/tmp/djc-de-es-permission-20261021/observations/native-de-es-permission-layout.json",
+      "sha256": "f93072bf8dcc7a97c99b3e71afeaa11b8176bf7cef5a9c9fd8f87081a7ea5372"
+    }
+  ]
+}

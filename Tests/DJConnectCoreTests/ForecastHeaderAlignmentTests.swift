@@ -107,7 +107,7 @@ final class ForecastHeaderAlignmentTests: XCTestCase {
         func render(_ name: String, width: CGFloat, forecast: Bool) async throws -> CGFloat {
             let header = ForecastHeaderMarker().frame(height: 80)
             let content: AnyView = forecast
-                ? AnyView(SessionForecastPanel(model: model, position: .constant(nil), query: .constant("")) { header })
+                ? AnyView(SessionForecastPanel(model: model, viewport: SessionForecastViewport(), query: .constant("")) { header })
                 : AnyView(ScrollView { header })
             let host = NSHostingView(rootView: content.environment(\.scenePhase, .background)
                 .foregroundStyle(.white).background(.black))

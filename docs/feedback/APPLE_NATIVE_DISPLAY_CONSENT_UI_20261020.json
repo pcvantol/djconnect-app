@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "parent_commit": "8462454f4c662259b0fd47f4bd78c2545f41daa0",
+  "base_main": "aa9785361e6d41f9c086765fc3b9db28669184b8",
+  "scope": "actual production consent form in isolated synthetic simulator host; lookup availability correction",
+  "pre_correction_native_ui": {
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "terminal_states_asserted": true,
+    "screenshots_inspected": 4,
+    "source_note": "before added disabled-button assertion and production disabled binding"
+  },
+  "after_correction": {
+    "macos_targeted_passed": 13,
+    "macos_targeted_failed": 0,
+    "ios_build_for_testing": "PASS",
+    "native_disabled_button_test": "NOT_QUALIFIED_INCOMPLETE_RUNNER_RESULT"
+  },
+  "incomplete_attempts": [
+    "initial",
+    "lookup-disabled-negative",
+    "withdrawal-ui-fixed",
+    "lookup-disabled-fixed-only"
+  ],
+  "incomplete_attempt_policy": "No PASS or counterproof FAIL assigned; identified own jobs cancelled after test-log finalization stalled",
+  "current_compiled_input_sha256": {
+    "Sources/DJConnectUI/DJConnectRootView.swift": "4d6b919cda6a8ddbc0e1ac606c36c1a0f345be4a8eea41a030843d5dbab56460",
+    "Sources/DJConnectUI/DJConnectAppModel.swift": "8fb6b86a698558bac0502e82c1df3fb1ad77cc2ca3bdfe61989920e243369227",
+    "Sources/DJConnectCore/DJConnectDisplayConsentSession.swift": "01edd579bc87aabf3262f7dafbfd2b310f94688864f295ed09bec08e60f66708",
+    "Tools/qualification/vibecast-product/NativeConsentUIHost.swift": "97a90143f460c74c10b74f2b58e5cf6a5a58dbf46df68112e6d15874c0e641b7",
+    "Tools/qualification/vibecast-product/NativeConsentUITests.swift": "bfe9c1ff4f5ec229dd24140e53f8f8e52f9131b4de465d4eb26b8ef42a43c2c0",
+    "Tools/qualification/vibecast-product/prepare_native_consent_tests.py": "28e2cf80ea7d16cb4586f0ec64e17fd193ee83f5b950983afc906706cae3289e"
+  },
+  "evidence_sha256": {
+    "final-terminal-states-summary.json": "756b0bb41e7f135cb276e045290d601b6007a1af5d9ccdd2bdb95bdf86254895",
+    "positive-serial-summary.json": "e7fb261811ee81e4cb2cd729ddb1ebfb2ce234c3ce2f0ad3f6562475215648a2",
+    "withdrawal-uncertain-summary.json": "f519263a515f7cb991368c1fdd6020c2b37c9d54d5fa6c1b08918e9266b8bdb9",
+    "fixed-build-for-testing.log": "922abe47c8115d3c5ebd69746b216f110109ea01c1ed0b54f70544806be2f676",
+    "macos-after-ui-fix.log": "21cf35eaa8b3a7264c9f65bfa5b12e1af938bb9824a8db68d48e74fcaae12726",
+    "initial.log": "62262bf134792fd62afc3ba099a3f0f160ab1864251e5c6ed7031e2ef4b8610a",
+    "lookup-disabled-negative.log": "dcd7fb0043e995df2c7f44dd2d7d34f2eb4184a52c72c211d73d82ea021b0f77",
+    "withdrawal-ui-fixed.log": "8fdd2a3a2d53ec56200df4dfb911763db71820bc92d617f057e47231dd78a681",
+    "lookup-disabled-fixed-only.log": "5e6eb2fb75c444ddf6e73dcbeab2ace7df679450881517b47fd1e6cf65b60586"
+  },
+  "inspected_screenshot_sha256": {
+    "positive-attachments/91C688D9-E670-475E-993F-B91D703F51D8.png": "a414f0bbff1d7fc19dbed35bd9cbacacda397766042039a3b8bbd754f0339b83",
+    "positive-attachments/05451DC2-68B3-4277-96E0-7D0767E04A31.png": "84813e9f36a9ff6b0c4d46a2055b97a0e6261b9ab6c0c88697a1f0f777afc776",
+    "withdrawal-uncertain-attachments/2ED07CDF-A5D3-4087-8DEA-77E2FB83D52F.png": "b7e6ccabeea5257c0244deabbf99e2d56f9c9596672af4d06569d8c02bf33511",
+    "withdrawal-uncertain-attachments/12FC2E4B-15F7-4234-83F9-A74375099856.png": "a9a809e40eb103c3021b6a1d3c3f899e49b00c72e3da1fa80619b728d8db9b44"
+  },
+  "publication": "LOCAL_ONLY_NOT_PUSHED",
+  "ordinary_installations": 0,
+  "sdk_effects": 0,
+  "provider_calls": 0,
+  "new_recovery_bundles": 0,
+  "open": [
+    "Corrected native disabled-button assertion needs a completed runner result",
+    "Independent review and authorized protected delivery",
+    "Full-root navigation and actual installed HA/Profile/receiver",
+    "Physical acceptance"
+  ]
+}

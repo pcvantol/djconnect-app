@@ -40,6 +40,7 @@ python3 Tools/qualification/vibecast-product/prepare_native_consent_tests.py \
   "$QUALIFICATION_DIRECTORY" --jose-checkout "$JOSE_CHECKOUT"
 xcodebuild -project "$QUALIFICATION_DIRECTORY/NativeConsentQualification.xcodeproj" \
   -scheme NativeConsentTests -destination "platform=iOS Simulator,id=$OWN_SIMULATOR_ID" \
+  -parallel-testing-enabled NO \
   -derivedDataPath "$QUALIFICATION_DERIVED_DATA" \
   -resultBundlePath "$QUALIFICATION_DIRECTORY/result.xcresult" \
   CODE_SIGNING_ALLOWED=NO test
@@ -59,3 +60,15 @@ proves native iOS appmodel integration, including explicit single approval,
 existing-share selection, uncertain-result no-replay, and authority withdrawal.
 It does not prove native button taps, a live HA/Profile, receiver rendering,
 App Attest, provider behavior or physical device acceptance.
+
+For actual simulator taps on the production `VibeCastDisplayConsentForm`, add
+`--with-ui` to project generation and select scheme `NativeConsentUI`. The
+separate disposable app has its own bundle identifier, in-memory synthetic token
+and isolated defaults. It uses the same test-wire implementation extracted into
+the generated directory. Native tests enter the code, look it up, confirm once,
+withdraw the synthetic Profile and exercise an uncertain result. Screenshot
+attachments remain in the result bundle. This is form interaction over a
+synthetic wire, separate from full-app navigation and installed HA/receiver
+qualification. No ordinary app target or preference is modified.
+
+The opt-in `actualIOSNativeConsentInflightLifecycle()` uses `DJCONNECT_CONSENT_INFLIGHT_DIR` and the test-only `delayed-approval` URLProtocol mode. It delays the existing synthetic approval response for two seconds, removes the actual form hierarchy while approving, remounts before the acknowledgement, and verifies that the late result cannot revive or replay the old operation. Approval is an explicit model method, not a native button tap. Select only this new function with its parentheses and retain a new log/result directory; existing ready-only lifecycle evidence remains separate.

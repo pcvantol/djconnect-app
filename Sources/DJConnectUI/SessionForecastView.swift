@@ -51,14 +51,29 @@ struct SessionForecastTextView: View {
 
 /// Standalone scroll host used by isolated component qualification.
 /// The live Session embeds only SessionForecastContent below its shared header.
+/// Transient viewport state belongs to the native screen, not a Profile.
+/// Recording geometry must not invalidate the full Flow for every scroll pixel.
+@MainActor final class SessionForecastViewport {
+    private(set) var offset: CGFloat = 0
+    func record(_ value: CGFloat) {
+        guard value.isFinite else { return }
+        offset = max(0, value)
+    }
+}
+
 struct SessionForecastPanel<Header: View>: View {
     @ObservedObject var model: DJConnectAppModel
     let header: Header
-    @Binding var position: String?
+    let viewport: SessionForecastViewport
+    @State private var position: ScrollPosition
     @Binding var query: String
-    init(model: DJConnectAppModel, position: Binding<String?>, query: Binding<String>, @ViewBuilder header: () -> Header) {
+    @Environment(\.scenePhase) private var scenePhase
+    init(model: DJConnectAppModel, viewport: SessionForecastViewport, query: Binding<String>, @ViewBuilder header: () -> Header) {
         self.model = model; self.header = header()
-        _position = position; _query = query
+        self.viewport = viewport; _query = query
+        // The panel is removed while Flow is selected. Restore its device-local
+        // viewport even when no authored text ID intersects the top edge.
+        _position = State(initialValue: ScrollPosition(y: viewport.offset))
     }
     var body: some View {
         ScrollView {
@@ -66,7 +81,11 @@ struct SessionForecastPanel<Header: View>: View {
                 header
                 SessionForecastContent(model: model, query: $query)
             }
-        }.scrollPosition(id: $position, anchor: .top)
+        }
+        .scrollPosition($position)
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y + geometry.contentInsets.top
+        } action: { _, value in viewport.record(value) }
     }
 }
 
@@ -130,7 +149,7 @@ struct SessionForecastContent: View {
                             .fixedSize(horizontal: false, vertical: true)
                         Button(text("ui.refresh.page")) { Task { await model.refreshSessionForecast() } }
                             .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
-                            .disabled(model.forecastLoading || !model.canRefreshSessionHistory)
+                            .disabled(model.forecastLoading || !model.canRefreshSessionForecast)
                     }
                 }.padding(.horizontal, 20).padding(.bottom, 16)
             }
