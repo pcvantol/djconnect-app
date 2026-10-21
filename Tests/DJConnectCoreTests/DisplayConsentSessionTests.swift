@@ -2,6 +2,8 @@ import Foundation
 import Testing
 #if os(iOS)
 import XCTest
+import SwiftUI
+import UIKit
 @testable import DJConnectUI
 #endif
 @testable import DJConnectCore
@@ -242,6 +244,36 @@ private final class NativeConsentFixtureBundle: NSObject {}
 /// Actual iOS AppModel over a URLProtocol wire. Synthetic isolated owner/HTTP
 /// responses, not installed HA, native taps, App Attest or physical acceptance.
 extension DisplayConsentSessionTests {
+    @Test func actualIOSSingleVibeCastSheetContainsOneCodeEntry() async throws {
+        let (model, defaults, suite, _) = try await makeNativeModel()
+        defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+        func fields(in view: UIView) -> [UITextField] {
+            (view as? UITextField).map { [$0] } ?? view.subviews.flatMap { fields(in: $0) }
+        }
+        for width: CGFloat in [390, 1024] {
+            let host = UIHostingController(rootView: VibeCastSessionStartDialog(model: model))
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: 900))
+            window.rootViewController = host
+            window.isHidden = false
+            defer { window.isHidden = true; window.rootViewController = nil }
+            try await Task.sleep(for: .milliseconds(200))
+            window.layoutIfNeeded()
+            #expect(fields(in: host.view).count == 6)
+            #expect(host.presentedViewController == nil)
+            await model.resolveDisplayConsent(code: "000000")
+            #expect(model.displayConsentState == .ready)
+            try await Task.sleep(for: .milliseconds(100))
+            window.layoutIfNeeded()
+            #expect(fields(in: host.view).count == 6)
+            #expect(host.presentedViewController == nil)
+            let approvalCount = ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count
+            #expect(approvalCount == 0)
+            window.rootViewController = UIViewController()
+            try await Task.sleep(for: .milliseconds(100))
+            #expect(model.displayConsentState == .unavailable)
+        }
+    }
+
     private func makeNativeModel(_ mode: String = "normal") async throws -> (DJConnectAppModel, UserDefaults, String, DJConnectInMemoryTokenStore) {
         ConsentWire.reset(mode)
         func fixture(_ name: String) throws -> [String: Any] {

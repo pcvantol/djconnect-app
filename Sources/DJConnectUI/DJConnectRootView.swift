@@ -9381,15 +9381,12 @@ struct VibeCastSessionStartDialog: View {
 struct VibeCastHandoffForm: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var vibeCastHandoffCode = ""
-    @State private var showingDisplayConsent = false
 
     var body: some View {
+        #if os(iOS)
+        VibeCastDisplayConsentForm(model: model, embedded: true)
+        #else
         VStack(alignment: .leading, spacing: 18) {
-            Button(localizedKey(model.language, "ui.displayConsent.open")) { showingDisplayConsent = true }
-                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
-                .disabled(!model.canResolveDisplayConsent)
-                .accessibilityIdentifier("display-consent-open")
-                .sheet(isPresented: $showingDisplayConsent) { VibeCastDisplayConsentForm(model: model) }
             Text(localizedKey(model.language, "ui.vibecast.handoff.instructions"))
                 .font(.callout).foregroundStyle(.white.opacity(0.82))
                 .fixedSize(horizontal: false, vertical: true)
@@ -9424,40 +9421,20 @@ struct VibeCastHandoffForm: View {
         #endif
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("vibecast-handoff-form")
+        #endif
     }
 }
 
 struct VibeCastDisplayConsentForm: View {
     @ObservedObject var model: DJConnectAppModel
+    var embedded = false
     @Environment(\.dismiss) private var dismiss
     @State private var code = ""
     private var busy: Bool { model.displayConsentState == .resolving || model.displayConsentState == .approving }
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text(localizedKey(model.language, "ui.displayConsent.title")).font(.title2.bold())
-                Text(localizedKey(model.language, "ui.displayConsent.instructions"))
-                VibeCastCodeEntry(code: $code, accessibilityLabel: localizedKey(model.language, "ui.vibecast.handoff.code"))
-                    .frame(height: 64).disabled(busy || model.displayConsentState == .ready || model.displayConsentState == .approved || model.displayConsentState == .uncertain)
-                if model.displayConsentState == .idle || model.displayConsentState == .unavailable {
-                    Button(localizedKey(model.language, "ui.displayConsent.lookup")) {
-                        resignPlatformFirstResponder()
-                        Task { await model.resolveDisplayConsent(code: code) }
-                    }.disabled(code.count != 6 || busy)
-                    .accessibilityIdentifier("display-consent-lookup")
-                }
-                if model.displayConsentState == .ready {
-                    Text(localizedKey(model.language, model.displayConsentExistingShare == nil ? "ui.displayConsent.create" : "ui.displayConsent.existing"))
-                    Button(localizedKey(model.language, "ui.displayConsent.confirm")) { Task { await model.approveDisplayConsent() } }
-                        .accessibilityIdentifier("display-consent-confirm")
-                }
-                if busy { ProgressView() }
-                if model.displayConsentState == .approved { Text(localizedKey(model.language, "ui.displayConsent.approved")) }
-                if model.displayConsentState == .uncertain { Text(localizedKey(model.language, "ui.displayConsent.uncertain")) }
-                if model.displayConsentState == .unavailable { Text(localizedKey(model.language, "ui.displayConsent.unavailable")) }
-                Button(localizedKey(model.language, "ui.not.now.b1e535")) { model.cancelDisplayConsent(); dismiss() }
-                    .accessibilityIdentifier("display-consent-close")
-            }.padding(28)
+        Group {
+            if embedded { formContent }
+            else { ScrollView { formContent.padding(28) } }
         }
         .accessibilityIdentifier("display-consent-form")
         .onChange(of: code) { _, _ in model.resetDisplayConsent() }
@@ -9469,6 +9446,40 @@ struct VibeCastDisplayConsentForm: View {
                 try? await Task.sleep(for: .milliseconds(250))
             }
         }
+    }
+
+    private var formContent: some View {
+            VStack(alignment: .leading, spacing: 20) {
+                if !embedded {
+                    Text(localizedKey(model.language, "ui.displayConsent.title")).font(.title2.bold())
+                }
+                Text(localizedKey(model.language, "ui.displayConsent.instructions"))
+                VibeCastCodeEntry(code: $code, accessibilityLabel: localizedKey(model.language, "ui.vibecast.handoff.code"))
+                    .frame(height: 64).disabled(busy || model.displayConsentState == .ready || model.displayConsentState == .approved || model.displayConsentState == .uncertain)
+                if model.displayConsentState == .idle || model.displayConsentState == .unavailable {
+                    Button(localizedKey(model.language, "ui.displayConsent.lookup")) {
+                        resignPlatformFirstResponder()
+                        Task { await model.resolveDisplayConsent(code: code) }
+                    }
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                    .disabled(code.count != 6 || busy || !model.canResolveDisplayConsent)
+                    .accessibilityIdentifier("display-consent-lookup")
+                }
+                if model.displayConsentState == .ready {
+                    Text(localizedKey(model.language, model.displayConsentExistingShare == nil ? "ui.displayConsent.create" : "ui.displayConsent.existing"))
+                    Button(localizedKey(model.language, "ui.displayConsent.confirm")) { Task { await model.approveDisplayConsent() } }
+                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                        .accessibilityIdentifier("display-consent-confirm")
+                }
+                if busy { ProgressView() }
+                if model.displayConsentState == .approved { Text(localizedKey(model.language, "ui.displayConsent.approved")) }
+                if model.displayConsentState == .uncertain { Text(localizedKey(model.language, "ui.displayConsent.uncertain")) }
+                if model.displayConsentState == .unavailable { Text(localizedKey(model.language, "ui.displayConsent.unavailable")) }
+                if !embedded {
+                    Button(localizedKey(model.language, "ui.not.now.b1e535")) { model.cancelDisplayConsent(); dismiss() }
+                        .accessibilityIdentifier("display-consent-close")
+                }
+            }
     }
 }
 
@@ -17176,16 +17187,6 @@ struct SettingsView: View {
             ZStack {
                 DJConnectCanvasBackground()
                 SettingsContentContainer {
-                #if os(iOS)
-                SettingsGlassSection(title: "VibeCast") {
-                    Button(localizedKey(model.language, "ui.rendezvous.scan")) {
-                        model.cancelRendezvous()
-                        model.isShowingRendezvous = true
-                    }
-                    .disabled(model.isDemoMode || model.pairingStatus != .paired)
-                    .accessibilityIdentifier("vibecast-rendezvous-open")
-                }
-                #endif
                 SettingsGlassSection(title: localizedKey(model.language, "ui.app")) {
                     LabeledContent(localizedKey(model.language, "ui.app.language")) {
                         Picker(localizedKey(model.language, "ui.app.language"), selection: $model.appLanguageSelectionCode) {
