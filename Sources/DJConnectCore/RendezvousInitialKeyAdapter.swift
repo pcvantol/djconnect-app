@@ -159,7 +159,7 @@ import DeviceCheck
 @MainActor private final class SystemRendezvousGenerationSDK:RendezvousGenerationSDK {
     var isSupported:Bool {
         #if os(iOS) && canImport(DeviceCheck)
-        DCAppAttestService.shared.isSupported
+        RendezvousNativeAdmission.isAdmitted && DCAppAttestService.shared.isSupported
         #else
         false
         #endif
@@ -173,13 +173,17 @@ import DeviceCheck
             return try await withCheckedThrowingContinuation { continuation in
                 reply.start(continuation,deadline:deadline)
                 guard reply.isWaiting,!Task.isCancelled else { reply.finish(.failure(.sdkFailed)); return }
-                DCAppAttestService.shared.generateKey { key,error in
-                    let result:Result<Data,RendezvousAppAttestAdapter.Failure>
-                    if error == nil,let key,DJConnectRendezvousSubmitChallenge.canonicalKeyID(key) {
-                        result = .success(Data(key.utf8))
-                    } else { result = .failure(.sdkFailed) }
-                    Task { @MainActor in reply.finish(result) }
-                }
+                do {
+                    try RendezvousNativeAdmission.perform {
+                        DCAppAttestService.shared.generateKey { key,error in
+                            let result:Result<Data,RendezvousAppAttestAdapter.Failure>
+                            if error == nil,let key,DJConnectRendezvousSubmitChallenge.canonicalKeyID(key) {
+                                result = .success(Data(key.utf8))
+                            } else { result = .failure(.sdkFailed) }
+                            Task { @MainActor in reply.finish(result) }
+                        }
+                    }
+                } catch { reply.finish(.failure(.sdkFailed)) }
             }
         } onCancel: { Task { @MainActor in reply.finish(.failure(.sdkFailed)) } }
         guard let key = String(data:data,encoding:.utf8),DJConnectRendezvousSubmitChallenge.canonicalKeyID(key) else {

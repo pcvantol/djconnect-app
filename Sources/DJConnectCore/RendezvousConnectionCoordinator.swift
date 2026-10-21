@@ -5,6 +5,7 @@ import Foundation
 /// approval remains an independent explicit owner action.
 @MainActor public final class RendezvousConnectionCoordinator {
     public enum Failure: Error, Sendable { case staleContext, requiresRepair, inconsistentState }
+    private let requiresNativeAdmission: Bool
     private let initial: RendezvousInitialKeyAdapter
     private let enrollment: RendezvousEnrollmentRegistration
     private let submission: RendezvousAssertionSubmission
@@ -15,6 +16,7 @@ import Foundation
     private let repair: RendezvousRepairJournal
     private let submissionJournal: RendezvousSubmissionJournal
     public init() {
+        requiresNativeAdmission = true
         initial = .init(); enrollment = .init(); submission = .init(); service = .init()
         lifecycle = .shared; registration = .shared; recovery = .shared
         repair = .shared; submissionJournal = .shared
@@ -24,6 +26,7 @@ import Foundation
          lifecycle: RendezvousKeyLifecycleJournal, registration: RendezvousRegistrationJournal,
          recovery: RendezvousRecoveryJournal, repair: RendezvousRepairJournal,
          submissionJournal: RendezvousSubmissionJournal) {
+        requiresNativeAdmission = false // Internal synthetic provider seam, never public admission.
         self.initial = initial; self.enrollment = enrollment; self.submission = submission; self.service = service
         self.lifecycle = lifecycle; self.registration = registration; self.recovery = recovery
         self.repair = repair; self.submissionJournal = submissionJournal
@@ -32,6 +35,7 @@ import Foundation
     public func connect(qr: DJConnectRendezvousQR, envelope: DJConnectRendezvousDestination.Envelope,
                         appContext: Data, isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws
         -> RendezvousAssertionSubmission.Receipt {
+        if requiresNativeAdmission { try RendezvousNativeAdmission.require() }
         try Self.validate(qr, isCurrent)
         let handles = try await lifecycle.snapshot(appContext: appContext, at: Self.now())
         try Self.validate(qr, isCurrent)

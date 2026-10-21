@@ -973,7 +973,8 @@ public final class DJConnectAppModel: ObservableObject {
     }
     private var rendezvousNativeAppContext: Data? {
         #if DJCONNECT_VIBECAST_FIXED_QA
-        guard Bundle.main.bundleIdentifier == "dev.djconnect.ios.vibecastqa" else { return nil }
+        guard RendezvousNativeAdmission.isAdmitted,
+              Bundle.main.bundleIdentifier == "dev.djconnect.ios.vibecastqa" else { return nil }
         // Stable install-local identity binding, not a current signed-profile
         // approval or a client-selected verifier policy sent to the API.
         let identity = "djc-client-key-context/1|ZEML4LPXH4.dev.djconnect.ios.vibecastqa|development|\(DJConnectRendezvousQR.serviceOrigin)"

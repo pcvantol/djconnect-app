@@ -66,3 +66,21 @@ These functions perform no HTTP, SDK, key generation or repair-budget mutation.
 Management transport, explicit recovery/replacement/rollover orchestration and
 physical acceptance remain open. This is still a WIP source branch, not a
 completed VibeCast release or an API activation request.
+
+## API review correction: native effects remain closed
+
+The owning API peer review identified that a closed API guard alone did not
+prevent initial `generateKey` before the challenge call. This source now has
+`RendezvousNativeAdmission.isAdmitted == false`, without environment, defaults,
+QR or caller override. The default coordinator refuses before journal/network
+work; the fixed-QA UI does not derive an admitted app context; all three genuine
+DeviceCheck effects also pass the same final closed boundary. Merely matching
+the QA bundle ID or reporting device support cannot grant native execution.
+
+The added regression confirms zero effect-closure invocations for generate,
+attest and assert, and denial of the otherwise-valid public coordinator entry.
+The broader Rendezvous run passed 98 Swift Testing cases, including this gate
+and the four strict recovery-challenge regressions. Synthetic injected providers
+remain internal-only test seams; they are not genuine native proof. A future
+real effect admission still requires the reviewed exact signed profile and
+finite authorized run, not changing a local preference or the API guard alone.

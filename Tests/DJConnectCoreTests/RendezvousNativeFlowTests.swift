@@ -220,3 +220,22 @@ private enum FlowWaitFailure: Error { case deadline }
         try await Task.sleep(for: .milliseconds(2))
     }
 }
+
+@MainActor @Test func rendezvousUnadmittedNativeEntryHasNoSDKEffects() async throws {
+    var effects = 0
+    #expect(!RendezvousNativeAdmission.isAdmitted)
+    for _ in ["generateKey", "attestKey", "generateAssertion"] {
+        #expect(throws: RendezvousNativeAdmission.Failure.notAdmitted) {
+            try RendezvousNativeAdmission.perform { effects += 1 }
+        }
+    }
+    #expect(effects == 0)
+    let fixture = try SubmissionFixture()
+    let coordinator = RendezvousConnectionCoordinator()
+    // This public default entry must stop before journals, network or SDK even
+    // when the QR and owner predicate are otherwise valid. No real Keychain use.
+    await #expect(throws: RendezvousNativeAdmission.Failure.notAdmitted) {
+        _ = try await coordinator.connect(qr: fixture.qr, envelope: fixture.envelope,
+                                          appContext: fixture.context, isCurrent: { true })
+    }
+}

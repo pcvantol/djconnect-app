@@ -92,7 +92,7 @@ import DeviceCheck
 @MainActor private final class SystemRendezvousAttestationSDK: RendezvousAttestationSDK {
     var isSupported:Bool {
         #if os(iOS) && canImport(DeviceCheck)
-        DCAppAttestService.shared.isSupported
+        RendezvousNativeAdmission.isAdmitted && DCAppAttestService.shared.isSupported
         #else
         false
         #endif
@@ -106,16 +106,20 @@ import DeviceCheck
             return try await withCheckedThrowingContinuation { continuation in
                 reply.start(continuation,deadline:deadline)
                 guard reply.isWaiting, !Task.isCancelled else { reply.finish(.failure(.sdkFailed)); return }
-                DCAppAttestService.shared.attestKey(key,clientDataHash:hash) { data,error in
-                    // Do not retain/forward arbitrary SDK error metadata.
-                    let result:Result<Data,RendezvousAppAttestAdapter.Failure>
-                    if let error = error as NSError? {
-                        result = .failure(error.domain == DCErrorDomain && error.code == DCError.serverUnavailable.rawValue ? .sdkUnavailable : .sdkFailed)
-                    } else if let data, !data.isEmpty, data.count <= 32768 {
-                        result = .success(data)
-                    } else { result = .failure(.sdkFailed) }
-                    Task { @MainActor in reply.finish(result) }
-                }
+                do {
+                    try RendezvousNativeAdmission.perform {
+                        DCAppAttestService.shared.attestKey(key,clientDataHash:hash) { data,error in
+                            // Do not retain/forward arbitrary SDK error metadata.
+                            let result:Result<Data,RendezvousAppAttestAdapter.Failure>
+                            if let error = error as NSError? {
+                                result = .failure(error.domain == DCErrorDomain && error.code == DCError.serverUnavailable.rawValue ? .sdkUnavailable : .sdkFailed)
+                            } else if let data, !data.isEmpty, data.count <= 32768 {
+                                result = .success(data)
+                            } else { result = .failure(.sdkFailed) }
+                            Task { @MainActor in reply.finish(result) }
+                        }
+                    }
+                } catch { reply.finish(.failure(.sdkFailed)) }
             }
         } onCancel: { Task { @MainActor in reply.finish(.failure(.sdkFailed)) } }
         #else
