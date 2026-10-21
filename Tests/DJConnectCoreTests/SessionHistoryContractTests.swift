@@ -5612,10 +5612,13 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     }
     let detail = try historyData(rebound(oldTimeline))
     let independent = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: detail)
+    let list = try historyData(["success": true, "schema_version": 1,
+        "sessions": [rebound(oldHeader)], "revision": "content-readback", "retention_days": 30])
     let fixture = HistoryWireFixture { request in
         let path = request.url!.path
         if path.hasSuffix("/capabilities") { return (200, caps, 0) }
         if path.hasSuffix("/ask_dj/history") { return (200, profile, 0) }
+        if path.hasSuffix("/session/history") { return (200, list, 0) }
         if path.hasSuffix("/session/content/delete/prepare") { return (200, previewData, 0) }
         if path.hasSuffix("/session/content/delete/status") {
             var status = try #require(JSONSerialization.jsonObject(with: statusTemplateData) as? [String: Any])
@@ -5646,8 +5649,12 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
     let history = model.sessionHistory
     await history.prepare()
+    #expect(await history.loadSessions())
     #expect(await history.loadTimeline(scope.unit.session_id))
     let epoch = history.responseEpoch
+    let archiveEpoch = history.archiveResponseEpoch
+    let navigation = DJConnectSessionEntryReference(sessionID: scope.unit.session_id, entryID: independent.entries[0].id)
+    history.openTarget = navigation
     let prepared = try #require(await history.prepareContentDeletion(scope.target, expectedEpoch: epoch))
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/content/delete") }.isEmpty)
     if outcome == "withdrawn" {
@@ -5661,6 +5668,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
         #expect(model.askDJDraft == "Keep this unrelated unsent question")
         #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/ask_dj/message") })
         history.suspend()
+        #expect(history.archiveResponseEpoch != archiveEpoch && history.openTarget == nil)
         #expect(await task.value == false)
         await history.prepare()
     } else {
@@ -5751,6 +5759,9 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
         #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/content/delete") }.count == 1)
     } else if outcome == "completed" {
         #expect(history.responseEpoch != epoch)
+        #expect(history.archiveResponseEpoch == archiveEpoch)
+        #expect(history.openTarget == navigation)
+        #expect(history.sessions.map(\.id) == [scope.unit.session_id])
         #expect(history.timelines[scope.unit.session_id]?.entries == independent.entries)
     }
 }

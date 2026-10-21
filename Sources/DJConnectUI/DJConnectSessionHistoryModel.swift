@@ -447,10 +447,14 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         clearSearch(); navigationErrorKey = nil; timelineGenerations = [:]; timelineNavigations = [:]
     }
 
-    public func suspend(preservingVoicePreference: Bool = false, cancelPreparation: Bool = true) {
+    public func suspend(preservingVoicePreference: Bool = false, cancelPreparation: Bool = true,
+                        preservingArchiveNavigation: Bool = false) {
         contentDeletionAvailable = false
         summaryAvailable = false
-        deletionAvailable = false; bulkDeletionAvailable = false; bulkDeletionBusy = false; archiveGeneration = UUID(); archiveResponseEpoch = archiveGeneration; deletingSessionID = nil; deletionGeneration = UUID()
+        deletionAvailable = false; bulkDeletionAvailable = false; bulkDeletionBusy = false
+        archiveGeneration = UUID()
+        if !preservingArchiveNavigation { archiveResponseEpoch = archiveGeneration }
+        deletingSessionID = nil; deletionGeneration = UUID()
         if preservingVoicePreference { host?.invalidateActiveVoiceInventory() }
         else { host?.discardActiveVoicePreference() }
         host?.invalidateSessionPlaybackActions()
@@ -468,7 +472,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         listLoading = false; listNextCursor = nil; listRevision = nil
         searchTask?.cancel(); searchTask = nil
         timelines = [:]; sessions = []; historicalMatches = [:]; searchMatches = []; readingAnchors = [:]
-        selectedEntry = nil; openTarget = nil; voiceContext = nil; voiceClientID = nil; voicePayload = nil
+        selectedEntry = nil
+        if !preservingArchiveNavigation { openTarget = nil }
+        voiceContext = nil; voiceClientID = nil; voicePayload = nil
         clearSearch()
         pendingTurns = []; host?.setProfileConversationSending(false)
     }
@@ -666,9 +672,13 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         host.withdrawDeletedContentPresentation(receipt, target: record.prepared.target)
         // Fence pre-erasure work and grants; restore independent server projections.
         let activeID = host.activeDJSession?.id
-        suspend()
+        // A scoped content deletion invalidates data and in-flight reads, not
+        // the Session page itself. Whole-session erasure/authority loss still
+        // use the ordinary navigation-invalidating suspension.
+        suspend(preservingArchiveNavigation: true)
         await prepare()
         guard ownerScope == record.owner, host.canRefreshSessionHistory, !Task.isCancelled else { return false }
+        guard await loadSessions() else { return false }
         for id in Set(receipt.affected_entries.map(\.session_id)) {
             guard await loadTimeline(id) else { return false }
         }

@@ -1,0 +1,31 @@
+{
+  "base": "84b61a3",
+  "scope": "Retain opened Session navigation after scoped contribution deletion and reload Session list.",
+  "root_cause": "finishContentDeletion used full suspend(), changing archiveResponseEpoch, clearing openTarget and sessions; completion reloaded detail but omitted loadSessions.",
+  "negative": "Completed deletion failed exactly three new assertions: archive navigation token, open target, restored Session list.",
+  "validation": {
+    "functions": 2,
+    "parameterized_cases": 16,
+    "failures": 0,
+    "unsigned_iOS_iPadOS_compile": "PASS",
+    "diff_check": "PASS"
+  },
+  "preserved": "Response/archive generations still change; stale private projections and leases still clear; fresh owner prepare required; ordinary suspension still clears navigation. Unknown/withdrawn/status contract cases pass.",
+  "limits": "Model/transport regression and UI source wiring; no real deletion or native installed-app acceptance.",
+  "installed": false,
+  "published": false,
+  "evidence": [
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-content-delete-preserve-session-20261021/negative.log",
+      "sha256": "31acf68fd02a498b7cfd4944bf2129c6e939c226a84d4bb8c79c51be36ad986b"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-content-delete-preserve-session-20261021/qualified.log",
+      "sha256": "0db416decadb8db9b01fa80167ef38c729c9db290720192bad103724a54a3f71"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-content-delete-preserve-session-20261021/ios-build.log",
+      "sha256": "3290416db544a3baa3b6c95a955376d2dcae92e6633327ee5d6ca525eea34076"
+    }
+  ]
+}
