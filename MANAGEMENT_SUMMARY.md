@@ -1,5 +1,27 @@
 # DJConnect App Management Summary
 
+## 2026-10-21 — Apple client consolidation / PR169
+
+PR169 merged the reviewed-by-author client candidate `d2b1482` as `9980279`.
+Main CI/coverage 39626856219 and formal reconciliation 39628569024 PASS; canonical
+integrity, runner/main binding, coverage ZIP digest and 12/12 required checks are
+verified. This is source qualification, not full product acceptance.
+
+Ordinary development build 40405 is installed, signature/full-bundle verified
+and running on Mac mini. iPad installation lost its connection and its installed
+version is unconfirmed. iPhone/Watch are deferred by the owner until tomorrow;
+MacBook is unreachable. No data wipe, uninstall or pairing reset occurred.
+
+The approved cleanup removed 79 stale local branches with original history held
+under two local archive tags, plus one exact-duplicate temporary recovery app,
+one duplicate test-products directory and the owned simulator. One worktree,
+no stashes; unique historical products/bundles and test evidence remain.
+
+Music DNA artwork, current Track Insight, sparse automatic contributions,
+historical-track playback and genuine VibeCast SDK/QA remain separately open.
+See [the exact delivery receipt](docs/feedback/APPLE_OCT21_MAIN_DELIVERY_20261021.json) for hashes and remaining boundaries.
+This separate documentary Finalization changes no compiled inputs.
+
 ## 2026-10-21 — Native display-consent qualification / PR167
 
 Source [PR167](https://github.com/pcvantol/djconnect-app/pull/167) merged approved
