@@ -10429,7 +10429,7 @@ struct FavoriteTrackButton: View {
             // background alone does not receive the button's touch lifecycle.
             GlassEffectContainer(spacing: 0) {
                 favoriteButton
-                    .buttonStyle(.glass(.regular.tint(isFavorite ? djConnectAccent.opacity(0.22) : .clear).interactive()))
+                    .buttonStyle(.glass(.regular.tint(.clear).interactive()))
                     .buttonBorderShape(.circle)
                     .tint(.clear)
                     .controlSize(.large)
