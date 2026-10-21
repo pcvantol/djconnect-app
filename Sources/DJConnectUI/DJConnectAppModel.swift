@@ -793,6 +793,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var rendezvousOperation = UUID()
     private var rendezvousDestination: DJConnectDisplayOwnerContext?
     private var rendezvousEnvelope: DJConnectRendezvousDestination.Envelope?
+    private var rendezvousAccepted = false
 
     @Published private(set) var displayConsentState: DJConnectDisplayConsentSession.State = .idle
     @Published private(set) var displayConsentExistingShare: DJConnectDisplayConsentSession.ExistingShare?
@@ -893,13 +894,13 @@ public final class DJConnectAppModel: ObservableObject {
         cancelDisplayConsent()
         rendezvousOperation = UUID()
         rendezvousQR = nil; rendezvousDestination = nil; rendezvousEnvelope = nil
-        rendezvousHasQR = false; rendezvousBusy = false
+        rendezvousHasQR = false; rendezvousBusy = false; rendezvousAccepted = false
         rendezvousStatusKey = "ui.rendezvous.scan"
     }
     /// Explicit selection of the one saved installation. No implicit Session start
     /// and no display approval are conferred by this destination preparation.
     func prepareRendezvousDestination() async {
-        guard !rendezvousBusy, let qr = rendezvousQR, qr.isCurrent(),
+        guard !rendezvousAccepted, !rendezvousBusy, let qr = rendezvousQR, qr.isCurrent(),
               !isDemoMode, pairingStatus == .paired, isAppInForeground else {
             rendezvousStatusKey = "ui.rendezvous.invalid"; return
         }
@@ -914,6 +915,14 @@ public final class DJConnectAppModel: ObservableObject {
         let operation = UUID(); rendezvousOperation = operation
         let epoch = sessionHistory.responseEpoch
         let scope = currentDeviceSpeechContext
+        let owner: @MainActor @Sendable () -> Bool = { [weak self] in
+            guard let self else { return false }
+            return !Task.isCancelled && !self.isDemoMode && self.rendezvousOperation == operation && qr.isCurrent() &&
+                self.pairingStatus == .paired && self.isAppInForeground &&
+                self.sessionHistory.responseEpoch == epoch && self.sessionHistory.authorizedProfileID == profile &&
+                self.currentDeviceSpeechContext == scope && self.defaults.string(forKey: self.haInstallIDKey) == installation
+        }
+        var nativeStarted = false
         rendezvousBusy = true
         defer { if rendezvousOperation == operation { rendezvousBusy = false } }
         do {
@@ -938,13 +947,40 @@ public final class DJConnectAppModel: ObservableObject {
             guard qr.isCurrent(), rendezvousOperation == operation, sessionHistory.responseEpoch == epoch,
                   currentDeviceSpeechContext == scope else { return }
             rendezvousDestination = context; rendezvousEnvelope = envelope
-            // Proof/enrollment/submission still require the genuine SDK adapter.
-            // A prepared owner route must never be presented as completed handoff.
-            rendezvousStatusKey = "ui.rendezvous.notReady"
+            // Source preparation is limited to the separately compiled fixed QA
+            // app. Its API remains closed until the independently reviewed exact
+            // signed-profile/activation proposal is admitted by the API owner.
+            guard let appContext = rendezvousNativeAppContext else {
+                rendezvousStatusKey = "ui.rendezvous.notReady"; return
+            }
+            guard owner() else { return }
+            nativeStarted = true
+            rendezvousStatusKey = "ui.rendezvous.sending"
+            _ = try await RendezvousConnectionCoordinator().connect(qr: qr, envelope: envelope,
+                appContext: appContext, isCurrent: owner)
+            guard owner() else { return }
+            rendezvousAccepted = true; rendezvousHasQR = false
+            rendezvousStatusKey = "ui.rendezvous.accepted"
         } catch {
             guard rendezvousOperation == operation else { return }
-            rendezvousStatusKey = "ui.rendezvous.failed"
+            if nativeStarted {
+                rendezvousHasQR = false
+                if case RendezvousConnectionCoordinator.Failure.requiresRepair = error {
+                    rendezvousStatusKey = "ui.rendezvous.repairNeeded"
+                } else { rendezvousStatusKey = "ui.rendezvous.uncertain" }
+            } else { rendezvousStatusKey = "ui.rendezvous.failed" }
         }
+    }
+    private var rendezvousNativeAppContext: Data? {
+        #if DJCONNECT_VIBECAST_FIXED_QA
+        guard Bundle.main.bundleIdentifier == "dev.djconnect.ios.vibecastqa" else { return nil }
+        // Stable install-local identity binding, not a current signed-profile
+        // approval or a client-selected verifier policy sent to the API.
+        let identity = "djc-client-key-context/1|ZEML4LPXH4.dev.djconnect.ios.vibecastqa|development|\(DJConnectRendezvousQR.serviceOrigin)"
+        return Data(SHA256.hash(data: Data(identity.utf8)))
+        #else
+        return nil
+        #endif
     }
     public lazy var sessionHistory = DJConnectSessionHistoryModel(host: self)
     public let passiveSurfaces = PassiveSessionSurfaceModel()

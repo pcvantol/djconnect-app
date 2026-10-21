@@ -16,7 +16,8 @@ import subprocess
 JOSE_PIN = "c2664a902e75c0426a1d43132bd4babc6fd173d3"
 FLAG = "DJCONNECT_VIBECAST_FIXED_QA"
 TEST_SOURCES = ("RendezvousBuildProfileTests.swift", "RendezvousDestinationTests.swift",
-                "RendezvousSubmitChallengeTests.swift", "RendezvousRecoveryJournalTests.swift")
+                "RendezvousSubmitChallengeTests.swift", "RendezvousRecoveryJournalTests.swift",
+                "RendezvousSubmissionTests.swift", "RendezvousNativeFlowTests.swift")
 
 
 def git(root: Path, *args: str) -> str:
@@ -37,7 +38,7 @@ def prepare(destination: Path, jose: Path) -> None:
     # signing profile, entitlement or shared container is copied.
     qa_info = plistlib.loads((root / "Apps/DJConnectIOS/Info.plist").read_bytes())
     qa_info.update({"CFBundleDisplayName": "DJConnect VibeCast QA", "CFBundleShortVersionString": "4.0.0",
-                    "CFBundleVersion": "1", "DJConnectRendezvousBuildFlavor": "fixed-qa",
+                    "CFBundleVersion": "40406", "DJConnectRendezvousBuildFlavor": "fixed-qa",
                     "CFBundleURLTypes": [{"CFBundleURLSchemes": ["djconnect-vibecast-qa"]}]})
 
     def framework(name: str, module: str, platform: str, directory: str, dependencies: list) -> dict:

@@ -1504,3 +1504,8 @@
 "ui.session.search.clear" = "Borrar términos de búsqueda";
 
 "ui.session.playback.speaker_question" = "Mostrar altavoces disponibles.";
+
+"ui.rendezvous.sending" = "Preparando la conexión segura al TV…";
+"ui.rendezvous.accepted" = "Se ha enviado la dirección. Continúa en el TV y autoriza compartir la pantalla en Home Assistant.";
+"ui.rendezvous.uncertain" = "No hemos podido confirmar si se envió la dirección. Revisa el TV antes de intentarlo de nuevo.";
+"ui.rendezvous.repairNeeded" = "No se pudo preparar la conexión segura. Inténtalo de nuevo más tarde.";

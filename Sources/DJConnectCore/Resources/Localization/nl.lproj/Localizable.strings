@@ -1504,3 +1504,8 @@
 "ui.session.search.clear" = "Zoektermen wissen";
 
 "ui.session.playback.speaker_question" = "Toon beschikbare speakers.";
+
+"ui.rendezvous.sending" = "Veilige TV-koppeling voorbereiden…";
+"ui.rendezvous.accepted" = "Het adres is verstuurd. Ga verder op de TV en keur het schermdelen goed in Home Assistant.";
+"ui.rendezvous.uncertain" = "We konden niet bevestigen of het adres is verstuurd. Controleer de TV voordat je opnieuw probeert.";
+"ui.rendezvous.repairNeeded" = "Veilig koppelen kon niet worden voorbereid. Probeer het later opnieuw.";

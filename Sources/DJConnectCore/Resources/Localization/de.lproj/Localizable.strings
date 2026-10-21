@@ -1504,3 +1504,8 @@
 "ui.session.search.clear" = "Suchbegriffe löschen";
 
 "ui.session.playback.speaker_question" = "Verfügbare Lautsprecher anzeigen.";
+
+"ui.rendezvous.sending" = "Sichere TV-Verknüpfung wird vorbereitet…";
+"ui.rendezvous.accepted" = "Die Adresse wurde gesendet. Fahre am TV fort und bestätige die Bildschirmfreigabe in Home Assistant.";
+"ui.rendezvous.uncertain" = "Wir konnten nicht bestätigen, ob die Adresse gesendet wurde. Prüfe den TV, bevor du es erneut versuchst.";
+"ui.rendezvous.repairNeeded" = "Die sichere Verknüpfung konnte nicht vorbereitet werden. Versuche es später erneut.";

@@ -88,8 +88,15 @@ public final class DJConnectRendezvousService: Sendable {
         return try .parse(data,qr:qr,keyID:keyID,envelopeDigest:envelope.digest,requestedAtMS:requested,requestedUptime:up)
     }
     public func submit(originalBody:Data, qr:DJConnectRendezvousQR, challenge:DJConnectRendezvousSubmitChallenge) async throws {
+        try await submit(originalBody:originalBody,qr:qr,challenge:challenge,beforeDispatch:{})
+    }
+    func submit(originalBody:Data, qr:DJConnectRendezvousQR, challenge:DJConnectRendezvousSubmitChallenge,
+                beforeDispatch:@escaping @MainActor @Sendable () throws -> Void) async throws {
         guard originalBody.count <= 32768, challenge.isCurrent() else { throw DJConnectError.invalidResponse }
-        let data = try await post(path:"submit",body:originalBody,status:202,qr:qr)
+        let data = try await post(path:"submit",body:originalBody,status:202,qr:qr,beforeDispatch:{
+            try beforeDispatch()
+            guard challenge.isCurrent() else { throw DJConnectError.invalidResponse }
+        })
         let fields = try RendezvousFlatJSON.parse(data,maximumBytes:4096)
         guard Set(fields.keys) == ["v","accepted","operation_id"], fields["v"] == .string("djc-rendezvous/1"),
               fields["accepted"] == .bool(true), fields["operation_id"] == .string(challenge.identifier),
@@ -109,7 +116,10 @@ public final class DJConnectRendezvousService: Sendable {
             beforeDispatch:{
                 try beforeDispatch?()
                 guard qr.isCurrent() else { throw DJConnectRendezvousQR.Failure.expired }
-            },isBodyCurrent:{qr.isCurrent()},taskCreated:taskCreated,validateResponse:{ http in
+            },isBodyCurrent:{
+                guard qr.isCurrent() else { return false }
+                do { try beforeDispatch?(); return true } catch { return false }
+            },taskCreated:taskCreated,validateResponse:{ http in
                 guard http.statusCode == status,http.mimeType?.lowercased() == "application/json",
                       http.value(forHTTPHeaderField:"Content-Encoding") == nil else { throw DJConnectError.invalidResponse }
                 return "application/json"
