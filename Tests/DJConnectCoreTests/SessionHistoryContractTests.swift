@@ -5472,6 +5472,92 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
 }
 
+#if os(macOS)
+@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_PENDING_ARCHIVE_NATIVE_DIR"] != nil))
+@MainActor func nativeArchiveRetainsUnconfirmedDeletionNoticeAcrossReadRefresh() async throws {
+    let directory = try #require(ProcessInfo.processInfo.environment["DJCONNECT_PENDING_ARCHIVE_NATIVE_DIR"])
+    let folder = URL(fileURLWithPath: directory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let producer = try historyObject()
+    let timeline = try #require(producer["archived_timeline"] as? [String: Any])
+    let detail = try historyData(timeline)
+    let archive = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: detail).session
+    let list = try historyData(["success": true, "schema_version": 1,
+        "sessions": [try #require(timeline["session"])],
+        "revision": try #require(timeline["revision"]), "retention_days": 30])
+    let profile = try historyData(try #require(producer["later_historical_answer"]))
+    let caps = try historyData(["capabilities": ["session_conversation_history": true,
+        "session_history_delete": true, "session_history_bulk_delete": true],
+        "contract_versions": ["session_conversation_history": 1, "session_history_delete": 1,
+                              "session_history_bulk_delete": 1]])
+    let source = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/archive-deletion-core-bbb7a23d.json")
+    let wire = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: source)) as? [String: Any])
+    let examples = try #require(wire["examples"] as? [String: Any])
+    let pending = try historyData(try #require(examples["pending_response"]))
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("/ask_dj/history") { return (200, profile, 0) }
+        if path.hasSuffix("/session/history/delete") { return (503, pending, 0) }
+        if path.hasSuffix("/session/history") { return (200, list, 0) }
+        return (200, detail, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    model.language = "nl"
+    let history = model.sessionHistory
+    await history.restoreVisibleSessions()
+    #expect(await history.loadTimeline(archive.id))
+    #expect(history.sessions.map(\.id) == [archive.id])
+    #expect(history.canDeleteSession(archive.id))
+    _ = NSApplication.shared
+    let host = NSHostingView(rootView: SavedSessionsView(model: model, embedsNavigationStack: false)
+        .environment(\.scenePhase, .background).preferredColorScheme(.dark))
+    let window = NSWindow(contentRect: .init(x: -3000, y: -3000, width: 430, height: 640),
+        styleMask: [.borderless], backing: .buffered, defer: false)
+    window.appearance = NSAppearance(named: .darkAqua)
+    window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
+    defer { window.close() }
+    var observations: [[String: Any]] = []
+    func capture(_ label: String, width: CGFloat) async throws {
+        window.setContentSize(.init(width: width, height: 640))
+        try await Task.sleep(for: .milliseconds(250))
+        host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
+        let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        try #require(bitmap.representation(using: .png, properties: [:]))
+            .write(to: folder.appendingPathComponent(label + ".png"))
+        observations.append(["name": label, "width": width, "height": 640,
+            "unconfirmed": history.hasUnconfirmedDeletion, "owner": history.authorizedProfileID ?? "none",
+            "session_ids": history.sessions.map(\.id), "preparing": history.preparing,
+            "list_loading": history.listLoading,
+            "posts": fixture.requests.filter { $0.httpMethod == "POST" }.count])
+    }
+    try await capture("authorized-before", width: 430)
+    #expect(!history.hasUnconfirmedDeletion)
+    #expect(await history.deleteSession(archive.id, expectedRevision: archive.revision.value,
+                                        expectedEpoch: history.responseEpoch) == false)
+    #expect(history.hasUnconfirmedDeletion)
+    let journal = try #require(model.historyDeletionJournalData)
+    try await capture("pending-430", width: 430)
+    await history.restoreVisibleSessions() // Ordinary read refresh, not operation reconciliation.
+    #expect(history.hasUnconfirmedDeletion && !history.canDeleteSession(archive.id))
+    #expect(!history.canPrepareBulkDeletion)
+    #expect(history.sessions.map(\.id) == [archive.id])
+    #expect(model.historyDeletionJournalData == journal)
+    try await capture("pending-after-refresh-430", width: 430)
+    try await capture("pending-after-refresh-320", width: 320)
+    #expect(fixture.requests.filter { $0.httpMethod == "POST" }.count == 1)
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" ||
+        ($0.httpMethod == "POST" && $0.url!.path.hasSuffix("/session/history/delete")) })
+    try JSONSerialization.data(withJSONObject: ["observations": observations,
+        "requests": fixture.requests.map { ["method": $0.httpMethod ?? "", "path": $0.url!.path] }],
+        options: [.prettyPrinted, .sortedKeys]).write(to: folder.appendingPathComponent("observations.json"))
+}
+#endif
+
 @Test(arguments: ["single", "bulk"])
 @MainActor func deletionJournalBlocksNewOperationAfterUnknownResult(_ outcome: String) async throws {
     let producer = try historyObject()
