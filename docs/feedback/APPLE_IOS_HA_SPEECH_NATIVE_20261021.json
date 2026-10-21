@@ -1,0 +1,155 @@
+{
+  "base_commit": "cc0d4a173a4fc79d1f73a042041764c3b5d1bb6c",
+  "qualification": "ACTUAL_IOS_COMPONENT_WINDOW_LAYER_AND_MAC_REGRESSION",
+  "ios_initial": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 4.881
+  },
+  "ios_final": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 2.212
+  },
+  "mac_functions_passed": 3,
+  "network_requests": 0,
+  "runtime_warnings": [
+    "TCC microphone identity/status query error",
+    "WatchConnectivity interruption",
+    "Xcode SDK build version parsing diagnostics"
+  ],
+  "simulator": "B62B723C-74D1-499C-AFA4-1FB5FF33ECD3 Shutdown",
+  "default_generator_unchanged": true,
+  "receipts": [
+    {
+      "path": "/Volumes/Shared Data/GitHub/djconnect-app/Tools/qualification/vibecast-product/prepare_native_consent_tests.py",
+      "sha256": "dee6ddc4071021f1b3d9d1bc4a3a731b32c4ba44df83bffc2ae6822c7d8a9796"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/before-profile-settings.swift",
+      "sha256": "20134b627c13487ad8e52fec399ba9210fb665f74b89802be5f9fb22ad39a25f"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/default-spec-after/project.json",
+      "sha256": "9722a74657adfdf1e785c0cd83f1d81722b0f377727e47bedd19eb7a2fca43e1"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/default-spec-before/project.json",
+      "sha256": "9722a74657adfdf1e785c0cd83f1d81722b0f377727e47bedd19eb7a2fca43e1"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/default-spec-comparison.json",
+      "sha256": "bfe6060e88ad16dc52ac834a4a876b9de316c9c8ce97e0ee63a363eb7dc432f5"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/initial-summary.json",
+      "sha256": "a3d752fb16f7888d9a4267c8fdc29e5e71f0af7c9b37552b0d90a8473d1033c6"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/initial.log",
+      "sha256": "e0e921e51f579ef2b063b1dd4b55292e90ede62286d85b32e44bf5eb9dc84714"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/mac-regression/configured-en-320.png",
+      "sha256": "78bdacd0b0f0d5b58d8c305a4a4b68b5ec4f4d8f657088cc023384f5d08328f7"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/mac-regression/observations.json",
+      "sha256": "d8cc5f62c1c9aa0c9fdde6cf0405fbf4261561bb409c2e3ff0d3872e4877302e"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/mac-regression/retry-en-320.png",
+      "sha256": "27f8861f65192c3436ab1790104865eb15aec17eaa73c079e10e157e92ea6895"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/mac-regression/retry-en-720.png",
+      "sha256": "dcf79dff1887859d612b05bcc2a8ab6a290efb7ca5c86e1fbf5cf8878927491d"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/mac-regression/unknown-de-320.png",
+      "sha256": "bf1f10a12920826402e359dc037dc12009bd40d998a6ff76492f234e071d254e"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/mac-regression/unknown-nl-320.png",
+      "sha256": "950b61933b9b44eb8a4f461b125c48f4c73221e47529de4969138335c5970d4f"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/mac-regression/withdrawn-speaker-en-320.png",
+      "sha256": "99529fdd2c1daa97803e18871dbb310568deff0bb431d01ee6223fa559c663cc"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/mac-regression.log",
+      "sha256": "34652df2c9592fd5e689feb795c26baa11e3d25031423c04a005c270e16401df"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/observations/observations.json",
+      "sha256": "cc34de89c707bcac29996f26461bfa34908ffa21f6a51bd9d6bedb4be4b94485"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/observations/retry-en-320-accessibility5.png",
+      "sha256": "9da5c096eeb133fab6ad58eca9b172f660cd31e04b7c48d62da2a60781cae3aa"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/observations/retry-en-320.png",
+      "sha256": "22267c55ff93cb88c2b1fe359de870e959c16e22786c512e233c80b39fc501ea"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/observations/unknown-de-320-accessibility5.png",
+      "sha256": "6b6ff4e4b84f594625bf0765943eda9855b74a14cd18b4ae5a28a3b7ffab7b1b"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/observations/unknown-nl-320-accessibility5.png",
+      "sha256": "1e848bfab95ff35c4ba88b082a070ebe994fa9d7c938acc89e38eb3129c19c07"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/observations/withdrawn-en-720.png",
+      "sha256": "4ec3102c8463d83c8db4e71e4798f5ef0cdcaef39ceb6f1c9fb328b38cb214f3"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/observations-qualified/observations.json",
+      "sha256": "e71926657f2b3730b50161dd29ed9edca7f1e47ac0a029adcd4b02cd2c689392"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/observations-qualified/retry-en-320-accessibility5.png",
+      "sha256": "654ea1092c07e7a9eb5fdea9461350b9fc0cbd7b08642148a0f27cb2106c08be"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/observations-qualified/retry-en-320.png",
+      "sha256": "39d9f3410f57a6018bada5b8808dd4d440e57b9532102c07961c0e0a95d5aea7"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/observations-qualified/unknown-de-320-accessibility5.png",
+      "sha256": "2a28e9621d37c697b0fc2cc72ee79e848f49c2a69d5daf5b833ab80904c5186e"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/observations-qualified/unknown-nl-320-accessibility5.png",
+      "sha256": "a09d3f1f234cd4d0639624df99044e99172298b45c15258769d58f35291b8bae"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/observations-qualified/withdrawn-en-720.png",
+      "sha256": "ed7a1f853a7da5b3b209b36806e10340ee4863476ebb389e7cd869ef87fdaee9"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/qualified-summary.json",
+      "sha256": "5176ff42073c0f957634a9bfcf7dd40b091c14bb1c16370937649dbf98e007bc"
+    },
+    {
+      "path": "/private/tmp/djc-ios-ha-speech-20261021/qualified.log",
+      "sha256": "31266ba10e69bc98c2d2ada305031a5227f4d3e06d0a31c5d9e3c0ce548c34e0"
+    },
+    {
+      "path": "Sources/DJConnectUI/ProfileDJSettingsEditor.swift",
+      "sha256": "762a792b79375023c1ebaf36faf4075147e06ce04ea2ab61ca300124fa212be3"
+    },
+    {
+      "path": "Tests/Fixtures/device-speech-core-604b80f8.json",
+      "sha256": "111c71284630366d3fd8a19946013b853f78c6d02f784fa60cdf7596ebef4f6b"
+    },
+    {
+      "path": "Tools/qualification/native-speech/NativeSpeechPresentationTests.swift",
+      "sha256": "890fd4ef53fa99eb02a38c5f58fa6936f8fe19455741870e0c6a8f9c0abfa22c"
+    }
+  ]
+}

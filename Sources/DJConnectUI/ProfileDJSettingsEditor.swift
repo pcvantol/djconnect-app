@@ -359,10 +359,19 @@ struct HASpeechConfigurationView: View {
         .accessibilityIdentifier("ha-speech-configuration")
     }
     private func row(_ key: String, _ route: DJConnectDeviceSpeechAvailability.Route?) -> some View {
-        LabeledContent(text("ui.ha_speech." + key)) {
-            Text(text("ui.ha_speech." + HASpeechConfigurationStatus(route).rawValue))
-                .fixedSize(horizontal: false, vertical: true)
+        let label = text("ui.ha_speech." + key)
+        let status = text("ui.ha_speech." + HASpeechConfigurationStatus(route).rawValue)
+        return ViewThatFits(in: .horizontal) {
+            LabeledContent(label) { Text(status) }
+                .fixedSize(horizontal: true, vertical: true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(label)
+                Text(status)
+            }
+            .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
         .accessibilityIdentifier("ha-speech-configuration-" + key)
     }
 }
