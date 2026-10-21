@@ -1,0 +1,345 @@
+{
+  "schema_version": 1,
+  "base_sha": "aa9785361e6d41f9c086765fc3b9db28669184b8",
+  "reviewed_source_sha": "fbebed7d02587e1bbab531c7bb7f2fdd78a20089",
+  "review_type": "AUTHOR_SELF_REVIEW_NOT_INDEPENDENT_APPROVAL",
+  "new_product_defect_found": false,
+  "production_files": [
+    {
+      "path": "Sources/DJConnectCore/Resources/Localization/de.lproj/Localizable.strings",
+      "sha256": "65758376bc077e8ad7eb64a45bd6700659f3a851a85d23d5a9bbac9635a443b7"
+    },
+    {
+      "path": "Sources/DJConnectCore/Resources/Localization/es.lproj/Localizable.strings",
+      "sha256": "1a6e3147cffa6ed9e7e3087da4fb91e5a50b4a1942803200210d63674482eb69"
+    },
+    {
+      "path": "Sources/DJConnectCore/Resources/Localization/fr.lproj/Localizable.strings",
+      "sha256": "cb2b2b5361b4d8f7e4962c0d985684b73cfcdff7be7f428945f41380960f67bc"
+    },
+    {
+      "path": "Sources/DJConnectUI/DJConnectAppModel.swift",
+      "sha256": "75a0d8bddcdc3fc5b3a1da9cbfb5de4980e71b6534f0ad0a5192c5ccdd3b601e"
+    },
+    {
+      "path": "Sources/DJConnectUI/DJConnectRootView.swift",
+      "sha256": "e80924cf291d6e6963cd844f26a081b82eb168437838856a502185ca0ccbd1be"
+    },
+    {
+      "path": "Sources/DJConnectUI/DJConnectSessionHistoryModel.swift",
+      "sha256": "50ea98a2b796509bcac4e0a55acb90999961e049e4a55bc88b6a5aaf3520fcd7"
+    },
+    {
+      "path": "Sources/DJConnectUI/SessionForecastView.swift",
+      "sha256": "7a14739c5b0a1cdb88f778041c91a37c6846350caf436529d0a94900ff214649"
+    },
+    {
+      "path": "Sources/DJConnectUI/SessionTimelineScreen.swift",
+      "sha256": "5f393d7bfad2c77527f2c49078a0d3268aea9b8e784123e3208a983642cfe72a"
+    }
+  ],
+  "commit_manifest": [
+    {
+      "sha": "8462454f4c662259b0fd47f4bd78c2545f41daa0",
+      "title": "Qualify native iOS display consent through actual app model",
+      "production_paths": [],
+      "reports": [
+        "docs/feedback/APPLE_NATIVE_DISPLAY_CONSENT_QUALIFICATION_20261020.json",
+        "docs/feedback/APPLE_NATIVE_DISPLAY_CONSENT_QUALIFICATION_20261020.md"
+      ],
+      "publication": "PUSHED_BEFORE_REJECTION_NO_PR"
+    },
+    {
+      "sha": "2543eef8a2067e21a42cadbbc0c3f86f5ec983bb",
+      "title": "Fence native screen lookup on current owner availability",
+      "production_paths": [
+        "Sources/DJConnectUI/DJConnectRootView.swift"
+      ],
+      "reports": [
+        "docs/feedback/APPLE_NATIVE_DISPLAY_CONSENT_UI_20261020.json",
+        "docs/feedback/APPLE_NATIVE_DISPLAY_CONSENT_UI_20261020.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "ab36e9bcd34fd2c3973253617bcb10623bb7156e",
+      "title": "Qualify Forecast Command-F routing and native search focus",
+      "production_paths": [],
+      "reports": [
+        "docs/feedback/APPLE_FORECAST_NATIVE_KEYBOARD_20261020.json",
+        "docs/feedback/APPLE_FORECAST_NATIVE_KEYBOARD_20261020.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "ade91f1a401148aa9f72e187e7b20fc0d68599ab",
+      "title": "Preserve native Forecast viewport across Flow switches",
+      "production_paths": [
+        "Sources/DJConnectUI/SessionForecastView.swift",
+        "Sources/DJConnectUI/SessionTimelineScreen.swift"
+      ],
+      "reports": [
+        "docs/feedback/APPLE_FORECAST_NATIVE_SCROLL_20261020.json",
+        "docs/feedback/APPLE_FORECAST_NATIVE_SCROLL_20261020.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "a92f4b1a53e62448775279afd6db198f78f5e50f",
+      "title": "Record native Forecast accessibility host limitations",
+      "production_paths": [],
+      "reports": [
+        "docs/feedback/APPLE_FORECAST_ACCESSIBILITY_PROBE_20261020.json",
+        "docs/feedback/APPLE_FORECAST_ACCESSIBILITY_PROBE_20261020.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "2e182e1e5dcd9e54dec49018a0240900b74e211b",
+      "title": "Qualify native Forecast filter presentation",
+      "production_paths": [],
+      "reports": [
+        "docs/feedback/APPLE_FORECAST_NATIVE_FILTER_20261020.json",
+        "docs/feedback/APPLE_FORECAST_NATIVE_FILTER_20261020.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "8a553f82c80c8d28dec57505d0300f109511917e",
+      "title": "Align Forecast retry with current owner read admission",
+      "production_paths": [
+        "Sources/DJConnectUI/DJConnectAppModel.swift",
+        "Sources/DJConnectUI/SessionForecastView.swift"
+      ],
+      "reports": [
+        "docs/feedback/APPLE_FORECAST_OWNER_WITHDRAWAL_UI_20261020.json",
+        "docs/feedback/APPLE_FORECAST_OWNER_WITHDRAWAL_UI_20261020.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "7ee60b65f337a284838b8d24331af5a6b8ea8bcc",
+      "title": "Qualify automatic native Forecast lease expiry",
+      "production_paths": [],
+      "reports": [
+        "docs/feedback/APPLE_FORECAST_NATIVE_EXPIRY_20261021.json",
+        "docs/feedback/APPLE_FORECAST_NATIVE_EXPIRY_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "5af721f451aef1791f5f44554fd82b6770dc03d9",
+      "title": "Record populated Flow native input qualification limits",
+      "production_paths": [],
+      "reports": [
+        "docs/feedback/APPLE_POPULATED_FLOW_POSITION_PROBE_20261021.json",
+        "docs/feedback/APPLE_POPULATED_FLOW_POSITION_PROBE_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "5f16dab8fa89fc3e98af86e61046099b8782ae41",
+      "title": "Observe consent withdrawal in isolated native UIKit host",
+      "production_paths": [],
+      "reports": [
+        "docs/feedback/APPLE_CONSENT_UIKIT_WITHDRAWAL_20261021.json",
+        "docs/feedback/APPLE_CONSENT_UIKIT_WITHDRAWAL_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "317cbfd42365e9527eea6464518cc3a963d92159",
+      "title": "Fix native VibeCast code-entry backspace synchronization",
+      "production_paths": [
+        "Sources/DJConnectUI/DJConnectRootView.swift"
+      ],
+      "reports": [
+        "docs/feedback/APPLE_NATIVE_CODE_ENTRY_20261021.json",
+        "docs/feedback/APPLE_NATIVE_CODE_ENTRY_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "ec33ec8e2fac35afc90f98fcfd9b7b542f6da2ee",
+      "title": "Synchronize native VibeCast input enablement with form state",
+      "production_paths": [
+        "Sources/DJConnectUI/DJConnectRootView.swift"
+      ],
+      "reports": [
+        "docs/feedback/APPLE_CONSENT_NATIVE_INPUT_STATES_20261021.json",
+        "docs/feedback/APPLE_CONSENT_NATIVE_INPUT_STATES_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "4debebe94de7ba85db30f8381eab9b2de1c589e2",
+      "title": "Qualify native iOS consent claim and receipt expiry",
+      "production_paths": [],
+      "reports": [
+        "docs/feedback/APPLE_CONSENT_NATIVE_EXPIRY_20261021.json",
+        "docs/feedback/APPLE_CONSENT_NATIVE_EXPIRY_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "3e07f730440ed59278a9593a3a04135b2e5d2eda",
+      "title": "Qualify native consent form disappearance and remount",
+      "production_paths": [],
+      "reports": [
+        "docs/feedback/APPLE_CONSENT_NATIVE_LIFECYCLE_20261021.json",
+        "docs/feedback/APPLE_CONSENT_NATIVE_LIFECYCLE_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "dd67275572e3b7310324bd35f6ecd87f8034d169",
+      "title": "Keep native VibeCast UIKeyInput insertion synchronized",
+      "production_paths": [
+        "Sources/DJConnectUI/DJConnectRootView.swift"
+      ],
+      "reports": [
+        "docs/feedback/APPLE_NATIVE_KEYINPUT_20261021.json",
+        "docs/feedback/APPLE_NATIVE_KEYINPUT_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "1da6158e070566f4ceffeb1ab9befbed721bb4e9",
+      "title": "Qualify native historical summary rendering and Dynamic Type",
+      "production_paths": [],
+      "reports": [
+        "docs/feedback/APPLE_HISTORY_SUMMARY_NATIVE_20261021.json",
+        "docs/feedback/APPLE_HISTORY_SUMMARY_NATIVE_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "6f1aa6645a75e3a2a3deef02172ae5b90bdca619",
+      "title": "Fence saved-session reads after owner withdrawal",
+      "production_paths": [
+        "Sources/DJConnectUI/DJConnectSessionHistoryModel.swift"
+      ],
+      "reports": [
+        "docs/feedback/APPLE_NATIVE_ARCHIVE_OWNER_FENCE_20261021.json",
+        "docs/feedback/APPLE_NATIVE_ARCHIVE_OWNER_FENCE_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "9928aa335a72cf92802a917ed88e1f8e2f57c321",
+      "title": "Show archive unavailable copy after owner withdrawal",
+      "production_paths": [
+        "Sources/DJConnectUI/SessionTimelineScreen.swift"
+      ],
+      "reports": [
+        "docs/feedback/APPLE_ARCHIVE_UNAVAILABLE_COPY_20261021.json",
+        "docs/feedback/APPLE_ARCHIVE_UNAVAILABLE_COPY_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "91a779ec0a5c986b544cd8bf1d71941e6dbab2c8",
+      "title": "Fence timeline reads after owner withdrawal",
+      "production_paths": [
+        "Sources/DJConnectUI/DJConnectSessionHistoryModel.swift"
+      ],
+      "reports": [
+        "docs/feedback/APPLE_TIMELINE_OWNER_READ_FENCE_20261021.json",
+        "docs/feedback/APPLE_TIMELINE_OWNER_READ_FENCE_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "381a24e44660dd4ce0a58a5144315b9d54272963",
+      "title": "Fence session search reads by admitted owner",
+      "production_paths": [
+        "Sources/DJConnectUI/DJConnectSessionHistoryModel.swift"
+      ],
+      "reports": [
+        "docs/feedback/APPLE_SEARCH_OWNER_READ_FENCE_20261021.json",
+        "docs/feedback/APPLE_SEARCH_OWNER_READ_FENCE_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "0a5e57599bd6570fb7bda9043187fd17223a0fc9",
+      "title": "Fence saved session navigation by admitted owner",
+      "production_paths": [
+        "Sources/DJConnectUI/DJConnectSessionHistoryModel.swift"
+      ],
+      "reports": [
+        "docs/feedback/APPLE_OPEN_OWNER_READ_FENCE_20261021.json",
+        "docs/feedback/APPLE_OPEN_OWNER_READ_FENCE_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "427ee4aeda9f6f5a6f8d2c0d6a919b39cab2aa02",
+      "title": "Record current iOS history owner fence build evidence",
+      "production_paths": [],
+      "reports": [
+        "docs/feedback/APPLE_HISTORY_OWNER_IOS_BUILD_20261021.json",
+        "docs/feedback/APPLE_HISTORY_OWNER_IOS_BUILD_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "c1525c322992e509a81279baea68f1a98981c102",
+      "title": "Qualify pinned historical detail summary native rendering",
+      "production_paths": [],
+      "reports": [
+        "docs/feedback/APPLE_HISTORY_DETAIL_SUMMARY_NATIVE_20261021.json",
+        "docs/feedback/APPLE_HISTORY_DETAIL_SUMMARY_NATIVE_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "bf182125fe2badfcba51a5c6f170793b673942d1",
+      "title": "Keep permission status readable in compact and large text layouts",
+      "production_paths": [
+        "Sources/DJConnectUI/DJConnectRootView.swift"
+      ],
+      "reports": [
+        "docs/feedback/APPLE_PERMISSION_ROW_NATIVE_LAYOUT_20261021.json",
+        "docs/feedback/APPLE_PERMISSION_ROW_NATIVE_LAYOUT_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "76fb06cdf363954033ba858c455dc9bf6750d192",
+      "title": "Translate existing French permission labels and descriptions",
+      "production_paths": [
+        "Sources/DJConnectCore/Resources/Localization/fr.lproj/Localizable.strings"
+      ],
+      "reports": [
+        "docs/feedback/APPLE_FRENCH_PERMISSION_COPY_20261021.json",
+        "docs/feedback/APPLE_FRENCH_PERMISSION_COPY_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    },
+    {
+      "sha": "fbebed7d02587e1bbab531c7bb7f2fdd78a20089",
+      "title": "Translate German and Spanish permission copy",
+      "production_paths": [
+        "Sources/DJConnectCore/Resources/Localization/de.lproj/Localizable.strings",
+        "Sources/DJConnectCore/Resources/Localization/es.lproj/Localizable.strings"
+      ],
+      "reports": [
+        "docs/feedback/APPLE_DE_ES_PERMISSION_COPY_20261021.json",
+        "docs/feedback/APPLE_DE_ES_PERMISSION_COPY_20261021.md"
+      ],
+      "publication": "LOCAL_ONLY"
+    }
+  ],
+  "receipt_verification": {
+    "reports": 26,
+    "path_hash_pairs_passed": 425,
+    "alternate_schema_hashes_passed": 34,
+    "mismatches": 0,
+    "unavailable": 0,
+    "path": "/private/tmp/djc-apple-local-review-20261021/receipt-verification.json",
+    "sha256": "bd53f78c4f18941d62fd7296a1c17ffb5e44498594e449975ec5890720e98c18"
+  },
+  "publication": "LOCAL_ONLY_NO_APPROVAL_GRANTED",
+  "deadline_utc": "2026-10-21T04:21:53Z"
+}
