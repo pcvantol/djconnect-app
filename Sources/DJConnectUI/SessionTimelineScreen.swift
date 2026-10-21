@@ -239,6 +239,7 @@ struct SavedSessionsView: View {
             .navigationDestination(item: openedSessionID) { sessionID in
                 SessionTimelineScreen(model: model, sessionID: sessionID)
                     .navigationTitle(detailTitle(sessionID: sessionID))
+                    .djConnectMouseBackNavigation()
             }
             .navigationTitle(text("ui.session.history.title") + (model.isDemoMode ? " (demo)" : ""))
             .scrollBounceBehavior(.always)

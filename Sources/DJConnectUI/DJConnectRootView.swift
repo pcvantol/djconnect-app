@@ -16382,7 +16382,7 @@ private struct MoreView: View {
             }
             .background(DJConnectCanvasBackground())
             .navigationTitle(screenTitle(model.language, key: "More", isDemoMode: model.isDemoMode))
-            .navigationDestination(item: $destinationSelection) { destination($0) }
+            .navigationDestination(item: $destinationSelection) { destination($0).djConnectMouseBackNavigation() }
         }
     }
     private func routeRequestedSection() {
