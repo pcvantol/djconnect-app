@@ -17,7 +17,8 @@ JOSE_PIN = "c2664a902e75c0426a1d43132bd4babc6fd173d3"
 FLAG = "DJCONNECT_VIBECAST_FIXED_QA"
 TEST_SOURCES = ("RendezvousBuildProfileTests.swift", "RendezvousDestinationTests.swift",
                 "RendezvousSubmitChallengeTests.swift", "RendezvousRecoveryJournalTests.swift",
-                "RendezvousSubmissionTests.swift", "RendezvousNativeFlowTests.swift")
+                "RendezvousSubmissionTests.swift", "RendezvousNativeFlowTests.swift",
+                "RendezvousRecoveryChallengeTests.swift")
 
 
 def git(root: Path, *args: str) -> str:

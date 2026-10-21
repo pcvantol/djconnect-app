@@ -50,3 +50,19 @@ build preparation. API activation, receiver Pages authentication, effective HA
 external routing, a finite genuine SDK run, browser navigation and physical B
 acceptance remain separate actual gates. Earlier iPhone/Watch availability was
 deferred by the owner; no device action or success is inferred from this source.
+
+## Continuation after the UI fixes
+
+The original-response deadline correction passed the broader production-origin
+Rendezvous regression run: 93 Swift Testing cases. The new adaptive icon was
+merged from protected main and the combined Xcode project was regenerated.
+
+A typed recovery challenge parser now binds the exact existing key, action
+`recover-key`, fixed service origin, server challenge ID, decoded binary nonce,
+original clientData bytes and original wall/monotonic deadlines. Its four focused
+regressions passed, including action separation, every-field mutation, duplicate
+JSON members, noncanonical base64, expired/extended response and clock rollback.
+These functions perform no HTTP, SDK, key generation or repair-budget mutation.
+Management transport, explicit recovery/replacement/rollover orchestration and
+physical acceptance remain open. This is still a WIP source branch, not a
+completed VibeCast release or an API activation request.
