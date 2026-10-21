@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "source_sha": "0a5e57599bd6570fb7bda9043187fd17223a0fc9",
+  "production_changed": false,
+  "build_for_testing": "PASS",
+  "test_execution": false,
+  "architectures": [
+    "arm64",
+    "x86_64"
+  ],
+  "destination": "generic/platform=iOS Simulator",
+  "code_signing_allowed": false,
+  "publication": "LOCAL_ONLY",
+  "source": [
+    {
+      "path": "Sources/DJConnectUI/DJConnectSessionHistoryModel.swift",
+      "sha256": "50ea98a2b796509bcac4e0a55acb90999961e049e4a55bc88b6a5aaf3520fcd7"
+    },
+    {
+      "path": "Sources/DJConnectUI/SessionTimelineScreen.swift",
+      "sha256": "5f393d7bfad2c77527f2c49078a0d3268aea9b8e784123e3208a983642cfe72a"
+    },
+    {
+      "path": "Tools/qualification/vibecast-product/prepare_native_consent_tests.py",
+      "sha256": "b35cff88c0ed1d57ec086d6d0279a6e9e1a0633dbd220f333a9e750ccbc67250"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/DisplayConsentSessionTests.swift",
+      "sha256": "cded0a4e223a9c61e6a57ddfbcb4dea4cfc50f8066e07788113d4eadbfc25392"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "/private/tmp/djc-history-owner-ios-build-20261021/build.log",
+      "sha256": "bad1d5990ca09a160f3f81c18f8f74b52849eb3163feb8136928c0a61fe1d361"
+    },
+    {
+      "path": "/private/tmp/djc-history-owner-ios-build-20261021/source-receipt.json",
+      "sha256": "c051ab96e33dbaa739e29f58aab65bc521e04e21d97c358bfc5c03c26bb60ca3"
+    },
+    {
+      "path": "/private/tmp/djc-history-owner-ios-build-20261021/NativeConsentQualification.xcodeproj/project.pbxproj",
+      "sha256": "9032276989d666d083a0d64248689b42104cc2064cd514dd28e2271b6604d371"
+    }
+  ]
+}
