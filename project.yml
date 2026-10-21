@@ -349,6 +349,10 @@ targets:
     platform: macOS
     sources:
       - path: Tests/DJConnectCoreTests
+      - path: Tests/Fixtures/rendezvous-fixed-qa-api-3b43332.json
+        buildPhase: resources
+      - path: Tests/Fixtures/rendezvous-fixed-qa-wire-3b43332.json
+        buildPhase: resources
     dependencies:
       - target: DJConnectCoreMac
       - target: DJConnectUIMac

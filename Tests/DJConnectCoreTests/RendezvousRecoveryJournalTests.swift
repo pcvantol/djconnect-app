@@ -30,7 +30,7 @@ final class RendezvousRecoveryJournalTests: XCTestCase {
     }
     private func original(deadline: Int64 = 120_000) -> Data {
         // Deliberately unsorted, with whitespace/escaped key. Preserve these exact bytes.
-        Data(" {\n\"action\":\"recover-key\",\"v\":\"djc-rendezvous/1\",\"key_id\":\"\(key)\",\"challenge_id\":\"\(challenge)\",\"challenge\":\"\(url(nonce))\",\"expires_at\":\(deadline),\"service_\\u006frigin\":\"https://api.djconnect.dev\" }\n".utf8)
+        Data(" {\n\"action\":\"recover-key\",\"v\":\"djc-rendezvous/1\",\"key_id\":\"\(key)\",\"challenge_id\":\"\(challenge)\",\"challenge\":\"\(url(nonce))\",\"expires_at\":\(deadline),\"service_\\u006frigin\":\"\(DJConnectRendezvousQR.serviceOrigin)\" }\n".utf8)
     }
     private func begin(_ subject: RendezvousRecoveryJournal, bytes: Data? = nil) async throws -> UUID {
         try await subject.begin(keyIdentifier: key, challengeIdentifier: challenge, nonce: nonce,
@@ -76,7 +76,7 @@ final class RendezvousRecoveryJournalTests: XCTestCase {
             text.replacingOccurrences(of: "recover-key", with: "delete-key"),
             text.replacingOccurrences(of: "recover-key", with: "submit"),
             text.replacingOccurrences(of: "recover-key", with: "recover-\\qkey"),
-            text.replacingOccurrences(of: "https://api.djconnect.dev", with: "https://evil.example"),
+            text.replacingOccurrences(of: DJConnectRendezvousQR.serviceOrigin, with: "https://evil.example"),
             text.replacingOccurrences(of: key, with: Data(repeating: 4, count: 32).base64EncodedString()),
             text.replacingOccurrences(of: challenge, with: url(Data(repeating: 3, count: 32))),
             text.replacingOccurrences(of: url(nonce), with: url(Data(repeating: 2, count: 32))),

@@ -6,7 +6,7 @@ import Foundation
 /// operation context before preparing, and again before sending returned bytes.
 public actor RendezvousRegistrationJournal {
     public static let shared = RendezvousRegistrationJournal(storage: RendezvousRepairKeychainStorage(
-        service: "dev.djconnect.rendezvous.enrollment", account: "prepared-registration-v1"
+        service: RendezvousBuildProfile.storageNamespace + ".enrollment", account: "prepared-registration-v1"
     ))
     public enum Phase: String, Codable, Sendable { case attestationPending, prepared, registrationUncertain, completed }
     public enum AttestationResult: Sendable {

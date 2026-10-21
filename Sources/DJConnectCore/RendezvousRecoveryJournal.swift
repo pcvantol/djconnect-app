@@ -7,7 +7,7 @@ import Foundation
 /// existing key, trusted app/origin, explicit repair budget and current context.
 public actor RendezvousRecoveryJournal {
     public static let shared = RendezvousRecoveryJournal(storage: RendezvousRepairKeychainStorage(
-        service: "dev.djconnect.rendezvous.recovery", account: "recover-key-v1"
+        service: RendezvousBuildProfile.storageNamespace + ".recovery", account: "recover-key-v1"
     ))
     public enum Failure: Error, Sendable { case invalidMaterial, invalidData, alreadyExists, missingState, wrongAttempt, unavailable }
     public enum Phase: String, Codable, Sendable { case assertionPending, prepared, recoveryPaused, completed }
@@ -214,7 +214,7 @@ private struct RecoveryRecord: Codable {
               deadlineMS >= 0, deadlineMS <= 9_007_199_254_740_991,
               try RecoveryFlatObject.parse(clientData) == [
                 "v": .string("djc-rendezvous/1"), "action": .string("recover-key"),
-                "service_origin": .string("https://api.djconnect.dev"), "key_id": .string(key),
+                "service_origin": .string(DJConnectRendezvousQR.serviceOrigin), "key_id": .string(key),
                 "challenge_id": .string(challenge), "challenge": .string(encodeURL(nonce)), "expires_at": .integer(deadlineMS)
               ] else { throw RendezvousRecoveryJournal.Failure.invalidMaterial }
     }

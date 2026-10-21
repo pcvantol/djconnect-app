@@ -63,6 +63,11 @@ is excluded from the ordinary project and is not armed by CI. Its exact-profile
 and joint-run gates are documented in
 [API binary intake](../Tools/qualification/vibecast-native/API_BINARY_INTAKE.md).
 
+The separate [fixed VibeCast QA generator](../Tools/qualification/vibecast-fixed-qa/README.md)
+builds an unsigned app with a compile-time QA origin tuple and distinct app/storage
+identity. The shipping project retains the production tuple. This build-only
+variant does not establish native SDK or physical-device acceptance.
+
 ## Pairing The macOS App
 
 1. Open `DJConnectApp.xcodeproj` in Xcode.

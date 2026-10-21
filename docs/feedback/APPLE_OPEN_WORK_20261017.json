@@ -37,11 +37,12 @@
       "topic": "VibeCast scanner en App Attest",
       "status": "blocked",
       "owner": "API + Apple + receiver",
-      "evidence": "Genuine signed iPhone App Attest/ assertions en geïsoleerde JOSE-interoperabiliteit geleverd; API94 head250be2f, profiel0.4-draft. Leaf-AKI policyblokkade is inmiddels opgelost. 20261018 lane pickup: exact API94fbe118b3,10portable binding/race tests and33fresh Mac/native API-generator JOSE checks PASS; isolated iOS host40315 build/signatures PASS. No physical run/install/newAppAttestcalls; iPhone locked, owner unlock pending. Contract0.4-draft NOT_FROZEN/NO_RUNTIME_GO. APPLE_VIBECAST_NATIVE_BINDING_20261018.md.",
+      "evidence": "Genuine signed iPhone App Attest/ assertions en geïsoleerde JOSE-interoperabiliteit geleverd; API94 head250be2f, profiel0.4-draft. Leaf-AKI policyblokkade is inmiddels opgelost. 20261018 lane pickup: exact API94fbe118b3,10portable binding/race tests and33fresh Mac/native API-generator JOSE checks PASS; isolated iOS host40315 build/signatures PASS. No physical run/install/newAppAttestcalls; iPhone locked, owner unlock pending. Contract0.4-draft NOT_FROZEN/NO_RUNTIME_GO. APPLE_VIBECAST_NATIVE_BINDING_20261018.md. 20261021 vervolg vanaf qualified main b4de259: vaste unsigned QA-buildtuple, gescheiden app/URL-scheme/Keychain-namespace, parser/request/JWE/recover-originbinding en API3b43332-fixtures toegevoegd. Production154/QA19 tests en unsigned iOS-build PASS; APPLE_VIBECAST_FIXED_QA_ORIGINS_20261021.md. Geen SDK/Keychain/runtime-/installatie-effect.",
       "remaining": [
         "API volledige serververifier/Worker/receiptpolicy kwalificatie en contractfreeze ontbreken.",
         "Daarna native iPhone-JWE, lifecycle/herstel/rotatie en scanner aan bestaande HA-pairing/B-codeflow koppelen; fysieke TV-keten.",
-        "Geen scanner tegen onbevroren contract; copied-QR-keuze blijft geaccepteerd."
+        "Geen scanner tegen onbevroren contract; copied-QR-keuze blijft geaccepteerd.",
+        "Vaste QA-bronvariant is alleen buildvoorbereiding: geen actueel getekend Apple-profiel of operational admission. Echte SDK-orchestratie blijft notReady; volledige HA/receiver/TV-keten en fysieke acceptatie blijven open."
       ],
       "next_action": "Ontgrendelde iPhone: gereedstaande native kwalificatie uitvoeren; productscanner pas na exacte API/Core-contractvrijgave."
     },

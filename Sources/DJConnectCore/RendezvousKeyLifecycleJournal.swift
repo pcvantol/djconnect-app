@@ -7,7 +7,7 @@ import Foundation
 /// the future orchestrator must reconcile those before initial generation.
 public actor RendezvousKeyLifecycleJournal {
     public static let shared = RendezvousKeyLifecycleJournal(storage:RendezvousRepairKeychainStorage(
-        service:"dev.djconnect.rendezvous.key-lifecycle",account:"key-lifecycle-v1"))
+        service:RendezvousBuildProfile.storageNamespace + ".key-lifecycle",account:"key-lifecycle-v1"))
     public enum Purpose:String,Codable,Sendable { case initial, replacement, rollover }
     public enum Phase:String,Codable,Sendable {
         case generationPending, generationUnknown, enrollmentPending, registrationUncertain, recoveryPaused, active, expired
