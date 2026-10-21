@@ -9355,6 +9355,15 @@ struct VibeCastSessionStartDialog: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityIdentifier("vibecast-session-start-hero")
+                #if os(iOS) && DJCONNECT_VIBECAST_FIXED_QA
+                Button(localizedKey(model.language, "ui.rendezvous.scan")) {
+                    model.cancelRendezvous()
+                    model.isShowingVibeCastSessionStart = false
+                    model.isShowingRendezvous = true
+                }
+                .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
+                .accessibilityIdentifier("vibecast-session-scan-tv")
+                #endif
                 VibeCastHandoffForm(model: model)
                 DJConnectNotNowLinkButton(language: model.language, key: "ui.not.now.b1e535") {
                     resignPlatformFirstResponder()
