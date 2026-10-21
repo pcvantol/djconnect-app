@@ -1504,3 +1504,8 @@
 "ui.session.search.clear" = "Clear search terms";
 
 "ui.session.playback.speaker_question" = "Show available speakers.";
+
+"ui.rendezvous.sending" = "Preparing secure TV linking…";
+"ui.rendezvous.accepted" = "The address was sent. Continue on the TV and approve screen sharing in Home Assistant.";
+"ui.rendezvous.uncertain" = "We could not confirm whether the address was sent. Check the TV before trying again.";
+"ui.rendezvous.repairNeeded" = "Secure linking could not be prepared. Try again later.";

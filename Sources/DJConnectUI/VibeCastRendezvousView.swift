@@ -31,10 +31,13 @@ struct VibeCastRendezvousView: View {
                             if authorized { scanning = true }
                             else { cameraDenied = true }
                         }
-                    }.accessibilityIdentifier("vibecast-rendezvous-scan")
+                    }
+                    .disabled(model.rendezvousBusy)
+                    .accessibilityIdentifier("vibecast-rendezvous-scan")
                     #endif
                     if model.rendezvousHasQR {
                         Toggle(rendezvousText(model.language, "ui.rendezvous.savedHA"), isOn: $selectedInstallation)
+                            .disabled(model.rendezvousBusy)
                             .accessibilityIdentifier("vibecast-rendezvous-installation")
                         Button(rendezvousText(model.language, "ui.rendezvous.confirm")) {
                             Task { await model.prepareRendezvousDestination() }

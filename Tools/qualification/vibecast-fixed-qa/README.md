@@ -60,3 +60,36 @@ signed Apple profile or operational admission. It does not execute SDK key
 generation, enrollment, repair, device installation or service activation.
 The existing destination preparation's `notReady` boundary remains intact;
 native SDK orchestration and physical device acceptance remain separate work.
+
+## One finite signed native test
+
+`prepare_native_test_run.py` extends the unsigned generator with a separately
+reviewed, compile-time selected native run policy. Shipping and ordinary fixed-QA
+builds still have no selected policy. This is not a runtime preference or host
+selector. The selector source is generated only into the private qualification
+project, for FixedQACoreIOS; the policy and generated source hashes are recorded.
+
+The manifest uses schema `djc-apple-native-test-run/1`, exact `source_sha` and a
+`policy` matching `RendezvousNativeRunPolicy`: canonical run UUID, QA bundle/build,
+Team/AppID/development realm, actual embedded provisioning profile SHA256, fixed
+QA service/browser tuple and an absolute selection window of at most two hours.
+The actual run starts at its first protected SDK reservation and lasts at most
+600 seconds on both original wall and monotonic clocks. Exactly one generate,
+one attest and one assertion may start, in order. Failed SDK callbacks and
+uncertain writes never refund a reservation. No automatic retries are admitted.
+
+Unsigned selection compilation is allowed for source review; it cannot install
+on an iOS device. With `--signing-inputs`, the tool additionally requires exact
+clean source already present in local `origin/main`, an existing matching signed
+profile/certificate and ordinary Xcode automatic selection without provisioning
+updates. It makes a signed proposal, not API activation or an SDK run. Strict
+signature/entitlements/profile/artifact readback and API owner's final external
+admission manifest are required before an actual test installation/interaction.
+The final artifact hash is external; a binary cannot contain its own final hash.
+
+The app checks its actual physical iOS foreground state, Bundle identity/build,
+compiled fixed origins and embedded profile digest, with protected device-local
+persist-before-effect accounting. The OS-installed code signature and the
+external verified installer/profile bind Team/AppID/environment. A real App
+Attest result still requires API's genuine verifier; a profile hash is not an
+attestation or proof of the returned AAGUID.

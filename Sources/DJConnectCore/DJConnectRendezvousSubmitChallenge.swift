@@ -11,6 +11,7 @@ public struct DJConnectRendezvousSubmitChallenge: Sendable {
     private let admittedAtMS: Int64
     private let requestedUptime: TimeInterval
     private let monotonicDeadline: TimeInterval
+    var originalMonotonicDeadline: TimeInterval { monotonicDeadline }
     public static func parse(_ data: Data, qr: DJConnectRendezvousQR, keyID: String, envelopeDigest: String,
                              requestedAtMS: Int64, requestedUptime: TimeInterval,
                              nowMS: Int64 = Int64(Date().timeIntervalSince1970 * 1000),
