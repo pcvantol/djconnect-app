@@ -70,3 +70,5 @@ withdraw the synthetic Profile and exercise an uncertain result. Screenshot
 attachments remain in the result bundle. This is form interaction over a
 synthetic wire, separate from full-app navigation and installed HA/receiver
 qualification. No ordinary app target or preference is modified.
+
+The opt-in `actualIOSNativeConsentInflightLifecycle()` uses `DJCONNECT_CONSENT_INFLIGHT_DIR` and the test-only `delayed-approval` URLProtocol mode. It delays the existing synthetic approval response for two seconds, removes the actual form hierarchy while approving, remounts before the acknowledgement, and verifies that the late result cannot revive or replay the old operation. Approval is an explicit model method, not a native button tap. Select only this new function with its parentheses and retain a new log/result directory; existing ready-only lifecycle evidence remains separate.

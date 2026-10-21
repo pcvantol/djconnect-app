@@ -71,6 +71,8 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
                 "expires_in": mode == "short-claim" ? 1.0 : 90.0, "expires_at": expiry(mode == "short-claim" ? 1.0 : 90)]) { _, new in new }
         } else if path.hasSuffix("/owner/approve") {
             Self.lock.withLock { Self.approvalAt = Date(); return Self.approvalAction }?()
+            // Opt-in lifecycle probe only: retain the ordinary approval receipt.
+            if mode == "delayed-approval" { Thread.sleep(forTimeInterval: 2) }
             if mode == "unknown" { status = 503; value = [:] }
             else {
                 value.merge(["state": "approved", "display_id": String(repeating: "F", count: 42) + "A",
@@ -515,6 +517,76 @@ extension DisplayConsentSessionTests {
         try capture("lifecycle-03-remounted")
         try JSONSerialization.data(withJSONObject: observations, options: [.prettyPrinted, .sortedKeys])
             .write(to: folder.appendingPathComponent("native-consent-lifecycle.json"))
+    }
+
+    /// Hierarchy disappearance while a synthetic approval acknowledgement is delayed.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_INFLIGHT_DIR"] != nil))
+    func actualIOSNativeConsentInflightLifecycle() async throws {
+        let (model, defaults, suite, _) = try await makeNativeModel("delayed-approval")
+        defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+        let session = try #require(model.activeDJSession)
+        let epoch = model.sessionHistory.responseEpoch
+        let folder = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_INFLIGHT_DIR"]))
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        func makeController() -> UIViewController {
+            UIHostingController(rootView: VibeCastDisplayConsentForm(model: model)
+                .environment(\.colorScheme, .dark).preferredColorScheme(.dark))
+        }
+        let firstController = makeController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 430, height: 932))
+        window.overrideUserInterfaceStyle = .dark
+        window.rootViewController = firstController; window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil }
+        func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
+        func fields() -> [UITextField] {
+            descendants(window).compactMap { $0 as? UITextField }
+                .filter { $0.accessibilityIdentifier?.hasPrefix("vibecast-handoff-digit-") == true }.sorted { $0.tag < $1.tag }
+        }
+        var observations: [[String: Any]] = []
+        var approvalCompleted = false
+        func capture(_ name: String) throws {
+            window.layoutIfNeeded()
+            observations.append(["stage": name, "state": String(describing: model.displayConsentState),
+                "approval_completed": approvalCompleted, "digits": fields().map { $0.text ?? "" },
+                "enabled": fields().map(\.isEnabled),
+                "approval_posts": ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count])
+            let image = UIGraphicsImageRenderer(bounds: window.bounds).image { window.layer.render(in: $0.cgContext) }
+            try #require(image.pngData()).write(to: folder.appendingPathComponent(name + ".png"))
+        }
+        try await Task.sleep(for: .milliseconds(350))
+        let first = try #require(fields().first)
+        first.insertText("000000")
+        try await Task.sleep(for: .milliseconds(100))
+        await model.resolveDisplayConsent(code: "000000") // Model method, not a native tap.
+        try #require(model.displayConsentState == .ready)
+        let approval = Task { await model.approveDisplayConsent(); approvalCompleted = true }
+        for _ in 0..<50 where ConsentWire.approvalStartedAt == nil { try await Task.sleep(for: .milliseconds(10)) }
+        try #require(ConsentWire.approvalStartedAt != nil && !approvalCompleted)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(model.displayConsentState == .approving)
+        try capture("inflight-01-approving")
+        window.rootViewController = UIViewController() // Keep the first controller alive.
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(firstController.view.window == nil && model.displayConsentState == .uncertain)
+        #expect(!approvalCompleted && fields().isEmpty)
+        try capture("inflight-02-removed")
+        window.rootViewController = makeController()
+        try await Task.sleep(for: .milliseconds(350))
+        #expect(!approvalCompleted && model.displayConsentState == .idle)
+        #expect(fields().count == 6 && fields().allSatisfy { ($0.text ?? "").isEmpty && $0.isEnabled })
+        try capture("inflight-03-remounted-before-ack")
+        await approval.value
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(approvalCompleted && model.displayConsentState == .idle)
+        await model.approveDisplayConsent()
+        #expect(ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count == 1)
+        #expect(ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/resolve") == true }.count == 1)
+        #expect(model.sessionHistory.responseEpoch == epoch && model.activeDJSession?.id == session.id)
+        #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
+        #expect(fields().allSatisfy { ($0.text ?? "").isEmpty })
+        try capture("inflight-04-late-ack-ignored")
+        try JSONSerialization.data(withJSONObject: observations, options: [.prettyPrinted, .sortedKeys])
+            .write(to: folder.appendingPathComponent("native-consent-inflight.json"))
     }
 
     /// The production form refresh task must remove expired claim/receipt UI.
