@@ -55,7 +55,7 @@ def run(destination: Path, jose: Path, manifest: Path, expected_source: str,
         raise SystemExit("Invalid exact provisioning-profile digest")
     signing = None
     if signing_inputs:
-        subprocess.run(["git", "-C", str(root), "merge-base", "--is-ancestor", expected_source, "origin/main"], check=True)
+        git(root, "merge-base", "--is-ancestor", expected_source, "origin/main")
         entries = json.loads(signing_inputs.read_text(), object_pairs_hook=unique_object)
         if len(entries) != 1:
             raise SystemExit("Exactly one verified existing profile is required")
