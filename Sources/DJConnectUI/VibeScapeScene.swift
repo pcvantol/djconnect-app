@@ -103,7 +103,7 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         self.salt = salt
         let time = now()
         guard time.isFinite, time >= 0,
-              occurrence.map({ !$0.isEmpty && $0.utf8.count <= 256 }) ?? true else { revoke(); return }
+              Self.validOccurrence(occurrence) else { revoke(); return }
         deadline = time + 1800; lastUptime = time
         let scene = VibeScapeScene.autonomous(mood: mood, salt: salt)
         autonomous = scene; self.scene = scene
@@ -149,12 +149,16 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         advance(autonomous); return true
     }
     func trackChanged(mood: String?, occurrence: String?) {
+        guard Self.validOccurrence(occurrence) else { revoke(); return }
         guard isCurrent, let ticket, ticket.occurrence != occurrence else { return }
         salt &+= 0x9e3779b97f4a7c15
         let next = VibeScapeScene.autonomous(mood: mood, salt: salt)
         autonomous = next; undo.removeAll()
         self.ticket = VibeScapeRenderTicket(visit: ticket.visit, occurrence: occurrence, revision: ticket.revision + 1)
         scene = persistentPatch?.applied(to: next) ?? next; appliedRevision = nil
+    }
+    private static func validOccurrence(_ value: String?) -> Bool {
+        value.map { !$0.isEmpty && $0.utf8.count <= 256 } ?? true
     }
     @discardableResult func rendererCompleted(_ expected: VibeScapeRenderTicket) -> Bool {
         guard admitted(expected) else { return false }

@@ -73,6 +73,15 @@ import DJConnectCore
         visit.enter(mood:nil,occurrence:String(repeating:"a",count:257))
         #expect(visit.scene == nil && visit.ticket == nil)
     }
+    @Test(arguments: ["",String(repeating:"a",count:257),String(repeating:"🎵",count:65)])
+    func invalidTrackOccurrenceRevokesInsteadOfRetainingOrAcknowledging(_ invalid: String) throws {
+        let visit = VisualDirectorVisit(); visit.enter(mood:"chill",occurrence:"A",salt:1)
+        let old = try #require(visit.ticket)
+        visit.trackChanged(mood:"party",occurrence:invalid)
+        #expect(visit.scene == nil && visit.ticket == nil)
+        #expect(!visit.rendererCompleted(old))
+        #expect(!visit.apply(VibeScapePatch(depth:0.9),expected:old))
+    }
     @Test func twentyTrackCompositionsAndRepeatedPlaybackVaryWithoutInventedMusicFacts() {
         let visit = VisualDirectorVisit(); visit.enter(mood:"groove",occurrence:"0",salt:10)
         var scenes: [VibeScapeScene] = []

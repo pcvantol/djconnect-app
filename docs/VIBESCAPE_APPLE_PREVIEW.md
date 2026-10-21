@@ -66,7 +66,7 @@ patch tests are not evidence of actual voice interpretation.
 
 ## Actual validation so far
 
-- Seven native Swift tests cover field-preserving patches, stale apply/ACK, undo,
+- Eight native Swift tests cover field-preserving patches, stale apply/ACK, undo,
   scope, reset, revoke/reentry, invalid numeric input, budget/expiry, twenty
   synthetic scene identities and blocked general Ask DJ/recording/defaults writes.
 - Real macOS and generic iOS preview builds compile the native Metal shader.
