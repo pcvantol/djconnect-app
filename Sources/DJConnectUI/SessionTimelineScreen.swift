@@ -298,7 +298,8 @@ struct SavedSessionsView: View {
         }
         guard initialLoadFinished, history.sessions.isEmpty, !history.listLoading, !history.preparing else { return nil }
         if let error = history.listErrorKey { return text(error) }
-        return text(history.available ? "ui.session.history.empty" : "ui.session.history.unavailable")
+        return text(history.available && (model.isDemoMode || history.hasAuthorizedOwner)
+            ? "ui.session.history.empty" : "ui.session.history.unavailable")
     }
     private func refresh() async {
         await manualRefresh.run(model: model, systemImage: "clock.arrow.circlepath") {

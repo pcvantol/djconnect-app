@@ -296,6 +296,36 @@ extension DisplayConsentSessionTests {
         return (model, defaults, suite, store)
     }
 
+    /// Bounded visual observation of the actual withdrawn archive's empty copy.
+    /// It does not replace the separate, incomplete full archive qualification.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_ARCHIVE_EMPTY_COPY_DIR"] != nil))
+    func actualIOSNativeWithdrawnArchiveCopy() async throws {
+        let (model, defaults, suite, _) = try await makeNativeModel(summaryArchive: true)
+        defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+        #expect(await model.sessionHistory.loadSessions())
+        let folder = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DJCONNECT_ARCHIVE_EMPTY_COPY_DIR"]))
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let controller = UIHostingController(rootView: SavedSessionsView(model: model)
+            .environment(\.colorScheme, .dark).preferredColorScheme(.dark))
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 430, height: 932))
+        window.backgroundColor = .black; window.overrideUserInterfaceStyle = .dark
+        window.rootViewController = controller; window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil }
+        try await Task.sleep(for: .milliseconds(650))
+        model.sessionHistory.suspend()
+        try await Task.sleep(for: .milliseconds(450))
+        #expect(model.sessionHistory.authorizedProfileID == nil)
+        #expect(model.sessionHistory.sessions.isEmpty && !model.sessionHistory.summaryAvailable)
+        window.layoutIfNeeded()
+        let image = UIGraphicsImageRenderer(bounds: window.bounds).image { context in window.layer.render(in: context.cgContext) }
+        try #require(image.pngData()).write(to: folder.appendingPathComponent("archive-withdrawn-copy.png"))
+        let routes = ConsentWire.requests.map { ($0.httpMethod ?? "GET") + " " + ($0.url?.path ?? "") }
+        try JSONSerialization.data(withJSONObject: ["owner": model.sessionHistory.authorizedProfileID ?? "",
+            "sessions": model.sessionHistory.sessions.count, "summary_available": model.sessionHistory.summaryAvailable,
+            "preparing": model.sessionHistory.preparing, "request_routes": routes], options: [.prettyPrinted, .sortedKeys])
+            .write(to: folder.appendingPathComponent("archive-withdrawn-copy.json"))
+    }
+
     /// Actual archive list over the qualified owner and unchanged summary fixture.
     @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_ARCHIVE_DIR"] != nil))
     func actualIOSNativeArchiveSummaryWithdrawal() async throws {
