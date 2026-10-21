@@ -15243,6 +15243,11 @@ private struct LocalGameSurface: View {
             isGameFocused = false
             reset()
         }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                resetButton
+            }
+        }
     }
 
     private var gameCanvas: some View {
@@ -15316,7 +15321,7 @@ private struct LocalGameSurface: View {
     @ViewBuilder
     private var controlsView: some View {
         if game == .pacman {
-            LazyVGrid(columns: controlColumns(count: 5), spacing: 10) {
+            LazyVGrid(columns: controlColumns(count: 4), spacing: 10) {
                 directionButton(localizedKey(language, "ui.up"), icon: "chevron.up") {
                     setPacmanDirection(dx: 0, dy: -1)
                 }
@@ -15329,12 +15334,11 @@ private struct LocalGameSurface: View {
                 directionButton(localizedKey(language, "ui.right"), icon: "chevron.right") {
                     setPacmanDirection(dx: 1, dy: 0)
                 }
-                resetButton
             }
             .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
             .controlSize(.large)
         } else {
-            LazyVGrid(columns: controlColumns(count: game == .pong ? 3 : 4), spacing: 10) {
+            LazyVGrid(columns: controlColumns(count: game == .pong ? 2 : 3), spacing: 10) {
                 directionButton(primaryMoveLabel, icon: primaryMoveIcon) {
                     move(-1)
                 }
@@ -15354,7 +15358,6 @@ private struct LocalGameSurface: View {
                     .help(localizedKey(language, "ui.fire"))
                 }
 
-                resetButton
             }
             .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
             .controlSize(.large)
@@ -15389,6 +15392,7 @@ private struct LocalGameSurface: View {
                 .frame(height: 24)
         }
         .help(localizedKey(language, "ui.reset"))
+        .accessibilityIdentifier("games-restart")
     }
 
     private var pacmanColumnCount: Int { 9 }
