@@ -332,7 +332,11 @@ struct NativeSessionMomentsView: View {
         #endif
     }
 
-    private func currentMoment(at date: Date) -> DJConnectMoment? { session.broadcast.nativeCurrentMoment(at: date, spotifyAttributionAvailable: spotifyAttributionLogo != nil) }
+    private func currentMoment(at date: Date) -> DJConnectMoment? {
+        guard let moment = session.broadcast.nativeCurrentMoment(at: date, spotifyAttributionAvailable: spotifyAttributionLogo != nil),
+              playbackModel?.sessionHistory.contentMomentWasWithdrawn(sessionID: session.id, momentID: moment.id) != true else { return nil }
+        return moment
+    }
 
     private func kind(_ moment: DJConnectMoment) -> String {
         let mapped = ["track": "track_context", "artist": "artist_story", "album": "album_story", "genre": "genre_story", "session": "session_direction"][moment.type] ?? moment.type
@@ -393,6 +397,7 @@ struct NativeSessionMomentsView: View {
                 artworkModel: playbackModel,
                 speech: session.broadcast.sessionSpeech.first { $0.reference == .moment(sessionID: session.id, momentID: moment.id) })
                 .id(moment.id)
+                .djContentDeletion(model: playbackModel, target: .init(kind: "moment", sessionID: session.id, targetID: moment.id))
                 .transition(.opacity)
                 .accessibilityIdentifier("session-current-moment")
         } else {

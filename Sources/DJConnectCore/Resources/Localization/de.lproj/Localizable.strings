@@ -1489,3 +1489,14 @@
 "ui.ha_speech.retry_delay" = "Die Sprachausgabe pausiert vorübergehend nach einem fehlgeschlagenen Versuch.";
 
 "ui.session.history.delete.unconfirmed" = "Die Löschung ist noch nicht bestätigt. Es wird kein neuer Löschauftrag gesendet. Aktualisieren liest nur den Verlauf.";
+
+/* Server-confirmed individual content deletion. */
+"ui.content.delete.action" = "Beitrag löschen";
+"ui.content.delete.confirm" = "Diesen Beitrag löschen?";
+"ui.content.delete.unit.moment" = "DJ-Moment";
+"ui.content.delete.unit.exchange" = "Vollständige Frage und Antwort";
+"ui.content.delete.unit.attempt" = "Ursprüngliche ausstehende Anfrage";
+"ui.content.delete.scope" = "Zeilen: %d entfernt, %d nicht verfügbar. Nachrichten: %d entfernt, %d nicht verfügbar. DJ-Momente: %d. Gesperrte Anfragen: %d.";
+"ui.content.delete.playback" = "Die Session und Musikwiedergabe bleiben erhalten.";
+"ui.content.delete.expires" = "Gültig bis %@";
+"ui.content.delete.status" = "Löschstatus prüfen";

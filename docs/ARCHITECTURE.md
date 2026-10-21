@@ -274,6 +274,26 @@ only when the backend returns an advanced `clear_revision`; this keeps
 cross-device clears authoritative and avoids treating a bounded history window
 as a deletion signal.
 
+Individual contribution deletion uses the backend-owned
+`SESSION_CONTENT_DELETION_V1` contract: an exact server target is prepared before
+explicit confirmation of its full exchange/Moment/dependency scope. Context menus
+and horizontal row reveal use the same action. Standalone Profile messages carry
+an explicit empty Session ID; clients never infer the current Session or exchange
+membership from text/adjacency. These closed-allowlist routes use only flat
+`device_id`/`client_type` with the existing Bearer credential, not the generic rich
+identity wrapper. Capabilities and exact version1 gate every operation.
+
+Before a confirmed POST, an installation-local bounded journal synchronizes the
+original operation/body, prepared identifiers and hashed owner/device/credential
+bindings. It contains no prompt, response body or bearer credential. Unknown or
+expired outcomes prevent new operation IDs, including after model reconstruction.
+An explicit status action uses GET with the original operation/confirmation only;
+it never replays a POST or renews its lifetime. A bound completed receipt withdraws
+affected grants/cache epochs; fresh admitted reads precede clearing the journal.
+Unrelated pending asks or voice capture prevent this cache transition, and the
+composer is gated during the transition. Whole-session deletion remains a separate
+archive contract with its existing journal; it cannot borrow a content token.
+
 Ask DJ text and command payloads carry explicit app identity fields:
 `device_id`, `device_name`, `client_id`, and `client_type`. `client_id`
 currently mirrors `device_id`. When users tap backend-provided

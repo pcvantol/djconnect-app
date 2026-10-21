@@ -405,6 +405,9 @@ public struct DJConnectSessionHistoryCapabilities: Decodable, Sendable {
     public var deletionAvailable: Bool {
         available && capabilities?["session_history_delete"] == true && contractVersions?["session_history_delete"] == 1
     }
+    public var contentDeletionAvailable: Bool {
+        available && capabilities?["session_content_delete"] == true && contractVersions?["session_content_delete"] == 1
+    }
     public var artworkAvailable: Bool {
         capabilities?["session_artwork"] == true && contractVersions?["session_artwork"] == 1
     }

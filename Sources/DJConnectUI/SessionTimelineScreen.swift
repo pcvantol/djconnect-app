@@ -86,9 +86,7 @@ struct SavedSessionsView: View {
                 if showsListHeader {
                 VStack(alignment: .leading, spacing: 16) {
                     if history.hasUnconfirmedDeletion {
-                        Text(text("ui.session.history.delete.unconfirmed"))
-                            .font(.callout).fixedSize(horizontal: false, vertical: true)
-                            .accessibilityIdentifier("history-deletion-unconfirmed")
+                        ContentDeletionPendingNotice(model: model)
                     }
                     #if !os(iOS)
                     if !initialLoadFinished || history.listLoading || history.preparing {
@@ -621,11 +619,9 @@ struct SessionTimelineScreen: View {
                     }
                     .safeAreaInset(edge: .top, spacing: 0) {
                         VStack(spacing: 0) {
-                            if activeSession == nil && history.hasUnconfirmedDeletion {
-                                Text(text("ui.session.history.delete.unconfirmed"))
-                                    .font(.callout).fixedSize(horizontal: false, vertical: true)
+                            if history.hasUnconfirmedDeletion {
+                                ContentDeletionPendingNotice(model: model)
                                     .padding(.horizontal, 20).padding(.vertical, 10)
-                                    .accessibilityIdentifier("history-deletion-unconfirmed")
                             }
                             if searching && activeSession == nil {
                                 TimelineView(SessionEntryRefreshSchedule(deadlines: history.searchMatches.compactMap { DJConnectHistoryEntry.date($0.retainedUntil) })) { _ in searchBar(proxy: proxy) }
@@ -1478,6 +1474,9 @@ struct SessionEntryView: View, Equatable {
             }
         }
         .padding(4)
+        .djContentDeletion(model: artworkModel, target: entry.isRetained() &&
+            [DJConnectHistoryEntry.Kind.djMoment, .conversationUser, .conversationDJ].contains(entry.kind)
+            ? .init(kind: "entry", sessionID: entry.sessionID, targetID: entry.id) : nil)
     }
     private var horizontalPlayback: Bool {
         guard entry.kind == .playbackObserved else { return false }
@@ -2610,6 +2609,7 @@ private struct SessionCurrentConversationBubble: View {
             setPromptAction: setPromptAction, isReadOnly: true, allowsConversationMenu: true, allowsSessionPlaybackActions: true,
             speechEnabled: model.sharedDJSpeechAllowed,
             sharedSpeechActions: { AnyView(SharedDJSpeechActions(model: model, speech: message.sessionSpeech, acceptedText: message.text)) })
+            .djContentDeletion(model: model, target: model.sessionHistory.contentDeletionTarget(for: message))
     }
 }
 

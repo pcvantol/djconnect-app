@@ -979,7 +979,7 @@ public final class DJConnectAppModel: ObservableObject {
     public var canRefreshSessionHistory: Bool { isAppInForeground && pairingStatus == .paired && !isDemoMode }
     public var canUseProfileConversation: Bool {
         sessionHistory.available && sessionHistory.profileScopeActive && sessionHistory.hasAuthorizedOwner &&
-        canRefreshSessionHistory && isRuntimeCompatible && haConnectionMode != .offline
+        canRefreshSessionHistory && !sessionHistory.contentDeletionBusy && isRuntimeCompatible && haConnectionMode != .offline
     }
     public var canUseAskDJFeatures: Bool {
         sessionHistory.profileScopeActive ? canUseProfileConversation : canUsePlaybackFeatures
@@ -1435,6 +1435,12 @@ public final class DJConnectAppModel: ObservableObject {
         return SHA256.hash(data: Data(bytes.utf8)).map { String(format: "%02x", $0) }.joined()
     }
     var historyDeletionJournalData: Data? { defaults.data(forKey: "DJConnectHistoryDeletionJournal.v1") }
+    var contentDeletionJournalData: Data? { defaults.data(forKey: "DJConnectContentDeletionJournal.v1") }
+    @discardableResult func storeContentDeletionJournal(_ data: Data?) -> Bool {
+        if let data { defaults.set(data, forKey: "DJConnectContentDeletionJournal.v1") }
+        else { defaults.removeObject(forKey: "DJConnectContentDeletionJournal.v1") }
+        return defaults.synchronize()
+    }
     @discardableResult func storeHistoryDeletionJournal(_ data: Data?) -> Bool {
         if let data { defaults.set(data, forKey: "DJConnectHistoryDeletionJournal.v1") }
         else { defaults.removeObject(forKey: "DJConnectHistoryDeletionJournal.v1") }
@@ -4729,6 +4735,16 @@ public final class DJConnectAppModel: ObservableObject {
 
     func invalidateConversationResultLeases() {
         conversationResultLeases = [:]; conversationResultLeaseOrder = []
+    }
+
+    func withdrawDeletedContentPresentation(_ receipt: DJConnectContentDeleteReceipt, target: DJConnectContentDeleteTarget) {
+        let ids = Set(receipt.removed_message_ids + receipt.unavailable_message_ids)
+        askDJMessages.removeAll { $0.serverID.map(ids.contains) == true ||
+            (target.kind == "request" && $0.clientMessageID == target.target_id) }
+        liveConversationPresentations = liveConversationPresentations.filter { !ids.contains($0.key) }
+        invalidateConversationResultLeases()
+        stopResponsePlayback(clearText: true)
+        dismissMomentTrackInsight()
     }
 
     func withdrawDeletedSessionPresentation(_ sessionID: String, entries: [DJConnectHistoryEntry], invalidatingAllLeases: Bool = true) {

@@ -841,6 +841,62 @@ public final class DJConnectClient: Sendable {
         }
     }
 
+    public func prepareContentDeletion(_ target: DJConnectContentDeleteTarget, expectedOwner: String) async throws -> DJConnectContentDeleteScope {
+        guard target.isValid, !expectedOwner.isEmpty else { throw DJConnectError.invalidResponse }
+        struct Payload: Encodable {
+            let device_id, client_type: String
+            let contract_version = 1
+            let target: DJConnectContentDeleteTarget
+        }
+        var request = try authenticatedRequest(path: Self.apiV1Path("session/content/delete/prepare"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(Payload(device_id: identity.deviceID, client_type: identity.clientType.rawValue, target: target))
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        request.setValue("no-referrer", forHTTPHeaderField: "Referrer-Policy")
+        let scope: DJConnectContentDeleteScope = try await decodedResponse(for: request, using: sessionProjectionSession)
+        guard scope.admits(target: target, owner: expectedOwner) else { throw DJConnectError.invalidResponse }
+        return scope
+    }
+
+    public func contentDeletionStatus(_ body: DJConnectContentDeleteRequest, scope: DJConnectContentDeleteScope,
+                                      expectedOwner: String) async throws -> DJConnectContentDeleteStatus {
+        guard body.isValid, body.device_id == identity.deviceID, body.client_type == identity.clientType.rawValue else {
+            throw DJConnectError.invalidResponse
+        }
+        var request = try authenticatedRequest(path: Self.apiV1Path("session/content/delete/status"))
+        var url = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!
+        url.queryItems = [URLQueryItem(name: "device_id", value: body.device_id),
+            URLQueryItem(name: "client_type", value: body.client_type), URLQueryItem(name: "contract_version", value: "1"),
+            URLQueryItem(name: "operation_id", value: body.operation_id), URLQueryItem(name: "confirmation_id", value: body.confirmation_id)]
+        request.url = url.url
+        request.httpMethod = "GET"; request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        request.setValue("no-referrer", forHTTPHeaderField: "Referrer-Policy")
+        let status: DJConnectContentDeleteStatus = try await decodedResponse(for: request, using: sessionProjectionSession)
+        guard status.admits(scope: scope, request: body, owner: expectedOwner) else { throw DJConnectError.invalidResponse }
+        return status
+    }
+
+    public func deleteContent(_ body: DJConnectContentDeleteRequest, scope: DJConnectContentDeleteScope,
+                              expectedOwner: String) async throws -> DJConnectContentDeleteReceipt {
+        guard body.isValid, body.device_id == identity.deviceID, body.client_type == identity.clientType.rawValue,
+              scope.admits(target: scope.target, owner: expectedOwner), body.confirmation_id == scope.confirmation_id else {
+            throw DJConnectError.invalidResponse
+        }
+        var request = try authenticatedRequest(path: Self.apiV1Path("session/content/delete"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(body)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        request.setValue("no-referrer", forHTTPHeaderField: "Referrer-Policy")
+        let result: DJConnectContentDeleteReceipt = try await decodedResponse(for: request, using: sessionProjectionSession)
+        guard result.admits(scope: scope, request: body, owner: expectedOwner) else { throw DJConnectError.invalidResponse }
+        return result
+    }
+
     public func deleteSavedSession(_ action: DJConnectSessionDeleteRequest, expectedOwner: String) async throws -> DJConnectSessionDeleteResponse {
         guard action.isValid, !expectedOwner.isEmpty else { throw DJConnectError.invalidResponse }
         let payload = HistoryDeletePayload(deviceID: identity.deviceID, clientType: identity.clientType,

@@ -5443,7 +5443,185 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     #expect(receipt.admits(action, owner: "profile-a") == (mutation == "ok"))
 }
 
-@Test(arguments: ["malformed", "oversized"])
+@Test(arguments: ["completed", "pending", "wrong_receipt", "conflict", "withdrawn",
+                  "status_completed", "status_pending", "status_unknown", "status_expired_unknown"])
+@MainActor func contentDeletionUsesFlatBoundWireAndNeverRenewsUnknown(_ outcome: String) async throws {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let wire = try #require(JSONSerialization.jsonObject(with: Data(contentsOf:
+        root.appendingPathComponent("Fixtures/content-deletion-core-58561f97.json"))) as? [String: Any])
+    let examples = try #require(wire["examples"] as? [String: Any])
+    var preview = try #require(examples["prepare_response"] as? [String: Any])
+    // Only confirmation clocks are rebased for this explicitly synthetic current-time client.
+    preview["created_at"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1))
+    preview["expires_at"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(240))
+    let previewData = try historyData(preview)
+    let scope = try JSONDecoder().decode(DJConnectContentDeleteScope.self, from: previewData)
+    let receiptTemplateData = try historyData(try #require(examples["delete_response"]))
+    let statusTemplateData = try historyData(try #require(examples["completed_status_response"]))
+    let pending = try historyData(try #require(examples["pending_response"]))
+    let producer = try historyObject()
+    let profile = try historyData(try #require(producer["later_historical_answer"]))
+    let caps = try historyData(["capabilities": ["session_conversation_history": true,
+        "session_content_delete": true, "session_history_delete": true, "session_history_bulk_delete": true],
+        "contract_versions": ["session_conversation_history": 1, "session_content_delete": 1,
+                              "session_history_delete": 1, "session_history_bulk_delete": 1]])
+    let oldTimeline = try #require(producer["archived_timeline"] as? [String: Any])
+    let oldHeader = try #require(oldTimeline["session"] as? [String: Any])
+    let oldID = try #require(oldHeader["session_id"] as? String)
+    // Independent retained rows are supplied by the existing history regression.
+    // Rebind only its Session ID to the new fixture's opaque Session for readback.
+    func rebound(_ value: Any) -> Any {
+        if let s = value as? String { return s == oldID ? scope.unit.session_id : s }
+        if let d = value as? [String: Any] { return d.mapValues(rebound) }
+        if let a = value as? [Any] { return a.map(rebound) }
+        return value
+    }
+    let detail = try historyData(rebound(oldTimeline))
+    let independent = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: detail)
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("/ask_dj/history") { return (200, profile, 0) }
+        if path.hasSuffix("/session/content/delete/prepare") { return (200, previewData, 0) }
+        if path.hasSuffix("/session/content/delete/status") {
+            var status = try #require(JSONSerialization.jsonObject(with: statusTemplateData) as? [String: Any])
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
+            let id = try #require(query.first { $0.name == "operation_id" }?.value)
+            status["operation_id"] = id
+            let state = outcome.replacingOccurrences(of: "status_", with: "")
+            status["state"] = state; status["definitive"] = state == "completed"
+            if state == "completed" {
+                var receipt = try #require(status["receipt"] as? [String: Any])
+                receipt["operation_id"] = id; status["receipt"] = receipt
+            } else { status.removeValue(forKey: "receipt") }
+            return (200, try historyData(status), 0)
+        }
+        if path.hasSuffix("/session/content/delete") {
+            if outcome == "pending" || outcome.hasPrefix("status_") { return (503, pending, 0) }
+            if outcome == "conflict" { return (409, Data(), 0) }
+            var receipt = try #require(JSONSerialization.jsonObject(with: receiptTemplateData) as? [String: Any])
+            let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+            receipt["operation_id"] = body["operation_id"]
+            if outcome == "wrong_receipt" { receipt["request_digest"] = "wrong" }
+            return (200, try historyData(receipt), outcome == "withdrawn" ? 0.1 : 0)
+        }
+        return (200, detail, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare()
+    #expect(await history.loadTimeline(scope.unit.session_id))
+    let epoch = history.responseEpoch
+    let prepared = try #require(await history.prepareContentDeletion(scope.target, expectedEpoch: epoch))
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/content/delete") }.isEmpty)
+    if outcome == "withdrawn" {
+        let task = Task { @MainActor in await history.deleteContent(prepared, expectedEpoch: epoch) }
+        for _ in 0..<100 where !fixture.requests.contains(where: { $0.url!.path.hasSuffix("/session/content/delete") }) {
+            try await Task.sleep(for: .milliseconds(2))
+        }
+        #expect(!model.canUseProfileConversation)
+        model.askDJDraft = "Keep this unrelated unsent question"
+        history.sendText()
+        #expect(model.askDJDraft == "Keep this unrelated unsent question")
+        #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/ask_dj/message") })
+        history.suspend()
+        #expect(await task.value == false)
+        await history.prepare()
+    } else {
+        #expect(await history.deleteContent(prepared, expectedEpoch: epoch) == (outcome == "completed"))
+    }
+    let mutations = fixture.requests.filter { $0.url!.path.hasSuffix("/session/content/delete") }
+    #expect(mutations.count == 1)
+    let mutation = try #require(mutations.first)
+    let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(mutation)) as? [String: Any])
+    #expect(Set(body.keys) == ["device_id", "client_type", "contract_version", "confirmation_id", "operation_id", "confirmed"])
+    let preparation = try #require(fixture.requests.first { $0.url!.path.hasSuffix("/session/content/delete/prepare") })
+    let prepareBody = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(preparation)) as? [String: Any])
+    #expect(Set(prepareBody.keys) == ["device_id", "client_type", "contract_version", "target"])
+    #expect(mutations.first?.value(forHTTPHeaderField: "Cache-Control") == "no-store")
+    #expect(mutations.first?.value(forHTTPHeaderField: "Referrer-Policy") == "no-referrer")
+    let unknown = ["pending", "wrong_receipt", "withdrawn"].contains(outcome) || outcome.hasPrefix("status_")
+    #expect(history.hasUnconfirmedDeletion == unknown)
+    #if os(macOS)
+    if outcome == "pending", let directory = ProcessInfo.processInfo.environment["DJCONNECT_CONTENT_DELETE_NATIVE_DIR"] {
+        let folder = URL(fileURLWithPath: directory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        _ = NSApplication.shared
+        let entry = try #require(independent.entries.first)
+        let host = NSHostingView(rootView: VStack(alignment: .leading, spacing: 16) {
+            ContentDeletionPendingNotice(model: model)
+            SessionEntryView(entry: entry, language: model.language, artworkModel: model)
+        }.padding(20).foregroundStyle(.white).background(Color.black).preferredColorScheme(.dark))
+        let window = NSWindow(contentRect: .init(x: -3000, y: -3000, width: 430, height: 700),
+            styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
+        defer { window.close() }
+        for width: CGFloat in [430, 320] {
+            window.setContentSize(.init(width: width, height: 700))
+            try await Task.sleep(for: .milliseconds(200))
+            host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
+            let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: bitmap)
+            try #require(bitmap.representation(using: .png, properties: [:]))
+                .write(to: folder.appendingPathComponent("pending-\(Int(width)).png"))
+        }
+        // Public AppKit bridge only; absence is a host limit, never a fake click.
+        func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
+        let title = DJConnectLocalization.localized(key: "ui.content.delete.status", language: model.language)
+        let buttons = descendants(host).compactMap { $0 as? NSButton }.filter { $0.title == title }
+        let before = fixture.requests.count
+        if buttons.count == 1 {
+            buttons[0].performClick(nil)
+            for _ in 0..<100 where fixture.requests.count == before { try await Task.sleep(for: .milliseconds(5)) }
+            #expect(fixture.requests.dropFirst(before).contains { $0.httpMethod == "GET" && $0.url!.path.hasSuffix("/session/content/delete/status") })
+        }
+        try JSONSerialization.data(withJSONObject: ["native_status_button_bridges": buttons.count,
+            "request_count_before": before, "request_count_after": fixture.requests.count,
+            "pending_retained": history.hasUnconfirmedDeletion], options: [.prettyPrinted, .sortedKeys])
+            .write(to: folder.appendingPathComponent("native-observations.json"))
+    }
+    #endif
+    if unknown {
+        let stored = try #require(model.contentDeletionJournalData)
+        let journal = try JSONDecoder().decode([String: DJConnectSessionHistoryModel.PendingContentDeletion].self, from: stored)
+        let saved = try #require(journal.values.first)
+        #expect(saved.request.operation_id == body["operation_id"] as? String)
+        #expect(!String(decoding: stored, as: UTF8.self).contains("synthetic-fixture-token"))
+        #expect(!history.canPrepareBulkDeletion)
+        #expect(await history.prepareContentDeletion(scope.target, expectedEpoch: history.responseEpoch) == nil)
+        let reopened = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-fixture-token"),
+            urlSession: fixture.session(), startBackgroundTasks: false)
+        await reopened.sessionHistory.prepare()
+        #expect(reopened.sessionHistory.hasUnconfirmedDeletion)
+        #expect(!reopened.sessionHistory.canDeleteContent(scope.target))
+        if outcome == "pending" {
+            defaults.set("changed-after-unknown", forKey: "DJConnectHAInstallID")
+            #expect(reopened.sessionHistory.hasUnconfirmedDeletion)
+            #expect(!reopened.sessionHistory.canCheckContentDeletionStatus)
+            let count = fixture.requests.count
+            #expect(await reopened.sessionHistory.checkContentDeletionStatus() == false)
+            #expect(fixture.requests.count == count)
+        }
+        if outcome.hasPrefix("status_") {
+            #expect(await reopened.sessionHistory.checkContentDeletionStatus() == (outcome == "status_completed"))
+            #expect(reopened.sessionHistory.hasUnconfirmedDeletion == (outcome != "status_completed"))
+            let statusRead = try #require(fixture.requests.first { $0.url!.path.hasSuffix("/session/content/delete/status") })
+            #expect(statusRead.httpMethod == "GET")
+            let query = try #require(URLComponents(url: statusRead.url!, resolvingAgainstBaseURL: false)?.queryItems)
+            #expect(Set(query.map(\.name)) == ["device_id", "client_type", "contract_version", "operation_id", "confirmation_id"])
+            #expect(query.first { $0.name == "operation_id" }?.value == saved.request.operation_id)
+            #expect(query.first { $0.name == "confirmation_id" }?.value == saved.request.confirmation_id)
+        }
+        #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/content/delete") }.count == 1)
+    } else if outcome == "completed" {
+        #expect(history.responseEpoch != epoch)
+        #expect(history.timelines[scope.unit.session_id]?.entries == independent.entries)
+    }
+}
+
+@Test(arguments: ["malformed", "oversized", "content-malformed", "content-oversized"])
 @MainActor func invalidDeletionJournalCannotEnableAnotherMutation(_ mode: String) async throws {
     let producer = try historyObject()
     let archiveData = try historyData(try #require(producer["archived_timeline"]))
@@ -5460,7 +5638,9 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     defer { fixture.close() }
     let (original, defaults, name) = fixture.model()
     defer { defaults.removePersistentDomain(forName: name) }
-    original.storeHistoryDeletionJournal(mode == "malformed" ? Data("bad-json".utf8) : Data(repeating: 0, count: 262_145))
+    let invalidData = mode.hasSuffix("malformed") ? Data("bad-json".utf8) : Data(repeating: 0, count: 262_145)
+    if mode.hasPrefix("content-") { original.storeContentDeletionJournal(invalidData) }
+    else { original.storeHistoryDeletionJournal(invalidData) }
     let reopened = DJConnectAppModel(defaults: defaults,
         tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-fixture-token"),
         urlSession: fixture.session(), startBackgroundTasks: false)

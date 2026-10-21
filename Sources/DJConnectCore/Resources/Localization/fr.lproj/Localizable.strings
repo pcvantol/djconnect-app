@@ -1489,3 +1489,14 @@
 "ui.ha_speech.retry_delay" = "La synthèse vocale est temporairement suspendue après une tentative échouée.";
 
 "ui.session.history.delete.unconfirmed" = "La suppression n’est pas encore confirmée. Aucune nouvelle demande de suppression ne sera envoyée. L’actualisation ne fait que lire l’historique.";
+
+/* Server-confirmed individual content deletion. */
+"ui.content.delete.action" = "Supprimer la contribution";
+"ui.content.delete.confirm" = "Supprimer cette contribution ?";
+"ui.content.delete.unit.moment" = "Moment du DJ";
+"ui.content.delete.unit.exchange" = "Question et réponse complètes";
+"ui.content.delete.unit.attempt" = "Demande initiale en attente";
+"ui.content.delete.scope" = "Lignes : %d supprimées, %d indisponibles. Messages : %d supprimés, %d indisponibles. Moments du DJ : %d. Demandes bloquées : %d.";
+"ui.content.delete.playback" = "La session et la lecture musicale sont conservées.";
+"ui.content.delete.expires" = "Valable jusqu’à %@";
+"ui.content.delete.status" = "Vérifier la suppression";

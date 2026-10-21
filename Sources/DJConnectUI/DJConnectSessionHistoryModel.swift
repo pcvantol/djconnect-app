@@ -111,6 +111,20 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     @Published public private(set) var summaryAvailable = false
     @Published public private(set) var bulkDeletionAvailable = false
     @Published public private(set) var bulkDeletionBusy = false
+    @Published public private(set) var contentDeletionAvailable = false
+    @Published public private(set) var contentDeletionBusy = false
+    struct PendingContentDeletion: Codable {
+        let owner, scope, binding: String
+        let prepared: DJConnectContentDeleteScope
+        let request: DJConnectContentDeleteRequest
+        var isValid: Bool {
+            !owner.isEmpty && scope.count == 64 && binding.count == 64 && request.isValid &&
+            prepared.owner_profile_id == owner && prepared.confirmation_id == request.confirmation_id
+        }
+    }
+    @Published private var contentDeletionJournal: [String: PendingContentDeletion] = [:]
+    private var invalidContentDeletionJournal = false
+    @Published private var withdrawnContentMoments: Set<String> = []
     private var archiveGeneration = UUID()
     @Published public private(set) var archiveResponseEpoch = UUID()
     @Published public private(set) var deletionAvailable = false
@@ -130,7 +144,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     private var invalidDeletionJournal = false
     public var hasUnconfirmedDeletion: Bool {
         guard let host, let ownerScope else { return false }
-        return invalidDeletionJournal || deletionJournal[host.historyDeletionScope(owner: ownerScope)] != nil
+        let scope = host.historyDeletionScope(owner: ownerScope)
+        return invalidDeletionJournal || invalidContentDeletionJournal || deletionJournal[scope] != nil || contentDeletionJournal[scope] != nil
     }
     private func saveDeletionJournal() -> Bool {
         guard let host, let data = try? JSONEncoder().encode(deletionJournal), data.count <= 262_144 else { return false }
@@ -296,6 +311,13 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     init(host: DJConnectAppModel) {
         self.host = host
+        if let data = host.contentDeletionJournalData {
+            if data.count <= 262_144,
+               let records = try? JSONDecoder().decode([String: PendingContentDeletion].self, from: data),
+               records.count <= 32, records.allSatisfy({ $0.key == $0.value.scope && $0.value.isValid }) {
+                contentDeletionJournal = records
+            } else { invalidContentDeletionJournal = true }
+        }
         if let data = host.historyDeletionJournalData {
             if data.count <= 262_144, let records = try? JSONDecoder().decode([String: PendingDeletion].self, from: data),
                records.count <= 32, records.allSatisfy({ $0.key == $0.value.scope && $0.value.isValid }) {
@@ -380,6 +402,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             summaryAvailable = caps.summaryAvailable
             deletionAvailable = caps.deletionAvailable
             bulkDeletionAvailable = caps.bulkDeletionAvailable
+            contentDeletionAvailable = caps.contentDeletionAvailable
             available = caps.available; searchAvailable = caps.searchAvailable; momentInsightAvailable = caps.momentInsightAvailable
             if available && !profileScopeActive {
                 while host.isSendingAskDJText || host.isRecordingVoice || host.voiceStatus == .processing {
@@ -399,6 +422,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func reset() {
+        contentDeletionAvailable = false
         summaryAvailable = false
         deletionAvailable = false; bulkDeletionAvailable = false; bulkDeletionBusy = false; archiveGeneration = UUID(); archiveResponseEpoch = archiveGeneration; deletingSessionID = nil; deletionGeneration = UUID()
         historyContractVersion = 1
@@ -424,6 +448,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func suspend(preservingVoicePreference: Bool = false, cancelPreparation: Bool = true) {
+        contentDeletionAvailable = false
         summaryAvailable = false
         deletionAvailable = false; bulkDeletionAvailable = false; bulkDeletionBusy = false; archiveGeneration = UUID(); archiveResponseEpoch = archiveGeneration; deletingSessionID = nil; deletionGeneration = UUID()
         if preservingVoicePreference { host?.invalidateActiveVoiceInventory() }
@@ -457,7 +482,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public var canPrepareBulkDeletion: Bool {
-        bulkDeletionAvailable && !bulkDeletionBusy && deletingSessionID == nil && !historyNeedsUpgrade && !hasUnconfirmedDeletion
+        bulkDeletionAvailable && !contentDeletionBusy && !bulkDeletionBusy && deletingSessionID == nil && !historyNeedsUpgrade && !hasUnconfirmedDeletion
             && ownerScope != nil && host?.canRefreshSessionHistory == true
     }
 
@@ -537,8 +562,127 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
     }
 
+    func contentDeletionTarget(for message: DJConnectAskDJMessage) -> DJConnectContentDeleteTarget? {
+        if let entry = contextEntry(for: message) {
+            return .init(kind: "entry", sessionID: entry.sessionID, targetID: entry.id)
+        }
+        if let id = message.serverID, !id.isEmpty {
+            // Explicit standalone scope; never substitute the current Session.
+            return .init(kind: "message", sessionID: "", targetID: id)
+        }
+        if let turn = pendingTurns.first(where: { $0.id == message.clientMessageID }) {
+            return .init(kind: "request", sessionID: turn.context.sessionID ?? "", targetID: turn.id)
+        }
+        return nil
+    }
+    func canDeleteContent(_ target: DJConnectContentDeleteTarget) -> Bool {
+        target.isValid && contentDeletionAvailable && !contentDeletionBusy && !hasUnconfirmedDeletion &&
+        !bulkDeletionBusy && deletingSessionID == nil && hasAuthorizedOwner && host?.canRefreshSessionHistory == true && host?.isDemoMode == false
+        && contentDeletionPreservesOtherWork(target)
+    }
+    private func contentDeletionPreservesOtherWork(_ target: DJConnectContentDeleteTarget) -> Bool {
+        // The cache epoch fence must not discard an unrelated request in flight.
+        pendingTurns.allSatisfy { target.kind == "request" && $0.id == target.target_id } &&
+        host?.isRecordingVoice == false && host?.voiceStatus != .processing
+    }
+    func contentMomentWasWithdrawn(sessionID: String, momentID: String) -> Bool {
+        guard let ownerScope, let host else { return false }
+        return withdrawnContentMoments.contains(host.historyDeletionScope(owner: ownerScope) + "\u{0}" + sessionID + "\u{0}" + momentID)
+    }
+    func prepareContentDeletion(_ target: DJConnectContentDeleteTarget, expectedEpoch: UUID) async -> DJConnectContentDeleteScope? {
+        guard expectedEpoch == epoch, canDeleteContent(target), let owner = ownerScope, let host else { return nil }
+        let binding = host.historyDeletionScope(owner: owner, bindCredential: true)
+        do {
+            let scope = try await host.withHomeAssistantClient(allowsOperationReplay: false) {
+                try await $0.prepareContentDeletion(target, expectedOwner: owner)
+            }
+            guard epoch == expectedEpoch, ownerScope == owner, canDeleteContent(target),
+                  binding == host.historyDeletionScope(owner: owner, bindCredential: true),
+                  scope.admits(target: target, owner: owner), !Task.isCancelled else { return nil }
+            return scope
+        } catch { return nil }
+    }
+    private func saveContentDeletionJournal() -> Bool {
+        guard let host, let data = try? JSONEncoder().encode(contentDeletionJournal), data.count <= 262_144 else { return false }
+        return host.storeContentDeletionJournal(data) && host.contentDeletionJournalData == data
+    }
+    @discardableResult func deleteContent(_ prepared: DJConnectContentDeleteScope, expectedEpoch: UUID) async -> Bool {
+        guard expectedEpoch == epoch, canDeleteContent(prepared.target), let owner = ownerScope, let host,
+              prepared.admits(target: prepared.target, owner: owner), contentDeletionJournal.count < 32 else { return false }
+        let key = host.historyDeletionScope(owner: owner)
+        let record = PendingContentDeletion(owner: owner, scope: key,
+            binding: host.historyDeletionScope(owner: owner, bindCredential: true), prepared: prepared,
+            request: .init(identity: host.identity, confirmationID: prepared.confirmation_id))
+        guard record.isValid, contentDeletionJournal[key] == nil else { return false }
+        contentDeletionJournal[key] = record
+        guard saveContentDeletionJournal() else { invalidContentDeletionJournal = true; return false }
+        contentDeletionBusy = true
+        defer { contentDeletionBusy = false }
+        do {
+            let receipt = try await host.withHomeAssistantClient(allowsOperationReplay: false) {
+                try await $0.deleteContent(record.request, scope: prepared, expectedOwner: owner)
+            }
+            guard expectedEpoch == epoch, ownerScope == owner, host.canRefreshSessionHistory,
+                  record.binding == host.historyDeletionScope(owner: owner, bindCredential: true),
+                  receipt.admits(scope: prepared, request: record.request, owner: owner), !Task.isCancelled else { return false }
+            return await finishContentDeletion(record, receipt: receipt)
+        } catch {
+            if deletionWasDefinitivelyRejected(error) {
+                contentDeletionJournal[key] = nil
+                if !saveContentDeletionJournal() { invalidContentDeletionJournal = true }
+            }
+            return false
+        }
+    }
+
+    var canCheckContentDeletionStatus: Bool {
+        guard contentDeletionAvailable, !contentDeletionBusy, let host, let ownerScope,
+              let record = contentDeletionJournal[host.historyDeletionScope(owner: ownerScope)] else { return false }
+        return host.canRefreshSessionHistory && contentDeletionPreservesOtherWork(record.prepared.target) &&
+            record.binding == host.historyDeletionScope(owner: ownerScope, bindCredential: true)
+    }
+    @discardableResult func checkContentDeletionStatus() async -> Bool {
+        guard canCheckContentDeletionStatus, let host, let owner = ownerScope,
+              let record = contentDeletionJournal[host.historyDeletionScope(owner: owner)] else { return false }
+        let captured = epoch
+        contentDeletionBusy = true; defer { contentDeletionBusy = false }
+        do {
+            let status = try await host.withHomeAssistantClient(allowsOperationReplay: false) {
+                try await $0.contentDeletionStatus(record.request, scope: record.prepared, expectedOwner: owner)
+            }
+            guard epoch == captured, ownerScope == owner, host.canRefreshSessionHistory,
+                  record.binding == host.historyDeletionScope(owner: owner, bindCredential: true),
+                  status.admits(scope: record.prepared, request: record.request, owner: owner),
+                  status.state == "completed", let receipt = status.receipt, !Task.isCancelled else { return false }
+            return await finishContentDeletion(record, receipt: receipt)
+        } catch { return false } // A failed read never settles an earlier unknown POST.
+    }
+    private func finishContentDeletion(_ record: PendingContentDeletion, receipt: DJConnectContentDeleteReceipt) async -> Bool {
+        guard let host, ownerScope == record.owner,
+              receipt.admits(scope: record.prepared, request: record.request, owner: record.owner) else { return false }
+        for moment in record.prepared.affected_moments {
+            withdrawnContentMoments.insert(record.scope + "\u{0}" + moment.session_id + "\u{0}" + moment.moment_id)
+        }
+        host.withdrawDeletedContentPresentation(receipt, target: record.prepared.target)
+        // Fence pre-erasure work and grants; restore independent server projections.
+        let activeID = host.activeDJSession?.id
+        suspend()
+        await prepare()
+        guard ownerScope == record.owner, host.canRefreshSessionHistory, !Task.isCancelled else { return false }
+        for id in Set(receipt.affected_entries.map(\.session_id)) {
+            guard await loadTimeline(id) else { return false }
+        }
+        if activeID != nil { guard await host.refreshActiveDJSession() else { return false } }
+        guard ownerScope == record.owner,
+              record.binding == host.historyDeletionScope(owner: record.owner, bindCredential: true),
+              contentDeletionJournal[record.scope]?.request == record.request else { return false }
+        contentDeletionJournal[record.scope] = nil
+        guard saveContentDeletionJournal() else { invalidContentDeletionJournal = true; return false }
+        return true
+    }
+
     public func canDeleteSession(_ sessionID: String) -> Bool {
-        guard deletionAvailable, !bulkDeletionBusy, !historyNeedsUpgrade, !hasUnconfirmedDeletion, ownerScope != nil, let host,
+        guard deletionAvailable, !contentDeletionBusy, !bulkDeletionBusy, !historyNeedsUpgrade, !hasUnconfirmedDeletion, ownerScope != nil, let host,
               host.canRefreshSessionHistory, host.activeDJSession?.id != sessionID,
               let session = timelines[sessionID]?.session ?? sessions.first(where: { $0.id == sessionID }) else { return false }
         return session.isContractValid && session.readOnly && ["ENDED", "INTERRUPTED"].contains(session.lifecycleStatus)

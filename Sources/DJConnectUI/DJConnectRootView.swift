@@ -11140,6 +11140,9 @@ private struct AskDJView: View {
 
     private var content: some View {
             VStack(spacing: 0) {
+                if history.hasUnconfirmedDeletion {
+                    ContentDeletionPendingNotice(model: model).padding(.horizontal, 20).padding(.vertical, 10)
+                }
                 GeometryReader { geometry in
                     let contentWidth = min(maxContentWidth(for: geometry.size), geometry.size.width)
                     ScrollViewReader { proxy in
@@ -11227,6 +11230,7 @@ private struct AskDJView: View {
                                                     AnyView(SharedDJSpeechActions(model: model, speech: message.sessionSpeech, acceptedText: message.text))
                                                 } : nil
                                             )
+                                            .djContentDeletion(model: model, target: isAskDJHistoryStale ? nil : history.contentDeletionTarget(for: message))
                                             .id(message.id)
                                         }
                                     }
@@ -11883,6 +11887,7 @@ private struct AskDJOfflineNotice: View {
 
 /// Native conversation rendering shared with Session timelines.
 struct AskDJMessageBubble: View {
+    @Environment(\.djContentDeleteAction) private var contentDeleteAction
     let message: DJConnectAskDJMessage
     let language: String
     let isStaleHistory: Bool
@@ -11920,6 +11925,11 @@ struct AskDJMessageBubble: View {
         }
         .padding(.trailing, contextQuestionAction != nil && !renderablePlaybackActions.isEmpty ? 36 : 0)
         .contextMenu {
+            if let contentDeleteAction {
+                Button(role: .destructive, action: contentDeleteAction) {
+                    Label(localizedKey(language, "ui.content.delete.action"), systemImage: "trash")
+                }
+            }
             if (!isReadOnly || allowsConversationMenu) && canSetPrompt && !isStaleHistory {
                 Button {
                     DJConnectHaptics.selection()

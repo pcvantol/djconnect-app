@@ -1489,3 +1489,14 @@
 "ui.ha_speech.retry_delay" = "Speech output is temporarily paused after a failed attempt.";
 
 "ui.session.history.delete.unconfirmed" = "Deletion is not yet confirmed. No new deletion request will be sent. Refresh only reads the history.";
+
+/* Server-confirmed individual content deletion. */
+"ui.content.delete.action" = "Delete contribution";
+"ui.content.delete.confirm" = "Delete this contribution?";
+"ui.content.delete.unit.moment" = "DJ moment";
+"ui.content.delete.unit.exchange" = "Complete question and answer";
+"ui.content.delete.unit.attempt" = "Original pending request";
+"ui.content.delete.scope" = "Rows: %d removed, %d made unavailable. Messages: %d removed, %d made unavailable. DJ moments: %d. Fenced requests: %d.";
+"ui.content.delete.playback" = "The Session and music playback are preserved.";
+"ui.content.delete.expires" = "Valid until %@";
+"ui.content.delete.status" = "Check deletion status";
