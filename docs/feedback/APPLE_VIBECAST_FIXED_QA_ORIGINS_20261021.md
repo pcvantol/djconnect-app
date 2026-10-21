@@ -24,6 +24,7 @@ verified before use. No API or receiver source was changed.
 | Before product fix, isolated QA parser test | Failed: production origin selected and QA QR rejected |
 | Production Rendezvous regressions | 71 XCTest + 83 Swift Testing tests passed; zero failures |
 | Separate QA contract suite | 13 XCTest + 6 Swift Testing tests passed; zero failures |
+| Ordinary macOS Xcode test target after resource fix | All four new build-profile tests passed |
 | Unsigned iOS/iPadOS QA app build | Passed using actual app/Core/UI sources |
 | Build readback | QA bundle ID, display name, URL scheme and flavor verified; no embedded signing profile or signature directory |
 | Source-input readback | All 168 recorded input hashes matched; app compilation inputs unchanged by final test-only corrections |
@@ -40,6 +41,16 @@ Initial qualification attempts found and corrected a nested Swift Testing macro,
 QA icon selection, fixture subdirectory lookup, URLProtocol streamed request
 capture and a production-only literal in a negative recovery test. Their failed
 logs remain preserved; only the final successful executions are counted above.
+
+The first PR-wide coverage run then exposed a separate resource-registration
+gap in the ordinary Xcode test target: both new fixture-loading tests failed,
+while the other 1,037 Swift Testing tests passed. SwiftPM and the isolated QA
+project already bundled the files. The ordinary `project.yml` now explicitly
+registers the two same fixture files as test resources, and the generated
+project includes those references. This changes test bundling only.
+The targeted ordinary macOS Xcode rerun passed all four new tests. The failed
+coverage run is `39636523034` on the first PR head `f707985`; the corrected
+PR head must pass its own complete CI/coverage checks before source delivery.
 
 See [generator instructions](../../Tools/qualification/vibecast-fixed-qa/README.md)
 and the adjacent [portable evidence receipt](APPLE_VIBECAST_FIXED_QA_ORIGINS_20261021.json).

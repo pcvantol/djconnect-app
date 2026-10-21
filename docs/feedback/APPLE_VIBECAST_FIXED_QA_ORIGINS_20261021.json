@@ -21,7 +21,8 @@
     "final_failures": 0,
     "unsigned_ios_build": "PASS",
     "recorded_inputs_unchanged": 168,
-    "shipping_qa_condition": false
+    "shipping_qa_condition": false,
+    "ordinary_xcode_build_profile_tests": 4
   },
   "evidence_sha256": {
     "baseline-tests.log": "c57133dd49a23dfa158a6a2e292a2e4a5f7b3f45148874bca23ce40807ea0883",
@@ -29,11 +30,22 @@
     "production-tests-v4.log": "34c660c70058026600ff7fd15d61ed6e1cedb74b3ef05b522634759d5acc3def",
     "ios-build-v3.log": "93f13eea382f3b0d09ea7ca1033eb9fe9e6598973fe0fdda072f863798f250ee",
     "unsigned-build-readback.json": "f27fa12d37e35399f46fe1e610565a82538a9676449533116edcbb190e31c327",
-    "qualified-project-v4/source-inputs.json": "9b571ebde7a4f828331b2f927a3c54ae2c4dc721cba1d3a8d5d34239bd81e075"
+    "qualified-project-v4/source-inputs.json": "9b571ebde7a4f828331b2f927a3c54ae2c4dc721cba1d3a8d5d34239bd81e075",
+    "production-xcode-tests.log": "1e16b8d58a493d30999583924753d159f42e958698fde170869463773aed82f5",
+    "tde-observe-failure.log": "645ef37ee8892644ad733aae078e5d4d4cd7e4fa78c7ecad07ed1a2cef1216b5"
   },
   "operational_admission": null,
   "current_signed_apple_profile": null,
   "activation_allowed": false,
   "sdk_effects": false,
-  "installation": false
+  "installation": false,
+  "first_pr_coverage_failure": {
+    "run": 39636523034,
+    "source": "f707985605a7c1a4aa314e654f784e5ca1aff07a",
+    "swift_testing_total": 1039,
+    "failed": 2,
+    "cause": "Ordinary Xcode test target omitted new fixture resources",
+    "correction": "Explicit test resources in project.yml and regenerated project; targeted four-test Xcode rerun PASS",
+    "superseded": false
+  }
 }
