@@ -1555,7 +1555,8 @@ struct SessionEntryView: View, Equatable {
         guard let source = sourceAttributions.first(where: { [$0["url"], $0["url_previous"], $0["revision_url"]].contains(url.absoluteString) }) else {
             return url.host ?? ""
         }
-        let label = [source["provider"], source["license"]].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+        let license = source["license"] == "Spotify metadata display" ? nil : source["license"]
+        let label = [source["provider"], license].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
         return source["revision_url"] == url.absoluteString ? label + " · " + text("ui.session.history.source_revision") : label
     }
 }
