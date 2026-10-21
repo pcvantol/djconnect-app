@@ -60,8 +60,8 @@ import DJConnectCore
             #expect(visit.scene == original)
         }
         #expect(!visit.setDynamics(.infinity))
-        for _ in 0..<32 { #expect(visit.apply(VibeScapePatch(depth:0.2),expected:try #require(visit.ticket))) }
-        #expect(!visit.apply(VibeScapePatch(depth:0.3),expected:try #require(visit.ticket)))
+        for n in 0..<32 { #expect(visit.apply(VibeScapePatch(depth:n.isMultiple(of:2) ? 0.2 : 0.3),expected:try #require(visit.ticket))) }
+        #expect(!visit.apply(VibeScapePatch(depth:0.4),expected:try #require(visit.ticket)))
         time = 1811
         #expect(!visit.rendererCompleted(try #require(visit.ticket)))
         #expect(!visit.setDynamics(0.4))
@@ -69,6 +69,9 @@ import DJConnectCore
     @Test func absentOccurrenceCannotAuthorizeInterpretedPatches() throws {
         let visit = VisualDirectorVisit(); visit.enter(mood:"chill",occurrence:nil,salt:0)
         #expect(!visit.apply(VibeScapePatch(depth:1),expected:try #require(visit.ticket)))
+        #expect(!visit.holdExplicitStyle(expected:try #require(visit.ticket)))
+        #expect(!visit.varyComposition(expected:try #require(visit.ticket)))
+        #expect(!visit.resetToDJ(expected:try #require(visit.ticket)))
         #expect(visit.setDynamics(0.2)) // Local slider is not a server directive.
         visit.enter(mood:nil,occurrence:String(repeating:"a",count:257))
         #expect(visit.scene == nil && visit.ticket == nil)
@@ -116,6 +119,88 @@ import DJConnectCore
         #expect(model.askDJMessages == originalMessages)
         #expect((defaults.persistentDomain(forName:name) as NSDictionary?) == originalDefaults)
         model.isShowingVibeScape = false
+    }
+}
+
+@Suite @MainActor struct VibeScapeStyleStateTests {
+    @Test func fourTurnCorrectionHoldAndTrackHandoverRetainOnlyExplicitStyle() throws {
+        let visit = VisualDirectorVisit(); visit.enter(mood:"groove",occurrence:"A",salt:7)
+        let identity = try #require(visit.ticket).visit
+        let baseline = try #require(visit.scene)
+        #expect(visit.apply(VibeScapePatch(motion:0.1),expected:try #require(visit.ticket)))
+        #expect(visit.apply(VibeScapePatch(palette:SIMD3(0.9,0.7,0.2)),expected:try #require(visit.ticket)))
+        let corrected = SIMD3<Float>(0.6,0.7,0.3)
+        #expect(visit.apply(VibeScapePatch(palette:corrected,depth:0.9),expected:try #require(visit.ticket)))
+        #expect(visit.holdExplicitStyle(expected:try #require(visit.ticket)))
+        visit.trackChanged(mood:"groove",occurrence:"B")
+        #expect(visit.ticket?.visit == identity)
+        #expect(visit.scene?.palette == corrected && visit.scene?.motion == 0.1 && visit.scene?.depth == 0.9)
+        #expect(visit.scene?.roughness != baseline.roughness || visit.scene?.deformation != baseline.deformation)
+        #expect(visit.apply(VibeScapePatch(palette:SIMD3(0.1,0.3,0.8)),expected:try #require(visit.ticket)))
+        visit.trackChanged(mood:"chill",occurrence:"C")
+        #expect(visit.scene?.palette == corrected)
+        #expect(visit.ticket?.visit == identity)
+    }
+    @Test func visitScopeSupersedesOldTrackFieldsWithoutPromotingBaseline() throws {
+        let visit = VisualDirectorVisit(); visit.enter(mood:"chill",occurrence:"A",salt:8)
+        #expect(visit.apply(VibeScapePatch(palette:SIMD3(0.1,0.2,0.9)),expected:try #require(visit.ticket)))
+        let gold = SIMD3<Float>(0.9,0.7,0.2)
+        #expect(visit.apply(VibeScapePatch(palette:gold,scope:.continuousVisit),expected:try #require(visit.ticket)))
+        #expect(!visit.holdExplicitStyle(expected:try #require(visit.ticket)))
+        visit.trackChanged(mood:"party",occurrence:"B")
+        #expect(visit.scene?.palette == gold)
+        #expect(visit.scene?.motion == 0.3)
+        #expect(visit.resetToDJ(expected:try #require(visit.ticket)))
+        #expect(visit.scene?.palette != gold)
+    }
+    @Test func undoHoldRestoresTrackScopeRatherThanKeepingPromotedFields() throws {
+        let visit = VisualDirectorVisit(); visit.enter(mood:"groove",occurrence:"A",salt:9)
+        #expect(visit.apply(VibeScapePatch(motion:0.1),expected:try #require(visit.ticket)))
+        #expect(visit.holdExplicitStyle(expected:try #require(visit.ticket)))
+        #expect(visit.undoLast(expected:try #require(visit.ticket)))
+        #expect(visit.scene?.motion == 0.1)
+        visit.trackChanged(mood:"groove",occurrence:"B")
+        #expect(visit.scene?.motion == 0.3)
+    }
+    @Test func variantChangesOnlyCompositionAndUndoRestoresOriginalDJBaseline() throws {
+        let visit = VisualDirectorVisit(); visit.enter(mood:"party",occurrence:"A",salt:91)
+        let baseline = try #require(visit.scene)
+        #expect(visit.apply(VibeScapePatch(palette:SIMD3(0.9,0.7,0.2),motion:0.1),expected:try #require(visit.ticket)))
+        #expect(visit.setDynamics(0.8))
+        let styled = try #require(visit.scene)
+        let old = try #require(visit.ticket)
+        #expect(visit.varyComposition(expected:old))
+        #expect(visit.scene?.composition != styled.composition)
+        #expect(visit.scene?.palette == styled.palette && visit.scene?.motion == styled.motion)
+        #expect(visit.scene?.roughness == styled.roughness && visit.dynamics == 0.8)
+        #expect(visit.appliedRevision == nil && !visit.rendererCompleted(old))
+        #expect(visit.undoLast(expected:try #require(visit.ticket)))
+        #expect(visit.scene == styled && visit.dynamics == 0.8)
+        #expect(visit.resetToDJ(expected:try #require(visit.ticket)))
+        #expect(visit.scene == baseline && visit.dynamics == 0.5)
+    }
+    @Test func noEffectDoesNotCreateNewRevisionOrEarnAppliedAcknowledgment() throws {
+        let visit = VisualDirectorVisit(); visit.enter(mood:"groove",occurrence:"A",salt:10)
+        let initial = try #require(visit.ticket)
+        #expect(!visit.holdExplicitStyle(expected:initial))
+        #expect(!visit.resetToDJ(expected:initial))
+        #expect(!visit.setDynamics(0.5))
+        #expect(visit.ticket == initial)
+        // An equal value can still establish an explicit scope constraint once.
+        let motion = try #require(visit.scene).motion
+        #expect(visit.apply(VibeScapePatch(motion:motion),expected:initial))
+        let explicit = try #require(visit.ticket)
+        #expect(!visit.apply(VibeScapePatch(motion:motion),expected:explicit))
+        #expect(visit.ticket == explicit && visit.appliedRevision == nil)
+    }
+    @Test func variantAndHoldRespectOriginalVisitBudgetAndRevocation() throws {
+        let visit = VisualDirectorVisit(); visit.enter(mood:"chill",occurrence:"A",salt:11)
+        for _ in 0..<32 { #expect(visit.varyComposition(expected:try #require(visit.ticket))) }
+        let exhausted = try #require(visit.ticket)
+        #expect(!visit.varyComposition(expected:exhausted))
+        visit.revoke()
+        #expect(!visit.holdExplicitStyle(expected:exhausted))
+        #expect(!visit.varyComposition(expected:exhausted))
     }
 }
 

@@ -48,6 +48,28 @@ cancels ordinary voice capture and suspends wake-word listening; general text,
 recording and upload entry points refuse while the visual view is active. A
 stale wake recognizer cannot log or route its callback into this visit.
 
+## Native explicit-style actions (no wire adoption)
+
+The local coordinator separately tracks explicit current-track fields and
+continuous-visit fields. A current-track correction overlays the held visit
+style without modifying it. A later visit-scoped change removes only its own
+fields from the current-track mask. Hold promotes only the remaining explicit
+current-track mask; it never freezes untouched generated palette/material or
+motion. A track handover discards that track mask and undo, retains the visit
+mask and creates a fresh composition in the same original visit.
+
+Variant changes composition only, preserving style fields and Dynamics. Undo
+restores both masks, the original autonomous baseline and slider state; resetting
+to DJ clears both masks and returns the slider to its midpoint. Repeating an
+already-established patch, an empty hold/reset or an unchanged slider value is
+no-effect: it produces no new revision or application acknowledgment. An equal
+value may establish a previously absent explicit scope constraint once.
+
+These are local renderer operations, not an implementation of the draft Core
+wire union. Original occurrence/visit/turn admission is still required, and the
+preview cannot authorize them without a qualified occurrence. No live voice
+route or GPU-earned toast integration is claimed by these changes.
+
 ## Local interpretation-turn fence (still no transport)
 
 `VisualDirectorTurnFence` is a client-local helper, not a Core DTO, endpoint or
@@ -71,8 +93,8 @@ has no authoritative occurrence and therefore cannot start interpreted turns.
 Six additional native tests cover same-revision cancellation/replacement,
 source renewal versus original expiry, clock rollback, owner/revision/exit
 withdrawal, attempt budget across tracks, missing context and immediate release
-of a captured context object. Together with the existing eight, all14VibeScape
-tests pass. Previous full-suite/build/GPU results remain bound to their original
+of a captured context object. These cases plus the initial eight visit tests and six explicit-style
+tests form the current20targeted VibeScape tests, all passing. Previous full-suite/build/GPU results remain bound to their original
 heads; this local follow-up does not inherit native voice or hardware acceptance.
 
 ## Explicitly unresolved producer/UI boundaries
@@ -93,7 +115,7 @@ patch tests are not evidence of actual voice interpretation.
 
 ## Actual validation so far
 
-- Eight native Swift tests cover field-preserving patches, stale apply/ACK, undo,
+- Twenty targeted native Swift tests cover field-preserving patches, stale apply/ACK, undo,
   scope, reset, revoke/reentry, invalid numeric input, budget/expiry, twenty
   synthetic scene identities and blocked general Ask DJ/recording/defaults writes.
 - Real macOS and generic iOS preview builds compile the native Metal shader.

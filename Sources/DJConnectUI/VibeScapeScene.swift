@@ -40,13 +40,13 @@ private struct VibeScapeRandom {
     }
 }
 
-struct VibeScapePatch: Sendable {
+struct VibeScapePatch: Equatable, Sendable {
     var palette: SIMD3<Float>?
     var motion: Float?
     var depth: Float?
     var roughness: Float?
     var deformation: Float?
-    enum Scope: Sendable { case currentTrack, continuousVisit }
+    enum Scope: Equatable, Sendable { case currentTrack, continuousVisit }
     var scope: Scope = .currentTrack
 
     var isValid: Bool {
@@ -64,10 +64,19 @@ struct VibeScapePatch: Sendable {
         if let deformation { next.deformation = deformation }
         return next
     }
-    func merging(_ newer: Self) -> Self {
+    func merging(_ newer: Self, scope: Scope = .continuousVisit) -> Self {
         Self(palette: newer.palette ?? palette, motion: newer.motion ?? motion,
              depth: newer.depth ?? depth, roughness: newer.roughness ?? roughness,
-             deformation: newer.deformation ?? deformation, scope: .continuousVisit)
+             deformation: newer.deformation ?? deformation, scope: scope)
+    }
+    func removingFields(overriddenBy newer: Self) -> Self? {
+        let remaining = Self(palette: newer.palette == nil ? palette : nil,
+                             motion: newer.motion == nil ? motion : nil,
+                             depth: newer.depth == nil ? depth : nil,
+                             roughness: newer.roughness == nil ? roughness : nil,
+                             deformation: newer.deformation == nil ? deformation : nil,
+                             scope: scope)
+        return remaining.isValid ? remaining : nil
     }
 }
 
@@ -87,9 +96,12 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
     private var salt: UInt64 = 0
     private var autonomous: VibeScapeScene?
     private var persistentPatch: VibeScapePatch?
+    private var trackPatch: VibeScapePatch?
     private struct Checkpoint {
         let scene: VibeScapeScene
         let patch: VibeScapePatch?
+        let trackPatch: VibeScapePatch?
+        let autonomous: VibeScapeScene?
         let dynamics: Float
     }
     private var undo: [Checkpoint] = []
@@ -119,7 +131,8 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
     }
     private func checkpoint() {
         guard let scene else { return }
-        undo.append(Checkpoint(scene: scene, patch: persistentPatch, dynamics: dynamics))
+        undo.append(Checkpoint(scene: scene, patch: persistentPatch, trackPatch: trackPatch,
+                               autonomous: autonomous, dynamics: dynamics))
         if undo.count > 8 { undo.removeFirst(undo.count - 8) }
     }
     private func advance(_ scene: VibeScapeScene) {
@@ -130,30 +143,61 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
     }
     @discardableResult func apply(_ patch: VibeScapePatch, expected: VibeScapeRenderTicket) -> Bool {
         guard admitted(expected), expected.occurrence != nil, patch.isValid, turns < 32, let scene else { return false }
-        checkpoint(); turns += 1
-        if patch.scope == .continuousVisit { persistentPatch = persistentPatch?.merging(patch) ?? patch }
-        advance(patch.applied(to: scene)); return true
+        var nextPersistent = persistentPatch
+        var nextTrack = trackPatch
+        if patch.scope == .continuousVisit {
+            nextPersistent = persistentPatch?.merging(patch) ?? patch
+            nextTrack = trackPatch?.removingFields(overriddenBy: patch)
+        } else {
+            nextTrack = trackPatch?.merging(patch, scope: .currentTrack) ?? patch
+        }
+        let nextScene = patch.applied(to: scene)
+        guard nextScene != scene || nextPersistent != persistentPatch || nextTrack != trackPatch else { return false }
+        checkpoint(); turns += 1; persistentPatch = nextPersistent; trackPatch = nextTrack
+        advance(nextScene); return true
     }
     @discardableResult func setDynamics(_ value: Float) -> Bool {
-        guard isCurrent, value.isFinite, (0...1).contains(value), let scene else { return false }
+        guard isCurrent, value.isFinite, (0...1).contains(value), value != dynamics, let scene else { return false }
         dynamics = value; advance(scene); return true
     }
     @discardableResult func undoLast(expected: VibeScapeRenderTicket) -> Bool {
-        guard admitted(expected), turns < 32, let prior = undo.popLast() else { return false }
-        turns += 1; persistentPatch = prior.patch; dynamics = prior.dynamics
+        guard admitted(expected), expected.occurrence != nil, turns < 32, let prior = undo.popLast() else { return false }
+        turns += 1; persistentPatch = prior.patch; trackPatch = prior.trackPatch
+        autonomous = prior.autonomous; dynamics = prior.dynamics
         advance(prior.scene); return true
     }
     @discardableResult func resetToDJ(expected: VibeScapeRenderTicket) -> Bool {
-        guard admitted(expected), turns < 32, let autonomous else { return false }
-        checkpoint(); turns += 1; persistentPatch = nil; dynamics = 0.5
+        guard admitted(expected), expected.occurrence != nil, turns < 32, let autonomous,
+              scene != autonomous || persistentPatch != nil || trackPatch != nil || dynamics != 0.5 else { return false }
+        checkpoint(); turns += 1; persistentPatch = nil; trackPatch = nil; dynamics = 0.5
         advance(autonomous); return true
+    }
+    /// Hold promotes only previously explicit current-track fields. Generated
+    /// palette/material/motion defaults never become an implicit style mask.
+    @discardableResult func holdExplicitStyle(expected: VibeScapeRenderTicket) -> Bool {
+        guard admitted(expected), expected.occurrence != nil, turns < 32,
+              let explicit = trackPatch, let scene else { return false }
+        checkpoint(); turns += 1
+        persistentPatch = persistentPatch?.merging(explicit) ?? VibeScapePatch().merging(explicit)
+        trackPatch = nil
+        advance(scene); return true
+    }
+    /// Only composition changes; explicit fields, slider and material stay.
+    /// Undo restores the previous autonomous baseline as well as user masks.
+    @discardableResult func varyComposition(expected: VibeScapeRenderTicket) -> Bool {
+        guard admitted(expected), expected.occurrence != nil, turns < 32,
+              var scene, var baseline = autonomous else { return false }
+        checkpoint(); turns += 1; salt &+= 0x9e3779b97f4a7c15
+        baseline.composition = VibeScapeScene.autonomous(mood: nil, salt: salt).composition
+        scene.composition = baseline.composition; autonomous = baseline
+        advance(scene); return true
     }
     func trackChanged(mood: String?, occurrence: String?) {
         guard Self.validOccurrence(occurrence) else { revoke(); return }
         guard isCurrent, let ticket, ticket.occurrence != occurrence else { return }
         salt &+= 0x9e3779b97f4a7c15
         let next = VibeScapeScene.autonomous(mood: mood, salt: salt)
-        autonomous = next; undo.removeAll()
+        autonomous = next; trackPatch = nil; undo.removeAll()
         self.ticket = VibeScapeRenderTicket(visit: ticket.visit, occurrence: occurrence, revision: ticket.revision + 1)
         scene = persistentPatch?.applied(to: next) ?? next; appliedRevision = nil
     }
@@ -165,7 +209,7 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         appliedRevision = expected.revision; return true
     }
     func revoke() {
-        scene = nil; ticket = nil; autonomous = nil; persistentPatch = nil
+        scene = nil; ticket = nil; autonomous = nil; persistentPatch = nil; trackPatch = nil
         undo.removeAll(keepingCapacity: false); dynamics = 0.5; appliedRevision = nil
         salt = 0; turns = 0; deadline = 0; lastUptime = 0
     }
