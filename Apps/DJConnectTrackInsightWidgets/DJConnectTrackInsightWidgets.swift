@@ -170,8 +170,18 @@ struct DJConnectSessionActivityWidget: Widget {
                 .widgetURL(sessionURL)
         } dynamicIsland: { context in
             DynamicIsland {
+                DynamicIslandExpandedRegion(.trailing) {
+                    if let source = islandSpotifySource(snapshot: context.state, stale: context.isStale) {
+                        Link(destination: source) {
+                            Image("SpotifyAttribution").resizable().scaledToFit()
+                                .frame(width: 70, height: 21)
+                                .accessibilityLabel("Spotify")
+                        }
+                        .padding(.top, 4).padding(.trailing, 4)
+                    }
+                }
                 DynamicIslandExpandedRegion(.bottom) {
-                    PassiveActivityBody(snapshot: context.state, stale: context.isStale)
+                    PassiveActivityBody(snapshot: context.state, stale: context.isStale, showsSpotifyCredit: false)
                         .padding(.horizontal, 16)
                         .padding(.bottom, 16)
                 }
@@ -189,6 +199,17 @@ struct DJConnectSessionActivityWidget: Widget {
 }
 #endif
 
+#if os(iOS) && canImport(ActivityKit)
+private func islandSpotifySource(snapshot: DJConnectSessionLiveActivityAttributes.ContentState, stale: Bool) -> URL? {
+    guard !stale, let rich = snapshot.rich, rich.isCurrent(at: Date()) else { return nil }
+    for attribution in [rich.nowPlaying?.attribution, rich.contribution?.source_attribution].compactMap({ $0 }) {
+        if attribution["mark"] == "spotify", let raw = attribution["url"], let url = URL(string: raw),
+           url.scheme == "https", url.user == nil, url.password == nil { return url }
+    }
+    return nil
+}
+#endif
+
 // Rich content comes only from the separate passive grant, never the foreground
 // owner Moment cache. Contribution and current music retain independent slots.
 private struct PassiveSessionContentView: View {
@@ -197,6 +218,7 @@ private struct PassiveSessionContentView: View {
     let cache: DJConnectPassiveSurfaceCache?
     var compact = false
     var large = false
+    var showsSpotifyCredit = true
     var theme: DJConnectSessionMoodTheme = .brand
     let date: Date
     var body: some View {
@@ -246,10 +268,12 @@ private struct PassiveSessionContentView: View {
         .accessibilityElement(children: .contain)
     }
     @ViewBuilder private func credit(_ attribution: [String: String]) -> some View {
-        if attribution["mark"] == "spotify", let source = attribution["url"], let url = URL(string: source) {
-            Link(destination: url) {
-                Image("SpotifyAttribution").resizable().scaledToFit().frame(width: 70, height: 21)
-                    .accessibilityLabel("Spotify")
+        if attribution["mark"] == "spotify" {
+            if showsSpotifyCredit, let source = attribution["url"], let url = URL(string: source) {
+                Link(destination: url) {
+                    Image("SpotifyAttribution").resizable().scaledToFit().frame(width: 70, height: 21)
+                        .accessibilityLabel("Spotify")
+                }
             }
         } else if let provider = attribution["provider"], !provider.isEmpty {
             if let source = attribution["url"], let url = URL(string: source) {
@@ -280,6 +304,7 @@ private struct PassiveSessionContentView: View {
 private struct PassiveActivityBody: View {
     let snapshot: DJConnectSessionSurfaceSnapshot
     let stale: Bool
+    var showsSpotifyCredit = true
     var body: some View {
         let now = Date()
         if !stale, let rich = snapshot.rich, rich.isCurrent(at: now) {
@@ -291,6 +316,7 @@ private struct PassiveActivityBody: View {
                     value.projection.now_playing == rich.nowPlaying ? value : nil
                 }
             PassiveSessionContentView(contribution: rich.contribution, playback: rich.nowPlaying, cache: cache,
+                                      showsSpotifyCredit: showsSpotifyCredit,
                                       theme: snapshot.renderingTheme(at: now), date: now)
         } else {
             DJConnectSessionSurfaceView(isActive: !stale && snapshot.isCurrent(at: now), theme: stale ? .brand : snapshot.renderingTheme(at: now))
