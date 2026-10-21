@@ -4914,11 +4914,6 @@ private struct MusicDNASectionGrid: View {
                 MusicDNAPanel(title: localizedKey(model.language, "ui.music.dna.discovery.feedback"), value: discoveryFeedbackText(discoveryFeedback), icon: "sparkles")
             }
         }
-        if let privacyDashboard = profile.privacyDashboard, privacyDashboard.isDisplayable {
-            musicDNAPanel {
-                MusicDNAPanel(title: localizedKey(model.language, "ui.music.dna.privacy.dashboard"), value: privacyDashboardText(privacyDashboard), icon: "lock.shield")
-            }
-        }
         if let basisSignals {
             musicDNAPanel {
                 if !basisTracks.isEmpty {
@@ -5187,10 +5182,6 @@ private struct MusicDNASectionGrid: View {
             lines.append(counts)
         }
         return lines.joined(separator: "\n").ifEmpty(localizedKey(model.language, "ui.not.enough.signals"))
-    }
-
-    private func privacyDashboardText(_ dashboard: DJConnectMusicDNAPrivacyDashboard) -> String {
-        MusicDNAPrivacySummary.text(dashboard, language: model.language)
     }
 
     private func energySignals(_ values: [DJConnectMusicDNAEnergySignal]) -> String {
