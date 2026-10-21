@@ -1351,6 +1351,8 @@ struct SessionEntryView: View, Equatable {
     var opensActiveComposer = false
     var allowsPlaybackActions = false
     var playingActionID: String? = nil
+    var replayAction: (() -> Void)? = nil
+    var isReplayBusy = false
     var artworkModel: DJConnectAppModel? = nil
     var setPromptAction: (String) -> Void = { _ in }
     var feedbackAction: (DJConnectAskDJMessage) -> Void = { _ in }
@@ -1363,6 +1365,7 @@ struct SessionEntryView: View, Equatable {
         lhs.entry == rhs.entry && lhs.language == rhs.language && lhs.messageAdapter == rhs.messageAdapter &&
         lhs.contextEpoch == rhs.contextEpoch && lhs.opensActiveComposer == rhs.opensActiveComposer &&
         lhs.allowsPlaybackActions == rhs.allowsPlaybackActions && lhs.playingActionID == rhs.playingActionID &&
+        (lhs.replayAction != nil) == (rhs.replayAction != nil) && lhs.isReplayBusy == rhs.isReplayBusy &&
         lhs.artworkModel === rhs.artworkModel && lhs.highlights == rhs.highlights && lhs.isSelectedMatch == rhs.isSelectedMatch && lhs.selected == rhs.selected
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
@@ -1412,7 +1415,7 @@ struct SessionEntryView: View, Equatable {
                                 playbackDescription
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
-                            .padding(.trailing, 40)
+                            .padding(.trailing, replayAction != nil ? 88 : 40)
                         } else {
                             entryArtwork
                             entryHeading
@@ -1436,7 +1439,29 @@ struct SessionEntryView: View, Equatable {
                     }
                     .padding(20)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .overlay(alignment: .topTrailing) { askButton.padding(8) }
+                    .overlay(alignment: .topTrailing) {
+                        HStack(spacing: 0) {
+                            if let replayAction {
+                                Button {
+                                    DJConnectHaptics.selection()
+                                    replayAction()
+                                } label: {
+                                    Group {
+                                        if isReplayBusy { ProgressView().controlSize(.small).tint(.white) }
+                                        else { Image(systemName: "play.fill").font(.system(size: 18, weight: .semibold)) }
+                                    }
+                                    .foregroundStyle(.white)
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(Rectangle())
+                                }
+                                .djConnectPlainButtonStyle()
+                                .disabled(isReplayBusy)
+                                .accessibilityLabel(text("ui.play.now"))
+                                .accessibilityIdentifier("play-entry-" + entry.id)
+                            }
+                            askButton
+                        }.padding(8)
+                    }
                     .overlay {
                         if isSelectedMatch {
                             RoundedRectangle(cornerRadius: DJConnectCardAppearance.conversationCornerRadius, style: .continuous)

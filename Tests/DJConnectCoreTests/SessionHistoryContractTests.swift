@@ -1958,6 +1958,39 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(base != SessionEntryView(entry: entry, language: "en", contextEpoch: base.contextEpoch, opensActiveComposer: true))
 }
 
+#if os(macOS)
+/// Presentation only; supplied callback grants no history playback authority.
+@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_ENTRY_PLAY_NATIVE_DIR"] != nil)) @MainActor
+func sessionPlaybackEntryShowsWhitePlayControl() async throws {
+    let directory = try #require(ProcessInfo.processInfo.environment["DJCONNECT_ENTRY_PLAY_NATIVE_DIR"])
+    let folder = URL(fileURLWithPath: directory)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let data = try DJConnectDemoSessionData.make(language: "nl")
+    let entry = try #require(data.timelines.values.flatMap(\.entries).first { $0.kind == .playbackObserved })
+    _ = NSApplication.shared
+    for width: CGFloat in [320, 720] {
+        for active in [true, false] {
+            let view = SessionEntryView(entry: entry, language: "nl", opensActiveComposer: active,
+                                        replayAction: {})
+                .padding(16).foregroundStyle(.white)
+                .background(LinearGradient(colors: [.purple, .black], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .preferredColorScheme(.dark)
+            let host = NSHostingView(rootView: view)
+            let window = NSWindow(contentRect: .init(x: -3000, y: -3000, width: width, height: 500),
+                                  styleMask: [.borderless], backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
+            try await Task.sleep(for: .milliseconds(150))
+            host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
+            let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: image)
+            try #require(image.representation(using: .png, properties: [:]))
+                .write(to: folder.appendingPathComponent("\(active ? "current" : "archive")-\(Int(width)).png"))
+            window.close()
+        }
+    }
+}
+#endif
+
 @Test func outputDevicesKeepRowsWithNumericObservedTimestamps() throws {
     let data = Data(#"{"success":true,"devices":[{"id":"speaker-1","name":"Living Room","active":true,"first_seen_at":1791882000.25,"last_seen_at":1791883000.5},{"id":"speaker-2","name":"Kitchen","cached":true,"provider":"spotify","first_seen_at":"2026-10-13T08:00:00Z","last_seen_at":null}]}"#.utf8)
     let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: data)

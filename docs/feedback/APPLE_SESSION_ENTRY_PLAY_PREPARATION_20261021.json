@@ -1,0 +1,51 @@
+{
+  "base_commit": "8fb4844",
+  "status": "UI_PREPARED_PRODUCER_BLOCKED_NOT_ACTIVE",
+  "request": "White play icon on current/archive playback or DJ Moment card; exact historical track; missing output choice in current Session or Ask DJ when originating from archive.",
+  "implemented": "Shared SessionEntryView optional replay callback, white 44pt play control, busy feedback and spacing reservation. No callback is supplied by the live timeline, so no unsupported active button is exposed.",
+  "producer_blocker": "Core owner confirms no qualified owner-bound history-entry playback resolve/command or speaker continuation currently exists. History read-only data/artwork subject is not playback authority. No schema/pin/fixture/GO supplied yet.",
+  "coordination": {
+    "human_permission": "Ja, stem dit af met Core",
+    "core_thread": "01a15af5-fe41-76a3-a35f-c87dcc1a8f16",
+    "owner_acknowledged": true
+  },
+  "validation": {
+    "native_mac_compile": "PASS",
+    "functions_passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "renders": 4,
+    "inspected": [
+      "current-320.png",
+      "archive-720.png"
+    ],
+    "limits": "Synthetic supplied no-op callback only; no genuine play, speaker choice, physical tap or installation qualified."
+  },
+  "next": [
+    "Consume qualified Core capability/request/receipt with exact owner, Session, entry, source-account and revision fencing.",
+    "Wire current/archive tap routes without replacing unsent composer draft or fabricating recommendation actions.",
+    "Test selected output, missing output continuation in correct screen, stale owner/entry and duplicate/uncertain command behavior."
+  ],
+  "evidence": [
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-moment-play-20261021/ui.log",
+      "sha256": "a2eee5f293681eb3f8737c23a31f49ccce2d2f11a43735445109026c5f932c14"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-moment-play-20261021/renders/archive-320.png",
+      "sha256": "9cf3c26564bcad686183fe74301c78c68df4a8882993e0684de918cfc306b13f"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-moment-play-20261021/renders/archive-720.png",
+      "sha256": "cc67ec919ba47fb55dfa78b1a562b1ea0c51eedf6d59722c9d9decbd0ea85ba1"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-moment-play-20261021/renders/current-320.png",
+      "sha256": "9cf3c26564bcad686183fe74301c78c68df4a8882993e0684de918cfc306b13f"
+    },
+    {
+      "path": "/Volumes/Shared Data/tmp/pcvantol/djc-session-moment-play-20261021/renders/current-720.png",
+      "sha256": "cc67ec919ba47fb55dfa78b1a562b1ea0c51eedf6d59722c9d9decbd0ea85ba1"
+    }
+  ]
+}
