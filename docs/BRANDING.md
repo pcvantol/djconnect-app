@@ -15,12 +15,10 @@ The five translations reuse the app's existing `ui.session.welcome.title` copy,
 with its newline replaced by a space; French retains the existing formal “Votre”.
 
 `DJConnectLaunchBanner` is shared by runtime launch and About/setup/service
-sheets. Wide English layouts use the exact primary dark wordmark; other languages
-use the compact dark wordmark and native localized slogan. Dark wordmarks have
-light lettering for the app's dark canvases, even when system appearance is light.
-Below 360 points or from XXXL text upward, native product name and slogan stack
-with the approved glass mark. The slogan wraps rather than truncating. Watch
-About retains its existing localized slogan; no slogan is added to tiny surfaces.
+sheets. It uses the icon image beside two native SwiftUI text lines: product
+name and localized tagline. The two text lines stay within the icon height at
+all widths. Text is not baked into a runtime wordmark PNG. Watch About retains
+its existing localized slogan; no slogan is added to tiny surfaces.
 
 The system-owned iOS launch storyboard is language-neutral: it contains only
 `LaunchIcon` and the product name `DJConnect`. It has no localized tagline or
@@ -48,10 +46,8 @@ do not abbreviate the main sentence into an unapproved slogan to fit it.
 
 Source, Finalization pins, exact source manifest, license and generator mapping
 are recorded in [source provenance](../Tools/IconSource/BrandV2/README.md).
-All three app icon catalogs use the approved headset artwork. Generated icon
-output <=40 pixels uses only the maximally fitted headset; larger outputs use
-the glass mark. This is the literal output-pixel rule, not the unapproved
-logical-point alternative discussed in the historical scale review. LaunchIcon
+The retained legacy app icon catalogs use the earlier headset/glass size rule.
+They are historical fallbacks, not the selected app icon. LaunchIcon
 retains the exact producer transparency. Runtime and Watch avoid a second glass
 frame around that artwork. Living Persona/state avatars, functional music symbols,
 Spotify attribution, album/artist art and historical release evidence are unchanged.
@@ -59,3 +55,33 @@ Spotify attribution, album/artist art and historical release evidence are unchan
 The [preflight](feedback/APPLE_BRAND_V2_PREFLIGHT_20261019.md) and
 [scale review](feedback/APPLE_BRAND_NATIVE_SCALE_REVIEW_20261019.md) are historical
 receipts predating source merge; they do not describe current source adoption.
+
+## Adaptive headphone app icon — 21 October 2026
+
+The owner requested the simpler purple headphone previously made in ESP32,
+without the blue glass tile, and backgrounds that follow system icon appearance.
+`Apps/Shared/AppIconAdaptive.icon` now supplies the native app icon for iPhone,
+iPad, Mac and Watch. iOS/macOS support default, dark, clear and tinted rendering;
+Watch uses the circular system mask. Xcode compiles the layered document, and the
+system selects the appearance. No app setting or alternate-icon API is involved.
+
+The foreground is the exact transparent ESP32 PR #69 PNG, pinned at
+`c49d49186951ed3a4eaf3cc50778e48e04cbbef9`, SHA256
+`f69eb72b882f08c0dacbd3efa7e83165a56a01763aaa18e48557c03b65e11322`.
+The purple headphone, magenta ring, navy center and waveform are retained.
+There is no baked outer glass tile, outer canvas or wordmark. Icon Composer
+positions the unmodified source at 64% scale with separate pale default and
+charcoal dark background fills; the system derives mono/clear/tinted variants.
+The inner navy disc remains part of the foreground drawing, not the outer tile.
+Source provenance is in `Tools/IconSource/AdaptiveHeadphone/provenance.json`.
+
+`GenerateAppIcon.swift` and the October 20 manifest describe the retained legacy
+catalogs only. They do not generate or overwrite `AppIconAdaptive.icon`. Runtime
+brand cards continue to use their existing image and native text; this request
+changes the installed app icon only.
+
+Reference: [Apple Icon Composer documentation](https://developer.apple.com/documentation/xcode/creating-your-app-icon-using-icon-composer).
+Run `python3 Tools/validate_brand_assets.py` and compile the document with
+`actool` for each app platform after an icon change. Native renderer exports
+are visual review artifacts, not physical-device screenshots or installation
+acceptance.
