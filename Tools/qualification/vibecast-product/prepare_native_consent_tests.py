@@ -13,7 +13,7 @@ from pathlib import Path
 import subprocess
 
 
-def prepare(destination: Path, jose: Path, with_ui: bool = False) -> None:
+def prepare(destination: Path, jose: Path, with_ui: bool = False, with_summary: bool = False) -> None:
     root = Path(__file__).resolve().parents[3]
     expected = "c2664a902e75c0426a1d43132bd4babc6fd173d3"
     actual = subprocess.check_output(["git", "-C", str(jose), "rev-parse", "HEAD"], text=True).strip()
@@ -48,6 +48,19 @@ def prepare(destination: Path, jose: Path, with_ui: bool = False) -> None:
                                       "GENERATE_INFOPLIST_FILE": "YES"}}}},
         "schemes": {"NativeConsentTests": {"build": {"targets": {"NativeConsentTests": "all"}},
                                          "test": {"targets": ["NativeConsentTests"]}}}}
+    if with_summary:
+        project["targets"]["NativeSummaryTests"] = {
+            "type": "bundle.unit-test", "platform": "iOS",
+            "sources": [{"path": str(root / "Tools/qualification/native-history-summary/NativeHistorySummaryTests.swift")}] + [
+                {"path": str(root / "Tests/Fixtures" / name), "buildPhase": "resources"}
+                for name in ("session-history-summary-final-list.json", "session-history-summary-summary-states.json",
+                             "session-history-summary-provenance.json")],
+            "dependencies": [{"target": "ConsentCore"}, {"target": "ConsentUI"}],
+            "settings": {"base": {"PRODUCT_BUNDLE_IDENTIFIER": "dev.djconnect.qualification.nativesummary.tests",
+                                  "GENERATE_INFOPLIST_FILE": "YES"}}}
+        project["schemes"]["NativeSummaryTests"] = {
+            "build": {"targets": {"NativeSummaryTests": "all"}},
+            "test": {"targets": ["NativeSummaryTests"]}}
     if with_ui:
         # Reuse exactly the test wire implementation in the disposable host.
         # Test-only imports and suites are excluded; production sources are not
@@ -87,5 +100,6 @@ if __name__ == "__main__":
     parser.add_argument("destination", type=Path)
     parser.add_argument("--jose-checkout", type=Path, required=True)
     parser.add_argument("--with-ui", action="store_true", help="Include the isolated production-form host and native tap tests")
+    parser.add_argument("--with-summary", action="store_true", help="Include an isolated native historical-summary component test target")
     args = parser.parse_args()
-    prepare(args.destination.resolve(), args.jose_checkout.resolve(), args.with_ui)
+    prepare(args.destination.resolve(), args.jose_checkout.resolve(), args.with_ui, args.with_summary)
