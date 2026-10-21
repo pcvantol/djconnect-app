@@ -75,6 +75,7 @@ struct SessionForecastContent: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
     @Binding var query: String
+    @FocusState private var searchFocused: Bool
     @Environment(\.scenePhase) private var scenePhase
     init(model: DJConnectAppModel, query: Binding<String>) {
         self.model = model; history = model.sessionHistory; _query = query
@@ -103,9 +104,15 @@ struct SessionForecastContent: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(text("ui.session.forecast.title")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
                 Text(text("ui.session.forecast.notice")).font(.callout).foregroundStyle(.secondary)
-                TextField(text("ui.session.forecast.search"), text: $query)
-                    .textFieldStyle(.plain).padding(12).djSessionFrostedSurface()
-                    .accessibilityLabel(text("ui.session.forecast.search"))
+                HStack(spacing: 0) {
+                    TextField(text("ui.session.forecast.search"), text: $query)
+                        .textFieldStyle(.plain).padding(12)
+                        .focused($searchFocused)
+                        .accessibilityLabel(text("ui.session.forecast.search"))
+                    SessionSearchClearButton(query: $query, language: model.language,
+                                             identifier: "session-forecast-search-clear") { searchFocused = true }
+                }
+                .djSessionFrostedSurface()
                 if scenePhase == .active, let projection = model.visibleSessionForecast(at: clock.date) {
                     ForEach(Array(projection.imagery.enumerated()), id: \.offset) { _, image in
                         SessionForecastArtwork(model: model, projection: projection, artwork: image)

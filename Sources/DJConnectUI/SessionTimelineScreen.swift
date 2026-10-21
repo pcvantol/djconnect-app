@@ -1225,13 +1225,18 @@ struct SessionTimelineScreen: View {
     @ViewBuilder private func searchBar(proxy: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             if activeSession != nil {
-                TextField(text("ui.session.history.search"), text: $query)
-                    .textFieldStyle(.plain).padding(12).djSessionFrostedSurface()
-                    .focused($searchFocused)
-                    .accessibilityLabel(text("ui.session.history.search"))
-                    .accessibilityIdentifier("session-search-field")
-                    .disabled(!history.searchAvailable)
-                    .onSubmit { moveMatch(1, proxy: proxy) }
+                HStack(spacing: 0) {
+                    TextField(text("ui.session.history.search"), text: $query)
+                        .textFieldStyle(.plain).padding(12)
+                        .focused($searchFocused)
+                        .accessibilityLabel(text("ui.session.history.search"))
+                        .accessibilityIdentifier("session-search-field")
+                        .disabled(!history.searchAvailable)
+                        .onSubmit { moveMatch(1, proxy: proxy) }
+                    SessionSearchClearButton(query: $query, language: model.language,
+                                             identifier: "session-search-clear") { searchFocused = true }
+                }
+                .djSessionFrostedSurface()
                 if searching {
                     HStack {
                         if history.searchLoading { ProgressView().controlSize(.small) }
@@ -1287,6 +1292,31 @@ struct SessionTimelineScreen: View {
         .onKeyPress(.escape) { closeSearch(proxy: proxy); return .handled }
         .onKeyPress(.upArrow) { moveMatch(-1, proxy: proxy); return .handled }
         .onKeyPress(.downArrow) { moveMatch(1, proxy: proxy); return .handled }
+    }
+}
+
+struct SessionSearchClearButton: View {
+    @Binding var query: String
+    let language: String
+    let identifier: String
+    var onClear: () -> Void = {}
+
+    var body: some View {
+        if !query.isEmpty {
+            Button {
+                query = ""
+                onClear()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.body)
+                    .foregroundStyle(.white.opacity(0.72))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(DJConnectLocalization.localized(key: "ui.session.search.clear", language: language))
+            .accessibilityIdentifier(identifier)
+        }
     }
 }
 

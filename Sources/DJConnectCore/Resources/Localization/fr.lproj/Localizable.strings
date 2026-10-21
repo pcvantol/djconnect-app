@@ -1500,3 +1500,5 @@
 "ui.content.delete.playback" = "La session et la lecture musicale sont conservées.";
 "ui.content.delete.expires" = "Valable jusqu’à %@";
 "ui.content.delete.status" = "Vérifier la suppression";
+
+"ui.session.search.clear" = "Effacer les termes de recherche";
