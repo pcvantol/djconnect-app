@@ -5443,6 +5443,48 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     #expect(receipt.admits(action, owner: "profile-a") == (mutation == "ok"))
 }
 
+@Test(arguments: ["fresh", "failure", "withdrawn", "became-active"])
+@MainActor func archiveDeletionConfirmationRequiresFreshDetail(_ outcome: String) async throws {
+    let producer = try historyObject()
+    let initial = try #require(producer["archived_timeline"] as? [String: Any])
+    let initialData = try historyData(initial)
+    let archive = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: initialData).session
+    var updated = initial
+    var header = try #require(updated["session"] as? [String: Any])
+    header["revision"] = archive.revision.value + "-fresh"
+    if outcome == "became-active" { header["lifecycle_status"] = "ACTIVE"; header["read_only"] = false }
+    updated["session"] = header
+    let freshData = try historyData(updated)
+    let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_history_delete": true],
+        "contract_versions": ["session_conversation_history": 1, "session_history_delete": 1]])
+    let profile = try historyData(try #require(producer["later_historical_answer"]))
+    let reads = HTTPRecoveryActiveReadCounter()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/ask_dj/history") { return (200, profile, 0) }
+        let count = reads.next()
+        if count == 1 { return (200, initialData, 0) }
+        if outcome == "failure" { return (503, Data(), 0) }
+        return (200, freshData, outcome == "withdrawn" ? 0.1 : 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare()
+    #expect(await history.loadTimeline(archive.id))
+    let epoch = history.responseEpoch
+    let task = Task { @MainActor in await history.prepareSessionDeletion(archive.id, expectedEpoch: epoch) }
+    if outcome == "withdrawn" {
+        for _ in 0..<100 where reads.value < 2 { try await Task.sleep(for: .milliseconds(2)) }
+        history.suspend()
+    }
+    let revision = await task.value
+    #expect(revision == (outcome == "fresh" ? archive.revision.value + "-fresh" : nil))
+    #expect(reads.value == 2)
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+}
+
 @Test(arguments: ["ok", "failure", "owner", "epoch", "stale-revision", "unsupported", "active"])
 @MainActor func sessionArchiveDeletionPreservesFailuresAndFencesStaleConfirmation(_ outcome: String) async throws {
     let fixtureObject = try historyObject()

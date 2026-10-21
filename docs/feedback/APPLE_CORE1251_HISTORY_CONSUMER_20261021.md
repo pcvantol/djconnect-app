@@ -1,5 +1,11 @@
 # Core1251 history-deletion consumer assessment
 
+Follow-up: Core's version answer has been independently checked on protected
+source. Version is optional (omission1, explicit1/2); it does not change the
+opaque deletion token. The first consumer delta is implemented and qualified in
+[the fresh-confirmation receipt](APPLE_FRESH_DELETE_CONFIRMATION_20261021.md).
+Pending operation retention and exact new wirefixture qualification remain open.
+
 Assessment requested through the current Core writer after Peter's direct
 instruction to coordinate client implementation across lanes. The human message
 was independently read back in Core thread

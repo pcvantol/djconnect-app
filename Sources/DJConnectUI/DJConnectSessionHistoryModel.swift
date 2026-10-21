@@ -487,6 +487,15 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         return session.isContractValid && session.readOnly && ["ENDED", "INTERRUPTED"].contains(session.lifecycleStatus)
     }
 
+    /// A list revision or previously loaded detail is not fresh deletion consent.
+    public func prepareSessionDeletion(_ sessionID: String, expectedEpoch: UUID) async -> String? {
+        guard expectedEpoch == epoch, canDeleteSession(sessionID), let owner = ownerScope else { return nil }
+        guard await loadTimeline(sessionID, preserveLoadedEntries: true), expectedEpoch == epoch,
+              ownerScope == owner, canDeleteSession(sessionID), !Task.isCancelled,
+              let detail = timelines[sessionID]?.session else { return nil }
+        return detail.revision.value
+    }
+
     @discardableResult public func deleteSession(_ sessionID: String, expectedRevision: String, expectedEpoch: UUID) async -> Bool {
         guard expectedEpoch == epoch, deletingSessionID == nil, canDeleteSession(sessionID), let host, let ownerScope,
               let session = timelines[sessionID]?.session ?? sessions.first(where: { $0.id == sessionID }),

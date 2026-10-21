@@ -316,6 +316,9 @@ struct SessionTimelineScreen: View {
     @StateObject private var manualRefresh = DJConnectManualRefreshController()
     @State private var deleteConfirmation: SessionDeleteConfirmation?
     @State private var confirmingDelete = false
+    @State private var preparingDelete = false
+    @State private var deletePreparationFailed = false
+    @State private var deletePreparationGeneration = UUID()
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
     let sessionID: String
@@ -902,21 +905,35 @@ struct SessionTimelineScreen: View {
     }
 
     private func timelineDidDisappear() {
+        deletePreparationGeneration = UUID()
+        preparingDelete = false
         clearReadingState()
         history.cancelArtworkQueue()
     }
 
     private var archiveDeleteButton: some View {
         Button(role: .destructive) {
-            guard history.canDeleteSession(sessionID),
-                  let session = history.timelines[sessionID]?.session ?? history.sessions.first(where: { $0.id == sessionID }) else { return }
+            guard history.canDeleteSession(sessionID), !preparingDelete else { return }
             inputFocused = false; searchFocused = false
-            deleteConfirmation = .init(sessionID: sessionID, revision: session.revision.value, epoch: history.responseEpoch)
-            confirmingDelete = true
+            let epoch = history.responseEpoch, generation = UUID()
+            deletePreparationGeneration = generation
+            preparingDelete = true
+            Task { @MainActor in
+                let revision = await history.prepareSessionDeletion(sessionID, expectedEpoch: epoch)
+                guard generation == deletePreparationGeneration else { return }
+                preparingDelete = false
+                guard epoch == history.responseEpoch, !Task.isCancelled else { return }
+                guard let revision else { deletePreparationFailed = true; return }
+                deleteConfirmation = .init(sessionID: sessionID, revision: revision, epoch: epoch)
+                confirmingDelete = true
+            }
         } label: {
             Image(systemName: "trash").foregroundStyle(.red)
         }
-        .disabled(!history.canDeleteSession(sessionID) || history.deletingSessionID != nil)
+        .disabled(preparingDelete || !history.canDeleteSession(sessionID) || history.deletingSessionID != nil)
+        .alert(text("ui.session.history.delete.failed"), isPresented: $deletePreparationFailed) {
+            Button(text("ui.close"), role: .cancel) {}
+        }
         .accessibilityLabel(text("ui.session.history.delete.title"))
         .accessibilityIdentifier("session-delete-button")
         .help(text("ui.session.history.delete.title"))
