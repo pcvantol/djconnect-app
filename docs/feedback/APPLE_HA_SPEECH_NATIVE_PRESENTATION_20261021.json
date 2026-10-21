@@ -1,0 +1,85 @@
+{
+  "base_commit": "8782f0117b2657734277edaaa30f646fc7f03827",
+  "qualification": "ACTUAL_NATIVE_MAC_COMPONENT_LAYOUT_ONLY",
+  "result": {
+    "tests": 1,
+    "failures": 0,
+    "skips": 0,
+    "seconds": 1.246,
+    "build_seconds": 6.98
+  },
+  "network_requests": 0,
+  "images": [
+    {
+      "name": "configured-en-320.png",
+      "identical_to_inspected_initial": true
+    },
+    {
+      "name": "retry-en-320.png",
+      "identical_to_inspected_initial": true
+    },
+    {
+      "name": "retry-en-720.png",
+      "identical_to_inspected_initial": true
+    },
+    {
+      "name": "unknown-de-320.png",
+      "identical_to_inspected_initial": true
+    },
+    {
+      "name": "unknown-nl-320.png",
+      "identical_to_inspected_initial": true
+    },
+    {
+      "name": "withdrawn-speaker-en-320.png",
+      "identical_to_inspected_initial": true
+    }
+  ],
+  "receipts": [
+    {
+      "path": "/private/tmp/djc-ha-speech-native-20261021-qualified.log",
+      "sha256": "1d1b388ac0129acc9667308eb7ddf9c25930b92c8ce7c52bb35f9a181cc8e60d"
+    },
+    {
+      "path": "/private/tmp/djc-ha-speech-native-20261021-initial.log",
+      "sha256": "4a67d29689a702bfe0d2826ef87b657ae842aa7c6986cb96a4c9323a58515e5e"
+    },
+    {
+      "path": "Tests/DJConnectCoreTests/HASpeechNativePresentationTests.swift",
+      "sha256": "97cc532edec5e0d0d942bd6d97180a23230d350f6ea4fc6c55e567f422763ea4"
+    },
+    {
+      "path": "Tests/Fixtures/device-speech-core-604b80f8.json",
+      "sha256": "111c71284630366d3fd8a19946013b853f78c6d02f784fa60cdf7596ebef4f6b"
+    },
+    {
+      "path": "/private/tmp/djc-ha-speech-native-20261021/observations-qualified/configured-en-320.png",
+      "sha256": "bc78ff8d93797a1a74130a9a0f69adca33079a967b62d6c314abfba64a8324f8"
+    },
+    {
+      "path": "/private/tmp/djc-ha-speech-native-20261021/observations-qualified/observations.json",
+      "sha256": "d8cc5f62c1c9aa0c9fdde6cf0405fbf4261561bb409c2e3ff0d3872e4877302e"
+    },
+    {
+      "path": "/private/tmp/djc-ha-speech-native-20261021/observations-qualified/retry-en-320.png",
+      "sha256": "6c9b9d56ad336edd68b6ce349ea0e3a5778ec41875c215e532e80cc8c885c1bc"
+    },
+    {
+      "path": "/private/tmp/djc-ha-speech-native-20261021/observations-qualified/retry-en-720.png",
+      "sha256": "44150769b895e0245c93dc6cbc32f2e639a202a86b09cddfc80fd53dca8aa6db"
+    },
+    {
+      "path": "/private/tmp/djc-ha-speech-native-20261021/observations-qualified/unknown-de-320.png",
+      "sha256": "57407ff3a2124ff9ac8f9771502a09c8b1cf2e8c42ab3bf6700d43b55b9f0729"
+    },
+    {
+      "path": "/private/tmp/djc-ha-speech-native-20261021/observations-qualified/unknown-nl-320.png",
+      "sha256": "e9693fb447c973f42704c5ccc35cd3c4059d2f230f7cdb5846231a658e8e874a"
+    },
+    {
+      "path": "/private/tmp/djc-ha-speech-native-20261021/observations-qualified/withdrawn-speaker-en-320.png",
+      "sha256": "db859f49c44844029cc2b48da969b562a6bc03926ba7f5ff8c6752f6fea21645"
+    }
+  ],
+  "production_changed": false
+}
