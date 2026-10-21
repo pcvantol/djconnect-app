@@ -18670,22 +18670,34 @@ private func copyText(_ text: String) {
     #endif
 }
 
-private struct PermissionStatusRow: View {
+struct PermissionStatusRow: View {
     let title: String
     let detail: String
     let status: DJConnectPermissionStatus
     let language: String
 
+    private var statusLabel: some View {
+        Label(permissionStatusText(status, language: language), systemImage: permissionStatusIcon(status))
+            .foregroundStyle(permissionStatusColor(status))
+            .labelStyle(.titleAndIcon)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(title)
-                    .foregroundStyle(.primary)
-                Spacer(minLength: 12)
-                Label(permissionStatusText(status, language: language), systemImage: permissionStatusIcon(status))
-                    .foregroundStyle(permissionStatusColor(status))
-                    .labelStyle(.titleAndIcon)
-                    .lineLimit(1)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text(title)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: true, vertical: false)
+                    Spacer(minLength: 12)
+                    statusLabel.fixedSize(horizontal: true, vertical: false)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    statusLabel.fixedSize(horizontal: false, vertical: true)
+                }
             }
             Text(detail)
                 .font(.caption)

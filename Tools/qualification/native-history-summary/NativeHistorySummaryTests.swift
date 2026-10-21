@@ -108,3 +108,35 @@ private final class SummaryFixtureBundle: NSObject {}
     }
 
 }
+
+@Suite(.serialized) @MainActor struct NativePermissionRowTests {
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_PERMISSION_DIR"] != nil))
+    func actualNativePermissionRows() async throws {
+        let folder = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_PERMISSION_DIR"]))
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        var observations: [[String: Any]] = []
+        for (name, language, status, scale) in [
+            ("permission-01-default", "nl", DJConnectPermissionStatus.unknown, DynamicTypeSize.large),
+            ("permission-02-large", "nl", .unknown, .accessibility5),
+            ("permission-03-french-large", "fr", .unavailable, .accessibility5)] {
+            let title = DJConnectLocalization.localized(key: "ui.microphone", language: language)
+            let detail = DJConnectLocalization.localized(key: "ui.needed.for.push.to.talk.voice.requests", language: language)
+            let root = PermissionStatusRow(title: title, detail: detail, status: status, language: language)
+                .frame(width: 288, alignment: .leading).padding(16)
+                .environment(\.colorScheme, .dark).environment(\.dynamicTypeSize, scale)
+            let controller = UIHostingController(rootView: root); controller.safeAreaRegions = []
+            let size = controller.sizeThatFits(in: CGSize(width: 320, height: 10000))
+            #expect(size.width <= 320.5 && size.height > 0 && size.height < 4000)
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: max(400, ceil(size.height) + 64)))
+            window.backgroundColor = .black; window.overrideUserInterfaceStyle = .dark
+            window.rootViewController = controller; window.makeKeyAndVisible()
+            try await Task.sleep(for: .milliseconds(150)); window.layoutIfNeeded()
+            let image = UIGraphicsImageRenderer(bounds: window.bounds).image { window.layer.render(in: $0.cgContext) }
+            try #require(image.pngData()).write(to: folder.appendingPathComponent(name + ".png"))
+            observations.append(["stage": name, "height": size.height, "language": language, "title": title, "detail": detail])
+            window.isHidden = true; window.rootViewController = nil
+        }
+        try JSONSerialization.data(withJSONObject: observations, options: [.prettyPrinted, .sortedKeys])
+            .write(to: folder.appendingPathComponent("native-permission-layout.json"))
+    }
+}

@@ -1,0 +1,15 @@
+# Native compact permission-row layout — 21 October 2026
+
+Successor to `c1525c322992e509a81279baea68f1a98981c102`. A fresh read-only lane87 snapshot still ends at20Oct16:22UTC; it supplies no new producer authorization. The repository TODO explicitly retains compact permission-row Dynamic Type readability as open.
+
+The actual `PermissionStatusRow` now uses `ViewThatFits`: it preserves a horizontal title/status when both fit, otherwise uses a vertical title/status layout with wrapping. The former one-line status restriction is removed. The type is internal (not public) so the opt-in native component target can host the actual production view. Existing status colors/icons, localization keys, detail text, padding and permission behavior are unchanged.
+
+The initial recorder completed1PASS/0fail/0skip, but visual inspection of all3 before-renders showed the defect: at width320 the Dutch default unknown-status text was ellipsized; at accessibility5 the status was nearly entirely hidden, while the title split across narrow columns. This is native visual counterevidence, not a failing automated text/AX assertion.
+
+After correction the same selected recorder completed1PASS/0fail/0skip, complete xcresult and no runtime warnings. All3 corrected UIKit window-layer renders were inspected: Dutch default unknown, Dutch accessibility5 unknown, and French-language accessibility5 unavailable. Full titles/status/detail are visible without ellipses in those captures. The existing French-language case currently falls back to English for these permission keys; this change does not fix or qualify French translation coverage. No contrast/VoiceOver/AX or arbitrary-width claim is made.
+
+The changed shared DJConnectUI target also completed a macOS native Swift build using the proven private scratch. Unchanged model/summary suites were not repeated. No AppModel, HTTP, permission coordinator, actual OS status query/request, microphone, Speech recognition, notification registration, ordinary app or system-setting operation is used by the component test. Test status enums are explicit presentation inputs, not claims about granted permissions.
+
+Private `/private/tmp/djc-native-permission-row-20261021/`: before-root.swift; before.log/before.xcresult/before-summary.json/before renders; qualified.log/qualified.xcresult/qualified-summary.json/qualified renders; mac-build.log. README documents selection via the optional NativeSummaryTests component target, `NativePermissionRowTests/actualNativePermissionRows()` and `DJCONNECT_NATIVE_PERMISSION_DIR`. Own B62 is Shutdown; other simulators were untouched. All commands completed and no own job remains. Raw lane snapshot: `/private/tmp/djc-apple-lane87-readonly-20261021-0210.json` (read only, no outbound report).
+
+`git diff --check` passes. This is bounded native iOS component rendering plus macOS compilation, not full Settings/root navigation, physical input, spoken VoiceOver, installed HA or server acceptance. No push, PR, external status, deployment, provider/SDK action or recovery bundle occurred. Prior incomplete archive/UI runs remain unqualified.
