@@ -200,6 +200,10 @@ targets:
         DJConnectTrustedPairingIssuerBaseURL: https://api.djconnect.dev
         CFBundleDisplayName: DJConnect
         CFBundleIconFile: AppIconAdaptive
+        CFBundleURLTypes:
+          - CFBundleURLName: dev.djconnect.mac
+            CFBundleURLSchemes:
+              - djconnect
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.music
@@ -347,7 +351,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.mac.track-insight-widget
         PRODUCT_NAME: TrackInsightWidget
-        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectTrackInsightWidgets/DJConnectTrackInsightWidgets.entitlements
+        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectTrackInsightWidgets/DJConnectTrackInsightWidgetsMac.entitlements
         SKIP_INSTALL: YES
   DJConnectCoreTests:
     type: bundle.unit-test

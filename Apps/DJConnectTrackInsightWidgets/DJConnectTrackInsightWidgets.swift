@@ -144,21 +144,6 @@ private func sessionConfiguration(kind: String) -> some WidgetConfiguration {
 struct DJConnectSessionWidget: Widget {
     var body: some WidgetConfiguration { sessionConfiguration(kind: DJConnectSessionSurfaceSnapshot.widgetKind) }
 }
-// Preserve configured identifiers. These are migration aliases of the same
-// provider/view, never independent Queue/Insight/chat data pipelines.
-struct DJConnectNowPlayingWidget: Widget {
-    var body: some WidgetConfiguration { sessionConfiguration(kind: "DJConnectNowPlayingWidget") }
-}
-struct DJConnectQueueWidget: Widget {
-    var body: some WidgetConfiguration { sessionConfiguration(kind: "DJConnectQueueWidget") }
-}
-struct DJConnectTrackInsightWidget: Widget {
-    var body: some WidgetConfiguration { sessionConfiguration(kind: "DJConnectTrackInsightWidget") }
-}
-struct DJConnectAskDJWidget: Widget {
-    var body: some WidgetConfiguration { sessionConfiguration(kind: "DJConnectAskDJWidget") }
-}
-
 #if os(iOS) && canImport(ActivityKit)
 struct DJConnectSessionActivityWidget: Widget {
     var body: some WidgetConfiguration {
@@ -449,10 +434,6 @@ private struct SessionMomentLayoutPreview: View {
 struct DJConnectTrackInsightWidgetsBundle: WidgetBundle {
     var body: some Widget {
         DJConnectSessionWidget()
-        DJConnectNowPlayingWidget()
-        DJConnectQueueWidget()
-        DJConnectTrackInsightWidget()
-        DJConnectAskDJWidget()
         #if os(iOS) && canImport(ActivityKit)
         DJConnectSessionActivityWidget()
         #endif

@@ -692,6 +692,7 @@
 		26056425DEFDCF738458EB87 /* DJConnectModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectModels.swift; sourceTree = "<group>"; };
 		28061ACB9D7280D9D038F5A6 /* RendezvousNativeFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendezvousNativeFlowTests.swift; sourceTree = "<group>"; };
 		285602C75F473EB08A02680A /* HASpeechNativePresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HASpeechNativePresentationTests.swift; sourceTree = "<group>"; };
+		2885787D15B9B681B8664CF7 /* DJConnectTrackInsightWidgetsMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DJConnectTrackInsightWidgetsMac.entitlements; sourceTree = "<group>"; };
 		29543EE4140D4DBC7897D5AC /* DeviceSpeechSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSpeechSettingsView.swift; sourceTree = "<group>"; };
 		2A0D4497AB084460E9597132 /* SessionHistorySummaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHistorySummaryTests.swift; sourceTree = "<group>"; };
 		2A30E01DCBBC74B7F694B6F6 /* RendezvousRepairWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendezvousRepairWindow.swift; sourceTree = "<group>"; };
@@ -1127,6 +1128,7 @@
 				17919B283CC14F9BC5B8D295 /* Assets.xcassets */,
 				C9827D3149A68F3B7699E7CE /* DJConnectTrackInsightWidgets.entitlements */,
 				B4D28D4FC8C6E0AEC5D2C3EC /* DJConnectTrackInsightWidgets.swift */,
+				2885787D15B9B681B8664CF7 /* DJConnectTrackInsightWidgetsMac.entitlements */,
 				8D087A44DEDC32B57C1F4A55 /* Info.plist */,
 				3953FE328BD44805A901A115 /* InfoPlist.strings */,
 			);
@@ -2547,7 +2549,7 @@
 		07AFF9179200BEA9EF52A706 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectTrackInsightWidgets/DJConnectTrackInsightWidgets.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectTrackInsightWidgets/DJConnectTrackInsightWidgetsMac.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = Apps/DJConnectTrackInsightWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -2951,7 +2953,7 @@
 		88A07D7EFEB5980B391ECB08 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectTrackInsightWidgets/DJConnectTrackInsightWidgets.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Apps/DJConnectTrackInsightWidgets/DJConnectTrackInsightWidgetsMac.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = Apps/DJConnectTrackInsightWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

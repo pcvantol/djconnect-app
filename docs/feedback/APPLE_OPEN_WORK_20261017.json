@@ -442,6 +442,17 @@
       "topic": "VibeScape: muisklik op verticale dynamics-slider positioneert waarde",
       "owner": "Apple",
       "next_action": "Fysieke gebruikersacceptatie van herhaalde verwijdering en muis-/dragbediening."
+    },
+    {
+      "id": "native-session-widget-discovery-open",
+      "status": "PARTIAL",
+      "evidence": "Directe Peterbugs22October: repeated widgets and click enters iPhone Mirroring. Removed four legacy gallery registrations per explicit owner request; only Session widget small/medium/large plus separate Live Activity. Native Mac plugin rejection independently read in pkd: plug-ins must be sandboxed. Add Mac-only widget sandbox and Mac djconnect URL scheme; signed oldartifact2causal failures/new40444all7checksPASS. Signed macOS/iOS40444 builds/strict signaturesPASS. docs/MAC_WIDGET_NATIVE_DISCOVERY_AND_OPEN.md.",
+      "remaining": [
+        "Installatie, native pluginregistratie en lokale URL-afhandeling verifiëren; fysieke gallery/clickacceptatie afzonderlijk."
+      ],
+      "topic": "Alleen DJ-sessie-widget en werkende native Mac-opening",
+      "owner": "Apple",
+      "next_action": "Installatie, native pluginregistratie en lokale URL-afhandeling verifiëren; fysieke gallery/clickacceptatie afzonderlijk."
     }
   ],
   "qualification": {
