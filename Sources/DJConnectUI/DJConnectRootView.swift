@@ -4104,6 +4104,7 @@ struct TrackInsightView: View {
     @State private var menuIntent: SessionControlIntent?
     @State private var menuFrames: [SessionControlIntent.Kind: CGRect] = [:]
     #endif
+    @State private var isHeroVisible = false
     @State private var isAnimationActive = false
     @State private var statusToast: DJConnectVisualNotice?
 
@@ -4173,20 +4174,24 @@ struct TrackInsightView: View {
                     let contentWidth = min(maxContentWidth(for: proxy.size), proxy.size.width)
                     ZStack(alignment: .top) {
                         ScrollView {
-                            VStack(alignment: .leading, spacing: 16) {
+                            LazyVStack(alignment: .leading, spacing: 16) {
                                 if let insight {
                                     TrackInsightHero(
                                         model: model,
                                         insight: insight,
                                         moodStepIndex: moodStepIndex,
-                                        isAnimationActive: isAnimationActive,
+                                        isAnimationActive: isAnimationActive && isHeroVisible,
                                         isPinnedSubject: explicitMoment
                                     )
                                     .id(trackInsightHeroRenderID(for: insight))
-                                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                                    .onAppear { isHeroVisible = true }
+                                    .onDisappear { isHeroVisible = false }
+                                    .frame(maxWidth: .infinity, alignment: .topLeading)
                                     TrackInsightAnalysisCard(insight: insight, language: model.language)
+                                        .equatable()
                                         .frame(maxWidth: .infinity, alignment: .topLeading)
                                     TrackInsightMetricsGrid(insight: insight, language: model.language, moodStepIndex: moodStepIndex)
+                                        .equatable()
                                         .frame(maxWidth: .infinity, alignment: .topLeading)
                                 } else if explicitMoment {
                                     VStack(alignment: .leading, spacing: 16) {
@@ -5633,6 +5638,7 @@ private struct MusicDNATrackListPanel: View {
             VStack(spacing: 10) {
                 ForEach(Array(tracks.prefix(limit).enumerated()), id: \.offset) { _, track in
                     MusicDNATrackListRow(track: track, artworkURL: artworkURL(track))
+                        .equatable()
                 }
             }
             Spacer(minLength: 0)
@@ -5671,6 +5677,7 @@ private struct MusicDNATopTracksPanel: View {
                         .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     ForEach(Array((ranges[range] ?? []).prefix(3).enumerated()), id: \.offset) { _, track in
                         MusicDNATrackListRow(track: track, artworkURL: artworkURL(track))
+                            .equatable()
                     }
                 }
             }
@@ -6246,6 +6253,27 @@ private struct MusicDNAAdaptiveCardLayout: Layout {
     var minimumColumnWidth: CGFloat = 280
     var spacing: CGFloat = 12
 
+    struct Cache {
+        var width: CGFloat?
+        var minimumColumnWidth: CGFloat?
+        var spacing: CGFloat?
+        var frames: [CGRect] = []
+        var height: CGFloat = 0
+    }
+    func makeCache(subviews: Subviews) -> Cache { Cache() }
+    func updateCache(_ cache: inout Cache, subviews: Subviews) { cache = Cache() }
+
+    private func measuredArrangement(width: CGFloat, subviews: Subviews, cache: inout Cache) -> (frames: [CGRect], height: CGFloat) {
+        if cache.width == width, cache.minimumColumnWidth == minimumColumnWidth,
+           cache.spacing == spacing, cache.frames.count == subviews.count {
+            return (cache.frames, cache.height)
+        }
+        let result = arrangement(width: width, subviews: subviews)
+        cache.width = width; cache.minimumColumnWidth = minimumColumnWidth; cache.spacing = spacing
+        cache.frames = result.frames; cache.height = result.height
+        return result
+    }
+
     private func arrangement(width: CGFloat, subviews: Subviews) -> (frames: [CGRect], height: CGFloat) {
         guard !subviews.isEmpty else { return ([], 0) }
         let columns = min(subviews.count, max(1, Int((width + spacing) / (minimumColumnWidth + spacing))))
@@ -6262,13 +6290,13 @@ private struct MusicDNAAdaptiveCardLayout: Layout {
         return (frames, max(0, (bottoms.max() ?? 0) - spacing))
     }
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) -> CGSize {
         let width = proposal.width.flatMap { $0.isFinite ? max(1, $0) : nil } ?? minimumColumnWidth
-        return CGSize(width: width, height: arrangement(width: width, subviews: subviews).height)
+        return CGSize(width: width, height: measuredArrangement(width: width, subviews: subviews, cache: &cache).height)
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let frames = arrangement(width: bounds.width, subviews: subviews).frames
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) {
+        let frames = measuredArrangement(width: bounds.width, subviews: subviews, cache: &cache).frames
         for (index, subview) in subviews.enumerated() {
             let frame = frames[index]
             subview.place(at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY), anchor: .topLeading,
@@ -6611,44 +6639,56 @@ private struct MusicDiscoveryCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button {
-                    #if os(iOS)
-                    DJConnectHaptics.selection()
-                    #endif
-                    showDetail()
-                } label: {
-                    artwork.contentShape(DJConnectCardAppearance.shape)
-                }
-                .djConnectPlainButtonStyle()
-                .accessibilityLabel(item.title)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(item.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(2)
-                if let subtitle = item.subtitle, !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.62))
-                        .lineLimit(1)
-                }
-                if !item.reason.isEmpty {
-                    Text(item.reason)
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.58))
-                        .lineLimit(2)
-                }
-                MusicDiscoveryFitLabel(item: item)
-                Text(item.kind.rawValue.capitalized)
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.white)
-                    .textCase(.uppercase)
+                #if os(iOS)
+                DJConnectHaptics.selection()
+                #endif
+                showDetail()
+            } label: {
+                MusicDiscoveryCardArtwork(artworkURL: artworkURL, isLoading: model.playingMusicDiscoveryItemID == item.id)
+                    .equatable()
+                    .contentShape(DJConnectCardAppearance.shape)
             }
-            .frame(width: 142, alignment: .leading)
+            .djConnectPlainButtonStyle()
+            .accessibilityLabel(item.title)
+            MusicDiscoveryCardDetails(item: item).equatable()
         }
     }
+}
 
-    private var artwork: some View {
+private struct MusicDiscoveryCardDetails: View, Equatable {
+    let item: DJConnectMusicDiscoveryItem
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(item.title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+            if let subtitle = item.subtitle, !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.62))
+                    .lineLimit(1)
+            }
+            if !item.reason.isEmpty {
+                Text(item.reason)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.58))
+                    .lineLimit(2)
+            }
+            MusicDiscoveryFitLabel(item: item)
+            Text(item.kind.rawValue.capitalized)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .textCase(.uppercase)
+        }
+        .frame(width: 142, alignment: .leading)
+    }
+}
+
+private struct MusicDiscoveryCardArtwork: View, Equatable {
+    let artworkURL: URL?
+    let isLoading: Bool
+    var body: some View {
         ZStack {
             DJConnectCardAppearance.shape
                 .fill(.white.opacity(0.10))
@@ -6673,7 +6713,7 @@ private struct MusicDiscoveryCard: View {
                     .font(.title2)
                     .foregroundStyle(.white.opacity(0.74))
             }
-            if model.playingMusicDiscoveryItemID == item.id {
+            if isLoading {
                 Color.black.opacity(0.36)
                 ProgressView()
                     .tint(.white)
@@ -7035,7 +7075,7 @@ private func musicDiscoveryArtworkURL(_ rawValue: String?, model: DJConnectAppMo
     model.resolvedMusicDiscoveryImageURL(rawValue)
 }
 
-private struct MusicDNATrackListRow: View {
+private struct MusicDNATrackListRow: View, Equatable {
     let track: DJConnectMusicDNATrack
 
     private var title: String {
@@ -8538,7 +8578,11 @@ private extension Array {
     }
 }
 
-private struct TrackInsightMetricsGrid: View {
+private struct TrackInsightMetricsGrid: View, Equatable {
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.insight == rhs.insight && lhs.language == rhs.language && lhs.moodStepIndex == rhs.moodStepIndex
+    }
+
     let insight: TrackInsight
     let language: String
     let moodStepIndex: Int
@@ -8723,7 +8767,7 @@ private struct TrackInsightMetricPill: View {
     }
 }
 
-private struct TrackInsightAnalysisCard: View {
+private struct TrackInsightAnalysisCard: View, Equatable {
     let insight: TrackInsight
     let language: String
 
@@ -10996,14 +11040,27 @@ private struct AskDJView: View {
         self.openTrackInsightAction = openTrackInsightAction
     }
 
-    private var searchResultIDs: [UUID] {
+    @State private var orderedPersistentMessages: [DJConnectAskDJMessage] = []
+    @State private var askDJTimelineMessages: [DJConnectAskDJMessage] = []
+    @State private var searchResultIDs: [UUID] = []
+    @State private var searchResultIDSet: Set<UUID> = []
+
+    private func rebuildAskDJRows() {
+        orderedPersistentMessages = Array(model.askDJMessages.sorted(by: askDJTimelineMessagePrecedes).reversed())
+        var messages = model.askDJMessages
+        if let listening = model.transientAskDJListeningMessage { messages.append(listening) }
+        if let mood = model.transientAskDJMoodMessage { messages.append(mood) }
+        askDJTimelineMessages = messages.count == model.askDJMessages.count ? orderedPersistentMessages :
+            Array(messages.sorted(by: askDJTimelineMessagePrecedes).reversed())
+        rebuildAskDJSearch()
+    }
+
+    private func rebuildAskDJSearch() {
         let query = askDJSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else {
-            return []
+        searchResultIDs = query.isEmpty ? [] : orderedPersistentMessages.compactMap {
+            $0.text.localizedCaseInsensitiveContains(query) ? $0.id : nil
         }
-        return model.askDJMessages.sorted(by: askDJTimelineMessagePrecedes).reversed().compactMap { message in
-            message.text.localizedCaseInsensitiveContains(query) ? message.id : nil
-        }
+        searchResultIDSet = Set(searchResultIDs)
     }
 
     private var activeSearchResultID: UUID? {
@@ -11012,17 +11069,6 @@ private struct AskDJView: View {
             return nil
         }
         return searchResultIDs[selectedSearchResultIndex]
-    }
-
-    private var askDJTimelineMessages: [DJConnectAskDJMessage] {
-        var messages = model.askDJMessages
-        if let transientMessage = model.transientAskDJListeningMessage {
-            messages.append(transientMessage)
-        }
-        if let transientMessage = model.transientAskDJMoodMessage {
-            messages.append(transientMessage)
-        }
-        return Array(messages.sorted(by: askDJTimelineMessagePrecedes).reversed())
     }
 
     private func askDJTimelineMessagePrecedes(_ lhs: DJConnectAskDJMessage, _ rhs: DJConnectAskDJMessage) -> Bool {
@@ -11196,7 +11242,7 @@ private struct AskDJView: View {
                                                 isRetryDisabled: isTransientMessage || isAskDJHistoryStale || model.isSendingAskDJText,
                                                 playingActionID: model.playingAskDJActionID,
                                                 currentMood: model.confirmedSessionMoodInt,
-                                                isSearchResult: searchResultIDs.contains(message.id),
+                                                isSearchResult: searchResultIDSet.contains(message.id),
                                                 isActiveSearchResult: activeSearchResultID == message.id,
                                                 searchText: askDJSearchText,
                                                 retryAction: {
@@ -11351,7 +11397,10 @@ private struct AskDJView: View {
                             }
                         }
                         .contentShape(Rectangle())
+                        .onChange(of: model.transientAskDJListeningMessage) { rebuildAskDJRows() }
+                        .onChange(of: model.transientAskDJMoodMessage) { rebuildAskDJRows() }
                         .onChange(of: model.askDJMessages) {
+                            rebuildAskDJRows()
                             isAskDJScrollToTopButtonSuppressed = false
                             normalizeAskDJSearchSelection()
                             scrollAskDJToInitialTopIfNeeded(proxy: proxy)
@@ -11364,6 +11413,7 @@ private struct AskDJView: View {
                             submittedQuestionID = nil; followsSubmittedQuestion = false
                         }
                         .onAppear {
+                            rebuildAskDJRows()
                             didScrollAskDJToInitialTop = false
                             scrollAskDJToInitialTopIfNeeded(proxy: proxy)
                         }
@@ -11374,6 +11424,8 @@ private struct AskDJView: View {
                             scrollAskDJToInitialTopIfNeeded(proxy: proxy)
                         }
                         .onDisappear {
+                            orderedPersistentMessages = []; askDJTimelineMessages = []
+                            searchResultIDs = []; searchResultIDSet = []
                             didScrollAskDJToInitialTop = false
                             submittedQuestionID = nil; followsSubmittedQuestion = false
                         }
@@ -11395,6 +11447,7 @@ private struct AskDJView: View {
                             }
                         }
                         .onChange(of: askDJSearchText) {
+                            rebuildAskDJSearch()
                             selectedSearchResultIndex = 0
                             selectedSearchResultID = nil
                             scrollToActiveAskDJSearchResult(proxy: proxy)
@@ -11967,7 +12020,7 @@ struct AskDJMessageBubble: View {
     private var renderedMessageText: some View {
         Group {
             if let serverHighlights { SessionHighlightedText(text: displayText, highlights: serverHighlights) }
-            else { AskDJMarkdownText(text: displayText, highlight: searchText) }
+            else { AskDJMarkdownText(text: displayText, highlight: searchText).equatable() }
         }
         .padding(.trailing, contextQuestionAction != nil && !renderablePlaybackActions.isEmpty ? 36 : 0)
         .tint(.white)
@@ -13250,7 +13303,7 @@ private struct AskDJSourcesStack: View {
 
 }
 
-private struct AskDJMarkdownText: View {
+private struct AskDJMarkdownText: View, Equatable {
     let text: String
     var highlight: String = ""
 

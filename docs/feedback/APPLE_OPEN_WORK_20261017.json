@@ -505,6 +505,46 @@
       ],
       "topic": "Scrolloptimalisatie lijst Eerdere sessies",
       "owner": "Apple"
+    },
+    {
+      "id": "music-dna-scroll-optimization",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: Layout.Cache hergebruikt gemeten kaartframes tussen sizing/placement en vervalt op subview/breedte/layoutwijziging; volledige track/URL-labels Equatable. docs/SECONDARY_SCREENS_SCROLL_PERFORMANCE.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; expliciet-build-only.",
+      "remaining": [
+        "OPEN: volgende expliciet gevraagde build compilatie/native scrollmetingen en relevante layout/data/context/actie-updates op iPad/Mac verifiëren; geen gemeten performanceclaim."
+      ],
+      "topic": "Scrolloptimalisatie Music DNA",
+      "owner": "Apple"
+    },
+    {
+      "id": "discovery-scroll-optimization",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: Waardegebonden Equatable hoes/detaildelen, met URLresolutie/loading/knopclosures in live parent; bestaande Lazy stacks en transport behouden. docs/SECONDARY_SCREENS_SCROLL_PERFORMANCE.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; expliciet-build-only.",
+      "remaining": [
+        "OPEN: volgende expliciet gevraagde build compilatie/native scrollmetingen en relevante layout/data/context/actie-updates op iPad/Mac verifiëren; geen gemeten performanceclaim."
+      ],
+      "topic": "Scrolloptimalisatie Ontdek",
+      "owner": "Apple"
+    },
+    {
+      "id": "track-insight-scroll-optimization",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: LazyVStack; hero lazy-lifetime gate voor bestaande animatie; analyse/metrics Equatable met volledige insight/taal/mood en native environment. docs/SECONDARY_SCREENS_SCROLL_PERFORMANCE.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; expliciet-build-only.",
+      "remaining": [
+        "OPEN: volgende expliciet gevraagde build compilatie/native scrollmetingen en relevante layout/data/context/actie-updates op iPad/Mac verifiëren; geen gemeten performanceclaim."
+      ],
+      "topic": "Scrolloptimalisatie Track Insight",
+      "owner": "Apple"
+    },
+    {
+      "id": "ask-dj-scroll-optimization",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: Berichtvolgorde en zoekIDs alleen op relevante wijzigingen; Set-membership per rij; Markdown-label Equatable, alle actie/contextmenu/deletion closures live. Afgeleide RAMrijen gewist bij verdwijnen. docs/SECONDARY_SCREENS_SCROLL_PERFORMANCE.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; expliciet-build-only.",
+      "remaining": [
+        "OPEN: volgende expliciet gevraagde build compilatie/native scrollmetingen en relevante layout/data/context/actie-updates op iPad/Mac verifiëren; geen gemeten performanceclaim."
+      ],
+      "topic": "Scrolloptimalisatie Ask DJ",
+      "owner": "Apple"
     }
   ],
   "qualification": {
