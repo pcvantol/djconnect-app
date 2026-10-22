@@ -1347,14 +1347,8 @@ struct SessionModeToggleButtons: View {
             modeButton(forecast: false, key: "ui.session.forecast.flow")
             modeButton(forecast: true, key: "ui.session.forecast.tab")
             if let openVibeScape {
-                Button("VibeScape", action: openVibeScape)
-                    .font(.headline).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.74)
-                    .frame(maxWidth: .infinity,minHeight:48)
-                    .background(isVibeScape ? selectionColor.opacity(0.80) : .clear,
-                                in: DJConnectCardAppearance.segmentedItemShape)
-                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis:isVibeScape ? .selected : .secondary,shape:.segmented,expands:true,usesLiveGlass:true,selectionTint:selectionColor))
-                    .accessibilityAddTraits(isVibeScape ? .isSelected : [])
-                    .accessibilityIdentifier("session-vibescape-toggle")
+                modeButton(title: "VibeScape", selected: isVibeScape,
+                           identifier: "session-vibescape-toggle", action: openVibeScape)
             }
         }
         .padding(DJConnectCardAppearance.segmentedContentInset)
@@ -1367,19 +1361,24 @@ struct SessionModeToggleButtons: View {
 
     private func modeButton(forecast: Bool, key: String) -> some View {
         let selected = !isVibeScape && showsForecast == forecast
-        return Button {
+        return modeButton(title: DJConnectLocalization.localized(key: key, language: language),
+                          selected: selected,
+                          identifier: forecast ? "session-forecast-toggle" : "session-flow-toggle") {
             DJConnectHaptics.selection()
             showsForecast = forecast
-        } label: {
-            Text(DJConnectLocalization.localized(key: key, language: language))
-                .font(.headline)
-                .foregroundStyle(.white.opacity(selected ? 1 : 0.78))
-                .lineLimit(1)
-                .minimumScaleFactor(0.74)
-                .frame(maxWidth: .infinity, minHeight: 48)
-                .background(selected ? selectionColor.opacity(0.80) : .clear,
-                            in: DJConnectCardAppearance.segmentedItemShape)
         }
+    }
+
+    private func modeButton(title: String, selected: Bool, identifier: String,
+                            action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+        .font(.headline)
+        .foregroundStyle(.white.opacity(selected ? 1 : 0.78))
+        .lineLimit(1)
+        .minimumScaleFactor(0.74)
+        .frame(maxWidth: .infinity, minHeight: 48)
+        .background(selected ? selectionColor.opacity(0.80) : .clear,
+                    in: DJConnectCardAppearance.segmentedItemShape)
         .djConnectButtonStyle(DJConnectButtonStyle(
             emphasis: selected ? .selected : .secondary,
             shape: .segmented, expands: true, usesLiveGlass: true,
@@ -1387,7 +1386,7 @@ struct SessionModeToggleButtons: View {
             selectionTint: selectionColor
         ))
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier(forecast ? "session-forecast-toggle" : "session-flow-toggle")
+        .accessibilityIdentifier(identifier)
     }
 }
 
