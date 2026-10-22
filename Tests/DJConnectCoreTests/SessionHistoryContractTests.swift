@@ -7983,3 +7983,19 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
     model.sessionHistory.clearArchiveSearch()
     #expect(model.sessionHistory.archiveSearchSessions.isEmpty && model.sessionHistory.archiveSearchQuery.isEmpty)
 }
+
+@Test @MainActor func sessionRenderSnapshotReuseExpiresUnchangedInputAndDropsRemovedRows() throws {
+    let data = try DJConnectDemoSessionData.make(language: "nl")
+    let entry = try #require(data.timelines[data.active.id]?.entries.first)
+    let deadline = try #require(DJConnectHistoryEntry.date(entry.retainedUntil))
+    let cache = SessionTimelineRenderCache(), epoch = UUID()
+    let first = cache.snapshot([entry], sessionID: data.active.id, epoch: epoch, at: deadline.addingTimeInterval(-1))
+    #expect(first.count == 1)
+    let reused = cache.snapshot([entry], sessionID: data.active.id, epoch: epoch, at: deadline.addingTimeInterval(-0.5))
+    #expect(reused == first)
+    #expect(cache.snapshot([entry], sessionID: data.active.id, epoch: epoch, at: deadline).isEmpty)
+    #expect(cache.snapshot([], sessionID: data.active.id, epoch: epoch, at: deadline).isEmpty)
+    let freshEpoch = cache.snapshot([entry], sessionID: data.active.id, epoch: UUID(), at: deadline.addingTimeInterval(-1))
+    #expect(freshEpoch.first?.message.id != first.first?.message.id)
+    #expect(cache.snapshot([], sessionID: data.active.id, epoch: UUID(), at: deadline.addingTimeInterval(-1)).isEmpty)
+}

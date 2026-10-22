@@ -653,7 +653,7 @@ struct SessionTimelineScreen: View {
                                             } else { inputFocused = true }
                                         }
                                         .equatable()
-                                            .modifier(SessionRowFade(selected: selectedMatchID == entry.id || initialAnchor == entry.id || history.selectedEntry == entry.reference))
+                                            .modifier(SessionRowFade(selected: selectedMatchID == entry.id || initialAnchor == entry.id || history.selectedEntry == entry.reference, enabled: activeSession != nil))
                                         .padding(.horizontal, 20)
                                         .id(entry.id).accessibilityElement(children: .contain).accessibilityIdentifier("session-entry-" + entry.id)
                                         .onAppear {
@@ -698,11 +698,16 @@ struct SessionTimelineScreen: View {
                         }
                     }
                     .onScrollTargetVisibilityChange(idType: String.self, threshold: 0.01) { visibleIDs in
-                        artworkVisibleIDs = Set(visibleIDs)
-                        history.prefetchArtwork(sessionID: sessionID, visibleIDs: artworkVisibleIDs)
-                        currentHeaderVisible = visibleIDs.contains("current")
-                        oldestEntriesVisible = visibleIDs.contains("tail") || timeline.entries.first.map { visibleIDs.contains($0.id) } == true
-                        if oldestEntriesVisible { loadEarlierIfNeeded() }
+                        let visible = Set(visibleIDs)
+                        if artworkVisibleIDs != visible {
+                            artworkVisibleIDs = visible
+                            history.prefetchArtwork(sessionID: sessionID, visibleIDs: visible)
+                        }
+                        let headerVisible = visible.contains("current")
+                        if currentHeaderVisible != headerVisible { currentHeaderVisible = headerVisible }
+                        let oldestVisible = visible.contains("tail") || timeline.entries.first.map { visible.contains($0.id) } == true
+                        if oldestEntriesVisible != oldestVisible { oldestEntriesVisible = oldestVisible }
+                        if oldestVisible { loadEarlierIfNeeded() }
                     }
                     .onChange(of: history.artworkAvailable) { _, _ in
                         history.prefetchArtwork(sessionID: sessionID, visibleIDs: artworkVisibleIDs)
@@ -710,12 +715,12 @@ struct SessionTimelineScreen: View {
                     .onChange(of: clock.date) { _, _ in
                         history.prefetchArtwork(sessionID: sessionID, visibleIDs: artworkVisibleIDs)
                     }
-                    .onScrollPhaseChange { _, phase in
+                    .onScrollPhaseChange { previous, phase in
                         if phase == .tracking || phase == .interacting {
                             submittedQuestion = nil
                             pendingSearchPosition = nil
                         }
-                        if phase.isScrolling {
+                        if previous.isScrolling && !phase.isScrolling {
                             history.prefetchArtwork(sessionID: sessionID, visibleIDs: artworkVisibleIDs)
                         }
                     }
