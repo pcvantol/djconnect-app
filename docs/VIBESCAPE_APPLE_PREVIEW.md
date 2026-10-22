@@ -62,11 +62,14 @@ Swipes outside those control regions also nudge along the finger's path, sampled
 at most 30 times per second with at least eight points between samples. A swipe
 starting in a control region never deforms the canvas or reveals controls;
 crossing one skips its area. Releasing the finger adds the final local impulse.
-At most four screen-space impulses remain in RAM for2.6seconds and decay with a
-rebound. They preserve the scene's style/composition, consume no interpreted
+At most four screen-space impulses remain in RAM for2.6seconds. Each produces a
+soft dent with a 160ms onset and non-oscillating decay, instead of alternating
+bright/dark ripple rings. Smooth saturation bounds overlapping impulses to
+avoid abrupt normal/lighting changes while fingers rest or move slightly.
+They preserve the scene's style/composition, consume no interpreted
 turn budget, and invalidate old renderer/request tickets. Track changes and
 visit exit discard them. Reduce Motion uses an immediate static deformation
-and expiration instead of an animated rebound. Dragging the
+and expiration instead of an animated decay. Dragging the
 slider suspends hiding and starts a fresh three seconds on release. Reduce
 Motion disables the control animation; an accessibility action reveals them.
 Dynamics shows its percentage and uses a separate 180ms response instead of

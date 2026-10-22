@@ -27,3 +27,8 @@ Optional fourth/fifth arguments specify width and height (64...2048); use
 Four touch comparison images check local deformation, different positions and
 exact restoration after expiry. The report includes near/far pixel deltas;
 native UIKit hit testing and touch delivery remain a separate device check.
+
+The probe additionally samples 79 touch ages over 2.6 seconds with the autonomous
+scene clock frozen, reporting mean/max successive-frame byte differences. This
+isolates touch-induced temporal variation. Compare the same inputs/resolution
+against the prior compiled shader; it is not physical iPhone flicker acceptance.

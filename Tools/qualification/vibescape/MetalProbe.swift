@@ -58,14 +58,14 @@ import UniformTypeIdentifiers
         guard staticDelta > 0.5, motionDelta[1] > motionDelta[0] else {
             fatalError("Dynamics failed actual GPU pixel regression: \(staticDelta), \(motionDelta)")
         }
-        func touchFrame(_ touches: [VibeScapeTouch], age: TimeInterval, name: String) throws -> [UInt8] {
+        func touchFrame(_ touches: [VibeScapeTouch], age: TimeInterval, name: String? = nil) throws -> [UInt8] {
             guard let command = engine.encode(texture: texture, scene: subject, clock: 2, dynamics: 0.5,
                                               reducedQuality: false, touches: touches, interactionUptime: age) else {
                 throw VibeScapeMetalEngine.Failure.unavailable
             }
             command.commit(); command.waitUntilCompleted()
             guard command.status == .completed else { throw command.error ?? VibeScapeMetalEngine.Failure.unavailable }
-            try save(texture, to: output.appendingPathComponent(name))
+            if let name { try save(texture, to: output.appendingPathComponent(name)) }
             return pixels(texture)
         }
         let touchA = VibeScapeTouch(position: SIMD2(-0.15, 0.4), startedAt: 0)
@@ -79,6 +79,15 @@ import UniformTypeIdentifiers
         guard near > far, pixelDelta(nudged, otherPoint) > 0.001, expired == untouched else {
             fatalError("Touch must deform locally at its own position and expire without persistent changes")
         }
+        // Freeze the autonomous clock so successive-frame differences come
+        // only from the touch response, not the underlying moving liquid.
+        var prior = untouched
+        var touchFrameDeltas: [Double] = []
+        for frame in 0...78 {
+            let next = try touchFrame([touchA], age: Double(frame)/30)
+            touchFrameDeltas.append(pixelDelta(prior,next))
+            prior = next
+        }
         let sorted = gpuMS.sorted()
         let report: [String:Any] = ["device":device.name,"resolution":[width,height],"frames":gpuMS.count,
             "gpu_ms_median":sorted[sorted.count/2],"gpu_ms_p95":sorted[Int(Double(sorted.count)*0.95)],
@@ -90,6 +99,8 @@ import UniformTypeIdentifiers
             "touch_mean_pixel_delta_near_far": [near,far],
             "touch_position_changes_output": pixelDelta(nudged, otherPoint),
             "touch_expiry_restores_original_pixels": expired == untouched,
+            "touch_temporal_mean_frame_delta": touchFrameDeltas.reduce(0,+)/Double(touchFrameDeltas.count),
+            "touch_temporal_max_frame_delta": touchFrameDeltas.max() ?? 0,
             "iphone_ipad_ui_thermal_battery_acceptance":"NOT_RUN","native_voice":"NOT_RUN"]
         let data = try JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys])
         try data.write(to:output.appendingPathComponent("gpu-report.json"))
