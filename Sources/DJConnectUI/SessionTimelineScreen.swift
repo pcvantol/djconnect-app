@@ -551,6 +551,7 @@ struct SessionTimelineScreen: View {
                                                            inlineSearchBounds = $0
                                                            positionOpenSearch()
                                                        })
+                                    .id("forecast-content")
                             } else {
                                 if activeSession != nil && flowSearchExpanded {
                                     searchBar(proxy: proxy).id("flow-search")
@@ -753,7 +754,8 @@ struct SessionTimelineScreen: View {
             }
             .background(sessionBackground)
             .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
-                guard activeSession != nil, !inlineSearchBounds.contains(tap.location) else { return }
+                guard activeSession != nil, sessionControlIntent == nil, !inlineSearchBounds.isEmpty,
+                      !inlineSearchBounds.contains(tap.location) else { return }
                 if displayingForecast {
                     forecastSearchExpanded = false; forecastQuery = ""
                 } else if flowSearchExpanded {
@@ -1141,6 +1143,7 @@ struct SessionTimelineScreen: View {
         submittedQuestion = nil
         sceneRestoreTask?.cancel(); anchorGeneration = UUID()
         pendingSearchPosition = displayingForecast ? "forecast-search" : "flow-search"
+        inlineSearchBounds = .zero
         if displayingForecast { forecastSearchExpanded = true }
         else { flowSearchExpanded = true; searchFocused = true }
         // Use the same bound scroll controller as keyboard/layout changes.
@@ -1160,7 +1163,12 @@ struct SessionTimelineScreen: View {
         transaction.disablesAnimations = true
         withTransaction(transaction) {
             scrollAnchor = .top
-            if displayingForecast { forecastPosition = target }
+            if displayingForecast {
+                // A nested target does not exist until LazyVStack mounts the
+                // Forecast row. Mount that row first; its field geometry then
+                // advances this same controller to the final search target.
+                forecastPosition = SessionForecastSearchPosition.target(fieldBounds: inlineSearchBounds)
+            }
             else { visibleEntry = target }
         }
     }

@@ -16,7 +16,63 @@ private struct ForecastHeaderMarker: NSViewRepresentable {
     func updateNSView(_ view: NSView, context: Context) {}
 }
 
+@MainActor private final class ForecastSearchGeometry: ObservableObject {
+    var field = CGRect.zero
+    var viewport = CGRect.zero
+}
+
+private struct ForecastSearchOpeningHarness: View {
+    let model: DJConnectAppModel
+    let geometry: ForecastSearchGeometry
+    @State private var position: String? = "current"
+    @State private var expanded = false
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 18) {
+                Color.clear.frame(height: 1400).id("current")
+                SessionForecastContent(model: model, query: .constant(""), searchExpanded: $expanded,
+                    searchBoundsChanged: { bounds in
+                        geometry.field = bounds
+                        position = SessionForecastSearchPosition.target(fieldBounds: bounds)
+                    })
+                    .id("forecast-content")
+                Color.clear.frame(height: 800).id("after-forecast")
+            }.scrollTargetLayout()
+        }
+        .scrollPosition(id: $position, anchor: .top)
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { geometry.viewport = $0 }
+        .task {
+            expanded = true
+            position = SessionForecastSearchPosition.target(fieldBounds: .zero)
+        }
+    }
+}
+
 final class ForecastHeaderAlignmentTests: XCTestCase {
+    @MainActor func testOpeningSearchMountsOffscreenForecastAndRevealsField() async throws {
+        let suite = "forecast-search-layout-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+        defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+        _ = NSApplication.shared
+        let measured = ForecastSearchGeometry()
+        let host = NSHostingView(rootView: ForecastSearchOpeningHarness(model: model, geometry: measured)
+            .environment(\.scenePhase, .background))
+        let window = NSWindow(contentRect: .init(x: -3000, y: -3000, width: 640, height: 400),
+                              styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
+        defer { window.close() }
+        for _ in 0..<30 {
+            try await Task.sleep(for: .milliseconds(50))
+            host.layoutSubtreeIfNeeded()
+            if !measured.field.isEmpty, abs(measured.field.minY-measured.viewport.minY) <= 2 { break }
+        }
+        XCTAssertFalse(measured.field.isEmpty, "Opening must materialize the offscreen Forecast search field")
+        XCTAssertTrue(measured.viewport.intersects(measured.field), "Search must be visible after opening beyond a tall playback header")
+        XCTAssertEqual(measured.field.minY, measured.viewport.minY, accuracy: 2,
+                       "The nested search target must reach the viewport top after Forecast mounts")
+    }
+
     @MainActor func testNativeSessionModeGlassButtons() async throws {
         guard let path = ProcessInfo.processInfo.environment["DJCONNECT_SESSION_MODE_GLASS_DIR"] else {
             throw XCTSkip("Native mode-button rendering is opt-in")

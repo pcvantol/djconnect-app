@@ -97,6 +97,12 @@ struct SessionForecastPanel<Header: View>: View {
     }
 }
 
+enum SessionForecastSearchPosition {
+    static func target(fieldBounds: CGRect) -> String {
+        fieldBounds.isEmpty ? "forecast-content" : "forecast-search"
+    }
+}
+
 /// Lower content only: playback, artwork and persona stay owned by the Session.
 struct SessionForecastContent: View {
     @ObservedObject var model: DJConnectAppModel

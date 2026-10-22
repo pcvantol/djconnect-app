@@ -38,6 +38,11 @@ position aligns that field to the top content boundary below the native toolbar;
 field geometry and keyboard completion settle the same target after insertion.
 Forecast registers its nested children as scroll targets. There is no competing
 one-shot proxy scroll, and user tracking/dragging immediately releases alignment.
+When opening from above an offscreen Forecast, the same bound controller first
+targets the outer `forecast-content` row. Only after the inserted search field
+reports its frame does it target `forecast-search`; a lazy row cannot expose a
+nested target before being mounted. Outside-tap dismissal ignores an active
+control popover and unmeasured search fields, avoiding self-dismissal on open.
 Forecast's local search remains available independently of history search.
 Flow and Forecast remain mounted underneath, retaining their own viewport state.
 The overlay hides their accessibility tree and covers ordinary UI chrome; the
