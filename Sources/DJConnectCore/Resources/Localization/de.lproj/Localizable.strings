@@ -1542,3 +1542,5 @@
 
 "ui.vibescape.help.loading" = "Sprachbefehle werden geladen…";
 "ui.vibescape.voice.stop" = "Aufnahme stoppen";
+
+"ui.session.shortcut.open" = "DJ-Session öffnen";

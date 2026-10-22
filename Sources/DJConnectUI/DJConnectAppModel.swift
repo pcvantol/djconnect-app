@@ -5237,6 +5237,14 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    /// Home-screen presentation only. Never infer a session from demo or recovery state.
+    public var homeScreenSessionActionTitle: String {
+        let hasConfirmedSession = !isDemoMode && pairingStatus == .paired &&
+            !djSessionIsRecovering && !djSessionLiveUnavailable &&
+            activeDJSession?.runtimeState == "active" && sessionHistory.authorizedProfileID != nil
+        return localized(key: hasConfirmedSession ? "ui.session.shortcut.open" : "ui.session.start")
+    }
+
     public func performHomeScreenAction(_ action: DJConnectHomeScreenAction) {
         homeScreenActionRequest = DJConnectHomeScreenActionRequest(action: action)
         switch action {

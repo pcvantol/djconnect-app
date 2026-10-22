@@ -117,26 +117,6 @@ targets:
         LSApplicationCategoryType: public.app-category.music
         NSCameraUsageDescription: DJConnect uses the camera only to scan QR codes for Home Assistant, Apple Watch pairing, or VibeCast TV linking.
         UILaunchStoryboardName: LaunchScreen
-        UIApplicationShortcutItems:
-          - UIApplicationShortcutItemIconSymbolName: music.note
-            UIApplicationShortcutItemTitle: Now Playing
-            UIApplicationShortcutItemType: dev.djconnect.action.now-playing
-          - UIApplicationShortcutItemIconSymbolName: bubble.left.and.bubble.right
-            UIApplicationShortcutItemSubtitle: Ask for music
-            UIApplicationShortcutItemTitle: Ask DJ
-            UIApplicationShortcutItemType: dev.djconnect.action.ask-dj
-          - UIApplicationShortcutItemIconSymbolName: waveform.path.ecg
-            UIApplicationShortcutItemSubtitle: Analyze current track
-            UIApplicationShortcutItemTitle: Track Insight
-            UIApplicationShortcutItemType: dev.djconnect.action.track-insight
-          - UIApplicationShortcutItemIconSymbolName: sparkles
-            UIApplicationShortcutItemSubtitle: Music DNA recommendations
-            UIApplicationShortcutItemTitle: Discover
-            UIApplicationShortcutItemType: dev.djconnect.action.discovery
-          - UIApplicationShortcutItemIconSymbolName: music.note.list
-            UIApplicationShortcutItemSubtitle: Upcoming tracks
-            UIApplicationShortcutItemTitle: Queue
-            UIApplicationShortcutItemType: dev.djconnect.action.queue
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft

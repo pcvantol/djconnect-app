@@ -465,6 +465,16 @@
       "topic": "VibeScape: visuele spraak en dynamische help-popover",
       "owner": "Apple",
       "next_action": "OPEN: volgende expliciet gevraagde build: decoder/closed-wire en bestaande scene/turn-fence tests uitvoeren; native permission/recording/help-popover/expiry/owner/scene/audio-restoration fysiek kwalificeren."
+    },
+    {
+      "id": "home-screen-single-session-action",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: één app-icoon snelactie met koptelefoon; Start DJ-sessie / Open DJ-sessie op bevestigde actieve status. Statische snelacties uit project.yml/Info.plist verwijderd, dynamische lijst vervangen bij launch en sessietitel/lifecycle bijgewerkt. Bestaande sessiepagina/startscherm, geen automatische sessiecreatie. docs/HOME_SCREEN_SESSION_QUICK_ACTION.md. Source-only, NOTBUILT/NOTTESTED/NOTINSTALLED.",
+      "remaining": [
+        "OPEN: bij volgende expliciet gevraagde build native menu/upgrade/cold-warm navigatie en labels bij start/einde/recovery/owner/demo/taal verifiëren. Menu kan tijdens afgesloten app alleen laatst geregistreerde status tonen."
+      ],
+      "topic": "Eén dynamische DJ-sessie app-icoon snelactie",
+      "owner": "Apple"
     }
   ],
   "qualification": {

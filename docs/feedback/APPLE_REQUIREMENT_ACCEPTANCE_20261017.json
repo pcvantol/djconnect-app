@@ -17,7 +17,7 @@
     "CLOSED_BOUNDED": 22,
     "OPEN": 5,
     "PARKED": 1,
-    "PARTIAL": 30,
+    "PARTIAL": 31,
     "SUPERSEDED": 1
   },
   "requirements": [
@@ -555,6 +555,16 @@
       ],
       "requirement": "VibeScape: visuele spraak en dynamische help-popover",
       "source": "Direct Peter / docs/VIBESCAPE_VISUAL_VOICE_AND_DYNAMIC_HELP.md"
+    },
+    {
+      "id": "home-screen-single-session-action",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: één app-icoon snelactie met koptelefoon; Start DJ-sessie / Open DJ-sessie op bevestigde actieve status. Statische snelacties uit project.yml/Info.plist verwijderd, dynamische lijst vervangen bij launch en sessietitel/lifecycle bijgewerkt. Bestaande sessiepagina/startscherm, geen automatische sessiecreatie. docs/HOME_SCREEN_SESSION_QUICK_ACTION.md. Source-only, NOTBUILT/NOTTESTED/NOTINSTALLED.",
+      "remaining": [
+        "OPEN: bij volgende expliciet gevraagde build native menu/upgrade/cold-warm navigatie en labels bij start/einde/recovery/owner/demo/taal verifiëren. Menu kan tijdens afgesloten app alleen laatst geregistreerde status tonen."
+      ],
+      "requirement": "Eén dynamische DJ-sessie app-icoon snelactie",
+      "source": "Direct Peter / docs/HOME_SCREEN_SESSION_QUICK_ACTION.md"
     }
   ],
   "execution_feedback_40258": {

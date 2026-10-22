@@ -8,6 +8,7 @@ import UserNotifications
 struct DJConnectIOSApp: App {
     @UIApplicationDelegateAdaptor(DJConnectIOSAppDelegate.self) private var appDelegate
     @StateObject private var model: DJConnectAppModel
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         // Eager registration also covers an intent that cold-launches the app
@@ -30,10 +31,17 @@ struct DJConnectIOSApp: App {
         let content = DJConnectLaunchContainer(isBusy: model.isRefreshing, content: DJConnectRootView(model: model))
             .onAppear {
                 appDelegate.model = model
+                updateSessionShortcut()
             }
+            .onChange(of: model.homeScreenSessionActionTitle) { updateSessionShortcut() }
+            .onChange(of: scenePhase) { updateSessionShortcut() }
         return WindowGroup { @Sendable in
             content
         }
+    }
+
+    private func updateSessionShortcut() {
+        DJConnectIOSAppDelegate.setSessionShortcut(title: model.homeScreenSessionActionTitle)
     }
 
     private static func makeModel() -> DJConnectAppModel {
@@ -124,7 +132,19 @@ final class DJConnectIOSAppDelegate: NSObject, UIApplicationDelegate, @preconcur
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        // Dynamic only: static entries are additive and would leave duplicate actions.
+        Self.setSessionShortcut(title: DJConnectLocalization.localized(key: "ui.session.start"))
         return true
+    }
+
+    static func setSessionShortcut(title: String) {
+        UIApplication.shared.shortcutItems = [UIApplicationShortcutItem(
+            type: DJConnectHomeScreenAction.djSession.rawValue,
+            localizedTitle: title,
+            localizedSubtitle: nil,
+            icon: UIApplicationShortcutIcon(systemImageName: "headphones"),
+            userInfo: nil
+        )]
     }
 
     func application(
