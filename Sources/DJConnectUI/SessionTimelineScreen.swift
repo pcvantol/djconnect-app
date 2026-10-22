@@ -389,6 +389,9 @@ struct SessionTimelineScreen: View {
     @State private var forecastPosition: String?
     @State private var forecastQuery = ""
     @State private var searching = false
+    @State private var flowSearchExpanded = false
+    @State private var forecastSearchExpanded = false
+    @State private var inlineSearchBounds = CGRect.zero
     @State private var selectedMatchID: String?
     private var retryRefreshing: Bool { manualRefresh.isRefreshing }
     @State private var pullRefreshing = false
@@ -537,7 +540,9 @@ struct SessionTimelineScreen: View {
                                 }
                             }
                             if displayingForecast {
-                                SessionForecastContent(model: model, query: $forecastQuery)
+                                SessionForecastContent(model: model, query: $forecastQuery,
+                                                       searchExpanded: $forecastSearchExpanded,
+                                                       searchBoundsChanged: { inlineSearchBounds = $0 })
                             } else {
                                 if activeSession != nil {
                                     searchBar(proxy: proxy).id("flow-search")
@@ -736,10 +741,20 @@ struct SessionTimelineScreen: View {
                 }
             }
             .background(sessionBackground)
+            .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
+                guard activeSession != nil, !inlineSearchBounds.contains(tap.location) else { return }
+                if displayingForecast {
+                    forecastSearchExpanded = false; forecastQuery = ""
+                } else if flowSearchExpanded {
+                    closeSearch(proxy: proxy)
+                }
+            })
             .onChange(of: activeSession == nil) { _, ended in
                 if ended { showsForecast = false }
             }
             .onChange(of: showsForecast) { _, value in
+                flowSearchExpanded = false; forecastSearchExpanded = false; forecastQuery = ""
+                query = ""; selectedMatchID = nil; searching = false; history.clearSearch()
                 if value { inputFocused = false; searchFocused = false }
             }
             .onChange(of: model.isShowingVibeScape) { _, visible in
@@ -772,13 +787,18 @@ struct SessionTimelineScreen: View {
                 if activeSession != nil {
                     // Retain Command-F without an additional visible search control.
                     Button {
-                        showsForecast = false
                         inputFocused = false
-                        proxy.scrollTo("flow-search", anchor: .top)
-                        searchFocused = true
+                        if displayingForecast {
+                            forecastSearchExpanded = true
+                            proxy.scrollTo("forecast-search", anchor: .top)
+                        } else {
+                            flowSearchExpanded = true
+                            proxy.scrollTo("flow-search", anchor: .top)
+                            searchFocused = true
+                        }
                     } label: { EmptyView() }
                     .keyboardShortcut("f", modifiers: .command)
-                    .disabled(!history.searchAvailable)
+                    .disabled(!displayingForecast && !history.searchAvailable)
                     .hidden()
                     .accessibilityHidden(true)
                 }
@@ -923,6 +943,7 @@ struct SessionTimelineScreen: View {
                     if activeSession != nil {
                         pagingTask?.cancel(); pagingTask = nil
                         searching = false; searchFocused = false; query = ""; selectedMatchID = nil
+                        flowSearchExpanded = false; forecastSearchExpanded = false; forecastQuery = ""
                         history.clearSearch()
                         resumePosition = "current"
                         positionCurrentWithoutAnimation()
@@ -1226,8 +1247,9 @@ struct SessionTimelineScreen: View {
         jump(id, proxy: proxy)
     }
     private func closeSearch(proxy: ScrollViewProxy) {
+        flowSearchExpanded = false
         anchorGeneration = UUID(); searching = false; searchFocused = false; query = ""; selectedMatchID = nil; history.clearSearch()
-        if let priorSearchPosition {
+        if activeSession == nil, let priorSearchPosition {
             if ["current", "tail"].contains(priorSearchPosition) || timeline.entries.contains(where: { $0.id == priorSearchPosition && $0.isRetained() }) {
                 jump(priorSearchPosition, proxy: proxy)
             } else { jump("current", proxy: proxy) }
@@ -1264,19 +1286,24 @@ struct SessionTimelineScreen: View {
 
     @ViewBuilder private func searchBar(proxy: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: 8) {
+            SessionCollapsibleSearch(expanded: activeSession == nil || flowSearchExpanded,
+                                     label: text("ui.session.history.search"), identifier: "session-flow-search-toggle",
+                                     open: { inputFocused = false; flowSearchExpanded = true; searchFocused = true },
+                                     boundsChanged: { inlineSearchBounds = $0 }) {
             AskDJSearchBar(language: model.language, promptKey: "ui.session.history.search",
                            fieldIdentifier: "session-search-field", countIdentifier: "session-search-count",
-                           closeLabelKey: activeSession != nil ? "ui.session.search.clear" : "ui.close.search",
+                           closeLabelKey: "ui.close.search",
                            isLoading: history.searchLoading, text: $query, isFocused: $searchFocused,
                            resultCount: history.acceptedSearchSessionID == sessionID && history.acceptedSearchQuery == query ? matches.count : 0,
                            selectedIndex: selectedIndex,
                            previousAction: { moveMatch(-1, proxy: proxy) },
                            nextAction: { moveMatch(1, proxy: proxy) },
                            closeAction: {
-                               if activeSession != nil { query = ""; searchFocused = true }
-                               else { closeSearch(proxy: proxy) }
+                               closeSearch(proxy: proxy)
                            },
                            submitAction: { moveMatch(1, proxy: proxy) })
+                .task { if activeSession != nil && flowSearchExpanded { searchFocused = true } }
+            }
             if let key = history.searchErrorKey {
                 Text(text(key))
                 Button(text("ui.retry")) { history.search(sessionID: sessionID, query: query) }
