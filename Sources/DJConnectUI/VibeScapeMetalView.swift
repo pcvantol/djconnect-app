@@ -9,9 +9,10 @@ import SwiftUI
     private var visualClock: Float = 0
     private var displayedDynamics: Float = 0.5
     var reduceMotion = false
-    private var acknowledged: VibeScapeRenderTicket?
+    private let frames: VibeScapeFrameFence
+    private let unavailable: @MainActor () -> Void
 
-    init(device: MTLDevice, visit: VisualDirectorVisit) throws {
+    init(device: MTLDevice, visit: VisualDirectorVisit, unavailable: @escaping @MainActor () -> Void) throws {
         #if SWIFT_PACKAGE
         let bundle = Bundle.module
         #else
@@ -20,6 +21,8 @@ import SwiftUI
         let library = try device.makeDefaultLibrary(bundle: bundle)
         engine = try VibeScapeMetalEngine(device: device, library: library)
         self.visit = visit
+        frames = VibeScapeFrameFence(visit: visit)
+        self.unavailable = unavailable
     }
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
     func draw(in view: MTKView) {
@@ -49,12 +52,19 @@ import SwiftUI
                                           dynamics: displayedDynamics, reducedQuality: limited) else { return }
         // Acknowledge only after interpolation has converged and GPU completed.
         let settled = simd_distance(scene.composition,target.composition) < 0.01 && simd_distance(scene.palette,target.palette) < 0.01 && abs(scene.depth-target.depth) < 0.01 && abs(scene.deformation-target.deformation) < 0.01 && abs(scene.roughness-target.roughness) < 0.01 && abs(scene.motion-target.motion) < 0.01 && abs(displayedDynamics-visit.dynamics) < 0.01
-        if settled && acknowledged != ticket {
-            acknowledged = ticket
-            command.addCompletedHandler { [weak visit] completed in
+        if settled, let frame = frames.begin(ticket) {
+            command.addCompletedHandler { [weak self, weak view] completed in
                 let success = completed.status == .completed
                 Task { @MainActor in
-                    if success { _ = visit?.rendererCompleted(ticket) }
+                    guard let self else { return }
+                    _ = self.frames.complete(frame, succeeded: success)
+                    // A failed GPU submission cannot leave a static Reduce
+                    // Motion frame looking successfully applied. Stop rather
+                    // than retrying a failing device in an unbounded loop.
+                    if !success, self.visit.isCurrent, self.visit.ticket == ticket {
+                        view?.isPaused = true
+                        self.unavailable()
+                    }
                 }
             }
         }
@@ -76,7 +86,7 @@ struct VibeScapeMetalView {
         let view = MTKView(frame: .zero, device: MTLCreateSystemDefaultDevice())
         view.colorPixelFormat = .bgra8Unorm
         view.framebufferOnly = true
-        guard let device = view.device, let renderer = try? VibeScapeViewRenderer(device: device, visit: visit) else {
+        guard let device = view.device, let renderer = try? VibeScapeViewRenderer(device: device, visit: visit, unavailable: unavailable) else {
             Task { @MainActor in unavailable() }
             view.isPaused = true; return view
         }

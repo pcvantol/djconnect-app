@@ -216,6 +216,43 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
 }
 
 
+/// A submitted frame is not an applied frame. Reservations distinguish GPU
+/// callbacks even when a failed frame is retried for the same scene revision.
+@MainActor final class VibeScapeFrameFence {
+    struct Frame: Equatable, Sendable {
+        let id: UUID
+        let scene: VibeScapeRenderTicket
+    }
+    private let visit: VisualDirectorVisit
+    private var pending: Frame?
+    private var acknowledged: VibeScapeRenderTicket?
+    private var subscription: AnyCancellable?
+
+    init(visit: VisualDirectorVisit) {
+        self.visit = visit
+        subscription = visit.$ticket.sink { [weak self] _ in
+            self?.pending = nil
+            self?.acknowledged = nil
+        }
+    }
+
+    func begin(_ scene: VibeScapeRenderTicket) -> Frame? {
+        guard visit.isCurrent, visit.ticket == scene, pending == nil,
+              acknowledged != scene else { return nil }
+        let frame = Frame(id: UUID(), scene: scene)
+        pending = frame
+        return frame
+    }
+
+    @discardableResult func complete(_ frame: Frame, succeeded: Bool) -> Bool {
+        guard pending == frame else { return false }
+        pending = nil
+        guard succeeded, visit.rendererCompleted(frame.scene) else { return false }
+        acknowledged = frame.scene
+        return true
+    }
+}
+
 /// Local request coordination, NOT a Core request/response DTO or an authority
 /// grant. A future qualified adapter must supply the original source deadline
 /// and a closure that rechecks the SAME original owner/session/source lease.

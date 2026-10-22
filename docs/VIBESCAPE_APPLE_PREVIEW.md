@@ -42,6 +42,16 @@ patches and undo expire. A render acknowledgment is accepted only after a
 successful GPU completion for the converged current revision. No parsed result
 alone can earn an applied-success toast.
 
+`VibeScapeFrameFence` distinguishes a submitted frame from a successful GPU
+completion. Only one converged frame per revision awaits acknowledgment.
+Revision changes immediately discard that reservation; a late or duplicate
+callback cannot acknowledge or clear a replacement frame. Failed completion
+does not mark the revision applied. A failed current acknowledgment frame stops
+the native view and shows the existing unavailable notice, including in static
+Reduce Motion mode. Three local tests cover failure/retry identity, replacement,
+duplicate completion, exit/reentry and visit expiry. This is a renderer fence,
+not a live source-lease check or completed success-toast integration.
+
 No visual state is Codable or sent to defaults, keychain, disk, analytics, normal
 Ask DJ, Flow, history, Profile, Music DNA or playback actions. Entering also
 cancels ordinary voice capture and suspends wake-word listening; general text,
@@ -94,7 +104,7 @@ Six additional native tests cover same-revision cancellation/replacement,
 source renewal versus original expiry, clock rollback, owner/revision/exit
 withdrawal, attempt budget across tracks, missing context and immediate release
 of a captured context object. These cases plus the initial eight visit tests and six explicit-style
-tests form the current20targeted VibeScape tests, all passing. Previous full-suite/build/GPU results remain bound to their original
+tests plus the three frame-fence tests form the current23targeted VibeScape tests. Previous full-suite/build/GPU results remain bound to their original
 heads; this local follow-up does not inherit native voice or hardware acceptance.
 
 ## Explicitly unresolved producer/UI boundaries
@@ -115,7 +125,7 @@ patch tests are not evidence of actual voice interpretation.
 
 ## Actual validation so far
 
-- Twenty targeted native Swift tests cover field-preserving patches, stale apply/ACK, undo,
+- Twenty-three targeted native Swift tests cover field-preserving patches, stale apply/ACK, undo,
   scope, reset, revoke/reentry, invalid numeric input, budget/expiry, twenty
   synthetic scene identities and blocked general Ask DJ/recording/defaults writes.
 - Real macOS and generic iOS preview builds compile the native Metal shader.

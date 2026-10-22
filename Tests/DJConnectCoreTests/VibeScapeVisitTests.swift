@@ -3,6 +3,66 @@ import Foundation
 import DJConnectCore
 @testable import DJConnectUI
 
+@Suite @MainActor struct VibeScapeFrameFenceTests {
+    @Test func submissionFailureAndRetryNeverEarnFalseAcknowledgment() throws {
+        let visit = VisualDirectorVisit()
+        visit.enter(mood: "chill", occurrence: nil, salt: 1)
+        let fence = VibeScapeFrameFence(visit: visit)
+        let scene = try #require(visit.ticket)
+        let failed = try #require(fence.begin(scene))
+        #expect(visit.appliedRevision == nil)
+        #expect(fence.begin(scene) == nil)
+        #expect(!fence.complete(failed, succeeded: false))
+        #expect(visit.appliedRevision == nil)
+        let retry = try #require(fence.begin(scene))
+        #expect(retry != failed)
+        #expect(!fence.complete(failed, succeeded: true))
+        #expect(visit.appliedRevision == nil)
+        #expect(fence.complete(retry, succeeded: true))
+        #expect(visit.appliedRevision == scene.revision)
+        #expect(!fence.complete(retry, succeeded: true))
+        #expect(fence.begin(scene) == nil)
+    }
+
+    @Test func lateSceneFrameCannotClearOrAcknowledgeItsReplacement() throws {
+        let visit = VisualDirectorVisit()
+        visit.enter(mood: "groove", occurrence: "A", salt: 1)
+        let fence = VibeScapeFrameFence(visit: visit)
+        let oldScene = try #require(visit.ticket)
+        let old = try #require(fence.begin(oldScene))
+        #expect(visit.setDynamics(0.8))
+        let replacementScene = try #require(visit.ticket)
+        let replacement = try #require(fence.begin(replacementScene))
+        #expect(!fence.complete(old, succeeded: true))
+        #expect(visit.appliedRevision == nil)
+        #expect(fence.complete(replacement, succeeded: true))
+        visit.trackChanged(mood: "party", occurrence: "B")
+        #expect(visit.appliedRevision == nil)
+        #expect(!fence.complete(replacement, succeeded: true))
+        #expect(fence.begin(try #require(visit.ticket)) != nil)
+    }
+
+    @Test func exitReentryAndExpiryRejectOutstandingFrames() throws {
+        var time: TimeInterval = 10
+        let visit = VisualDirectorVisit()
+        visit.now = { time }
+        visit.enter(mood: nil, occurrence: nil, salt: 1)
+        let fence = VibeScapeFrameFence(visit: visit)
+        let oldScene = try #require(visit.ticket)
+        let old = try #require(fence.begin(oldScene))
+        visit.revoke()
+        #expect(!fence.complete(old, succeeded: true))
+        visit.enter(mood: nil, occurrence: nil, salt: 1)
+        let currentScene = try #require(visit.ticket)
+        let current = try #require(fence.begin(currentScene))
+        #expect(!fence.complete(old, succeeded: true))
+        time += 1800
+        #expect(!fence.complete(current, succeeded: true))
+        #expect(visit.appliedRevision == nil)
+        #expect(fence.begin(current.scene) == nil)
+    }
+}
+
 @Suite @MainActor struct VibeScapeVisitTests {
     @Test func patchesPreserveFieldsAndRequireActualRendererAcknowledgment() throws {
         let visit = VisualDirectorVisit()
