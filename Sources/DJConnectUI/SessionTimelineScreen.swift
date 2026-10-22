@@ -2703,9 +2703,10 @@ private struct SessionPendingConversationBubble: View {
                         if turn.failed {
                             Text(text(turn.failureKey ?? "ui.ask_dj.answer.unavailable"))
                                 .fixedSize(horizontal: false, vertical: true)
-                            Button(text(turn.contextChanged ? "ui.session.history.current_context" : "ui.retry")) {
+                            Button(text(turn.deliveryUncertain ? "ui.ask_dj.answer.review_question" :
+                                        turn.contextChanged ? "ui.session.history.current_context" : "ui.retry")) {
                                 DJConnectHaptics.impact()
-                                if turn.contextChanged { history.useCurrentContext(turn) }
+                                if turn.contextChanged || turn.deliveryUncertain { history.useCurrentContext(turn) }
                                 else { history.retry(turn) }
                             }
                             .disabled(model.isSendingAskDJText)

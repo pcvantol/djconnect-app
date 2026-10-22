@@ -1521,3 +1521,6 @@
 "ui.vibescape.unavailable" = "Les visuels ne sont pas disponibles sur cet appareil.";
 "ui.vibescape.voice.unavailable" = "La commande vocale des visuels n’est pas encore disponible.";
 "ui.vibescape.voice.label" = "Parler des visuels";
+
+"ui.ask_dj.answer.delivery_unknown" = "Nous ne pouvons pas encore confirmer si ta question a été traitée. Consulte l’historique avant de la renvoyer.";
+"ui.ask_dj.answer.review_question" = "Vérifier la question";

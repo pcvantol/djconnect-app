@@ -1521,3 +1521,6 @@
 "ui.vibescape.unavailable" = "Visuals zijn niet beschikbaar op dit apparaat.";
 "ui.vibescape.voice.unavailable" = "Visuele spraakbediening is nog niet beschikbaar.";
 "ui.vibescape.voice.label" = "Praat over de visuals";
+
+"ui.ask_dj.answer.delivery_unknown" = "We kunnen nog niet bevestigen of je vraag is verwerkt. Controleer de gespreksgeschiedenis voordat je opnieuw verstuurt.";
+"ui.ask_dj.answer.review_question" = "Vraag bekijken";

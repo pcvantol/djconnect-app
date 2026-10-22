@@ -1146,6 +1146,10 @@ func conversationFailureUsesAskDJCopyAndPreservesQuestionMetadata(_ failure: Str
     let expected = failure == "409" ? "ui.ask_dj.answer.context_changed" : "ui.ask_dj.answer.unavailable"
     #expect(turn.failed && turn.failureKey == expected)
     #expect(turn.contextChanged == (failure == "409"))
+    #expect(turn.canRetry == (failure != "409"))
+    var uncertain = turn
+    uncertain.contextChanged = false; uncertain.deliveryUncertain = true
+    #expect(!uncertain.canRetry)
     #expect(model.askDJErrorMessage == DJConnectLocalization.localized(key: expected, language: model.language))
     #expect(turn.id == initial.id && turn.payload == initial.payload)
     let original = try #require(model.askDJMessages.first { $0.id == turn.localMessageID })
@@ -1162,7 +1166,7 @@ func conversationFailureUsesAskDJCopyAndPreservesQuestionMetadata(_ failure: Str
 @Test @MainActor func conversationErrorKeysKeepTransportAndUncertainDeliveryDistinct() {
     #expect(DJConnectSessionHistoryModel.conversationErrorKey(URLError(.timedOut)) == "ui.ask_dj.answer.connection")
     #expect(DJConnectSessionHistoryModel.conversationErrorKey(DJConnectError.network(message: "fixture")) == "ui.ask_dj.answer.connection")
-    #expect(DJConnectSessionHistoryModel.conversationErrorKey(DJConnectHybridTransportError.deliveryUnknown) == DJConnectHybridTransportError.deliveryUnknown.localizationKey)
+    #expect(DJConnectSessionHistoryModel.conversationErrorKey(DJConnectHybridTransportError.deliveryUnknown) == "ui.ask_dj.answer.delivery_unknown")
 }
 
 @Test @MainActor func sessionHistoryPeriodicReadCannotSupersedeExplicitOpen() async throws {

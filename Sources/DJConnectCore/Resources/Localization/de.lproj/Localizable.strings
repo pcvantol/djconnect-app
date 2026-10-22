@@ -1521,3 +1521,6 @@
 "ui.vibescape.unavailable" = "Visuals sind auf diesem Gerät nicht verfügbar.";
 "ui.vibescape.voice.unavailable" = "Visuelle Sprachsteuerung ist noch nicht verfügbar.";
 "ui.vibescape.voice.label" = "Über die Visuals sprechen";
+
+"ui.ask_dj.answer.delivery_unknown" = "Wir können noch nicht bestätigen, ob deine Frage verarbeitet wurde. Prüfe den Gesprächsverlauf, bevor du sie erneut sendest.";
+"ui.ask_dj.answer.review_question" = "Frage prüfen";

@@ -130,7 +130,8 @@ actor DJConnectPairedActionConnection {
                     }
                 }
                 timeouts[id] = Task {
-                    do { try await Task.sleep(for: .seconds(30)) } catch { return }
+                    let seconds = type == "djconnect/operation/execute" && body["operation"] == .string("ask_dj/message") ? 120 : 30
+                    do { try await Task.sleep(for: .seconds(seconds)) } catch { return }
                     self.finish(id, epoch: epoch, error: DJConnectHybridTransportError.deliveryUnknown)
                 }
             }

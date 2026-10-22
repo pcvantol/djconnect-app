@@ -41,7 +41,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         public var createdAt = Date()
         public var failed = false
         public var contextChanged = false
+        public var deliveryUncertain = false
         public var failureKey: String?
+        public var canRetry: Bool { failed && !contextChanged && !deliveryUncertain }
 
         func questionMessage(in messages: [DJConnectAskDJMessage]) -> DJConnectAskDJMessage {
             if let original = messages.first(where: { $0.id == localMessageID && $0.role == .user }) { return original }
@@ -1102,7 +1104,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func retry(_ turn: PendingTurn) {
-        guard turn.failed, !turn.contextChanged, let host, host.canUseProfileConversation, !host.isSendingAskDJText,
+        guard turn.canRetry, let host, host.canUseProfileConversation, !host.isSendingAskDJText,
               turn.requestEpoch == epoch, ownerScope == turn.ownerScope, pendingTurns.contains(where: { $0.id == turn.id }) else { return }
         pendingTurns.removeAll { $0.id == turn.id }; pendingTurns.append(PendingTurn(
             id: turn.id, text: turn.text, context: turn.context, localMessageID: turn.localMessageID, payload: turn.payload,
@@ -1131,7 +1133,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         let captured = turn.requestEpoch, archives = archiveGeneration
         do {
             let payload = turn.payload
-            let response = try await host.withHomeAssistantClient { try await $0.sendSessionConversation(payload) }
+            let response = try await host.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
+                try await $0.sendSessionConversation(payload)
+            }
             guard captured == epoch, ownerScope == turn.ownerScope, host.canUseProfileConversation,
                   pendingTurns.contains(where: { $0.id == turn.id }) else { return }
             try await accept(response, fallback: turn.localMessageID, requestContext: turn.context, historicalGeneration: archives)
@@ -1149,7 +1153,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             }
             if let index = pendingTurns.firstIndex(where: { $0.id == turn.id }) {
                 pendingTurns[index].failed = true
-                pendingTurns[index].contextChanged = isConflict(error) || error is DJConnectHybridTransportError
+                pendingTurns[index].contextChanged = isConflict(error)
+                pendingTurns[index].deliveryUncertain = error is DJConnectHybridTransportError
                 pendingTurns[index].failureKey = Self.conversationErrorKey(error)
             }
             host.failProfileConversationText(id: turn.localMessageID,
@@ -1326,7 +1331,12 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     static func conversationErrorKey(_ error: Error) -> String {
-        if let hybrid = error as? DJConnectHybridTransportError { return hybrid.localizationKey }
+        if let hybrid = error as? DJConnectHybridTransportError {
+            switch hybrid {
+            case .outcome, .deliveryUnknown: return "ui.ask_dj.answer.delivery_unknown"
+            default: return hybrid.localizationKey
+            }
+        }
         if case .server(let status, _) = error as? DJConnectError, status == 409 { return "ui.ask_dj.answer.context_changed" }
         if error is URLError { return "ui.ask_dj.answer.connection" }
         if case .network = error as? DJConnectError { return "ui.ask_dj.answer.connection" }

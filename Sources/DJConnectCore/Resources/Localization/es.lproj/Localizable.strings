@@ -1521,3 +1521,6 @@
 "ui.vibescape.unavailable" = "Los visuales no están disponibles en este dispositivo.";
 "ui.vibescape.voice.unavailable" = "El control de voz de los visuales aún no está disponible.";
 "ui.vibescape.voice.label" = "Hablar sobre los visuales";
+
+"ui.ask_dj.answer.delivery_unknown" = "Aún no podemos confirmar si se procesó tu pregunta. Revisa el historial antes de enviarla de nuevo.";
+"ui.ask_dj.answer.review_question" = "Revisar pregunta";

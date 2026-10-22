@@ -261,7 +261,8 @@ public actor DJConnectHybridTransport {
         c.path = path; c.query = nil; c.fragment = nil
         var request = URLRequest(url: c.url!); request.httpMethod = "POST"
         request.timeoutInterval = path.hasSuffix("/transport/context")
-            ? (urlIsLocal(base) ? 2 : 8) : 15
+            ? (urlIsLocal(base) ? 2 : 8)
+            : (body["operation"] == .string("ask_dj/message") ? 120 : 15)
         guard let token = try tokenStore.loadToken(), !token.isEmpty else { throw DJConnectError.missingToken }
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(identity.deviceID, forHTTPHeaderField: "X-DJConnect-Device-ID")
@@ -392,6 +393,7 @@ public actor DJConnectHybridTransport {
         for key in ["device_token", "identity", "client_id", "device_name"] { payload.removeValue(forKey: key) }
         guard (try JSONEncoder().encode(payload)).count <= 60_000 else { throw DJConnectHybridTransportError.capacity }
         let nowMS = route.clock + Int((ProcessInfo.processInfo.systemUptime - route.anchor) * 1000)
+        let operationStarted = ProcessInfo.processInfo.systemUptime
         if receipts.count >= 256, let expired = receipts.values.filter({ $0.expiresAtMS <= nowMS }).min(by: { $0.expiresAtMS < $1.expiresAtMS }) { receipts.removeValue(forKey: expired.operationID) }
         pendingIntents = pendingIntents.filter { $0.value.expires > nowMS }
         guard receipts.count + pendingIntents.count < 256 else { throw DJConnectHybridTransportError.capacity }
@@ -439,16 +441,38 @@ public actor DJConnectHybridTransport {
         await action?.stop(); action = nil; actionURL = nil; self.route = nil
         // Deliberately no second execute. Reconcile original ID/epoch, even across restart.
         let statusBody: HybridObject = ["contract_version": .int(1), "operation_id": .string(id), "operation_epoch": .string(operationEpoch)]
-        for attempt in 0..<3 {
+        let isConversation = operation == "ask_dj/message"
+        let reconciliationDeadline = min(operationStarted + 300, ProcessInfo.processInfo.systemUptime + 120)
+        for attempt in 0..<(isConversation ? 64 : 3) {
             guard epoch == generation, foreground, !Task.isCancelled else { throw CancellationError() }
-            if attempt > 0 { try await Task.sleep(for: .milliseconds(250 * attempt)) }
+            let receiptDeadline = receipts[id].map { route.anchor + Double($0.expiresAtMS-route.clock)/1000 } ?? operationStarted + 300
+            let deadline = min(reconciliationDeadline, receiptDeadline)
+            if isConversation, ProcessInfo.processInfo.systemUptime >= deadline { break }
+            if attempt > 0 {
+                let delay = isConversation ? min(2.0, Double(attempt)*0.25) : Double(attempt)*0.25
+                let remaining = deadline-ProcessInfo.processInfo.systemUptime
+                if isConversation, remaining <= 0 { break }
+                try await Task.sleep(for: .seconds(isConversation ? min(delay,remaining) : delay))
+            }
             do {
                 let recovered = try await readyRoute()
-                let result = try await wire.http(protectedRequest(recovered.url, path: "/api/djconnect/v1/transport/operation/status", body: statusBody))
-                if result.1 == 202 { continue }
+                var request = try protectedRequest(recovered.url, path: "/api/djconnect/v1/transport/operation/status", body: statusBody)
+                if isConversation {
+                    let remaining = deadline-ProcessInfo.processInfo.systemUptime
+                    guard remaining > 0 else { break }
+                    request.timeoutInterval = min(request.timeoutInterval,remaining)
+                }
+                let result = try await wire.http(request)
                 return try accept(result, id: id, operationEpoch: operationEpoch, epoch: epoch)
             } catch let error as DJConnectHybridTransportError {
-                switch error { case .outcome, .authority, .installationMismatch, .untrustedRoute: throw error; default: break }
+                switch error {
+                case .outcome(let receipt) where ["accepted", "sent_unknown"].contains(receipt.phase):
+                    // Status is a read of this original operation, never a new
+                    // execution or a fresh lease. Keep awaiting its outcome.
+                    continue
+                case .outcome, .authority, .installationMismatch, .untrustedRoute, .invalidFrame: throw error
+                default: break
+                }
             } catch is CancellationError { throw CancellationError() }
             catch { }
         }
