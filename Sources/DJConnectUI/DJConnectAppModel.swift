@@ -577,14 +577,38 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         return links.filter { $0.isSourceLike && seen.insert($0.url.absoluteString).inserted }
     }
 
-    /// Match only an explicit server action; a history URI alone grants no playback.
+    /// Match original result identities first. A URI alone never creates an action.
     func playbackAction(forHistoryItem item: DJConnectAskDJHistoryItem) -> DJConnectAskDJPlaybackAction? {
-        guard let uri = item.uri, !uri.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              item.kind?.lowercased() == "track" else { return nil }
-        let matches = renderablePlaybackActions.filter {
-            $0.kind?.lowercased() == "track" && $0.uri == uri && $0.hasConsistentResultIdentity
+        guard let kind = item.kind?.lowercased(), ["track", "album", "artist", "playlist"].contains(kind) else { return nil }
+        let candidates = renderablePlaybackActions.filter {
+            $0.kind?.lowercased() == kind && $0.hasConsistentResultIdentity
+        }
+        let matches: [DJConnectAskDJPlaybackAction]
+        if item.resultSetID != nil || item.actionID != nil {
+            guard let set = item.resultSetID, !set.isEmpty, let id = item.actionID, !id.isEmpty else { return nil }
+            matches = candidates.filter {
+                $0.resultSetID == set && $0.actionID == id && (item.uri == nil || $0.uri == item.uri)
+            }
+        } else {
+            guard let uri = item.uri, !uri.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+            matches = candidates.filter { $0.uri == uri }
         }
         return matches.count == 1 ? matches.first : nil
+    }
+
+    /// Drop only the exact numbered projection of the structured catalogue.
+    /// Preserve prose/captions and distinct editions, including repeated titles.
+    var catalogueTextForDisplay: String {
+        guard role == .dj, textSource == "qualified_catalog_result", !items.isEmpty,
+              items.allSatisfy({ ["track", "album", "artist", "playlist"].contains($0.kind?.lowercased() ?? "") && !$0.title.isEmpty }) else { return text }
+        func normalized(_ value: String) -> String { value.split(whereSeparator: \.isWhitespace).joined(separator: " ") }
+        let projected = Set(items.enumerated().map { index, item in
+            let title = normalized(item.title), subtitle = normalized(item.subtitle ?? "")
+            return "\(index + 1). " + title + (subtitle.isEmpty || subtitle == title ? "" : " — " + subtitle)
+        })
+        return text.components(separatedBy: .newlines)
+            .filter { !projected.contains(normalized($0)) }
+            .joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     enum CodingKeys: String, CodingKey {

@@ -12147,11 +12147,12 @@ struct AskDJMessageBubble: View {
     }
 
     private var displayText: String {
+        let catalogueText = message.catalogueTextForDisplay
         guard shouldRenderOutputActionsAsList else {
-            return message.text
+            return catalogueText
         }
         let outputTitles = Set(outputPlaybackActions.map { $0.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
-        let lines = message.text.components(separatedBy: .newlines).filter { line in
+        let lines = catalogueText.components(separatedBy: .newlines).filter { line in
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
             guard trimmed.hasPrefix("-") || trimmed.hasPrefix("•") else {
                 return true

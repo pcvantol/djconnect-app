@@ -7999,3 +7999,68 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
     #expect(freshEpoch.first?.message.id != first.first?.message.id)
     #expect(cache.snapshot([], sessionID: data.active.id, epoch: UUID(), at: deadline.addingTimeInterval(-1)).isEmpty)
 }
+
+@Test(arguments: ["valid", "expired", "wrong-set", "duplicate-action", "missing-action", "nested-mismatch"])
+func frozenCatalogueReplayDecodesOriginalActionsAndIdentity(_ scenario: String) throws {
+    let uri = "spotify:track:AAAAAAAAAAAAAAAAAAAAAA"
+    let original: [String: Any] = ["id": "row-a", "title": "Original recording", "artist": "Artist A", "kind": "track",
+        "uri": uri, "command": "ask_dj_play_recommendation", "result_set_id": "set-a", "action_id": "action-a",
+        "value": ["uri": uri, "result_set_id": "set-a", "action_id": "action-a"]]
+    var frozen = original
+    if scenario == "wrong-set" { frozen["result_set_id"] = "other-set" }
+    if scenario == "missing-action" {
+        frozen.removeValue(forKey: "action_id")
+        frozen["value"] = ["uri": uri, "result_set_id": "set-a"]
+    }
+    if scenario == "nested-mismatch" { frozen["value"] = ["uri": uri, "result_set_id": "set-a", "action_id": "other-action"] }
+    let body: [String: Any] = ["success": true, "text": "Results:\n1. Original recording — Artist A",
+        "text_source": "qualified_catalog_result", "items": [original], "playback_actions": [],
+        "result_set": ["schema_version": 1, "result_set_id": "set-a", "expires_in": scenario == "expired" ? 0 : 30,
+                       "items": scenario == "duplicate-action" ? [frozen, frozen] : [frozen]]]
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: historyData(body))
+    let assistant = try #require(response.assistantMessage)
+    let item = try #require(assistant.items.first)
+    #expect(item.resultSetID == "set-a" && item.actionID == "action-a" && item.subtitle == "Artist A")
+    let message = DJConnectAskDJMessage(role: .dj, textSource: assistant.textSource, text: assistant.text,
+        playbackActions: assistant.playbackActions, items: assistant.items)
+    if scenario == "valid" {
+        let action = try #require(message.playbackAction(forHistoryItem: item))
+        #expect(action.resultSetID == "set-a" && action.actionID == "action-a")
+        #expect(action.uri == uri && action.command == "ask_dj_play_recommendation")
+        #expect(action.value == .object(["uri": .string(uri), "result_set_id": .string("set-a"), "action_id": .string("action-a")]))
+        #expect(response.messages.last?.playbackActions == assistant.playbackActions)
+        let roundtrip = try JSONDecoder().decode(DJConnectAskDJHistoryItem.self, from: JSONEncoder().encode(item))
+        #expect(roundtrip == item)
+    } else {
+        #expect(assistant.playbackActions.isEmpty)
+        #expect(message.playbackAction(forHistoryItem: item) == nil)
+    }
+}
+
+@Test func cataloguePresentationKeepsNarrativeAndEditionsWithoutDuplicatingNumberedRows() {
+    let items = [
+        DJConnectAskDJHistoryItem(kind: "track", title: "Same title", subtitle: "Original edition", uri: "spotify:track:a", resultSetID: "set", actionID: "a"),
+        DJConnectAskDJHistoryItem(kind: "track", title: "Same title", subtitle: "Live edition", uri: "spotify:track:b", resultSetID: "set", actionID: "b")]
+    var message = DJConnectAskDJMessage(role: .dj, textSource: "qualified_catalog_result",
+        text: "These are the results:\n1. Same title — Original edition\n2. Same title — Live edition\nSource: Spotify\nAn additional note.", items: items)
+    #expect(message.catalogueTextForDisplay == "These are the results:\nSource: Spotify\nAn additional note.")
+    #expect(message.items.count == 2 && message.items[0].uri != message.items[1].uri)
+    message.textSource = nil
+    #expect(message.catalogueTextForDisplay == message.text)
+    message.textSource = "qualified_catalog_result"; message.items = []
+    #expect(message.catalogueTextForDisplay == message.text)
+    message.items = items
+    message.text = "1. Same title — Different edition\nA different statement."
+    #expect(message.catalogueTextForDisplay == message.text)
+}
+
+@Test func catalogueCardUsesOriginalIdentityAndRejectsMismatchedOrAmbiguousActions() throws {
+    let action = try JSONDecoder().decode(DJConnectAskDJPlaybackAction.self, from: Data(#"{"id":"album-row","title":"Album","kind":"album","uri":"spotify:album:AAAAAAAAAAAAAAAAAAAAAA","result_set_id":"set-a","action_id":"action-a","command":"ask_dj_play_recommendation"}"#.utf8))
+    var item = DJConnectAskDJHistoryItem(kind: "album", title: "Album", uri: action.uri, resultSetID: "set-a", actionID: "action-a")
+    var message = DJConnectAskDJMessage(role: .dj, text: "Album", playbackActions: [action], items: [item])
+    #expect(message.playbackAction(forHistoryItem: item) == action)
+    item.actionID = "other"; #expect(message.playbackAction(forHistoryItem: item) == nil)
+    item.actionID = "action-a"; item.resultSetID = "other"; #expect(message.playbackAction(forHistoryItem: item) == nil)
+    item.resultSetID = "set-a"; item.uri = "spotify:album:BBBBBBBBBBBBBBBBBBBBBB"; #expect(message.playbackAction(forHistoryItem: item) == nil)
+    item.uri = action.uri; message.playbackActions = [action, action]; #expect(message.playbackAction(forHistoryItem: item) == nil)
+}
