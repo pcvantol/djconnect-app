@@ -97,7 +97,15 @@ private struct ContentDeletionActions: ViewModifier {
                 }
             }
             .clipped()
+            // Include the glass card's empty space in native long-press targeting.
+            .contentShape(Rectangle())
             .contextMenu { if history.contentDeletionAvailable { deletionButton } }
+            #if os(iOS)
+            .simultaneousGesture(LongPressGesture(minimumDuration: 0.5, maximumDistance: 10).onEnded { _ in
+                guard enabled else { return }
+                DJConnectHaptics.selection()
+            })
+            #endif
             // Rows live in LazyVStack/ScrollView, where native List.swipeActions
             // does not operate. Horizontal reveal leaves vertical scrolling intact.
             .simultaneousGesture(DragGesture(minimumDistance: 24).onEnded { value in
