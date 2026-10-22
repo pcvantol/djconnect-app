@@ -25,12 +25,13 @@
       "topic": "Album/track/artist-artwork bij bijdragen",
       "status": "partial",
       "owner": "Apple + Core",
-      "evidence": "Echte iPhone40249:3ready-grants,3pixelGETs400. Applefix40250 voegt vereiste device_id/client_type query toe. Zelfde echte test:3/3pixels geladen; geen geborrowde cover. Native iPhone40250scrollscreenshot bevestigt automatisch geladen pixels in playback- en DJ-bijdragebubble.40259: albumhoes zelf krijgt continuous hoekradius24 binnen glassradius32/padding8; gedeelde Moment/historyrenderer behoudt aspectratio. Signed iOS/macOS buildPASS; iPadinstall/readback40259PASS, geen nieuwe fysieke screenshotacceptatie.",
+      "evidence": "Echte iPhone40249:3ready-grants,3pixelGETs400. Applefix40250 voegt vereiste device_id/client_type query toe. Zelfde echte test:3/3pixels geladen; geen geborrowde cover. Native iPhone40250scrollscreenshot bevestigt automatisch geladen pixels in playback- en DJ-bijdragebubble.40259: albumhoes zelf krijgt continuous hoekradius24 binnen glassradius32/padding8; gedeelde Moment/historyrenderer behoudt aspectratio. Signed iOS/macOS buildPASS; iPadinstall/readback40259PASS, geen nieuwe fysieke screenshotacceptatie. Verse 2026-10-22 eigen gekoppelde Mac normale Ontdek-GET: HTTP200, accepted_recommendations6items (4track/1album/1playlist),1image_url/5zonderURL/0verlopen; enige geleverde grantGET200 met geldige imagebytes. Geen profielinhoud/identifiers/credentials geëxporteerd. Producer-missing-reference bevestigd voor deze read; geen clientdownloadfix of fysieke acceptatie geclaimd.",
       "remaining": [
         "Echte dj_moment prepare geeft unavailable/insufficient_identity: bronidentiteit door Core oplossen.",
-        "Artist/album-soortmatrix, unavailablebronidentiteit en iPad/Mac fysieke scrollacceptatie nog apart kwalificeren."
+        "Artist/album-soortmatrix, unavailablebronidentiteit en iPad/Mac fysieke scrollacceptatie nog apart kwalificeren.",
+        "Ontdek accepted_recommendations: Core moet ontbrekende exacte owner/subject/albumeditie-artworkrefs herstellen. Apple heeft actuele1/6displayURL-levering plus1/1geslaagde pixeldownload gemeld aan bestaande Corewriter; geen fake/borrowedcover, naamlookup of providerpolling per kaart."
       ],
-      "next_action": "Echte dj_moment prepare geeft unavailable/insufficient_identity: bronidentiteit door Core oplossen."
+      "next_action": "Bestaande Corewriter: begrensde producerreparatie en exact qualified installed handoff; daarna verse eigenfeed/pixelread en native kaartacceptatie."
     },
     {
       "id": "vibecast",
