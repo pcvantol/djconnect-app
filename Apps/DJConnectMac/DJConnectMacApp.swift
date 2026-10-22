@@ -15,8 +15,6 @@ struct DJConnectMacApp: App {
             DJConnectLaunchContainer(isBusy: model.isRefreshing, content: DJConnectRootView(model: model))
                 .frame(minWidth: 960, idealWidth: 1280, minHeight: 800, idealHeight: 1060)
                 .background(WindowConfigurator())
-                // Let the native fullscreen toolbar reserve its own area when the menu bar reveals.
-                .windowToolbarFullScreenVisibility(.visible)
                 .onAppear {
                     appDelegate.model = model
                 }

@@ -980,6 +980,9 @@ public struct DJConnectRootView: View {
         }
         #if os(macOS)
         .toolbar(model.isShowingVibeScape ? .hidden : .automatic, for: .windowToolbar)
+        // The app shell must not force a permanently visible fullscreen toolbar
+        // over the immersive renderer. macOS can reveal its chrome at the edge.
+        .windowToolbarFullScreenVisibility(model.isShowingVibeScape ? .onHover : .visible)
         #endif
         .accessibilityHidden(model.isSessionIntroductionPresented)
         .overlay {
