@@ -13,6 +13,8 @@ enum VibeScapeDynamics {
 struct VibeScapeScene: Equatable, Sendable {
     var composition: SIMD4<Float>
     var palette: SIMD3<Float>
+    var secondaryPalette: SIMD3<Float>
+    var accentPalette: SIMD3<Float>
     var motion: Float
     var depth: Float
     var roughness: Float
@@ -20,26 +22,29 @@ struct VibeScapeScene: Equatable, Sendable {
 
     static func autonomous(mood: String?, salt: UInt64) -> Self {
         var rng = VibeScapeRandom(state: salt)
-        let tint = moodTint(mood)
+        let colors = moodColors(mood)
         return Self(composition: SIMD4(rng.unit(), rng.unit(), rng.unit(), rng.unit()),
-                    palette: tint,
+                    palette: colors[0], secondaryPalette: colors[1], accentPalette: colors[2],
                     motion: mood == "chill" ? 0.18 : 0.30, depth: 0.35 + rng.unit() * 0.45,
                     roughness: 0.035 + rng.unit() * 0.09, deformation: 0.25 + rng.unit() * 0.45)
     }
 
-    // The primary colors of DJConnectSessionMoodTheme; kept Foundation-only
-    // so the standalone Metal qualification probe consumes the same scene.
-    static func moodTint(_ mood: String?) -> SIMD3<Float> {
-        let rgb: UInt32
+    // Exact Session palette, kept Foundation-only for the native GPU probe.
+    static func moodTint(_ mood: String?) -> SIMD3<Float> { moodColors(mood)[0] }
+    static func moodColors(_ mood: String?) -> [SIMD3<Float>] {
+        let values: [UInt32]
         switch mood {
-        case "chill": rgb = 0x4DA3FF
-        case "groove": rgb = 0x06C7AD
-        case "energy": rgb = 0xDDFF00
-        case "party": rgb = 0xFF287F
-        default: rgb = 0x3285FF
+        case "chill": values = [0x4DA3FF, 0x7B61FF, 0xD184FF]
+        case "groove": values = [0x06C7AD, 0x169BC8, 0x10B981]
+        case "energy": values = [0xDDFF00, 0x00B8FF, 0x39FF78]
+        case "party": values = [0xFF287F, 0xAA38F5, 0xF43DCE]
+        default: values = [0x3285FF, 0x843DF5, 0xCB27F5]
         }
-        return SIMD3(Float((rgb >> 16) & 255), Float((rgb >> 8) & 255), Float(rgb & 255)) / 255
+        return values.map { rgb in
+            SIMD3(Float((rgb >> 16) & 255), Float((rgb >> 8) & 255), Float(rgb & 255)) / 255
+        }
     }
+
 }
 
 private struct VibeScapeRandom {
@@ -70,7 +75,13 @@ struct VibeScapePatch: Equatable, Sendable {
     }
     func applied(to scene: VibeScapeScene) -> VibeScapeScene {
         var next = scene
-        if let palette { next.palette = palette }
+        if let palette {
+            next.palette = palette
+            // A future explicit RGB patch owns the whole visual color family;
+            // autonomous mood accents must not leak through a held color.
+            next.secondaryPalette = palette * 0.65
+            next.accentPalette = simd_mix(palette, SIMD3(repeating: 1), SIMD3(repeating: 0.20))
+        }
         if let motion { next.motion = motion }
         if let depth { next.depth = depth }
         if let roughness { next.roughness = roughness }
@@ -177,9 +188,13 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         guard isCurrent, var scene, var baseline = autonomous else { return }
         let tint = VibeScapeScene.moodTint(mood)
         guard baseline.palette != tint else { return }
-        baseline.palette = tint; autonomous = baseline
+        let colors = VibeScapeScene.moodColors(mood)
+        baseline.palette = tint; baseline.secondaryPalette = colors[1]; baseline.accentPalette = colors[2]
+        autonomous = baseline
         // A confirmed mood refresh must not undo an explicit visual palette.
-        scene.palette = trackPatch?.palette ?? persistentPatch?.palette ?? tint
+        if trackPatch?.palette == nil && persistentPatch?.palette == nil {
+            scene.palette = tint; scene.secondaryPalette = colors[1]; scene.accentPalette = colors[2]
+        }
         undo.removeAll()
         if self.scene != scene { advance(scene) }
     }

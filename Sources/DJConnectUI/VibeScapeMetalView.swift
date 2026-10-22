@@ -39,6 +39,8 @@ import SwiftUI
         if var current = displayed {
             current.composition = simd_mix(current.composition,target.composition,SIMD4(repeating:alpha))
             current.palette = simd_mix(current.palette,target.palette,SIMD3(repeating:alpha))
+            current.secondaryPalette = simd_mix(current.secondaryPalette,target.secondaryPalette,SIMD3(repeating:alpha))
+            current.accentPalette = simd_mix(current.accentPalette,target.accentPalette,SIMD3(repeating:alpha))
             current.motion += (target.motion-current.motion)*alpha
             current.depth += (target.depth-current.depth)*alpha
             current.roughness += (target.roughness-current.roughness)*alpha
@@ -54,7 +56,7 @@ import SwiftUI
               let command = engine.encode(texture: drawable.texture, scene: scene, clock: visualClock,
                                           dynamics: displayedDynamics, reducedQuality: limited) else { return }
         // Acknowledge only after interpolation has converged and GPU completed.
-        let settled = simd_distance(scene.composition,target.composition) < 0.01 && simd_distance(scene.palette,target.palette) < 0.01 && abs(scene.depth-target.depth) < 0.01 && abs(scene.deformation-target.deformation) < 0.01 && abs(scene.roughness-target.roughness) < 0.01 && abs(scene.motion-target.motion) < 0.01 && abs(displayedDynamics-visit.dynamics) < 0.01
+        let settled = simd_distance(scene.secondaryPalette,target.secondaryPalette) < 0.01 && simd_distance(scene.accentPalette,target.accentPalette) < 0.01 && simd_distance(scene.composition,target.composition) < 0.01 && simd_distance(scene.palette,target.palette) < 0.01 && abs(scene.depth-target.depth) < 0.01 && abs(scene.deformation-target.deformation) < 0.01 && abs(scene.roughness-target.roughness) < 0.01 && abs(scene.motion-target.motion) < 0.01 && abs(displayedDynamics-visit.dynamics) < 0.01
         if settled, let frame = frames.begin(ticket) {
             command.addCompletedHandler { [weak self, weak view] completed in
                 let success = completed.status == .completed

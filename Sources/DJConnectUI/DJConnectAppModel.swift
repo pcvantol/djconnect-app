@@ -796,6 +796,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
     var vibeScapeReturnToForecast = false
+    var vibeScapeModePickerFrame = CGRect.zero
     @Published var isShowingRendezvous = false
     @Published private(set) var rendezvousStatusKey = "ui.rendezvous.scan"
     @Published private(set) var rendezvousBusy = false

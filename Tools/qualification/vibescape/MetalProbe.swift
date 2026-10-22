@@ -7,13 +7,16 @@ import UniformTypeIdentifiers
 /// or playback authority. Does not launch/install the app or record a microphone.
 @main struct MetalProbe {
     static func main() throws {
-        guard CommandLine.arguments.count == 3,
+        guard [3,5].contains(CommandLine.arguments.count),
               let device = MTLCreateSystemDefaultDevice() else { fatalError("Metal unavailable or missing paths") }
         let library = try device.makeLibrary(URL: URL(fileURLWithPath:CommandLine.arguments[1]))
         let engine = try VibeScapeMetalEngine(device:device,library:library)
         let output = URL(fileURLWithPath:CommandLine.arguments[2],isDirectory:true)
         try FileManager.default.createDirectory(at:output,withIntermediateDirectories:true)
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm,width:960,height:640,mipmapped:false)
+        let width = CommandLine.arguments.count == 5 ? Int(CommandLine.arguments[3]) ?? 0 : 960
+        let height = CommandLine.arguments.count == 5 ? Int(CommandLine.arguments[4]) ?? 0 : 640
+        guard (64...2048).contains(width), (64...2048).contains(height) else { fatalError("Invalid probe size") }
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm,width:width,height:height,mipmapped:false)
         descriptor.storageMode = .shared; descriptor.usage = [.renderTarget,.shaderRead]
         guard let texture = device.makeTexture(descriptor:descriptor) else { fatalError("Texture unavailable") }
         var gpuMS: [Double] = []
@@ -56,7 +59,7 @@ import UniformTypeIdentifiers
             fatalError("Dynamics failed actual GPU pixel regression: \(staticDelta), \(motionDelta)")
         }
         let sorted = gpuMS.sorted()
-        let report: [String:Any] = ["device":device.name,"resolution":[960,640],"frames":gpuMS.count,
+        let report: [String:Any] = ["device":device.name,"resolution":[width,height],"frames":gpuMS.count,
             "gpu_ms_median":sorted[sorted.count/2],"gpu_ms_p95":sorted[Int(Double(sorted.count)*0.95)],
             "scenes":scenes,"context":"20 synthetic renderer inputs, offscreen macOS GPU only",
             "dynamics_static_mean_pixel_delta": staticDelta,

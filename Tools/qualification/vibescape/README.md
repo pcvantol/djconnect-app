@@ -21,3 +21,5 @@ The Dynamics regression fixes composition and palette, renders the two slider
 extremes at an identical clock and after three seconds, and fails if static
 pixels do not differ or intense motion does not exceed calm motion. The report
 includes mean absolute byte deltas. This does not exercise native touch input.
+Optional fourth/fifth arguments specify width and height (64...2048); use
+`480 960` for a portrait render of the same native shader.

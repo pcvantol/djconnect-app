@@ -44,16 +44,13 @@ struct VibeScapeScreen: View {
                 Text(text("ui.vibescape.unavailable"))
                     .foregroundStyle(.white).padding(28).accessibilityIdentifier("vibescape-unavailable")
             }
+            GeometryReader { geometry in
             VStack {
                 SessionModeToggleButtons(showsForecast: Binding(get: { false }, set: { forecast in
                     model.vibeScapeReturnToForecast = forecast; close()
-                }), language: model.language, openVibeScape: { showControls() }, isVibeScape: true)
+                }), language: model.language, openVibeScape: { showControls() }, isVibeScape: true, mood: model.activeDJSession?.selectedMood)
                     .padding(.horizontal, 20)
-                    #if os(iOS)
-                    .padding(.top, 4).padding(.bottom, 10)
-                    #else
-                    .padding(.vertical, 10)
-                    #endif
+                    .padding(.top, pickerTop(in: geometry))
                     .opacity(controlsVisible ? 1 : 0)
                     .allowsHitTesting(controlsVisible)
                     .accessibilityHidden(!controlsVisible)
@@ -69,6 +66,7 @@ struct VibeScapeScreen: View {
                             withAnimation(reduceMotion ? nil : .easeOut(duration:0.25)) { showsVoiceHelp = false }
                         }
                 }
+            }
             }
             GeometryReader { geometry in
                 HStack {
@@ -118,6 +116,12 @@ struct VibeScapeScreen: View {
         }
         .onKeyPress(.escape) { close(); return .handled }
         .accessibilityIdentifier("screen-vibescape")
+    }
+    private func pickerTop(in geometry: GeometryProxy) -> CGFloat {
+        let source = model.vibeScapeModePickerFrame
+        guard source.height > 0 else { return 64 }
+        // Capture the actual visible inline picker position when switching.
+        return min(max(4, source.minY - geometry.frame(in: .global).minY), max(4, geometry.size.height - source.height - 12))
     }
     private func close() { visit.revoke(); model.isShowingVibeScape = false }
     private func showControls() {

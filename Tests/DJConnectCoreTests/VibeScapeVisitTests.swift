@@ -69,6 +69,10 @@ import DJConnectCore
             let rgb = theme.colorValues[0]
             let expected = SIMD3<Float>(Float((rgb >> 16) & 255), Float((rgb >> 8) & 255), Float(rgb & 255)) / 255
             #expect(VibeScapeScene.moodTint(theme.rawValue) == expected)
+            for (index, value) in theme.colorValues.enumerated() {
+                let color = SIMD3<Float>(Float((value >> 16) & 255), Float((value >> 8) & 255), Float(value & 255)) / 255
+                #expect(VibeScapeScene.moodColors(theme.rawValue)[index] == color)
+            }
         }
         let visit = VisualDirectorVisit()
         visit.enter(mood: "chill", occurrence: "A", salt: 1)

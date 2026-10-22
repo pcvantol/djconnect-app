@@ -15,23 +15,30 @@ preview or describe the complete feature as delivered.
 composition coordinates, a bounded RGB palette and finite motion, depth,
 roughness and deformation values in 0…1. Native seed diversity is volatile;
 there is no recorded seed, invented genre, audio analysis or BPM synchronization.
-Symbolic Session Mood selects the same primary palette color as the Session
-and widgets (including lime Energy). The shader uses this tint for its metal
-and backdrop. Core currently supplies the mood name, not a live Visual Director
+Symbolic Session Mood selects all three existing Session palette colors
+(including lime/blue/green Energy). The shader uses these for its liquid forms,
+reflections and flowing light ribbons. Core supplies the mood name, not a live Visual Director
 palette response; this is local artistic coloring, not audio analysis.
 
 The source-controlled Metal shader is compiled into the native UI framework's
 `default.metallib`. Runtime server/model text, external shaders and URL content
-cannot become GPU code. A full-screen triangle ray-marches a continuous field of
-twisted liquid ribbons and an organic spine, with analytic studio reflections.
-Composition, palette and material interpolate during a visible visit. There is
+cannot become GPU code. A full-screen triangle ray-marches a continuous field with analytic colored
+studio reflections. The field combines smooth liquid lobes, drifting bubbles and cropped foreground
+pools over layered luminous waves. It follows the owner's supplied liquid/light
+reference, replacing the earlier isolated interwoven knot. Composition, palette
+and material interpolate during a visible visit. There is
 no movie, image playback or frame-by-frame CPU mesh generation.
 
 The MTKView renderer is mounted only while the root immersive overlay exists.
 Flow and Forecast remain mounted underneath, retaining their own viewport state.
 The overlay hides their accessibility tree and covers ordinary UI chrome; the
-macOS window toolbar hides while active. The same shared three-way mode picker
-uses the Flow/Forecast width and padding. A vertical glass Dynamics slider sits
+macOS window toolbar hides while active. In Flow and Forecast the three-way mode
+picker now belongs to the scrolling content below the playback header, with no
+pinned overlay or reserved space above the artwork. It scrolls into and out of
+view. The selected pill uses a dark Session mood tint. VibeScape remembers the
+visible picker's global frame at entry and aligns its own picker there, using
+the same width and padding. This geometry is presentation-only RAM, not user
+data or an authorization input. A vertical glass Dynamics slider sits
 at the right edge, with midpoint reset underneath. Both controls fade away
 after three seconds; tapping the visual toggles them immediately. Dragging the
 slider suspends hiding and starts a fresh three seconds on release. Reduce
@@ -146,7 +153,7 @@ patch tests are not evidence of actual voice interpretation.
   These are GPU command timings, **not** whole-app frame-rate or sustained
   battery/thermal measurements. Original images and the report are retained in
   private qualification output, not in user state or this source tree.
-- The GPU probe also renders one identical composition at Dynamics0/100%, at
+- The GPU probe supports both landscape and portrait dimensions and also renders one identical composition at Dynamics0/100%, at
   the same initial clock and three seconds later. It asserts different static
   pixels and greater temporal change at100%. This verifies actual shader output,
   not physical slider touch handling or user acceptance.

@@ -13,6 +13,8 @@ final class VibeScapeMetalEngine {
         var composition: SIMD4<Float>
         var paletteMotion: SIMD4<Float>
         var shape: SIMD4<Float>
+        var secondary: SIMD4<Float>
+        var accent: SIMD4<Float>
     }
     init(device: MTLDevice, library: MTLLibrary) throws {
         guard let queue = device.makeCommandQueue() else { throw Failure.unavailable }
@@ -35,7 +37,8 @@ final class VibeScapeMetalEngine {
         guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { permits.signal(); return nil }
         var uniforms = Uniforms(resolutionTime: SIMD4(Float(texture.width),Float(texture.height),clock,reducedQuality ? 0 : 1),
                                 composition: scene.composition, paletteMotion: SIMD4(scene.palette,scene.motion),
-                                shape: SIMD4(scene.depth,scene.roughness,min(0.95,scene.deformation*VibeScapeDynamics.deformation(dynamics)),dynamics))
+                                shape: SIMD4(scene.depth,scene.roughness,min(0.95,scene.deformation*VibeScapeDynamics.deformation(dynamics)),dynamics),
+                                secondary: SIMD4(scene.secondaryPalette, 0), accent: SIMD4(scene.accentPalette, 0))
         encoder.setRenderPipelineState(pipeline)
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 0)
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)

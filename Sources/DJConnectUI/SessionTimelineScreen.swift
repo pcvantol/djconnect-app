@@ -386,7 +386,6 @@ struct SessionTimelineScreen: View {
     @State private var priorSearchPosition: String?
     @State private var query = ""
     @State private var showsForecast = false
-    @State private var modeOverlayHeight: CGFloat = 84
     @State private var forecastPosition: String?
     @State private var forecastQuery = ""
     @State private var searching = false
@@ -521,6 +520,21 @@ struct SessionTimelineScreen: View {
                         LazyVStack(alignment: .leading, spacing: 18) {
                             if let activeSession {
                                 scrollingCurrent(activeSession).id("current")
+                                SessionModeToggleButtons(showsForecast: $showsForecast, language: model.language,
+                                    openVibeScape: VibeScapeAvailability.previewEnabled ? {
+                                        inputFocused = false; searchFocused = false
+                                        model.vibeScapeReturnToForecast = showsForecast
+                                        model.isShowingVibeScape = true
+                                    } : nil, mood: activeSession.selectedMood)
+                                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
+                                        if !model.isShowingVibeScape { model.vibeScapeModePickerFrame = $0 }
+                                    }
+                                    .padding(.horizontal, 20)
+                                    .id("session-mode-picker")
+                                if history.hasUnconfirmedDeletion {
+                                    ContentDeletionPendingNotice(model: model)
+                                        .padding(.horizontal, 20).padding(.vertical, 10)
+                                }
                             }
                             if displayingForecast {
                                 SessionForecastContent(model: model, query: $forecastQuery)
@@ -639,7 +653,6 @@ struct SessionTimelineScreen: View {
                         // Background updates never reveal pull-to-refresh or move the scroll offset.
                         }
                     }
-                    .contentMargins(.top, activeSession != nil ? modeOverlayHeight : 0, for: .scrollContent)
                     .safeAreaInset(edge: .top, spacing: 0) {
                         VStack(spacing: 0) {
                             if activeSession == nil && history.hasUnconfirmedDeletion {
@@ -701,29 +714,6 @@ struct SessionTimelineScreen: View {
                         defer { pullRefreshing = false }
                         await refreshTimeline()
                     }
-                    }
-                    .overlay(alignment: .top) {
-                        if activeSession != nil {
-                            VStack(spacing: 0) {
-                                SessionModeToggleButtons(showsForecast: $showsForecast, language: model.language,
-                                    openVibeScape: VibeScapeAvailability.previewEnabled ? {
-                                        inputFocused = false; searchFocused = false
-                                        model.vibeScapeReturnToForecast = showsForecast
-                                        model.isShowingVibeScape = true
-                                    } : nil)
-                                    .padding(.horizontal, 20)
-                                    #if os(iOS)
-                                    .padding(.top, 4).padding(.bottom, 10)
-                                    #else
-                                    .padding(.vertical, 10)
-                                    #endif
-                                if history.hasUnconfirmedDeletion {
-                                    ContentDeletionPendingNotice(model: model)
-                                        .padding(.horizontal, 20).padding(.vertical, 10)
-                                }
-                            }
-                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { modeOverlayHeight = $0 }
-                        }
                     }
                     .safeAreaInset(edge: .bottom, spacing: 0) {
                         if usesFloatingComposer && !searching && !showsForecast {
@@ -1317,6 +1307,13 @@ struct SessionModeToggleButtons: View {
     let language: String
     var openVibeScape: (() -> Void)? = nil
     var isVibeScape = false
+    var mood: String? = nil
+    private var selectionColor: Color {
+        let rgb = DJConnectSessionMoodTheme(sessionMood: mood).colorValues[2]
+        return Color(red: Double((rgb >> 16) & 255) / 255 * 0.35,
+                     green: Double((rgb >> 8) & 255) / 255 * 0.35,
+                     blue: Double(rgb & 255) / 255 * 0.35)
+    }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -1326,7 +1323,9 @@ struct SessionModeToggleButtons: View {
                 Button("VibeScape", action: openVibeScape)
                     .font(.headline).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.74)
                     .frame(maxWidth: .infinity,minHeight:48)
-                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis:isVibeScape ? .selected : .secondary,shape:.segmented,expands:true,usesLiveGlass:true))
+                    .background(isVibeScape ? selectionColor.opacity(0.80) : .clear,
+                                in: DJConnectCardAppearance.segmentedItemShape)
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis:isVibeScape ? .selected : .secondary,shape:.segmented,expands:true,usesLiveGlass:true,selectionTint:selectionColor))
                     .accessibilityAddTraits(isVibeScape ? .isSelected : [])
                     .accessibilityIdentifier("session-vibescape-toggle")
             }
@@ -1351,12 +1350,14 @@ struct SessionModeToggleButtons: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.74)
                 .frame(maxWidth: .infinity, minHeight: 48)
+                .background(selected ? selectionColor.opacity(0.80) : .clear,
+                            in: DJConnectCardAppearance.segmentedItemShape)
         }
         .djConnectButtonStyle(DJConnectButtonStyle(
             emphasis: selected ? .selected : .secondary,
             shape: .segmented, expands: true, usesLiveGlass: true,
             foregroundColor: .white.opacity(selected ? 1 : 0.78),
-            selectionTint: djConnectAccent
+            selectionTint: selectionColor
         ))
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier(forecast ? "session-forecast-toggle" : "session-flow-toggle")
