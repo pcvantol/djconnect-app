@@ -113,7 +113,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
         let store = DJConnectInMemoryTokenStore(token: "synthetic-owner")
         let origin = URL(string: "http://127.0.0.1:18801")!
         let client = DJConnectClient(baseURL: origin,
-            identity: DJConnectIdentity(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Fixture", clientType: clientType, firmware: "test", platform: clientType == .macos ? .macos : .ios),
+            identity: DJConnectIdentity(deviceID: "djconnect-\(clientType.rawValue)-ABCDEF123456", deviceName: "Fixture", clientType: clientType, firmware: "test", platform: clientType == .macos ? .macos : .ios),
             tokenStore: store, session: URLSession(configuration: config))
         let authority = ConsentAuthority()
         let flow = try DJConnectDisplayConsentSession(client: client, installationID: "fixture-install",

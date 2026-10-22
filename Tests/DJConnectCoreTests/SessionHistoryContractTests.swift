@@ -6819,7 +6819,17 @@ func personaTouchCapabilityRefreshWithdrawsStaleSupportExceptCancellation(fault:
     let phase = HistoryAuthorityGate()
     let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         .appendingPathComponent("Fixtures/persona-touch-discovery-installed-20261019.json")
-    let discovery = try Data(contentsOf: url)
+    // Add the current withdrawal contract to this immutable older producer fixture.
+    var root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+    var persona = root["active_session_persona"] as! [String: Any]
+    var touch = persona["touch_reaction"] as! [String: Any]
+    touch["withdrawal_contract"] = ["version": 1, "transport": "paired_owner_actions",
+        "command": "djconnect/persona/reaction/observe", "event": "session/persona/reaction/withdrawn",
+        "required_for_display_and_playback": true, "maximum_observers_per_reaction": 1,
+        "server_guard_recheck_seconds": 0.25, "on_connection_loss": "withdraw_and_stop", "deadline_renewal": false]
+    touch["cancel_before_admission"] = "durable_original_uuidv7_fence_until_operation_deadline"
+    persona["touch_reaction"] = touch; root["active_session_persona"] = persona
+    let discovery = try JSONSerialization.data(withJSONObject: root)
     let fixture = HistoryWireFixture { request in
         guard request.url!.path.hasSuffix("/capabilities") else { return (404, Data(), 0) }
         if !phase.denied { return (200, discovery, 0) }

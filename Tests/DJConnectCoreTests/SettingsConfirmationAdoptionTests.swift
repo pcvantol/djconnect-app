@@ -41,7 +41,7 @@ private func confirmationBroadcast(_ example: [String: Any]) throws -> DJConnect
         var paused = broadcast
         paused.playback = try confirmationDecode(["state": "paused"], as: DJConnectSessionPlayback.self)
         #expect(paused.nativeCurrentMoment(at: at)?.id == moment.id)
-        let deadline = try #require(broadcast.nativeDelivery?.admissions.first?.displayExpiresAt.flatMap(DJConnectHistoryEntry.date))
+        let deadline = try #require(broadcast.nativeDelivery?.admissions.first(where: { $0.momentID == moment.id })?.displayExpiresAt.flatMap(DJConnectHistoryEntry.date))
         #expect(broadcast.nativeCurrentMoment(at: deadline) == nil)
         #expect(broadcast.nativeFlowMoments(at: deadline).isEmpty)
         var denied = broadcast; denied.nativeDelivery = nil

@@ -8581,7 +8581,7 @@ private extension Array {
 }
 
 private struct TrackInsightMetricsGrid: View, Equatable {
-    static func == (lhs: Self, rhs: Self) -> Bool {
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.insight == rhs.insight && lhs.language == rhs.language && lhs.moodStepIndex == rhs.moodStepIndex
     }
 

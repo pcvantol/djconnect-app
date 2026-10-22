@@ -10503,6 +10503,14 @@ public final class DJConnectAppModel: ObservableObject {
         await passiveSurfaces.setEnabled(enabled, surface: surface, services: passiveSurfaceServices)
     }
 
+    #if os(macOS) && canImport(WidgetKit)
+    // WidgetCenter is not Sendable. Read it outside the UI actor and transfer
+    // only the token bytes, never the framework object, back to the model.
+    nonisolated private static func currentWidgetPushTokenBytes() async -> Data? {
+        await WidgetCenter.shared.currentPushInfo?.token
+    }
+    #endif
+
     private func scheduleAutomaticPassiveSessionSurfaces() {
         guard isAppInForeground, !isDemoMode, pairingStatus == .paired,
               activeDJSession?.runtimeState == "active", hasObservedSessionSurfaceAuthority,
@@ -10532,8 +10540,8 @@ public final class DJConnectAppModel: ObservableObject {
                 // Server registration waits for the owning Core widget contract.
                 if let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) {
                     if surfaces.contains(.widget) {
-                        if let push = await WidgetCenter.shared.currentPushInfo,
-                           let token = DJConnectWidgetPushToken(token: push.token,
+                        if let bytes = await Self.currentWidgetPushTokenBytes(),
+                           let token = DJConnectWidgetPushToken(token: bytes,
                                extensionBundleID: "dev.djconnect.mac.track-insight-widget",
                                widgetKinds: configured.map(\.kind)) {
                             try? DJConnectWidgetPushToken.replace(token, in: shared)
