@@ -9,13 +9,19 @@ struct DJConnectWatchSessionView: View {
     @ObservedObject var settings: ProfileDJSettingsModel
     @ObservedObject var speech: DJConnectWatchSessionSpeech
     @State private var showsFlow = false
+    @State private var confirmsEnd = false
+    @State private var endingSessionID: String?
 
     private func text(_ key: String) -> String {
         DJConnectLocalization.localized(key: key, language: model.language)
     }
 
     var body: some View {
-        TimelineView(.explicit(([Date()] + state.displayDeadlines).sorted())) { clock in
+        TimelineView(.explicit(([Date()] + state.displayDeadlines).sorted())) { _ in
+            // Timeline context.date can predate an asynchronous snapshot receipt.
+            // It only schedules invalidation; current wall/monotonic clocks own
+            // freshness and the producer's unchanged Moment deadlines.
+            let now = Date()
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Label(text("ui.session.title"), systemImage: "opticaldisc")
@@ -27,19 +33,25 @@ struct DJConnectWatchSessionView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel(text("ui.refresh"))
                 }
-                if let snapshot = state.current(at: clock.date) {
+                if state.isChanging { ProgressView().accessibilityIdentifier("watch-session-changing") }
+                if state.outcomeUnknown {
+                    Text(text("watch.session.check_outcome")).font(.caption)
+                    Button(text("ui.refresh")) { Task { await model.refreshForegroundSession(force: true) } }
+                    Button(text("ui.dj_settings.use_current")) { Task { await model.acceptCurrentForegroundSession() } }
+                }
+                if let snapshot = state.current(at: now) {
                     if let session = snapshot.session {
                         if let started = DJConnectHistoryEntry.date(session.startedAt) {
                             Text(text("ui.session.started_at") + " " + started.formatted(.dateTime.day().month().hour().minute().locale(Locale(identifier: model.language))))
                                 .font(.caption2).foregroundStyle(.secondary)
                         }
-                        let current = session.broadcast.nativeCurrentMoment(at: clock.date, spotifyAttributionAvailable: true)
+                        let current = session.broadcast.nativeCurrentMoment(at: now, spotifyAttributionAvailable: true)
                         if let current {
                             Label(text("watch.session.current"), systemImage: "sparkles").font(.caption.weight(.semibold))
                             momentCard(current)
                         }
                         else { Text(text("watch.session.waiting")).font(.callout) }
-                        let flow = session.broadcast.nativeFlowMoments(at: clock.date).filter { $0.id != current?.id }
+                        let flow = session.broadcast.nativeFlowMoments(at: now).filter { $0.id != current?.id }
                         if !flow.isEmpty {
                             Button { showsFlow.toggle() } label: {
                                 HStack {
@@ -57,6 +69,17 @@ struct DJConnectWatchSessionView: View {
                             Label(confirmation, systemImage: "sparkles").font(.callout)
                         }
                     }
+                    if !snapshot.settings.requiresSelection {
+                        Button(role: snapshot.session == nil ? nil : .destructive) {
+                            if snapshot.session == nil { Task { await model.changeForegroundSession() } }
+                            else { endingSessionID = snapshot.session?.id; confirmsEnd = true }
+                        } label: {
+                            Label(text(snapshot.session == nil ? "ui.session.start" : "ui.session.end"),
+                                  systemImage: snapshot.session == nil ? "play.fill" : "stop.fill")
+                        }
+                        .disabled(state.isChanging || state.isRefreshing || state.outcomeUnknown || settings.hasUncertainOperation)
+                        .accessibilityIdentifier(snapshot.session == nil ? "watch-session-start" : "watch-session-end")
+                    } else { Text(text("ui.dj_settings.review_choices")).font(.caption) }
                     if snapshot.settings.allowsSpeech(.local) {
                         NavigationLink {
                             DJConnectWatchSessionSpeechSettingsView()
@@ -75,7 +98,7 @@ struct DJConnectWatchSessionView: View {
                             .font(.footnote)
                     }
                 } else {
-                    Text(text(state.unavailable ? "watch.session.unavailable" : "watch.session.loading"))
+                    Text(text(model.canUseBackend ? (state.failureKey ?? (state.unavailable ? "watch.session.retry" : "watch.session.loading")) : "watch.session.connect_phone"))
                         .font(.callout)
                 }
             }
@@ -84,6 +107,10 @@ struct DJConnectWatchSessionView: View {
             .padding(10)
             .background(DJConnectMaterial(.regular), in: RoundedRectangle(cornerRadius: 16))
             .accessibilityIdentifier("watch-current-session")
+        }
+        .confirmationDialog(text("ui.session.end.confirm"), isPresented: $confirmsEnd) {
+            Button(text("ui.session.end.action"), role: .destructive) { Task { await model.changeForegroundSession(expectedSessionID: endingSessionID) } }
+            Button(text("ui.cancel"), role: .cancel) { }
         }
         .task { await model.refreshForegroundSession() }
         .onDisappear { speech.stop() }

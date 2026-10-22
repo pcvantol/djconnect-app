@@ -9451,7 +9451,11 @@ struct VibeCastHandoffForm: View {
 
 struct VibeCastDisplayConsentForm: View {
     @ObservedObject var model: DJConnectAppModel
+    @ObservedObject private var history: DJConnectSessionHistoryModel
     var embedded = false
+    init(model: DJConnectAppModel, embedded: Bool = false) {
+        self.model = model; self.history = model.sessionHistory; self.embedded = embedded
+    }
     @Environment(\.dismiss) private var dismiss
     @State private var code = ""
     private var busy: Bool { model.displayConsentState == .resolving || model.displayConsentState == .approving || model.displayConsentState == .revoking }
@@ -9461,6 +9465,8 @@ struct VibeCastDisplayConsentForm: View {
             else { ScrollView { formContent.padding(28) } }
         }
         .accessibilityIdentifier("display-consent-form")
+        .onChange(of: history.responseEpoch) { model.refreshDisplayConsentPresentation() }
+        .onChange(of: history.authorizedProfileID) { model.refreshDisplayConsentPresentation() }
         .onChange(of: code) { _, _ in model.resetDisplayConsent() }
         .onAppear { model.resetDisplayConsent() }
         .onDisappear { model.cancelDisplayConsent() }
@@ -11172,7 +11178,7 @@ private struct AskDJView: View {
 
     private var content: some View {
             VStack(spacing: 0) {
-                if history.hasUnconfirmedDeletion {
+                if history.showsUnconfirmedDeletionNotice {
                     ContentDeletionPendingNotice(model: model).padding(.horizontal, 20).padding(.vertical, 10)
                 }
                 GeometryReader { geometry in
@@ -11190,7 +11196,8 @@ private struct AskDJView: View {
                                             .padding(.top, 56)
                                     } else if model.askDJMessages.isEmpty && model.transientAskDJListeningMessage == nil && model.transientAskDJMoodMessage == nil {
                                         AskDJEmptyState(
-                                            language: model.language,
+                                            model: model,
+                                            reading: isInputFocused,
                                             isRequestingIdleSuggestion: model.isRequestingAskDJIdleSuggestion,
                                             selectExample: { example in
                                                 guard model.canUseAskDJFeatures,
@@ -11200,7 +11207,6 @@ private struct AskDJView: View {
                                                 sendComposerQuestion()
                                             }
                                         )
-                                        .disabled(!model.canUseAskDJFeatures || model.isSendingAskDJText || model.isRecordingVoice)
                                     } else {
                                         ForEach(askDJTimelineMessages) { message in
                                             let isTransientMessage = isTransientAskDJMessage(message)
@@ -11260,7 +11266,10 @@ private struct AskDJView: View {
                                                 speechEnabled: model.sharedDJSpeechAllowed,
                                                 sharedSpeechActions: model.profileDJSettings.negotiated ? {
                                                     AnyView(SharedDJSpeechActions(model: model, speech: message.sessionSpeech, acceptedText: message.text))
-                                                } : nil
+                                                } : nil,
+                                                capturedReplyArtwork: contextEntry.map { entry in
+                                                    { AnyView(CapturedReplyArtworkView(entry: entry, model: model)) }
+                                                }
                                             )
                                             .djContentDeletion(model: model, target: isAskDJHistoryStale ? nil : history.contentDeletionTarget(for: message), providesContextMenu: false)
                                             .id(message.id)
@@ -11304,7 +11313,8 @@ private struct AskDJView: View {
                                 await refreshAskDJWithToast()
                             }
                             .scrollDismissesKeyboard(.interactively)
-                            .overlay(alignment: .bottom) {
+                            .modifier(ContentRemovalAnimation(history: history))
+                        .overlay(alignment: .bottom) {
                                 HStack {
                                     Spacer()
                                     if shouldShowAskDJScrollToTopButton {
@@ -11477,6 +11487,7 @@ private struct AskDJView: View {
                     }
                 }
                 ToolbarItemGroup(placement: .confirmationAction) {
+                    AskDJHelpButton(model: model, surface: .askDJ)
                     SessionConnectionToolbarButton(model: model)
                     askDJRefreshToolbarButton
                 }
@@ -11509,6 +11520,7 @@ private struct AskDJView: View {
                     }
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    AskDJHelpButton(model: model, surface: .askDJ)
                     SessionConnectionToolbarButton(model: model)
                     askDJRefreshToolbarButton
                 }
@@ -11546,6 +11558,7 @@ private struct AskDJView: View {
         .task {
             await model.runAskDJHistorySyncLoop()
         }
+        .task(id: model.askDJExampleReadKey) { await model.refreshAskDJExampleCapabilities() }
         .sheet(item: $feedbackMessage) { message in
             AskDJFeedbackPromptView(model: model, message: message)
             #if os(iOS)
@@ -11579,6 +11592,7 @@ private struct AskDJView: View {
 
     private func refreshAskDJWithToast() async {
         dismissAskDJKeyboard()
+        await model.refreshAskDJExampleCapabilities(userRefresh: true)
         await manualRefresh.run(model: model, systemImage: "bubble.left.and.bubble.right", isBusy: { model.isCheckingAskDJHistoryState || model.isClearingAskDJHistory }) {
             let succeeded = await model.refreshAskDJHistory()
             return succeeded ? localizedKey(model.language, "appModel.ask.dj.updated")
@@ -11844,60 +11858,18 @@ struct AskDJSearchBar: View {
 }
 
 private struct AskDJEmptyState: View {
-    let language: String
+    @ObservedObject var model: DJConnectAppModel
+    private var language: String { model.language }
+    var reading: Bool
     let isRequestingIdleSuggestion: Bool
     let selectExample: (String) -> Void
-
-    private var examples: [String] {
-        [
-            localizedKey(language, "ui.what.did.i.listen.to.last.week"),
-            localizedKey(language, "ui.surprise.me.with.new.music"),
-            localizedKey(language, "ui.give.me.track.insight.for.this.song"),
-            localizedKey(language, "ui.which.albums.did.this.artist.release"),
-            localizedKey(language, "ui.play.something.for.cooking")
-        ]
-    }
 
     var body: some View {
         VStack(spacing: 14) {
             hero
 
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(examples, id: \.self) { example in
-                    Button {
-                        selectExample(example)
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "quote.opening")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(.white.opacity(0.54))
-                                .frame(width: 18)
-                            Text(example)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.white.opacity(0.86))
-                                .lineLimit(2)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Spacer(minLength: 4)
-                            Image(systemName: "plus")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(.white.opacity(0.50))
-                        }
-                        .padding(.horizontal, 13)
-                        .padding(.vertical, 10)
-                        .frame(maxWidth: 480, alignment: .leading)
-                        .background {
-                            DJConnectCardAppearance.shape
-                                .fill(.white.opacity(0.09))
-                        }
-                        .overlay {
-                            DJConnectCardAppearance.shape
-                                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
-                        }
-                    }
-                    .djConnectPlainButtonStyle()
-                }
-            }
-            .padding(.top, 2)
+            AskDJSuggestionStrip(model: model, surface: .askDJ, reading: reading, select: selectExample)
+                .padding(.top, 2)
 
             if isRequestingIdleSuggestion {
                 HStack(spacing: 7) {
@@ -11988,6 +11960,7 @@ struct AskDJMessageBubble: View {
     var contextQuestionID = ""
     var speechEnabled = true
     var sharedSpeechActions: (() -> AnyView)? = nil
+    var capturedReplyArtwork: (() -> AnyView)? = nil
 
     private var renderedMessageText: some View {
         Group {
@@ -12000,9 +11973,10 @@ struct AskDJMessageBubble: View {
 
     @ViewBuilder private var messageContextMenu: some View {
         if let contentDeleteAction {
-            Button(role: .destructive, action: contentDeleteAction) {
+            Button(role: .destructive, action: contentDeleteAction.perform) {
                 Label(localizedKey(language, "ui.content.delete.action"), systemImage: "trash")
             }
+            .accessibilityIdentifier("content-context-delete")
             .disabled(!contentDeletionEnabled)
         }
         if (!isReadOnly || allowsConversationMenu) && canSetPrompt && !isStaleHistory {
@@ -12249,6 +12223,7 @@ struct AskDJMessageBubble: View {
                                 renderedMessageText
                             }
                         }
+                        if !isUser, let capturedReplyArtwork { capturedReplyArtwork() }
                         if !isUser, let trackInsight = message.trackInsight {
                             AskDJTrackInsightSummary(insight: trackInsight, language: language)
                         }

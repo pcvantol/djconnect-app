@@ -10,7 +10,7 @@ struct SessionSpeechAutoplayAdmission {
     mutating func reset() { self = .init() }
 
     mutating func observe(sessionID: String, momentIDs: [String], readyIDs: Set<String>,
-                          enabled: Bool, now: Date = Date()) -> [String] {
+                          enabled: Bool, now: Date = Date(), revokedIDs: Set<String> = []) -> [String] {
         guard self.sessionID == sessionID else {
             self.sessionID = sessionID; known = Set(momentIDs); pending = []
             return []
@@ -18,7 +18,8 @@ struct SessionSpeechAutoplayAdmission {
         let new = momentIDs.filter { known.insert($0).inserted }
         if enabled { pending += new.map { ($0, now) } }
         else { pending = []; return [] }
-        pending.removeAll { now.timeIntervalSince($0.at) > 120 }
+        let visible = Set(momentIDs)
+        pending.removeAll { !visible.contains($0.id) || revokedIDs.contains($0.id) || now.timeIntervalSince($0.at) >= 120 }
         let admitted = pending.filter { readyIDs.contains($0.id) }.map(\.id)
         pending.removeAll { readyIDs.contains($0.id) }
         if known.count > 512 { known = Set(momentIDs).union(pending.map(\.id)) }

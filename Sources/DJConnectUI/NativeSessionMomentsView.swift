@@ -835,8 +835,11 @@ struct MomentCard: View {
                 SessionArtworkView(media: media, target: .moment(moment.id), audience: .current, language: language, model: model,
                     showsAttribution: moment.sourceAttribution?["provider"] != "Spotify" || moment.nativeSourceURLs.isEmpty)
             }
-            Text(kind).font(.caption.weight(.bold)).foregroundStyle(.secondary)
-            if !moment.title.isEmpty { Text(moment.title).font(.title2.bold()).accessibilityAddTraits(.isHeader) }
+            if moment.isBulletinV1 {
+                Label(kind, systemImage: "newspaper").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
+            } else { Text(kind).font(.caption.weight(.bold)).foregroundStyle(.secondary) }
+            if !moment.isBulletinV1 && !moment.title.isEmpty { Text(moment.title).font(.title2.bold()).accessibilityAddTraits(.isHeader) }
             Text(moment.content).font(.title3).fixedSize(horizontal: false, vertical: true)
             if let speech = presentation?.speech {
                 ForEach(speech.segments.filter { !(["dj", "primary_dj"].contains($0.speakerRole) && $0.text == moment.content) }.sorted { $0.ordinal < $1.ordinal }, id: \.ordinal) { segment in
@@ -859,7 +862,9 @@ struct MomentCard: View {
                 .accessibilityIdentifier("session-spotify-attribution")
             }
             ForEach(moment.nativeSourceURLs, id: \.absoluteString) { url in
-                Link(moment.sourceAttribution?["provider"] ?? url.host ?? "", destination: url)
+                Link(moment.isBulletinV1
+                     ? (moment.sources.first { $0.destination == url }.map { $0.provider + " · " + $0.license } ?? url.host ?? "")
+                     : moment.sourceAttribution?["provider"] ?? url.host ?? "", destination: url)
                     .foregroundStyle(.white)
                     .tint(.white)
                     .accessibilityValue(url.absoluteString)

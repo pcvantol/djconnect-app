@@ -41,7 +41,7 @@ public actor RendezvousRegistrationJournal {
     private let storage: any RendezvousRepairStorage
     private static let maximumBytes = 98_304
 
-    init(storage: any RendezvousRepairStorage) { self.storage = storage }
+    init(storage: any RendezvousRepairStorage) { self.storage = storage.claimingJournalOwner(UUID()) }
 
     /// The caller has already admitted this existing key and server challenge.
     /// Save their original binding before permitting any SDK invocation.

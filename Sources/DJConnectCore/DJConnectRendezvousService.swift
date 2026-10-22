@@ -37,6 +37,26 @@ private final class RendezvousRedirectGuard: NSObject, URLSessionTaskDelegate, S
 /// Fixed-origin public service. Never receives HA tokens, identity or Profile
 /// headers. No redirects, cookies, cache, transport retries or background tasks.
 public final class DJConnectRendezvousService: Sendable {
+    public enum Failure: Error, Sendable { case retryAfter(notBeforeMS: Int64) }
+    /// Server pacing can only delay an explicit retry. Malformed pacing on a
+    /// rejection closes this repair window; it never grants an earlier attempt.
+    static func retryNotBefore(_ header: String?, status: Int, at now: Int64) -> Int64? {
+        guard [429, 503].contains(status), let header else { return nil }
+        let value = header.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !value.isEmpty, value.utf8.allSatisfy({ (48...57).contains($0) }),
+           let seconds = Int64(value), seconds <= 31 * 86_400 {
+            return now + seconds * 1000
+        }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss 'GMT'"; formatter.isLenient = false
+        if let date = formatter.date(from: value), date.timeIntervalSince1970.isFinite,
+           date.timeIntervalSince1970 <= Double(now) / 1000 + 31 * 86_400 {
+            return max(now, Int64(date.timeIntervalSince1970 * 1000))
+        }
+        return now + 86_400_000
+    }
+
     private let session: URLSession
     private let taskCreated:(@MainActor @Sendable (URLSessionDataTask)->Void)?
     public convenience init() { self.init(configuration:.ephemeral) }
@@ -179,6 +199,10 @@ public final class DJConnectRendezvousService: Sendable {
         request.httpBody = body
         let response = try await DJConnectBoundedHTTPTransport.send(request,using:session,maximumBytes:4096,
             beforeDispatch: beforeDispatch, isBodyCurrent: bodyCurrent, taskCreated:taskCreated,validateResponse:{ http in
+                if let until = Self.retryNotBefore(http.value(forHTTPHeaderField: "Retry-After"), status: http.statusCode,
+                                                  at: Int64(Date().timeIntervalSince1970 * 1000)) {
+                    throw Failure.retryAfter(notBeforeMS: until)
+                }
                 guard http.statusCode == status,http.mimeType?.lowercased() == "application/json",
                       http.value(forHTTPHeaderField:"Content-Encoding") == nil else { throw DJConnectError.invalidResponse }
                 return "application/json"

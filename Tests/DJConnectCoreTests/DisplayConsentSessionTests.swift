@@ -27,6 +27,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) private static var approvalAt: Date?
     nonisolated(unsafe) private static var approvalAction: (@Sendable () -> Void)?
     static func reset(_ mode: String = "normal") { lock.withLock { Self.mode = mode; bootstrap = [:]; calls = []; bodies = [:]; ownerReads = 0; approvalAction = nil; approvalAt = nil } }
+    static func withdrawOwner() { lock.withLock { mode = "owner-withdrawn"; bootstrap = [:] } }
     static var approvalStartedAt: Date? { lock.withLock { approvalAt } }
     static func onApproval(_ action: @escaping @Sendable () -> Void) { lock.withLock { approvalAction = action } }
     static var requests: [URLRequest] { lock.withLock { calls } }
@@ -53,6 +54,13 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
             Self.calls.append(request)
             if path.hasSuffix("/owner/context") { Self.ownerReads += 1 }
             return (Self.mode, Self.ownerReads)
+        }
+        if mode == "owner-withdrawn" {
+            let bytes = Data(#"{"success":false,"error":"profile_access_denied","message":"Synthetic owner withdrawn"}"#.utf8)
+            client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 403,
+                httpVersion: nil, headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"])!, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: bytes); client?.urlProtocolDidFinishLoading(self)
+            return
         }
         if let bytes = Self.lock.withLock({ Self.bootstrap[path] }) {
             client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200,

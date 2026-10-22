@@ -21,6 +21,7 @@ public struct DJConnectMoment: Codable, Equatable, Sendable, Identifiable {
     public var generationMetadata: [String: String]?
     public var playbackItemID: String?
     public var settingsConfirmation: DJConnectSettingsConfirmationIdentity? = nil
+    public var sources: [DJConnectBulletinSource] = []
     public var id: String { momentID }
 
     public struct Artwork: Codable, Equatable, Sendable { public var url: String? }
@@ -56,7 +57,7 @@ public struct DJConnectMoment: Codable, Equatable, Sendable, Identifiable {
         }
     }
     enum CodingKeys: String, CodingKey {
-        case type, title, summary, content, artwork, actions
+        case type, title, summary, content, artwork, actions, sources
         case momentID = "moment_id", sessionID = "session_id", createdAt = "created_at"
         case presentationIntent = "presentation_intent", sourceReferences = "source_references"
         case settingsConfirmation = "settings_confirmation"
@@ -77,8 +78,13 @@ public struct DJConnectMoment: Codable, Equatable, Sendable, Identifiable {
         importance = try? c.decode(String.self, forKey: .importance)
         title = (try? c.decode(String.self, forKey: .title)) ?? ""
         summary = (try? c.decode(String.self, forKey: .summary)) ?? ""
-        artwork = try? c.decode(Artwork.self, forKey: .artwork)
-        actions = (try? c.decode([LossyBroadcastValue<Action>].self, forKey: .actions))?.compactMap(\.value) ?? []
+        if type == "dj_bulletin" {
+            artwork = try c.decodeIfPresent(Artwork.self, forKey: .artwork)
+            actions = try c.decode([Action].self, forKey: .actions)
+        } else {
+            artwork = try? c.decode(Artwork.self, forKey: .artwork)
+            actions = (try? c.decode([LossyBroadcastValue<Action>].self, forKey: .actions))?.compactMap(\.value) ?? []
+        }
         sourceReferences = (try? c.decode([String].self, forKey: .sourceReferences)) ?? []
         // Broken attribution must not turn restricted source content into an
         // apparently unrestricted card. Only this entry is discarded upstream.
@@ -86,6 +92,7 @@ public struct DJConnectMoment: Codable, Equatable, Sendable, Identifiable {
         generationMetadata = try? c.decode([String: String].self, forKey: .generationMetadata)
         playbackItemID = try? c.decode(String.self, forKey: .playbackItemID)
         settingsConfirmation = try c.decodeIfPresent(DJConnectSettingsConfirmationIdentity.self, forKey: .settingsConfirmation)
+        sources = type == "dj_bulletin" ? try c.decodeIfPresent([DJConnectBulletinSource].self, forKey: .sources) ?? [] : []
     }
 }
 
@@ -230,6 +237,7 @@ public extension DJConnectMoment {
     /// Preserve producer references and both recording attributions without inventing URLs.
     var nativeSourceURLs: [URL] {
         let references = sourceReferences + [sourceAttribution?["url"], sourceAttribution?["url_previous"]].compactMap { $0 }
+            + (isBulletinV1 ? sources.map(\.url) : [])
         var seen = Set<String>()
         return references.compactMap { raw in
             guard let url = URL(string: raw), url.scheme == "https", url.host != nil,
@@ -278,6 +286,15 @@ public extension DJConnectBroadcastState {
               moment.sessionID == session.sessionID, !moment.content.isEmpty,
               ["owner_only", "session_shared", "public_broadcast"].contains(moment.presentationIntent.visibility),
               current ? admission.currentDisplayAllowed : admission.activeFlowDisplayAllowed else { return false }
+        if moment.type == "dj_bulletin" {
+            #if os(watchOS)
+            return false // Bulletin V1 is an owner phone/tablet/Mac Flow surface.
+            #else
+            return moment.admitsBulletin(admission, at: date, current: current)
+            #endif
+        }
+        // A new wire family cannot inherit music-source action/speech admission.
+        guard moment.isSupportedNativeType else { return false }
         if moment.settingsConfirmation != nil || moment.sourceReferences.contains("accepted_settings") {
             guard moment.isSettingsConfirmation, !admission.requiresSpotifyAttribution,
                   admission.sourceExpiresAt == nil else { return false }

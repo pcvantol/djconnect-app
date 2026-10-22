@@ -52,6 +52,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
     }
 
+    @Published public private(set) var replyArtworkAvailable = false
     @Published public private(set) var artworkAvailable = false
     @Published public private(set) var artworkPreparing: Set<DJConnectSessionEntryReference> = []
     @Published public private(set) var artworkFailed: Set<DJConnectSessionEntryReference> = []
@@ -68,14 +69,16 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     /// Visible rows first; one neighboring media contribution on either side.
     /// Never scans/prepares the whole loaded history or performs a provider lookup.
-    static func artworkWindow(entries: [DJConnectHistoryEntry], visibleIDs: Set<String>, at now: Date = Date()) -> [DJConnectSessionEntryReference] {
+    static func artworkWindow(entries: [DJConnectHistoryEntry], visibleIDs: Set<String>, at now: Date = Date(), includeReplies: Bool = false) -> [DJConnectSessionEntryReference] {
         guard !visibleIDs.isEmpty else { return [] }
         // Identify visible positions before parsing rights/retention. Offscreen
         // history must not be revalidated in full on every visibility callback.
         let rows = entries
         let visible = rows.indices.filter { visibleIDs.contains(rows[$0].id) && rows[$0].isRetained(at: now) }
         guard let first = visible.first, let last = visible.last else { return [] }
-        let eligible: (DJConnectHistoryEntry) -> Bool = { [.playbackObserved, .djMoment].contains($0.kind) && $0.isRetained(at: now) }
+        let eligible: (DJConnectHistoryEntry) -> Bool = {
+            ([.playbackObserved, .djMoment].contains($0.kind) || (includeReplies && $0.kind == .conversationDJ)) && $0.isRetained(at: now)
+        }
         var indices = visible.filter { eligible(rows[$0]) }
         if let before = rows.indices.prefix(first).last(where: { eligible(rows[$0]) }) { indices.append(before) }
         if let after = rows.indices.dropFirst(last + 1).first(where: { eligible(rows[$0]) }) { indices.append(after) }
@@ -85,7 +88,21 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     public func prefetchArtwork(sessionID: String, visibleIDs: Set<String>) {
         guard artworkAvailable, host?.canRefreshSessionHistory == true,
               let rows = timelines[sessionID]?.entries else { return }
-        artworkQueue = Self.artworkWindow(entries: rows, visibleIDs: visibleIDs)
+        artworkQueue = Self.artworkWindow(entries: rows, visibleIDs: visibleIDs, includeReplies: replyArtworkAvailable)
+        startArtworkQueue()
+    }
+
+    /// Existing exact retained-reply preparation, shared bounded queue. A busy
+    /// transport must not silently discard all but the first visible answers.
+    func enqueueReplyArtwork(for entry: DJConnectHistoryEntry) {
+        guard replyArtworkAvailable, artworkAvailable, host?.canRefreshSessionHistory == true,
+              entry.kind == .conversationDJ, entry.isRetained(),
+              timelines[entry.sessionID]?.entries.contains(entry) == true else { return }
+        if !artworkQueue.contains(entry.reference), artworkQueue.count < 32 { artworkQueue.append(entry.reference) }
+        startArtworkQueue()
+    }
+
+    private func startArtworkQueue() {
         guard artworkQueueTask == nil, !artworkQueue.isEmpty else { return }
         let captured = epoch
         let generation = artworkQueueGeneration
@@ -98,7 +115,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
                       row.isRetained(), !artworkPreparing.contains(ref) else { continue }
                 let now = Date()
                 if let media = row.sessionMedia {
-                    let audience: DJConnectSessionMedia.Audience = media.artwork.historicalDisplayAllowed ? .history : .activeFlow
+                    let audience: DJConnectSessionMedia.Audience = media.entryAudience
                     if media.admittedArtwork(session: ref.sessionID, target: .entry(ref.entryID), audience: audience, at: now) != nil { continue }
                 }
                 guard artworkAttempts[ref].map({ now.timeIntervalSince($0) >= 30 }) ?? true else { continue }
@@ -115,6 +132,10 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     @Published public private(set) var bulkDeletionBusy = false
     @Published public private(set) var contentDeletionAvailable = false
     @Published public private(set) var contentDeletionBusy = false
+    @Published private(set) var contentRemovalRevision = UUID()
+    var showsUnconfirmedDeletionNotice: Bool {
+        hasUnconfirmedDeletion && !contentDeletionBusy && !bulkDeletionBusy && deletingSessionID == nil
+    }
     struct PendingContentDeletion: Codable {
         let owner, scope, binding: String
         let prepared: DJConnectContentDeleteScope
@@ -248,8 +269,10 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     /// Resolve only a retained, server-owned answer identity; never infer an entry from its text.
     func contextEntry(for message: DJConnectAskDJMessage) -> DJConnectHistoryEntry? {
         guard profileScopeActive || host?.isDemoMode == true else { return nil }
-        return Self.contextEntry(for: message, entries: timelines.values.flatMap(\.entries)
-            + historicalMatches.values.flatMap { $0 })
+        guard let serverID = message.serverID else { return nil }
+        let candidates = timelines.values.flatMap { $0.entries.filter { $0.originMessageID == serverID } }
+            + historicalMatches.values.flatMap { $0.filter { $0.originMessageID == serverID } }
+        return Self.contextEntry(for: message, entries: candidates)
     }
 
     nonisolated static func contextEntry(for message: DJConnectAskDJMessage,
@@ -409,6 +432,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
                 captured = epoch
             }
             artworkAvailable = caps.artworkAvailable
+            replyArtworkAvailable = caps.replyArtworkAvailable
             summaryAvailable = caps.summaryAvailable
             deletionAvailable = caps.deletionAvailable
             bulkDeletionAvailable = caps.bulkDeletionAvailable
@@ -446,7 +470,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         preparationTask?.cancel(); preparationTask = nil; preparationID = UUID(); preparing = false
         liveResponses = [:]; conversationMessageContexts = [:]
         cancelArtworkQueue()
-        artworkAvailable = false; artworkPreparing = []; artworkFailed = []
+        replyArtworkAvailable = false; artworkAvailable = false; artworkPreparing = []; artworkFailed = []
         epoch = UUID(); searchGeneration = UUID(); listGeneration = UUID(); navigationGeneration = UUID()
         searchTask?.cancel(); searchTask = nil
         available = false; searchAvailable = false; momentInsightAvailable = false; profileScopeActive = false; ownerScope = nil
@@ -476,7 +500,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
         liveResponses = [:]; conversationMessageContexts = [:]
         cancelArtworkQueue()
-        artworkAvailable = false; artworkPreparing = []; artworkFailed = []
+        replyArtworkAvailable = false; artworkAvailable = false; artworkPreparing = []; artworkFailed = []
         epoch = UUID(); ownerScope = nil
         listGeneration = UUID(); timelineGenerations = [:]; timelineNavigations = [:]; navigationGeneration = UUID()
         listLoading = false; listNextCursor = nil; listRevision = nil
@@ -500,21 +524,14 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         let keepsArchive = contentDeletionReadback.map {
             $0.owner == admittedOwner && $0.archiveEpoch == archiveResponseEpoch
         } ?? false
-        let negotiated = (content: contentDeletionAvailable, summary: summaryAvailable,
-                          archiveDeletion: deletionAvailable, bulkDeletion: bulkDeletionAvailable,
-                          artwork: artworkAvailable)
-        suspend(preservingArchiveNavigation: keepsArchive)
-        ownerScope = admittedOwner
         if keepsArchive {
-            // prepare() has just negotiated these flags for this same owner.
-            // A data clear revokes cached grants, not server feature support.
-            // Preserve false flags too: genuine server revocation stays disabled.
-            contentDeletionAvailable = negotiated.content
-            summaryAvailable = negotiated.summary
-            deletionAvailable = negotiated.archiveDeletion
-            bulkDeletionAvailable = negotiated.bulkDeletion
-            artworkAvailable = negotiated.artwork
+            // This clear belongs to an admitted scoped deletion. Retire stale
+            // work and grants, keeping unrelated rows and the viewport mounted.
+            fenceContentDeletionReadback(cancelPreparation: false)
+        } else {
+            suspend()
         }
+        ownerScope = admittedOwner
     }
 
     public var canPrepareBulkDeletion: Bool {
@@ -555,7 +572,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
                   pending.binding == host.historyDeletionScope(owner: ownerScope, bindCredential: true),
                   receipt.admits(snapshot: snapshot, operationID: operationID, owner: ownerScope), !Task.isCancelled else { return false }
             finishDeletion(pending)
-            invalidateArchiveProjections()
+            invalidateArchiveProjections(expectedOwner: ownerScope)
             return true
         } catch {
             if deletionWasDefinitivelyRejected(error) { finishDeletion(pending) }
@@ -564,7 +581,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
     }
 
-    private func invalidateArchiveProjections() {
+    private func invalidateArchiveProjections(expectedOwner: String) {
         let activeID = host?.activeDJSession?.id
         var archives = Set(sessions.filter { $0.readOnly }.map(\.id))
         archives.formUnion(timelines.keys.filter { $0 != activeID })
@@ -592,9 +609,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         let captured = epoch, archiveToken = archiveGeneration
         Task { @MainActor [weak self] in
             guard let self, self.epoch == captured, self.archiveGeneration == archiveToken else { return }
-            await self.loadSessions()
-            guard self.epoch == captured, self.archiveGeneration == archiveToken else { return }
-            await self.refreshConversation()
+            await self.reloadArchiveAfterDeletion(expectedOwner: expectedOwner)
         }
     }
 
@@ -700,20 +715,30 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         for moment in record.prepared.affected_moments {
             withdrawnContentMoments.insert(record.scope + "\u{0}" + moment.session_id + "\u{0}" + moment.moment_id)
         }
-        host.withdrawDeletedContentPresentation(receipt, target: record.prepared.target)
-        // Fence pre-erasure work and grants; restore independent server projections.
         let activeID = host.activeDJSession?.id
-        // A scoped content deletion invalidates data and in-flight reads, not
-        // the Session page itself. Whole-session erasure/authority loss still
-        // use the ordinary navigation-invalidating suspension.
-        suspend(preservingArchiveNavigation: true)
+        let affected = Set(receipt.affected_entries.map {
+            DJConnectSessionEntryReference(sessionID: $0.session_id, entryID: $0.entry_id)
+        })
+        // Remove only acknowledged content immediately. Server-retained unavailable
+        // placeholders, if any, are supplied by the subsequent authoritative read.
+        func unaffected(_ entries: [DJConnectHistoryEntry]) -> [DJConnectHistoryEntry] {
+            entries.filter { !affected.contains($0.reference) }
+        }
+        for id in Array(timelines.keys) { timelines[id]?.entries = unaffected(timelines[id]?.entries ?? []) }
+        historicalMatches = historicalMatches.mapValues(unaffected)
+        searchMatches = unaffected(searchMatches)
+        if let selectedEntry, affected.contains(selectedEntry) { self.selectedEntry = nil }
+        if let openTarget, affected.contains(openTarget) { self.openTarget = nil }
+        host.withdrawDeletedContentPresentation(receipt, target: record.prepared.target)
+        fenceContentDeletionReadback(cancelPreparation: true)
+        contentRemovalRevision = UUID()
         contentDeletionReadback = (record.owner, archiveResponseEpoch)
         defer { contentDeletionReadback = nil }
         await prepare()
         guard ownerScope == record.owner, host.canRefreshSessionHistory, !Task.isCancelled else { return false }
         guard await loadSessions() else { return false }
         for id in Set(receipt.affected_entries.map(\.session_id)) {
-            guard await loadTimeline(id) else { return false }
+            guard await loadTimeline(id, preserveLoadedEntries: true) else { return false }
         }
         if activeID != nil { guard await host.refreshActiveDJSession() else { return false } }
         guard ownerScope == record.owner,
@@ -722,6 +747,32 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         contentDeletionJournal[record.scope] = nil
         guard saveContentDeletionJournal() else { invalidContentDeletionJournal = true; return false }
         return true
+    }
+
+    /// A scoped erasure retires in-flight work/commands, not unrelated history.
+    /// Existing rows retain their original owner and source/retention deadlines.
+    private func fenceContentDeletionReadback(cancelPreparation: Bool) {
+        host?.invalidateSessionPlaybackActions()
+        host?.withdrawLiveConversationPresentations()
+        host?.invalidateConversationResultLeases()
+        host?.dismissMomentTrackInsight()
+        liveResponses = [:]
+        cancelArtworkQueue(); artworkPreparing = []
+        if cancelPreparation {
+            preparationTask?.cancel(); preparationTask = nil; preparationID = UUID(); preparing = false
+        }
+        epoch = UUID(); archiveGeneration = UUID()
+        listGeneration = UUID(); listLoading = false; listNextCursor = nil; listRevision = nil
+        timelineGenerations = [:]; timelineNavigations = [:]; navigationGeneration = UUID()
+        for id in Array(timelines.keys) {
+            timelines[id]?.loading = false
+            timelines[id]?.nextCursor = nil
+        }
+        searchTask?.cancel(); searchTask = nil; searchGeneration = UUID()
+        searchLoading = false; searchNextCursor = nil; searchRevision = nil
+        clearArchiveSearch()
+        pendingTurns = []; host?.setProfileConversationSending(false)
+        voiceContext = nil; voiceClientID = nil; voicePayload = nil
     }
 
     public func canDeleteSession(_ sessionID: String) -> Bool {
@@ -757,7 +808,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
                   host.canRefreshSessionHistory, host.activeDJSession?.id != sessionID,
                   receipt.admits(action, owner: ownerScope), !Task.isCancelled else { return false }
             finishDeletion(pending)
-            invalidateDeletedSessions([sessionID])
+            invalidateDeletedSessions([sessionID], expectedOwner: ownerScope)
             return true
         } catch {
             if deletionWasDefinitivelyRejected(error) { finishDeletion(pending) }
@@ -768,7 +819,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
     }
 
-    private func invalidateDeletedSessions(_ sessionIDs: Set<String>) {
+    private func invalidateDeletedSessions(_ sessionIDs: Set<String>, expectedOwner: String) {
         for sessionID in sessionIDs {
             let removed = (timelines[sessionID]?.entries ?? []) + searchMatches.filter { $0.sessionID == sessionID }
                 + historicalMatches.values.flatMap { $0.filter { $0.sessionID == sessionID } }
@@ -788,10 +839,28 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         let refreshedEpoch = epoch
         Task { @MainActor [weak self] in
             guard let self, self.epoch == refreshedEpoch else { return }
-            await self.loadSessions()
-            guard self.epoch == refreshedEpoch else { return }
-            await self.refreshConversation()
+            await self.reloadArchiveAfterDeletion(expectedOwner: expectedOwner)
         }
+    }
+
+    /// Settle the deletion's conversation clear before publishing the fresh list.
+    /// A higher clear revision suspends old projections, including that list.
+    private func reloadArchiveAfterDeletion(expectedOwner: String) async {
+        guard ownerScope == expectedOwner, host?.canRefreshSessionHistory == true else { return }
+        // An older preparation may still be awaiting a pre-deletion read.
+        preparationTask?.cancel(); preparationTask = nil; preparationID = UUID(); preparing = false
+        let beforePreparation = epoch
+        await prepare()
+        guard ownerScope == expectedOwner, host?.canRefreshSessionHistory == true,
+              !Task.isCancelled else { return }
+        if epoch != beforePreparation {
+            // The admitted clear also retires negotiated feature flags. Re-read
+            // them once for this same owner, so another deletion remains usable.
+            await prepare()
+        }
+        guard ownerScope == expectedOwner, host?.canRefreshSessionHistory == true,
+              !Task.isCancelled else { return }
+        await loadSessions()
     }
 
     @discardableResult
@@ -826,7 +895,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     public func refreshArtwork(for original: DJConnectHistoryEntry) async {
         let ref = original.reference
         guard artworkAvailable, let host, host.canRefreshSessionHistory,
-              [.playbackObserved, .djMoment].contains(original.kind), original.isRetained(),
+              ([.playbackObserved, .djMoment].contains(original.kind) || (replyArtworkAvailable && original.kind == .conversationDJ)), original.isRetained(),
               artworkPreparing.count < 2, !artworkPreparing.contains(ref),
               timelines[ref.sessionID]?.entries.contains(original) == true else { return }
         let captured = epoch
@@ -852,7 +921,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             }
             historicalMatches = historicalMatches.mapValues(patch)
             searchMatches = patch(searchMatches)
-            let audience: DJConnectSessionMedia.Audience = media.artwork.historicalDisplayAllowed ? .history : .activeFlow
+            let audience: DJConnectSessionMedia.Audience = media.entryAudience
             if media.admittedArtwork(session: ref.sessionID, target: .entry(ref.entryID), audience: audience) == nil {
                 artworkFailed.insert(ref)
             }

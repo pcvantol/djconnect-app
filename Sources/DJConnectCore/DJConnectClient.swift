@@ -339,6 +339,28 @@ public final class DJConnectClient: Sendable {
         return .init(insight: insight, subject: subject)
     }
 
+    /// Returns nil only when this Core does not advertise the additive contract.
+    /// A failed qualified response never falls back to a title or a different Moment.
+    public func currentTrackInsight(_ payload: DJConnectTrackInsightRequest, isCurrent: (@MainActor @Sendable () -> Bool)? = nil) async throws -> DJConnectCurrentInsightDetail? {
+        let capabilities: DJConnectCurrentInsightCapabilities
+        do {
+            capabilities = try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
+        } catch DJConnectError.routeMissing {
+            if let isCurrent, !(await isCurrent()) { throw CancellationError() }
+            return nil
+        }
+        if let isCurrent, !(await isCurrent()) { throw CancellationError() }
+        guard capabilities.available else { return nil }
+        var selected = payload
+        selected.trackInsightSubject = .init()
+        let response: TrackInsightEndpointResponse = try await decodedResponse(for: trackInsightRequest(selected))
+        guard response.success != false, let subject = response.currentSubject,
+              subject.schemaVersion == 1, subject.mode == "current", let insight = response.trackInsightValue else {
+            throw DJConnectError.trackInsightUnavailable(code: response.error, message: response.message)
+        }
+        return .init(insight: insight, subject: subject)
+    }
+
     public func trackInsight(_ payload: DJConnectTrackInsightRequest) async throws -> TrackInsight {
         if let insight = try await webSocketTrackInsightIfSupported(payload) {
             return insight
@@ -398,6 +420,10 @@ public final class DJConnectClient: Sendable {
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
         return try await sessionArtworkTransport.loadForecast(request)
+    }
+
+    public func askDJExampleCapabilities() async throws -> DJConnectAskDJCatalogue.Capabilities {
+        try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
     }
 
     public func activeSessionMoodCapabilities() async throws -> DJConnectActiveMoodCapabilities {

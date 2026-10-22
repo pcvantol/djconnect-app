@@ -7,6 +7,13 @@ import Security
 protocol RendezvousRepairStorage: Sendable {
     func read() throws -> Data?
     func write(_ data: Data) throws
+    func claimingJournalOwner(_ identity: UUID) -> any RendezvousRepairStorage
+}
+
+extension RendezvousRepairStorage {
+    /// Legacy stores retain their existing actor ownership. A composed child
+    /// overrides this to prevent two journal actors sharing one mutable CAS view.
+    func claimingJournalOwner(_ identity: UUID) -> any RendezvousRepairStorage { self }
 }
 
 final class RendezvousRepairKeychainStorage: RendezvousRepairStorage {
@@ -80,7 +87,7 @@ public actor RendezvousRepairJournal {
     private let storage: any RendezvousRepairStorage
     private static let maximumBytes = 16_384
 
-    init(storage: any RendezvousRepairStorage) { self.storage = storage }
+    init(storage: any RendezvousRepairStorage) { self.storage = storage.claimingJournalOwner(UUID()) }
 
     /// Repeated pause entry preserves all counters, including after completion.
     /// Another key cannot replace this unresolved ledger through this API.
@@ -118,8 +125,13 @@ public actor RendezvousRepairJournal {
     }
 
     public func complete(keyIdentifier: String, reservation: UUID,
-                         outcome: RendezvousRepairWindow.Outcome, at nowMS: Int64) throws {
+                         outcome: RendezvousRepairWindow.Outcome, notBeforeMS: Int64? = nil,
+                         at nowMS: Int64) throws {
         var state = try requiredState(keyIdentifier)
+        // Pacing and completion are one durable write. If persistence fails,
+        // the old in-flight reservation remains occupied (or both changes are
+        // committed); completion can never escape without its server delay.
+        if let notBeforeMS { try state.delayRecovery(until: notBeforeMS, at: nowMS) }
         try state.complete(reservation, outcome: outcome, at: nowMS)
         try persist(state)
     }

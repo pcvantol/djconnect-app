@@ -154,3 +154,101 @@ private extension String {
     } catch let rejection as DJConnectProfileDJSettingsFailure { #expect(rejection.error == "settings_conflict") }
     #expect(calls == 1)
 }
+
+@Test @MainActor func watchSessionLostWriteOnlyReadsAndCannotReplayAcrossForegroundChanges() async throws {
+    let idle = DJConnectWatchSessionSnapshot(settings: try watchSettings(), session: nil)
+    let state = DJConnectWatchForegroundSession()
+    state.bind(owner: "watch-a", active: true)
+    await state.refresh { idle }
+    var writes = 0
+    var reads = 0
+    await state.change(language: "nl", write: { intent in
+        writes += 1
+        #expect(intent.sessionID == nil && intent.matches(idle))
+        throw DJConnectError.network(message: "reply lost")
+    }, read: { reads += 1; return idle })
+    #expect(writes == 1 && reads == 1 && state.outcomeUnknown && !state.isChanging)
+    await state.change(language: "nl", write: { _ in writes += 1 }, read: { idle })
+    state.bind(owner: "watch-a", active: false)
+    state.bind(owner: "watch-a", active: true)
+    await state.refresh { idle }
+    await state.change(language: "nl", write: { _ in writes += 1 }, read: { idle })
+    #expect(writes == 1 && state.outcomeUnknown)
+    state.bind(owner: "watch-b", active: true)
+    #expect(!state.outcomeUnknown && state.current() == nil)
+}
+
+@Test @MainActor func watchSessionDoesNotAdmitConcurrentWritesOrPublishAnOldOwnerCompletion() async throws {
+    let idle = DJConnectWatchSessionSnapshot(settings: try watchSettings(), session: nil)
+    let state = DJConnectWatchForegroundSession()
+    state.bind(owner: "watch-a", active: true)
+    await state.refresh { idle }
+    var finish: CheckedContinuation<Void, Never>?
+    var writes = 0
+    let action = Task { await state.change(language: "nl", write: { _ in
+        writes += 1
+        await withCheckedContinuation { finish = $0 }
+    }, read: { idle }) }
+    while finish == nil { await Task.yield() }
+    await state.refresh(force: true) { Issue.record("A refresh must not race a write"); return idle }
+    await state.change(language: "nl", write: { _ in writes += 1 }, read: { idle })
+    #expect(writes == 1 && state.isChanging)
+    state.bind(owner: "watch-a", active: false)
+    state.bind(owner: "watch-a", active: true)
+    finish?.resume(); await action.value
+    #expect(state.current() == nil && state.outcomeUnknown && !state.isChanging)
+}
+
+@Test @MainActor func watchSessionReadFailureOffersRecoveryAndSuccessfulReadClearsIt() async throws {
+    let state = DJConnectWatchForegroundSession()
+    state.bind(owner: "watch", active: true)
+    await state.refresh { throw DJConnectError.missingToken }
+    #expect(state.failureKey == "watch.session.pair_again")
+    await state.refresh(force: true) { throw DJConnectError.invalidConfiguration("phone") }
+    #expect(state.failureKey == "watch.session.connect_phone")
+    await state.refresh(force: true) { throw DJConnectError.invalidResponse }
+    #expect(state.failureKey == "watch.session.retry")
+    await state.refresh(force: true) { DJConnectWatchSessionSnapshot(settings: try watchSettings(), session: nil) }
+    #expect(!state.unavailable && state.failureKey == nil && state.current() != nil)
+}
+
+@Test @MainActor func watchSessionExplicitRecoveryOnlyAcceptsAValidatedCurrentRead() async throws {
+    let idle = DJConnectWatchSessionSnapshot(settings: try watchSettings(), session: nil)
+    let state = DJConnectWatchForegroundSession()
+    state.bind(owner: "watch", active: true)
+    await state.refresh { idle }
+    var writes = 0
+    await state.change(language: "nl", write: { _ in writes += 1; throw DJConnectError.invalidResponse }, read: { idle })
+    await state.useCurrent { throw DJConnectError.missingToken }
+    #expect(state.outcomeUnknown)
+    await state.useCurrent { idle }
+    #expect(!state.outcomeUnknown && state.current() != nil && writes == 1)
+}
+
+@Test @MainActor func watchSessionCoherentReadIsBoundedAndNeverAdmitsAnUnsuccessfulRuntime() async throws {
+    let settings = try watchSettings()
+    let data = Data("{\"success\":true,\"session\":null}".utf8)
+    let idle = try JSONDecoder().decode(DJConnectSessionResponse.self, from: data)
+    var settingsReads = 0
+    let value = try await DJConnectWatchSessionSnapshot.read(settings: { settingsReads += 1; return settings }, session: { idle })
+    #expect(value.isValid && settingsReads == 2)
+    let rejected = try JSONDecoder().decode(DJConnectSessionResponse.self, from: Data("{\"success\":false}".utf8))
+    do {
+        _ = try await DJConnectWatchSessionSnapshot.read(settings: { settings }, session: { rejected })
+        Issue.record("A failed read must not become an idle Session")
+    } catch { #expect(error as? DJConnectError == .invalidResponse) }
+}
+
+@Test func watchInstallationPersistsBeforeCompanionRegistrationAndSurvivesNewModels() throws {
+    let name = "watch-installation-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let first = DJConnectWatchInstallation.load(defaults: defaults, makeID: { "FIRST" }, makeCode: { "123456" })
+    let second = DJConnectWatchInstallation.load(defaults: defaults,
+        makeID: { Issue.record("An existing Watch must not receive a new identity"); return "SECOND" },
+        makeCode: { Issue.record("A model rebuild must preserve its pairing code"); return "654321" })
+    #expect(first.id == second.id && first.code == second.code)
+    let restored = try #require(UserDefaults(suiteName: name))
+    #expect(restored.string(forKey: "stableInstallID") == "FIRST")
+    #expect(restored.string(forKey: "pairingCode") == "123456")
+}

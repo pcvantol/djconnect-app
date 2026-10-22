@@ -139,7 +139,7 @@ struct SavedSessionsView: View {
             savedSessionsContainer {
                 if showsListHeader {
                 VStack(alignment: .leading, spacing: 16) {
-                    if history.hasUnconfirmedDeletion {
+                    if history.showsUnconfirmedDeletionNotice {
                         ContentDeletionPendingNotice(model: model)
                     }
                     #if !os(iOS)
@@ -434,6 +434,7 @@ struct SessionTimelineScreen: View {
         _forecastPosition = State(initialValue: activeSession != nil && initialAnchor == nil ? "session-mode-picker" : nil)
     }
     private func refreshTimeline() async {
+        if activeSession != nil { await model.refreshAskDJExampleCapabilities(userRefresh: true) }
         await manualRefresh.run(model: model, systemImage: DJConnectFeatureSymbols.djSession) {
             let sessionSucceeded = await refreshAction?() ?? true
             let conversationSucceeded = history.profileScopeActive ? await history.refreshConversation() : true
@@ -496,6 +497,14 @@ struct SessionTimelineScreen: View {
     private var matches: [DJConnectHistoryEntry] {
         history.acceptedSearchSessionID == sessionID && history.acceptedSearchQuery == query ? history.searchMatches.reversed().filter { $0.isRetained() } : []
     }
+    private var filtersTimeline: Bool {
+        searching && !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    // Search pages contain the actual retained matching entries, including rows
+    // outside the loaded timeline window. Never intersect with that window.
+    private var displayedEntries: [DJConnectHistoryEntry] {
+        filtersTimeline ? Array(matches.reversed()) : timeline.entries
+    }
     private var selectedIndex: Int { matches.firstIndex(where: { $0.id == selectedMatchID }) ?? 0 }
     private var canSend: Bool {
         (model.isDemoMode ? model.canUseAskDJFeatures : history.profileScopeActive && model.canUseProfileConversation) && !model.isSendingAskDJText &&
@@ -532,7 +541,7 @@ struct SessionTimelineScreen: View {
     }
 
     var body: some View {
-        let cachedEntries = renderCache.snapshot(timeline.entries, sessionID: sessionID, epoch: history.responseEpoch)
+        let cachedEntries = renderCache.snapshot(displayedEntries, sessionID: sessionID, epoch: history.responseEpoch)
         let retentionDeadlines = cachedEntries.flatMap { [$0.deadline, $0.artworkDeadline].compactMap { $0 } }
         let matchMap = matches.reduce(into: [String: DJConnectHistoryEntry]()) { result, entry in
             if result[entry.id] == nil { result[entry.id] = entry }
@@ -540,7 +549,7 @@ struct SessionTimelineScreen: View {
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
                 TimelineView(SessionEntryRefreshSchedule(deadlines: retentionDeadlines)) { clock in
-                    let preparedEntries = renderCache.snapshot(timeline.entries, sessionID: sessionID, epoch: history.responseEpoch, at: clock.date)
+                    let preparedEntries = renderCache.snapshot(displayedEntries, sessionID: sessionID, epoch: history.responseEpoch, at: clock.date)
                     ZStack {
                     ScrollView {
                         DJSessionGlassGroup {
@@ -562,8 +571,8 @@ struct SessionTimelineScreen: View {
                                     .id("session-mode-picker")
                                 // The mode picker is the initial top target;
                                 // artwork follows with ordinary content spacing.
-                                scrollingCurrent(activeSession).id("current")
-                                if history.hasUnconfirmedDeletion {
+                                if !filtersTimeline { scrollingCurrent(activeSession).id("current") }
+                                if history.showsUnconfirmedDeletionNotice {
                                     ContentDeletionPendingNotice(model: model)
                                         .padding(.horizontal, 20).padding(.vertical, 10)
                                 }
@@ -628,13 +637,13 @@ struct SessionTimelineScreen: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .accessibilityIdentifier("session-timeline-error")
                                 }
-                                ForEach(history.pendingTurns.reversed().filter { $0.context.sessionID == sessionID }) { turn in
+                                ForEach(history.pendingTurns.reversed().filter { !filtersTimeline && $0.context.sessionID == sessionID }) { turn in
                                     SessionPendingConversationBubble(model: model, history: history, turn: turn,
                                         setPromptAction: setConversationPrompt, feedbackAction: reportConversation)
                                     .padding(.horizontal, 20)
                                     .id("pending-" + turn.id)
                                 }
-                                if activeSession != nil {
+                                if activeSession != nil && !filtersTimeline {
                                     ForEach(model.currentSessionConversationMessages(sessionID: sessionID, at: clock.date).reversed()) { message in
                                         SessionCurrentConversationBubble(model: model, message: message,
                                             setPromptAction: setConversationPrompt, feedbackAction: reportConversation)
@@ -642,49 +651,13 @@ struct SessionTimelineScreen: View {
                                             .id("current-conversation-" + message.id.uuidString)
                                     }
                                 }
-                                // Match Ask DJ: newest retained contribution first; current remains the top anchor.
-                                ForEach(preparedEntries.reversed().filter { $0.isRetained(at: clock.date) }) { prepared in
-                                    let entry = prepared.entry
-                                    let liveMessage = history.liveMessage(for: entry, activeSessionID: activeSession?.id)
-                                    let actionEpoch = history.responseEpoch
-                                    SessionEntryView(entry: entry, language: model.language,
-                                        messageAdapter: liveMessage ?? prepared.message, contextEpoch: actionEpoch,
-                                        opensActiveComposer: activeSession != nil,
-                                        allowsPlaybackActions: liveMessage != nil,
-                                        playingActionID: model.playingAskDJActionID,
-                                        artworkModel: model,
-                                        setPromptAction: { prompt in
-                                            guard history.responseEpoch == actionEpoch, entry.isRetained() else { return }
-                                            setConversationPrompt(prompt)
-                                        },
-                                        feedbackAction: { message in
-                                            guard history.responseEpoch == actionEpoch, entry.isRetained() else { return }
-                                            reportConversation(message)
-                                        },
-                                        playAction: { action in history.playLiveAction(action, for: entry, expectedEpoch: actionEpoch) },
-                                        highlights: matchMap[entry.id]?.text == entry.text ? (matchMap[entry.id]?.highlights ?? []) : [],
-                                        isSelectedMatch: selectedMatchID == entry.id || initialAnchor == entry.id,
-                                        selected: history.selectedEntry == entry.reference) {
-                                            history.selectedEntry = entry.reference
-                                            if activeSession == nil {
-                                                history.openTarget = nil
-                                                model.performHomeScreenAction(.askDJ)
-                                            } else { inputFocused = true }
-                                        }
-                                        .equatable()
-                                            .modifier(SessionRowFade(selected: selectedMatchID == entry.id || initialAnchor == entry.id || history.selectedEntry == entry.reference, enabled: activeSession != nil))
-                                        .padding(.horizontal, 20)
-                                        .id(entry.id).accessibilityElement(children: .contain).accessibilityIdentifier("session-entry-" + entry.id)
-                                        .onAppear {
-                                            if matchMap[entry.id] != nil {
-                                                Task { await loadMoreSearchIfNeeded(visibleMatchID: entry.id) }
-                                            }
-                                        }
+                                ForEach(flowRows(preparedEntries, at: clock.date)) { row in
+                                    liveRow(row, isSearchMatch: matchMap[row.id] != nil)
                                 }
-                                if history.available && timeline.revision != nil && timeline.entries.isEmpty && timeline.errorKey == nil {
+                                if !filtersTimeline && history.available && timeline.revision != nil && timeline.entries.isEmpty && timeline.errorKey == nil {
                                     Text(text(activeSession == nil ? "ui.session.history.no_entries" : "ui.session.history.no_entries_active")).padding(.horizontal, 20)
                                 }
-                                if let startMetadata {
+                                if !filtersTimeline, let startMetadata {
                                     Label(startMetadata, systemImage: "clock")
                                         .font(.callout).foregroundStyle(.secondary)
                                         .fixedSize(horizontal: false, vertical: true)
@@ -696,6 +669,7 @@ struct SessionTimelineScreen: View {
                                 Color.clear.frame(height: 1).id("tail")
                             }
                         }
+                        .modifier(ContentRemovalAnimation(history: history))
                         .frame(maxWidth: 1000, alignment: .leading).frame(maxWidth: .infinity)
                         .padding(.top, activeSession != nil ? 0 : archivedTopPadding).padding(.bottom, 20)
                         .scrollTargetLayout()
@@ -707,7 +681,7 @@ struct SessionTimelineScreen: View {
                     }
                     .safeAreaInset(edge: .top, spacing: 0) {
                         VStack(spacing: 0) {
-                            if activeSession == nil && history.hasUnconfirmedDeletion {
+                            if activeSession == nil && history.showsUnconfirmedDeletionNotice {
                                 ContentDeletionPendingNotice(model: model)
                                     .padding(.horizontal, 20).padding(.vertical, 10)
                             }
@@ -943,6 +917,9 @@ struct SessionTimelineScreen: View {
                 guard activeSession != nil, initialAnchor == nil else { return }
                 positionSessionTopWithoutAnimation()
             }
+            .task(id: model.askDJExampleReadKey) {
+                if activeSession != nil { await model.refreshAskDJExampleCapabilities() }
+            }
             .task(id: sessionID) {
                 if activeSession != nil, initialAnchor == nil { positionSessionTopWithoutAnimation() }
                 let restoreGeneration = anchorGeneration
@@ -985,11 +962,9 @@ struct SessionTimelineScreen: View {
             .onChange(of: history.searchMatches) {
                 guard searching, !matches.isEmpty else { return }
                 if !matches.contains(where: { $0.id == selectedMatchID }) {
-                    // Keep the inline field visible while typing. Navigation to
-                    // a Flow result is explicit through Return or the arrows.
-                    if activeSession != nil { selectedMatchID = nil; return }
-                    selectedMatchID = matches.first?.id
-                    if let id = selectedMatchID { Task { await selectAnchor(id, proxy: proxy, searchRequest: true) } }
+                    // Filtering mounts every returned match directly. Keep the
+                    // search field in place; arrows/Return explicitly select a row.
+                    selectedMatchID = nil
                 }
             }
             .onChange(of: timeline.nextCursor) { if oldestEntriesVisible { loadEarlierIfNeeded() } }
@@ -1240,33 +1215,18 @@ struct SessionTimelineScreen: View {
                     submittedQuestion = SessionSubmittedQuestion(sessionID: sessionID, localID: question.id, clientID: question.clientMessageID)
                 }
             })
+            HStack {
+                Spacer()
+                AskDJHelpButton(model: model, surface: .session)
+            }
             if showsFirstPlayHelper {
-                Button {
+                AskDJSuggestionStrip(model: model, surface: .session, reading: !currentHeaderVisible || inputFocused) { prompt in
                     guard model.activeDJSession?.id == sessionID,
                           !model.isSendingAskDJText, !model.isRecordingVoice,
                           model.askDJDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-                    model.askDJDraft = text("ui.surprise.me.with.new.music")
+                    model.askDJDraft = prompt
                     sendComposerQuestion()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "quote.opening")
-                            .font(.caption.weight(.bold)).foregroundStyle(.white.opacity(0.54)).frame(width: 18)
-                        Text(text("ui.surprise.me.with.new.music"))
-                            .font(.subheadline.weight(.semibold)).foregroundStyle(.white.opacity(0.86))
-                            .fixedSize(horizontal: false, vertical: true)
-                        Spacer(minLength: 4)
-                        Image(systemName: "plus").font(.caption.weight(.bold)).foregroundStyle(.white.opacity(0.50))
-                    }
-                    .padding(.horizontal, 13).padding(.vertical, 10)
-                    .frame(maxWidth: 480, alignment: .leading)
-                    .background(DJConnectCardAppearance.shape.fill(.white.opacity(0.09)))
-                    .overlay(DJConnectCardAppearance.shape.stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth))
                 }
-                .djConnectPlainButtonStyle()
-                .disabled(model.isSendingAskDJText || model.isRecordingVoice ||
-                    !(model.isDemoMode ? model.canUseAskDJFeatures : history.profileScopeActive && model.canUseProfileConversation) ||
-                    !model.askDJDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .accessibilityIdentifier("session-first-play-suggestion")
                 .frame(maxWidth: .infinity)
             }
         }
@@ -1285,6 +1245,74 @@ struct SessionTimelineScreen: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
+    private func flowRows(_ retained: [SessionTimelineRenderEntry], at now: Date) -> [SessionTimelineLiveRow] {
+        let bulletins: [DJConnectMoment]
+        if !filtersTimeline && history.hasAuthorizedOwner && scenePhase == .active {
+            bulletins = (activeSession?.broadcast.nativeFlowMoments(at: now) ?? []).filter {
+                $0.isBulletinV1 && !history.contentMomentWasWithdrawn(sessionID: sessionID, momentID: $0.id)
+            }
+        } else { bulletins = [] }
+        let current = activeSession?.broadcast.nativeCurrentMoment(at: now)
+        let currentBulletinIDs: Set<String>
+        if let current, current.isBulletinV1 { currentBulletinIDs = [current.id] }
+        else { currentBulletinIDs = [] }
+        return SessionTimelineLiveRow.merge(retained: retained, bulletins: bulletins, at: now,
+                                           omittingMomentIDs: currentBulletinIDs)
+    }
+    @ViewBuilder private func liveRow(_ row: SessionTimelineLiveRow, isSearchMatch: Bool) -> some View {
+        switch row {
+        case .history(let prepared):
+            let entry = prepared.entry
+            let liveMessage = history.liveMessage(for: entry, activeSessionID: activeSession?.id)
+            let actionEpoch = history.responseEpoch
+            SessionEntryView(entry: entry, language: model.language,
+                messageAdapter: liveMessage ?? prepared.message, contextEpoch: actionEpoch,
+                opensActiveComposer: activeSession != nil,
+                allowsPlaybackActions: liveMessage != nil,
+                playingActionID: model.playingAskDJActionID,
+                artworkModel: model,
+                setPromptAction: { prompt in
+                    guard history.responseEpoch == actionEpoch, entry.isRetained() else { return }
+                    setConversationPrompt(prompt)
+                },
+                feedbackAction: { message in
+                    guard history.responseEpoch == actionEpoch, entry.isRetained() else { return }
+                    reportConversation(message)
+                },
+                playAction: { action in history.playLiveAction(action, for: entry, expectedEpoch: actionEpoch) },
+                highlights: [],
+                isSelectedMatch: selectedMatchID == entry.id || initialAnchor == entry.id,
+                selected: history.selectedEntry == entry.reference) {
+                    history.selectedEntry = entry.reference
+                    if activeSession == nil {
+                        history.openTarget = nil
+                        model.performHomeScreenAction(.askDJ)
+                    } else { inputFocused = true }
+                }
+                .equatable()
+                    .modifier(SessionRowFade(selected: selectedMatchID == entry.id || initialAnchor == entry.id || history.selectedEntry == entry.reference, enabled: activeSession != nil))
+                .padding(.horizontal, 20)
+                .id(entry.id).transition(.opacity).accessibilityElement(children: .contain).accessibilityIdentifier("session-entry-" + entry.id)
+                .onAppear {
+                    if isSearchMatch {
+                        Task { await loadMoreSearchIfNeeded(visibleMatchID: entry.id) }
+                    }
+                }
+        case .bulletin(let moment):
+            let presentation = activeSession?.broadcast.presentations.last { $0.momentID == moment.id }
+            let speech = activeSession?.broadcast.sessionSpeech.first {
+                $0.reference == .moment(sessionID: sessionID, momentID: moment.id)
+            }
+            MomentCard(moment: moment, kind: text("ui.session.moment.dj_bulletin"),
+                presentation: presentation, language: model.language, artworkModel: model, speech: speech)
+                .padding(24)
+                .djSessionFrostedSurface(mood: activeSession?.selectedMood)
+                .padding(.horizontal, 20)
+                .id("live-moment-" + moment.id)
+                .accessibilityIdentifier("session-bulletin-" + moment.id)
+        }
+    }
+
     private var archivedTopPadding: CGFloat {
         #if os(macOS)
         djConnectScreenVerticalPadding
@@ -1300,7 +1328,7 @@ struct SessionTimelineScreen: View {
     }
 
     private func loadEarlierIfNeeded() {
-        guard pagingTask == nil, oldestEntriesVisible, !timeline.loading, timeline.errorKey == nil,
+        guard !filtersTimeline, pagingTask == nil, oldestEntriesVisible, !timeline.loading, timeline.errorKey == nil,
               timeline.nextCursor != nil || timeline.windowed else { return }
         let more = timeline.nextCursor != nil
         pagingTask = Task {
@@ -1341,6 +1369,15 @@ struct SessionTimelineScreen: View {
         if !restoreRequest { sceneRestoreTask?.cancel() }
         let generation = UUID(); anchorGeneration = generation
         let capturedQuery = query
+        if searchRequest && filtersTimeline {
+            // The owner-bound search response already supplies this rendered row.
+            // Do not hydrate a surrounding, unfiltered timeline window to select it.
+            await Task.yield()
+            guard generation == anchorGeneration, searching, capturedQuery == query,
+                  selectedMatchID == id, matches.contains(where: { $0.id == id && $0.isRetained() }) else { return }
+            jump(id, proxy: proxy)
+            return
+        }
         let action = DJConnectSessionOpenAction(reference: .init(sessionID: sessionID, entryID: id))
         let accepted = await history.open(action, navigate: false)
         // Publish the canonical row before asking SwiftUI to position it.
@@ -1568,6 +1605,7 @@ struct SessionEntryView: View, Equatable {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .djSessionFrostedSurface(cornerRadius: DJConnectCardAppearance.conversationCornerRadius)
                 } else if entry.kind == .conversationUser || entry.kind == .conversationDJ {
+                    if entry.kind == .conversationDJ { entryArtwork }
                     AskDJMessageBubble(message: messageAdapter ?? DJConnectAskDJMessage(
                         serverID: entry.originMessageID, clientMessageID: entry.clientMessageID,
                         role: entry.kind == .conversationUser ? .user : .dj,
@@ -1677,7 +1715,7 @@ struct SessionEntryView: View, Equatable {
     @ViewBuilder private var entryArtwork: some View {
         if let media = entry.sessionMedia, let model = artworkModel {
             SessionArtworkView(media: media, target: .entry(entry.id),
-                audience: media.artwork.historicalDisplayAllowed ? .history : .activeFlow,
+                audience: media.entryAudience,
                 language: language, model: model, showsAttribution: spotifyFooterURL == nil)
         }
     }
@@ -1705,7 +1743,7 @@ struct SessionEntryView: View, Equatable {
         guard entry.requiresSpotifyAttribution == true else { return nil }
         if let media = entry.sessionMedia,
            let grant = media.admittedArtwork(session: entry.sessionID, target: .entry(entry.id),
-                audience: media.artwork.historicalDisplayAllowed ? .history : .activeFlow),
+                audience: media.entryAudience),
            let raw = grant.sourceURL, let url = URL(string: raw) { return url }
         return sourceURLs.first { $0.scheme == "https" && $0.host?.lowercased() == "open.spotify.com" }
     }

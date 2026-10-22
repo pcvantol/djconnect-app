@@ -77,11 +77,19 @@ def validate():
     assert layers[0]['position'] == {'scale': 0.64, 'translation-in-points': [0, 0]}
     assert {x.get('appearance', 'default') for x in document['fill-specializations']} == {'default', 'dark'}
     assert set((adaptive / 'Assets').iterdir()) == {foreground}, 'unexpected adaptive image/wordmark'
+    watch = ROOT / 'Apps/Shared/AppIconWatchAdaptive.icon'
+    watch_document = json.loads((watch / 'icon.json').read_text())
+    assert watch_document['groups'] == document['groups'], 'Watch must retain the same headset composition'
+    assert all(fill['value'] == {'solid': 'srgb:0,0,0,1'} for fill in watch_document['fill-specializations']), 'Watch backgrounds must stay black'
+    assert sha(watch / 'Assets/headphone.png') == provenance['source_sha256'], 'Watch foreground must match pinned producer art'
     project = (ROOT / 'project.yml').read_text()
-    assert project.count('ASSETCATALOG_COMPILER_APPICON_NAME: AppIconAdaptive') == 3
-    assert project.count('- path: Apps/Shared/AppIconAdaptive.icon') == 3
+    assert project.count('ASSETCATALOG_COMPILER_APPICON_NAME: AppIconAdaptive') == 2
+    assert project.count('ASSETCATALOG_COMPILER_APPICON_NAME: AppIconWatchAdaptive') == 1
+    assert project.count('- path: Apps/Shared/AppIconAdaptive.icon') == 2
+    assert project.count('- path: Apps/Shared/AppIconWatchAdaptive.icon') == 1
     generated = (ROOT / 'DJConnectApp.xcodeproj/project.pbxproj').read_text()
-    assert generated.count('ASSETCATALOG_COMPILER_APPICON_NAME = AppIconAdaptive;') == 6
+    assert generated.count('ASSETCATALOG_COMPILER_APPICON_NAME = AppIconAdaptive;') == 4
+    assert generated.count('ASSETCATALOG_COMPILER_APPICON_NAME = AppIconWatchAdaptive;') == 2
     qa = (ROOT / 'Tools/qualification/vibecast-fixed-qa/prepare_fixed_qa.py').read_text()
     assert '"ASSETCATALOG_COMPILER_APPICON_NAME": "AppIconAdaptive"' in qa
     assert '"Apps/Shared/AppIconAdaptive.icon"' in qa

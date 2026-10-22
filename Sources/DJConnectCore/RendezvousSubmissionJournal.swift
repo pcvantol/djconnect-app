@@ -29,7 +29,7 @@ public actor RendezvousSubmissionJournal {
         public let body: Data
     }
     private let storage: any RendezvousRepairStorage
-    init(storage: any RendezvousRepairStorage) { self.storage = storage }
+    init(storage: any RendezvousRepairStorage) { self.storage = storage.claimingJournalOwner(UUID()) }
 
     /// Check before allocating a fresh server challenge. An interrupted operation
     /// must not spend more challenges simply because the user scans again.
