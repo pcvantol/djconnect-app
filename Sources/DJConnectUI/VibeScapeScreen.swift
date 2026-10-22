@@ -242,6 +242,10 @@ struct VibeScapeScreen: View {
         DJConnectHaptics.selection()
         controlsVisible.toggle(); controlsGeneration = UUID()
     }
+    private func dynamicsEditingChanged(_ editing: Bool) {
+        if editing { DJConnectHaptics.selection() }
+        adjustingDynamics = editing; controlsGeneration = UUID()
+    }
     private func dynamicsControl(length: CGFloat) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "bolt.fill").foregroundStyle(.white)
@@ -251,17 +255,23 @@ struct VibeScapeScreen: View {
                 .accessibilityHidden(true)
             Text(text(visit.followsTrackIntensity ? "ui.vibescape.dynamics.auto" : "ui.vibescape.dynamics.manual"))
                 .font(.caption2).foregroundStyle(.white.opacity(0.8))
+            #if os(macOS)
+            VibeScapeMacDynamicsSlider(
+                value: Binding(get: { Double(visit.dynamics) }, set: { _ = visit.setDynamics(Float($0)) }),
+                editingChanged: dynamicsEditingChanged)
+                .frame(width: 44, height: length)
+                .accessibilityLabel(text("ui.vibescape.dynamics"))
+                .accessibilityIdentifier("vibescape-dynamics")
+            #else
             Slider(value: Binding(get: { Double(visit.dynamics) }, set: { _ = visit.setDynamics(Float($0)) }),
-                   in: 0...1, onEditingChanged: { editing in
-                       if editing { DJConnectHaptics.selection() }
-                       adjustingDynamics = editing; controlsGeneration = UUID()
-                   })
+                   in: 0...1, onEditingChanged: dynamicsEditingChanged)
                 .tint(.white)
                 .frame(width: length, height: 44)
                 .rotationEffect(.degrees(-90))
                 .frame(width: 44, height: length)
                 .accessibilityLabel(text("ui.vibescape.dynamics"))
                 .accessibilityIdentifier("vibescape-dynamics")
+            #endif
             Button {
                 DJConnectHaptics.selection()
                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.35)) {
@@ -279,3 +289,41 @@ struct VibeScapeScreen: View {
         .djSessionFrostedSurface()
     }
 }
+
+#if os(macOS)
+import AppKit
+
+/// Native vertical layout aligns pointer hit testing with the visible track.
+struct VibeScapeMacDynamicsSlider: NSViewRepresentable {
+    @Binding var value: Double
+    var editingChanged: (Bool) -> Void
+    func makeNSView(context: Context) -> TrackingSlider {
+        let slider = TrackingSlider(value: value, minValue: 0, maxValue: 1,
+                                    target: context.coordinator, action: #selector(Coordinator.changed(_:)))
+        slider.isVertical = true
+        slider.isContinuous = true
+        slider.trackFillColor = .white
+        slider.editingChanged = editingChanged
+        return slider
+    }
+    func updateNSView(_ slider: TrackingSlider, context: Context) {
+        context.coordinator.parent = self
+        slider.editingChanged = editingChanged
+        if slider.doubleValue != value { slider.doubleValue = value }
+    }
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    @MainActor final class Coordinator: NSObject {
+        var parent: VibeScapeMacDynamicsSlider
+        init(_ parent: VibeScapeMacDynamicsSlider) { self.parent = parent }
+        @objc func changed(_ slider: NSSlider) { parent.value = slider.doubleValue }
+    }
+    final class TrackingSlider: NSSlider {
+        var editingChanged: ((Bool) -> Void)?
+        override func mouseDown(with event: NSEvent) {
+            editingChanged?(true)
+            defer { editingChanged?(false) }
+            super.mouseDown(with: event)
+        }
+    }
+}
+#endif
