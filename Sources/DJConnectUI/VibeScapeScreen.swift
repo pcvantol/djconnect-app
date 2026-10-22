@@ -1,5 +1,8 @@
 import SwiftUI
 import DJConnectCore
+#if os(iOS)
+import UIKit
+#endif
 
 /// Whole-track server analysis only; this is not a beat or live-audio signal.
 /// Current Core has no qualified numeric analysis basis. A finite legacy/demo
@@ -42,6 +45,7 @@ enum VibeScapeAvailability {
 struct VibeScapeScreen: View {
     @ObservedObject var model: DJConnectAppModel
     @StateObject private var visit = VisualDirectorVisit()
+    @StateObject private var displayWakeLock = VibeScapeDisplayWakeLock()
     @State private var controlsVisible = true
     @State private var controlsGeneration = UUID()
     @State private var adjustingDynamics = false
@@ -142,10 +146,11 @@ struct VibeScapeScreen: View {
         .accessibilityAction(named: Text(text("ui.vibescape.voice.label"))) { showsVoiceHelp = true }
         .onAppear {
             guard admitted else { model.isShowingVibeScape = false; return }
+            displayWakeLock.setActive(scenePhase == .active)
             visit.enter(mood:model.activeDJSession?.selectedMood,occurrence:nil)
             updateAutomaticIntensity()
         }
-        .onDisappear { visit.revoke() }
+        .onDisappear { displayWakeLock.setActive(false); visit.revoke() }
         .onChange(of: model.activeDJSession?.broadcast.playback?.itemID) { _, _ in
             if admitted {
                 let manual = visit.followsTrackIntensity ? nil : visit.dynamics
@@ -161,7 +166,10 @@ struct VibeScapeScreen: View {
         .onChange(of: model.activeDJSession?.id) { _, _ in close() }
         .onChange(of: model.activeDJSession?.runtimeState) { _, _ in close() }
         .onChange(of: model.pairingStatus) { _, _ in close() }
-        .onChange(of: scenePhase) { _, value in if value != .active { close() } }
+        .onChange(of: scenePhase) { _, value in
+            if value == .active, admitted { displayWakeLock.setActive(true) }
+            else { close() }
+        }
         .task {
             // Bound a visit even when a static Reduce Motion frame is paused.
             while !Task.isCancelled {
@@ -179,7 +187,10 @@ struct VibeScapeScreen: View {
         // Capture the actual visible inline picker position when switching.
         return min(max(4, source.minY - geometry.frame(in: .global).minY), max(4, geometry.size.height - source.height - 12))
     }
-    private func close() { visit.revoke(); model.isShowingVibeScape = false }
+    private func close() {
+        displayWakeLock.setActive(false)
+        visit.revoke(); model.isShowingVibeScape = false
+    }
     private func updateAutomaticIntensity() {
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.35)) {
             visit.updateTrackIntensity(automaticIntensity)
@@ -290,6 +301,43 @@ struct VibeScapeScreen: View {
         }
         .padding(.vertical, 8).padding(.horizontal, 12)
         .djSessionFrostedSurface()
+    }
+}
+
+/// Keep the display awake only for an active, visible VibeScape visit.
+/// iOS shares its app-wide idle timer across windows; Mac activities are scoped
+/// independently and do not alter a user's system sleep preferences.
+@MainActor final class VibeScapeDisplayWakeLock: ObservableObject {
+    private var active = false
+    #if os(iOS)
+    private let leaseID = UUID()
+    private static var leases = Set<UUID>()
+    private static var previousIdleTimerDisabled = false
+    #elseif os(macOS)
+    private var activity: NSObjectProtocol?
+    #endif
+
+    func setActive(_ requested: Bool) {
+        guard active != requested else { return }
+        active = requested
+        #if os(iOS)
+        if requested {
+            if Self.leases.isEmpty { Self.previousIdleTimerDisabled = UIApplication.shared.isIdleTimerDisabled }
+            Self.leases.insert(leaseID)
+            UIApplication.shared.isIdleTimerDisabled = true
+        } else {
+            Self.leases.remove(leaseID)
+            if Self.leases.isEmpty { UIApplication.shared.isIdleTimerDisabled = Self.previousIdleTimerDisabled }
+        }
+        #elseif os(macOS)
+        if requested {
+            activity = ProcessInfo.processInfo.beginActivity(options: [.idleDisplaySleepDisabled],
+                                                             reason: "VibeScape is visible")
+        } else if let activity {
+            ProcessInfo.processInfo.endActivity(activity)
+            self.activity = nil
+        }
+        #endif
     }
 }
 
