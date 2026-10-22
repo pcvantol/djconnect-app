@@ -5795,7 +5795,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     #expect(receipt.admits(action, owner: "profile-a") == (mutation == "ok"))
 }
 
-@Test(arguments: ["completed", "completed_clear_revision", "pending", "wrong_receipt", "conflict", "withdrawn",
+@Test(arguments: ["completed", "completed_clear_revision", "completed_clear_revision_revoked", "pending", "wrong_receipt", "conflict", "withdrawn",
                   "status_completed", "status_pending", "status_unknown", "status_expired_unknown"])
 @MainActor func contentDeletionUsesFlatBoundWireAndNeverRenewsUnknown(_ outcome: String) async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -5835,9 +5835,17 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     let deletionReadback = HistoryAuthorityGate()
     let fixture = HistoryWireFixture { request in
         let path = request.url!.path
-        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("/capabilities") {
+            if outcome == "completed_clear_revision_revoked", deletionReadback.denied {
+                var revoked = try #require(JSONSerialization.jsonObject(with: caps) as? [String: Any])
+                var flags = try #require(revoked["capabilities"] as? [String: Bool])
+                flags["session_content_delete"] = false; revoked["capabilities"] = flags
+                return (200, try historyData(revoked), 0)
+            }
+            return (200, caps, 0)
+        }
         if path.hasSuffix("/ask_dj/history") {
-            if outcome == "completed_clear_revision", deletionReadback.denied {
+            if outcome.hasPrefix("completed_clear_revision"), deletionReadback.denied {
                 var revised = try #require(JSONSerialization.jsonObject(with: profile) as? [String: Any])
                 revised["history_revision"] = 1000
                 revised["clear_revision"] = 1
@@ -5991,6 +5999,13 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
         #expect(history.openTarget == navigation)
         #expect(history.sessions.map(\.id) == [scope.unit.session_id])
         #expect(history.timelines[scope.unit.session_id]?.entries == independent.entries)
+        // This is the exact availability guard used by every remaining row's
+        // swipe and context menu, after the first deletion has settled.
+        let nextEntry = try #require(independent.entries.first)
+        let nextTarget = DJConnectContentDeleteTarget(kind: "entry", sessionID: nextEntry.sessionID, targetID: nextEntry.id)
+        let stillSupported = outcome != "completed_clear_revision_revoked"
+        #expect(history.contentDeletionAvailable == stillSupported)
+        #expect(history.canDeleteContent(nextTarget) == stillSupported)
     }
 }
 

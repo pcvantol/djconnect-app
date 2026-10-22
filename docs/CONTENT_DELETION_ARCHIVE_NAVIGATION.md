@@ -37,3 +37,11 @@ No new implementation-mirroring unit test for this small gesture/hit-target refi
 Long-press validation: signed iOS/macOS40441 builds and strict signaturesPASS. No physical menu/haptic acceptance claimed.
 
 Long-press delivery: 40441 installed/read back on iPad and iPhone; iPad launched. Source1495390a32cc35e9ccd0389b19ed767388fb3d32, iOS UI SHA256 b853779d04b4d774eac1238ef6733079bba99f751c6fac34aef581117449ed55. Both Macs remain installed40440;40441 macOS build verified only. Physical long-press/haptic acceptance remains open.
+
+## Subsequent contribution swipe after deletion
+
+Owner report: after deleting one contribution by swipe on iPad, the next row no longer responds. The confirmed-deletion readback negotiates capabilities, then a higher Profile clear_revision invalidates data a second time. That suspension cleared contentDeletionAvailable after the fresh capabilities response, leaving the shared swipe/context-menu availability guard false on all remaining rows.
+
+Within the already bound same-owner/archive content-deletion readback only, preserve the just-negotiated feature flags while still clearing cached content, actions and media grants. Preserve false flags too; an actual server capability revocation stays disabled. Ordinary clear/owner/lifecycle invalidation remains unchanged.
+
+Extended synthetic regression reproduces the two failed next-row availability assertions against previous source. After the fix:4focused functions/18casesPASS, including real server capability=false, clear-history behavior, typed upgrade, unknown outcomes, lifecycle withdrawal and malformed journals. Physical repeated swipe acceptance remains separate. Installation is combined with the pending Mac slider click correction.

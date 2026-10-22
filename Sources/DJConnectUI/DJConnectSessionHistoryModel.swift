@@ -492,8 +492,21 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         let keepsArchive = contentDeletionReadback.map {
             $0.owner == admittedOwner && $0.archiveEpoch == archiveResponseEpoch
         } ?? false
+        let negotiated = (content: contentDeletionAvailable, summary: summaryAvailable,
+                          archiveDeletion: deletionAvailable, bulkDeletion: bulkDeletionAvailable,
+                          artwork: artworkAvailable)
         suspend(preservingArchiveNavigation: keepsArchive)
         ownerScope = admittedOwner
+        if keepsArchive {
+            // prepare() has just negotiated these flags for this same owner.
+            // A data clear revokes cached grants, not server feature support.
+            // Preserve false flags too: genuine server revocation stays disabled.
+            contentDeletionAvailable = negotiated.content
+            summaryAvailable = negotiated.summary
+            deletionAvailable = negotiated.archiveDeletion
+            bulkDeletionAvailable = negotiated.bulkDeletion
+            artworkAvailable = negotiated.artwork
+        }
     }
 
     public var canPrepareBulkDeletion: Bool {
