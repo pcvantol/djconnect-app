@@ -381,7 +381,8 @@ struct NativeSessionMomentsView: View {
                 Text(text("ui.session.reconnecting")).font(.title2.weight(.semibold))
                     .accessibilityAddTraits(.isHeader)
             }
-        } else if session.runtimeState == "active", session.broadcast.playback?.state == "paused" {
+        } else if session.runtimeState == "active", session.broadcast.playback?.state == "paused",
+                  moment?.isSettingsConfirmation != true {
             VStack(alignment: .leading, spacing: 12) {
                 Image(systemName: "pause.circle.fill")
                     .font(.system(size: 36, weight: .medium))

@@ -26,6 +26,22 @@ public final class ProfileDJSettingsModel: ObservableObject {
     private var readID: UUID?
     private var needsMutationReadback = false
     private var reconciling = false
+    private var operationConfirmation: DJConnectSettingsConfirmation?
+    private var acknowledgedConfirmations = Set<String>()
+    /// Only the current user operation may produce an acknowledgement. GETs do
+    /// not enqueue one; live Session confirmations come through native_delivery.
+    public func takeOperationConfirmation() -> DJConnectSettingsConfirmation? {
+        defer { operationConfirmation = nil }
+        guard active, !needsMutationReadback, let value = operationConfirmation,
+              let snapshot = response?.snapshot, value.validates(snapshot), snapshot.session == nil else { return nil }
+        return value
+    }
+    private func acceptConfirmation(_ value: DJConnectSettingsConfirmation?, snapshot: DJConnectProfileDJSettingsSnapshot,
+                                    contract: DJConnectSettingsConfirmationContract?) {
+        guard contract?.isSupported == true, let value, value.validates(snapshot),
+              acknowledgedConfirmations.insert(value.confirmation_id).inserted else { return }
+        if snapshot.session == nil { operationConfirmation = value }
+    }
     public init() {}
     public var negotiated: Bool { response?.isValid == true }
     // An ordinary freshness read must not disable an open native menu. A write
@@ -36,9 +52,9 @@ public final class ProfileDJSettingsModel: ObservableObject {
 
     public func bind(owner value: String?, active enabled: Bool) {
         guard owner != value || active != enabled else { return }
-        generation = UUID(); readID = nil; reconciling = false
+        generation = UUID(); readID = nil; reconciling = false; operationConfirmation = nil
         if owner != value {
-            response = nil; pending = nil; needsMutationReadback = false; errorCode = nil; phase = .idle
+            acknowledgedConfirmations = []; response = nil; pending = nil; needsMutationReadback = false; errorCode = nil; phase = .idle
         } else if pending != nil {
             // Suspension invalidates this task's completion, not the server write.
             // Resume through the original receipt; never leave an orphaned saving state.
@@ -57,7 +73,7 @@ public final class ProfileDJSettingsModel: ObservableObject {
 
     public func withdrawAuthority() {
         generation = UUID(); readID = nil; reconciling = false; needsMutationReadback = false
-        response = nil; active = false; phase = .unavailable
+        operationConfirmation = nil; response = nil; active = false; phase = .unavailable
         errorCode = "settings_authority_unavailable"
         // Preserve an uncertain operation until the same binding is revalidated.
     }
@@ -115,6 +131,8 @@ public final class ProfileDJSettingsModel: ObservableObject {
             }
             // Receipt snapshots are historical. Always read current authority;
             // replayed acceptance must not roll back another device's later edit.
+            acceptConfirmation(accepted.settings_confirmation, snapshot: accepted.snapshot,
+                               contract: accepted.settings_confirmation_contract)
             pending = nil; needsMutationReadback = true; phase = .saved
             await refresh(services)
         } catch let rejection as DJConnectProfileDJSettingsFailure {
@@ -141,7 +159,12 @@ public final class ProfileDJSettingsModel: ObservableObject {
             let result = try await services.receipt(operation.binding, operation.id)
             guard epoch == generation, active, result.validates(operationID: operation.id) else { return nil }
             switch result.phase {
-            case "accepted": pending = nil; needsMutationReadback = true; phase = .saved; errorCode = nil
+            case "accepted":
+                if let receipt = result.receipt {
+                    acceptConfirmation(receipt.settings_confirmation, snapshot: receipt.snapshot,
+                                       contract: response?.settings_confirmation_contract)
+                }
+                pending = nil; needsMutationReadback = true; phase = .saved; errorCode = nil
             case "not_accepted": pending = nil; needsMutationReadback = true; phase = .conflict; errorCode = "settings_not_accepted"
             default: phase = .uncertain; errorCode = "settings_outcome_unknown"
             }

@@ -205,7 +205,7 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
         case .djMoment:
             // These are Core-qualified records of an accepted publication.
             // Recognizing a history basis grants no live, shared or speech authority.
-            return ["cc0_normalized_fields_v1", "runtime_authored_direction_v1",
+            return ["cc0_normalized_fields_v1", "runtime_authored_direction_v1", "runtime_accepted_settings_v1",
                     "owner_metadata_narration_v1", "public_artist_narration_v1"]
                 .contains(archiveBasis ?? "") && text?.isEmpty == false
         case .conversationUser, .conversationDJ:
@@ -220,6 +220,9 @@ public struct DJConnectHistoryEntry: Codable, Equatable, Sendable, Identifiable 
                 ? contentState == "silence" && momentType == "silence"
                 : contentState == "unavailable" && unavailableReason?.isEmpty == false
         }
+    }
+    public func isContractValid(historyContractVersion: Int) -> Bool {
+        isContractValid && (archiveBasis != "runtime_accepted_settings_v1" || historyContractVersion == 2)
     }
     public func isRetained(at date: Date = Date()) -> Bool {
         guard !entryID.isEmpty, !sessionID.isEmpty, order > 0,

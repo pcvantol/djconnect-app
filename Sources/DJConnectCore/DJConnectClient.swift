@@ -990,7 +990,7 @@ public final class DJConnectClient: Sendable {
             for: sessionHistoryReadRequest(route: "session/history/" + historyPathComponent(sessionID), cursor: cursor, queryItems: query, limit: limit), using: sessionProjectionSession)
         guard page.success, acceptsHistoryVersion(page.schemaVersion, declared: page.historyContractVersion), page.session.isContractValid, page.session.id == sessionID,
               page.window == window?.rawValue, page.anchorEntryID == anchorEntryID,
-              page.entries.count <= 50, page.entries.allSatisfy({ $0.sessionID == sessionID && $0.isContractValid }) else {
+              page.entries.count <= 50, page.entries.allSatisfy({ $0.sessionID == sessionID && $0.isContractValid(historyContractVersion: historyContractVersion) }) else {
             throw DJConnectError.invalidResponse
         }
         if window != nil {
@@ -1010,7 +1010,7 @@ public final class DJConnectClient: Sendable {
         guard page.success, acceptsHistoryVersion(page.schemaVersion, declared: page.historyContractVersion), page.sessionID == sessionID, page.query == query,
               page.normalization == "NFKC-casefold", page.highlightUnits == "utf16",
               page.matches.count <= 50, page.returnedCount == page.matches.count,
-              page.matches.allSatisfy({ $0.sessionID == sessionID && $0.isContractValid }),
+              page.matches.allSatisfy({ $0.sessionID == sessionID && $0.isContractValid(historyContractVersion: historyContractVersion) }),
               page.complete == (page.nextCursor == nil),
               page.totalCount == nil || (page.complete && cursor == nil && page.totalCount == page.returnedCount) else {
             throw DJConnectError.invalidResponse
@@ -1024,7 +1024,7 @@ public final class DJConnectClient: Sendable {
         let response: DJConnectSessionOpenResponse = try await decodedResponse(
             for: jsonRequest(path: Self.apiV1Path("session/history/open"), payload: payload), using: sessionProjectionSession)
         guard response.success, acceptsHistoryVersion(response.schemaVersion, declared: response.historyContractVersion), response.navigationOnly,
-              response.session.isContractValid, response.entry.isContractValid, response.readOnly == response.session.readOnly,
+              response.session.isContractValid, response.entry.isContractValid(historyContractVersion: historyContractVersion), response.readOnly == response.session.readOnly,
               response.session.id == action.sessionID, response.entry.sessionID == action.sessionID,
               response.entry.id == action.entryID else { throw DJConnectError.invalidResponse }
         return response
@@ -1048,7 +1048,7 @@ public final class DJConnectClient: Sendable {
                 queryItems: [URLQueryItem(name: "conversation_scope", value: "profile")]), using: sessionProjectionSession)
         }
         guard response.base.success == true, !response.ownerScope.isEmpty,
-              response.base.messages.count <= 1000, response.historicalMatches.values.joined().allSatisfy(\.isContractValid) else {
+              response.base.messages.count <= 1000, response.historicalMatches.values.joined().allSatisfy({ $0.isContractValid(historyContractVersion: historyContractVersion) }) else {
             throw DJConnectError.invalidResponse
         }
         return response
@@ -1114,7 +1114,7 @@ public final class DJConnectClient: Sendable {
     private func validateConversation(_ response: DJConnectSessionConversationResponse,
                                       context: DJConnectConversationContext, inputType: String) throws {
         guard response.conversation.schemaVersion == 1, !response.conversation.turnID.isEmpty,
-              !response.ownerScope.isEmpty, response.historicalMatches.allSatisfy(\.isContractValid),
+              !response.ownerScope.isEmpty, response.historicalMatches.allSatisfy({ $0.isContractValid(historyContractVersion: historyContractVersion) }),
               response.conversation.context == context, response.conversation.inputType == inputType else {
             throw DJConnectError.invalidResponse
         }

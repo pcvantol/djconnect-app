@@ -51,7 +51,12 @@ struct DJConnectWatchSessionView: View {
                             .accessibilityIdentifier("watch-session-flow-toggle")
                             if showsFlow { ForEach(flow) { moment in momentCard(moment) } }
                         }
-                    } else { Text(text("ui.session.idle")).font(.callout) }
+                    } else {
+                        Text(text("ui.session.idle")).font(.callout)
+                        if let confirmation = model.settingsOperationConfirmation {
+                            Label(confirmation, systemImage: "sparkles").font(.callout)
+                        }
+                    }
                     if snapshot.settings.allowsSpeech(.local) {
                         NavigationLink {
                             DJConnectWatchSessionSpeechSettingsView()
@@ -205,8 +210,11 @@ private struct DJConnectWatchSharedDJSettingsView: View {
                 if [.conflict, .uncertain, .unavailable].contains(settings.phase) {
                     Text(text("ui.dj_settings." + settings.phase.rawValue)).font(.caption)
                 }
+                if let confirmation = model.settingsOperationConfirmation {
+                    Label(confirmation, systemImage: "sparkles").font(.callout)
+                }
                 if settings.hasUncertainOperation {
-                    Button(text("ui.dj_settings.check_outcome")) { Task { await settings.reconcile(model.sharedSettingsServices) } }
+                    Button(text("ui.dj_settings.check_outcome")) { Task { await model.reconcileSharedDJSettings() } }
                     Button(text("ui.dj_settings.use_current")) { Task { await settings.useCurrentSettings(model.sharedSettingsServices) } }
                 }
             }.padding(8).foregroundStyle(.white)

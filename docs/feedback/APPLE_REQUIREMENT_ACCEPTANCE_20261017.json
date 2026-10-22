@@ -17,7 +17,7 @@
     "CLOSED_BOUNDED": 22,
     "OPEN": 5,
     "PARKED": 1,
-    "PARTIAL": 43,
+    "PARTIAL": 44,
     "SUPERSEDED": 1
   },
   "requirements": [
@@ -685,6 +685,14 @@
       ],
       "requirement": "Avatar single/double/triple DJ-opmerkingen activeren via actuele observer",
       "source": "Direct Peter / 22 oktober 2026"
+    },
+    {
+      "id": "settings-confirmation-adoption",
+      "requirement": "Eén Core DJ-moment per echte gebruikerswijziging in mood, persona en aanwezigheid, in nieuw geaccepteerde stijl",
+      "source": "Directe Peter-opdracht22okt: pak client kant op, Core concept-PR1290",
+      "status": "PARTIAL",
+      "evidence": "20261022 source adoption in APPLE_SETTINGS_CONFIRMATION_ADOPTION_20261022.md, Core draft a29bdeca pinned. Exact settings confirmation decoder/contract and owner-only native admission, playback-independent confirmation including Music-only/paused, operation-only no-Session response, receipt/GET/live dedup, original speech admission and history v2 basis implemented. Test source added; no compilation or execution.",
+      "remaining": "Explicit build request, Swift/native tests, installed Core/App compatibility and physical display/audio acceptance; draft PRs are not runtime delivery."
     }
   ],
   "execution_feedback_40258": {

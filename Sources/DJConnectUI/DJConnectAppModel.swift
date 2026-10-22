@@ -4818,7 +4818,7 @@ public final class DJConnectAppModel: ObservableObject {
             #endif
             if case .moment(_, let id) = observation.reference { evidence.spokenMomentID = id }
         }
-        if session.selectedPresence != .musicOnly, let moment = admittedMoment, moment.sessionID == scope.sessionID,
+        if let moment = admittedMoment, (session.selectedPresence != .musicOnly || moment.isSettingsConfirmation), moment.sessionID == scope.sessionID,
            session.broadcast.nativeDelivery?.currentMomentID == moment.id,
            session.broadcast.nativeDelivery?.currentSilenceMomentID == nil,
            DJPersonaActivity.isObservedAnnouncement(moment) {
@@ -6900,6 +6900,8 @@ public final class DJConnectAppModel: ObservableObject {
                 }
                 guard isCurrent(), let latest = activeDJSession else { return }
                 activeDJSession = latest.applying(presence: response.snapshot)
+                _ = await refreshActiveDJSession()
+                guard isCurrent() else { return }
                 // A newer live event can supersede this reply. Never erase a newer gesture.
                 if intent == presenceIntent {
                     if activeDJSession?.confirmedPresence?.selectedPresence == desired { activePresenceDesired = nil }
@@ -6976,6 +6978,7 @@ public final class DJConnectAppModel: ObservableObject {
             if profileDJSettings.hasUncertainOperation {
                 presentProfileSettingsRejection(await profileDJSettings.reconcile(profileDJSettingsServices))
             }
+            presentSettingsOperationConfirmation()
             syncSessionSurfaces()
             if before != nil && (before?.binding != profileDJSettings.response?.binding || before?.snapshot != profileDJSettings.response?.snapshot || before?.voice_revision != profileDJSettings.response?.voice_revision) {
                 stopResponsePlayback(clearText: false)
@@ -6991,9 +6994,18 @@ public final class DJConnectAppModel: ObservableObject {
         stopResponsePlayback(clearText: false)
         let rejected = await profileDJSettings.change(patch, using: profileDJSettingsServices)
         presentProfileSettingsRejection(rejected)
+        presentSettingsOperationConfirmation()
         syncSessionSurfaces()
         // Rendering reads active Session from its existing owner; no separate write.
         _ = await refreshActiveDJSession()
+    }
+
+    private func presentSettingsOperationConfirmation() {
+        guard let confirmation = profileDJSettings.takeOperationConfirmation(),
+              activeDJSession == nil, isAppInForeground, pairingStatus == .paired else { return }
+        // A Profile acknowledgement is not a fictitious Session Moment and
+        // cannot authorize speech, playback, or a duplicate live card.
+        userNotice = DJConnectUserNotice(text: confirmation.text)
     }
 
     private func presentProfileSettingsRejection(_ rejected: DJConnectProfileDJSettingsFailure?) {
@@ -7006,7 +7018,9 @@ public final class DJConnectAppModel: ObservableObject {
 
     func reconcileProfileDJSettingsChoice() async {
         presentProfileSettingsRejection(await profileDJSettings.reconcile(profileDJSettingsServices))
+        presentSettingsOperationConfirmation()
         syncSessionSurfaces()
+        if activeDJSession != nil { _ = await refreshActiveDJSession() }
     }
 
     func scheduleProfileDJChoice(_ patch: DJConnectProfileDJSettings.Patch) {
@@ -7041,8 +7055,12 @@ public final class DJConnectAppModel: ObservableObject {
             speechAutoplayAdmission.reset(); cancelAutomaticSpeech(); return
         }
         let ready = active.broadcast.sessionSpeech.filter { speech in
-            speech.autoplayEligible && active.broadcast.djMoments.contains { speech.reference == .moment(sessionID: active.id, momentID: $0.id)
-                && speech.admits(reference: speech.reference, text: $0.content) }
+            speech.autoplayEligible && active.broadcast.djMoments.contains { moment in
+                speech.reference == .moment(sessionID: active.id, momentID: moment.id) &&
+                ((moment.settingsConfirmation == nil && !moment.sourceReferences.contains("accepted_settings")) ||
+                    (moment.isSettingsConfirmation && active.broadcast.nativeCurrentMoment(at: Date())?.id == moment.id)) &&
+                speech.admits(reference: speech.reference, text: moment.content)
+            }
         }
         let readyIDs = Set(ready.compactMap { speech -> String? in
             if case .moment(_, let id) = speech.reference { return id }; return nil
@@ -7421,6 +7439,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
             guard valid(), let latest = activeDJSession else { return }
             activeDJSession = latest.applying(persona: response.snapshot)
+            _ = await refreshActiveDJSession()
         } catch let conflict as DJConnectSessionPersonaConflict {
             guard valid(), let latest = activeDJSession else { return }
             activeDJSession = latest.applying(persona: conflict.current)
@@ -7463,6 +7482,7 @@ public final class DJConnectAppModel: ObservableObject {
             guard generation == moodOperationGeneration, epoch == sessionHistory.responseEpoch, pairingStatus == .paired, isAppInForeground,
                   let latest = activeDJSession, latest.id == current.id else { return }
             activeDJSession = latest.applying(mood: response)
+            _ = await refreshActiveDJSession()
         } catch {
             guard generation == moodOperationGeneration, epoch == sessionHistory.responseEpoch, activeDJSession?.id == current.id else { return }
             if sessionHistory.withdrawAuthority(for: error) { return }

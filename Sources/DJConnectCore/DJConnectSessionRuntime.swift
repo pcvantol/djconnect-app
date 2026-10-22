@@ -469,6 +469,7 @@ public struct DJConnectActiveMoodCapabilities: Decodable, Sendable {
     }
     let capabilities: [String: Bool]?
     let contractVersions: [String: Int]?
+    public var settingsConfirmationAvailable: Bool { capabilities?["settings_confirmation_moment"] == true && contractVersions?["settings_confirmation_moment"] == 1 }
     public var sharedSettingsAvailable: Bool { capabilities?["profile_session_settings"] == true && contractVersions?["profile_session_settings"] == 3 }
     let contract: Contract?
     let presenceContract: DJConnectPresenceCapability?
