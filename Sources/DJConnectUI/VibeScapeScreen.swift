@@ -108,13 +108,14 @@ struct VibeScapeScreen: View {
             }
             }
             GeometryReader { geometry in
-                HStack {
+                VStack {
                     Spacer(minLength: 0)
-                    dynamicsControl(length: min(240, max(100, geometry.size.height - 180)))
+                    dynamicsControl
+                        .frame(width: min(480, max(0, geometry.size.width - 32)))
                         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { sliderBounds = $0 }
                 }
-                .padding(.trailing, 12)
-                .frame(maxHeight: .infinity)
+                .padding(.bottom, 16)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             }
             .opacity(controlsVisible ? 1 : 0)
             .allowsHitTesting(controlsVisible)
@@ -246,29 +247,31 @@ struct VibeScapeScreen: View {
         if editing { DJConnectHaptics.selection() }
         adjustingDynamics = editing; controlsGeneration = UUID()
     }
-    private func dynamicsControl(length: CGFloat) -> some View {
-        VStack(spacing: 12) {
+    private var dynamicsControl: some View {
+        HStack(spacing: 12) {
             Image(systemName: "bolt.fill").foregroundStyle(.white)
                 .accessibilityHidden(true)
-            Text(Double(visit.dynamics), format: .percent.precision(.fractionLength(0)))
-                .font(.caption.monospacedDigit()).foregroundStyle(.white)
-                .accessibilityHidden(true)
-            Text(text(visit.followsTrackIntensity ? "ui.vibescape.dynamics.auto" : "ui.vibescape.dynamics.manual"))
-                .font(.caption2).foregroundStyle(.white.opacity(0.8))
+            VStack(spacing: 2) {
+                Text(Double(visit.dynamics), format: .percent.precision(.fractionLength(0)))
+                    .font(.caption.monospacedDigit()).foregroundStyle(.white)
+                    .accessibilityHidden(true)
+                Text(text(visit.followsTrackIntensity ? "ui.vibescape.dynamics.auto" : "ui.vibescape.dynamics.manual"))
+                    .font(.caption2).foregroundStyle(.white.opacity(0.8))
+                    .lineLimit(1)
+            }
+            .fixedSize(horizontal: true, vertical: false)
             #if os(macOS)
             VibeScapeMacDynamicsSlider(
                 value: Binding(get: { Double(visit.dynamics) }, set: { _ = visit.setDynamics(Float($0)) }),
                 editingChanged: dynamicsEditingChanged)
-                .frame(width: 44, height: length)
+                .frame(maxWidth: .infinity).frame(height: 44)
                 .accessibilityLabel(text("ui.vibescape.dynamics"))
                 .accessibilityIdentifier("vibescape-dynamics")
             #else
             Slider(value: Binding(get: { Double(visit.dynamics) }, set: { _ = visit.setDynamics(Float($0)) }),
                    in: 0...1, onEditingChanged: dynamicsEditingChanged)
                 .tint(.white)
-                .frame(width: length, height: 44)
-                .rotationEffect(.degrees(-90))
-                .frame(width: 44, height: length)
+                .frame(maxWidth: .infinity).frame(height: 44)
                 .accessibilityLabel(text("ui.vibescape.dynamics"))
                 .accessibilityIdentifier("vibescape-dynamics")
             #endif
@@ -285,7 +288,7 @@ struct VibeScapeScreen: View {
             .accessibilityLabel(text("ui.vibescape.dynamics.follow"))
             .accessibilityIdentifier("vibescape-follow-dj")
         }
-        .padding(.vertical, 12).padding(.horizontal, 4)
+        .padding(.vertical, 8).padding(.horizontal, 12)
         .djSessionFrostedSurface()
     }
 }
@@ -293,14 +296,14 @@ struct VibeScapeScreen: View {
 #if os(macOS)
 import AppKit
 
-/// Native vertical layout aligns pointer hit testing with the visible track.
+/// Native horizontal layout aligns pointer hit testing with the visible track.
 struct VibeScapeMacDynamicsSlider: NSViewRepresentable {
     @Binding var value: Double
     var editingChanged: (Bool) -> Void
     func makeNSView(context: Context) -> TrackingSlider {
         let slider = TrackingSlider(value: value, minValue: 0, maxValue: 1,
                                     target: context.coordinator, action: #selector(Coordinator.changed(_:)))
-        slider.isVertical = true
+        slider.isVertical = false
         slider.isContinuous = true
         slider.trackFillColor = .white
         slider.editingChanged = editingChanged

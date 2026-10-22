@@ -485,14 +485,14 @@ private struct DynamicsPointerProbe: View {
     @ObservedObject var observation: DynamicsPointerObservation
     var body: some View {
         VibeScapeMacDynamicsSlider(value: $observation.value, editingChanged: { observation.editing.append($0) })
-            .frame(width: 44, height: 240)
+            .frame(width: 240, height: 44)
     }
 }
-@Test @MainActor func nativeVerticalDynamicsSliderCellTracksPointerAndUpdatesBinding() async throws {
+@Test @MainActor func nativeHorizontalDynamicsSliderCellTracksPointerAndUpdatesBinding() async throws {
     _ = NSApplication.shared
     let observation = DynamicsPointerObservation()
     let host = NSHostingView(rootView: DynamicsPointerProbe(observation: observation))
-    let window = NSWindow(contentRect: .init(x: -3000, y: -3000, width: 44, height: 240),
+    let window = NSWindow(contentRect: .init(x: -3000, y: -3000, width: 240, height: 44),
                           styleMask: [.borderless], backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
     defer { window.close() }
@@ -501,10 +501,9 @@ private struct DynamicsPointerProbe: View {
     func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
     let slider = try #require(descendants(host).compactMap { $0 as? NSSlider }.first)
     let cell = try #require(slider.cell as? NSSliderCell)
-    #expect(slider.isVertical)
+    #expect(!slider.isVertical)
     for fraction in [0.8, 0.2] {
-        let y = slider.isFlipped ? 1 - fraction : fraction
-        let point = NSPoint(x: slider.bounds.midX, y: slider.bounds.height * y)
+        let point = NSPoint(x: slider.bounds.width * fraction, y: slider.bounds.midY)
         #expect(cell.startTracking(at: point, in: slider))
         _ = cell.continueTracking(last: point, current: point, in: slider)
         cell.stopTracking(last: point, current: point, in: slider, mouseIsUp: true)
