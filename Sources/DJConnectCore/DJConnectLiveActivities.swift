@@ -300,7 +300,7 @@ public struct DJConnectWidgetPushToken: Codable, Equatable, Sendable {
 
     public init?(token: Data, extensionBundleID: String, widgetKinds: [String], at now: Date = Date()) {
         guard !token.isEmpty, token.count <= 4096,
-              extensionBundleID == "dev.djconnect.mac.track-insight-widget",
+              ["dev.djconnect.mac.track-insight-widget", "dev.djconnect.ios.track-insight-widget"].contains(extensionBundleID),
               widgetKinds.contains(DJConnectSessionSurfaceSnapshot.widgetKind) else { return nil }
         self.token = token; self.extensionBundleID = extensionBundleID
         self.widgetKinds = [DJConnectSessionSurfaceSnapshot.widgetKind]; observedAt = now
@@ -314,5 +314,34 @@ public struct DJConnectWidgetPushToken: Codable, Equatable, Sendable {
               let value = try? JSONDecoder().decode(Self.self, from: data) else { return nil }
         return Self(token: value.token, extensionBundleID: value.extensionBundleID,
                     widgetKinds: value.widgetKinds, at: value.observedAt)
+    }
+}
+
+/// ActivityKit delivery token for an already admitted local presentation.
+/// Separate from widget/app tokens. Pending plumbing grants no server authority.
+public struct DJConnectActivityPushToken: Codable, Equatable, Sendable {
+    public static let storageKey = "DJConnectActivityPushToken.pending.v1"
+    public let token: Data
+    public let activityID: String
+    public let presentationID: String
+    public let observedAt: Date
+    public init?(token: Data, activityID: String, presentationID: String, at now: Date = Date()) {
+        guard !token.isEmpty, token.count <= 4096,
+              !activityID.isEmpty, activityID.utf8.count <= 256,
+              !presentationID.isEmpty, presentationID.utf8.count <= 256 else { return nil }
+        self.token = token; self.activityID = activityID; self.presentationID = presentationID; observedAt = now
+    }
+    public static func replace(_ value: Self?, in defaults: UserDefaults) throws {
+        if let value { defaults.set(try JSONEncoder().encode(value), forKey: storageKey) }
+        else { defaults.removeObject(forKey: storageKey) }
+    }
+    public static func load(from defaults: UserDefaults) -> Self? {
+        guard let data = defaults.data(forKey: storageKey), data.count <= 8192,
+              let value = try? JSONDecoder().decode(Self.self, from: data) else { return nil }
+        return Self(token: value.token, activityID: value.activityID, presentationID: value.presentationID, at: value.observedAt)
+    }
+    public static func withdraw(activityID: String, in defaults: UserDefaults) {
+        guard load(from: defaults)?.activityID == activityID else { return }
+        defaults.removeObject(forKey: storageKey)
     }
 }

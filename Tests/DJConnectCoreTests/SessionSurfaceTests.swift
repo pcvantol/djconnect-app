@@ -260,3 +260,28 @@ import DJConnectUI
     try DJConnectWidgetPushToken.replace(nil, in: defaults)
     #expect(DJConnectWidgetPushToken.load(from: defaults) == nil)
 }
+
+@Test func iOSWidgetAndActivityTokensRemainSeparateAndOldActivityCannotClearReplacement() throws {
+    let name = "surface-push-test-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let widget = try #require(DJConnectWidgetPushToken(token: Data([1]),
+        extensionBundleID: "dev.djconnect.ios.track-insight-widget",
+        widgetKinds: [DJConnectSessionSurfaceSnapshot.widgetKind]))
+    try DJConnectWidgetPushToken.replace(widget, in: defaults)
+    let first = try #require(DJConnectActivityPushToken(token: Data([2]), activityID: "activity-a", presentationID: "presentation-a"))
+    try DJConnectActivityPushToken.replace(first, in: defaults)
+    #expect(DJConnectActivityPushToken.load(from: defaults) == first)
+    let rotated = try #require(DJConnectActivityPushToken(token: Data([3]), activityID: "activity-b", presentationID: "presentation-b"))
+    try DJConnectActivityPushToken.replace(rotated, in: defaults)
+    DJConnectActivityPushToken.withdraw(activityID: first.activityID, in: defaults)
+    #expect(DJConnectActivityPushToken.load(from: defaults) == rotated)
+    #expect(DJConnectWidgetPushToken.load(from: defaults) == widget)
+    #expect(DJConnectSessionSurfaceSnapshot.load(from: defaults) == nil)
+    #expect(DJConnectActivityPushToken(token: Data(), activityID: "a", presentationID: "p") == nil)
+    #expect(DJConnectActivityPushToken(token: Data(repeating: 1, count: 4097), activityID: "a", presentationID: "p") == nil)
+    #expect(DJConnectActivityPushToken(token: Data([1]), activityID: "", presentationID: "p") == nil)
+    DJConnectActivityPushToken.withdraw(activityID: rotated.activityID, in: defaults)
+    #expect(DJConnectActivityPushToken.load(from: defaults) == nil)
+    #expect(DJConnectWidgetPushToken.load(from: defaults) == widget)
+}

@@ -142,14 +142,9 @@ private func sessionConfiguration(kind: String) -> some WidgetConfiguration {
     .configurationDisplayName(text("ui.session.title"))
     .description(text("surface.session.description"))
     .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
-    #if os(macOS)
     return configuration.pushHandler(DJConnectSessionWidgetPushHandler.self)
-    #else
-    return configuration
-    #endif
 }
 
-#if os(macOS)
 struct DJConnectSessionWidgetPushHandler: WidgetPushHandler {
     func pushTokenDidChange(_ pushInfo: WidgetPushInfo, widgets: [WidgetInfo]) {
         guard !DJConnectLocalization.isQualificationProcess,
@@ -162,7 +157,6 @@ struct DJConnectSessionWidgetPushHandler: WidgetPushHandler {
         try? DJConnectWidgetPushToken.replace(value, in: shared)
     }
 }
-#endif
 
 struct DJConnectSessionWidget: Widget {
     var body: some WidgetConfiguration { sessionConfiguration(kind: DJConnectSessionSurfaceSnapshot.widgetKind) }

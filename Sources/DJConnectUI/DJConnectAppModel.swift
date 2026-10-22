@@ -10503,7 +10503,7 @@ public final class DJConnectAppModel: ObservableObject {
         await passiveSurfaces.setEnabled(enabled, surface: surface, services: passiveSurfaceServices)
     }
 
-    #if os(macOS) && canImport(WidgetKit)
+    #if canImport(WidgetKit)
     // WidgetCenter is not Sendable. Read it outside the UI actor and transfer
     // only the token bytes, never the framework object, back to the model.
     nonisolated private static func currentWidgetPushTokenBytes() async -> Data? {
@@ -10535,14 +10535,19 @@ public final class DJConnectAppModel: ObservableObject {
                 let configured = try await WidgetCenter.shared.currentConfigurations()
                 let kinds = Set([DJConnectSessionSurfaceSnapshot.widgetKind] + DJConnectSessionSurfaceSnapshot.legacyKinds)
                 if configured.contains(where: { kinds.contains($0.kind) }) { surfaces.insert(.widget) }
-                #if os(macOS)
                 // Installation-local WidgetKit token, separate from app APNs.
                 // Server registration waits for the owning Core widget contract.
                 if let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) {
                     if surfaces.contains(.widget) {
                         if let bytes = await Self.currentWidgetPushTokenBytes(),
                            let token = DJConnectWidgetPushToken(token: bytes,
-                               extensionBundleID: "dev.djconnect.mac.track-insight-widget",
+                               extensionBundleID: {
+                                   #if os(macOS)
+                                   "dev.djconnect.mac.track-insight-widget"
+                                   #else
+                                   "dev.djconnect.ios.track-insight-widget"
+                                   #endif
+                               }(),
                                widgetKinds: configured.map(\.kind)) {
                             try? DJConnectWidgetPushToken.replace(token, in: shared)
                         }
@@ -10550,7 +10555,6 @@ public final class DJConnectAppModel: ObservableObject {
                         try? DJConnectWidgetPushToken.replace(nil, in: shared)
                     }
                 }
-                #endif
             } catch { return } // Unknown OS state never creates or revokes a grant.
             #endif
             #if os(iOS) && canImport(ActivityKit)
