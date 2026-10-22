@@ -126,6 +126,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
     @Published private var contentDeletionJournal: [String: PendingContentDeletion] = [:]
     private var invalidContentDeletionJournal = false
+    private var contentDeletionReadback: (owner: String, archiveEpoch: UUID)?
     @Published private var withdrawnContentMoments: Set<String> = []
     private var archiveGeneration = UUID()
     @Published public private(set) var archiveResponseEpoch = UUID()
@@ -485,7 +486,13 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     /// Authority errors and lifecycle changes still use suspend() directly.
     func invalidateClearedConversation() {
         let admittedOwner = ownerScope
-        suspend()
+        // A confirmed single-contribution deletion can also advance the Profile
+        // clear revision. Its readback must not turn that data fence into a pop.
+        // Ordinary clears and authority/lifecycle invalidation retain their fences.
+        let keepsArchive = contentDeletionReadback.map {
+            $0.owner == admittedOwner && $0.archiveEpoch == archiveResponseEpoch
+        } ?? false
+        suspend(preservingArchiveNavigation: keepsArchive)
         ownerScope = admittedOwner
     }
 
@@ -678,6 +685,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         // the Session page itself. Whole-session erasure/authority loss still
         // use the ordinary navigation-invalidating suspension.
         suspend(preservingArchiveNavigation: true)
+        contentDeletionReadback = (record.owner, archiveResponseEpoch)
+        defer { contentDeletionReadback = nil }
         await prepare()
         guard ownerScope == record.owner, host.canRefreshSessionHistory, !Task.isCancelled else { return false }
         guard await loadSessions() else { return false }

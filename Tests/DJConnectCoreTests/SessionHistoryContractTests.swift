@@ -5795,7 +5795,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     #expect(receipt.admits(action, owner: "profile-a") == (mutation == "ok"))
 }
 
-@Test(arguments: ["completed", "pending", "wrong_receipt", "conflict", "withdrawn",
+@Test(arguments: ["completed", "completed_clear_revision", "pending", "wrong_receipt", "conflict", "withdrawn",
                   "status_completed", "status_pending", "status_unknown", "status_expired_unknown"])
 @MainActor func contentDeletionUsesFlatBoundWireAndNeverRenewsUnknown(_ outcome: String) async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -5832,10 +5832,19 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     let independent = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: detail)
     let list = try historyData(["success": true, "schema_version": 1,
         "sessions": [rebound(oldHeader)], "revision": "content-readback", "retention_days": 30])
+    let deletionReadback = HistoryAuthorityGate()
     let fixture = HistoryWireFixture { request in
         let path = request.url!.path
         if path.hasSuffix("/capabilities") { return (200, caps, 0) }
-        if path.hasSuffix("/ask_dj/history") { return (200, profile, 0) }
+        if path.hasSuffix("/ask_dj/history") {
+            if outcome == "completed_clear_revision", deletionReadback.denied {
+                var revised = try #require(JSONSerialization.jsonObject(with: profile) as? [String: Any])
+                revised["history_revision"] = 1000
+                revised["clear_revision"] = 1
+                return (200, try historyData(revised), 0)
+            }
+            return (200, profile, 0)
+        }
         if path.hasSuffix("/session/history") { return (200, list, 0) }
         if path.hasSuffix("/session/content/delete/prepare") { return (200, previewData, 0) }
         if path.hasSuffix("/session/content/delete/status") {
@@ -5858,6 +5867,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
             let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
             receipt["operation_id"] = body["operation_id"]
             if outcome == "wrong_receipt" { receipt["request_digest"] = "wrong" }
+            deletionReadback.denied = true
             return (200, try historyData(receipt), outcome == "withdrawn" ? 0.1 : 0)
         }
         return (200, detail, 0)
@@ -5890,7 +5900,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
         #expect(await task.value == false)
         await history.prepare()
     } else {
-        #expect(await history.deleteContent(prepared, expectedEpoch: epoch) == (outcome == "completed"))
+        #expect(await history.deleteContent(prepared, expectedEpoch: epoch) == (outcome.hasPrefix("completed")))
     }
     let mutations = fixture.requests.filter { $0.url!.path.hasSuffix("/session/content/delete") }
     #expect(mutations.count == 1)
@@ -5975,7 +5985,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
             #expect(query.first { $0.name == "confirmation_id" }?.value == saved.request.confirmation_id)
         }
         #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/content/delete") }.count == 1)
-    } else if outcome == "completed" {
+    } else if outcome.hasPrefix("completed") {
         #expect(history.responseEpoch != epoch)
         #expect(history.archiveResponseEpoch == archiveEpoch)
         #expect(history.openTarget == navigation)
