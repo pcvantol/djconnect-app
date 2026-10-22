@@ -93,6 +93,7 @@ targets:
     platform: iOS
     sources:
       - path: Apps/DJConnectIOS
+      - path: Apps/Shared/SessionNextTrackIntent.swift
       - path: Apps/Shared/Assets.xcassets
       - path: Apps/Shared/AppIconAdaptive.icon
     dependencies:
@@ -308,6 +309,7 @@ targets:
     platform: iOS
     sources:
       - path: Apps/DJConnectTrackInsightWidgets
+      - path: Apps/Shared/SessionNextTrackIntent.swift
       - path: Sources/DJConnectUI/DJPersonaAvatarView.swift
     dependencies:
       - target: DJConnectCoreIOS

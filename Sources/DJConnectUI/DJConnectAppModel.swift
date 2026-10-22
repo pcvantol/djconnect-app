@@ -1700,6 +1700,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var lastPublishedPassiveRevision: UUID?
     private var lastPublishedWidgetRich: DJConnectPassiveSurfaceCache?
     private var sessionSurfaceIdentity: String?
+    private var liveActivitySkipInFlight = false
     private var sessionSurfaceGeneration = UUID()
     private var sessionSurfaceActivityTask: Task<Void, Never>?
     private var sessionSurfaceExpiryTask: Task<Void, Never>?
@@ -4138,6 +4139,34 @@ public final class DJConnectAppModel: ObservableObject {
         log(.debug, "User action: toggle playback")
         playPlaybackToggleHaptic(isStarting: !isPlaying)
         sendPlaybackCommand(isPlaying ? "pause" : "play")
+    }
+
+    /// Explicit foreground Live Activity action, never a passive-cache grant.
+    public func skipTrackFromLiveActivity(presentationID: String) async -> Bool {
+        guard UUID(uuidString: presentationID) != nil, !isDemoMode, !liveActivitySkipInFlight else { return false }
+        liveActivitySkipInFlight = true
+        defer { liveActivitySkipInFlight = false }
+        // The intent opens the app. Allow its normal cold-start owner/status
+        // reads to finish; do not invent credentials or a background API route.
+        for _ in 0..<30 {
+            guard !Task.isCancelled else { return false }
+            if isAppInForeground && canUsePlaybackFeatures && sessionHistory.hasAuthorizedOwner && !isLoadingDJSession { break }
+            do { try await Task.sleep(for: .milliseconds(100)) } catch { return false }
+        }
+        guard isAppInForeground, canUsePlaybackFeatures, pairingStatus == .paired,
+              sessionHistory.hasAuthorizedOwner else { return false }
+        let owner = sessionHistory.authorizedProfileID
+        let epoch = sessionHistory.responseEpoch
+        guard await refreshActiveDJSession(), !Task.isCancelled, isAppInForeground,
+              owner == sessionHistory.authorizedProfileID, epoch == sessionHistory.responseEpoch,
+              let session = activeDJSession, session.runtimeState == "active",
+              DJConnectSessionSurfacePresentation.matches(presentationID, sessionID: session.id, in: defaults),
+              sessionSurfaceIdentity == presentationID, canUsePlaybackFeatures else { return false }
+        guard !shouldBlockPlaybackStart(command: "next", play: nil) else {
+            userNotice = DJConnectUserNotice(text: localized(key: "appModel.select.an.output.device.first"))
+            return false
+        }
+        return await performCommand("next", expectedOutputSelectionGeneration: outputSelectionGeneration)
     }
 
     public func commitVolumeChange() {

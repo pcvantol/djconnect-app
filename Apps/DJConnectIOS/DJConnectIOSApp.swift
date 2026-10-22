@@ -7,7 +7,22 @@ import UserNotifications
 @main
 struct DJConnectIOSApp: App {
     @UIApplicationDelegateAdaptor(DJConnectIOSAppDelegate.self) private var appDelegate
-    @StateObject private var model = DJConnectIOSApp.makeModel()
+    @StateObject private var model: DJConnectAppModel
+
+    init() {
+        // Eager registration also covers an intent that cold-launches the app
+        // before SwiftUI first evaluates the root content.
+        let model = Self.makeRegisteredModel()
+        _model = StateObject(wrappedValue: model)
+    }
+
+    private static func makeRegisteredModel() -> DJConnectAppModel {
+        let model = makeModel()
+        DJConnectSessionPlaybackIntentBridge.nextTrack = { [weak model] presentationID in
+            await model?.skipTrackFromLiveActivity(presentationID: presentationID) ?? false
+        }
+        return model
+    }
 
     var body: some Scene {
         // SwiftUI may evaluate the scene content builder on its async render thread.

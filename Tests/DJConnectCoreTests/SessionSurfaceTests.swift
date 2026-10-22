@@ -3,6 +3,37 @@ import Testing
 import DJConnectCore
 import DJConnectUI
 
+@Test @MainActor func sessionActivitySkipRejectsInvalidAndDemoRequestsWithoutPlaybackChanges() async throws {
+    let name = "session-action-model-test-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    #expect(await !model.skipTrackFromLiveActivity(presentationID: "not-a-presentation"))
+    model.isDemoMode = true
+    let playback = model.playback
+    #expect(await !model.skipTrackFromLiveActivity(presentationID: UUID().uuidString))
+    #expect(model.playback == playback)
+}
+
+@Test func liveActivityActionPresentationMatchIsReadOnlyAndCannotRetargetAnotherSession() throws {
+    let suite = "session-action-test-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let first = DJConnectSessionSurfacePresentation.identity(for: "session-a", in: defaults)
+    let before = defaults.dictionaryRepresentation() as NSDictionary
+    #expect(DJConnectSessionSurfacePresentation.matches(first, sessionID: "session-a", in: defaults))
+    #expect(!DJConnectSessionSurfacePresentation.matches(first, sessionID: "session-b", in: defaults))
+    #expect(!DJConnectSessionSurfacePresentation.matches(UUID().uuidString, sessionID: "session-a", in: defaults))
+    #expect(!DJConnectSessionSurfacePresentation.matches("", sessionID: "session-a", in: defaults))
+    #expect(!DJConnectSessionSurfacePresentation.matches(first, sessionID: "", in: defaults))
+    #expect(before == defaults.dictionaryRepresentation() as NSDictionary)
+    let replacement = DJConnectSessionSurfacePresentation.identity(for: "session-b", in: defaults)
+    #expect(!DJConnectSessionSurfacePresentation.matches(first, sessionID: "session-b", in: defaults))
+    #expect(DJConnectSessionSurfacePresentation.matches(replacement, sessionID: "session-b", in: defaults))
+    DJConnectSessionSurfacePresentation.end(in: defaults)
+    #expect(!DJConnectSessionSurfacePresentation.matches(replacement, sessionID: "session-b", in: defaults))
+}
+
 @Test func sessionSurfaceRequiresConfirmedAuthorizedActiveSession() {
     let now = Date(timeIntervalSince1970: 1_800_000_000)
     #expect(DJConnectSessionSurfaceSnapshot.observe(runtimeState: "active", authorized: true, isDemo: false, at: now) != nil)

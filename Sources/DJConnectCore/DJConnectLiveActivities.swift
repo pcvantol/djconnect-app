@@ -232,6 +232,13 @@ public struct DJConnectSessionLiveActivityAttributes: ActivityAttributes, Sendab
 /// Device-private presentation bookkeeping, never the App Group projection.
 /// Keeping the random ID stable lets ActivityKit dismissal survive app restart.
 public enum DJConnectSessionSurfacePresentation {
+    /// Presentation identity only; foreground owner/session authorization must
+    /// be checked independently before any command is sent.
+    public static func matches(_ presentationID: String, sessionID: String, in defaults: UserDefaults) -> Bool {
+        UUID(uuidString: presentationID) != nil && !sessionID.isEmpty &&
+            defaults.string(forKey: "DJConnectSessionSurface.localBinding") == sessionID &&
+            defaults.string(forKey: "DJConnectSessionSurface.localPresentation") == presentationID
+    }
     // Separate request/build and exact-instance dismissal markers distinguish
     // OS retirement from a user action. No content or authorization is migrated.
     public static let requestedKey = "DJConnectSessionSurface.requested.v2"
@@ -274,4 +281,10 @@ public enum DJConnectSessionSurfacePresentation {
         deviceDefaults.removeObject(forKey: "DJConnectSessionSurface.localBinding")
         deviceDefaults.removeObject(forKey: "DJConnectSessionSurface.localPresentation")
     }
+}
+
+/// Registered only by the owning app process. The extension never receives
+/// paired credentials or permission to turn passive snapshots into commands.
+@MainActor public enum DJConnectSessionPlaybackIntentBridge {
+    public static var nextTrack: (@MainActor (String) async -> Bool)?
 }

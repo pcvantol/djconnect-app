@@ -171,20 +171,31 @@ struct DJConnectSessionActivityWidget: Widget {
                 .widgetURL(sessionURL)
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.trailing) {
-                    if let source = islandSpotifySource(snapshot: context.state, stale: context.isStale) {
-                        Link(destination: source) {
-                            Image("SpotifyAttribution").resizable().scaledToFit()
-                                .frame(width: 70, height: 21)
-                                .accessibilityLabel("Spotify")
-                        }
-                        .padding(.top, 4).padding(.trailing, 4)
+                DynamicIslandExpandedRegion(.leading) {
+                    HStack(spacing: 8) {
+                        SessionSurfaceAvatar(theme: context.isStale ? .brand : context.state.renderingTheme(at: Date()), side: 28)
+                        Text(text("ui.session.title"))
+                            .font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+                            .lineLimit(1).minimumScaleFactor(0.8)
                     }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    PassiveActivityBody(snapshot: context.state, stale: context.isStale, showsSpotifyCredit: false)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 16)
+                    HStack(alignment: .bottom, spacing: 12) {
+                        PassiveActivityBody(snapshot: context.state, stale: context.isStale,
+                                            showsSpotifyCredit: false, showsHeader: false)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Button(intent: DJConnectSessionNextTrackIntent(presentationID: context.attributes.presentationID)) {
+                            Image(systemName: "forward.end.fill")
+                                .font(.title3.weight(.semibold)).foregroundStyle(.white)
+                                .frame(width: 44, height: 44)
+                                .background(.white.opacity(0.14), in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(context.isStale || !context.state.isCurrent(at: Date()))
+                        .accessibilityLabel(text("ui.next.track"))
+                        .accessibilityIdentifier("session-island-next-track")
+                    }
+                    .padding(.horizontal, 12).padding(.bottom, 8)
                 }
             } compactLeading: {
                 SessionSurfaceAvatar(theme: context.isStale ? .brand : context.state.renderingTheme(at: Date()), side: 22)
@@ -200,17 +211,6 @@ struct DJConnectSessionActivityWidget: Widget {
 }
 #endif
 
-#if os(iOS) && canImport(ActivityKit)
-private func islandSpotifySource(snapshot: DJConnectSessionLiveActivityAttributes.ContentState, stale: Bool) -> URL? {
-    guard !stale, let rich = snapshot.rich, rich.isCurrent(at: Date()) else { return nil }
-    for attribution in [rich.nowPlaying?.attribution, rich.contribution?.source_attribution].compactMap({ $0 }) {
-        if attribution["mark"] == "spotify", let raw = attribution["url"], let url = URL(string: raw),
-           url.scheme == "https", url.user == nil, url.password == nil { return url }
-    }
-    return nil
-}
-#endif
-
 // Rich content comes only from the separate passive grant, never the foreground
 // owner Moment cache. Contribution and current music retain independent slots.
 private struct PassiveSessionContentView: View {
@@ -220,14 +220,17 @@ private struct PassiveSessionContentView: View {
     var compact = false
     var large = false
     var showsSpotifyCredit = true
+    var showsHeader = true
     var theme: DJConnectSessionMoodTheme = .brand
     let date: Date
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 6 : 8) {
+            if showsHeader {
             HStack(spacing: 8) {
                 SessionSurfaceAvatar(theme: theme, side: compact ? 24 : 36)
                 Text(text("ui.session.title"))
                     .font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+            }
             }
             if let playback {
                 HStack(alignment: .top, spacing: compact ? 6 : 12) {
@@ -306,6 +309,7 @@ private struct PassiveActivityBody: View {
     let snapshot: DJConnectSessionSurfaceSnapshot
     let stale: Bool
     var showsSpotifyCredit = true
+    var showsHeader = true
     var body: some View {
         let now = Date()
         if !stale, let rich = snapshot.rich, rich.isCurrent(at: now) {
@@ -317,7 +321,7 @@ private struct PassiveActivityBody: View {
                     value.projection.now_playing == rich.nowPlaying ? value : nil
                 }
             PassiveSessionContentView(contribution: rich.contribution, playback: rich.nowPlaying, cache: cache,
-                                      showsSpotifyCredit: showsSpotifyCredit,
+                                      showsSpotifyCredit: showsSpotifyCredit, showsHeader: showsHeader,
                                       theme: snapshot.renderingTheme(at: now), date: now)
         } else {
             DJConnectSessionSurfaceView(isActive: !stale && snapshot.isCurrent(at: now), theme: stale ? .brand : snapshot.renderingTheme(at: now))
