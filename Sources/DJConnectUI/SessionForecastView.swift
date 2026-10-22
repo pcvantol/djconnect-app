@@ -30,7 +30,16 @@ struct SessionForecastTextView: View {
                 .fixedSize(horizontal: false, vertical: true).textSelection(.enabled).id("forecast-summary")
             ForEach(projection.sections.filter { query.isEmpty || ($0.title + " " + $0.text).localizedCaseInsensitiveContains(query) }) { section in
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(section.title).font(.title3.bold()).foregroundStyle(.white).accessibilityAddTraits(.isHeader)
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        if let glyph = ["current": "play.fill", "guidance": "clock", "aim": "target"][section.id] {
+                            Image(systemName: glyph)
+                                .symbolRenderingMode(.monochrome)
+                                .font(.title3.weight(.semibold))
+                                .accessibilityHidden(true)
+                        }
+                        Text(section.title).font(.title3.bold()).accessibilityAddTraits(.isHeader)
+                    }
+                    .foregroundStyle(.white)
                     Text(text("ui.session.forecast.claim." + section.claim_type))
                         .font(.caption).foregroundStyle(.white.opacity(0.78))
                     Text(section.text).foregroundStyle(.white).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)

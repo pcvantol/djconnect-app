@@ -575,6 +575,16 @@
       ],
       "topic": "Mac widget actuele playback/sessiedata",
       "owner": "Apple; Core/API producer afzonderlijk OPEN"
+    },
+    {
+      "id": "forecast-section-white-glyphs",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: drie witte glyphs vóór Vooruitblik-koppen. SessionForecastTextView koppelt stabiele sectie-id current aan play.fill, guidance aan clock en aim aan target. Monochroom wit, bestaande titelgrootte en baseline-uitlijning; glyph decoratief voor VoiceOver, kop blijft header. Gedeelde Apple UI, geen gewijzigde servertekst. Diffcheck PASS; source-only NOTBUILT/NOTTESTED/NOTINSTALLED.",
+      "remaining": [
+        "OPEN: bij volgende expliciet gevraagde build native uitlijning/tekstgroei op iPad/Mac/iPhone bekijken. Geen build/install aangevraagd."
+      ],
+      "topic": "Witte glyphs in drie Vooruitblik-blokken",
+      "owner": "Apple"
     }
   ],
   "qualification": {

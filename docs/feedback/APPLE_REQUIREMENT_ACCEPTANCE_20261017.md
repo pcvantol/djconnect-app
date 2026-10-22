@@ -6,7 +6,7 @@ Actuele baseline: iPad/MacBook/Mac mini ordinary40334 installed, actual versions
 
 Bron: 7af44f735bced06a30b2c2b975d9a7a9e43e732c baseline;40334 repair in current worktree, separately installed source inputs verified
 
-BLOCKED: 4; CLOSED_BOUNDED: 22; OPEN: 5; PARKED: 1; PARTIAL: 41; SUPERSEDED: 1
+BLOCKED: 4; CLOSED_BOUNDED: 22; OPEN: 5; PARKED: 1; PARTIAL: 42; SUPERSEDED: 1
 
 | Requirement / herkomst | Status | Bewezen | Nog open / bewijsgrens |
 |---|---|---|---|
@@ -84,5 +84,6 @@ BLOCKED: 4; CLOSED_BOUNDED: 22; OPEN: 5; PARKED: 1; PARTIAL: 41; SUPERSEDED: 1
 | mac-widget-singleton-window — Mac widgetklik opent één hoofdvenster | PARTIAL | Direct Peter: WindowGroup vervangen door Window(main); één Mac URLdelegate met koude URLbuffer en bestaande navigatie/pairingroutes, voorgrond/minimalisatie/Dock reopen. docs/MAC_WIDGET_SINGLETON_AND_PUSH_HANDOFF.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; geen build/install tot gevraagd. | OPEN: volgende expliciet gevraagde build: native herhaald klikken/koud/warm/gesloten/geminimaliseerd/fullscreen en pairing verifiëren. |
 | mac-widget-push-registration — Mac WidgetKit-pushregistratie | PARTIAL | Direct Peter: WidgetPushHandler/currentPushInfo en aparte extension APNs entitlement; begrensde lokale pendingtokenopvang/rotatie/verwijdering, geen appregisterhergebruik. Testbron NOTRUN. docs/MAC_WIDGET_SINGLETON_AND_PUSH_HANDOFF.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; geen build/install tot gevraagd. | OPEN: owning Core/API heeft afzonderlijk widgetcontract/relay/backgroundread nog niet geleverd; native registratie en echte aflevering niet gekwalificeerd. Geïnstalleerde widget mist nieuwe APNs entitlement. |
 | mac-widget-current-session-playback — Mac widget actuele playback/sessiedata | PARTIAL | Direct Peter: Leesbare cache verlopen/neutraal zonder richdata; geïnstalleerd artifact7basischecks PASS. Bestaande foreground-only grant/expirygrenzen behouden. Core producer expliciet geautoriseerd overgedragen en OPEN bevestigd. docs/MAC_WIDGET_SINGLETON_AND_PUSH_HANDOFF.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; geen build/install tot gevraagd. | OPEN: actuele passieve bronverversing buiten actieve app vereist owning contract en kwalificatie; geen beweerde screenshot-specifieke rootcause of werkende runtimefix. |
+| forecast-section-white-glyphs — Witte glyphs bij Nu, De komende minuten en Waar ik op mik | PARTIAL | Direct Peter: drie witte glyphs vóór Vooruitblik-koppen. SessionForecastTextView koppelt stabiele sectie-id current aan play.fill, guidance aan clock en aim aan target. Monochroom wit, bestaande titelgrootte en baseline-uitlijning; glyph decoratief voor VoiceOver, kop blijft header. Gedeelde Apple UI, geen gewijzigde servertekst. Diffcheck PASS; source-only NOTBUILT/NOTTESTED/NOTINSTALLED. | OPEN: bij volgende expliciet gevraagde build native uitlijning/tekstgroei op iPad/Mac/iPhone bekijken. Geen build/install aangevraagd. |
 
 Bewijs en uitvoering: [integrale uitvoering](APPLE_INTEGRAL_EXECUTION_20261017.md). De JSON-bron naast dit document is leidend; deze Markdown wordt met Tools/qualification/validate_apple_work_registers.py --write bijgewerkt.

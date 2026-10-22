@@ -17,7 +17,7 @@
     "CLOSED_BOUNDED": 22,
     "OPEN": 5,
     "PARKED": 1,
-    "PARTIAL": 41,
+    "PARTIAL": 42,
     "SUPERSEDED": 1
   },
   "requirements": [
@@ -664,6 +664,16 @@
         "OPEN: actuele passieve bronverversing buiten actieve app vereist owning contract en kwalificatie; geen beweerde screenshot-specifieke rootcause of werkende runtimefix."
       ],
       "requirement": "Mac widget actuele playback/sessiedata",
+      "source": "Direct Peter / 22 oktober 2026"
+    },
+    {
+      "id": "forecast-section-white-glyphs",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: drie witte glyphs vóór Vooruitblik-koppen. SessionForecastTextView koppelt stabiele sectie-id current aan play.fill, guidance aan clock en aim aan target. Monochroom wit, bestaande titelgrootte en baseline-uitlijning; glyph decoratief voor VoiceOver, kop blijft header. Gedeelde Apple UI, geen gewijzigde servertekst. Diffcheck PASS; source-only NOTBUILT/NOTTESTED/NOTINSTALLED.",
+      "remaining": [
+        "OPEN: bij volgende expliciet gevraagde build native uitlijning/tekstgroei op iPad/Mac/iPhone bekijken. Geen build/install aangevraagd."
+      ],
+      "requirement": "Witte glyphs bij Nu, De komende minuten en Waar ik op mik",
       "source": "Direct Peter / 22 oktober 2026"
     }
   ],
