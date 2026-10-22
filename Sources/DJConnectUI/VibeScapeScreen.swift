@@ -19,6 +19,9 @@ struct VibeScapeScreen: View {
     @State private var controlsVisible = true
     @State private var controlsGeneration = UUID()
     @State private var adjustingDynamics = false
+    @State private var canvasBounds = CGRect.zero
+    @State private var modeBounds = CGRect.zero
+    @State private var sliderBounds = CGRect.zero
     @State private var unavailable = false
     @State private var showsVoiceHelp = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -38,7 +41,17 @@ struct VibeScapeScreen: View {
             if !unavailable {
                 VibeScapeMetalView(visit: visit,reduceMotion: reduceMotion,unavailable: { unavailable = true })
                     .ignoresSafeArea().accessibilityHidden(true)
-                    .onTapGesture { toggleControls() }
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { canvasBounds = $0 }
+                    .gesture(SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
+                        if modeBounds.insetBy(dx: -12, dy: -12).contains(tap.location)
+                            || sliderBounds.insetBy(dx: -12, dy: -12).contains(tap.location) {
+                            toggleControls()
+                        } else if canvasBounds.width > 0, canvasBounds.height > 0 {
+                            let point = SIMD2(Float((tap.location.x-canvasBounds.minX)/canvasBounds.width),
+                                              Float((tap.location.y-canvasBounds.minY)/canvasBounds.height))
+                            _ = visit.nudge(at: point, aspect: Float(canvasBounds.width/canvasBounds.height))
+                        }
+                    })
             }
             if unavailable {
                 Text(text("ui.vibescape.unavailable"))
@@ -48,8 +61,9 @@ struct VibeScapeScreen: View {
             VStack {
                 SessionModeToggleButtons(showsForecast: Binding(get: { false }, set: { forecast in
                     model.vibeScapeReturnToForecast = forecast; close()
-                }), language: model.language, openVibeScape: { showControls() }, isVibeScape: true, mood: model.activeDJSession?.selectedMood)
+                }), language: model.language, openVibeScape: { toggleControls() }, isVibeScape: true, mood: model.activeDJSession?.selectedMood)
                     .padding(.horizontal, 20)
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { modeBounds = $0 }
                     .padding(.top, pickerTop(in: geometry))
                     .opacity(controlsVisible ? 1 : 0)
                     .allowsHitTesting(controlsVisible)
@@ -72,6 +86,7 @@ struct VibeScapeScreen: View {
                 HStack {
                     Spacer(minLength: 0)
                     dynamicsControl(length: min(240, max(100, geometry.size.height - 180)))
+                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { sliderBounds = $0 }
                 }
                 .padding(.trailing, 12)
                 .frame(maxHeight: .infinity)

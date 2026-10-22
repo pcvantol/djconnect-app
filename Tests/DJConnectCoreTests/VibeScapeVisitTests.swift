@@ -64,6 +64,39 @@ import DJConnectCore
 }
 
 @Suite @MainActor struct VibeScapeVisitTests {
+    @Test func touchesAreLocalBoundedAndRevokedWithTheirVisit() throws {
+        let visit = VisualDirectorVisit()
+        var time: TimeInterval = 10
+        visit.now = { time }
+        visit.enter(mood: "groove", occurrence: "A", salt: 1)
+        let original = try #require(visit.scene)
+        let old = try #require(visit.ticket)
+        #expect(!visit.nudge(at: SIMD2(.nan, 0.5), aspect: 0.5))
+        #expect(!visit.nudge(at: SIMD2(-0.1, 0.5), aspect: 0.5))
+        #expect(!visit.nudge(at: SIMD2(0.2, 0.5), aspect: .infinity))
+        #expect(visit.nudge(at: SIMD2(0.2, 0.7), aspect: 0.5))
+        let touch = try #require(visit.touches.first)
+        #expect(abs(touch.position.x + 0.3) < 0.0001)
+        #expect(abs(touch.position.y + 0.4) < 0.0001)
+        #expect(visit.scene == original)
+        #expect(!visit.rendererCompleted(old))
+        for _ in 0..<10 { #expect(visit.nudge(at: SIMD2(0.5, 0.5), aspect: 0.5)) }
+        #expect(visit.touches.count == 4)
+        time += 3
+        #expect(visit.nudge(at: SIMD2(0.8, 0.3), aspect: 0.5))
+        #expect(visit.touches.count == 1)
+        visit.trackChanged(mood: "party", occurrence: "B")
+        #expect(visit.touches.isEmpty)
+        #expect(visit.nudge(at: SIMD2(0.5, 0.5), aspect: 0.5))
+        visit.revoke()
+        #expect(visit.touches.isEmpty)
+        #expect(!visit.nudge(at: SIMD2(0.5, 0.5), aspect: 0.5))
+        visit.enter(mood: "chill", occurrence: "C", salt: 2)
+        #expect(visit.touches.isEmpty)
+        time += 1800
+        #expect(!visit.nudge(at: SIMD2(0.5, 0.5), aspect: 0.5))
+    }
+
     @Test func paletteMatchesSessionThemesAndMoodRefreshPreservesCompositionAndExplicitStyle() throws {
         for theme in DJConnectSessionMoodTheme.allCases {
             let rgb = theme.colorValues[0]

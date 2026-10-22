@@ -40,7 +40,13 @@ visible picker's global frame at entry and aligns its own picker there, using
 the same width and padding. This geometry is presentation-only RAM, not user
 data or an authorization input. A vertical glass Dynamics slider sits
 at the right edge, with midpoint reset underneath. Both controls fade away
-after three seconds; tapping the visual toggles them immediately. Dragging the
+after three seconds; tapping their invisible control regions toggles them.
+Taps elsewhere nudge the liquid and its waves locally, without showing controls.
+At most four screen-space impulses remain in RAM for2.6seconds and decay with a
+rebound. They preserve the scene's style/composition, consume no interpreted
+turn budget, and invalidate old renderer/request tickets. Track changes and
+visit exit discard them. Reduce Motion uses an immediate static deformation
+and expiration instead of an animated rebound. Dragging the
 slider suspends hiding and starts a fresh three seconds on release. Reduce
 Motion disables the control animation; an accessibility action reveals them.
 Dynamics shows its percentage and uses a separate 180ms response instead of
@@ -123,7 +129,7 @@ Six additional native tests cover same-revision cancellation/replacement,
 source renewal versus original expiry, clock rollback, owner/revision/exit
 withdrawal, attempt budget across tracks, missing context and immediate release
 of a captured context object. These cases plus the initial eight visit tests and six explicit-style
-tests plus the three frame-fence tests and mood-refresh test form the current24targeted VibeScape tests. Previous full-suite/build/GPU results remain bound to their original
+tests plus the three frame-fence tests, mood-refresh and bounded-touch tests form the current25targeted VibeScape tests. Previous full-suite/build/GPU results remain bound to their original
 heads; this local follow-up does not inherit native voice or hardware acceptance.
 
 ## Explicitly unresolved producer/UI boundaries
@@ -144,7 +150,7 @@ patch tests are not evidence of actual voice interpretation.
 
 ## Actual validation so far
 
-- Twenty-four targeted native Swift tests cover field-preserving patches, stale apply/ACK, undo,
+- Twenty-five targeted native Swift tests cover field-preserving patches, stale apply/ACK, undo,
   scope, reset, revoke/reentry, invalid numeric input, budget/expiry, twenty
   synthetic scene identities and blocked general Ask DJ/recording/defaults writes.
 - Real macOS and generic iOS preview builds compile the native Metal shader.
@@ -157,6 +163,10 @@ patch tests are not evidence of actual voice interpretation.
   the same initial clock and three seconds later. It asserts different static
   pixels and greater temporal change at100%. This verifies actual shader output,
   not physical slider touch handling or user acceptance.
+- The native GPU touch regression renders the same scene at two input positions,
+  checks local pixel change exceeds a distant region, and verifies expired touch
+  input produces exactly the original pixels. It does not replace physical
+  iPhone touch/hit-area acceptance.
 - Five locales include the initial controls and honest unavailable messages.
 
 Native iPhone/iPad/Mac fullscreen UI/VoiceOver/resize acceptance, prolonged

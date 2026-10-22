@@ -15,6 +15,10 @@ final class VibeScapeMetalEngine {
         var shape: SIMD4<Float>
         var secondary: SIMD4<Float>
         var accent: SIMD4<Float>
+        var touch0: SIMD4<Float>
+        var touch1: SIMD4<Float>
+        var touch2: SIMD4<Float>
+        var touch3: SIMD4<Float>
     }
     init(device: MTLDevice, library: MTLLibrary) throws {
         guard let queue = device.makeCommandQueue() else { throw Failure.unavailable }
@@ -27,7 +31,8 @@ final class VibeScapeMetalEngine {
     }
     enum Failure: Error { case unavailable }
     func encode(texture: MTLTexture, scene: VibeScapeScene, clock: Float,
-                dynamics: Float, reducedQuality: Bool) -> MTLCommandBuffer? {
+                dynamics: Float, reducedQuality: Bool, touches: [VibeScapeTouch] = [],
+                interactionUptime: TimeInterval = 0, reduceMotion: Bool = false) -> MTLCommandBuffer? {
         guard permits.wait(timeout: .now()) == .success else { return nil }
         guard let command = queue.makeCommandBuffer() else { permits.signal(); return nil }
         let pass = MTLRenderPassDescriptor()
@@ -35,10 +40,17 @@ final class VibeScapeMetalEngine {
         pass.colorAttachments[0].loadAction = .dontCare
         pass.colorAttachments[0].storeAction = .store
         guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { permits.signal(); return nil }
+        var impulses = [SIMD4<Float>](repeating: .zero, count: 4)
+        for (index, touch) in touches.suffix(4).enumerated() {
+            let elapsed = interactionUptime-touch.startedAt
+            guard elapsed.isFinite, elapsed >= 0, elapsed < 2.6 else { continue }
+            impulses[index] = SIMD4(touch.position.x, touch.position.y, reduceMotion ? 0.14 : Float(elapsed), 1)
+        }
         var uniforms = Uniforms(resolutionTime: SIMD4(Float(texture.width),Float(texture.height),clock,reducedQuality ? 0 : 1),
                                 composition: scene.composition, paletteMotion: SIMD4(scene.palette,scene.motion),
                                 shape: SIMD4(scene.depth,scene.roughness,min(0.95,scene.deformation*VibeScapeDynamics.deformation(dynamics)),dynamics),
-                                secondary: SIMD4(scene.secondaryPalette, 0), accent: SIMD4(scene.accentPalette, 0))
+                                secondary: SIMD4(scene.secondaryPalette, 0), accent: SIMD4(scene.accentPalette, 0),
+                                touch0: impulses[0], touch1: impulses[1], touch2: impulses[2], touch3: impulses[3])
         encoder.setRenderPipelineState(pipeline)
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 0)
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)

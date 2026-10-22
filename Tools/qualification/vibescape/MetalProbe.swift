@@ -58,6 +58,27 @@ import UniformTypeIdentifiers
         guard staticDelta > 0.5, motionDelta[1] > motionDelta[0] else {
             fatalError("Dynamics failed actual GPU pixel regression: \(staticDelta), \(motionDelta)")
         }
+        func touchFrame(_ touches: [VibeScapeTouch], age: TimeInterval, name: String) throws -> [UInt8] {
+            guard let command = engine.encode(texture: texture, scene: subject, clock: 2, dynamics: 0.5,
+                                              reducedQuality: false, touches: touches, interactionUptime: age) else {
+                throw VibeScapeMetalEngine.Failure.unavailable
+            }
+            command.commit(); command.waitUntilCompleted()
+            guard command.status == .completed else { throw command.error ?? VibeScapeMetalEngine.Failure.unavailable }
+            try save(texture, to: output.appendingPathComponent(name))
+            return pixels(texture)
+        }
+        let touchA = VibeScapeTouch(position: SIMD2(-0.15, 0.4), startedAt: 0)
+        let touchB = VibeScapeTouch(position: SIMD2(0.15, 0.65), startedAt: 0)
+        let untouched = try touchFrame([], age: 0, name: "touch-baseline.png")
+        let nudged = try touchFrame([touchA], age: 0.14, name: "touch-left.png")
+        let otherPoint = try touchFrame([touchB], age: 0.14, name: "touch-right.png")
+        let expired = try touchFrame([touchA], age: 3, name: "touch-expired.png")
+        let near = regionDelta(untouched, nudged, width: width, height: height, point: touchA.position)
+        let far = regionDelta(untouched, nudged, width: width, height: height, point: SIMD2(0.3, -0.8))
+        guard near > far, pixelDelta(nudged, otherPoint) > 0.001, expired == untouched else {
+            fatalError("Touch must deform locally at its own position and expire without persistent changes")
+        }
         let sorted = gpuMS.sorted()
         let report: [String:Any] = ["device":device.name,"resolution":[width,height],"frames":gpuMS.count,
             "gpu_ms_median":sorted[sorted.count/2],"gpu_ms_p95":sorted[Int(Double(sorted.count)*0.95)],
@@ -65,6 +86,10 @@ import UniformTypeIdentifiers
             "dynamics_static_mean_pixel_delta": staticDelta,
             "dynamics_3s_mean_pixel_delta_calm_intense": motionDelta,
             "dynamics_gpu_regression": "PASS",
+            "touch_gpu_regression": "PASS",
+            "touch_mean_pixel_delta_near_far": [near,far],
+            "touch_position_changes_output": pixelDelta(nudged, otherPoint),
+            "touch_expiry_restores_original_pixels": expired == untouched,
             "iphone_ipad_ui_thermal_battery_acceptance":"NOT_RUN","native_voice":"NOT_RUN"]
         let data = try JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys])
         try data.write(to:output.appendingPathComponent("gpu-report.json"))
@@ -72,6 +97,21 @@ import UniformTypeIdentifiers
     }
     static func pixelDelta(_ first: [UInt8], _ second: [UInt8]) -> Double {
         zip(first, second).reduce(0.0) { $0 + abs(Double($1.0) - Double($1.1)) } / Double(first.count)
+    }
+    static func regionDelta(_ first: [UInt8], _ second: [UInt8], width: Int, height: Int, point: SIMD2<Float>) -> Double {
+        let centerX = Int((Double(point.x)/Double(width)*Double(height)+1)*0.5*Double(width))
+        let centerY = Int((1-Double(point.y))*0.5*Double(height))
+        let radius = max(8,height/16)
+        var total = 0.0; var count = 0
+        for y in max(0,centerY-radius)..<min(height,centerY+radius) {
+            for x in max(0,centerX-radius)..<min(width,centerX+radius) {
+                for channel in 0..<3 {
+                    let index = (y*width+x)*4+channel
+                    total += abs(Double(first[index])-Double(second[index])); count += 1
+                }
+            }
+        }
+        return total/Double(max(1,count))
     }
     static func pixels(_ texture: MTLTexture) -> [UInt8] {
         let row = texture.width*4

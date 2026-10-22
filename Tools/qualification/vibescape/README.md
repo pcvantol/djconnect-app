@@ -23,3 +23,7 @@ pixels do not differ or intense motion does not exceed calm motion. The report
 includes mean absolute byte deltas. This does not exercise native touch input.
 Optional fourth/fifth arguments specify width and height (64...2048); use
 `480 960` for a portrait render of the same native shader.
+
+Four touch comparison images check local deformation, different positions and
+exact restoration after expiry. The report includes near/far pixel deltas;
+native UIKit hit testing and touch delivery remain a separate device check.

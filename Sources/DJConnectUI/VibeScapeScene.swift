@@ -8,6 +8,11 @@ enum VibeScapeDynamics {
     static func deformation(_ value: Float) -> Float { 0.15 + 1.7 * value }
 }
 
+struct VibeScapeTouch: Equatable, Sendable {
+    let position: SIMD2<Float>
+    let startedAt: TimeInterval
+}
+
 /// Renderer-local values, not a proposed Core wire DTO. No Codable, persistence,
 /// transcript, media action, preference store or general Ask DJ dependency.
 struct VibeScapeScene: Equatable, Sendable {
@@ -117,6 +122,7 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
     @Published private(set) var ticket: VibeScapeRenderTicket?
     @Published private(set) var appliedRevision: UInt64?
     @Published private(set) var dynamics: Float = 0.5
+    @Published private(set) var touches: [VibeScapeTouch] = []
     private var salt: UInt64 = 0
     private var autonomous: VibeScapeScene?
     private var persistentPatch: VibeScapePatch?
@@ -132,6 +138,7 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
     private var turns = 0
     private var deadline: TimeInterval = 0
     private var lastUptime: TimeInterval = 0
+    private var touchExpiryTask: Task<Void, Never>?
     var now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
 
     func enter(mood: String?, occurrence: String?, salt: UInt64 = .random(in: .min ... .max)) {
@@ -184,6 +191,24 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         guard isCurrent, value.isFinite, (0...1).contains(value), value != dynamics, let scene else { return false }
         dynamics = value; advance(scene); return true
     }
+    @discardableResult func nudge(at point: SIMD2<Float>, aspect: Float) -> Bool {
+        guard isCurrent, let scene, point.x.isFinite, point.y.isFinite,
+              (0...1).contains(point.x), (0...1).contains(point.y),
+              aspect.isFinite, aspect > 0, aspect <= 8 else { return false }
+        let time = now()
+        touches.removeAll { time - $0.startedAt >= 2.6 }
+        touches.append(VibeScapeTouch(position: SIMD2((point.x*2-1)*aspect, 1-point.y*2), startedAt: time))
+        if touches.count > 4 { touches.removeFirst(touches.count-4) }
+        advance(scene)
+        touchExpiryTask?.cancel()
+        touchExpiryTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(2.6)) } catch { return }
+            guard !Task.isCancelled, let self, self.touches.last?.startedAt == time else { return }
+            self.touches.removeAll()
+            if self.isCurrent, let scene = self.scene { self.advance(scene) }
+        }
+        return true
+    }
     func moodChanged(_ mood: String?) {
         guard isCurrent, var scene, var baseline = autonomous else { return }
         let tint = VibeScapeScene.moodTint(mood)
@@ -235,7 +260,8 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         guard isCurrent, let ticket, ticket.occurrence != occurrence else { return }
         salt &+= 0x9e3779b97f4a7c15
         let next = VibeScapeScene.autonomous(mood: mood, salt: salt)
-        autonomous = next; trackPatch = nil; undo.removeAll()
+        autonomous = next; trackPatch = nil; undo.removeAll(); touches.removeAll()
+        touchExpiryTask?.cancel(); touchExpiryTask = nil
         self.ticket = VibeScapeRenderTicket(visit: ticket.visit, occurrence: occurrence, revision: ticket.revision + 1)
         scene = persistentPatch?.applied(to: next) ?? next; appliedRevision = nil
     }
@@ -249,6 +275,8 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
     func revoke() {
         scene = nil; ticket = nil; autonomous = nil; persistentPatch = nil; trackPatch = nil
         undo.removeAll(keepingCapacity: false); dynamics = 0.5; appliedRevision = nil
+        touches.removeAll(keepingCapacity: false)
+        touchExpiryTask?.cancel(); touchExpiryTask = nil
         salt = 0; turns = 0; deadline = 0; lastUptime = 0
     }
 }
