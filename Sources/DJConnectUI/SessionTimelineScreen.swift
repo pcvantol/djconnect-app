@@ -535,6 +535,9 @@ struct SessionTimelineScreen: View {
                                         if !model.isShowingVibeScape { model.vibeScapeModePickerFrame = $0 }
                                     }
                                     .padding(.horizontal, 20)
+                                    #if os(macOS)
+                                    .padding(.top, 16)
+                                    #endif
                                     .id("session-mode-picker")
                                 // The mode picker is the initial top target;
                                 // artwork follows with ordinary content spacing.
