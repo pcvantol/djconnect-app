@@ -8103,3 +8103,116 @@ func frozenCatalogueReplayDecodesOriginalActionsAndIdentity(_ scenario: String) 
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic-fixture-token")
     #expect(!wire.requests.contains { $0.url!.path.contains("ask_dj") || $0.url!.path.contains("playback") })
 }
+
+private final class AskDJRepeatedDeletionState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var deleted = Set<String>()
+    private var scopes: [String: [String: Any]] = [:]
+    private let base: [String: Any]
+    let contexts = ["ask-one": "original-session-A", "ask-two": "original-session-B", "ask-three": ""]
+    init(base: [String: Any]) { self.base = base }
+    func history() throws -> Data {
+        try lock.withLock {
+            var value = base
+            value["messages"] = ["ask-one", "ask-two", "ask-three"].filter { !deleted.contains($0) }.map { id -> [String: Any] in
+                var message: [String: Any] = ["id": id, "role": "assistant", "message_kind": "assistant", "text": "Fixture " + id,
+                    "created_at": "2026-10-22T12:00:00Z", "historical_matches": []]
+                if !contexts[id]!.isEmpty { message["session_turn"] = ["context": ["session_id": contexts[id]!]] }
+                return message
+            }
+            value["history_revision"] = 1000 + deleted.count
+            value["clear_revision"] = deleted.count
+            value["historical_matches"] = []
+            return try historyData(value)
+        }
+    }
+    func prepare(_ target: [String: Any]) throws -> Data {
+        try lock.withLock {
+            let id = target["target_id"] as! String
+            // Match the actual Core resolver: no substituting current/blank Session.
+            guard let session = contexts[id], target["session_id"] as? String == session else {
+                return try historyData(["success": false, "error": "content_unavailable"])
+            }
+            let confirmation = "confirmation-" + id
+            let scope: [String: Any] = ["success": true, "schema_version": 1, "owner_profile_id": "profile-a",
+                "confirmation_id": confirmation, "target": target,
+                "unit": ["kind": "exchange", "session_id": session, "target_id": "exchange-" + id],
+                "affected_entries": [], "removed_message_ids": [id], "unavailable_message_ids": [],
+                "affected_moments": [], "fenced_request_count": 0, "music_playback_undone": false,
+                "created_at": ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1)),
+                "expires_at": ISO8601DateFormatter().string(from: Date().addingTimeInterval(240))]
+            scopes[confirmation] = scope
+            return try historyData(scope)
+        }
+    }
+    func complete(_ body: [String: Any]) throws -> Data {
+        try lock.withLock {
+            let scope = scopes[body["confirmation_id"] as! String]!
+            let decoded = try JSONDecoder().decode(DJConnectContentDeleteScope.self, from: historyData(scope))
+            var receipt = scope
+            receipt["operation_id"] = body["operation_id"]
+            receipt["state"] = "completed"; receipt["deleted"] = true
+            receipt["request_digest"] = decoded.requestDigest
+            deleted.formUnion(decoded.removed_message_ids)
+            return try historyData(receipt)
+        }
+    }
+}
+
+@Test @MainActor func askDJDeletesThreeContributionsUsingOriginalContextAfterEachClear() async throws {
+    let producer = try historyObject()
+    let state = AskDJRepeatedDeletionState(base: try #require(producer["later_historical_answer"] as? [String: Any]))
+    let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_content_delete": true],
+        "contract_versions": ["session_conversation_history": 1, "session_content_delete": 1]])
+    let list = try historyData(["success": true, "schema_version": 1, "sessions": [], "revision": "fixture", "retention_days": 30])
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("/ask_dj/history") { return (200, try state.history(), 0) }
+        if path.hasSuffix("/session/history") { return (200, list, 0) }
+        let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+        if path.hasSuffix("/session/content/delete/prepare") {
+            return (200, try state.prepare(try #require(body["target"] as? [String: Any])), 0)
+        }
+        if path.hasSuffix("/session/content/delete") { return (200, try state.complete(body), 0) }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare()
+    for (index, id) in ["ask-one", "ask-two", "ask-three"].enumerated() {
+        let message = try #require(model.askDJMessages.first { $0.serverID == id })
+        let target = try #require(history.contentDeletionTarget(for: message))
+        #expect(target.kind == "message" && target.session_id == state.contexts[id])
+        let prepared = try #require(await history.prepareContentDeletion(target, expectedEpoch: history.responseEpoch))
+        #expect(await history.deleteContent(prepared, expectedEpoch: history.responseEpoch))
+        #expect(!history.hasUnconfirmedDeletion)
+        #expect(model.askDJMessages.count == 2 - index)
+    }
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/content/delete") }.count == 3)
+    #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/history/delete") || $0.url!.path.hasSuffix("/session/end") })
+    // A message with no admitted server context cannot borrow any active Session.
+    let unknown = DJConnectAskDJMessage(serverID: "unobserved", role: .dj, text: "unknown")
+    #expect(history.contentDeletionTarget(for: unknown) == nil)
+}
+
+@Test func askDJMessageContextsNeverBorrowTheLatestTurnOrSelectedEntry() throws {
+    var response = try #require(historyObject()["later_historical_answer"] as? [String: Any])
+    let messages: [[String: Any]] = [
+        ["id": "context-one", "role": "assistant", "text": "one", "created_at": "2026-10-22T12:00:00Z",
+         "session_turn": ["context": ["session_id": "original-A"]]],
+        ["id": "context-two", "role": "user", "text": "two", "created_at": "2026-10-22T12:00:00Z",
+         "session_turn": ["context": ["session_id": "original-B"]]],
+        ["id": "context-none", "role": "assistant", "text": "standalone", "created_at": "2026-10-22T12:00:00Z"]]
+    response["messages"] = messages
+    let history = try JSONDecoder().decode(DJConnectProfileConversationHistory.self, from: historyData(response))
+    let live = try JSONDecoder().decode(DJConnectSessionConversationResponse.self, from: historyData(response))
+    for contexts in [history.messageContexts, live.messageContexts] {
+        #expect(contexts["context-one"]?.sessionID == "original-A")
+        #expect(contexts["context-two"]?.sessionID == "original-B")
+        #expect(contexts["context-none"] != nil && contexts["context-none"]?.sessionID == nil)
+        #expect(contexts["unknown"] == nil)
+    }
+}

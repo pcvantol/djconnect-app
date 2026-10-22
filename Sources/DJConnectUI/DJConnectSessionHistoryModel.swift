@@ -188,6 +188,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     @Published public private(set) var listErrorKey: String?
     @Published public private(set) var listNextCursor: String?
     @Published public private(set) var timelines: [String: Timeline] = [:]
+    private var conversationMessageContexts: [String: DJConnectConversationContext] = [:]
     @Published public private(set) var historicalMatches: [String: [DJConnectHistoryEntry]] = [:]
     @Published public private(set) var pendingTurns: [PendingTurn] = []
     @Published public var selectedEntry: DJConnectSessionEntryReference?
@@ -443,7 +444,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         host?.invalidateConversationResultLeases()
         host?.dismissMomentTrackInsight()
         preparationTask?.cancel(); preparationTask = nil; preparationID = UUID(); preparing = false
-        liveResponses = [:]
+        liveResponses = [:]; conversationMessageContexts = [:]
         cancelArtworkQueue()
         artworkAvailable = false; artworkPreparing = []; artworkFailed = []
         epoch = UUID(); searchGeneration = UUID(); listGeneration = UUID(); navigationGeneration = UUID()
@@ -473,7 +474,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         if cancelPreparation {
             preparationTask?.cancel(); preparationTask = nil; preparationID = UUID(); preparing = false
         }
-        liveResponses = [:]
+        liveResponses = [:]; conversationMessageContexts = [:]
         cancelArtworkQueue()
         artworkAvailable = false; artworkPreparing = []; artworkFailed = []
         epoch = UUID(); ownerScope = nil
@@ -601,9 +602,10 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         if let entry = contextEntry(for: message) {
             return .init(kind: "entry", sessionID: entry.sessionID, targetID: entry.id)
         }
-        if let id = message.serverID, !id.isEmpty {
-            // Explicit standalone scope; never substitute the current Session.
-            return .init(kind: "message", sessionID: "", targetID: id)
+        if let id = message.serverID, !id.isEmpty, let context = conversationMessageContexts[id] {
+            // Use the message's original server context, including explicit
+            // standalone scope. The current Session is never a substitute.
+            return .init(kind: "message", sessionID: context.sessionID ?? "", targetID: id)
         }
         if let turn = pendingTurns.first(where: { $0.id == message.clientMessageID }) {
             return .init(kind: "request", sessionID: turn.context.sessionID ?? "", targetID: turn.id)
@@ -806,6 +808,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             ownerScope = scope
             guard host.applyProfileConversationHistory(response.base) else { return false }
             historicalMatches = response.historicalMatches
+            conversationMessageContexts = response.messageContexts
             reconcilePending(with: response.base)
             return true
         } catch {
@@ -1333,6 +1336,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             ownerScope = scope
             guard host.applyProfileConversationHistory(response.base) else { throw DJConnectError.server(statusCode: 409, message: nil) }
             historicalMatches = response.historicalMatches
+            conversationMessageContexts = response.messageContexts
             reconcilePending(with: response.base)
             if let sessionID = host.activeDJSession?.sessionID, timelines[sessionID] == nil {
                 await loadTimeline(sessionID, window: .tail, preserveLoadedEntries: true)
@@ -1368,6 +1372,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             throw DJConnectError.server(statusCode: 409, message: nil)
         }
         let acceptedEpoch = epoch
+        conversationMessageContexts.merge(response.messageContexts) { _, incoming in incoming }
         retainLiveResponse(response)
         host.autoplayAcceptedDJResponse(response.base)
         let matches = historicalGeneration == nil || historicalGeneration == archiveGeneration

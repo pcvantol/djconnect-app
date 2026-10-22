@@ -359,13 +359,25 @@ public struct DJConnectConversationConfirmation: Decodable, Equatable, Sendable 
     enum CodingKeys: String, CodingKey { case schemaVersion = "schema_version", turnID = "turn_id", context, entryIDs = "entry_ids", inputType = "input_type" }
 }
 
+private struct DJConnectConversationMessageMetadata: Decodable {
+    struct SessionTurn: Decodable { let context: DJConnectConversationContext }
+    let id: String
+    let historicalMatches: [DJConnectHistoryEntry]?
+    let sessionTurn: SessionTurn?
+    enum CodingKeys: String, CodingKey {
+        case id, historicalMatches = "historical_matches", sessionTurn = "session_turn"
+    }
+    var context: DJConnectConversationContext { sessionTurn?.context ?? .init(sessionID: nil) }
+}
+
 public struct DJConnectSessionConversationResponse: Decodable, Sendable {
     public let base: DJConnectAskDJMessageResponse
     public let conversation: DJConnectConversationConfirmation
     public let historicalMatches: [DJConnectHistoryEntry]
     public let transcript: String?
     public let ownerScope: String
-    enum CodingKeys: String, CodingKey { case conversation, historicalMatches = "historical_matches", transcript, recognizedText = "recognized_text", ownerScope = "owner_profile_id" }
+    public let messageContexts: [String: DJConnectConversationContext]
+    enum CodingKeys: String, CodingKey { case messages, userMessage = "user_message", assistantMessage = "assistant_message", conversation, historicalMatches = "historical_matches", transcript, recognizedText = "recognized_text", ownerScope = "owner_profile_id" }
     public init(from decoder: Decoder) throws {
         base = try DJConnectAskDJMessageResponse(from: decoder)
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -373,6 +385,10 @@ public struct DJConnectSessionConversationResponse: Decodable, Sendable {
         ownerScope = try c.decode(String.self, forKey: .ownerScope)
         historicalMatches = try c.decodeIfPresent([DJConnectHistoryEntry].self, forKey: .historicalMatches) ?? []
         transcript = try c.decodeIfPresent(String.self, forKey: .transcript) ?? c.decodeIfPresent(String.self, forKey: .recognizedText)
+        let messages = try c.decodeIfPresent([DJConnectConversationMessageMetadata].self, forKey: .messages) ?? []
+        let direct = try [c.decodeIfPresent(DJConnectConversationMessageMetadata.self, forKey: .userMessage),
+                          c.decodeIfPresent(DJConnectConversationMessageMetadata.self, forKey: .assistantMessage)].compactMap { $0 }
+        messageContexts = Dictionary((messages + direct).map { ($0.id, $0.context) }, uniquingKeysWith: { _, latest in latest })
     }
 }
 
@@ -380,18 +396,18 @@ public struct DJConnectProfileConversationHistory: Decodable, Sendable {
     public let base: DJConnectAskDJHistoryResponse
     public let historicalMatches: [String: [DJConnectHistoryEntry]]
     public let ownerScope: String
-    private struct Message: Decodable {
-        let id: String
-        let historicalMatches: [DJConnectHistoryEntry]?
-        enum CodingKeys: String, CodingKey { case id, historicalMatches = "historical_matches" }
-    }
+    /// Original server-owned message context, scoped to this response/owner.
+    /// Absence of session_turn in canonical history means standalone Profile.
+    public let messageContexts: [String: DJConnectConversationContext]
     private enum CodingKeys: String, CodingKey { case messages, ownerScope = "owner_profile_id" }
     public init(from decoder: Decoder) throws {
         base = try DJConnectAskDJHistoryResponse(from: decoder)
         let c = try decoder.container(keyedBy: CodingKeys.self)
         ownerScope = try c.decode(String.self, forKey: .ownerScope)
-        let messages = try c.decodeIfPresent([Message].self, forKey: .messages) ?? []
+        let messages = try c.decodeIfPresent([DJConnectConversationMessageMetadata].self, forKey: .messages) ?? []
         historicalMatches = Dictionary(messages.map { ($0.id, $0.historicalMatches ?? []) }, uniquingKeysWith: { _, latest in latest })
+        messageContexts = Dictionary(messages.map { ($0.id, $0.context) },
+                                     uniquingKeysWith: { _, latest in latest })
     }
 }
 
