@@ -74,6 +74,13 @@ import UniformTypeIdentifiers
         let nudged = try touchFrame([touchA], age: 0.14, name: "touch-left.png")
         let otherPoint = try touchFrame([touchB], age: 0.14, name: "touch-right.png")
         let expired = try touchFrame([touchA], age: 3, name: "touch-expired.png")
+        let tapped = try touchFrame([VibeScapeTouch(position: touchA.position, startedAt: 0, strength: 2.4)],
+                                    age: 0.14, name: "touch-tap.png")
+        let swiped = try touchFrame([VibeScapeTouch(position: touchA.position, startedAt: 0, strength: 0.8)],
+                                    age: 0.14, name: "touch-swipe.png")
+        let tapDelta = regionDelta(untouched,tapped,width:width,height:height,point:touchA.position)
+        let swipeDelta = regionDelta(untouched,swiped,width:width,height:height,point:touchA.position)
+        guard tapDelta > swipeDelta else { fatalError("Tap must visibly deform more strongly than a swipe") }
         let near = regionDelta(untouched, nudged, width: width, height: height, point: touchA.position)
         let far = regionDelta(untouched, nudged, width: width, height: height, point: SIMD2(0.3, -0.8))
         guard near > far, pixelDelta(nudged, otherPoint) > 0.001, expired == untouched else {
@@ -101,6 +108,8 @@ import UniformTypeIdentifiers
             "touch_expiry_restores_original_pixels": expired == untouched,
             "touch_temporal_mean_frame_delta": touchFrameDeltas.reduce(0,+)/Double(touchFrameDeltas.count),
             "touch_temporal_max_frame_delta": touchFrameDeltas.max() ?? 0,
+            "tap_swipe_mean_pixel_delta_near": [tapDelta,swipeDelta],
+            "tap_stronger_than_swipe_gpu_regression": "PASS",
             "iphone_ipad_ui_thermal_battery_acceptance":"NOT_RUN","native_voice":"NOT_RUN"]
         let data = try JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys])
         try data.write(to:output.appendingPathComponent("gpu-report.json"))

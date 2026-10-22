@@ -32,3 +32,8 @@ The probe additionally samples 79 touch ages over 2.6 seconds with the autonomou
 scene clock frozen, reporting mean/max successive-frame byte differences. This
 isolates touch-induced temporal variation. Compare the same inputs/resolution
 against the prior compiled shader; it is not physical iPhone flicker acceptance.
+
+`touch-tap.png` and `touch-swipe.png` compare identical input positions with
+strength2.4 versus0.8. The probe fails unless the tap produces a larger local
+pixel change than the swipe. Actual tap delivery and haptic feel remain device
+acceptance checks.

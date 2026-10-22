@@ -43,8 +43,9 @@ final class VibeScapeMetalEngine {
         var impulses = [SIMD4<Float>](repeating: .zero, count: 4)
         for (index, touch) in touches.suffix(4).enumerated() {
             let elapsed = interactionUptime-touch.startedAt
-            guard elapsed.isFinite, elapsed >= 0, elapsed < 2.6 else { continue }
-            impulses[index] = SIMD4(touch.position.x, touch.position.y, reduceMotion ? 0.14 : Float(elapsed), 1)
+            guard elapsed.isFinite, elapsed >= 0, elapsed < 2.6,
+                  touch.strength.isFinite, (0.5...2.5).contains(touch.strength) else { continue }
+            impulses[index] = SIMD4(touch.position.x, touch.position.y, reduceMotion ? 0.14 : Float(elapsed), touch.strength)
         }
         var uniforms = Uniforms(resolutionTime: SIMD4(Float(texture.width),Float(texture.height),clock,reducedQuality ? 0 : 1),
                                 composition: scene.composition, paletteMotion: SIMD4(scene.palette,scene.motion),

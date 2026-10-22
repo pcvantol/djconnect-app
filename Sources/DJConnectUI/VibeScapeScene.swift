@@ -11,6 +11,7 @@ enum VibeScapeDynamics {
 struct VibeScapeTouch: Equatable, Sendable {
     let position: SIMD2<Float>
     let startedAt: TimeInterval
+    var strength: Float = 1
 }
 
 /// Renderer-local values, not a proposed Core wire DTO. No Codable, persistence,
@@ -208,13 +209,14 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         followsTrackIntensity = true
         updateTrackIntensity(trackIntensity)
     }
-    @discardableResult func nudge(at point: SIMD2<Float>, aspect: Float) -> Bool {
+    @discardableResult func nudge(at point: SIMD2<Float>, aspect: Float, strength: Float = 1) -> Bool {
         guard isCurrent, let scene, point.x.isFinite, point.y.isFinite,
               (0...1).contains(point.x), (0...1).contains(point.y),
-              aspect.isFinite, aspect > 0, aspect <= 8 else { return false }
+              aspect.isFinite, aspect > 0, aspect <= 8,
+              strength.isFinite, (0.5...2.5).contains(strength) else { return false }
         let time = now()
         touches.removeAll { time - $0.startedAt >= 2.6 }
-        touches.append(VibeScapeTouch(position: SIMD2((point.x*2-1)*aspect, 1-point.y*2), startedAt: time))
+        touches.append(VibeScapeTouch(position: SIMD2((point.x*2-1)*aspect, 1-point.y*2), startedAt: time, strength: strength))
         if touches.count > 4 { touches.removeFirst(touches.count-4) }
         advance(scene)
         touchExpiryTask?.cancel()

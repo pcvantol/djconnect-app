@@ -29,16 +29,18 @@ static float screenImpulse(float2 point, float4 touch) {
     float falloff = exp(-radius*radius/0.045);
     // One soft dent instead of alternating rings. Repeated nearby inputs must
     // not produce bright/dark rebounds while a finger rests on the liquid.
-    float envelope = smoothstep(0.0,0.16,touch.z)*exp(-touch.z*1.8)
+    float onset = touch.w > 1.0 ? 0.08 : 0.16;
+    float envelope = smoothstep(0.0,onset,touch.z)*exp(-touch.z*1.8)
                    *(1.0-smoothstep(2.0,2.6,touch.z));
-    return -0.075*falloff*envelope;
+    return -0.075*touch.w*falloff*envelope;
 }
 static float combinedImpulse(float2 point, constant Uniforms &u) {
     float value = screenImpulse(point,u.touch0)+screenImpulse(point,u.touch1)
                 +screenImpulse(point,u.touch2)+screenImpulse(point,u.touch3);
     // Smooth saturation also keeps overlapping swipe samples from stacking
     // into a large, rapidly changing surface normal.
-    return 0.10*tanh(value/0.10);
+    float limit = 0.10*max(1.0,max(max(u.touch0.w,u.touch1.w),max(u.touch2.w,u.touch3.w)));
+    return limit*tanh(value/limit);
 }
 static float impulse(float3 p, constant Uniforms &u) {
     float eyeZ = 4.1+u.shape.x*0.3;

@@ -133,6 +133,11 @@ import DJConnectCore
         #expect(!visit.nudge(at: SIMD2(.nan, 0.5), aspect: 0.5))
         #expect(!visit.nudge(at: SIMD2(-0.1, 0.5), aspect: 0.5))
         #expect(!visit.nudge(at: SIMD2(0.2, 0.5), aspect: .infinity))
+        for invalid: Float in [.nan, .infinity, -1, 0, 3] {
+            #expect(!visit.nudge(at: SIMD2(0.2, 0.5), aspect: 0.5, strength: invalid))
+        }
+        #expect(visit.nudge(at: SIMD2(0.2, 0.7), aspect: 0.5, strength: 2.4))
+        #expect(visit.touches.last?.strength == 2.4)
         #expect(visit.nudge(at: SIMD2(0.2, 0.7), aspect: 0.5))
         let touch = try #require(visit.touches.first)
         #expect(abs(touch.position.x + 0.3) < 0.0001)

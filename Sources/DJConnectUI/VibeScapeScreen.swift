@@ -50,6 +50,7 @@ struct VibeScapeScreen: View {
     @State private var sliderBounds = CGRect.zero
     @State private var lastStrokePoint: CGPoint?
     @State private var lastStrokeTime: TimeInterval = 0
+    @State private var lastInteractionHaptic: TimeInterval?
     @State private var unavailable = false
     @State private var showsVoiceHelp = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -178,11 +179,21 @@ struct VibeScapeScreen: View {
         modeBounds.insetBy(dx: -12, dy: -12).contains(point)
             || sliderBounds.insetBy(dx: -12, dy: -12).contains(point)
     }
-    private func nudge(at location: CGPoint) {
+    private func nudge(at location: CGPoint, strength: Float) {
         guard canvasBounds.width > 0, canvasBounds.height > 0 else { return }
         let point = SIMD2(Float((location.x-canvasBounds.minX)/canvasBounds.width),
                           Float((location.y-canvasBounds.minY)/canvasBounds.height))
-        _ = visit.nudge(at: point, aspect: Float(canvasBounds.width/canvasBounds.height))
+        guard visit.nudge(at: point, aspect: Float(canvasBounds.width/canvasBounds.height), strength: strength) else { return }
+        let time = ProcessInfo.processInfo.systemUptime
+        if strength > 1 {
+            DJConnectHaptics.impact()
+            lastInteractionHaptic = time
+        } else if lastInteractionHaptic.map({ time-$0 >= 0.18 }) ?? true {
+            // A resting finger produces no repeated feedback; moving strokes
+            // get at most one lighter selection pulse every 180 ms.
+            DJConnectHaptics.selection()
+            lastInteractionHaptic = time
+        }
     }
     private var canvasInteraction: some Gesture {
         DragGesture(minimumDistance: 8, coordinateSpace: .global)
@@ -195,24 +206,25 @@ struct VibeScapeScreen: View {
                     guard time-lastStrokeTime >= 1.0/30,
                           hypot(drag.location.x-prior.x, drag.location.y-prior.y) >= 8 else { return }
                 }
-                nudge(at: drag.location)
+                nudge(at: drag.location, strength: 0.8)
                 lastStrokePoint = drag.location; lastStrokeTime = time
             }
             .onEnded { drag in
                 if !isControlArea(drag.startLocation), !isControlArea(drag.location) {
-                    nudge(at: drag.location)
+                    nudge(at: drag.location, strength: 0.8)
                 }
                 lastStrokePoint = nil; lastStrokeTime = 0
             }
             .exclusively(before: SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
                 if isControlArea(tap.location) { toggleControls() }
-                else { nudge(at: tap.location) }
+                else { nudge(at: tap.location, strength: 2.4) }
             })
     }
     private func showControls() {
         controlsVisible = true; controlsGeneration = UUID()
     }
     private func toggleControls() {
+        DJConnectHaptics.selection()
         controlsVisible.toggle(); controlsGeneration = UUID()
     }
     private func dynamicsControl(length: CGFloat) -> some View {
@@ -226,6 +238,7 @@ struct VibeScapeScreen: View {
                 .font(.caption2).foregroundStyle(.white.opacity(0.8))
             Slider(value: Binding(get: { Double(visit.dynamics) }, set: { _ = visit.setDynamics(Float($0)) }),
                    in: 0...1, onEditingChanged: { editing in
+                       if editing { DJConnectHaptics.selection() }
                        adjustingDynamics = editing; controlsGeneration = UUID()
                    })
                 .tint(.white)
@@ -235,6 +248,7 @@ struct VibeScapeScreen: View {
                 .accessibilityLabel(text("ui.vibescape.dynamics"))
                 .accessibilityIdentifier("vibescape-dynamics")
             Button {
+                DJConnectHaptics.selection()
                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.35)) {
                     visit.followTrackIntensity()
                 }
