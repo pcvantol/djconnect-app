@@ -238,3 +238,25 @@ import DJConnectUI
     #expect(DJConnectSessionSurfaceSnapshot.widgetTheme(confirmedSession: nil, passiveMood: nil, fallback: .energy, at: now) == .energy)
     #expect(changed.expiresAt == changed.observedAt.addingTimeInterval(120))
 }
+
+@Test func widgetPushTokenIsSeparateBoundedRotatableAndCannotGrantContent() throws {
+    let suite = "widget-push-token-test-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let kind = DJConnectSessionSurfaceSnapshot.widgetKind
+    let token = try #require(DJConnectWidgetPushToken(token: Data([1, 2, 3]),
+        extensionBundleID: "dev.djconnect.mac.track-insight-widget", widgetKinds: [kind]))
+    try DJConnectWidgetPushToken.replace(token, in: defaults)
+    #expect(DJConnectWidgetPushToken.load(from: defaults) == token)
+    #expect(DJConnectSessionSurfaceSnapshot.load(from: defaults) == nil)
+    #expect(DJConnectPassiveSurfaceCache.load(surface: .widget, from: defaults) == nil)
+    #expect(DJConnectWidgetPushToken(token: Data(), extensionBundleID: token.extensionBundleID, widgetKinds: [kind]) == nil)
+    #expect(DJConnectWidgetPushToken(token: Data(repeating: 1, count: 4097), extensionBundleID: token.extensionBundleID, widgetKinds: [kind]) == nil)
+    #expect(DJConnectWidgetPushToken(token: token.token, extensionBundleID: "dev.djconnect.mac", widgetKinds: [kind]) == nil)
+    #expect(DJConnectWidgetPushToken(token: token.token, extensionBundleID: token.extensionBundleID, widgetKinds: []) == nil)
+    let rotated = try #require(DJConnectWidgetPushToken(token: Data([4, 5]), extensionBundleID: token.extensionBundleID, widgetKinds: [kind]))
+    try DJConnectWidgetPushToken.replace(rotated, in: defaults)
+    #expect(DJConnectWidgetPushToken.load(from: defaults)?.token == rotated.token)
+    try DJConnectWidgetPushToken.replace(nil, in: defaults)
+    #expect(DJConnectWidgetPushToken.load(from: defaults) == nil)
+}

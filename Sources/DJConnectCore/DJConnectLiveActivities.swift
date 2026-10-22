@@ -288,3 +288,31 @@ public enum DJConnectSessionSurfacePresentation {
 @MainActor public enum DJConnectSessionPlaybackIntentBridge {
     public static var nextTrack: (@MainActor (String) async -> Bool)?
 }
+
+/// Installation-local delivery plumbing only, separate from ordinary app APNs.
+/// This pending token is not server registration and grants no content authority.
+public struct DJConnectWidgetPushToken: Codable, Equatable, Sendable {
+    public static let storageKey = "DJConnectWidgetPushToken.pending.v1"
+    public let token: Data
+    public let extensionBundleID: String
+    public let widgetKinds: [String]
+    public let observedAt: Date
+
+    public init?(token: Data, extensionBundleID: String, widgetKinds: [String], at now: Date = Date()) {
+        guard !token.isEmpty, token.count <= 4096,
+              extensionBundleID == "dev.djconnect.mac.track-insight-widget",
+              widgetKinds.contains(DJConnectSessionSurfaceSnapshot.widgetKind) else { return nil }
+        self.token = token; self.extensionBundleID = extensionBundleID
+        self.widgetKinds = [DJConnectSessionSurfaceSnapshot.widgetKind]; observedAt = now
+    }
+    public static func replace(_ value: Self?, in defaults: UserDefaults) throws {
+        if let value { defaults.set(try JSONEncoder().encode(value), forKey: storageKey) }
+        else { defaults.removeObject(forKey: storageKey) }
+    }
+    public static func load(from defaults: UserDefaults) -> Self? {
+        guard let data = defaults.data(forKey: storageKey), data.count <= 8192,
+              let value = try? JSONDecoder().decode(Self.self, from: data) else { return nil }
+        return Self(token: value.token, extensionBundleID: value.extensionBundleID,
+                    widgetKinds: value.widgetKinds, at: value.observedAt)
+    }
+}

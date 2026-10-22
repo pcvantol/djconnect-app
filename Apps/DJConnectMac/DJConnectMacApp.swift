@@ -11,11 +11,12 @@ struct DJConnectMacApp: App {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
-        WindowGroup {
+        Window("DJConnect", id: "main") {
             DJConnectLaunchContainer(isBusy: model.isRefreshing, content: DJConnectRootView(model: model))
                 .frame(minWidth: 960, idealWidth: 1280, minHeight: 800, idealHeight: 1060)
                 .background(WindowConfigurator())
                 .onAppear {
+                    appDelegate.openMainWindow = { openWindow(id: "main") }
                     appDelegate.model = model
                 }
         }
@@ -95,8 +96,11 @@ final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcur
     weak var model: DJConnectAppModel? {
         didSet {
             flushPendingPushCallbacks()
+            flushPendingURL()
         }
     }
+    var openMainWindow: (() -> Void)?
+    private var pendingURL: URL?
     private var pendingPush = DJConnectPushStartupBuffer()
 
     override init() {
@@ -106,6 +110,36 @@ final class DJConnectMacAppDelegate: NSObject, NSApplicationDelegate, @preconcur
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = self
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls where url.scheme?.lowercased() == "djconnect" {
+            pendingURL = url
+            flushPendingURL()
+        }
+        presentMainWindow()
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        presentMainWindow()
+        return false
+    }
+
+    private func presentMainWindow() {
+        // Window(id:) is a singleton; openWindow brings it forward or reopens it.
+        if let window = NSApp.windows.first(where: { $0.accessibilityIdentifier() == mainWindowAccessibilityIdentifier }) {
+            if window.isMiniaturized { window.deminiaturize(nil) }
+            window.makeKeyAndOrderFront(nil)
+        } else {
+            openMainWindow?()
+        }
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func flushPendingURL() {
+        guard let url = pendingURL, let model else { return }
+        pendingURL = nil
+        if !model.handleAppNavigationDeepLink(url) { model.handlePairingDeepLink(url) }
     }
 
     func application(

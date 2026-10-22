@@ -1013,11 +1013,13 @@ public struct DJConnectRootView: View {
                 selectedSection = .nowPlaying
             }
         }
+        #if !os(macOS)
         .onOpenURL { url in
             if !model.handleAppNavigationDeepLink(url) {
                 model.handlePairingDeepLink(url)
             }
         }
+        #endif
         .task(id: model.pairingStatus) {
             await model.refreshProfileDJSettings()
             await model.refreshActiveDJSession()

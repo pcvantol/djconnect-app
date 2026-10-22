@@ -136,13 +136,33 @@ private struct DJConnectSessionWidgetView: View {
 
 @MainActor
 private func sessionConfiguration(kind: String) -> some WidgetConfiguration {
-    StaticConfiguration(kind: kind, provider: DJConnectSessionWidgetProvider()) {
+    let configuration = StaticConfiguration(kind: kind, provider: DJConnectSessionWidgetProvider()) {
         DJConnectSessionWidgetView(entry: $0)
     }
     .configurationDisplayName(text("ui.session.title"))
     .description(text("surface.session.description"))
     .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+    #if os(macOS)
+    return configuration.pushHandler(DJConnectSessionWidgetPushHandler.self)
+    #else
+    return configuration
+    #endif
 }
+
+#if os(macOS)
+struct DJConnectSessionWidgetPushHandler: WidgetPushHandler {
+    func pushTokenDidChange(_ pushInfo: WidgetPushInfo, widgets: [WidgetInfo]) {
+        guard !DJConnectLocalization.isQualificationProcess,
+              let bundleID = Bundle.main.bundleIdentifier,
+              let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) else { return }
+        let value = DJConnectWidgetPushToken(token: pushInfo.token, extensionBundleID: bundleID,
+                                            widgetKinds: widgets.map(\.kind))
+        // Never send this token through ordinary app/Ask DJ registration.
+        // Core must negotiate its widget delivery/background-read contract first.
+        try? DJConnectWidgetPushToken.replace(value, in: shared)
+    }
+}
+#endif
 
 struct DJConnectSessionWidget: Widget {
     var body: some WidgetConfiguration { sessionConfiguration(kind: DJConnectSessionSurfaceSnapshot.widgetKind) }

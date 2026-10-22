@@ -15,7 +15,7 @@ def entitlements(bundle):
     return plistlib.loads(data[start:end + len(b"</plist>")])
 
 
-def validate(app):
+def validate(app, require_widget_push=False):
     info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
     widget = app / "Contents/PlugIns/TrackInsightWidget.appex"
     wi = plistlib.loads((widget / "Contents/Info.plist").read_bytes())
@@ -30,6 +30,11 @@ def validate(app):
         "widget and app share DJConnect group": all("group.dev.djconnect" in r.get("com.apple.security.application-groups", []) for r in (rights, parent_rights)),
         "widget and app share signing team": bool(rights.get("com.apple.developer.team-identifier")) and rights.get("com.apple.developer.team-identifier") == parent_rights.get("com.apple.developer.team-identifier"),
     }
+    if require_widget_push:
+        checks["widget has APNs entitlement matching parent"] = (
+            rights.get("com.apple.developer.aps-environment") in {"development", "production"}
+            and rights.get("com.apple.developer.aps-environment") == parent_rights.get("com.apple.developer.aps-environment")
+        )
     for label, passed in checks.items():
         print(("PASS" if passed else "FAIL") + ": " + label)
     return all(checks.values())
@@ -38,9 +43,10 @@ def validate(app):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("app", type=Path)
+    parser.add_argument("--require-widget-push", action="store_true")
     args = parser.parse_args()
     try:
-        ok = validate(args.app)
+        ok = validate(args.app, require_widget_push=args.require_widget_push)
     except (OSError, ValueError, plistlib.InvalidFileException) as error:
         print("FAIL: Mac widget artifact unreadable: " + str(error))
         ok = False

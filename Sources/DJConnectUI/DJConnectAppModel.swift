@@ -10481,6 +10481,22 @@ public final class DJConnectAppModel: ObservableObject {
                 let configured = try await WidgetCenter.shared.currentConfigurations()
                 let kinds = Set([DJConnectSessionSurfaceSnapshot.widgetKind] + DJConnectSessionSurfaceSnapshot.legacyKinds)
                 if configured.contains(where: { kinds.contains($0.kind) }) { surfaces.insert(.widget) }
+                #if os(macOS)
+                // Installation-local WidgetKit token, separate from app APNs.
+                // Server registration waits for the owning Core widget contract.
+                if let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) {
+                    if surfaces.contains(.widget) {
+                        if let push = await WidgetCenter.shared.currentPushInfo,
+                           let token = DJConnectWidgetPushToken(token: push.token,
+                               extensionBundleID: "dev.djconnect.mac.track-insight-widget",
+                               widgetKinds: configured.map(\.kind)) {
+                            try? DJConnectWidgetPushToken.replace(token, in: shared)
+                        }
+                    } else {
+                        try? DJConnectWidgetPushToken.replace(nil, in: shared)
+                    }
+                }
+                #endif
             } catch { return } // Unknown OS state never creates or revokes a grant.
             #endif
             #if os(iOS) && canImport(ActivityKit)

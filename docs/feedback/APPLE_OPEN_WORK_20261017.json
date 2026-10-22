@@ -545,6 +545,36 @@
       ],
       "topic": "Scrolloptimalisatie Ask DJ",
       "owner": "Apple"
+    },
+    {
+      "id": "mac-widget-singleton-window",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: WindowGroup vervangen door Window(main); één Mac URLdelegate met koude URLbuffer en bestaande navigatie/pairingroutes, voorgrond/minimalisatie/Dock reopen. docs/MAC_WIDGET_SINGLETON_AND_PUSH_HANDOFF.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; geen build/install tot gevraagd.",
+      "remaining": [
+        "OPEN: volgende expliciet gevraagde build: native herhaald klikken/koud/warm/gesloten/geminimaliseerd/fullscreen en pairing verifiëren."
+      ],
+      "topic": "Mac widgetklik opent één hoofdvenster",
+      "owner": "Apple"
+    },
+    {
+      "id": "mac-widget-push-registration",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: WidgetPushHandler/currentPushInfo en aparte extension APNs entitlement; begrensde lokale pendingtokenopvang/rotatie/verwijdering, geen appregisterhergebruik. Testbron NOTRUN. docs/MAC_WIDGET_SINGLETON_AND_PUSH_HANDOFF.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; geen build/install tot gevraagd.",
+      "remaining": [
+        "OPEN: owning Core/API heeft afzonderlijk widgetcontract/relay/backgroundread nog niet geleverd; native registratie en echte aflevering niet gekwalificeerd. Geïnstalleerde widget mist nieuwe APNs entitlement."
+      ],
+      "topic": "Mac WidgetKit-pushregistratie",
+      "owner": "Apple; Core/API producer afzonderlijk OPEN"
+    },
+    {
+      "id": "mac-widget-current-session-playback",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: Leesbare cache verlopen/neutraal zonder richdata; geïnstalleerd artifact7basischecks PASS. Bestaande foreground-only grant/expirygrenzen behouden. Core producer expliciet geautoriseerd overgedragen en OPEN bevestigd. docs/MAC_WIDGET_SINGLETON_AND_PUSH_HANDOFF.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; geen build/install tot gevraagd.",
+      "remaining": [
+        "OPEN: actuele passieve bronverversing buiten actieve app vereist owning contract en kwalificatie; geen beweerde screenshot-specifieke rootcause of werkende runtimefix."
+      ],
+      "topic": "Mac widget actuele playback/sessiedata",
+      "owner": "Apple; Core/API producer afzonderlijk OPEN"
     }
   ],
   "qualification": {

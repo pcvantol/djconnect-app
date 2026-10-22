@@ -17,7 +17,7 @@
     "CLOSED_BOUNDED": 22,
     "OPEN": 5,
     "PARKED": 1,
-    "PARTIAL": 38,
+    "PARTIAL": 41,
     "SUPERSEDED": 1
   },
   "requirements": [
@@ -634,6 +634,36 @@
         "OPEN: volgende expliciet gevraagde build compilatie/native scrollmetingen en relevante layout/data/context/actie-updates op iPad/Mac verifiëren; geen gemeten performanceclaim."
       ],
       "requirement": "Scrolloptimalisatie Ask DJ",
+      "source": "Direct Peter / 22 oktober 2026"
+    },
+    {
+      "id": "mac-widget-singleton-window",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: WindowGroup vervangen door Window(main); één Mac URLdelegate met koude URLbuffer en bestaande navigatie/pairingroutes, voorgrond/minimalisatie/Dock reopen. docs/MAC_WIDGET_SINGLETON_AND_PUSH_HANDOFF.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; geen build/install tot gevraagd.",
+      "remaining": [
+        "OPEN: volgende expliciet gevraagde build: native herhaald klikken/koud/warm/gesloten/geminimaliseerd/fullscreen en pairing verifiëren."
+      ],
+      "requirement": "Mac widgetklik opent één hoofdvenster",
+      "source": "Direct Peter / 22 oktober 2026"
+    },
+    {
+      "id": "mac-widget-push-registration",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: WidgetPushHandler/currentPushInfo en aparte extension APNs entitlement; begrensde lokale pendingtokenopvang/rotatie/verwijdering, geen appregisterhergebruik. Testbron NOTRUN. docs/MAC_WIDGET_SINGLETON_AND_PUSH_HANDOFF.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; geen build/install tot gevraagd.",
+      "remaining": [
+        "OPEN: owning Core/API heeft afzonderlijk widgetcontract/relay/backgroundread nog niet geleverd; native registratie en echte aflevering niet gekwalificeerd. Geïnstalleerde widget mist nieuwe APNs entitlement."
+      ],
+      "requirement": "Mac WidgetKit-pushregistratie",
+      "source": "Direct Peter / 22 oktober 2026"
+    },
+    {
+      "id": "mac-widget-current-session-playback",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: Leesbare cache verlopen/neutraal zonder richdata; geïnstalleerd artifact7basischecks PASS. Bestaande foreground-only grant/expirygrenzen behouden. Core producer expliciet geautoriseerd overgedragen en OPEN bevestigd. docs/MAC_WIDGET_SINGLETON_AND_PUSH_HANDOFF.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; geen build/install tot gevraagd.",
+      "remaining": [
+        "OPEN: actuele passieve bronverversing buiten actieve app vereist owning contract en kwalificatie; geen beweerde screenshot-specifieke rootcause of werkende runtimefix."
+      ],
+      "requirement": "Mac widget actuele playback/sessiedata",
       "source": "Direct Peter / 22 oktober 2026"
     }
   ],
