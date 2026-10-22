@@ -115,3 +115,37 @@ func contentDeleteStatusNeverSettlesUnboundOrUncertainResults(_ mutation: String
         ["completed", "pending", "unknown", "expired_unknown"].contains(mutation))
     if status.state != "completed" { #expect(status.receipt == nil && !status.definitive) }
 }
+
+#if os(macOS)
+import AppKit
+@testable import DJConnectUI
+
+@Test @MainActor func revealedContributionDismissalExcludesTrashAndOtherWindows() throws {
+    _ = NSApplication.shared
+    let window = NSWindow(contentRect: .init(x: -3000, y: -3000, width: 400, height: 300),
+                          styleMask: [.borderless], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    let root = NSView(frame: .init(x: 0, y: 0, width: 400, height: 300))
+    window.contentView = root
+    let probe = ContentSwipeTapDismissal.TapProbe(frame: .init(x: 320, y: 120, width: 56, height: 56))
+    var dismissals = 0
+    probe.dismiss = { dismissals += 1 }
+    root.addSubview(probe)
+    window.orderBack(nil)
+    defer { window.close() }
+    func click(_ point: NSPoint, windowNumber: Int) throws -> NSEvent {
+        try #require(NSEvent.mouseEvent(with: .leftMouseDown, location: point, modifierFlags: [],
+            timestamp: 0, windowNumber: windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1))
+    }
+    probe.observe(try click(.init(x: 340, y: 140), windowNumber: window.windowNumber))
+    #expect(dismissals == 0) // Actual trash bounds stay actionable.
+    probe.observe(try click(.init(x: 100, y: 140), windowNumber: window.windowNumber))
+    #expect(dismissals == 1) // Contribution and surrounding page dismiss.
+    probe.observe(try click(.init(x: 100, y: 140), windowNumber: window.windowNumber + 1))
+    #expect(dismissals == 1)
+    #expect(probe.hitTest(.init(x: 20, y: 20)) == nil)
+    probe.removeFromSuperview()
+    probe.observe(try click(.init(x: 100, y: 140), windowNumber: window.windowNumber))
+    #expect(dismissals == 1) // Unmounted rows cannot react to another screen.
+}
+#endif

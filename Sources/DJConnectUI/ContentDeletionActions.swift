@@ -87,6 +87,11 @@ private struct ContentDeletionActions: ViewModifier {
                     Button(role: .destructive, action: begin) {
                         Image(systemName: "trash").frame(width: 56, height: 56)
                     }.buttonStyle(.borderless).foregroundStyle(.red)
+                    .background {
+                        ContentSwipeTapDismissal {
+                            withAnimation(.easeOut(duration: 0.2)) { revealed = false }
+                        }
+                    }
                     .accessibilityLabel(text("ui.content.delete.action"))
                     .accessibilityIdentifier("content-swipe-delete-" + target.target_id)
                 }
@@ -127,3 +132,83 @@ private struct ContentDeletionActions: ViewModifier {
         generation = UUID(); preparing = false; prepared = nil; confirming = false; revealed = false; failed = false; submitted = false
     }
 }
+
+// Mounted only while the trash action is revealed. Observe the window without
+// covering other controls; the trash button itself remains actionable.
+#if os(iOS)
+import UIKit
+
+struct ContentSwipeTapDismissal: UIViewRepresentable {
+    let dismiss: () -> Void
+    func makeUIView(context: Context) -> TapProbe {
+        let view = TapProbe()
+        view.isUserInteractionEnabled = false
+        view.dismiss = dismiss
+        return view
+    }
+    func updateUIView(_ view: TapProbe, context: Context) { view.dismiss = dismiss }
+    static func dismantleUIView(_ view: TapProbe, coordinator: ()) { view.detach() }
+
+    final class TapProbe: UIView, UIGestureRecognizerDelegate {
+        var dismiss: (() -> Void)?
+        private weak var observedWindow: UIWindow?
+        private lazy var tap: UITapGestureRecognizer = {
+            let recognizer = UITapGestureRecognizer(target: self, action: #selector(tapped))
+            recognizer.cancelsTouchesInView = false
+            recognizer.delegate = self
+            return recognizer
+        }()
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            detach()
+            if let window { observedWindow = window; window.addGestureRecognizer(tap) }
+        }
+        func detach() {
+            observedWindow?.removeGestureRecognizer(tap)
+            observedWindow = nil
+        }
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            guard let window else { return false }
+            return !convert(bounds, to: window).contains(touch.location(in: window))
+        }
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }
+        @objc private func tapped() { dismiss?() }
+    }
+}
+#elseif os(macOS)
+import AppKit
+
+struct ContentSwipeTapDismissal: NSViewRepresentable {
+    let dismiss: () -> Void
+    func makeNSView(context: Context) -> TapProbe {
+        let view = TapProbe(); view.dismiss = dismiss; return view
+    }
+    func updateNSView(_ view: TapProbe, context: Context) { view.dismiss = dismiss }
+    static func dismantleNSView(_ view: TapProbe, coordinator: ()) { view.detach() }
+
+    final class TapProbe: NSView {
+        var dismiss: (() -> Void)?
+        private var monitor: Any?
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            detach()
+            guard window != nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+                self?.observe(event)
+                return event
+            }
+        }
+        func observe(_ event: NSEvent) {
+            guard let window, event.window === window,
+                  !bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+            dismiss?()
+        }
+        func detach() {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
+        }
+    }
+}
+#endif

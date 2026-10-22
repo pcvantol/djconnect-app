@@ -15,3 +15,13 @@ Both installed Macs were already version40437 with CFBundleIconFile/CFBundleIcon
 Validation: 4 focused test functions /17 cases PASS; signed macOS and iOS40438 builds and strict signature checks PASS. The red regression log records exactly the two lost-navigation assertions before the fix. Installation is deferred to the combined search-focus follow-up.
 
 Delivery: 40439 installed/read back on Mac mini and MacBook with matching UI SHA256 e2218c764ca061ee43f6b9653b47687e34549dbb216ff1e260db0e5ac376e523; both running. iPhone installed/read back40439, launch blocked by device lock. iPad unavailable, not updated. Implementation source02f541b1e8c3f021984fda51e9c5aa1c30a4adb7. Physical user acceptance remains open.
+
+## Dismiss a revealed swipe action
+
+Owner screenshot22October: a contribution remains shifted left with its trash action visible. A tap anywhere else on that window must animate the contribution back.
+
+A transparent native observation view is mounted behind the revealed trash button only. iOS/iPadOS listens for completed taps on the containing window, excluding the actual trash-button bounds, with cancelsTouchesInView=false and simultaneous recognition. macOS observes same-window clicks without consuming their events. Both routes close the row with a0.2second animation; native observers detach when the action or row disappears. There is no observer for closed rows and no full-screen hit-testing overlay. Actual deletion still uses the existing prepare/confirmation path.
+
+A native macOS coordinate regression checks an inside-trash click, a tap elsewhere on the page, another window, transparent hit testing and removal of the row. This does not qualify physical iPad tap behavior.
+
+Swipe-dismiss validation: native window-coordinate regressionPASS; signed macOS/iOS40440 builds and strict signaturesPASS. Device installation/readback follows separately.
