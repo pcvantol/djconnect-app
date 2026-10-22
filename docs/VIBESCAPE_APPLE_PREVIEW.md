@@ -37,6 +37,11 @@ picker belongs to the scrolling content above the playback header, with no
 pinned overlay. The picker precedes the current-track header in scroll content;
 the initial scroll anchor is the header, so the picker starts above the viewport
 and pulling the artwork down reveals it. It scrolls into and out of view.
+On iOS the picker reserves the measured toolbar-control height below itself
+(44-point minimum). The initial current-header anchor is set before first layout;
+the artwork then starts eight points below the native content boundary instead
+of the previous combined 32-point top padding. This leaves the native toolbar
+between picker and artwork, without a device-specific status-bar offset.
 The selected pill uses a dark Session mood tint. VibeScape remembers the
 visible picker's global frame at entry and aligns its own picker there, using
 the same width and padding. This geometry is presentation-only RAM, not user
