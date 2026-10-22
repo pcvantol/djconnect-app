@@ -155,6 +155,7 @@ public actor DJConnectHybridTransport {
     private var offlineRetryAfter: TimeInterval = 0
     private var action: DJConnectPairedActionConnection?
     private var actionURL: URL?
+    private var reactionObserver: DJConnectPairedActionConnection?
     private var actionGeneration = UUID()
     private var receipts: [String: DJConnectOperationReceipt] = [:]
     // Compact uncertainty metadata only; payload/result bodies never survive a call.
@@ -192,6 +193,7 @@ public actor DJConnectHybridTransport {
         generation = UUID(); routeTask?.cancel(); routeTask = nil; route = nil
         retryLocalAfter = 0; offlineRetryAfter = 0
         await action?.stop(); action = nil; actionURL = nil
+        await reactionObserver?.stop(); reactionObserver = nil
         diagnostics.activeOrigin = nil
         state(.recoveringOffline)
         if foreground, !pendingIntents.isEmpty { Task { await self.reconcilePending() } }
@@ -369,6 +371,20 @@ public actor DJConnectHybridTransport {
     }
     /// These operations have no legacy endpoint. Preserve the ordinary operation
     /// owner's identity, capacity, route qualification and uncertain-send recovery.
+    public func observePersonaReaction(_ result: DJConnectPersonaReactionResult) async throws -> DJConnectPersonaReactionObservation {
+        let route = try await readyRoute(), epoch = generation
+        await reactionObserver?.stop()
+        let observer = DJConnectPairedActionConnection(baseURL: route.url, expectedInstallID: expectedInstallID,
+            identity: identity, tokenStore: tokenStore, wire: wire,
+            qualifiedLocalHTTP: route.url.scheme == "http" && DJConnectHybridLocalPolicy.acceptsContext(route.context, origin: route.url, pairedLocalOrigin: localURL))
+        reactionObserver = observer
+        do {
+            let observation = try await observer.observePersonaReaction(result)
+            guard generation == epoch, foreground, !Task.isCancelled else { await observation.close(); throw CancellationError() }
+            return observation
+        } catch { await observer.stop(); throw error }
+    }
+
     public func performPersonaReaction(_ operation: DJConnectPersonaReactionOperation, payload: Data,
                                       onOperationID: (@Sendable (String) -> Void)? = nil) async throws -> (Data, Int) {
         guard payload.count <= 60_000 else { throw DJConnectHybridTransportError.capacity }

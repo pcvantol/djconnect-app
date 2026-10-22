@@ -760,6 +760,10 @@ public final class DJConnectClient: Sendable {
         guard result.success, result.persona_reaction.admits(request: request, settings: settings, receipt: result.operation_receipt, started: started) else { throw DJConnectError.invalidResponse }
         return result
     }
+    public func observePersonaReaction(_ result: DJConnectPersonaReactionResult) async throws -> DJConnectPersonaReactionObservation {
+        guard let hybridTransport else { throw DJConnectHybridTransportError.unavailable }
+        return try await hybridTransport.observePersonaReaction(result)
+    }
     public func cancelPersonaReaction(sessionID: String, reactionID: String, reason: DJConnectPersonaReactionCancellation) async throws {
         guard let hybridTransport, !sessionID.isEmpty, UUID(uuidString: reactionID) != nil else { throw DJConnectHybridTransportError.unavailable }
         struct Cancellation: Encodable {

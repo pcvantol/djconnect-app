@@ -17,7 +17,7 @@
     "CLOSED_BOUNDED": 22,
     "OPEN": 5,
     "PARKED": 1,
-    "PARTIAL": 42,
+    "PARTIAL": 43,
     "SUPERSEDED": 1
   },
   "requirements": [
@@ -674,6 +674,16 @@
         "OPEN: bij volgende expliciet gevraagde build native uitlijning/tekstgroei op iPad/Mac/iPhone bekijken. Geen build/install aangevraagd."
       ],
       "requirement": "Witte glyphs bij Nu, De komende minuten en Waar ik op mik",
+      "source": "Direct Peter / 22 oktober 2026"
+    },
+    {
+      "id": "persona-avatar-taps-withdrawal-adoption",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: avatar single/double/triple opmerking ontbreekt. Permanente lokale falsegate gevonden. Core-main83744790 heeft nu observe/tombstone contract; Apple runtimecap vereist die exact, observeert originele ID/epoch/session/expiry vóór tekst/audio en sluit bij withdrawal/verbinding/contextverlies. Bestaande check_in/playful/easter_egg en haptics blijven. Bronregressies toegevoegd NOTRUN. docs/PERSONA_AVATAR_TAPS_WITH_WITHDRAWAL.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED.",
+      "remaining": [
+        "OPEN: volgende expliciet gevraagde build: decoder/paired socket/event/cancel races + echte single/double/triple op iPad/Mac/iPhone en output/withdrawal fysiek kwalificeren. Geïnstalleerd gedrag niet gewijzigd."
+      ],
+      "requirement": "Avatar single/double/triple DJ-opmerkingen activeren via actuele observer",
       "source": "Direct Peter / 22 oktober 2026"
     }
   ],

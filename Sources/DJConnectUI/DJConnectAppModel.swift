@@ -4608,7 +4608,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     var presentsPersonaReactionControl: Bool {
-        PersonaReactionConsumerGate.isQualified && activePersonaReactionAvailable && currentPersonaScope() != nil && !isDemoMode &&
+        activePersonaReactionAvailable && currentPersonaScope() != nil && !isDemoMode &&
         profileDJSettings.response?.snapshot.session?.session_id == activeDJSession?.id &&
         profileDJSettings.response?.snapshot.activated == true && profileDJSettings.response?.snapshot.accepted_contract_version == 3 &&
         profileDJSettings.response?.snapshot.output_choice_confirmed == true
@@ -4626,13 +4626,14 @@ public final class DJConnectAppModel: ObservableObject {
                   processor: deviceSpeechPreferences.enabled ? .localOnDevice : .haConfigured) else { return }
         let preferences = deviceSpeechPreferences
         let voiceRevision = settings.voice_revision
+        var reactionObservation: DJConnectPersonaReactionObservation?
         stopResponsePlayback(clearText: false)
         personaReactionScope = scope
         personaReplyScope = nil
         personaReactionNotice = nil
         let current: @MainActor () -> Bool = { [weak self] in
             guard let self else { return false }
-            return self.currentPersonaScope() == scope && self.activePersonaReactionAvailable && !self.profileDJSettings.hasUncertainOperation &&
+            return reactionObservation?.isValid != false && self.currentPersonaScope() == scope && self.activePersonaReactionAvailable && !self.profileDJSettings.hasUncertainOperation &&
                 self.profileDJSettings.response?.voice_revision == voiceRevision && self.deviceSpeechPreferences == preferences &&
                 !self.isSendingAskDJText && !self.isRecordingVoice && self.voiceStatus != .processing &&
                 !self.sharedSpeechIsPreparing && !self.sharedSpeechIsPlaying && !self.deviceSpeechPreviewIsPlaying
@@ -4673,7 +4674,15 @@ public final class DJConnectAppModel: ObservableObject {
                 guard !Task.isCancelled, self?.personaReactionNotice?.id == notice.id else { return }
                 self?.personaReactionNotice = nil
             }
-        }, notice: notice, admittedFeedback: { DJConnectHaptics.success() }))
+        }, notice: notice, admittedFeedback: { DJConnectHaptics.success() }, observe: { [weak self] result in
+            guard let self, current(), !Task.isCancelled else { throw CancellationError() }
+            let observation = try await self.withHomeAssistantClient(allowsOperationReplay: false) {
+                try await $0.observePersonaReaction(result)
+            }
+            guard current(), !Task.isCancelled else { await observation.close(); throw CancellationError() }
+            reactionObservation = observation
+            return observation
+        }))
         if personaReactions.isActive { DJConnectHaptics.selection() }
     }
     private func stopPersonaReactionOutput(_ reason: DJConnectPersonaReactionCancellation) {

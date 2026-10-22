@@ -585,6 +585,16 @@
       ],
       "topic": "Witte glyphs in drie Vooruitblik-blokken",
       "owner": "Apple"
+    },
+    {
+      "id": "persona-avatar-taps-withdrawal-adoption",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: avatar single/double/triple opmerking ontbreekt. Permanente lokale falsegate gevonden. Core-main83744790 heeft nu observe/tombstone contract; Apple runtimecap vereist die exact, observeert originele ID/epoch/session/expiry vóór tekst/audio en sluit bij withdrawal/verbinding/contextverlies. Bestaande check_in/playful/easter_egg en haptics blijven. Bronregressies toegevoegd NOTRUN. docs/PERSONA_AVATAR_TAPS_WITH_WITHDRAWAL.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED.",
+      "remaining": [
+        "OPEN: volgende expliciet gevraagde build: decoder/paired socket/event/cancel races + echte single/double/triple op iPad/Mac/iPhone en output/withdrawal fysiek kwalificeren. Geïnstalleerd gedrag niet gewijzigd."
+      ],
+      "topic": "Avatar single/double/triple: observer-adoptie",
+      "owner": "Apple; bestaand Core-maincontract83744790"
     }
   ],
   "qualification": {

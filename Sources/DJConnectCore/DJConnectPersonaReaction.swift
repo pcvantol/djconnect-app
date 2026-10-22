@@ -44,8 +44,24 @@ public struct DJConnectPersonaReactionCapability: Decodable, Sendable {
     let kinds, language_families, processors: [String]
     let history_publication, queue, actual_audio_start_required, client_cancel_on_lifecycle_required: Bool
     let cache_policy: String
+    struct Withdrawal: Decodable, Sendable {
+        let version, maximum_observers_per_reaction: Int
+        let transport, command, event, on_connection_loss: String
+        let required_for_display_and_playback, deadline_renewal: Bool
+        let server_guard_recheck_seconds: Double
+        var supported: Bool {
+            version == 1 && transport == "paired_owner_actions" && command == "djconnect/persona/reaction/observe" &&
+            event == "session/persona/reaction/withdrawn" && required_for_display_and_playback &&
+            maximum_observers_per_reaction == 1 && on_connection_loss == "withdraw_and_stop" && !deadline_renewal &&
+            server_guard_recheck_seconds > 0 && server_guard_recheck_seconds <= 1
+        }
+    }
+    let withdrawal_contract: Withdrawal?
+    let cancel_before_admission: String?
     public var isSupported: Bool {
-        available && version == 1 && operation == DJConnectPersonaReactionOperation.request.rawValue &&
+        available && withdrawal_contract?.supported == true &&
+        cancel_before_admission == "durable_original_uuidv7_fence_until_operation_deadline" &&
+        version == 1 && operation == DJConnectPersonaReactionOperation.request.rawValue &&
         cancel_operation == DJConnectPersonaReactionOperation.cancel.rawValue && path == "/api/djconnect/v1/transport/operation" &&
         authentication == "paired_device_bearer" && owner_only && requires_confirmed_settings && session_required &&
         settings_contract_version == 3 && maximum_seconds == 30 && maximum_pending_or_playing == 1 &&
@@ -133,4 +149,53 @@ public struct DJConnectPersonaReactionResult: Decodable, Sendable {
     public let persona_reaction: DJConnectPersonaReaction
     public let operation_receipt: DJConnectOperationReceipt
     public let delivery: [String: String]
+}
+
+/// One original reaction admission. A receipt alone never authorizes display/audio.
+public final class DJConnectPersonaReactionObservation: @unchecked Sendable {
+    private let lock = NSLock()
+    private var admitted = false
+    private var withdrawn = false
+    private let continuation: AsyncStream<Void>.Continuation
+    public let withdrawals: AsyncStream<Void>
+    private let closeChannel: @Sendable () async -> Void
+    let result: DJConnectPersonaReactionResult
+    private var observationID: Int?
+    init(result: DJConnectPersonaReactionResult, close: @escaping @Sendable () async -> Void) {
+        self.result = result; closeChannel = close
+        let stream = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        withdrawals = stream.stream; continuation = stream.continuation
+    }
+    public var isValid: Bool {
+        lock.withLock { admitted && !withdrawn && result.persona_reaction.deadline.map { $0 > Date() } == true }
+    }
+    func accept(_ data: Data, requestID: Int, initial: Bool) throws {
+        struct Snapshot: Decodable {
+            let contract_version, observation_id: Int
+            let reaction_id, session_id, state, expires_at, cache_policy: String
+        }
+        let value = try JSONDecoder().decode(Snapshot.self, from: data)
+        let reaction = result.persona_reaction
+        guard value.contract_version == 1, value.observation_id == requestID,
+              value.reaction_id == reaction.id, value.session_id == reaction.session.session_id,
+              value.cache_policy == "private,no-store", ["valid", "withdrawn"].contains(value.state),
+              DJConnectHistoryEntry.date(value.expires_at) == reaction.deadline else {
+            invalidate(); throw DJConnectError.invalidResponse
+        }
+        let valid = lock.withLock { () -> Bool in
+            if initial { observationID = requestID }
+            guard observationID == requestID, !withdrawn else { return false }
+            admitted = value.state == "valid"
+            return admitted
+        }
+        if !valid { invalidate() }
+    }
+    func invalidate() {
+        let first = lock.withLock { () -> Bool in
+            guard !withdrawn else { return false }
+            withdrawn = true; admitted = false; return true
+        }
+        if first { continuation.yield(()); continuation.finish() }
+    }
+    public func close() async { invalidate(); await closeChannel() }
 }

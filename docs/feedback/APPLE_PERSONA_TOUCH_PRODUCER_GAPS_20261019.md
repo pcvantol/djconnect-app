@@ -1,5 +1,7 @@
 # Persona touch: consumer activation remains gated
 
+Historical finding for the19October producer. New source-only adoption of Core83744790 observer/tombstone semantics is recorded in [current avatar-tap work](../PERSONA_AVATAR_TAPS_WITH_WITHDRAWAL.md). The permanent Apple gate is replaced by strict runtime negotiation; native/build/installed acceptance remains open. Original evidence below is retained.
+
 The owning Apple continuation follows Core1209/Apple127. Basic observed avatar
 activity is already delivered in Apple PR135/main5974830. This is the separate
 explicit-touch addition, not a new Ask DJ turn or Moment.
