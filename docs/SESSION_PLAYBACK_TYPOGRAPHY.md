@@ -1,0 +1,5 @@
+# Larger Session playback typography on iPad and Mac
+
+Owner requested larger track/playback/progress text beside the cover, vertically aligned to its height. On Mac and iPad only, the live Session music details now use title-bold track, title2 artist, body album/duration and callout output/volume. A flexible gap between metadata and progress lets the latter group sit toward the bottom. The side-by-side layout proposes the full row height to the details instead of leaving height unspecified. Natural content measurement still allows the row to grow for long text/accessibility sizes; nothing is clipped to a fixed270point height. Phone layout and sizes retain their existing branch.
+
+Source inspection, git diff --check and work-register validation PASS. No build, native render, tests that compile, installation or physical visual acceptance was run: owner's explicit-build-only instruction applies. Last installed preview remains40447. Changes accumulate in PR179 without merge until requested. A later explicitly requested build should check iPad/Mac short/long titles, narrow windows, large Dynamic Type and phone regression.

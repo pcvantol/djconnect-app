@@ -582,14 +582,29 @@ struct NativeSessionMomentsView: View {
         }
     }
 
+    private var usesLargePlaybackTypography: Bool {
+        #if os(macOS)
+        true
+        #elseif os(iOS)
+        UIDevice.current.userInterfaceIdiom == .pad
+        #else
+        false
+        #endif
+    }
+
     private var musicDetails: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let playback = session.broadcast.playback {
                 if let title = playback.title, !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(title).font(.headline)
+                    Text(title).font(usesLargePlaybackTypography ? .title.bold() : .headline)
                 }
-                if let artist = playback.artist { Text(artist).foregroundStyle(.secondary) }
-                if let album = playback.album { Text(album).font(.caption).foregroundStyle(.secondary) }
+                if let artist = playback.artist {
+                    Text(artist).font(usesLargePlaybackTypography ? .title2 : .body).foregroundStyle(.secondary)
+                }
+                if let album = playback.album {
+                    Text(album).font(usesLargePlaybackTypography ? .body : .caption).foregroundStyle(.secondary)
+                }
+                if usesLargePlaybackTypography { Spacer(minLength: 0) }
                 if let duration = playback.durationMS, duration > 0, let position = playbackModel?.displayedSessionPositionMS(session) ?? playback.positionMS {
                     let current = max(0, min(position, duration))
                     ProgressView(value: Double(current), total: Double(duration))
@@ -601,7 +616,7 @@ struct NativeSessionMomentsView: View {
                         }
                         Spacer(minLength: 0)
                         Text("\(sessionPlaybackTime(current)) / \(sessionPlaybackTime(duration))")
-                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            .font((usesLargePlaybackTypography ? Font.body : .caption).monospacedDigit()).foregroundStyle(.secondary)
                             .accessibilityLabel(text("ui.session.music_duration"))
                             .accessibilityValue("\(sessionPlaybackTime(current)) / \(sessionPlaybackTime(duration))")
                     }
@@ -630,13 +645,13 @@ struct NativeSessionMomentsView: View {
                         .accessibilityValue(playbackModel?.currentPlaybackUsesLocalBluetooth == true ? "Bluetooth" : playbackModel?.currentPlaybackVolumePercent.map { "\($0)%" } ?? "-")
                         .accessibilityIdentifier("session-playback-volume")
                     }
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(usesLargePlaybackTypography ? .callout : .caption).foregroundStyle(.secondary)
                 }
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("session-music-details")
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: usesLargePlaybackTypography ? .infinity : nil, alignment: .topLeading)
     }
 }
 
@@ -795,8 +810,11 @@ private struct SessionCurrentColumns: Layout {
         }
         let (music, card, gap) = widths(.init(width: bounds.width, height: nil))
         subviews[0].place(at: bounds.origin, anchor: .topLeading, proposal: .init(width: music, height: nil))
+        // Give the details the full cover-row height so their progress/output
+        // group aligns with the bottom of the artwork. Natural text height still
+        // wins in sizeThatFits when long text or accessibility sizes need more room.
         subviews[1].place(at: CGPoint(x: bounds.minX + music + gap, y: bounds.minY), anchor: .topLeading,
-                          proposal: .init(width: card, height: nil))
+                          proposal: .init(width: card, height: bounds.height))
     }
 }
 
