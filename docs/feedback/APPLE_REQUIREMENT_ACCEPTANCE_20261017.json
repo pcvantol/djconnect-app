@@ -282,8 +282,8 @@
       "requirement": "VibeCast QR→gekozen bestaande HA→enige HA6digitdisplayapproval",
       "status": "BLOCKED",
       "source": "https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6224544732",
-      "evidence": "Ownerroute beslist: geen aanvullende code/nieuwepairing; copiedQR-keuze geaccepteerd. API94freshhead250be2f blijft0.4draft.",
-      "remaining": "APIverifier/Worker/receiptpolicy/securityfreeze; nativeJWE/recovery/rotation/scanner/TVE2E daarna. Geen scanner tegen draft."
+      "evidence": "Ownerroute beslist: geen aanvullende code/nieuwepairing; copiedQR-keuze geaccepteerd. API94freshhead250be2f blijft0.4draft. 20261022 Apple source review: docs/feedback/APPLE_VIBECAST_APP_CONNECTION_20261022.md. Mac and iOS share Core B consent with actual identity; targeted display revoke, QR system Paste and explicit TV-code continuation added. Ordinary native A stops before I/O; exact finite admission preserved. New test source added but not compiled/run, per owner no-build instruction. API/Core coordination explicitly authorized and sent to existing writers.",
+      "remaining": "Exact API/native execution admission and complete source review response; implementation source release is not public activation. Explicit owner build request before compilation/signing/install; then genuine phone/HA/receiver/TV acceptance, including targeted revoke and unknown outcomes. Explicit recovery/replacement/rollover product orchestration and independent source review remain open; no automatic repair or new key. Approved-screen stop is scoped to the current foreground form; no persisted display-management inventory."
     },
     {
       "id": "production-push",

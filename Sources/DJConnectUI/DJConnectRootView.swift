@@ -9444,48 +9444,8 @@ struct VibeCastSessionStartDialog: View {
 
 struct VibeCastHandoffForm: View {
     @ObservedObject var model: DJConnectAppModel
-    @State private var vibeCastHandoffCode = ""
-
     var body: some View {
-        #if os(iOS)
         VibeCastDisplayConsentForm(model: model, embedded: true)
-        #else
-        VStack(alignment: .leading, spacing: 18) {
-            Text(localizedKey(model.language, "ui.vibecast.handoff.instructions"))
-                .font(.callout).foregroundStyle(.white.opacity(0.82))
-                .fixedSize(horizontal: false, vertical: true)
-            VibeCastCodeEntry(code: $vibeCastHandoffCode,
-                              accessibilityLabel: localizedKey(model.language, "ui.vibecast.handoff.code"))
-                .frame(height: 64)
-            Button(localizedKey(model.language, "ui.vibecast.handoff.approve")) {
-                resignPlatformFirstResponder()
-                Task { await model.approveVibeCastHandoff(code: vibeCastHandoffCode) }
-            }
-            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
-            .disabled(vibeCastHandoffCode.count != 6 || model.isLoadingVibeCastHandoff || model.isDemoMode || model.pairingStatus != .paired)
-            .accessibilityIdentifier("vibecast-handoff-approve")
-            if model.vibeCastHandoffApproved {
-                Text(localizedKey(model.language, "ui.vibecast.handoff.approved"))
-                    .font(.footnote).foregroundStyle(.green)
-            }
-            if model.vibeCastHandoffFailed {
-                Text(localizedKey(model.language, model.vibeCastHandoffErrorKey ?? "ui.vibecast.handoff.failed"))
-                    .font(.footnote).foregroundStyle(.red)
-            }
-            if let error = model.djSessionErrorMessage {
-                Text(error).font(.footnote).foregroundStyle(.red)
-            }
-        }
-        .padding(.horizontal, 0)
-        #if os(macOS)
-        .padding(.top, 16)
-        .padding(.bottom, 16)
-        #else
-        .padding(.vertical, 16)
-        #endif
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("vibecast-handoff-form")
-        #endif
     }
 }
 
@@ -9494,7 +9454,7 @@ struct VibeCastDisplayConsentForm: View {
     var embedded = false
     @Environment(\.dismiss) private var dismiss
     @State private var code = ""
-    private var busy: Bool { model.displayConsentState == .resolving || model.displayConsentState == .approving }
+    private var busy: Bool { model.displayConsentState == .resolving || model.displayConsentState == .approving || model.displayConsentState == .revoking }
     var body: some View {
         Group {
             if embedded { formContent }
@@ -9519,8 +9479,8 @@ struct VibeCastDisplayConsentForm: View {
                 }
                 Text(localizedKey(model.language, "ui.displayConsent.instructions"))
                 VibeCastCodeEntry(code: $code, accessibilityLabel: localizedKey(model.language, "ui.vibecast.handoff.code"))
-                    .frame(height: 64).disabled(busy || model.displayConsentState == .ready || model.displayConsentState == .approved || model.displayConsentState == .uncertain)
-                if model.displayConsentState == .idle || model.displayConsentState == .unavailable {
+                    .frame(height: 64).disabled(busy || model.displayConsentState == .ready || model.displayConsentState == .approved || model.displayConsentState == .uncertain || model.displayConsentState == .revokeUncertain)
+                if model.displayConsentState == .idle || model.displayConsentState == .unavailable || model.displayConsentState == .revoked {
                     Button(localizedKey(model.language, "ui.displayConsent.lookup")) {
                         resignPlatformFirstResponder()
                         Task { await model.resolveDisplayConsent(code: code) }
@@ -9537,6 +9497,16 @@ struct VibeCastDisplayConsentForm: View {
                 }
                 if busy { ProgressView() }
                 if model.displayConsentState == .approved { Text(localizedKey(model.language, "ui.displayConsent.approved")) }
+                if model.displayConsentState == .approved {
+                    Button(role: .destructive) { Task { await model.revokeDisplayConsent() } } label: {
+                        Label(localizedKey(model.language, "ui.displayConsent.stop"), systemImage: "display.trianglebadge.exclamationmark")
+                    }
+                    .djConnectButtonStyle(DJConnectButtonStyle(expands: true))
+                    .accessibilityIdentifier("display-consent-stop")
+                }
+                if model.displayConsentState == .revoked { Text(localizedKey(model.language, "ui.displayConsent.stopped")) }
+                if model.displayConsentState == .revokeUncertain { Text(localizedKey(model.language, "ui.displayConsent.stop_uncertain")) }
+
                 if model.displayConsentState == .uncertain { Text(localizedKey(model.language, "ui.displayConsent.uncertain")) }
                 if model.displayConsentState == .unavailable { Text(localizedKey(model.language, "ui.displayConsent.unavailable")) }
                 if !embedded {

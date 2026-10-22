@@ -837,21 +837,22 @@ public final class DJConnectAppModel: ObservableObject {
     private var displayConsentOperation = UUID()
     private var displayConsentOwner: (@MainActor @Sendable () -> Bool)?
     var canResolveDisplayConsent: Bool {
-        !isDemoMode && identity.clientType == .ios && pairingStatus == .paired && isAppInForeground &&
+        !isDemoMode && [.ios, .macos].contains(identity.clientType) && pairingStatus == .paired && isAppInForeground &&
             activeDJSession?.runtimeState == "active" && sessionHistory.authorizedProfileID != nil
     }
     func resetDisplayConsent() { cancelDisplayConsent(); displayConsentState = .idle }
 
     func cancelDisplayConsent() {
         let uncertain = displayConsentFlow?.state == .approving || displayConsentFlow?.state == .uncertain
+        let revokeUncertain = displayConsentFlow?.state == .revoking || displayConsentFlow?.state == .revokeUncertain
         displayConsentOperation = UUID()
         displayConsentFlow?.withdraw(); displayConsentFlow = nil; displayConsentOwner = nil
         displayConsentExistingShare = nil
-        displayConsentState = uncertain ? .uncertain : .unavailable
+        displayConsentState = revokeUncertain ? .revokeUncertain : uncertain ? .uncertain : .unavailable
     }
     func resolveDisplayConsent(code: String) async {
         cancelDisplayConsent()
-        guard !isDemoMode, identity.clientType == .ios, pairingStatus == .paired, isAppInForeground,
+        guard !isDemoMode, [.ios, .macos].contains(identity.clientType), pairingStatus == .paired, isAppInForeground,
               let session = activeDJSession, session.runtimeState == "active",
               let profile = sessionHistory.authorizedProfileID,
               let installation = defaults.string(forKey: haInstallIDKey), !installation.isEmpty else { return }
@@ -898,6 +899,22 @@ public final class DJConnectAppModel: ObservableObject {
         displayConsentState = flow.state
         refreshDisplayConsentPresentation()
     }
+    func revokeDisplayConsent() async {
+        guard displayConsentState == .approved, let flow = displayConsentFlow,
+              displayConsentOwner?() == true else { return }
+        let operation = displayConsentOperation
+        displayConsentState = .revoking
+        do { try await flow.revokeDisplay() } catch { }
+        guard displayConsentOperation == operation else { return }
+        displayConsentState = flow.state
+    }
+    func openRendezvousDisplayConsent() {
+        guard canResolveDisplayConsent else { return }
+        cancelRendezvous()
+        isShowingRendezvous = false
+        isShowingVibeCastSessionStart = true
+    }
+
     func refreshDisplayConsentPresentation() {
         guard let flow = displayConsentFlow else { return }
         guard displayConsentOwner?() == true else { cancelDisplayConsent(); return }
@@ -948,6 +965,9 @@ public final class DJConnectAppModel: ObservableObject {
               let installation = defaults.string(forKey: haInstallIDKey), !installation.isEmpty else {
             rendezvousStatusKey = "ui.rendezvous.invalid"; return
         }
+        guard let appContext = rendezvousNativeAppContext else {
+            rendezvousStatusKey = "ui.rendezvous.notReady"; return
+        }
         let operation = UUID(); rendezvousOperation = operation
         let epoch = sessionHistory.responseEpoch
         let scope = currentDeviceSpeechContext
@@ -986,9 +1006,6 @@ public final class DJConnectAppModel: ObservableObject {
             // Source preparation is limited to the separately compiled fixed QA
             // app. Its API remains closed until the independently reviewed exact
             // signed-profile/activation proposal is admitted by the API owner.
-            guard let appContext = rendezvousNativeAppContext else {
-                rendezvousStatusKey = "ui.rendezvous.notReady"; return
-            }
             guard owner() else { return }
             nativeStarted = true
             rendezvousStatusKey = "ui.rendezvous.sending"

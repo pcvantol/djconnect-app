@@ -1506,7 +1506,7 @@
 "ui.session.playback.speaker_question" = "Show available speakers.";
 
 "ui.rendezvous.sending" = "Preparing secure TV linking…";
-"ui.rendezvous.accepted" = "The address was sent. Continue on the TV and approve screen sharing in Home Assistant.";
+"ui.rendezvous.accepted" = "The address was sent. Continue on the TV and enter the TV code in the app to confirm screen sharing.";
 "ui.rendezvous.uncertain" = "We could not confirm whether the address was sent. Check the TV before trying again.";
 "ui.rendezvous.repairNeeded" = "Secure linking could not be prepared. Try again later.";
 
@@ -1544,3 +1544,13 @@
 "ui.vibescape.voice.stop" = "Stop recording";
 
 "ui.session.shortcut.open" = "Open DJ session";
+
+"ui.displayConsent.stop" = "Stop screen sharing";
+
+"ui.displayConsent.stopped" = "Screen sharing stopped. Your DJ session continues.";
+
+"ui.displayConsent.stop_uncertain" = "Stopping screen sharing could not be confirmed. Check the screen before continuing.";
+
+"ui.rendezvous.tv_code" = "Enter TV code";
+
+"ui.rendezvous.tv_code_help" = "Already have a code on the TV? Enter it here and confirm screen sharing for your active DJ session.";

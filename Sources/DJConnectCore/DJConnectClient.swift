@@ -87,7 +87,7 @@ public final class DJConnectClient: Sendable {
     /// Never send those credentials to the public rendezvous service.
     public func displayOwnerContext(expectedInstallationID: String, pairedLocalOrigin: URL?,
                                     isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectDisplayOwnerContext {
-        guard !expectedInstallationID.isEmpty, identity.clientType == .ios,
+        guard !expectedInstallationID.isEmpty, [.ios, .macos].contains(identity.clientType),
               DJConnectHybridTransport.trustedOrigin(baseURL) ||
                 (baseURL == pairedLocalOrigin && DJConnectHybridLocalPolicy.isLocalCandidate(baseURL)) else { throw DJConnectError.invalidResponse }
         let originalToken = try loadedToken()
@@ -124,12 +124,12 @@ public final class DJConnectClient: Sendable {
         return context
     }
 
-    // Only the Core B coordinator invokes these two ordinary paired routes.
+    // Only the Core B coordinator invokes these ordinary paired routes.
     // It first validates a fresh selected-installation/owner context. The same
     // predicate is carried through the budget hop into synchronous dispatch.
     func displayConsentExchange(path: String, body: Data,
                                 isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> Data {
-        guard ["resolve", "approve"].contains(path), identity.clientType == .ios else {
+        guard ["resolve", "approve", "revoke"].contains(path), [.ios, .macos].contains(identity.clientType) else {
             throw DJConnectError.invalidResponse
         }
         let originalToken = try loadedToken()

@@ -1506,7 +1506,7 @@
 "ui.session.playback.speaker_question" = "Toon beschikbare speakers.";
 
 "ui.rendezvous.sending" = "Veilige TV-koppeling voorbereiden…";
-"ui.rendezvous.accepted" = "Het adres is verstuurd. Ga verder op de TV en keur het schermdelen goed in Home Assistant.";
+"ui.rendezvous.accepted" = "Het adres is verstuurd. Ga verder op de TV en voer de TV-code in de app in om het schermdelen te bevestigen.";
 "ui.rendezvous.uncertain" = "We konden niet bevestigen of het adres is verstuurd. Controleer de TV voordat je opnieuw probeert.";
 "ui.rendezvous.repairNeeded" = "Veilig koppelen kon niet worden voorbereid. Probeer het later opnieuw.";
 
@@ -1544,3 +1544,13 @@
 "ui.vibescape.voice.stop" = "Stop opname";
 
 "ui.session.shortcut.open" = "Open DJ-sessie";
+
+"ui.displayConsent.stop" = "Schermdelen stoppen";
+
+"ui.displayConsent.stopped" = "Schermdelen is gestopt. Je DJ-sessie gaat door.";
+
+"ui.displayConsent.stop_uncertain" = "Het is niet bevestigd of het schermdelen is gestopt. Controleer het scherm voordat je verdergaat.";
+
+"ui.rendezvous.tv_code" = "TV-code invoeren";
+
+"ui.rendezvous.tv_code_help" = "Heb je een code op de TV? Voer die hier in en bevestig het schermdelen voor je actieve DJ-sessie.";

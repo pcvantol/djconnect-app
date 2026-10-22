@@ -1506,7 +1506,7 @@
 "ui.session.playback.speaker_question" = "Mostrar altavoces disponibles.";
 
 "ui.rendezvous.sending" = "Preparando la conexión segura al TV…";
-"ui.rendezvous.accepted" = "Se ha enviado la dirección. Continúa en el TV y autoriza compartir la pantalla en Home Assistant.";
+"ui.rendezvous.accepted" = "Se ha enviado la dirección. Continúa en el TV e introduce el código del TV en la app para confirmar compartir pantalla.";
 "ui.rendezvous.uncertain" = "No hemos podido confirmar si se envió la dirección. Revisa el TV antes de intentarlo de nuevo.";
 "ui.rendezvous.repairNeeded" = "No se pudo preparar la conexión segura. Inténtalo de nuevo más tarde.";
 
@@ -1544,3 +1544,13 @@
 "ui.vibescape.voice.stop" = "Detener grabación";
 
 "ui.session.shortcut.open" = "Abrir sesión DJ";
+
+"ui.displayConsent.stop" = "Dejar de compartir pantalla";
+
+"ui.displayConsent.stopped" = "Se ha detenido la pantalla compartida. Tu sesión DJ continúa.";
+
+"ui.displayConsent.stop_uncertain" = "No se ha confirmado que la pantalla compartida se haya detenido. Comprueba la pantalla antes de continuar.";
+
+"ui.rendezvous.tv_code" = "Introducir código del TV";
+
+"ui.rendezvous.tv_code_help" = "¿Ya tienes un código en el TV? Introdúcelo aquí y confirma compartir pantalla para tu sesión DJ activa.";

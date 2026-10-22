@@ -1506,7 +1506,7 @@
 "ui.session.playback.speaker_question" = "Verfügbare Lautsprecher anzeigen.";
 
 "ui.rendezvous.sending" = "Sichere TV-Verknüpfung wird vorbereitet…";
-"ui.rendezvous.accepted" = "Die Adresse wurde gesendet. Fahre am TV fort und bestätige die Bildschirmfreigabe in Home Assistant.";
+"ui.rendezvous.accepted" = "Die Adresse wurde gesendet. Fahre am TV fort und gib den TV-Code in der App ein, um die Bildschirmfreigabe zu bestätigen.";
 "ui.rendezvous.uncertain" = "Wir konnten nicht bestätigen, ob die Adresse gesendet wurde. Prüfe den TV, bevor du es erneut versuchst.";
 "ui.rendezvous.repairNeeded" = "Die sichere Verknüpfung konnte nicht vorbereitet werden. Versuche es später erneut.";
 
@@ -1544,3 +1544,13 @@
 "ui.vibescape.voice.stop" = "Aufnahme stoppen";
 
 "ui.session.shortcut.open" = "DJ-Session öffnen";
+
+"ui.displayConsent.stop" = "Bildschirmfreigabe beenden";
+
+"ui.displayConsent.stopped" = "Bildschirmfreigabe beendet. Deine DJ-Session läuft weiter.";
+
+"ui.displayConsent.stop_uncertain" = "Das Beenden der Bildschirmfreigabe wurde nicht bestätigt. Prüfe den Bildschirm, bevor du fortfährst.";
+
+"ui.rendezvous.tv_code" = "TV-Code eingeben";
+
+"ui.rendezvous.tv_code_help" = "Wird auf dem TV bereits ein Code angezeigt? Gib ihn hier ein und bestätige die Bildschirmfreigabe für deine aktive DJ-Session.";

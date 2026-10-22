@@ -67,7 +67,7 @@ public struct DJConnectDisplayClaim: Sendable {
     func approvalBody(identity: DJConnectIdentity, sessionID: String, currentIssuerEpoch: String,
                       share: Share, now: Date, uptime: TimeInterval) throws -> Data {
         guard isCurrent(now: now, uptime: uptime), currentIssuerEpoch == issuerEpoch,
-              identity.clientType == .ios, !identity.deviceID.isEmpty, identity.deviceID.utf8.count <= 128,
+              [.ios, .macos].contains(identity.clientType), !identity.deviceID.isEmpty, identity.deviceID.utf8.count <= 128,
               identity.deviceID.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }),
               identity.deviceID == identity.deviceID.trimmingCharacters(in: .whitespacesAndNewlines),
               !sessionID.isEmpty, sessionID.utf8.count <= 128,
@@ -84,7 +84,7 @@ public struct DJConnectDisplayClaim: Sendable {
             choice = ["mode": "existing", "share_id": id, "share_generation": generation]
         }
         return try JSONSerialization.data(withJSONObject: [
-            "contract_version": 1, "identity": ["device_id": identity.deviceID, "client_type": "ios"],
+            "contract_version": 1, "identity": ["device_id": identity.deviceID, "client_type": identity.clientType.rawValue],
             "session_id": sessionID, "issuer_epoch": issuerEpoch, "claim_id": claimID,
             "browser_generation": browserGeneration, "code": code, "share": choice
         ], options: [.sortedKeys])

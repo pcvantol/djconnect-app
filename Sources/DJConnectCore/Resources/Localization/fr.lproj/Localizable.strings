@@ -1506,7 +1506,7 @@
 "ui.session.playback.speaker_question" = "Afficher les enceintes disponibles.";
 
 "ui.rendezvous.sending" = "Préparation de la connexion TV sécurisée…";
-"ui.rendezvous.accepted" = "L’adresse a été envoyée. Continuez sur le téléviseur et autorisez le partage dans Home Assistant.";
+"ui.rendezvous.accepted" = "L’adresse a été envoyée. Continuez sur le téléviseur et saisissez le code TV dans l’app pour confirmer le partage d’écran.";
 "ui.rendezvous.uncertain" = "Nous n’avons pas pu confirmer l’envoi de l’adresse. Vérifiez le téléviseur avant de réessayer.";
 "ui.rendezvous.repairNeeded" = "La connexion sécurisée n’a pas pu être préparée. Réessayez plus tard.";
 
@@ -1544,3 +1544,13 @@
 "ui.vibescape.voice.stop" = "Arrêter l’enregistrement";
 
 "ui.session.shortcut.open" = "Ouvrir la session DJ";
+
+"ui.displayConsent.stop" = "Arrêter le partage d’écran";
+
+"ui.displayConsent.stopped" = "Le partage d’écran est arrêté. Votre session DJ continue.";
+
+"ui.displayConsent.stop_uncertain" = "L’arrêt du partage d’écran n’a pas été confirmé. Vérifiez l’écran avant de continuer.";
+
+"ui.rendezvous.tv_code" = "Saisir le code TV";
+
+"ui.rendezvous.tv_code_help" = "Un code est déjà affiché sur le téléviseur ? Saisissez-le ici et confirmez le partage d’écran pour votre session DJ active.";
