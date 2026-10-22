@@ -64,6 +64,65 @@ import DJConnectCore
 }
 
 @Suite @MainActor struct VibeScapeVisitTests {
+    @Test func serverIntensityFollowsUntilManualOverrideAndResetUsesLatestServerValue() throws {
+        let visit = VisualDirectorVisit(); visit.enter(mood: "groove", occurrence: "A", salt: 1)
+        #expect(visit.followsTrackIntensity && visit.dynamics == 0.5)
+        visit.updateTrackIntensity(0.8)
+        #expect(visit.dynamics == 0.8 && visit.followsTrackIntensity)
+        let beforeManual = try #require(visit.ticket)
+        #expect(visit.setDynamics(0.2))
+        visit.updateTrackIntensity(0.9)
+        #expect(visit.dynamics == 0.2 && !visit.followsTrackIntensity)
+        #expect(!visit.rendererCompleted(beforeManual))
+        visit.trackChanged(mood: "chill", occurrence: "B")
+        #expect(visit.dynamics == 0.2 && !visit.followsTrackIntensity)
+        visit.updateTrackIntensity(0.7)
+        visit.followTrackIntensity()
+        #expect(visit.dynamics == 0.7 && visit.followsTrackIntensity)
+        visit.updateTrackIntensity(nil)
+        #expect(visit.dynamics == 0.5)
+        for invalid: Float in [.nan, .infinity, -0.1, 1.1] {
+            visit.updateTrackIntensity(invalid)
+            #expect(visit.dynamics == 0.5)
+        }
+        visit.updateTrackIntensity(0.6)
+        visit.trackChanged(mood: "party", occurrence: "C")
+        #expect(visit.dynamics == 0.5 && visit.followsTrackIntensity)
+        visit.revoke(); visit.updateTrackIntensity(0.9); visit.followTrackIntensity()
+        #expect(visit.dynamics == 0.5 && visit.ticket == nil)
+    }
+
+    @Test func serverIntensityRequiresMatchingCurrentTrackAndAnActualValidMetric() throws {
+        let data = Data(#"{"item_id":"track-a","state":"playing","title":"Fixture track","artist":"Fixture artist","album":"Fixture album","duration_ms":180000}"#.utf8)
+        var playback = try JSONDecoder().decode(DJConnectSessionPlayback.self, from: data)
+        var insight = TrackInsight(title: "Fixture track", artist: "Fixture artist", album: "Fixture album", duration: 180, intensity: 0.8,
+                                   summary: "Fixture analysis", rawAnalysisText: "Fixture analysis")
+        #expect(VibeScapeTrackIntensity.resolve(insight: insight, playback: playback) == nil)
+        #expect(VibeScapeTrackIntensity.resolve(insight: insight, playback: playback, numericBasisQualified: true) == 0.8)
+        playback.state = "paused"
+        #expect(VibeScapeTrackIntensity.resolve(insight: insight, playback: playback, numericBasisQualified: true) == 0.8)
+        for invalid: Double? in [nil, .nan, .infinity, -0.1, 1.1] {
+            insight.intensity = invalid
+            #expect(VibeScapeTrackIntensity.resolve(insight: insight, playback: playback, numericBasisQualified: true) == nil)
+        }
+        insight.intensity = 0.8
+        insight.album = "Another edition"
+        #expect(VibeScapeTrackIntensity.resolve(insight: insight, playback: playback, numericBasisQualified: true) == nil)
+        insight.album = "Fixture album"; insight.duration = 240
+        #expect(VibeScapeTrackIntensity.resolve(insight: insight, playback: playback, numericBasisQualified: true) == nil)
+        insight.duration = 180; insight.title = "Other track"
+        #expect(VibeScapeTrackIntensity.resolve(insight: insight, playback: playback, numericBasisQualified: true) == nil)
+        insight.title = "Fixture track"; insight.artist = "Other artist"
+        #expect(VibeScapeTrackIntensity.resolve(insight: insight, playback: playback, numericBasisQualified: true) == nil)
+        insight.artist = "Fixture artist"; insight.analysisBasis = "unmeasured_metadata_only_v1"
+        #expect(VibeScapeTrackIntensity.resolve(insight: insight, playback: playback, numericBasisQualified: true) == nil)
+        insight.analysisBasis = "qualified_credit_and_interpretation_v1"
+        #expect(VibeScapeTrackIntensity.resolve(insight: insight, playback: playback, numericBasisQualified: true) == nil)
+        insight.analysisBasis = nil; playback.itemID = nil
+        #expect(VibeScapeTrackIntensity.resolve(insight: insight, playback: playback, numericBasisQualified: true) == nil)
+        #expect(VibeScapeTrackIntensity.resolve(insight: nil, playback: playback, numericBasisQualified: true) == nil)
+    }
+
     @Test func touchesAreLocalBoundedAndRevokedWithTheirVisit() throws {
         let visit = VisualDirectorVisit()
         var time: TimeInterval = 10

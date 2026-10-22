@@ -1512,6 +1512,9 @@
 
 // VibeScape preview: ephemeral native visuals.
 "ui.vibescape.dynamics" = "Dynamik";
+"ui.vibescape.dynamics.auto" = "Auto";
+"ui.vibescape.dynamics.manual" = "Manuell";
+"ui.vibescape.dynamics.follow" = "Titelintensität folgen";
 "ui.vibescape.calm" = "Ruhig";
 "ui.vibescape.intense" = "Intensiv";
 "ui.vibescape.follow" = "DJ folgen";

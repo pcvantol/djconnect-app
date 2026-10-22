@@ -1,6 +1,32 @@
 import SwiftUI
 import DJConnectCore
 
+/// Whole-track server analysis only; this is not a beat or live-audio signal.
+/// Current Core has no qualified numeric analysis basis. A finite legacy/demo
+/// scalar and matching metadata cannot establish that qualification.
+enum VibeScapeTrackIntensity {
+    static func resolve(insight: TrackInsight?, playback: DJConnectSessionPlayback?, numericBasisQualified: Bool = false) -> Float? {
+        guard numericBasisQualified,
+              let insight, let playback, let item = playback.itemID, !item.isEmpty,
+              playback.state == "playing" || playback.state == "paused",
+              !insight.hasUnavailableAnalysis, insight.verifiedCredit == nil,
+              insight.analysisBasis != "qualified_credit_and_interpretation_v1",
+              let value = insight.intensity, value.isFinite, (0...1).contains(value),
+              let title = normalized(playback.title), let artist = normalized(playback.artist),
+              title == normalized(insight.title), artist == normalized(insight.artist) else { return nil }
+        if let album = normalized(playback.album), let analysisAlbum = normalized(insight.album), album != analysisAlbum { return nil }
+        if let milliseconds = playback.durationMS, let duration = insight.duration {
+            guard milliseconds > 0, duration.isFinite, duration > 0,
+                  abs(Double(milliseconds)/1000-duration) <= 1.5 else { return nil }
+        }
+        return Float(value)
+    }
+    private static func normalized(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
+        return value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+    }
+}
+
 enum VibeScapeAvailability {
     static var previewEnabled: Bool {
         #if DJCONNECT_VIBESCAPE_PREVIEW
@@ -30,6 +56,10 @@ struct VibeScapeScreen: View {
     @Environment(\.scenePhase) private var scenePhase
 
     private var owner: String? { model.sessionHistory.authorizedProfileID }
+    private var automaticIntensity: Float? {
+        VibeScapeTrackIntensity.resolve(insight: model.currentTrackInsight,
+                                       playback: model.activeDJSession?.broadcast.playback)
+    }
     // Core has not yet delivered an authoritative playback occurrence. Neither
     // history IDs nor polling timestamps can grant current-track voice scope.
     // The preview resets on a changed item; live voice remains unavailable.
@@ -102,11 +132,18 @@ struct VibeScapeScreen: View {
         .onAppear {
             guard admitted else { model.isShowingVibeScape = false; return }
             visit.enter(mood:model.activeDJSession?.selectedMood,occurrence:nil)
+            updateAutomaticIntensity()
         }
         .onDisappear { visit.revoke() }
         .onChange(of: model.activeDJSession?.broadcast.playback?.itemID) { _, _ in
-            if admitted { visit.enter(mood:model.activeDJSession?.selectedMood,occurrence:nil) }
+            if admitted {
+                let manual = visit.followsTrackIntensity ? nil : visit.dynamics
+                visit.enter(mood:model.activeDJSession?.selectedMood,occurrence:nil)
+                updateAutomaticIntensity()
+                if let manual { _ = visit.setDynamics(manual) }
+            }
         }
+        .onChange(of: automaticIntensity) { _, _ in updateAutomaticIntensity() }
         .onChange(of: model.activeDJSession?.selectedMood) { _, mood in visit.moodChanged(mood) }
         .onChange(of: owner) { _, _ in close() }
         .onChange(of: model.sessionHistory.responseEpoch) { _, _ in close() }
@@ -132,6 +169,11 @@ struct VibeScapeScreen: View {
         return min(max(4, source.minY - geometry.frame(in: .global).minY), max(4, geometry.size.height - source.height - 12))
     }
     private func close() { visit.revoke(); model.isShowingVibeScape = false }
+    private func updateAutomaticIntensity() {
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.35)) {
+            visit.updateTrackIntensity(automaticIntensity)
+        }
+    }
     private func isControlArea(_ point: CGPoint) -> Bool {
         modeBounds.insetBy(dx: -12, dy: -12).contains(point)
             || sliderBounds.insetBy(dx: -12, dy: -12).contains(point)
@@ -180,6 +222,8 @@ struct VibeScapeScreen: View {
             Text(Double(visit.dynamics), format: .percent.precision(.fractionLength(0)))
                 .font(.caption.monospacedDigit()).foregroundStyle(.white)
                 .accessibilityHidden(true)
+            Text(text(visit.followsTrackIntensity ? "ui.vibescape.dynamics.auto" : "ui.vibescape.dynamics.manual"))
+                .font(.caption2).foregroundStyle(.white.opacity(0.8))
             Slider(value: Binding(get: { Double(visit.dynamics) }, set: { _ = visit.setDynamics(Float($0)) }),
                    in: 0...1, onEditingChanged: { editing in
                        adjustingDynamics = editing; controlsGeneration = UUID()
@@ -191,12 +235,15 @@ struct VibeScapeScreen: View {
                 .accessibilityLabel(text("ui.vibescape.dynamics"))
                 .accessibilityIdentifier("vibescape-dynamics")
             Button {
-                _ = visit.setDynamics(0.5); showControls()
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.35)) {
+                    visit.followTrackIntensity()
+                }
+                showControls()
             } label: {
                 Image(systemName: "arrow.uturn.backward").foregroundStyle(.white).frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(text("ui.vibescape.follow"))
+            .accessibilityLabel(text("ui.vibescape.dynamics.follow"))
             .accessibilityIdentifier("vibescape-follow-dj")
         }
         .padding(.vertical, 12).padding(.horizontal, 4)

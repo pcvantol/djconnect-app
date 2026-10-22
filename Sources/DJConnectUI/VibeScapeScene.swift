@@ -122,6 +122,8 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
     @Published private(set) var ticket: VibeScapeRenderTicket?
     @Published private(set) var appliedRevision: UInt64?
     @Published private(set) var dynamics: Float = 0.5
+    @Published private(set) var followsTrackIntensity = true
+    private var trackIntensity: Float?
     @Published private(set) var touches: [VibeScapeTouch] = []
     private var salt: UInt64 = 0
     private var autonomous: VibeScapeScene?
@@ -133,6 +135,7 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         let trackPatch: VibeScapePatch?
         let autonomous: VibeScapeScene?
         let dynamics: Float
+        let followsTrackIntensity: Bool
     }
     private var undo: [Checkpoint] = []
     private var turns = 0
@@ -163,7 +166,7 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
     private func checkpoint() {
         guard let scene else { return }
         undo.append(Checkpoint(scene: scene, patch: persistentPatch, trackPatch: trackPatch,
-                               autonomous: autonomous, dynamics: dynamics))
+                               autonomous: autonomous, dynamics: dynamics, followsTrackIntensity: followsTrackIntensity))
         if undo.count > 8 { undo.removeFirst(undo.count - 8) }
     }
     private func advance(_ scene: VibeScapeScene) {
@@ -188,8 +191,22 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         advance(nextScene); return true
     }
     @discardableResult func setDynamics(_ value: Float) -> Bool {
-        guard isCurrent, value.isFinite, (0...1).contains(value), value != dynamics, let scene else { return false }
+        guard isCurrent, value.isFinite, (0...1).contains(value), let scene else { return false }
+        followsTrackIntensity = false
+        guard value != dynamics else { return false }
         dynamics = value; advance(scene); return true
+    }
+    func updateTrackIntensity(_ value: Float?) {
+        guard isCurrent, let scene else { return }
+        trackIntensity = value.flatMap { $0.isFinite && (0...1).contains($0) ? $0 : nil }
+        let next = trackIntensity ?? 0.5
+        guard followsTrackIntensity, dynamics != next else { return }
+        dynamics = next; advance(scene)
+    }
+    func followTrackIntensity() {
+        guard isCurrent else { return }
+        followsTrackIntensity = true
+        updateTrackIntensity(trackIntensity)
     }
     @discardableResult func nudge(at point: SIMD2<Float>, aspect: Float) -> Bool {
         guard isCurrent, let scene, point.x.isFinite, point.y.isFinite,
@@ -226,13 +243,15 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
     @discardableResult func undoLast(expected: VibeScapeRenderTicket) -> Bool {
         guard admitted(expected), expected.occurrence != nil, turns < 32, let prior = undo.popLast() else { return false }
         turns += 1; persistentPatch = prior.patch; trackPatch = prior.trackPatch
-        autonomous = prior.autonomous; dynamics = prior.dynamics
+        autonomous = prior.autonomous; followsTrackIntensity = prior.followsTrackIntensity
+        dynamics = followsTrackIntensity ? (trackIntensity ?? 0.5) : prior.dynamics
         advance(prior.scene); return true
     }
     @discardableResult func resetToDJ(expected: VibeScapeRenderTicket) -> Bool {
         guard admitted(expected), expected.occurrence != nil, turns < 32, let autonomous,
-              scene != autonomous || persistentPatch != nil || trackPatch != nil || dynamics != 0.5 else { return false }
-        checkpoint(); turns += 1; persistentPatch = nil; trackPatch = nil; dynamics = 0.5
+              scene != autonomous || persistentPatch != nil || trackPatch != nil || dynamics != (trackIntensity ?? 0.5) || !followsTrackIntensity else { return false }
+        checkpoint(); turns += 1; persistentPatch = nil; trackPatch = nil
+        followsTrackIntensity = true; dynamics = trackIntensity ?? 0.5
         advance(autonomous); return true
     }
     /// Hold promotes only previously explicit current-track fields. Generated
@@ -261,6 +280,8 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
         salt &+= 0x9e3779b97f4a7c15
         let next = VibeScapeScene.autonomous(mood: mood, salt: salt)
         autonomous = next; trackPatch = nil; undo.removeAll(); touches.removeAll()
+        trackIntensity = nil
+        if followsTrackIntensity { dynamics = 0.5 }
         touchExpiryTask?.cancel(); touchExpiryTask = nil
         self.ticket = VibeScapeRenderTicket(visit: ticket.visit, occurrence: occurrence, revision: ticket.revision + 1)
         scene = persistentPatch?.applied(to: next) ?? next; appliedRevision = nil
@@ -275,6 +296,7 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
     func revoke() {
         scene = nil; ticket = nil; autonomous = nil; persistentPatch = nil; trackPatch = nil
         undo.removeAll(keepingCapacity: false); dynamics = 0.5; appliedRevision = nil
+        followsTrackIntensity = true; trackIntensity = nil
         touches.removeAll(keepingCapacity: false)
         touchExpiryTask?.cancel(); touchExpiryTask = nil
         salt = 0; turns = 0; deadline = 0; lastUptime = 0

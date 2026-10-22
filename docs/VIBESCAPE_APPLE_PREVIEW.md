@@ -46,7 +46,7 @@ The selected pill uses a dark Session mood tint. VibeScape remembers the
 visible picker's global frame at entry and aligns its own picker there, using
 the same width and padding. This geometry is presentation-only RAM, not user
 data or an authorization input. A vertical glass Dynamics slider sits
-at the right edge, with midpoint reset underneath. Both controls fade away
+at the right edge, with automatic-follow reset underneath. Both controls fade away
 after three seconds; tapping their invisible control regions toggles them.
 Taps elsewhere nudge the liquid and its waves locally, without showing controls.
 Swipes outside those control regions also nudge along the finger's path, sampled
@@ -61,7 +61,31 @@ and expiration instead of an animated rebound. Dragging the
 slider suspends hiding and starts a fresh three seconds on release. Reduce
 Motion disables the control animation; an accessibility action reveals them.
 Dynamics shows its percentage and uses a separate 180ms response instead of
-the scene's 1.8s morph. The midpoint preserves the baseline clock multiplier;
+the scene's 1.8s morph. Auto is prepared to consume a qualified whole-track
+intensity, but current Core main df757b13 explicitly supplies no qualified
+numeric basis: credit-only and unmeasured metadata paths return nil metrics.
+Legacy/deterministic/demo scalars are not trustworthy recording measurements.
+The production adapter therefore keeps numeric qualification closed and returns
+nil even for finite matching legacy values; no analysis/model request is made
+by opening VibeScape. A qualified numeric source/subject contract is required
+before enabling this adapter. No new wire basis is invented here.
+
+The prepared resolver also requires a present playing/paused item, matching
+nonempty title/artist, matching album/duration when both supplied (1.5-second
+duration tolerance), and a finite 0...1 value; credit-only and unavailable
+analysis are excluded. These matches alone never establish qualification.
+Missing/invalid/unqualified values use neutral 50%, not a mood/energy estimate.
+Positive resolver tests explicitly inject synthetic numeric qualification;
+they are not producer interoperability evidence. This is not live beat sync.
+
+Dragging switches to Manual until reset or visit exit, retaining the override
+across track changes. Auto continues to remember incoming values while manual;
+reset resumes the latest server value or neutral fallback. The thumb animates
+for 350ms on automatic changes (disabled by Reduce Motion); native GPU Dynamics
+still uses its separate 180ms response. Automatic updates do not consume an
+interpreted-turn budget or affect style masks. Revocation clears both sources.
+
+The Dynamics midpoint preserves the baseline clock multiplier;
 the calm/intense ends change rotation speed and deformation over a much wider
 range. Reduce Motion keeps a static frame but still shows the different shape.
 Escape exits. Changing primary
