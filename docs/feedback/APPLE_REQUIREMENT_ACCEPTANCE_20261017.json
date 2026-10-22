@@ -17,7 +17,7 @@
     "CLOSED_BOUNDED": 22,
     "OPEN": 5,
     "PARKED": 1,
-    "PARTIAL": 31,
+    "PARTIAL": 33,
     "SUPERSEDED": 1
   },
   "requirements": [
@@ -565,6 +565,26 @@
       ],
       "requirement": "Eén dynamische DJ-sessie app-icoon snelactie",
       "source": "Direct Peter / docs/HOME_SCREEN_SESSION_QUICK_ACTION.md"
+    },
+    {
+      "id": "live-activity-playback-vibescape",
+      "status": "PARTIAL",
+      "evidence": "Bestaande passieve playbackmetadata: grotere titel/artiest, album/64pt toegestane hoes, optionele actuele speelstatus met legacydecodercompatibiliteit; originele geldigheid blijft. Statische widget-VibeScape hergebruikt. Testbron toegevoegd, niet uitgevoerd. docs/LIVE_ACTIVITY_PLAYBACK_AND_VIBESCAPE.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; expliciet-build-only.",
+      "remaining": [
+        "OPEN: volgende expliciet gevraagde build: payloadtests, Lock Screen/Island layout/attributie/covers en pause/stale/withdrawal op apparaat. Zonder actuele passieve grant blijft neutrale fallback."
+      ],
+      "requirement": "Live Activity playbackinfo en statische VibeScape",
+      "source": "Direct Peter / 22 oktober 2026"
+    },
+    {
+      "id": "queue-playlists-scroll-optimization",
+      "status": "PARTIAL",
+      "evidence": "Afgeleide zoek/lijstrijen alleen bij bron/zoekwijziging; Equatable rijen en vaste 52pt hoes zonder GeometryReader. List/LazyVStack en originele queueindices behouden. docs/QUEUE_PLAYLIST_SCROLL_PERFORMANCE.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; expliciet-build-only.",
+      "remaining": [
+        "OPEN: volgende expliciet gevraagde build: native scrollmetingen, zoeken/refresh/reorder/duplicaten en originele afspeelacties op iPad/Mac verifiëren."
+      ],
+      "requirement": "Scrolloptimalisatie Wachtrij en Afspeellijsten",
+      "source": "Direct Peter / 22 oktober 2026"
     }
   ],
   "execution_feedback_40258": {

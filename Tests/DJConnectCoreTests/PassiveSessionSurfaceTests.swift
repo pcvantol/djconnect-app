@@ -568,3 +568,22 @@ private func passivePNG() throws -> Data {
         #expect(!log.contains(forbidden))
     }
 }
+
+@Test func passiveActivityPlaybackStateKeepsLeaseAndDecodesOlderActivities() throws {
+    let now = Date()
+    let response = try passiveCurrent(surface: .liveActivity) { $0["playback_state"] = "paused" }
+    let cache = try DJConnectPassiveSurfaceCache(projection: response.passive_session, at: now)
+    let rich = try #require(DJConnectPassiveActivityContent(cache: cache, at: now))
+    #expect(rich.playbackState == "paused")
+    #expect(rich.nowPlaying?.album == response.passive_session.now_playing?.album)
+    #expect(rich.expiresAt == response.passive_session.deadlines.min())
+    #expect(!rich.isCurrent(at: rich.expiresAt))
+    let bytes = try JSONEncoder().encode(rich)
+    #expect(bytes.count <= 2_800)
+    var legacy = try #require(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+    legacy.removeValue(forKey: "playbackState")
+    let old = try JSONDecoder().decode(DJConnectPassiveActivityContent.self,
+        from: JSONSerialization.data(withJSONObject: legacy))
+    #expect(old.playbackState == nil)
+    #expect(old.nowPlaying == rich.nowPlaying && old.expiresAt == rich.expiresAt)
+}

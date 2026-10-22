@@ -271,6 +271,8 @@ public struct DJConnectPassiveActivityContent: Codable, Equatable, Hashable, Sen
     public let expiresAt: Date
     public let contribution: DJConnectPassiveSession.Contribution?
     public let nowPlaying: DJConnectPassiveSession.NowPlaying?
+    /// Optional so an already published activity remains decodable after upgrade.
+    public let playbackState: String?
     public init?(cache: DJConnectPassiveSurfaceCache, at now: Date = Date()) {
         guard cache.projection.surface == .liveActivity, cache.projection.cache_policy.locked_display,
               cache.isCurrent(at: now), let expiry = DJConnectHistoryEntry.date(cache.projection.expires_at) else { return nil }
@@ -278,6 +280,7 @@ public struct DJConnectPassiveActivityContent: Codable, Equatable, Hashable, Sen
         bindingID = p.binding_id; generation = p.generation; sequence = p.delivery_sequence
         receivedAt = cache.receivedAt; receivedUptime = cache.receivedUptime
         contribution = p.currentContribution(at: now); nowPlaying = p.currentPlayback(at: now)
+        playbackState = nowPlaying == nil ? nil : p.playback_state
         expiresAt = p.deadlines.min() ?? expiry
         guard contribution != nil || nowPlaying != nil,
               let encoded = try? JSONEncoder().encode(self), encoded.count <= 2_800 else { return nil }

@@ -10514,7 +10514,7 @@ struct DJConnectMediaRowButtonStyle: ButtonStyle {
     }
 }
 
-private struct QueueItemRow: View {
+private struct QueueItemRow: View, Equatable {
     let item: DJConnectQueueItem
     var isLoading = false
 
@@ -10575,20 +10575,18 @@ private struct QueueArtworkView: View {
     var fallbackSystemImage = "music.note"
 
     var body: some View {
-        GeometryReader { proxy in
-            CachedArtworkImage(url: url, mode: .fill) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: DJConnectListTileStyle.cornerRadius)
-                        .fill(Color.secondary.opacity(0.14))
-                    Image(systemName: fallbackSystemImage)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                }
+        CachedArtworkImage(url: url, mode: .fill) {
+            ZStack {
+                RoundedRectangle(cornerRadius: DJConnectListTileStyle.cornerRadius)
+                    .fill(Color.secondary.opacity(0.14))
+                Image(systemName: fallbackSystemImage)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.secondary)
             }
-            .frame(width: proxy.size.width, height: proxy.size.height)
-            .clipped()
         }
-        .aspectRatio(1, contentMode: .fit)
+        // Both lists use the same fixed tile; avoid a geometry reader per row.
+        .frame(width: 52, height: 52)
+        .clipped()
         .djArtworkStyle(cornerRadius: DJConnectListTileStyle.cornerRadius)
     }
 }
@@ -14170,22 +14168,23 @@ struct QueueView: View {
     private var queueSearchQuery: String {
         queueSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
-    private var indexedQueueItems: [(index: Int, item: DJConnectQueueItem)] {
-        Array(model.queueItems.enumerated()).map { (index: $0.offset, item: $0.element) }
-    }
-    private var filteredQueueItems: [(index: Int, item: DJConnectQueueItem)] {
-        guard !queueSearchQuery.isEmpty else {
-            return indexedQueueItems
+    @State private var filteredQueueItems: [(index: Int, item: DJConnectQueueItem)] = []
+    @State private var queueSearchResultIDs: [Int] = []
+    @State private var shouldShowEmptyQueueState = true
+
+    // Rebuild only for list/search changes, never for unrelated playback ticks.
+    private func rebuildQueueRows() {
+        let items = model.queueItems
+        filteredQueueItems = items.enumerated().compactMap { index, item in
+            queueSearchQuery.isEmpty || queueSearchMatches(item) ? (index: index, item: item) : nil
         }
-        return indexedQueueItems.filter { _, item in
-            queueSearchMatches(item)
-        }
-    }
-    private var queueSearchResultIDs: [Int] {
-        guard !queueSearchQuery.isEmpty else {
-            return []
-        }
-        return filteredQueueItems.map(\.index)
+        queueSearchResultIDs = queueSearchQuery.isEmpty ? [] : filteredQueueItems.map(\.index)
+        let signatures = Set(items.map {
+            [$0.uri ?? "", $0.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+             $0.artist?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""].joined(separator: "|")
+        })
+        shouldShowEmptyQueueState = items.isEmpty ||
+            (items.count >= 4 && signatures.count == 1 && items.allSatisfy { !model.canStartQueueItem($0) })
     }
     private var activeQueueSearchResultID: Int? {
         guard queueSearchResultIDs.indices.contains(selectedSearchResultIndex) else {
@@ -14195,22 +14194,6 @@ struct QueueView: View {
     }
     private var shouldShowFilteredEmptyQueueState: Bool {
         !queueSearchQuery.isEmpty && model.queueItems.isEmpty == false && filteredQueueItems.isEmpty
-    }
-    private var shouldShowEmptyQueueState: Bool {
-        guard !model.queueItems.isEmpty else {
-            return true
-        }
-        guard model.queueItems.count >= 4 else {
-            return false
-        }
-        let signatures = Set(model.queueItems.map { item in
-            [
-                item.uri ?? "",
-                item.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
-                item.artist?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
-            ].joined(separator: "|")
-        })
-        return signatures.count == 1 && model.queueItems.allSatisfy { !model.canStartQueueItem($0) }
     }
     private var canOpenQueueSearch: Bool {
         !shouldShowEmptyQueueState
@@ -14264,6 +14247,7 @@ struct QueueView: View {
                                     model.startQueueItem(item, at: index)
                                 } label: {
                                     QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
+                                        .equatable()
                                         .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
                                 }
                                 .buttonStyle(DJConnectMediaRowButtonStyle())
@@ -14282,7 +14266,10 @@ struct QueueView: View {
                     .scrollIndicators(.visible)
                     #endif
                 }
+                .onAppear { rebuildQueueRows() }
+                .onChange(of: model.queueItems) { rebuildQueueRows() }
                 .onChange(of: queueSearchText) {
+                    rebuildQueueRows()
                     selectedSearchResultIndex = 0
                     scrollToActiveQueueSearchResult(proxy)
                 }
@@ -14360,6 +14347,7 @@ struct QueueView: View {
                             model.startQueueItem(item, at: index)
                         } label: {
                             QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
+                                .equatable()
                                 .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
                         }
                         .buttonStyle(DJConnectMediaRowButtonStyle())
@@ -14498,17 +14486,12 @@ struct PlaylistsView: View {
     private var playlistSearchQuery: String {
         playlistSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
-    private var filteredPlaylistItems: [DJConnectPlaylist] {
-        guard !playlistSearchQuery.isEmpty else {
-            return model.playlistItems
-        }
-        return model.playlistItems.filter(playlistSearchMatches)
-    }
-    private var playlistSearchResultIDs: [String] {
-        guard !playlistSearchQuery.isEmpty else {
-            return []
-        }
-        return filteredPlaylistItems.map(\.id)
+    @State private var filteredPlaylistItems: [DJConnectPlaylist] = []
+    @State private var playlistSearchResultIDs: [String] = []
+
+    private func rebuildPlaylistRows() {
+        filteredPlaylistItems = playlistSearchQuery.isEmpty ? model.playlistItems : model.playlistItems.filter(playlistSearchMatches)
+        playlistSearchResultIDs = playlistSearchQuery.isEmpty ? [] : filteredPlaylistItems.map(\.id)
     }
     private var activePlaylistSearchResultID: String? {
         guard playlistSearchResultIDs.indices.contains(selectedSearchResultIndex) else {
@@ -14571,6 +14554,7 @@ struct PlaylistsView: View {
                                     model.startPlaylist(playlist)
                                 } label: {
                                     PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
+                                        .equatable()
                                         .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
                                 }
                                 .buttonStyle(DJConnectMediaRowButtonStyle())
@@ -14587,7 +14571,10 @@ struct PlaylistsView: View {
                     .scrollIndicators(.visible)
                     #endif
                 }
+                .onAppear { rebuildPlaylistRows() }
+                .onChange(of: model.playlistItems) { rebuildPlaylistRows() }
                 .onChange(of: playlistSearchText) {
+                    rebuildPlaylistRows()
                     selectedSearchResultIndex = 0
                     scrollToActivePlaylistSearchResult(proxy)
                 }
@@ -14664,6 +14651,7 @@ struct PlaylistsView: View {
                             model.startPlaylist(playlist)
                         } label: {
                             PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
+                                .equatable()
                                 .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
                         }
                         .buttonStyle(DJConnectMediaRowButtonStyle())
@@ -14896,7 +14884,7 @@ private extension View {
     }
 }
 
-private struct PlaylistRow: View {
+private struct PlaylistRow: View, Equatable {
     let playlist: DJConnectPlaylist
     var isLoading = false
 

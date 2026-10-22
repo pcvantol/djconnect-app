@@ -152,8 +152,12 @@ struct DJConnectSessionActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: DJConnectSessionLiveActivityAttributes.self) { context in
             PassiveActivityBody(snapshot: context.state, stale: context.isStale)
-                .padding(16)
-                .background { SessionMoodBackground(theme: context.isStale ? .brand : context.state.renderingTheme(at: Date())) }
+                .padding(12)
+                .background {
+                    let theme = context.isStale ? DJConnectSessionMoodTheme.brand : context.state.renderingTheme(at: Date())
+                    SessionMoodBackground(theme: theme)
+                        .overlay { SessionWidgetVibeScapeArtwork(colors: theme.colors).opacity(0.75) }
+                }
                 .activityBackgroundTint((context.isStale ? DJConnectSessionMoodTheme.brand : context.state.renderingTheme(at: Date())).darkTint)
                 .activitySystemActionForegroundColor(.white)
                 .widgetURL(sessionURL)
@@ -207,6 +211,8 @@ private struct PassiveSessionContentView: View {
     let cache: DJConnectPassiveSurfaceCache?
     var compact = false
     var large = false
+    var activity = false
+    var playbackState: String? = nil
     var showsSpotifyCredit = true
     var showsHeader = true
     var theme: DJConnectSessionMoodTheme = .brand
@@ -220,14 +226,14 @@ private struct PassiveSessionContentView: View {
             } else { content(artworkSide: nil) }
         }
         .foregroundStyle(.white)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: activity ? nil : .infinity, alignment: .topLeading)
         .accessibilityElement(children: .contain)
     }
     private func content(artworkSide: CGFloat?) -> some View {
-        VStack(alignment: .leading, spacing: compact ? 6 : 8) {
+        VStack(alignment: .leading, spacing: activity || compact ? 6 : 8) {
             if showsHeader {
             HStack(spacing: 8) {
-                SessionSurfaceAvatar(theme: theme, side: compact ? 24 : 36)
+                SessionSurfaceAvatar(theme: theme, side: activity || compact ? 24 : 36)
                 Text(text("ui.session.title"))
                     .font((large ? Font.subheadline : .caption).weight(.semibold)).foregroundStyle(.white.opacity(0.85))
             }
@@ -239,23 +245,23 @@ private struct PassiveSessionContentView: View {
                 HStack(alignment: .top, spacing: compact ? 6 : 12) {
                     if cache?.projection.currentArtwork(slot: "now_playing", at: date) != nil {
                         cover(slot: "now_playing")
-                            .frame(width: large ? 104 : compact ? 32 : 56,
-                                   height: large ? 104 : compact ? 32 : 56)
+                            .frame(width: activity ? 64 : large ? 104 : compact ? 32 : 56,
+                                   height: activity ? 64 : large ? 104 : compact ? 32 : 56)
                     }
                     VStack(alignment: .leading, spacing: 3) {
                         if !compact {
-                            Text(text("ui.now.playing")).font(.caption2).foregroundStyle(.white.opacity(0.7))
+                            Text(text(!activity || playbackState == "playing" ? "ui.now.playing" : playbackState == "paused" ? "ui.paused" : "ui.playback")).font(.caption2).foregroundStyle(.white.opacity(0.7))
                         }
-                        Text(playback.track).font((large ? Font.title3 : .subheadline).weight(.semibold)).lineLimit(large ? 3 : compact ? 1 : 2)
-                        Text(playback.artist).font(large ? .callout : .caption).foregroundStyle(.white.opacity(0.85)).lineLimit(large ? 2 : 1)
-                        if large { Text(playback.album).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(2) }
+                        Text(playback.track).font((activity ? Font.headline : large ? .title3 : .subheadline).weight(.semibold)).lineLimit(activity ? 1 : large ? 3 : compact ? 1 : 2)
+                        Text(playback.artist).font(activity ? .subheadline : large ? .callout : .caption).foregroundStyle(.white.opacity(0.85)).lineLimit(large ? 2 : 1)
+                        if (large || activity) && !playback.album.isEmpty { Text(playback.album).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(activity ? 1 : 2) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 }
                 credit(playback.attribution)
             }
-            if let contribution {
+            if let contribution, !activity || playback == nil {
                 if playback != nil { Divider().overlay(.white.opacity(0.15)) }
                 HStack(alignment: .top, spacing: 10) {
                     if !compact, cache?.projection.currentArtwork(slot: "contribution", at: date) != nil {
@@ -317,7 +323,7 @@ private struct PassiveSessionContentView: View {
         }
     }
     @ViewBuilder private func cover(slot: String) -> some View {
-        if let cover = decodedCover(slot: slot, side: large ? 104 : compact ? 32 : 56) {
+        if let cover = decodedCover(slot: slot, side: activity ? 64 : large ? 104 : compact ? 32 : 56) {
             Image(cover.image, scale: 3, label: Text(cover.label))
                 .resizable().scaledToFit()
         }
@@ -345,7 +351,7 @@ private struct PassiveActivityBody: View {
     var showsHeader = true
     var body: some View {
         let now = Date()
-        if !stale, let rich = snapshot.rich, rich.isCurrent(at: now) {
+        if !stale, snapshot.isCurrent(at: now), let rich = snapshot.rich, rich.isCurrent(at: now) {
             let cache = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier)
                 .flatMap { DJConnectPassiveSurfaceCache.load(surface: .liveActivity, from: $0, at: now) }
                 .flatMap { value in
@@ -354,7 +360,8 @@ private struct PassiveActivityBody: View {
                     value.projection.now_playing == rich.nowPlaying ? value : nil
                 }
             PassiveSessionContentView(contribution: rich.contribution, playback: rich.nowPlaying, cache: cache,
-                                      showsSpotifyCredit: showsSpotifyCredit, showsHeader: showsHeader,
+                                      activity: true, playbackState: rich.playbackState,
+                                      showsSpotifyCredit: showsSpotifyCredit, showsHeader: showsHeader && rich.nowPlaying == nil,
                                       theme: snapshot.renderingTheme(at: now), date: now)
         } else if !showsHeader {
             // The expanded Island already supplies its small leading header.
