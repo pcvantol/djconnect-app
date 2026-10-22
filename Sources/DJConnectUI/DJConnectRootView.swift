@@ -15382,7 +15382,9 @@ private struct LocalGameSurface: View {
                     setPacmanDirection(dx: 1, dy: 0)
                 }
             }
-            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
+            // The game surface owns keyboard focus; its inherited focus state
+            // must not draw a thick focus ring on every direction control.
+            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon, showsFocusIndicator: false))
             .controlSize(.large)
         } else {
             LazyVGrid(columns: controlColumns(count: game == .pong ? 2 : 3), spacing: 10) {
@@ -15406,7 +15408,9 @@ private struct LocalGameSurface: View {
                 }
 
             }
-            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
+            // The game surface owns keyboard focus; its inherited focus state
+            // must not draw a thick focus ring on every direction control.
+            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon, showsFocusIndicator: false))
             .controlSize(.large)
         }
     }
