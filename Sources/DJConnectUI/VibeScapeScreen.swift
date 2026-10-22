@@ -45,6 +45,7 @@ struct VibeScapeScreen: View {
     @State private var controlsVisible = true
     @State private var controlsGeneration = UUID()
     @State private var adjustingDynamics = false
+    @State private var hoveringControls = false
     @State private var canvasBounds = CGRect.zero
     @State private var modeBounds = CGRect.zero
     @State private var sliderBounds = CGRect.zero
@@ -119,11 +120,19 @@ struct VibeScapeScreen: View {
             .allowsHitTesting(controlsVisible)
             .accessibilityHidden(!controlsVisible)
         }
+        #if os(macOS)
+        .onContinuousHover(coordinateSpace: .global) { phase in
+            switch phase {
+            case .active(let location): updateControlHover(isControlArea(location))
+            case .ended: updateControlHover(false)
+            }
+        }
+        #endif
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.24), value: controlsVisible)
         .task(id: controlsGeneration) {
-            guard controlsVisible, !adjustingDynamics else { return }
+            guard controlsVisible, !adjustingDynamics, !hoveringControls else { return }
             do { try await Task.sleep(for: .seconds(3)) } catch { return }
-            guard !Task.isCancelled, !adjustingDynamics else { return }
+            guard !Task.isCancelled, !adjustingDynamics, !hoveringControls else { return }
             controlsVisible = false
         }
         .accessibilityAction(named: Text(text("ui.vibescape.dynamics"))) { showControls() }
@@ -176,8 +185,8 @@ struct VibeScapeScreen: View {
         }
     }
     private func isControlArea(_ point: CGPoint) -> Bool {
-        modeBounds.insetBy(dx: -12, dy: -12).contains(point)
-            || sliderBounds.insetBy(dx: -12, dy: -12).contains(point)
+        (!modeBounds.isEmpty && modeBounds.insetBy(dx: -12, dy: -12).contains(point))
+            || (!sliderBounds.isEmpty && sliderBounds.insetBy(dx: -12, dy: -12).contains(point))
     }
     private func nudge(at location: CGPoint, strength: Float) {
         guard canvasBounds.width > 0, canvasBounds.height > 0 else { return }
@@ -222,6 +231,12 @@ struct VibeScapeScreen: View {
     }
     private func showControls() {
         controlsVisible = true; controlsGeneration = UUID()
+    }
+    private func updateControlHover(_ inside: Bool) {
+        guard inside != hoveringControls else { return }
+        hoveringControls = inside
+        if inside { showControls() }
+        else { controlsGeneration = UUID() }
     }
     private func toggleControls() {
         DJConnectHaptics.selection()
