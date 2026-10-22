@@ -35,3 +35,5 @@ Direct owner request: contribution deletion must also be available through long 
 No new implementation-mirroring unit test for this small gesture/hit-target refinement. Signed iOS/macOS build verification and device installation are recorded separately; physical long-press/menu/haptic acceptance is not inferred from compilation.
 
 Long-press validation: signed iOS/macOS40441 builds and strict signaturesPASS. No physical menu/haptic acceptance claimed.
+
+Long-press delivery: 40441 installed/read back on iPad and iPhone; iPad launched. Source1495390a32cc35e9ccd0389b19ed767388fb3d32, iOS UI SHA256 b853779d04b4d774eac1238ef6733079bba99f751c6fac34aef581117449ed55. Both Macs remain installed40440;40441 macOS build verified only. Physical long-press/haptic acceptance remains open.
