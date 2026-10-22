@@ -305,9 +305,9 @@
       "status": "partial",
       "topic": "Eén eerdere sessie uit het profiel verwijderen",
       "owner": "Apple + Core",
-      "evidence": "Rood prullenbakje rechtsboven in archiefdetail, eigenaar-/revisiegebonden bevestiging en single-delete-v1; capability-gated. Consumer DTO/epoch/revision/unknown-outcome tests pass. See APPLE_SAVED_SESSION_DELETION_20261018.md. Consumer qualification: 8 tests / 43 cases; source only. Ordinary40335 installed on iPad/MacBook/Macmini; producer capability absent, deletion action remains hidden. No integrated deletion runtime qualification claimed.",
+      "evidence": "Rood prullenbakje rechtsboven in archiefdetail, eigenaar-/revisiegebonden bevestiging en single-delete-v1; capability-gated. Consumer DTO/epoch/revision/unknown-outcome tests pass. See APPLE_SAVED_SESSION_DELETION_20261018.md. Consumer qualification: 8 tests / 43 cases; source only. Ordinary40335 installed on iPad/MacBook/Macmini; producer capability absent, deletion action remains hidden. No integrated deletion runtime qualification claimed. 20261022 source repair: APPLE_ARCHIVE_DELETE_BODY_FIX_20261022.md. Shared JSON helper added identity/nested payload/token fields forbidden by actual Core strict shape. Both mutations now encode only exact flat payload with existing header auth. Actual Core shape statements executed in isolation: old shape400, corrected shapeaccepted for single/all; no HA/database/delete effects. Existing Swift regression source strengthened from subset to exact-key checks, not compiled/run.",
       "remaining": [
-        "Core producer implementation/fixtures/exact qualified pin, integrated native confirmation and installed activation remain pending. No personal sessions deleted for tests."
+        "Next explicitly requested build: compile/run single and bulk regression matrix, then native confirmation and owner-approved real deletion acceptance. No build/install or personal Session deletion performed in this fix."
       ],
       "next_action": "Qualify against Core producer fixtures before native/device enablement."
     },
@@ -316,9 +316,9 @@
       "status": "partial",
       "topic": "Alle eerdere sessies in één bevestigde handeling uit het profiel verwijderen",
       "owner": "Apple + Core",
-      "evidence": "Rode prullenbak direct na zoeken; server snapshot met exact aantal, nuldoelen zonder POST, één UUIDv7-mutatie; active Flow behouden en na-snapshot sessie herladen. Consumer checks include deferred timeline/profile-history races. See APPLE_SAVED_SESSION_DELETION_20261018.md. Consumer qualification: 8 tests / 43 cases; source only. Ordinary40335 installed on iPad/MacBook/Macmini; producer capability absent, deletion action remains hidden. No integrated deletion runtime qualification claimed.",
+      "evidence": "Rode prullenbak direct na zoeken; server snapshot met exact aantal, nuldoelen zonder POST, één UUIDv7-mutatie; active Flow behouden en na-snapshot sessie herladen. Consumer checks include deferred timeline/profile-history races. See APPLE_SAVED_SESSION_DELETION_20261018.md. Consumer qualification: 8 tests / 43 cases; source only. Ordinary40335 installed on iPad/MacBook/Macmini; producer capability absent, deletion action remains hidden. No integrated deletion runtime qualification claimed. 20261022 source repair: APPLE_ARCHIVE_DELETE_BODY_FIX_20261022.md. Shared JSON helper added identity/nested payload/token fields forbidden by actual Core strict shape. Both mutations now encode only exact flat payload with existing header auth. Actual Core shape statements executed in isolation: old shape400, corrected shapeaccepted for single/all; no HA/database/delete effects. Existing Swift regression source strengthened from subset to exact-key checks, not compiled/run.",
       "remaining": [
-        "Core producer implementation/fixtures/exact qualified pin, integrated native confirmation and installed activation remain pending. No personal sessions deleted for tests."
+        "Next explicitly requested build: compile/run single and bulk regression matrix, then native confirmation and owner-approved real deletion acceptance. No build/install or personal Session deletion performed in this fix."
       ],
       "next_action": "Qualify against Core producer fixtures before native/device enablement."
     },

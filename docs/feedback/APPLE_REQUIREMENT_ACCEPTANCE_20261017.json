@@ -418,16 +418,16 @@
       "status": "PARTIAL",
       "requirement": "Eén eerdere sessie uit het profiel verwijderen",
       "source": "Directe gebruikersopdracht18okt2026; Core-owned single/bulk contracts selected before consumer implementation.",
-      "evidence": "Rood prullenbakje rechtsboven in archiefdetail, eigenaar-/revisiegebonden bevestiging en single-delete-v1; capability-gated. Consumer DTO/epoch/revision/unknown-outcome tests pass. See APPLE_SAVED_SESSION_DELETION_20261018.md. Consumer qualification: 8 tests / 43 cases; source only.",
-      "remaining": "Core producer implementation/fixtures/exact qualified pin, integrated native confirmation and installed activation remain pending. No personal sessions deleted for tests."
+      "evidence": "Rood prullenbakje rechtsboven in archiefdetail, eigenaar-/revisiegebonden bevestiging en single-delete-v1; capability-gated. Consumer DTO/epoch/revision/unknown-outcome tests pass. See APPLE_SAVED_SESSION_DELETION_20261018.md. Consumer qualification: 8 tests / 43 cases; source only. 20261022 source repair: APPLE_ARCHIVE_DELETE_BODY_FIX_20261022.md. Shared JSON helper added identity/nested payload/token fields forbidden by actual Core strict shape. Both mutations now encode only exact flat payload with existing header auth. Actual Core shape statements executed in isolation: old shape400, corrected shapeaccepted for single/all; no HA/database/delete effects. Existing Swift regression source strengthened from subset to exact-key checks, not compiled/run.",
+      "remaining": "Next explicitly requested build: compile/run single and bulk regression matrix, then native confirmation and owner-approved real deletion acceptance. No build/install or personal Session deletion performed in this fix."
     },
     {
       "id": "session-delete-all",
       "status": "PARTIAL",
       "requirement": "Alle eerdere sessies in één bevestigde handeling uit het profiel verwijderen",
       "source": "Directe gebruikersopdracht18okt2026; Core-owned single/bulk contracts selected before consumer implementation.",
-      "evidence": "Rode prullenbak direct na zoeken; server snapshot met exact aantal, nuldoelen zonder POST, één UUIDv7-mutatie; active Flow behouden en na-snapshot sessie herladen. Consumer checks include deferred timeline/profile-history races. See APPLE_SAVED_SESSION_DELETION_20261018.md. Consumer qualification: 8 tests / 43 cases; source only.",
-      "remaining": "Core producer implementation/fixtures/exact qualified pin, integrated native confirmation and installed activation remain pending. No personal sessions deleted for tests."
+      "evidence": "Rode prullenbak direct na zoeken; server snapshot met exact aantal, nuldoelen zonder POST, één UUIDv7-mutatie; active Flow behouden en na-snapshot sessie herladen. Consumer checks include deferred timeline/profile-history races. See APPLE_SAVED_SESSION_DELETION_20261018.md. Consumer qualification: 8 tests / 43 cases; source only. 20261022 source repair: APPLE_ARCHIVE_DELETE_BODY_FIX_20261022.md. Shared JSON helper added identity/nested payload/token fields forbidden by actual Core strict shape. Both mutations now encode only exact flat payload with existing header auth. Actual Core shape statements executed in isolation: old shape400, corrected shapeaccepted for single/all; no HA/database/delete effects. Existing Swift regression source strengthened from subset to exact-key checks, not compiled/run.",
+      "remaining": "Next explicitly requested build: compile/run single and bulk regression matrix, then native confirmation and owner-approved real deletion acceptance. No build/install or personal Session deletion performed in this fix."
     },
     {
       "id": "session-history-summary",

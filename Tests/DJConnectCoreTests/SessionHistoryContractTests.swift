@@ -6279,6 +6279,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
             #expect(body["client_type"] as? String == "ios")
             #endif
             #expect(body["confirmed"] as? Bool == true)
+            #expect(Set(body.keys) == Set(["device_id", "client_type", "session_id", "expected_revision", "operation_id", "confirmed"]))
             #expect(body["session_id"] as? String == archive.id)
             #expect(body["expected_revision"] as? String == archive.revision.value)
             #expect(request.httpMethod == "POST")
@@ -6408,8 +6409,8 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
         }
         if path.hasSuffix("/delete_all") {
             let body = try #require(JSONSerialization.jsonObject(with:presenceRequestBody(request)) as? [String:Any])
-            // The shared paired transport also carries its existing identity envelope.
-            #expect(Set(["device_id","client_type","snapshot_id","operation_id","confirmed"]).isSubset(of:Set(body.keys)))
+            // Core rejects any envelope, nested payload, or token in this body.
+            #expect(Set(body.keys) == Set(["device_id","client_type","snapshot_id","operation_id","confirmed"]))
             #expect(body["session_ids"] == nil && body["query"] == nil && body["cursor"] == nil)
             #expect(body["snapshot_id"] as? String == "opaque-all-pages" && body["confirmed"] as? Bool == true)
             let operation = try #require(body["operation_id"] as? String)

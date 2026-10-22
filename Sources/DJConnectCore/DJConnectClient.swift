@@ -870,7 +870,7 @@ public final class DJConnectClient: Sendable {
         }
         let payload = HistoryBulkDeletePayload(deviceID: identity.deviceID, clientType: identity.clientType,
             snapshotID: snapshot.snapshotID, operationID: operationID)
-        var request = try jsonRequest(path: Self.apiV1Path("session/history/delete_all"), payload: payload)
+        var request = try historyDeletionRequest(path: "session/history/delete_all", payload: payload)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
         request.setValue("no-referrer", forHTTPHeaderField: "Referrer-Policy")
@@ -950,13 +950,23 @@ public final class DJConnectClient: Sendable {
         guard action.isValid, !expectedOwner.isEmpty else { throw DJConnectError.invalidResponse }
         let payload = HistoryDeletePayload(deviceID: identity.deviceID, clientType: identity.clientType,
             sessionID: action.sessionID, expectedRevision: action.expectedRevision, operationID: action.operationID)
-        var request = try jsonRequest(path: Self.apiV1Path("session/history/delete"), payload: payload)
+        var request = try historyDeletionRequest(path: "session/history/delete", payload: payload)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
         request.setValue("no-referrer", forHTTPHeaderField: "Referrer-Policy")
         let response: DJConnectSessionDeleteResponse = try await decodedResponse(for: request, using: sessionProjectionSession)
         guard response.admits(action, owner: expectedOwner) else { throw DJConnectError.invalidResponse }
         return response
+    }
+
+    /// The archive API accepts a closed, flat body. The general JSON helper
+    /// adds identity/payload copies and device_token, which this route rejects.
+    private func historyDeletionRequest<T: Encodable>(path: String, payload: T) throws -> URLRequest {
+        var request = try authenticatedRequest(path: Self.apiV1Path(path))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(payload)
+        return request
     }
 
     private struct HistoryDeletePayload: Encodable {
