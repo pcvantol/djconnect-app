@@ -401,6 +401,7 @@ struct SessionTimelineScreen: View {
     @State private var flowSearchExpanded = false
     @State private var forecastSearchExpanded = false
     @State private var inlineSearchBounds = CGRect.zero
+    @State private var pendingSearchPosition: String?
     @State private var selectedMatchID: String?
     private var retryRefreshing: Bool { manualRefresh.isRefreshing }
     @State private var pullRefreshing = false
@@ -556,7 +557,10 @@ struct SessionTimelineScreen: View {
                             if displayingForecast {
                                 SessionForecastContent(model: model, query: $forecastQuery,
                                                        searchExpanded: $forecastSearchExpanded,
-                                                       searchBoundsChanged: { inlineSearchBounds = $0 })
+                                                       searchBoundsChanged: {
+                                                           inlineSearchBounds = $0
+                                                           positionOpenSearch()
+                                                       })
                             } else {
                                 if activeSession != nil && flowSearchExpanded {
                                     searchBar(proxy: proxy).id("flow-search")
@@ -697,7 +701,10 @@ struct SessionTimelineScreen: View {
                         history.prefetchArtwork(sessionID: sessionID, visibleIDs: artworkVisibleIDs)
                     }
                     .onScrollPhaseChange { _, phase in
-                        if phase == .tracking || phase == .interacting { submittedQuestion = nil }
+                        if phase == .tracking || phase == .interacting {
+                            submittedQuestion = nil
+                            pendingSearchPosition = nil
+                        }
                         if phase.isScrolling {
                             history.prefetchArtwork(sessionID: sessionID, visibleIDs: artworkVisibleIDs)
                         }
@@ -767,12 +774,16 @@ struct SessionTimelineScreen: View {
                 if ended { showsForecast = false }
             }
             .onChange(of: showsForecast) { _, value in
+                pendingSearchPosition = nil
                 flowSearchExpanded = false; forecastSearchExpanded = false; forecastQuery = ""
                 query = ""; selectedMatchID = nil; searching = false; history.clearSearch()
                 if value { inputFocused = false; searchFocused = false }
             }
             .onChange(of: model.isShowingVibeScape) { _, visible in
                 if !visible { showsForecast = model.vibeScapeReturnToForecast }
+            }
+            .onChange(of: forecastSearchExpanded) { _, expanded in
+                if !expanded { pendingSearchPosition = nil }
             }
             .overlay {
                 if activeSession != nil {
@@ -795,6 +806,9 @@ struct SessionTimelineScreen: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             composerKeyboardVisible = false
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
+            positionOpenSearch()
         }
         #endif
             .background {
@@ -1130,14 +1144,30 @@ struct SessionTimelineScreen: View {
 
     private func openCurrentSearch(proxy: ScrollViewProxy) {
         inputFocused = false
+        submittedQuestion = nil
+        sceneRestoreTask?.cancel(); anchorGeneration = UUID()
+        pendingSearchPosition = displayingForecast ? "forecast-search" : "flow-search"
         if displayingForecast { forecastSearchExpanded = true }
         else { flowSearchExpanded = true; searchFocused = true }
-        // The inline field has no collapsed row. Wait for its insertion before
-        // scrolling it into view; retain the selected Session mode.
+        // Use the same bound scroll controller as keyboard/layout changes.
+        // Field layout and keyboard completion settle this same target again;
+        // an actual user scroll releases it immediately.
         Task { @MainActor in
             await Task.yield()
-            guard scenePhase == .active else { return }
-            proxy.scrollTo(displayingForecast ? "forecast-search" : "flow-search", anchor: .top)
+            positionOpenSearch()
+        }
+    }
+
+    private func positionOpenSearch() {
+        guard activeSession != nil, scenePhase == .active, let target = pendingSearchPosition,
+              target == (displayingForecast ? "forecast-search" : "flow-search"),
+              displayingForecast ? forecastSearchExpanded : flowSearchExpanded else { return }
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            scrollAnchor = .top
+            if displayingForecast { forecastPosition = target }
+            else { visibleEntry = target }
         }
     }
 
@@ -1271,6 +1301,7 @@ struct SessionTimelineScreen: View {
         jump(id, proxy: proxy)
     }
     private func closeSearch(proxy: ScrollViewProxy) {
+        pendingSearchPosition = nil
         flowSearchExpanded = false
         anchorGeneration = UUID(); searching = false; searchFocused = false; query = ""; selectedMatchID = nil; history.clearSearch()
         if activeSession == nil, let priorSearchPosition {
@@ -1313,7 +1344,10 @@ struct SessionTimelineScreen: View {
             SessionCollapsibleSearch(expanded: activeSession == nil || flowSearchExpanded,
                                      label: text("ui.session.history.search"), identifier: "session-flow-search-toggle",
                                      open: { inputFocused = false; flowSearchExpanded = true; searchFocused = true },
-                                     boundsChanged: { inlineSearchBounds = $0 }) {
+                                     boundsChanged: {
+                                         inlineSearchBounds = $0
+                                         positionOpenSearch()
+                                     }) {
             AskDJSearchBar(language: model.language, promptKey: "ui.session.history.search",
                            fieldIdentifier: "session-search-field", countIdentifier: "session-search-count",
                            closeLabelKey: "ui.close.search",

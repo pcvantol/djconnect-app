@@ -33,7 +33,11 @@ The MTKView renderer is mounted only while the root immersive overlay exists.
 Flow/Forecast search has no collapsed inline button or reserved search row.
 iPhone exposes search in the existing More toolbar popover; iPad and macOS
 show a direct toolbar button. Both the button and Command-F open the current
-mode's inline field after insertion, without switching Forecast to Flow.
+mode's inline field without switching Forecast to Flow. The shared bound scroll
+position aligns that field to the top content boundary below the native toolbar;
+field geometry and keyboard completion settle the same target after insertion.
+Forecast registers its nested children as scroll targets. There is no competing
+one-shot proxy scroll, and user tracking/dragging immediately releases alignment.
 Forecast's local search remains available independently of history search.
 Flow and Forecast remain mounted underneath, retaining their own viewport state.
 The overlay hides their accessibility tree and covers ordinary UI chrome; the

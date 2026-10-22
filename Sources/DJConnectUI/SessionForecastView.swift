@@ -170,6 +170,7 @@ struct SessionForecastContent: View {
                             .disabled(model.forecastLoading || !model.canRefreshSessionForecast)
                     }
                 }.padding(.horizontal, 20).padding(.bottom, 16)
+                    .scrollTargetLayout()
             }
         }
         .onChange(of: query) { selectedSearchID = nil }
