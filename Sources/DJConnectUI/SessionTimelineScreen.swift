@@ -511,8 +511,8 @@ struct SessionTimelineScreen: View {
     }
 
     var body: some View {
-        let retentionDeadlines = renderCache.snapshot(timeline.entries, sessionID: sessionID, epoch: history.responseEpoch).compactMap(\.deadline)
-            + timeline.entries.compactMap { $0.sessionMedia?.artwork.expiresAt.flatMap(DJConnectHistoryEntry.date) }
+        let cachedEntries = renderCache.snapshot(timeline.entries, sessionID: sessionID, epoch: history.responseEpoch)
+        let retentionDeadlines = cachedEntries.flatMap { [$0.deadline, $0.artworkDeadline].compactMap { $0 } }
         let matchMap = matches.reduce(into: [String: DJConnectHistoryEntry]()) { result, entry in
             if result[entry.id] == nil { result[entry.id] = entry }
         }
@@ -666,6 +666,9 @@ struct SessionTimelineScreen: View {
                         .scrollTargetLayout()
                         // Background updates never reveal pull-to-refresh or move the scroll offset.
                         }
+                        // Content cards use stable native frost while moving under
+                        // the toolbar; reserve live refractive glass for controls.
+                        .environment(\.djConnectScrollingSurface, true)
                     }
                     .safeAreaInset(edge: .top, spacing: 0) {
                         VStack(spacing: 0) {

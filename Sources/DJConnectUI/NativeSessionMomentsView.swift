@@ -165,6 +165,7 @@ private struct DJSessionGlassSurface: ViewModifier {
     @Environment(\.currentMomentArtworkTint) private var artworkTint
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
+    @Environment(\.djConnectScrollingSurface) private var scrollingSurface
     @ViewBuilder func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         let tint = surfaceTint ?? (currentMomentBorder ? artworkTint : nil)
@@ -188,6 +189,8 @@ private struct DJSessionGlassSurface: ViewModifier {
         }
         if !glassEnabled || reduceTransparency {
             bordered.background(DJConnectGlassAppearance.opaqueSurface, in: shape)
+        } else if scrollingSurface {
+            bordered.background(DJConnectMaterial(.ultraThin), in: shape)
         } else if #available(iOS 26, macOS 26, watchOS 26, tvOS 26, *) {
             if let tint {
                 bordered.glassEffect(.regular.tint(tint.opacity(0.22)), in: shape)
@@ -209,10 +212,11 @@ private struct DJSessionGlassSurface: ViewModifier {
 struct DJSessionGlassGroup<Content: View>: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
+    @Environment(\.djConnectScrollingSurface) private var scrollingSurface
     let content: Content
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     var body: some View {
-        if #available(iOS 26, macOS 26, watchOS 26, tvOS 26, *), glassEnabled && !reduceTransparency {
+        if #available(iOS 26, macOS 26, watchOS 26, tvOS 26, *), glassEnabled && !reduceTransparency && !scrollingSurface {
             GlassEffectContainer(spacing: 0) { content }
         } else {
             content

@@ -6,6 +6,7 @@ struct SessionTimelineRenderEntry: Equatable, Identifiable {
     let entry: DJConnectHistoryEntry
     let occurredAt: Date?
     let deadline: Date?
+    let artworkDeadline: Date?
     let message: DJConnectAskDJMessage
     var id: String { entry.id }
     func isRetained(at date: Date) -> Bool {
@@ -32,6 +33,7 @@ struct SessionTimelineRenderEntry: Equatable, Identifiable {
                 let occurred = DJConnectHistoryEntry.date(entry.occurredAt)
                 prepared = SessionTimelineRenderEntry(entry: entry, occurredAt: occurred,
                     deadline: DJConnectHistoryEntry.date(entry.retainedUntil),
+                    artworkDeadline: entry.sessionMedia?.artwork.expiresAt.flatMap(DJConnectHistoryEntry.date),
                     message: DJConnectAskDJMessage(id: entries[entry.id]?.message.id ?? UUID(),
                         serverID: entry.originMessageID, clientMessageID: entry.clientMessageID,
                         role: entry.kind == .conversationUser ? .user : .dj,
