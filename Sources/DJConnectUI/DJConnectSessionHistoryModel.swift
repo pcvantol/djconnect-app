@@ -1114,7 +1114,10 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func useCurrentContext(_ turn: PendingTurn) {
-        guard let host else { return }
+        guard let host, turn.requestEpoch == epoch, ownerScope == turn.ownerScope,
+              pendingTurns.contains(where: {
+                  $0.id == turn.id && $0.requestEpoch == turn.requestEpoch && $0.ownerScope == turn.ownerScope
+              }) else { return }
         pendingTurns.removeAll { $0.id == turn.id }; selectedEntry = nil
         host.askDJDraft = turn.text
     }

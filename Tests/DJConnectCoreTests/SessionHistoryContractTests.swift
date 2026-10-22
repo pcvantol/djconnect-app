@@ -1169,6 +1169,43 @@ func conversationFailureUsesAskDJCopyAndPreservesQuestionMetadata(_ failure: Str
     #expect(DJConnectSessionHistoryModel.conversationErrorKey(DJConnectHybridTransportError.deliveryUnknown) == "ui.ask_dj.answer.delivery_unknown")
 }
 
+@Test(arguments: ["current", "consumed", "epoch", "owner-reset", "wrong-owner"]) @MainActor
+func conversationQuestionReviewRejectsCapturedStaleScopeWithoutSending(_ change: String) async throws {
+    let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200,caps,0) }
+        if request.httpMethod == "POST", request.url!.path.hasSuffix("/ask_dj/message") {
+            return (500,Data(#"{"success":false,"error":"server"}"#.utf8),0)
+        }
+        return (200,profile,0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare()
+    model.askDJDraft = "Original scoped fixture question"
+    history.sendText()
+    for _ in 0..<100 where model.isSendingAskDJText { try await Task.sleep(for: .milliseconds(20)) }
+    var captured = try #require(history.pendingTurns.first)
+    if change == "consumed" { history.useCurrentContext(captured) }
+    if change == "epoch" { history.suspend(); await history.prepare() }
+    if change == "owner-reset" { history.reset() }
+    if change == "wrong-owner" {
+        captured = .init(id: captured.id, text: captured.text, context: captured.context,
+                         localMessageID: captured.localMessageID, payload: captured.payload,
+                         requestEpoch: captured.requestEpoch, ownerScope: "different-fixture-owner")
+    }
+    model.askDJDraft = "New context draft"
+    let requestsBefore = fixture.requests.count
+    history.useCurrentContext(captured)
+    #expect(model.askDJDraft == (change == "current" ? captured.text : "New context draft"))
+    #expect(fixture.requests.count == requestsBefore)
+    #expect(!model.isSendingAskDJText)
+    if change == "current" { #expect(!history.pendingTurns.contains(where: { $0.id == captured.id })) }
+}
+
 @Test @MainActor func sessionHistoryPeriodicReadCannotSupersedeExplicitOpen() async throws {
     let receipt = try historyObject()
     let profile = try historyData(try #require(receipt["later_historical_answer"]))

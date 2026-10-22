@@ -21,6 +21,10 @@ uncertainty with a Review question action. This only restores text to the draft;
 it does not submit. Retry remains disabled for uncertain delivery. An actual
 HTTP409 still uses the separate context-changed behavior. The conversation owns
 its error presentation and disables outer automatic operation replay/toasts.
+Draft review checks the original request epoch, current owner scope and continued
+pending-turn membership before removing the turn or restoring its text. A stale
+captured button after suspension, owner reset or an earlier review cannot write
+an old question into a newer draft. Review itself performs no HTTP request.
 
 Synthetic regressions cover more than three pending status reads, one execution
 with unchanged IDs across all reads, the longer request timeout, original receipt
