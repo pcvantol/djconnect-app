@@ -787,7 +787,7 @@ public struct DJConnectRootView: View {
                         ) { selectSidebarSection(.askDJ) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.session.history.title"),
-                            systemImage: "clock.arrow.circlepath",
+                            systemImage: "headphones",
                             isSelected: selectedSection == .savedSessions,
                             focusTarget: .section(.savedSessions),
                             focus: $focusedSidebarItem
@@ -16385,7 +16385,7 @@ private struct MoreView: View {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 12)], spacing: 12) {
                     MoreNavigationRow(title: "Ask DJ", systemImage: "bubble.left.and.bubble.right") { destinationSelection = .askDJ }
-                    MoreNavigationRow(title: localizedKey(model.language, "ui.session.history.title"), systemImage: "clock.arrow.circlepath") { destinationSelection = .savedSessions }
+                    MoreNavigationRow(title: localizedKey(model.language, "ui.session.history.title"), systemImage: "headphones") { destinationSelection = .savedSessions }
                     MoreNavigationRow(title: "Music DNA", systemImage: "heart") { destinationSelection = .musicDNA }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.queue"), systemImage: "music.note.list") { destinationSelection = .queue }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.playlists"), systemImage: "rectangle.stack") { destinationSelection = .playlists }
