@@ -366,15 +366,6 @@ struct SessionTimelineScreen: View {
     @State private var showingDJVoice = false
     @State private var feedbackMessage: DJConnectAskDJMessage?
     @State private var menuFrames: [SessionControlIntent.Kind: CGRect] = [:]
-    private var modePickerToolbarClearance: CGFloat {
-        #if os(iOS)
-        // The mode picker scrolls above the toolbar; artwork begins below it.
-        // Use native control measurements rather than a device/status-bar offset.
-        max(44, menuFrames.values.map(\.height).filter { $0.isFinite }.max() ?? 44)
-        #else
-        0
-        #endif
-    }
     @State private var currentHeaderVisible = true
     @State private var composerKeyboardVisible = false
     private var composerBottomPadding: CGFloat {
@@ -418,7 +409,8 @@ struct SessionTimelineScreen: View {
         self.model = model; history = model.sessionHistory; self.sessionID = sessionID
         self.activeSession = activeSession; self.initialAnchor = initialAnchor; self.openQueueAction = openQueueAction
         self.refreshAction = refreshAction
-        _visibleEntry = State(initialValue: activeSession != nil && initialAnchor == nil ? "current" : nil)
+        _visibleEntry = State(initialValue: activeSession != nil && initialAnchor == nil ? "session-mode-picker" : nil)
+        _forecastPosition = State(initialValue: activeSession != nil && initialAnchor == nil ? "session-mode-picker" : nil)
     }
     private func refreshTimeline() async {
         await manualRefresh.run(model: model, systemImage: DJConnectFeatureSymbols.djSession) {
@@ -543,11 +535,9 @@ struct SessionTimelineScreen: View {
                                         if !model.isShowingVibeScape { model.vibeScapeModePickerFrame = $0 }
                                     }
                                     .padding(.horizontal, 20)
-                                    .padding(.bottom, modePickerToolbarClearance)
                                     .id("session-mode-picker")
-                                // Start at "current", leaving the mode picker
-                                // above the initial viewport. Pull the artwork
-                                // down to reveal it in the same scroll content.
+                                // The mode picker is the initial top target;
+                                // artwork follows with ordinary content spacing.
                                 scrollingCurrent(activeSession).id("current")
                                 if history.hasUnconfirmedDeletion {
                                     ContentDeletionPendingNotice(model: model)
@@ -778,9 +768,13 @@ struct SessionTimelineScreen: View {
                 flowSearchExpanded = false; forecastSearchExpanded = false; forecastQuery = ""
                 query = ""; selectedMatchID = nil; searching = false; history.clearSearch()
                 if value { inputFocused = false; searchFocused = false }
+                if activeSession != nil { positionSessionTopWithoutAnimation() }
             }
             .onChange(of: model.isShowingVibeScape) { _, visible in
-                if !visible { showsForecast = model.vibeScapeReturnToForecast }
+                if !visible {
+                    showsForecast = model.vibeScapeReturnToForecast
+                    if activeSession != nil { positionSessionTopWithoutAnimation() }
+                }
             }
             .onChange(of: forecastSearchExpanded) { _, expanded in
                 if !expanded { pendingSearchPosition = nil }
@@ -902,10 +896,10 @@ struct SessionTimelineScreen: View {
             #endif
             .onAppear {
                 guard activeSession != nil, initialAnchor == nil else { return }
-                positionCurrentWithoutAnimation()
+                positionSessionTopWithoutAnimation()
             }
             .task(id: sessionID) {
-                if activeSession != nil, initialAnchor == nil { positionCurrentWithoutAnimation() }
+                if activeSession != nil, initialAnchor == nil { positionSessionTopWithoutAnimation() }
                 let restoreGeneration = anchorGeneration
                 await history.prepare(); await history.loadTimeline(sessionID, window: .tail)
                 guard !Task.isCancelled, restoreGeneration == anchorGeneration else { return }
@@ -968,14 +962,14 @@ struct SessionTimelineScreen: View {
                         flowSearchExpanded = false; forecastSearchExpanded = false; forecastQuery = ""
                         history.clearSearch()
                         resumePosition = "current"
-                        positionCurrentWithoutAnimation()
+                        positionSessionTopWithoutAnimation()
                     } else if scenePhase == .inactive { resumePosition = visibleEntry }
                 } else {
                     sceneRestoreTask?.cancel()
                     let active = activeSession != nil
                     // Position before networking. There is deliberately no active
                     // Session jump/open after the background read completes.
-                    if active { positionCurrentWithoutAnimation() }
+                    if active { positionSessionTopWithoutAnimation() }
                     let restoreGeneration = anchorGeneration
                     sceneRestoreTask = Task {
                         await history.restoreVisibleTimeline(sessionID, active: active, anchor: active ? nil : resumePosition)
@@ -1263,13 +1257,15 @@ struct SessionTimelineScreen: View {
         }
     }
 
-    private func positionCurrentWithoutAnimation() {
+    private func positionSessionTopWithoutAnimation() {
         var transaction = Transaction(animation: nil)
         transaction.disablesAnimations = true
         withTransaction(transaction) {
             submittedQuestion = nil
             scrollAnchor = .top
-            visibleEntry = "current"
+            pendingSearchPosition = nil
+            visibleEntry = "session-mode-picker"
+            forecastPosition = "session-mode-picker"
             currentHeaderVisible = true
             oldestEntriesVisible = false
             artworkVisibleIDs = []
