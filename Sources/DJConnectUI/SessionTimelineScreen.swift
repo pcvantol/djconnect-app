@@ -43,6 +43,39 @@ struct SavedSessionMoodAvatar: View {
     }
 }
 
+/// Value-only row: unrelated AppModel/history notifications need not rebuild
+/// date formatters, summary numbers, avatar paths or the frosted surface.
+private struct SavedSessionListRow: View, Equatable {
+    let session: DJConnectSavedSession
+    let language: String
+    let summaryAvailable: Bool
+    let timeZone: TimeZone
+
+    var body: some View {
+        HStack(spacing: 12) {
+            SavedSessionMoodAvatar(summary: summaryAvailable ? session.summary : nil, language: language)
+                .frame(width: 52, height: 52)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(SessionArchiveSummary.text(session, language: language, timeZone: timeZone))
+                    .font(.body.weight(.medium)).foregroundStyle(.white).multilineTextAlignment(.leading)
+                if session.lifecycleStatus == "INTERRUPTED" {
+                    Text(DJConnectLocalization.localized(key: "ui.session.history.interrupted", language: language))
+                        .font(.caption2.weight(.medium)).foregroundStyle(.white.opacity(0.78))
+                }
+                if summaryAvailable, let summary = session.summary {
+                    SessionHistorySummaryView(summary: summary, language: language, compact: true, showsMood: false)
+                }
+            }
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.right")
+                .font(.body.weight(.semibold)).foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 9)
+        .modifier(DJConnectMediaRowSurface())
+    }
+}
+
 struct SavedSessionsView: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
@@ -54,6 +87,7 @@ struct SavedSessionsView: View {
     @State private var isSearchVisible = false
     @State private var searchText = ""
     @State private var selectedSearchIndex = 0
+    @State private var rowTimeZone = TimeZone.current
     @FocusState private var isSearchFocused: Bool
     private let externalOpenedSessionID: Binding<String?>?
     private var openedSessionID: Binding<String?> { externalOpenedSessionID ?? $localOpenedSessionID }
@@ -137,36 +171,14 @@ struct SavedSessionsView: View {
                         .accessibilityIdentifier("saved-sessions-refresh-error")
                     }
                     ForEach(filteredSessions) { session in
-                        HStack(spacing: 8) {
                         Button { openedSessionID.wrappedValue = session.id } label: {
-                            HStack(spacing: 12) {
-                                SavedSessionMoodAvatar(summary: history.summaryAvailable ? session.summary : nil,
-                                                       language: model.language)
-                                    .frame(width: 52, height: 52)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(SessionArchiveSummary.text(session, language: model.language))
-                                        .font(.body.weight(.medium)).foregroundStyle(.white).multilineTextAlignment(.leading)
-                                    if session.lifecycleStatus == "INTERRUPTED" {
-                                        Text(text("ui.session.history.interrupted"))
-                                            .font(.caption2.weight(.medium)).foregroundStyle(.white.opacity(0.78))
-                                    }
-                                    if history.summaryAvailable, let summary = session.summary {
-                                        SessionHistorySummaryView(summary: summary, language: model.language, compact: true, showsMood: false)
-                                    }
-                                }
-                                Spacer(minLength: 8)
-                                Image(systemName: "chevron.right")
-                                    .font(.body.weight(.semibold)).foregroundStyle(.secondary)
-                                    .accessibilityHidden(true)
-                            }
-                            .padding(.horizontal, 10).padding(.vertical, 9)
-                            .modifier(DJConnectMediaRowSurface())
+                            SavedSessionListRow(session: session, language: model.language,
+                                                summaryAvailable: history.summaryAvailable, timeZone: rowTimeZone)
+                                .equatable()
                         }
                         .buttonStyle(DJConnectMediaRowButtonStyle())
                         .accessibilityIdentifier("saved-session-" + session.id)
                         .id(session.id)
-                        .frame(maxWidth: .infinity)
-                        }
                         .frame(maxWidth: rowMaxWidth, alignment: .leading).frame(maxWidth: .infinity)
                         .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
                         .listRowBackground(Color.clear)
@@ -289,8 +301,15 @@ struct SavedSessionsView: View {
                 guard !Task.isCancelled else { return }
                 initialLoadFinished = true
             }
+            .onAppear { rowTimeZone = .current }
+            .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in
+                rowTimeZone = .current
+            }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active { Task { await history.restoreVisibleSessions() } }
+                if phase == .active {
+                    rowTimeZone = .current
+                    Task { await history.restoreVisibleSessions() }
+                }
             }
             .task(id: searchQuery) { await history.searchArchivedSessions(query: searchQuery) }
             .onDisappear { history.clearArchiveSearch() }

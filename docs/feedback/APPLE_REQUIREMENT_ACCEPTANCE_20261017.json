@@ -17,7 +17,7 @@
     "CLOSED_BOUNDED": 22,
     "OPEN": 5,
     "PARKED": 1,
-    "PARTIAL": 33,
+    "PARTIAL": 34,
     "SUPERSEDED": 1
   },
   "requirements": [
@@ -584,6 +584,16 @@
         "OPEN: volgende expliciet gevraagde build: native scrollmetingen, zoeken/refresh/reorder/duplicaten en originele afspeelacties op iPad/Mac verifiëren."
       ],
       "requirement": "Scrolloptimalisatie Wachtrij en Afspeellijsten",
+      "source": "Direct Peter / 22 oktober 2026"
+    },
+    {
+      "id": "saved-sessions-list-scroll-optimization",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: ook de lijst Eerdere sessies. Zelfstandige Equatable rijen vergelijken volledige serverheader/summary, taal, capability en tijdzone; ongewijzigde rijen hergebruiken datum/samenvatting/avatar/surface rendering. Extra rijcontainer verwijderd; navigatieclosure buiten equality. List/LazyVStack en cursorpaginering behouden. docs/SAVED_SESSIONS_LIST_SCROLL_PERFORMANCE.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED.",
+      "remaining": [
+        "OPEN: volgende expliciet gevraagde build: scrollmetingen lange lijst op iPad/Mac, paginering/inhoudzoeken, summary/mood/taal/tijdzone updates en juiste sessienavigatie fysiek verifiëren."
+      ],
+      "requirement": "Scrolloptimalisatie lijst Eerdere sessies",
       "source": "Direct Peter / 22 oktober 2026"
     }
   ],
