@@ -1445,16 +1445,16 @@
 // Native Session Forecast
 "ui.session.forecast.mode" = "View";
 "ui.session.forecast.flow" = "Flow";
-"ui.session.forecast.tab" = "Preview";
-"ui.session.forecast.title" = "Preview · ~15 min";
+"ui.session.forecast.tab" = "Horizon";
+"ui.session.forecast.title" = "Horizon · ~15 min";
 "ui.session.forecast.notice" = "A direction for the coming minutes. Music and contributions may change.";
-"ui.session.forecast.loading" = "Loading the preview…";
-"ui.session.forecast.unavailable" = "A current preview is not available.";
+"ui.session.forecast.loading" = "Loading Horizon…";
+"ui.session.forecast.unavailable" = "Horizon is currently unavailable.";
 "ui.session.forecast.source" = "Source";
 "ui.session.forecast.claim.current" = "Playing now";
 "ui.session.forecast.claim.intention" = "Intention";
 "ui.session.forecast.claim.conditional_target" = "Conditional aim";
-"ui.session.forecast.search" = "Search the preview";
+"ui.session.forecast.search" = "Search Horizon";
 // VibeCast rendezvous: routing preparation is distinct from display consent.
 "ui.rendezvous.scan" = "Scan TV QR code";
 "ui.rendezvous.choose" = "Choose your linked Home Assistant. This only sends its display address to this TV.";

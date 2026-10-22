@@ -1445,16 +1445,16 @@
 // Native Session Forecast
 "ui.session.forecast.mode" = "Vue";
 "ui.session.forecast.flow" = "Flow";
-"ui.session.forecast.tab" = "Aperçu";
-"ui.session.forecast.title" = "Aperçu · env. 15 min";
+"ui.session.forecast.tab" = "Horizon";
+"ui.session.forecast.title" = "Horizon · env. 15 min";
 "ui.session.forecast.notice" = "Une direction pour les prochaines minutes. La musique et les interventions peuvent changer.";
-"ui.session.forecast.loading" = "Chargement de l’aperçu…";
-"ui.session.forecast.unavailable" = "Aucun aperçu actuel n’est disponible.";
+"ui.session.forecast.loading" = "Chargement de Horizon…";
+"ui.session.forecast.unavailable" = "Horizon est indisponible pour le moment.";
 "ui.session.forecast.source" = "Source";
 "ui.session.forecast.claim.current" = "En cours";
 "ui.session.forecast.claim.intention" = "Intention";
 "ui.session.forecast.claim.conditional_target" = "Objectif possible";
-"ui.session.forecast.search" = "Rechercher dans l’aperçu";
+"ui.session.forecast.search" = "Rechercher dans Horizon";
 // VibeCast rendezvous: routing preparation is distinct from display consent.
 "ui.rendezvous.scan" = "Scanner le code QR du téléviseur";
 "ui.rendezvous.choose" = "Choisissez votre Home Assistant associé. Seule son adresse d’affichage sera partagée avec ce téléviseur.";
