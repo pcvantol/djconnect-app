@@ -140,6 +140,7 @@ struct SessionForecastContent: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(text("ui.session.forecast.title")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
                     Text(text("ui.session.forecast.notice")).font(.callout).foregroundStyle(.secondary)
+                    if searchExpanded {
                     SessionCollapsibleSearch(expanded: searchExpanded, label: text("ui.session.forecast.search"),
                                              identifier: "session-forecast-search-toggle", open: { searchExpanded = true },
                                              boundsChanged: searchBoundsChanged) {
@@ -155,6 +156,7 @@ struct SessionForecastContent: View {
                                    submitAction: { moveSearch(1, resultIDs: resultIDs, proxy: proxy) })
                         .task { searchFocused = searchExpanded }
                     }.id("forecast-search")
+                    }
                     if scenePhase == .active, let projection = model.visibleSessionForecast(at: clock.date) {
                         ForEach(Array(projection.imagery.enumerated()), id: \.offset) { _, image in
                             SessionForecastArtwork(model: model, projection: projection, artwork: image)

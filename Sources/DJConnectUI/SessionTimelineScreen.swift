@@ -558,7 +558,7 @@ struct SessionTimelineScreen: View {
                                                        searchExpanded: $forecastSearchExpanded,
                                                        searchBoundsChanged: { inlineSearchBounds = $0 })
                             } else {
-                                if activeSession != nil {
+                                if activeSession != nil && flowSearchExpanded {
                                     searchBar(proxy: proxy).id("flow-search")
                                 }
                                 if activeSession == nil {
@@ -801,15 +801,7 @@ struct SessionTimelineScreen: View {
                 if activeSession != nil {
                     // Retain Command-F without an additional visible search control.
                     Button {
-                        inputFocused = false
-                        if displayingForecast {
-                            forecastSearchExpanded = true
-                            proxy.scrollTo("forecast-search", anchor: .top)
-                        } else {
-                            flowSearchExpanded = true
-                            proxy.scrollTo("flow-search", anchor: .top)
-                            searchFocused = true
-                        }
+                        openCurrentSearch(proxy: proxy)
                     } label: { EmptyView() }
                     .keyboardShortcut("f", modifiers: .command)
                     .disabled(!displayingForecast && !history.searchAvailable)
@@ -820,7 +812,7 @@ struct SessionTimelineScreen: View {
             .toolbar {
                 #if os(macOS)
                 ToolbarItemGroup(placement: .navigation) {
-                    if activeSession == nil { sessionSearchToolbarButton(proxy: proxy) }
+                    sessionSearchToolbarButton(proxy: proxy)
                     sessionToolbarActions(proxy: proxy)
                     if allowsHandoffPresentation {
                         Button { model.isShowingVibeCastSessionStart = true } label: {
@@ -888,7 +880,9 @@ struct SessionTimelineScreen: View {
                 confirmation: $deleteConfirmation, isPresented: $confirmingDelete))
             #if os(iOS)
             .overlay(alignment: .topTrailing) {
-                SessionControlPopoverHost(model: model, intent: $sessionControlIntent, showsHandoff: allowsHandoffPresentation)
+                SessionControlPopoverHost(model: model, intent: $sessionControlIntent, showsHandoff: allowsHandoffPresentation,
+                    searchAction: { openCurrentSearch(proxy: proxy) },
+                    searchEnabled: displayingForecast || history.searchAvailable)
 
             }
             #endif
@@ -1026,6 +1020,9 @@ struct SessionTimelineScreen: View {
     @ViewBuilder private func sessionToolbarActions(proxy: ScrollViewProxy) -> some View {
         Group {
             #if os(iOS)
+            if usesExpandedToolbar, activeSession != nil {
+                sessionSearchToolbarButton(proxy: proxy)
+            }
             if !usesExpandedToolbar {
                 Button {
                     sessionControlIntent = SessionControlIntent(kind: .more, sessionID: sessionID, epoch: history.responseEpoch, sourceRect: menuFrames[.more] ?? .zero)
@@ -1119,15 +1116,29 @@ struct SessionTimelineScreen: View {
 
     private func sessionSearchToolbarButton(proxy: ScrollViewProxy) -> some View {
         Button {
-            toggleFlowSearch(proxy: proxy)
+            if activeSession != nil { openCurrentSearch(proxy: proxy) }
+            else { toggleFlowSearch(proxy: proxy) }
         } label: {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(searching ? djConnectAccent : .primary)
         }
-            .disabled(!history.searchAvailable)
+            .disabled(!displayingForecast && !history.searchAvailable)
             .accessibilityLabel(text("ui.session.history.search"))
             .accessibilityIdentifier("session-search-toggle")
             .keyboardShortcut("f", modifiers: .command)
+    }
+
+    private func openCurrentSearch(proxy: ScrollViewProxy) {
+        inputFocused = false
+        if displayingForecast { forecastSearchExpanded = true }
+        else { flowSearchExpanded = true; searchFocused = true }
+        // The inline field has no collapsed row. Wait for its insertion before
+        // scrolling it into view; retain the selected Session mode.
+        Task { @MainActor in
+            await Task.yield()
+            guard scenePhase == .active else { return }
+            proxy.scrollTo(displayingForecast ? "forecast-search" : "flow-search", anchor: .top)
+        }
     }
 
     private func clearReadingState() {
@@ -1828,12 +1839,14 @@ struct SessionControlPopoverHost: View {
     let showsHandoff: Bool
     let visualMoodSelection: Binding<Int>?
     let searchAction: (() -> Void)?
+    let searchEnabled: Bool?
     let refreshAction: (() -> Void)?
     @State private var pendingAction: (SessionControlIntent, MoreAction)?
     private enum MoreAction { case handoff, refresh, voice, search }
-    init(model: DJConnectAppModel, intent: Binding<SessionControlIntent?>, showsHandoff: Bool = false, refreshAction: (() -> Void)? = nil, searchAction: (() -> Void)? = nil, visualMoodSelection: Binding<Int>? = nil) {
+    init(model: DJConnectAppModel, intent: Binding<SessionControlIntent?>, showsHandoff: Bool = false, refreshAction: (() -> Void)? = nil, searchAction: (() -> Void)? = nil, searchEnabled: Bool? = nil, visualMoodSelection: Binding<Int>? = nil) {
         self.model = model; _intent = intent; history = model.sessionHistory
         self.showsHandoff = showsHandoff; self.refreshAction = refreshAction; self.searchAction = searchAction; self.visualMoodSelection = visualMoodSelection
+        self.searchEnabled = searchEnabled
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     private func queue(_ action: MoreAction, captured: SessionControlIntent) {
@@ -1852,7 +1865,7 @@ struct SessionControlPopoverHost: View {
             guard captured.sessionID == model.activeDJSession?.id else { return }
             intent = SessionControlIntent(kind: .voice, sessionID: captured.sessionID, epoch: captured.epoch, sourceRect: captured.sourceRect)
         case .search:
-            guard history.searchAvailable else { return }
+            guard searchEnabled ?? history.searchAvailable else { return }
             searchAction?()
         case .refresh:
             guard !model.isDemoMode, model.pairingStatus == .paired else { return }
@@ -1905,7 +1918,7 @@ struct SessionControlPopoverHost: View {
                                         Label(text("ui.session.history.search"), systemImage: "magnifyingglass")
                                             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                                     }
-                                    .disabled(!history.searchAvailable)
+                                    .disabled(!(searchEnabled ?? history.searchAvailable))
                                     .accessibilityIdentifier("session-search-toggle")
                                 }
                                 if captured.sessionID == model.activeDJSession?.id {

@@ -30,6 +30,11 @@ and material interpolate during a visible visit. There is
 no movie, image playback or frame-by-frame CPU mesh generation.
 
 The MTKView renderer is mounted only while the root immersive overlay exists.
+Flow/Forecast search has no collapsed inline button or reserved search row.
+iPhone exposes search in the existing More toolbar popover; iPad and macOS
+show a direct toolbar button. Both the button and Command-F open the current
+mode's inline field after insertion, without switching Forecast to Flow.
+Forecast's local search remains available independently of history search.
 Flow and Forecast remain mounted underneath, retaining their own viewport state.
 The overlay hides their accessibility tree and covers ordinary UI chrome; the
 macOS window toolbar hides while active. In Flow and Forecast the three-way mode
