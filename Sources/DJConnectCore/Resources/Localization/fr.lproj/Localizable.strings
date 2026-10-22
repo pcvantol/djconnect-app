@@ -1524,3 +1524,5 @@
 
 "ui.ask_dj.answer.delivery_unknown" = "Nous ne pouvons pas encore confirmer si ta question a été traitée. Consulte l’historique avant de la renvoyer.";
 "ui.ask_dj.answer.review_question" = "Vérifier la question";
+
+"ui.sources.current_playback" = "Informations sur la lecture en cours";

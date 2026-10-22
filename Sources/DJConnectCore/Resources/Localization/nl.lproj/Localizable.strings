@@ -1524,3 +1524,5 @@
 
 "ui.ask_dj.answer.delivery_unknown" = "We kunnen nog niet bevestigen of je vraag is verwerkt. Controleer de gespreksgeschiedenis voordat je opnieuw verstuurt.";
 "ui.ask_dj.answer.review_question" = "Vraag bekijken";
+
+"ui.sources.current_playback" = "Huidige afspeelinformatie";

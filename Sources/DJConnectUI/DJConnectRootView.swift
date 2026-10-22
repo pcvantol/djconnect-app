@@ -13203,18 +13203,20 @@ private struct AskDJSourcesStack: View {
     }
 
     private func sourceRow(link: DJConnectResponseLink, isInteractive: Bool) -> some View {
-        HStack(spacing: 8) {
+        let source = link.source.map(displaySource)
+        let title = link.title.map(displaySource)
+        return HStack(spacing: 8) {
             Image(systemName: "doc.text.magnifyingglass")
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.white.opacity(0.82))
                 .frame(width: 22, height: 22)
                 .background(Circle().fill(.white.opacity(0.12)))
             VStack(alignment: .leading, spacing: 1) {
-                Text(link.title?.isEmpty == false ? link.title! : link.source ?? link.url.host ?? link.url.absoluteString)
+                Text(title?.isEmpty == false ? title! : source ?? link.url.host ?? link.url.absoluteString)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.white)
                     .lineLimit(2)
-                if let source = link.source, !source.isEmpty {
+                if let source, !source.isEmpty {
                     Text(source)
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.62))
@@ -13241,6 +13243,12 @@ private struct AskDJSourcesStack: View {
                 .fill(.white.opacity(0.09))
         }
     }
+
+    private func displaySource(_ source: String) -> String {
+        source == "spotify_playback_context"
+            ? localizedKey(language, "ui.sources.current_playback") : source
+    }
+
 }
 
 private struct AskDJMarkdownText: View {

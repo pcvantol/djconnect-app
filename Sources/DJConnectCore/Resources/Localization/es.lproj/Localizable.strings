@@ -1524,3 +1524,5 @@
 
 "ui.ask_dj.answer.delivery_unknown" = "Aún no podemos confirmar si se procesó tu pregunta. Revisa el historial antes de enviarla de nuevo.";
 "ui.ask_dj.answer.review_question" = "Revisar pregunta";
+
+"ui.sources.current_playback" = "Información de la reproducción actual";
