@@ -74,7 +74,7 @@ fragment float4 vibeScapeFragment(VertexOut in [[stage_in]], constant Uniforms &
         distance += max(d*0.55,0.001);
     }
     float vignette = exp(-dot(uv,uv)*0.32);
-    float3 color = mix(float3(0.002,0.003,0.007),tint*0.025,vignette);
+    float3 color = mix(tint*0.012,tint*0.10,vignette);
     if(d<0.006 && distance<8.0) {
         float3 p=eye+ray*distance;
         const float e=0.002;
@@ -84,7 +84,7 @@ fragment float4 vibeScapeFragment(VertexOut in [[stage_in]], constant Uniforms &
         float fresnel=pow(1.0-max(dot(n,-ray),0.0),5.0);
         float occlusion=clamp(field(p+n*0.18,u)/0.18,0.20,1.0);
         float3 reflected=environment(reflect(ray,n),tint,u.shape.y);
-        float3 metal=mix(float3(0.72,0.76,0.82),tint,0.32);
+        float3 metal=mix(float3(0.72,0.76,0.82),tint,0.78);
         color=reflected*mix(metal,float3(1),fresnel)*occlusion;
         color+=tint*0.035*max(dot(n,normalize(float3(-0.5,0.8,0.6))),0.0);
         color=mix(color,float3(0.015,0.02,0.04),smoothstep(4.0,8.0,distance)*0.20);

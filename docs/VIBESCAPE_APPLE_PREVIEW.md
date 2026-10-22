@@ -15,7 +15,10 @@ preview or describe the complete feature as delivered.
 composition coordinates, a bounded RGB palette and finite motion, depth,
 roughness and deformation values in 0…1. Native seed diversity is volatile;
 there is no recorded seed, invented genre, audio analysis or BPM synchronization.
-Symbolic Session Mood provides an artistic palette hint only.
+Symbolic Session Mood selects the same primary palette color as the Session
+and widgets (including lime Energy). The shader uses this tint for its metal
+and backdrop. Core currently supplies the mood name, not a live Visual Director
+palette response; this is local artistic coloring, not audio analysis.
 
 The source-controlled Metal shader is compiled into the native UI framework's
 `default.metallib`. Runtime server/model text, external shaders and URL content
@@ -27,8 +30,13 @@ no movie, image playback or frame-by-frame CPU mesh generation.
 The MTKView renderer is mounted only while the root immersive overlay exists.
 Flow and Forecast remain mounted underneath, retaining their own viewport state.
 The overlay hides their accessibility tree and covers ordinary UI chrome; the
-macOS window toolbar hides while active. The only persistent controls are the
-three mode choices and a Dynamics popover. Escape exits. Changing primary
+macOS window toolbar hides while active. The same shared three-way mode picker
+uses the Flow/Forecast width and padding. A vertical glass Dynamics slider sits
+at the right edge, with midpoint reset underneath. Both controls fade away
+after three seconds; tapping the visual toggles them immediately. Dragging the
+slider suspends hiding and starts a fresh three seconds on release. Reduce
+Motion disables the control animation; an accessibility action reveals them.
+Escape exits. Changing primary
 navigation, backgrounding, owner/epoch/session changes or ending the Session
 revokes the visit. GPU delegate disposal pauses drawing. Reduce Motion produces
 an on-demand static frame; low power/serious thermal state uses 30fps and fewer
@@ -104,7 +112,7 @@ Six additional native tests cover same-revision cancellation/replacement,
 source renewal versus original expiry, clock rollback, owner/revision/exit
 withdrawal, attempt budget across tracks, missing context and immediate release
 of a captured context object. These cases plus the initial eight visit tests and six explicit-style
-tests plus the three frame-fence tests form the current23targeted VibeScape tests. Previous full-suite/build/GPU results remain bound to their original
+tests plus the three frame-fence tests and mood-refresh test form the current24targeted VibeScape tests. Previous full-suite/build/GPU results remain bound to their original
 heads; this local follow-up does not inherit native voice or hardware acceptance.
 
 ## Explicitly unresolved producer/UI boundaries
@@ -125,7 +133,7 @@ patch tests are not evidence of actual voice interpretation.
 
 ## Actual validation so far
 
-- Twenty-three targeted native Swift tests cover field-preserving patches, stale apply/ACK, undo,
+- Twenty-four targeted native Swift tests cover field-preserving patches, stale apply/ACK, undo,
   scope, reset, revoke/reentry, invalid numeric input, budget/expiry, twenty
   synthetic scene identities and blocked general Ask DJ/recording/defaults writes.
 - Real macOS and generic iOS preview builds compile the native Metal shader.

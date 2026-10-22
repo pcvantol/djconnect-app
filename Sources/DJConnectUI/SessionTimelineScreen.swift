@@ -1316,6 +1316,7 @@ struct SessionModeToggleButtons: View {
     @Binding var showsForecast: Bool
     let language: String
     var openVibeScape: (() -> Void)? = nil
+    var isVibeScape = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -1325,7 +1326,8 @@ struct SessionModeToggleButtons: View {
                 Button("VibeScape", action: openVibeScape)
                     .font(.headline).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.74)
                     .frame(maxWidth: .infinity,minHeight:48)
-                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis:.secondary,shape:.segmented,expands:true,usesLiveGlass:true))
+                    .djConnectButtonStyle(DJConnectButtonStyle(emphasis:isVibeScape ? .selected : .secondary,shape:.segmented,expands:true,usesLiveGlass:true))
+                    .accessibilityAddTraits(isVibeScape ? .isSelected : [])
                     .accessibilityIdentifier("session-vibescape-toggle")
             }
         }
@@ -1338,7 +1340,7 @@ struct SessionModeToggleButtons: View {
     }
 
     private func modeButton(forecast: Bool, key: String) -> some View {
-        let selected = showsForecast == forecast
+        let selected = !isVibeScape && showsForecast == forecast
         return Button {
             DJConnectHaptics.selection()
             showsForecast = forecast

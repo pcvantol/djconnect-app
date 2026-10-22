@@ -14,18 +14,25 @@ struct VibeScapeScene: Equatable, Sendable {
 
     static func autonomous(mood: String?, salt: UInt64) -> Self {
         var rng = VibeScapeRandom(state: salt)
-        let tint: SIMD3<Float>
-        switch mood {
-        case "chill": tint = SIMD3(0.25, 0.65, 0.85)
-        case "groove": tint = SIMD3(0.30, 0.85, 0.60)
-        case "energy": tint = SIMD3(0.95, 0.55, 0.18)
-        case "party": tint = SIMD3(0.75, 0.30, 0.85)
-        default: tint = SIMD3(0.60, 0.65, 0.85)
-        }
+        let tint = moodTint(mood)
         return Self(composition: SIMD4(rng.unit(), rng.unit(), rng.unit(), rng.unit()),
-                    palette: simd_clamp(tint + SIMD3(rng.unit(), rng.unit(), rng.unit()) * 0.18, SIMD3(repeating: 0), SIMD3(repeating: 1)),
+                    palette: tint,
                     motion: mood == "chill" ? 0.18 : 0.30, depth: 0.35 + rng.unit() * 0.45,
                     roughness: 0.035 + rng.unit() * 0.09, deformation: 0.25 + rng.unit() * 0.45)
+    }
+
+    // The primary colors of DJConnectSessionMoodTheme; kept Foundation-only
+    // so the standalone Metal qualification probe consumes the same scene.
+    static func moodTint(_ mood: String?) -> SIMD3<Float> {
+        let rgb: UInt32
+        switch mood {
+        case "chill": rgb = 0x4DA3FF
+        case "groove": rgb = 0x06C7AD
+        case "energy": rgb = 0xDDFF00
+        case "party": rgb = 0xFF287F
+        default: rgb = 0x3285FF
+        }
+        return SIMD3(Float((rgb >> 16) & 255), Float((rgb >> 8) & 255), Float(rgb & 255)) / 255
     }
 }
 
@@ -159,6 +166,16 @@ struct VibeScapeRenderTicket: Equatable, Sendable {
     @discardableResult func setDynamics(_ value: Float) -> Bool {
         guard isCurrent, value.isFinite, (0...1).contains(value), value != dynamics, let scene else { return false }
         dynamics = value; advance(scene); return true
+    }
+    func moodChanged(_ mood: String?) {
+        guard isCurrent, var scene, var baseline = autonomous else { return }
+        let tint = VibeScapeScene.moodTint(mood)
+        guard baseline.palette != tint else { return }
+        baseline.palette = tint; autonomous = baseline
+        // A confirmed mood refresh must not undo an explicit visual palette.
+        scene.palette = trackPatch?.palette ?? persistentPatch?.palette ?? tint
+        undo.removeAll()
+        if self.scene != scene { advance(scene) }
     }
     @discardableResult func undoLast(expected: VibeScapeRenderTicket) -> Bool {
         guard admitted(expected), expected.occurrence != nil, turns < 32, let prior = undo.popLast() else { return false }

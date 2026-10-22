@@ -64,6 +64,31 @@ import DJConnectCore
 }
 
 @Suite @MainActor struct VibeScapeVisitTests {
+    @Test func paletteMatchesSessionThemesAndMoodRefreshPreservesCompositionAndExplicitStyle() throws {
+        for theme in DJConnectSessionMoodTheme.allCases {
+            let rgb = theme.colorValues[0]
+            let expected = SIMD3<Float>(Float((rgb >> 16) & 255), Float((rgb >> 8) & 255), Float(rgb & 255)) / 255
+            #expect(VibeScapeScene.moodTint(theme.rawValue) == expected)
+        }
+        let visit = VisualDirectorVisit()
+        visit.enter(mood: "chill", occurrence: "A", salt: 1)
+        let composition = visit.scene?.composition
+        visit.moodChanged("energy")
+        #expect(visit.scene?.palette == VibeScapeScene.moodTint("energy"))
+        #expect(visit.scene?.composition == composition)
+        let custom = SIMD3<Float>(0.8, 0.2, 0.3)
+        let ticket = try #require(visit.ticket)
+        #expect(visit.apply(VibeScapePatch(palette: custom), expected: ticket))
+        visit.moodChanged("groove")
+        #expect(visit.scene?.palette == custom)
+        #expect(visit.scene?.composition == composition)
+        let updated = try #require(visit.ticket)
+        #expect(visit.resetToDJ(expected: updated))
+        #expect(visit.scene?.palette == VibeScapeScene.moodTint("groove"))
+        visit.revoke(); visit.moodChanged("party")
+        #expect(visit.scene == nil)
+    }
+
     @Test func patchesPreserveFieldsAndRequireActualRendererAcknowledgment() throws {
         let visit = VisualDirectorVisit()
         visit.enter(mood:"chill",occurrence:"track-A",salt:12)

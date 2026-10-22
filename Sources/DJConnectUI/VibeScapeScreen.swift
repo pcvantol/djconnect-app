@@ -16,7 +16,9 @@ enum VibeScapeAvailability {
 struct VibeScapeScreen: View {
     @ObservedObject var model: DJConnectAppModel
     @StateObject private var visit = VisualDirectorVisit()
-    @State private var showsDynamics = false
+    @State private var controlsVisible = true
+    @State private var controlsGeneration = UUID()
+    @State private var adjustingDynamics = false
     @State private var unavailable = false
     @State private var showsVoiceHelp = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -36,33 +38,25 @@ struct VibeScapeScreen: View {
             if !unavailable {
                 VibeScapeMetalView(visit: visit,reduceMotion: reduceMotion,unavailable: { unavailable = true })
                     .ignoresSafeArea().accessibilityHidden(true)
-                    .onTapGesture { showsVoiceHelp = true }
+                    .onTapGesture { toggleControls() }
             }
             if unavailable {
                 Text(text("ui.vibescape.unavailable"))
                     .foregroundStyle(.white).padding(28).accessibilityIdentifier("vibescape-unavailable")
             }
             VStack {
-                HStack(alignment: .top, spacing: 8) {
-                    Spacer(minLength: 0)
-                    HStack(spacing: 4) {
-                        exitButton("ui.session.forecast.flow",forecast: false)
-                        exitButton("ui.session.forecast.tab",forecast: true)
-                        Text("VibeScape").font(.headline).padding(.horizontal,12).frame(minHeight:48)
-                            .foregroundStyle(.white).accessibilityAddTraits(.isSelected)
-                    }
-                    .padding(4).djSessionFrostedSurface()
-                    .frame(maxWidth: 520)
-                    Spacer(minLength: 0)
-                    Button { showsDynamics.toggle() } label: {
-                        Image(systemName: "slider.horizontal.3").frame(width:44,height:44)
-                    }
-                    .djConnectButtonStyle(DJConnectButtonStyle())
-                    .accessibilityLabel(text("ui.vibescape.dynamics"))
-                    .accessibilityIdentifier("vibescape-settings")
-                    .popover(isPresented: $showsDynamics) { dynamicsControl.padding(24).frame(minWidth:240) }
-                }
-                .padding(.horizontal,12).padding(.top,8)
+                SessionModeToggleButtons(showsForecast: Binding(get: { false }, set: { forecast in
+                    model.vibeScapeReturnToForecast = forecast; close()
+                }), language: model.language, openVibeScape: { showControls() }, isVibeScape: true)
+                    .padding(.horizontal, 20)
+                    #if os(iOS)
+                    .padding(.top, 4).padding(.bottom, 10)
+                    #else
+                    .padding(.vertical, 10)
+                    #endif
+                    .opacity(controlsVisible ? 1 : 0)
+                    .allowsHitTesting(controlsVisible)
+                    .accessibilityHidden(!controlsVisible)
                 Spacer()
                 if showsVoiceHelp {
                     Label(text("ui.vibescape.voice.unavailable"),systemImage:"mic.slash")
@@ -76,7 +70,26 @@ struct VibeScapeScreen: View {
                         }
                 }
             }
+            GeometryReader { geometry in
+                HStack {
+                    Spacer(minLength: 0)
+                    dynamicsControl(length: min(240, max(100, geometry.size.height - 180)))
+                }
+                .padding(.trailing, 12)
+                .frame(maxHeight: .infinity)
+            }
+            .opacity(controlsVisible ? 1 : 0)
+            .allowsHitTesting(controlsVisible)
+            .accessibilityHidden(!controlsVisible)
         }
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.24), value: controlsVisible)
+        .task(id: controlsGeneration) {
+            guard controlsVisible, !adjustingDynamics else { return }
+            do { try await Task.sleep(for: .seconds(3)) } catch { return }
+            guard !Task.isCancelled, !adjustingDynamics else { return }
+            controlsVisible = false
+        }
+        .accessibilityAction(named: Text(text("ui.vibescape.dynamics"))) { showControls() }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("VibeScape")
         .accessibilityAction(named: Text(text("ui.vibescape.voice.label"))) { showsVoiceHelp = true }
@@ -88,6 +101,7 @@ struct VibeScapeScreen: View {
         .onChange(of: model.activeDJSession?.broadcast.playback?.itemID) { _, _ in
             if admitted { visit.enter(mood:model.activeDJSession?.selectedMood,occurrence:nil) }
         }
+        .onChange(of: model.activeDJSession?.selectedMood) { _, mood in visit.moodChanged(mood) }
         .onChange(of: owner) { _, _ in close() }
         .onChange(of: model.sessionHistory.responseEpoch) { _, _ in close() }
         .onChange(of: model.activeDJSession?.id) { _, _ in close() }
@@ -106,24 +120,36 @@ struct VibeScapeScreen: View {
         .accessibilityIdentifier("screen-vibescape")
     }
     private func close() { visit.revoke(); model.isShowingVibeScape = false }
-    private func exitButton(_ key: String, forecast: Bool) -> some View {
-        Button(text(key)) { model.vibeScapeReturnToForecast = forecast; close() }
-            .font(.headline).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.7)
-            .frame(minHeight:48)
-            .djConnectButtonStyle(DJConnectButtonStyle(emphasis:.secondary,shape:.segmented,usesLiveGlass:true))
-            .accessibilityIdentifier(forecast ? "vibescape-exit-forecast" : "vibescape-exit-flow")
+    private func showControls() {
+        controlsVisible = true; controlsGeneration = UUID()
     }
-    private var dynamicsControl: some View {
-        VStack(alignment:.leading,spacing:16) {
-            Text(text("ui.vibescape.dynamics")).font(.headline)
-            Slider(value: Binding(get:{ Double(visit.dynamics) },set:{ _ = visit.setDynamics(Float($0)) }),in:0...1)
+    private func toggleControls() {
+        controlsVisible.toggle(); controlsGeneration = UUID()
+    }
+    private func dynamicsControl(length: CGFloat) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "bolt.fill").foregroundStyle(.white)
+                .accessibilityHidden(true)
+            Slider(value: Binding(get: { Double(visit.dynamics) }, set: { _ = visit.setDynamics(Float($0)) }),
+                   in: 0...1, onEditingChanged: { editing in
+                       adjustingDynamics = editing; controlsGeneration = UUID()
+                   })
+                .tint(.white)
+                .frame(width: length, height: 44)
+                .rotationEffect(.degrees(-90))
+                .frame(width: 44, height: length)
                 .accessibilityLabel(text("ui.vibescape.dynamics"))
                 .accessibilityIdentifier("vibescape-dynamics")
-            HStack {
-                Text(text("ui.vibescape.calm")); Spacer(); Text(text("ui.vibescape.intense"))
-            }.font(.caption)
-            Button(text("ui.vibescape.follow")) { _ = visit.setDynamics(0.5) }
-                .accessibilityIdentifier("vibescape-follow-dj")
+            Button {
+                _ = visit.setDynamics(0.5); showControls()
+            } label: {
+                Image(systemName: "arrow.uturn.backward").foregroundStyle(.white).frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(text("ui.vibescape.follow"))
+            .accessibilityIdentifier("vibescape-follow-dj")
         }
+        .padding(.vertical, 12).padding(.horizontal, 4)
+        .djSessionFrostedSurface()
     }
 }
