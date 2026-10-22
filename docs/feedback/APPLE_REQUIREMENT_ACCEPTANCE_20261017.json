@@ -466,7 +466,8 @@
       "remaining": [
         "OPEN: exacte beschermde contractdocs en actual-wire/schema zelfstandig lezen en de Apple-consumer implementeren en kwalificeren.",
         "Alleen het oorspronkelijke retained item afspelen via de bestaande outputchooser; geen oude Session herleven en geen URI uit artwork afleiden. Bestaande autorisatie-, retentie-, output- en lifecyclegrenzen behouden.",
-        "Afzonderlijke consumerbron, causale tests, onafhankelijke review, build en device-readback ontbreken. Producerlevering/installatie sluit Apple-adoptie niet af."
+        "Afzonderlijke consumerbron, causale tests, onafhankelijke review, build en device-readback ontbreken. Producerlevering/installatie sluit Apple-adoptie niet af.",
+        "Aanvullende directe Peter-eis2026-10-22: play op waargenomen muziek moet exacte opname direct starten/huidig vervangen met ongewijzigde overige wachtrij (items en volgorde). Bestaande Coreplay_history_item-route garandeert dat nog niet; geen append+next of reconstructie als substituut. Specifieke Core-afstemming gevraagd; docs/HISTORICAL_PLAYBACK_QUEUE_PRESERVATION.md."
       ]
     },
     {
