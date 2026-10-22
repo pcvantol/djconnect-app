@@ -7433,7 +7433,9 @@ private struct TrackInsightHero: View {
         .padding(14)
         .frame(maxWidth: .infinity)
         .clipped()
-        .djConnectHeroCard()
+        // Share the scene's effective palette, including the standalone mood
+        // override; a pinned Moment keeps its own admitted visual profile.
+        .djSessionFrostedSurface(surfaceTint: profile.colors.first)
     }
 }
 

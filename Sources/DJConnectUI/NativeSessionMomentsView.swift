@@ -11,8 +11,8 @@ enum DJConnectAlbumArtworkLayout {
 }
 
 extension View {
-    func djSessionFrostedSurface(cornerRadius: CGFloat = DJConnectCardAppearance.cornerRadius, currentMomentBorder: Bool = false, mood: String? = nil) -> some View {
-        modifier(DJSessionGlassSurface(cornerRadius: cornerRadius, currentMomentBorder: currentMomentBorder, mood: mood))
+    func djSessionFrostedSurface(cornerRadius: CGFloat = DJConnectCardAppearance.cornerRadius, currentMomentBorder: Bool = false, mood: String? = nil, surfaceTint: Color? = nil) -> some View {
+        modifier(DJSessionGlassSurface(cornerRadius: cornerRadius, currentMomentBorder: currentMomentBorder, mood: mood, surfaceTint: surfaceTint))
     }
 
     func djAlbumArtworkGlassCard(artworkURL: URL? = nil) -> some View {
