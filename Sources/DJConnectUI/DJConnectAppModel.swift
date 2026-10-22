@@ -14460,20 +14460,19 @@ public final class DJConnectAppModel: ObservableObject {
             return try encoder.encode(value)
         case .startSession, .endSession:
             let intent = try decoder.decode(DJConnectWatchSessionAction.self, from: request.payload ?? Data())
-            let settings = try await client.profileDJSettings()
-            let active = try await client.activeSession()
-            let current = DJConnectWatchSessionSnapshot(settings: settings, session: active.resolvedSession)
-            guard active.success, intent.matches(current),
-                  (request.operation == .startSession) == (intent.sessionID == nil) else {
+            guard (request.operation == .startSession) == (intent.sessionID == nil) else {
                 throw DJConnectError.invalidResponse
             }
-            let response: DJConnectSessionResponse
-            if let sessionID = intent.sessionID {
-                response = try await client.endSession(.init(sessionID: sessionID))
-            } else {
-                response = try await client.startSession(.init(mood: intent.mood, language: intent.language))
-            }
-            guard response.success else { throw DJConnectError.invalidResponse }
+            try await intent.perform(settings: { try await client.profileDJSettings() },
+                session: { try await client.activeSession() }, write: { original in
+                    let response: DJConnectSessionResponse
+                    if let sessionID = original.sessionID {
+                        response = try await client.endSession(.init(sessionID: sessionID))
+                    } else {
+                        response = try await client.startSession(.init(mood: original.mood, language: original.language))
+                    }
+                    return response.success
+                })
             // Session responses may contain a large broadcast. Only acknowledge
             // the write; the Watch obtains its compact projection through GET.
             return try encoder.encode(true)

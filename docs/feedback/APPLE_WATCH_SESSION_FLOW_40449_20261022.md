@@ -73,3 +73,26 @@ After the last readback, both owned simulator apps were stopped and the HA-dev
 resource was explicitly released to the existing Core writer for their already
 authorized installation. No Core source, HA configuration, credentials or
 production deployment was changed by Apple.
+
+
+## Whole-candidate review correction — Watch write owner fence
+
+Core's independent PR183 review found that the iPhone proxy's start/end write
+read settings followed by Session without the trailing settings fence already
+used by foreground reads. An original Watch intent for ProfileA/noSession could
+otherwise pass a split settingsA/noSessionB pair and write into the currentB.
+The action now uses `DJConnectWatchSessionSnapshot.read`, compares the original
+intent against that coherent snapshot and checks cancellation before one write.
+Both proxy operations call that helper; existing non-replayed transport and
+unknown-outcome accounting remain. This is a read fence, not a new atomic server
+write precondition or a guarantee against a later unobserved backend switch.
+
+A contract-valid synthetic64hex binding switch reproduces one forbidden write
+with the old two-read implementation (RED, two assertions). Fixed code admits
+zero writes and its stable-owner path performs exactly one write; an uncertain
+reply is not retried. Four adjacent tests pass0.005s. The initial new test used
+an invalid-length binding and also failed its fixture assertion; that log is
+retained and is not the valid causal baseline. The corrected RED/GREEN logs are
+`watch-write-owner-red-valid-binding.log` and
+`watch-write-owner-green-valid-binding.log` in the night evidence directory.
+No physical Watch or server effect is claimed by this regression.

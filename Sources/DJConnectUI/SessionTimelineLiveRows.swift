@@ -18,6 +18,15 @@ enum SessionTimelineLiveRow: Identifiable {
         case .bulletin(let value): DJConnectHistoryEntry.date(value.createdAt) ?? .distantPast
         }
     }
+    /// Existing retention and original live presentation deadlines feed the
+    /// same local schedule; this never requests or renews source authority.
+    static func refreshDeadlines(retained: [SessionTimelineRenderEntry], broadcast: DJConnectBroadcastState?) -> [Date] {
+        let retainedDeadlines = retained.flatMap { [$0.deadline, $0.artworkDeadline].compactMap { $0 } }
+        let liveDeadlines = (broadcast?.nativeDelivery?.admissions ?? []).flatMap {
+            [$0.sourceExpiresAt, $0.displayExpiresAt].compactMap { $0.flatMap(DJConnectHistoryEntry.date) }
+        }
+        return retainedDeadlines + liveDeadlines
+    }
     static func merge(retained: [SessionTimelineRenderEntry], bulletins: [DJConnectMoment], at now: Date, omittingMomentIDs: Set<String> = []) -> [Self] {
         var seen = Set<String>()
         let unique = bulletins.filter { $0.isBulletinV1 && seen.insert($0.id).inserted }

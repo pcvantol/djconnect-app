@@ -252,3 +252,38 @@ private extension String {
     #expect(restored.string(forKey: "stableInstallID") == "FIRST")
     #expect(restored.string(forKey: "pairingCode") == "123456")
 }
+
+
+@Test @MainActor func watchSessionWriteRejectsProfileSwitchBetweenOwnerReadsWithNoActiveSession() async throws {
+    let original = try watchSettings()
+    var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
+    object["binding"] = String(repeating: "a", count: 64)
+    let changed = try JSONDecoder().decode(DJConnectProfileDJSettingsResponse.self, from: JSONSerialization.data(withJSONObject: object))
+    #expect(changed.isValid && changed.binding != original.binding)
+    let idle = try JSONDecoder().decode(DJConnectSessionResponse.self, from: Data("{\"success\":true,\"session\":null}".utf8))
+    let intent = DJConnectWatchSessionAction(snapshot: .init(settings: original, session: nil), language: "nl")
+    var reads = 0, writes = 0
+    do {
+        try await intent.perform(settings: { reads += 1; return reads == 1 ? original : changed },
+            session: { idle }, write: { _ in writes += 1; return true })
+        Issue.record("A split owner read must not write into the new Profile")
+    } catch { #expect(error as? DJConnectError == .invalidResponse) }
+    #expect(writes == 0)
+}
+
+@Test @MainActor func watchSessionWriteUsesOneCoherentReadAndNeverRetriesAnUncertainWrite() async throws {
+    let original = try watchSettings()
+    let idle = try JSONDecoder().decode(DJConnectSessionResponse.self, from: Data("{\"success\":true,\"session\":null}".utf8))
+    let intent = DJConnectWatchSessionAction(snapshot: .init(settings: original, session: nil), language: "nl")
+    var reads = 0, writes = 0
+    try await intent.perform(settings: { reads += 1; return original }, session: { idle }, write: { submitted in
+        writes += 1; #expect(submitted.binding == original.binding); return true
+    })
+    #expect(reads == 2 && writes == 1)
+    do {
+        try await intent.perform(settings: { original }, session: { idle }, write: { _ in
+            writes += 1; throw DJConnectError.network(message: "synthetic lost response")
+        })
+        Issue.record("An uncertain response cannot become success")
+    } catch { #expect(writes == 2) }
+}

@@ -542,7 +542,8 @@ struct SessionTimelineScreen: View {
 
     var body: some View {
         let cachedEntries = renderCache.snapshot(displayedEntries, sessionID: sessionID, epoch: history.responseEpoch)
-        let retentionDeadlines = cachedEntries.flatMap { [$0.deadline, $0.artworkDeadline].compactMap { $0 } }
+        let retentionDeadlines = SessionTimelineLiveRow.refreshDeadlines(retained: cachedEntries,
+            broadcast: activeSession?.broadcast)
         let matchMap = matches.reduce(into: [String: DJConnectHistoryEntry]()) { result, entry in
             if result[entry.id] == nil { result[entry.id] = entry }
         }

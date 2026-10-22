@@ -215,3 +215,26 @@ private func bulletinDate(_ raw: String) throws -> Date { try #require(DJConnect
         #expect(fixture["native"] as? String == "NOT_RUN")
     }
 }
+
+
+@Test func bulletinQuietFlowExpiresWithoutRetainedRowsOrServerUpdates() throws {
+    var broadcast = try bulletinBroadcast()
+    let moment = try #require(broadcast.djMoments.first)
+    let created = try bulletinDate(moment.createdAt)
+    let start = Date(timeIntervalSince1970: floor(created.timeIntervalSince1970 / 60) * 60 + 70)
+    let displayEnd = start.addingTimeInterval(5)
+    let sourceEnd = start.addingTimeInterval(10)
+    let formatter = ISO8601DateFormatter()
+    broadcast.nativeDelivery?.admissions[0].displayExpiresAt = formatter.string(from: displayEnd)
+    broadcast.nativeDelivery?.admissions[0].sourceExpiresAt = formatter.string(from: sourceEnd)
+    let deadlines = SessionTimelineLiveRow.refreshDeadlines(retained: [], broadcast: broadcast)
+    let ticks = Array(SessionEntryRefreshSchedule(deadlines: deadlines).entries(from: start, mode: .normal).prefix(4))
+    #expect(ticks == [start, displayEnd, sourceEnd, Date(timeIntervalSince1970: (floor(start.timeIntervalSince1970 / 60) + 1) * 60)])
+    #expect(broadcast.nativeCurrentMoment(at: start)?.id == moment.id)
+    #expect(broadcast.nativeCurrentMoment(at: displayEnd) == nil)
+    #expect(broadcast.nativeFlowMoments(at: displayEnd).map(\.id) == [moment.id])
+    let expiredTick = try #require(ticks.first { $0 >= sourceEnd })
+    #expect(broadcast.nativeFlowMoments(at: expiredTick).isEmpty)
+    #expect(broadcast.nativeFlowMoments(at: sourceEnd).isEmpty)
+    #expect(SessionTimelineLiveRow.refreshDeadlines(retained: [], broadcast: nil).isEmpty)
+}

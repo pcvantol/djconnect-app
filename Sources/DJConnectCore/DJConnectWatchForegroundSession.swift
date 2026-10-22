@@ -78,6 +78,16 @@ public struct DJConnectWatchSessionAction: Codable, Sendable {
         binding = snapshot.settings.binding; sessionID = snapshot.session?.id
         mood = snapshot.settings.snapshot.effective.mood; self.language = language
     }
+    /// Revalidate the original Watch owner before the sole non-replayed write.
+    /// A consistent read fence is not an atomic server write precondition.
+    @MainActor public func perform(settings: () async throws -> DJConnectProfileDJSettingsResponse,
+                                   session: () async throws -> DJConnectSessionResponse,
+                                   write: (Self) async throws -> Bool) async throws {
+        let current = try await DJConnectWatchSessionSnapshot.read(settings: settings, session: session)
+        guard matches(current) else { throw DJConnectError.invalidResponse }
+        try Task.checkCancellation()
+        guard try await write(self) else { throw DJConnectError.invalidResponse }
+    }
     public func matches(_ current: DJConnectWatchSessionSnapshot) -> Bool {
         current.isValid && binding == current.settings.binding && sessionID == current.session?.id &&
         mood == current.settings.snapshot.effective.mood && !current.settings.requiresSelection

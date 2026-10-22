@@ -34,3 +34,19 @@ Exact protected Core producer/fixture join and independent consumer review; comp
 Core personally verified the original16-file immutable manifest `5acb12c133ec4266efe00b980e637d07343084b673cc587611b69de1aae15bf9` and returned bounded contract `NO_BLOCKERS`; private audit `apple-bulletin-root-bounded-contract-review.json` in its existing evidence directory. This applies only to the preparatory source slice and supplies no whole-app or operational admission.
 
 Core then committed its coherent preparation to draftPR1293 at `3b4589347f61863ecad483e2d60f4deb6b8f7998`. Apple independently read its exact `actual-ha-wire.json` Git blob and matched SHA `aac3b59b6ecce6d7d3a1ca979db6edc08cad4376268c0806d88e06a78ff900b9`. Imported as `dj-bulletin-v1-core-3b458934-wire.json`; it is now the main software-regression fixture, while909f remains preserved historical compatibility evidence. All11 Bulletin test functions pass on the new source fixture. One chronological test initially used a historical absolute later-time constant; it now derives later time from each original fixture timestamp. No product chronology change was required. Both fixtures declare native NOT_RUN. The producer is still a source-preparation draft; operative producer pin remains null.
+
+
+## Whole-candidate review correction — original live deadlines
+
+Core's independent whole-PR183 review of3eef742 found a P2 outside the earlier
+bounded Bulletin review: the parent Flow schedule included retained entry/media
+deadlines only. With no retained rows or incoming update, a live Bulletin could
+remain mounted until the next minute after its original source expiry.
+`SessionTimelineLiveRow.refreshDeadlines` now joins original native source and
+display deadlines with the existing retained deadlines at the actual TimelineView
+callsite. It schedules local invalidation only; no source request, renewal or
+new retention. The quiet/no-retained-row causal regression is RED with the old
+retained-only join (one failure), GREEN with the original display/source equality
+ticks. Fourteen adjacent Bulletin/schedule functions pass0.195s. This closes the
+identified timing path in source; whole-candidate review and native/runtime
+qualification remain separate.
