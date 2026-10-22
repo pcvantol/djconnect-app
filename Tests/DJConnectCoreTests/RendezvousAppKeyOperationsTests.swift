@@ -178,20 +178,29 @@ extension RendezvousAppKeyOperationsTests {
         XCTAssertEqual(events, ["old-finished"])
     }
 
-    func testEarlierKeyGlobalWaiterFinishesBeforeLaterTransition() async throws {
+    func testEarlierGlobalWaiterCompletesWhileLaterTransitionRefusesStillOwnedKey() async throws {
         let queue = RendezvousAppKeyOperations(), installation = OperationProbe(), keyEntered = TransitionSignal(), probe = OperationProbe()
+        let globalReturned = TransitionSignal(), releaseOld = TransitionSignal()
         let holder = Task { try await queue.perform(keyIdentifier: RendezvousAppKeyOperations.installationAdmissionSlot) { await installation.hold() } }
         await installation.waitUntilEntered()
         let old = Task { try await queue.perform(keyIdentifier: "old") {
             keyEntered.signal()
             try await queue.perform(keyIdentifier: RendezvousAppKeyOperations.installationAdmissionSlot) { await probe.record("old") }
+            // Returning the inner global slot does not release the outer key.
+            globalReturned.signal(); await releaseOld.wait()
         } }
+        defer { releaseOld.signal(); holder.cancel(); old.cancel() }
         try await awaitSignal(keyEntered)
         try await awaitWaiters(queue, key: RendezvousAppKeyOperations.installationAdmissionSlot, count: 1)
-        let transition = Task { try await queue.performInstallationTransition(affectedKeys: ["old"]) { await probe.record("transition") } }
+        let transition = Task { try await queue.performInstallationTransition(affectedKeys: ["old"]) { XCTFail("A still-owned key entered the transition") } }
         try await awaitWaiters(queue, key: RendezvousAppKeyOperations.installationAdmissionSlot, count: 2)
-        await installation.finish()
-        try await holder.value; try await old.value; try await transition.value
+        await installation.finish(); try await holder.value
+        try await awaitSignal(globalReturned)
+        do { try await transition.value; XCTFail("Busy key was admitted") }
+        catch RendezvousAppKeyOperations.Failure.installationTransitionKeyBusy {}
+        // A separate explicit local attempt succeeds only after the old key ends.
+        releaseOld.signal(); try await old.value
+        try await queue.performInstallationTransition(affectedKeys: ["old"]) { await probe.record("transition") }
         let events = await probe.events; XCTAssertEqual(events, ["old", "transition"])
     }
 

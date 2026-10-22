@@ -223,6 +223,7 @@ private struct DJConnectWatchProxyRegistration: Sendable {
     var identity: DJConnectIdentity
     var pairCode: String
     var paired: Bool
+    var pairingIntentID: String? = nil
 }
 
 private final class DJConnectWatchProxySessionDelegate: NSObject, WCSessionDelegate, @unchecked Sendable {
@@ -1909,7 +1910,8 @@ public final class DJConnectAppModel: ObservableObject {
     #if os(iOS) && canImport(WatchConnectivity)
     @Published private var watchProxyRegistration: DJConnectWatchProxyRegistration?
     private var watchProxySetupReadbackTask: Task<Void, Never>?
-    private var watchProxySetupReadbackInFlight = false
+    private var watchProxySetupReadbackInFlight: UUID?
+    private var watchProxyPairingGeneration = UUID()
     private let watchProxyHomeAssistantURLKey = "DJConnectWatchProxyHomeAssistantURL"
     private var watchProxySessionDelegate: DJConnectWatchProxySessionDelegate?
     private var pendingWatchProxyPairingPayload: DJConnectPairingDeepLink?
@@ -2020,6 +2022,7 @@ public final class DJConnectAppModel: ObservableObject {
     private let watchProxyAppVersionKey = "DJConnectWatchProxyAppVersion"
     private let watchProxyProtocolVersionKey = "DJConnectWatchProxyProtocolVersion"
     private let watchProxyPairedKey = "DJConnectWatchProxyPaired"
+    private let watchProxyPairingIntentKey = "DJConnectWatchProxyPairingIntent"
     private let watchProxyDeviceTokenKey = "DJConnectWatchProxyDeviceToken"
     private let watchProxyLocalURLKey = "DJConnectWatchProxyLocalURL"
     private let watchProxyAPIBaseKey = "DJConnectWatchProxyAPIBase"
@@ -2991,6 +2994,9 @@ public final class DJConnectAppModel: ObservableObject {
         cancelRendezvous()
         personaReactions.cancel(.background)
         isAppInForeground = false
+        #if os(iOS) && canImport(WatchConnectivity)
+        invalidateWatchProxyPairingWork()
+        #endif
         passiveSurfaces.suspend()
         automaticPassiveTask?.cancel(); automaticPassiveTask = nil
         automaticPassiveTaskID = UUID(); lastAutomaticPassiveQueryAt = nil
@@ -3595,6 +3601,7 @@ public final class DJConnectAppModel: ObservableObject {
         pairingFlowTarget = .appleWatch
         registration.pairCode = code
         registration.paired = false
+        clearWatchProxyPairingState()
         watchProxyRegistration = registration
         persistWatchProxyRegistration()
         watchPairingMessage = localized(key: "appModel.pair.apple.watch.sending.pairing.request.to.home.assistant")
@@ -3605,8 +3612,9 @@ public final class DJConnectAppModel: ObservableObject {
             "pair_code": code,
             "pair_path": DJConnectPairingDeepLink.canonicalPairPath
         ])
+        let generation = watchProxyPairingGeneration
         Task { @MainActor in
-            await self.pairWatchProxy(registration: registration, homeAssistantURL: Self.redactedURL(baseURL), pairCode: code)
+            await self.pairWatchProxy(registration: registration, homeAssistantURL: Self.redactedURL(baseURL), pairCode: code, generation: generation)
         }
         #else
         confirmPairingHomeAssistantURL()
@@ -3719,6 +3727,7 @@ public final class DJConnectAppModel: ObservableObject {
         pendingWatchProxyPairingPayload = nil
         registration.pairCode = payload.pairCode
         registration.paired = false
+        clearWatchProxyPairingState()
         watchProxyRegistration = registration
         persistWatchProxyRegistration()
         watchPairingMessage = localized(key: "appModel.pair.apple.watch.sending.pairing.request.to.home.assistant")
@@ -3732,8 +3741,9 @@ public final class DJConnectAppModel: ObservableObject {
             "pair_code": payload.pairCode,
             "pair_path": payload.pairPath
         ])
+        let generation = watchProxyPairingGeneration
         Task { @MainActor in
-            await self.pairWatchProxy(registration: registration, homeAssistantURL: payload.homeAssistantURL, pairCode: payload.pairCode)
+            await self.pairWatchProxy(registration: registration, homeAssistantURL: payload.homeAssistantURL, pairCode: payload.pairCode, generation: generation)
         }
     }
     #endif
@@ -14086,14 +14096,22 @@ public final class DJConnectAppModel: ObservableObject {
             protocolVersion: protocolVersion,
             platform: .watchos
         )
-        if let previous = watchProxyRegistration, previous.identity.deviceID != identity.deviceID {
-            watchProxySetupReadbackTask?.cancel(); watchProxySetupReadbackTask = nil
-            clearWatchProxyPairingState()
+        let intentID = message["pairing_intent_id"] as? String
+        if let intentID, DJConnectWatchPairingIntent(deviceID: deviceID, identifier: intentID, pairCode: pairCode) == nil { return }
+        if let previous = watchProxyRegistration,
+           previous.identity.deviceID != identity.deviceID || previous.pairingIntentID != intentID || previous.pairCode != pairCode {
+            // Preserve an already-established same-Watch bearer on upgrade only.
+            // A pending/reset/replacement setup cannot adopt this legacy path.
+            let establishedUpgrade = previous.identity.deviceID == identity.deviceID && previous.pairCode == pairCode &&
+                previous.paired && message["paired"] as? Bool == true && previous.pairingIntentID == nil && intentID != nil
+            if establishedUpgrade { invalidateWatchProxyPairingWork() }
+            else { clearWatchProxyPairingState() }
         }
         watchProxyRegistration = DJConnectWatchProxyRegistration(
             identity: identity,
             pairCode: pairCode,
-            paired: (message["paired"] as? Bool) ?? defaults.bool(forKey: watchProxyPairedKey)
+            paired: (message["paired"] as? Bool) ?? defaults.bool(forKey: watchProxyPairedKey),
+            pairingIntentID: intentID
         )
         persistWatchProxyRegistration()
         sendWatchProxyReady()
@@ -14120,7 +14138,8 @@ public final class DJConnectAppModel: ObservableObject {
                 platform: .watchos
             ),
             pairCode: pairCode,
-            paired: defaults.bool(forKey: watchProxyPairedKey)
+            paired: defaults.bool(forKey: watchProxyPairedKey),
+            pairingIntentID: defaults.string(forKey: watchProxyPairingIntentKey)
         )
     }
 
@@ -14135,15 +14154,32 @@ public final class DJConnectAppModel: ObservableObject {
         defaults.set(registration.identity.protocolVersion, forKey: watchProxyProtocolVersionKey)
         defaults.set(registration.pairCode, forKey: watchProxyPairCodeKey)
         defaults.set(registration.paired, forKey: watchProxyPairedKey)
+        defaults.set(registration.pairingIntentID, forKey: watchProxyPairingIntentKey)
     }
 
-    private func pairWatchProxy(registration: DJConnectWatchProxyRegistration, homeAssistantURL: String, pairCode: String) async {
-        defer { resumeWatchProxySetupIfNeeded() }
+    private func pairWatchProxy(registration: DJConnectWatchProxyRegistration, homeAssistantURL: String, pairCode: String, generation: UUID) async {
+        guard !Task.isCancelled, isAppInForeground, generation == watchProxyPairingGeneration,
+              watchProxyRegistration?.identity.deviceID == registration.identity.deviceID,
+              watchProxyRegistration?.pairingIntentID == registration.pairingIntentID,
+              watchProxyRegistration?.pairCode == pairCode,
+              let intentID = registration.pairingIntentID,
+              DJConnectWatchPairingIntent(deviceID: registration.identity.deviceID, identifier: intentID, pairCode: pairCode) != nil,
+              registration.pairCode == pairCode else { return }
+        defer { if generation == watchProxyPairingGeneration { resumeWatchProxySetupIfNeeded() } }
         guard let baseURL = Self.normalizedHomeAssistantURL(from: homeAssistantURL) else {
             watchPairingMessage = localized(key: "appModel.invalid.local.home.assistant.url.for.apple.watch.pairing")
             pairingMessage = watchPairingMessage
             return
         }
+        defaults.set(Self.redactedURL(baseURL), forKey: watchProxyHomeAssistantURLKey)
+        let originalOrigin = Self.redactedURL(baseURL)
+        let isCurrent = { [self] in
+            !Task.isCancelled && isAppInForeground && watchProxyPairingGeneration == generation &&
+            watchProxyRegistration?.identity.deviceID == registration.identity.deviceID &&
+            watchProxyRegistration?.pairingIntentID == intentID && watchProxyRegistration?.pairCode == pairCode &&
+            defaults.string(forKey: watchProxyHomeAssistantURLKey) == originalOrigin
+        }
+        guard isCurrent() else { return }
         let tokenStore = DJConnectInMemoryTokenStore()
         let client = DJConnectClient(baseURL: baseURL, identity: registration.identity, tokenStore: tokenStore)
         do {
@@ -14156,9 +14192,7 @@ public final class DJConnectAppModel: ObservableObject {
             guard let token = try tokenStore.loadToken(), !token.isEmpty else {
                 return
             }
-            guard watchProxyRegistration?.identity.deviceID == registration.identity.deviceID else {
-                throw CancellationError()
-            }
+            guard isCurrent() else { return }
             defaults.set(token, forKey: watchProxyDeviceTokenKey)
             defaults.set(Self.redactedURL(baseURL), forKey: watchProxyHomeAssistantURLKey)
             persistWatchPairingContract(response)
@@ -14180,6 +14214,7 @@ public final class DJConnectAppModel: ObservableObject {
             )
             log(.info, "Watch proxy paired through iPhone for \(Self.redactedDJConnectDeviceID(registration.identity.deviceID))")
         } catch let error as DJConnectError {
+            guard isCurrent() else { return }
             if case .pairingFailed = error {
                 watchPairingMessage = localized(key: "appModel.home.assistant.did.not.accept.the.apple.watch.pair")
                 pairingMessage = watchPairingMessage
@@ -14211,18 +14246,26 @@ public final class DJConnectAppModel: ObservableObject {
         baseURL: URL,
         pairCode: String
     ) async throws {
-        guard !watchProxySetupReadbackInFlight else { return }
-        watchProxySetupReadbackInFlight = true
-        defer { watchProxySetupReadbackInFlight = false }
+        guard watchProxySetupReadbackInFlight == nil, let intentID = registration.pairingIntentID else { return }
+        let operationID = UUID(), generation = watchProxyPairingGeneration
+        let originalOrigin = Self.redactedURL(baseURL)
+        let isCurrent = { [self] in
+            isAppInForeground && watchProxyPairingGeneration == generation &&
+            watchProxyRegistration?.identity.deviceID == registration.identity.deviceID &&
+            watchProxyRegistration?.pairingIntentID == intentID && watchProxyRegistration?.pairCode == pairCode &&
+            defaults.string(forKey: watchProxyDeviceTokenKey) == token &&
+            defaults.string(forKey: watchProxyHomeAssistantURLKey) == originalOrigin
+        }
+        watchProxySetupReadbackInFlight = operationID
+        defer { if watchProxySetupReadbackInFlight == operationID { watchProxySetupReadbackInFlight = nil } }
         let delays: [UInt64] = [0, 2, 3, 5, 5, 5]
         for delay in delays {
             if delay > 0 {
                 try await Task.sleep(for: .seconds(delay))
             }
-            guard !Task.isCancelled, isAppInForeground,
-                  watchProxyRegistration?.identity.deviceID == registration.identity.deviceID,
-                  defaults.string(forKey: watchProxyDeviceTokenKey) == token else { return }
+            guard !Task.isCancelled, isCurrent() else { return }
             do {
+                let completed = try await DJConnectWatchPairingReadback.perform(isCurrent: isCurrent, read: {
                 _ = try await client.postStatus(DJConnectStatusPayload(
                     identity: registration.identity,
                     haPairingStatus: .paired,
@@ -14238,7 +14281,48 @@ public final class DJConnectAppModel: ObservableObject {
                     mood: confirmedSessionMoodInt,
                     musicDNAKey: askDJMusicDNAKey
                 ))
+                }, commit: {
+                    var updated = registration
+                    updated.paired = true
+                    updated.pairCode = pairCode
+                    watchProxyRegistration = updated
+                    persistWatchProxyRegistration()
+                    watchPairingMessage = localized(key: "appModel.apple.watch.paired.with.home.assistant")
+                    // Completing the Watch registration cannot pair the iPhone's
+                    // independent identity, or send its status with the Watch bearer.
+                    pairingStatus = (try? tokenStore.loadToken())?.isEmpty == false ? .paired : .unpaired
+                    pairingFlowTarget = .appleWatch
+                    isShowingPairingSuccess = true
+                    isPairingScreenDismissed = false
+                    pairingMessage = watchPairingMessage
+                    sendWatchProxyMessage([
+                        "type": "watch_proxy_pair_result",
+                        "device_id": registration.identity.deviceID,
+                        "pairing_intent_id": intentID,
+                        "pair_code": pairCode,
+                        "device_token": token,
+                        "ha_base_url": response.haLocalURL ?? Self.redactedURL(baseURL),
+                        "connection_mode": haConnectionMode.rawValue,
+                        "remote_supported": remoteSupported,
+                        "music_backend": musicBackendSummary.musicBackend ?? "",
+                        "music_backend_name": musicBackendSummary.displayName,
+                        "music_backend_available": musicBackendSummary.musicBackendAvailable ?? true,
+                        "music_backend_revision": musicBackendSummary.musicBackendRevision ?? 0,
+                        "music_backend_error": musicBackendSummary.musicBackendError ?? "",
+                        "music_target_player_name": musicBackendSummary.musicTargetPlayer?.name ?? "",
+                        "assist_pipeline_id": response.assistPipelineID ?? assistPipelineID,
+                        "api_base": response.apiBase ?? "",
+                        "voice_path": response.voicePath ?? "",
+                        "status_path": response.statusPath ?? "",
+                        "event_path": response.eventPath ?? "",
+                        "ask_dj_supported": response.askDJSupported ?? true,
+                        "ask_dj_voice_supported": response.askDJVoiceSupported ?? true,
+                        "ask_dj_audio_response_supported": response.askDJAudioResponseSupported ?? true
+                    ])
+                })
+                guard completed else { return }
             } catch let error as DJConnectError {
+                guard !Task.isCancelled, isCurrent() else { return }
                 if isWaitingForHomeAssistantCompletion(error) {
                     watchPairingMessage = localized(key: "appModel.waiting.for.setup.to.be.completed.in.home.assistant")
                     pairingMessage = watchPairingMessage
@@ -14247,42 +14331,9 @@ public final class DJConnectAppModel: ObservableObject {
                 }
                 throw error
             }
-            var updated = registration
-            updated.paired = true
-            updated.pairCode = pairCode
-            watchProxyRegistration = updated
-            persistWatchProxyRegistration()
-            watchPairingMessage = localized(key: "appModel.apple.watch.paired.with.home.assistant")
-            // Completing the Watch registration cannot pair the iPhone's
-            // independent identity, or send its status with the Watch bearer.
-            pairingStatus = (try? tokenStore.loadToken())?.isEmpty == false ? .paired : .unpaired
-            pairingFlowTarget = .appleWatch
-            isShowingPairingSuccess = true
-            isPairingScreenDismissed = false
-            pairingMessage = watchPairingMessage
-            sendWatchProxyMessage([
-                "type": "watch_proxy_pair_result",
-                "device_token": token,
-                "ha_base_url": response.haLocalURL ?? Self.redactedURL(baseURL),
-                "connection_mode": haConnectionMode.rawValue,
-                "remote_supported": remoteSupported,
-                "music_backend": musicBackendSummary.musicBackend ?? "",
-                "music_backend_name": musicBackendSummary.displayName,
-                "music_backend_available": musicBackendSummary.musicBackendAvailable ?? true,
-                "music_backend_revision": musicBackendSummary.musicBackendRevision ?? 0,
-                "music_backend_error": musicBackendSummary.musicBackendError ?? "",
-                "music_target_player_name": musicBackendSummary.musicTargetPlayer?.name ?? "",
-                "assist_pipeline_id": response.assistPipelineID ?? assistPipelineID,
-                "api_base": response.apiBase ?? "",
-                "voice_path": response.voicePath ?? "",
-                "status_path": response.statusPath ?? "",
-                "event_path": response.eventPath ?? "",
-                "ask_dj_supported": response.askDJSupported ?? true,
-                "ask_dj_voice_supported": response.askDJVoiceSupported ?? true,
-                "ask_dj_audio_response_supported": response.askDJAudioResponseSupported ?? true
-            ])
             return
         }
+        guard !Task.isCancelled, isCurrent() else { return }
         watchPairingMessage = localized(key: "appModel.not.completed.in.home.assistant.yet.finish.setup.there")
         pairingMessage = watchPairingMessage
     }
@@ -14291,15 +14342,18 @@ public final class DJConnectAppModel: ObservableObject {
     /// only status reads with the existing Watch token; never consume its code
     /// again and never borrow the iPhone token.
     private func resumeWatchProxySetupIfNeeded() {
-        guard startBackgroundTasks, isAppInForeground, !watchProxySetupReadbackInFlight,
+        guard startBackgroundTasks, isAppInForeground, watchProxySetupReadbackInFlight == nil,
               watchProxySetupReadbackTask == nil,
               let registration = watchProxyRegistration, !registration.paired,
+              let intentID = registration.pairingIntentID,
+              DJConnectWatchPairingIntent(deviceID: registration.identity.deviceID, identifier: intentID, pairCode: registration.pairCode) != nil,
               let token = defaults.string(forKey: watchProxyDeviceTokenKey), !token.isEmpty,
               let baseURL = Self.normalizedHomeAssistantURL(from:
                 defaults.string(forKey: watchProxyHomeAssistantURLKey) ?? homeAssistantURL) else { return }
+        let generation = watchProxyPairingGeneration
         watchProxySetupReadbackTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            defer { watchProxySetupReadbackTask = nil }
+            defer { if watchProxyPairingGeneration == generation { watchProxySetupReadbackTask = nil } }
             let client = DJConnectClient(baseURL: baseURL, identity: registration.identity,
                                          tokenStore: DJConnectInMemoryTokenStore(token: token))
             let contract = DJConnectPairingResponse(success: true, haLocalURL: Self.redactedURL(baseURL),
@@ -14310,7 +14364,10 @@ public final class DJConnectAppModel: ObservableObject {
                 askDJSupported: defaults.object(forKey: watchProxyAskDJSupportedKey) as? Bool,
                 askDJVoiceSupported: defaults.object(forKey: watchProxyAskDJVoiceSupportedKey) as? Bool,
                 askDJAudioResponseSupported: defaults.object(forKey: watchProxyAskDJAudioResponseSupportedKey) as? Bool)
-            while !Task.isCancelled, isAppInForeground,
+            while !Task.isCancelled, isAppInForeground, watchProxyPairingGeneration == generation,
+                  watchProxyRegistration?.pairingIntentID == registration.pairingIntentID,
+                  watchProxyRegistration?.pairCode == registration.pairCode,
+                  defaults.string(forKey: watchProxyHomeAssistantURLKey) == Self.redactedURL(baseURL),
                   watchProxyRegistration?.identity.deviceID == registration.identity.deviceID,
                   watchProxyRegistration?.paired == false,
                   defaults.string(forKey: watchProxyDeviceTokenKey) == token {
@@ -14350,7 +14407,13 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    private func invalidateWatchProxyPairingWork() {
+        watchProxyPairingGeneration = UUID()
+        watchProxySetupReadbackTask?.cancel(); watchProxySetupReadbackTask = nil
+        watchProxySetupReadbackInFlight = nil
+    }
     private func clearWatchProxyPairingState() {
+        invalidateWatchProxyPairingWork()
         defaults.removeObject(forKey: watchProxyDeviceTokenKey)
         defaults.removeObject(forKey: watchProxyAPIBaseKey)
         defaults.removeObject(forKey: watchProxyVoicePathKey)

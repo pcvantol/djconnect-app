@@ -96,3 +96,41 @@ retained and is not the valid causal baseline. The corrected RED/GREEN logs are
 `watch-write-owner-red-valid-binding.log` and
 `watch-write-owner-green-valid-binding.log` in the night evidence directory.
 No physical Watch or server effect is claimed by this regression.
+
+
+## Whole-candidate P1 correction — late companion setup completion
+
+Core's exact3eef/07c4 audit found that a successful late status read could restore
+an old registration and send its captured token after clear/replacement. The
+Watch receiver accepted token-bearing messages before checking their target.
+No real credential or device operation was used to establish this finding.
+
+The phone now captures a pairing generation before task scheduling and checks
+original device, persisted Watch pairing intent, code, selected HA origin and
+bearer around setup waits. Explicit new pairing, clear/replacement and foreground
+loss withdraw the generation. The shared main-actor readback helper rechecks both
+success and error and performs the commit synchronously after that final check.
+An old task/defer cannot clear a successor's task or in-flight marker. The initial
+pairing POST also checks its original generation before changing local state.
+
+The result envelope carries device_id, pairing_intent_id and pair_code. Watch
+persists its installation-local intent before registration and rotates it on
+reset even if its device ID remains unchanged. Receiver validation precedes any
+token-store write, and a different queued token cannot overwrite an existing
+token within the same intent. Uncorrelated legacy messages cannot install new
+credentials. Existing already-paired same-device/code upgrades retain their
+existing bearer when adopting intent metadata; pending/reset/replacement setup
+cannot use that path. This is an internal Apple companion protocol, not a new
+backend identity, personal model, grant or server contract.
+
+Seven focused functions pass0.012s, including nine late context/cancellation/ABA
+cases, late error suppression, exact receiver/reset/legacy checks, token
+continuity and persistence/restart/corruption. An extracted real-helper probe
+restores the two missing guards: RED gives one stale commit and one wrong-target
+token write; fixed GREEN gives zero of each. Its immutable receipt is
+`watch-pairing-causal-proof/receipt.json` under the night evidence directory.
+This is a bounded helper/callsite proof, not a replay of the entire historical
+phone/Watch executable or physical/HA acceptance. Ordinary iOS/Watch/widget
+compilation succeeds unsigned after registering the new shared source file;
+the first external qualification project omitted that file and its failed log
+is preserved. Whole-candidate review and the new full suite remain required.

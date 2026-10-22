@@ -78,3 +78,16 @@ Stages are `acknowledged_transition` → `lifecycle_committed` → `selection_co
 After reconciliation, selection is install-local accounting only. Every future SDK or API operation still needs fresh explicit foreground owner/native/effect admission and original current key lifetime. Read-only reconciliation supplies none of that authority. Expired selected keys stay expired. Old-key recovery cannot clear or select a pending candidate, and an old-generation ACK cannot overwrite a later committed transition.
 
 Slot reclamation retains the root sequence and spent global pause/replacement/generation accounting. It clears only a joined terminal child's sensitive material; an incomplete redaction/retirement remains closed. No client retention duration, server tombstone rule or fresh namespace is introduced. Full concrete schemas and the causal implementation remain subject to the next source snapshot review.
+
+
+## Test ordering clarification — 23 October
+
+The full07c4 lane run passed1,198 Swift Testing functions but failed one XCTest:
+`testEarlierKeyGlobalWaiterFinishesBeforeLaterTransition`. That test assumed an
+inner installation-slot return implied the outer key owner had also returned.
+Actor scheduling does not guarantee that; the intended nonwaiting transition may
+correctly observe the still-owned key and refuse it. Product exclusion is
+unchanged. The corrected test holds that outer key at an explicit barrier,
+requires busy/no transition body, then releases it and separately starts a new
+local transition. All13 queue XCTest cases pass0.007s. The failed full run remains
+failed; a new complete run is required before candidate qualification.

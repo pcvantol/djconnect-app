@@ -498,6 +498,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private var companionPairingRegistrationRetryTask: Task<Void, Never>?
     private var companionPairingRegistrationWatchdogTask: Task<Void, Never>?
     private var hasReceivedCompanionPairingReady = false
+    private var companionPairingIntent: DJConnectWatchPairingIntent?
     private let companionRequests = DJConnectWatchProxyRequests()
     #endif
     #if canImport(Speech)
@@ -512,6 +513,8 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             makeID: Self.makeStableInstallID, makeCode: Self.makePairingCode)
         stableInstallID = installation.id
         pairingCode = installation.code
+        companionPairingIntent = DJConnectWatchPairingIntent.load(defaults: .standard,
+            deviceID: identity.deviceID, pairCode: pairingCode)
         UserDefaults.standard.removeObject(forKey: "askDJMood") // Retired device-local personal preference.
         pushNotificationStatus = Self.pushNotificationStatus()
         syncAppLanguageOverrideToSharedDefaults()
@@ -1078,8 +1081,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         companionPairingRegistrationRetryTask?.cancel()
         companionPairingRegistrationRetryTask = nil
         let identity = identity
+        guard let intent = companionPairingIntent else { return }
         let message: [String: Any] = [
             "type": "watch_proxy_register",
+            "pairing_intent_id": intent.identifier,
             "device_id": identity.deviceID,
             "device_name": identity.deviceName,
             "client_type": identity.clientType.rawValue,
@@ -1163,8 +1168,6 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 statusMessage = "Wachten op Home Assistant via iPhone..."
             }
         case "watch_proxy_pair_result":
-            hasReceivedCompanionPairingReady = true
-            cancelCompanionPairingRegistrationWatchdog()
             applyCompanionPairingResult(message)
         case "watch_proxy_pair_request":
             companionPairingStatus = "iPhone koppelt Watch met Home Assistant..."
@@ -1206,19 +1209,20 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func applyCompanionPairingResult(_ message: [String: Any]) {
-        guard let token = message["device_token"] as? String, !token.isEmpty else {
-            companionPairingStatus = (message["message"] as? String) ?? "iPhone kon Watch-token niet ontvangen"
-            statusMessage = companionPairingStatus
-            return
-        }
+        guard let intent = companionPairingIntent else { return }
         do {
-            try tokenStore.saveToken(token)
+            guard try intent.receive(deviceID: message["device_id"] as? String,
+                identifier: message["pairing_intent_id"] as? String, pairCode: message["pair_code"] as? String,
+                token: message["device_token"] as? String, existingToken: try tokenStore.loadToken(),
+                save: { try tokenStore.saveToken($0) }) else { return }
         } catch {
             companionPairingStatus = "Watch kon device-token niet opslaan"
             statusMessage = companionPairingStatus
             appendDiagnosticLog("Companion pairing token opslaan mislukt: \(error.localizedDescription)", level: .error)
             return
         }
+        hasReceivedCompanionPairingReady = true
+        cancelCompanionPairingRegistrationWatchdog()
         if let haURL = message["ha_base_url"] as? String, !haURL.isEmpty {
             haBaseURL = haURL
         }
@@ -1961,6 +1965,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         storedDemoMode = false
         isDemoMode = false
         pairingCode = Self.makePairingCode()
+        companionPairingIntent = DJConnectWatchPairingIntent.load(defaults: .standard,
+            deviceID: identity.deviceID, pairCode: pairingCode, reset: true)
+        hasReceivedCompanionPairingReady = false
         playback = nil
         playbackBeatSignature = nil
         currentTrackInsight = nil
