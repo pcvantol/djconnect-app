@@ -67,6 +67,8 @@ struct SessionForecastPanel<Header: View>: View {
     let viewport: SessionForecastViewport
     @State private var position: ScrollPosition
     @Binding var query: String
+    @State private var searchExpanded = false
+    @State private var searchBounds = CGRect.zero
     @Environment(\.scenePhase) private var scenePhase
     init(model: DJConnectAppModel, viewport: SessionForecastViewport, query: Binding<String>, @ViewBuilder header: () -> Header) {
         self.model = model; self.header = header()
@@ -79,10 +81,16 @@ struct SessionForecastPanel<Header: View>: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 header
-                SessionForecastContent(model: model, query: $query)
+                SessionForecastContent(model: model, query: $query, searchExpanded: $searchExpanded,
+                                       searchBoundsChanged: { searchBounds = $0 })
             }
         }
         .scrollPosition($position)
+        .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
+            if searchExpanded && !searchBounds.contains(tap.location) {
+                searchExpanded = false; query = ""
+            }
+        })
         .onScrollGeometryChange(for: CGFloat.self) { geometry in
             geometry.contentOffset.y + geometry.contentInsets.top
         } action: { _, value in viewport.record(value) }
@@ -94,11 +102,14 @@ struct SessionForecastContent: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
     @Binding var query: String
+    @Binding var searchExpanded: Bool
+    var searchBoundsChanged: (CGRect) -> Void
     @State private var selectedSearchID: String?
     @FocusState private var searchFocused: Bool
     @Environment(\.scenePhase) private var scenePhase
-    init(model: DJConnectAppModel, query: Binding<String>) {
+    init(model: DJConnectAppModel, query: Binding<String>, searchExpanded: Binding<Bool>, searchBoundsChanged: @escaping (CGRect) -> Void) {
         self.model = model; history = model.sessionHistory; _query = query
+        _searchExpanded = searchExpanded; self.searchBoundsChanged = searchBoundsChanged
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     private var deadlines: [Date] {
@@ -129,16 +140,21 @@ struct SessionForecastContent: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(text("ui.session.forecast.title")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
                     Text(text("ui.session.forecast.notice")).font(.callout).foregroundStyle(.secondary)
+                    SessionCollapsibleSearch(expanded: searchExpanded, label: text("ui.session.forecast.search"),
+                                             identifier: "session-forecast-search-toggle", open: { searchExpanded = true },
+                                             boundsChanged: searchBoundsChanged) {
                     AskDJSearchBar(language: model.language, promptKey: "ui.session.forecast.search",
                                    fieldIdentifier: "session-forecast-search-field", countIdentifier: "session-forecast-search-count",
-                                   closeLabelKey: "ui.session.search.clear",
+                                   closeLabelKey: "ui.close.search",
                                    text: $query, isFocused: $searchFocused,
                                    resultCount: resultIDs.count,
                                    selectedIndex: selectedSearchID.flatMap { resultIDs.firstIndex(of: $0) } ?? 0,
                                    previousAction: { moveSearch(-1, resultIDs: resultIDs, proxy: proxy) },
                                    nextAction: { moveSearch(1, resultIDs: resultIDs, proxy: proxy) },
-                                   closeAction: { query = ""; selectedSearchID = nil; searchFocused = true },
+                                   closeAction: { searchExpanded = false },
                                    submitAction: { moveSearch(1, resultIDs: resultIDs, proxy: proxy) })
+                        .task { searchFocused = searchExpanded }
+                    }.id("forecast-search")
                     if scenePhase == .active, let projection = model.visibleSessionForecast(at: clock.date) {
                         ForEach(Array(projection.imagery.enumerated()), id: \.offset) { _, image in
                             SessionForecastArtwork(model: model, projection: projection, artwork: image)
@@ -155,6 +171,10 @@ struct SessionForecastContent: View {
             }
         }
         .onChange(of: query) { selectedSearchID = nil }
+        .onChange(of: searchExpanded) { _, expanded in
+            searchFocused = expanded
+            if !expanded { query = ""; selectedSearchID = nil }
+        }
         .accessibilityIdentifier("session-forecast-panel")
         .task(id: contextKey) {
             guard scenePhase == .active else { return }
@@ -173,6 +193,40 @@ struct SessionForecastContent: View {
         proxy.scrollTo(resultIDs[next], anchor: .top)
     }
 
+}
+
+/// Keeps the search row in place while revealing the shared glass field.
+struct SessionCollapsibleSearch<Content: View>: View {
+    let expanded: Bool
+    let label: String
+    let identifier: String
+    let open: () -> Void
+    let boundsChanged: (CGRect) -> Void
+    @ViewBuilder let content: () -> Content
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        HStack(spacing: 0) {
+            if expanded {
+                content()
+                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .leading)))
+            } else {
+                Button(action: open) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.body.weight(.semibold)).foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(label)
+                .accessibilityIdentifier(identifier)
+                .transition(.opacity)
+                Spacer(minLength: 0)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.24), value: expanded)
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { boundsChanged($0) }
+    }
 }
 
 private struct SessionForecastArtwork: View {
