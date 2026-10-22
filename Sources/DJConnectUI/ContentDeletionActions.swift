@@ -3,11 +3,12 @@ import DJConnectCore
 
 extension EnvironmentValues {
     @Entry var djContentDeleteAction: (@MainActor () -> Void)? = nil
+    @Entry var djContentDeletionEnabled = false
 }
 
 extension View {
-    func djContentDeletion(model: DJConnectAppModel?, target: DJConnectContentDeleteTarget?) -> some View {
-        modifier(OptionalContentDeletion(model: model, target: target))
+    func djContentDeletion(model: DJConnectAppModel?, target: DJConnectContentDeleteTarget?, providesContextMenu: Bool = true) -> some View {
+        modifier(OptionalContentDeletion(model: model, target: target, providesContextMenu: providesContextMenu))
     }
 }
 
@@ -28,11 +29,19 @@ struct ContentDeletionPendingNotice: View {
     }
 }
 
+private extension View {
+    @ViewBuilder func contentDeletionContextMenu<Menu: View>(provided: Bool, @ViewBuilder menu: () -> Menu) -> some View {
+        if provided { contextMenu(menuItems: menu) }
+        else { self }
+    }
+}
+
 private struct OptionalContentDeletion: ViewModifier {
     let model: DJConnectAppModel?
     let target: DJConnectContentDeleteTarget?
+    let providesContextMenu: Bool
     @ViewBuilder func body(content: Content) -> some View {
-        if let model, let target { content.modifier(ContentDeletionActions(model: model, target: target)) }
+        if let model, let target { content.modifier(ContentDeletionActions(model: model, target: target, providesContextMenu: providesContextMenu)) }
         else { content }
     }
 }
@@ -41,6 +50,7 @@ private struct ContentDeletionActions: ViewModifier {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
     let target: DJConnectContentDeleteTarget
+    let providesContextMenu: Bool
     @State private var prepared: DJConnectContentDeleteScope?
     @State private var capturedEpoch = UUID()
     @State private var generation = UUID()
@@ -49,8 +59,9 @@ private struct ContentDeletionActions: ViewModifier {
     @State private var failed = false
     @State private var submitted = false
     @State private var revealed = false
-    init(model: DJConnectAppModel, target: DJConnectContentDeleteTarget) {
+    init(model: DJConnectAppModel, target: DJConnectContentDeleteTarget, providesContextMenu: Bool) {
         self.model = model; history = model.sessionHistory; self.target = target
+        self.providesContextMenu = providesContextMenu
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     private var enabled: Bool { !preparing && history.canDeleteContent(target) }
@@ -80,7 +91,10 @@ private struct ContentDeletionActions: ViewModifier {
                     .fixedSize(horizontal: false, vertical: true)
             } else { content }
         }
-            .environment(\.djContentDeleteAction, enabled ? begin : nil)
+            // Keep the menu item mounted while eligibility changes; begin() still
+            // rechecks permission and prepares a fresh server-bound scope.
+            .environment(\.djContentDeleteAction, begin)
+            .environment(\.djContentDeletionEnabled, enabled)
             .offset(x: revealed ? -64 : 0)
             .background(alignment: .trailing) {
                 if revealed {
@@ -99,7 +113,9 @@ private struct ContentDeletionActions: ViewModifier {
             .clipped()
             // Include the glass card's empty space in native long-press targeting.
             .contentShape(Rectangle())
-            .contextMenu { if history.contentDeletionAvailable { deletionButton } }
+            .contentDeletionContextMenu(provided: providesContextMenu) {
+                if history.contentDeletionAvailable { deletionButton }
+            }
             #if os(iOS)
             .simultaneousGesture(LongPressGesture(minimumDuration: 0.5, maximumDistance: 10).onEnded { _ in
                 guard enabled else { return }

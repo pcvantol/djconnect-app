@@ -11246,7 +11246,7 @@ private struct AskDJView: View {
                                                     AnyView(SharedDJSpeechActions(model: model, speech: message.sessionSpeech, acceptedText: message.text))
                                                 } : nil
                                             )
-                                            .djContentDeletion(model: model, target: isAskDJHistoryStale ? nil : history.contentDeletionTarget(for: message))
+                                            .djContentDeletion(model: model, target: isAskDJHistoryStale ? nil : history.contentDeletionTarget(for: message), providesContextMenu: false)
                                             .id(message.id)
                                         }
                                     }
@@ -11935,6 +11935,7 @@ private struct AskDJOfflineNotice: View {
 /// Native conversation rendering shared with Session timelines.
 struct AskDJMessageBubble: View {
     @Environment(\.djContentDeleteAction) private var contentDeleteAction
+    @Environment(\.djContentDeletionEnabled) private var contentDeletionEnabled
     let message: DJConnectAskDJMessage
     let language: String
     let isStaleHistory: Bool
@@ -11971,40 +11972,42 @@ struct AskDJMessageBubble: View {
             else { AskDJMarkdownText(text: displayText, highlight: searchText) }
         }
         .padding(.trailing, contextQuestionAction != nil && !renderablePlaybackActions.isEmpty ? 36 : 0)
-        .contextMenu {
-            if let contentDeleteAction {
-                Button(role: .destructive, action: contentDeleteAction) {
-                    Label(localizedKey(language, "ui.content.delete.action"), systemImage: "trash")
-                }
-            }
-            if (!isReadOnly || allowsConversationMenu) && canSetPrompt && !isStaleHistory {
-                Button {
-                    DJConnectHaptics.selection()
-                    setPromptAction(promptText)
-                } label: {
-                    Label {
-                        Text(localizedKey(language, "ui.set.in.prompt"))
-                    } icon: {
-                        Image(systemName: "text.cursor").renderingMode(.original).foregroundStyle(.white)
-                    }
-                }
-                .tint(.white)
-            }
-            if canReportFeedback {
-                Button {
-                    DJConnectHaptics.selection()
-                    feedbackAction(message)
-                } label: {
-                    Label {
-                        Text(localizedKey(language, "ui.report.answer"))
-                    } icon: {
-                        Image(systemName: "exclamationmark.bubble").renderingMode(.original).foregroundStyle(.white)
-                    }
-                }
-                .tint(.white)
-            }
-        }
         .tint(.white)
+    }
+
+    @ViewBuilder private var messageContextMenu: some View {
+        if let contentDeleteAction {
+            Button(role: .destructive, action: contentDeleteAction) {
+                Label(localizedKey(language, "ui.content.delete.action"), systemImage: "trash")
+            }
+            .disabled(!contentDeletionEnabled)
+        }
+        if (!isReadOnly || allowsConversationMenu) && canSetPrompt && !isStaleHistory {
+            Button {
+                DJConnectHaptics.selection()
+                setPromptAction(promptText)
+            } label: {
+                Label {
+                    Text(localizedKey(language, "ui.set.in.prompt"))
+                } icon: {
+                    Image(systemName: "text.cursor").renderingMode(.original).foregroundStyle(.white)
+                }
+            }
+            .tint(.white)
+        }
+        if canReportFeedback {
+            Button {
+                DJConnectHaptics.selection()
+                feedbackAction(message)
+            } label: {
+                Label {
+                    Text(localizedKey(language, "ui.report.answer"))
+                } icon: {
+                    Image(systemName: "exclamationmark.bubble").renderingMode(.original).foregroundStyle(.white)
+                }
+            }
+            .tint(.white)
+        }
     }
 
     private var isUser: Bool {
@@ -12289,6 +12292,8 @@ struct AskDJMessageBubble: View {
                         .stroke(bubbleStrokeStyle, lineWidth: isActiveSearchResult ? DJConnectCardAppearance.searchFocusWidth : 1)
                 }
                 .djSessionFrostedSurface(cornerRadius: DJConnectCardAppearance.conversationCornerRadius)
+                .contentShape(Rectangle())
+                .contextMenu { messageContextMenu }
                 HStack(spacing: 8) {
                     if isUser {
                         Text(localizedKey(language, "ui.chat.you"))

@@ -1628,7 +1628,8 @@ struct SessionEntryView: View, Equatable {
         .padding(4)
         .djContentDeletion(model: artworkModel, target: entry.isRetained() &&
             [DJConnectHistoryEntry.Kind.djMoment, .conversationUser, .conversationDJ].contains(entry.kind)
-            ? .init(kind: "entry", sessionID: entry.sessionID, targetID: entry.id) : nil)
+            ? .init(kind: "entry", sessionID: entry.sessionID, targetID: entry.id) : nil,
+            providesContextMenu: entry.kind != .conversationUser && entry.kind != .conversationDJ)
     }
     private var horizontalPlayback: Bool {
         guard entry.kind == .playbackObserved else { return false }
@@ -2786,7 +2787,7 @@ private struct SessionCurrentConversationBubble: View {
             setPromptAction: setPromptAction, isReadOnly: true, allowsConversationMenu: true, allowsSessionPlaybackActions: true,
             speechEnabled: model.sharedDJSpeechAllowed,
             sharedSpeechActions: { AnyView(SharedDJSpeechActions(model: model, speech: message.sessionSpeech, acceptedText: message.text)) })
-            .djContentDeletion(model: model, target: model.sessionHistory.contentDeletionTarget(for: message))
+            .djContentDeletion(model: model, target: model.sessionHistory.contentDeletionTarget(for: message), providesContextMenu: false)
     }
 }
 
