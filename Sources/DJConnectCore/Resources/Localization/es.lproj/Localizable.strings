@@ -1528,3 +1528,17 @@
 "ui.sources.current_playback" = "Información de la reproducción actual";
 
 "ui.session.history.search_all" = "Buscar en todas las sesiones y contribuciones";
+
+"ui.vibescape.help.title" = "Ayuda de VibeScape";
+"ui.vibescape.help.touch" = "Toca para una reacción intensa. Arrastra el dedo o el ratón por la animación para un efecto fluido.";
+"ui.vibescape.help.intensity" = "El deslizador ajusta la intensidad manualmente. Restablecer reanuda el seguimiento automático; sin una intensidad fiable de la canción, el ajuste permanece neutro.";
+"ui.vibescape.help.controls" = "Los controles se ocultan tras unos segundos. Toca su zona o sitúa el ratón encima para mostrarlos.";
+
+"ui.vibescape.help.voice" = "Comandos de voz";
+"ui.vibescape.help.unavailable" = "Los comandos de voz no están disponibles ahora.";
+"ui.vibescape.voice.recording" = "Di tu comando visual. Toca de nuevo para detener.";
+"ui.vibescape.voice.applied" = "Comando visual aplicado.";
+"ui.vibescape.voice.failed" = "No se pudo aplicar el comando visual. Inténtalo de nuevo.";
+
+"ui.vibescape.help.loading" = "Cargando comandos de voz…";
+"ui.vibescape.voice.stop" = "Detener grabación";

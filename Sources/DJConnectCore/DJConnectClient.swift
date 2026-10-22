@@ -526,6 +526,51 @@ public final class DJConnectClient: Sendable {
         return decoded.sessionBroadcast?.pairedOwnerWebsocket
     }
 
+    public func visualDirectorHelp(language: String) async throws -> DJConnectVisualHelp {
+        struct Envelope: Decodable {
+            let success: Bool
+            let capabilities: [String: Bool]
+            let vibescape_visual_director: DJConnectVisualCatalogue?
+        }
+        let envelope: Envelope = try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
+        guard envelope.success, envelope.capabilities["vibescape_visual_director"] == true,
+              let catalogue = envelope.vibescape_visual_director, catalogue.isValid,
+              let help = catalogue.help[language], help.isValid else { throw DJConnectError.invalidResponse }
+        return help
+    }
+    public func visualDirectorContext(sessionID: String, visitID: UUID) async throws -> DJConnectVisualContext {
+        let payload = VisualIdentity(device_id: identity.deviceID, client_type: identity.clientType.rawValue,
+                                     session_id: sessionID, visit_id: visitID.uuidString)
+        return try decoder.decode(DJConnectVisualContext.self, from: await sessionArtworkTransport.prepare(visualDirectorRequest("context", payload: payload)))
+    }
+    public func interpretVisualDirection(_ payload: DJConnectVisualInterpretRequest) async throws -> DJConnectVisualInterpretResponse {
+        guard payload.device_id == identity.deviceID, payload.client_type == identity.clientType.rawValue,
+              payload.text.utf8.count <= 1024 else { throw DJConnectError.invalidResponse }
+        return try decoder.decode(DJConnectVisualInterpretResponse.self, from: await sessionArtworkTransport.prepare(visualDirectorRequest("interpret", payload: payload)))
+    }
+    public func revokeVisualVisit(sessionID: String, visitID: UUID) async throws {
+        let payload = VisualIdentity(device_id: identity.deviceID, client_type: identity.clientType.rawValue,
+                                     session_id: sessionID, visit_id: visitID.uuidString)
+        struct Reply: Decodable { let success: Bool }
+        let _ = try decoder.decode(Reply.self, from: await sessionArtworkTransport.prepare(visualDirectorRequest("revoke", payload: payload)))
+    }
+    private struct VisualIdentity: Encodable {
+        let schema_version = 1
+        let device_id: String, client_type: String, session_id: String, visit_id: String
+    }
+
+    private func visualDirectorRequest<T: Encodable>(_ route: String, payload: T) throws -> URLRequest {
+        var request = try authenticatedRequest(path: Self.apiV1Path("vibescape/" + route))
+        request.httpMethod = "POST"
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // This closed contract forbids the generic nested identity envelope.
+        request.httpBody = try encoder.encode(payload)
+        guard (request.httpBody?.count ?? 0) <= 8192 else { throw DJConnectError.invalidResponse }
+        return request
+    }
+
     public func sessionHistoryCapabilities() async throws -> DJConnectSessionHistoryCapabilities {
         try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
     }
@@ -2073,4 +2118,74 @@ public extension DJConnectClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         return request
     }
+}
+
+
+public struct DJConnectVisualHelp: Decodable, Sendable {
+    public struct Example: Decodable, Sendable, Identifiable { public let id: String; public let text: String }
+    public let examples: [Example]
+    public let scopes: [Example]
+    public var isValid: Bool {
+        !examples.isEmpty && examples.count <= 32 && scopes.count <= 8 &&
+        Set(examples.map(\.id)).count == examples.count && Set(scopes.map(\.id)).count == scopes.count &&
+        (examples + scopes).allSatisfy { !$0.id.isEmpty && $0.id.utf8.count <= 128 && !$0.text.isEmpty && $0.text.utf8.count <= 1024 }
+    }
+}
+private struct DJConnectVisualCatalogue: Decodable {
+    let contract_version: Int
+    let input: String, interpretation: String, application: String
+    let context_required: Bool
+    let help: [String: DJConnectVisualHelp]
+    var isValid: Bool {
+        contract_version == 1 && input == "bounded_text_from_on_device_stt_or_text" &&
+        interpretation == "closed_visual_grammar" && application == "native_client_only" && context_required
+    }
+}
+public struct DJConnectVisualContext: Decodable, Sendable {
+    public let success: Bool
+    public let schema_version: Int
+    public let visit_id: String, context_lease_id: String, observed_occurrence_id: String
+    public let expires_at: String
+    public let lease_duration_ms: Int
+}
+public struct DJConnectVisualSceneValues: Codable, Sendable {
+    public let palette: [Float]
+    public let motion: Float, depth: Float, roughness: Float, deformation: Float
+    public init(palette: [Float], motion: Float, depth: Float, roughness: Float, deformation: Float) {
+        self.palette = palette; self.motion = motion; self.depth = depth; self.roughness = roughness; self.deformation = deformation
+    }
+}
+public struct DJConnectVisualInterpretRequest: Encodable, Sendable {
+    public let schema_version = 1
+    public let device_id: String, client_type: String, session_id: String, visit_id: String
+    public let client_turn_id: String, context_lease_id: String, observed_occurrence_id: String
+    public let base_scene_revision: UInt64
+    public let text: String
+    public let active_scene: DJConnectVisualSceneValues
+    public let dynamics_bias: Float
+    public let scope: String
+    public init(deviceID: String, clientType: String, sessionID: String, visitID: UUID, turnID: UUID,
+                lease: String, occurrence: String, revision: UInt64, text: String, scene: DJConnectVisualSceneValues, dynamics: Float) {
+        device_id = deviceID; client_type = clientType; session_id = sessionID; visit_id = visitID.uuidString
+        client_turn_id = turnID.uuidString; context_lease_id = lease; observed_occurrence_id = occurrence
+        base_scene_revision = revision; self.text = text; active_scene = scene; dynamics_bias = dynamics; scope = "current_track"
+    }
+}
+public struct DJConnectVisualInterpretResponse: Decodable, Sendable {
+    public struct Directive: Decodable, Sendable {
+        public struct Patch: Decodable, Sendable {
+            public let palette: [Float]?
+            public let motion: Float?, depth: Float?, roughness: Float?, deformation: Float?
+        }
+        public let kind: String
+        public let scope: String?
+        public let patch: Patch?
+    }
+    public let success: Bool
+    public let schema_version: Int
+    public let status: String
+    public let visit_id: String, client_turn_id: String, context_lease_id: String, observed_occurrence_id: String
+    public let base_scene_revision: UInt64
+    public let expires_at: String
+    public let directive: Directive
 }

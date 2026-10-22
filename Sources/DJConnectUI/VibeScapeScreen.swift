@@ -46,6 +46,7 @@ struct VibeScapeScreen: View {
     @ObservedObject var model: DJConnectAppModel
     @StateObject private var visit = VisualDirectorVisit()
     @StateObject private var displayWakeLock = VibeScapeDisplayWakeLock()
+    @StateObject private var voice = VibeScapeVoiceControl()
     @State private var controlsVisible = true
     @State private var controlsGeneration = UUID()
     @State private var adjustingDynamics = false
@@ -57,7 +58,11 @@ struct VibeScapeScreen: View {
     @State private var lastStrokeTime: TimeInterval = 0
     @State private var lastInteractionHaptic: TimeInterval?
     @State private var unavailable = false
-    @State private var showsVoiceHelp = false
+    @State private var visualHelp: DJConnectVisualHelp?
+    @State private var helpLoading = false
+    @State private var helpFailed = false
+    @State private var helpGeneration = UUID()
+    @State private var showsHelp = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
@@ -66,9 +71,8 @@ struct VibeScapeScreen: View {
         VibeScapeTrackIntensity.resolve(insight: model.currentTrackInsight,
                                        playback: model.activeDJSession?.broadcast.playback)
     }
-    // Core has not yet delivered an authoritative playback occurrence. Neither
-    // history IDs nor polling timestamps can grant current-track voice scope.
-    // The preview resets on a changed item; live voice remains unavailable.
+    // Voice obtains its occurrence from the dedicated server context route,
+    // never from history IDs or polling timestamps.
     private var admitted: Bool {
         model.isDemoMode || (model.pairingStatus == .paired && owner != nil && model.activeDJSession?.runtimeState == "active")
     }
@@ -98,23 +102,47 @@ struct VibeScapeScreen: View {
                     .allowsHitTesting(controlsVisible)
                     .accessibilityHidden(!controlsVisible)
                 Spacer()
-                if showsVoiceHelp {
-                    Label(text("ui.vibescape.voice.unavailable"),systemImage:"mic.slash")
-                        .font(.callout).padding(16).djSessionFrostedSurface()
-                        .padding(24).transition(.opacity)
-                        .accessibilityIdentifier("vibescape-voice-unavailable")
-                        .task {
-                            try? await Task.sleep(for: .seconds(2))
-                            guard !Task.isCancelled else { return }
-                            withAnimation(reduceMotion ? nil : .easeOut(duration:0.25)) { showsVoiceHelp = false }
-                        }
-                }
+
             }
             }
             GeometryReader { geometry in
                 VStack {
                     Spacer(minLength: 0)
-                    dynamicsControl
+                    VStack(spacing: 10) {
+                        HStack(spacing: 12) {
+                            Button { toggleVisualVoice() } label: {
+                                Group {
+                                    if voice.busy && !voice.recording { ProgressView().tint(.white) }
+                                    else { Image(systemName: voice.recording ? "stop.fill" : "mic.fill") }
+                                }.frame(width: 44, height: 44)
+                            }
+                            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: voice.recording ? .destructive : .secondary, shape: .icon))
+                            .disabled((voice.busy && !voice.recording) || !admitted || unavailable || model.isDemoMode || !model.voiceEnabled || model.isRecordingVoice || model.voiceStatus == .processing)
+                            .accessibilityLabel(text(voice.recording ? "ui.vibescape.voice.stop" : "ui.vibescape.voice.label"))
+                            .accessibilityIdentifier("vibescape-microphone")
+                            Button {
+                                DJConnectHaptics.selection()
+                                showControls(); showsHelp = true
+                            } label: {
+                                Image(systemName: "questionmark").frame(width: 44, height: 44)
+                            }
+                            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
+                            .accessibilityLabel(text("ui.vibescape.help.title"))
+                            .accessibilityIdentifier("vibescape-help")
+                            .popover(isPresented: $showsHelp) {
+                                VibeScapeHelpContent(language: model.language, help: visualHelp,
+                                    loading: helpLoading, failed: helpFailed,
+                                    retry: { Task { await loadVisualHelp() } }, close: { showsHelp = false })
+                                    .task { await loadVisualHelp() }
+                                    .presentationCompactAdaptation(.popover)
+                            }
+                        }
+                        if let key = voice.statusKey {
+                            Text(text(key)).font(.callout).foregroundStyle(.white)
+                                .multilineTextAlignment(.center).accessibilityIdentifier("vibescape-voice-status")
+                        }
+                        dynamicsControl
+                    }
                         .frame(width: min(480, max(0, geometry.size.width - 32)))
                         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { sliderBounds = $0 }
                 }
@@ -135,24 +163,31 @@ struct VibeScapeScreen: View {
         #endif
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.24), value: controlsVisible)
         .task(id: controlsGeneration) {
-            guard controlsVisible, !adjustingDynamics, !hoveringControls else { return }
+            guard controlsVisible, !adjustingDynamics, !hoveringControls, !showsHelp, !voice.busy else { return }
             do { try await Task.sleep(for: .seconds(3)) } catch { return }
-            guard !Task.isCancelled, !adjustingDynamics, !hoveringControls else { return }
+            guard !Task.isCancelled, !adjustingDynamics, !hoveringControls, !showsHelp, !voice.busy else { return }
             controlsVisible = false
         }
+        .onChange(of: showsHelp) { _, open in
+            showControls()
+            if !open { helpGeneration = UUID(); visualHelp = nil; helpLoading = false; helpFailed = false }
+        }
+        .onChange(of: voice.busy) { _, _ in showControls() }
+        .onChange(of: unavailable) { _, failed in if failed { voice.cancel() } }
         .accessibilityAction(named: Text(text("ui.vibescape.dynamics"))) { showControls() }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("VibeScape")
-        .accessibilityAction(named: Text(text("ui.vibescape.voice.label"))) { showsVoiceHelp = true }
+        .accessibilityAction(named: Text(text("ui.vibescape.voice.label"))) { toggleVisualVoice() }
         .onAppear {
             guard admitted else { model.isShowingVibeScape = false; return }
             displayWakeLock.setActive(scenePhase == .active)
             visit.enter(mood:model.activeDJSession?.selectedMood,occurrence:nil)
             updateAutomaticIntensity()
         }
-        .onDisappear { displayWakeLock.setActive(false); visit.revoke() }
+        .onDisappear { voice.cancel(); displayWakeLock.setActive(false); visit.revoke() }
         .onChange(of: model.activeDJSession?.broadcast.playback?.itemID) { _, _ in
             if admitted {
+                voice.cancel()
                 let manual = visit.followsTrackIntensity ? nil : visit.dynamics
                 visit.enter(mood:model.activeDJSession?.selectedMood,occurrence:nil)
                 updateAutomaticIntensity()
@@ -168,6 +203,7 @@ struct VibeScapeScreen: View {
         .onChange(of: model.pairingStatus) { _, _ in close() }
         .onChange(of: scenePhase) { _, value in
             if value == .active, admitted { displayWakeLock.setActive(true) }
+            else if value == .inactive, voice.awaitingPermission { displayWakeLock.setActive(false) }
             else { close() }
         }
         .task {
@@ -188,8 +224,35 @@ struct VibeScapeScreen: View {
         return min(max(4, source.minY - geometry.frame(in: .global).minY), max(4, geometry.size.height - source.height - 12))
     }
     private func close() {
+        voice.cancel()
         displayWakeLock.setActive(false)
         visit.revoke(); model.isShowingVibeScape = false
+    }
+    private func toggleVisualVoice() {
+        guard admitted, !unavailable, !model.isDemoMode else { return }
+        showControls(); DJConnectHaptics.selection()
+        voice.toggle(model: model, visit: visit)
+    }
+    private func loadVisualHelp() async {
+        let generation = UUID(), epoch = model.sessionHistory.responseEpoch
+        let owner = self.owner, sessionID = model.activeDJSession?.id
+        helpGeneration = generation; visualHelp = nil; helpFailed = false; helpLoading = true
+        guard admitted, !model.isDemoMode, model.canRefreshSessionHistory else {
+            helpLoading = false; helpFailed = true; return
+        }
+        defer { if helpGeneration == generation { helpLoading = false } }
+        do {
+            let help = try await model.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
+                try await $0.visualDirectorHelp(language: model.language)
+            }
+            guard !Task.isCancelled, showsHelp, model.isShowingVibeScape, helpGeneration == generation, self.owner == owner,
+                  model.sessionHistory.responseEpoch == epoch, model.activeDJSession?.id == sessionID else { return }
+            visualHelp = help
+        } catch {
+            guard !Task.isCancelled, showsHelp, model.isShowingVibeScape, helpGeneration == generation, self.owner == owner,
+                  model.sessionHistory.responseEpoch == epoch else { return }
+            helpFailed = true
+        }
     }
     private func updateAutomaticIntensity() {
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.35)) {
@@ -304,6 +367,46 @@ struct VibeScapeScreen: View {
     }
 }
 
+private struct VibeScapeHelpContent: View {
+    let language: String
+    let help: DJConnectVisualHelp?
+    let loading: Bool
+    let failed: Bool
+    let retry: () -> Void
+    let close: () -> Void
+    private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text(text("ui.vibescape.help.title")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
+                    Spacer()
+                    Button(action: close) { Image(systemName: "xmark").frame(width: 44, height: 44) }
+                        .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
+                        .accessibilityLabel(text("ui.close"))
+                }
+                Label(text("ui.vibescape.help.touch"), systemImage: "hand.tap")
+                Label(text("ui.vibescape.help.intensity"), systemImage: "slider.horizontal.3")
+                Label(text("ui.vibescape.help.controls"), systemImage: "cursorarrow")
+                Divider()
+                Text(text("ui.vibescape.help.voice")).font(.headline).accessibilityAddTraits(.isHeader)
+                if loading { ProgressView().accessibilityLabel(text("ui.vibescape.help.loading")) }
+                else if let help {
+                    ForEach(help.examples) { example in Text("• " + example.text) }
+                    ForEach(help.scopes) { scope in Text(scope.text).font(.callout).foregroundStyle(.secondary) }
+                } else if failed {
+                    Text(text("ui.vibescape.help.unavailable"))
+                    Button(text("ui.retry"), action: retry).djConnectButtonStyle(DJConnectButtonStyle())
+                }
+            }
+            .font(.body).fixedSize(horizontal: false, vertical: true).padding(24)
+        }
+        .frame(idealWidth: 380, maxWidth: 440, idealHeight: 400, maxHeight: 560)
+        .djSessionFrostedSurface()
+        .accessibilityIdentifier("vibescape-help-content")
+    }
+}
+
 /// Keep the display awake only for an active, visible VibeScape visit.
 /// iOS shares its app-wide idle timer across windows; Mac activities are scoped
 /// independently and do not alter a user's system sleep preferences.
@@ -376,5 +479,181 @@ struct VibeScapeMacDynamicsSlider: NSViewRepresentable {
             super.mouseDown(with: event)
         }
     }
+}
+#endif
+
+#if canImport(AVFoundation) && canImport(Speech) && (os(iOS) || os(macOS))
+import AVFoundation
+@preconcurrency import Speech
+
+/// Separate visual-only capture. No transcript/audio enters Ask DJ or history.
+@MainActor final class VibeScapeVoiceControl: ObservableObject {
+    @Published private(set) var busy = false
+    @Published private(set) var recording = false
+    private(set) var awaitingPermission = false
+    @Published private(set) var statusKey: String?
+    private var task: Task<Void, Never>?
+    private var operation = UUID()
+    private var deadlineTask: Task<Void, Never>?
+    private var recorder: AVAudioRecorder?
+    private var audioURL: URL?
+    private let transcriber = DJConnectAppleSpeechTranscriber()
+    private var fence: VisualDirectorTurnFence?
+    private var revoke: (() -> Void)?
+    private var audioSessionActive = false
+
+    func toggle(model: DJConnectAppModel, visit: VisualDirectorVisit) {
+        if recording { recorder?.stop(); recording = false; return }
+        guard !busy, model.voiceEnabled, !model.isRecordingVoice, model.voiceStatus != .processing,
+              let owner = model.sessionHistory.authorizedProfileID,
+              let sessionID = model.activeDJSession?.id, let visitID = visit.ticket?.visit else { return }
+        let epoch = model.sessionHistory.responseEpoch, language = model.language
+        let origin = model.homeAssistantURL
+        let token = UUID(); operation = token; busy = true; statusKey = nil
+        func current() -> Bool {
+            operation == token && !Task.isCancelled && model.voiceEnabled && model.isShowingVibeScape && model.canRefreshSessionHistory &&
+            model.sessionHistory.authorizedProfileID == owner && model.sessionHistory.responseEpoch == epoch &&
+            model.activeDJSession?.id == sessionID && model.activeDJSession?.runtimeState == "active" &&
+            visit.isCurrent && visit.ticket?.visit == visitID
+        }
+        if fence == nil { fence = VisualDirectorTurnFence(visit: visit) }
+        task = Task { [weak self] in
+            guard let self else { return }
+            defer { if operation == token { cleanupCapture(); busy = false; task = nil } }
+            do {
+                _ = try await model.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
+                    try await $0.visualDirectorHelp(language: language)
+                }
+                guard current() else { throw CancellationError() }
+                awaitingPermission = true
+                let microphone = await AVCaptureDevice.requestAccess(for: .audio)
+                guard !Task.isCancelled, microphone else { throw DJConnectDeviceSTTError.permission }
+                let speech = await withCheckedContinuation { continuation in
+                    SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0 == .authorized) }
+                }
+                let locale = DJConnectLocalization.bcp47LocaleIdentifier(for: language)
+                // Native permission panels briefly inactivate the scene. Wait
+                // for foreground again before any capture or private context read.
+                for _ in 0..<20 where !model.canRefreshSessionHistory {
+                    try await Task.sleep(for: .milliseconds(100))
+                }
+                awaitingPermission = false
+                guard current(), speech, DJConnectAppleSpeechTranscriber.isAvailable(language: locale) else { throw DJConnectDeviceSTTError.unavailable }
+                revoke = { [weak model] in
+                    guard let model, model.sessionHistory.authorizedProfileID == owner,
+                          model.sessionHistory.responseEpoch == epoch, model.homeAssistantURL == origin else { return }
+                    Task {
+                        _ = try? await model.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
+                            guard model.sessionHistory.responseEpoch == epoch, model.homeAssistantURL == origin else { throw CancellationError() }
+                            return try await $0.revokeVisualVisit(sessionID: sessionID, visitID: visitID)
+                        }
+                    }
+                }
+                let started = visit.now()
+                let context = try await model.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
+                    guard current() else { throw CancellationError() }
+                    return try await $0.visualDirectorContext(sessionID: sessionID, visitID: visitID)
+                }
+                guard current(), context.success, context.schema_version == 1,
+                      UUID(uuidString: context.visit_id) == visitID,
+                      !context.context_lease_id.isEmpty, context.context_lease_id.utf8.count <= 256,
+                      !context.observed_occurrence_id.isEmpty, context.observed_occurrence_id.utf8.count <= 256,
+                      (1...15000).contains(context.lease_duration_ms),
+                      let expiry = DJConnectHistoryEntry.date(context.expires_at) else { throw DJConnectError.invalidResponse }
+                let deadline = min(started + Double(context.lease_duration_ms) / 1000,
+                                   visit.now() + expiry.timeIntervalSinceNow)
+
+                visit.trackChanged(mood: model.activeDJSession?.selectedMood, occurrence: context.observed_occurrence_id)
+                guard current(), deadline - visit.now() > 2, let scene = visit.scene,
+                      let turn = fence?.begin(originalSourceDeadline: deadline, isCurrent: current) else { throw DJConnectError.invalidResponse }
+                deadlineTask = Task { [weak self] in
+                    do { try await Task.sleep(for: .seconds(max(0, deadline - visit.now()))) } catch { return }
+                    guard let self, self.operation == token else { return }
+                    self.cancel(); self.statusKey = "ui.vibescape.voice.failed"
+                }
+                #if os(iOS)
+                try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .default, options: [.mixWithOthers, .defaultToSpeaker])
+                try AVAudioSession.sharedInstance().setActive(true)
+                audioSessionActive = true
+                #endif
+                let url = FileManager.default.temporaryDirectory.appendingPathComponent("djc-visual-\(UUID().uuidString).wav")
+                audioURL = url
+                let capture = try AVAudioRecorder(url: url, settings: [AVFormatIDKey: kAudioFormatLinearPCM,
+                    AVSampleRateKey: 16000, AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 16])
+                recorder = capture
+                guard capture.prepareToRecord(), capture.record(forDuration: min(8, deadline - visit.now() - 1)) else { throw DJConnectDeviceSTTError.failed }
+                recording = true; statusKey = "ui.vibescape.voice.recording"
+                while recording && capture.isRecording {
+                    try await Task.sleep(for: .milliseconds(100))
+                    guard current(), visit.ticket == turn.scene, visit.now() < deadline else { throw CancellationError() }
+                }
+                capture.stop(); recording = false; statusKey = "ui.processing.voice.request"
+                let transcript = try await transcriber.transcribe(url: url, language: locale)
+                guard current(), visit.ticket == turn.scene, visit.now() < deadline,
+                      !transcript.isEmpty, transcript.utf8.count <= 1024 else { throw CancellationError() }
+                let values = DJConnectVisualSceneValues(palette: [scene.palette.x, scene.palette.y, scene.palette.z],
+                    motion: scene.motion, depth: scene.depth, roughness: scene.roughness, deformation: scene.deformation)
+                let response = try await model.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) { client in
+                    guard current(), visit.ticket == turn.scene, visit.now() < deadline else { throw CancellationError() }
+                    return try await client.interpretVisualDirection(.init(deviceID: client.identity.deviceID,
+                        clientType: client.identity.clientType.rawValue, sessionID: sessionID, visitID: visitID, turnID: turn.id,
+                        lease: context.context_lease_id, occurrence: context.observed_occurrence_id, revision: turn.scene.revision,
+                        text: transcript, scene: values, dynamics: visit.dynamics))
+                }
+                guard current(), response.success, response.schema_version == 1, response.status == "interpreted",
+                      UUID(uuidString: response.visit_id) == visitID, UUID(uuidString: response.client_turn_id) == turn.id,
+                      response.base_scene_revision == turn.scene.revision,
+                      response.context_lease_id == context.context_lease_id,
+                      response.observed_occurrence_id == context.observed_occurrence_id,
+                      response.expires_at == context.expires_at, visit.now() < deadline else { throw DJConnectError.invalidResponse }
+                let applied = fence?.complete(turn) {
+                    switch response.directive.kind {
+                    case "patch":
+                        guard let p = response.directive.patch,
+                              response.directive.scope == "current_track" || response.directive.scope == "while_in_vibescape",
+                              p.palette == nil || p.palette?.count == 3 else { return false }
+                        let palette = p.palette.map { SIMD3<Float>($0[0], $0[1], $0[2]) }
+                        return visit.apply(.init(palette: palette, motion: p.motion, depth: p.depth,
+                            roughness: p.roughness, deformation: p.deformation,
+                            scope: response.directive.scope == "while_in_vibescape" ? .continuousVisit : .currentTrack), expected: turn.scene)
+                    case "undo": return visit.undoLast(expected: turn.scene)
+                    case "reset": return visit.resetToDJ(expected: turn.scene)
+                    case "hold": return visit.holdExplicitStyle(expected: turn.scene)
+                    case "variant": return visit.varyComposition(expected: turn.scene)
+                    default: return false
+                    }
+                } ?? false
+                statusKey = applied ? "ui.vibescape.voice.applied" : "ui.vibescape.voice.failed"
+            } catch {
+                if operation == token {
+                    fence?.cancel()
+                    if !Task.isCancelled { statusKey = "ui.vibescape.voice.failed" }
+                }
+            }
+        }
+    }
+    func cancel() {
+        operation = UUID(); task?.cancel(); task = nil; fence?.cancel()
+        transcriber.cancel(); cleanupCapture(); busy = false; statusKey = nil
+        let action = revoke; revoke = nil; action?()
+    }
+    private func cleanupCapture() {
+        awaitingPermission = false
+        deadlineTask?.cancel(); deadlineTask = nil
+        recorder?.stop(); recorder = nil; recording = false
+        if let audioURL { try? FileManager.default.removeItem(at: audioURL) }
+        audioURL = nil
+        #if os(iOS)
+        if audioSessionActive { try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
+        #endif
+        audioSessionActive = false
+    }
+}
+#else
+@MainActor final class VibeScapeVoiceControl: ObservableObject {
+    let busy = false, recording = false, awaitingPermission = false
+    let statusKey: String? = "ui.vibescape.voice.unavailable"
+    func toggle(model: DJConnectAppModel, visit: VisualDirectorVisit) {}
+    func cancel() {}
 }
 #endif

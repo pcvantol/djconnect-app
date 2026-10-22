@@ -1528,3 +1528,17 @@
 "ui.sources.current_playback" = "Huidige afspeelinformatie";
 
 "ui.session.history.search_all" = "Zoek in alle sessies en bijdragen";
+
+"ui.vibescape.help.title" = "VibeScape-hulp";
+"ui.vibescape.help.touch" = "Tik voor een felle reactie. Sleep met je vinger of muis door de animatie voor een vloeiend effect.";
+"ui.vibescape.help.intensity" = "Met de slider kies je handmatig de intensiteit. Reset hervat automatisch volgen; zonder betrouwbare nummerintensiteit blijft de stand neutraal.";
+"ui.vibescape.help.controls" = "De knoppen verdwijnen na enkele seconden. Tik op de plek van de bediening of houd de muis erboven om ze terug te halen.";
+
+"ui.vibescape.help.voice" = "Spraakopdrachten";
+"ui.vibescape.help.unavailable" = "Spraakopdrachten zijn nu niet beschikbaar.";
+"ui.vibescape.voice.recording" = "Spreek je visuele opdracht in. Tik nogmaals om te stoppen.";
+"ui.vibescape.voice.applied" = "Visuele opdracht toegepast.";
+"ui.vibescape.voice.failed" = "De visuele opdracht kon niet worden toegepast. Probeer opnieuw.";
+
+"ui.vibescape.help.loading" = "Spraakopdrachten ophalen…";
+"ui.vibescape.voice.stop" = "Stop opname";

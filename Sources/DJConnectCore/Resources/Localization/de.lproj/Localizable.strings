@@ -1528,3 +1528,17 @@
 "ui.sources.current_playback" = "Aktuelle Wiedergabeinformationen";
 
 "ui.session.history.search_all" = "Alle Sitzungen und Beiträge durchsuchen";
+
+"ui.vibescape.help.title" = "VibeScape-Hilfe";
+"ui.vibescape.help.touch" = "Tippe für eine kräftige Reaktion. Ziehe Finger oder Maus über die Animation für einen fließenden Effekt.";
+"ui.vibescape.help.intensity" = "Der Regler stellt die Intensität manuell ein. Zurücksetzen aktiviert die automatische Anpassung; ohne verlässliche Titelintensität bleibt die Einstellung neutral.";
+"ui.vibescape.help.controls" = "Die Bedienelemente verschwinden nach einigen Sekunden. Tippe auf ihren Bereich oder halte die Maus darüber, um sie wieder anzuzeigen.";
+
+"ui.vibescape.help.voice" = "Sprachbefehle";
+"ui.vibescape.help.unavailable" = "Sprachbefehle sind derzeit nicht verfügbar.";
+"ui.vibescape.voice.recording" = "Sprich deinen visuellen Befehl. Tippe erneut zum Stoppen.";
+"ui.vibescape.voice.applied" = "Visueller Befehl angewendet.";
+"ui.vibescape.voice.failed" = "Der visuelle Befehl konnte nicht angewendet werden. Versuche es erneut.";
+
+"ui.vibescape.help.loading" = "Sprachbefehle werden geladen…";
+"ui.vibescape.voice.stop" = "Aufnahme stoppen";

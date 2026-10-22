@@ -1528,3 +1528,17 @@
 "ui.sources.current_playback" = "Current playback information";
 
 "ui.session.history.search_all" = "Search all sessions and contributions";
+
+"ui.vibescape.help.title" = "VibeScape help";
+"ui.vibescape.help.touch" = "Tap for a bright response. Drag your finger or mouse across the animation for a flowing effect.";
+"ui.vibescape.help.intensity" = "Use the slider to choose intensity manually. Reset resumes automatic following; without reliable track intensity, the setting stays neutral.";
+"ui.vibescape.help.controls" = "Controls hide after a few seconds. Tap their area or hover over it to reveal them.";
+
+"ui.vibescape.help.voice" = "Voice commands";
+"ui.vibescape.help.unavailable" = "Voice commands are currently unavailable.";
+"ui.vibescape.voice.recording" = "Speak your visual command. Tap again to stop.";
+"ui.vibescape.voice.applied" = "Visual command applied.";
+"ui.vibescape.voice.failed" = "The visual command could not be applied. Try again.";
+
+"ui.vibescape.help.loading" = "Loading voice commands…";
+"ui.vibescape.voice.stop" = "Stop recording";

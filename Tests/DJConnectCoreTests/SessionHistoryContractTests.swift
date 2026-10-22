@@ -8064,3 +8064,41 @@ func frozenCatalogueReplayDecodesOriginalActionsAndIdentity(_ scenario: String) 
     item.resultSetID = "set-a"; item.uri = "spotify:album:BBBBBBBBBBBBBBBBBBBBBB"; #expect(message.playbackAction(forHistoryItem: item) == nil)
     item.uri = action.uri; message.playbackActions = [action, action]; #expect(message.playbackAction(forHistoryItem: item) == nil)
 }
+
+@Test func visualHelpUsesFreshServerCatalogueForEveryOpening() async throws {
+    let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/vibescape-visual-catalogue-v1.json")
+    let data = try Data(contentsOf: file)
+    let wire = HistoryWireFixture { request in
+        guard request.url?.path.hasSuffix("/capabilities") == true else { throw DJConnectError.invalidResponse }
+        return (200, data, 0)
+    }
+    defer { wire.close() }
+    let client = wire.client()
+    let first = try await client.visualDirectorHelp(language: "nl")
+    let second = try await client.visualDirectorHelp(language: "nl")
+    #expect(first.examples.count == 8 && first.scopes.count == 2)
+    #expect(first.examples.map(\.text) == second.examples.map(\.text))
+    #expect(wire.requests.count == 2)
+    #expect(wire.requests.allSatisfy { $0.httpMethod == "GET" && $0.cachePolicy == .reloadIgnoringLocalCacheData })
+}
+
+@Test func visualContextUsesClosedFlatPayloadWithoutConversationFallback() async throws {
+    let visit = UUID()
+    let reply = try historyData(["success": true, "schema_version": 1, "visit_id": visit.uuidString,
+        "context_lease_id": "lease-a", "observed_occurrence_id": "occurrence-a", "lease_duration_ms": 10000,
+        "expires_at": "2026-10-22T14:00:00Z"])
+    let wire = HistoryWireFixture { request in
+        guard request.url?.path.hasSuffix("/vibescape/context") == true else { throw DJConnectError.invalidResponse }
+        return (200, reply, 0)
+    }
+    defer { wire.close() }
+    let context = try await wire.client().visualDirectorContext(sessionID: "session-a", visitID: visit)
+    #expect(context.observed_occurrence_id == "occurrence-a")
+    let request = try #require(wire.requests.first)
+    let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+    #expect(Set(body.keys) == Set(["schema_version", "device_id", "client_type", "session_id", "visit_id"]))
+    #expect(request.httpMethod == "POST" && request.value(forHTTPHeaderField: "Cache-Control") == "no-store")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic-fixture-token")
+    #expect(!wire.requests.contains { $0.url!.path.contains("ask_dj") || $0.url!.path.contains("playback") })
+}

@@ -17,7 +17,7 @@
     "CLOSED_BOUNDED": 22,
     "OPEN": 5,
     "PARKED": 1,
-    "PARTIAL": 29,
+    "PARTIAL": 30,
     "SUPERSEDED": 1
   },
   "requirements": [
@@ -545,6 +545,16 @@
       ],
       "requirement": "Alleen DJ-sessie-widget en werkende native Mac-opening",
       "source": "Directe Peterbugs22October / docs/MAC_WIDGET_NATIVE_DISCOVERY_AND_OPEN.md"
+    },
+    {
+      "id": "vibescape-visual-voice-dynamic-help",
+      "status": "PARTIAL",
+      "evidence": "Direct Peter: visuele spraakopdrachten en verse servervoorbeelden, glasspopover naast microfoon. Applebron gebruikt bestaande Core83744790 visual context/interpret/revoke en capabilitycatalogus, aparte on-device STT/no AskDJ fallback, originele lease/owner/session/epoch/scene/occurrence fences. Help freshGET peropen; geen statische commandofallback. Testbron toegevoegd, NOTBUILT/NOTTESTED/NOTINSTALLED; expliciet-build-only. docs/VIBESCAPE_VISUAL_VOICE_AND_DYNAMIC_HELP.md.",
+      "remaining": [
+        "OPEN: volgende expliciet gevraagde build: decoder/closed-wire en bestaande scene/turn-fence tests uitvoeren; native permission/recording/help-popover/expiry/owner/scene/audio-restoration fysiek kwalificeren."
+      ],
+      "requirement": "VibeScape: visuele spraak en dynamische help-popover",
+      "source": "Direct Peter / docs/VIBESCAPE_VISUAL_VOICE_AND_DYNAMIC_HELP.md"
     }
   ],
   "execution_feedback_40258": {
