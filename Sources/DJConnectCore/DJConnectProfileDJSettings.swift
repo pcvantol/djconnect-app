@@ -78,6 +78,72 @@ public struct DJConnectProfileDJSettingsSnapshot: Codable, Equatable, Sendable {
     public var effective: DJConnectProfileDJSettings { session?.settings ?? defaults }
 }
 
+/// Additive Core v1 identity. Content and style are authored by Core.
+public struct DJConnectSettingsConfirmationIdentity: Codable, Equatable, Sendable {
+    public let schema_version: Int
+    public let confirmation_id: String
+    public let changed_fields: [String]
+    public let accepted_at: String
+    public var isValid: Bool {
+        schema_version == 1 && confirmation_id.utf8.count == 41 && confirmation_id.range(of: "^settings-[a-f0-9]{32}$", options: .regularExpression) != nil &&
+        !changed_fields.isEmpty && changed_fields.count <= 3 && Set(changed_fields).count == changed_fields.count &&
+        Set(changed_fields).isSubset(of: ["mood", "persona", "presence"]) && DJConnectHistoryEntry.date(accepted_at) != nil
+    }
+}
+public struct DJConnectSettingsConfirmationContract: Codable, Equatable, Sendable {
+    public let available: Bool
+    public let version: Int
+    public let trigger: String
+    public let fields: [String]
+    public let one_per_operation: Bool
+    public let owner_only: Bool
+    public let no_session: String
+    public let music_only: String
+    public let replay: String
+    public let speech: String
+    public let automatic_mood: String
+    public var isSupported: Bool {
+        available && version == 1 && trigger == "accepted_user_change" &&
+        Set(fields) == Set(["mood", "persona", "presence"]) && one_per_operation && owner_only &&
+        no_session == "operation_confirmation_only" && music_only == "confirm_then_silent" &&
+        replay == "original_identity_no_new_lease" && automatic_mood == "no_confirmation" &&
+        speech == "existing_session_speech_respecting_announcement_output"
+    }
+}
+public struct DJConnectSettingsConfirmation: Codable, Equatable, Sendable {
+    public struct Settings: Codable, Equatable, Sendable {
+        public let mood: String
+        public let persona: DJConnectSessionPersonaValue
+        public let presence: DJConnectSessionPresenceValue
+    }
+    public let schema_version: Int
+    public let confirmation_id: String
+    public let changed_fields: [String]
+    public let accepted_at: String
+    public let settings: Settings
+    public let locale: String
+    public let session_id: String
+    public let settings_generation: String
+    public let settings_revision: Int?
+    public let defaults_revision: Int
+    public let moment_id: String?
+    public let title: String
+    public let text: String
+    public func validates(_ snapshot: DJConnectProfileDJSettingsSnapshot) -> Bool {
+        let identity = DJConnectSettingsConfirmationIdentity(schema_version: schema_version,
+            confirmation_id: confirmation_id, changed_fields: changed_fields, accepted_at: accepted_at)
+        guard identity.isValid, ["nl", "en", "de", "fr", "es"].contains(locale),
+              !text.isEmpty, text.utf8.count <= 16000, title.utf8.count <= 512,
+              settings.mood == snapshot.effective.mood, settings.persona == snapshot.effective.persona,
+              settings.presence == snapshot.effective.presence, defaults_revision == snapshot.defaults_revision else { return false }
+        if let session = snapshot.session {
+            return session_id == session.session_id && settings_generation == session.generation &&
+                settings_revision == session.revision && moment_id == "moment-" + String(confirmation_id.dropFirst(9))
+        }
+        return session_id.isEmpty && settings_generation.isEmpty && settings_revision == nil && moment_id == nil
+    }
+}
+
 public struct DJConnectProfileDJSettingsResponse: Codable, Equatable, Sendable {
     public struct Allowed: Codable, Equatable, Sendable {
         public struct Voices: Codable, Equatable, Sendable {
@@ -131,6 +197,8 @@ public struct DJConnectProfileDJSettingsResponse: Codable, Equatable, Sendable {
     public let replayed: Bool?
     public let operation_id: String?
     public let expires_ms: Int?
+    public let settings_confirmation_contract: DJConnectSettingsConfirmationContract?
+    public let settings_confirmation: DJConnectSettingsConfirmation?
     public static let fields: Set<String> = ["persona", "voice", "gender", "mood", "presence", "announcement_output"]
     public var requiresSelection: Bool { migration.requires_review || snapshot.session?.selection_required == true }
     public var isValid: Bool {
@@ -153,6 +221,7 @@ public struct DJConnectProfileDJSettingsOperation: Codable, Sendable {
         public let operation_id: String
         public let snapshot: DJConnectProfileDJSettingsSnapshot
         public let expires_ms: Int
+        public let settings_confirmation: DJConnectSettingsConfirmation?
     }
     public let success: Bool
     public let contract_version: Int

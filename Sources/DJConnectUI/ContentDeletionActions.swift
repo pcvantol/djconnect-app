@@ -3,11 +3,12 @@ import DJConnectCore
 
 extension EnvironmentValues {
     @Entry var djContentDeleteAction: (@MainActor () -> Void)? = nil
+    @Entry var djContentDeletionEnabled = false
 }
 
 extension View {
-    func djContentDeletion(model: DJConnectAppModel?, target: DJConnectContentDeleteTarget?) -> some View {
-        modifier(OptionalContentDeletion(model: model, target: target))
+    func djContentDeletion(model: DJConnectAppModel?, target: DJConnectContentDeleteTarget?, providesContextMenu: Bool = true) -> some View {
+        modifier(OptionalContentDeletion(model: model, target: target, providesContextMenu: providesContextMenu))
     }
 }
 
@@ -28,11 +29,19 @@ struct ContentDeletionPendingNotice: View {
     }
 }
 
+private extension View {
+    @ViewBuilder func contentDeletionContextMenu<Menu: View>(provided: Bool, @ViewBuilder menu: () -> Menu) -> some View {
+        if provided { contextMenu(menuItems: menu) }
+        else { self }
+    }
+}
+
 private struct OptionalContentDeletion: ViewModifier {
     let model: DJConnectAppModel?
     let target: DJConnectContentDeleteTarget?
+    let providesContextMenu: Bool
     @ViewBuilder func body(content: Content) -> some View {
-        if let model, let target { content.modifier(ContentDeletionActions(model: model, target: target)) }
+        if let model, let target { content.modifier(ContentDeletionActions(model: model, target: target, providesContextMenu: providesContextMenu)) }
         else { content }
     }
 }
@@ -41,6 +50,7 @@ private struct ContentDeletionActions: ViewModifier {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
     let target: DJConnectContentDeleteTarget
+    let providesContextMenu: Bool
     @State private var prepared: DJConnectContentDeleteScope?
     @State private var capturedEpoch = UUID()
     @State private var generation = UUID()
@@ -49,8 +59,9 @@ private struct ContentDeletionActions: ViewModifier {
     @State private var failed = false
     @State private var submitted = false
     @State private var revealed = false
-    init(model: DJConnectAppModel, target: DJConnectContentDeleteTarget) {
+    init(model: DJConnectAppModel, target: DJConnectContentDeleteTarget, providesContextMenu: Bool) {
         self.model = model; history = model.sessionHistory; self.target = target
+        self.providesContextMenu = providesContextMenu
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     private var enabled: Bool { !preparing && history.canDeleteContent(target) }
@@ -80,19 +91,37 @@ private struct ContentDeletionActions: ViewModifier {
                     .fixedSize(horizontal: false, vertical: true)
             } else { content }
         }
-            .environment(\.djContentDeleteAction, enabled ? begin : nil)
+            // Keep the menu item mounted while eligibility changes; begin() still
+            // rechecks permission and prepares a fresh server-bound scope.
+            .environment(\.djContentDeleteAction, begin)
+            .environment(\.djContentDeletionEnabled, enabled)
             .offset(x: revealed ? -64 : 0)
             .background(alignment: .trailing) {
                 if revealed {
                     Button(role: .destructive, action: begin) {
                         Image(systemName: "trash").frame(width: 56, height: 56)
                     }.buttonStyle(.borderless).foregroundStyle(.red)
+                    .background {
+                        ContentSwipeTapDismissal {
+                            withAnimation(.easeOut(duration: 0.2)) { revealed = false }
+                        }
+                    }
                     .accessibilityLabel(text("ui.content.delete.action"))
                     .accessibilityIdentifier("content-swipe-delete-" + target.target_id)
                 }
             }
             .clipped()
-            .contextMenu { if history.contentDeletionAvailable { deletionButton } }
+            // Include the glass card's empty space in native long-press targeting.
+            .contentShape(Rectangle())
+            .contentDeletionContextMenu(provided: providesContextMenu) {
+                if history.contentDeletionAvailable { deletionButton }
+            }
+            #if os(iOS)
+            .simultaneousGesture(LongPressGesture(minimumDuration: 0.5, maximumDistance: 10).onEnded { _ in
+                guard enabled else { return }
+                DJConnectHaptics.selection()
+            })
+            #endif
             // Rows live in LazyVStack/ScrollView, where native List.swipeActions
             // does not operate. Horizontal reveal leaves vertical scrolling intact.
             .simultaneousGesture(DragGesture(minimumDistance: 24).onEnded { value in
@@ -113,7 +142,7 @@ private struct ContentDeletionActions: ViewModifier {
                     }
                 }.accessibilityIdentifier("content-delete-confirm")
             } message: { _ in Text(text("ui.content.delete.playback")) }
-            .alert(text(history.hasUnconfirmedDeletion ? "ui.session.history.delete.unconfirmed" : "ui.session.history.delete.failed"), isPresented: $failed) {
+            .alert(text(history.hasUnconfirmedDeletion ? "ui.content.delete.unconfirmed" : "ui.content.delete.failed"), isPresented: $failed) {
                 Button(text("ui.close"), role: .cancel) {}
             }
             .onChange(of: history.responseEpoch) { _, _ in
@@ -127,3 +156,83 @@ private struct ContentDeletionActions: ViewModifier {
         generation = UUID(); preparing = false; prepared = nil; confirming = false; revealed = false; failed = false; submitted = false
     }
 }
+
+// Mounted only while the trash action is revealed. Observe the window without
+// covering other controls; the trash button itself remains actionable.
+#if os(iOS)
+import UIKit
+
+struct ContentSwipeTapDismissal: UIViewRepresentable {
+    let dismiss: () -> Void
+    func makeUIView(context: Context) -> TapProbe {
+        let view = TapProbe()
+        view.isUserInteractionEnabled = false
+        view.dismiss = dismiss
+        return view
+    }
+    func updateUIView(_ view: TapProbe, context: Context) { view.dismiss = dismiss }
+    static func dismantleUIView(_ view: TapProbe, coordinator: ()) { view.detach() }
+
+    final class TapProbe: UIView, UIGestureRecognizerDelegate {
+        var dismiss: (() -> Void)?
+        private weak var observedWindow: UIWindow?
+        private lazy var tap: UITapGestureRecognizer = {
+            let recognizer = UITapGestureRecognizer(target: self, action: #selector(tapped))
+            recognizer.cancelsTouchesInView = false
+            recognizer.delegate = self
+            return recognizer
+        }()
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            detach()
+            if let window { observedWindow = window; window.addGestureRecognizer(tap) }
+        }
+        func detach() {
+            observedWindow?.removeGestureRecognizer(tap)
+            observedWindow = nil
+        }
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            guard let window else { return false }
+            return !convert(bounds, to: window).contains(touch.location(in: window))
+        }
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }
+        @objc private func tapped() { dismiss?() }
+    }
+}
+#elseif os(macOS)
+import AppKit
+
+struct ContentSwipeTapDismissal: NSViewRepresentable {
+    let dismiss: () -> Void
+    func makeNSView(context: Context) -> TapProbe {
+        let view = TapProbe(); view.dismiss = dismiss; return view
+    }
+    func updateNSView(_ view: TapProbe, context: Context) { view.dismiss = dismiss }
+    static func dismantleNSView(_ view: TapProbe, coordinator: ()) { view.detach() }
+
+    final class TapProbe: NSView {
+        var dismiss: (() -> Void)?
+        private var monitor: Any?
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            detach()
+            guard window != nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+                self?.observe(event)
+                return event
+            }
+        }
+        func observe(_ event: NSEvent) {
+            guard let window, event.window === window,
+                  !bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+            dismiss?()
+        }
+        func detach() {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
+        }
+    }
+}
+#endif

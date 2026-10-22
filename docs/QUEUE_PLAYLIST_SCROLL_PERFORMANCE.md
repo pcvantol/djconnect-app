@@ -1,0 +1,7 @@
+# Queue and playlist scroll source optimization
+
+Both screens already use native List on iOS/iPadOS and LazyVStack on Mac. Preserve that virtualization. Previously each body invalidation recomputed full-list enumeration, localized search filtering, search result IDs and queue placeholder signature checks, often several times per render. Store these derived arrays/flags as transient view state and rebuild on appearance, source-array change or search-text change. No disk/index/backend cache or extra request. Keep original queue indices/order, duplicates, playlist identity and existing start/loading/disabled gates.
+
+QueueItemRow and PlaylistRow now compare their complete value models plus loading flag through EquatableView, so unrelated model progress changes need not reevaluate their content. Environment changes remain SwiftUI-owned. Shared 52pt covers use fixed frames rather than GeometryReader in every cell. Existing public artwork transport/cache, cancellation and expiry rules are unchanged; protected artwork never enters this loader.
+
+Validation: source/diff/register review only; no build/test execution, native render, installation or measured FPS/latency claim. At next explicitly requested build verify long-list scrolling on iPad/Mac, search with arrival/removal/reordering/duplicates, original queue offsets on play, playlist loading, cover reuse and appearance/language/accessibility changes. Last installed40447 unchanged, PR179 source only.

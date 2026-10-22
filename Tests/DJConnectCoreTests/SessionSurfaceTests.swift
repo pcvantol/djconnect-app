@@ -3,6 +3,37 @@ import Testing
 import DJConnectCore
 import DJConnectUI
 
+@Test @MainActor func sessionActivitySkipRejectsInvalidAndDemoRequestsWithoutPlaybackChanges() async throws {
+    let name = "session-action-model-test-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    #expect(await !model.skipTrackFromLiveActivity(presentationID: "not-a-presentation"))
+    model.isDemoMode = true
+    let playback = model.playback
+    #expect(await !model.skipTrackFromLiveActivity(presentationID: UUID().uuidString))
+    #expect(model.playback == playback)
+}
+
+@Test func liveActivityActionPresentationMatchIsReadOnlyAndCannotRetargetAnotherSession() throws {
+    let suite = "session-action-test-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let first = DJConnectSessionSurfacePresentation.identity(for: "session-a", in: defaults)
+    let before = defaults.dictionaryRepresentation() as NSDictionary
+    #expect(DJConnectSessionSurfacePresentation.matches(first, sessionID: "session-a", in: defaults))
+    #expect(!DJConnectSessionSurfacePresentation.matches(first, sessionID: "session-b", in: defaults))
+    #expect(!DJConnectSessionSurfacePresentation.matches(UUID().uuidString, sessionID: "session-a", in: defaults))
+    #expect(!DJConnectSessionSurfacePresentation.matches("", sessionID: "session-a", in: defaults))
+    #expect(!DJConnectSessionSurfacePresentation.matches(first, sessionID: "", in: defaults))
+    #expect(before == defaults.dictionaryRepresentation() as NSDictionary)
+    let replacement = DJConnectSessionSurfacePresentation.identity(for: "session-b", in: defaults)
+    #expect(!DJConnectSessionSurfacePresentation.matches(first, sessionID: "session-b", in: defaults))
+    #expect(DJConnectSessionSurfacePresentation.matches(replacement, sessionID: "session-b", in: defaults))
+    DJConnectSessionSurfacePresentation.end(in: defaults)
+    #expect(!DJConnectSessionSurfacePresentation.matches(replacement, sessionID: "session-b", in: defaults))
+}
+
 @Test func sessionSurfaceRequiresConfirmedAuthorizedActiveSession() {
     let now = Date(timeIntervalSince1970: 1_800_000_000)
     #expect(DJConnectSessionSurfaceSnapshot.observe(runtimeState: "active", authorized: true, isDemo: false, at: now) != nil)
@@ -206,4 +237,51 @@ import DJConnectUI
         at: now.addingTimeInterval(122)) == .groove)
     #expect(DJConnectSessionSurfaceSnapshot.widgetTheme(confirmedSession: nil, passiveMood: nil, fallback: .energy, at: now) == .energy)
     #expect(changed.expiresAt == changed.observedAt.addingTimeInterval(120))
+}
+
+@Test func widgetPushTokenIsSeparateBoundedRotatableAndCannotGrantContent() throws {
+    let suite = "widget-push-token-test-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let kind = DJConnectSessionSurfaceSnapshot.widgetKind
+    let token = try #require(DJConnectWidgetPushToken(token: Data([1, 2, 3]),
+        extensionBundleID: "dev.djconnect.mac.track-insight-widget", widgetKinds: [kind]))
+    try DJConnectWidgetPushToken.replace(token, in: defaults)
+    #expect(DJConnectWidgetPushToken.load(from: defaults) == token)
+    #expect(DJConnectSessionSurfaceSnapshot.load(from: defaults) == nil)
+    #expect(DJConnectPassiveSurfaceCache.load(surface: .widget, from: defaults) == nil)
+    #expect(DJConnectWidgetPushToken(token: Data(), extensionBundleID: token.extensionBundleID, widgetKinds: [kind]) == nil)
+    #expect(DJConnectWidgetPushToken(token: Data(repeating: 1, count: 4097), extensionBundleID: token.extensionBundleID, widgetKinds: [kind]) == nil)
+    #expect(DJConnectWidgetPushToken(token: token.token, extensionBundleID: "dev.djconnect.mac", widgetKinds: [kind]) == nil)
+    #expect(DJConnectWidgetPushToken(token: token.token, extensionBundleID: token.extensionBundleID, widgetKinds: []) == nil)
+    let rotated = try #require(DJConnectWidgetPushToken(token: Data([4, 5]), extensionBundleID: token.extensionBundleID, widgetKinds: [kind]))
+    try DJConnectWidgetPushToken.replace(rotated, in: defaults)
+    #expect(DJConnectWidgetPushToken.load(from: defaults)?.token == rotated.token)
+    try DJConnectWidgetPushToken.replace(nil, in: defaults)
+    #expect(DJConnectWidgetPushToken.load(from: defaults) == nil)
+}
+
+@Test func iOSWidgetAndActivityTokensRemainSeparateAndOldActivityCannotClearReplacement() throws {
+    let name = "surface-push-test-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let widget = try #require(DJConnectWidgetPushToken(token: Data([1]),
+        extensionBundleID: "dev.djconnect.ios.track-insight-widget",
+        widgetKinds: [DJConnectSessionSurfaceSnapshot.widgetKind]))
+    try DJConnectWidgetPushToken.replace(widget, in: defaults)
+    let first = try #require(DJConnectActivityPushToken(token: Data([2]), activityID: "activity-a", presentationID: "presentation-a"))
+    try DJConnectActivityPushToken.replace(first, in: defaults)
+    #expect(DJConnectActivityPushToken.load(from: defaults) == first)
+    let rotated = try #require(DJConnectActivityPushToken(token: Data([3]), activityID: "activity-b", presentationID: "presentation-b"))
+    try DJConnectActivityPushToken.replace(rotated, in: defaults)
+    DJConnectActivityPushToken.withdraw(activityID: first.activityID, in: defaults)
+    #expect(DJConnectActivityPushToken.load(from: defaults) == rotated)
+    #expect(DJConnectWidgetPushToken.load(from: defaults) == widget)
+    #expect(DJConnectSessionSurfaceSnapshot.load(from: defaults) == nil)
+    #expect(DJConnectActivityPushToken(token: Data(), activityID: "a", presentationID: "p") == nil)
+    #expect(DJConnectActivityPushToken(token: Data(repeating: 1, count: 4097), activityID: "a", presentationID: "p") == nil)
+    #expect(DJConnectActivityPushToken(token: Data([1]), activityID: "", presentationID: "p") == nil)
+    DJConnectActivityPushToken.withdraw(activityID: rotated.activityID, in: defaults)
+    #expect(DJConnectActivityPushToken.load(from: defaults) == nil)
+    #expect(DJConnectWidgetPushToken.load(from: defaults) == widget)
 }

@@ -33,7 +33,8 @@ let package = Package(
         ),
         .target(
             name: "DJConnectUI",
-            dependencies: ["DJConnectCore"]
+            dependencies: ["DJConnectCore"],
+            resources: [.process("VibeScapeShaders")]
         ),
         .testTarget(
             name: "DJConnectCoreTests",

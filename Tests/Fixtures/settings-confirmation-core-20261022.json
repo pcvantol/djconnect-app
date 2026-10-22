@@ -1,0 +1,915 @@
+{
+  "provenance": "Core PR1290 actual isolated HA settings confirmation receipt, 2026-10-22; decoder input only, not Apple execution proof",
+  "examples": [
+    {
+      "case": "mood",
+      "response": {
+        "success": true,
+        "operation_id": "01a163fe-1830-7713-b23d-28cba8702135",
+        "accepted": true,
+        "replayed": false,
+        "expires_ms": 1792679259152,
+        "snapshot": {
+          "contract_version": 3,
+          "defaults": {
+            "persona": "radio_dj",
+            "voice": {
+              "kind": "provider_default"
+            },
+            "gender": "default",
+            "mood": "party",
+            "presence": "balanced",
+            "announcement_output": "client_device"
+          },
+          "defaults_revision": 2,
+          "updated_at": "2026-10-22T14:22:39.152000+00:00",
+          "activated": true,
+          "output_choice_confirmed": true,
+          "accepted_contract_version": 3,
+          "session": {
+            "session_id": "session-021e10c4728e4344a7bb2d50ea9a63d3",
+            "generation": "a2283785156941dc9639892a708b7449",
+            "settings": {
+              "persona": "radio_dj",
+              "voice": {
+                "kind": "provider_default"
+              },
+              "gender": "default",
+              "mood": "party",
+              "presence": "balanced",
+              "announcement_output": "client_device"
+            },
+            "revision": 1,
+            "defaults_revision": 2,
+            "updated_at": "2026-10-22T14:22:39.152000+00:00"
+          }
+        },
+        "settings_confirmation": {
+          "schema_version": 1,
+          "confirmation_id": "settings-4ef94770907b52a15321ca43e7b2705c",
+          "changed_fields": [
+            "mood"
+          ],
+          "settings": {
+            "mood": "party",
+            "persona": "radio_dj",
+            "presence": "balanced"
+          },
+          "locale": "nl",
+          "accepted_at": "2026-10-22T14:22:39.152000+00:00",
+          "session_id": "session-021e10c4728e4344a7bb2d50ea9a63d3",
+          "settings_generation": "a2283785156941dc9639892a708b7449",
+          "settings_revision": 1,
+          "defaults_revision": 2,
+          "moment_id": "moment-4ef94770907b52a15321ca43e7b2705c",
+          "title": "Even afstemmen",
+          "text": "We slaan een nieuwe toon aan: je mood is nu Party. Mijn manier van vertellen wordt energiek en speels."
+        },
+        "contract_version": 3,
+        "binding": "a821a05f0674ffffe8e6d12f33443ea018ac12fd78a6afe52219acd09c549a24",
+        "settings_confirmation_contract": {
+          "available": true,
+          "version": 1,
+          "trigger": "accepted_user_change",
+          "fields": [
+            "mood",
+            "persona",
+            "presence"
+          ],
+          "one_per_operation": true,
+          "owner_only": true,
+          "no_session": "operation_confirmation_only",
+          "music_only": "confirm_then_silent",
+          "speech": "existing_session_speech_respecting_announcement_output",
+          "automatic_mood": "no_confirmation",
+          "replay": "original_identity_no_new_lease"
+        },
+        "scope": "profile_and_active_session",
+        "migration": {
+          "version": 1,
+          "state": "accepted_shared_settings",
+          "requires_review": false,
+          "legacy_cleanup_pending": false
+        },
+        "announcement_output": {
+          "selected": "client_device",
+          "speaker_available": false,
+          "speaker_reason": "announcement_speaker_not_configured",
+          "outputs": [
+            {
+              "value": "both",
+              "available": false
+            },
+            {
+              "value": "client_device",
+              "available": true
+            },
+            {
+              "value": "ha_speaker",
+              "available": false
+            },
+            {
+              "value": "text_only",
+              "available": true
+            }
+          ],
+          "voice_applicability": "applicable",
+          "autoplay_scope": "device_local_default_off"
+        },
+        "allowed_values": {
+          "persona": [
+            "club_dj",
+            "festival_dj",
+            "home_dj",
+            "radio_dj"
+          ],
+          "mood": [
+            "chill",
+            "energy",
+            "groove",
+            "party"
+          ],
+          "presence": [
+            "music_only",
+            "occasional",
+            "balanced",
+            "presenter"
+          ],
+          "announcement_output": [
+            "both",
+            "client_device",
+            "ha_speaker",
+            "text_only"
+          ],
+          "voice": {
+            "kinds": [
+              "provider_default",
+              "provider_voice"
+            ],
+            "provider_id": "",
+            "voices": []
+          },
+          "gender": [
+            "default"
+          ]
+        },
+        "writable_fields": [
+          "announcement_output",
+          "gender",
+          "mood",
+          "persona",
+          "presence",
+          "voice"
+        ],
+        "voice_revision": "d86083e040c0e20ee2aa51f3",
+        "voice_availability": {
+          "available": false,
+          "reason": "processor_not_qualified"
+        },
+        "as_of": "2026-10-22T14:22:39.153472+00:00",
+        "cache_policy": "private,no-store"
+      },
+      "moment": {
+        "moment_id": "moment-4ef94770907b52a15321ca43e7b2705c",
+        "session_id": "session-021e10c4728e4344a7bb2d50ea9a63d3",
+        "created_at": "2026-10-22T14:22:39.152000+00:00",
+        "type": "session",
+        "knowledge_intent": {
+          "type": "session_direction",
+          "goal": "Confirm accepted user settings."
+        },
+        "presentation_intent": {
+          "source_session_mood": "party",
+          "dj_persona": "radio_dj",
+          "tone_of_voice": "polished and concise",
+          "energy_level": "party",
+          "delivery_style": "short contextual music story",
+          "voice_style": "persona-guided",
+          "visual_theme": "music-context",
+          "importance": "normal",
+          "maximum_duration_seconds": 15,
+          "delivery_channels": [
+            "owner"
+          ],
+          "visibility": "owner_only"
+        },
+        "title": "Even afstemmen",
+        "summary": "Even afstemmen",
+        "content": "We slaan een nieuwe toon aan: je mood is nu Party. Mijn manier van vertellen wordt energiek en speels.",
+        "artwork": null,
+        "actions": [],
+        "visibility": "owner_only",
+        "delivery_channels": [
+          "owner"
+        ],
+        "importance": "normal",
+        "source_references": [
+          "accepted_settings"
+        ],
+        "generation_metadata": {
+          "purpose": "accepted_settings_change",
+          "validated": "true"
+        },
+        "settings_confirmation": {
+          "schema_version": 1,
+          "confirmation_id": "settings-4ef94770907b52a15321ca43e7b2705c",
+          "changed_fields": [
+            "mood"
+          ],
+          "accepted_at": "2026-10-22T14:22:39.152000+00:00"
+        }
+      },
+      "native_delivery": {
+        "schema_version": 1,
+        "session_id": "session-021e10c4728e4344a7bb2d50ea9a63d3",
+        "current_moment_id": "moment-4ef94770907b52a15321ca43e7b2705c",
+        "current_silence_moment_id": null,
+        "active_flow_moment_ids": [
+          "moment-4ef94770907b52a15321ca43e7b2705c"
+        ],
+        "admissions": [
+          {
+            "moment_id": "moment-4ef94770907b52a15321ca43e7b2705c",
+            "qualification": "qualified",
+            "current_display_allowed": true,
+            "active_flow_display_allowed": true,
+            "source_expires_at": null,
+            "display_expires_at": "2026-10-22T14:22:54.152000+00:00",
+            "executable_actions": [],
+            "requires_spotify_attribution": false
+          }
+        ],
+        "revocation_scope": "session",
+        "revision": "ff6b0b30f7be37c6959ada6d"
+      }
+    },
+    {
+      "case": "persona",
+      "response": {
+        "success": true,
+        "operation_id": "01a163fe-1833-735a-a868-35b16fbd4f63",
+        "accepted": true,
+        "replayed": false,
+        "expires_ms": 1792679259155,
+        "snapshot": {
+          "contract_version": 3,
+          "defaults": {
+            "persona": "festival_dj",
+            "voice": {
+              "kind": "provider_default"
+            },
+            "gender": "default",
+            "mood": "party",
+            "presence": "balanced",
+            "announcement_output": "client_device"
+          },
+          "defaults_revision": 3,
+          "updated_at": "2026-10-22T14:22:39.155000+00:00",
+          "activated": true,
+          "output_choice_confirmed": true,
+          "accepted_contract_version": 3,
+          "session": {
+            "session_id": "session-021e10c4728e4344a7bb2d50ea9a63d3",
+            "generation": "a2283785156941dc9639892a708b7449",
+            "settings": {
+              "persona": "festival_dj",
+              "voice": {
+                "kind": "provider_default"
+              },
+              "gender": "default",
+              "mood": "party",
+              "presence": "balanced",
+              "announcement_output": "client_device"
+            },
+            "revision": 2,
+            "defaults_revision": 3,
+            "updated_at": "2026-10-22T14:22:39.155000+00:00"
+          }
+        },
+        "settings_confirmation": {
+          "schema_version": 1,
+          "confirmation_id": "settings-ec64e24aefc64d81b5aac4fc97bc8eb4",
+          "changed_fields": [
+            "persona"
+          ],
+          "settings": {
+            "mood": "party",
+            "persona": "festival_dj",
+            "presence": "balanced"
+          },
+          "locale": "nl",
+          "accepted_at": "2026-10-22T14:22:39.155000+00:00",
+          "session_id": "session-021e10c4728e4344a7bb2d50ea9a63d3",
+          "settings_generation": "a2283785156941dc9639892a708b7449",
+          "settings_revision": 2,
+          "defaults_revision": 3,
+          "moment_id": "moment-ec64e24aefc64d81b5aac4fc97bc8eb4",
+          "title": "Even afstemmen",
+          "text": "Daar gaan we: ik vertel nu als je Festival DJ. Je speelse en gastvrije gastheer."
+        },
+        "contract_version": 3,
+        "binding": "a821a05f0674ffffe8e6d12f33443ea018ac12fd78a6afe52219acd09c549a24",
+        "settings_confirmation_contract": {
+          "available": true,
+          "version": 1,
+          "trigger": "accepted_user_change",
+          "fields": [
+            "mood",
+            "persona",
+            "presence"
+          ],
+          "one_per_operation": true,
+          "owner_only": true,
+          "no_session": "operation_confirmation_only",
+          "music_only": "confirm_then_silent",
+          "speech": "existing_session_speech_respecting_announcement_output",
+          "automatic_mood": "no_confirmation",
+          "replay": "original_identity_no_new_lease"
+        },
+        "scope": "profile_and_active_session",
+        "migration": {
+          "version": 1,
+          "state": "accepted_shared_settings",
+          "requires_review": false,
+          "legacy_cleanup_pending": false
+        },
+        "announcement_output": {
+          "selected": "client_device",
+          "speaker_available": false,
+          "speaker_reason": "announcement_speaker_not_configured",
+          "outputs": [
+            {
+              "value": "both",
+              "available": false
+            },
+            {
+              "value": "client_device",
+              "available": true
+            },
+            {
+              "value": "ha_speaker",
+              "available": false
+            },
+            {
+              "value": "text_only",
+              "available": true
+            }
+          ],
+          "voice_applicability": "applicable",
+          "autoplay_scope": "device_local_default_off"
+        },
+        "allowed_values": {
+          "persona": [
+            "club_dj",
+            "festival_dj",
+            "home_dj",
+            "radio_dj"
+          ],
+          "mood": [
+            "chill",
+            "energy",
+            "groove",
+            "party"
+          ],
+          "presence": [
+            "music_only",
+            "occasional",
+            "balanced",
+            "presenter"
+          ],
+          "announcement_output": [
+            "both",
+            "client_device",
+            "ha_speaker",
+            "text_only"
+          ],
+          "voice": {
+            "kinds": [
+              "provider_default",
+              "provider_voice"
+            ],
+            "provider_id": "",
+            "voices": []
+          },
+          "gender": [
+            "default"
+          ]
+        },
+        "writable_fields": [
+          "announcement_output",
+          "gender",
+          "mood",
+          "persona",
+          "presence",
+          "voice"
+        ],
+        "voice_revision": "d86083e040c0e20ee2aa51f3",
+        "voice_availability": {
+          "available": false,
+          "reason": "processor_not_qualified"
+        },
+        "as_of": "2026-10-22T14:22:39.156928+00:00",
+        "cache_policy": "private,no-store"
+      },
+      "moment": {
+        "moment_id": "moment-ec64e24aefc64d81b5aac4fc97bc8eb4",
+        "session_id": "session-021e10c4728e4344a7bb2d50ea9a63d3",
+        "created_at": "2026-10-22T14:22:39.155000+00:00",
+        "type": "session",
+        "knowledge_intent": {
+          "type": "session_direction",
+          "goal": "Confirm accepted user settings."
+        },
+        "presentation_intent": {
+          "source_session_mood": "party",
+          "dj_persona": "festival_dj",
+          "tone_of_voice": "celebratory and expansive",
+          "energy_level": "party",
+          "delivery_style": "short contextual music story",
+          "voice_style": "persona-guided",
+          "visual_theme": "music-context",
+          "importance": "normal",
+          "maximum_duration_seconds": 15,
+          "delivery_channels": [
+            "owner"
+          ],
+          "visibility": "owner_only"
+        },
+        "title": "Even afstemmen",
+        "summary": "Even afstemmen",
+        "content": "Daar gaan we: ik vertel nu als je Festival DJ. Je speelse en gastvrije gastheer.",
+        "artwork": null,
+        "actions": [],
+        "visibility": "owner_only",
+        "delivery_channels": [
+          "owner"
+        ],
+        "importance": "normal",
+        "source_references": [
+          "accepted_settings"
+        ],
+        "generation_metadata": {
+          "purpose": "accepted_settings_change",
+          "validated": "true"
+        },
+        "settings_confirmation": {
+          "schema_version": 1,
+          "confirmation_id": "settings-ec64e24aefc64d81b5aac4fc97bc8eb4",
+          "changed_fields": [
+            "persona"
+          ],
+          "accepted_at": "2026-10-22T14:22:39.155000+00:00"
+        }
+      },
+      "native_delivery": {
+        "schema_version": 1,
+        "session_id": "session-021e10c4728e4344a7bb2d50ea9a63d3",
+        "current_moment_id": "moment-ec64e24aefc64d81b5aac4fc97bc8eb4",
+        "current_silence_moment_id": null,
+        "active_flow_moment_ids": [
+          "moment-4ef94770907b52a15321ca43e7b2705c",
+          "moment-ec64e24aefc64d81b5aac4fc97bc8eb4"
+        ],
+        "admissions": [
+          {
+            "moment_id": "moment-4ef94770907b52a15321ca43e7b2705c",
+            "qualification": "qualified",
+            "current_display_allowed": false,
+            "active_flow_display_allowed": true,
+            "source_expires_at": null,
+            "display_expires_at": "2026-10-22T14:22:54.152000+00:00",
+            "executable_actions": [],
+            "requires_spotify_attribution": false
+          },
+          {
+            "moment_id": "moment-ec64e24aefc64d81b5aac4fc97bc8eb4",
+            "qualification": "qualified",
+            "current_display_allowed": true,
+            "active_flow_display_allowed": true,
+            "source_expires_at": null,
+            "display_expires_at": "2026-10-22T14:22:54.155000+00:00",
+            "executable_actions": [],
+            "requires_spotify_attribution": false
+          }
+        ],
+        "revocation_scope": "session",
+        "revision": "2420a9e33e9d5c2cf882eb52"
+      }
+    },
+    {
+      "case": "presence",
+      "response": {
+        "success": true,
+        "operation_id": "01a163fe-1836-775d-9abb-c4cf6cce45d9",
+        "accepted": true,
+        "replayed": false,
+        "expires_ms": 1792679259158,
+        "snapshot": {
+          "contract_version": 3,
+          "defaults": {
+            "persona": "festival_dj",
+            "voice": {
+              "kind": "provider_default"
+            },
+            "gender": "default",
+            "mood": "party",
+            "presence": "music_only",
+            "announcement_output": "client_device"
+          },
+          "defaults_revision": 4,
+          "updated_at": "2026-10-22T14:22:39.158000+00:00",
+          "activated": true,
+          "output_choice_confirmed": true,
+          "accepted_contract_version": 3,
+          "session": {
+            "session_id": "session-021e10c4728e4344a7bb2d50ea9a63d3",
+            "generation": "a2283785156941dc9639892a708b7449",
+            "settings": {
+              "persona": "festival_dj",
+              "voice": {
+                "kind": "provider_default"
+              },
+              "gender": "default",
+              "mood": "party",
+              "presence": "music_only",
+              "announcement_output": "client_device"
+            },
+            "revision": 3,
+            "defaults_revision": 4,
+            "updated_at": "2026-10-22T14:22:39.158000+00:00"
+          }
+        },
+        "settings_confirmation": {
+          "schema_version": 1,
+          "confirmation_id": "settings-5b135b3139d741486cc0fa468593d9c4",
+          "changed_fields": [
+            "presence"
+          ],
+          "settings": {
+            "mood": "party",
+            "persona": "festival_dj",
+            "presence": "music_only"
+          },
+          "locale": "nl",
+          "accepted_at": "2026-10-22T14:22:39.158000+00:00",
+          "session_id": "session-021e10c4728e4344a7bb2d50ea9a63d3",
+          "settings_generation": "a2283785156941dc9639892a708b7449",
+          "settings_revision": 3,
+          "defaults_revision": 4,
+          "moment_id": "moment-5b135b3139d741486cc0fa468593d9c4",
+          "title": "Even afstemmen",
+          "text": "Daar gaan we: je kiest Alleen muziek. Na deze bevestiging laat ik de muziek aan het woord; je vragen blijven welkom."
+        },
+        "contract_version": 3,
+        "binding": "a821a05f0674ffffe8e6d12f33443ea018ac12fd78a6afe52219acd09c549a24",
+        "settings_confirmation_contract": {
+          "available": true,
+          "version": 1,
+          "trigger": "accepted_user_change",
+          "fields": [
+            "mood",
+            "persona",
+            "presence"
+          ],
+          "one_per_operation": true,
+          "owner_only": true,
+          "no_session": "operation_confirmation_only",
+          "music_only": "confirm_then_silent",
+          "speech": "existing_session_speech_respecting_announcement_output",
+          "automatic_mood": "no_confirmation",
+          "replay": "original_identity_no_new_lease"
+        },
+        "scope": "profile_and_active_session",
+        "migration": {
+          "version": 1,
+          "state": "accepted_shared_settings",
+          "requires_review": false,
+          "legacy_cleanup_pending": false
+        },
+        "announcement_output": {
+          "selected": "client_device",
+          "speaker_available": false,
+          "speaker_reason": "announcement_speaker_not_configured",
+          "outputs": [
+            {
+              "value": "both",
+              "available": false
+            },
+            {
+              "value": "client_device",
+              "available": true
+            },
+            {
+              "value": "ha_speaker",
+              "available": false
+            },
+            {
+              "value": "text_only",
+              "available": true
+            }
+          ],
+          "voice_applicability": "applicable",
+          "autoplay_scope": "device_local_default_off"
+        },
+        "allowed_values": {
+          "persona": [
+            "club_dj",
+            "festival_dj",
+            "home_dj",
+            "radio_dj"
+          ],
+          "mood": [
+            "chill",
+            "energy",
+            "groove",
+            "party"
+          ],
+          "presence": [
+            "music_only",
+            "occasional",
+            "balanced",
+            "presenter"
+          ],
+          "announcement_output": [
+            "both",
+            "client_device",
+            "ha_speaker",
+            "text_only"
+          ],
+          "voice": {
+            "kinds": [
+              "provider_default",
+              "provider_voice"
+            ],
+            "provider_id": "",
+            "voices": []
+          },
+          "gender": [
+            "default"
+          ]
+        },
+        "writable_fields": [
+          "announcement_output",
+          "gender",
+          "mood",
+          "persona",
+          "presence",
+          "voice"
+        ],
+        "voice_revision": "d86083e040c0e20ee2aa51f3",
+        "voice_availability": {
+          "available": false,
+          "reason": "processor_not_qualified"
+        },
+        "as_of": "2026-10-22T14:22:39.161901+00:00",
+        "cache_policy": "private,no-store"
+      },
+      "moment": {
+        "moment_id": "moment-5b135b3139d741486cc0fa468593d9c4",
+        "session_id": "session-021e10c4728e4344a7bb2d50ea9a63d3",
+        "created_at": "2026-10-22T14:22:39.158000+00:00",
+        "type": "session",
+        "knowledge_intent": {
+          "type": "session_direction",
+          "goal": "Confirm accepted user settings."
+        },
+        "presentation_intent": {
+          "source_session_mood": "party",
+          "dj_persona": "festival_dj",
+          "tone_of_voice": "celebratory and expansive",
+          "energy_level": "party",
+          "delivery_style": "short contextual music story",
+          "voice_style": "persona-guided",
+          "visual_theme": "music-context",
+          "importance": "normal",
+          "maximum_duration_seconds": 15,
+          "delivery_channels": [
+            "owner"
+          ],
+          "visibility": "owner_only"
+        },
+        "title": "Even afstemmen",
+        "summary": "Even afstemmen",
+        "content": "Daar gaan we: je kiest Alleen muziek. Na deze bevestiging laat ik de muziek aan het woord; je vragen blijven welkom.",
+        "artwork": null,
+        "actions": [],
+        "visibility": "owner_only",
+        "delivery_channels": [
+          "owner"
+        ],
+        "importance": "normal",
+        "source_references": [
+          "accepted_settings"
+        ],
+        "generation_metadata": {
+          "purpose": "accepted_settings_change",
+          "validated": "true"
+        },
+        "settings_confirmation": {
+          "schema_version": 1,
+          "confirmation_id": "settings-5b135b3139d741486cc0fa468593d9c4",
+          "changed_fields": [
+            "presence"
+          ],
+          "accepted_at": "2026-10-22T14:22:39.158000+00:00"
+        }
+      },
+      "native_delivery": {
+        "schema_version": 1,
+        "session_id": "session-021e10c4728e4344a7bb2d50ea9a63d3",
+        "current_moment_id": "moment-5b135b3139d741486cc0fa468593d9c4",
+        "current_silence_moment_id": null,
+        "active_flow_moment_ids": [
+          "moment-4ef94770907b52a15321ca43e7b2705c",
+          "moment-ec64e24aefc64d81b5aac4fc97bc8eb4",
+          "moment-5b135b3139d741486cc0fa468593d9c4"
+        ],
+        "admissions": [
+          {
+            "moment_id": "moment-4ef94770907b52a15321ca43e7b2705c",
+            "qualification": "qualified",
+            "current_display_allowed": false,
+            "active_flow_display_allowed": true,
+            "source_expires_at": null,
+            "display_expires_at": "2026-10-22T14:22:54.152000+00:00",
+            "executable_actions": [],
+            "requires_spotify_attribution": false
+          },
+          {
+            "moment_id": "moment-ec64e24aefc64d81b5aac4fc97bc8eb4",
+            "qualification": "qualified",
+            "current_display_allowed": false,
+            "active_flow_display_allowed": true,
+            "source_expires_at": null,
+            "display_expires_at": "2026-10-22T14:22:54.155000+00:00",
+            "executable_actions": [],
+            "requires_spotify_attribution": false
+          },
+          {
+            "moment_id": "moment-5b135b3139d741486cc0fa468593d9c4",
+            "qualification": "qualified",
+            "current_display_allowed": true,
+            "active_flow_display_allowed": true,
+            "source_expires_at": null,
+            "display_expires_at": "2026-10-22T14:22:54.158000+00:00",
+            "executable_actions": [],
+            "requires_spotify_attribution": false
+          }
+        ],
+        "revocation_scope": "session",
+        "revision": "567134e92c2cde06aa2c390c"
+      }
+    }
+  ],
+  "profile_only_response": {
+    "success": true,
+    "operation_id": "01a163fe-182e-73d2-9d2f-d8d6623ff8dc",
+    "accepted": true,
+    "replayed": false,
+    "expires_ms": 1792679259150,
+    "snapshot": {
+      "contract_version": 3,
+      "defaults": {
+        "persona": "radio_dj",
+        "voice": {
+          "kind": "provider_default"
+        },
+        "gender": "default",
+        "mood": "energy",
+        "presence": "balanced",
+        "announcement_output": "client_device"
+      },
+      "defaults_revision": 1,
+      "updated_at": "2026-10-22T14:22:39.150000+00:00",
+      "activated": true,
+      "output_choice_confirmed": true,
+      "accepted_contract_version": 3,
+      "session": null
+    },
+    "settings_confirmation": {
+      "schema_version": 1,
+      "confirmation_id": "settings-1faf234c4fd8112bed30146b27ab0bd1",
+      "changed_fields": [
+        "mood",
+        "persona"
+      ],
+      "settings": {
+        "mood": "energy",
+        "persona": "radio_dj",
+        "presence": "balanced"
+      },
+      "locale": "nl",
+      "accepted_at": "2026-10-22T14:22:39.150000+00:00",
+      "session_id": "",
+      "settings_generation": "",
+      "settings_revision": null,
+      "defaults_revision": 1,
+      "moment_id": null,
+      "title": "Even afstemmen",
+      "text": "We slaan een nieuwe toon aan: je mood is nu Energy; ik vertel nu als je Radio DJ. Mijn manier van vertellen wordt levendig en vlot."
+    },
+    "contract_version": 3,
+    "binding": "a821a05f0674ffffe8e6d12f33443ea018ac12fd78a6afe52219acd09c549a24",
+    "settings_confirmation_contract": {
+      "available": true,
+      "version": 1,
+      "trigger": "accepted_user_change",
+      "fields": [
+        "mood",
+        "persona",
+        "presence"
+      ],
+      "one_per_operation": true,
+      "owner_only": true,
+      "no_session": "operation_confirmation_only",
+      "music_only": "confirm_then_silent",
+      "speech": "existing_session_speech_respecting_announcement_output",
+      "automatic_mood": "no_confirmation",
+      "replay": "original_identity_no_new_lease"
+    },
+    "scope": "profile_and_active_session",
+    "migration": {
+      "version": 1,
+      "state": "accepted_shared_settings",
+      "requires_review": false,
+      "legacy_cleanup_pending": false
+    },
+    "announcement_output": {
+      "selected": "client_device",
+      "speaker_available": false,
+      "speaker_reason": "announcement_speaker_not_configured",
+      "outputs": [
+        {
+          "value": "both",
+          "available": false
+        },
+        {
+          "value": "client_device",
+          "available": true
+        },
+        {
+          "value": "ha_speaker",
+          "available": false
+        },
+        {
+          "value": "text_only",
+          "available": true
+        }
+      ],
+      "voice_applicability": "applicable",
+      "autoplay_scope": "device_local_default_off"
+    },
+    "allowed_values": {
+      "persona": [
+        "club_dj",
+        "festival_dj",
+        "home_dj",
+        "radio_dj"
+      ],
+      "mood": [
+        "chill",
+        "energy",
+        "groove",
+        "party"
+      ],
+      "presence": [
+        "music_only",
+        "occasional",
+        "balanced",
+        "presenter"
+      ],
+      "announcement_output": [
+        "both",
+        "client_device",
+        "ha_speaker",
+        "text_only"
+      ],
+      "voice": {
+        "kinds": [
+          "provider_default",
+          "provider_voice"
+        ],
+        "provider_id": "",
+        "voices": []
+      },
+      "gender": [
+        "default"
+      ]
+    },
+    "writable_fields": [
+      "announcement_output",
+      "gender",
+      "mood",
+      "persona",
+      "presence",
+      "voice"
+    ],
+    "voice_revision": "d86083e040c0e20ee2aa51f3",
+    "voice_availability": {
+      "available": false,
+      "reason": "processor_not_qualified"
+    },
+    "as_of": "2026-10-22T14:22:39.150926+00:00",
+    "cache_policy": "private,no-store"
+  }
+}

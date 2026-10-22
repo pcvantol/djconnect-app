@@ -1445,16 +1445,16 @@
 // Native Session Forecast
 "ui.session.forecast.mode" = "View";
 "ui.session.forecast.flow" = "Flow";
-"ui.session.forecast.tab" = "Preview";
-"ui.session.forecast.title" = "Preview · ~15 min";
+"ui.session.forecast.tab" = "Horizon";
+"ui.session.forecast.title" = "Horizon · ~15 min";
 "ui.session.forecast.notice" = "A direction for the coming minutes. Music and contributions may change.";
-"ui.session.forecast.loading" = "Loading the preview…";
-"ui.session.forecast.unavailable" = "A current preview is not available.";
+"ui.session.forecast.loading" = "Loading Horizon…";
+"ui.session.forecast.unavailable" = "Horizon is currently unavailable.";
 "ui.session.forecast.source" = "Source";
 "ui.session.forecast.claim.current" = "Playing now";
 "ui.session.forecast.claim.intention" = "Intention";
 "ui.session.forecast.claim.conditional_target" = "Conditional aim";
-"ui.session.forecast.search" = "Search the preview";
+"ui.session.forecast.search" = "Search Horizon";
 // VibeCast rendezvous: routing preparation is distinct from display consent.
 "ui.rendezvous.scan" = "Scan TV QR code";
 "ui.rendezvous.choose" = "Choose your linked Home Assistant. This only sends its display address to this TV.";
@@ -1506,6 +1506,55 @@
 "ui.session.playback.speaker_question" = "Show available speakers.";
 
 "ui.rendezvous.sending" = "Preparing secure TV linking…";
-"ui.rendezvous.accepted" = "The address was sent. Continue on the TV and approve screen sharing in Home Assistant.";
+"ui.rendezvous.accepted" = "The address was sent. Continue on the TV and enter the TV code in the app to confirm screen sharing.";
 "ui.rendezvous.uncertain" = "We could not confirm whether the address was sent. Check the TV before trying again.";
 "ui.rendezvous.repairNeeded" = "Secure linking could not be prepared. Try again later.";
+
+// VibeScape preview: ephemeral native visuals.
+"ui.vibescape.dynamics" = "Dynamics";
+"ui.vibescape.dynamics.auto" = "Auto";
+"ui.vibescape.dynamics.manual" = "Manual";
+"ui.vibescape.dynamics.follow" = "Follow track intensity";
+"ui.vibescape.calm" = "Calm";
+"ui.vibescape.intense" = "Intense";
+"ui.vibescape.follow" = "Follow DJ";
+"ui.vibescape.unavailable" = "Visuals are unavailable on this device.";
+"ui.vibescape.voice.unavailable" = "Visual voice control is not available yet.";
+"ui.vibescape.voice.label" = "Speak about the visuals";
+
+"ui.ask_dj.answer.delivery_unknown" = "We cannot yet confirm whether your question was processed. Check the conversation history before sending it again.";
+"ui.ask_dj.answer.review_question" = "Review question";
+
+"ui.sources.current_playback" = "Current playback information";
+
+"ui.session.history.search_all" = "Search all sessions and contributions";
+
+"ui.vibescape.help.title" = "VibeScape help";
+"ui.vibescape.help.touch" = "Tap for a bright response. Drag your finger or mouse across the animation for a flowing effect.";
+"ui.vibescape.help.intensity" = "Use the slider to choose intensity manually. Reset resumes automatic following; without reliable track intensity, the setting stays neutral.";
+"ui.vibescape.help.controls" = "Controls hide after a few seconds. Tap their area or hover over it to reveal them.";
+
+"ui.vibescape.help.voice" = "Voice commands";
+"ui.vibescape.help.unavailable" = "Voice commands are currently unavailable.";
+"ui.vibescape.voice.recording" = "Speak your visual command. Tap again to stop.";
+"ui.vibescape.voice.applied" = "Visual command applied.";
+"ui.vibescape.voice.failed" = "The visual command could not be applied. Try again.";
+
+"ui.vibescape.help.loading" = "Loading voice commands…";
+"ui.vibescape.voice.stop" = "Stop recording";
+
+"ui.session.shortcut.open" = "Open DJ session";
+
+"ui.displayConsent.stop" = "Stop screen sharing";
+
+"ui.displayConsent.stopped" = "Screen sharing stopped. Your DJ session continues.";
+
+"ui.displayConsent.stop_uncertain" = "Stopping screen sharing could not be confirmed. Check the screen before continuing.";
+
+"ui.rendezvous.tv_code" = "Enter TV code";
+
+"ui.rendezvous.tv_code_help" = "Already have a code on the TV? Enter it here and confirm screen sharing for your active DJ session.";
+
+"ui.content.delete.failed" = "The contribution could not be deleted. Refresh and try again.";
+
+"ui.content.delete.unconfirmed" = "Deletion of this contribution has not yet been confirmed. Check the deletion status before trying again.";

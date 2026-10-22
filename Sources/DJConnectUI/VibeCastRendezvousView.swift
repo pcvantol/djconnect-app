@@ -35,6 +35,13 @@ struct VibeCastRendezvousView: View {
                     .disabled(model.rendezvousBusy)
                     .accessibilityIdentifier("vibecast-rendezvous-scan")
                     #endif
+                    PasteButton(payloadType: String.self) { values in
+                        guard values.count == 1, let value = values.first else { return }
+                        selectedInstallation = false
+                        model.receiveRendezvousQR(value)
+                    }
+                    .disabled(model.rendezvousBusy)
+                    .accessibilityIdentifier("vibecast-rendezvous-paste")
                     if model.rendezvousHasQR {
                         Toggle(rendezvousText(model.language, "ui.rendezvous.savedHA"), isOn: $selectedInstallation)
                             .disabled(model.rendezvousBusy)
@@ -46,6 +53,13 @@ struct VibeCastRendezvousView: View {
                         .accessibilityIdentifier("vibecast-rendezvous-confirm")
                     }
                     if model.rendezvousBusy { ProgressView() }
+                    Divider()
+                    Text(rendezvousText(model.language, "ui.rendezvous.tv_code_help"))
+                    Button(rendezvousText(model.language, "ui.rendezvous.tv_code")) {
+                        model.openRendezvousDisplayConsent()
+                    }
+                    .disabled(!model.canResolveDisplayConsent || model.rendezvousBusy)
+                    .accessibilityIdentifier("vibecast-rendezvous-tv-code")
                 }.padding(24)
             }
             .toolbar {

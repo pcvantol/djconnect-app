@@ -12,9 +12,31 @@ import Foundation
 @available(iOS 16.1, *)
 @MainActor
 enum DJConnectSessionSurfaceActivityController {
+    private static let pushRequestedKey = "DJConnectSessionActivity.pushRequestedID.v1"
     private static var stateObservers: [String: Task<Void, Never>] = [:]
+    private static var tokenObservers: [String: Task<Void, Never>] = [:]
+    private static func withdrawPush(_ activity: Activity<DJConnectSessionLiveActivityAttributes>) {
+        tokenObservers.removeValue(forKey: activity.id)?.cancel()
+        DJConnectActivityPushToken.withdraw(activityID: activity.id, in: .standard)
+        if UserDefaults.standard.string(forKey: pushRequestedKey) == activity.id {
+            UserDefaults.standard.removeObject(forKey: pushRequestedKey)
+        }
+    }
+    private static func recordPush(_ token: Data, for activity: Activity<DJConnectSessionLiveActivityAttributes>) {
+        guard activity.activityState == .active || activity.activityState == .stale,
+              let pending = DJConnectActivityPushToken(token: token, activityID: activity.id,
+                  presentationID: activity.attributes.presentationID) else { return }
+        try? DJConnectActivityPushToken.replace(pending, in: .standard)
+    }
     private static func observe(_ activity: Activity<DJConnectSessionLiveActivityAttributes>) {
         guard stateObservers[activity.id] == nil else { return }
+        if let token = activity.pushToken { recordPush(token, for: activity) }
+        tokenObservers[activity.id] = Task {
+            for await token in activity.pushTokenUpdates {
+                guard !Task.isCancelled else { break }
+                recordPush(token, for: activity)
+            }
+        }
         stateObservers[activity.id] = Task {
             for await state in activity.activityStateUpdates {
                 if state == .dismissed {
@@ -23,6 +45,7 @@ enum DJConnectSessionSurfaceActivityController {
                 }
                 if state == .ended { break }
             }
+            withdrawPush(activity)
             stateObservers[activity.id] = nil
         }
     }
@@ -33,19 +56,33 @@ enum DJConnectSessionSurfaceActivityController {
         for old in Activity<TrackInsightLiveActivityAttributes>.activities {
             await old.end(nil, dismissalPolicy: .immediate)
         }
-        let activities = Activity<DJConnectSessionLiveActivityAttributes>.activities
+        var activities = Activity<DJConnectSessionLiveActivityAttributes>.activities
         for activity in activities { observe(activity) }
         guard let snapshot, snapshot.isCurrent(at: Date()), let presentationID else {
             for activity in activities {
                 DJConnectSessionSurfacePresentation.applicationEnded(activity.attributes.presentationID,
                     wasDismissed: activity.activityState == .dismissed, activityID: activity.id, in: defaults)
+                withdrawPush(activity)
                 await activity.end(nil, dismissalPolicy: .immediate)
             }
             return activities.isEmpty ? nil : "Session Live Activity ended by app; reason=\(endReason)"
         }
+        // Existing pre-push instances cannot acquire an ActivityKit update token.
+        // Migrate only a still-visible, admitted presentation in foreground;
+        // dismissed instances retain the existing user-dismissal fence.
+        for activity in activities where canStart && activity.attributes.presentationID == presentationID &&
+            (activity.activityState == .active || activity.activityState == .stale) &&
+            defaults.string(forKey: pushRequestedKey) != activity.id {
+            DJConnectSessionSurfacePresentation.applicationEnded(presentationID,
+                wasDismissed: false, activityID: activity.id, in: defaults)
+            withdrawPush(activity)
+            await activity.end(nil, dismissalPolicy: .immediate)
+            activities.removeAll { $0.id == activity.id }
+        }
         for activity in activities where activity.attributes.presentationID != presentationID {
             DJConnectSessionSurfacePresentation.applicationEnded(activity.attributes.presentationID,
                 wasDismissed: activity.activityState == .dismissed, activityID: activity.id, in: defaults)
+            withdrawPush(activity)
             await activity.end(nil, dismissalPolicy: .immediate)
         }
         let content = ActivityContent(state: snapshot, staleDate: snapshot.expiresAt)
@@ -58,7 +95,8 @@ enum DJConnectSessionSurfaceActivityController {
             // across app resumes; do not create an activity on every live tick.
             do {
                 let activity = try Activity.request(attributes: DJConnectSessionLiveActivityAttributes(presentationID: presentationID),
-                                         content: content, pushType: nil)
+                                         content: content, pushType: .token)
+                defaults.set(activity.id, forKey: pushRequestedKey)
                 observe(activity)
                 DJConnectSessionSurfacePresentation.requested(presentationID,
                     build: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown", activityID: activity.id, in: defaults)

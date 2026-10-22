@@ -436,6 +436,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published var isShowingWelcome = false
     @Published var statusMessage = "Niet gekoppeld"
     @Published private(set) var voiceActivationStatus: VoiceActivationStatus = .paused
+    @Published private(set) var settingsOperationConfirmation: String?
     @Published private(set) var isAppForeground = true
     @Published var deviceSpeechPreferences = DJConnectDeviceSpeechPreferences.load(from: .standard) {
         didSet {
@@ -678,6 +679,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return
         }
         isAppForeground = foreground
+        if !foreground { settingsOperationConfirmation = nil }
         foregroundSession.bind(owner: canUseBackend && !isDemoMode ? stableInstallID : nil, active: foreground)
         profileDJSettings.bind(owner: profileDJSettings.response?.binding, active: foreground && canUseBackend)
         if !foreground { companionRequests.cancelAll() }
@@ -893,6 +895,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func refreshForegroundSession(force: Bool = false) async {
         let active = isAppForeground && canUseBackend && !isDemoMode
+        if !active { settingsOperationConfirmation = nil }
         foregroundSession.bind(owner: active ? stableInstallID : nil, active: active)
         guard active else { return }
         await foregroundSession.refresh(force: force) { [unowned self] in
@@ -902,9 +905,13 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             profileDJSettings.bind(owner: profileDJSettings.response?.binding, active: false)
             return
         }
+        if current.session != nil || profileDJSettings.response?.binding != current.settings.binding {
+            settingsOperationConfirmation = nil
+        }
         profileDJSettings.bind(owner: current.settings.binding, active: true)
         if profileDJSettings.hasUncertainOperation {
             await profileDJSettings.reconcile(sharedSettingsServices)
+            presentSettingsOperationConfirmation()
         } else {
             let services = ProfileDJSettingsModel.Services(read: { current.settings },
                 update: { [unowned self] response, patch, id in
@@ -918,10 +925,25 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    private func presentSettingsOperationConfirmation() {
+        guard let confirmation = profileDJSettings.takeOperationConfirmation(),
+              isAppForeground, canUseBackend, foregroundSession.current()?.session == nil else { return }
+        settingsOperationConfirmation = confirmation.text
+    }
+
+    func reconcileSharedDJSettings() async {
+        guard isAppForeground, canUseBackend, !isDemoMode else { return }
+        await profileDJSettings.reconcile(sharedSettingsServices)
+        presentSettingsOperationConfirmation()
+        await refreshForegroundSession(force: true)
+    }
+
     func changeSharedDJSettings(_ patch: DJConnectProfileDJSettings.Patch) async {
         guard isAppForeground, canUseBackend, !isDemoMode else { return }
         stopAskDJAudio()
+        settingsOperationConfirmation = nil
         await profileDJSettings.change(patch, using: sharedSettingsServices)
+        presentSettingsOperationConfirmation()
         await refreshForegroundSession(force: true)
     }
 

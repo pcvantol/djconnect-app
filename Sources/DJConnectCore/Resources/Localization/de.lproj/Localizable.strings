@@ -1445,16 +1445,16 @@
 // Native Session Forecast
 "ui.session.forecast.mode" = "Ansicht";
 "ui.session.forecast.flow" = "Flow";
-"ui.session.forecast.tab" = "Ausblick";
-"ui.session.forecast.title" = "Ausblick · ca. 15 Min.";
+"ui.session.forecast.tab" = "Horizon";
+"ui.session.forecast.title" = "Horizon · ca. 15 Min.";
 "ui.session.forecast.notice" = "Eine Richtung für die kommenden Minuten. Musik und Beiträge können sich ändern.";
-"ui.session.forecast.loading" = "Ausblick wird geladen…";
-"ui.session.forecast.unavailable" = "Aktuell ist kein Ausblick verfügbar.";
+"ui.session.forecast.loading" = "Horizon wird geladen…";
+"ui.session.forecast.unavailable" = "Horizon ist derzeit nicht verfügbar.";
 "ui.session.forecast.source" = "Quelle";
 "ui.session.forecast.claim.current" = "Läuft gerade";
 "ui.session.forecast.claim.intention" = "Vorhaben";
 "ui.session.forecast.claim.conditional_target" = "Mögliche Richtung";
-"ui.session.forecast.search" = "Ausblick durchsuchen";
+"ui.session.forecast.search" = "Horizon durchsuchen";
 // VibeCast rendezvous: routing preparation is distinct from display consent.
 "ui.rendezvous.scan" = "TV-QR-Code scannen";
 "ui.rendezvous.choose" = "Wähle dein verbundenes Home Assistant. Nur die Anzeigeadresse wird mit diesem TV geteilt.";
@@ -1506,6 +1506,55 @@
 "ui.session.playback.speaker_question" = "Verfügbare Lautsprecher anzeigen.";
 
 "ui.rendezvous.sending" = "Sichere TV-Verknüpfung wird vorbereitet…";
-"ui.rendezvous.accepted" = "Die Adresse wurde gesendet. Fahre am TV fort und bestätige die Bildschirmfreigabe in Home Assistant.";
+"ui.rendezvous.accepted" = "Die Adresse wurde gesendet. Fahre am TV fort und gib den TV-Code in der App ein, um die Bildschirmfreigabe zu bestätigen.";
 "ui.rendezvous.uncertain" = "Wir konnten nicht bestätigen, ob die Adresse gesendet wurde. Prüfe den TV, bevor du es erneut versuchst.";
 "ui.rendezvous.repairNeeded" = "Die sichere Verknüpfung konnte nicht vorbereitet werden. Versuche es später erneut.";
+
+// VibeScape preview: ephemeral native visuals.
+"ui.vibescape.dynamics" = "Dynamik";
+"ui.vibescape.dynamics.auto" = "Auto";
+"ui.vibescape.dynamics.manual" = "Manuell";
+"ui.vibescape.dynamics.follow" = "Titelintensität folgen";
+"ui.vibescape.calm" = "Ruhig";
+"ui.vibescape.intense" = "Intensiv";
+"ui.vibescape.follow" = "DJ folgen";
+"ui.vibescape.unavailable" = "Visuals sind auf diesem Gerät nicht verfügbar.";
+"ui.vibescape.voice.unavailable" = "Visuelle Sprachsteuerung ist noch nicht verfügbar.";
+"ui.vibescape.voice.label" = "Über die Visuals sprechen";
+
+"ui.ask_dj.answer.delivery_unknown" = "Wir können noch nicht bestätigen, ob deine Frage verarbeitet wurde. Prüfe den Gesprächsverlauf, bevor du sie erneut sendest.";
+"ui.ask_dj.answer.review_question" = "Frage prüfen";
+
+"ui.sources.current_playback" = "Aktuelle Wiedergabeinformationen";
+
+"ui.session.history.search_all" = "Alle Sitzungen und Beiträge durchsuchen";
+
+"ui.vibescape.help.title" = "VibeScape-Hilfe";
+"ui.vibescape.help.touch" = "Tippe für eine kräftige Reaktion. Ziehe Finger oder Maus über die Animation für einen fließenden Effekt.";
+"ui.vibescape.help.intensity" = "Der Regler stellt die Intensität manuell ein. Zurücksetzen aktiviert die automatische Anpassung; ohne verlässliche Titelintensität bleibt die Einstellung neutral.";
+"ui.vibescape.help.controls" = "Die Bedienelemente verschwinden nach einigen Sekunden. Tippe auf ihren Bereich oder halte die Maus darüber, um sie wieder anzuzeigen.";
+
+"ui.vibescape.help.voice" = "Sprachbefehle";
+"ui.vibescape.help.unavailable" = "Sprachbefehle sind derzeit nicht verfügbar.";
+"ui.vibescape.voice.recording" = "Sprich deinen visuellen Befehl. Tippe erneut zum Stoppen.";
+"ui.vibescape.voice.applied" = "Visueller Befehl angewendet.";
+"ui.vibescape.voice.failed" = "Der visuelle Befehl konnte nicht angewendet werden. Versuche es erneut.";
+
+"ui.vibescape.help.loading" = "Sprachbefehle werden geladen…";
+"ui.vibescape.voice.stop" = "Aufnahme stoppen";
+
+"ui.session.shortcut.open" = "DJ-Session öffnen";
+
+"ui.displayConsent.stop" = "Bildschirmfreigabe beenden";
+
+"ui.displayConsent.stopped" = "Bildschirmfreigabe beendet. Deine DJ-Session läuft weiter.";
+
+"ui.displayConsent.stop_uncertain" = "Das Beenden der Bildschirmfreigabe wurde nicht bestätigt. Prüfe den Bildschirm, bevor du fortfährst.";
+
+"ui.rendezvous.tv_code" = "TV-Code eingeben";
+
+"ui.rendezvous.tv_code_help" = "Wird auf dem TV bereits ein Code angezeigt? Gib ihn hier ein und bestätige die Bildschirmfreigabe für deine aktive DJ-Session.";
+
+"ui.content.delete.failed" = "Der Beitrag konnte nicht gelöscht werden. Aktualisiere die Ansicht und versuche es erneut.";
+
+"ui.content.delete.unconfirmed" = "Die Löschung dieses Beitrags ist noch nicht bestätigt. Prüfe den Löschstatus, bevor du es erneut versuchst.";

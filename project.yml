@@ -93,6 +93,7 @@ targets:
     platform: iOS
     sources:
       - path: Apps/DJConnectIOS
+      - path: Apps/Shared/SessionNextTrackIntent.swift
       - path: Apps/Shared/Assets.xcassets
       - path: Apps/Shared/AppIconAdaptive.icon
     dependencies:
@@ -116,26 +117,6 @@ targets:
         LSApplicationCategoryType: public.app-category.music
         NSCameraUsageDescription: DJConnect uses the camera only to scan QR codes for Home Assistant, Apple Watch pairing, or VibeCast TV linking.
         UILaunchStoryboardName: LaunchScreen
-        UIApplicationShortcutItems:
-          - UIApplicationShortcutItemIconSymbolName: music.note
-            UIApplicationShortcutItemTitle: Now Playing
-            UIApplicationShortcutItemType: dev.djconnect.action.now-playing
-          - UIApplicationShortcutItemIconSymbolName: bubble.left.and.bubble.right
-            UIApplicationShortcutItemSubtitle: Ask for music
-            UIApplicationShortcutItemTitle: Ask DJ
-            UIApplicationShortcutItemType: dev.djconnect.action.ask-dj
-          - UIApplicationShortcutItemIconSymbolName: waveform.path.ecg
-            UIApplicationShortcutItemSubtitle: Analyze current track
-            UIApplicationShortcutItemTitle: Track Insight
-            UIApplicationShortcutItemType: dev.djconnect.action.track-insight
-          - UIApplicationShortcutItemIconSymbolName: sparkles
-            UIApplicationShortcutItemSubtitle: Music DNA recommendations
-            UIApplicationShortcutItemTitle: Discover
-            UIApplicationShortcutItemType: dev.djconnect.action.discovery
-          - UIApplicationShortcutItemIconSymbolName: music.note.list
-            UIApplicationShortcutItemSubtitle: Upcoming tracks
-            UIApplicationShortcutItemTitle: Queue
-            UIApplicationShortcutItemType: dev.djconnect.action.queue
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
@@ -198,7 +179,11 @@ targets:
       properties:
         DJConnectTrustedPairingIssuerBaseURL: https://api.djconnect.dev
         CFBundleDisplayName: DJConnect
-        CFBundleIconFile: AppIconMac
+        CFBundleIconFile: AppIconAdaptive
+        CFBundleURLTypes:
+          - CFBundleURLName: dev.djconnect.mac
+            CFBundleURLSchemes:
+              - djconnect
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.music
@@ -308,6 +293,7 @@ targets:
     platform: iOS
     sources:
       - path: Apps/DJConnectTrackInsightWidgets
+      - path: Apps/Shared/SessionNextTrackIntent.swift
       - path: Sources/DJConnectUI/DJPersonaAvatarView.swift
     dependencies:
       - target: DJConnectCoreIOS
@@ -345,7 +331,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.mac.track-insight-widget
         PRODUCT_NAME: TrackInsightWidget
-        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectTrackInsightWidgets/DJConnectTrackInsightWidgets.entitlements
+        CODE_SIGN_ENTITLEMENTS: Apps/DJConnectTrackInsightWidgets/DJConnectTrackInsightWidgetsMac.entitlements
         SKIP_INSTALL: YES
   DJConnectCoreTests:
     type: bundle.unit-test

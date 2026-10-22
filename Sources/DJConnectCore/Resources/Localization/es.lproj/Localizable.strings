@@ -1445,16 +1445,16 @@
 // Native Session Forecast
 "ui.session.forecast.mode" = "Vista";
 "ui.session.forecast.flow" = "Flow";
-"ui.session.forecast.tab" = "Previsión";
-"ui.session.forecast.title" = "Previsión · aprox. 15 min";
+"ui.session.forecast.tab" = "Horizon";
+"ui.session.forecast.title" = "Horizon · aprox. 15 min";
 "ui.session.forecast.notice" = "Una orientación para los próximos minutos. La música y las intervenciones pueden cambiar.";
-"ui.session.forecast.loading" = "Cargando la previsión…";
-"ui.session.forecast.unavailable" = "No hay una previsión actual disponible.";
+"ui.session.forecast.loading" = "Cargando Horizon…";
+"ui.session.forecast.unavailable" = "Horizon no está disponible en este momento.";
 "ui.session.forecast.source" = "Fuente";
 "ui.session.forecast.claim.current" = "Sonando ahora";
 "ui.session.forecast.claim.intention" = "Intención";
 "ui.session.forecast.claim.conditional_target" = "Objetivo posible";
-"ui.session.forecast.search" = "Buscar en la previsión";
+"ui.session.forecast.search" = "Buscar en Horizon";
 // VibeCast rendezvous: routing preparation is distinct from display consent.
 "ui.rendezvous.scan" = "Escanear código QR del televisor";
 "ui.rendezvous.choose" = "Elige tu Home Assistant vinculado. Solo se compartirá su dirección de pantalla con este televisor.";
@@ -1506,6 +1506,55 @@
 "ui.session.playback.speaker_question" = "Mostrar altavoces disponibles.";
 
 "ui.rendezvous.sending" = "Preparando la conexión segura al TV…";
-"ui.rendezvous.accepted" = "Se ha enviado la dirección. Continúa en el TV y autoriza compartir la pantalla en Home Assistant.";
+"ui.rendezvous.accepted" = "Se ha enviado la dirección. Continúa en el TV e introduce el código del TV en la app para confirmar compartir pantalla.";
 "ui.rendezvous.uncertain" = "No hemos podido confirmar si se envió la dirección. Revisa el TV antes de intentarlo de nuevo.";
 "ui.rendezvous.repairNeeded" = "No se pudo preparar la conexión segura. Inténtalo de nuevo más tarde.";
+
+// VibeScape preview: ephemeral native visuals.
+"ui.vibescape.dynamics" = "Dinámica";
+"ui.vibescape.dynamics.auto" = "Auto";
+"ui.vibescape.dynamics.manual" = "Manual";
+"ui.vibescape.dynamics.follow" = "Seguir la intensidad de la canción";
+"ui.vibescape.calm" = "Tranquila";
+"ui.vibescape.intense" = "Intensa";
+"ui.vibescape.follow" = "Seguir al DJ";
+"ui.vibescape.unavailable" = "Los visuales no están disponibles en este dispositivo.";
+"ui.vibescape.voice.unavailable" = "El control de voz de los visuales aún no está disponible.";
+"ui.vibescape.voice.label" = "Hablar sobre los visuales";
+
+"ui.ask_dj.answer.delivery_unknown" = "Aún no podemos confirmar si se procesó tu pregunta. Revisa el historial antes de enviarla de nuevo.";
+"ui.ask_dj.answer.review_question" = "Revisar pregunta";
+
+"ui.sources.current_playback" = "Información de la reproducción actual";
+
+"ui.session.history.search_all" = "Buscar en todas las sesiones y contribuciones";
+
+"ui.vibescape.help.title" = "Ayuda de VibeScape";
+"ui.vibescape.help.touch" = "Toca para una reacción intensa. Arrastra el dedo o el ratón por la animación para un efecto fluido.";
+"ui.vibescape.help.intensity" = "El deslizador ajusta la intensidad manualmente. Restablecer reanuda el seguimiento automático; sin una intensidad fiable de la canción, el ajuste permanece neutro.";
+"ui.vibescape.help.controls" = "Los controles se ocultan tras unos segundos. Toca su zona o sitúa el ratón encima para mostrarlos.";
+
+"ui.vibescape.help.voice" = "Comandos de voz";
+"ui.vibescape.help.unavailable" = "Los comandos de voz no están disponibles ahora.";
+"ui.vibescape.voice.recording" = "Di tu comando visual. Toca de nuevo para detener.";
+"ui.vibescape.voice.applied" = "Comando visual aplicado.";
+"ui.vibescape.voice.failed" = "No se pudo aplicar el comando visual. Inténtalo de nuevo.";
+
+"ui.vibescape.help.loading" = "Cargando comandos de voz…";
+"ui.vibescape.voice.stop" = "Detener grabación";
+
+"ui.session.shortcut.open" = "Abrir sesión DJ";
+
+"ui.displayConsent.stop" = "Dejar de compartir pantalla";
+
+"ui.displayConsent.stopped" = "Se ha detenido la pantalla compartida. Tu sesión DJ continúa.";
+
+"ui.displayConsent.stop_uncertain" = "No se ha confirmado que la pantalla compartida se haya detenido. Comprueba la pantalla antes de continuar.";
+
+"ui.rendezvous.tv_code" = "Introducir código del TV";
+
+"ui.rendezvous.tv_code_help" = "¿Ya tienes un código en el TV? Introdúcelo aquí y confirma compartir pantalla para tu sesión DJ activa.";
+
+"ui.content.delete.failed" = "No se ha podido eliminar la contribución. Actualiza e inténtalo de nuevo.";
+
+"ui.content.delete.unconfirmed" = "Aún no se ha confirmado la eliminación de esta contribución. Consulta su estado antes de volver a intentarlo.";

@@ -3383,6 +3383,8 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
         uri ?? "\(kind ?? "item")|\(title)|\(subtitle ?? "")|\(playedAtLabel ?? playedAt ?? "")"
     }
 
+    public var resultSetID: String?
+    public var actionID: String?
     public var kind: String?
     public var title: String
     public var subtitle: String?
@@ -3396,9 +3398,12 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
     public var confidence: String?
 
     enum CodingKeys: String, CodingKey {
+        case resultSetID = "result_set_id"
+        case actionID = "action_id"
         case kind
-        case title
-        case subtitle
+        case title, name
+        case subtitle, artist
+        case artistName = "artist_name"
         case value
         case source
         case confidence
@@ -3424,8 +3429,12 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
         playedAtLabel: String? = nil,
         value: String? = nil,
         source: String? = nil,
-        confidence: String? = nil
+        confidence: String? = nil,
+        resultSetID: String? = nil,
+        actionID: String? = nil
     ) {
+        self.resultSetID = resultSetID
+        self.actionID = actionID
         self.kind = kind
         self.title = title
         self.subtitle = subtitle
@@ -3441,9 +3450,16 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        resultSetID = try container.decodeIfPresent(String.self, forKey: .resultSetID)
+        actionID = try container.decodeIfPresent(String.self, forKey: .actionID)
         kind = try container.decodeIfPresent(String.self, forKey: .kind)
-        title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
-        subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)
+        let titles = [try container.decodeIfPresent(String.self, forKey: .title),
+                      container.decodeIfPresentIgnoringErrors(String.self, forKey: .name)]
+        title = titles.compactMap { $0 }.first { !$0.isEmpty } ?? ""
+        let subtitles = [try container.decodeIfPresent(String.self, forKey: .subtitle),
+                         container.decodeIfPresentIgnoringErrors(String.self, forKey: .artist),
+                         container.decodeIfPresentIgnoringErrors(String.self, forKey: .artistName)]
+        subtitle = subtitles.compactMap { $0 }.first { !$0.isEmpty }
         // Track choices may carry structured action metadata here. It is not
         // display text; retain the row's title/URI instead of dropping the item.
         value = container.decodeIfPresentIgnoringErrors(String.self, forKey: .value)
@@ -3462,6 +3478,8 @@ public struct DJConnectAskDJHistoryItem: Codable, Equatable, Sendable, Identifia
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(resultSetID, forKey: .resultSetID)
+        try container.encodeIfPresent(actionID, forKey: .actionID)
         try container.encodeIfPresent(kind, forKey: .kind)
         try container.encode(title, forKey: .title)
         try container.encodeIfPresent(subtitle, forKey: .subtitle)
@@ -6150,8 +6168,25 @@ public struct DJConnectResultSet: Codable, Equatable, Sendable {
     public let schemaVersion: Int
     public let resultSetID: String
     public let expiresIn: Double
+    public let items: [DJConnectAskDJPlaybackAction]
     enum CodingKeys: String, CodingKey {
-        case schemaVersion = "schema_version", resultSetID = "result_set_id", expiresIn = "expires_in"
+        case schemaVersion = "schema_version", resultSetID = "result_set_id", expiresIn = "expires_in", items
+    }
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+        resultSetID = try container.decode(String.self, forKey: .resultSetID)
+        expiresIn = try container.decode(Double.self, forKey: .expiresIn)
+        items = try container.decodeIfPresent([DJConnectAskDJPlaybackAction].self, forKey: .items) ?? []
+    }
+    /// Original actions only; no URI-derived command or renewed lifetime.
+    public var admittedPlaybackActions: [DJConnectAskDJPlaybackAction] {
+        guard schemaVersion == 1, !resultSetID.isEmpty, resultSetID.count <= 256,
+              expiresIn.isFinite, expiresIn > 0, expiresIn <= 600, items.count <= 50,
+              items.allSatisfy({ $0.hasConsistentResultIdentity && $0.resultSetID == resultSetID &&
+                  $0.actionID?.isEmpty == false && ($0.actionID?.count ?? 0) <= 256 }),
+              Set(items.compactMap(\.actionID)).count == items.count else { return [] }
+        return items
     }
 }
 
@@ -6330,6 +6365,9 @@ public struct DJConnectAskDJMessageResponse: Codable, Equatable, Sendable {
         sources = container.decodeLossyArrayIfPresent(DJConnectResponseLink.self, forKey: .sources)
         playbackActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .playbackActions)
         confirmationActions = container.decodeLossyArrayIfPresent(DJConnectAskDJPlaybackAction.self, forKey: .confirmationActions)
+        if playbackActions?.isEmpty != false, let frozen = resultSet?.admittedPlaybackActions, !frozen.isEmpty {
+            playbackActions = frozen
+        }
         historyRevision = try container.decodeIfPresent(Int.self, forKey: .historyRevision) ?? 0
         clearRevision = try container.decodeIfPresent(Int.self, forKey: .clearRevision) ?? 0
         let decodedAudioURL = try container.decodeIfPresent(URL.self, forKey: .audioURL)

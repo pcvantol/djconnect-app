@@ -22,17 +22,33 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
     static func installBootstrap(_ responses: [String: Data]) { lock.withLock { bootstrap = responses } }
     nonisolated(unsafe) private static var mode = "normal"
     nonisolated(unsafe) private static var calls: [URLRequest] = []
+    nonisolated(unsafe) private static var bodies: [String: Data] = [:]
     nonisolated(unsafe) private static var ownerReads = 0
     nonisolated(unsafe) private static var approvalAt: Date?
     nonisolated(unsafe) private static var approvalAction: (@Sendable () -> Void)?
-    static func reset(_ mode: String = "normal") { lock.withLock { Self.mode = mode; bootstrap = [:]; calls = []; ownerReads = 0; approvalAction = nil; approvalAt = nil } }
+    static func reset(_ mode: String = "normal") { lock.withLock { Self.mode = mode; bootstrap = [:]; calls = []; bodies = [:]; ownerReads = 0; approvalAction = nil; approvalAt = nil } }
     static var approvalStartedAt: Date? { lock.withLock { approvalAt } }
     static func onApproval(_ action: @escaping @Sendable () -> Void) { lock.withLock { approvalAction = action } }
     static var requests: [URLRequest] { lock.withLock { calls } }
+    static func body(for suffix: String) throws -> [String: Any] {
+        let data = lock.withLock { bodies.first { $0.key.hasSuffix(suffix) }?.value } ?? Data()
+        return try JSONSerialization.jsonObject(with: data) as! [String: Any]
+    }
     override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "127.0.0.1" }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         let path = request.url!.path
+        var body = request.httpBody ?? Data()
+        if body.isEmpty, let stream = request.httpBodyStream {
+            stream.open(); defer { stream.close() }
+            var buffer = [UInt8](repeating: 0, count: 4096)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                guard count > 0 else { break }
+                body.append(contentsOf: buffer.prefix(count))
+            }
+        }
+        Self.lock.withLock { Self.bodies[path] = body }
         let (mode, count) = Self.lock.withLock {
             Self.calls.append(request)
             if path.hasSuffix("/owner/context") { Self.ownerReads += 1 }
@@ -61,7 +77,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
         } else if path.hasSuffix("/owner/context") {
             value.merge(["session_id": mode == "no-session" || (mode == "changed-session" && count > 1) ? "other-session" : "fixture-session",
                 "display_entry_url": "https://ha.example.com/djconnect/vibecast/display", "route_trust": "paired_owner_response",
-                "issuer_epoch": mode == "changed-epoch" && count > 1 ? String(repeating: "E", count: 42) + "A" : consentEpoch]) { _, new in new }
+                "issuer_epoch": ((mode == "changed-epoch" && count > 1) || (mode == "changed-revoke-epoch" && count > 2)) ? String(repeating: "E", count: 42) + "A" : consentEpoch]) { _, new in new }
             if mode == "existing" || (mode == "new-share" && count > 1) {
                 value.merge(["share_id": consentShare, "share_generation": 1, "expires_in": 3600.0, "expires_at": expiry(3600)]) { _, new in new }
             }
@@ -80,6 +96,8 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
                     "share_id": consentShare, "share_generation": 1,
                     "share_expires_in": mode == "short-receipt" ? 1.0 : 3599.0, "share_expires_at": expiry(mode == "short-absolute-receipt" ? 1.0 : 3599)]) { _, new in new }
             }
+        } else if path.hasSuffix("/owner/revoke") {
+            if mode == "unknown-revoke" { status = 503; value = [:] }
         } else { status = 404 }
         let bytes = try! JSONSerialization.data(withJSONObject: value)
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: status,
@@ -89,13 +107,13 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
     override func stopLoading() {}
 }
 @Suite(.serialized) @MainActor struct DisplayConsentSessionTests {
-    private func make(_ mode: String = "normal") throws -> (DJConnectDisplayConsentSession, DJConnectInMemoryTokenStore, ConsentAuthority) {
+    private func make(_ mode: String = "normal", clientType: DJConnectClientType = .ios) throws -> (DJConnectDisplayConsentSession, DJConnectInMemoryTokenStore, ConsentAuthority) {
         ConsentWire.reset(mode)
         let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [ConsentWire.self]
         let store = DJConnectInMemoryTokenStore(token: "synthetic-owner")
         let origin = URL(string: "http://127.0.0.1:18801")!
         let client = DJConnectClient(baseURL: origin,
-            identity: DJConnectIdentity(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Fixture", clientType: .ios, firmware: "test", platform: .ios),
+            identity: DJConnectIdentity(deviceID: "djconnect-\(clientType.rawValue)-ABCDEF123456", deviceName: "Fixture", clientType: clientType, firmware: "test", platform: clientType == .macos ? .macos : .ios),
             tokenStore: store, session: URLSession(configuration: config))
         let authority = ConsentAuthority()
         let flow = try DJConnectDisplayConsentSession(client: client, installationID: "fixture-install",
@@ -114,6 +132,59 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
         #expect(ConsentWire.requests.allSatisfy { $0.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic-owner" })
         await #expect(throws: (any Error).self) { _ = try await flow.approve(share: .createTwoHours) }
         #expect(ConsentWire.requests.count == 6)
+    }
+    @Test func macConsentPreservesIdentityAndRevokesOnlyTheApprovedDisplay() async throws {
+        let (flow, _, _) = try make(clientType: .macos)
+        try await flow.resolve(code: "000000")
+        let receipt = try await flow.approve(share: .createTwoHours)
+        try await flow.revokeDisplay()
+        #expect(flow.state == .revoked && flow.receipt == nil)
+        for suffix in ["/owner/context", "/owner/resolve", "/owner/approve", "/owner/revoke"] {
+            let body = try ConsentWire.body(for: suffix)
+            #expect((body["identity"] as? [String: String])?["client_type"] == "macos")
+        }
+        let body = try ConsentWire.body(for: "/owner/revoke")
+        #expect(Set(body.keys) == Set(["contract_version", "identity", "session_id", "share_id", "display_id"]))
+        #expect(body["display_id"] as? String == receipt.displayID)
+        #expect(body["share_id"] as? String == receipt.shareID)
+        #expect(body["session_id"] as? String == receipt.sessionID)
+        #expect(!ConsentWire.requests.contains { $0.url!.path.contains("/session/end") })
+        let count = ConsentWire.requests.count
+        await #expect(throws: (any Error).self) { try await flow.revokeDisplay() }
+        #expect(ConsentWire.requests.count == count)
+    }
+    @Test func unknownRevocationNeverReplaysOrKeepsApproval() async throws {
+        let (flow, _, _) = try make("unknown-revoke")
+        try await flow.resolve(code: "000000")
+        _ = try await flow.approve(share: .createTwoHours)
+        await #expect(throws: (any Error).self) { try await flow.revokeDisplay() }
+        #expect(flow.state == .revokeUncertain && flow.receipt == nil)
+        let count = ConsentWire.requests.count
+        await #expect(throws: (any Error).self) { try await flow.revokeDisplay() }
+        #expect(ConsentWire.requests.count == count)
+        flow.withdraw()
+        #expect(flow.state == .revokeUncertain)
+    }
+    @Test func changedIssuerCannotStopAnOldDisplay() async throws {
+        let (flow, _, _) = try make("changed-revoke-epoch")
+        try await flow.resolve(code: "000000")
+        _ = try await flow.approve(share: .createTwoHours)
+        await #expect(throws: (any Error).self) { try await flow.revokeDisplay() }
+        #expect(flow.state == .unavailable && flow.receipt == nil)
+        #expect(!ConsentWire.requests.contains { $0.url!.path.hasSuffix("/owner/revoke") })
+    }
+    @Test func unsupportedClientCannotEnterDisplayConsent() throws {
+        #expect(throws: (any Error).self) { _ = try make(clientType: .watchos) }
+        #expect(ConsentWire.requests.isEmpty)
+    }
+    @Test func withdrawnOwnerCannotRevoke() async throws {
+        let (flow, _, owner) = try make()
+        try await flow.resolve(code: "000000")
+        _ = try await flow.approve(share: .createTwoHours)
+        owner.withdraw()
+        let count = ConsentWire.requests.count
+        await #expect(throws: (any Error).self) { try await flow.revokeDisplay() }
+        #expect(ConsentWire.requests.count == count)
     }
     @Test func unknownOrMismatchedApprovalNeverReplays() async throws {
         for mode in ["unknown", "bad-receipt"] {

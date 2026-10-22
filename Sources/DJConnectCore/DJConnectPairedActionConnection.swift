@@ -12,11 +12,13 @@ actor DJConnectPairedActionConnection {
     private let reportClosed: (@Sendable (DJConnectHybridTransportError?) async -> Void)?
     private var socket: (any DJConnectHybridSocket)?
     private var connectionID: String?
+    private var commands: Set<String> = []
     private var generation = UUID()
     private var connecting: Task<Void, Error>?
     private var reader: Task<Void, Never>?
     private var heartbeat: Task<Void, Never>?
     private var writer: Task<Void, Error>?
+    private var reactionObservation: DJConnectPersonaReactionObservation?
     private var nextID = 1
     private var openedAt: TimeInterval = 0
     private var pending: [Int: CheckedContinuation<(Data, Int), Error>] = [:]
@@ -33,6 +35,7 @@ actor DJConnectPairedActionConnection {
     }
     func stop(reason: DJConnectHybridTransportError? = nil) async {
         generation = UUID()
+        reactionObservation?.invalidate(); reactionObservation = nil
         connecting?.cancel(); connecting = nil
         reader?.cancel(); reader = nil; heartbeat?.cancel(); heartbeat = nil
         writer?.cancel(); writer = nil
@@ -92,9 +95,11 @@ actor DJConnectPairedActionConnection {
               accepted["audience"] == .string("paired_owner_actions"), accepted["lease_seconds"] == .int(300),
               accepted["ha_install_id"] == .string(expectedInstallID),
               let id = accepted["connection_id"]?.hybridString, !id.isEmpty,
-              Set(accepted["commands"]?.hybridStrings ?? []) == ["djconnect/read", "djconnect/operation/execute", "djconnect/operation/status"] else {
+              Set(["djconnect/read", "djconnect/operation/execute", "djconnect/operation/status"]).isSubset(of: Set(accepted["commands"]?.hybridStrings ?? [])),
+              Set(accepted["commands"]?.hybridStrings ?? []).isSubset(of: Set(["djconnect/read", "djconnect/operation/execute", "djconnect/operation/status", "djconnect/profile/settings/update", "djconnect/profile/settings/subscribe", "djconnect/persona/reaction/observe"])) else {
             await channel.close(); throw DJConnectHybridTransportError.notSent
         }
+        commands = Set(accepted["commands"]?.hybridStrings ?? [])
         socket = channel; connectionID = id; openedAt = ProcessInfo.processInfo.systemUptime
         reader = Task { await self.readLoop(channel, epoch: epoch) }
         heartbeat = Task { await self.keepAlive(channel, epoch: epoch) }
@@ -130,12 +135,36 @@ actor DJConnectPairedActionConnection {
                     }
                 }
                 timeouts[id] = Task {
-                    do { try await Task.sleep(for: .seconds(30)) } catch { return }
+                    let seconds = type == "djconnect/operation/execute" && body["operation"] == .string("ask_dj/message") ? 120 : 30
+                    do { try await Task.sleep(for: .seconds(seconds)) } catch { return }
                     self.finish(id, epoch: epoch, error: DJConnectHybridTransportError.deliveryUnknown)
                 }
             }
         } onCancel: { Task { await self.finish(id, epoch: epoch, error: CancellationError()) } }
     }
+    func observePersonaReaction(_ result: DJConnectPersonaReactionResult) async throws -> DJConnectPersonaReactionObservation {
+        try await prepare()
+        guard commands.contains("djconnect/persona/reaction/observe"), reactionObservation == nil else {
+            throw DJConnectHybridTransportError.unavailable
+        }
+        let observation = DJConnectPersonaReactionObservation(result: result, close: { [weak self] in await self?.stop() })
+        reactionObservation = observation
+        let requestID = nextID
+        do {
+            let (data, status) = try await request(type: "djconnect/persona/reaction/observe", body: [
+                "contract_version": .int(1), "operation_id": .string(result.operation_receipt.operationID),
+                "operation_epoch": .string(result.operation_receipt.operationEpoch),
+                "session_id": .string(result.persona_reaction.session.session_id)
+            ])
+            struct Reply: Decodable { let success: Bool; let reaction_observation: DJConnectJSONValue }
+            let reply = try JSONDecoder().decode(Reply.self, from: data)
+            guard status == 200, reply.success else { throw DJConnectError.invalidResponse }
+            try observation.accept(JSONEncoder().encode(reply.reaction_observation), requestID: requestID, initial: true)
+            guard observation.isValid, !Task.isCancelled else { throw CancellationError() }
+            return observation
+        } catch { await stop(); throw error }
+    }
+
     private func sendPending(_ data: Data, id: Int, epoch: UUID, channel: any DJConnectHybridSocket, connectionID: String) async throws {
         guard epoch == generation, self.connectionID == connectionID, pending[id] != nil else { return }
         do { try await channel.send(data) }
@@ -147,6 +176,14 @@ actor DJConnectPairedActionConnection {
                 let object = try await frame(channel)
                 guard epoch == generation else { return }
                 if Self.isRouteWithdrawal(object) { throw DJConnectHybridTransportError.routeWithdrawn }
+                if object["type"] == .string("event"), let observation = reactionObservation {
+                    guard object["event"] == .string("session/persona/reaction/withdrawn"),
+                          object["connection_id"] == .string(connectionID ?? ""), object["id"] == .int(0),
+                          object["reaction_observation"]?.hybridObject != nil else { throw DJConnectHybridTransportError.invalidFrame }
+                    // A withdrawal event can race the initial result; never re-admit it.
+                    observation.invalidate()
+                    continue
+                }
                 guard object["type"] == .string("result"), object["connection_id"] == .string(connectionID ?? ""),
                       let id = object["id"]?.hybridInt, id > 0, id < nextID,
                       let status = object["status"]?.hybridInt, let result = object["result"] else {

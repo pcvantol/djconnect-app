@@ -7,8 +7,8 @@ import Testing
 /// fallback must cover both identically. Apple's read-only accessibility
 /// preference is not changed or spoofed by this test.
 @MainActor
-@Test(arguments: [false, true])
-func disabledGlassCoversContrastingPages(session: Bool) throws {
+@Test(arguments: [false, true], [false, true])
+func disabledGlassCoversContrastingPages(session: Bool, scrolling: Bool) throws {
     func pixels(over page: Color) throws -> Data {
         let card = Group {
             if session {
@@ -20,6 +20,7 @@ func disabledGlassCoversContrastingPages(session: Bool) throws {
         .frame(width: 64, height: 64)
         .background(page)
         .environment(\.djConnectGlassEffectsEnabled, false)
+        .environment(\.djConnectScrollingSurface, scrolling)
         let renderer = ImageRenderer(content: card)
         let image = try #require(renderer.cgImage)
         #expect(image.width == 64 && image.height == 64)
