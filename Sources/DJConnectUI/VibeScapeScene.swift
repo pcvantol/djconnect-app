@@ -2,6 +2,12 @@ import Foundation
 import Combine
 import simd
 
+/// Relative local bias: midpoint preserves the DJ scene's baseline motion.
+enum VibeScapeDynamics {
+    static func motionRate(_ value: Float) -> Float { 0.04 + 3.84 * value * value }
+    static func deformation(_ value: Float) -> Float { 0.15 + 1.7 * value }
+}
+
 /// Renderer-local values, not a proposed Core wire DTO. No Codable, persistence,
 /// transcript, media action, preference store or general Ask DJ dependency.
 struct VibeScapeScene: Equatable, Sendable {

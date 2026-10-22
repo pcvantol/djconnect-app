@@ -35,7 +35,7 @@ final class VibeScapeMetalEngine {
         guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { permits.signal(); return nil }
         var uniforms = Uniforms(resolutionTime: SIMD4(Float(texture.width),Float(texture.height),clock,reducedQuality ? 0 : 1),
                                 composition: scene.composition, paletteMotion: SIMD4(scene.palette,scene.motion),
-                                shape: SIMD4(scene.depth,scene.roughness,min(0.95,scene.deformation*(0.65+dynamics*0.7)),dynamics))
+                                shape: SIMD4(scene.depth,scene.roughness,min(0.95,scene.deformation*VibeScapeDynamics.deformation(dynamics)),dynamics))
         encoder.setRenderPipelineState(pipeline)
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 0)
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)

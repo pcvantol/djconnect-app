@@ -130,6 +130,9 @@ struct VibeScapeScreen: View {
         VStack(spacing: 12) {
             Image(systemName: "bolt.fill").foregroundStyle(.white)
                 .accessibilityHidden(true)
+            Text(Double(visit.dynamics), format: .percent.precision(.fractionLength(0)))
+                .font(.caption.monospacedDigit()).foregroundStyle(.white)
+                .accessibilityHidden(true)
             Slider(value: Binding(get: { Double(visit.dynamics) }, set: { _ = visit.setDynamics(Float($0)) }),
                    in: 0...1, onEditingChanged: { editing in
                        adjustingDynamics = editing; controlsGeneration = UUID()

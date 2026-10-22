@@ -32,7 +32,10 @@ import SwiftUI
         let delta = min(1.0/15.0,max(0,time-(lastFrame ?? time)))
         lastFrame = time
         let alpha: Float = reduceMotion ? 1 : Float(1-exp(-delta/1.8))
-        displayedDynamics += (visit.dynamics-displayedDynamics)*alpha
+        // Slider feedback is immediate but continuous; scene/track morphing
+        // keeps its slower, independent interpolation.
+        let dynamicsAlpha: Float = reduceMotion ? 1 : Float(1-exp(-delta/0.18))
+        displayedDynamics += (visit.dynamics-displayedDynamics)*dynamicsAlpha
         if var current = displayed {
             current.composition = simd_mix(current.composition,target.composition,SIMD4(repeating:alpha))
             current.palette = simd_mix(current.palette,target.palette,SIMD3(repeating:alpha))
@@ -43,7 +46,7 @@ import SwiftUI
             displayed = current
         } else { displayed = target }
         if !reduceMotion {
-            visualClock += Float(delta) * (displayed?.motion ?? target.motion) * (0.35 + displayedDynamics * 1.3)
+            visualClock += Float(delta) * (displayed?.motion ?? target.motion) * VibeScapeDynamics.motionRate(displayedDynamics)
         }
         let limited = ProcessInfo.processInfo.isLowPowerModeEnabled || ProcessInfo.processInfo.thermalState == .serious || ProcessInfo.processInfo.thermalState == .critical
         view.preferredFramesPerSecond = limited ? 30 : 60

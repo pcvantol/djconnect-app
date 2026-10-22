@@ -31,21 +31,56 @@ import UniformTypeIdentifiers
             try save(texture,to:output.appendingPathComponent(imageName))
             scenes.append(imageName)
         }
+        // Hold composition, mood and initial clock fixed. Verify that moving
+        // the slider changes actual GPU pixels, including a static frame, and
+        // that its temporal effect is larger at the intense end.
+        let subject = VibeScapeScene.autonomous(mood: "groove", salt: 504)
+        var starts: [[UInt8]] = []
+        var motionDelta: [Double] = []
+        for dynamics: Float in [0, 1] {
+            var frames: [[UInt8]] = []
+            for seconds: Float in [0, 3] {
+                let clock = 2 + seconds * subject.motion * VibeScapeDynamics.motionRate(dynamics)
+                guard let command = engine.encode(texture: texture, scene: subject, clock: clock,
+                                                  dynamics: dynamics, reducedQuality: false) else { fatalError("Encoding failed") }
+                command.commit(); command.waitUntilCompleted()
+                guard command.status == .completed else { throw command.error ?? VibeScapeMetalEngine.Failure.unavailable }
+                frames.append(pixels(texture))
+                try save(texture, to: output.appendingPathComponent("dynamics-\(Int(dynamics))-\(Int(seconds))s.png"))
+            }
+            starts.append(frames[0])
+            motionDelta.append(pixelDelta(frames[0], frames[1]))
+        }
+        let staticDelta = pixelDelta(starts[0], starts[1])
+        guard staticDelta > 0.5, motionDelta[1] > motionDelta[0] else {
+            fatalError("Dynamics failed actual GPU pixel regression: \(staticDelta), \(motionDelta)")
+        }
         let sorted = gpuMS.sorted()
         let report: [String:Any] = ["device":device.name,"resolution":[960,640],"frames":gpuMS.count,
             "gpu_ms_median":sorted[sorted.count/2],"gpu_ms_p95":sorted[Int(Double(sorted.count)*0.95)],
             "scenes":scenes,"context":"20 synthetic renderer inputs, offscreen macOS GPU only",
+            "dynamics_static_mean_pixel_delta": staticDelta,
+            "dynamics_3s_mean_pixel_delta_calm_intense": motionDelta,
+            "dynamics_gpu_regression": "PASS",
             "iphone_ipad_ui_thermal_battery_acceptance":"NOT_RUN","native_voice":"NOT_RUN"]
         let data = try JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys])
         try data.write(to:output.appendingPathComponent("gpu-report.json"))
         print(String(decoding:data,as:UTF8.self))
     }
-    static func save(_ texture:MTLTexture,to url:URL) throws {
+    static func pixelDelta(_ first: [UInt8], _ second: [UInt8]) -> Double {
+        zip(first, second).reduce(0.0) { $0 + abs(Double($1.0) - Double($1.1)) } / Double(first.count)
+    }
+    static func pixels(_ texture: MTLTexture) -> [UInt8] {
         let row = texture.width*4
         var bytes = [UInt8](repeating:0,count:row*texture.height)
         bytes.withUnsafeMutableBytes { storage in
             texture.getBytes(storage.baseAddress!,bytesPerRow:row,from:MTLRegionMake2D(0,0,texture.width,texture.height),mipmapLevel:0)
         }
+        return bytes
+    }
+    static func save(_ texture:MTLTexture,to url:URL) throws {
+        let row = texture.width*4
+        let bytes = pixels(texture)
         guard let provider = CGDataProvider(data:Data(bytes) as CFData),
               let image = CGImage(width:texture.width,height:texture.height,bitsPerComponent:8,bitsPerPixel:32,bytesPerRow:row,
                                   space:CGColorSpaceCreateDeviceRGB(),bitmapInfo:CGBitmapInfo(rawValue:CGImageAlphaInfo.premultipliedFirst.rawValue).union(.byteOrder32Little),

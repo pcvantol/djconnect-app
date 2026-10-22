@@ -36,6 +36,10 @@ at the right edge, with midpoint reset underneath. Both controls fade away
 after three seconds; tapping the visual toggles them immediately. Dragging the
 slider suspends hiding and starts a fresh three seconds on release. Reduce
 Motion disables the control animation; an accessibility action reveals them.
+Dynamics shows its percentage and uses a separate 180ms response instead of
+the scene's 1.8s morph. The midpoint preserves the baseline clock multiplier;
+the calm/intense ends change rotation speed and deformation over a much wider
+range. Reduce Motion keeps a static frame but still shows the different shape.
 Escape exits. Changing primary
 navigation, backgrounding, owner/epoch/session changes or ending the Session
 revokes the visit. GPU delegate disposal pauses drawing. Reduce Motion produces
@@ -142,6 +146,10 @@ patch tests are not evidence of actual voice interpretation.
   These are GPU command timings, **not** whole-app frame-rate or sustained
   battery/thermal measurements. Original images and the report are retained in
   private qualification output, not in user state or this source tree.
+- The GPU probe also renders one identical composition at Dynamics0/100%, at
+  the same initial clock and three seconds later. It asserts different static
+  pixels and greater temporal change at100%. This verifies actual shader output,
+  not physical slider touch handling or user acceptance.
 - Five locales include the initial controls and honest unavailable messages.
 
 Native iPhone/iPad/Mac fullscreen UI/VoiceOver/resize acceptance, prolonged

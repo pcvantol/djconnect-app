@@ -22,9 +22,9 @@ static float smoothUnion(float a, float b, float k) {
 static float field(float3 p, constant Uniforms &u) {
     float4 c = u.composition;
     float t = u.resolutionTime.z;
-    p.xz = rotate2(c.w*6.28 + t*0.063) * p.xz;
+    p.xz = rotate2(c.w*6.28 + t*0.28) * p.xz;
     p.xy = rotate2(c.x*1.4 - 0.7 + 0.13*sin(t*0.071)) * p.xy;
-    p.xz = rotate2(p.y*(0.35+c.y*0.9) + sin(t*0.11)*0.17) * p.xz;
+    p.xz = rotate2(p.y*(0.35+c.y*0.9)*(0.2+u.shape.w*1.6) + sin(t*0.11)*0.17) * p.xz;
     float deform = u.shape.z;
     p += deform*0.14*sin(p.yzx*2.1 + float3(t*0.17,t*0.13,t*0.11));
     // A continuous sculptural field, rather than a preset/animation carousel:

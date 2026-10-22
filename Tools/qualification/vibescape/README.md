@@ -12,7 +12,12 @@ swiftc -parse-as-library Sources/DJConnectUI/VibeScapeScene.swift Sources/DJConn
 /tmp/djc-vibescape-gpu/probe /tmp/djc-vibescape-gpu/scene.metallib /tmp/djc-vibescape-gpu/output
 ```
 
-Twenty PNGs and `gpu-report.json` describe synthetic native shader output and GPU
+Twenty scene PNGs, four Dynamics comparison PNGs and `gpu-report.json` describe synthetic native shader output and GPU
 command timings only. They do not establish UI lifecycle, voice correctness,
 physical iPhone/iPad quality, whole-app FPS, thermal/battery or user acceptance.
 See `docs/VIBESCAPE_APPLE_PREVIEW.md` for the closed production boundary.
+
+The Dynamics regression fixes composition and palette, renders the two slider
+extremes at an identical clock and after three seconds, and fails if static
+pixels do not differ or intense motion does not exceed calm motion. The report
+includes mean absolute byte deltas. This does not exercise native touch input.
