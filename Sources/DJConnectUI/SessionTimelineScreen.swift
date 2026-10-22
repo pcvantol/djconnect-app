@@ -401,6 +401,7 @@ struct SessionTimelineScreen: View {
     @State private var sceneRestoreTask: Task<Void, Never>?
     @FocusState private var inputFocused: Bool
     @FocusState private var searchFocused: Bool
+    @State private var searchFocusRequest = UUID()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
@@ -550,6 +551,7 @@ struct SessionTimelineScreen: View {
                             if displayingForecast {
                                 SessionForecastContent(model: model, query: $forecastQuery,
                                                        searchExpanded: $forecastSearchExpanded,
+                                                       focusRequest: searchFocusRequest,
                                                        searchBoundsChanged: {
                                                            inlineSearchBounds = $0
                                                            positionOpenSearch()
@@ -1121,13 +1123,12 @@ struct SessionTimelineScreen: View {
     }
 
     private func toggleFlowSearch(proxy: ScrollViewProxy) {
-        let returningFromForecast = showsForecast
         showsForecast = false
-        if searching && !returningFromForecast { closeSearch(proxy: proxy); return }
         if !searching { priorSearchPosition = visibleEntry }
         inputFocused = false
         searching = true
-        searchFocused = true
+        searchFocused = false
+        searchFocusRequest = UUID()
     }
 
     private func sessionSearchToolbarButton(proxy: ScrollViewProxy) -> some View {
@@ -1146,6 +1147,8 @@ struct SessionTimelineScreen: View {
 
     private func openCurrentSearch(proxy: ScrollViewProxy) {
         inputFocused = false
+        searchFocused = false
+        searchFocusRequest = UUID()
         submittedQuestion = nil
         sceneRestoreTask?.cancel(); anchorGeneration = UUID()
         pendingSearchPosition = displayingForecast ? "forecast-search" : "flow-search"
@@ -1361,7 +1364,7 @@ struct SessionTimelineScreen: View {
             AskDJSearchBar(language: model.language, promptKey: "ui.session.history.search",
                            fieldIdentifier: "session-search-field", countIdentifier: "session-search-count",
                            closeLabelKey: "ui.close.search",
-                           isLoading: history.searchLoading, text: $query, isFocused: $searchFocused,
+                           isLoading: history.searchLoading, focusRequest: searchFocusRequest, text: $query, isFocused: $searchFocused,
                            resultCount: history.acceptedSearchSessionID == sessionID && history.acceptedSearchQuery == query ? matches.count : 0,
                            selectedIndex: selectedIndex,
                            previousAction: { moveMatch(-1, proxy: proxy) },
@@ -1370,7 +1373,6 @@ struct SessionTimelineScreen: View {
                                closeSearch(proxy: proxy)
                            },
                            submitAction: { moveMatch(1, proxy: proxy) })
-                .task { if activeSession != nil && flowSearchExpanded { searchFocused = true } }
             }
             if let key = history.searchErrorKey {
                 Text(text(key))

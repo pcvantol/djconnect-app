@@ -17,7 +17,7 @@
     "CLOSED_BOUNDED": 22,
     "OPEN": 6,
     "PARKED": 1,
-    "PARTIAL": 24,
+    "PARTIAL": 26,
     "SUPERSEDED": 1
   },
   "requirements": [
@@ -504,6 +504,26 @@
         "Core moet beschikbare onderbouwde inhoud en eventuele gekwalificeerde numerieke analysebron leveren; geen fabricated metrics uit displaymetadata/mood of cosmetische succesclaim.",
         "Bestaande bron-/recording-/owner-/expirygrenzen behouden; exact qualified producerpin, consumeradoptie, tests/review/build en actuele native inhoud afzonderlijk aantonen."
       ]
+    },
+    {
+      "id": "archive-content-delete-navigation",
+      "requirement": "Blijf in de eerdere sessie na verwijderen van één Ask DJ-bijdrage",
+      "status": "PARTIAL",
+      "evidence": "Bewezen tweede invalidatie bij hogere clear_revision hersteld; oude bron faalt twee navigatieasserties,4regressiefuncties/17gevallen groen. Signed macOS/iOS40438 build en strict signaturesPASS; installatie gecombineerd met focusfix.",
+      "remaining": [
+        "Gecombineerde preview installeren en exacte versie uitlezen; fysieke gebruikersacceptatie blijft afzonderlijk."
+      ],
+      "source": "Directe Peterbug2026-10-22 / docs/CONTENT_DELETION_ARCHIVE_NAVIGATION.md"
+    },
+    {
+      "id": "session-find-focus",
+      "requirement": "Cmd+F focust de zoekbalk in Flow en Vooruitblik",
+      "status": "PARTIAL",
+      "evidence": "Mounted-field focusrequest en herhaald Cmd+F aangesloten voor Flow/archive en Vooruitblik. Native Cmd+F2functies/3gevallenPASS met echte eerste-respondertoetsinvoer en bewaarde chatdraft;2Forecast-positioneringstestsPASS,2optionele screenshotcasesSKIP. Signed macOS/iOS40439 builds/strict signaturesPASS. docs/SESSION_SEARCH_FOCUS.md.",
+      "remaining": [
+        "Gecombineerde preview installeren en exacte versie uitlezen; fysieke gebruikersacceptatie blijft afzonderlijk."
+      ],
+      "source": "Directe Peterbug2026-10-22 / docs/SESSION_SEARCH_FOCUS.md"
     }
   ],
   "execution_feedback_40258": {

@@ -11696,6 +11696,7 @@ struct AskDJSearchBar: View {
     var countIdentifier = "ask-dj-search-count"
     var closeLabelKey = "ui.close.search"
     var isLoading = false
+    var focusRequest: UUID? = nil
     @Binding var text: String
     var isFocused: FocusState<Bool>.Binding
     let resultCount: Int
@@ -11718,6 +11719,14 @@ struct AskDJSearchBar: View {
                 .font(.callout.weight(.semibold))
                 .submitLabel(.search)
                 .focused(isFocused)
+                .task(id: focusRequest) {
+                    // The lazy search row and native field must be mounted before
+                    // transferring focus away from the composer. Repeat Find can
+                    // request focus again without rebuilding or clearing the field.
+                    await Task.yield()
+                    guard !Task.isCancelled else { return }
+                    isFocused.wrappedValue = true
+                }
                 .focusEffectDisabled()
                 .tint(djConnectAccent)
                 .accessibilityIdentifier(fieldIdentifier)

@@ -109,12 +109,14 @@ struct SessionForecastContent: View {
     @ObservedObject private var history: DJConnectSessionHistoryModel
     @Binding var query: String
     @Binding var searchExpanded: Bool
+    var focusRequest: UUID?
     var searchBoundsChanged: (CGRect) -> Void
     @State private var selectedSearchID: String?
     @FocusState private var searchFocused: Bool
     @Environment(\.scenePhase) private var scenePhase
-    init(model: DJConnectAppModel, query: Binding<String>, searchExpanded: Binding<Bool>, searchBoundsChanged: @escaping (CGRect) -> Void) {
+    init(model: DJConnectAppModel, query: Binding<String>, searchExpanded: Binding<Bool>, focusRequest: UUID? = nil, searchBoundsChanged: @escaping (CGRect) -> Void) {
         self.model = model; history = model.sessionHistory; _query = query
+        self.focusRequest = focusRequest
         _searchExpanded = searchExpanded; self.searchBoundsChanged = searchBoundsChanged
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
@@ -153,14 +155,13 @@ struct SessionForecastContent: View {
                     AskDJSearchBar(language: model.language, promptKey: "ui.session.forecast.search",
                                    fieldIdentifier: "session-forecast-search-field", countIdentifier: "session-forecast-search-count",
                                    closeLabelKey: "ui.close.search",
-                                   text: $query, isFocused: $searchFocused,
+                                   focusRequest: focusRequest, text: $query, isFocused: $searchFocused,
                                    resultCount: resultIDs.count,
                                    selectedIndex: selectedSearchID.flatMap { resultIDs.firstIndex(of: $0) } ?? 0,
                                    previousAction: { moveSearch(-1, resultIDs: resultIDs, proxy: proxy) },
                                    nextAction: { moveSearch(1, resultIDs: resultIDs, proxy: proxy) },
                                    closeAction: { searchExpanded = false },
                                    submitAction: { moveSearch(1, resultIDs: resultIDs, proxy: proxy) })
-                        .task { searchFocused = searchExpanded }
                     }.id("forecast-search")
                     }
                     if scenePhase == .active, let projection = model.visibleSessionForecast(at: clock.date) {
