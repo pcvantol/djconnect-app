@@ -1404,7 +1404,8 @@ struct SessionModeToggleButtons: View {
     var isVibeScape = false
     var mood: String? = nil
     private var selectionColor: Color {
-        let rgb = DJConnectSessionMoodTheme(sessionMood: mood).colorValues[2]
+        let theme = DJConnectSessionMoodTheme(sessionMood: mood)
+        let rgb = theme.colorValues[theme == .groove ? 1 : 2]
         return Color(red: Double((rgb >> 16) & 255) / 255 * 0.35,
                      green: Double((rgb >> 8) & 255) / 255 * 0.35,
                      blue: Double(rgb & 255) / 255 * 0.35)
