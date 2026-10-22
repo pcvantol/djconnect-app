@@ -42,6 +42,10 @@ data or an authorization input. A vertical glass Dynamics slider sits
 at the right edge, with midpoint reset underneath. Both controls fade away
 after three seconds; tapping their invisible control regions toggles them.
 Taps elsewhere nudge the liquid and its waves locally, without showing controls.
+Swipes outside those control regions also nudge along the finger's path, sampled
+at most 30 times per second with at least eight points between samples. A swipe
+starting in a control region never deforms the canvas or reveals controls;
+crossing one skips its area. Releasing the finger adds the final local impulse.
 At most four screen-space impulses remain in RAM for2.6seconds and decay with a
 rebound. They preserve the scene's style/composition, consume no interpreted
 turn budget, and invalidate old renderer/request tickets. Track changes and

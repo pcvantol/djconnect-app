@@ -22,6 +22,8 @@ struct VibeScapeScreen: View {
     @State private var canvasBounds = CGRect.zero
     @State private var modeBounds = CGRect.zero
     @State private var sliderBounds = CGRect.zero
+    @State private var lastStrokePoint: CGPoint?
+    @State private var lastStrokeTime: TimeInterval = 0
     @State private var unavailable = false
     @State private var showsVoiceHelp = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -42,16 +44,7 @@ struct VibeScapeScreen: View {
                 VibeScapeMetalView(visit: visit,reduceMotion: reduceMotion,unavailable: { unavailable = true })
                     .ignoresSafeArea().accessibilityHidden(true)
                     .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { canvasBounds = $0 }
-                    .gesture(SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
-                        if modeBounds.insetBy(dx: -12, dy: -12).contains(tap.location)
-                            || sliderBounds.insetBy(dx: -12, dy: -12).contains(tap.location) {
-                            toggleControls()
-                        } else if canvasBounds.width > 0, canvasBounds.height > 0 {
-                            let point = SIMD2(Float((tap.location.x-canvasBounds.minX)/canvasBounds.width),
-                                              Float((tap.location.y-canvasBounds.minY)/canvasBounds.height))
-                            _ = visit.nudge(at: point, aspect: Float(canvasBounds.width/canvasBounds.height))
-                        }
-                    })
+                    .gesture(canvasInteraction)
             }
             if unavailable {
                 Text(text("ui.vibescape.unavailable"))
@@ -139,6 +132,41 @@ struct VibeScapeScreen: View {
         return min(max(4, source.minY - geometry.frame(in: .global).minY), max(4, geometry.size.height - source.height - 12))
     }
     private func close() { visit.revoke(); model.isShowingVibeScape = false }
+    private func isControlArea(_ point: CGPoint) -> Bool {
+        modeBounds.insetBy(dx: -12, dy: -12).contains(point)
+            || sliderBounds.insetBy(dx: -12, dy: -12).contains(point)
+    }
+    private func nudge(at location: CGPoint) {
+        guard canvasBounds.width > 0, canvasBounds.height > 0 else { return }
+        let point = SIMD2(Float((location.x-canvasBounds.minX)/canvasBounds.width),
+                          Float((location.y-canvasBounds.minY)/canvasBounds.height))
+        _ = visit.nudge(at: point, aspect: Float(canvasBounds.width/canvasBounds.height))
+    }
+    private var canvasInteraction: some Gesture {
+        DragGesture(minimumDistance: 8, coordinateSpace: .global)
+            .onChanged { drag in
+                // A stroke starting on a control belongs to that control, even
+                // while hidden. Crossing its region never reveals the chrome.
+                guard !isControlArea(drag.startLocation), !isControlArea(drag.location) else { return }
+                let time = ProcessInfo.processInfo.systemUptime
+                if let prior = lastStrokePoint {
+                    guard time-lastStrokeTime >= 1.0/30,
+                          hypot(drag.location.x-prior.x, drag.location.y-prior.y) >= 8 else { return }
+                }
+                nudge(at: drag.location)
+                lastStrokePoint = drag.location; lastStrokeTime = time
+            }
+            .onEnded { drag in
+                if !isControlArea(drag.startLocation), !isControlArea(drag.location) {
+                    nudge(at: drag.location)
+                }
+                lastStrokePoint = nil; lastStrokeTime = 0
+            }
+            .exclusively(before: SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
+                if isControlArea(tap.location) { toggleControls() }
+                else { nudge(at: tap.location) }
+            })
+    }
     private func showControls() {
         controlsVisible = true; controlsGeneration = UUID()
     }
