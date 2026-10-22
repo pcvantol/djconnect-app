@@ -199,7 +199,7 @@ targets:
       properties:
         DJConnectTrustedPairingIssuerBaseURL: https://api.djconnect.dev
         CFBundleDisplayName: DJConnect
-        CFBundleIconFile: AppIconMac
+        CFBundleIconFile: AppIconAdaptive
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.music
