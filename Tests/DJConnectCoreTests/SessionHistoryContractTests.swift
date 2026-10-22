@@ -7920,3 +7920,66 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
     try capture("ended-session-flow")
 }
 #endif
+
+@Test(arguments: ["complete", "profile-denied", "failed"])
+@MainActor func archiveListSearchFindsContentBeyondLoadedSessionsAndFencesFailures(_ outcome: String) async throws {
+    let receipt = try historyObject()
+    let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
+    let session = try #require(timeline["session"] as? [String: Any])
+    let id = try #require(session["session_id"] as? String)
+    var missing = session; missing["session_id"] = "archive-without-hit"
+    let revision = try #require(timeline["revision"])
+    let firstList = try historyData(["success": true, "schema_version": 1, "sessions": [missing],
+        "revision": revision, "retention_days": 30, "next_cursor": "archives-page-two"])
+    let secondList = try historyData(["success": true, "schema_version": 1, "sessions": [session],
+        "revision": revision, "retention_days": 30])
+    let query = "Needle"
+    let miss = try historyData(["success": true, "schema_version": 1, "session_id": "archive-without-hit", "query": query,
+        "revision": revision, "matches": [], "returned_count": 0, "total_count": 0, "complete": true,
+        "normalization": "NFKC-casefold", "highlight_units": "utf16"])
+    let firstSearch = try historyData(["success": true, "schema_version": 1, "session_id": id, "query": query,
+        "revision": revision, "matches": [], "returned_count": 0, "complete": false, "next_cursor": "content-page-two",
+        "normalization": "NFKC-casefold", "highlight_units": "utf16"])
+    let entries = try #require(timeline["entries"] as? [[String: Any]])
+    let lastSearch = try historyData(["success": true, "schema_version": 1, "session_id": id, "query": query,
+        "revision": revision, "matches": entries, "returned_count": entries.count, "complete": true,
+        "normalization": "NFKC-casefold", "highlight_units": "utf16"])
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        let cursor = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "cursor" }?.value
+        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("ask_dj/history") { return (200, profile, 0) }
+        if path.hasSuffix("/session/history") { return (200, cursor == nil ? firstList : secondList, 0) }
+        if path.hasSuffix("/archive-without-hit/search") { return (200, miss, 0) }
+        if path.hasSuffix("/search") {
+            if cursor == nil { return (200, firstSearch, 0) }
+            if outcome == "profile-denied" { return (403, Data(#"{"success":false,"error":"invalid_profile"}"#.utf8), 0) }
+            if outcome == "failed" { return (503, Data(#"{"success":false,"error":"unavailable"}"#.utf8), 0) }
+            return (200, lastSearch, 0)
+        }
+        throw DJConnectError.invalidResponse
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    await model.sessionHistory.loadSessions()
+    #expect(model.sessionHistory.sessions.map(\.id) == ["archive-without-hit"])
+    await model.sessionHistory.searchArchivedSessions(query: query)
+    if outcome == "complete" {
+        #expect(model.sessionHistory.archiveSearchComplete)
+        #expect(model.sessionHistory.archiveSearchSessions.map(\.id) == [id])
+        #expect(model.sessionHistory.archiveSearchErrorKey == nil)
+    } else {
+        #expect(!model.sessionHistory.archiveSearchComplete)
+        #expect(model.sessionHistory.archiveSearchSessions.isEmpty)
+        if outcome == "profile-denied" { #expect(!model.sessionHistory.hasAuthorizedOwner) }
+        else { #expect(model.sessionHistory.archiveSearchErrorKey != nil) }
+    }
+    #expect(!model.sessionHistory.archiveSearchLoading)
+    #expect(fixture.requests.allSatisfy { !$0.url!.path.contains("/playback") && !$0.url!.path.hasSuffix("/start") })
+    #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/" + id) })
+    model.sessionHistory.clearArchiveSearch()
+    #expect(model.sessionHistory.archiveSearchSessions.isEmpty && model.sessionHistory.archiveSearchQuery.isEmpty)
+}

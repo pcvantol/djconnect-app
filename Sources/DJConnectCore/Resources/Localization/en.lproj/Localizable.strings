@@ -1526,3 +1526,5 @@
 "ui.ask_dj.answer.review_question" = "Review question";
 
 "ui.sources.current_playback" = "Current playback information";
+
+"ui.session.history.search_all" = "Search all sessions and contributions";

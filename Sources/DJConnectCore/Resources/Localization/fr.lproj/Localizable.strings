@@ -1526,3 +1526,5 @@
 "ui.ask_dj.answer.review_question" = "Vérifier la question";
 
 "ui.sources.current_playback" = "Informations sur la lecture en cours";
+
+"ui.session.history.search_all" = "Rechercher dans toutes les sessions et contributions";

@@ -66,17 +66,14 @@ struct SavedSessionsView: View {
     private var searchQuery: String { searchText.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var filteredSessions: [DJConnectSavedSession] {
         guard !searchQuery.isEmpty else { return history.sessions }
-        return history.sessions.filter { session in
-            let status = session.lifecycleStatus == "INTERRUPTED" ? text("ui.session.history.interrupted") : ""
-            return (SessionArchiveSummary.text(session, language: model.language) + " " + status)
-                .localizedStandardContains(searchQuery)
-        }
+        return history.archiveSearchQuery == searchQuery ? history.archiveSearchSessions : []
     }
     private func closeSearch() {
         isSearchFocused = false
         searchText = ""
         isSearchVisible = false
         selectedSearchIndex = 0
+        history.clearArchiveSearch()
     }
     private func moveSearch(by offset: Int, proxy: ScrollViewProxy) {
         guard !filteredSessions.isEmpty else { return }
@@ -128,7 +125,7 @@ struct SavedSessionsView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 }
-                    if let error = history.listErrorKey, !history.sessions.isEmpty {
+                    if let error = (searchQuery.isEmpty ? nil : history.archiveSearchErrorKey) ?? history.listErrorKey, !history.sessions.isEmpty {
                         HStack(spacing: 12) {
                             Text(text(error)).font(.callout).foregroundStyle(.secondary)
                             Spacer()
@@ -175,7 +172,7 @@ struct SavedSessionsView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                     }
-                    if let cursor = history.listNextCursor {
+                    if searchQuery.isEmpty, let cursor = history.listNextCursor {
                         ZStack {
                             Color.clear
                             if history.listLoading {
@@ -206,10 +203,10 @@ struct SavedSessionsView: View {
                 if isSearchVisible {
                     AskDJSearchBar(language: model.language,
                         scopeName: text("ui.session.history.title"),
-                        promptKey: "ui.session.history.search_loaded",
+                        promptKey: "ui.session.history.search_all",
                         fieldIdentifier: "saved-sessions-search-field",
                         countIdentifier: "saved-sessions-search-count",
-                        isLoading: history.listLoading || history.preparing,
+                        isLoading: history.listLoading || history.preparing || history.archiveSearchLoading,
                         text: $searchText, isFocused: $isSearchFocused,
                         resultCount: searchQuery.isEmpty ? 0 : filteredSessions.count,
                         selectedIndex: selectedSearchIndex,
@@ -224,7 +221,7 @@ struct SavedSessionsView: View {
                     VStack(spacing: 18) {
                         DJConnectEmptyState(title: emptyTitle, systemImage: "clock.arrow.circlepath")
                             .allowsHitTesting(false)
-                        if history.listErrorKey != nil && model.pairingStatus == .paired && !model.isDemoMode {
+                        if (history.listErrorKey != nil || history.archiveSearchErrorKey != nil) && model.pairingStatus == .paired && !model.isDemoMode {
                             Button(text("ui.retry")) { Task { await refresh() } }
                                 .djConnectButtonStyle(DJConnectButtonStyle())
                                 .disabled(refreshing)
@@ -233,7 +230,7 @@ struct SavedSessionsView: View {
                     .padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("saved-sessions-empty-state")
-                    .allowsHitTesting(history.listErrorKey != nil)
+                    .allowsHitTesting(history.listErrorKey != nil || history.archiveSearchErrorKey != nil)
                 }
             }
             .navigationDestination(item: openedSessionID) { sessionID in
@@ -295,6 +292,8 @@ struct SavedSessionsView: View {
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { Task { await history.restoreVisibleSessions() } }
             }
+            .task(id: searchQuery) { await history.searchArchivedSessions(query: searchQuery) }
+            .onDisappear { history.clearArchiveSearch() }
             .onChange(of: searchText) { _, _ in
                 selectedSearchIndex = 0
                 if let first = filteredSessions.first { proxy.scrollTo(first.id, anchor: .top) }
@@ -325,9 +324,10 @@ struct SavedSessionsView: View {
     }
 
     private var emptyTitle: String? {
-        if initialLoadFinished, !searchQuery.isEmpty, filteredSessions.isEmpty, !history.sessions.isEmpty {
-            if let error = history.listErrorKey { return text(error) }
-            guard history.listNextCursor == nil, !history.listLoading else { return nil }
+        if initialLoadFinished, !searchQuery.isEmpty, filteredSessions.isEmpty {
+            if let error = history.archiveSearchErrorKey { return text(error) }
+            guard history.archiveSearchQuery == searchQuery, history.archiveSearchComplete,
+                  !history.archiveSearchLoading else { return nil }
             return text("ui.no.search.results")
         }
         guard initialLoadFinished, history.sessions.isEmpty, !history.listLoading, !history.preparing else { return nil }
@@ -340,6 +340,7 @@ struct SavedSessionsView: View {
             guard !model.isDemoMode, model.pairingStatus == .paired else { return text("ui.session.history.unavailable") }
             await history.prepare()
             let succeeded = await history.loadSessions()
+            if succeeded, !searchQuery.isEmpty { await history.searchArchivedSessions(query: searchQuery) }
             return text(succeeded ? "ui.session.history.updated" : "ui.session.history.unavailable")
         }
     }

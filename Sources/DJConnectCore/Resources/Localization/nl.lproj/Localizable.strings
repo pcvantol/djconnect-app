@@ -1526,3 +1526,5 @@
 "ui.ask_dj.answer.review_question" = "Vraag bekijken";
 
 "ui.sources.current_playback" = "Huidige afspeelinformatie";
+
+"ui.session.history.search_all" = "Zoek in alle sessies en bijdragen";

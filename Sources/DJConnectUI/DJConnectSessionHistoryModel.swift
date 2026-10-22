@@ -201,6 +201,12 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     @Published public private(set) var searchNextCursor: String?
     @Published public private(set) var acceptedSearchQuery = ""
     @Published public private(set) var acceptedSearchSessionID = ""
+    @Published public private(set) var archiveSearchSessions: [DJConnectSavedSession] = []
+    @Published public private(set) var archiveSearchQuery = ""
+    @Published public private(set) var archiveSearchLoading = false
+    @Published public private(set) var archiveSearchComplete = false
+    @Published public private(set) var archiveSearchErrorKey: String?
+    private var archiveSearchGeneration = UUID()
     private struct LiveResponse {
         let sessionID: String
         let deadline: Date?
@@ -479,6 +485,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         if !preservingArchiveNavigation { openTarget = nil }
         voiceContext = nil; voiceClientID = nil; voicePayload = nil
         clearSearch()
+        clearArchiveSearch()
         pendingTurns = []; host?.setProfileConversationSending(false)
     }
 
@@ -1030,6 +1037,90 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             navigationErrorKey = errorKey(error)
             clearSearchResults(); searchErrorKey = errorKey(error)
             return false
+        }
+    }
+
+    public func clearArchiveSearch() {
+        archiveSearchGeneration = UUID()
+        archiveSearchSessions = []; archiveSearchQuery = ""
+        archiveSearchLoading = false; archiveSearchComplete = false; archiveSearchErrorKey = nil
+    }
+
+    /// Query existing owner-scoped server search, not a client copy of every
+    /// timeline. A first retained hit is enough to include an archived session.
+    public func searchArchivedSessions(query rawQuery: String) async {
+        clearArchiveSearch()
+        let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return }
+        archiveSearchQuery = query
+        let generation = archiveSearchGeneration, captured = epoch, capturedOwner = ownerScope
+        func current() -> Bool {
+            generation == archiveSearchGeneration && captured == epoch && ownerScope == capturedOwner && !Task.isCancelled
+                && available && searchAvailable && !historyNeedsUpgrade && self.host?.canRefreshSessionHistory == true
+        }
+        guard let host else { return }
+        func headerMatches(_ session: DJConnectSavedSession) -> Bool {
+            let status = session.lifecycleStatus == "INTERRUPTED"
+                ? DJConnectLocalization.localized(key: "ui.session.history.interrupted", language: host.language) : ""
+            return (SessionArchiveSummary.text(session, language: host.language) + " " + status).localizedStandardContains(query)
+        }
+        if host.isDemoMode {
+            archiveSearchSessions = sessions.filter { session in
+                headerMatches(session) || (timelines[session.id]?.entries ?? []).contains { entry in
+                    entry.isRetained() && [entry.text, entry.playback?.title, entry.playback?.artist, entry.playback?.album]
+                        .compactMap { $0 }.joined(separator: " ").localizedStandardContains(query)
+                }
+            }
+            archiveSearchComplete = true
+            return
+        }
+        guard available, searchAvailable, !historyNeedsUpgrade, let owner = capturedOwner, !owner.isEmpty,
+              host.canRefreshSessionHistory else {
+            archiveSearchErrorKey = "ui.session.history.unavailable"; return
+        }
+        archiveSearchLoading = true
+        defer { if generation == archiveSearchGeneration { archiveSearchLoading = false } }
+        do {
+            try await Task.sleep(for: .milliseconds(300))
+            guard current() else { return }
+            var listCursor: String?, listRevision: String?
+            var listCursors = Set<String>(), seenSessions = Set<String>()
+            repeat {
+                let page = try await host.withHomeAssistantClient { try await $0.savedSessions(cursor: listCursor) }
+                guard current() else { return }
+                guard listRevision == nil || listRevision == page.revision.value else { throw DJConnectError.invalidResponse }
+                listRevision = page.revision.value
+                for session in page.sessions where session.readOnly && seenSessions.insert(session.id).inserted {
+                    var matches = headerMatches(session)
+                    if !matches {
+                        var cursor: String?, revision: String?
+                        var cursors = Set<String>()
+                        repeat {
+                            let result = try await host.withHomeAssistantClient {
+                                try await $0.searchSession(sessionID: session.id, query: query, cursor: cursor)
+                            }
+                            guard current() else { return }
+                            guard revision == nil || revision == result.revision.value else { throw DJConnectError.invalidResponse }
+                            revision = result.revision.value
+                            matches = result.matches.contains { $0.isRetained() }
+                            if matches || result.complete { break }
+                            guard let next = result.nextCursor, cursors.insert(next).inserted else { throw DJConnectError.invalidResponse }
+                            cursor = next
+                        } while true
+                    }
+                    guard current() else { return }
+                    if matches { archiveSearchSessions.append(session) }
+                }
+                guard let next = page.nextCursor else { break }
+                guard listCursors.insert(next).inserted else { throw DJConnectError.invalidResponse }
+                listCursor = next
+            } while true
+            guard current() else { return }
+            archiveSearchComplete = true
+        } catch {
+            guard current(), !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
+            if requireHistoryUpgrade(for: error) || withdrawAuthority(for: error) { return }
+            archiveSearchErrorKey = errorKey(error)
         }
     }
 
