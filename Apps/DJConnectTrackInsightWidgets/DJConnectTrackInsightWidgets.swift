@@ -126,7 +126,10 @@ private struct DJConnectSessionWidgetView: View {
                 DJConnectSessionSurfaceView(isActive: entry.isActive, compact: family == .systemSmall, theme: theme)
             }
         }
-        .containerBackground(for: .widget) { SessionMoodBackground(theme: theme) }
+        .containerBackground(for: .widget) {
+            SessionMoodBackground(theme: theme)
+                .overlay { SessionWidgetVibeScapeArtwork(colors: theme.colors) }
+        }
         .widgetURL(sessionURL)
     }
 }
@@ -209,15 +212,30 @@ private struct PassiveSessionContentView: View {
     var theme: DJConnectSessionMoodTheme = .brand
     let date: Date
     var body: some View {
+        Group {
+            if large, playback != nil, contribution == nil {
+                GeometryReader { geometry in
+                    content(artworkSide: min(156, max(80, geometry.size.height - 190)))
+                }
+            } else { content(artworkSide: nil) }
+        }
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityElement(children: .contain)
+    }
+    private func content(artworkSide: CGFloat?) -> some View {
         VStack(alignment: .leading, spacing: compact ? 6 : 8) {
             if showsHeader {
             HStack(spacing: 8) {
                 SessionSurfaceAvatar(theme: theme, side: compact ? 24 : 36)
                 Text(text("ui.session.title"))
-                    .font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+                    .font((large ? Font.subheadline : .caption).weight(.semibold)).foregroundStyle(.white.opacity(0.85))
             }
             }
             if let playback {
+                if let artworkSide {
+                    spaciousPlayback(playback, artworkSide: artworkSide)
+                } else {
                 HStack(alignment: .top, spacing: compact ? 6 : 12) {
                     if cache?.projection.currentArtwork(slot: "now_playing", at: date) != nil {
                         cover(slot: "now_playing")
@@ -228,11 +246,12 @@ private struct PassiveSessionContentView: View {
                         if !compact {
                             Text(text("ui.now.playing")).font(.caption2).foregroundStyle(.white.opacity(0.7))
                         }
-                        Text(playback.track).font(.subheadline.weight(.semibold)).lineLimit(large ? 3 : compact ? 1 : 2)
-                        Text(playback.artist).font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(large ? 2 : 1)
+                        Text(playback.track).font((large ? Font.title3 : .subheadline).weight(.semibold)).lineLimit(large ? 3 : compact ? 1 : 2)
+                        Text(playback.artist).font(large ? .callout : .caption).foregroundStyle(.white.opacity(0.85)).lineLimit(large ? 2 : 1)
                         if large { Text(playback.album).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(2) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 }
                 credit(playback.attribution)
             }
@@ -252,9 +271,36 @@ private struct PassiveSessionContentView: View {
                 Text(text("surface.session.active")).font(.headline)
             }
         }
-        .foregroundStyle(.white)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .accessibilityElement(children: .contain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    private func spaciousPlayback(_ playback: DJConnectPassiveSession.NowPlaying, artworkSide: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Group {
+                if let cover = decodedCover(slot: "now_playing", side: artworkSide) {
+                    Image(cover.image, scale: 3, label: Text(cover.label))
+                        .resizable().scaledToFit()
+                } else {
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(.white.opacity(0.05))
+                        .overlay {
+                            Image(systemName: "music.note")
+                                .font(.system(size: artworkSide * 0.36, weight: .light))
+                                .foregroundStyle(.white.opacity(0.30))
+                        }
+                        .accessibilityHidden(true)
+                }
+            }
+            .frame(width: artworkSide, height: artworkSide)
+            .frame(maxWidth: .infinity)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(text("ui.now.playing")).font(.caption).foregroundStyle(.white.opacity(0.70))
+                Text(playback.track).font(.title2.bold()).lineLimit(2).minimumScaleFactor(0.8)
+                Text(playback.artist).font(.body).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
+                if !playback.album.isEmpty {
+                    Text(playback.album).font(.caption).foregroundStyle(.white.opacity(0.70)).lineLimit(1)
+                }
+            }
+        }
     }
     @ViewBuilder private func credit(_ attribution: [String: String]) -> some View {
         if attribution["mark"] == "spotify" {
@@ -271,21 +317,23 @@ private struct PassiveSessionContentView: View {
         }
     }
     @ViewBuilder private func cover(slot: String) -> some View {
-        if let cache, cache.isCurrent(at: date),
-           let artwork = cache.projection.currentArtwork(slot: slot, at: date), let data = cache.pixels[slot],
-           data.count <= DJConnectPassiveSurfaceCache.maximumImageBytes,
-           let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
-           CGImageSourceGetCount(source) == 1,
-           let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+        if let cover = decodedCover(slot: slot, side: large ? 104 : compact ? 32 : 56) {
+            Image(cover.image, scale: 3, label: Text(cover.label))
+                .resizable().scaledToFit()
+        }
+    }
+    private func decodedCover(slot: String, side: CGFloat) -> (image: CGImage, label: String)? {
+        guard let cache, cache.isCurrent(at: date),
+              let artwork = cache.projection.currentArtwork(slot: slot, at: date), let data = cache.pixels[slot],
+              data.count <= DJConnectPassiveSurfaceCache.maximumImageBytes,
+              let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              CGImageSourceGetCount(source) == 1,
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,
-                // Match the presentation's point size at Retina scale; a frame
-                // alone does not shrink the image archived by ActivityKit.
-                kCGImageSourceThumbnailMaxPixelSize: Int((large ? 104 : compact ? 32 : 56) * 3)
-           ] as CFDictionary) {
-            Image(image, scale: 3, label: Text(artwork.alt_text[DJConnectLocalization.defaultDisplayLanguageCode()] ?? artwork.alt_text["en"] ?? ""))
-                .resizable().scaledToFit() // The granted cover must not be cropped.
-        }
+                kCGImageSourceThumbnailMaxPixelSize: Int(side * 3)
+              ] as CFDictionary) else { return nil }
+        return (image, artwork.alt_text[DJConnectLocalization.defaultDisplayLanguageCode()] ?? artwork.alt_text["en"] ?? "")
     }
 }
 
