@@ -323,6 +323,13 @@ private struct PassiveActivityBody: View {
             PassiveSessionContentView(contribution: rich.contribution, playback: rich.nowPlaying, cache: cache,
                                       showsSpotifyCredit: showsSpotifyCredit, showsHeader: showsHeader,
                                       theme: snapshot.renderingTheme(at: now), date: now)
+        } else if !showsHeader {
+            // The expanded Island already supplies its small leading header.
+            // Keep the fallback within its bottom region instead of inserting
+            // the full Lock Screen layout (duplicate avatar/title, clipped text).
+            Text(text(!stale && snapshot.isCurrent(at: now) ? "surface.session.active" : "surface.session.open.app"))
+                .font(.subheadline).foregroundStyle(.white.opacity(0.85))
+                .lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
         } else {
             DJConnectSessionSurfaceView(isActive: !stale && snapshot.isCurrent(at: now), theme: stale ? .brand : snapshot.renderingTheme(at: now))
         }

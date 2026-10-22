@@ -4166,7 +4166,34 @@ public final class DJConnectAppModel: ObservableObject {
             userNotice = DJConnectUserNotice(text: localized(key: "appModel.select.an.output.device.first"))
             return false
         }
-        return await performCommand("next", expectedOutputSelectionGeneration: outputSelectionGeneration)
+        let outputGeneration = outputSelectionGeneration
+        passiveSurfaces.invalidatePlaybackForCommand()
+        // Publish the withdrawal before dispatch: minimizing immediately must
+        // not leave the previous track presented as current.
+        await sessionSurfaceActivityTask?.value
+        guard isAppInForeground, owner == sessionHistory.authorizedProfileID,
+              epoch == sessionHistory.responseEpoch, activeDJSession?.id == session.id,
+              sessionSurfaceIdentity == presentationID, outputGeneration == outputSelectionGeneration else { return false }
+        let accepted = await performCommand("next", expectedOutputSelectionGeneration: outputGeneration)
+        for attempt in 0..<3 {
+            guard !Task.isCancelled, isAppInForeground,
+                  owner == sessionHistory.authorizedProfileID, epoch == sessionHistory.responseEpoch,
+                  activeDJSession?.id == session.id, sessionSurfaceIdentity == presentationID else { break }
+            if attempt > 0 {
+                do { try await Task.sleep(for: .milliseconds(attempt == 1 ? 350 : 850)) } catch { break }
+            }
+            try? await refreshStatusWithFallback(isStillValid: { [weak self] in
+                guard let self else { return false }
+                return self.isAppInForeground && self.sessionHistory.authorizedProfileID == owner
+                    && self.sessionHistory.responseEpoch == epoch && self.activeDJSession?.id == session.id
+            })
+            guard isAppInForeground, owner == sessionHistory.authorizedProfileID,
+                  epoch == sessionHistory.responseEpoch, activeDJSession?.id == session.id else { break }
+            await passiveSurfaces.refreshAndWait(passiveSurfaceServices)
+            await sessionSurfaceActivityTask?.value
+            if !passiveSurfaces.awaitingPlaybackChange { break }
+        }
+        return accepted
     }
 
     public func commitVolumeChange() {
@@ -6006,6 +6033,11 @@ public final class DJConnectAppModel: ObservableObject {
                 normalizedPlayback?.progressMS = pendingSeekTargetMS
             }
         }
+        let trackChanged = self.playback?.trackName != normalizedPlayback?.trackName
+            || self.playback?.artistName != normalizedPlayback?.artistName
+        if trackChanged, !passiveSurfaces.caches.isEmpty {
+            passiveSurfaces.invalidatePlaybackForCommand()
+        }
         self.playback = normalizedPlayback
         playbackOutputObservation += 1
         if normalizedPlayback?.device != nil {
@@ -6017,7 +6049,7 @@ public final class DJConnectAppModel: ObservableObject {
             clearTrackInsightWidgetSnapshot(reason: "No matching active playback")
         }
         scheduleVibeCastAutoTrackInsightIfNeeded(reason: "Playback snapshot changed")
-        syncTrackInsightLiveActivity(reason: normalizedPlayback == nil ? "Empty playback snapshot" : "Playback snapshot changed")
+        syncSessionSurfaces(refreshPassiveImmediately: trackChanged)
         if startBackgroundTasks {
             updatePlaybackProgressTimer()
         }

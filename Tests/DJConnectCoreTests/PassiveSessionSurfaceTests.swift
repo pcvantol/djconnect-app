@@ -57,6 +57,74 @@ private func passiveCurrent(surface: DJConnectPassiveSurface = .widget, mutation
     #expect(model.caches[.widget]?.projection.currentContribution(at: Date())?.text == response.passive_session.contribution?.text)
 }
 
+@Test @MainActor func passiveSkipRefreshBypassesThrottleAndRejectsTheUnchangedOldObservation() async throws {
+    let original = try passiveCurrent(surface: .liveActivity) { $0["artwork"] = [] }
+    let next = try passiveCurrent(surface: .liveActivity) { p in
+        p["delivery_sequence"] = (p["delivery_sequence"] as! Int) + 1
+        p["artwork"] = []
+        var playing = p["now_playing"] as! [String: Any]
+        playing["item_id"] = "new-track"
+        playing["subject_uri"] = "spotify:track:BBBBBBBBBBBBBBBBBBBBBB"
+        playing["source_url"] = "https://open.spotify.com/track/BBBBBBBBBBBBBBBBBBBBBB"
+        playing["track"] = "Next fixture track"
+        p["now_playing"] = playing
+    }
+    var reads = 0, authorizations = 0
+    var response = original
+    let model = PassiveSessionSurfaceModel()
+    let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, _ in
+        authorizations += 1; return original
+    }, read: { _, _, _ in reads += 1; return response }, image: { _, _ in Data() })
+    model.bind(owner: "profile-A", sessionID: original.passive_session.session_id, foreground: true)
+    await model.discover(services); await model.setEnabled(true, surface: .liveActivity, services: services)
+    #expect(model.caches[.liveActivity] != nil)
+    model.invalidatePlaybackForCommand()
+    #expect(model.caches.isEmpty && model.enabled(.liveActivity))
+    await model.refreshAndWait(services)
+    #expect(reads == 1 && model.caches.isEmpty && model.awaitingPlaybackChange)
+    response = next
+    await model.refreshAndWait(services)
+    #expect(reads == 2 && authorizations == 1)
+    #expect(model.caches[.liveActivity]?.projection.now_playing?.track == "Next fixture track")
+    #expect(!model.awaitingPlaybackChange)
+}
+
+@Test @MainActor func passiveSkipWithdrawalSurvivesImmediateBackgroundWithoutNetworkReads() async throws {
+    let original = try passiveCurrent(surface: .liveActivity) { $0["artwork"] = [] }
+    var reads = 0
+    let model = PassiveSessionSurfaceModel()
+    let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, _ in original },
+        read: { _, _, _ in reads += 1; return original }, image: { _, _ in Data() })
+    model.bind(owner: "profile-A", sessionID: original.passive_session.session_id, foreground: true)
+    await model.discover(services); await model.setEnabled(true, surface: .liveActivity, services: services)
+    model.suspend()
+    model.invalidatePlaybackForCommand()
+    await model.refreshAndWait(services)
+    #expect(model.caches.isEmpty && model.enabled(.liveActivity) && reads == 0)
+    model.bind(owner: "profile-B", sessionID: "other-session", foreground: true)
+    #expect(!model.awaitingPlaybackChange && !model.enabled(.liveActivity))
+}
+
+@Test @MainActor func passiveSkipCannotRestoreOldPixelsFromCancelledImageWork() async throws {
+    let original = try passiveCurrent(surface: .liveActivity)
+    var release: CheckedContinuation<Data, Never>?
+    let model = PassiveSessionSurfaceModel()
+    let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, _ in original },
+        read: { _, _, _ in original }, image: { _, _ in
+            await withCheckedContinuation { release = $0 }
+        })
+    model.bind(owner: "profile-A", sessionID: original.passive_session.session_id, foreground: true)
+    await model.discover(services)
+    let enabling = Task { await model.setEnabled(true, surface: .liveActivity, services: services) }
+    while release == nil { await Task.yield() }
+    #expect(model.caches[.liveActivity] != nil)
+    model.invalidatePlaybackForCommand()
+    model.suspend()
+    release?.resume(returning: Data()); release = nil
+    await enabling.value
+    #expect(model.caches.isEmpty && model.awaitingPlaybackChange)
+}
+
 @Test @MainActor func passiveLiveActivityStillRejectsMissingLockedScreenPermission() async throws {
     let response = try passiveCurrent(surface: .liveActivity) { p in
         var policy = p["cache_policy"] as! [String: Any]; policy["locked_display"] = false; p["cache_policy"] = policy

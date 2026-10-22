@@ -43,6 +43,8 @@ import DJConnectCore
     private var tasks: [DJConnectPassiveSurface: Task<Void, Never>] = [:]
     private var versions: [DJConnectPassiveSurface: UUID] = [:]
     private var lastRead: [DJConnectPassiveSurface: Date] = [:]
+    private var invalidatedPlayback: [DJConnectPassiveSurface: DJConnectPassiveSession] = [:]
+    public var awaitingPlaybackChange: Bool { !invalidatedPlayback.isEmpty }
     private var discovering = false
     private var expiryTask: Task<Void, Never>?
     private var invalidationTask: Task<Void, Never>?
@@ -70,6 +72,7 @@ import DJConnectCore
             lastDiagnosticConfiguration = nil
             automaticAttempts = []
             available = false; grants = [:]; caches = [:]; versions = [:]; lastRead = [:]; phases = [:]; lastInvalidationSequence = -1
+            invalidatedPlayback = [:]
             expiryTask?.cancel(); notify()
         }
     }
@@ -133,7 +136,7 @@ import DJConnectCore
         guard active, (!enabled || available), !busy(surface), let sessionID else { return }
         let captured = epoch, version = UUID(); versions[surface] = version
         // Local revocation is immediate even when the server is unreachable.
-        if !enabled { grants[surface] = nil; caches[surface] = nil; notify() }
+        if !enabled { grants[surface] = nil; caches[surface] = nil; invalidatedPlayback[surface] = nil; notify() }
         phases[surface] = .loading
         onDiagnostic?("authorize surface=\(surface.rawValue) enabled=\(enabled)")
         let task = Task { @MainActor [weak self] in
@@ -147,6 +150,7 @@ import DJConnectCore
                     // A home-screen widget grant is independently valid without it.
                     guard let result, result.validates(sessionID: sessionID, surface: surface) else { throw DJConnectError.invalidResponse }
                     grants[surface] = Grant(result)
+                    invalidatedPlayback[surface] = nil
                     try await accept(result, surface: surface, captured: captured, version: version, services: services)
                 } else { phases[surface] = .idle }
             } catch {
@@ -181,6 +185,26 @@ import DJConnectCore
         }
     }
     /// Called by the existing foreground coordinator, not a new polling loop.
+    /// Withdraw the old track before an explicit skip can send the app to the
+    /// background. Existing grants remain; cancelled image/read work cannot
+    /// restore the old card. This performs no background request or renewal.
+    public func invalidatePlaybackForCommand() {
+        for (surface, cache) in caches {
+            invalidatedPlayback[surface] = cache.projection
+        }
+        tasks.values.forEach { $0.cancel() }; tasks = [:]
+        invalidationTask?.cancel(); invalidationTask = nil; pendingInvalidations = []
+        for surface in grants.keys {
+            versions[surface] = UUID()
+            lastRead[surface] = Date()
+        }
+        caches = [:]; expiryTask?.cancel(); notify()
+    }
+    public func refreshAndWait(_ services: Services) async {
+        refresh(services, force: true)
+        let reads = Array(tasks.values)
+        for read in reads { await read.value }
+    }
     public func refresh(_ services: Services, force: Bool = false) {
         refresh(services, force: force, surfaces: Set(grants.keys))
     }
@@ -258,12 +282,20 @@ import DJConnectCore
         let p = result.passive_session, now = Date()
         guard p.isValid, p.surface == surface, p.session_id == sessionID,
               let asOf = DJConnectHistoryEntry.date(p.as_of), abs(asOf.timeIntervalSince(now)) <= 30 else { throw DJConnectError.invalidResponse }
-        if let previous = caches[surface]?.projection {
+        if let previous = caches[surface]?.projection ?? invalidatedPlayback[surface] {
             guard p.binding_id == previous.binding_id, p.generation == previous.generation,
                   p.delivery_sequence >= previous.delivery_sequence,
                   asOf >= (DJConnectHistoryEntry.date(previous.as_of) ?? .distantFuture) else { return }
         }
+        if let previous = invalidatedPlayback[surface]?.now_playing, let next = p.now_playing,
+           previous.item_id == next.item_id, previous.subject_uri == next.subject_uri,
+           previous.observed_at == next.observed_at {
+            // A successful command may precede the backend observation. An
+            // unchanged old observation must not repopulate the OS card.
+            return
+        }
         guard p.isCurrent(at: now) else { caches[surface] = nil; phases[surface] = .ready; notify(); return }
+        invalidatedPlayback[surface] = nil
         let previous = caches[surface]
         // Publish text/metadata first; optional image IO cannot block the whole surface.
         caches[surface] = try DJConnectPassiveSurfaceCache(projection: p.removingExpiredFields(at: now), at: now)
