@@ -33,9 +33,11 @@ The MTKView renderer is mounted only while the root immersive overlay exists.
 Flow and Forecast remain mounted underneath, retaining their own viewport state.
 The overlay hides their accessibility tree and covers ordinary UI chrome; the
 macOS window toolbar hides while active. In Flow and Forecast the three-way mode
-picker now belongs to the scrolling content below the playback header, with no
-pinned overlay or reserved space above the artwork. It scrolls into and out of
-view. The selected pill uses a dark Session mood tint. VibeScape remembers the
+picker belongs to the scrolling content above the playback header, with no
+pinned overlay. The picker precedes the current-track header in scroll content;
+the initial scroll anchor is the header, so the picker starts above the viewport
+and pulling the artwork down reveals it. It scrolls into and out of view.
+The selected pill uses a dark Session mood tint. VibeScape remembers the
 visible picker's global frame at entry and aligns its own picker there, using
 the same width and padding. This geometry is presentation-only RAM, not user
 data or an authorization input. A vertical glass Dynamics slider sits

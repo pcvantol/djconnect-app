@@ -522,7 +522,6 @@ struct SessionTimelineScreen: View {
                         DJSessionGlassGroup {
                         LazyVStack(alignment: .leading, spacing: 18) {
                             if let activeSession {
-                                scrollingCurrent(activeSession).id("current")
                                 SessionModeToggleButtons(showsForecast: $showsForecast, language: model.language,
                                     openVibeScape: VibeScapeAvailability.previewEnabled ? {
                                         inputFocused = false; searchFocused = false
@@ -534,6 +533,10 @@ struct SessionTimelineScreen: View {
                                     }
                                     .padding(.horizontal, 20)
                                     .id("session-mode-picker")
+                                // Start at "current", leaving the mode picker
+                                // above the initial viewport. Pull the artwork
+                                // down to reveal it in the same scroll content.
+                                scrollingCurrent(activeSession).id("current")
                                 if history.hasUnconfirmedDeletion {
                                     ContentDeletionPendingNotice(model: model)
                                         .padding(.horizontal, 20).padding(.vertical, 10)
