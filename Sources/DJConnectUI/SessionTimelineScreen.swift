@@ -1688,13 +1688,9 @@ struct SessionEntryView: View, Equatable {
         .help(text(selected ? "ui.session.history.selected_context" : "ui.session.history.ask_entry"))
     }
     private var sourceURLs: [URL] {
-        var seen = Set<URL>()
-        return ([entry.playback?.sourceURL] + sourceAttributions.flatMap { [$0["url"], $0["url_previous"], $0["revision_url"]] })
-            .compactMap { raw in
-                guard let raw, let url = URL(string: raw), ["http", "https"].contains(url.scheme), url.user == nil, url.password == nil else { return nil }
-                return seen.insert(url).inserted ? url : nil
-            }
+        SessionSourceLinks.urls(playback: entry.playback?.sourceURL, sources: sourceAttributions)
     }
+
     private var sourceAttributions: [[String: String]] {
         (entry.sourceAttribution.map { [$0] } ?? []) + (entry.sources ?? [])
     }
@@ -1704,7 +1700,32 @@ struct SessionEntryView: View, Equatable {
         }
         let license = source["license"] == "Spotify metadata display" ? nil : source["license"]
         let label = [source["provider"], license].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
-        return source["revision_url"] == url.absoluteString ? label + " · " + text("ui.session.history.source_revision") : label
+        return label
+    }
+}
+
+/// A supplied revision is the precise version of its canonical source, not a
+/// second citation. Keep distinct articles and previous sources independently.
+enum SessionSourceLinks {
+    static func urls(playback: String?, sources: [[String: String]]) -> [URL] {
+        func admitted(_ raw: String?) -> URL? {
+            guard let raw, let url = URL(string: raw), ["http", "https"].contains(url.scheme),
+                  url.host != nil, url.user == nil, url.password == nil else { return nil }
+            return url
+        }
+        let replaced = Set(sources.compactMap { source -> URL? in
+            guard let revision = admitted(source["revision_url"]),
+                  let canonical = admitted(source["url"]), revision != canonical else { return nil }
+            return canonical
+        })
+        var seen = Set<URL>()
+        let candidates = [admitted(playback)] + sources.flatMap { source in
+            [admitted(source["revision_url"]) ?? admitted(source["url"]), admitted(source["url_previous"])]
+        }
+        return candidates.compactMap { url in
+            guard let url, !replaced.contains(url), seen.insert(url).inserted else { return nil }
+            return url
+        }
     }
 }
 
