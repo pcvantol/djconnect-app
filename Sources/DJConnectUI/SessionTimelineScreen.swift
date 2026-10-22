@@ -562,21 +562,31 @@ struct SessionTimelineScreen: View {
                                     searchBar(proxy: proxy).id("flow-search")
                                 }
                                 if activeSession == nil {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        if let session = timeline.session ?? history.sessions.first(where: { $0.id == sessionID }) {
-                                            Text(SessionArchiveSummary.text(session, language: model.language))
-                                                .font(.headline).accessibilityAddTraits(.isHeader)
-                                                .accessibilityIdentifier("session-archive-summary")
-                                            if session.lifecycleStatus == "INTERRUPTED" {
-                                                Text(text("ui.session.history.interrupted"))
-                                                    .font(.caption).foregroundStyle(.secondary)
-                                            }
-                                            if history.summaryAvailable, let summary = session.summary {
-                                                SessionHistorySummaryView(summary: summary, language: model.language)
-                                            }
+                                    let archivedSession = timeline.session ?? history.sessions.first(where: { $0.id == sessionID })
+                                    HStack(alignment: .top, spacing: 16) {
+                                        if let archivedSession {
+                                            SavedSessionMoodAvatar(summary: history.summaryAvailable ? archivedSession.summary : nil,
+                                                                   language: model.language)
+                                                .frame(width: 64, height: 64)
+                                                .accessibilityIdentifier("session-archive-avatar")
                                         }
-                                        Label(text("ui.session.history.readonly"), systemImage: "lock")
-                                            .font(.caption).foregroundStyle(.secondary)
+                                        VStack(alignment: .leading, spacing: 6) {
+                                            if let session = archivedSession {
+                                                Text(SessionArchiveSummary.text(session, language: model.language))
+                                                    .font(.headline).accessibilityAddTraits(.isHeader)
+                                                    .accessibilityIdentifier("session-archive-summary")
+                                                if session.lifecycleStatus == "INTERRUPTED" {
+                                                    Text(text("ui.session.history.interrupted"))
+                                                        .font(.caption).foregroundStyle(.secondary)
+                                                }
+                                                if history.summaryAvailable, let summary = session.summary {
+                                                    SessionHistorySummaryView(summary: summary, language: model.language, showsMood: false)
+                                                }
+                                            }
+                                            Label(text("ui.session.history.readonly"), systemImage: "lock")
+                                                .font(.caption).foregroundStyle(.secondary)
+                                        }
+                                        .frame(maxWidth: .infinity, alignment: .leading)
                                     }
                                     .padding(.horizontal, 20)
                                     .id("current")
