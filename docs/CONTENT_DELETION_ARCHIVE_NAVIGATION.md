@@ -25,3 +25,5 @@ A transparent native observation view is mounted behind the revealed trash butto
 A native macOS coordinate regression checks an inside-trash click, a tap elsewhere on the page, another window, transparent hit testing and removal of the row. This does not qualify physical iPad tap behavior.
 
 Swipe-dismiss validation: native window-coordinate regressionPASS; signed macOS/iOS40440 builds and strict signaturesPASS. Device installation/readback follows separately.
+
+Swipe-dismiss delivery: 40440 installed/read back on iPad, iPhone, Mac mini and MacBook. iPad launched; both Mac processes running and UI hashes match the signed build ea6be008ae26f6bbc41a9ac7a57cf56deb6a63e1e426f222d06b08f312d216fd. Source27427e81f3a97fcf88eb3c3190c4e8e38c6639ec. Includes prior40439 search-focus and content-clear navigation fixes. Physical iPad swipe/tap acceptance remains separate.
