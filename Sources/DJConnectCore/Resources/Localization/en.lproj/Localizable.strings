@@ -1554,3 +1554,7 @@
 "ui.rendezvous.tv_code" = "Enter TV code";
 
 "ui.rendezvous.tv_code_help" = "Already have a code on the TV? Enter it here and confirm screen sharing for your active DJ session.";
+
+"ui.content.delete.failed" = "The contribution could not be deleted. Refresh and try again.";
+
+"ui.content.delete.unconfirmed" = "Deletion of this contribution has not yet been confirmed. Check the deletion status before trying again.";

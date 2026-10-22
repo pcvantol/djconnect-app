@@ -142,7 +142,7 @@ private struct ContentDeletionActions: ViewModifier {
                     }
                 }.accessibilityIdentifier("content-delete-confirm")
             } message: { _ in Text(text("ui.content.delete.playback")) }
-            .alert(text(history.hasUnconfirmedDeletion ? "ui.session.history.delete.unconfirmed" : "ui.session.history.delete.failed"), isPresented: $failed) {
+            .alert(text(history.hasUnconfirmedDeletion ? "ui.content.delete.unconfirmed" : "ui.content.delete.failed"), isPresented: $failed) {
                 Button(text("ui.close"), role: .cancel) {}
             }
             .onChange(of: history.responseEpoch) { _, _ in

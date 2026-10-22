@@ -1554,3 +1554,7 @@
 "ui.rendezvous.tv_code" = "TV-Code eingeben";
 
 "ui.rendezvous.tv_code_help" = "Wird auf dem TV bereits ein Code angezeigt? Gib ihn hier ein und bestätige die Bildschirmfreigabe für deine aktive DJ-Session.";
+
+"ui.content.delete.failed" = "Der Beitrag konnte nicht gelöscht werden. Aktualisiere die Ansicht und versuche es erneut.";
+
+"ui.content.delete.unconfirmed" = "Die Löschung dieses Beitrags ist noch nicht bestätigt. Prüfe den Löschstatus, bevor du es erneut versuchst.";

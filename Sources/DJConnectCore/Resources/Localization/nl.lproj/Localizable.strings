@@ -1554,3 +1554,7 @@
 "ui.rendezvous.tv_code" = "TV-code invoeren";
 
 "ui.rendezvous.tv_code_help" = "Heb je een code op de TV? Voer die hier in en bevestig het schermdelen voor je actieve DJ-sessie.";
+
+"ui.content.delete.failed" = "De bijdrage kon niet worden verwijderd. Vernieuw en probeer opnieuw.";
+
+"ui.content.delete.unconfirmed" = "Het is nog niet bevestigd of de bijdrage is verwijderd. Controleer de verwijderstatus voordat je opnieuw probeert.";

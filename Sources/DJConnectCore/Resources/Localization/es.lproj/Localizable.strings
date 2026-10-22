@@ -1554,3 +1554,7 @@
 "ui.rendezvous.tv_code" = "Introducir código del TV";
 
 "ui.rendezvous.tv_code_help" = "¿Ya tienes un código en el TV? Introdúcelo aquí y confirma compartir pantalla para tu sesión DJ activa.";
+
+"ui.content.delete.failed" = "No se ha podido eliminar la contribución. Actualiza e inténtalo de nuevo.";
+
+"ui.content.delete.unconfirmed" = "Aún no se ha confirmado la eliminación de esta contribución. Consulta su estado antes de volver a intentarlo.";

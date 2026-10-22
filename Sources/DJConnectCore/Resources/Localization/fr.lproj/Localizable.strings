@@ -1554,3 +1554,7 @@
 "ui.rendezvous.tv_code" = "Saisir le code TV";
 
 "ui.rendezvous.tv_code_help" = "Un code est déjà affiché sur le téléviseur ? Saisissez-le ici et confirmez le partage d’écran pour votre session DJ active.";
+
+"ui.content.delete.failed" = "La contribution n’a pas pu être supprimée. Actualisez et réessayez.";
+
+"ui.content.delete.unconfirmed" = "La suppression de cette contribution n’est pas encore confirmée. Vérifiez son état avant de réessayer.";
