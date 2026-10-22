@@ -70,7 +70,8 @@ final class ForecastHeaderAlignmentTests: XCTestCase {
         defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
         _ = NSApplication.shared
         let host = NSHostingView(rootView:
-            SessionForecastContent(model: model, query: .constant(""))
+            SessionForecastContent(model: model, query: .constant(""), searchExpanded: .constant(false),
+                                   searchBoundsChanged: { _ in })
                 .environment(\.scenePhase, .background).frame(width: 640, height: 300))
         let window = NSWindow(contentRect: .init(x: -3000, y: -3000, width: 640, height: 300),
                               styleMask: [.borderless], backing: .buffered, defer: false)
