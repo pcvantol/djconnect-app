@@ -414,23 +414,23 @@
       "id": "archive-content-delete-navigation",
       "topic": "Blijf in de eerdere sessie na verwijderen van één Ask DJ-bijdrage",
       "status": "PARTIAL",
-      "evidence": "Bewezen tweede invalidatie bij hogere clear_revision hersteld; oude bron faalt twee navigatieasserties,4regressiefuncties/17gevallen groen. Signed macOS/iOS40438 build en strict signaturesPASS; installatie gecombineerd met focusfix.",
+      "evidence": "Bewezen tweede invalidatie bij hogere clear_revision hersteld; oude bron faalt twee navigatieasserties,4regressiefuncties/17gevallen groen. Signed macOS/iOS40438 build en strict signaturesPASS; installatie gecombineerd met focusfix. 40439 installed/read back on Mac mini and MacBook with matching UI SHA256 e2218c764ca061ee43f6b9653b47687e34549dbb216ff1e260db0e5ac376e523; both running. iPhone installed/read back40439, launch blocked by device lock. iPad unavailable, not updated. Implementation source02f541b1e8c3f021984fda51e9c5aa1c30a4adb7. Physical user acceptance remains open.",
       "remaining": [
-        "Gecombineerde preview installeren en exacte versie uitlezen; fysieke gebruikersacceptatie blijft afzonderlijk."
+        "Fysieke gebruikersacceptatie; iPad niet bereikbaar voor deze preview-installatie."
       ],
       "owner": "Apple",
-      "next_action": "Gecombineerde preview installeren en exacte versie uitlezen; fysieke gebruikersacceptatie blijft afzonderlijk."
+      "next_action": "Fysieke gebruikersacceptatie; iPad niet bereikbaar voor deze preview-installatie."
     },
     {
       "id": "session-find-focus",
       "topic": "Cmd+F focust de zoekbalk in Flow en Vooruitblik",
       "status": "PARTIAL",
-      "evidence": "Mounted-field focusrequest en herhaald Cmd+F aangesloten voor Flow/archive en Vooruitblik. Native Cmd+F2functies/3gevallenPASS met echte eerste-respondertoetsinvoer en bewaarde chatdraft;2Forecast-positioneringstestsPASS,2optionele screenshotcasesSKIP. Signed macOS/iOS40439 builds/strict signaturesPASS. docs/SESSION_SEARCH_FOCUS.md.",
+      "evidence": "Mounted-field focusrequest en herhaald Cmd+F aangesloten voor Flow/archive en Vooruitblik. Native Cmd+F2functies/3gevallenPASS met echte eerste-respondertoetsinvoer en bewaarde chatdraft;2Forecast-positioneringstestsPASS,2optionele screenshotcasesSKIP. Signed macOS/iOS40439 builds/strict signaturesPASS. docs/SESSION_SEARCH_FOCUS.md. 40439 installed/read back on Mac mini and MacBook with matching UI SHA256 e2218c764ca061ee43f6b9653b47687e34549dbb216ff1e260db0e5ac376e523; both running. iPhone installed/read back40439, launch blocked by device lock. iPad unavailable, not updated. Implementation source02f541b1e8c3f021984fda51e9c5aa1c30a4adb7. Physical user acceptance remains open.",
       "remaining": [
-        "Gecombineerde preview installeren en exacte versie uitlezen; fysieke gebruikersacceptatie blijft afzonderlijk."
+        "Fysieke gebruikersacceptatie; iPad niet bereikbaar voor deze preview-installatie."
       ],
       "owner": "Apple",
-      "next_action": "Gecombineerde preview installeren en exacte versie uitlezen; fysieke gebruikersacceptatie blijft afzonderlijk."
+      "next_action": "Fysieke gebruikersacceptatie; iPad niet bereikbaar voor deze preview-installatie."
     }
   ],
   "qualification": {
