@@ -3650,6 +3650,49 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     } else { #expect(model.currentTrackInsight == nil) }
 }
 
+@Test @MainActor func trackInsightOrdinaryScreenKeepsServerOwnedKnowledgeRoute() async throws {
+    let producer = try momentInsightProducerCase()
+    let qualifiedBody = try #require(producer["body"] as? [String: Any])
+    let track = try #require(qualifiedBody["track"] as? [String: Any])
+    let title = try #require(track["title"] as? String)
+    let artist = try #require(track["artist"] as? String)
+    let qualified = try historyData(qualifiedBody)
+    let unavailable = try historyData([
+        "track": ["title": title, "artist": artist],
+        "analysis": ["basis": "unmeasured_metadata_only_v1", "measured_audio": false,
+                     "summary": "No qualified analysis", "full_text": "No qualified analysis"]
+    ])
+    // Protected Core selects current_knowledge_context only without explicit
+    // title/artist claims. This causal wire fixture preserves that distinction.
+    let fixture = HistoryWireFixture { request in
+        #expect(request.url!.path.hasSuffix("/track_insight"))
+        let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+        let legacy = body["title"] != nil || body["artist"] != nil
+        if !legacy {
+            for key in ["album", "artwork_url", "duration_ms", "progress_ms", "player_id", "entity_id", "music_backend", "track_insight_target"] {
+                #expect(body[key] == nil, "Current recording must stay server-owned: \(key)")
+            }
+            #expect(body["force_refresh"] as? Bool != true)
+        }
+        return (200, legacy ? unavailable : qualified, 0)
+    }
+    defer { fixture.close() }
+    let legacy = try await fixture.client().trackInsight(.init(title: title, artist: artist))
+    #expect(legacy.hasUnavailableAnalysis && legacy.verifiedCredit == nil)
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.apply(playback: DJConnectPlayback(isPlaying: true, trackName: title, artistName: artist))
+    await model.loadTrackInsightOnOpen()
+    let insight = try #require(model.currentTrackInsight)
+    #expect(insight.verifiedCredit != nil && !insight.hasUnavailableAnalysis)
+    #expect(insight.analysisBasis == "qualified_credit_and_interpretation_v1")
+    #expect(insight.verifiedCredit?.context.isEmpty == false)
+    #expect(insight.energy == nil && insight.danceability == nil && insight.intensity == nil,
+            "Credit/interpretation cannot manufacture audio measurements")
+    #expect(fixture.requests.count == 2)
+}
+
 @Test(arguments: ["track-change", "background", "cancel"])
 @MainActor func trackInsightScreenEntryRejectsLateResultsAfterContextChanges(_ scenario: String) async throws {
     let fixture = HistoryWireFixture { request in

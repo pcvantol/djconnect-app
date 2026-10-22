@@ -15,9 +15,9 @@
   "counts": {
     "BLOCKED": 4,
     "CLOSED_BOUNDED": 22,
-    "OPEN": 5,
+    "OPEN": 6,
     "PARKED": 1,
-    "PARTIAL": 23,
+    "PARTIAL": 24,
     "SUPERSEDED": 1
   },
   "requirements": [
@@ -480,6 +480,28 @@
         "Eén cataloguspresentatie met oorspronkelijke qualified playactie per kaart en bestaande outputchooser. Originele owner/result-set/action-ID/expiry/cancelguards behouden; geen URI uit tekst/artwork/naam afleiden, geen stale acties herstellen.",
         "Narratief/sourcecaptions en fallbacktekst zonder geldige structured items behouden. Gelijke titels kunnen verschillende opnames/edities zijn: niet op naam dedupliceren.",
         "Synthetic wire/UI-regressies voor dubbele presentatie, inline play, ontbrekende/verlopen/mismatched acties en verschillende edities; exact consumerhead, review/build/devicebewijs nog open."
+      ]
+    },
+    {
+      "id": "track-insight-current-knowledge-route",
+      "requirement": "Track Insight: gewone current-aanvraag naar server-owned broncontext",
+      "status": "PARTIAL",
+      "source": "Directe Peterbug2026-10-22 / docs/TRACK_INSIGHT_CURRENT_REQUEST.md",
+      "evidence": "Apple ordinary request stuurde title/artist/cataloghintvelden; beschermde Core c7d6219 current_knowledge_context sluit deze route dan uit. Corewriter bevestigde sourcefinding readonly. Apple verwijdert die claims;32gerichte native testcases en signed macOS/iOS40437builds geslaagd. Dit is synthetische/sourcevalidatie, geen bewijs voor beschikbare inhoud van het huidige nummer.",
+      "remaining": [
+        "Eigen exact sourcehead en bounded onafhankelijke review vastleggen; installed/native acceptance blijft apart.",
+        "Nieuwe closed current-subject-selector/exact-URI DTO/observationdeadline-adoptie is niet onderdeel van deze gewone-routefix; oorspronkelijke completion/owner/sourcegrenzen behouden."
+      ]
+    },
+    {
+      "id": "track-insight-qualified-analysis-values",
+      "requirement": "Track Insight: beschikbare muzikale analyse en numerieke meetwaarden",
+      "status": "OPEN",
+      "source": "Directe Peterbug2026-10-22 / docs/TRACK_INSIGHT_CURRENT_REQUEST.md",
+      "evidence": "Peter meldt op2026-10-22 ontbrekende analyse en zes lege velden. Huidige beschermde Core credit/interpretation- en unmeasured-paden retourneren nil energie/dansbaarheid/intensiteit; Corewriter heeft dit afzonderlijk OPEN ontvangen. Geen actuele trackresponse/modelcall door deze diagnose.",
+      "remaining": [
+        "Core moet beschikbare onderbouwde inhoud en eventuele gekwalificeerde numerieke analysebron leveren; geen fabricated metrics uit displaymetadata/mood of cosmetische succesclaim.",
+        "Bestaande bron-/recording-/owner-/expirygrenzen behouden; exact qualified producerpin, consumeradoptie, tests/review/build en actuele native inhoud afzonderlijk aantonen."
       ]
     }
   ],

@@ -5148,14 +5148,10 @@ public final class DJConnectAppModel: ObservableObject {
                     )
                 }
                 let payload = DJConnectTrackInsightRequest(
-                    title: playback?.trackName,
-                    artist: playback?.artistName,
-                    artworkURL: playback?.albumImageURL,
-                    durationMS: playback?.durationMS,
-                    progressMS: playback?.progressMS,
-                    entityID: nil,
-                    playerID: playback?.device?.id,
-                    musicBackend: musicBackendSummary.musicBackend,
+                    // This screen asks for the server's current recording.
+                    // Catalog hints select the legacy explicit-title route and
+                    // prevent the server's qualified current-knowledge join.
+                    // Playback stays local for the original completion fence.
                     clientType: identity.clientType.rawValue,
                     forceRefresh: forceRefresh,
                     locale: language,

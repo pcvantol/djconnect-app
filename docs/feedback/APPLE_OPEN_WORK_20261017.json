@@ -384,6 +384,30 @@
         "Synthetic wire/UI-regressies voor dubbele presentatie, inline play, ontbrekende/verlopen/mismatched acties en verschillende edities; exact consumerhead, review/build/devicebewijs nog open."
       ],
       "next_action": "Onderzoek en herstel de cataloguspresentatie en oorspronkelijke playactiekoppeling zonder autorisatiegrenzen te versoepelen."
+    },
+    {
+      "id": "track-insight-current-knowledge-route",
+      "topic": "Track Insight: gewone current-aanvraag naar server-owned broncontext",
+      "status": "PARTIAL",
+      "owner": "Apple + Core",
+      "evidence": "Apple ordinary request stuurde title/artist/cataloghintvelden; beschermde Core c7d6219 current_knowledge_context sluit deze route dan uit. Corewriter bevestigde sourcefinding readonly. Apple verwijdert die claims;32gerichte native testcases en signed macOS/iOS40437builds geslaagd. Dit is synthetische/sourcevalidatie, geen bewijs voor beschikbare inhoud van het huidige nummer.",
+      "remaining": [
+        "Eigen exact sourcehead en bounded onafhankelijke review vastleggen; installed/native acceptance blijft apart.",
+        "Nieuwe closed current-subject-selector/exact-URI DTO/observationdeadline-adoptie is niet onderdeel van deze gewone-routefix; oorspronkelijke completion/owner/sourcegrenzen behouden."
+      ],
+      "next_action": "Eigen exact sourcehead en bounded onafhankelijke review vastleggen; installed/native acceptance blijft apart."
+    },
+    {
+      "id": "track-insight-qualified-analysis-values",
+      "topic": "Track Insight: beschikbare muzikale analyse en numerieke meetwaarden",
+      "status": "OPEN",
+      "owner": "Apple + Core",
+      "evidence": "Peter meldt op2026-10-22 ontbrekende analyse en zes lege velden. Huidige beschermde Core credit/interpretation- en unmeasured-paden retourneren nil energie/dansbaarheid/intensiteit; Corewriter heeft dit afzonderlijk OPEN ontvangen. Geen actuele trackresponse/modelcall door deze diagnose.",
+      "remaining": [
+        "Core moet beschikbare onderbouwde inhoud en eventuele gekwalificeerde numerieke analysebron leveren; geen fabricated metrics uit displaymetadata/mood of cosmetische succesclaim.",
+        "Bestaande bron-/recording-/owner-/expirygrenzen behouden; exact qualified producerpin, consumeradoptie, tests/review/build en actuele native inhoud afzonderlijk aantonen."
+      ],
+      "next_action": "Core moet beschikbare onderbouwde inhoud en eventuele gekwalificeerde numerieke analysebron leveren; geen fabricated metrics uit displaymetadata/mood of cosmetische succesclaim."
     }
   ],
   "qualification": {
