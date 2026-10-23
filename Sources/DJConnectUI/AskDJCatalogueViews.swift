@@ -24,35 +24,63 @@ struct AskDJHelpButton: View {
 private struct AskDJHelpContent: View {
     @ObservedObject var model: DJConnectAppModel
     let surface: DJConnectAskDJCatalogue.Surface
+    var body: some View {
+        AskDJHelpReference(catalogue: .bundled, surface: surface, language: model.language,
+            trackExpiresAt: DJConnectSessionForecast.timestamp(model.activeDJSession?.broadcast.playback?.updatedAt)?.addingTimeInterval(30),
+            context: { model.askDJExampleContext(at: $0) })
+            .task(id: model.askDJExampleReadKey) { await model.refreshAskDJExampleCapabilities() }
+    }
+}
+
+/// The same reference renderer for both surfaces. Original track expiry causes
+/// local revalidation even while the owner reads without receiving new events.
+/// Neither rendering nor expiry performs discovery or sends an Ask DJ command.
+struct AskDJHelpReference: View {
+    let catalogue: DJConnectAskDJCatalogue?
+    let surface: DJConnectAskDJCatalogue.Surface
+    let language: String
+    let trackExpiresAt: Date?
+    let context: (Date) -> DJConnectAskDJCatalogue.Context
+
     private func text(_ suffix: String) -> String {
-        DJConnectLocalization.localized(key: "ui.askdj.help." + (surface == .session ? "session." : "global.") + suffix, language: model.language)
+        DJConnectLocalization.localized(key: "ui.askdj.help." + (surface == .session ? "session." : "global.") + suffix, language: language)
     }
     var body: some View {
-        let catalogue = DJConnectAskDJCatalogue.bundled
-        let sections = catalogue?.helpSections(model.askDJExampleContext(), surface: surface, language: model.language) ?? []
-        ScrollView {
+        TimelineView(SessionEntryRefreshSchedule(deadlines: [trackExpiresAt].compactMap { $0 })) { clock in
+            // A capability/owner update can arrive between scheduled ticks.
+            // Never evaluate new observations against an earlier display tick.
+            reference(at: max(clock.date, Date()))
+        }
+    }
+    private func reference(at now: Date) -> some View {
+        let sections = catalogue?.helpSections(context(now), surface: surface, language: language) ?? []
+        return ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text(text("title")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
+                    .accessibilityIdentifier("ask-dj-help-title")
                 Text(text("intro")).font(.body)
                 ForEach(sections) { section in
                     VStack(alignment: .leading, spacing: 8) {
                         Text(section.title).font(.headline).accessibilityAddTraits(.isHeader)
+                            .accessibilityIdentifier("ask-dj-help-group-" + section.id)
                         ForEach(section.examples, id: \.self) { example in
                             // Reference text can contain [artist]; it is never a send button.
                             Text("“" + example + "”").font(.body)
+                                .accessibilityIdentifier("ask-dj-help-example-" + section.id)
                         }
                     }
                 }
                 if sections.isEmpty {
-                    Text(catalogue?.unavailableText(language: model.language) ?? DJConnectLocalization.localized(key: "ui.askdj.help.unavailable", language: model.language))
+                    Text(catalogue?.unavailableText(language: language) ?? DJConnectLocalization.localized(key: "ui.askdj.help.unavailable", language: language))
                         .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("ask-dj-help-unavailable")
                 }
                 Text(text("footer")).font(.callout).foregroundStyle(.secondary)
             }
             .frame(maxWidth: 440, alignment: .leading).padding(20)
         }
         .frame(idealWidth: 420, idealHeight: 500)
-        .task { await model.refreshAskDJExampleCapabilities() }
+        .accessibilityIdentifier("ask-dj-help-reference")
     }
 }
 
