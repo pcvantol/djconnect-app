@@ -5,12 +5,32 @@ import AVFoundation
 import UIKit
 #endif
 
+/// A nil callback belongs to the route/QR presentation that created its binding.
+/// Shared by the product root and the isolated native qualification shell.
+@MainActor
+func rendezvousOwnedSheetBinding<Route: Equatable>(
+    current: @escaping @MainActor () -> Route?, rendezvous: Route,
+    dismissRendezvous: @escaping @MainActor () -> Bool,
+    dismissOther: @escaping @MainActor (Route) -> Void
+) -> Binding<Route?> {
+    let presented = current()
+    return Binding(get: current, set: { value in
+        guard value == nil, let presented else { return }
+        if presented == rendezvous { _ = dismissRendezvous() }
+        else if presented == current() { dismissOther(presented) }
+    })
+}
+
 /// Shared product presentation. It never displays the QR capability or owner
 /// response payload. Destination preparation is distinct from display consent.
 struct VibeCastRendezvousView: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
-    init(model: DJConnectAppModel) { self.model = model; self.history = model.sessionHistory }
+    @State private var presentation: UUID
+    init(model: DJConnectAppModel) {
+        self.model = model; self.history = model.sessionHistory
+        _presentation = State(initialValue: model.rendezvousPresentationID)
+    }
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
@@ -74,8 +94,10 @@ struct VibeCastRendezvousView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(rendezvousText(model.language, "ui.not.now.b1e535")) {
-                        model.cancelRendezvous(); model.isShowingRendezvous = false; dismiss()
+                        guard model.cancelRendezvousPresentation(presentation) else { return }
+                        model.isShowingRendezvous = false; dismiss()
                     }
+                    .accessibilityIdentifier("vibecast-rendezvous-close")
                 }
             }
             #if os(iOS)
@@ -94,9 +116,14 @@ struct VibeCastRendezvousView: View {
             #endif
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active { model.cancelRendezvous(); selectedInstallation = false }
+            if phase != .active {
+                model.cancelRendezvousPresentation(presentation)
+                selectedInstallation = false
+            }
         }
-        .onDisappear { if !scanning { model.cancelRendezvous() } }
+        .onDisappear {
+            if !scanning { model.cancelRendezvousPresentation(presentation) }
+        }
         .accessibilityIdentifier("vibecast-rendezvous")
     }
 }
