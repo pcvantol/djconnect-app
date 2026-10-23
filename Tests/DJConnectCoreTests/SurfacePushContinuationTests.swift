@@ -106,4 +106,51 @@ import CryptoKit
         var b = try #require(JSONSerialization.jsonObject(with:context(a)) as? [String:Any]); b["unknown"] = true
         #expect(throws:DJConnectError.self) { try a.admit(JSONSerialization.data(withJSONObject:b),nowMS:wall,monotonicNow:mono) }
     }
+    @Test func actualCoreHAMetadataJoinsContextWithoutInventingOmittedReadCredential() throws {
+        let file = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/surface-context-core-actual-ha-v2.json")
+        let bytes = try Data(contentsOf:file)
+        #expect(Data(SHA256.hash(data:bytes)).map { String(format:"%02x",$0) }.joined() == "0a3be984582ef018bbf7732cadc258d5180a33e240ee8786562c4956f8b723c7")
+        let root = try #require(JSONSerialization.jsonObject(with:bytes) as? [String:Any])
+        #expect(root["qualification"] as? String == "PASS_ISOLATED_ACTUAL_HA_CONTEXT_CONTINUATION_SOURCE_JOIN")
+        #expect(root["same_operation_context_replay_equal"] as? Bool == true)
+        #expect(root["APNs"] as? String == "NOT_RUN" && root["native"] as? String == "NOT_RUN")
+        let q = try #require(root["context_request"] as? [String:Any])
+        let response = try #require(root["context_response"] as? [String:Any])
+        let session = try #require(q["session_id"] as? String)
+        let device = try #require(q["device_id"] as? String)
+        let operation = try #require(q["operation_id"] as? String)
+        let submit = try #require(response["context_expires_at_ms"] as? Int64)
+        // Native token/target and requester clocks are synthetic consumer inputs.
+        // The safe fixture contains decoded actual HA body metadata, not an
+        // Apple request, original wire bytes or a recoverable read credential.
+        let nativeRequest = try #require(DJConnectSurfacePushRequest(
+            identity:.init(deviceID:device,deviceName:"Fixture",clientType:.ios,firmware:"4.0.0",platform:.ios),
+            sessionID:session,operationID:operation,platform:"ios",osVersion:"26.0",
+            target:["instance_id":"synthetic-consumer-widget","app_bundle_id":"dev.djconnect.ios",
+                "extension_bundle_id":"dev.djconnect.ios.track-insight-widget","widget_kind":"DJConnectSessionWidget"],
+            token:Data(repeating:1,count:32),environment:"sandbox",
+            consent:["background_read":true,"os_snapshot_cache":true,"locked_display":true,"external_push_content":false,"allow_remote_start":false],expected:nil))
+        let a = try #require(DJConnectSurfacePushContextAttempt(original:nativeRequest,installation:"isolated-HA-fixture",ownerEpoch:owner,
+            previousPurpose:nil,nowMS:submit-30_000,monotonicNow:mono))
+        let c = try a.admit(JSONSerialization.data(withJSONObject:response),nowMS:submit-30_000,monotonicNow:mono)
+        let requestBody = try #require(JSONSerialization.jsonObject(with:a.contextBytes) as? [String:Any])
+        #expect(NSDictionary(dictionary:requestBody).isEqual(to:q))
+        let echoes = try #require(root["registered_echoes"] as? [String:Any])
+        #expect(echoes["context_handle"] as? String == c.contextHandle)
+        #expect(echoes["operation_id"] as? String == c.attempt.operationID)
+        #expect(echoes["purpose_ref"] as? String == c.witness.purposeGeneration)
+        let registration = try #require(root["registration"] as? [String:Any])
+        let read = try #require(root["background_read_metadata"] as? [String:Any])
+        #expect(registration["expires_at_ms"] as? Int64 == c.purpose.originalExpiryMS)
+        #expect(read["expires_at_ms"] as? Int64 == c.purpose.originalExpiryMS)
+        #expect(read["credential"] == nil)
+        // A deliberately constructed negative envelope cannot become ready
+        // solely from the fixture's receipt/expiry metadata.
+        let unavailable: [String:Any] = ["contract_version":2,"context_handle":c.contextHandle,
+            "operation_id":operation,"purpose_ref":c.purpose.purposeReference,"success":true,"replayed":false,
+            "operation":["phase":"confirmed"],"registration":registration,"background_read":read]
+        #expect(throws:DJConnectError.self) { try c.admitRegistration(JSONSerialization.data(withJSONObject:unavailable)) }
+    }
+
 }
