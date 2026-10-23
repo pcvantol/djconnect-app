@@ -18,8 +18,9 @@ public struct DJConnectWatchSessionSnapshot: Codable, Sendable {
     public init(settings: DJConnectProfileDJSettingsResponse, session: DJConnectSessionRuntime?, at date: Date = Date()) {
         self.settings = settings
         if var value = session {
-            let current = value.broadcast.nativeCurrentMoment(at: date, spotifyAttributionAvailable: true)
-            let flow = value.broadcast.nativeFlowMoments(at: date).filter { $0.id != current?.id }
+            let projectedCurrent = value.broadcast.nativeCurrentMoment(at: date, spotifyAttributionAvailable: true)
+            let current = projectedCurrent?.type == "dj_bulletin" ? nil : projectedCurrent
+            let flow = value.broadcast.nativeFlowMoments(at: date).filter { $0.id != current?.id && $0.type != "dj_bulletin" }
             let ids = Set(([current].compactMap { $0 } + Array(flow.prefix(8))).map(\.id))
             // Only compact original speech revisions accompany visible cards;
             // no speech segments, hidden history, future labels, media or actions.
@@ -40,6 +41,21 @@ public struct DJConnectWatchSessionSnapshot: Codable, Sendable {
             self.session = value
         } else { self.session = nil; speechSources = [] }
     }
+    /// A concurrent phone edit can split the two contracts. Retry reads once,
+    /// retaining neither half of an inconsistent Profile/Session pair.
+    @MainActor public static func read(settings: () async throws -> DJConnectProfileDJSettingsResponse,
+                            session: () async throws -> DJConnectSessionResponse) async throws -> Self {
+        for _ in 0..<2 {
+            let before = try await settings()
+            let runtime = try await session()
+            let after = try await settings()
+            guard runtime.success else { throw DJConnectError.invalidResponse }
+            let result = Self(settings: after, session: runtime.resolvedSession)
+            if before.binding == after.binding, before.snapshot == after.snapshot, result.isValid { return result }
+        }
+        throw DJConnectError.invalidResponse
+    }
+
     public var isValid: Bool {
         guard settings.isValid else { return false }
         guard let session else { return settings.snapshot.session == nil }
@@ -49,6 +65,32 @@ public struct DJConnectWatchSessionSnapshot: Codable, Sendable {
             settings.snapshot.effective.mood == session.selectedMood &&
             session.selectedPersona.map { $0 == settings.snapshot.effective.persona } != false &&
             session.selectedPresence.map { $0 == settings.snapshot.effective.presence } != false
+    }
+}
+
+/// The companion revalidates this owner before issuing a non-replayed write.
+public struct DJConnectWatchSessionAction: Codable, Sendable {
+    public let binding: String
+    public let sessionID: String?
+    public let mood: String
+    public let language: String
+    public init(snapshot: DJConnectWatchSessionSnapshot, language: String) {
+        binding = snapshot.settings.binding; sessionID = snapshot.session?.id
+        mood = snapshot.settings.snapshot.effective.mood; self.language = language
+    }
+    /// Revalidate the original Watch owner before the sole non-replayed write.
+    /// A consistent read fence is not an atomic server write precondition.
+    @MainActor public func perform(settings: () async throws -> DJConnectProfileDJSettingsResponse,
+                                   session: () async throws -> DJConnectSessionResponse,
+                                   write: (Self) async throws -> Bool) async throws {
+        let current = try await DJConnectWatchSessionSnapshot.read(settings: settings, session: session)
+        guard matches(current) else { throw DJConnectError.invalidResponse }
+        try Task.checkCancellation()
+        guard try await write(self) else { throw DJConnectError.invalidResponse }
+    }
+    public func matches(_ current: DJConnectWatchSessionSnapshot) -> Bool {
+        current.isValid && binding == current.settings.binding && sessionID == current.session?.id &&
+        mood == current.settings.snapshot.effective.mood && !current.settings.requiresSelection
     }
 }
 
@@ -74,6 +116,10 @@ public struct DJConnectWatchSettingsReceipt: Codable, Sendable {
     @Published public private(set) var snapshot: DJConnectWatchSessionSnapshot?
     @Published public private(set) var isRefreshing = false
     @Published public private(set) var unavailable = false
+    @Published public private(set) var failureKey: String?
+    @Published public private(set) var isChanging = false
+    @Published public private(set) var outcomeUnknown = false
+    private var expectedActive: Bool?
     public private(set) var active = false
     private var owner: String?
     private var generation = UUID()
@@ -90,7 +136,10 @@ public struct DJConnectWatchSettingsReceipt: Codable, Sendable {
 
     public func bind(owner value: String?, active enabled: Bool) {
         guard value != owner || active != enabled else { return }
+        if isChanging { outcomeUnknown = true }
+        if owner != value { expectedActive = nil; outcomeUnknown = false }
         owner = value; active = enabled && value != nil; generation = UUID()
+        isChanging = false; failureKey = nil
         expiration?.cancel(); expiration = nil
         snapshot = nil; receivedUptime = nil; receivedDate = nil
         lastAttemptUptime = nil; isRefreshing = false; unavailable = false
@@ -103,7 +152,7 @@ public struct DJConnectWatchSettingsReceipt: Codable, Sendable {
     }
 
     public func refresh(force: Bool = false, read: () async throws -> DJConnectWatchSessionSnapshot) async {
-        guard active, !isRefreshing else { return }
+        guard active, !isRefreshing, !isChanging else { return }
         let now = ProcessInfo.processInfo.systemUptime
         guard force || lastAttemptUptime.map({ now - $0 >= 15 }) != false else { return }
         lastAttemptUptime = now; isRefreshing = true
@@ -113,19 +162,55 @@ public struct DJConnectWatchSettingsReceipt: Codable, Sendable {
             let incoming = try await read()
             guard epoch == generation, active else { return }
             guard incoming.isValid else { throw DJConnectError.invalidResponse }
-            snapshot = incoming; unavailable = false
+            snapshot = incoming; unavailable = false; failureKey = nil
+            if let expectedActive, (incoming.session != nil) == expectedActive {
+                self.expectedActive = nil; outcomeUnknown = false
+            }
             receivedDate = Date(); receivedUptime = ProcessInfo.processInfo.systemUptime
             expiration?.cancel()
             expiration = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(30))
                 guard !Task.isCancelled, let self, self.generation == epoch else { return }
                 self.snapshot = nil; self.receivedDate = nil; self.receivedUptime = nil
+                self.unavailable = true; self.failureKey = "watch.session.expired"
             }
         } catch {
             guard epoch == generation, active else { return }
             // A failed owner read must not keep presenting a withdrawn Profile.
             snapshot = nil; receivedUptime = nil; receivedDate = nil
             expiration?.cancel(); expiration = nil; unavailable = true
+            switch error as? DJConnectError {
+            case .missingToken, .authStale, .notConfigured: failureKey = "watch.session.pair_again"
+            case .invalidConfiguration: failureKey = "watch.session.connect_phone"
+            default: failureKey = "watch.session.retry"
+            }
         }
     }
+
+    /// One user action, one write. A lost response can only trigger GET readback.
+    public func change(language: String,
+                       write: (DJConnectWatchSessionAction) async throws -> Void,
+                       read: () async throws -> DJConnectWatchSessionSnapshot) async {
+        guard !isChanging, !outcomeUnknown, !isRefreshing, let current = current(),
+              !current.settings.requiresSelection else { return }
+        let epoch = generation
+        expectedActive = current.session == nil; isChanging = true
+        do { try await write(.init(snapshot: current, language: language)) }
+        catch { /* A transport failure does not prove that the write failed. */ }
+        guard epoch == generation, active else { return }
+        isChanging = false; outcomeUnknown = true
+        await refresh(force: true, read: read)
+    }
+
+
+    /// Explicitly accept a fresh server state after an uncertain action. This
+    /// discards the local intent; it never resends its POST.
+    public func useCurrent(read: () async throws -> DJConnectWatchSessionSnapshot) async {
+        guard active, !isChanging, !isRefreshing else { return }
+        let epoch = generation
+        await refresh(force: true, read: read)
+        guard epoch == generation, current() != nil else { return }
+        expectedActive = nil; outcomeUnknown = false
+    }
+
 }

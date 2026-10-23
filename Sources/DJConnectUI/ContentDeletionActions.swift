@@ -1,8 +1,20 @@
 import SwiftUI
 import DJConnectCore
 
+/// Stable environment identity keeps ordinary row updates from invalidating an
+/// already open native context menu merely because a new closure was created.
+struct ContentDeleteAction: Equatable {
+    let identity: UUID
+    let owner: ObjectIdentifier
+    let target: DJConnectContentDeleteTarget
+    let perform: @MainActor () -> Void
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.identity == rhs.identity && lhs.owner == rhs.owner && lhs.target == rhs.target
+    }
+}
+
 extension EnvironmentValues {
-    @Entry var djContentDeleteAction: (@MainActor () -> Void)? = nil
+    @Entry var djContentDeleteAction: ContentDeleteAction? = nil
     @Entry var djContentDeletionEnabled = false
 }
 
@@ -51,6 +63,7 @@ private struct ContentDeletionActions: ViewModifier {
     @ObservedObject private var history: DJConnectSessionHistoryModel
     let target: DJConnectContentDeleteTarget
     let providesContextMenu: Bool
+    @State private var actionIdentity = UUID()
     @State private var prepared: DJConnectContentDeleteScope?
     @State private var capturedEpoch = UUID()
     @State private var generation = UUID()
@@ -93,7 +106,8 @@ private struct ContentDeletionActions: ViewModifier {
         }
             // Keep the menu item mounted while eligibility changes; begin() still
             // rechecks permission and prepares a fresh server-bound scope.
-            .environment(\.djContentDeleteAction, begin)
+            .environment(\.djContentDeleteAction, ContentDeleteAction(identity: actionIdentity,
+                owner: ObjectIdentifier(model), target: target, perform: begin))
             .environment(\.djContentDeletionEnabled, enabled)
             .offset(x: revealed ? -64 : 0)
             .background(alignment: .trailing) {
@@ -236,3 +250,12 @@ struct ContentSwipeTapDismissal: NSViewRepresentable {
     }
 }
 #endif
+
+
+struct ContentRemovalAnimation: ViewModifier {
+    @ObservedObject var history: DJConnectSessionHistoryModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func body(content: Content) -> some View {
+        content.animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: history.contentRemovalRevision)
+    }
+}

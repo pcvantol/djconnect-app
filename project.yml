@@ -225,7 +225,7 @@ targets:
       - path: Sources/DJConnectUI/DJConnectGlassAppearance.swift
       - path: Sources/DJConnectUI/DeviceSpeechSettingsView.swift
       - path: Apps/Shared/Assets.xcassets
-      - path: Apps/Shared/AppIconAdaptive.icon
+      - path: Apps/Shared/AppIconWatchAdaptive.icon
       - path: Sources/DJConnectCore/Resources
     dependencies:
       - target: DJConnectCoreWatch
@@ -265,7 +265,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.djconnect.ios.watch
         PRODUCT_NAME: DJConnect
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIconAdaptive
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIconWatchAdaptive
         CODE_SIGN_ENTITLEMENTS: Apps/DJConnectWatch/DJConnectWatch.entitlements
   DJConnectWatchComplications:
     type: app-extension

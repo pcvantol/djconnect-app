@@ -10427,6 +10427,9 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
     let host = "track-insight-html.local"
     let session = mockSession(host: host) { request in
+        if request.url?.path.hasSuffix("/capabilities") == true {
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"capabilities":{"current_track_insight_subject_v1":false},"contract_versions":{}}"#.utf8))
+        }
         #expect(request.url?.path == "/api/djconnect/v1/track_insight")
         let html = """
         <!DOCTYPE html>
@@ -10472,6 +10475,9 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
     let host = "track-insight-no-current.local"
     let session = mockSession(host: host) { request in
+        if request.url?.path.hasSuffix("/capabilities") == true {
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"capabilities":{"current_track_insight_subject_v1":false},"contract_versions":{}}"#.utf8))
+        }
         #expect(request.url?.path == "/api/djconnect/v1/track_insight")
         let json = """
         {
@@ -10527,6 +10533,9 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     let recorder = Recorder()
     let host = "vibecast-auto-insight.local"
     let session = mockSession(host: host) { request in
+        if request.url?.path.hasSuffix("/capabilities") == true {
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"capabilities":{"current_track_insight_subject_v1":false},"contract_versions":{}}"#.utf8))
+        }
         switch request.url?.path {
         case "/api/djconnect/v1/vibecast":
             return (

@@ -44,6 +44,8 @@ public enum DJConnectPlatform: String, Codable, Sendable {
 public enum DJConnectWatchProxyOperation: String, Codable, Sendable {
     case status
     case foregroundSession = "foreground_session"
+    case startSession = "start_session"
+    case endSession = "end_session"
     case prepareSessionSpeech = "prepare_session_speech"
     case profileDJSettings = "profile_dj_settings"
     case updateProfileDJSettings = "update_profile_dj_settings"
@@ -790,6 +792,7 @@ public struct DJConnectPairingResponse: Codable, Equatable, Sendable {
 }
 
 public struct DJConnectMusicBackendCapabilities: Codable, Equatable, Sendable {
+    public var supportsPlaylists: Bool? = nil
     public var supportsSearch: Bool?
     public var supportsQueue: Bool?
     public var supportsOutputs: Bool?
@@ -814,6 +817,7 @@ public struct DJConnectMusicBackendCapabilities: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case supportsPlaylists = "supports_playlists"
         case supportsSearch = "supports_search"
         case supportsQueue = "supports_queue"
         case supportsOutputs = "supports_outputs"
@@ -2543,6 +2547,7 @@ public protocol TrackInsightService: Sendable {
 }
 
 public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable, DJConnectProfileContextCarrier {
+    public var trackInsightSubject: DJConnectCurrentInsightSelection? = nil
     public var trackInsightTarget: DJConnectMomentInsightReference? = nil
     public var deviceID: String?
     public var clientID: String?
@@ -2661,6 +2666,7 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable, DJConn
     }
 
     enum CodingKeys: String, CodingKey {
+        case trackInsightSubject = "track_insight_subject"
         case trackInsightTarget = "track_insight_target"
         case deviceID = "device_id"
         case clientID = "client_id"
@@ -2699,6 +2705,7 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable, DJConn
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        trackInsightSubject = try container.decodeIfPresent(DJConnectCurrentInsightSelection.self, forKey: .trackInsightSubject)
         trackInsightTarget = try container.decodeIfPresent(DJConnectMomentInsightReference.self, forKey: .trackInsightTarget)
         deviceID = try container.decodeIfPresent(String.self, forKey: .deviceID)
         clientID = try container.decodeIfPresent(String.self, forKey: .clientID)
@@ -2735,7 +2742,16 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable, DJConn
     }
 
     public func encode(to encoder: Encoder) throws {
+        if let selection = trackInsightSubject {
+            guard selection.isValid, trackInsightTarget == nil, title == nil, artist == nil, album == nil,
+                  artworkURL == nil, durationMS == nil, progressMS == nil, entityID == nil,
+                  playerID == nil, musicBackend == nil else {
+                throw EncodingError.invalidValue(self, .init(codingPath: encoder.codingPath,
+                    debugDescription: "Current recording selection cannot contain catalog or player overrides"))
+            }
+        }
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(trackInsightSubject, forKey: .trackInsightSubject)
         try container.encodeIfPresent(trackInsightTarget, forKey: .trackInsightTarget)
         try container.encodeIfPresent(deviceID, forKey: .deviceID)
         try container.encodeIfPresent(clientID, forKey: .clientID)
@@ -2807,6 +2823,7 @@ public struct DJConnectTrackInsightRequest: Codable, Equatable, Sendable, DJConn
 }
 
 public struct TrackInsightEndpointResponse: Decodable, Sendable {
+    public var currentSubject: DJConnectCurrentInsightSubject?
     public var subject: DJConnectMomentInsightSubject?
     public var success: Bool?
     public var error: String?
@@ -2868,7 +2885,9 @@ public struct TrackInsightEndpointResponse: Decodable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        subject = try container.decodeIfPresent(DJConnectMomentInsightSubject.self, forKey: .subject)
+        // Additive current and future subject families must not fail the legacy parser.
+        subject = try? container.decode(DJConnectMomentInsightSubject.self, forKey: .subject)
+        currentSubject = try? container.decode(DJConnectCurrentInsightSubject.self, forKey: .subject)
         success = try container.decodeIfPresent(Bool.self, forKey: .success)
         error = try container.decodeIfPresent(String.self, forKey: .error)
         message = try container.decodeIfPresent(String.self, forKey: .message)
@@ -7773,6 +7792,7 @@ public extension DJConnectEnvelope {
 }
 
 public struct DJConnectPlayback: Codable, Equatable, Sendable {
+    public var uri: String?
     public var hasPlayback: Bool?
     public var isPlaying: Bool?
     public var trackName: String?
@@ -7789,6 +7809,7 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
     public var favoriteStatus: Bool?
 
     public init(
+        uri: String? = nil,
         hasPlayback: Bool? = nil,
         isPlaying: Bool? = nil,
         trackName: String? = nil,
@@ -7804,6 +7825,7 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
         isLiked: Bool? = nil,
         favoriteStatus: Bool? = nil
     ) {
+        self.uri = uri
         self.hasPlayback = hasPlayback
         self.isPlaying = isPlaying
         self.trackName = trackName
@@ -7822,6 +7844,7 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        uri = container.decodeStringAliasIfPresent(.uri, .currentURI)
         hasPlayback = try container.decodeIfPresent(Bool.self, forKey: .hasPlayback)
         isPlaying = try container.decodeIfPresent(Bool.self, forKey: .isPlaying)
         trackName = container.decodeStringAliasIfPresent(.trackName, .title, .name)
@@ -7852,6 +7875,7 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(uri, forKey: .uri)
         try container.encodeIfPresent(hasPlayback, forKey: .hasPlayback)
         try container.encodeIfPresent(isPlaying, forKey: .isPlaying)
         try container.encodeIfPresent(trackName, forKey: .trackName)
@@ -7869,6 +7893,8 @@ public struct DJConnectPlayback: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case uri
+        case currentURI = "current_uri"
         case hasPlayback = "has_playback"
         case isPlaying = "is_playing"
         case trackName = "track_name"

@@ -1242,7 +1242,7 @@
 "ui.session.intro.toolbar.title" = "Menus at the top";
 "ui.session.intro.toolbar.body" = "Choose your mood, DJ presence and voice here. The connection icon shows your connection status.";
 "ui.session.intro.chat.title" = "Chat with the DJ";
-"ui.session.intro.chat.body" = "Ask a question, request a song or use the microphone to talk to the DJ. Type ‘help’ in the chat bar and send it for guidance on what you can ask.";
+"ui.session.intro.chat.body" = "Choose a suggestion or ask your own question by text or microphone. The question mark explains the available options.";
 "ui.session.intro.artwork.title" = "Control the album cover";
 "ui.session.intro.artwork.body" = "When a song is playing, use these gestures on its album cover. You do not need to try them now.";
 "ui.session.intro.gesture.1" = "1×: pause or play";
@@ -1558,3 +1558,40 @@
 "ui.content.delete.failed" = "The contribution could not be deleted. Refresh and try again.";
 
 "ui.content.delete.unconfirmed" = "Deletion of this contribution has not yet been confirmed. Check the deletion status before trying again.";
+
+"ui.session.suggestion.match_mood" = "Play something that matches my session mood";
+"watch.session.connect_phone" = "Keep DJConnect open on your iPhone to connect your Watch.";
+"watch.session.retry" = "The session could not be loaded. Tap Refresh to try again.";
+"watch.session.pair_again" = "Pair your Watch again using DJConnect on your iPhone.";
+"watch.session.expired" = "Your session needs refreshing. Tap Refresh.";
+"watch.session.check_outcome" = "Checking your session. Tap Refresh to check whether the change was applied.";
+
+"ui.askdj.help.global.entry" = "How Ask DJ works";
+
+"ui.askdj.help.session.entry" = "Help during your DJ session";
+
+"ui.askdj.help.global.title" = "What would you like to hear?";
+
+"ui.askdj.help.global.intro" = "Ask your DJ in your own words. Request music, discover something or ask about it.";
+
+"ui.askdj.help.global.footer" = "A question or choice does not automatically start music. Playback requires an explicit request or a confirmed play action.";
+
+"ui.askdj.help.session.title" = "Listen with your DJ";
+
+"ui.askdj.help.session.intro" = "Ask about what you hear and what your DJ shows you. Mood sets the atmosphere, Persona the storytelling style and Presence how often your DJ speaks.";
+
+"ui.askdj.help.session.footer" = "Keep asking: “And on this album?” or “Tell me more.” The DJ uses valid conversation context. Play Now or Activate confirms a playback choice.";
+
+"ui.askdj.help.unavailable" = "I cannot confirm the available music options right now. You can still type your question.";
+
+"ui.rendezvous.repair" = "Repair secure linking";
+
+"ui.rendezvous.repairing" = "Repairing secure linking…";
+
+"ui.rendezvous.repaired" = "Secure linking has been repaired. Scan a new TV QR code to continue. No session is shared yet.";
+
+"ui.rendezvous.repair_wait" = "Repair is unconfirmed or not available yet. Wait before trying again. You can also enter the code from the Home Assistant receiver.";
+
+"ui.rendezvous.repair_paused" = "Secure linking remains paused. Your app and DJ session remain available. Use the code on the Home Assistant receiver to link this screen.";
+
+"ui.session.moment.dj_bulletin" = "DJ Bulletin";

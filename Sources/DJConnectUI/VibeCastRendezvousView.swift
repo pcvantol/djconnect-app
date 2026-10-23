@@ -9,6 +9,8 @@ import UIKit
 /// response payload. Destination preparation is distinct from display consent.
 struct VibeCastRendezvousView: View {
     @ObservedObject var model: DJConnectAppModel
+    @ObservedObject private var history: DJConnectSessionHistoryModel
+    init(model: DJConnectAppModel) { self.model = model; self.history = model.sessionHistory }
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
@@ -51,6 +53,13 @@ struct VibeCastRendezvousView: View {
                         }
                         .disabled(!selectedInstallation || model.rendezvousBusy || model.pairingStatus != .paired)
                         .accessibilityIdentifier("vibecast-rendezvous-confirm")
+                    }
+                    if model.rendezvousRepairOffered {
+                        Button(rendezvousText(model.language, "ui.rendezvous.repair")) {
+                            Task { await model.repairRendezvousKey() }
+                        }
+                        .disabled(model.rendezvousBusy || !RendezvousNativeAdmission.isAdmitted)
+                        .accessibilityIdentifier("vibecast-rendezvous-repair")
                     }
                     if model.rendezvousBusy { ProgressView() }
                     Divider()

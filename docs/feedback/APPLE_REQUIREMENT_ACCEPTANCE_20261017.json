@@ -15,9 +15,9 @@
   "counts": {
     "BLOCKED": 4,
     "CLOSED_BOUNDED": 22,
-    "OPEN": 5,
+    "OPEN": 4,
     "PARKED": 1,
-    "PARTIAL": 44,
+    "PARTIAL": 45,
     "SUPERSEDED": 1
   },
   "requirements": [
@@ -449,12 +449,11 @@
       "id": "captured-reply-artwork-v1",
       "requirement": "Artwork bij vastgelegde Ask DJ-antwoorden (captured_reply_artwork v1)",
       "source": "https://github.com/pcvantol/djconnect/issues/1101#issuecomment-6335283267",
-      "status": "OPEN",
-      "evidence": "Core-handoff ontvangen op 2026-10-22: source1282 reviewed f905f9394d058875b432d346d064f99f1217552d -> protected f0840ea2a3b2c263ef34178c803991d0e2823569; separate Final1283 reviewed f6551826484b2759cdeae2da1bbdae1128e711f2 -> protected df757b13bdd786f4f1bd635743489ae660754196; originele raw39737757307+39739744087 door Core QUALIFIED gemeld. Core meldt beide capabilities v1 behouden in huidige installed239 / Final c7d6219a9ba1deb427ec436ce4cf132543db9d0f. Dit is ontvangen producerbewijs, geen zelfstandige Apple-herverificatie of consumeracceptatie. Applecodebasis c6441187b6d487188c201d68090cfd9c2581f350 / preview40430 levert hiervoor nog geen exacte adoptiebewijzen.",
+      "status": "PARTIAL",
+      "evidence": "Core-handoff ontvangen op 2026-10-22: source1282 reviewed f905f9394d058875b432d346d064f99f1217552d -> protected f0840ea2a3b2c263ef34178c803991d0e2823569; separate Final1283 reviewed f6551826484b2759cdeae2da1bbdae1128e711f2 -> protected df757b13bdd786f4f1bd635743489ae660754196; originele raw39737757307+39739744087 door Core QUALIFIED gemeld. Core meldt beide capabilities v1 behouden in huidige installed239 / Final c7d6219a9ba1deb427ec436ce4cf132543db9d0f. Dit is ontvangen producerbewijs, geen zelfstandige Apple-herverificatie of consumeracceptatie. Applecodebasis c6441187b6d487188c201d68090cfd9c2581f350 / preview40430 levert hiervoor nog geen exacte adoptiebewijzen. 22okt nacht: protected103dc6 blobs zelfstandig git-show/SHA-matched; afzonderlijke huidige-opnameproof en captured_reply_subject-cliëntadoptie in WIP.18gerichte testfunctiesPASS4.796s incl echte AppModel/historymodel synthetische transportraces/6covers; eerste brede1175run had3oude mockregressies (11asserties), herstelde brede run loopt. Geen native/installed/physical of bronanalyseclaim. Zie APPLE_CURRENT_INSIGHT_REPLY_ARTWORK_20261022.md. Gecorrigeerde brede suite1177tests/24suitesPASS122.745s/exit0; expliciet overgeslagen opt-in native/netwerktests niet als PASS gerekend.",
       "remaining": [
-        "OPEN: exacte beschermde contractdocs en actual-wire/schema zelfstandig lezen en de Apple-consumer implementeren en kwalificeren.",
-        "Artwork uitsluitend van het eigen antwoordsubject en de eigen albumeditie; geen current-playbackfallback. Bestaande expliciete mediapreparatie en geauthenticeerd tijdelijk no-storebeeld gebruiken; clear/revocation en late-response/owner/lifecyclefences behouden.",
-        "Afzonderlijke consumerbron, causale tests, onafhankelijke review, build en device-readback ontbreken. Dit punt blijft open naast historische playback, AskDJ-timeout/statuscorrectie en VibeScape-livehelp."
+        "Onafhankelijke exacte consumerreview en gewone native/device-/paired-runtimekwalificatie afronden.",
+        "Covers uitsluitend voor exact server-gekoppelde behouden antwoordregels; geen huidige-hoesfallback of afgeleide entry-ID. Ontbrekende bronanalyse en queue-preservation blijven afzonderlijk open."
       ]
     },
     {
@@ -489,10 +488,10 @@
       "requirement": "Track Insight: gewone current-aanvraag naar server-owned broncontext",
       "status": "PARTIAL",
       "source": "Directe Peterbug2026-10-22 / docs/TRACK_INSIGHT_CURRENT_REQUEST.md",
-      "evidence": "Apple ordinary request stuurde title/artist/cataloghintvelden; beschermde Core c7d6219 current_knowledge_context sluit deze route dan uit. Corewriter bevestigde sourcefinding readonly. Apple verwijdert die claims;32gerichte native testcases en signed macOS/iOS40437builds geslaagd. Dit is synthetische/sourcevalidatie, geen bewijs voor beschikbare inhoud van het huidige nummer.",
+      "evidence": "Apple ordinary request stuurde title/artist/cataloghintvelden; beschermde Core c7d6219 current_knowledge_context sluit deze route dan uit. Corewriter bevestigde sourcefinding readonly. Apple verwijdert die claims;32gerichte native testcases en signed macOS/iOS40437builds geslaagd. Dit is synthetische/sourcevalidatie, geen bewijs voor beschikbare inhoud van het huidige nummer. 22okt nacht: protected103dc6 blobs zelfstandig git-show/SHA-matched; afzonderlijke huidige-opnameproof en captured_reply_subject-cliëntadoptie in WIP.18gerichte testfunctiesPASS4.796s incl echte AppModel/historymodel synthetische transportraces/6covers; eerste brede1175run had3oude mockregressies (11asserties), herstelde brede run loopt. Geen native/installed/physical of bronanalyseclaim. Zie APPLE_CURRENT_INSIGHT_REPLY_ARTWORK_20261022.md. Gecorrigeerde brede suite1177tests/24suitesPASS122.745s/exit0; expliciet overgeslagen opt-in native/netwerktests niet als PASS gerekend.",
       "remaining": [
-        "Eigen exact sourcehead en bounded onafhankelijke review vastleggen; installed/native acceptance blijft apart.",
-        "Nieuwe closed current-subject-selector/exact-URI DTO/observationdeadline-adoptie is niet onderdeel van deze gewone-routefix; oorspronkelijke completion/owner/sourcegrenzen behouden."
+        "Onafhankelijke exacte consumerreview en gewone native/device-/paired-runtimekwalificatie afronden.",
+        "Covers uitsluitend voor exact server-gekoppelde behouden antwoordregels; geen huidige-hoesfallback of afgeleide entry-ID. Ontbrekende bronanalyse en queue-preservation blijven afzonderlijk open."
       ]
     },
     {

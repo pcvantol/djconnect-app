@@ -16,9 +16,12 @@ extension DJConnectAppModel {
             }
             return audience == .activeFlow && session.broadcast.nativeFlowMoments(at: Date()).contains { $0.id == id }
         case .entry(let id):
-            if audience != .history && activeDJSession?.id != media.sessionID { return false }
+            if audience == .reply || media.artwork.role == "captured_reply_subject" {
+                guard sessionHistory.replyArtworkAvailable else { return false }
+            } else if audience != .history && activeDJSession?.id != media.sessionID { return false }
             let matches: (DJConnectHistoryEntry) -> Bool = {
                 $0.id == id && $0.sessionID == media.sessionID && $0.isRetained() && $0.sessionMedia == media
+                    && (media.artwork.role != "captured_reply_subject" || $0.kind == .conversationDJ)
             }
             // Short-circuit existing collections instead of copying every loaded
             // timeline/search entry for each image on every scroll update.
@@ -121,6 +124,32 @@ struct SessionArtworkView: View {
                 // Optional-image failure leaves original text, controls, pairing
                 // and reading position intact. No implicit prepare/retry loop.
             }
+        }
+    }
+}
+
+/// Uses only an already matched retained answer, never its title or Now Playing.
+struct CapturedReplyArtworkView: View {
+    let entry: DJConnectHistoryEntry
+    @ObservedObject var model: DJConnectAppModel
+    @ObservedObject private var history: DJConnectSessionHistoryModel
+    @Environment(\.scenePhase) private var scenePhase
+    private struct Key: Equatable { let reference: DJConnectSessionEntryReference; let owner: UUID; let active: Bool }
+    init(entry: DJConnectHistoryEntry, model: DJConnectAppModel) {
+        self.entry = entry; self.model = model; history = model.sessionHistory
+    }
+    private var key: Key { .init(reference: entry.reference, owner: history.responseEpoch, active: scenePhase == .active) }
+    var body: some View {
+        Group {
+            if history.replyArtworkAvailable, entry.kind == .conversationDJ,
+               let media = entry.sessionMedia, media.artwork.role == "captured_reply_subject" {
+                SessionArtworkView(media: media, target: .entry(entry.id), audience: media.entryAudience,
+                                   language: model.language, model: model)
+            }
+        }
+        .task(id: key) {
+            guard key.active else { return }
+            history.enqueueReplyArtwork(for: entry)
         }
     }
 }

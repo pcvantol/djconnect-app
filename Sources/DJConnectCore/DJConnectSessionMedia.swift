@@ -3,7 +3,7 @@ import Foundation
 /// Optional owner-only media. This projection and its grant must never be persisted.
 /// Unknown/invalid optional media is discarded independently of the original text.
 public struct DJConnectSessionMedia: Codable, Equatable, Sendable {
-    public enum Audience: Equatable, Sendable { case current, activeFlow, history }
+    public enum Audience: Equatable, Sendable { case current, activeFlow, history, reply }
     public enum Target: Hashable, Sendable { case moment(String), entry(String) }
     public enum State: String, Codable, Sendable {
         case ready, loading, missing, expired, withdrawn, unavailable
@@ -34,6 +34,7 @@ public struct DJConnectSessionMedia: Codable, Equatable, Sendable {
         public let expiresAt: String?
         public let currentDisplayAllowed: Bool
         public let activeFlowDisplayAllowed: Bool
+        public let replyDisplayAllowed: Bool?
         public let historicalDisplayAllowed: Bool
         public let cachePolicy: String?
         public let cropAllowed: Bool?
@@ -48,6 +49,7 @@ public struct DJConnectSessionMedia: Codable, Equatable, Sendable {
             case resolutionBasis = "resolution_basis", editionBasis = "edition_basis"
             case sourceURL = "source_url", usageBasis = "usage_basis", capturedAt = "captured_at", expiresAt = "expires_at"
             case currentDisplayAllowed = "current_display_allowed", activeFlowDisplayAllowed = "active_flow_display_allowed"
+            case replyDisplayAllowed = "reply_display_allowed"
             case historicalDisplayAllowed = "historical_display_allowed", cachePolicy = "cache_policy", cropAllowed = "crop_allowed"
             case requiresDeviceAuth = "requires_device_auth", altText = "alt_text", mediaRevision = "media_revision"
         }
@@ -91,7 +93,28 @@ public struct DJConnectSessionMedia: Codable, Equatable, Sendable {
               let rawURL = artwork.url, Self.isManagedPath(rawURL, session: sessionID),
               let alt = artwork.altText, ["en", "nl", "de", "fr", "es"].allSatisfy({ alt[$0]?.isEmpty == false })
         else { return nil }
+        if artwork.role == "captured_reply_subject" {
+            guard case .entry = target, artwork.replyDisplayAllowed == true,
+                  !artwork.currentDisplayAllowed, !artwork.activeFlowDisplayAllowed else { return nil }
+            switch audience {
+            case .reply: break
+            case .history: guard artwork.historicalDisplayAllowed else { return nil }
+            case .current, .activeFlow: return nil
+            }
+            switch subject.type {
+            case "track":
+                guard artwork.editionBasis == "original_bound", let album = subject.albumURI,
+                      Self.spotifySource(album, type: "album") != nil else { return nil }
+            case "album":
+                guard artwork.editionBasis == "original_bound", (subject.albumURI == nil || subject.albumURI == subject.uri) else { return nil }
+            case "artist":
+                guard artwork.editionBasis == "not_applicable", subject.albumURI == nil else { return nil }
+            default: return nil
+            }
+            return artwork
+        }
         switch audience {
+        case .reply: return nil
         case .current: guard artwork.currentDisplayAllowed else { return nil }
         case .activeFlow: guard artwork.activeFlowDisplayAllowed else { return nil }
         case .history: guard artwork.historicalDisplayAllowed else { return nil }
@@ -109,6 +132,12 @@ public struct DJConnectSessionMedia: Codable, Equatable, Sendable {
         default: return nil
         }
         return artwork
+    }
+
+    /// Audience comes from this entry grant, never from the currently playing track.
+    public var entryAudience: Audience {
+        if artwork.historicalDisplayAllowed { return .history }
+        return artwork.role == "captured_reply_subject" ? .reply : .activeFlow
     }
 
     private static func spotifySource(_ uri: String, type: String) -> String? {

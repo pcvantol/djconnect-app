@@ -31,6 +31,7 @@ struct PersonaReactionAvatar<Avatar: View>: View {
                         }
                     }
                     .focusable()
+                    .focusEffectDisabled()
                     .onKeyPress(.return) { model.requestPersonaReaction(.checkIn); return .handled }
                     .onKeyPress(.space) { model.requestPersonaReaction(.checkIn); return .handled }
                     .accessibilityAddTraits(.isButton)

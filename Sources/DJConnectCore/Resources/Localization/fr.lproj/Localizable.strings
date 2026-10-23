@@ -1242,7 +1242,7 @@
 "ui.session.intro.toolbar.title" = "Menus en haut";
 "ui.session.intro.toolbar.body" = "Choisissez votre ambiance, la présence du DJ et sa voix. L’icône de connexion indique son état.";
 "ui.session.intro.chat.title" = "Discuter avec le DJ";
-"ui.session.intro.chat.body" = "Posez une question, demandez un morceau ou utilisez le microphone pour parler au DJ. Saisissez « help » dans la barre de discussion et envoyez-le pour découvrir ce que vous pouvez demander.";
+"ui.session.intro.chat.body" = "Choisissez une suggestion ou posez votre question par texte ou au microphone. Le point d’interrogation explique les possibilités disponibles.";
 "ui.session.intro.artwork.title" = "Contrôler la pochette";
 "ui.session.intro.artwork.body" = "Lorsqu’un morceau joue, utilisez ces gestes sur sa pochette. Il n’est pas nécessaire de les essayer maintenant.";
 "ui.session.intro.gesture.1" = "1× : pause ou lecture";
@@ -1558,3 +1558,40 @@
 "ui.content.delete.failed" = "La contribution n’a pas pu être supprimée. Actualisez et réessayez.";
 
 "ui.content.delete.unconfirmed" = "La suppression de cette contribution n’est pas encore confirmée. Vérifiez son état avant de réessayer.";
+
+"ui.session.suggestion.match_mood" = "Mets une musique adaptée à l’ambiance de ma session";
+"watch.session.connect_phone" = "Gardez DJConnect ouvert sur votre iPhone pour connecter votre Watch.";
+"watch.session.retry" = "La session n’a pas pu être chargée. Touchez Actualiser pour réessayer.";
+"watch.session.pair_again" = "Jumelez à nouveau votre Watch via DJConnect sur votre iPhone.";
+"watch.session.expired" = "Votre session doit être actualisée. Touchez Actualiser.";
+"watch.session.check_outcome" = "Vérification de la session. Touchez Actualiser pour vérifier si la modification a été appliquée.";
+
+"ui.askdj.help.global.entry" = "Comment utiliser Ask DJ";
+
+"ui.askdj.help.session.entry" = "Aide pendant la session DJ";
+
+"ui.askdj.help.global.title" = "Que voulez-vous écouter ?";
+
+"ui.askdj.help.global.intro" = "Parlez à votre DJ avec vos propres mots. Demandez de la musique, faites des découvertes ou posez des questions.";
+
+"ui.askdj.help.global.footer" = "Une question ou un choix ne lance pas automatiquement la musique. La lecture nécessite une demande explicite ou une action de lecture confirmée.";
+
+"ui.askdj.help.session.title" = "Écoutez avec votre DJ";
+
+"ui.askdj.help.session.intro" = "Posez des questions sur ce que vous entendez et ce que votre DJ vous montre. Mood définit l’ambiance, Persona le style du récit et Présence la fréquence des interventions du DJ.";
+
+"ui.askdj.help.session.footer" = "Poursuivez : « Et sur cet album ? » ou « Raconte-moi davantage. » Le DJ utilise le contexte valide de la conversation. Play Now ou Activer confirme un choix de lecture.";
+
+"ui.askdj.help.unavailable" = "Je ne peux pas confirmer les options musicales disponibles pour le moment. Vous pouvez toujours saisir votre question.";
+
+"ui.rendezvous.repair" = "Rétablir la liaison sécurisée";
+
+"ui.rendezvous.repairing" = "Rétablissement de la liaison sécurisée…";
+
+"ui.rendezvous.repaired" = "La liaison sécurisée a été rétablie. Scannez un nouveau QR code sur le téléviseur pour continuer. Aucune session n’est encore partagée.";
+
+"ui.rendezvous.repair_wait" = "Le rétablissement n’est pas confirmé ou n’est pas encore disponible. Patientez avant de réessayer. Vous pouvez aussi saisir le code du récepteur Home Assistant.";
+
+"ui.rendezvous.repair_paused" = "La liaison sécurisée reste en pause. Votre application et votre session DJ restent disponibles. Utilisez le code du récepteur Home Assistant pour associer cet écran.";
+
+"ui.session.moment.dj_bulletin" = "Bulletin du DJ";

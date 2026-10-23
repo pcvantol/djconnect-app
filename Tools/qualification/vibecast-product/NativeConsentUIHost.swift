@@ -56,37 +56,65 @@ import DJConnectCore
     }
 }
 
+struct NativeConsentUIRoot: View {
+    @ObservedObject var harness: NativeConsentUIHarness
+    @State private var showingForm = false
+    var body: some View {
+        VStack {
+            Text("Isolated synthetic consent qualification")
+            if harness.failed { Text("setup-failed").accessibilityIdentifier("consent-harness-failed") }
+            Button("Open native form") {
+                showingForm = true
+            }
+            .disabled(!harness.ready).accessibilityIdentifier("consent-harness-open")
+        }
+        .task { await harness.prepare() }
+        .sheet(isPresented: $showingForm) { NativeConsentFormHarness(harness: harness) }
+        .environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark)
+    }
+}
+
+struct NativeConsentFormHarness: View {
+    @ObservedObject var harness: NativeConsentUIHarness
+    @State private var approvals = 0
+    @State private var canResolve = false
+    var body: some View {
+        VStack {
+            Text("approvals:\(approvals)").accessibilityIdentifier("consent-harness-approvals")
+            Button("Withdraw synthetic Profile") {
+                ConsentWire.withdrawOwner()
+                harness.model.sessionHistory.suspend()
+            }
+            .accessibilityIdentifier("consent-harness-withdraw")
+            Text("allowed:" + String(canResolve)).accessibilityIdentifier("consent-harness-allowed")
+            VibeCastDisplayConsentForm(model: harness.model)
+        }
+        #if os(macOS)
+        .frame(width: 560, height: 560)
+        #endif
+        .environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark)
+        .task {
+            while !Task.isCancelled {
+                canResolve = harness.model.canResolveDisplayConsent
+                approvals = ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+        }
+    }
+}
+
 @main struct NativeConsentUIHost: App {
     @StateObject private var harness = NativeConsentUIHarness()
-    @State private var showingForm = false
-    @State private var approvals = 0
-
     var body: some Scene {
-        WindowGroup {
-            VStack {
-                Text("Isolated synthetic consent qualification")
-                if harness.failed { Text("setup-failed").accessibilityIdentifier("consent-harness-failed") }
-                Button("Open native form") { showingForm = true }
-                    .disabled(!harness.ready).accessibilityIdentifier("consent-harness-open")
-            }
-            .task { await harness.prepare() }
-            .sheet(isPresented: $showingForm) {
-                VStack {
-                    Text("approvals:\(approvals)").accessibilityIdentifier("consent-harness-approvals")
-                    Button("Withdraw synthetic Profile") { harness.model.sessionHistory.suspend() }
-                        .accessibilityIdentifier("consent-harness-withdraw")
-                    VibeCastDisplayConsentForm(model: harness.model)
-                }
-                .task {
-                    while !Task.isCancelled {
-                        approvals = ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count
-                        try? await Task.sleep(for: .milliseconds(100))
-                    }
-                }
-            }
-            // Match DJConnectRootView's actual presentation environment.
-            .environment(\.colorScheme, .dark)
-            .preferredColorScheme(.dark)
+        #if os(macOS)
+        Window("Synthetic VibeCast qualification", id: "native-consent") {
+            NativeConsentUIRoot(harness: harness).frame(width: 640, height: 640)
         }
+        .defaultLaunchBehavior(.presented)
+        #else
+        WindowGroup { NativeConsentUIRoot(harness: harness) }
+        #endif
     }
 }

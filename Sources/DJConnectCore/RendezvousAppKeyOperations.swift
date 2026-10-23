@@ -9,6 +9,7 @@ public actor RendezvousAppKeyOperations {
     // Shared by initial generation and every legacy journal creation entry point.
     static let installationAdmissionSlot = "rendezvous-initial-generation-v1"
     @TaskLocal static var initialEnrollmentLease:RendezvousInitialEnrollmentLease?
+    @TaskLocal private static var installationTransitionLease: RendezvousInstallationTransitionLease?
 
     private struct Waiter {
         let id: UUID
@@ -20,11 +21,15 @@ public actor RendezvousAppKeyOperations {
     }
     private var slots: [String: Slot] = [:]
 
-    // Production callers use the one shared instance across scans and actions.
-    init() {}
+    private let onInstallationTransitionAcquired: (@Sendable () -> Void)?
+    // The callback is an internal synchronous test barrier; production leaves it nil.
+    init(onInstallationTransitionAcquired: (@Sendable () -> Void)? = nil) {
+        self.onInstallationTransitionAcquired = onInstallationTransitionAcquired
+    }
 
     public enum Failure: Error, Sendable {
         case emptyKeyIdentifier, invalidInitialEnrollmentLease, initialEnrollmentKeyBusy
+        case invalidInstallationTransition, installationTransitionKeyBusy
     }
 
     public func perform<Value: Sendable>(
@@ -32,6 +37,14 @@ public actor RendezvousAppKeyOperations {
         operation: @Sendable () async throws -> Value
     ) async throws -> Value {
         guard !keyIdentifier.isEmpty else { throw Failure.emptyKeyIdentifier }
+        if let lease = Self.installationTransitionLease {
+            try lease.beginBorrow(key: keyIdentifier, queue: ObjectIdentifier(self))
+            defer { lease.endBorrow() }
+            try Task.checkCancellation()
+            let result = try await operation()
+            try lease.validateOpen()
+            return result
+        }
         let id = UUID()
         if let lease = Self.initialEnrollmentLease,keyIdentifier != Self.installationAdmissionSlot {
             // Initial enrollment already owns the installation slot. Never wait
@@ -48,6 +61,41 @@ public actor RendezvousAppKeyOperations {
         // Keep ownership through every suspension, including cancellation cleanup
         // and the response to submission. Actor isolation alone is reentrant.
         return try await operation()
+    }
+
+    /// Local composition/migration only. Never wait for an affected key while
+    /// holding installation admission: an old key owner may itself await it.
+    /// No SDK/HTTP authority is supplied by this internal exclusion primitive.
+    func performInstallationTransition<Value: Sendable>(
+        affectedKeys: [String], operation: @Sendable () async throws -> Value
+    ) async throws -> Value {
+        guard Self.installationTransitionLease == nil, Self.initialEnrollmentLease == nil,
+              affectedKeys.count <= 2, Set(affectedKeys).count == affectedKeys.count,
+              affectedKeys.allSatisfy({ !$0.isEmpty && $0 != Self.installationAdmissionSlot }) else {
+            throw Failure.invalidInstallationTransition
+        }
+        let id = UUID(), keys = affectedKeys.sorted()
+        try await acquire(key: Self.installationAdmissionSlot, id: id)
+        defer { release(key: Self.installationAdmissionSlot, id: id) }
+        try Task.checkCancellation()
+        onInstallationTransitionAcquired?()
+        // Actor isolation covers the entire test-and-reserve set, without await.
+        guard keys.allSatisfy({ slots[$0] == nil }) else { throw Failure.installationTransitionKeyBusy }
+        for key in keys { slots[key] = Slot(owner: id) }
+        defer { for key in keys.reversed() { release(key: key, id: id) } }
+        let lease = RendezvousInstallationTransitionLease(keys: Set(keys + [Self.installationAdmissionSlot]), queue: ObjectIdentifier(self))
+        let result: Result<Value, any Error> = await Self.$installationTransitionLease.withValue(lease) {
+            do {
+                let value = try await operation()
+                try Task.checkCancellation()
+                try lease.validateQuiescent()
+                return .success(value)
+            } catch { return .failure(error) }
+        }
+        // An inherited borrower cannot outlive the logical exclusion. Close to
+        // new work, then drain even an uncooperative borrower before releasing.
+        await lease.closeWhenQuiescent()
+        return try result.get()
     }
 
     private func acquire(key: String, id: UUID) async throws {
@@ -112,6 +160,54 @@ final class RendezvousInitialEnrollmentLease:@unchecked Sendable {
             // No suspension between validation and durable creation. Closing an
             // inherited lease cannot race a late child's synchronous write.
             return try operation()
+        }
+    }
+}
+
+/// Inherited tasks may not borrow after closure or overlap an existing borrow.
+/// The lease is exclusion only; it creates no key, budget, native or owner grant.
+private final class RendezvousInstallationTransitionLease: @unchecked Sendable {
+    private let lock = NSLock()
+    private let keys: Set<String>
+    private let queue: ObjectIdentifier
+    private var open = true
+    private var borrowed = false
+    private var closedWaiter: CheckedContinuation<Void, Never>?
+    init(keys: Set<String>, queue: ObjectIdentifier) { self.keys = keys; self.queue = queue }
+    func beginBorrow(key: String, queue expectedQueue: ObjectIdentifier) throws {
+        try lock.withLock {
+            guard open, !borrowed, queue == expectedQueue, keys.contains(key) else {
+                throw RendezvousAppKeyOperations.Failure.invalidInstallationTransition
+            }
+            borrowed = true
+        }
+    }
+    func endBorrow() {
+        let waiter = lock.withLock {
+            borrowed = false
+            let value = closedWaiter; closedWaiter = nil
+            return value
+        }
+        waiter?.resume()
+    }
+    func validateOpen() throws {
+        try lock.withLock {
+            guard open else { throw RendezvousAppKeyOperations.Failure.invalidInstallationTransition }
+        }
+    }
+    func validateQuiescent() throws {
+        try lock.withLock {
+            guard open, !borrowed else { throw RendezvousAppKeyOperations.Failure.invalidInstallationTransition }
+        }
+    }
+    func closeWhenQuiescent() async {
+        await withCheckedContinuation { continuation in
+            let done = lock.withLock {
+                open = false
+                if borrowed { closedWaiter = continuation; return false }
+                return true
+            }
+            if done { continuation.resume() }
         }
     }
 }

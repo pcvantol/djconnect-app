@@ -38,7 +38,7 @@ public actor RendezvousRecoveryJournal {
     }
     private let storage: any RendezvousRepairStorage
     private static let maximumBytes = 24_576
-    init(storage: any RendezvousRepairStorage) { self.storage = storage }
+    init(storage: any RendezvousRepairStorage) { self.storage = storage.claimingJournalOwner(UUID()) }
 
     /// clientData is the original decoded server byte string, never a rebuilt
     /// dictionary. All parsed fields must match this captured recovery context.
@@ -59,6 +59,48 @@ public actor RendezvousRecoveryJournal {
         }
         let record = try RecoveryRecord(key: keyIdentifier, challenge: challengeIdentifier, nonce: nonce,
                                         clientData: clientData, startedAtMS: admittedAtMS, deadlineMS: deadlineMS)
+        try persist(record)
+        return record.id
+    }
+
+    /// An explicit repair reservation, durably consumed by the existing repair
+    /// ledger, is required for a further challenge. Retain terminal history;
+    /// never erase a live attempt, change key, or replenish that ledger.
+    func beginExplicitRepair(challenge: DJConnectRendezvousRecoveryChallenge,
+                             repair: RendezvousRepairJournal, reservation: UUID,
+                             at nowMS: Int64) async throws -> UUID {
+        guard RendezvousAppKeyOperations.initialEnrollmentLease == nil else { throw Failure.unavailable }
+        return try await RendezvousAppKeyOperations.shared.perform(keyIdentifier: RendezvousAppKeyOperations.installationAdmissionSlot) {
+            let budget = try await repair.snapshot()
+            return try await self.beginExplicitRepairLocked(challenge: challenge, budget: budget,
+                                                             reservation: reservation, at: nowMS)
+        }
+    }
+    private func beginExplicitRepairLocked(challenge: DJConnectRendezvousRecoveryChallenge,
+        budget: RendezvousRepairWindow?, reservation: UUID, at nowMS: Int64) throws -> UUID {
+        guard let budget, budget.keyIdentifier == challenge.keyIdentifier, budget.reservation == reservation,
+              challenge.isCurrent(at: nowMS), (1...2).contains(budget.attemptsStarted) else { throw Failure.unavailable }
+        var history: [Data] = []
+        if var prior = try read() {
+            try prior.observe(at: nowMS)
+            try persist(prior)
+            guard prior.key == challenge.keyIdentifier, prior.phase == .recoveryPaused,
+                  nowMS >= prior.window.deadlineMS, prior.history.count < 2 else { throw Failure.unavailable }
+            history = prior.history
+            prior.history = []
+            history.append(try JSONEncoder().encode(prior))
+        }
+        let explicitCount = try history.reduce(0) { count, bytes in
+            count + (try JSONDecoder().decode(RecoveryRecord.self, from: bytes).repairReservation == nil ? 0 : 1)
+        }
+        // A consumed repair may fail before a challenge exists. The repair
+        // ledger, rather than successful challenge history, owns that budget.
+        // Its exact live reservation is checked above; history may have gaps.
+        guard explicitCount < budget.attemptsStarted else { throw Failure.unavailable }
+        var record = try RecoveryRecord(key: challenge.keyIdentifier, challenge: challenge.identifier,
+            nonce: challenge.nonce, clientData: challenge.originalClientData,
+            startedAtMS: nowMS, deadlineMS: challenge.expiresAtMS)
+        record.history = history; record.repairReservation = reservation
         try persist(record)
         return record.id
     }
@@ -158,6 +200,8 @@ private struct RecoveryRecord: Codable {
     private let schemaVersion = 1
     let id: UUID
     let key: String
+    var history: [Data] = []
+    var repairReservation: UUID?
     var phase: RendezvousRecoveryJournal.Phase = .assertionPending
     var window: RendezvousRetryWindow
     var assertionStarted = false
@@ -224,12 +268,16 @@ private struct RecoveryRecord: Codable {
             options: [.sortedKeys, .withoutEscapingSlashes])
     }
     private enum CodingKeys: String, CodingKey {
+        case history, repairReservation
         case schemaVersion, id, key, phase, window, assertionStarted, assertionReservation, lastObservedMS, challenge, nonce, clientData, clientDataHash, request, requestHash
     }
     init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         guard try c.decode(Int.self, forKey: .schemaVersion) == 1 else { throw RendezvousRecoveryJournal.Failure.invalidData }
         id = try c.decode(UUID.self, forKey: .id); key = try c.decode(String.self, forKey: .key)
+        history = try c.decodeIfPresent([Data].self, forKey: .history) ?? []
+        repairReservation = try c.decodeIfPresent(UUID.self, forKey: .repairReservation)
+        guard history.count <= 2 else { throw RendezvousRecoveryJournal.Failure.invalidData }
         phase = try c.decode(RendezvousRecoveryJournal.Phase.self, forKey: .phase)
         window = try c.decode(RendezvousRetryWindow.self, forKey: .window)
         assertionStarted = try c.decode(Bool.self, forKey: .assertionStarted)
@@ -244,6 +292,21 @@ private struct RecoveryRecord: Codable {
         guard Self.validKey(key), window.kind == .recovery, window.deadlineMS <= 9_007_199_254_740_991,
               lastObservedMS >= window.observedAtMS,
               assertionStarted || assertionReservation == nil else { throw RendezvousRecoveryJournal.Failure.invalidData }
+        var seen = Set<UUID>([id])
+        var explicitReservations = Set<UUID>()
+        if let repairReservation { explicitReservations.insert(repairReservation) }
+        var unbudgeted = repairReservation == nil ? 1 : 0
+        for bytes in history {
+            let prior = try JSONDecoder().decode(RecoveryRecord.self, from: bytes)
+            guard prior.history.isEmpty, prior.key == key, prior.phase == .recoveryPaused,
+                  prior.window.deadlineMS <= window.startedAtMS, seen.insert(prior.id).inserted else {
+                throw RendezvousRecoveryJournal.Failure.invalidData
+            }
+            if let reservation = prior.repairReservation {
+                guard explicitReservations.insert(reservation).inserted else { throw RendezvousRecoveryJournal.Failure.invalidData }
+            } else { unbudgeted += 1 }
+        }
+        guard explicitReservations.count <= 2, unbudgeted <= 1 else { throw RendezvousRecoveryJournal.Failure.invalidData }
         if phase == .assertionPending || phase == .prepared {
             guard !window.isClosed, lastObservedMS < window.deadlineMS,
                   let challenge, let nonce, let clientData, clientDataHash == Self.hash(clientData) else { throw RendezvousRecoveryJournal.Failure.invalidData }

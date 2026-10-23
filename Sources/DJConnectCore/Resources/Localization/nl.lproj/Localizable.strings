@@ -1242,7 +1242,7 @@
 "ui.session.intro.toolbar.title" = "Menu’s bovenaan";
 "ui.session.intro.toolbar.body" = "Kies hier je mood, DJ-aanwezigheid en stem. Via het verbindingsicoon bekijk je de status.";
 "ui.session.intro.chat.title" = "Chat met de DJ";
-"ui.session.intro.chat.body" = "Stel een vraag, vraag een nummer aan of gebruik de microfoon om met de DJ te praten. Typ ‘help’ in de chatbalk en verstuur het voor uitleg over wat je kunt vragen.";
+"ui.session.intro.chat.body" = "Kies een suggestie of stel je eigen vraag via tekst of microfoon. Bij het vraagteken vind je uitleg en de beschikbare mogelijkheden.";
 "ui.session.intro.artwork.title" = "Bedien de albumhoes";
 "ui.session.intro.artwork.body" = "Zodra er een nummer speelt, bedien je de muziek met deze gebaren op de albumhoes. Je hoeft ze nu niet uit te voeren.";
 "ui.session.intro.gesture.1" = "1×: pauzeren of afspelen";
@@ -1558,3 +1558,40 @@
 "ui.content.delete.failed" = "De bijdrage kon niet worden verwijderd. Vernieuw en probeer opnieuw.";
 
 "ui.content.delete.unconfirmed" = "Het is nog niet bevestigd of de bijdrage is verwijderd. Controleer de verwijderstatus voordat je opnieuw probeert.";
+
+"ui.session.suggestion.match_mood" = "Speel iets dat past bij de stemming van mijn sessie";
+"watch.session.connect_phone" = "Houd DJConnect open op je iPhone om je Watch te verbinden.";
+"watch.session.retry" = "De sessie kon niet worden opgehaald. Tik op vernieuwen om opnieuw te proberen.";
+"watch.session.pair_again" = "Koppel je Watch opnieuw via DJConnect op je iPhone.";
+"watch.session.expired" = "Je sessie moet worden vernieuwd. Tik op vernieuwen.";
+"watch.session.check_outcome" = "Je sessie wordt gecontroleerd. Tik op vernieuwen om te zien of de wijziging is verwerkt.";
+
+"ui.askdj.help.global.entry" = "Zo werkt Ask DJ";
+
+"ui.askdj.help.session.entry" = "Help tijdens DJ-sessie";
+
+"ui.askdj.help.global.title" = "Wat wil je horen?";
+
+"ui.askdj.help.global.intro" = "Vraag het aan je DJ, gewoon in je eigen woorden. Je kunt muziek opvragen, ontdekken of er iets over vragen.";
+
+"ui.askdj.help.global.footer" = "Een vraag of keuze start niet vanzelf muziek. Afspelen gebeurt pas na een expliciete opdracht of bevestigde afspeelactie.";
+
+"ui.askdj.help.session.title" = "Luister samen met je DJ";
+
+"ui.askdj.help.session.intro" = "Vraag door over wat je hoort en wat je DJ laat zien. Mood bepaalt de sfeer, Persona de vertelstijl en Aanwezigheid hoe vaak je DJ iets vertelt.";
+
+"ui.askdj.help.session.footer" = "Vraag gerust verder: “En op dit album?” of “Vertel meer.” De DJ gebruikt de geldige gesprekscontext. Met Play Now of Activeren bevestig je een afspeelkeuze.";
+
+"ui.askdj.help.unavailable" = "Ik kan de beschikbare muziekmogelijkheden nu niet bevestigen. Je kunt je vraag wel gewoon typen.";
+
+"ui.rendezvous.repair" = "Veilig koppelen herstellen";
+
+"ui.rendezvous.repairing" = "Veilige koppeling herstellen…";
+
+"ui.rendezvous.repaired" = "Veilig koppelen is hersteld. Scan een nieuwe TV-QR-code om verder te gaan. Er wordt nog geen sessie gedeeld.";
+
+"ui.rendezvous.repair_wait" = "Herstel is nog niet bevestigd of nog niet beschikbaar. Wacht voordat je opnieuw probeert. Je kunt ook de code van de Home Assistant-receiver invoeren.";
+
+"ui.rendezvous.repair_paused" = "Veilig koppelen blijft gepauzeerd. Je app en DJ-sessie blijven beschikbaar. Gebruik de code op de Home Assistant-receiver om dit scherm te koppelen.";
+
+"ui.session.moment.dj_bulletin" = "DJ Bulletin";

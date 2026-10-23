@@ -32,7 +32,7 @@ enum VibeScapeTrackIntensity {
 
 enum VibeScapeAvailability {
     static var previewEnabled: Bool {
-        #if DJCONNECT_VIBESCAPE_PREVIEW
+        #if DEBUG || DJCONNECT_VIBESCAPE_PREVIEW
         true
         #else
         false

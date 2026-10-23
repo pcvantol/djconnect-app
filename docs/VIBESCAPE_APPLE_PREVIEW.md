@@ -4,8 +4,10 @@ Owning work: [Apple177](https://github.com/pcvantol/djconnect-app/issues/177),
 [Core1271](https://github.com/pcvantol/djconnect/issues/1271).
 
 This is an initial native renderer and presentation increment. The third active
-Session choice is available only with `DJCONNECT_VIBESCAPE_PREVIEW`. Ordinary
-shipping builds preserve Flow and Forecast. No live Visual Director endpoint,
+Session choice is available in `DEBUG` developer builds and in explicitly
+opted-in builds using `DJCONNECT_VIBESCAPE_PREVIEW`. This keeps ordinary local
+developer installations from silently dropping the mode when the explicit flag
+is omitted. Ordinary shipping builds preserve Flow and Horizon. No live Visual Director endpoint,
 capability or wire DTO is assumed or added. Do not enable production from this
 preview or describe the complete feature as delivered.
 
