@@ -54,7 +54,7 @@ test fixtures are never enrollment or consent evidence.
 
 ## Validation
 
-Seventeen targeted test functions pass against the unchanged original producer
+Eighteen targeted test functions pass against the unchanged original producer
 fixture and explicit synthetic read/clock boundaries. They cover first-read
 binding, original generation domains, no background bootstrap, receipt changes,
 late owner/foreground/cancellation/withdrawal, strict wall/monotonic equality,
@@ -63,4 +63,10 @@ rebinding, regression, clock rollback, stale-to-fresh update under the same gran
 reentrant authority callbacks, concurrent reads and connection loss versus denial.
 Original target output: `/private/tmp/apple-widget-read-pin-tests-final-20261023.log`.
 No HTTP, APNs, new ordinary app build, installation or physical rendering occurs.
-Full tests and exact independent source review are separate subsequent evidence.
+The first full frozen source9ec suite passed1,224 tests /24 suites130.245s,
+plus86 XCTest tests with five existing skips and zero failures. A later causal
+clock-pair regression then found that wall-first clock sampling could extend
+remaining time after scheduling between the samples. That original source fails
+the new test with two issues. Monotonic-first capture passes the same test;
+source9ec is superseded and its review approval must not be transplanted.
+Updated full tests and exact independent source review remain subsequent gates.

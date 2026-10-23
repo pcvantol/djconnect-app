@@ -12,6 +12,7 @@ import Testing
     var foreground = true
     var calls = 0
     var onAuthority: (() -> Void)?
+    var onWallRead: (() -> Void)?
     var action: (() async throws -> DJConnectSurfacePushReadResponse)?
 
     init() throws {
@@ -43,7 +44,7 @@ import Testing
         .init(isCurrent: { witness in
             self.onAuthority?()
             return self.currentOwner && witness == self.original
-        }, canBootstrap: { $0 == self.original && self.foreground }, now: { self.now }, monotonicNow: { self.mono }, read: { read in
+        }, canBootstrap: { $0 == self.original && self.foreground }, now: { self.onWallRead?(); return self.now }, monotonicNow: { self.mono }, read: { read in
             #expect(read.credential == self.registration.background_read?.credential)
             #expect(read.registration_id == self.registration.registration?.registration_id)
             self.calls += 1
@@ -278,4 +279,20 @@ import Testing
     let cancelledTask = Task { await cancelled.bootstrap(services: q.services) }
     cancelledTask.cancel()
     #expect(await cancelledTask.value == nil && q.calls == 0)
+}
+
+@Test @MainActor func originalSurfaceReadClockPairCannotAnchorOldWallEvidenceToLaterMonotonicTime() async throws {
+    let p = try SurfaceReadProbe(), owner = try p.owner()
+    var wallReads = 0
+    p.onWallRead = {
+        wallReads += 1
+        if wallReads == 3 {
+            // The two original-authority checks precede the request anchor.
+            // Model suspension after that wall sample but before the next
+            // monotonic sample, with the original wall evidence unchanged.
+            p.mono = p.mono.advanced(by: .seconds(120))
+        }
+    }
+    #expect(await owner.bootstrap(services: p.services) == nil)
+    #expect(owner.state == .withdrawn && p.calls == 1)
 }

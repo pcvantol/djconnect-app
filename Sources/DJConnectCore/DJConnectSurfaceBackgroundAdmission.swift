@@ -95,7 +95,9 @@ import Foundation
     private func read(bootstrap: Bool, services: Services) async -> Snapshot? {
         guard originalIsCurrent(services), let credential else { withdraw(); return nil }
         let attempt = epoch
-        let startedWall = services.now(), startedMono = services.monotonicNow()
+        // Sample monotonic first: suspension between samples must shorten,
+        // never extend, a wall-derived original lease.
+        let startedMono = services.monotonicNow(), startedWall = services.now()
         let previous = snapshot, previousDigest = digest
         state = .reading
         do {
