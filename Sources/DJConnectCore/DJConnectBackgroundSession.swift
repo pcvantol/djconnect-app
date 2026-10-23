@@ -89,21 +89,30 @@ public struct DJConnectBackgroundSession: Codable, Sendable {
             try contribution.encode(to: nested)
         }
     }
-    public func isCurrent(at now: Date, originalGrantExpiry: Date) -> Bool {
+    // Shape/rights validation is distinct from current display eligibility. An
+    // expired projection cannot display, but does not revoke its longer-lived
+    // original registration or prevent a later push from reading fresh content.
+    var hasValidFields: Bool {
         guard fields.schema_version == 2, fields.surface == .widget,
               fields.hasValidFields(allowPublicResearch: true), Int64(fields.delivery_sequence) <= 9_007_199_254_740_991,
-              Int64(fields.mood.revision) <= 9_007_199_254_740_991, fields.state == "active", fields.artwork.isEmpty,
+              Int64(fields.mood.revision) <= 9_007_199_254_740_991, fields.artwork.isEmpty,
               contribution_status.isValid, now_playing_status.isValid, artwork_status.isValid,
               (fields.contribution == nil) == (contribution_status.state != "available"),
               (fields.now_playing == nil) == (now_playing_status.state != "available"),
               let observed = DJConnectHistoryEntry.date(fields.observed_at),
+              let readAt = DJConnectHistoryEntry.date(fields.as_of), observed <= readAt else { return false }
+        if let content = fields.contribution {
+            guard contribution_status.reason == "qualified", contribution?.validates(content) == true else { return false }
+        } else if contribution != nil { return false }
+        return fields.now_playing == nil || now_playing_status.reason == "qualified"
+    }
+    public func isCurrent(at now: Date, originalGrantExpiry: Date) -> Bool {
+        guard hasValidFields, fields.state == "active",
               let readAt = DJConnectHistoryEntry.date(fields.as_of),
               let expiry = DJConnectHistoryEntry.date(fields.expires_at),
-              observed <= readAt, readAt <= now, now < min(expiry, originalGrantExpiry) else { return false }
-        if let content = fields.contribution {
-            guard contribution_status.reason == "qualified", contribution?.validates(content) == true, content.isCurrent(at: now) else { return false }
-        } else if contribution != nil { return false }
-        return fields.now_playing == nil || (now_playing_status.reason == "qualified" && fields.now_playing?.isCurrent(at: now) == true)
+              readAt <= now, now < min(expiry, originalGrantExpiry) else { return false }
+        return (fields.contribution == nil || fields.contribution?.isCurrent(at: now) == true) &&
+            (fields.now_playing == nil || fields.now_playing?.isCurrent(at: now) == true)
     }
     /// Read-clock changes cannot create a new semantic sequence or renew a pin.
     public var semanticDigest: Data? {
