@@ -72,3 +72,19 @@ synthetic wire, separate from full-app navigation and installed HA/receiver
 qualification. No ordinary app target or preference is modified.
 
 The opt-in `actualIOSNativeConsentInflightLifecycle()` uses `DJCONNECT_CONSENT_INFLIGHT_DIR` and the test-only `delayed-approval` URLProtocol mode. It delays the existing synthetic approval response for two seconds, removes the actual form hierarchy while approving, remounts before the acknowledgement, and verifies that the late result cannot revive or replay the old operation. Approval is an explicit model method, not a native button tap. Select only this new function with its parentheses and retain a new log/result directory; existing ready-only lifecycle evidence remains separate.
+
+`testRendezvousScreenTransitionsToSeparateConsentWithoutLateCancellation` also
+opens the production QR view before the production consent form. Its isolated
+host follows the two destination cases, enters a synthetic receiver code, and
+delivers an obsolete QR callback while consent is ready. It checks that approval
+stays zero until separate confirmation. This is native presentation interaction
+with synthetic HTTP, not a genuine QR/App Attest/HA/receiver chain or full-root
+navigation. Use `-parallel-testing-enabled NO` and retain a fresh result bundle
+for every source revision and simulator destination.
+
+The host shares `rendezvousOwnedSheetBinding` with the production root. Its old
+callback control sends nil through the originally captured binding, preserving
+its route and presentation owner. The reopened-QR test then checks an A→B→A
+transition, retained QR after the old nil event, view reconstruction and the
+actual current Close button. It does not emulate the entire product root or
+assert that every OS callback schedule has been observed.

@@ -1311,14 +1311,9 @@ public struct DJConnectRootView: View {
     }
 
     private var rootSheetBinding: Binding<DJConnectRootSheet?> {
-        Binding(
-            get: { activeRootSheet },
-            set: { newValue in
-                if newValue == nil, let activeRootSheet {
-                    dismiss(rootSheet: activeRootSheet)
-                }
-            }
-        )
+        rendezvousOwnedSheetBinding(current: { activeRootSheet }, rendezvous: .rendezvous,
+            dismissRendezvous: model.rendezvousPresentationDismissal(),
+            dismissOther: { dismiss(rootSheet: $0) })
     }
 
     private var activeRootSheet: DJConnectRootSheet? {
@@ -1406,6 +1401,7 @@ public struct DJConnectRootView: View {
                 .accentColor(.white)
         case .rendezvous:
             VibeCastRendezvousView(model: model)
+                .id(model.rendezvousPresentationID)
         case .vibeCastSessionStart:
             VibeCastSessionStartDialog(model: model)
         case .permissionExplanation:
@@ -1453,8 +1449,8 @@ public struct DJConnectRootView: View {
         case .feedback:
             showingFeedback = false
         case .rendezvous:
-            model.cancelRendezvous()
-            model.isShowingRendezvous = false
+            // Root-sheet binding handles this with its original presentation.
+            break
         case .vibeCastSessionStart:
             model.isShowingVibeCastSessionStart = false
         case .permissionExplanation:

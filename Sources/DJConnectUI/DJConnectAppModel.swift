@@ -822,7 +822,12 @@ public final class DJConnectAppModel: ObservableObject {
     }
     var vibeScapeReturnToForecast = false
     var vibeScapeModePickerFrame = CGRect.zero
-    @Published var isShowingRendezvous = false
+    @Published var isShowingRendezvous = false {
+        didSet {
+            if isShowingRendezvous && !oldValue { rendezvousPresentationID = UUID() }
+        }
+    }
+    private(set) var rendezvousPresentationID = UUID()
     @Published private(set) var rendezvousStatusKey = "ui.rendezvous.scan"
     @Published private(set) var rendezvousBusy = false
     @Published private(set) var rendezvousHasQR = false
@@ -952,6 +957,25 @@ public final class DJConnectAppModel: ObservableObject {
         rendezvousHasQR = false; rendezvousBusy = false; rendezvousAccepted = false
         rendezvousRepairOffered = false
         rendezvousStatusKey = "ui.rendezvous.scan"
+    }
+    @discardableResult
+    func cancelRendezvousPresentation(_ presentation: UUID) -> Bool {
+        // SwiftUI can deliver the old sheet's callbacks after the explicit
+        // transition to B, or after another A presentation has opened. That
+        // obsolete screen must not withdraw its successor's owner operation.
+        guard isShowingRendezvous, presentation == rendezvousPresentationID else { return false }
+        cancelRendezvous()
+        return true
+    }
+    /// Capture when constructing a sheet binding, before a later nil event can
+    /// arrive. Looking up the current presentation inside that event is unsafe.
+    func rendezvousPresentationDismissal() -> @MainActor () -> Bool {
+        let presentation = rendezvousPresentationID
+        return { [weak self] in
+            guard let self, self.cancelRendezvousPresentation(presentation) else { return false }
+            self.isShowingRendezvous = false
+            return true
+        }
     }
     /// Explicit selection of the one saved installation. No implicit Session start
     /// and no display approval are conferred by this destination preparation.
