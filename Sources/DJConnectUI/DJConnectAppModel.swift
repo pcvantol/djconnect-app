@@ -1310,6 +1310,7 @@ public final class DJConnectAppModel: ObservableObject {
             syncDemoSessionPlayback()
         }
     }
+    var currentInsightReadClock = CurrentInsightReadClock()
     private var currentInsightObservation = CurrentTrackInsightObservation()
     private var currentInsightProof: (subject: DJConnectCurrentInsightSubject, generation: UUID, settingsGeneration: UUID, deadline: ContinuousClock.Instant)?
     private var currentInsightSettingsGeneration = UUID()
@@ -5370,7 +5371,8 @@ public final class DJConnectAppModel: ObservableObject {
         let profileStyle = profileDJSettings.response.map(CurrentInsightProfileStyle.init)
         let selectedSession = activeDJSession?.id, selectedMood = confirmedSessionMoodInt
         let recording = playback?.uri
-        let requestedAt = Date(), requestInstant = ContinuousClock.now
+        let readClock = currentInsightReadClock
+        let requestedAt = readClock.wallNow(), requestInstant = readClock.monotonicNow()
         let originalContext: @MainActor @Sendable () -> Bool = {
             !Task.isCancelled && canAccept() && (self.isAppInForeground || self.isDemoMode)
                 && self.sessionHistory.responseEpoch == owner && self.musicDiscoveryPushCoalescingKey() == source
@@ -5384,7 +5386,7 @@ public final class DJConnectAppModel: ObservableObject {
         do {
             let insight: TrackInsight
             var qualifiedSubject: DJConnectCurrentInsightSubject?
-            var qualifiedRemaining: Double?
+            var qualifiedDeadline: ContinuousClock.Instant?
             if isDemoMode {
                 insight = try await DemoTrackInsightService(
                     tracks: DemoTrackInsightService.localizedDefaultTracks(language: language)
@@ -5416,19 +5418,23 @@ public final class DJConnectAppModel: ObservableObject {
                 }
                 insight = result.0
                 if let subject = result.1 {
-                    guard let recording, let deadline = subject.deadline(recording: recording, requestedAt: requestedAt, at: Date()) else {
+                    let returnedAt = readClock.wallNow()
+                    guard let recording, let deadline = subject.deadline(recording: recording, requestedAt: requestedAt, at: returnedAt) else {
                         throw DJConnectError.trackInsightUnavailable(code: "track_insight_context_changed", message: nil)
                     }
-                    qualifiedSubject = subject; qualifiedRemaining = deadline.timeIntervalSinceNow
+                    let returnedInstant = readClock.monotonicNow()
+                    let originalDeadline = min(requestInstant.advanced(by: .seconds(subject.expiresIn)),
+                        returnedInstant.advanced(by: .seconds(deadline.timeIntervalSince(returnedAt))))
+                    guard returnedInstant >= requestInstant, returnedInstant < originalDeadline else { return false }
+                    qualifiedSubject = subject; qualifiedDeadline = originalDeadline
                 }
             }
             guard originalContext() else { return false }
-            if let remaining = qualifiedRemaining {
-                guard requestInstant.duration(to: .now) < .seconds(30), remaining > 0 else { return false }
+            if let deadline = qualifiedDeadline {
+                guard readClock.monotonicNow() < deadline else { return false }
             }
             applyTrackInsight(insight, open: open)
-            if let subject = qualifiedSubject, let remaining = qualifiedRemaining {
-                let deadline = min(requestInstant.advanced(by: .seconds(subject.expiresIn)), ContinuousClock.now.advanced(by: .seconds(remaining)))
+            if let subject = qualifiedSubject, let deadline = qualifiedDeadline {
                 currentInsightProof = (subject, observation, settingsGeneration, deadline)
                 currentInsightExpiryTask = Task { [weak self] in
                     do { try await ContinuousClock().sleep(until: deadline) } catch { return }

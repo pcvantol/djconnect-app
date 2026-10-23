@@ -29,7 +29,7 @@ private struct AskDJHelpContent: View {
     }
     var body: some View {
         let catalogue = DJConnectAskDJCatalogue.bundled
-        let sections = catalogue?.helpSections(model.askDJExampleContext(), language: model.language) ?? []
+        let sections = catalogue?.helpSections(model.askDJExampleContext(), surface: surface, language: model.language) ?? []
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text(text("title")).font(.title2.bold()).accessibilityAddTraits(.isHeader)

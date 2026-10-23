@@ -124,3 +124,17 @@ private func askDJContext(_ raw: [String: Any]) throws -> DJConnectAskDJCatalogu
     context.sessionID = "session-b"
     #expect(!shown.contains { catalogue.retains($0, context: context, surface: .session, language: "en") })
 }
+
+@Test func askDJSessionHelpUsesItsOwnSurfaceEligibility() throws {
+    let fixture = try askDJGolden()
+    var raw = try #require(fixture["synthetic_catalogue"] as? [String: Any])
+    var entries = try #require(raw["entries"] as? [[String: Any]])
+    // Synthetic-only catalogue: no route becomes production-qualified.
+    for i in entries.indices { entries[i]["surfaces"] = ["active_session"] }
+    raw["entries"] = entries
+    let catalogue = try askDJDecode(DJConnectAskDJCatalogue.self, raw)
+    let vector = try #require((fixture["cases"] as? [[String: Any]])?.first)
+    let context = try askDJContext(#require(vector["context"] as? [String: Any]))
+    #expect(catalogue.helpSections(context, surface: .askDJ, language: "nl").isEmpty)
+    #expect(!catalogue.helpSections(context, surface: .session, language: "nl").isEmpty)
+}

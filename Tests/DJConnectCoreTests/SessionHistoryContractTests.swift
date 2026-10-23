@@ -8548,3 +8548,44 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
     #expect(model.trackInsightErrorMessage == nil)
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/track_insight") }.count == 1)
 }
+
+@Test(arguments: [0.25, 1.0, 20.0])
+@MainActor func currentInsightShortOriginalMonotonicLeasePrecedesAllApplyEffects(_ elapsed: Double) async throws {
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") {
+            return (200, Data(#"{"capabilities":{"current_track_insight_subject_v1":true},"contract_versions":{"current_track_insight_subject":1}}"#.utf8), 0)
+        }
+        return (200, try historyData([
+            "success": true,
+            "subject": ["schema_version": 1, "mode": "current", "media_identity": "spotify:track:aaaaaaaaaaaaaaaaaaaaaa",
+                        "observation_id": "synthetic-short-lease", "expires_in": 1.0, "expires_at": 1001.0],
+            "track": ["title": "Short lease", "artist": "Fixture artist"],
+            "analysis": ["summary": "Original server interpretation", "full_text": "Original server interpretation"]
+        ]), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.apply(playback: DJConnectPlayback(uri: "spotify:track:aaaaaaaaaaaaaaaaaaaaaa", hasPlayback: true,
+        isPlaying: true, trackName: "Short lease", artistName: "Fixture artist", progressMS: 20_000))
+    let anchor = ContinuousClock.now
+    var wallReads = 0, monoReads = 0
+    model.currentInsightReadClock = .init(wallNow: {
+        wallReads += 1
+        return Date(timeIntervalSince1970: wallReads == 1 ? 1000 : 1000.5)
+    }, monotonicNow: {
+        monoReads += 1
+        return monoReads == 1 ? anchor : anchor.advanced(by: .seconds(elapsed))
+    })
+    await model.loadTrackInsightOnOpen()
+    if elapsed < 1 {
+        #expect(model.currentTrackInsight?.summary == "Original server interpretation")
+        #expect(model.trackInsightHistory.count == 1)
+    } else {
+        // History insertion is an apply side effect, so an empty history proves
+        // the stale result was never briefly accepted then cleaned up.
+        #expect(model.currentTrackInsight == nil && model.trackInsightHistory.isEmpty)
+    }
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/track_insight") }.count == 1)
+}

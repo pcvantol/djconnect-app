@@ -1220,7 +1220,7 @@ struct SessionTimelineScreen: View {
                 Spacer()
                 AskDJHelpButton(model: model, surface: .session)
             }
-            if showsFirstPlayHelper {
+            if model.activeDJSession?.id == sessionID {
                 AskDJSuggestionStrip(model: model, surface: .session, reading: !currentHeaderVisible || inputFocused) { prompt in
                     guard model.activeDJSession?.id == sessionID,
                           !model.isSendingAskDJText, !model.isRecordingVoice,

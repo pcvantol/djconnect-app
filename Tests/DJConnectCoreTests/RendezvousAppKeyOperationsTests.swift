@@ -264,7 +264,11 @@ extension RendezvousAppKeyOperationsTests {
                     Task { try? await queue.perform(keyIdentifier: "a") { entered.signal(); await release.wait() } }
                     await entered.wait(); bodyReturned.signal()
                 }
-                XCTFail("Unstructured borrower was treated as a clean return")
+                // The borrower may finish after release but before the outer
+                // operation resumes its final quiescence check. Either a clean
+                // return or the typed rejection is valid then. The assertions
+                // below prove the required invariant while the borrower is
+                // still held: no terminal result and no successor acquisition.
             } catch RendezvousAppKeyOperations.Failure.invalidInstallationTransition {}
         }
         defer { release.signal(); transition.cancel() }

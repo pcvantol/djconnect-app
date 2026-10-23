@@ -200,7 +200,8 @@ private func bulletinDate(_ raw: String) throws -> Date { try #require(DJConnect
 @Test func bulletinPreparedAndCommittedSourceFixturesStayCompatibleWithoutRuntimeClaim() throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     for (file, sha) in [("dj-bulletin-v1-core-preparatory-wire.json", "909f525e609af7daf07653099a1c34b688cfd1e171b75d24c9225e34fceccc2f"),
-                        ("dj-bulletin-v1-core-3b458934-wire.json", "aac3b59b6ecce6d7d3a1ca979db6edc08cad4376268c0806d88e06a78ff900b9")] {
+                        ("dj-bulletin-v1-core-3b458934-wire.json", "aac3b59b6ecce6d7d3a1ca979db6edc08cad4376268c0806d88e06a78ff900b9"),
+                        ("dj-bulletin-v1-core-12675bc-wire.json", "1f6ae4e9ec314a2dc60ffcdf7d66497795baf840952b5897c09cfeb98d27eeee")] {
         let bytes = try Data(contentsOf: root.appendingPathComponent("Fixtures/" + file))
         #expect(SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined() == sha)
         let fixture = try #require(JSONSerialization.jsonObject(with: bytes) as? [String: Any])

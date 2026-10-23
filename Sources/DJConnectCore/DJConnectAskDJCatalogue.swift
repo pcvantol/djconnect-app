@@ -165,9 +165,9 @@ public struct DJConnectAskDJCatalogue: Decodable, Sendable {
             $0.id == suggestion.id && prompt($0, language: language, slots: context.slots) == suggestion.prompt
         }
     }
-    public func helpSections(_ context: Context, language: String) -> [HelpSection] {
+    public func helpSections(_ context: Context, surface: Surface = .askDJ, language: String) -> [HelpSection] {
         guard let language = locale(language) else { return [] }
-        let candidates = eligible(context, surface: .askDJ, language: language, help: true)
+        let candidates = eligible(context, surface: surface, language: language, help: true)
         var sections = groups.prefix(3).compactMap { group -> HelpSection? in
             let examples = candidates.filter { $0.group == group.id }.sorted {
                 ($0.help_rank, $0.id) < ($1.help_rank, $1.id)

@@ -99,3 +99,17 @@ private func currentInsightWire() throws -> [String: Any] {
         #expect(caps.available == expected)
     }
 }
+
+@Test func currentInsightLatestCoreRuntimeValueCopyFixtureRemainsCurrentSubjectOnly() throws {
+    let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/current-insight-core-12675bc.json")
+    let data = try Data(contentsOf: url)
+    #expect(SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() == "2164c091bc5f3adf2934aee972f0832884566b78020462916129148884c861a8")
+    let fixture = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    let responses = try #require(fixture["responses"] as? [String: Any])
+    let response = try JSONDecoder().decode(TrackInsightEndpointResponse.self,
+        from: JSONSerialization.data(withJSONObject: #require(responses["current"])))
+    #expect(response.currentSubject?.mode == "current" && response.subject == nil)
+    #expect(response.trackInsightValue?.energy == nil)
+    #expect(fixture["native"] as? String == "NOT_RUN")
+}
