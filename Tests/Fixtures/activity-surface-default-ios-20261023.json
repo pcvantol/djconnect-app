@@ -1,0 +1,48 @@
+{
+  "attributes_default_encoded_utf8" : "{\"presentationID\":\"synthetic-original-presentation\"}",
+  "attributes_type" : "DJConnectSessionLiveActivityAttributes",
+  "content_state_type" : "DJConnectSessionSurfaceSnapshot",
+  "date_strategy" : "Foundation default seconds since 2001-01-01; APS metadata is separately Unix time",
+  "native_effects" : false,
+  "notice" : "Expired synthetic codec vectors only; no APNs, enrollment, external rights or device delivery",
+  "rows" : [
+    {
+      "case" : "minimal",
+      "content_state" : {
+        "expiresAt" : 814446120.12299991,
+        "observedAt" : 814446000.12299991
+      },
+      "default_encoded_utf8" : "{\"observedAt\":814446000.1229999,\"expiresAt\":814446120.1229999}",
+      "expires_at_ms" : 1792753320123,
+      "explicit_optional_nulls_decode" : true,
+      "external_content_admitted" : false,
+      "observed_at_ms" : 1792753200123
+    },
+    {
+      "case" : "update",
+      "content_state" : {
+        "expiresAt" : 814446120.12299991,
+        "observedAt" : 814446000.12299991,
+        "theme" : "energy"
+      },
+      "default_encoded_utf8" : "{\"theme\":\"energy\",\"observedAt\":814446000.1229999,\"expiresAt\":814446120.1229999}",
+      "expires_at_ms" : 1792753320123,
+      "explicit_optional_nulls_decode" : true,
+      "external_content_admitted" : false,
+      "observed_at_ms" : 1792753200123
+    },
+    {
+      "case" : "end_final_state",
+      "content_state" : {
+        "expiresAt" : 814446120.12299991,
+        "observedAt" : 814446000.12299991,
+        "theme" : "brand"
+      },
+      "default_encoded_utf8" : "{\"theme\":\"brand\",\"observedAt\":814446000.1229999,\"expiresAt\":814446120.1229999}",
+      "expires_at_ms" : 1792753320123,
+      "explicit_optional_nulls_decode" : true,
+      "external_content_admitted" : false,
+      "observed_at_ms" : 1792753200123
+    }
+  ]
+}
