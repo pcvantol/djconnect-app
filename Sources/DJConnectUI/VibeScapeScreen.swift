@@ -486,6 +486,20 @@ struct VibeScapeMacDynamicsSlider: NSViewRepresentable {
 import AVFoundation
 @preconcurrency import Speech
 
+/// Speech may invoke its legacy completion on any queue. Explicit Sendable
+/// prevents this callback from inheriting the caller's MainActor isolation.
+@MainActor enum VibeScapeSpeechAuthorization {
+    static func request(
+        using request: (@escaping (SFSpeechRecognizerAuthorizationStatus) -> Void) -> Void = SFSpeechRecognizer.requestAuthorization
+    ) async -> SFSpeechRecognizerAuthorizationStatus {
+        await withCheckedContinuation { continuation in
+            request { @Sendable status in
+                continuation.resume(returning: status)
+            }
+        }
+    }
+}
+
 /// Separate visual-only capture. No transcript/audio enters Ask DJ or history.
 @MainActor final class VibeScapeVoiceControl: ObservableObject {
     @Published private(set) var busy = false
@@ -528,9 +542,7 @@ import AVFoundation
                 awaitingPermission = true
                 let microphone = await AVCaptureDevice.requestAccess(for: .audio)
                 guard !Task.isCancelled, microphone else { throw DJConnectDeviceSTTError.permission }
-                let speech = await withCheckedContinuation { continuation in
-                    SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0 == .authorized) }
-                }
+                let speech = await VibeScapeSpeechAuthorization.request() == .authorized
                 let locale = DJConnectLocalization.bcp47LocaleIdentifier(for: language)
                 // Native permission panels briefly inactivate the scene. Wait
                 // for foreground again before any capture or private context read.

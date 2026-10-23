@@ -145,7 +145,7 @@ public enum DJConnectDeviceSTTError: Error, Sendable {
                 request.requiresOnDeviceRecognition = true
                 request.shouldReportPartialResults = false
                 request.taskHint = .dictation
-                recognition = recognizer.recognitionTask(with: request) { [weak self] result, error in
+                recognition = recognizer.recognitionTask(with: request) { @Sendable [weak self] result, error in
                     let text = result?.isFinal == true ? result?.bestTranscription.formattedString : nil
                     let failed = error != nil
                     Task { @MainActor [weak self] in
