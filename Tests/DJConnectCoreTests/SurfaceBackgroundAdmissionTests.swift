@@ -296,3 +296,84 @@ import Testing
     #expect(await owner.bootstrap(services: p.services) == nil)
     #expect(owner.state == .withdrawn && p.calls == 1)
 }
+
+@Test @MainActor func originalSurfaceReadHigherSequenceCannotRenewAnUnchangedShortFieldAfterRollbackOrABA() async throws {
+    for field in ["contribution", "now_playing"] {
+        let p = try SurfaceReadProbe(), owner = try p.owner()
+        let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let expiry = formatter.string(from: p.now.addingTimeInterval(30))
+        var content: [String: Any] = field == "now_playing"
+            ? ["item_id":"fixture-track", "subject_uri":"spotify:track:AAAAAAAAAAAAAAAAAAAAAA", "track":"Fixture", "artist":"Artist", "album":"Album",
+               "source_url":"https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA", "attribution":["provider":"Spotify"], "usage_basis":"spotify_temporary_passive_metadata"]
+            : ["moment_id":"fixture-moment", "text":"Fixture text", "persona":"home_dj", "source_attribution":[:], "usage_basis":"runtime_authored_direction",
+               "rights":["passive_cache":true,"os_snapshot":true,"external_relay":false,"watch_replication":false]]
+        let status = field == "now_playing" ? "now_playing_status" : "contribution_status"
+        try p.frame { frame in
+            content[field == "now_playing" ? "observed_at" : "published_at"] = frame["observed_at"]!
+            content["expires_at"] = expiry; frame[field] = content
+            frame[status] = ["state":"available", "reason":"qualified"]
+        }
+        let first = try #require(await owner.bootstrap(services: p.services))
+        p.mono = p.mono.advanced(by: .seconds(10)); p.now = p.now.addingTimeInterval(-0.5)
+        try p.frame { $0["delivery_sequence"] = first.projection.fields.delivery_sequence + 1; $0["mood"] = ["value":"energy", "revision":1] }
+        let changed = try #require(await owner.refresh(services: p.services))
+        #expect(changed.monotonicDeadline == first.monotonicDeadline, Comment(rawValue: field + ": unchanged short field"))
+        try p.frame {
+            $0["delivery_sequence"] = first.projection.fields.delivery_sequence + 2; $0[field] = NSNull()
+            $0[status] = ["state":"unavailable", "reason":"no_observation"]
+        }
+        #expect(await owner.refresh(services: p.services) != nil)
+        try p.frame {
+            $0["delivery_sequence"] = first.projection.fields.delivery_sequence + 3; $0[field] = content
+            $0[status] = ["state":"available", "reason":"qualified"]
+        }
+        let returned = try #require(await owner.refresh(services: p.services))
+        #expect(returned.monotonicDeadline == first.monotonicDeadline, Comment(rawValue: field + ": ABA"))
+        p.mono = first.monotonicDeadline
+        #expect(owner.current(services: p.services) == nil)
+        // A genuinely new supplied content expiry can establish its own bounded
+        // field deadline; the original registration and outer lease stay fixed.
+        content["expires_at"] = formatter.string(from: p.now.addingTimeInterval(45))
+        content[field == "now_playing" ? "item_id" : "moment_id"] = "new-fixture-content"
+        try p.frame { $0["delivery_sequence"] = first.projection.fields.delivery_sequence + 4; $0[field] = content }
+        let fresh = try #require(await owner.refresh(services: p.services))
+        #expect(fresh.monotonicDeadline > first.monotonicDeadline)
+        #expect(fresh.registration == first.registration && fresh.originalGrantExpiry == first.originalGrantExpiry)
+    }
+}
+
+@MainActor private extension SurfaceReadProbe {
+    func shortTrack(expiry: Date, sequence: Int) throws {
+        let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        try frame { value in
+            value["delivery_sequence"] = sequence
+            value["now_playing"] = ["item_id":"fixture-track", "subject_uri":"spotify:track:AAAAAAAAAAAAAAAAAAAAAA", "track":"Fixture", "artist":"Artist", "album":"Album",
+                "source_url":"https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA", "attribution":["provider":"Spotify"], "usage_basis":"spotify_temporary_passive_metadata",
+                "observed_at":value["observed_at"]!, "expires_at":formatter.string(from: expiry)]
+            value["now_playing_status"] = ["state":"available", "reason":"qualified"]
+        }
+    }
+}
+@Test @MainActor func originalSurfaceReadShortenedExpiryUsesOriginalClockAnchor() async throws {
+    let p = try SurfaceReadProbe(), owner = try p.owner(), date = p.now
+    try p.shortTrack(expiry: date.addingTimeInterval(30), sequence: 10)
+    let first = try #require(await owner.bootstrap(services: p.services))
+    p.mono = p.mono.advanced(by: .seconds(10)); p.now = p.now.addingTimeInterval(-0.5)
+    try p.shortTrack(expiry: date.addingTimeInterval(20), sequence: 11)
+    let shorter = try #require(await owner.refresh(services: p.services))
+    #expect(shorter.monotonicDeadline == first.monotonicDeadline.advanced(by: .seconds(-10)))
+}
+@Test @MainActor func originalSurfaceReadExpiryHistoryDoesNotEvictToRestoreFreshnessBudget() async throws {
+    let p = try SurfaceReadProbe(), owner = try p.owner(), date = p.now
+    try p.shortTrack(expiry: date.addingTimeInterval(30), sequence: 10)
+    #expect(await owner.bootstrap(services: p.services) != nil)
+    // One outer pin plus 255 original field expiries fill the RAM bound.
+    for index in 1...254 {
+        try p.shortTrack(expiry: date.addingTimeInterval(30 + Double(index) / 100), sequence: 10 + index)
+        #expect(await owner.refresh(services: p.services) != nil)
+    }
+    try p.shortTrack(expiry: date.addingTimeInterval(40), sequence: 265)
+    #expect(await owner.refresh(services: p.services) == nil && owner.state == .withdrawn)
+    let calls = p.calls
+    #expect(await owner.refresh(services: p.services) == nil && p.calls == calls)
+}

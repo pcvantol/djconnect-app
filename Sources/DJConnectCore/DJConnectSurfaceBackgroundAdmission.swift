@@ -39,6 +39,13 @@ import Foundation
     private var credential: DJConnectSurfaceBackgroundRead?
     private var snapshot: Snapshot?
     private var digest: Data?
+    private struct FieldExpiry: Hashable {
+        let field: String
+        let expiry: Date
+    }
+    // Registration-local history, including fields temporarily absent from a
+    // later frame. Never evict an old expiry to restore a freshness budget.
+    private var fieldDeadlines: [FieldExpiry: ContinuousClock.Instant] = [:]
     private var epoch = UUID()
 
     /// Input must come from the original owner's admitted registration attempt,
@@ -57,7 +64,7 @@ import Foundation
     /// Withdrawal is terminal for this original registration. A late read cannot
     /// repopulate either its local projection or its scrubbed scoped credential.
     public func withdraw() {
-        epoch = UUID(); credential = nil; snapshot = nil; digest = nil; state = .withdrawn
+        epoch = UUID(); credential = nil; snapshot = nil; digest = nil; fieldDeadlines = [:]; state = .withdrawn
     }
 
     private var grantExpiry: Date { Date(timeIntervalSince1970: Double(original.originalExpiryMS) / 1000) }
@@ -139,25 +146,43 @@ import Foundation
                 }
             } else if !bootstrap { withdraw(); return nil }
             // Anchor at the original pre-await clocks, not as_of/response arrival.
-            let contentExpiries = [frame.contribution?.expires_at, frame.now_playing?.expires_at]
-                .compactMap { $0 }.compactMap(DJConnectHistoryEntry.date)
-            let effectiveExpiry = contentExpiries.reduce(expiry, min)
-            let remaining = max(0, min(120, expiry.timeIntervalSince(startedWall)))
-            let contentRemaining = max(0, min(120, effectiveExpiry.timeIntervalSince(startedWall)))
-            guard remaining.isFinite, contentRemaining.isFinite else { withdraw(); return nil }
-            var observationDeadline = min(original.originalMonotonicDeadline, startedMono.advanced(by: .seconds(remaining)))
+            var nextFieldDeadlines = fieldDeadlines
+            func originalDeadline(field: String, expiry: Date) -> ContinuousClock.Instant? {
+                let remaining = max(0, min(120, expiry.timeIntervalSince(startedWall)))
+                guard remaining.isFinite else { return nil }
+                var candidate = min(original.originalMonotonicDeadline, startedMono.advanced(by: .seconds(remaining)))
+                // The same or an earlier absolute expiry cannot be reanchored
+                // by a newer outer sequence, wall rollback, or field removal/ABA.
+                // A genuinely later supplied expiry may get its own bounded pin.
+                for (key, deadline) in nextFieldDeadlines where key.field == field && expiry <= key.expiry {
+                    candidate = min(candidate, deadline.advanced(by: .seconds(expiry.timeIntervalSince(key.expiry))))
+                }
+                let key = FieldExpiry(field: field, expiry: expiry)
+                guard nextFieldDeadlines[key] != nil || nextFieldDeadlines.count < 256 else { return nil }
+                nextFieldDeadlines[key] = candidate
+                return candidate
+            }
+            guard var observationDeadline = originalDeadline(field: "observation", expiry: expiry) else { withdraw(); return nil }
             if let previous,
                let previousExpiry = DJConnectHistoryEntry.date(previous.projection.fields.expires_at),
                expiry <= previousExpiry {
                 observationDeadline = min(observationDeadline, previous.observationDeadline)
             }
-            let deadline = min(observationDeadline, startedMono.advanced(by: .seconds(contentRemaining)))
+            var deadline = observationDeadline
+            for (field, raw) in [("contribution", frame.contribution?.expires_at), ("now_playing", frame.now_playing?.expires_at)] {
+                if let raw {
+                    guard let expiry = DJConnectHistoryEntry.date(raw),
+                          let fieldDeadline = originalDeadline(field: field, expiry: expiry) else { withdraw(); return nil }
+                    deadline = min(deadline, fieldDeadline)
+                }
+            }
             guard originalIsCurrent(services), (!bootstrap || services.monotonicNow() < deadline),
                   (!bootstrap || services.canBootstrap(original)), !Task.isCancelled,
                   epoch == attempt, state == .reading else { withdraw(); return nil }
             let accepted = Snapshot(projection: response.passive_session, registration: receipt.coordinate,
                                     originalGrantExpiry: grantExpiry, monotonicDeadline: deadline,
                                     observationDeadline: observationDeadline)
+            fieldDeadlines = nextFieldDeadlines
             snapshot = accepted; digest = nextDigest; state = .ready
             return current(services: services)
         } catch {
