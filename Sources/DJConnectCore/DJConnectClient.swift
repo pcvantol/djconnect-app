@@ -22,6 +22,7 @@ public final class DJConnectClient: Sendable {
     private let hybridTransport: DJConnectHybridTransport?
     private let settingsTransport: DJConnectProfileDJSettingsTransport
     private let speechTransport: DJConnectSpeechTransport
+    private let surfacePushTransport: DJConnectSurfacePushHTTP
     private let sessionArtworkTransport: DJConnectSessionArtworkTransport
     private let sessionProjectionSession: URLSession
     private let encoder: JSONEncoder
@@ -58,6 +59,7 @@ public final class DJConnectClient: Sendable {
         self.sessionProjectionSession = URLSession(configuration: projectionConfiguration, delegate: session.delegate, delegateQueue: session.delegateQueue)
         self.speechTransport = DJConnectSpeechTransport(configuration: session.configuration)
         self.settingsTransport = DJConnectProfileDJSettingsTransport(configuration: session.configuration)
+        self.surfacePushTransport = DJConnectSurfacePushHTTP(configuration: session.configuration)
         self.sessionArtworkTransport = DJConnectSessionArtworkTransport(configuration: session.configuration)
         self.encoder = JSONEncoder()
         self.decoder = JSONDecoder()
@@ -2228,4 +2230,94 @@ public struct DJConnectVisualInterpretResponse: Decodable, Sendable {
     public let base_scene_revision: UInt64
     public let expires_at: String
     public let directive: Directive
+}
+
+
+// Surface push uses one captured paired HA client. Never route an uncertain
+// register/revoke through the hybrid transport or a fresh-ID fallback.
+public extension DJConnectClient {
+    /// Core v2 original context continuity. Design is accepted; production
+    /// factory/custody remains gated on qualified Core delivery and real admission.
+    @MainActor func prepareSurfacePush(_ attempt: DJConnectSurfacePushContextAttempt,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSurfacePushContinuation {
+        guard attempt.original.deviceID == identity.deviceID,
+              attempt.original.clientType == identity.clientType.rawValue else { throw DJConnectError.invalidResponse }
+        let current: @MainActor @Sendable () -> Bool = {
+            isCurrent() && attempt.canRequest(nowMS: Int64(Date().timeIntervalSince1970 * 1000), monotonicNow: .now)
+        }
+        let data = try await surfacePushPOST("context", bytes: attempt.contextBytes, isCurrent: current)
+        guard current(), !Task.isCancelled else { throw CancellationError() }
+        return try attempt.admit(data, nowMS: Int64(Date().timeIntervalSince1970 * 1000), monotonicNow: .now)
+    }
+    @MainActor func registerSurfacePush(_ continuation: DJConnectSurfacePushContinuation,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSurfacePushResponse {
+        guard continuation.attempt.original.deviceID == identity.deviceID,
+              continuation.attempt.original.clientType == identity.clientType.rawValue else { throw DJConnectError.invalidResponse }
+        let current: @MainActor @Sendable () -> Bool = {
+            isCurrent() && continuation.canSubmit(nowMS: Int64(Date().timeIntervalSince1970 * 1000), monotonicNow: .now)
+        }
+        let data = try await surfacePushPOST("register", bytes: continuation.registerBytes, isCurrent: current)
+        guard current(), !Task.isCancelled else { throw CancellationError() }
+        return try continuation.admitRegistration(data)
+    }
+    @MainActor func surfacePushContext(sessionID: String,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSurfacePushContext {
+        let data = try await surfacePushPOST("context", body: surfacePushIdentity(sessionID), isCurrent: isCurrent)
+        guard let context = try? JSONDecoder().decode(DJConnectSurfacePushContext.self, from: data),
+              context.hasValidShape else { throw DJConnectError.invalidResponse }
+        return context // Metadata cannot construct the original purpose witness.
+    }
+    @MainActor func registerSurfacePush(_ original: DJConnectSurfacePushRequest,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSurfacePushResponse {
+        guard original.deviceID == identity.deviceID, original.clientType == identity.clientType.rawValue else { throw DJConnectError.invalidResponse }
+        return try surfacePushResult(await surfacePushPOST("register", bytes: original.bytes, isCurrent: isCurrent))
+    }
+    @MainActor func revokeSurfacePush(sessionID: String, operationID: String, expected: DJConnectSurfacePushCoordinate,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSurfacePushResponse {
+        guard expected.isValid,
+              operationID.range(of: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", options: .regularExpression) != nil else { throw DJConnectError.invalidResponse }
+        var body = try surfacePushIdentity(sessionID)
+        body["operation_id"] = operationID
+        body["expected_registration"] = ["registration_id":expected.registration_id,"generation":expected.generation,"revision":expected.revision]
+        return try surfacePushResult(await surfacePushPOST("revoke", body:body, isCurrent:isCurrent))
+    }
+    @MainActor func surfacePushStatus(sessionID: String, registrationID: String,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSurfacePushStatus {
+        guard DJConnectSurfacePushCoordinate.identifier(registrationID) else { throw DJConnectError.invalidResponse }
+        var body = try surfacePushIdentity(sessionID); body["registration_id"] = registrationID
+        let bytes = try await surfacePushPOST("status", body:body, isCurrent:isCurrent)
+        guard let value = try? JSONDecoder().decode(DJConnectSurfacePushStatus.self,from:bytes),
+              value.success, value.contract_version == 1,
+              value.registration.registration_id == registrationID, value.registration.coordinate.isValid,
+              value.registration.cache_policy == "private,no-store" else { throw DJConnectError.invalidResponse }
+        return value // No credential, readiness restoration or mutation replay.
+    }
+    private func surfacePushResult(_ bytes: Data) throws -> DJConnectSurfacePushResponse {
+        guard let response = try? JSONDecoder().decode(DJConnectSurfacePushResponse.self,from:bytes) else { throw DJConnectError.invalidResponse }
+        return response // Original lifecycle validates ACK/rotation/expiry before adoption.
+    }
+    private func surfacePushIdentity(_ sessionID: String) throws -> [String: Any] {
+        guard DJConnectSurfacePushCoordinate.identifier(sessionID), [.ios,.macos].contains(identity.clientType) else { throw DJConnectError.invalidResponse }
+        return ["contract_version":1,"device_id":identity.deviceID,"client_type":identity.clientType.rawValue,"session_id":sessionID]
+    }
+    @MainActor private func surfacePushPOST(_ path: String, body: [String: Any],
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> Data {
+        try await surfacePushPOST(path, bytes:JSONSerialization.data(withJSONObject:body), isCurrent:isCurrent)
+    }
+    @MainActor private func surfacePushPOST(_ path: String, bytes: Data,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> Data {
+        guard ["context","register","revoke","status"].contains(path), isCurrent(), !Task.isCancelled else { throw CancellationError() }
+        let originalToken = try loadedToken()
+        var request = try authenticatedRequest(path:"/api/djconnect/v1/push/surface/" + path)
+        request.httpMethod = "POST"; request.httpBody = bytes
+        request.setValue("application/json",forHTTPHeaderField:"Content-Type")
+        request.setValue("application/json",forHTTPHeaderField:"Accept")
+        request.setValue("identity",forHTTPHeaderField:"Accept-Encoding")
+        request.setValue("no-store",forHTTPHeaderField:"Cache-Control")
+        let data = try await surfacePushTransport.send(request,isCurrent:{
+            isCurrent() && (try? self.tokenStore.loadToken()) == originalToken
+        })
+        guard isCurrent(), (try? tokenStore.loadToken()) == originalToken, !Task.isCancelled else { throw CancellationError() }
+        return data
+    }
 }
