@@ -2236,6 +2236,30 @@ public struct DJConnectVisualInterpretResponse: Decodable, Sendable {
 // Surface push uses one captured paired HA client. Never route an uncertain
 // register/revoke through the hybrid transport or a fresh-ID fallback.
 public extension DJConnectClient {
+    /// Core v2 original context continuity. Design is accepted; production
+    /// factory/custody remains gated on qualified Core delivery and real admission.
+    @MainActor func prepareSurfacePush(_ attempt: DJConnectSurfacePushContextAttempt,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSurfacePushContinuation {
+        guard attempt.original.deviceID == identity.deviceID,
+              attempt.original.clientType == identity.clientType.rawValue else { throw DJConnectError.invalidResponse }
+        let current: @MainActor @Sendable () -> Bool = {
+            isCurrent() && attempt.canRequest(nowMS: Int64(Date().timeIntervalSince1970 * 1000), monotonicNow: .now)
+        }
+        let data = try await surfacePushPOST("context", bytes: attempt.contextBytes, isCurrent: current)
+        guard current(), !Task.isCancelled else { throw CancellationError() }
+        return try attempt.admit(data, nowMS: Int64(Date().timeIntervalSince1970 * 1000), monotonicNow: .now)
+    }
+    @MainActor func registerSurfacePush(_ continuation: DJConnectSurfacePushContinuation,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSurfacePushResponse {
+        guard continuation.attempt.original.deviceID == identity.deviceID,
+              continuation.attempt.original.clientType == identity.clientType.rawValue else { throw DJConnectError.invalidResponse }
+        let current: @MainActor @Sendable () -> Bool = {
+            isCurrent() && continuation.canSubmit(nowMS: Int64(Date().timeIntervalSince1970 * 1000), monotonicNow: .now)
+        }
+        let data = try await surfacePushPOST("register", bytes: continuation.registerBytes, isCurrent: current)
+        guard current(), !Task.isCancelled else { throw CancellationError() }
+        return try continuation.admitRegistration(data)
+    }
     @MainActor func surfacePushContext(sessionID: String,
         isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSurfacePushContext {
         let data = try await surfacePushPOST("context", body: surfacePushIdentity(sessionID), isCurrent: isCurrent)

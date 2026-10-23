@@ -181,4 +181,52 @@ extension SurfacePushHTTPTests {
             #expect(Int64(floor(snapshot.expiresAt.timeIntervalSince1970 * 1000)) == row["expires_at_ms"] as? Int64)
         }
     }
+    @Test func v2HTTPJoinsOriginalContextAndRegistrationWithoutLegacyFallback() async throws {
+        let fixture = try pushHTTPFixture("register")
+        let raw = try #require(fixture["request_json"] as? [String:Any])
+        let sessionID = try #require(raw["session_id"] as? String)
+        let operationID = try #require(raw["operation_id"] as? String)
+        let target = try #require(raw["target"] as? [String:String])
+        let consent = try #require(raw["consent"] as? [String:Bool])
+        let request = try #require(DJConnectSurfacePushRequest(
+            identity:.init(deviceID:"djconnect-ios-ABCDEF123456",deviceName:"Fixture",clientType:.ios,firmware:"4.0.0",platform:.ios),
+            sessionID:sessionID, operationID:operationID, platform:"ios",osVersion:"26.0",target:target,
+            token:Data(repeating:1,count:32),environment:"sandbox",consent:consent,expected:nil))
+        let attempt = try #require(DJConnectSurfacePushContextAttempt(original:request,installation:"http://127.0.0.1:18766",ownerEpoch:UUID()))
+        let expiry = Int64(Date().timeIntervalSince1970 * 1000) + 3_600_000
+        let handle = "djcctx_" + String(repeating:"A",count:43), purpose = "djcpref_" + String(repeating:"A",count:43)
+        let context: [String:Any] = ["success":true,"contract_version":2,"available":true,"context_handle":handle,
+            "operation_id":attempt.operationID,"purpose_ref":purpose,"expires_at_ms":expiry,
+            "context_expires_at_ms":attempt.startedMS+30_000,"cache_policy":"private,no-store"]
+        SurfacePushHTTPWire.setup(try JSONSerialization.data(withJSONObject:context))
+        let c = client(), continuation = try await c.prepareSurfacePush(attempt,isCurrent:{true})
+        let originalContextRequest = try #require(SurfacePushHTTPWire.captured.first)
+        #expect(originalContextRequest.url?.path == "/api/djconnect/v1/push/surface/context")
+        #expect(originalContextRequest.httpBody == attempt.contextBytes)
+        var response = try #require(fixture["response_body"] as? [String:Any])
+        response["contract_version"] = 2; response["context_handle"] = handle
+        response["operation_id"] = attempt.operationID; response["purpose_ref"] = purpose
+        var registration = try #require(response["registration"] as? [String:Any])
+        registration["expires_at_ms"] = expiry; response["registration"] = registration
+        var read = try #require(response["background_read"] as? [String:Any])
+        read["expires_at_ms"] = expiry; response["background_read"] = read
+        SurfacePushHTTPWire.setup(try JSONSerialization.data(withJSONObject:response))
+        let ack = try await c.registerSurfacePush(continuation,isCurrent:{true})
+        #expect(ack.success && ack.background_read?.expires_at_ms == expiry)
+        #expect(SurfacePushHTTPWire.captured.count == 1)
+        let registerRequest = try #require(SurfacePushHTTPWire.captured.first)
+        #expect(registerRequest.url?.path == "/api/djconnect/v1/push/surface/register")
+        #expect(registerRequest.httpBody == continuation.registerBytes)
+        do { _ = try await c.registerSurfacePush(continuation,isCurrent:{false}); Issue.record("Withdrawn continuation dispatched") }
+        catch {}
+        #expect(SurfacePushHTTPWire.captured.count == 1)
+        let expiredAttempt = try #require(DJConnectSurfacePushContextAttempt(original:request,
+            installation:"http://127.0.0.1:18766",ownerEpoch:UUID(),previousPurpose:nil,
+            nowMS:Int64(Date().timeIntervalSince1970 * 1000)-31_000,
+            monotonicNow:ContinuousClock.now.advanced(by:.seconds(-31))))
+        do { _ = try await c.prepareSurfacePush(expiredAttempt,isCurrent:{true}); Issue.record("Expired original context attempt dispatched") }
+        catch {}
+        #expect(SurfacePushHTTPWire.captured.count == 1)
+    }
+
 }
