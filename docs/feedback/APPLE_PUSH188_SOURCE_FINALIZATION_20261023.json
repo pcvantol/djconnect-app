@@ -269,5 +269,30 @@
   "no_new_ordinary_build_or_install": true,
   "no_keys_operator_provider_or_production_activation": true,
   "installed_build_reference": "40450 from separate earlier installation; this source is not installed",
-  "separate_finalization": "THIS_TWO_DOCUMENT_CANDIDATE_REQUIRES_FRESH_EXACT_REVIEWS_NORMAL_PROTECTED_MERGE_AND_OWN_MAIN_EVIDENCE"
+  "separate_finalization": "THIS_TWO_DOCUMENT_CANDIDATE_REQUIRES_FRESH_EXACT_REVIEWS_NORMAL_PROTECTED_MERGE_AND_OWN_MAIN_EVIDENCE",
+  "current_operational_findings": [
+    {
+      "priority": "P2",
+      "status": "OPEN_SOURCE_DEFECT_NONOPERATIVE",
+      "kind": "initial_client_server_UTC_offset_extends_first_purpose_pin",
+      "same_clock_control_seconds": 28800,
+      "client_behind_server_ms": 240000,
+      "actual_client_first_pin_seconds": 29040,
+      "original_server_purpose_seconds": 28800,
+      "same_original_operation_within_server_five_minute_window": true,
+      "context_submit_still_capped_30s": true,
+      "probe_receipt_sha256": "144b281b785e98a4205df7ba0217d6218cd94caa63143905054e7ecfda25a6e5",
+      "actual_native_framework_sha256": "b69813b24a392e39ba646494ece24254e6c37ad26a042679a80fe6400a8cf653",
+      "probe_files": {
+        "Probe.swift": "3b2fb406fc340b6d7d730b83a82c7c36ac4694c67e112474ac39bb156113e8ba",
+        "compile-r2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "result-r2.json": "0b865a1a4c4bcb7cd9584b78fbdbace20385cbe71bc2f33ae57f791988638199",
+        "probe": "1af29d9446a415b20478e714f47124cf1ab24e667d3de7f12799f6ada2096781"
+      },
+      "native_scope": "actual compiled source; synthetic clocks; no HTTP/SDK/token/real purpose/provider effect",
+      "not_fixed_by_documentation": true,
+      "required_before_operative_adoption": "canonical reviewed versioned original-server clock-bound contract, causal producer/client fixtures and actual source correction; original restart and field-history gates separate"
+    }
+  ],
+  "current_review_status": "DOCUMENTARY_CURRENTNESS_REVISED_FRESH_EXACT_REVIEWS_REQUIRED; NO_FIRST_PIN_LIFETIME_OR_RUNTIME_GO"
 }

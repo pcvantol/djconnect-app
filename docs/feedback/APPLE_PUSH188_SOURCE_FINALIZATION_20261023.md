@@ -10,6 +10,16 @@ The immutable foreground context attempt captures the original UUID, native toke
 
 Independent Core/API source and subsequent three-file fixture/test reviews found no blockers within these scopes. The actual native Mac Xcode runner executed1,245 Swift Testing cases across26suites in119.531seconds, plus86 XCTest cases withfive explicit skips andzero failures, against exact1912. The original failed runner bootstrap and failed PR TDE attempt remain preserved; only the later run after explicit XCTest permission succeeded. Earlier causal RED, compile/tool-engine and implicit-parallel failures retain their own results. The TDE workflow result is not a claim of an independent product acceptance assessment.
 
+## Newly demonstrated initial clock-offset blocker
+
+After the original source qualification and first Finalization review, an actual compiled-native-Core causal probe demonstrated a new P2. The first context purpose pin subtracts client UTC from the server's absolute grant expiry. A same-clock control produces28,800seconds. With the client initially240,000milliseconds behind, while the original UUID remains inside Core's five-minute acceptance window, it produces29,040seconds for the server's original eight-hour purpose. The separate context-submit budget still caps atthirtyseconds. Later rollback/rotation protection does not establish initial client/server clock agreement.
+
+Original native probe receipt SHA256 is `144b281b785e98a4205df7ba0217d6218cd94caa63143905054e7ecfda25a6e5`; the actual native framework and probe/result hashes are retained there. This is a causal RED against the actual source, with synthetic clocks and no HTTP, token, SDK, real purpose or provider effect. The first compile attempt lacked a dependency module and remains a separate compile failure; the actual successful compile and failing invariant are independently retained.
+
+The source defect is OPEN. This documentary revision corrects the current status only; it does not fix or qualify the original pin. No safe first-pin lifetime, shipping factory, custody, runtime activation or integrated push GO is granted. Core must publish a separately reviewed versioned original-server-clock-bound contract and canonical design before consumer implementation; do not silently add fields to closedv2, calibrate UTC with a guessed margin, borrow a later response anchor or treat the private design proposal as delivered wire. Extension-restart/boot and original per-field history remain separately unresolved.
+
+The original exact-source CI/native/formal records below preserve their historical scope and are not relabeled. Finalization may reconcile only closed preparatory source while this concrete blocker remains explicit.
+
 ## Remaining operational work
 
 This source is preparation, not integrated push delivery. There is no shipping AppModel registration factory, original scoped credential/first-read escrow, restart-safe surviving original monotonic anchor, or background v2 WidgetKit provider/renderer yet. A missing original process/boot anchor must remain closed; UTC timestamps, a fresh response, status metadata or an unproven boot timestamp cannot renew an old purpose. Foreground schema1 grants/artwork cannot be borrowed for schema2 background rendering.
