@@ -68,4 +68,40 @@ import XCTest
             shipping.terminate()
         }
     }
+    func testThreeSuggestionsAndNativeHelpPopoverOnBothSurfaces() {
+        for surface in ["ask_dj", "active_session"] {
+            let app = XCUIApplication()
+            app.launchEnvironment = ["HELP_LANGUAGE": "nl", "HELP_SURFACE": surface,
+                                     "HELP_SYNTHETIC": "1", "HELP_INTERACTION": "1"]
+            app.launch()
+            let entry = app.buttons["ask-dj-help-" + surface]
+            XCTAssertTrue(entry.waitForExistence(timeout: 10))
+            let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ask-dj-suggestion-" + surface + "-"))
+            XCTAssertEqual(rows.count, 3)
+            let first = rows.element(boundBy: 0)
+            let prompt = first.label
+            activate(first)
+            XCTAssertEqual(app.staticTexts["help-selected-prompt"].label, prompt)
+            activate(entry)
+            XCTAssertTrue(app.staticTexts["ask-dj-help-title"].waitForExistence(timeout: 5))
+            XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ask-dj-help-example-")).count, 6)
+            #if os(macOS)
+            let screenshot = app.windows.firstMatch.screenshot()
+            #else
+            let screenshot = app.screenshot()
+            #endif
+            let attachment = XCTAttachment(screenshot: screenshot)
+            attachment.name = "help-native-popover-three-suggestions-" + surface
+            attachment.lifetime = .keepAlways
+            add(attachment)
+            activate(app.buttons["ask-dj-help-close"])
+            let closed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                !app.staticTexts["ask-dj-help-title"].exists
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 5), .completed)
+            XCTAssertEqual(rows.count, 3)
+            XCTAssertEqual(rows.element(boundBy: 0).label, prompt)
+            app.terminate()
+        }
+    }
 }

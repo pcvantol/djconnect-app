@@ -6,17 +6,37 @@ struct AskDJHelpButton: View {
     @ObservedObject var model: DJConnectAppModel
     let surface: DJConnectAskDJCatalogue.Surface
     @State private var presented = false
+    var body: some View {
+        AskDJHelpEntry(surface: surface, language: model.language, presented: $presented) {
+            AskDJHelpContent(model: model, surface: surface)
+        }
+        .onChange(of: presented) { _, value in model.askDJHelpIsPresented = value }
+        .onDisappear { if presented { model.askDJHelpIsPresented = false } }
+    }
+}
+
+/// Native entry and popover shared by both existing conversation surfaces.
+struct AskDJHelpEntry<Content: View>: View {
+    let surface: DJConnectAskDJCatalogue.Surface
+    let language: String
+    @Binding var presented: Bool
+    @ViewBuilder let content: () -> Content
     private var key: String { surface == .session ? "ui.askdj.help.session.entry" : "ui.askdj.help.global.entry" }
     var body: some View {
         Button { presented = true } label: { Image(systemName: "questionmark.circle") }
-            .accessibilityLabel(DJConnectLocalization.localized(key: key, language: model.language))
-            .help(DJConnectLocalization.localized(key: key, language: model.language))
+            .accessibilityLabel(DJConnectLocalization.localized(key: key, language: language))
+            .help(DJConnectLocalization.localized(key: key, language: language))
             .accessibilityIdentifier("ask-dj-help-" + surface.rawValue)
-            .onChange(of: presented) { _, value in model.askDJHelpIsPresented = value }
-            .onDisappear { if presented { model.askDJHelpIsPresented = false } }
             .popover(isPresented: $presented) {
-                AskDJHelpContent(model: model, surface: surface)
-                    .presentationCompactAdaptation(.popover)
+                VStack(alignment: .trailing, spacing: 0) {
+                    Button { presented = false } label: { Image(systemName: "xmark") }
+                        .buttonStyle(.plain)
+                        .padding(12)
+                        .accessibilityLabel(DJConnectLocalization.localized(key: "ui.close", language: language))
+                        .accessibilityIdentifier("ask-dj-help-close")
+                    content()
+                }
+                .presentationCompactAdaptation(.popover)
             }
     }
 }
@@ -97,17 +117,40 @@ struct AskDJSuggestionStrip: View {
         suggestions = model.updateAskDJSuggestions(surface: surface, frozen: frozen || revokeOnly, visit: visit, refresh: refresh)
     }
     var body: some View {
+        AskDJSuggestionRows(suggestions: suggestions, surface: surface, disabled: frozen || !model.canUseAskDJFeatures) { suggestion in
+            guard model.askDJDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  !model.isSendingAskDJText, !model.isRecordingVoice,
+                  model.canUseAskDJFeatures,
+                  DJConnectAskDJCatalogue.bundled?.retains(suggestion, context: context, surface: surface, language: model.language) == true else {
+                update(revokeOnly: true); return
+            }
+            select(suggestion.prompt)
+        }
+        .onAppear { update(visit: true) }
+        .onChange(of: context) { update() }
+        .onChange(of: model.askDJExampleRefreshEpoch) { update(refresh: true) }
+        .onChange(of: model.language) { update() }
+        .onChange(of: frozen) { update() }
+        // Expiry can only revoke. It never shuffles, refills or makes a request.
+        .task(id: model.activeDJSession?.broadcast.playback?.updatedAt) {
+            guard let date = DJConnectSessionForecast.timestamp(model.activeDJSession?.broadcast.playback?.updatedAt) else { return }
+            let remaining = date.addingTimeInterval(30).timeIntervalSinceNow
+            if remaining > 0 { try? await Task.sleep(for: .seconds(remaining)) }
+            guard !Task.isCancelled else { return }; update(revokeOnly: true)
+        }
+    }
+}
+
+/// Presentation only. Eligibility and tap-time validation remain in the owner.
+struct AskDJSuggestionRows: View {
+    let suggestions: [DJConnectAskDJCatalogue.Suggestion]
+    let surface: DJConnectAskDJCatalogue.Surface
+    var disabled = false
+    let select: (DJConnectAskDJCatalogue.Suggestion) -> Void
+    var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(suggestions) { suggestion in
-                Button {
-                    guard model.askDJDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                          !model.isSendingAskDJText, !model.isRecordingVoice,
-                          model.canUseAskDJFeatures,
-                          DJConnectAskDJCatalogue.bundled?.retains(suggestion, context: context, surface: surface, language: model.language) == true else {
-                        update(revokeOnly: true); return
-                    }
-                    select(suggestion.prompt)
-                } label: {
+                Button { select(suggestion) } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "quote.opening").font(.caption.weight(.bold))
                             .foregroundStyle(.white.opacity(0.54)).frame(width: 18).accessibilityHidden(true)
@@ -121,21 +164,9 @@ struct AskDJSuggestionStrip: View {
                     .overlay(DJConnectCardAppearance.shape.stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth))
                 }
                 .djConnectPlainButtonStyle()
-                .disabled(frozen || !model.canUseAskDJFeatures)
+                .disabled(disabled)
                 .accessibilityIdentifier("ask-dj-suggestion-" + surface.rawValue + "-" + suggestion.id)
             }
-        }
-        .onAppear { update(visit: true) }
-        .onChange(of: context) { update() }
-        .onChange(of: model.askDJExampleRefreshEpoch) { update(refresh: true) }
-        .onChange(of: model.language) { update() }
-        .onChange(of: frozen) { update() }
-        // Expiry can only revoke. It never shuffles, refills or makes a request.
-        .task(id: model.activeDJSession?.broadcast.playback?.updatedAt) {
-            guard let date = DJConnectSessionForecast.timestamp(model.activeDJSession?.broadcast.playback?.updatedAt) else { return }
-            let remaining = date.addingTimeInterval(30).timeIntervalSinceNow
-            if remaining > 0 { try? await Task.sleep(for: .seconds(remaining)) }
-            guard !Task.isCancelled else { return }; update(revokeOnly: true)
         }
     }
 }

@@ -26,6 +26,9 @@ import DJConnectCore
     @State private var expiry: Date?
     @State private var available = true
     @State private var session = true
+    @State private var presented = false
+    @State private var selected = ""
+    private let interaction = ProcessInfo.processInfo.environment["HELP_INTERACTION"] == "1"
     init() {
         let url = Bundle.main.url(forResource: "askdj-catalogue-selector-golden-v1", withExtension: "json")!
         let root = try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
@@ -55,17 +58,28 @@ import DJConnectCore
     var body: some View {
         VStack(spacing: 12) {
             Text("Synthetic reference qualification — no commands or HTTP").font(.caption)
+            if interaction {
+                AskDJHelpEntry(surface: surface, language: language, presented: $presented) { reference }
+                AskDJSuggestionRows(suggestions: catalogue?.select(context(at: Date()), surface: surface,
+                    language: language, epoch: "fixed-native-visit") ?? [], surface: surface, disabled: presented) {
+                    selected = $0.prompt
+                }
+                Text(selected).accessibilityIdentifier("help-selected-prompt")
+            }
             HStack {
                 Button("Expire track") { expiry = Date().addingTimeInterval(2) }.accessibilityIdentifier("help-expire-track")
                 Button("Withdraw owner") { available = false }.accessibilityIdentifier("help-withdraw-owner")
                 Button("End session") { session = false }.accessibilityIdentifier("help-end-session")
             }
-            AskDJHelpReference(catalogue: catalogue, surface: surface, language: language,
-                               trackExpiresAt: expiry, context: { context(at: $0) })
+            if !interaction { reference }
         }
         .padding(16)
         .environment(\.colorScheme, large ? .light : .dark)
         .preferredColorScheme(large ? .light : .dark)
         .dynamicTypeSize(large ? .accessibility3 : .large)
+    }
+    private var reference: some View {
+        AskDJHelpReference(catalogue: catalogue, surface: surface, language: language,
+                           trackExpiresAt: expiry, context: { context(at: $0) })
     }
 }
