@@ -15806,7 +15806,7 @@ public final class DJConnectAppModel: ObservableObject {
 
         log(.debug, "Requesting speech recognition permission; current_status=\(status.rawValue)")
         let authorizationStatus = await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { authorizationStatus in
+            SFSpeechRecognizer.requestAuthorization { @Sendable authorizationStatus in
                 Task { @MainActor in
                     continuation.resume(returning: authorizationStatus)
                 }
