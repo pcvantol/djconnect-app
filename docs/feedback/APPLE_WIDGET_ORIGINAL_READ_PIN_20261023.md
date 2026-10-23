@@ -61,7 +61,7 @@ late owner/foreground/cancellation/withdrawal, strict wall/monotonic equality,
 original individual content expiry with lagging wall clock, duplicate semantics,
 rebinding, regression, clock rollback, stale-to-fresh update under the same grant,
 reentrant authority callbacks, concurrent reads and connection loss versus denial.
-Original target output: `/private/tmp/apple-widget-read-pin-tests-final-20261023.log`.
+Original target output: `/private/tmp/apple-widget-read-pin-clock-pair-green-20261023.log`.
 No HTTP, APNs, new ordinary app build, installation or physical rendering occurs.
 The first full frozen source9ec suite passed1,224 tests /24 suites130.245s,
 plus86 XCTest tests with five existing skips and zero failures. A later causal
@@ -69,4 +69,7 @@ clock-pair regression then found that wall-first clock sampling could extend
 remaining time after scheduling between the samples. That original source fails
 the new test with two issues. Monotonic-first capture passes the same test;
 source9ec is superseded and its review approval must not be transplanted.
-Updated full tests and exact independent source review remain subsequent gates.
+The corrected frozen7cadeb suite passed1,225 tests /24 suites130.933s,
+plus86 XCTest tests with five existing skips and zero failures. Its original log
+is `/private/tmp/apple-widget-read-pin-full-v2-tests-20261023.log`.
+Exact independent source review and protected CI/delivery remain subsequent gates.
