@@ -7,20 +7,25 @@ import DJConnectCore
 /// audio preparation/output, publication or persisted private state is created.
 @main struct NativeBulletinUIHost: App {
     private let moment: DJConnectMoment
+    private let broadcast: DJConnectBroadcastState
     private let language = ProcessInfo.processInfo.environment["BULLETIN_LANGUAGE"] ?? "nl"
     private let largeText = ProcessInfo.processInfo.environment["BULLETIN_LARGE_TEXT"] == "1"
     private let light = ProcessInfo.processInfo.environment["BULLETIN_LIGHT"] == "1"
     init() {
-        let url = Bundle.main.url(forResource: "dj-bulletin-v1-core-preparatory-wire", withExtension: "json")!
+        let url = Bundle.main.url(forResource: "dj-bulletin-v1-core-12675bc-wire", withExtension: "json")!
         let root = try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
         let sample = root["sample"] as! [String: Any]
         moment = try! JSONDecoder().decode(DJConnectMoment.self,
             from: JSONSerialization.data(withJSONObject: sample["moment"]!))
+        broadcast = try! JSONDecoder().decode(DJConnectBroadcastState.self,
+            from: JSONSerialization.data(withJSONObject: sample["owner_snapshot"]!))
     }
     private var content: some View {
         Group {
             if ProcessInfo.processInfo.environment["DELETION_MENU_PROBE"] == "1" { DeletionMenuProbe() }
-            else { bulletinContent }
+            else if ProcessInfo.processInfo.environment["BULLETIN_LIFECYCLE_PROBE"] == "1" {
+                BulletinLifecycleProbe(original: broadcast, language: language)
+            } else { bulletinContent }
         }
     }
     private var bulletinContent: some View {
@@ -85,6 +90,56 @@ import DJConnectCore
                 do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
                 revision = index
             }
+        }
+    }
+}
+
+/// Controlled fixture clock in a disposable host only. Uses the production
+/// admission, chronological merge and MomentCard; no app/audio/HTTP side effects.
+@MainActor private struct BulletinLifecycleProbe: View {
+    let original: DJConnectBroadcastState
+    let language: String
+    @State private var stage = "current"
+    private var broadcast: DJConnectBroadcastState {
+        var value = original
+        if stage == "withdrawn" { value.clearNativeAuthority() }
+        return value
+    }
+    private var now: Date {
+        let source = original.djMoments[0]
+        let admission = original.nativeDelivery!.admissions.first { $0.momentID == source.id }!
+        switch stage {
+        case "flow": return DJConnectHistoryEntry.date(admission.displayExpiresAt!)!
+        case "expired": return DJConnectHistoryEntry.date(admission.sourceExpiresAt!)!
+        default: return DJConnectHistoryEntry.date(source.createdAt)!.addingTimeInterval(1)
+        }
+    }
+    private func card(_ moment: DJConnectMoment) -> some View {
+        MomentCard(moment: moment, kind: DJConnectLocalization.localized(key: "ui.session.moment.dj_bulletin", language: language),
+                   presentation: nil, language: language)
+            .padding(24).djSessionFrostedSurface(mood: moment.presentationIntent.sourceSessionMood)
+            .accessibilityIdentifier("bulletin-lifecycle-moment")
+    }
+    var body: some View {
+        let value = broadcast
+        let current = value.nativeCurrentMoment(at: now)
+        let rows = SessionTimelineLiveRow.merge(retained: [], bulletins: value.nativeFlowMoments(at: now), at: now,
+                                              omittingMomentIDs: Set([current?.id].compactMap { $0 }))
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Synthetic Core publication and clock — no audio or HTTP").font(.caption)
+                HStack {
+                    ForEach(["current", "flow", "expired", "withdrawn"], id: \.self) { phase in
+                        Button(phase) { stage = phase }.accessibilityIdentifier("bulletin-phase-" + phase)
+                    }
+                }
+                Text(stage + " · cards " + String((current == nil ? 0 : 1) + rows.count))
+                    .accessibilityIdentifier("bulletin-lifecycle-status")
+                if let current { card(current) }
+                ForEach(rows) { row in
+                    if case .bulletin(let moment) = row { card(moment) }
+                }
+            }.padding(20)
         }
     }
 }

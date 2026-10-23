@@ -620,8 +620,12 @@ in [the consumer evidence](feedback/APPLE_CURRENT_INSIGHT_REPLY_ARTWORK_20261022
 
 DJ Bulletin renders an admitted owner Flow Moment in the existing card and
 speech pipeline. RSS selection, durable intelligence and publication remain
-Core-owned. The preparatory producer fixture and component UI qualification do
-not establish operative publication or audible acceptance. Contextual Ask DJ
+Core-owned. Consumer regressions and the disposable native renderer host use the
+exact fixture from protected Core `736378991f6ce54b9565f11314acf5863d3eb58b`
+(SHA256 `1f6ae4e9ec314a2dc60ffcdf7d66497795baf840952b5897c09cfeb98d27eeee`).
+Source links retain the supplied provider/license visually; VoiceOver also names
+the original story headline. Component UI qualification does not establish
+operative Planner publication or audible acceptance. Contextual Ask DJ
 suggestions and Help use the pinned Core catalogue; unqualified entries do not
 become executable client recommendations.
 
