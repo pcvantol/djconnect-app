@@ -1215,7 +1215,11 @@ struct SessionTimelineScreen: View {
                 if let question = model.askDJMessages.last(where: { $0.role == .user }) {
                     submittedQuestion = SessionSubmittedQuestion(sessionID: sessionID, localID: question.id, clientID: question.clientMessageID)
                 }
-            })
+            }, onContributionQuestion: {
+                if let question = model.askDJMessages.last(where: { $0.role == .user }) {
+                    submittedQuestion = SessionSubmittedQuestion(sessionID: sessionID, localID: question.id, clientID: question.clientMessageID)
+                }
+            }, contributionQuestion: history.contributionQuestion)
             HStack {
                 Spacer()
                 AskDJHelpButton(model: model, surface: .session)
@@ -1283,7 +1287,18 @@ struct SessionTimelineScreen: View {
                 playAction: { action in history.playLiveAction(action, for: entry, expectedEpoch: actionEpoch) },
                 highlights: [],
                 isSelectedMatch: selectedMatchID == entry.id || initialAnchor == entry.id,
-                selected: history.selectedEntry == entry.reference) {
+                selected: history.selectedEntry == entry.reference,
+                contributionQuestion: [.djMoment, .playbackObserved, .conversationDJ].contains(entry.kind) ? history.contributionQuestion : nil,
+                contributionAction: {
+                    guard history.exploreContribution(entry, expectedEpoch: actionEpoch) else { return }
+                    DJConnectHaptics.selection()
+                    if activeSession == nil {
+                        history.openTarget = nil
+                        model.performHomeScreenAction(.askDJ)
+                    } else if let question = model.askDJMessages.last(where: { $0.role == .user }) {
+                        submittedQuestion = SessionSubmittedQuestion(sessionID: sessionID, localID: question.id, clientID: question.clientMessageID)
+                    }
+                }) {
                     history.selectedEntry = entry.reference
                     if activeSession == nil {
                         history.openTarget = nil
@@ -1300,12 +1315,20 @@ struct SessionTimelineScreen: View {
                     }
                 }
         case .bulletin(let moment):
+            let actionEpoch = history.responseEpoch
             let presentation = activeSession?.broadcast.presentations.last { $0.momentID == moment.id }
             let speech = activeSession?.broadcast.sessionSpeech.first {
                 $0.reference == .moment(sessionID: sessionID, momentID: moment.id)
             }
             MomentCard(moment: moment, kind: text("ui.session.moment.dj_bulletin"),
-                presentation: presentation, language: model.language, artworkModel: model, speech: speech)
+                presentation: presentation, language: model.language, artworkModel: model, speech: speech,
+                contributionQuestion: history.contributionQuestion, contributionAction: {
+                    guard history.exploreContribution(moment, expectedEpoch: actionEpoch) else { return }
+                    DJConnectHaptics.selection()
+                    if let question = model.askDJMessages.last(where: { $0.role == .user }) {
+                        submittedQuestion = SessionSubmittedQuestion(sessionID: sessionID, localID: question.id, clientID: question.clientMessageID)
+                    }
+                })
                 .padding(24)
                 .djSessionFrostedSurface(mood: activeSession?.selectedMood)
                 .padding(.horizontal, 20)
@@ -1551,6 +1574,22 @@ struct SessionHighlightedText: View {
     var body: some View { Text(attributed).fixedSize(horizontal: false, vertical: true).textSelection(.enabled) }
 }
 
+/// Attach only to contribution text, never the surrounding card or its nested
+/// controls. Native text selection owns multi-taps/long presses; ScrollView owns
+/// drags. There is no timer, delayed send or tap recognizer over the whole card.
+struct ContributionContentAction: ViewModifier {
+    let question: String?
+    let action: (() -> Void)?
+    @ViewBuilder func body(content: Content) -> some View {
+        if let question, let action {
+            content.textSelection(.enabled)
+                .onTapGesture(perform: action)
+                .accessibilityAction(named: question, action)
+                .help(question)
+        } else { content }
+    }
+}
+
 struct SessionTimestampText: View {
     let value: String
     let language: String
@@ -1580,13 +1619,16 @@ struct SessionEntryView: View, Equatable {
     var highlights: [DJConnectHistoryHighlight] = []
     var isSelectedMatch = false
     var selected = false
+    var contributionQuestion: String? = nil
+    var contributionAction: (() -> Void)? = nil
     var askAction: () -> Void = {}
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.entry == rhs.entry && lhs.language == rhs.language && lhs.messageAdapter == rhs.messageAdapter &&
         lhs.contextEpoch == rhs.contextEpoch && lhs.opensActiveComposer == rhs.opensActiveComposer &&
         lhs.allowsPlaybackActions == rhs.allowsPlaybackActions && lhs.playingActionID == rhs.playingActionID &&
         (lhs.replayAction != nil) == (rhs.replayAction != nil) && lhs.isReplayBusy == rhs.isReplayBusy &&
-        lhs.artworkModel === rhs.artworkModel && lhs.highlights == rhs.highlights && lhs.isSelectedMatch == rhs.isSelectedMatch && lhs.selected == rhs.selected
+        lhs.artworkModel === rhs.artworkModel && lhs.highlights == rhs.highlights && lhs.isSelectedMatch == rhs.isSelectedMatch && lhs.selected == rhs.selected &&
+        lhs.contributionQuestion == rhs.contributionQuestion && (lhs.contributionAction != nil) == (rhs.contributionAction != nil)
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
     var body: some View {
@@ -1624,6 +1666,7 @@ struct SessionEntryView: View, Equatable {
                         allowsConversationMenu: opensActiveComposer, allowsSessionPlaybackActions: allowsPlaybackActions,
                         serverHighlights: highlights, contextQuestionAction: askAction,
                         contextQuestionSelected: selected, contextQuestionID: "ask-entry-" + entry.id,
+                        contributionQuestion: contributionQuestion, contributionAction: contributionAction,
                         sharedSpeechActions: artworkModel.map { model in
                             { AnyView(SharedDJSpeechActions(model: model, speech: entry.sessionSpeech, acceptedText: entry.text ?? "", retainedEntry: entry)) }
                         })
@@ -1641,6 +1684,7 @@ struct SessionEntryView: View, Equatable {
                             entryArtwork
                             entryHeading
                             SessionHighlightedText(text: entry.text ?? "", highlights: highlights).font(.title3)
+                                .modifier(ContributionContentAction(question: contributionQuestion, action: contributionAction))
                         }
                         SessionTimestampText(value: entry.occurredAt, language: language).font(.caption).foregroundStyle(.secondary)
                         ForEach(sourceURLs, id: \.absoluteString) { url in
@@ -1739,6 +1783,7 @@ struct SessionEntryView: View, Equatable {
     }
     private func playbackField(_ value: String) -> some View {
         SessionHighlightedText(text: value, highlights: SessionPlaybackHighlights.project(highlights, source: entry.text ?? "", field: value))
+            .modifier(ContributionContentAction(question: contributionQuestion, action: contributionAction))
     }
     private var spotifyFooterURL: URL? {
         guard entry.requiresSpotifyAttribution == true else { return nil }
@@ -2816,13 +2861,17 @@ private struct SessionPendingConversationBubble: View {
                         if turn.failed {
                             Text(text(turn.failureKey ?? "ui.ask_dj.answer.unavailable"))
                                 .fixedSize(horizontal: false, vertical: true)
-                            Button(text(turn.deliveryUncertain ? "ui.ask_dj.answer.review_question" :
+                            if turn.preservesOriginalSelection && (turn.contextChanged || turn.deliveryUncertain) {
+                                Button(text("ui.refresh")) { Task { await history.refreshConversation() } }
+                                    .disabled(model.isSendingAskDJText)
+                            } else { Button(text(turn.deliveryUncertain ? "ui.ask_dj.answer.review_question" :
                                         turn.contextChanged ? "ui.session.history.current_context" : "ui.retry")) {
                                 DJConnectHaptics.impact()
                                 if turn.contextChanged || turn.deliveryUncertain { history.useCurrentContext(turn) }
                                 else { history.retry(turn) }
                             }
                             .disabled(model.isSendingAskDJText)
+                            }
                         } else {
                             Label(text("ui.session.history.awaiting"), systemImage: "ellipsis.bubble")
                         }
