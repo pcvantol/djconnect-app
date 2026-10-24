@@ -1,5 +1,34 @@
 # DJConnect Repository Status
 
+## 2026-10-24 — VibeCast metadata native qualification / PR197
+
+[PR197](https://github.com/pcvantol/djconnect-app/pull/197) merged independently
+reviewed `461ae69545bfbfe052fb34f128d4e451d8bff121` as
+`41ee2669f52ffaac1e9920ea5add2ac16c4063b1`; both trees are
+`0843d8a0696d457896f63345806a9a814c56ac08`.
+Source196 adds only a closed immutable metadata decoder and synthetic fixtures.
+Necessary successor197 adds twelve canonical native project references. The
+original196 native run excluded the new suite (1,249 functions / 26 suites);
+that limitation is preserved. No store, bootstrap, migration, SDK, admission or
+product route is added. Existing lifecycle and key paths are unchanged.
+
+Local targeted validation passed seven functions including 65 rejection cases.
+Full SPM validation passed 1,256 functions / 27 suites plus 86 XCTest cases,
+five XCTest skips and zero failures, parent exit 0. The repaired native run
+passed 1,342 tests: 1,323 passed, 19 skipped, zero failures, parent exit 0.
+Candidate CI40090218204, own-main CI40090952881 and formal40091745401 succeeded.
+The original main native log confirms the metadata suite and 1,256 functions
+in 27 suites, parent success. Downloaded build/runner/coverage/formal ZIPs and
+durable evidence have verified hashes, main binding, canonical integrity and
+12/12 required checks. See the [portable source receipt](docs/feedback/APPLE_COMPOSITION_PARSER_197_SOURCE_RECEIPT_20261024.json).
+
+Source194 and separate Final195 remain qualified; original193 coverage FAILED
+is preserved. This documentary Finalization changes no compiled input and
+requires its own protected delivery. Retained bootstrap/migration/factory,
+original-clock runtime repair, qualified Help catalogue, actual push delivery
+and physical iPhone/HA/receiver acceptance remain open. The phone is owner-deferred.
+No ordinary version bump, device installation or new paid call occurred.
+
 ## 2026-10-24 — Necessary qualification repair / PR194
 
 [PR194](https://github.com/pcvantol/djconnect-app/pull/194) merged independently
