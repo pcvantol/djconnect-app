@@ -63,6 +63,7 @@ struct VibeScapeScreen: View {
     @State private var helpFailed = false
     @State private var helpGeneration = UUID()
     @State private var showsHelp = false
+    @State private var screenIsActive = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
@@ -81,7 +82,8 @@ struct VibeScapeScreen: View {
         ZStack {
             Color.black.ignoresSafeArea()
             if !unavailable {
-                VibeScapeMetalView(visit: visit,reduceMotion: reduceMotion,unavailable: { unavailable = true })
+                VibeScapeMetalView(visit: visit, reduceMotion: reduceMotion,
+                    isActive: scenePhase == .active && admitted, unavailable: { unavailable = true })
                     .ignoresSafeArea().accessibilityHidden(true)
                     .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { canvasBounds = $0 }
                     .gesture(canvasInteraction)
@@ -180,11 +182,15 @@ struct VibeScapeScreen: View {
         .accessibilityAction(named: Text(text("ui.vibescape.voice.label"))) { toggleVisualVoice() }
         .onAppear {
             guard admitted else { model.isShowingVibeScape = false; return }
+            screenIsActive = scenePhase == .active
             displayWakeLock.setActive(scenePhase == .active)
             visit.enter(mood:model.activeDJSession?.selectedMood,occurrence:nil)
             updateAutomaticIntensity()
         }
-        .onDisappear { voice.cancel(); displayWakeLock.setActive(false); visit.revoke() }
+        .onDisappear {
+            screenIsActive = false; helpGeneration = UUID()
+            voice.cancel(); displayWakeLock.setActive(false); visit.revoke()
+        }
         .onChange(of: model.activeDJSession?.broadcast.playback?.itemID) { _, _ in
             if admitted {
                 voice.cancel()
@@ -202,9 +208,25 @@ struct VibeScapeScreen: View {
         .onChange(of: model.activeDJSession?.runtimeState) { _, _ in close() }
         .onChange(of: model.pairingStatus) { _, _ in close() }
         .onChange(of: scenePhase) { _, value in
-            if value == .active, admitted { displayWakeLock.setActive(true) }
-            else if value == .inactive, voice.awaitingPermission { displayWakeLock.setActive(false) }
-            else { close() }
+            screenIsActive = value == .active
+            switch value {
+            case .active:
+                guard admitted else { close(); return }
+                displayWakeLock.setActive(true)
+                if showsHelp { Task { await loadVisualHelp() } }
+            case .inactive:
+                guard admitted else { close(); return }
+                // Permission callbacks may finish before SwiftUI delivers this
+                // transient phase. Keep only the local scene; pause rendering
+                // and stop any non-permission voice work. Background still exits.
+                displayWakeLock.setActive(false)
+                if voice.busy && !voice.awaitingPermission { voice.cancel() }
+                helpGeneration = UUID(); visualHelp = nil; helpLoading = false; helpFailed = false
+            case .background:
+                close()
+            @unknown default:
+                close()
+            }
         }
         .task {
             // Bound a visit even when a static Reduce Motion frame is paused.
@@ -224,6 +246,7 @@ struct VibeScapeScreen: View {
         return min(max(4, source.minY - geometry.frame(in: .global).minY), max(4, geometry.size.height - source.height - 12))
     }
     private func close() {
+        screenIsActive = false; helpGeneration = UUID()
         voice.cancel()
         displayWakeLock.setActive(false)
         visit.revoke(); model.isShowingVibeScape = false
@@ -237,7 +260,7 @@ struct VibeScapeScreen: View {
         let generation = UUID(), epoch = model.sessionHistory.responseEpoch
         let owner = self.owner, sessionID = model.activeDJSession?.id
         helpGeneration = generation; visualHelp = nil; helpFailed = false; helpLoading = true
-        guard admitted, !model.isDemoMode, model.canRefreshSessionHistory else {
+        guard screenIsActive, admitted, !model.isDemoMode, model.canRefreshSessionHistory else {
             helpLoading = false; helpFailed = true; return
         }
         defer { if helpGeneration == generation { helpLoading = false } }
@@ -245,11 +268,13 @@ struct VibeScapeScreen: View {
             let help = try await model.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
                 try await $0.visualDirectorHelp(language: model.language)
             }
-            guard !Task.isCancelled, showsHelp, model.isShowingVibeScape, helpGeneration == generation, self.owner == owner,
+            guard !Task.isCancelled, screenIsActive, model.canRefreshSessionHistory,
+                  showsHelp, model.isShowingVibeScape, helpGeneration == generation, self.owner == owner,
                   model.sessionHistory.responseEpoch == epoch, model.activeDJSession?.id == sessionID else { return }
             visualHelp = help
         } catch {
-            guard !Task.isCancelled, showsHelp, model.isShowingVibeScape, helpGeneration == generation, self.owner == owner,
+            guard !Task.isCancelled, screenIsActive, model.canRefreshSessionHistory,
+                  showsHelp, model.isShowingVibeScape, helpGeneration == generation, self.owner == owner,
                   model.sessionHistory.responseEpoch == epoch else { return }
             helpFailed = true
         }
