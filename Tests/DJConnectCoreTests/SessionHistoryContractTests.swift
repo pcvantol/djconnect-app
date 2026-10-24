@@ -8693,6 +8693,8 @@ func contributionExplorationOriginalArchiveDestinationDraftAndRetryStayBound(_ a
         let path = request.url!.path
         if path.hasSuffix("/capabilities") { return (200, caps, 0) }
         if path.hasSuffix("/session/active") { return (200, runtime, 0) }
+        // A real background recovery awaits this read after clearing its descriptor.
+        if path.hasSuffix("/ask_dj/history") { return (200, profile, active ? 0.03 : 0) }
         if path.hasSuffix("/ask_dj/message") { return (503, Data(#"{"error":"temporarily_unavailable"}"#.utf8), 0.05) }
         if path.hasSuffix("/session/history/" + currentID) {
             // Background recovery of B must not receive archive A's header.
@@ -8712,6 +8714,25 @@ func contributionExplorationOriginalArchiveDestinationDraftAndRetryStayBound(_ a
     await model.sessionHistory.prepare()
     if active { await model.refreshActiveDJSession() }
     let history = model.sessionHistory
+    if active {
+        // refreshActiveDJSession starts an independent Broadcast recovery. Its
+        // prepare() deliberately withdraws the exploration descriptor while
+        // awaiting the owner conversation read. Await that real B tail and its
+        // completed preparation before testing the unrelated archive-A action.
+        // No fixed delay, authority override or production guard is involved.
+        func recoveryReady() -> Bool {
+            let page = history.timelines[currentID]
+            return page?.session != nil && page?.loading == false && page?.errorKey == nil &&
+                !history.preparing && history.contributionQuestion != nil
+        }
+        for _ in 0..<200 {
+            if recoveryReady() { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let ready = recoveryReady()
+        try #require(ready, "Original B recovery: page=\(history.timelines[currentID] != nil) session=\(history.timelines[currentID]?.session != nil) loading=\(String(describing: history.timelines[currentID]?.loading)) error=\(history.timelines[currentID]?.errorKey ?? "none") preparing=\(history.preparing) descriptor=\(history.contributionQuestion != nil) language=\(model.language) requests=\(fixture.requests.map { $0.url!.path })")
+        #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/capabilities") }.count >= 2)
+    }
     #expect(await history.loadTimeline(sourceID))
     let entry = try #require(history.timelines[sourceID]?.entries.first { $0.kind == .djMoment })
     let originalEpoch = history.responseEpoch
