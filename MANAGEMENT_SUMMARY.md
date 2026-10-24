@@ -1,5 +1,34 @@
 # DJConnect App Management Summary
 
+## 2026-10-24 — Reviewed source consolidation / PR192
+
+[PR192](https://github.com/pcvantol/djconnect-app/pull/192) merged reviewed
+`ef05b379adda5b5bc14a714fdf212cc7cbab755c` as
+`5015bba447f86bb1a598c016e213cdbf4e955297`; both trees are
+`c12ea333e8ff8cac4e2a7951a6c2deba04908d2a`. It incorporates PR186/187/191:
+Bulletin accessibility and source attribution, shared three-suggestion/Help
+presentation with original track expiry, and exact Live Activity token ownership.
+PR185 was closed as superseded by the already-corrected protected PR188.
+
+Candidate CI40074641175, own-main CI/coverage40075625014 and formal
+reconciliation40076439775 succeeded. Original downloaded artifacts, runner/main
+binding, coverage digest, durable canonical integrity and12/12required checks
+were independently verified. Local native tests:1335total,1316passed,19skipped,
+0failed, parentexit0. The separate Mac Help UI runner failed before connection
+(exit65); no interactive Help acceptance is claimed. Historical main190 coverage
+failure remains a failure. See [the portable receipt](docs/feedback/APPLE_CONSOLIDATION_192_SOURCE_RECEIPT_20261024.json).
+
+Core's qualified Help catalogue, paired Bulletin/native accessibility acceptance,
+original-purpose clock repair, retained VibeCast factory and actual widget/remote
+Activity push delivery remain open. Physical iPhone/HA testing waits for the
+owner's later connection. No new ordinary build, installation or version bump;
+Mac mini40450 was read back today, other devices were not freshly checked.
+
+This separate documentary Finalization changes no compiled inputs. Existing
+published branches, unique worktrees and original evidence remain preserved.
+Exact approved ignored retention groups were moved outside repositories with
+hash/inode/mtime checks; no source, Git history or unique WIP was deleted.
+
 ## 2026-10-21 — Apple client consolidation / PR169
 
 PR169 merged the reviewed-by-author client candidate `d2b1482` as `9980279`.
