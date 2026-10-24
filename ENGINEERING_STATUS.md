@@ -1,5 +1,32 @@
 # DJConnect App Engineering Status
 
+## 2026-10-24 — Pending metadata accounting / PR199
+
+[PR199](https://github.com/pcvantol/djconnect-app/pull/199) merged independently
+reviewed `9c3cd26a8b16afd2780709ba710cc0144a479a0b` as `09f1dcfb126848ad13c2eb6cb98394247f2cdbe1`.
+Slice A adds comparison-only one-shot pending storage against an explicitly
+pre-existing synthetic root, exact local encoding1 and causal fixtures. Every
+append is terminal, including busy, stale, cancelled and uncertain writes.
+No shared/Keychain root, bootstrap/import, lifecycle mutation, SDK/adapter,
+child writer, backend wire or product caller is added. Supplied comparison
+floors/UUIDs/digests/snapshots are not authentic reservation or native authority.
+
+Targeted eleven functions / 38 invocations passed. Full validation passed
+1,267 functions in 28 suites plus 86 XCTest cases (five skipped, zero failures).
+Actual native execution: 1,353 total, 1,334 passed, 19 skipped, zero failures,
+parent exit 0. Inputs matched before/after. Candidate CI40096795546,
+own-main CI40097758324 and formal40098630739 succeeded. Original build/runner/
+coverage/formal ZIPs and durable canonical integrity/12 required checks were
+verified. [Portable source receipt](docs/feedback/APPLE_PENDING_METADATA_199_SOURCE_RECEIPT_20261024.json).
+
+Source197 and separate Final198 remain qualified. Original193 coverage failure
+and original196 native exclusion remain preserved. This separate documentary
+Finalization changes no compiled input and needs its own protected delivery.
+The authentic B join, complete retained factory and original-clock client codec/pin
+adoption still require their own source and acceptance. Qualified Help catalogue,
+actual push and physical iPhone/HA/receiver acceptance remain open. The phone is
+owner-deferred; no new ordinary version, installation, paid call or timer.
+
 ## 2026-10-24 — VibeCast metadata native qualification / PR197
 
 [PR197](https://github.com/pcvantol/djconnect-app/pull/197) merged independently
