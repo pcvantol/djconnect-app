@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "as_of": "2026-10-24; Source202 data-only originally qualified;14 component UI tests+1SDK callback; separate documentaryFinal pending its own delivery",
+  "as_of": "24October Source204 originallyqualified; bounded new avatar/collection evidence only; no whole-product closure",
   "owning_lane": "https://github.com/pcvantol/djconnect-app/issues/87",
   "baseline": "24October fresh read-only Mac mini40450 parent+widget metadata: development APS/group.dev.djconnect, strict/deep signaturePASS; no new ordinary build/install/runtime claim. Other device versions remain historical.",
-  "source_head": "9bfa45cd8ab24855a235562d26a75ae4f059335d (protected202; separate documentaryFinal pending)",
+  "source_head": "99e48e762d6a129003ce9388bf7db999102ed60a (protected204, equal reviewedb3072dd tree; separate documentaryFinal changes no compiled/tool input)",
   "status_semantics": {
     "CLOSED_BOUNDED": "Functionele implementatie/expliciet benoemde bewijslevering afgerond binnen de genoemde bewijsgrens; geen sluiting van parentproduct, bronPR of nativejointacceptatie.",
     "SUPERSEDED": "Vervangen door latere directe ownerbeslissing; niet opnieuw bouwen.",
@@ -14,7 +14,7 @@
   },
   "counts": {
     "BLOCKED": 4,
-    "CLOSED_BOUNDED": 23,
+    "CLOSED_BOUNDED": 25,
     "OPEN": 4,
     "PARKED": 1,
     "PARTIAL": 45,
@@ -302,7 +302,7 @@
       "requirement": "Gemeten performance/geheugen/crashonderzoek en begrensde refactor",
       "status": "OPEN",
       "source": "Directe integrale owneropdracht17okt",
-      "evidence": "Boundedrefresh/media/speechqueue en eigenaarcancel. iPhonecrashread: geen11:47–11:48rapport, laatst09:03build40213frameworkSIGBUS; geen appframe in triggeredstack. 40282 eerste echte externe XCTestcollectie:1PASS23.457s,3opgenomen foregroundSession-idlesamples; piekgeheugen58213.896/57099.784/56739.336kB, CPU0.1162/0.5572/0.1131s bij~4.93sintervallen. Geen thresholds/baselinevergelijking of glaseffectprestatieclaim. Instrumentspoging40281timeout vóór recording; geen trace. Gesaneerde metrics in APPLE_IDLE_PERFORMANCE_40282_20261017.json. 20261018: real simulator TimeProfiler/Metal traces and native short demo scroll benchmark; CPU2.563s/10.485s wall, physical peak65937.245kB,94.45%weighted CPU on main thread. NowPlaying idle9.01%CPU/37M. No95%repro, long-session/real-art/physicalGPU/FPS acceptance; dedicated NowPlaying transfer subsequently owner-approved. APPLE_NATIVE_SCROLL_PROFILING_20261018.md. 40317:273current files copied/hash-verified on MacBook. Actual page movement374.67pt; native glass on/off scroll/TimeProfiler runs PASS. Scroll CPU23.29%/21.38%, peaks27.60%/25.73%; short-run memory flat. Early unverified central-drag results excluded. No95%repro, real-art/cache/long-session/physicalGPU/FPS or SwiftUI-body acceptance. APPLE_NOW_PLAYING_SCROLL_40317_20261018.json.",
+      "evidence": "Boundedrefresh/media/speechqueue en eigenaarcancel. iPhonecrashread: geen11:47–11:48rapport, laatst09:03build40213frameworkSIGBUS; geen appframe in triggeredstack. 40282 eerste echte externe XCTestcollectie:1PASS23.457s,3opgenomen foregroundSession-idlesamples; piekgeheugen58213.896/57099.784/56739.336kB, CPU0.1162/0.5572/0.1131s bij~4.93sintervallen. Geen thresholds/baselinevergelijking of glaseffectprestatieclaim. Instrumentspoging40281timeout vóór recording; geen trace. Gesaneerde metrics in APPLE_IDLE_PERFORMANCE_40282_20261017.json. 20261018: real simulator TimeProfiler/Metal traces and native short demo scroll benchmark; CPU2.563s/10.485s wall, physical peak65937.245kB,94.45%weighted CPU on main thread. NowPlaying idle9.01%CPU/37M. No95%repro, long-session/real-art/physicalGPU/FPS acceptance; dedicated NowPlaying transfer subsequently owner-approved. APPLE_NATIVE_SCROLL_PROFILING_20261018.md. 40317:273current files copied/hash-verified on MacBook. Actual page movement374.67pt; native glass on/off scroll/TimeProfiler runs PASS. Scroll CPU23.29%/21.38%, peaks27.60%/25.73%; short-run memory flat. Early unverified central-drag results excluded. No95%repro, real-art/cache/long-session/physicalGPU/FPS or SwiftUI-body acceptance. APPLE_NOW_PLAYING_SCROLL_40317_20261018.json. 24Oct actual Queue/Playlists native2tests per iPhone/iPad PASS on1,000syntheticrows, normal1Hz progress, no artURLs/app HTTP0; real scrolling, original search offset420 and changed source removal qualified within disposable Demo host. Three raw timing/CPU/memory samples per surface; no baseline/FPS/GPU/real-art/physical improvement or full-theme claim. Original field-ID diagnostic failure preserved. APPLE_COLLECTION_SCROLL_SIMULATOR_20261024.json.",
       "remaining": "p95/RSS/heap/CPU/energie/langeSession-soak, crashrepro/jetsam/Watch; AppModelISS004 blijftopen. Geen crashfreeclaim of ongekwalificeerde rewrites."
     },
     {
@@ -550,7 +550,7 @@
     {
       "id": "vibescape-visual-voice-dynamic-help",
       "status": "PARTIAL",
-      "evidence": "Direct Peter: visuele spraakopdrachten en verse servervoorbeelden, glasspopover naast microfoon. Applebron gebruikt bestaande Core83744790 visual context/interpret/revoke en capabilitycatalogus, aparte on-device STT/no AskDJ fallback, originele lease/owner/session/epoch/scene/occurrence fences. Help freshGET peropen; geen statische commandofallback. Testbron toegevoegd, NOTBUILT/NOTTESTED/NOTINSTALLED; expliciet-build-only. docs/VIBESCAPE_VISUAL_VOICE_AND_DYNAMIC_HELP.md. Actual production VibeScapeSpeechAuthorization default SDK callback tested in isolated iPhone simulator host: parent0,1UITest,0warnings,two denied callbacks, unchanged microphone state; no recorder/recognition/AppModel/HTTP. Source339 result does not prove full microphone/Visual Director turn flow. APPLE_VISUAL_SPEECH_SDK_RECEIPT_20261024.json.",
+      "evidence": "Direct Peter: visuele spraakopdrachten en verse servervoorbeelden, glasspopover naast microfoon. Applebron gebruikt bestaande Core83744790 visual context/interpret/revoke en capabilitycatalogus, aparte on-device STT/no AskDJ fallback, originele lease/owner/session/epoch/scene/occurrence fences. Help freshGET peropen; geen statische commandofallback. Testbron toegevoegd, NOTBUILT/NOTTESTED/NOTINSTALLED; expliciet-build-only. docs/VIBESCAPE_VISUAL_VOICE_AND_DYNAMIC_HELP.md. Actual production VibeScapeSpeechAuthorization default SDK callback tested in isolated iPhone simulator host: parent0,1UITest,0warnings,two denied callbacks, unchanged microphone state; no recorder/recognition/AppModel/HTTP. Source339 result does not prove full microphone/Visual Director turn flow. APPLE_VISUAL_SPEECH_SDK_RECEIPT_20261024.json. 24Oct additional iPad actual default Speech SDK callback1native test PASS after two explicitdenials, MainActor callback and microphoneunknownunchanged/no capture/audio. Original timeout and default-XCTest automaticallow kept separately, not relabeled denial. No full VoiceControl/button/capture/help/paired/Mac/physical qualification. APPLE_VISUAL_SPEECH_IPAD_SDK_RECEIPT_20261024.json.",
       "remaining": [
         "Existing decoder/actor/scene/turn-fence tests compiled in actual1277/fullnative suite. Full permission/capture/help-popover/expiry/owner/scene/audio-restoration and paired visual-director acceptance remain open; actual SDK helper test is not full flow."
       ],
@@ -580,7 +580,7 @@
     {
       "id": "queue-playlists-scroll-optimization",
       "status": "PARTIAL",
-      "evidence": "Afgeleide zoek/lijstrijen alleen bij bron/zoekwijziging; Equatable rijen en vaste 52pt hoes zonder GeometryReader. List/LazyVStack en originele queueindices behouden. docs/QUEUE_PLAYLIST_SCROLL_PERFORMANCE.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; expliciet-build-only.",
+      "evidence": "Afgeleide zoek/lijstrijen alleen bij bron/zoekwijziging; Equatable rijen en vaste 52pt hoes zonder GeometryReader. List/LazyVStack en originele queueindices behouden. docs/QUEUE_PLAYLIST_SCROLL_PERFORMANCE.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; expliciet-build-only. 24Oct actual Queue/Playlists native2tests per iPhone/iPad PASS on1,000syntheticrows, normal1Hz progress, no artURLs/app HTTP0; real scrolling, original search offset420 and changed source removal qualified within disposable Demo host. Three raw timing/CPU/memory samples per surface; no baseline/FPS/GPU/real-art/physical improvement or full-theme claim. Original field-ID diagnostic failure preserved. APPLE_COLLECTION_SCROLL_SIMULATOR_20261024.json.",
       "remaining": [
         "OPEN: volgende expliciet gevraagde build: native scrollmetingen, zoeken/refresh/reorder/duplicaten en originele afspeelacties op iPad/Mac verifiëren."
       ],
@@ -684,7 +684,7 @@
     {
       "id": "persona-avatar-taps-withdrawal-adoption",
       "status": "PARTIAL",
-      "evidence": "Direct Peter: avatar single/double/triple opmerking ontbreekt. Permanente lokale falsegate gevonden. Core-main83744790 heeft nu observe/tombstone contract; Apple runtimecap vereist die exact, observeert originele ID/epoch/session/expiry vóór tekst/audio en sluit bij withdrawal/verbinding/contextverlies. Bestaande check_in/playful/easter_egg en haptics blijven. Bronregressies toegevoegd NOTRUN. docs/PERSONA_AVATAR_TAPS_WITH_WITHDRAWAL.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED.",
+      "evidence": "Direct Peter: avatar single/double/triple opmerking ontbreekt. Permanente lokale falsegate gevonden. Core-main83744790 heeft nu observe/tombstone contract; Apple runtimecap vereist die exact, observeert originele ID/epoch/session/expiry vóór tekst/audio en sluit bij withdrawal/verbinding/contextverlies. Bestaande check_in/playful/easter_egg en haptics blijven. Bronregressies toegevoegd NOTRUN. docs/PERSONA_AVATAR_TAPS_WITH_WITHDRAWAL.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED. 24Oct Source204 reviewedb3072dd/protected99e48e7 and actual ownCI40126284458/formal40126999680/durable12checks qualified. Native finalview/host/test3cases per iPhone/iPad PASS; controller21focusedtests PASS after original250msfailure, no retry/newID. Whole-source originalnative1278/29+86XCTest/five skipped/zero failed. APPLE_AVATAR_204_SOURCE_RECEIPT_20261024.json. No paired/server reaction, haptic/audio/VoiceOver or nativeMac input acceptance.",
       "remaining": [
         "OPEN: volgende expliciet gevraagde build: decoder/paired socket/event/cancel races + echte single/double/triple op iPad/Mac/iPhone en output/withdrawal fysiek kwalificeren. Geïnstalleerd gedrag niet gewijzigd."
       ],
@@ -706,6 +706,22 @@
       "source": "Owner device-free task24October; Apple #128/#182/#177",
       "evidence": "24Oct owned simulator component qualification: Help4 iPhone+4 iPad tests/44screens; Bulletin/menu3+3 tests/40screens, all clean parent0/zero fail/zero skip/source hashes unchanged. Original iPadR1 600sdiagnostic anomaly retained, cleanR2 passed. UIKit gravity-anchor and temporary iPad orientation warnings retained; representative views inspected only. Actual Speech SDK callback1test also parent0/0warnings/two denied callbacks/no microphone state change or capture. See APPLE_DEVICEFREE_COMPONENT_RECEIPT_20261024.json.",
       "remaining": "CLOSED_BOUNDED is only15 executed native UI test cases/85 screenshots including the SDK callback, not full visual/paired/audio/VoiceOver/physical acceptance. Original600s diagnostic anomaly and runtime warnings retained. Shipping Help catalogue70pending, full VoiceControl/permissions and Mac UI remain separate open parents."
+    },
+    {
+      "id": "native-avatar-input-expiry-20261024",
+      "requirement": "Native1/2/3 avatar input and immutable-expiry controller component evidence",
+      "status": "CLOSED_BOUNDED",
+      "source": "Owner device-free task24October; Apple #127/#126",
+      "evidence": "24Oct Source204 reviewedb3072dd/protected99e48e7 and actual ownCI40126284458/formal40126999680/durable12checks qualified. Native finalview/host/test3cases per iPhone/iPad PASS; controller21focusedtests PASS after original250msfailure, no retry/newID. Whole-source originalnative1278/29+86XCTest/five skipped/zero failed. APPLE_AVATAR_204_SOURCE_RECEIPT_20261024.json. No paired/server reaction, haptic/audio/VoiceOver or nativeMac input acceptance.",
+      "remaining": "Only exact tested input/controller components close. Actual owner/Session reaction text, native haptic/audio, VoiceOver/keyboard, Mac interactive input and physical acceptance remain separate; original failures and UIKit warnings preserved."
+    },
+    {
+      "id": "native-collection-scroll-search-20261024",
+      "requirement": "Bounded native Queue/Playlists long-list scroll/search/source-change evidence",
+      "status": "CLOSED_BOUNDED",
+      "source": "Owner device-free task24October; existing Queue/Playlist scroll request",
+      "evidence": "24Oct actual Queue/Playlists native2tests per iPhone/iPad PASS on1,000syntheticrows, normal1Hz progress, no artURLs/app HTTP0; real scrolling, original search offset420 and changed source removal qualified within disposable Demo host. Three raw timing/CPU/memory samples per surface; no baseline/FPS/GPU/real-art/physical improvement or full-theme claim. Original field-ID diagnostic failure preserved. APPLE_COLLECTION_SCROLL_SIMULATOR_20261024.json.",
+      "remaining": "Only four native cases and recorded short samples, synthetic1000rows/noartURL, temporary light host; no measured before/after improvement, FPS/GPU/energy/real-art/long-session/Mac/physical or whole-app visual acceptance. No actual queue/play command dispatched."
     }
   ],
   "execution_feedback_40258": {

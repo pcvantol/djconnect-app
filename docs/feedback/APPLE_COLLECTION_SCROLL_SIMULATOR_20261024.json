@@ -1,0 +1,446 @@
+{
+  "at": "2026-10-24T20:04:10.168566+00:00",
+  "source_head": "b3072dd871a31eeb85ed740027c2e4cec98b7ce3",
+  "protected_equal_tree_main": "99e48e762d6a129003ce9388bf7db999102ed60a",
+  "runs": {
+    "collection-scroll-iphone-r2": {
+      "receipt": {
+        "source": "b3072dd871a31eeb85ed740027c2e4cec98b7ce3",
+        "scope": "actual Queue/Playlists views; existing Demo fixture;1000syntheticrows/noartURLs/networkblocked; R2 correct nativefieldrole; metrics without baseline/physical improvement claim",
+        "started": "2026-10-24T19:43:45.929129+00:00",
+        "completed": "2026-10-24T19:47:56.208661+00:00",
+        "parent_exit": 0,
+        "all_inputs_unchanged": true,
+        "command": [
+          "xcodebuild",
+          "-project",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/collection-scroll-iphone-r2/NativeCollectionScrollProbe.xcodeproj",
+          "-scheme",
+          "NativeCollectionScrollProbe",
+          "-destination",
+          "platform=iOS Simulator,id=57C501C2-9CC6-4886-ACF8-89B35C26EBE0",
+          "-derivedDataPath",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/collection-scroll-iphone-r1/derived",
+          "-resultBundlePath",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/collection-scroll-iphone-r2/result.xcresult",
+          "-jobs",
+          "1",
+          "-parallel-testing-enabled",
+          "NO",
+          "-collect-test-diagnostics",
+          "never",
+          "CODE_SIGNING_ALLOWED=NO",
+          "test"
+        ]
+      },
+      "receipt_sha256": "403b4601570ea25013e947374d378b334365adec654b6097ce8a451347ad3728",
+      "log_sha256": "fadc9b23a71dd7a90002687c96a690469dade6a153c550b31934c6cbed790c53",
+      "summary": {
+        "result": "Passed",
+        "totalTestCount": 2,
+        "passedTests": 2,
+        "failedTests": 0,
+        "skippedTests": 0
+      },
+      "summary_sha256": "76498ff28a545359fd5f3fd1fb145864b62da79bd2af30520efdf746f5f93915",
+      "metrics": [
+        {
+          "test": "NativePlaylistScrollAndSourceInvalidation",
+          "metric": "Clock Monotonic Time, s",
+          "average": 5.307,
+          "values": [
+            5.2974,
+            5.326224,
+            5.297364
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_Clock.time.monotonic"
+        },
+        {
+          "test": "NativePlaylistScrollAndSourceInvalidation",
+          "metric": "Absolute Memory Physical (r1), kB",
+          "average": 59787.784,
+          "values": [
+            59722.248,
+            59787.784,
+            59853.32
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_Memory-dev.djconnect.qualification.collection.scroll.r1.physical_absolute"
+        },
+        {
+          "test": "NativePlaylistScrollAndSourceInvalidation",
+          "metric": "Memory Physical (r1), kB",
+          "average": 27.307,
+          "values": [
+            -49.152,
+            65.536,
+            65.536
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_Memory-dev.djconnect.qualification.collection.scroll.r1.physical"
+        },
+        {
+          "test": "NativePlaylistScrollAndSourceInvalidation",
+          "metric": "Memory Peak Physical (r1), kB",
+          "average": 59886.088,
+          "values": [
+            59853.32,
+            59869.704,
+            59935.24
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_Memory-dev.djconnect.qualification.collection.scroll.r1.physical_peak"
+        },
+        {
+          "test": "NativePlaylistScrollAndSourceInvalidation",
+          "metric": "CPU Cycles (r1), kC",
+          "average": 3405327.565,
+          "values": [
+            3300694.602,
+            3424822.511,
+            3490465.583
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_CPU-dev.djconnect.qualification.collection.scroll.r1.cycles"
+        },
+        {
+          "test": "NativePlaylistScrollAndSourceInvalidation",
+          "metric": "CPU Instructions Retired (r1), kI",
+          "average": 6872016.905,
+          "values": [
+            6804098.887,
+            6819258.248,
+            6992693.579
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_CPU-dev.djconnect.qualification.collection.scroll.r1.instructions_retired"
+        },
+        {
+          "test": "NativePlaylistScrollAndSourceInvalidation",
+          "metric": "CPU Time (r1), s",
+          "average": 1.012,
+          "values": [
+            0.996408,
+            1.043351,
+            0.995143
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_CPU-dev.djconnect.qualification.collection.scroll.r1.time"
+        },
+        {
+          "test": "NativeQueueScrollAndOriginalSearchOffset",
+          "metric": "Clock Monotonic Time, s",
+          "average": 5.298,
+          "values": [
+            5.280277,
+            5.348715,
+            5.26402
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_Clock.time.monotonic"
+        },
+        {
+          "test": "NativeQueueScrollAndOriginalSearchOffset",
+          "metric": "Absolute Memory Physical (r1), kB",
+          "average": 64184.157,
+          "values": [
+            64162.312,
+            64195.08,
+            64195.08
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_Memory-dev.djconnect.qualification.collection.scroll.r1.physical_absolute"
+        },
+        {
+          "test": "NativeQueueScrollAndOriginalSearchOffset",
+          "metric": "Memory Physical (r1), kB",
+          "average": -49.152,
+          "values": [
+            -180.224,
+            32.768,
+            0.0
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_Memory-dev.djconnect.qualification.collection.scroll.r1.physical"
+        },
+        {
+          "test": "NativeQueueScrollAndOriginalSearchOffset",
+          "metric": "Memory Peak Physical (r1), kB",
+          "average": 64353.459,
+          "values": [
+            64440.84,
+            64293.384,
+            64326.152
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_Memory-dev.djconnect.qualification.collection.scroll.r1.physical_peak"
+        },
+        {
+          "test": "NativeQueueScrollAndOriginalSearchOffset",
+          "metric": "CPU Cycles (r1), kC",
+          "average": 3463105.516,
+          "values": [
+            3442861.331,
+            3481698.87,
+            3464756.347
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_CPU-dev.djconnect.qualification.collection.scroll.r1.cycles"
+        },
+        {
+          "test": "NativeQueueScrollAndOriginalSearchOffset",
+          "metric": "CPU Instructions Retired (r1), kI",
+          "average": 7244351.359,
+          "values": [
+            7210223.806,
+            7147469.37,
+            7375360.901
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_CPU-dev.djconnect.qualification.collection.scroll.r1.instructions_retired"
+        },
+        {
+          "test": "NativeQueueScrollAndOriginalSearchOffset",
+          "metric": "CPU Time (r1), s",
+          "average": 1.048,
+          "values": [
+            1.081706,
+            1.020809,
+            1.042943
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_CPU-dev.djconnect.qualification.collection.scroll.r1.time"
+        }
+      ],
+      "metrics_sha256": "a1d5fdcecb7fd897729c5feae15c6349c27fb798f613d219b2ced82572492995",
+      "screenshots": [
+        {
+          "name": "synthetic-1000-playlists_0_13080ADE-C62D-4F0F-9D1B-C92BD0BB98DE.png",
+          "path": "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/collection-scroll-iphone-r2/attachments/B2F19933-12AF-4C86-9175-28F761200008.png",
+          "sha256": "64040b3c1574fe5954f60d5d93cc188e4b6a7bd9dbf328b54287a3abfb6130e0"
+        },
+        {
+          "name": "synthetic-1000-queue_0_DF9092B9-5E94-4F32-87DE-3A7C553D1E3B.png",
+          "path": "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/collection-scroll-iphone-r2/attachments/A44B79FC-36D7-41DC-8766-0C2A2C310379.png",
+          "sha256": "b04dbcf228e106af4115965c7e379f9804d497440d684db7df420c959f697451"
+        }
+      ]
+    },
+    "collection-scroll-ipad-r1": {
+      "receipt": {
+        "source": "b3072dd871a31eeb85ed740027c2e4cec98b7ce3",
+        "scope": "actual Queue/Playlists views; existing Demo fixture;1000syntheticrows/noartURLs/networkblocked; R2 nativefieldrole; metrics without baseline/physical improvement claim",
+        "started": "2026-10-24T19:54:09.264135+00:00",
+        "completed": "2026-10-24T19:55:44.558531+00:00",
+        "parent_exit": 0,
+        "all_inputs_unchanged": true,
+        "command": [
+          "xcodebuild",
+          "-project",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/collection-scroll-iphone-r2/NativeCollectionScrollProbe.xcodeproj",
+          "-scheme",
+          "NativeCollectionScrollProbe",
+          "-destination",
+          "platform=iOS Simulator,id=2BA652A2-6FD8-481E-B1B9-EA3C918CF6F1",
+          "-derivedDataPath",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/collection-scroll-iphone-r1/derived",
+          "-resultBundlePath",
+          "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/collection-scroll-ipad-r1/result.xcresult",
+          "-jobs",
+          "1",
+          "-parallel-testing-enabled",
+          "NO",
+          "-collect-test-diagnostics",
+          "never",
+          "CODE_SIGNING_ALLOWED=NO",
+          "test"
+        ]
+      },
+      "receipt_sha256": "5e8505ee6b6d5d7c70d19084158427a4ccff39193101f8a6e6d70bdd89494939",
+      "log_sha256": "26f16dacf26d2aa2f9ae76f4b70cb3947b3321e70ada121d399be952e8a86d27",
+      "summary": {
+        "result": "Passed",
+        "totalTestCount": 2,
+        "passedTests": 2,
+        "failedTests": 0,
+        "skippedTests": 0
+      },
+      "summary_sha256": "e6443fd4aa71b224ffd3384e7ff80581ec8e1b2a529f30401888fe593899a141",
+      "metrics": [
+        {
+          "test": "NativePlaylistScrollAndSourceInvalidation",
+          "metric": "Clock Monotonic Time, s",
+          "average": 5.357,
+          "values": [
+            5.381544,
+            5.292583,
+            5.39635
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_Clock.time.monotonic"
+        },
+        {
+          "test": "NativePlaylistScrollAndSourceInvalidation",
+          "metric": "Absolute Memory Physical (r1), kB",
+          "average": 75554.629,
+          "values": [
+            75532.784,
+            75516.4,
+            75614.704
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_Memory-dev.djconnect.qualification.collection.scroll.r1.physical_absolute"
+        },
+        {
+          "test": "NativePlaylistScrollAndSourceInvalidation",
+          "metric": "Memory Physical (r1), kB",
+          "average": 1217.877,
+          "values": [
+            3571.712,
+            -16.384,
+            98.304
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_Memory-dev.djconnect.qualification.collection.scroll.r1.physical"
+        },
+        {
+          "test": "NativePlaylistScrollAndSourceInvalidation",
+          "metric": "Memory Peak Physical (r1), kB",
+          "average": 75805.851,
+          "values": [
+            75827.696,
+            75909.616,
+            75680.24
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_Memory-dev.djconnect.qualification.collection.scroll.r1.physical_peak"
+        },
+        {
+          "test": "NativePlaylistScrollAndSourceInvalidation",
+          "metric": "CPU Cycles (r1), kC",
+          "average": 4251671.86,
+          "values": [
+            4244491.211,
+            4054873.408,
+            4455650.961
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_CPU-dev.djconnect.qualification.collection.scroll.r1.cycles"
+        },
+        {
+          "test": "NativePlaylistScrollAndSourceInvalidation",
+          "metric": "CPU Instructions Retired (r1), kI",
+          "average": 9297060.788,
+          "values": [
+            9234721.758,
+            8847888.81,
+            9808571.796
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_CPU-dev.djconnect.qualification.collection.scroll.r1.instructions_retired"
+        },
+        {
+          "test": "NativePlaylistScrollAndSourceInvalidation",
+          "metric": "CPU Time (r1), s",
+          "average": 1.121,
+          "values": [
+            1.115124,
+            1.092732,
+            1.156064
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_CPU-dev.djconnect.qualification.collection.scroll.r1.time"
+        },
+        {
+          "test": "NativeQueueScrollAndOriginalSearchOffset",
+          "metric": "Clock Monotonic Time, s",
+          "average": 5.356,
+          "values": [
+            5.352154,
+            5.345522,
+            5.368835
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_Clock.time.monotonic"
+        },
+        {
+          "test": "NativeQueueScrollAndOriginalSearchOffset",
+          "metric": "Absolute Memory Physical (r1), kB",
+          "average": 76630.536,
+          "values": [
+            76777.992,
+            76548.616,
+            76565.0
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_Memory-dev.djconnect.qualification.collection.scroll.r1.physical_absolute"
+        },
+        {
+          "test": "NativeQueueScrollAndOriginalSearchOffset",
+          "metric": "Memory Physical (r1), kB",
+          "average": -32.768,
+          "values": [
+            114.688,
+            -229.376,
+            16.384
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_Memory-dev.djconnect.qualification.collection.scroll.r1.physical"
+        },
+        {
+          "test": "NativeQueueScrollAndOriginalSearchOffset",
+          "metric": "Memory Peak Physical (r1), kB",
+          "average": 76827.144,
+          "values": [
+            76827.144,
+            76925.448,
+            76728.84
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_Memory-dev.djconnect.qualification.collection.scroll.r1.physical_peak"
+        },
+        {
+          "test": "NativeQueueScrollAndOriginalSearchOffset",
+          "metric": "CPU Cycles (r1), kC",
+          "average": 4522493.288,
+          "values": [
+            4219403.849,
+            4593885.32,
+            4754190.695
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_CPU-dev.djconnect.qualification.collection.scroll.r1.cycles"
+        },
+        {
+          "test": "NativeQueueScrollAndOriginalSearchOffset",
+          "metric": "CPU Instructions Retired (r1), kI",
+          "average": 9849942.557,
+          "values": [
+            9331349.086,
+            10060292.811,
+            10158185.774
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_CPU-dev.djconnect.qualification.collection.scroll.r1.instructions_retired"
+        },
+        {
+          "test": "NativeQueueScrollAndOriginalSearchOffset",
+          "metric": "CPU Time (r1), s",
+          "average": 1.177,
+          "values": [
+            1.094403,
+            1.206622,
+            1.229155
+          ],
+          "metric_id": "com.apple.dt.XCTMetric_CPU-dev.djconnect.qualification.collection.scroll.r1.time"
+        }
+      ],
+      "metrics_sha256": "0a6296a904c88bf180d13f20fb97eb1ec569647195b2955c801f7eae4ce96022",
+      "screenshots": [
+        {
+          "name": "synthetic-1000-playlists_0_7D8BAB50-CADD-47B0-BF40-3B197255D7FF.png",
+          "path": "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/collection-scroll-ipad-r1/attachments/775A03DF-91E1-4042-A1C6-EC6F63487473.png",
+          "sha256": "bb241d00109a53bbc015e4a224d26c5578ee16bcb66b7879c839e9151dec29cb"
+        },
+        {
+          "name": "synthetic-1000-queue_0_53C89F25-B10D-4264-BB8B-157DBD84DBF9.png",
+          "path": "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/collection-scroll-ipad-r1/attachments/C51099D8-8287-45D2-9BA6-4EAA9210F8C7.png",
+          "sha256": "c54e9f83b33ff68aa3794932c8209f46e5dc29d2de331a5acd7e5f11508b6dd2"
+        }
+      ]
+    }
+  },
+  "metrics_scope": "Three sampled up/down swipe pairs per surface, actual UIKit lists, 1000syntheticrows,1Hz playback updates, noartURLs, explicit existing Demo fixture with in-memory empty token and blocked app HTTP. No baseline, FPS/GPU/energy/real-art/long-session/physical performance improvement or full normal-theme acceptance. Temporary host uses light environment; ordinary root forces dark at DJConnectRootView.swift1074.",
+  "original_failure": {
+    "run": "collection-scroll-iphone-r1",
+    "parent_exit": 65,
+    "receipt_sha256": "c838c6211db1e69a7a373f41c89cf537da6794f36bf219b1fcc1d48ef74b1be2",
+    "reason": "Actual search TextField was mounted/focused but enclosing screen identifier replaced its own ID. Original hierarchy/logs/metrics/failure remain; R2 uses exactly one native TextField and actual1/1label. No product change inferred."
+  },
+  "test_inputs": {
+    "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/collection-scroll-iphone-r2/NativeCollectionScrollProbeHost.swift": "a7b8ab98291b54fd846f7425651ec949bbdb03fe883cc3548ad733ba939188c1",
+    "/Volumes/Shared Data/tmp/pcvantol/apple-devicefree-20261024/collection-scroll-iphone-r2/NativeCollectionScrollProbeTests.swift": "4fc634fe57ab64fe2e0de45cc5389e2ddb53b43404e8cc1100dc991e2e55dafe"
+  },
+  "representative_screens_visually_inspected": [
+    "collection-scroll-iphone-r2/attachments/A44B79FC-36D7-41DC-8766-0C2A2C310379.png",
+    "collection-scroll-ipad-r1/attachments/775A03DF-91E1-4042-A1C6-EC6F63487473.png"
+  ],
+  "retained_runtime_messages": [
+    "Original iOS27 duplicate UIAccessibilityLoaderWebShared runtime message remains in native logs; no runtime replacement or class removal attempted.",
+    "Temporary iPad host/runner launch-screen/orientation metadata warnings and ordinary compiler warnings remain in original logs; no normal installed visual/SDK-runtime qualification inferred."
+  ]
+}
