@@ -1,3 +1,53 @@
+## 2026-10-24 — Avatar input / PR204 and additional device-free checks
+
+[PR204](https://github.com/pcvantol/djconnect-app/pull/204) merged exact independently
+reviewed `b3072dd871a31eeb85ed740027c2e4cec98b7ce3` as
+`99e48e762d6a129003ce9388bf7db999102ed60a`, with equal tree
+`ada3c39d1f9ac3b13c521b1a9b6ba62e32789c38`. Native failure dependencies fix double
+taps dispatching check-in; expired completed replies close their original run
+without automatic retry or another operation identity. Existing AppModel gates
+remain. The internal persona test clock defaults to Date and grants no surface
+clock or playback authority.
+
+Exact view/host/test bytes passed three native component cases per owned
+iPhone/iPad simulator; the controller separately passed21focused tests, including
+deterministic expiry and late original cancellation. Original failures, UIKit
+menu warnings and animation-quiescence delays remain preserved. These counter
+hosts do not execute paired reactions, audio, actual VoiceOver or Mac input.
+Own-main CI40126284458 and formal40126999680 succeeded; the original native log
+executes1,278Swift Testing functions/29suites plus86XCTest/five skips/zero failures.
+All original ZIP/member/runner/main/coverage/formal/durable joins passed12/12.
+[Source receipt](docs/feedback/APPLE_AVATAR_204_SOURCE_RECEIPT_20261024.json).
+
+Four further native collection tests passed on owned iPhone/iPad simulators:
+actual Queue/Playlists,1,000 synthetic rows, real list movement, original search
+offset420, source removal while filtering,1Hz progress updates and app HTTP0.
+Three timing/CPU/memory samples per surface were recorded. No baseline, FPS,
+GPU, real-art or physical performance improvement is claimed; the temporary
+light-host screenshots do not qualify normal dark-root contrast. Original failed
+field-ID selectors are preserved with the actual hierarchy diagnosis.
+[Collection receipt](docs/feedback/APPLE_COLLECTION_SCROLL_SIMULATOR_20261024.json).
+
+One additional iPad SDK test explicitly denied Speech permission twice, checked
+MainActor completion and unchanged microphone status, with no capture or audio.
+Original timeout and a subsequent default-XCTest automatic-allow attempt remain
+separate; that latter PASS is not denial qualification. The final strict test
+uses a fresh test-only identity and asserts denied status1.
+[SDK receipt](docs/feedback/APPLE_VISUAL_SPEECH_IPAD_SDK_RECEIPT_20261024.json).
+
+This separate documentary Finalization changes no compiled/tool input and still
+requires its own exact independent review, protected merge and original main
+qualification. Prior status bodies and all old requirement statuses remain.
+Only two new component-evidence rows close narrowly. Ordinary installed versions
+are not replaced. Actual paired/native/audio/Mac/physical acceptance, operative
+push C0/purpose/minimum/qualified-clock mapping and Activity rights, VibeCast B
+lifecycle/factory/physical join, qualified Help catalogue and full narrative/provider
+acceptance remain open. Core has supplied an actual installed informational
+exploration capability for a later bounded client #150 source increment; no
+sample-only fixture is relabeled as runtime authority or paid/native quality.
+
+---
+
 # DJConnect App Management Summary
 
 ## 2026-10-24 — Surface push v3 data / PR202 and device-free components
