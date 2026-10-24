@@ -94,3 +94,35 @@ must yield zero SDK calls while retaining the original spent reservation.
 
 No whole composition/bootstrap, product wiring, real key, native clock mapping,
 provider or physical iPhone/HA/receiver acceptance is claimed by this parser.
+
+## Necessary native project projection repair — 24 October 2026
+
+Protected source196/mainbcbbf6ce98caf35de1a4f8a5f67e02637c9ac7ca
+retains the exact API-reviewed parser/tests. Its original native coverage job
+120857960485 succeeded with1249Swift Testing functions/26suites and86XCTest
+cases/5skips/0failures. That native project did NOT include the seven new parser
+test functions, so this is not native coverage of the new parser. The original
+log SHA256 is7b37ba4c956df9bf263f02332b42e7c6f2cedda9ad795840951aa9433aa0b2e0.
+The separately executed original SPM1256/27PASS remains valid in its own scope.
+
+The canonical project.yml already includes the two source directories. Regenerating
+its native project in an isolated tracked-source copy adds exactly12lines: parser
+file/build references in all three iOS/Mac/Watch Core targets and the test file
+reference/build entry in the existing Mac Core test target. No removed line,
+setting, entitlement, scheme, package pin, version or product caller changes.
+The parser/test source bytes remain identical. No SDK or factory adoption follows.
+
+This necessary successor must execute the actual expanded native suite and its
+own normal CI/protected delivery/original main coverage before reconciliation.
+The original196native result is preserved with its exclusion, never relabeled
+as having executed the new suite. Separate documentary Finalization follows
+the repaired source qualification; no future result is predicted here.
+
+Actual repaired-project local native validation now passed:1342total tests,
+1323passed/19skipped/0failed, parentexit0;1256Swift Testing functions/27suites.
+The new metadata suite passed0.021s, full Swift Testing122.001s, actual native
+duration255.383s, line coverage0.5613642908021763. Parser/test/project input hashes
+were identical before and after execution. Original receipt, xcresult, summary
+and coverage remain at/private/tmp/apple-composition-native-repair-20261024.
+Original test.log SHA256f71c985410ef257d34bca9849810da0aa667b9a56d5f415b410111ff41994303.
+This executed result does not predict candidate CI or the successor's own main.
