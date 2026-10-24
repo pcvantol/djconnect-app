@@ -250,3 +250,75 @@ private func bulletinDate(_ raw: String) throws -> Date { try #require(DJConnect
         #expect(source.destination?.absoluteString == source.url)
     }
 }
+
+
+// Core1328/Final1329 original isolated HA fixture, with its declared synthetic
+// transports and NOT_RUN installed/native/audio fields preserved byte-for-byte.
+private func sharedBulletin1328Sample() throws -> [String: Any] {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let bytes = try Data(contentsOf: root.appendingPathComponent("Fixtures/dj-bulletin-v1-core-8abef1f-wire.json"))
+    #expect(SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined() == "410d3336c1b21581cc49fd6391e3098079e5ef1694c4af05219596460b2ce4ea")
+    let raw = try #require(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+    #expect(raw["installed"] as? String == "NOT_RUN" && raw["native"] as? String == "NOT_RUN" && raw["audible"] as? String == "NOT_RUN")
+    return try #require(raw["sample"] as? [String: Any])
+}
+
+@Test func bulletinShared1328UsesOriginalDisplayAdmissionAndNeverRenewsExpiry() throws {
+    let sample = try sharedBulletin1328Sample()
+    let owner: DJConnectBroadcastState = try bulletinDecode(try #require(sample["owner_snapshot"]))
+    let moment = try #require(owner.djMoments.first)
+    let now = try bulletinDate(moment.createdAt).addingTimeInterval(1)
+    #expect(moment.isBulletinV1 && moment.visibility == "session_shared")
+    #expect(moment.deliveryChannels == ["broadcast", "owner", "shared"])
+    #expect(owner.nativeCurrentMoment(at: now)?.id == moment.id && owner.nativeFlowMoments(at: now).isEmpty)
+    #expect(moment.sources.count == 2 && Set(moment.sources.map(\.provider)).count == 2)
+    #expect(moment.nativeSourceURLs == moment.sources.compactMap(\.destination))
+    let grant = try #require(owner.nativeDelivery?.admissions.first)
+    let displayEnd = try bulletinDate(try #require(grant.displayExpiresAt))
+    let sourceEnd = try bulletinDate(try #require(grant.sourceExpiresAt))
+    #expect(owner.nativeCurrentMoment(at: displayEnd) == nil)
+    #expect(owner.nativeFlowMoments(at: displayEnd).map(\.id) == [moment.id])
+    #expect(owner.nativeCurrentMoment(at: sourceEnd) == nil && owner.nativeFlowMoments(at: sourceEnd).isEmpty)
+    let reopened = try JSONDecoder().decode(DJConnectBroadcastState.self, from: JSONEncoder().encode(owner))
+    #expect(reopened.nativeDelivery?.admissions.first?.sourceExpiresAt == grant.sourceExpiresAt)
+    #expect(reopened.nativeCurrentMoment(at: sourceEnd) == nil && reopened.nativeFlowMoments(at: sourceEnd).isEmpty)
+}
+
+@Test func bulletinShared1328DisplayDoesNotSupplyOwnerSpeechOrSettings() throws {
+    let sample = try sharedBulletin1328Sample()
+    let raw = try #require(sample["shared_snapshot"] as? [String: Any])
+    #expect(raw["session_speech"] == nil && raw["dj_settings"] == nil && raw["session_media"] == nil)
+    let viewer: DJConnectBroadcastState = try bulletinDecode(raw)
+    let moment = try #require(viewer.djMoments.first)
+    let now = try bulletinDate(moment.createdAt).addingTimeInterval(1)
+    // Shared display has its own original admission; it is not owner authority.
+    #expect(viewer.nativeCurrentMoment(at: now)?.id == moment.id)
+    #expect(viewer.sessionSpeech.isEmpty && viewer.sessionMedia.isEmpty)
+    #expect(moment.actions.isEmpty && moment.artwork == nil)
+    let owner: DJConnectBroadcastState = try bulletinDecode(try #require(sample["owner_snapshot"]))
+    let ownerRaw = try #require(sample["owner_snapshot"] as? [String: Any])
+    let speechRaw = try #require(ownerRaw["session_speech"] as? [String: Any])
+    let originalSpeech = try #require(speechRaw["moments"] as? [[String: Any]])
+    #expect(originalSpeech.count == 1 && owner.sessionSpeech.count == originalSpeech.count)
+    #expect(owner.sessionSpeech.first?.reference == .moment(sessionID: owner.session.sessionID, momentID: moment.id))
+}
+
+@Test(arguments: 0..<10)
+func bulletinShared1328RejectsMixedDeliveryAndMissingOriginalAuthority(_ mutation: Int) throws {
+    let sample = try sharedBulletin1328Sample()
+    var value: DJConnectBroadcastState = try bulletinDecode(try #require(sample["owner_snapshot"]))
+    let now = try bulletinDate(try #require(value.djMoments.first).createdAt).addingTimeInterval(1)
+    switch mutation {
+    case 0: value.djMoments[0].visibility = "public_broadcast"
+    case 1: value.djMoments[0].presentationIntent.visibility = "owner_only"
+    case 2: value.djMoments[0].deliveryChannels = ["owner"]
+    case 3: value.djMoments[0].presentationIntent.deliveryChannels = ["owner", "shared"]
+    case 4: value.djMoments[0].deliveryChannels = ["broadcast", "owner", "shared", "shared"]
+    case 5: value.djMoments[0].deliveryChannels = ["broadcast", "owner", "shared", "unknown"]
+    case 6: value.nativeDelivery = nil
+    case 7: value.nativeDelivery?.admissions[0].qualification = "unqualified"
+    case 8: value.nativeDelivery?.admissions[0].sourceExpiresAt = nil
+    default: value.nativeDelivery?.admissions[0].executableActions = ["play"]
+    }
+    #expect(value.nativeCurrentMoment(at: now) == nil && value.nativeFlowMoments(at: now).isEmpty)
+}

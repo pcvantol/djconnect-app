@@ -9,6 +9,7 @@ import SwiftUI
     private var visualClock: Float = 0
     private var displayedDynamics: Float = 0.5
     var reduceMotion = false
+    var isActive = true
     private let frames: VibeScapeFrameFence
     private let unavailable: @MainActor () -> Void
 
@@ -26,7 +27,7 @@ import SwiftUI
     }
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
     func draw(in view: MTKView) {
-        guard visit.isCurrent, let target = visit.scene, let ticket = visit.ticket,
+        guard isActive, visit.isCurrent, let target = visit.scene, let ticket = visit.ticket,
               let drawable = view.currentDrawable else { view.isPaused = true; return }
         let time = ProcessInfo.processInfo.systemUptime
         let delta = min(1.0/15.0,max(0,time-(lastFrame ?? time)))
@@ -63,11 +64,11 @@ import SwiftUI
                 let success = completed.status == .completed
                 Task { @MainActor in
                     guard let self else { return }
-                    _ = self.frames.complete(frame, succeeded: success)
+                    _ = self.frames.complete(frame, succeeded: success && self.isActive)
                     // A failed GPU submission cannot leave a static Reduce
                     // Motion frame looking successfully applied. Stop rather
                     // than retrying a failing device in an unbounded loop.
-                    if !success, self.visit.isCurrent, self.visit.ticket == ticket {
+                    if !success, self.isActive, self.visit.isCurrent, self.visit.ticket == ticket {
                         view?.isPaused = true
                         self.unavailable()
                     }
@@ -83,6 +84,7 @@ import SwiftUI
 struct VibeScapeMetalView {
     let visit: VisualDirectorVisit
     let reduceMotion: Bool
+    var isActive = true
     let unavailable: @MainActor () -> Void
     @MainActor final class Coordinator {
         fileprivate var renderer: VibeScapeViewRenderer?
@@ -98,13 +100,16 @@ struct VibeScapeMetalView {
         }
         coordinator.renderer = renderer
         renderer.reduceMotion = reduceMotion
+        renderer.isActive = isActive
         view.delegate = renderer
         view.preferredFramesPerSecond = 60
+        view.isPaused = !isActive
         return view
     }
     @MainActor private func update(_ view: MTKView, coordinator: Coordinator) {
         coordinator.renderer?.reduceMotion = reduceMotion
-        view.isPaused = false
+        coordinator.renderer?.isActive = isActive
+        view.isPaused = !isActive
         // Cap drawable pixels to protect mobile GPU budget at high DPI.
         #if os(iOS)
         let scale: CGFloat = 1.25
@@ -113,7 +118,7 @@ struct VibeScapeMetalView {
         #endif
         view.autoResizeDrawable = false
         view.drawableSize = CGSize(width: max(1,view.bounds.width*scale),height: max(1,view.bounds.height*scale))
-        if reduceMotion { view.draw() }
+        if reduceMotion && isActive { view.draw() }
     }
 }
 

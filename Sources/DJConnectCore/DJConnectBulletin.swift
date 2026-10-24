@@ -28,17 +28,28 @@ public extension DJConnectMoment {
         ["track", "artist", "album", "genre", "session", "transition", "silence"].contains(type) || isBulletinV1
     }
     /// Version recognition is not display or speech authority. Those continue
-    /// to require the original owner native/speech admissions and deadlines.
+    /// to require original display admission and separate owner speech rights/deadlines.
     var isBulletinV1: Bool {
         type == "dj_bulletin" && !content.isEmpty && content.unicodeScalars.count <= 1200 &&
             DJConnectHistoryEntry.date(createdAt) != nil && generationMetadata?["bulletin_schema"] == "1" &&
             generationMetadata?["context_source"] == "fixed_rss_metadata_v1" &&
             knowledgeIntent?["type"] == "dj_bulletin" &&
             sourceReferences == ["fixed_rss_metadata_v1"] &&
-            visibility == "owner_only" && presentationIntent.visibility == "owner_only" &&
-            deliveryChannels == ["owner"] && presentationIntent.deliveryChannels == ["owner"] &&
+            hasSupportedBulletinDelivery &&
             settingsConfirmation == nil && sourceAttribution == nil && artwork == nil && actions.isEmpty &&
             (2...32).contains(sources.count) && sources.allSatisfy(\.isValid)
+    }
+    /// Exact current Core1328 tuple plus the previously qualified private tuple
+    /// for older installations. Neither shape grants native display or speech.
+    private var hasSupportedBulletinDelivery: Bool {
+        let channels: [String]
+        switch visibility {
+        case "owner_only": channels = ["owner"]
+        case "session_shared": channels = ["broadcast", "owner", "shared"]
+        default: return false
+        }
+        return presentationIntent.visibility == visibility && deliveryChannels == channels &&
+            presentationIntent.deliveryChannels == channels
     }
     internal func admitsBulletin(_ admission: DJConnectNativeMomentDelivery.Admission, at date: Date, current: Bool) -> Bool {
         guard isBulletinV1, !admission.requiresSpotifyAttribution, admission.executableActions.isEmpty,
