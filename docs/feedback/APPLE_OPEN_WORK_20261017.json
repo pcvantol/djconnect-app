@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "as_of": "2026-10-22 Europe/Amsterdam; sole Apple night window until2026-10-23 08:00; current source WIP/main8c349e7; native/device acceptance remains separately scoped",
+  "as_of": "2026-10-24; source192 protected merged and own-main qualified; device-free work resumed; physical/product boundaries retained",
   "owning_lane": "https://github.com/pcvantol/djconnect-app/issues/87",
   "writer": "Existing sole Apple writer; no second Apple writer, Core/API/receiver mutation or WIP reset",
-  "head": "8c349e7581a13c7700643df0fcf14366feb9e0ae (fresh origin/main readback); existing codex/apple-avatar-focus-ring with preserved uncommitted lane work and Bulletin182 preparation",
-  "installed_baseline": "Historical 18October snapshot, not a current-device readback: iPad/MacBook/Mac mini ordinary40338 installed/read back/opened; previous Mac apps/pairing preserved, defaultoff Apple STT. iPhone/Watch last confirmed40331. Actual local recognition, physical UI and background acceptance not claimed.",
+  "head": "5015bba447f86bb1a598c016e213cdbf4e955297 (protected source192; this separate documentary Finalization pending own delivery)",
+  "installed_baseline": "Current24October local Mac mini readback40450; no new ordinary build/install. Other device versions are historical, not freshly verified.",
   "items": [
     {
       "id": "lan-websocket",
@@ -140,7 +140,7 @@
       "topic": "Widgets, Live Activity en Dynamic Island",
       "status": "partial",
       "owner": "Apple + Core",
-      "evidence": "40272: extra surfacepop-out/twee toggles verwijderd; verse actieve Session/settings3 + OS-widgetplaatsing/Activitytoestemming sturen bestaande onafhankelijke grants. Eén poging per context, geen onzeker-write-replay. Historysuspension wist geen onafhankelijke cache meer. Settings-first bootstrap, exacte Activityinstancefence en aparte neutrale Sessionlease voorkomen onterecht app-einde bij bindingadoptie/late dismissal/verlopen richfield.26gerichte testsPASS2.533s; signed native iOS/macOS inclusiefWatch/widgets, ordinarybundles/signaturesPASS. GewoneiPad40272geïnstalleerd/teruggelezen; SDK accepteert active/count1 en eerste runtime-read toont geen app-einde.3vooraf geconfigureerde widgets; eerdere40269/40271reads beide rich stores met actuele muziek/bijdrage. Laatste40272read heeft actuele neutrale cache/widgetmuziek, geen live_activityrichcache en0art/pixels. Geen fysieke OS-pixel- of duurzame backgroundclaim. 18okt04:02 homescreen recurrence: physical AppGroup widget rich key absent, neutral snapshot present; LiveActivity track metadata present without art/Moment. Earlier03:44widgetauthorize/read200. Existing authorized Core repair handoff updated and writer investigating grant loss. APPLE_HOME_WIDGET_DATA_20261018.json. 40324 adds fixed-class/boolean/count-only widget lifecycle/refusal diagnostics. Privacy/no grant replay regression and15passive tests PASS; full820testsPASS. Core current history reads200, original404/widget withdrawal remain open; no expired-data bypass. 40337: twee gereproduceerde passive1-fouten hersteld: widgetgrant zonder locked_display toegestaan; publicatiehint tijdens artwork-IO blijft bewaard voor begrensde pure herlezing.18gerichte/843volledige testsPASS; signed gewone iOS/Watch/widgets en Macbuilds/signaturesPASS. iPad/MacBook/Mac mini40337 geinstalleerd/teruggelezen/heropend; vorige Macapps bewaard. Geredigeerde iPad40336diagnostiek bevestigt ook geldige lege projecties, LiveActivityinvalid_response en tijdelijke503; Core onderzoekt producer-omission/compatibiliteit. APPLE_PASSIVE_CONTRIBUTIONS_20261018.md.",
+      "evidence": "40272: extra surfacepop-out/twee toggles verwijderd; verse actieve Session/settings3 + OS-widgetplaatsing/Activitytoestemming sturen bestaande onafhankelijke grants. Eén poging per context, geen onzeker-write-replay. Historysuspension wist geen onafhankelijke cache meer. Settings-first bootstrap, exacte Activityinstancefence en aparte neutrale Sessionlease voorkomen onterecht app-einde bij bindingadoptie/late dismissal/verlopen richfield.26gerichte testsPASS2.533s; signed native iOS/macOS inclusiefWatch/widgets, ordinarybundles/signaturesPASS. GewoneiPad40272geïnstalleerd/teruggelezen; SDK accepteert active/count1 en eerste runtime-read toont geen app-einde.3vooraf geconfigureerde widgets; eerdere40269/40271reads beide rich stores met actuele muziek/bijdrage. Laatste40272read heeft actuele neutrale cache/widgetmuziek, geen live_activityrichcache en0art/pixels. Geen fysieke OS-pixel- of duurzame backgroundclaim. 18okt04:02 homescreen recurrence: physical AppGroup widget rich key absent, neutral snapshot present; LiveActivity track metadata present without art/Moment. Earlier03:44widgetauthorize/read200. Existing authorized Core repair handoff updated and writer investigating grant loss. APPLE_HOME_WIDGET_DATA_20261018.json. 40324 adds fixed-class/boolean/count-only widget lifecycle/refusal diagnostics. Privacy/no grant replay regression and15passive tests PASS; full820testsPASS. Core current history reads200, original404/widget withdrawal remain open; no expired-data bypass. 40337: twee gereproduceerde passive1-fouten hersteld: widgetgrant zonder locked_display toegestaan; publicatiehint tijdens artwork-IO blijft bewaard voor begrensde pure herlezing.18gerichte/843volledige testsPASS; signed gewone iOS/Watch/widgets en Macbuilds/signaturesPASS. iPad/MacBook/Mac mini40337 geinstalleerd/teruggelezen/heropend; vorige Macapps bewaard. Geredigeerde iPad40336diagnostiek bevestigt ook geldige lege projecties, LiveActivityinvalid_response en tijdelijke503; Core onderzoekt producer-omission/compatibiliteit. APPLE_PASSIVE_CONTRIBUTIONS_20261018.md. 24October source192 includes exact Activity instance/token ownership fix; this does not qualify remote push. Original clock offset defect remains open; v3 is still a private contract proposal. docs/feedback/APPLE_CONSOLIDATION_192_SOURCE_RECEIPT_20261024.json",
       "remaining": [
         "Core passive v1/v2-contract, bronattributie/omission-fixtures en exact producerpin afwachten; nieuwe basis niet blind accepteren.",
         "Best-effort quiet-transport geselecteerd: eventgestuurde gewone stille APNs voor widgetrefresh en aparte ActivityKit update/end-token. Nog geen tokenregistratie, passivepushhandler of backgroundlevering geimplementeerd.",
@@ -153,7 +153,7 @@
       "topic": "Push in productie",
       "status": "blocked",
       "owner": "Apple + API + Core",
-      "evidence": "Registratie-/epoch-/retryregressies aanwezig. Huidige signed ontwikkelbuilds gebruiken development/sandboxentitlement.",
+      "evidence": "Registratie-/epoch-/retryregressies aanwezig. Huidige signed ontwikkelbuilds gebruiken development/sandboxentitlement. 24October source192 includes exact Activity instance/token ownership fix; this does not qualify remote push. Original clock offset defect remains open; v3 is still a private contract proposal. docs/feedback/APPLE_CONSOLIDATION_192_SOURCE_RECEIPT_20261024.json",
       "remaining": [
         "Exact productiegesigneerd distributieartifact, APNsproductionregistratie/APIconfig en locked/backgrounddelivery/expiry/logoutreadback ontbreken.",
         "Sandboxregistratie is geen productiepushPASS; geen signing/secrets wijzigen als auditshortcut."
@@ -176,12 +176,12 @@
       "topic": "Gereviewde bronoplevering",
       "status": "partial",
       "owner": "Apple",
-      "evidence": "PR111 protected merged b47d17a3, exact qualified tree422cf117.784portable/784native tests and unsigned Applebuilds PASS; all premergechecks/Owner Authorization PASS. Both original checkouts clean main; WIP18/155paths preserved in stashes plus verified archives. MainCI39061192756/native coverage PASS; both artifact digests and coverage main SHA independently verified. Formal39061762379 refused unqualified evidence before publication. Current follow-ups PR115 protected merged abcb731; full candidate CI PASS and ordinary main CI job PASS. Native post-merge coverage could not initialize XCTest; formal release evidence remains unqualified.",
+      "evidence": "PR111 protected merged b47d17a3, exact qualified tree422cf117.784portable/784native tests and unsigned Applebuilds PASS; all premergechecks/Owner Authorization PASS. Both original checkouts clean main; WIP18/155paths preserved in stashes plus verified archives. MainCI39061192756/native coverage PASS; both artifact digests and coverage main SHA independently verified. Formal39061762379 refused unqualified evidence before publication. Current follow-ups PR115 protected merged abcb731; full candidate CI PASS and ordinary main CI job PASS. Native post-merge coverage could not initialize XCTest; formal release evidence remains unqualified. 24October source192: reviewed ef05b37 protected merged5015bba/equal treec12ea33; own-main CI/coverage40075625014 and formal40076439775 qualified; original artifacts/durable integrity/12checks verified. docs/feedback/APPLE_CONSOLIDATION_192_SOURCE_RECEIPT_20261024.json",
       "remaining": [
-        "Native main coverage/IDE-session environment repair and formal post-merge evidence qualification remain open.",
-        "Independent full technical/UX and original functional/device/provider acceptance remain open."
+        "This separate documentary Finalization still requires own protected review/merge/readback; source192 bounded qualification complete.",
+        "Original native/device/provider/complete product acceptance remains open."
       ],
-      "next_action": "Preserve exact source-main receipt; repair native test environment without weakening qualification or bypassing SIP."
+      "next_action": "Complete this separate documentary Finalization through normal protected delivery and preserve original product boundaries."
     },
     {
       "id": "iphone-output-transfer",
@@ -478,7 +478,7 @@
     {
       "id": "live-activity-playback-vibescape",
       "status": "PARTIAL",
-      "evidence": "Bestaande passieve playbackmetadata: grotere titel/artiest, album/64pt toegestane hoes, optionele actuele speelstatus met legacydecodercompatibiliteit; originele geldigheid blijft. Statische widget-VibeScape hergebruikt. Testbron toegevoegd, niet uitgevoerd. docs/LIVE_ACTIVITY_PLAYBACK_AND_VIBESCAPE.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; expliciet-build-only.",
+      "evidence": "Bestaande passieve playbackmetadata: grotere titel/artiest, album/64pt toegestane hoes, optionele actuele speelstatus met legacydecodercompatibiliteit; originele geldigheid blijft. Statische widget-VibeScape hergebruikt. Testbron toegevoegd, niet uitgevoerd. docs/LIVE_ACTIVITY_PLAYBACK_AND_VIBESCAPE.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; expliciet-build-only. 24October source192 includes exact Activity instance/token ownership fix; this does not qualify remote push. Original clock offset defect remains open; v3 is still a private contract proposal. docs/feedback/APPLE_CONSOLIDATION_192_SOURCE_RECEIPT_20261024.json",
       "remaining": [
         "OPEN: volgende expliciet gevraagde build: payloadtests, Lock Screen/Island layout/attributie/covers en pause/stale/withdrawal op apparaat. Zonder actuele passieve grant blijft neutrale fallback."
       ],
@@ -558,7 +558,7 @@
     {
       "id": "mac-widget-push-registration",
       "status": "PARTIAL",
-      "evidence": "Direct Peter: WidgetPushHandler/currentPushInfo en aparte extension APNs entitlement; begrensde lokale pendingtokenopvang/rotatie/verwijdering, geen appregisterhergebruik. Testbron NOTRUN. docs/MAC_WIDGET_SINGLETON_AND_PUSH_HANDOFF.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; geen build/install tot gevraagd.",
+      "evidence": "Direct Peter: WidgetPushHandler/currentPushInfo en aparte extension APNs entitlement; begrensde lokale pendingtokenopvang/rotatie/verwijdering, geen appregisterhergebruik. Testbron NOTRUN. docs/MAC_WIDGET_SINGLETON_AND_PUSH_HANDOFF.md. Source-only NOTBUILT/NOTTESTED/NOTINSTALLED; geen build/install tot gevraagd. 24October source192 includes exact Activity instance/token ownership fix; this does not qualify remote push. Original clock offset defect remains open; v3 is still a private contract proposal. docs/feedback/APPLE_CONSOLIDATION_192_SOURCE_RECEIPT_20261024.json",
       "remaining": [
         "OPEN: owning Core/API heeft afzonderlijk widgetcontract/relay/backgroundread nog niet geleverd; native registratie en echte aflevering niet gekwalificeerd. Geïnstalleerde widget mist nieuwe APNs entitlement."
       ],
@@ -610,11 +610,9 @@
       "topic": "Apple182: DJ Bulletin als gewone owner Flow-bubbel en bestaande autoplay",
       "status": "PARTIAL",
       "owner": "Apple + Core",
-      "evidence": "docs/feedback/APPLE_182_DJ_BULLETIN_V1_20261022.md; exact preparatory Core fixture909f525e609af7daf07653099a1c34b688cfd1e171b75d24c9225e34fceccc2f. Version1 owner-only native admission, normalMomentCard/glyph/5labels/source links, current+Flow chronology/dedup, original source/display expiry, existing speech/toggle and revocation fences; no RSS/newscreen/settings/Watch/shared-output expansion. Full1164tests/24suites PASS121.521s. Native20variants/platform in progress, not yet qualified. Consolidatie23okt: volledige suite1195tests/24suitesPASS129.386s; gewone iOS/Watch/widget/Maccompilatie unsignedPASS. Bulletin20componentvarianten perplatformPASS en begrensdeCorecontractreviewNO_BLOCKERS; geen volledige native/paired/audioacceptatie.",
+      "evidence": "docs/feedback/APPLE_182_DJ_BULLETIN_V1_20261022.md; exact preparatory Core fixture909f525e609af7daf07653099a1c34b688cfd1e171b75d24c9225e34fceccc2f. Version1 owner-only native admission, normalMomentCard/glyph/5labels/source links, current+Flow chronology/dedup, original source/display expiry, existing speech/toggle and revocation fences; no RSS/newscreen/settings/Watch/shared-output expansion. Full1164tests/24suites PASS121.521s. Native20variants/platform in progress, not yet qualified. Consolidatie23okt: volledige suite1195tests/24suitesPASS129.386s; gewone iOS/Watch/widget/Maccompilatie unsignedPASS. Bulletin20componentvarianten perplatformPASS en begrensdeCorecontractreviewNO_BLOCKERS; geen volledige native/paired/audioacceptatie. PR192 now protected/own-main qualified: provenance/accessibility correction and exact producer fixture consumer tests; native paired publication/audio not qualified. docs/feedback/APPLE_CONSOLIDATION_192_SOURCE_RECEIPT_20261024.json",
       "remaining": [
-        "Exact protected Core1291 producer/fixture join and independent bounded consumer review.",
-        "Native iPhone/iPad/Mac view/accessibility and actual paired publication/audio/target acceptance remain separate.",
-        "Apple source review/protected CI and concrete delivery; do not close182 on preparatory source or software tests alone."
+        "Native iPhone/iPad/Mac accessibility and actual paired publication/audio/target acceptance remain open; source192 review and protected CI completed."
       ]
     },
     {
@@ -622,10 +620,10 @@
       "topic": "Apple128: drie contextuele suggesties en compacte servergestuurde Help",
       "status": "PARTIAL",
       "owner": "Apple + Core",
-      "evidence": "docs/feedback/APPLE_128_CONTEXTUAL_SUGGESTIONS_HELP_20261022.md. Shared exact-three-or-zero selector and Help adopted against exact Core catalogue bytes; shipping draft remains unqualified/zero executable chips. Newly compiled/executed in full1164test lane suite; Core reference vectors remain test-only. Consolidatie23okt: volledige suite1195tests/24suitesPASS129.386s; gewone iOS/Watch/widget/Maccompilatie unsignedPASS. Bulletin20componentvarianten perplatformPASS en begrensdeCorecontractreviewNO_BLOCKERS; geen volledige native/paired/audioacceptatie.",
+      "evidence": "docs/feedback/APPLE_128_CONTEXTUAL_SUGGESTIONS_HELP_20261022.md. Shared exact-three-or-zero selector and Help adopted against exact Core catalogue bytes; shipping draft remains unqualified/zero executable chips. Newly compiled/executed in full1164test lane suite; Core reference vectors remain test-only. Consolidatie23okt: volledige suite1195tests/24suitesPASS129.386s; gewone iOS/Watch/widget/Maccompilatie unsignedPASS. Bulletin20componentvarianten perplatformPASS en begrensdeCorecontractreviewNO_BLOCKERS; geen volledige native/paired/audioacceptatie. PR192 now protected/own-main qualified: shared3suggestion/Help presentation and original track expiry. Shipping Core catalogue remains qualified:false/70pending; Mac UI test failed before connection. docs/feedback/APPLE_CONSOLIDATION_192_SOURCE_RECEIPT_20261024.json",
       "remaining": [
-        "Core catalogue/locale/owner-route qualification and exact protected consumer pin are still required.",
-        "Native suggestion/help UI, VoiceOver/DynamicType and installed acceptance remain open; normal free text/voice remains available."
+        "Qualified Core catalogue/locale/owner routes and exact producer consumer pin remain required.",
+        "Native Help interaction/VoiceOver/DynamicType and installed acceptance remain open; failed UI runner is not a pass."
       ]
     }
   ],
@@ -686,7 +684,14 @@
     "voice_menu_followup_40280_40281": "40276bronfix en25gerichte/36gerelateerde regressies behouden; volledige784suite op40282PASS. Nu actieve iPadsessie: drie pogingen op40280/40281, telkens2menutestsFAILED op native hit testing; geenSKIP/PASS. Landscape en vers proces herstellen dit niet. Volledige fysieke capture toont pop-out en stemmenlijst binnen beeld; eerdere offscreeninterpretatie verworpen. Remote menuAXservice onbereikbaar gemeld. Assertions niet verzwakt; geen voorkeur/playback gewijzigd. Geen12s-menuacceptatie tijdens playback.",
     "physical_performance_first_idle_40282": "40282 eerste echte externe XCTestcollectie:1PASS23.457s,3opgenomen foregroundSession-idlesamples; piekgeheugen58213.896/57099.784/56739.336kB, CPU0.1162/0.5572/0.1131s bij~4.93sintervallen. Geen thresholds/baselinevergelijking of glaseffectprestatieclaim. Instrumentspoging40281timeout vóór recording; geen trace. Gesaneerde metrics in APPLE_IDLE_PERFORMANCE_40282_20261017.json.",
     "dependency_readback_40282": "Core6a3adbc8e66ab380dfea1726ca34728097d0c684 (source1202/finalization1203) only VibeCast end-control retirement; no newly frozen preview/localoverride/LAN/verifier consumer contract.",
-    "historical_baseline": "40282; retained evidence for its original source/device scope"
+    "historical_baseline": "40282; retained evidence for its original source/device scope",
+    "source192": {
+      "receipt": "docs/feedback/APPLE_CONSOLIDATION_192_SOURCE_RECEIPT_20261024.json",
+      "main_ci": 40075625014,
+      "formal": 40076439775,
+      "local_native": "1335total/1316passed/19skipped/0failed/exit0",
+      "help_ui": "FAILED_PRESTART_EXIT65_NOT_QUALIFIED"
+    }
   },
   "lane_feedback": {
     "apple": "https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6232608294",
