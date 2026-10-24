@@ -63,3 +63,12 @@ The actual final serial run completed with parent0 and unchanged inputs:
 functions retained in the original log. The native component runs each passed
 4cases/0fail/0skip. Localization validates1447keys and the existing work-register
 projections pass. These results qualify source/component regression only.
+
+
+A subsequent real native CI/coverage run failed the new active-destination
+transport case (original job120987417600, exit65); it is not treated as a pass
+because its observe workflow is non-blocking. The synthetic handler returned
+archive A for background history recovery of current Session B. The fixture now
+serves a separate valid empty B timeline, including tail-window metadata, and
+checks readiness explicitly. No production availability or identity guard is
+relaxed. Fresh exact-head native CI and review are required before merge.

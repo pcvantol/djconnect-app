@@ -8678,12 +8678,32 @@ func contributionExplorationOriginalArchiveDestinationDraftAndRetryStayBound(_ a
     let timeline = try historyData(try #require(receipt["archived_timeline"]))
     let profile = try historyData(try #require(receipt["later_historical_answer"]))
     let caps = try contributionExplorationCapsWire(), runtime = try activeMoodRuntimeWire()
+    let runtimeEnvelope = try #require(JSONSerialization.jsonObject(with: runtime) as? [String: Any])
+    let runtimeSession = try #require(runtimeEnvelope["session"] as? [String: Any])
+    let currentID = try #require(runtimeSession["session_id"] as? String)
+    var currentTimeline = try #require(receipt["archived_timeline"] as? [String: Any])
+    var currentHeader = try #require(currentTimeline["session"] as? [String: Any])
+    currentHeader["session_id"] = currentID; currentHeader["lifecycle_status"] = "ACTIVE"
+    currentHeader["ended_at"] = ""; currentHeader["interrupted_at"] = ""; currentHeader["read_only"] = false
+    currentHeader["revision"] = "0:ACTIVE:0:0:"
+    currentTimeline["session"] = currentHeader; currentTimeline["entries"] = [] as [[String: Any]]
+    currentTimeline["revision"] = "0:ACTIVE:0:0:"
+    let currentTimelineBytes = try historyData(currentTimeline)
     let fixture = HistoryWireFixture { request in
         let path = request.url!.path
         if path.hasSuffix("/capabilities") { return (200, caps, 0) }
         if path.hasSuffix("/session/active") { return (200, runtime, 0) }
         if path.hasSuffix("/ask_dj/message") { return (503, Data(#"{"error":"temporarily_unavailable"}"#.utf8), 0.05) }
-        if path.contains("/session/history") { return (200, timeline, 0) }
+        if path.hasSuffix("/session/history/" + currentID) {
+            // Background recovery of B must not receive archive A's header.
+            var page = try #require(JSONSerialization.jsonObject(with: currentTimelineBytes) as? [String: Any])
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            if let window = query.first(where: { $0.name == "window" })?.value {
+                page["window"] = window; page["window_limit"] = 20; page["scan_complete"] = true
+            }
+            return (200, try historyData(page), 0)
+        }
+        if path.hasSuffix("/session/history/" + sourceID) { return (200, timeline, 0) }
         return (200, profile, 0)
     }
     defer { fixture.close() }
@@ -8700,6 +8720,7 @@ func contributionExplorationOriginalArchiveDestinationDraftAndRetryStayBound(_ a
     model.language = "nl"; model.askDJDraft = "Keep my unsent draft"
     history.selectedEntry = .init(sessionID: "another-reading-context", entryID: "another-entry")
     let previousSelection = history.selectedEntry
+    #expect(history.contributionQuestion == "Vertel meer", "scope=\(history.profileScopeActive) owner=\(history.hasAuthorizedOwner) canAsk=\(model.canUseAskDJFeatures) mode=\(model.haConnectionMode) epoch=\(history.responseEpoch == originalEpoch)")
     #expect(history.exploreContribution(entry, expectedEpoch: originalEpoch))
     #expect(!history.exploreContribution(entry, expectedEpoch: originalEpoch))
     let original = try #require(history.pendingTurns.first)
