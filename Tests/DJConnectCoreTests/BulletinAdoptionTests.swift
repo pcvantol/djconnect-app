@@ -6,8 +6,8 @@ import Testing
 
 private func bulletinFixture() throws -> [String: Any] {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-    let bytes = try Data(contentsOf: root.appendingPathComponent("Fixtures/dj-bulletin-v1-core-3b458934-wire.json"))
-    #expect(SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined() == "aac3b59b6ecce6d7d3a1ca979db6edc08cad4376268c0806d88e06a78ff900b9")
+    let bytes = try Data(contentsOf: root.appendingPathComponent("Fixtures/dj-bulletin-v1-core-12675bc-wire.json"))
+    #expect(SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined() == "1f6ae4e9ec314a2dc60ffcdf7d66497795baf840952b5897c09cfeb98d27eeee")
     return try #require(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
 }
 private func bulletinDecode<T: Decodable>(_ value: Any, as type: T.Type = T.self) throws -> T {
@@ -238,4 +238,15 @@ private func bulletinDate(_ raw: String) throws -> Date { try #require(DJConnect
     #expect(broadcast.nativeFlowMoments(at: expiredTick).isEmpty)
     #expect(broadcast.nativeFlowMoments(at: sourceEnd).isEmpty)
     #expect(SessionTimelineLiveRow.refreshDeadlines(retained: [], broadcast: nil).isEmpty)
+}
+
+@Test func bulletinSourceAccessibilityNamesOriginalHeadlineWithoutChangingAttributionOrURL() throws {
+    let broadcast = try bulletinBroadcast()
+    let moment = try #require(broadcast.djMoments.first)
+    #expect(moment.isBulletinV1 && moment.sources.count == 2)
+    for source in moment.sources {
+        #expect(source.attributionLabel == source.provider + " · " + source.license)
+        #expect(source.accessibilityLabel == source.provider + " · " + source.title + " · " + source.license)
+        #expect(source.destination?.absoluteString == source.url)
+    }
 }

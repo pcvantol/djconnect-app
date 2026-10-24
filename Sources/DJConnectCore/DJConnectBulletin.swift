@@ -13,6 +13,10 @@ public struct DJConnectBulletinSource: Codable, Equatable, Sendable {
               let host = value.host, !host.isEmpty, value.user == nil, value.password == nil else { return nil }
         return value
     }
+    /// Compact visible attribution; VoiceOver also names the supplied headline
+    /// so multiple links from one publisher remain distinguishable.
+    public var attributionLabel: String { provider + " · " + license }
+    public var accessibilityLabel: String { provider + " · " + title + " · " + license }
     var isValid: Bool {
         [provider, license, title].allSatisfy { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.utf8.count <= 4096 }
             && destination != nil && DJConnectHistoryEntry.date(publishedAt) != nil

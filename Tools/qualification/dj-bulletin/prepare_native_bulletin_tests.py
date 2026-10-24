@@ -21,7 +21,7 @@ def prepare(destination: Path, jose: Path, platform: str) -> None:
     project = json.loads(project_file.read_text())
     project["name"] = "NativeBulletinQualification"
     project["targets"] = {k: v for k, v in project["targets"].items() if k in ("ConsentCore", "ConsentUI")}
-    fixture = {"path": str(root / "Tests/Fixtures/dj-bulletin-v1-core-preparatory-wire.json"), "buildPhase": "resources"}
+    fixture = {"path": str(root / "Tests/Fixtures/dj-bulletin-v1-core-12675bc-wire.json"), "buildPhase": "resources"}
     host_settings = {"PRODUCT_BUNDLE_IDENTIFIER": "dev.djconnect.qualification.bulletin." + platform.lower(),
                      "GENERATE_INFOPLIST_FILE": "YES"}
     if platform == "iOS":

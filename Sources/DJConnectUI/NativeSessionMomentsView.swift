@@ -862,11 +862,12 @@ struct MomentCard: View {
                 .accessibilityIdentifier("session-spotify-attribution")
             }
             ForEach(moment.nativeSourceURLs, id: \.absoluteString) { url in
-                Link(moment.isBulletinV1
-                     ? (moment.sources.first { $0.destination == url }.map { $0.provider + " · " + $0.license } ?? url.host ?? "")
-                     : moment.sourceAttribution?["provider"] ?? url.host ?? "", destination: url)
+                let source = moment.isBulletinV1 ? moment.sources.first { $0.destination == url } : nil
+                let label = source?.attributionLabel ?? moment.sourceAttribution?["provider"] ?? url.host ?? ""
+                Link(label, destination: url)
                     .foregroundStyle(.white)
                     .tint(.white)
+                    .accessibilityLabel(source?.accessibilityLabel ?? label)
                     .accessibilityValue(url.absoluteString)
                     .accessibilityIdentifier("moment-source-" + url.absoluteString)
             }
