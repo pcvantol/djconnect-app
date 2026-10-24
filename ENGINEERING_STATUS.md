@@ -1,5 +1,30 @@
 # DJConnect App Engineering Status
 
+## 2026-10-24 — CodeQL maintenance / PR180
+
+[PR180](https://github.com/pcvantol/djconnect-app/pull/180) merged independently
+reviewed `877fc16381db66134205da04b804ae1e36851c08` as
+`f3747d13cca4526f4739dd098e545cf30037774c`; both trees are
+`89e4ae3b7d568b8f654b20af963b9fbbcc05eb25`. The sole workflow change updates
+three immutable CodeQL action pins from 4.38.3 to 4.39.0. Official tag resolution,
+default CLI 2.27.2 compatibility with minimum 2.20.7 and unchanged permissions,
+triggers, checkout and conditional firmware detection were independently reviewed.
+The analysis path is skipped without tracked firmware; this is not executed
+firmware-analysis evidence.
+
+Candidate CI40110478298, own-main CI40111352227 and formal40112309166 succeeded.
+Original native main logs confirm 1,267 Swift tests in 28 suites and a successful
+Xcode test completion. Original artifact ZIP hashes, runner/main/coverage binding,
+formal decision, durable canonical integrity and 12 required checks were verified.
+[Portable source receipt](docs/feedback/APPLE_CODEQL_180_SOURCE_RECEIPT_20261024.json).
+This separate documentary Finalization corrects stale CodeQL notices/design notes
+and records source delivery; its own protected merge and original-main qualification
+remain required. It changes no compiled input, ordinary version or installation.
+
+Prior Source199/Final200 qualification remains valid. Native push delivery,
+VibeCast authentic lifecycle/factory/physical acceptance and other existing product
+gates remain open; this maintenance delivery closes none of those gates.
+
 ## 2026-10-24 — Pending metadata accounting / PR199
 
 [PR199](https://github.com/pcvantol/djconnect-app/pull/199) merged independently
