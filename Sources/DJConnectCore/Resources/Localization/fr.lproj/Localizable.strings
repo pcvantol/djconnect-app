@@ -1580,7 +1580,7 @@
 
 "ui.askdj.help.session.intro" = "Posez des questions sur ce que vous entendez et ce que votre DJ vous montre. Mood définit l’ambiance, Persona le style du récit et Présence la fréquence des interventions du DJ.";
 
-"ui.askdj.help.session.footer" = "Poursuivez : « Et sur cet album ? » ou « Raconte-moi davantage. » Le DJ utilise le contexte valide de la conversation. Play Now ou Activer confirme un choix de lecture.";
+"ui.askdj.help.session.footer" = "Ton DJ utilise le contexte de conversation disponible. Tu confirmes ton choix avant que la musique démarre.";
 
 "ui.askdj.help.unavailable" = "Je ne peux pas confirmer les options musicales disponibles pour le moment. Vous pouvez toujours saisir votre question.";
 

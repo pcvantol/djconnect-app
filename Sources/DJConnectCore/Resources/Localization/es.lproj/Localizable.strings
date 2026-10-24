@@ -1580,7 +1580,7 @@
 
 "ui.askdj.help.session.intro" = "Pregunta sobre lo que escuchas y lo que te muestra tu DJ. Mood define el ambiente, Persona el estilo narrativo y Presencia la frecuencia con la que habla el DJ.";
 
-"ui.askdj.help.session.footer" = "Sigue preguntando: «¿Y en este álbum?» o «Cuéntame más». El DJ utiliza el contexto válido de la conversación. Play Now o Activar confirma una elección de reproducción.";
+"ui.askdj.help.session.footer" = "Tu DJ utiliza el contexto de conversación disponible. Confirmas una elección antes de que empiece la música.";
 
 "ui.askdj.help.unavailable" = "No puedo confirmar las opciones musicales disponibles ahora mismo. Puedes seguir escribiendo tu pregunta.";
 

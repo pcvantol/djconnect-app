@@ -138,3 +138,33 @@ private func askDJContext(_ raw: [String: Any]) throws -> DJConnectAskDJCatalogu
     #expect(catalogue.helpSections(context, surface: .askDJ, language: "nl").isEmpty)
     #expect(!catalogue.helpSections(context, surface: .session, language: "nl").isEmpty)
 }
+
+@Test func askDJHelpWithdrawsTrackSessionAndUnavailableRoutesInEveryLocale() throws {
+    let fixture = try askDJGolden()
+    let catalogue = try askDJDecode(DJConnectAskDJCatalogue.self, #require(fixture["synthetic_catalogue"]))
+    let vector = try #require((fixture["cases"] as? [[String: Any]])?.first)
+    let initial = try askDJContext(#require(vector["context"] as? [String: Any]))
+    for language in ["nl", "en", "de", "fr", "es"] {
+        for surface in [DJConnectAskDJCatalogue.Surface.askDJ, .session] {
+            let before = catalogue.helpSections(initial, surface: surface, language: language)
+            #expect(before.count == 3 && before.first?.id == "listen")
+            var expired = initial
+            for key in ["current_track", "current_album", "forecast_ready"] { expired.flags[key] = false }
+            expired.trackID = nil; expired.slots = [:]
+            let after = catalogue.helpSections(expired, surface: surface, language: language)
+            #expect(!after.isEmpty && after.first?.id == "play")
+            let oldTrackExamples = try #require(before.first).examples
+            #expect(!after.flatMap(\.examples).contains { oldTrackExamples.contains($0) })
+            #expect(after.count <= 3 && after.allSatisfy { $0.examples.count <= 2 })
+            expired.flags["active_session"] = false; expired.sessionID = nil
+            #expect(catalogue.helpSections(expired, surface: .session, language: language).isEmpty)
+            #expect(!catalogue.helpSections(expired, surface: .askDJ, language: language).isEmpty)
+            for flag in ["paired", "online", "backend_available"] {
+                var unavailable = initial; unavailable.flags[flag] = false
+                #expect(catalogue.helpSections(unavailable, surface: surface, language: language).isEmpty)
+            }
+            var unadvertised = initial; unadvertised.descriptor = nil
+            #expect(catalogue.helpSections(unadvertised, surface: surface, language: language).isEmpty)
+        }
+    }
+}
