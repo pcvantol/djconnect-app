@@ -38,12 +38,16 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         public let payload: DJConnectAskDJRequest
         public let requestEpoch: UUID
         public let ownerScope: String
+        public var preservesOriginalSelection = false
         public var createdAt = Date()
         public var failed = false
         public var contextChanged = false
         public var deliveryUncertain = false
         public var failureKey: String?
         public var canRetry: Bool { failed && !contextChanged && !deliveryUncertain }
+        // While this operation is unresolved, another content tap must not mint
+        // a new ID. The explicit safe retry still uses the original payload/ID.
+        var blocksContributionResubmission: Bool { preservesOriginalSelection }
 
         func questionMessage(in messages: [DJConnectAskDJMessage]) -> DJConnectAskDJMessage {
             if let original = messages.first(where: { $0.id == localMessageID && $0.role == .user }) { return original }
@@ -127,6 +131,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     @Published public private(set) var available = false
+    @Published private var contributionExploration: DJConnectContributionExploration?
     @Published public private(set) var summaryAvailable = false
     @Published public private(set) var bulkDeletionAvailable = false
     @Published public private(set) var bulkDeletionBusy = false
@@ -417,6 +422,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     private func performPreparation() async {
         guard let host, host.canRefreshSessionHistory else { return }
+        contributionExploration = nil
         let operation = preparationID
         preparing = true
         defer { if preparationID == operation { preparing = false } }
@@ -447,6 +453,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
                 host.enterProfileConversationScope()
             }
             if available { await refreshConversation() }
+            guard captured == epoch, host.canRefreshSessionHistory, available, ownerScope != nil else { return }
+            contributionExploration = caps.contributionExploration
         } catch {
             guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
             guard captured == epoch else { return }
@@ -456,6 +464,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func reset() {
+        contributionExploration = nil
         contentDeletionAvailable = false
         summaryAvailable = false
         deletionAvailable = false; bulkDeletionAvailable = false; bulkDeletionBusy = false; archiveGeneration = UUID(); archiveResponseEpoch = archiveGeneration; deletingSessionID = nil; deletionGeneration = UUID()
@@ -483,6 +492,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     public func suspend(preservingVoicePreference: Bool = false, cancelPreparation: Bool = true,
                         preservingArchiveNavigation: Bool = false) {
+        contributionExploration = nil
         contentDeletionAvailable = false
         summaryAvailable = false
         deletionAvailable = false; bulkDeletionAvailable = false; bulkDeletionBusy = false
@@ -1261,6 +1271,45 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         _ = enqueueText(host.askDJDraft, context: currentContext(), preservingComposer: false)
     }
 
+    var contributionQuestion: String? {
+        guard let host, !host.isDemoMode, host.canUseAskDJFeatures,
+              !pendingTurns.contains(where: \.blocksContributionResubmission),
+              !host.isSendingAskDJText, !host.isRecordingVoice, host.voiceStatus != .processing else { return nil }
+        return contributionExploration?.question(language: host.language)
+    }
+
+    /// The ordinary sender captures current destination/style once. Its separate
+    /// selected reference remains the original contribution, including an archive.
+    @discardableResult
+    func exploreContribution(_ entry: DJConnectHistoryEntry, expectedEpoch: UUID) -> Bool {
+        guard expectedEpoch == epoch, let question = contributionQuestion,
+              entry.isContractValid, entry.isRetained(), !entry.isPublicationReceipt,
+              Self.validSelectionIDs([entry.sessionID, entry.id]),
+              [entry.text, entry.playback?.title, entry.playback?.artist, entry.playback?.album].contains(where: {
+                  $0?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+              }),
+              [.djMoment, .playbackObserved, .conversationDJ].contains(entry.kind),
+              timelines[entry.sessionID]?.entries.contains(entry) == true || historicalMatches.values.contains(where: { $0.contains(entry) }) else { return false }
+        return enqueueText(question, context: .init(sessionID: host?.activeDJSession?.sessionID, selectedEntry: entry.reference),
+                           preservingComposer: true, preservingSelection: true)
+    }
+
+    @discardableResult
+    func exploreContribution(_ moment: DJConnectMoment, expectedEpoch: UUID) -> Bool {
+        guard expectedEpoch == epoch, let question = contributionQuestion,
+              let host, !host.djSessionIsRecovering, !host.djSessionLiveUnavailable,
+              let session = host.activeDJSession, session.id == moment.sessionID, moment.type != "silence",
+              Self.validSelectionIDs([moment.sessionID, moment.id]),
+              !contentMomentWasWithdrawn(sessionID: session.id, momentID: moment.id),
+              session.broadcast.nativeCurrentMoment(at: Date()) == moment || session.broadcast.nativeFlowMoments(at: Date()).contains(moment) else { return false }
+        return enqueueText(question, context: .init(sessionID: session.id,
+            selectedMoment: .init(sessionID: moment.sessionID, momentID: moment.id)), preservingComposer: true, preservingSelection: true)
+    }
+
+    private static func validSelectionIDs(_ values: [String]) -> Bool {
+        values.allSatisfy { !$0.isEmpty && $0.unicodeScalars.count <= 128 && $0 == $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+    }
+
     @discardableResult
     func requestSessionSpeakerChoice(sessionID: String) -> Bool {
         guard let host, !host.isDemoMode, host.canUsePlaybackFeatures,
@@ -1271,7 +1320,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
                            context: .init(sessionID: sessionID, selectedEntry: nil), preservingComposer: true)
     }
 
-    private func enqueueText(_ original: String, context: DJConnectConversationContext, preservingComposer: Bool) -> Bool {
+    private func enqueueText(_ original: String, context: DJConnectConversationContext, preservingComposer: Bool,
+                             preservingSelection: Bool = false) -> Bool {
         guard profileScopeActive, let host, host.canUseProfileConversation, !host.isSendingAskDJText else { return false }
         guard let capturedOwner = ownerScope else { host.failProfileConversationText(id: nil, errorKey: "ui.ask_dj.answer.unavailable"); return false }
         let text = original.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1281,7 +1331,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         let localID = host.beginProfileConversationText(text: text, clientMessageID: id)
         if preservingComposer { host.askDJDraft = draft }
         let turn = PendingTurn(id: id, text: text, context: context, localMessageID: localID,
-            payload: host.profileConversationPayload(text: text, clientMessageID: id, context: context), requestEpoch: epoch, ownerScope: capturedOwner)
+            payload: host.profileConversationPayload(text: text, clientMessageID: id, context: context), requestEpoch: epoch, ownerScope: capturedOwner,
+            preservesOriginalSelection: preservingSelection)
         pendingTurns.append(turn)
         if !preservingComposer { selectedEntry = nil }
         Task { await submit(turn) }
@@ -1290,16 +1341,17 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     public func retry(_ turn: PendingTurn) {
         guard turn.canRetry, let host, host.canUseProfileConversation, !host.isSendingAskDJText,
+              !turn.preservesOriginalSelection || contributionExploration?.isSupported == true,
               turn.requestEpoch == epoch, ownerScope == turn.ownerScope, pendingTurns.contains(where: { $0.id == turn.id }) else { return }
         pendingTurns.removeAll { $0.id == turn.id }; pendingTurns.append(PendingTurn(
             id: turn.id, text: turn.text, context: turn.context, localMessageID: turn.localMessageID, payload: turn.payload,
-            requestEpoch: turn.requestEpoch, ownerScope: turn.ownerScope, createdAt: turn.createdAt))
+            requestEpoch: turn.requestEpoch, ownerScope: turn.ownerScope, preservesOriginalSelection: turn.preservesOriginalSelection, createdAt: turn.createdAt))
         host.setProfileConversationSending(true)
         Task { await submit(turn) }
     }
 
     public func useCurrentContext(_ turn: PendingTurn) {
-        guard let host, turn.requestEpoch == epoch, ownerScope == turn.ownerScope,
+        guard !turn.preservesOriginalSelection, let host, turn.requestEpoch == epoch, ownerScope == turn.ownerScope,
               pendingTurns.contains(where: {
                   $0.id == turn.id && $0.requestEpoch == turn.requestEpoch && $0.ownerScope == turn.ownerScope
               }) else { return }

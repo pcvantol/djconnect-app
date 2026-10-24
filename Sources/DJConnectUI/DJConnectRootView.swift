@@ -11213,7 +11213,8 @@ private struct AskDJView: View {
                                                 isStaleHistory: isAskDJHistoryStale && !isTransientMessage,
                                                 isAudioLoading: isTransientMessage ? false : model.isLoadingAskDJAudio(message.audioURL),
                                                 isAudioPlaying: isTransientMessage ? false : model.isPlayingAskDJAudio(message.audioURL),
-                                                isRetryDisabled: isTransientMessage || isAskDJHistoryStale || model.isSendingAskDJText,
+                                                isRetryDisabled: isTransientMessage || isAskDJHistoryStale || model.isSendingAskDJText ||
+                                                    history.pendingTurns.contains { $0.localMessageID == message.id && $0.preservesOriginalSelection && !$0.canRetry },
                                                 playingActionID: model.playingAskDJActionID,
                                                 currentMood: model.confirmedSessionMoodInt,
                                                 isSearchResult: searchResultIDSet.contains(message.id),
@@ -11259,6 +11260,15 @@ private struct AskDJView: View {
                                                 },
                                                 contextQuestionSelected: contextEntry.map { history.selectedEntry == $0.reference } ?? false,
                                                 contextQuestionID: "ask-answer-context-" + message.id.uuidString,
+                                                contributionQuestion: contextEntry == nil ? nil : history.contributionQuestion,
+                                                contributionAction: contextEntry.map { entry in
+                                                    let actionEpoch = history.responseEpoch
+                                                    return {
+                                                        guard history.exploreContribution(entry, expectedEpoch: actionEpoch) else { return }
+                                                        DJConnectHaptics.selection()
+                                                        dismissAskDJSearch()
+                                                    }
+                                                },
                                                 speechEnabled: model.sharedDJSpeechAllowed,
                                                 sharedSpeechActions: model.profileDJSettings.negotiated ? {
                                                     AnyView(SharedDJSpeechActions(model: model, speech: message.sessionSpeech, acceptedText: message.text))
@@ -11954,6 +11964,8 @@ struct AskDJMessageBubble: View {
     var contextQuestionAction: (() -> Void)? = nil
     var contextQuestionSelected = false
     var contextQuestionID = ""
+    var contributionQuestion: String? = nil
+    var contributionAction: (() -> Void)? = nil
     var speechEnabled = true
     var sharedSpeechActions: (() -> AnyView)? = nil
     var capturedReplyArtwork: (() -> AnyView)? = nil
@@ -11965,6 +11977,7 @@ struct AskDJMessageBubble: View {
         }
         .padding(.trailing, contextQuestionAction != nil && !renderablePlaybackActions.isEmpty ? 36 : 0)
         .tint(.white)
+        .modifier(ContributionContentAction(question: contributionQuestion, action: contributionAction))
     }
 
     @ViewBuilder private var messageContextMenu: some View {

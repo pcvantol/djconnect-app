@@ -8615,3 +8615,186 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
     }
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/track_insight") }.count == 1)
 }
+
+// Protected Core1321/1322 public informational descriptor; no model/provider calls.
+private func contributionExplorationCapsWire() throws -> Data {
+    var root = try #require(JSONSerialization.jsonObject(with: activeMoodCapsWire) as? [String: Any])
+    var flags = try #require(root["capabilities"] as? [String: Bool]); flags["ask_dj_contextual_exploration"] = true
+    var versions = try #require(root["contract_versions"] as? [String: Int]); versions["ask_dj_contextual_exploration"] = 1
+    root["capabilities"] = flags; root["contract_versions"] = versions
+    root["ask_dj_contextual_exploration"] = ["version": 1, "operation": "ask_dj/message",
+        "context": ["selected_entry", "selected_moment"],
+        "generic_questions": ["en": "Tell me more", "nl": "Vertel meer", "de": "Erzähl mir mehr", "fr": "Dis-m’en plus", "es": "Cuéntame más"],
+        "attribute_required": false, "effect": "informational", "subject_authority": "qualified_selected_public_context",
+        "unqualified_context": "existing_source_unavailable_response", "client_gesture_owner": "client", "maximum_agent_calls": 3] as [String: Any]
+    return try historyData(root)
+}
+
+@Test(arguments: ["en", "nl", "de", "fr", "es", "nl-NL", "unsupported"])
+func contributionExplorationUsesOnlyServerLocalizedQuestion(_ locale: String) throws {
+    let caps = try JSONDecoder().decode(DJConnectSessionHistoryCapabilities.self, from: contributionExplorationCapsWire())
+    let descriptor = try #require(caps.contributionExploration)
+    let expected = ["en": "Tell me more", "nl": "Vertel meer", "de": "Erzähl mir mehr", "fr": "Dis-m’en plus", "es": "Cuéntame más"]
+    #expect(descriptor.question(language: locale) == expected[locale == "nl-NL" ? "nl" : locale])
+}
+
+@Test(arguments: ["missing", "malformed", "flag", "contract", "version", "operation", "context", "attribute_required", "effect", "subject_authority", "unqualified_context", "client_gesture_owner", "maximum_agent_calls"])
+func contributionExplorationUnsupportedCapabilityDoesNotBreakHistory(_ field: String) throws {
+    var root = try #require(JSONSerialization.jsonObject(with: contributionExplorationCapsWire()) as? [String: Any])
+    var descriptor = try #require(root["ask_dj_contextual_exploration"] as? [String: Any])
+    switch field {
+    case "missing": root.removeValue(forKey: "ask_dj_contextual_exploration")
+    case "malformed": root["ask_dj_contextual_exploration"] = "invalid"
+    case "flag": var flags = try #require(root["capabilities"] as? [String: Bool]); flags["ask_dj_contextual_exploration"] = false; root["capabilities"] = flags
+    case "contract": var versions = try #require(root["contract_versions"] as? [String: Int]); versions["ask_dj_contextual_exploration"] = 2; root["contract_versions"] = versions
+    default:
+        if ["version", "maximum_agent_calls"].contains(field) { descriptor[field] = 99 }
+        else if field == "attribute_required" { descriptor[field] = true }
+        else if field == "context" { descriptor[field] = ["selected_entry", "current_playback"] }
+        else { descriptor[field] = "unsupported" }
+        root["ask_dj_contextual_exploration"] = descriptor
+    }
+    let caps = try JSONDecoder().decode(DJConnectSessionHistoryCapabilities.self, from: historyData(root))
+    #expect(caps.available && caps.contributionExploration == nil)
+}
+
+@Test func contributionExplorationContextPreservesNullDestinationAndExclusiveOriginalIdentity() throws {
+    let moment = DJConnectSelectedMomentReference(sessionID: "original-session", momentID: "original-moment")
+    let context = DJConnectConversationContext(sessionID: nil, selectedMoment: moment)
+    let encoded = try JSONEncoder().encode(context)
+    let body = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    #expect(body["session_id"] is NSNull && body["selected_entry"] == nil)
+    #expect(body["selected_moment"] as? [String: String] == ["session_id": "original-session", "moment_id": "original-moment"])
+    #expect(try JSONDecoder().decode(DJConnectConversationContext.self, from: encoded) == context)
+    let ambiguous = DJConnectConversationContext(sessionID: "destination", selectedEntry: .init(sessionID: "archive", entryID: "entry"), selectedMoment: moment)
+    #expect(throws: (any Error).self) { try JSONEncoder().encode(ambiguous) }
+    #expect(throws: (any Error).self) { try JSONDecoder().decode(DJConnectConversationContext.self, from: Data(#"{"selected_entry":{"session_id":"a","entry_id":"e"},"selected_moment":{"session_id":"b","moment_id":"m"}}"#.utf8)) }
+}
+
+@Test(arguments: [false, true]) @MainActor
+func contributionExplorationOriginalArchiveDestinationDraftAndRetryStayBound(_ active: Bool) async throws {
+    let receipt = try historyObject()
+    let sourceID = try #require(receipt["session_id"] as? String)
+    let timeline = try historyData(try #require(receipt["archived_timeline"]))
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    let caps = try contributionExplorationCapsWire(), runtime = try activeMoodRuntimeWire()
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("/session/active") { return (200, runtime, 0) }
+        if path.hasSuffix("/ask_dj/message") { return (503, Data(#"{"error":"temporarily_unavailable"}"#.utf8), 0.05) }
+        if path.contains("/session/history") { return (200, timeline, 0) }
+        return (200, profile, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    if active { await model.refreshActiveDJSession() }
+    let history = model.sessionHistory
+    #expect(await history.loadTimeline(sourceID))
+    let entry = try #require(history.timelines[sourceID]?.entries.first { $0.kind == .djMoment })
+    let originalEpoch = history.responseEpoch
+    let destination = model.activeDJSession?.sessionID
+    if active { #expect(destination != nil && destination != sourceID) }
+    model.language = "nl"; model.askDJDraft = "Keep my unsent draft"
+    history.selectedEntry = .init(sessionID: "another-reading-context", entryID: "another-entry")
+    let previousSelection = history.selectedEntry
+    #expect(history.exploreContribution(entry, expectedEpoch: originalEpoch))
+    #expect(!history.exploreContribution(entry, expectedEpoch: originalEpoch))
+    let original = try #require(history.pendingTurns.first)
+    #expect(original.preservesOriginalSelection && original.context.selectedEntry == entry.reference)
+    #expect(original.context.sessionID == destination && original.context.selectedMoment == nil)
+    #expect(model.askDJDraft == "Keep my unsent draft" && history.selectedEntry == previousSelection)
+    for _ in 0..<100 where model.isSendingAskDJText { try await Task.sleep(for: .milliseconds(20)) }
+    let failed = try #require(history.pendingTurns.first)
+    #expect(failed.failed && failed.canRetry && failed.blocksContributionResubmission)
+    #expect(history.contributionQuestion == nil && !history.exploreContribution(entry, expectedEpoch: originalEpoch))
+    var uncertain = failed; uncertain.deliveryUncertain = true
+    #expect(uncertain.blocksContributionResubmission && !uncertain.canRetry)
+    uncertain.preservesOriginalSelection = false
+    #expect(!uncertain.blocksContributionResubmission)
+    history.useCurrentContext(failed)
+    #expect(history.pendingTurns.first?.id == original.id && history.selectedEntry == previousSelection)
+    #expect(model.askDJDraft == "Keep my unsent draft")
+    history.retry(failed)
+    for _ in 0..<100 where model.isSendingAskDJText { try await Task.sleep(for: .milliseconds(20)) }
+    let posts = fixture.requests.filter { $0.httpMethod == "POST" }
+    #expect(posts.count == 2 && posts.allSatisfy { $0.url!.path.hasSuffix("/ask_dj/message") })
+    for post in posts {
+        let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(post)) as? [String: Any])
+        #expect(body["text"] as? String == "Vertel meer" && body["client_message_id"] as? String == original.id)
+        let context = try #require(body["conversation_context"] as? [String: Any])
+        #expect(context["selected_entry"] as? [String: String] == ["session_id": sourceID, "entry_id": entry.id])
+        #expect(context["selected_moment"] == nil)
+        if let destination { #expect(context["session_id"] as? String == destination) }
+        else { #expect(context["session_id"] is NSNull) }
+        #expect(try presenceRequestBody(post).range(of: Data("Keep my unsent draft".utf8)) == nil)
+    }
+    history.suspend()
+    #expect(history.contributionQuestion == nil && !history.exploreContribution(entry, expectedEpoch: originalEpoch))
+    #expect(model.askDJDraft == "Keep my unsent draft")
+}
+
+@Test(arguments: ["current", "moved_on", "withdrawn", "wrong_epoch", "unsupported", "changed_content", "expired"])
+@MainActor func contributionExplorationLiveMomentKeepsOriginalIdentityAndAdmission(_ state: String) async throws {
+    let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let caps = state == "unsupported" ? activeMoodCapsWire : try contributionExplorationCapsWire()
+    var runtimeObject = try #require(JSONSerialization.jsonObject(with: momentInsightRuntimeWire(movedOn: state == "moved_on")) as? [String: Any])
+    if state == "expired" {
+        var session = try #require(runtimeObject["session"] as? [String: Any])
+        var broadcast = try #require(session["broadcast"] as? [String: Any])
+        var delivery = try #require(broadcast["native_delivery"] as? [String: Any])
+        var admissions = try #require(delivery["admissions"] as? [[String: Any]])
+        for index in admissions.indices { admissions[index]["source_expires_at"] = "2020-01-01T00:00:00Z" }
+        delivery["admissions"] = admissions; broadcast["native_delivery"] = delivery; session["broadcast"] = broadcast; runtimeObject["session"] = session
+    }
+    // The reused Insight fixture changes the Moment ID but deliberately does not
+    // rewrite Flow. This exploration fixture explicitly admits that same ID in Flow.
+    if state == "moved_on" {
+        var session = try #require(runtimeObject["session"] as? [String: Any])
+        var broadcast = try #require(session["broadcast"] as? [String: Any])
+        let moments = try #require(broadcast["dj_moments"] as? [[String: Any]])
+        let momentID = try #require(moments.first?["moment_id"] as? String)
+        var flow = try #require(broadcast["session_flow"] as? [String: Any])
+        var items = try #require(flow["items"] as? [[String: Any]])
+        for index in items.indices where items[index]["item_type"] as? String == "dj_moment" { items[index]["moment_id"] = momentID }
+        flow["items"] = items; broadcast["session_flow"] = flow; session["broadcast"] = broadcast; runtimeObject["session"] = session
+    }
+    let runtime = try historyData(runtimeObject)
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("/session/active") { return (200, runtime, 0) }
+        if path.hasSuffix("/ask_dj/message") { return (503, Data(#"{"error":"temporarily_unavailable"}"#.utf8), 0.03) }
+        return (200, profile, 0)
+    }; defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare(); await model.refreshActiveDJSession()
+    let history = model.sessionHistory
+    let session = try #require(model.activeDJSession)
+    var original = try #require(session.broadcast.djMoments.first)
+    let captured = history.responseEpoch
+    if state == "moved_on" {
+        #expect(session.broadcast.nativeCurrentMoment(at: Date()) == nil)
+        #expect(session.broadcast.nativeFlowMoments(at: Date()).contains(original))
+    }
+    model.askDJDraft = "Unsent live draft"
+    if state == "withdrawn" { history.suspend() }
+    if state == "changed_content" { original.content = "Another unadmitted body" }
+    let accepted = history.exploreContribution(original, expectedEpoch: state == "wrong_epoch" ? UUID() : captured)
+    #expect(accepted == ["current", "moved_on"].contains(state))
+    for _ in 0..<100 where model.isSendingAskDJText { try await Task.sleep(for: .milliseconds(20)) }
+    let posts = fixture.requests.filter { $0.httpMethod == "POST" }
+    #expect(posts.count == (accepted ? 1 : 0))
+    if let post = posts.first {
+        let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(post)) as? [String: Any])
+        let context = try #require(body["conversation_context"] as? [String: Any])
+        #expect(context["selected_entry"] == nil && context["session_id"] as? String == session.id)
+        #expect(context["selected_moment"] as? [String: String] == ["session_id": original.sessionID, "moment_id": original.id])
+        #expect(try presenceRequestBody(post).range(of: Data(original.content.utf8)) == nil)
+        #expect(history.pendingTurns.first?.preservesOriginalSelection == true)
+    }
+    #expect(model.askDJDraft == "Unsent live draft")
+}

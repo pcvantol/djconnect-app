@@ -235,6 +235,8 @@ struct NativeSessionMomentsView: View {
     var playbackOutputName: String? = nil
     var playbackModel: DJConnectAppModel? = nil
     var onPlaybackOutputQuestion: () -> Void = {}
+    var onContributionQuestion: () -> Void = {}
+    var contributionQuestion: String? = nil
     @Environment(\.scenePhase) private var scenePhase
     @State private var artworkFeedback: ArtworkFeedback?
     @State private var artworkActionGeneration = UUID()
@@ -396,12 +398,19 @@ struct NativeSessionMomentsView: View {
             }
             .accessibilityIdentifier("session-playback-paused")
         } else if let moment {
+            let actionEpoch = playbackModel?.sessionHistory.responseEpoch
             MomentCard(moment: moment, kind: kind(moment), presentation: presentation(for: moment), language: language,
                 navigationLabel: insightOffer(for: moment)?.label,
                 openInsight: { if let offer = insightOffer(for: moment) { playbackModel?.openMomentTrackInsight(offer) } },
                 artworkMedia: session.broadcast.sessionMedia.first { $0.sessionID == session.id && $0.target == .moment(moment.id) },
                 artworkModel: playbackModel,
-                speech: session.broadcast.sessionSpeech.first { $0.reference == .moment(sessionID: session.id, momentID: moment.id) })
+                speech: session.broadcast.sessionSpeech.first { $0.reference == .moment(sessionID: session.id, momentID: moment.id) },
+                contributionQuestion: contributionQuestion,
+                contributionAction: {
+                    guard let model = playbackModel, let actionEpoch,
+                          model.sessionHistory.exploreContribution(moment, expectedEpoch: actionEpoch) else { return }
+                    DJConnectHaptics.selection(); onContributionQuestion()
+                })
                 .id(moment.id)
                 .djContentDeletion(model: playbackModel, target: .init(kind: "moment", sessionID: session.id, targetID: moment.id))
                 .transition(.opacity)
@@ -829,6 +838,8 @@ struct MomentCard: View {
     var artworkMedia: DJConnectSessionMedia? = nil
     var artworkModel: DJConnectAppModel? = nil
     var speech: DJConnectSessionSpeech? = nil
+    var contributionQuestion: String? = nil
+    var contributionAction: (() -> Void)? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if let media = artworkMedia, let model = artworkModel {
@@ -841,6 +852,7 @@ struct MomentCard: View {
             } else { Text(kind).font(.caption.weight(.bold)).foregroundStyle(.secondary) }
             if !moment.isBulletinV1 && !moment.title.isEmpty { Text(moment.title).font(.title2.bold()).accessibilityAddTraits(.isHeader) }
             Text(moment.content).font(.title3).fixedSize(horizontal: false, vertical: true)
+                .modifier(ContributionContentAction(question: contributionQuestion, action: contributionAction))
             if let speech = presentation?.speech {
                 ForEach(speech.segments.filter { !(["dj", "primary_dj"].contains($0.speakerRole) && $0.text == moment.content) }.sorted { $0.ordinal < $1.ordinal }, id: \.ordinal) { segment in
                     Text(segment.text).fixedSize(horizontal: false, vertical: true)

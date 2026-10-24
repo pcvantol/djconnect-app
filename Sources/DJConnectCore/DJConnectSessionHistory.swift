@@ -28,15 +28,70 @@ public struct DJConnectSessionEntryReference: Codable, Hashable, Sendable {
 public struct DJConnectConversationContext: Codable, Equatable, Sendable {
     public var sessionID: String?
     public var selectedEntry: DJConnectSessionEntryReference?
-    public init(sessionID: String?, selectedEntry: DJConnectSessionEntryReference? = nil) {
-        self.sessionID = sessionID; self.selectedEntry = selectedEntry
+    public var selectedMoment: DJConnectSelectedMomentReference?
+    public init(sessionID: String?, selectedEntry: DJConnectSessionEntryReference? = nil,
+                selectedMoment: DJConnectSelectedMomentReference? = nil) {
+        self.sessionID = sessionID; self.selectedEntry = selectedEntry; self.selectedMoment = selectedMoment
     }
-    enum CodingKeys: String, CodingKey { case sessionID = "session_id", selectedEntry = "selected_entry" }
+    enum CodingKeys: String, CodingKey { case sessionID = "session_id", selectedEntry = "selected_entry", selectedMoment = "selected_moment" }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        sessionID = try c.decodeIfPresent(String.self, forKey: .sessionID)
+        selectedEntry = try c.decodeIfPresent(DJConnectSessionEntryReference.self, forKey: .selectedEntry)
+        selectedMoment = try c.decodeIfPresent(DJConnectSelectedMomentReference.self, forKey: .selectedMoment)
+        guard selectedEntry == nil || selectedMoment == nil else {
+            throw DecodingError.dataCorruptedError(forKey: .selectedMoment, in: c, debugDescription: "Ambiguous contribution selection")
+        }
+    }
     public func encode(to encoder: Encoder) throws {
+        guard selectedEntry == nil || selectedMoment == nil else {
+            throw EncodingError.invalidValue(self, .init(codingPath: encoder.codingPath, debugDescription: "Ambiguous contribution selection"))
+        }
         var c = encoder.container(keyedBy: CodingKeys.self)
         if let sessionID { try c.encode(sessionID, forKey: .sessionID) }
         else { try c.encodeNil(forKey: .sessionID) }
         try c.encodeIfPresent(selectedEntry, forKey: .selectedEntry)
+        try c.encodeIfPresent(selectedMoment, forKey: .selectedMoment)
+    }
+}
+
+/// Only the original selected identity enters Ask DJ; never copied content or a URI.
+public struct DJConnectSelectedMomentReference: Codable, Equatable, Sendable {
+    public var sessionID: String
+    public var momentID: String
+    public init(sessionID: String, momentID: String) { self.sessionID = sessionID; self.momentID = momentID }
+    enum CodingKeys: String, CodingKey { case sessionID = "session_id", momentID = "moment_id" }
+}
+
+/// The connected server advertises this existing informational operation.
+/// It is not a research result, public-source admission or playback grant.
+public struct DJConnectContributionExploration: Decodable, Sendable {
+    let version: Int
+    let operation: String
+    let context: [String]
+    let genericQuestions: [String: String]
+    let attributeRequired: Bool
+    let effect: String
+    let subjectAuthority: String
+    let unqualifiedContext: String
+    let clientGestureOwner: String
+    let maximumAgentCalls: Int
+    enum CodingKeys: String, CodingKey {
+        case version, operation, context, effect
+        case genericQuestions = "generic_questions", attributeRequired = "attribute_required"
+        case subjectAuthority = "subject_authority", unqualifiedContext = "unqualified_context"
+        case clientGestureOwner = "client_gesture_owner", maximumAgentCalls = "maximum_agent_calls"
+    }
+    public var isSupported: Bool {
+        version == 1 && operation == "ask_dj/message" && Set(context) == ["selected_entry", "selected_moment"] &&
+        context.count == 2 && !attributeRequired && effect == "informational" &&
+        subjectAuthority == "qualified_selected_public_context" && unqualifiedContext == "existing_source_unavailable_response" &&
+        clientGestureOwner == "client" && maximumAgentCalls == 3
+    }
+    public func question(language: String) -> String? {
+        guard isSupported, let value = genericQuestions[DJConnectLocalization.normalizedLanguageCode(language)],
+              !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, value.count <= 4000 else { return nil }
+        return value
     }
 }
 
@@ -414,6 +469,7 @@ public struct DJConnectProfileConversationHistory: Decodable, Sendable {
 public struct DJConnectSessionHistoryCapabilities: Decodable, Sendable {
     public let capabilities: [String: Bool]?
     public let contractVersions: [String: Int]?
+    public let contributionExploration: DJConnectContributionExploration?
     public var historyContractVersion: Int { contractVersions?["session_history_entries"] == 2 ? 2 : 1 }
     public var summaryAvailable: Bool {
         available && capabilities?["session_history_summary"] == true && contractVersions?["session_history_summary"] == 1
@@ -442,7 +498,17 @@ public struct DJConnectSessionHistoryCapabilities: Decodable, Sendable {
     public var searchAvailable: Bool {
         available && capabilities?["session_flow_text_search"] == true && contractVersions?["session_flow_text_search"] == 1
     }
-    enum CodingKeys: String, CodingKey { case capabilities, contractVersions = "contract_versions" }
+    enum CodingKeys: String, CodingKey {
+        case capabilities, contractVersions = "contract_versions", contributionExploration = "ask_dj_contextual_exploration"
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        capabilities = try c.decodeIfPresent([String: Bool].self, forKey: .capabilities)
+        contractVersions = try c.decodeIfPresent([String: Int].self, forKey: .contractVersions)
+        let candidate = try? c.decode(DJConnectContributionExploration.self, forKey: .contributionExploration)
+        contributionExploration = capabilities?["ask_dj_contextual_exploration"] == true &&
+            contractVersions?["ask_dj_contextual_exploration"] == 1 && candidate?.isSupported == true ? candidate : nil
+    }
 }
 
 public struct DJConnectSessionDeleteRequest: Codable, Sendable {
