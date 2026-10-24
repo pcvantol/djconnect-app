@@ -43,6 +43,9 @@ Both original parent processes completed with exit 0 on `2d06f9a`:
   cases, five explicit skips and no failures.
 - Native unsigned macOS Core test target with code coverage: 1,249 Swift Testing
   cases in 26 suites; 86 XCTest cases, five explicit skips and no failures.
+  The original xcresult reports 1,335 total, 1,316 passed, 19 skipped and zero
+  failed: five XCTest skips and fourteen gated Swift Testing cases. Reported
+  suite totals include those skips; they are not 1,335 executed passes.
 - Localization validation: 1,447 keys. Apple work-register validation passes.
 - Local contract security validation passes; HTTP covers 29 routes and WebSocket
   covers 18 messages/16 advertised routes. These are synthetic local servers,
