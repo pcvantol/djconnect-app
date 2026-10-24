@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "as_of": "24October Source204 originallyqualified; bounded new avatar/collection evidence only; no whole-product closure",
+  "as_of": "25October Source206/207 original-qualified; device-free source/component evidence; separate documentary Final pending own delivery",
   "owning_lane": "https://github.com/pcvantol/djconnect-app/issues/87",
   "baseline": "24October fresh read-only Mac mini40450 parent+widget metadata: development APS/group.dev.djconnect, strict/deep signaturePASS; no new ordinary build/install/runtime claim. Other device versions remain historical.",
-  "source_head": "99e48e762d6a129003ce9388bf7db999102ed60a (protected204, equal reviewedb3072dd tree; separate documentaryFinal changes no compiled/tool input)",
+  "source_head": "1b01b1990e266d37fd8e29b2ec7a93ac3b16943a (protected207; Source206 originally qualified; separate documentary Final only)",
   "status_semantics": {
     "CLOSED_BOUNDED": "Functionele implementatie/expliciet benoemde bewijslevering afgerond binnen de genoemde bewijsgrens; geen sluiting van parentproduct, bronPR of nativejointacceptatie.",
     "SUPERSEDED": "Vervangen door latere directe ownerbeslissing; niet opnieuw bouwen.",
@@ -14,7 +14,7 @@
   },
   "counts": {
     "BLOCKED": 4,
-    "CLOSED_BOUNDED": 25,
+    "CLOSED_BOUNDED": 28,
     "OPEN": 4,
     "PARKED": 1,
     "PARTIAL": 45,
@@ -722,6 +722,30 @@
       "source": "Owner device-free task24October; existing Queue/Playlist scroll request",
       "evidence": "24Oct actual Queue/Playlists native2tests per iPhone/iPad PASS on1,000syntheticrows, normal1Hz progress, no artURLs/app HTTP0; real scrolling, original search offset420 and changed source removal qualified within disposable Demo host. Three raw timing/CPU/memory samples per surface; no baseline/FPS/GPU/real-art/physical improvement or full-theme claim. Original field-ID diagnostic failure preserved. APPLE_COLLECTION_SCROLL_SIMULATOR_20261024.json.",
       "remaining": "Only four native cases and recorded short samples, synthetic1000rows/noartURL, temporary light host; no measured before/after improvement, FPS/GPU/energy/real-art/long-session/Mac/physical or whole-app visual acceptance. No actual queue/play command dispatched."
+    },
+    {
+      "id": "original-contribution-context-consumer-20261025",
+      "status": "CLOSED_BOUNDED",
+      "evidence": "Source206 reviewed79eec4d/protected6e2f3ef independently reviewed, own-mainCI40134736443/formal40135685008 and original1283/29+86XCTest/five skips/zero failures/canonical12PASS. Original ref/current-or-null destination/retry UUID/draft/reading guards; native tap/selection/nested-control component cases bounded. APPLE_EXPLORATION_206_SOURCE_RECEIPT_20261025.json.",
+      "remaining": "Only bounded consumer/source and stated component snapshots close. Actual paired informational answer/provider/model/audio, complete Root/Mac/VoiceOver/physical acceptance remain open; no archive revival or executable playback.",
+      "requirement": "Original retained/live contribution informational context consumer",
+      "source": "Direct owner: all device-free lane work, simulators and normal protected merges; Apple150/182 and visual permission request"
+    },
+    {
+      "id": "visual-permission-interruption-component-20261025",
+      "status": "CLOSED_BOUNDED",
+      "evidence": "Source207 protected1b01b1990e266d37fd8e29b2ec7a93ac3b16943a exact independently reviewed and originally own-main qualified.48focused/1286full tests; actual2native iPhone+2iPad casesPASS/0fail/0skip with412finalinputs, denied mic/speechunknown/zeroPOST, fresh help, background/owner dismissal. APPLE_VISUAL_CONTROLS_NATIVE_20261025.json. Earlier failures and test-host orientation warnings retained.",
+      "remaining": "Only transient local-scene and denied-permission/help component behavior closes. No authorized capture/STT/lease/directive/audio, real paired Root, Mac UI/VoiceOver/physical GPU/energy or installed app acceptance.",
+      "requirement": "VibeScape microphone-denial and transient-interruption component",
+      "source": "Direct owner: all device-free lane work, simulators and normal protected merges; Apple150/182 and visual permission request"
+    },
+    {
+      "id": "shared-bulletin-display-consumer-20261025",
+      "status": "CLOSED_BOUNDED",
+      "evidence": "Source207 exact session_shared/[broadcast,owner,shared] tuple plus qualified private compatibility; original display/source expiry/2publisherURLs/no speech-settings-media inheritance;10negative consumer cases. Fixture410d3336 unchanged, installed/native/audible NOT_RUN. APPLE_VISUAL_BULLETIN_207_SOURCE_RECEIPT_20261025.json.",
+      "remaining": "Only qualified bounded source consumer adoption closes. Actual HA deployment/Planner publication/shared native display, real speech/output/RSS/provider/audio and physical product acceptance remain separate.",
+      "requirement": "Exact Core1328 shared Bulletin display consumer",
+      "source": "Direct owner: all device-free lane work, simulators and normal protected merges; Apple150/182 and visual permission request"
     }
   ],
   "execution_feedback_40258": {
