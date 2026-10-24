@@ -1,0 +1,20 @@
+{
+  "base_source": "339afb61313ec9841c29bf387d57f49f0dacd146",
+  "scope": "Actual production VibeScapeSpeechAuthorization default SFSpeechRecognizer SDK callback only; no VoiceControl/AppModel/recorder/recognizer task/network/physical-device claim",
+  "parent_exit": 0,
+  "source_hashes_equal": true,
+  "native_ui_tests": 1,
+  "failures": 0,
+  "skips": 0,
+  "runtime_warnings": [],
+  "requests": 2,
+  "actual_system_action": "Denied via Simulator SpringBoard Sta niet toe; second call cached denial; microphone status remains unchanged",
+  "originals": {
+    "receipt.json": "7aa2ef84f46a364654c5d8c463109879854131cc673713e211a94f35824a1868",
+    "summary.json": "cc920d38bbabe3484f6801f02946501d5aa08bb6f6905fcf13855565d03d9495",
+    "test.log": "bf2eecea35b9315adb8cceb52904afd90730417d64bae50ff346bd1234792b61"
+  },
+  "temporary_host_source_sha256": "9671a419e5e9598623230d121f89ca3596093d0b3e6095f0014e925ea2eef5ed",
+  "temporary_test_source_sha256": "3d05fb0826d1c6be13f70735f5ded1dc45ff63b03363b54de0a1d4eaca84f0e4",
+  "screenshot_sha256": "77f49134a4bd976293b0a4a5e12d94636b34b5253936cfc1153bb41c9ba64384"
+}

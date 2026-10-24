@@ -1,5 +1,47 @@
 # DJConnect App Engineering Status
 
+## 2026-10-24 — Surface push v3 data / PR202 and device-free components
+
+[PR202](https://github.com/pcvantol/djconnect-app/pull/202) merged independently
+reviewed `339afb61313ec9841c29bf387d57f49f0dacd146` as
+`9bfa45cd8ab24855a235562d26a75ae4f059335d`; both trees are
+`c67705b8e0bc2011a1c7cfc1877ad823ffc106d5`. Seven files add only internal
+immutable v3 data codecs, byte-identical original isolated-HA fixtures,
+canonical native test references and scope documentation. No operative caller,
+request/transport, clock/purpose pin, registration permission, background
+publication or Activity admission is added. Original v2 and RED144b remain.
+
+Actual full local validation passed1,277 Swift Testing functions/29suites and
+86XCTest cases/five skips/zero failures. Native execution passed1,363 total:
+1,344 passed,19 skipped,zero failures. Both parents exit0 and all295 original
+source/test/project input hashes match before/after. The new suite executed.
+Candidate CI40118006453, own-main CI40118888984 and formal40119879301 succeeded.
+Original ZIP/member/runner/main/coverage/formal and durable canonical12/12 joins
+were verified. [Portable source receipt](docs/feedback/APPLE_SURFACE_V3_DATA_202_SOURCE_RECEIPT_20261024.json).
+
+Separately,14 production Help/Bulletin/menu component UI tests passed on owned
+iPhone/iPad simulators, with84 original screenshots. One actual production
+Speech SDK authorization callback test passed after two denied requests,
+without AppModel, recording, recognition or HTTP. Original iPad600s diagnosis
+anomaly is preserved; clean R2 passed. UIKit context-menu and temporary iPad-host
+orientation warnings remain explicit. Only representative screenshots were
+visually inspected. [Component receipt](docs/feedback/APPLE_DEVICEFREE_COMPONENT_RECEIPT_20261024.json).
+These are not paired commands, actual news publication, audio or VoiceOver/device
+acceptance. Shipping Help remains unqualified; no examples are invented.
+
+Read-only Mac40450 parent/widget metadata and strict signatures confirm
+development APS and group.dev.djconnect; the stale missing-entitlement claim
+is corrected. This is not token registration or delivery evidence. Core v3
+WIDGET_ONLY scope is delivered; authentic C0/history/minimum/rate/suspend/domain
+mapping and operative client adoption remain open. Activity rights, real push,
+VibeCast B/factory/physical acceptance and qualified Help catalogue remain open.
+
+This separate documentary Finalization changes no compiled input and still
+needs independent exact review, protected delivery and original own-main
+qualification. Prior failed193 coverage and196 native exclusion remain intact;
+maintenance180 plus separate201 are now originally qualified. No ordinary app
+version, device installation, provider/key action or timer is created.
+
 ## 2026-10-24 — CodeQL maintenance / PR180
 
 [PR180](https://github.com/pcvantol/djconnect-app/pull/180) merged independently
