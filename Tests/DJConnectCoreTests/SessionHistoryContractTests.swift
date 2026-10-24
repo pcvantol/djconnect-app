@@ -6407,6 +6407,7 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     var activeHeader = newHeader; activeHeader["session_id"] = "active-preserved"; activeHeader["lifecycle_status"] = "ACTIVE"; activeHeader["read_only"] = false
     var activePage = archiveObject; activePage["session"] = activeHeader; activePage["entries"] = []
     let activePageData = try historyData(activePage)
+    let activeRevision = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: activePageData).revision.value
     let initialList = try historyData(["success":true,"schema_version":1,"sessions":[archiveObject["session"]!],"revision":"before","next_cursor":"unloaded-page","retention_days":30])
     let refreshedList = try historyData(["success":true,"schema_version":1,"sessions":[newHeader],"revision":"after","retention_days":30])
     var profileObject = try #require(fixtureObject["later_historical_answer"] as? [String:Any]); profileObject["historical_matches"] = []; profileObject["messages"] = []
@@ -6422,6 +6423,8 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     let activeObject = try JSONSerialization.jsonObject(with:JSONEncoder().encode(active))
     let activeData = try historyData(["success":true,"active_session":activeObject])
     let state = HistoryBulkDeleteFixtureState()
+    let activeReadGate = HistoryWireResponseGate()
+    defer { activeReadGate.release() }
     let fixture = HistoryWireFixture { request in
         let path = request.url!.path
         if path.hasSuffix("/capabilities") { return (200,caps,0) }
@@ -6453,7 +6456,10 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
             return (200,ack,outcome == "epoch" ? 0.15 : 0)
         }
         if path.hasSuffix("/session/history") { return (200,state.completed ? refreshedList : initialList,0) }
-        if path.hasSuffix("/active-preserved") { return (200,activePageData,0) }
+        if path.hasSuffix("/active-preserved") {
+            if state.takeReadHold() { throw HistoryWireHeldResponse(data: activePageData, gate: activeReadGate) }
+            return (200,activePageData,0)
+        }
         return (200,archiveData,0)
     }
     defer { fixture.close() }
@@ -6461,10 +6467,30 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     let history = model.sessionHistory
     #expect(await model.refreshActiveDJSession())
     await history.prepare(); await history.loadSessions(); await history.loadTimeline(archive.id)
-    let activeReadLoaded = await history.loadTimeline(active.id)
-    #expect(activeReadLoaded)
-    #expect(history.timelines[active.id]?.loading == false)
-    print("BULK_ACTIVE_BASELINE outcome=\(outcome) loaded=\(activeReadLoaded) loading=\(String(describing: history.timelines[active.id]?.loading))")
+    let preparedDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while history.timelines[active.id]?.loading == true,
+          ContinuousClock.now < preparedDeadline { try await Task.sleep(for: .milliseconds(1)) }
+    #expect(history.timelines[active.id]?.loading != true)
+    let previousActiveReads = fixture.requests.filter { $0.url!.path.hasSuffix("/active-preserved") }.count
+    state.armRead()
+    // Profile-history preparation may already own this read. A second caller
+    // must not start another request or mistake its busy result for completion.
+    let activeRead = Task { @MainActor in await history.loadTimeline(active.id) }
+    let startedDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while fixture.requests.filter({ $0.url!.path.hasSuffix("/active-preserved") }).count == previousActiveReads,
+          ContinuousClock.now < startedDeadline { try await Task.sleep(for: .milliseconds(1)) }
+    #expect(history.timelines[active.id]?.loading == true)
+    #expect(await history.loadTimeline(active.id) == false)
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/active-preserved") }.count == previousActiveReads + 1)
+    activeReadGate.release()
+    _ = await activeRead.value // May be the coalesced caller, not the read owner.
+    let loadedDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while history.timelines[active.id]?.loading == true,
+          ContinuousClock.now < loadedDeadline { try await Task.sleep(for: .milliseconds(1)) }
+    let loaded = try #require(history.timelines[active.id])
+    #expect(!loaded.loading && loaded.errorKey == nil)
+    #expect(loaded.session?.id == active.id && loaded.revision == activeRevision)
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/active-preserved") }.count == previousActiveReads + 1)
     let activeBefore = model.activeDJSession
     let liveBefore = history.timelines[active.id]
     let epoch = history.responseEpoch

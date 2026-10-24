@@ -91,3 +91,26 @@ unchanged. The corrected test holds that outer key at an explicit barrier,
 requires busy/no transition body, then releases it and separately starts a new
 local transition. All13 queue XCTest cases pass0.007s. The failed full run remains
 failed; a new complete run is required before candidate qualification.
+
+## Current contract precedence — 24 October 2026
+
+Protected API source `69ed0fd75833f21c0b3862624e34c2e75efa3dc5` retains the
+exact recovery, key-state and wire documents pinned above. The Apple reader also
+independently matched `IMPLEMENTATION_CONTRACT_RELEASE_V1.md`, its machine record
+and `wire-request-schemas-v1.json` against the same historical9ab24315source:
+all six immutable blobs are byte-equal. Owning API readback:
+`apple-journal-contract-pointer-69ed-api-readback-20261024.json`, SHA256
+`f1c9d61870300d14487d77b2886a2c44fb7126d70dd8ddf7a17cc46f7c768112`.
+
+The explicit `djc-rendezvous/1-implementation.1` release selects enumerated
+source/wire/lifecycle semantics FOR IMPLEMENTATION and gives them precedence
+over historical0.4.0-draft/HOLD/NOT_FROZEN labels. Those old labels in this dated
+proposal are not a blanket block on further Apple source preparation. This
+readback changes no message, endpoint, lifecycle policy or server contract.
+
+The new bootstrap/import/activation composition still needs its own concrete
+schemas, causal implementation and exact independent review. The separately
+reviewed same-key, exclusion and child-store primitives are not whole-composition
+approval. Product wiring, real SDK/native/effect admission, operational gates
+and the physical iPhone/HA/receiver chain remain separate; this clarification
+supplies none of them and creates no production factory.
