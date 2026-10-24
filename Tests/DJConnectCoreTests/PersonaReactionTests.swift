@@ -248,16 +248,16 @@ func personaTouchRequiresItsOwnDiscoveryWithoutBreakingBasePersona(fault: String
 }
 
 @Test @MainActor func personaTouchOriginalExpiryClosesTextWithoutAnyLocalRenewal() async throws {
-    let (_, _, result) = try touchCase { reaction in
-        let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        reaction["expires_at"] = formatter.string(from: Date().addingTimeInterval(0.25))
-    }
+    let now = Date()
+    let (_, _, result) = try touchCase(now: now)
+    let clock = TouchTestClock(now)
     let controller = PersonaReactionController()
     var stopped = 0
     controller.start(.init(request: { _ in result }, cancel: { _, _ in }, current: { true }, admitsSpeech: { _ in false },
-        play: { _, _ in Issue.record("Text has no playback grant"); return false }, stop: { _ in stopped += 1 }, failure: {}, notice: "text", observe: touchObservation))
+        play: { _, _ in Issue.record("Text has no playback grant"); return false }, stop: { _ in stopped += 1 }, failure: {}, notice: "text", observe: touchObservation, now: { clock.value }))
     #expect(await touchEventually { controller.reaction != nil })
     #expect(controller.reaction?.expires_at == result.persona_reaction.expires_at)
+    clock.value = try #require(result.persona_reaction.deadline).addingTimeInterval(1)
     #expect(await touchEventually { !controller.isActive })
     #expect(controller.reaction == nil && stopped == 1)
 }
@@ -363,4 +363,30 @@ func personaTouchRequiresItsOwnDiscoveryWithoutBreakingBasePersona(fault: String
         failure: { failures += 1 }, notice: nil))
     #expect(await touchEventually { failures == 1 })
     #expect(controller.reaction == nil && !controller.isActive && plays == 0)
+}
+
+
+@MainActor private final class TouchTestClock {
+    var value: Date
+    init(_ value: Date) { self.value = value }
+}
+
+@Test @MainActor func personaTouchAlreadyExpiredResultClosesOriginalRunAndLateOperationCallback() async throws {
+    let (_, _, result) = try touchCase()
+    let clock = TouchTestClock(try #require(result.persona_reaction.deadline).addingTimeInterval(1))
+    let controller = PersonaReactionController()
+    var cancels: [(String, DJConnectPersonaReactionCancellation)] = []
+    var requests = 0, stops = 0, observations = 0, feedback = 0
+    controller.start(.init(request: { dispatched in
+        requests += 1
+        dispatched(result.persona_reaction.id)
+        return result
+    }, cancel: { cancels.append(($0, $1)) }, current: { true }, admitsSpeech: { _ in false },
+        play: { _, _ in Issue.record("An expired response cannot play"); return false },
+        stop: { _ in stops += 1 }, failure: {}, notice: nil, admittedFeedback: { feedback += 1 },
+        observe: { value in observations += 1; return try await touchObservation(value) }, now: { clock.value }))
+    #expect(await touchEventually { !controller.isActive && cancels.count == 1 })
+    #expect(requests == 1 && stops == 1 && observations == 0 && feedback == 0)
+    #expect(controller.reaction == nil && !controller.preparing && !controller.speaking)
+    #expect(cancels.count == 1 && cancels[0].0 == result.persona_reaction.id && cancels[0].1 == .dismissed)
 }

@@ -17,6 +17,8 @@ import DJConnectCore
         var admittedFeedback: @MainActor () -> Void = {}
         /// Shipping caller always supplies the independently negotiated observer.
         var observe: @MainActor (DJConnectPersonaReactionResult) async throws -> DJConnectPersonaReactionObservation = { _ in throw DJConnectHybridTransportError.unavailable }
+        /// Device clock seam for deterministic expiry tests; shipping uses Date().
+        var now: @MainActor () -> Date = { Date() }
     }
     @MainActor private final class Run {
         let services: Services
@@ -46,11 +48,11 @@ import DJConnectCore
         let current = Run(services); run = current
         preparing = true; speaking = false; notice = nil
         // A pending request is bounded too, even before a result supplies expiry.
-        let pendingDeadline = Date().addingTimeInterval(30)
+        let pendingDeadline = services.now().addingTimeInterval(30)
         monitor = Task { [weak self, weak current] in
             while let self, let current, self.run === current, !Task.isCancelled {
                 let deadline = self.reaction?.deadline ?? pendingDeadline
-                guard current.services.current(), deadline > Date(), current.observation?.isValid != false else {
+                guard current.services.current(), deadline > current.services.now(), current.observation?.isValid != false else {
                     self.cancel(.dismissed); return
                 }
                 do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
@@ -66,8 +68,13 @@ import DJConnectCore
                         current.cancelOnServer()
                     }
                 }
-                guard let self, self.run === current, !Task.isCancelled, services.current(),
-                      result.persona_reaction.deadline.map({ $0 > Date() }) == true else { return }
+                guard let self, self.run === current, !Task.isCancelled else { return }
+                guard services.current(), result.persona_reaction.deadline.map({ $0 > services.now() }) == true else {
+                    // A completed but expired response is no longer a pending
+                    // request. Close this original run so a deliberate new tap
+                    // is possible; late callbacks retain its cancellation fence.
+                    self.cancel(.dismissed); return
+                }
                 guard current.id == nil || current.id == result.persona_reaction.id else {
                     self.cancel(.dismissed); services.failure(); return
                 }
@@ -92,7 +99,7 @@ import DJConnectCore
                 if services.admitsSpeech(result.persona_reaction) {
                     let completed = try await services.play(result.persona_reaction) { [weak self, current] playing in
                         guard let self, self.run === current, services.current(),
-                              self.reaction?.deadline.map({ $0 > Date() }) == true else { return }
+                              self.reaction?.deadline.map({ $0 > services.now() }) == true else { return }
                         self.speaking = playing
                         if playing { self.preparing = false }
                     }
