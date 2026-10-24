@@ -4,7 +4,7 @@ import XCTest
 @MainActor final class NativeBulletinUITests: XCTestCase {
     override func setUp() { super.setUp(); continueAfterFailure = false }
     func testExistingMomentCardAcrossFiveLocalesAppearanceAndDynamicType() throws {
-        let fixtureURL = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "dj-bulletin-v1-core-preparatory-wire", withExtension: "json"))
+        let fixtureURL = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "dj-bulletin-v1-core-12675bc-wire", withExtension: "json"))
         let root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureURL)) as? [String: Any])
         let sample = try XCTUnwrap(root["sample"] as? [String: Any])
         let moment = try XCTUnwrap(sample["moment"] as? [String: Any])
@@ -31,7 +31,12 @@ import XCTest
                     XCTAssertEqual(contentMatches.count, 1)
                     for source in sources {
                         let url = try XCTUnwrap(source["url"] as? String)
-                        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "moment-source-" + url).firstMatch.exists)
+                        let link = app.descendants(matching: .any).matching(identifier: "moment-source-" + url).firstMatch
+                        XCTAssertTrue(link.exists)
+                        let expected = try XCTUnwrap(source["provider"] as? String) + " · " +
+                            (try XCTUnwrap(source["title"] as? String)) + " · " + (try XCTUnwrap(source["license"] as? String))
+                        XCTAssertTrue(link.label == expected || (link.value as? String) == expected,
+                                      "The accessible source names its original headline and license")
                     }
                     // Only the existing Moment component; no source controls,
                     // settings, custom speech player or executable news action.
@@ -50,6 +55,41 @@ import XCTest
             }
         }
     }
+    func testBulletinCurrentFlowExpiryAndWithdrawalUseOriginalProducerAdmission() throws {
+        let fixtureURL = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "dj-bulletin-v1-core-12675bc-wire", withExtension: "json"))
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureURL)) as? [String: Any])
+        let sample = try XCTUnwrap(root["sample"] as? [String: Any])
+        let moment = try XCTUnwrap(sample["moment"] as? [String: Any])
+        let narration = try XCTUnwrap(moment["content"] as? String)
+        for language in ["nl", "en", "de", "fr", "es"] {
+            let app = XCUIApplication()
+            app.launchEnvironment["BULLETIN_LANGUAGE"] = language
+            app.launchEnvironment["BULLETIN_LIFECYCLE_PROBE"] = "1"
+            app.launch()
+            for phase in ["current", "flow", "expired", "current", "withdrawn"] {
+                let button = app.buttons["bulletin-phase-" + phase]
+                XCTAssertTrue(button.waitForExistence(timeout: 10))
+                #if os(macOS)
+                button.click()
+                #else
+                button.tap()
+                #endif
+                let count = ["current", "flow"].contains(phase) ? 1 : 0
+                let expected = phase + " · cards " + String(count)
+                let status = app.staticTexts["bulletin-lifecycle-status"]
+                let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                    status.exists && (status.label == expected || (status.value as? String) == expected)
+                }, object: nil)
+                XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
+                let actual = app.staticTexts.allElementsBoundByIndex.filter {
+                    $0.label == narration || ($0.value as? String) == narration
+                }
+                XCTAssertEqual(actual.count, count, "One published normal bubble, no current/Flow duplicate or expired/withdrawn text")
+            }
+            app.terminate()
+        }
+    }
+
     func testAskDJDeleteContextMenuStaysMountedDuringOrdinaryUpdates() throws {
         let app = XCUIApplication()
         app.launchEnvironment["DELETION_MENU_PROBE"] = "1"

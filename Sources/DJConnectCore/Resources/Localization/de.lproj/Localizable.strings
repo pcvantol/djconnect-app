@@ -1580,7 +1580,7 @@
 
 "ui.askdj.help.session.intro" = "Frage nach dem, was du hörst und was dein DJ dir zeigt. Mood bestimmt die Stimmung, Persona den Erzählstil und Präsenz, wie oft dein DJ spricht.";
 
-"ui.askdj.help.session.footer" = "Frage weiter: „Und auf diesem Album?“ oder „Erzähl mir mehr.“ Der DJ nutzt den gültigen Gesprächskontext. Mit Play Now oder Aktivieren bestätigst du eine Wiedergabeauswahl.";
+"ui.askdj.help.session.footer" = "Dein DJ nutzt den verfügbaren Gesprächskontext. Du bestätigst die Musikauswahl, bevor die Wiedergabe beginnt.";
 
 "ui.askdj.help.unavailable" = "Ich kann die verfügbaren Musikoptionen gerade nicht bestätigen. Du kannst deine Frage trotzdem eingeben.";
 

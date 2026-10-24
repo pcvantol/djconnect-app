@@ -1580,7 +1580,7 @@
 
 "ui.askdj.help.session.intro" = "Vraag door over wat je hoort en wat je DJ laat zien. Mood bepaalt de sfeer, Persona de vertelstijl en Aanwezigheid hoe vaak je DJ iets vertelt.";
 
-"ui.askdj.help.session.footer" = "Vraag gerust verder: “En op dit album?” of “Vertel meer.” De DJ gebruikt de geldige gesprekscontext. Met Play Now of Activeren bevestig je een afspeelkeuze.";
+"ui.askdj.help.session.footer" = "Je DJ gebruikt de beschikbare gesprekscontext. Je bevestigt zelf een afspeelkeuze voordat muziek start.";
 
 "ui.askdj.help.unavailable" = "Ik kan de beschikbare muziekmogelijkheden nu niet bevestigen. Je kunt je vraag wel gewoon typen.";
 

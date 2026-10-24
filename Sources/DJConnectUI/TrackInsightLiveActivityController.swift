@@ -26,7 +26,7 @@ enum DJConnectSessionSurfaceActivityController {
         guard activity.activityState == .active || activity.activityState == .stale,
               let pending = DJConnectActivityPushToken(token: token, activityID: activity.id,
                   presentationID: activity.attributes.presentationID) else { return }
-        try? DJConnectActivityPushToken.replace(pending, in: .standard)
+        try? DJConnectActivityPushToken.recordIfCurrent(pending, in: .standard)
     }
     private static func observe(_ activity: Activity<DJConnectSessionLiveActivityAttributes>) {
         guard stateObservers[activity.id] == nil else { return }
@@ -97,9 +97,11 @@ enum DJConnectSessionSurfaceActivityController {
                 let activity = try Activity.request(attributes: DJConnectSessionLiveActivityAttributes(presentationID: presentationID),
                                          content: content, pushType: .token)
                 defaults.set(activity.id, forKey: pushRequestedKey)
-                observe(activity)
                 DJConnectSessionSurfacePresentation.requested(presentationID,
                     build: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown", activityID: activity.id, in: defaults)
+                // Establish exact native ownership before consuming an already
+                // available token; its stream need not emit that token again.
+                observe(activity)
                 return "Session Live Activity started; state=\(activity.activityState); count=\(Activity<DJConnectSessionLiveActivityAttributes>.activities.count)"
             } catch {
                 let error = error as NSError

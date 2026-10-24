@@ -1580,7 +1580,7 @@
 
 "ui.askdj.help.session.intro" = "Ask about what you hear and what your DJ shows you. Mood sets the atmosphere, Persona the storytelling style and Presence how often your DJ speaks.";
 
-"ui.askdj.help.session.footer" = "Keep asking: “And on this album?” or “Tell me more.” The DJ uses valid conversation context. Play Now or Activate confirms a playback choice.";
+"ui.askdj.help.session.footer" = "Your DJ uses the available conversation context. You confirm a playback choice before music starts.";
 
 "ui.askdj.help.unavailable" = "I cannot confirm the available music options right now. You can still type your question.";
 
