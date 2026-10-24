@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "as_of": "24October Source204 originalqualified;6nativeavatar component cases+21controller tests,4collection UI cases and1strict iPad SDK case; documentaryFinal awaits own delivery",
+  "as_of": "25October Source206/207 original-qualified; device-free source/component evidence; separate documentary Final pending own delivery",
   "owning_lane": "https://github.com/pcvantol/djconnect-app/issues/87",
   "writer": "Existing sole Apple writer; no second Apple writer, Core/API/receiver mutation or WIP reset",
-  "head": "99e48e762d6a129003ce9388bf7db999102ed60a (protected204; documentaryFinal changes no compiled/tool inputs)",
+  "head": "1b01b1990e266d37fd8e29b2ec7a93ac3b16943a (protected207; documentary Final changes no source/test/tool bytes)",
   "installed_baseline": "24October fresh read-only Mac mini40450 parent+widget metadata: development APS/group.dev.djconnect, strict/deep signaturePASS; no new ordinary build/install/runtime claim. Other device versions remain historical.",
   "items": [
     {
@@ -632,6 +632,30 @@
         "Mac UI prestart failure stays FAILED; paired typed help/real sends, VoiceOver and whole-product acceptance remain open. Simulator host callback proves selected-text forwarding, not a command send."
       ],
       "next_action": "Adopt only an actually qualified Core catalogue handoff; preserve shared Help/suggestions gating and original command path."
+    },
+    {
+      "id": "original-contribution-context-consumer-20261025",
+      "status": "CLOSED_BOUNDED",
+      "evidence": "Source206 reviewed79eec4d/protected6e2f3ef independently reviewed, own-mainCI40134736443/formal40135685008 and original1283/29+86XCTest/five skips/zero failures/canonical12PASS. Original ref/current-or-null destination/retry UUID/draft/reading guards; native tap/selection/nested-control component cases bounded. APPLE_EXPLORATION_206_SOURCE_RECEIPT_20261025.json.",
+      "remaining": "Only bounded consumer/source and stated component snapshots close. Actual paired informational answer/provider/model/audio, complete Root/Mac/VoiceOver/physical acceptance remain open; no archive revival or executable playback.",
+      "topic": "Original retained/live contribution informational context consumer",
+      "owner": "Apple"
+    },
+    {
+      "id": "visual-permission-interruption-component-20261025",
+      "status": "CLOSED_BOUNDED",
+      "evidence": "Source207 protected1b01b1990e266d37fd8e29b2ec7a93ac3b16943a exact independently reviewed and originally own-main qualified.48focused/1286full tests; actual2native iPhone+2iPad casesPASS/0fail/0skip with412finalinputs, denied mic/speechunknown/zeroPOST, fresh help, background/owner dismissal. APPLE_VISUAL_CONTROLS_NATIVE_20261025.json. Earlier failures and test-host orientation warnings retained.",
+      "remaining": "Only transient local-scene and denied-permission/help component behavior closes. No authorized capture/STT/lease/directive/audio, real paired Root, Mac UI/VoiceOver/physical GPU/energy or installed app acceptance.",
+      "topic": "VibeScape microphone-denial and transient-interruption component",
+      "owner": "Apple"
+    },
+    {
+      "id": "shared-bulletin-display-consumer-20261025",
+      "status": "CLOSED_BOUNDED",
+      "evidence": "Source207 exact session_shared/[broadcast,owner,shared] tuple plus qualified private compatibility; original display/source expiry/2publisherURLs/no speech-settings-media inheritance;10negative consumer cases. Fixture410d3336 unchanged, installed/native/audible NOT_RUN. APPLE_VISUAL_BULLETIN_207_SOURCE_RECEIPT_20261025.json.",
+      "remaining": "Only qualified bounded source consumer adoption closes. Actual HA deployment/Planner publication/shared native display, real speech/output/RSS/provider/audio and physical product acceptance remain separate.",
+      "topic": "Exact Core1328 shared Bulletin display consumer",
+      "owner": "Apple"
     }
   ],
   "qualification": {
@@ -850,6 +874,26 @@
         }
       },
       "note": "Prior40315 current qualification/head-role fields preserved as historical; no historical installed or failed evidence rewritten."
+    },
+    {
+      "as_of": "2026-10-24T22:53:46.087324+00:00",
+      "kind": "prior_current_fields_before_206_207_documentary_final",
+      "record": {
+        "as_of": "24October Source204 originalqualified;6nativeavatar component cases+21controller tests,4collection UI cases and1strict iPad SDK case; documentaryFinal awaits own delivery",
+        "head": "99e48e762d6a129003ce9388bf7db999102ed60a (protected204; documentaryFinal changes no compiled/tool inputs)",
+        "head_role": "Protected Source204 and original CI/formal/durable qualification; old current40315 fields explicitly archived in qualification_history. No new ordinary install; fresh Mac40450 readback remains bounded.",
+        "current_qualification": {
+          "source_pr": 204,
+          "source_main": "99e48e762d6a129003ce9388bf7db999102ed60a",
+          "scope": "Avatar native input and expired original-run closure only; local/native component scopes remain separate",
+          "source_receipt": "APPLE_AVATAR_204_SOURCE_RECEIPT_20261024.json",
+          "collections_receipt": "APPLE_COLLECTION_SCROLL_SIMULATOR_20261024.json",
+          "sdk_receipt": "APPLE_VISUAL_SPEECH_IPAD_SDK_RECEIPT_20261024.json",
+          "installation": "NO_NEW_INSTALL",
+          "native_physical": "OPEN"
+        }
+      },
+      "note": "Prior receipts/installed status remain historical; no old requirement status rewritten."
     }
   ],
   "execution_feedback_40258": {
@@ -912,16 +956,20 @@
     "original_wip": "Both original checkouts now clean main; 18/155 WIP paths preserved in independently hash-verified archives and Git stashes; excluded experiments retained",
     "source_main_ci": "PASS with native coverage; independently verified artifact digests and embedded exact main SHA"
   },
-  "head_role": "Protected Source204 and original CI/formal/durable qualification; old current40315 fields explicitly archived in qualification_history. No new ordinary install; fresh Mac40450 readback remains bounded.",
+  "head_role": "Original Source206/207 qualified, no ordinary installation or new product authority.",
   "current_qualification": {
-    "source_pr": 204,
-    "source_main": "99e48e762d6a129003ce9388bf7db999102ed60a",
-    "scope": "Avatar native input and expired original-run closure only; local/native component scopes remain separate",
-    "source_receipt": "APPLE_AVATAR_204_SOURCE_RECEIPT_20261024.json",
-    "collections_receipt": "APPLE_COLLECTION_SCROLL_SIMULATOR_20261024.json",
-    "sdk_receipt": "APPLE_VISUAL_SPEECH_IPAD_SDK_RECEIPT_20261024.json",
+    "source_prs": [
+      206,
+      207
+    ],
+    "source_main": "1b01b1990e266d37fd8e29b2ec7a93ac3b16943a",
+    "source_receipts": [
+      "APPLE_EXPLORATION_206_SOURCE_RECEIPT_20261025.json",
+      "APPLE_VISUAL_BULLETIN_207_SOURCE_RECEIPT_20261025.json"
+    ],
+    "native_component_receipt": "APPLE_VISUAL_CONTROLS_NATIVE_20261025.json",
     "installation": "NO_NEW_INSTALL",
-    "native_physical": "OPEN"
+    "product_acceptance": "PARTIAL; explicit producer/physical/paired/Mac gates remain"
   },
   "qualification_40312": {
     "build": "40312",

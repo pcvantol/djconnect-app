@@ -1,3 +1,57 @@
+## 2026-10-25 — Original contribution context, visual interruption and shared Bulletin
+
+Protected Source206 (`6e2f3ef51dc564458d7a8d8f0a8ff69994cc78a6`) and
+Source207 (`1b01b1990e266d37fd8e29b2ec7a93ac3b16943a`) are independently whole-source reviewed,
+normal merged and originally own-main qualified. Original CI/formal/durable and
+all12 canonical joins are recorded in the portable receipts below; no ordinary
+app is installed or versioned by this documentary Finalization.
+
+Source206 sends only the retained original reference through the existing
+informational Ask DJ route, gated by the actual server descriptor and original
+owner/epoch/retention. A separate current-or-null destination, original retry ID,
+draft and reading position remain. Native content taps preserve nested controls
+and text selection. Original exact main executes1,283functions/29suites plus
+86XCTest/five skips/zero failures. Local iPhone component snapshots predate the
+model-only guard correction; the final model is separately covered by original
+native coverage, rather than relabeling those snapshots as final whole-app proof.
+[Source206](docs/feedback/APPLE_EXPLORATION_206_SOURCE_RECEIPT_20261025.json).
+
+Source207 fixes transient inactive permission panels closing VibeScape. The
+local scene survives; rendering/wake work pauses and non-permission voice work
+stops. Actual background/owner/epoch/Session/expiry still closes the visit.
+Two native cases on each owned iPhone/iPad simulator passed: two microphone taps
+with denied status and speech unknown, zero POST/context/AskDJ, two fresh help
+reads and actual background/owner withdrawal. The earlier failed native parents
+remain failures, including test auto-hide timing and screenshot-after-termination.
+iPad test-host orientation warnings remain recorded; no normal layout, complete
+paired Root, authorized capture/STT, Mac UI, physical GPU or audio acceptance.
+[Native controls](docs/feedback/APPLE_VISUAL_CONTROLS_NATIVE_20261025.json).
+
+The exact Core1328/Final1329 shared Bulletin tuple is now recognized alongside
+the older qualified private tuple. Original display/source expiry and separate
+owner speech remain necessary; shared display adds no speech/settings/media
+right. The unchanged isolated HA fixture keeps installed/native/audible NOT_RUN.
+Full1,286functions/29suites and48focused functions passed serially. Source fixture
+and protected source qualification do not establish current HA publication.
+[Source207](docs/feedback/APPLE_VISUAL_BULLETIN_207_SOURCE_RECEIPT_20261025.json).
+
+All earlier requirement statuses and previous status bodies are preserved.
+Three new rows close only bounded consumer/component work. Remaining product
+gates: authentic surface C0/purpose history/minimum and independently qualified
+clock mapping; Core WIDGET_ONLY, no Activity profile/rights; qualified Help
+catalogue (shipping70pending); VibeCast original B lifecycle/factory/CAS and
+physical iPhone App Attest; protected Core1326/1327 historical exact playback v2 is a negative
+source contract until queue authority, not a new Apple play consumer or HA deploy; numeric Track Insight producer still unmeasured; real HA/model/audio,
+Mac UI/login, VoiceOver, long GPU/energy and physical acceptance. No fabricated
+producer, arrival TTL, queue/DNA/insight fact, permission or publication grant.
+TDE-observe source tests are distinct from its BLOCKED canonical analysis store;
+workflow success does not close that product-owned evidence gap.
+
+This separate documentary Final requires its own exact independent review,
+protected merge and original main qualification. No future result is predicted.
+
+---
+
 ## 2026-10-24 — Avatar input / PR204 and additional device-free checks
 
 [PR204](https://github.com/pcvantol/djconnect-app/pull/204) merged exact independently
