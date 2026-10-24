@@ -22,6 +22,7 @@ public final class DJConnectClient: Sendable {
     private let hybridTransport: DJConnectHybridTransport?
     private let settingsTransport: DJConnectProfileDJSettingsTransport
     private let speechTransport: DJConnectSpeechTransport
+    private let surfacePushTransport: DJConnectSurfacePushHTTP
     private let sessionArtworkTransport: DJConnectSessionArtworkTransport
     private let sessionProjectionSession: URLSession
     private let encoder: JSONEncoder
@@ -58,6 +59,7 @@ public final class DJConnectClient: Sendable {
         self.sessionProjectionSession = URLSession(configuration: projectionConfiguration, delegate: session.delegate, delegateQueue: session.delegateQueue)
         self.speechTransport = DJConnectSpeechTransport(configuration: session.configuration)
         self.settingsTransport = DJConnectProfileDJSettingsTransport(configuration: session.configuration)
+        self.surfacePushTransport = DJConnectSurfacePushHTTP(configuration: session.configuration)
         self.sessionArtworkTransport = DJConnectSessionArtworkTransport(configuration: session.configuration)
         self.encoder = JSONEncoder()
         self.decoder = JSONDecoder()
@@ -87,7 +89,7 @@ public final class DJConnectClient: Sendable {
     /// Never send those credentials to the public rendezvous service.
     public func displayOwnerContext(expectedInstallationID: String, pairedLocalOrigin: URL?,
                                     isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectDisplayOwnerContext {
-        guard !expectedInstallationID.isEmpty, identity.clientType == .ios,
+        guard !expectedInstallationID.isEmpty, [.ios, .macos].contains(identity.clientType),
               DJConnectHybridTransport.trustedOrigin(baseURL) ||
                 (baseURL == pairedLocalOrigin && DJConnectHybridLocalPolicy.isLocalCandidate(baseURL)) else { throw DJConnectError.invalidResponse }
         let originalToken = try loadedToken()
@@ -124,12 +126,12 @@ public final class DJConnectClient: Sendable {
         return context
     }
 
-    // Only the Core B coordinator invokes these two ordinary paired routes.
+    // Only the Core B coordinator invokes these ordinary paired routes.
     // It first validates a fresh selected-installation/owner context. The same
     // predicate is carried through the budget hop into synchronous dispatch.
     func displayConsentExchange(path: String, body: Data,
                                 isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> Data {
-        guard ["resolve", "approve"].contains(path), identity.clientType == .ios else {
+        guard ["resolve", "approve", "revoke"].contains(path), [.ios, .macos].contains(identity.clientType) else {
             throw DJConnectError.invalidResponse
         }
         let originalToken = try loadedToken()
@@ -339,6 +341,28 @@ public final class DJConnectClient: Sendable {
         return .init(insight: insight, subject: subject)
     }
 
+    /// Returns nil only when this Core does not advertise the additive contract.
+    /// A failed qualified response never falls back to a title or a different Moment.
+    public func currentTrackInsight(_ payload: DJConnectTrackInsightRequest, isCurrent: (@MainActor @Sendable () -> Bool)? = nil) async throws -> DJConnectCurrentInsightDetail? {
+        let capabilities: DJConnectCurrentInsightCapabilities
+        do {
+            capabilities = try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
+        } catch DJConnectError.routeMissing {
+            if let isCurrent, !(await isCurrent()) { throw CancellationError() }
+            return nil
+        }
+        if let isCurrent, !(await isCurrent()) { throw CancellationError() }
+        guard capabilities.available else { return nil }
+        var selected = payload
+        selected.trackInsightSubject = .init()
+        let response: TrackInsightEndpointResponse = try await decodedResponse(for: trackInsightRequest(selected))
+        guard response.success != false, let subject = response.currentSubject,
+              subject.schemaVersion == 1, subject.mode == "current", let insight = response.trackInsightValue else {
+            throw DJConnectError.trackInsightUnavailable(code: response.error, message: response.message)
+        }
+        return .init(insight: insight, subject: subject)
+    }
+
     public func trackInsight(_ payload: DJConnectTrackInsightRequest) async throws -> TrackInsight {
         if let insight = try await webSocketTrackInsightIfSupported(payload) {
             return insight
@@ -398,6 +422,10 @@ public final class DJConnectClient: Sendable {
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
         return try await sessionArtworkTransport.loadForecast(request)
+    }
+
+    public func askDJExampleCapabilities() async throws -> DJConnectAskDJCatalogue.Capabilities {
+        try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
     }
 
     public func activeSessionMoodCapabilities() async throws -> DJConnectActiveMoodCapabilities {
@@ -524,6 +552,51 @@ public final class DJConnectClient: Sendable {
             throw DJConnectError.routeMissing(message: "Paired live discovery contract unsupported")
         }
         return decoded.sessionBroadcast?.pairedOwnerWebsocket
+    }
+
+    public func visualDirectorHelp(language: String) async throws -> DJConnectVisualHelp {
+        struct Envelope: Decodable {
+            let success: Bool
+            let capabilities: [String: Bool]
+            let vibescape_visual_director: DJConnectVisualCatalogue?
+        }
+        let envelope: Envelope = try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
+        guard envelope.success, envelope.capabilities["vibescape_visual_director"] == true,
+              let catalogue = envelope.vibescape_visual_director, catalogue.isValid,
+              let help = catalogue.help[language], help.isValid else { throw DJConnectError.invalidResponse }
+        return help
+    }
+    public func visualDirectorContext(sessionID: String, visitID: UUID) async throws -> DJConnectVisualContext {
+        let payload = VisualIdentity(device_id: identity.deviceID, client_type: identity.clientType.rawValue,
+                                     session_id: sessionID, visit_id: visitID.uuidString)
+        return try decoder.decode(DJConnectVisualContext.self, from: await sessionArtworkTransport.prepare(visualDirectorRequest("context", payload: payload)))
+    }
+    public func interpretVisualDirection(_ payload: DJConnectVisualInterpretRequest) async throws -> DJConnectVisualInterpretResponse {
+        guard payload.device_id == identity.deviceID, payload.client_type == identity.clientType.rawValue,
+              payload.text.utf8.count <= 1024 else { throw DJConnectError.invalidResponse }
+        return try decoder.decode(DJConnectVisualInterpretResponse.self, from: await sessionArtworkTransport.prepare(visualDirectorRequest("interpret", payload: payload)))
+    }
+    public func revokeVisualVisit(sessionID: String, visitID: UUID) async throws {
+        let payload = VisualIdentity(device_id: identity.deviceID, client_type: identity.clientType.rawValue,
+                                     session_id: sessionID, visit_id: visitID.uuidString)
+        struct Reply: Decodable { let success: Bool }
+        let _ = try decoder.decode(Reply.self, from: await sessionArtworkTransport.prepare(visualDirectorRequest("revoke", payload: payload)))
+    }
+    private struct VisualIdentity: Encodable {
+        let schema_version = 1
+        let device_id: String, client_type: String, session_id: String, visit_id: String
+    }
+
+    private func visualDirectorRequest<T: Encodable>(_ route: String, payload: T) throws -> URLRequest {
+        var request = try authenticatedRequest(path: Self.apiV1Path("vibescape/" + route))
+        request.httpMethod = "POST"
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // This closed contract forbids the generic nested identity envelope.
+        request.httpBody = try encoder.encode(payload)
+        guard (request.httpBody?.count ?? 0) <= 8192 else { throw DJConnectError.invalidResponse }
+        return request
     }
 
     public func sessionHistoryCapabilities() async throws -> DJConnectSessionHistoryCapabilities {
@@ -715,6 +788,10 @@ public final class DJConnectClient: Sendable {
         guard result.success, result.persona_reaction.admits(request: request, settings: settings, receipt: result.operation_receipt, started: started) else { throw DJConnectError.invalidResponse }
         return result
     }
+    public func observePersonaReaction(_ result: DJConnectPersonaReactionResult) async throws -> DJConnectPersonaReactionObservation {
+        guard let hybridTransport else { throw DJConnectHybridTransportError.unavailable }
+        return try await hybridTransport.observePersonaReaction(result)
+    }
     public func cancelPersonaReaction(sessionID: String, reactionID: String, reason: DJConnectPersonaReactionCancellation) async throws {
         guard let hybridTransport, !sessionID.isEmpty, UUID(uuidString: reactionID) != nil else { throw DJConnectHybridTransportError.unavailable }
         struct Cancellation: Encodable {
@@ -821,7 +898,7 @@ public final class DJConnectClient: Sendable {
         }
         let payload = HistoryBulkDeletePayload(deviceID: identity.deviceID, clientType: identity.clientType,
             snapshotID: snapshot.snapshotID, operationID: operationID)
-        var request = try jsonRequest(path: Self.apiV1Path("session/history/delete_all"), payload: payload)
+        var request = try historyDeletionRequest(path: "session/history/delete_all", payload: payload)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
         request.setValue("no-referrer", forHTTPHeaderField: "Referrer-Policy")
@@ -901,13 +978,23 @@ public final class DJConnectClient: Sendable {
         guard action.isValid, !expectedOwner.isEmpty else { throw DJConnectError.invalidResponse }
         let payload = HistoryDeletePayload(deviceID: identity.deviceID, clientType: identity.clientType,
             sessionID: action.sessionID, expectedRevision: action.expectedRevision, operationID: action.operationID)
-        var request = try jsonRequest(path: Self.apiV1Path("session/history/delete"), payload: payload)
+        var request = try historyDeletionRequest(path: "session/history/delete", payload: payload)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
         request.setValue("no-referrer", forHTTPHeaderField: "Referrer-Policy")
         let response: DJConnectSessionDeleteResponse = try await decodedResponse(for: request, using: sessionProjectionSession)
         guard response.admits(action, owner: expectedOwner) else { throw DJConnectError.invalidResponse }
         return response
+    }
+
+    /// The archive API accepts a closed, flat body. The general JSON helper
+    /// adds identity/payload copies and device_token, which this route rejects.
+    private func historyDeletionRequest<T: Encodable>(path: String, payload: T) throws -> URLRequest {
+        var request = try authenticatedRequest(path: Self.apiV1Path(path))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(payload)
+        return request
     }
 
     private struct HistoryDeletePayload: Encodable {
@@ -941,7 +1028,7 @@ public final class DJConnectClient: Sendable {
             for: sessionHistoryReadRequest(route: "session/history/" + historyPathComponent(sessionID), cursor: cursor, queryItems: query, limit: limit), using: sessionProjectionSession)
         guard page.success, acceptsHistoryVersion(page.schemaVersion, declared: page.historyContractVersion), page.session.isContractValid, page.session.id == sessionID,
               page.window == window?.rawValue, page.anchorEntryID == anchorEntryID,
-              page.entries.count <= 50, page.entries.allSatisfy({ $0.sessionID == sessionID && $0.isContractValid }) else {
+              page.entries.count <= 50, page.entries.allSatisfy({ $0.sessionID == sessionID && $0.isContractValid(historyContractVersion: historyContractVersion) }) else {
             throw DJConnectError.invalidResponse
         }
         if window != nil {
@@ -961,7 +1048,7 @@ public final class DJConnectClient: Sendable {
         guard page.success, acceptsHistoryVersion(page.schemaVersion, declared: page.historyContractVersion), page.sessionID == sessionID, page.query == query,
               page.normalization == "NFKC-casefold", page.highlightUnits == "utf16",
               page.matches.count <= 50, page.returnedCount == page.matches.count,
-              page.matches.allSatisfy({ $0.sessionID == sessionID && $0.isContractValid }),
+              page.matches.allSatisfy({ $0.sessionID == sessionID && $0.isContractValid(historyContractVersion: historyContractVersion) }),
               page.complete == (page.nextCursor == nil),
               page.totalCount == nil || (page.complete && cursor == nil && page.totalCount == page.returnedCount) else {
             throw DJConnectError.invalidResponse
@@ -975,7 +1062,7 @@ public final class DJConnectClient: Sendable {
         let response: DJConnectSessionOpenResponse = try await decodedResponse(
             for: jsonRequest(path: Self.apiV1Path("session/history/open"), payload: payload), using: sessionProjectionSession)
         guard response.success, acceptsHistoryVersion(response.schemaVersion, declared: response.historyContractVersion), response.navigationOnly,
-              response.session.isContractValid, response.entry.isContractValid, response.readOnly == response.session.readOnly,
+              response.session.isContractValid, response.entry.isContractValid(historyContractVersion: historyContractVersion), response.readOnly == response.session.readOnly,
               response.session.id == action.sessionID, response.entry.sessionID == action.sessionID,
               response.entry.id == action.entryID else { throw DJConnectError.invalidResponse }
         return response
@@ -999,7 +1086,7 @@ public final class DJConnectClient: Sendable {
                 queryItems: [URLQueryItem(name: "conversation_scope", value: "profile")]), using: sessionProjectionSession)
         }
         guard response.base.success == true, !response.ownerScope.isEmpty,
-              response.base.messages.count <= 1000, response.historicalMatches.values.joined().allSatisfy(\.isContractValid) else {
+              response.base.messages.count <= 1000, response.historicalMatches.values.joined().allSatisfy({ $0.isContractValid(historyContractVersion: historyContractVersion) }) else {
             throw DJConnectError.invalidResponse
         }
         return response
@@ -1065,7 +1152,7 @@ public final class DJConnectClient: Sendable {
     private func validateConversation(_ response: DJConnectSessionConversationResponse,
                                       context: DJConnectConversationContext, inputType: String) throws {
         guard response.conversation.schemaVersion == 1, !response.conversation.turnID.isEmpty,
-              !response.ownerScope.isEmpty, response.historicalMatches.allSatisfy(\.isContractValid),
+              !response.ownerScope.isEmpty, response.historicalMatches.allSatisfy({ $0.isContractValid(historyContractVersion: historyContractVersion) }),
               response.conversation.context == context, response.conversation.inputType == inputType else {
             throw DJConnectError.invalidResponse
         }
@@ -2072,5 +2159,165 @@ public extension DJConnectClient {
         request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         return request
+    }
+}
+
+
+public struct DJConnectVisualHelp: Decodable, Sendable {
+    public struct Example: Decodable, Sendable, Identifiable { public let id: String; public let text: String }
+    public let examples: [Example]
+    public let scopes: [Example]
+    public var isValid: Bool {
+        !examples.isEmpty && examples.count <= 32 && scopes.count <= 8 &&
+        Set(examples.map(\.id)).count == examples.count && Set(scopes.map(\.id)).count == scopes.count &&
+        (examples + scopes).allSatisfy { !$0.id.isEmpty && $0.id.utf8.count <= 128 && !$0.text.isEmpty && $0.text.utf8.count <= 1024 }
+    }
+}
+private struct DJConnectVisualCatalogue: Decodable {
+    let contract_version: Int
+    let input: String, interpretation: String, application: String
+    let context_required: Bool
+    let help: [String: DJConnectVisualHelp]
+    var isValid: Bool {
+        contract_version == 1 && input == "bounded_text_from_on_device_stt_or_text" &&
+        interpretation == "closed_visual_grammar" && application == "native_client_only" && context_required
+    }
+}
+public struct DJConnectVisualContext: Decodable, Sendable {
+    public let success: Bool
+    public let schema_version: Int
+    public let visit_id: String, context_lease_id: String, observed_occurrence_id: String
+    public let expires_at: String
+    public let lease_duration_ms: Int
+}
+public struct DJConnectVisualSceneValues: Codable, Sendable {
+    public let palette: [Float]
+    public let motion: Float, depth: Float, roughness: Float, deformation: Float
+    public init(palette: [Float], motion: Float, depth: Float, roughness: Float, deformation: Float) {
+        self.palette = palette; self.motion = motion; self.depth = depth; self.roughness = roughness; self.deformation = deformation
+    }
+}
+public struct DJConnectVisualInterpretRequest: Encodable, Sendable {
+    public let schema_version = 1
+    public let device_id: String, client_type: String, session_id: String, visit_id: String
+    public let client_turn_id: String, context_lease_id: String, observed_occurrence_id: String
+    public let base_scene_revision: UInt64
+    public let text: String
+    public let active_scene: DJConnectVisualSceneValues
+    public let dynamics_bias: Float
+    public let scope: String
+    public init(deviceID: String, clientType: String, sessionID: String, visitID: UUID, turnID: UUID,
+                lease: String, occurrence: String, revision: UInt64, text: String, scene: DJConnectVisualSceneValues, dynamics: Float) {
+        device_id = deviceID; client_type = clientType; session_id = sessionID; visit_id = visitID.uuidString
+        client_turn_id = turnID.uuidString; context_lease_id = lease; observed_occurrence_id = occurrence
+        base_scene_revision = revision; self.text = text; active_scene = scene; dynamics_bias = dynamics; scope = "current_track"
+    }
+}
+public struct DJConnectVisualInterpretResponse: Decodable, Sendable {
+    public struct Directive: Decodable, Sendable {
+        public struct Patch: Decodable, Sendable {
+            public let palette: [Float]?
+            public let motion: Float?, depth: Float?, roughness: Float?, deformation: Float?
+        }
+        public let kind: String
+        public let scope: String?
+        public let patch: Patch?
+    }
+    public let success: Bool
+    public let schema_version: Int
+    public let status: String
+    public let visit_id: String, client_turn_id: String, context_lease_id: String, observed_occurrence_id: String
+    public let base_scene_revision: UInt64
+    public let expires_at: String
+    public let directive: Directive
+}
+
+
+// Surface push uses one captured paired HA client. Never route an uncertain
+// register/revoke through the hybrid transport or a fresh-ID fallback.
+public extension DJConnectClient {
+    /// Core v2 original context continuity. Design is accepted; production
+    /// factory/custody remains gated on qualified Core delivery and real admission.
+    @MainActor func prepareSurfacePush(_ attempt: DJConnectSurfacePushContextAttempt,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSurfacePushContinuation {
+        guard attempt.original.deviceID == identity.deviceID,
+              attempt.original.clientType == identity.clientType.rawValue else { throw DJConnectError.invalidResponse }
+        let current: @MainActor @Sendable () -> Bool = {
+            isCurrent() && attempt.canRequest(nowMS: Int64(Date().timeIntervalSince1970 * 1000), monotonicNow: .now)
+        }
+        let data = try await surfacePushPOST("context", bytes: attempt.contextBytes, isCurrent: current)
+        guard current(), !Task.isCancelled else { throw CancellationError() }
+        return try attempt.admit(data, nowMS: Int64(Date().timeIntervalSince1970 * 1000), monotonicNow: .now)
+    }
+    @MainActor func registerSurfacePush(_ continuation: DJConnectSurfacePushContinuation,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSurfacePushResponse {
+        guard continuation.attempt.original.deviceID == identity.deviceID,
+              continuation.attempt.original.clientType == identity.clientType.rawValue else { throw DJConnectError.invalidResponse }
+        let current: @MainActor @Sendable () -> Bool = {
+            isCurrent() && continuation.canSubmit(nowMS: Int64(Date().timeIntervalSince1970 * 1000), monotonicNow: .now)
+        }
+        let data = try await surfacePushPOST("register", bytes: continuation.registerBytes, isCurrent: current)
+        guard current(), !Task.isCancelled else { throw CancellationError() }
+        return try continuation.admitRegistration(data)
+    }
+    @MainActor func surfacePushContext(sessionID: String,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSurfacePushContext {
+        let data = try await surfacePushPOST("context", body: surfacePushIdentity(sessionID), isCurrent: isCurrent)
+        guard let context = try? JSONDecoder().decode(DJConnectSurfacePushContext.self, from: data),
+              context.hasValidShape else { throw DJConnectError.invalidResponse }
+        return context // Metadata cannot construct the original purpose witness.
+    }
+    @MainActor func registerSurfacePush(_ original: DJConnectSurfacePushRequest,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSurfacePushResponse {
+        guard original.deviceID == identity.deviceID, original.clientType == identity.clientType.rawValue else { throw DJConnectError.invalidResponse }
+        return try surfacePushResult(await surfacePushPOST("register", bytes: original.bytes, isCurrent: isCurrent))
+    }
+    @MainActor func revokeSurfacePush(sessionID: String, operationID: String, expected: DJConnectSurfacePushCoordinate,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSurfacePushResponse {
+        guard expected.isValid,
+              operationID.range(of: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", options: .regularExpression) != nil else { throw DJConnectError.invalidResponse }
+        var body = try surfacePushIdentity(sessionID)
+        body["operation_id"] = operationID
+        body["expected_registration"] = ["registration_id":expected.registration_id,"generation":expected.generation,"revision":expected.revision]
+        return try surfacePushResult(await surfacePushPOST("revoke", body:body, isCurrent:isCurrent))
+    }
+    @MainActor func surfacePushStatus(sessionID: String, registrationID: String,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSurfacePushStatus {
+        guard DJConnectSurfacePushCoordinate.identifier(registrationID) else { throw DJConnectError.invalidResponse }
+        var body = try surfacePushIdentity(sessionID); body["registration_id"] = registrationID
+        let bytes = try await surfacePushPOST("status", body:body, isCurrent:isCurrent)
+        guard let value = try? JSONDecoder().decode(DJConnectSurfacePushStatus.self,from:bytes),
+              value.success, value.contract_version == 1,
+              value.registration.registration_id == registrationID, value.registration.coordinate.isValid,
+              value.registration.cache_policy == "private,no-store" else { throw DJConnectError.invalidResponse }
+        return value // No credential, readiness restoration or mutation replay.
+    }
+    private func surfacePushResult(_ bytes: Data) throws -> DJConnectSurfacePushResponse {
+        guard let response = try? JSONDecoder().decode(DJConnectSurfacePushResponse.self,from:bytes) else { throw DJConnectError.invalidResponse }
+        return response // Original lifecycle validates ACK/rotation/expiry before adoption.
+    }
+    private func surfacePushIdentity(_ sessionID: String) throws -> [String: Any] {
+        guard DJConnectSurfacePushCoordinate.identifier(sessionID), [.ios,.macos].contains(identity.clientType) else { throw DJConnectError.invalidResponse }
+        return ["contract_version":1,"device_id":identity.deviceID,"client_type":identity.clientType.rawValue,"session_id":sessionID]
+    }
+    @MainActor private func surfacePushPOST(_ path: String, body: [String: Any],
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> Data {
+        try await surfacePushPOST(path, bytes:JSONSerialization.data(withJSONObject:body), isCurrent:isCurrent)
+    }
+    @MainActor private func surfacePushPOST(_ path: String, bytes: Data,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> Data {
+        guard ["context","register","revoke","status"].contains(path), isCurrent(), !Task.isCancelled else { throw CancellationError() }
+        let originalToken = try loadedToken()
+        var request = try authenticatedRequest(path:"/api/djconnect/v1/push/surface/" + path)
+        request.httpMethod = "POST"; request.httpBody = bytes
+        request.setValue("application/json",forHTTPHeaderField:"Content-Type")
+        request.setValue("application/json",forHTTPHeaderField:"Accept")
+        request.setValue("identity",forHTTPHeaderField:"Accept-Encoding")
+        request.setValue("no-store",forHTTPHeaderField:"Cache-Control")
+        let data = try await surfacePushTransport.send(request,isCurrent:{
+            isCurrent() && (try? self.tokenStore.loadToken()) == originalToken
+        })
+        guard isCurrent(), (try? tokenStore.loadToken()) == originalToken, !Task.isCancelled else { throw CancellationError() }
+        return data
     }
 }

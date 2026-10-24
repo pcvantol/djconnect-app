@@ -10427,6 +10427,9 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
     let host = "track-insight-html.local"
     let session = mockSession(host: host) { request in
+        if request.url?.path.hasSuffix("/capabilities") == true {
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"capabilities":{"current_track_insight_subject_v1":false},"contract_versions":{}}"#.utf8))
+        }
         #expect(request.url?.path == "/api/djconnect/v1/track_insight")
         let html = """
         <!DOCTYPE html>
@@ -10472,6 +10475,9 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     defaults.set(DJConnectHAConnectionMode.local.rawValue, forKey: "DJConnectHAConnectionMode")
     let host = "track-insight-no-current.local"
     let session = mockSession(host: host) { request in
+        if request.url?.path.hasSuffix("/capabilities") == true {
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"capabilities":{"current_track_insight_subject_v1":false},"contract_versions":{}}"#.utf8))
+        }
         #expect(request.url?.path == "/api/djconnect/v1/track_insight")
         let json = """
         {
@@ -10527,6 +10533,9 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     let recorder = Recorder()
     let host = "vibecast-auto-insight.local"
     let session = mockSession(host: host) { request in
+        if request.url?.path.hasSuffix("/capabilities") == true {
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"capabilities":{"current_track_insight_subject_v1":false},"contract_versions":{}}"#.utf8))
+        }
         switch request.url?.path {
         case "/api/djconnect/v1/vibecast":
             return (
@@ -13027,32 +13036,14 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     let plist = try loadRepositoryPlist("Apps/DJConnectIOS/Info.plist")
     let cameraUsage = try #require(plist["NSCameraUsageDescription"] as? String)
     let urlTypes = try #require(plist["CFBundleURLTypes"] as? [[String: Any]])
-    let shortcutItems = try #require(plist["UIApplicationShortcutItems"] as? [[String: Any]])
+    // The app publishes one dynamic Start/Open DJ-session action.
+    #expect(plist["UIApplicationShortcutItems"] == nil)
 
     #expect(cameraUsage.localizedCaseInsensitiveContains("camera"))
     #expect(cameraUsage.localizedCaseInsensitiveContains("QR"))
     #expect(urlTypes.contains { type in
         (type["CFBundleURLSchemes"] as? [String])?.contains("djconnect") == true
     })
-    let shortcutTypes = shortcutItems.compactMap { $0["UIApplicationShortcutItemType"] as? String }
-    #expect(shortcutTypes == [
-        "dev.djconnect.action.now-playing",
-        "dev.djconnect.action.ask-dj",
-        "dev.djconnect.action.track-insight",
-        "dev.djconnect.action.discovery",
-        "dev.djconnect.action.queue"
-    ])
-    let askDJShortcut = try #require(shortcutItems.first {
-        $0["UIApplicationShortcutItemType"] as? String == "dev.djconnect.action.ask-dj"
-    })
-    #expect(askDJShortcut["UIApplicationShortcutItemSubtitle"] as? String == "Ask for music")
-    let discoveryShortcut = try #require(shortcutItems.first {
-        $0["UIApplicationShortcutItemType"] as? String == "dev.djconnect.action.discovery"
-    })
-    #expect(discoveryShortcut["UIApplicationShortcutItemIconSymbolName"] as? String == "sparkles")
-    #expect(discoveryShortcut["UIApplicationShortcutItemTitle"] as? String == "Discover")
-    #expect(discoveryShortcut["UIApplicationShortcutItemSubtitle"] as? String == "Music DNA recommendations")
-
     let iPhoneOrientations = try #require(plist["UISupportedInterfaceOrientations~iphone"] as? [String])
     #expect(iPhoneOrientations == [
         "UIInterfaceOrientationPortrait",

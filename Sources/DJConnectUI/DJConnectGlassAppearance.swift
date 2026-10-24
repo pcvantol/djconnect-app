@@ -12,7 +12,18 @@ private struct DJConnectGlassEnabledKey: EnvironmentKey {
     static let defaultValue = true
 }
 
+private struct DJConnectScrollingSurfaceKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 extension EnvironmentValues {
+    /// Stable frosted materials for moving page content. Toolbar/popover glass
+    /// stays live; this does not change the user's glass-effects preference.
+    var djConnectScrollingSurface: Bool {
+        get { self[DJConnectScrollingSurfaceKey.self] }
+        set { self[DJConnectScrollingSurfaceKey.self] = newValue }
+    }
+
     var djConnectGlassEffectsEnabled: Bool {
         get { self[DJConnectGlassEnabledKey.self] }
         set { self[DJConnectGlassEnabledKey.self] = newValue }

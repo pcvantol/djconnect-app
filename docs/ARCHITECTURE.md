@@ -605,3 +605,34 @@ items let iOS hide the independent connection/refresh group. The bounded row
 preserves More first and source popover anchors; iPad retains direct expanded
 controls. Native simulator screenshots/tests qualify arrangement and search/menu
 interaction only, not physical performance or backend availability.
+
+
+## Owner-bound Apple consumer consolidation (2026-10-23)
+
+The current-recording Track Insight selector captures an exact playback URI,
+original observation lifetime and Session/Profile settings generation before
+capability negotiation. Both pending responses and accepted proof are withdrawn
+on owner, settings, foreground or recording-context change. The proof remains
+ephemeral. Captured reply artwork is independently capability-gated and joins
+only an original retained assistant entry and its recorded edition. It never
+borrows current playback artwork. See the exact producer pins and causal tests
+in [the consumer evidence](feedback/APPLE_CURRENT_INSIGHT_REPLY_ARTWORK_20261022.md).
+
+DJ Bulletin renders an admitted owner Flow Moment in the existing card and
+speech pipeline. RSS selection, durable intelligence and publication remain
+Core-owned. Consumer regressions and the disposable native renderer host use the
+exact fixture from protected Core `736378991f6ce54b9565f11314acf5863d3eb58b`
+(SHA256 `1f6ae4e9ec314a2dc60ffcdf7d66497795baf840952b5897c09cfeb98d27eeee`).
+Source links retain the supplied provider/license visually; VoiceOver also names
+the original story headline. Component UI qualification does not establish
+operative Planner publication or audible acceptance. Contextual Ask DJ
+suggestions and Help use the pinned Core catalogue; unqualified entries do not
+become executable client recommendations.
+
+VibeCast same-key recovery preserves the original enrollment challenge, key and
+deadline. Replacement/rollover composition is still preparation: the bounded
+child journal CAS store and retained-identity file exclusion have no product
+factory, allocator, migration or activation path. Their source review does not
+open SDK or service admission. See [composition](VIBECAST_HANDLE_JOURNAL_COMPOSITION.md)
+and [child storage](VIBECAST_CHILD_JOURNAL_STORE.md). Shipping and ordinary QA
+remain closed without an exact finite native policy and external admission.

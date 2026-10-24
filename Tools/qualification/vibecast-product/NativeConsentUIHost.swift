@@ -10,6 +10,19 @@ import DJConnectCore
     let defaults: UserDefaults
     @Published var ready = false
     @Published var failed = false
+    var departedRendezvousDismissal: (@MainActor () -> Void)?
+
+    func reopenRendezvous() {
+        let fields: [String: Any] = ["type": "djc-rendezvous-qr", "v": "djc-rendezvous/1",
+            "service_origin": DJConnectRendezvousQR.serviceOrigin,
+            "transaction_id": "00000000-0000-4000-8000-000000000002", "generation": 1,
+            "expires_at": Int64(Date().timeIntervalSince1970 * 1000) + 120_000,
+            "browser_key_thumbprint": String(repeating: "A", count: 43),
+            "qr_capability": String(repeating: "A", count: 43)]
+        guard let bytes = try? JSONSerialization.data(withJSONObject: fields) else { return }
+        model.isShowingVibeCastSessionStart = false
+        model.receiveRendezvousQR(String(decoding: bytes, as: UTF8.self))
+    }
 
     init() {
         defaults = UserDefaults(suiteName: "native-consent-ui-" + UUID().uuidString)!
@@ -56,37 +69,122 @@ import DJConnectCore
     }
 }
 
-@main struct NativeConsentUIHost: App {
-    @StateObject private var harness = NativeConsentUIHarness()
+struct NativeConsentUIRoot: View {
+    @ObservedObject var harness: NativeConsentUIHarness
     @State private var showingForm = false
-    @State private var approvals = 0
-
-    var body: some Scene {
-        WindowGroup {
-            VStack {
-                Text("Isolated synthetic consent qualification")
-                if harness.failed { Text("setup-failed").accessibilityIdentifier("consent-harness-failed") }
-                Button("Open native form") { showingForm = true }
-                    .disabled(!harness.ready).accessibilityIdentifier("consent-harness-open")
+    var body: some View {
+        if ProcessInfo.processInfo.environment["CONSENT_UI_ROUTE"] == "rendezvous" {
+            NativeRendezvousTransitionHarness(harness: harness, model: harness.model)
+        } else {
+        VStack {
+            Text("Isolated synthetic consent qualification")
+            if harness.failed { Text("setup-failed").accessibilityIdentifier("consent-harness-failed") }
+            Button("Open native form") {
+                showingForm = true
             }
-            .task { await harness.prepare() }
-            .sheet(isPresented: $showingForm) {
-                VStack {
-                    Text("approvals:\(approvals)").accessibilityIdentifier("consent-harness-approvals")
-                    Button("Withdraw synthetic Profile") { harness.model.sessionHistory.suspend() }
-                        .accessibilityIdentifier("consent-harness-withdraw")
-                    VibeCastDisplayConsentForm(model: harness.model)
-                }
-                .task {
-                    while !Task.isCancelled {
-                        approvals = ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count
-                        try? await Task.sleep(for: .milliseconds(100))
+            .disabled(!harness.ready).accessibilityIdentifier("consent-harness-open")
+        }
+        .task { await harness.prepare() }
+        .sheet(isPresented: $showingForm) { NativeConsentFormHarness(harness: harness) }
+        .environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark)
+        }
+    }
+}
+
+/// Exercises the real A screen and B form over the existing synthetic wire.
+/// This disposable shell mirrors only the two existing root-sheet selections;
+/// it does not claim full-app navigation or a genuine receiver transaction.
+private struct NativeRendezvousTransitionHarness: View {
+    @ObservedObject var harness: NativeConsentUIHarness
+    @ObservedObject var model: DJConnectAppModel
+    private enum Route: String, Identifiable { case rendezvous, consent; var id: String { rawValue } }
+    private var route: Route? {
+        model.isShowingRendezvous ? .rendezvous : model.isShowingVibeCastSessionStart ? .consent : nil
+    }
+    private var sheetBinding: Binding<Route?> {
+        rendezvousOwnedSheetBinding(current: { route }, rendezvous: .rendezvous,
+            dismissRendezvous: model.rendezvousPresentationDismissal(),
+            dismissOther: { _ in model.isShowingVibeCastSessionStart = false })
+    }
+    var body: some View {
+        VStack {
+            Text("Synthetic A-screen to B-consent qualification")
+            Button("Open native form") {
+                model.isShowingRendezvous = true
+                let originalBinding = sheetBinding
+                harness.departedRendezvousDismissal = { originalBinding.wrappedValue = nil }
+            }
+            .disabled(!harness.ready).accessibilityIdentifier("consent-harness-open")
+        }
+        .task { await harness.prepare() }
+        .sheet(item: sheetBinding) { value in
+            switch value {
+            case .rendezvous: VibeCastRendezvousView(model: model)
+                .id(model.rendezvousPresentationID)
+                .overlay(alignment: .bottom) {
+                    VStack {
+                        Button("Deliver old root nil") { harness.departedRendezvousDismissal?() }
+                            .accessibilityIdentifier("consent-harness-obsolete-root-close")
+                        Button("Reconstruct QR view") { model.objectWillChange.send() }
+                            .accessibilityIdentifier("consent-harness-reconstruct")
                     }
                 }
+            case .consent: NativeConsentFormHarness(harness: harness)
             }
-            // Match DJConnectRootView's actual presentation environment.
-            .environment(\.colorScheme, .dark)
-            .preferredColorScheme(.dark)
         }
+        .preferredColorScheme(.dark)
+    }
+}
+
+struct NativeConsentFormHarness: View {
+    @ObservedObject var harness: NativeConsentUIHarness
+    @State private var approvals = 0
+    @State private var canResolve = false
+    var body: some View {
+        VStack {
+            Text("approvals:\(approvals)").accessibilityIdentifier("consent-harness-approvals")
+            if let dismiss = harness.departedRendezvousDismissal {
+                Button("Deliver obsolete A-screen callback") {
+                    dismiss()
+                }
+                .accessibilityIdentifier("consent-harness-obsolete-rendezvous-close")
+                Button("Reopen QR screen") { harness.reopenRendezvous() }
+                    .accessibilityIdentifier("consent-harness-reopen-rendezvous")
+            }
+            Button("Withdraw synthetic Profile") {
+                ConsentWire.withdrawOwner()
+                harness.model.sessionHistory.suspend()
+            }
+            .accessibilityIdentifier("consent-harness-withdraw")
+            Text("allowed:" + String(canResolve)).accessibilityIdentifier("consent-harness-allowed")
+            VibeCastDisplayConsentForm(model: harness.model)
+        }
+        #if os(macOS)
+        .frame(width: 560, height: 560)
+        #endif
+        .environment(\.colorScheme, .dark)
+        .preferredColorScheme(.dark)
+        .task {
+            while !Task.isCancelled {
+                canResolve = harness.model.canResolveDisplayConsent
+                approvals = ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+        }
+    }
+}
+
+@main struct NativeConsentUIHost: App {
+    @StateObject private var harness = NativeConsentUIHarness()
+    var body: some Scene {
+        #if os(macOS)
+        Window("Synthetic VibeCast qualification", id: "native-consent") {
+            NativeConsentUIRoot(harness: harness).frame(width: 640, height: 640)
+        }
+        .defaultLaunchBehavior(.presented)
+        #else
+        WindowGroup { NativeConsentUIRoot(harness: harness) }
+        #endif
     }
 }

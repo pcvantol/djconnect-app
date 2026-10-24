@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import SwiftUI
 @testable import DJConnectCore
 @testable import DJConnectUI
 
@@ -53,6 +54,70 @@ private final class NativeConsentRejectionWire: URLProtocol, @unchecked Sendable
         client?.urlProtocol(self, didFailWithError: URLError(.cancelled))
     }
     override func stopLoading() {}
+}
+
+@MainActor @Test func rendezvousOldScreenCannotCancelSeparateConsentOrReopenedQR() throws {
+    let suite = "djc-rendezvous-presentation-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [NativeConsentRejectionWire.self]
+    NativeConsentRejectionWire.reset()
+    let model = DJConnectAppModel(defaults: defaults,
+        tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-owner"),
+        urlSession: URLSession(configuration: configuration), startBackgroundTasks: false)
+    model.isShowingRendezvous = true
+    let oldPresentation = model.rendezvousPresentationID
+    let oldSheetDismissal = model.rendezvousPresentationDismissal()
+    func route() -> String? {
+        model.isShowingRendezvous ? "qr" : model.isShowingVibeCastSessionStart ? "consent" : nil
+    }
+    func binding() -> Binding<String?> {
+        rendezvousOwnedSheetBinding(current: { route() }, rendezvous: "qr",
+            dismissRendezvous: model.rendezvousPresentationDismissal(),
+            dismissOther: { _ in model.isShowingVibeCastSessionStart = false })
+    }
+    let oldRootBinding = binding()
+    model.isShowingRendezvous = false
+    model.isShowingVibeCastSessionStart = true
+    let consentRootBinding = binding()
+    model.resetDisplayConsent()
+    #expect(model.displayConsentState == .idle)
+    // The old view's delayed disappearance/background callback must not own B.
+    #expect(!model.cancelRendezvousPresentation(oldPresentation))
+    #expect(!oldSheetDismissal())
+    oldRootBinding.wrappedValue = nil
+    #expect(model.isShowingVibeCastSessionStart)
+    #expect(model.displayConsentState == .idle)
+
+    model.isShowingRendezvous = true
+    let currentPresentation = model.rendezvousPresentationID
+    model.isShowingVibeCastSessionStart = false
+    #expect(currentPresentation != oldPresentation)
+    let fields: [String: Any] = ["type": "djc-rendezvous-qr", "v": "djc-rendezvous/1",
+        "service_origin": DJConnectRendezvousQR.serviceOrigin,
+        "transaction_id": "00000000-0000-4000-8000-000000000002", "generation": 1,
+        "expires_at": Int64(Date().timeIntervalSince1970 * 1000) + 60_000,
+        "browser_key_thumbprint": String(repeating: "A", count: 43),
+        "qr_capability": String(repeating: "A", count: 43)]
+    model.receiveRendezvousQR(String(decoding: try JSONSerialization.data(withJSONObject: fields), as: UTF8.self))
+    model.resetDisplayConsent()
+    #expect(model.rendezvousHasQR)
+    #expect(!model.cancelRendezvousPresentation(oldPresentation))
+    #expect(!oldSheetDismissal())
+    #expect(model.isShowingRendezvous)
+    #expect(model.displayConsentState == .idle)
+    #expect(model.rendezvousHasQR)
+    oldRootBinding.wrappedValue = nil
+    consentRootBinding.wrappedValue = nil
+    #expect(model.isShowingRendezvous)
+    #expect(model.rendezvousHasQR)
+    // Current screen removal still withdraws its own pending work.
+    binding().wrappedValue = nil
+    #expect(!model.isShowingRendezvous)
+    #expect(model.displayConsentState == .unavailable)
+    #expect(!model.rendezvousHasQR)
+    #expect(NativeConsentRejectionWire.requests == 0)
 }
 @MainActor @Test func nativeDisplayConsentNeverDispatchesWithoutCurrentSession() async throws {
     let suite = "djc-native-consent-\(UUID().uuidString)"

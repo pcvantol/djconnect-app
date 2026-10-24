@@ -787,7 +787,7 @@ public struct DJConnectRootView: View {
                         ) { selectSidebarSection(.askDJ) }
                         SidebarItem(
                             title: localizedKey(model.language, "ui.session.history.title"),
-                            systemImage: "clock.arrow.circlepath",
+                            systemImage: "headphones",
                             isSelected: selectedSection == .savedSessions,
                             focusTarget: .section(.savedSessions),
                             focus: $focusedSidebarItem
@@ -938,6 +938,7 @@ public struct DJConnectRootView: View {
             #if os(iOS)
             .background(.clear)
             #endif
+            .accessibilityHidden(model.isShowingVibeScape)
             #if DEBUG
             if model.isUITestRuntimeFixtureActive {
                 Color.clear
@@ -972,6 +973,17 @@ public struct DJConnectRootView: View {
         .tint(.white)
         .accentColor(.white)
         .environment(\.sessionIntroductionAnchors, introductionAnchors)
+        .overlay {
+            if VibeScapeAvailability.previewEnabled, model.isShowingVibeScape {
+                VibeScapeScreen(model: model)
+            }
+        }
+        #if os(macOS)
+        .toolbar(model.isShowingVibeScape ? .hidden : .automatic, for: .windowToolbar)
+        // The app shell must not force a permanently visible fullscreen toolbar
+        // over the immersive renderer. macOS can reveal its chrome at the edge.
+        .windowToolbarFullScreenVisibility(model.isShowingVibeScape ? .onHover : .visible)
+        #endif
         .accessibilityHidden(model.isSessionIntroductionPresented)
         .overlay {
             if model.isSessionIntroductionPresented {
@@ -987,6 +999,9 @@ public struct DJConnectRootView: View {
         .onChange(of: model.isDiagnosticLoggingEnabled) { _, enabled in
             if !enabled, selectedSection == .logs { selectedSection = .settings }
         }
+        .onChange(of: selectedSection) { _, section in
+            if section != .djSession { model.isShowingVibeScape = false }
+        }
         .onChange(of: model.activeDJSession?.id) { _, sessionID in
             if sessionID == nil { model.dismissSessionIntroduction() }
         }
@@ -998,11 +1013,13 @@ public struct DJConnectRootView: View {
                 selectedSection = .nowPlaying
             }
         }
+        #if !os(macOS)
         .onOpenURL { url in
             if !model.handleAppNavigationDeepLink(url) {
                 model.handlePairingDeepLink(url)
             }
         }
+        #endif
         .task(id: model.pairingStatus) {
             await model.refreshProfileDJSettings()
             await model.refreshActiveDJSession()
@@ -1294,14 +1311,9 @@ public struct DJConnectRootView: View {
     }
 
     private var rootSheetBinding: Binding<DJConnectRootSheet?> {
-        Binding(
-            get: { activeRootSheet },
-            set: { newValue in
-                if newValue == nil, let activeRootSheet {
-                    dismiss(rootSheet: activeRootSheet)
-                }
-            }
-        )
+        rendezvousOwnedSheetBinding(current: { activeRootSheet }, rendezvous: .rendezvous,
+            dismissRendezvous: model.rendezvousPresentationDismissal(),
+            dismissOther: { dismiss(rootSheet: $0) })
     }
 
     private var activeRootSheet: DJConnectRootSheet? {
@@ -1389,6 +1401,7 @@ public struct DJConnectRootView: View {
                 .accentColor(.white)
         case .rendezvous:
             VibeCastRendezvousView(model: model)
+                .id(model.rendezvousPresentationID)
         case .vibeCastSessionStart:
             VibeCastSessionStartDialog(model: model)
         case .permissionExplanation:
@@ -1436,8 +1449,8 @@ public struct DJConnectRootView: View {
         case .feedback:
             showingFeedback = false
         case .rendezvous:
-            model.cancelRendezvous()
-            model.isShowingRendezvous = false
+            // Root-sheet binding handles this with its original presentation.
+            break
         case .vibeCastSessionStart:
             model.isShowingVibeCastSessionStart = false
         case .permissionExplanation:
@@ -4089,6 +4102,7 @@ struct TrackInsightView: View {
     @State private var menuIntent: SessionControlIntent?
     @State private var menuFrames: [SessionControlIntent.Kind: CGRect] = [:]
     #endif
+    @State private var isHeroVisible = false
     @State private var isAnimationActive = false
     @State private var statusToast: DJConnectVisualNotice?
 
@@ -4158,20 +4172,24 @@ struct TrackInsightView: View {
                     let contentWidth = min(maxContentWidth(for: proxy.size), proxy.size.width)
                     ZStack(alignment: .top) {
                         ScrollView {
-                            VStack(alignment: .leading, spacing: 16) {
+                            LazyVStack(alignment: .leading, spacing: 16) {
                                 if let insight {
                                     TrackInsightHero(
                                         model: model,
                                         insight: insight,
                                         moodStepIndex: moodStepIndex,
-                                        isAnimationActive: isAnimationActive,
+                                        isAnimationActive: isAnimationActive && isHeroVisible,
                                         isPinnedSubject: explicitMoment
                                     )
                                     .id(trackInsightHeroRenderID(for: insight))
-                                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                                    .onAppear { isHeroVisible = true }
+                                    .onDisappear { isHeroVisible = false }
+                                    .frame(maxWidth: .infinity, alignment: .topLeading)
                                     TrackInsightAnalysisCard(insight: insight, language: model.language)
+                                        .equatable()
                                         .frame(maxWidth: .infinity, alignment: .topLeading)
                                     TrackInsightMetricsGrid(insight: insight, language: model.language, moodStepIndex: moodStepIndex)
+                                        .equatable()
                                         .frame(maxWidth: .infinity, alignment: .topLeading)
                                 } else if explicitMoment {
                                     VStack(alignment: .leading, spacing: 16) {
@@ -5618,6 +5636,7 @@ private struct MusicDNATrackListPanel: View {
             VStack(spacing: 10) {
                 ForEach(Array(tracks.prefix(limit).enumerated()), id: \.offset) { _, track in
                     MusicDNATrackListRow(track: track, artworkURL: artworkURL(track))
+                        .equatable()
                 }
             }
             Spacer(minLength: 0)
@@ -5656,6 +5675,7 @@ private struct MusicDNATopTracksPanel: View {
                         .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     ForEach(Array((ranges[range] ?? []).prefix(3).enumerated()), id: \.offset) { _, track in
                         MusicDNATrackListRow(track: track, artworkURL: artworkURL(track))
+                            .equatable()
                     }
                 }
             }
@@ -6231,6 +6251,27 @@ private struct MusicDNAAdaptiveCardLayout: Layout {
     var minimumColumnWidth: CGFloat = 280
     var spacing: CGFloat = 12
 
+    struct Cache {
+        var width: CGFloat?
+        var minimumColumnWidth: CGFloat?
+        var spacing: CGFloat?
+        var frames: [CGRect] = []
+        var height: CGFloat = 0
+    }
+    func makeCache(subviews: Subviews) -> Cache { Cache() }
+    func updateCache(_ cache: inout Cache, subviews: Subviews) { cache = Cache() }
+
+    private func measuredArrangement(width: CGFloat, subviews: Subviews, cache: inout Cache) -> (frames: [CGRect], height: CGFloat) {
+        if cache.width == width, cache.minimumColumnWidth == minimumColumnWidth,
+           cache.spacing == spacing, cache.frames.count == subviews.count {
+            return (cache.frames, cache.height)
+        }
+        let result = arrangement(width: width, subviews: subviews)
+        cache.width = width; cache.minimumColumnWidth = minimumColumnWidth; cache.spacing = spacing
+        cache.frames = result.frames; cache.height = result.height
+        return result
+    }
+
     private func arrangement(width: CGFloat, subviews: Subviews) -> (frames: [CGRect], height: CGFloat) {
         guard !subviews.isEmpty else { return ([], 0) }
         let columns = min(subviews.count, max(1, Int((width + spacing) / (minimumColumnWidth + spacing))))
@@ -6247,13 +6288,13 @@ private struct MusicDNAAdaptiveCardLayout: Layout {
         return (frames, max(0, (bottoms.max() ?? 0) - spacing))
     }
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) -> CGSize {
         let width = proposal.width.flatMap { $0.isFinite ? max(1, $0) : nil } ?? minimumColumnWidth
-        return CGSize(width: width, height: arrangement(width: width, subviews: subviews).height)
+        return CGSize(width: width, height: measuredArrangement(width: width, subviews: subviews, cache: &cache).height)
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let frames = arrangement(width: bounds.width, subviews: subviews).frames
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) {
+        let frames = measuredArrangement(width: bounds.width, subviews: subviews, cache: &cache).frames
         for (index, subview) in subviews.enumerated() {
             let frame = frames[index]
             subview.place(at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY), anchor: .topLeading,
@@ -6596,44 +6637,56 @@ private struct MusicDiscoveryCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button {
-                    #if os(iOS)
-                    DJConnectHaptics.selection()
-                    #endif
-                    showDetail()
-                } label: {
-                    artwork.contentShape(DJConnectCardAppearance.shape)
-                }
-                .djConnectPlainButtonStyle()
-                .accessibilityLabel(item.title)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(item.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(2)
-                if let subtitle = item.subtitle, !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.62))
-                        .lineLimit(1)
-                }
-                if !item.reason.isEmpty {
-                    Text(item.reason)
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.58))
-                        .lineLimit(2)
-                }
-                MusicDiscoveryFitLabel(item: item)
-                Text(item.kind.rawValue.capitalized)
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.white)
-                    .textCase(.uppercase)
+                #if os(iOS)
+                DJConnectHaptics.selection()
+                #endif
+                showDetail()
+            } label: {
+                MusicDiscoveryCardArtwork(artworkURL: artworkURL, isLoading: model.playingMusicDiscoveryItemID == item.id)
+                    .equatable()
+                    .contentShape(DJConnectCardAppearance.shape)
             }
-            .frame(width: 142, alignment: .leading)
+            .djConnectPlainButtonStyle()
+            .accessibilityLabel(item.title)
+            MusicDiscoveryCardDetails(item: item).equatable()
         }
     }
+}
 
-    private var artwork: some View {
+private struct MusicDiscoveryCardDetails: View, Equatable {
+    let item: DJConnectMusicDiscoveryItem
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(item.title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+            if let subtitle = item.subtitle, !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.62))
+                    .lineLimit(1)
+            }
+            if !item.reason.isEmpty {
+                Text(item.reason)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.58))
+                    .lineLimit(2)
+            }
+            MusicDiscoveryFitLabel(item: item)
+            Text(item.kind.rawValue.capitalized)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .textCase(.uppercase)
+        }
+        .frame(width: 142, alignment: .leading)
+    }
+}
+
+private struct MusicDiscoveryCardArtwork: View, Equatable {
+    let artworkURL: URL?
+    let isLoading: Bool
+    var body: some View {
         ZStack {
             DJConnectCardAppearance.shape
                 .fill(.white.opacity(0.10))
@@ -6658,7 +6711,7 @@ private struct MusicDiscoveryCard: View {
                     .font(.title2)
                     .foregroundStyle(.white.opacity(0.74))
             }
-            if model.playingMusicDiscoveryItemID == item.id {
+            if isLoading {
                 Color.black.opacity(0.36)
                 ProgressView()
                     .tint(.white)
@@ -7020,7 +7073,7 @@ private func musicDiscoveryArtworkURL(_ rawValue: String?, model: DJConnectAppMo
     model.resolvedMusicDiscoveryImageURL(rawValue)
 }
 
-private struct MusicDNATrackListRow: View {
+private struct MusicDNATrackListRow: View, Equatable {
     let track: DJConnectMusicDNATrack
 
     private var title: String {
@@ -7421,7 +7474,9 @@ private struct TrackInsightHero: View {
         .padding(14)
         .frame(maxWidth: .infinity)
         .clipped()
-        .djConnectHeroCard()
+        // Share the scene's effective palette, including the standalone mood
+        // override; a pinned Moment keeps its own admitted visual profile.
+        .djSessionFrostedSurface(surfaceTint: profile.colors.first)
     }
 }
 
@@ -8521,7 +8576,11 @@ private extension Array {
     }
 }
 
-private struct TrackInsightMetricsGrid: View {
+private struct TrackInsightMetricsGrid: View, Equatable {
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.insight == rhs.insight && lhs.language == rhs.language && lhs.moodStepIndex == rhs.moodStepIndex
+    }
+
     let insight: TrackInsight
     let language: String
     let moodStepIndex: Int
@@ -8706,7 +8765,7 @@ private struct TrackInsightMetricPill: View {
     }
 }
 
-private struct TrackInsightAnalysisCard: View {
+private struct TrackInsightAnalysisCard: View, Equatable {
     let insight: TrackInsight
     let language: String
 
@@ -9381,63 +9440,29 @@ struct VibeCastSessionStartDialog: View {
 
 struct VibeCastHandoffForm: View {
     @ObservedObject var model: DJConnectAppModel
-    @State private var vibeCastHandoffCode = ""
-
     var body: some View {
-        #if os(iOS)
         VibeCastDisplayConsentForm(model: model, embedded: true)
-        #else
-        VStack(alignment: .leading, spacing: 18) {
-            Text(localizedKey(model.language, "ui.vibecast.handoff.instructions"))
-                .font(.callout).foregroundStyle(.white.opacity(0.82))
-                .fixedSize(horizontal: false, vertical: true)
-            VibeCastCodeEntry(code: $vibeCastHandoffCode,
-                              accessibilityLabel: localizedKey(model.language, "ui.vibecast.handoff.code"))
-                .frame(height: 64)
-            Button(localizedKey(model.language, "ui.vibecast.handoff.approve")) {
-                resignPlatformFirstResponder()
-                Task { await model.approveVibeCastHandoff(code: vibeCastHandoffCode) }
-            }
-            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
-            .disabled(vibeCastHandoffCode.count != 6 || model.isLoadingVibeCastHandoff || model.isDemoMode || model.pairingStatus != .paired)
-            .accessibilityIdentifier("vibecast-handoff-approve")
-            if model.vibeCastHandoffApproved {
-                Text(localizedKey(model.language, "ui.vibecast.handoff.approved"))
-                    .font(.footnote).foregroundStyle(.green)
-            }
-            if model.vibeCastHandoffFailed {
-                Text(localizedKey(model.language, model.vibeCastHandoffErrorKey ?? "ui.vibecast.handoff.failed"))
-                    .font(.footnote).foregroundStyle(.red)
-            }
-            if let error = model.djSessionErrorMessage {
-                Text(error).font(.footnote).foregroundStyle(.red)
-            }
-        }
-        .padding(.horizontal, 0)
-        #if os(macOS)
-        .padding(.top, 16)
-        .padding(.bottom, 16)
-        #else
-        .padding(.vertical, 16)
-        #endif
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("vibecast-handoff-form")
-        #endif
     }
 }
 
 struct VibeCastDisplayConsentForm: View {
     @ObservedObject var model: DJConnectAppModel
+    @ObservedObject private var history: DJConnectSessionHistoryModel
     var embedded = false
+    init(model: DJConnectAppModel, embedded: Bool = false) {
+        self.model = model; self.history = model.sessionHistory; self.embedded = embedded
+    }
     @Environment(\.dismiss) private var dismiss
     @State private var code = ""
-    private var busy: Bool { model.displayConsentState == .resolving || model.displayConsentState == .approving }
+    private var busy: Bool { model.displayConsentState == .resolving || model.displayConsentState == .approving || model.displayConsentState == .revoking }
     var body: some View {
         Group {
             if embedded { formContent }
             else { ScrollView { formContent.padding(28) } }
         }
         .accessibilityIdentifier("display-consent-form")
+        .onChange(of: history.responseEpoch) { model.refreshDisplayConsentPresentation() }
+        .onChange(of: history.authorizedProfileID) { model.refreshDisplayConsentPresentation() }
         .onChange(of: code) { _, _ in model.resetDisplayConsent() }
         .onAppear { model.resetDisplayConsent() }
         .onDisappear { model.cancelDisplayConsent() }
@@ -9456,8 +9481,8 @@ struct VibeCastDisplayConsentForm: View {
                 }
                 Text(localizedKey(model.language, "ui.displayConsent.instructions"))
                 VibeCastCodeEntry(code: $code, accessibilityLabel: localizedKey(model.language, "ui.vibecast.handoff.code"))
-                    .frame(height: 64).disabled(busy || model.displayConsentState == .ready || model.displayConsentState == .approved || model.displayConsentState == .uncertain)
-                if model.displayConsentState == .idle || model.displayConsentState == .unavailable {
+                    .frame(height: 64).disabled(busy || model.displayConsentState == .ready || model.displayConsentState == .approved || model.displayConsentState == .uncertain || model.displayConsentState == .revokeUncertain)
+                if model.displayConsentState == .idle || model.displayConsentState == .unavailable || model.displayConsentState == .revoked {
                     Button(localizedKey(model.language, "ui.displayConsent.lookup")) {
                         resignPlatformFirstResponder()
                         Task { await model.resolveDisplayConsent(code: code) }
@@ -9474,6 +9499,16 @@ struct VibeCastDisplayConsentForm: View {
                 }
                 if busy { ProgressView() }
                 if model.displayConsentState == .approved { Text(localizedKey(model.language, "ui.displayConsent.approved")) }
+                if model.displayConsentState == .approved {
+                    Button(role: .destructive) { Task { await model.revokeDisplayConsent() } } label: {
+                        Label(localizedKey(model.language, "ui.displayConsent.stop"), systemImage: "display.trianglebadge.exclamationmark")
+                    }
+                    .djConnectButtonStyle(DJConnectButtonStyle(expands: true))
+                    .accessibilityIdentifier("display-consent-stop")
+                }
+                if model.displayConsentState == .revoked { Text(localizedKey(model.language, "ui.displayConsent.stopped")) }
+                if model.displayConsentState == .revokeUncertain { Text(localizedKey(model.language, "ui.displayConsent.stop_uncertain")) }
+
                 if model.displayConsentState == .uncertain { Text(localizedKey(model.language, "ui.displayConsent.uncertain")) }
                 if model.displayConsentState == .unavailable { Text(localizedKey(model.language, "ui.displayConsent.unavailable")) }
                 if !embedded {
@@ -10497,7 +10532,7 @@ struct DJConnectMediaRowButtonStyle: ButtonStyle {
     }
 }
 
-private struct QueueItemRow: View {
+private struct QueueItemRow: View, Equatable {
     let item: DJConnectQueueItem
     var isLoading = false
 
@@ -10558,20 +10593,18 @@ private struct QueueArtworkView: View {
     var fallbackSystemImage = "music.note"
 
     var body: some View {
-        GeometryReader { proxy in
-            CachedArtworkImage(url: url, mode: .fill) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: DJConnectListTileStyle.cornerRadius)
-                        .fill(Color.secondary.opacity(0.14))
-                    Image(systemName: fallbackSystemImage)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                }
+        CachedArtworkImage(url: url, mode: .fill) {
+            ZStack {
+                RoundedRectangle(cornerRadius: DJConnectListTileStyle.cornerRadius)
+                    .fill(Color.secondary.opacity(0.14))
+                Image(systemName: fallbackSystemImage)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.secondary)
             }
-            .frame(width: proxy.size.width, height: proxy.size.height)
-            .clipped()
         }
-        .aspectRatio(1, contentMode: .fit)
+        // Both lists use the same fixed tile; avoid a geometry reader per row.
+        .frame(width: 52, height: 52)
+        .clipped()
         .djArtworkStyle(cornerRadius: DJConnectListTileStyle.cornerRadius)
     }
 }
@@ -10981,14 +11014,27 @@ private struct AskDJView: View {
         self.openTrackInsightAction = openTrackInsightAction
     }
 
-    private var searchResultIDs: [UUID] {
+    @State private var orderedPersistentMessages: [DJConnectAskDJMessage] = []
+    @State private var askDJTimelineMessages: [DJConnectAskDJMessage] = []
+    @State private var searchResultIDs: [UUID] = []
+    @State private var searchResultIDSet: Set<UUID> = []
+
+    private func rebuildAskDJRows() {
+        orderedPersistentMessages = Array(model.askDJMessages.sorted(by: askDJTimelineMessagePrecedes).reversed())
+        var messages = model.askDJMessages
+        if let listening = model.transientAskDJListeningMessage { messages.append(listening) }
+        if let mood = model.transientAskDJMoodMessage { messages.append(mood) }
+        askDJTimelineMessages = messages.count == model.askDJMessages.count ? orderedPersistentMessages :
+            Array(messages.sorted(by: askDJTimelineMessagePrecedes).reversed())
+        rebuildAskDJSearch()
+    }
+
+    private func rebuildAskDJSearch() {
         let query = askDJSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else {
-            return []
+        searchResultIDs = query.isEmpty ? [] : orderedPersistentMessages.compactMap {
+            $0.text.localizedCaseInsensitiveContains(query) ? $0.id : nil
         }
-        return model.askDJMessages.sorted(by: askDJTimelineMessagePrecedes).reversed().compactMap { message in
-            message.text.localizedCaseInsensitiveContains(query) ? message.id : nil
-        }
+        searchResultIDSet = Set(searchResultIDs)
     }
 
     private var activeSearchResultID: UUID? {
@@ -10997,17 +11043,6 @@ private struct AskDJView: View {
             return nil
         }
         return searchResultIDs[selectedSearchResultIndex]
-    }
-
-    private var askDJTimelineMessages: [DJConnectAskDJMessage] {
-        var messages = model.askDJMessages
-        if let transientMessage = model.transientAskDJListeningMessage {
-            messages.append(transientMessage)
-        }
-        if let transientMessage = model.transientAskDJMoodMessage {
-            messages.append(transientMessage)
-        }
-        return Array(messages.sorted(by: askDJTimelineMessagePrecedes).reversed())
     }
 
     private func askDJTimelineMessagePrecedes(_ lhs: DJConnectAskDJMessage, _ rhs: DJConnectAskDJMessage) -> Bool {
@@ -11139,7 +11174,7 @@ private struct AskDJView: View {
 
     private var content: some View {
             VStack(spacing: 0) {
-                if history.hasUnconfirmedDeletion {
+                if history.showsUnconfirmedDeletionNotice {
                     ContentDeletionPendingNotice(model: model).padding(.horizontal, 20).padding(.vertical, 10)
                 }
                 GeometryReader { geometry in
@@ -11157,7 +11192,8 @@ private struct AskDJView: View {
                                             .padding(.top, 56)
                                     } else if model.askDJMessages.isEmpty && model.transientAskDJListeningMessage == nil && model.transientAskDJMoodMessage == nil {
                                         AskDJEmptyState(
-                                            language: model.language,
+                                            model: model,
+                                            reading: isInputFocused,
                                             isRequestingIdleSuggestion: model.isRequestingAskDJIdleSuggestion,
                                             selectExample: { example in
                                                 guard model.canUseAskDJFeatures,
@@ -11167,7 +11203,6 @@ private struct AskDJView: View {
                                                 sendComposerQuestion()
                                             }
                                         )
-                                        .disabled(!model.canUseAskDJFeatures || model.isSendingAskDJText || model.isRecordingVoice)
                                     } else {
                                         ForEach(askDJTimelineMessages) { message in
                                             let isTransientMessage = isTransientAskDJMessage(message)
@@ -11181,7 +11216,7 @@ private struct AskDJView: View {
                                                 isRetryDisabled: isTransientMessage || isAskDJHistoryStale || model.isSendingAskDJText,
                                                 playingActionID: model.playingAskDJActionID,
                                                 currentMood: model.confirmedSessionMoodInt,
-                                                isSearchResult: searchResultIDs.contains(message.id),
+                                                isSearchResult: searchResultIDSet.contains(message.id),
                                                 isActiveSearchResult: activeSearchResultID == message.id,
                                                 searchText: askDJSearchText,
                                                 retryAction: {
@@ -11227,9 +11262,12 @@ private struct AskDJView: View {
                                                 speechEnabled: model.sharedDJSpeechAllowed,
                                                 sharedSpeechActions: model.profileDJSettings.negotiated ? {
                                                     AnyView(SharedDJSpeechActions(model: model, speech: message.sessionSpeech, acceptedText: message.text))
-                                                } : nil
+                                                } : nil,
+                                                capturedReplyArtwork: contextEntry.map { entry in
+                                                    { AnyView(CapturedReplyArtworkView(entry: entry, model: model)) }
+                                                }
                                             )
-                                            .djContentDeletion(model: model, target: isAskDJHistoryStale ? nil : history.contentDeletionTarget(for: message))
+                                            .djContentDeletion(model: model, target: isAskDJHistoryStale ? nil : history.contentDeletionTarget(for: message), providesContextMenu: false)
                                             .id(message.id)
                                         }
                                     }
@@ -11271,7 +11309,8 @@ private struct AskDJView: View {
                                 await refreshAskDJWithToast()
                             }
                             .scrollDismissesKeyboard(.interactively)
-                            .overlay(alignment: .bottom) {
+                            .modifier(ContentRemovalAnimation(history: history))
+                        .overlay(alignment: .bottom) {
                                 HStack {
                                     Spacer()
                                     if shouldShowAskDJScrollToTopButton {
@@ -11336,7 +11375,10 @@ private struct AskDJView: View {
                             }
                         }
                         .contentShape(Rectangle())
+                        .onChange(of: model.transientAskDJListeningMessage) { rebuildAskDJRows() }
+                        .onChange(of: model.transientAskDJMoodMessage) { rebuildAskDJRows() }
                         .onChange(of: model.askDJMessages) {
+                            rebuildAskDJRows()
                             isAskDJScrollToTopButtonSuppressed = false
                             normalizeAskDJSearchSelection()
                             scrollAskDJToInitialTopIfNeeded(proxy: proxy)
@@ -11349,6 +11391,7 @@ private struct AskDJView: View {
                             submittedQuestionID = nil; followsSubmittedQuestion = false
                         }
                         .onAppear {
+                            rebuildAskDJRows()
                             didScrollAskDJToInitialTop = false
                             scrollAskDJToInitialTopIfNeeded(proxy: proxy)
                         }
@@ -11359,6 +11402,8 @@ private struct AskDJView: View {
                             scrollAskDJToInitialTopIfNeeded(proxy: proxy)
                         }
                         .onDisappear {
+                            orderedPersistentMessages = []; askDJTimelineMessages = []
+                            searchResultIDs = []; searchResultIDSet = []
                             didScrollAskDJToInitialTop = false
                             submittedQuestionID = nil; followsSubmittedQuestion = false
                         }
@@ -11380,6 +11425,7 @@ private struct AskDJView: View {
                             }
                         }
                         .onChange(of: askDJSearchText) {
+                            rebuildAskDJSearch()
                             selectedSearchResultIndex = 0
                             selectedSearchResultID = nil
                             scrollToActiveAskDJSearchResult(proxy: proxy)
@@ -11437,6 +11483,7 @@ private struct AskDJView: View {
                     }
                 }
                 ToolbarItemGroup(placement: .confirmationAction) {
+                    AskDJHelpButton(model: model, surface: .askDJ)
                     SessionConnectionToolbarButton(model: model)
                     askDJRefreshToolbarButton
                 }
@@ -11469,6 +11516,7 @@ private struct AskDJView: View {
                     }
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    AskDJHelpButton(model: model, surface: .askDJ)
                     SessionConnectionToolbarButton(model: model)
                     askDJRefreshToolbarButton
                 }
@@ -11506,6 +11554,7 @@ private struct AskDJView: View {
         .task {
             await model.runAskDJHistorySyncLoop()
         }
+        .task(id: model.askDJExampleReadKey) { await model.refreshAskDJExampleCapabilities() }
         .sheet(item: $feedbackMessage) { message in
             AskDJFeedbackPromptView(model: model, message: message)
             #if os(iOS)
@@ -11539,6 +11588,7 @@ private struct AskDJView: View {
 
     private func refreshAskDJWithToast() async {
         dismissAskDJKeyboard()
+        await model.refreshAskDJExampleCapabilities(userRefresh: true)
         await manualRefresh.run(model: model, systemImage: "bubble.left.and.bubble.right", isBusy: { model.isCheckingAskDJHistoryState || model.isClearingAskDJHistory }) {
             let succeeded = await model.refreshAskDJHistory()
             return succeeded ? localizedKey(model.language, "appModel.ask.dj.updated")
@@ -11679,6 +11729,7 @@ struct AskDJSearchBar: View {
     var countIdentifier = "ask-dj-search-count"
     var closeLabelKey = "ui.close.search"
     var isLoading = false
+    var focusRequest: UUID? = nil
     @Binding var text: String
     var isFocused: FocusState<Bool>.Binding
     let resultCount: Int
@@ -11701,6 +11752,14 @@ struct AskDJSearchBar: View {
                 .font(.callout.weight(.semibold))
                 .submitLabel(.search)
                 .focused(isFocused)
+                .task(id: focusRequest) {
+                    // The lazy search row and native field must be mounted before
+                    // transferring focus away from the composer. Repeat Find can
+                    // request focus again without rebuilding or clearing the field.
+                    await Task.yield()
+                    guard !Task.isCancelled else { return }
+                    isFocused.wrappedValue = true
+                }
                 .focusEffectDisabled()
                 .tint(djConnectAccent)
                 .accessibilityIdentifier(fieldIdentifier)
@@ -11795,60 +11854,18 @@ struct AskDJSearchBar: View {
 }
 
 private struct AskDJEmptyState: View {
-    let language: String
+    @ObservedObject var model: DJConnectAppModel
+    private var language: String { model.language }
+    var reading: Bool
     let isRequestingIdleSuggestion: Bool
     let selectExample: (String) -> Void
-
-    private var examples: [String] {
-        [
-            localizedKey(language, "ui.what.did.i.listen.to.last.week"),
-            localizedKey(language, "ui.surprise.me.with.new.music"),
-            localizedKey(language, "ui.give.me.track.insight.for.this.song"),
-            localizedKey(language, "ui.which.albums.did.this.artist.release"),
-            localizedKey(language, "ui.play.something.for.cooking")
-        ]
-    }
 
     var body: some View {
         VStack(spacing: 14) {
             hero
 
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(examples, id: \.self) { example in
-                    Button {
-                        selectExample(example)
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "quote.opening")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(.white.opacity(0.54))
-                                .frame(width: 18)
-                            Text(example)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.white.opacity(0.86))
-                                .lineLimit(2)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Spacer(minLength: 4)
-                            Image(systemName: "plus")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(.white.opacity(0.50))
-                        }
-                        .padding(.horizontal, 13)
-                        .padding(.vertical, 10)
-                        .frame(maxWidth: 480, alignment: .leading)
-                        .background {
-                            DJConnectCardAppearance.shape
-                                .fill(.white.opacity(0.09))
-                        }
-                        .overlay {
-                            DJConnectCardAppearance.shape
-                                .stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth)
-                        }
-                    }
-                    .djConnectPlainButtonStyle()
-                }
-            }
-            .padding(.top, 2)
+            AskDJSuggestionStrip(model: model, surface: .askDJ, reading: reading, select: selectExample)
+                .padding(.top, 2)
 
             if isRequestingIdleSuggestion {
                 HStack(spacing: 7) {
@@ -11909,6 +11926,7 @@ private struct AskDJOfflineNotice: View {
 /// Native conversation rendering shared with Session timelines.
 struct AskDJMessageBubble: View {
     @Environment(\.djContentDeleteAction) private var contentDeleteAction
+    @Environment(\.djContentDeletionEnabled) private var contentDeletionEnabled
     let message: DJConnectAskDJMessage
     let language: String
     let isStaleHistory: Bool
@@ -11938,47 +11956,51 @@ struct AskDJMessageBubble: View {
     var contextQuestionID = ""
     var speechEnabled = true
     var sharedSpeechActions: (() -> AnyView)? = nil
+    var capturedReplyArtwork: (() -> AnyView)? = nil
 
     private var renderedMessageText: some View {
         Group {
             if let serverHighlights { SessionHighlightedText(text: displayText, highlights: serverHighlights) }
-            else { AskDJMarkdownText(text: displayText, highlight: searchText) }
+            else { AskDJMarkdownText(text: displayText, highlight: searchText).equatable() }
         }
         .padding(.trailing, contextQuestionAction != nil && !renderablePlaybackActions.isEmpty ? 36 : 0)
-        .contextMenu {
-            if let contentDeleteAction {
-                Button(role: .destructive, action: contentDeleteAction) {
-                    Label(localizedKey(language, "ui.content.delete.action"), systemImage: "trash")
-                }
-            }
-            if (!isReadOnly || allowsConversationMenu) && canSetPrompt && !isStaleHistory {
-                Button {
-                    DJConnectHaptics.selection()
-                    setPromptAction(promptText)
-                } label: {
-                    Label {
-                        Text(localizedKey(language, "ui.set.in.prompt"))
-                    } icon: {
-                        Image(systemName: "text.cursor").renderingMode(.original).foregroundStyle(.white)
-                    }
-                }
-                .tint(.white)
-            }
-            if canReportFeedback {
-                Button {
-                    DJConnectHaptics.selection()
-                    feedbackAction(message)
-                } label: {
-                    Label {
-                        Text(localizedKey(language, "ui.report.answer"))
-                    } icon: {
-                        Image(systemName: "exclamationmark.bubble").renderingMode(.original).foregroundStyle(.white)
-                    }
-                }
-                .tint(.white)
-            }
-        }
         .tint(.white)
+    }
+
+    @ViewBuilder private var messageContextMenu: some View {
+        if let contentDeleteAction {
+            Button(role: .destructive, action: contentDeleteAction.perform) {
+                Label(localizedKey(language, "ui.content.delete.action"), systemImage: "trash")
+            }
+            .accessibilityIdentifier("content-context-delete")
+            .disabled(!contentDeletionEnabled)
+        }
+        if (!isReadOnly || allowsConversationMenu) && canSetPrompt && !isStaleHistory {
+            Button {
+                DJConnectHaptics.selection()
+                setPromptAction(promptText)
+            } label: {
+                Label {
+                    Text(localizedKey(language, "ui.set.in.prompt"))
+                } icon: {
+                    Image(systemName: "text.cursor").renderingMode(.original).foregroundStyle(.white)
+                }
+            }
+            .tint(.white)
+        }
+        if canReportFeedback {
+            Button {
+                DJConnectHaptics.selection()
+                feedbackAction(message)
+            } label: {
+                Label {
+                    Text(localizedKey(language, "ui.report.answer"))
+                } icon: {
+                    Image(systemName: "exclamationmark.bubble").renderingMode(.original).foregroundStyle(.white)
+                }
+            }
+            .tint(.white)
+        }
     }
 
     private var isUser: Bool {
@@ -12118,11 +12140,12 @@ struct AskDJMessageBubble: View {
     }
 
     private var displayText: String {
+        let catalogueText = message.catalogueTextForDisplay
         guard shouldRenderOutputActionsAsList else {
-            return message.text
+            return catalogueText
         }
         let outputTitles = Set(outputPlaybackActions.map { $0.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
-        let lines = message.text.components(separatedBy: .newlines).filter { line in
+        let lines = catalogueText.components(separatedBy: .newlines).filter { line in
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
             guard trimmed.hasPrefix("-") || trimmed.hasPrefix("•") else {
                 return true
@@ -12196,6 +12219,7 @@ struct AskDJMessageBubble: View {
                                 renderedMessageText
                             }
                         }
+                        if !isUser, let capturedReplyArtwork { capturedReplyArtwork() }
                         if !isUser, let trackInsight = message.trackInsight {
                             AskDJTrackInsightSummary(insight: trackInsight, language: language)
                         }
@@ -12263,6 +12287,8 @@ struct AskDJMessageBubble: View {
                         .stroke(bubbleStrokeStyle, lineWidth: isActiveSearchResult ? DJConnectCardAppearance.searchFocusWidth : 1)
                 }
                 .djSessionFrostedSurface(cornerRadius: DJConnectCardAppearance.conversationCornerRadius)
+                .contentShape(Rectangle())
+                .contextMenu { messageContextMenu }
                 HStack(spacing: 8) {
                     if isUser {
                         Text(localizedKey(language, "ui.chat.you"))
@@ -13172,18 +13198,20 @@ private struct AskDJSourcesStack: View {
     }
 
     private func sourceRow(link: DJConnectResponseLink, isInteractive: Bool) -> some View {
-        HStack(spacing: 8) {
+        let source = link.source.map(displaySource)
+        let title = link.title.map(displaySource)
+        return HStack(spacing: 8) {
             Image(systemName: "doc.text.magnifyingglass")
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.white.opacity(0.82))
                 .frame(width: 22, height: 22)
                 .background(Circle().fill(.white.opacity(0.12)))
             VStack(alignment: .leading, spacing: 1) {
-                Text(link.title?.isEmpty == false ? link.title! : link.source ?? link.url.host ?? link.url.absoluteString)
+                Text(title?.isEmpty == false ? title! : source ?? link.url.host ?? link.url.absoluteString)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.white)
                     .lineLimit(2)
-                if let source = link.source, !source.isEmpty {
+                if let source, !source.isEmpty {
                     Text(source)
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.62))
@@ -13210,9 +13238,15 @@ private struct AskDJSourcesStack: View {
                 .fill(.white.opacity(0.09))
         }
     }
+
+    private func displaySource(_ source: String) -> String {
+        source == "spotify_playback_context"
+            ? localizedKey(language, "ui.sources.current_playback") : source
+    }
+
 }
 
-private struct AskDJMarkdownText: View {
+private struct AskDJMarkdownText: View, Equatable {
     let text: String
     var highlight: String = ""
 
@@ -14130,22 +14164,23 @@ struct QueueView: View {
     private var queueSearchQuery: String {
         queueSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
-    private var indexedQueueItems: [(index: Int, item: DJConnectQueueItem)] {
-        Array(model.queueItems.enumerated()).map { (index: $0.offset, item: $0.element) }
-    }
-    private var filteredQueueItems: [(index: Int, item: DJConnectQueueItem)] {
-        guard !queueSearchQuery.isEmpty else {
-            return indexedQueueItems
+    @State private var filteredQueueItems: [(index: Int, item: DJConnectQueueItem)] = []
+    @State private var queueSearchResultIDs: [Int] = []
+    @State private var shouldShowEmptyQueueState = true
+
+    // Rebuild only for list/search changes, never for unrelated playback ticks.
+    private func rebuildQueueRows() {
+        let items = model.queueItems
+        filteredQueueItems = items.enumerated().compactMap { index, item in
+            queueSearchQuery.isEmpty || queueSearchMatches(item) ? (index: index, item: item) : nil
         }
-        return indexedQueueItems.filter { _, item in
-            queueSearchMatches(item)
-        }
-    }
-    private var queueSearchResultIDs: [Int] {
-        guard !queueSearchQuery.isEmpty else {
-            return []
-        }
-        return filteredQueueItems.map(\.index)
+        queueSearchResultIDs = queueSearchQuery.isEmpty ? [] : filteredQueueItems.map(\.index)
+        let signatures = Set(items.map {
+            [$0.uri ?? "", $0.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+             $0.artist?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""].joined(separator: "|")
+        })
+        shouldShowEmptyQueueState = items.isEmpty ||
+            (items.count >= 4 && signatures.count == 1 && items.allSatisfy { !model.canStartQueueItem($0) })
     }
     private var activeQueueSearchResultID: Int? {
         guard queueSearchResultIDs.indices.contains(selectedSearchResultIndex) else {
@@ -14155,22 +14190,6 @@ struct QueueView: View {
     }
     private var shouldShowFilteredEmptyQueueState: Bool {
         !queueSearchQuery.isEmpty && model.queueItems.isEmpty == false && filteredQueueItems.isEmpty
-    }
-    private var shouldShowEmptyQueueState: Bool {
-        guard !model.queueItems.isEmpty else {
-            return true
-        }
-        guard model.queueItems.count >= 4 else {
-            return false
-        }
-        let signatures = Set(model.queueItems.map { item in
-            [
-                item.uri ?? "",
-                item.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
-                item.artist?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
-            ].joined(separator: "|")
-        })
-        return signatures.count == 1 && model.queueItems.allSatisfy { !model.canStartQueueItem($0) }
     }
     private var canOpenQueueSearch: Bool {
         !shouldShowEmptyQueueState
@@ -14224,6 +14243,7 @@ struct QueueView: View {
                                     model.startQueueItem(item, at: index)
                                 } label: {
                                     QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
+                                        .equatable()
                                         .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
                                 }
                                 .buttonStyle(DJConnectMediaRowButtonStyle())
@@ -14242,7 +14262,10 @@ struct QueueView: View {
                     .scrollIndicators(.visible)
                     #endif
                 }
+                .onAppear { rebuildQueueRows() }
+                .onChange(of: model.queueItems) { rebuildQueueRows() }
                 .onChange(of: queueSearchText) {
+                    rebuildQueueRows()
                     selectedSearchResultIndex = 0
                     scrollToActiveQueueSearchResult(proxy)
                 }
@@ -14320,6 +14343,7 @@ struct QueueView: View {
                             model.startQueueItem(item, at: index)
                         } label: {
                             QueueItemRow(item: item, isLoading: model.loadingQueueItemIndex == index)
+                                .equatable()
                                 .opacity(areQueueItemsDisabled || !model.canStartQueueItem(item) ? 0.45 : 1)
                         }
                         .buttonStyle(DJConnectMediaRowButtonStyle())
@@ -14458,17 +14482,12 @@ struct PlaylistsView: View {
     private var playlistSearchQuery: String {
         playlistSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
-    private var filteredPlaylistItems: [DJConnectPlaylist] {
-        guard !playlistSearchQuery.isEmpty else {
-            return model.playlistItems
-        }
-        return model.playlistItems.filter(playlistSearchMatches)
-    }
-    private var playlistSearchResultIDs: [String] {
-        guard !playlistSearchQuery.isEmpty else {
-            return []
-        }
-        return filteredPlaylistItems.map(\.id)
+    @State private var filteredPlaylistItems: [DJConnectPlaylist] = []
+    @State private var playlistSearchResultIDs: [String] = []
+
+    private func rebuildPlaylistRows() {
+        filteredPlaylistItems = playlistSearchQuery.isEmpty ? model.playlistItems : model.playlistItems.filter(playlistSearchMatches)
+        playlistSearchResultIDs = playlistSearchQuery.isEmpty ? [] : filteredPlaylistItems.map(\.id)
     }
     private var activePlaylistSearchResultID: String? {
         guard playlistSearchResultIDs.indices.contains(selectedSearchResultIndex) else {
@@ -14531,6 +14550,7 @@ struct PlaylistsView: View {
                                     model.startPlaylist(playlist)
                                 } label: {
                                     PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
+                                        .equatable()
                                         .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
                                 }
                                 .buttonStyle(DJConnectMediaRowButtonStyle())
@@ -14547,7 +14567,10 @@ struct PlaylistsView: View {
                     .scrollIndicators(.visible)
                     #endif
                 }
+                .onAppear { rebuildPlaylistRows() }
+                .onChange(of: model.playlistItems) { rebuildPlaylistRows() }
                 .onChange(of: playlistSearchText) {
+                    rebuildPlaylistRows()
                     selectedSearchResultIndex = 0
                     scrollToActivePlaylistSearchResult(proxy)
                 }
@@ -14624,6 +14647,7 @@ struct PlaylistsView: View {
                             model.startPlaylist(playlist)
                         } label: {
                             PlaylistRow(playlist: playlist, isLoading: model.loadingPlaylistID == playlist.id)
+                                .equatable()
                                 .opacity(arePlaylistItemsDisabled ? 0.45 : 1)
                         }
                         .buttonStyle(DJConnectMediaRowButtonStyle())
@@ -14856,7 +14880,7 @@ private extension View {
     }
 }
 
-private struct PlaylistRow: View {
+private struct PlaylistRow: View, Equatable {
     let playlist: DJConnectPlaylist
     var isLoading = false
 
@@ -15356,7 +15380,9 @@ private struct LocalGameSurface: View {
                     setPacmanDirection(dx: 1, dy: 0)
                 }
             }
-            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
+            // The game surface owns keyboard focus; its inherited focus state
+            // must not draw a thick focus ring on every direction control.
+            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon, showsFocusIndicator: false))
             .controlSize(.large)
         } else {
             LazyVGrid(columns: controlColumns(count: game == .pong ? 2 : 3), spacing: 10) {
@@ -15380,7 +15406,9 @@ private struct LocalGameSurface: View {
                 }
 
             }
-            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
+            // The game surface owns keyboard focus; its inherited focus state
+            // must not draw a thick focus ring on every direction control.
+            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon, showsFocusIndicator: false))
             .controlSize(.large)
         }
     }
@@ -16359,7 +16387,7 @@ private struct MoreView: View {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 12)], spacing: 12) {
                     MoreNavigationRow(title: "Ask DJ", systemImage: "bubble.left.and.bubble.right") { destinationSelection = .askDJ }
-                    MoreNavigationRow(title: localizedKey(model.language, "ui.session.history.title"), systemImage: "clock.arrow.circlepath") { destinationSelection = .savedSessions }
+                    MoreNavigationRow(title: localizedKey(model.language, "ui.session.history.title"), systemImage: "headphones") { destinationSelection = .savedSessions }
                     MoreNavigationRow(title: "Music DNA", systemImage: "heart") { destinationSelection = .musicDNA }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.queue"), systemImage: "music.note.list") { destinationSelection = .queue }
                     MoreNavigationRow(title: localizedKey(model.language, "ui.playlists"), systemImage: "rectangle.stack") { destinationSelection = .playlists }

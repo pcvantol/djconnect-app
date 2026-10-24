@@ -19,7 +19,7 @@ import UIKit
         #endif
     }()
     public static var isAdmitted: Bool { eligible(newConnection: true) }
-    static var canContinueInFlight: Bool { eligible(newConnection: false) }
+    public static var canContinueInFlight: Bool { eligible(newConnection: false) }
     static func require() throws {
         guard isAdmitted else { throw Failure.notAdmitted }
     }

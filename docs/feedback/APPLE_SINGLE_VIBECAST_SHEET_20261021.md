@@ -42,3 +42,9 @@ Evidence:
   SHA-256 `ae7462a4e69b45f4f535096bdb9446620c13fe38fae58b6ba346e70a02862e2a`.
 - Initial `/private/tmp/djc-single-vibecast-sheet-20261021-ios.log` and
   `/private/tmp/djc-single-vibecast-sheet-20261021.xcresult`.
+
+## 22 October source follow-up
+
+The historical macOS exception above is superseded by
+`APPLE_VIBECAST_APP_CONNECTION_20261022.md`: Mac now uses the same explicit
+Core B TV-code flow. This follow-up has not been built or executed.

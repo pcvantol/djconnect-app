@@ -1,5 +1,121 @@
 # DJConnect App Engineering Status
 
+## 2026-10-24 — Pending metadata accounting / PR199
+
+[PR199](https://github.com/pcvantol/djconnect-app/pull/199) merged independently
+reviewed `9c3cd26a8b16afd2780709ba710cc0144a479a0b` as `09f1dcfb126848ad13c2eb6cb98394247f2cdbe1`.
+Slice A adds comparison-only one-shot pending storage against an explicitly
+pre-existing synthetic root, exact local encoding1 and causal fixtures. Every
+append is terminal, including busy, stale, cancelled and uncertain writes.
+No shared/Keychain root, bootstrap/import, lifecycle mutation, SDK/adapter,
+child writer, backend wire or product caller is added. Supplied comparison
+floors/UUIDs/digests/snapshots are not authentic reservation or native authority.
+
+Targeted eleven functions / 38 invocations passed. Full validation passed
+1,267 functions in 28 suites plus 86 XCTest cases (five skipped, zero failures).
+Actual native execution: 1,353 total, 1,334 passed, 19 skipped, zero failures,
+parent exit 0. Inputs matched before/after. Candidate CI40096795546,
+own-main CI40097758324 and formal40098630739 succeeded. Original build/runner/
+coverage/formal ZIPs and durable canonical integrity/12 required checks were
+verified. [Portable source receipt](docs/feedback/APPLE_PENDING_METADATA_199_SOURCE_RECEIPT_20261024.json).
+
+Source197 and separate Final198 remain qualified. Original193 coverage failure
+and original196 native exclusion remain preserved. This separate documentary
+Finalization changes no compiled input and needs its own protected delivery.
+The authentic B join, complete retained factory and original-clock client codec/pin
+adoption still require their own source and acceptance. Qualified Help catalogue,
+actual push and physical iPhone/HA/receiver acceptance remain open. The phone is
+owner-deferred; no new ordinary version, installation, paid call or timer.
+
+## 2026-10-24 — VibeCast metadata native qualification / PR197
+
+[PR197](https://github.com/pcvantol/djconnect-app/pull/197) merged independently
+reviewed `461ae69545bfbfe052fb34f128d4e451d8bff121` as
+`41ee2669f52ffaac1e9920ea5add2ac16c4063b1`; both trees are
+`0843d8a0696d457896f63345806a9a814c56ac08`.
+Source196 adds only a closed immutable metadata decoder and synthetic fixtures.
+Necessary successor197 adds twelve canonical native project references. The
+original196 native run excluded the new suite (1,249 functions / 26 suites);
+that limitation is preserved. No store, bootstrap, migration, SDK, admission or
+product route is added. Existing lifecycle and key paths are unchanged.
+
+Local targeted validation passed seven functions including 65 rejection cases.
+Full SPM validation passed 1,256 functions / 27 suites plus 86 XCTest cases,
+five XCTest skips and zero failures, parent exit 0. The repaired native run
+passed 1,342 tests: 1,323 passed, 19 skipped, zero failures, parent exit 0.
+Candidate CI40090218204, own-main CI40090952881 and formal40091745401 succeeded.
+The original main native log confirms the metadata suite and 1,256 functions
+in 27 suites, parent success. Downloaded build/runner/coverage/formal ZIPs and
+durable evidence have verified hashes, main binding, canonical integrity and
+12/12 required checks. See the [portable source receipt](docs/feedback/APPLE_COMPOSITION_PARSER_197_SOURCE_RECEIPT_20261024.json).
+
+Source194 and separate Final195 remain qualified; original193 coverage FAILED
+is preserved. This documentary Finalization changes no compiled input and
+requires its own protected delivery. Retained bootstrap/migration/factory,
+original-clock runtime repair, qualified Help catalogue, actual push delivery
+and physical iPhone/HA/receiver acceptance remain open. The phone is owner-deferred.
+No ordinary version bump, device installation or new paid call occurred.
+
+## 2026-10-24 — Necessary qualification repair / PR194
+
+[PR194](https://github.com/pcvantol/djconnect-app/pull/194) merged independently
+reviewed `c4515a9a0429e7d269cb15335a6b312f83f1933b` as `96122fe4be25795ea3a4d483e88a40c646ae1ad7`;
+both trees are `50d2e48f9481fb7b001b15d32e5b91af1e522229`.
+It repairs only the deletion test's active-read baseline, records the completed
+Help simulator qualification and clarifies the existing VibeCast implementation
+contract precedence. Product Sources/Apps/Help host/selector fixture are unchanged.
+
+Original Final193/main0b621e8 run40078612032 had ordinary CI SUCCESS but native
+coverage FAILURE (two baseline-ordering issues). That exact failure remains;
+it is not relabeled. Source194 is the necessary independently reviewed successor.
+Its own-main CI40081473653 and formal40082315411 qualified, with actual downloaded
+build/runner/coverage/formal artifacts, durable canonical integrity and12required
+checks independently verified. [Portable original receipt](docs/feedback/APPLE_194_QUALIFICATION_REPAIR_SOURCE_RECEIPT_20261024.json).
+
+The causal fixture holds the original active response, refuses a concurrent read
+without another request and requires the exact loaded revision before deletion.
+Local native results:1335total/1316passed/19skipped/0failed/parentexit0. The four
+iOS Help component tests passed, including20locale/surface/text-size variants;
+22screenshots and bothxcresults are preserved. The owned disposable simulator was
+removed afterward. Mac Help prestart failure, paired Help/Bulletin/VoiceOver,
+Core catalogue qualification, original clock repair and actual push/VibeCast
+acceptance remain open. Interface release permits selected VibeCast implementation;
+it does not supply bootstrap/native/effect authority.
+
+This separate documentary Finalization changes no compiled inputs and needs its
+own protected delivery. No ordinary build/version/install; Mac mini40450 observed
+today, other device versions remain historical. Original branches/worktrees and
+proofs are preserved. No new timer, paid call, real key or provider effect.
+
+## 2026-10-24 — Reviewed source consolidation / PR192
+
+[PR192](https://github.com/pcvantol/djconnect-app/pull/192) merged reviewed
+`ef05b379adda5b5bc14a714fdf212cc7cbab755c` as
+`5015bba447f86bb1a598c016e213cdbf4e955297`; both trees are
+`c12ea333e8ff8cac4e2a7951a6c2deba04908d2a`. It incorporates PR186/187/191:
+Bulletin accessibility and source attribution, shared three-suggestion/Help
+presentation with original track expiry, and exact Live Activity token ownership.
+PR185 was closed as superseded by the already-corrected protected PR188.
+
+Candidate CI40074641175, own-main CI/coverage40075625014 and formal
+reconciliation40076439775 succeeded. Original downloaded artifacts, runner/main
+binding, coverage digest, durable canonical integrity and12/12required checks
+were independently verified. Local native tests:1335total,1316passed,19skipped,
+0failed, parentexit0. The separate Mac Help UI runner failed before connection
+(exit65); no interactive Help acceptance is claimed. Historical main190 coverage
+failure remains a failure. See [the portable receipt](docs/feedback/APPLE_CONSOLIDATION_192_SOURCE_RECEIPT_20261024.json).
+
+Core's qualified Help catalogue, paired Bulletin/native accessibility acceptance,
+original-purpose clock repair, retained VibeCast factory and actual widget/remote
+Activity push delivery remain open. Physical iPhone/HA testing waits for the
+owner's later connection. No new ordinary build, installation or version bump;
+Mac mini40450 was read back today, other devices were not freshly checked.
+
+This separate documentary Finalization changes no compiled inputs. Existing
+published branches, unique worktrees and original evidence remain preserved.
+Exact approved ignored retention groups were moved outside repositories with
+hash/inode/mtime checks; no source, Git history or unique WIP was deleted.
+
 ## 2026-10-21 — Apple client consolidation / PR169
 
 PR169 merged the reviewed-by-author client candidate `d2b1482` as `9980279`.

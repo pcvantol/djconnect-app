@@ -114,6 +114,14 @@ func personaTouchRespectsOutputWithoutSubstitutingClientAudio(output: DJAnnounce
     return predicate()
 }
 
+@MainActor private func touchObservation(_ result: DJConnectPersonaReactionResult) async throws -> DJConnectPersonaReactionObservation {
+    let observation = DJConnectPersonaReactionObservation(result: result, close: {})
+    try observation.accept(touchJSON(["contract_version": 1, "observation_id": 1,
+        "reaction_id": result.persona_reaction.id, "session_id": result.persona_reaction.session.session_id,
+        "state": "valid", "expires_at": result.persona_reaction.expires_at, "cache_policy": "private,no-store"]), requestID: 1, initial: true)
+    return observation
+}
+
 @Test @MainActor func personaTouchCancellationBeforeDispatchFencesLateResultAndCancelsOriginalID() async throws {
     let (_, _, result) = try touchCase()
     let controller = PersonaReactionController()
@@ -146,7 +154,7 @@ func personaTouchRespectsOutputWithoutSubstitutingClientAudio(output: DJAnnounce
     var feedback = 0
     controller.start(.init(request: { _ in result }, cancel: { _, _ in }, current: { true }, admitsSpeech: { _ in true },
         play: { _, report in observed = report; return try await withCheckedThrowingContinuation { completion = $0 } },
-        stop: { _ in }, failure: {}, notice: nil, admittedFeedback: { feedback += 1 }))
+        stop: { _ in }, failure: {}, notice: nil, admittedFeedback: { feedback += 1 }, observe: touchObservation))
     #expect(await touchEventually { observed != nil })
     #expect(feedback == 1)
     #expect(controller.preparing && !controller.speaking)
@@ -171,7 +179,7 @@ func personaTouchRespectsOutputWithoutSubstitutingClientAudio(output: DJAnnounce
     var completion: CheckedContinuation<Bool, Error>?
     controller.start(.init(request: { _ in result }, cancel: { _, _ in }, current: { authority.current }, admitsSpeech: { _ in true },
         play: { _, observed in plays += 1; observed(true); return try await withCheckedThrowingContinuation { completion = $0 } },
-        stop: { _ in stopped += 1 }, failure: {}, notice: nil))
+        stop: { _ in stopped += 1 }, failure: {}, notice: nil, observe: touchObservation))
     #expect(await touchEventually { controller.speaking })
     authority.current = false
     #expect(await touchEventually { !controller.isActive })
@@ -185,7 +193,7 @@ func personaTouchRespectsOutputWithoutSubstitutingClientAudio(output: DJAnnounce
     let controller = PersonaReactionController()
     var plays = 0
     controller.start(.init(request: { _ in result }, cancel: { _, _ in }, current: { true }, admitsSpeech: { _ in false },
-        play: { _, _ in plays += 1; return true }, stop: { _ in }, failure: {}, notice: "ui.session.reaction.text_only"))
+        play: { _, _ in plays += 1; return true }, stop: { _ in }, failure: {}, notice: "ui.session.reaction.text_only", observe: touchObservation))
     #expect(await touchEventually { controller.reaction != nil })
     #expect(plays == 0 && !controller.preparing && !controller.speaking)
     #expect(controller.reaction?.expires_at == result.persona_reaction.expires_at)
@@ -215,6 +223,13 @@ func personaTouchRequiresItsOwnDiscoveryWithoutBreakingBasePersona(fault: String
     var root = try touchFixture("persona-touch-discovery-installed-20261019.json")
     var persona = root["active_session_persona"] as! [String: Any]
     var touch = persona["touch_reaction"] as! [String: Any]
+    // Synthetic derivative of the immutable older discovery fixture, using the
+    // public withdrawal/tombstone metadata on Core main83744790.
+    touch["withdrawal_contract"] = ["version": 1, "transport": "paired_owner_actions",
+        "command": "djconnect/persona/reaction/observe", "event": "session/persona/reaction/withdrawn",
+        "required_for_display_and_playback": true, "maximum_observers_per_reaction": 1,
+        "server_guard_recheck_seconds": 0.25, "on_connection_loss": "withdraw_and_stop", "deadline_renewal": false]
+    touch["cancel_before_admission"] = "durable_original_uuidv7_fence_until_operation_deadline"
     switch fault {
     case "version": touch["version"] = 2
     case "owner": touch["owner_only"] = false
@@ -240,7 +255,7 @@ func personaTouchRequiresItsOwnDiscoveryWithoutBreakingBasePersona(fault: String
     let controller = PersonaReactionController()
     var stopped = 0
     controller.start(.init(request: { _ in result }, cancel: { _, _ in }, current: { true }, admitsSpeech: { _ in false },
-        play: { _, _ in Issue.record("Text has no playback grant"); return false }, stop: { _ in stopped += 1 }, failure: {}, notice: "text"))
+        play: { _, _ in Issue.record("Text has no playback grant"); return false }, stop: { _ in stopped += 1 }, failure: {}, notice: "text", observe: touchObservation))
     #expect(await touchEventually { controller.reaction != nil })
     #expect(controller.reaction?.expires_at == result.persona_reaction.expires_at)
     #expect(await touchEventually { !controller.isActive })
@@ -266,7 +281,7 @@ func personaTouchRequiresItsOwnDiscoveryWithoutBreakingBasePersona(fault: String
     let controller = PersonaReactionController()
     var stopped = 0, cancellations = 0
     controller.start(.init(request: { _ in result }, cancel: { _, _ in cancellations += 1 }, current: { true }, admitsSpeech: { _ in true },
-        play: { _, _ in false }, stop: { _ in stopped += 1 }, failure: {}, notice: nil))
+        play: { _, _ in false }, stop: { _ in stopped += 1 }, failure: {}, notice: nil, observe: touchObservation))
     #expect(await touchEventually { controller.notice != nil })
     #expect(stopped == 1 && controller.isActive && controller.reaction?.id == result.persona_reaction.id)
     #expect(!controller.preparing && !controller.speaking && cancellations == 0)
@@ -282,11 +297,70 @@ func personaTouchRequiresItsOwnDiscoveryWithoutBreakingBasePersona(fault: String
     controller.start(.init(request: { _ in
         try await withCheckedThrowingContinuation { continuation = $0 }
     }, cancel: { _, _ in }, current: { authority.current }, admitsSpeech: { _ in false },
-    play: { _, _ in false }, stop: { _ in }, failure: {}, notice: nil, admittedFeedback: { feedback += 1 }))
+    play: { _, _ in false }, stop: { _ in }, failure: {}, notice: nil, admittedFeedback: { feedback += 1 }, observe: touchObservation))
     #expect(await touchEventually { continuation != nil })
     authority.current = false
     continuation?.resume(returning: result)
     for _ in 0..<20 { await Task.yield() }
     #expect(feedback == 0 && controller.reaction == nil)
     controller.cancel(.dismissed)
+}
+
+@Test func personaTouchOlderProducerWithoutWithdrawalCannotActivateTaps() throws {
+    let root = try touchFixture("persona-touch-discovery-installed-20261019.json")
+    let result = try JSONDecoder().decode(DJConnectActiveMoodCapabilities.self, from: touchJSON(root))
+    #expect(result.personaAvailable)
+    #expect(!result.personaReactionAvailable)
+}
+
+@Test func personaTouchObservationNeverRenewsOrReadmitsWithdrawnReaction() async throws {
+    let (_, _, result) = try touchCase()
+    let observation = DJConnectPersonaReactionObservation(result: result, close: {})
+    let snapshot: [String: Any] = ["contract_version": 1, "observation_id": 1,
+        "reaction_id": result.persona_reaction.id, "session_id": result.persona_reaction.session.session_id,
+        "state": "valid", "expires_at": result.persona_reaction.expires_at, "cache_policy": "private,no-store"]
+    #expect(!observation.isValid)
+    try observation.accept(touchJSON(snapshot), requestID: 1, initial: true)
+    #expect(observation.isValid)
+    observation.invalidate()
+    #expect(!observation.isValid)
+    try observation.accept(touchJSON(snapshot), requestID: 1, initial: true)
+    #expect(!observation.isValid)
+    for field in ["reaction_id", "session_id", "expires_at", "cache_policy"] {
+        let other = DJConnectPersonaReactionObservation(result: result, close: {})
+        var mismatch = snapshot; mismatch[field] = "wrong"
+        #expect(throws: (any Error).self) { try other.accept(touchJSON(mismatch), requestID: 1, initial: true) }
+        #expect(!other.isValid)
+    }
+    await observation.close()
+}
+
+@Test @MainActor func personaTouchRemoteWithdrawalRemovesTextAndStopsOwnedOutput() async throws {
+    let (_, _, result) = try touchCase()
+    let observation = DJConnectPersonaReactionObservation(result: result, close: {})
+    try observation.accept(touchJSON(["contract_version": 1, "observation_id": 1,
+        "reaction_id": result.persona_reaction.id, "session_id": result.persona_reaction.session.session_id,
+        "state": "valid", "expires_at": result.persona_reaction.expires_at, "cache_policy": "private,no-store"]), requestID: 1, initial: true)
+    let controller = PersonaReactionController()
+    var stops = 0
+    controller.start(.init(request: { _ in result }, cancel: { _, _ in }, current: { true },
+        admitsSpeech: { _ in false }, play: { _, _ in false }, stop: { _ in stops += 1 },
+        failure: {}, notice: nil, observe: { _ in observation }))
+    for _ in 0..<50 { if controller.reaction != nil { break }; await Task.yield() }
+    #expect(controller.reaction?.id == result.persona_reaction.id)
+    observation.invalidate()
+    for _ in 0..<50 { if !controller.isActive { break }; await Task.yield() }
+    #expect(!controller.isActive && controller.reaction == nil)
+    #expect(stops == 1)
+}
+
+@Test @MainActor func personaTouchMissingObserverCannotPresentOrPlayEvenValidReaction() async throws {
+    let (_, _, result) = try touchCase()
+    let controller = PersonaReactionController()
+    var failures = 0, plays = 0
+    controller.start(.init(request: { _ in result }, cancel: { _, _ in }, current: { true },
+        admitsSpeech: { _ in true }, play: { _, _ in plays += 1; return true }, stop: { _ in },
+        failure: { failures += 1 }, notice: nil))
+    #expect(await touchEventually { failures == 1 })
+    #expect(controller.reaction == nil && !controller.isActive && plays == 0)
 }

@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "qualification": "ACTUAL_ISOLATED_HA_PAIRED_HTTP_SYNTHETIC_ONLY",
+  "ha_sdk_version": "2026.10.0",
+  "cases": {
+    "ordinary_pair_exact_current_no_session_no_model": "PASS",
+    "cache_current_metadata_original_deadline": "PASS",
+    "same_name_versions_are_distinct": "PASS",
+    "new_source_revision_same_recording_new_epoch": "PASS",
+    "mixed_authority_before_source_read": "PASS",
+    "failed_source_never_uses_runtime_fallback": "PASS",
+    "initial_source_await_actual_runtime_aba": "PASS",
+    "final_source_await_actual_runtime_aba": "PASS",
+    "actual_cc0_original_source_shared_generation_assessment_fixture": "PASS",
+    "closed_current_no_profile_dna_history_or_playback_effect": "PASS",
+    "four_original_source_fields_cannot_transfer_cc0_model_rights": "PASS",
+    "ordinary_no_selector_has_same_original_source_join": "PASS",
+    "legacy_status_no_optout_learning": "PASS",
+    "paired_authority_withdrawn_during_source_read": "PASS",
+    "withdrawn_closed_current_remains_inert": "PASS"
+  },
+  "responses": {
+    "current": {
+      "id": "track_insight_46f2f86799b7612de36684bd",
+      "created_at": "2026-10-22T15:25:19.219133+00:00",
+      "source": "current_detail",
+      "language": "nl",
+      "mood_context": null,
+      "track": {
+        "title": "Fixture track",
+        "artist": "Fixture artist",
+        "album": "Fixture album",
+        "artwork_url": "https://i.scdn.co/image/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "duration_ms": 180000,
+        "progress_ms": 10000,
+        "is_playing": true,
+        "player_id": null,
+        "entity_id": null,
+        "backend": "spotify_direct",
+        "genres": [
+          "jazz"
+        ]
+      },
+      "analysis": {
+        "summary": "Er is geen gekwalificeerde muzikale analyse voor deze opname beschikbaar. Playbackmetadata staat apart; de audio is niet gemeten.",
+        "full_text": "Er is geen gekwalificeerde muzikale analyse voor deze opname beschikbaar. Playbackmetadata staat apart; de audio is niet gemeten.",
+        "listening_cues": [],
+        "genre": null,
+        "subgenre": null,
+        "mood": null,
+        "vibe": null,
+        "texture": null,
+        "emotional_tone": null,
+        "energy": null,
+        "danceability": null,
+        "intensity": null,
+        "confidence": null,
+        "production_notes": [],
+        "instrumentation": [],
+        "arrangement_notes": [],
+        "similar_tracks": [],
+        "basis": "unmeasured_metadata_only_v1",
+        "measured_audio": false,
+        "verified_context": "",
+        "source_attribution": {}
+      },
+      "visual_profile": {
+        "palette": [
+          "#8197ae",
+          "#da263f",
+          "#d5f6bf"
+        ],
+        "motion_style": "minimal",
+        "pulse_speed": 0.625,
+        "wave_amplitude": 0.6,
+        "particle_density": 0.575,
+        "glow_strength": 0.6,
+        "spectrum_bias": "balanced",
+        "seed": "8197aeda263fd5f6bf6d3bf43c860eb81efac5230b5e8ae9abd5a9846792f837",
+        "basis": "decorative_unmeasured_v1",
+        "audio_reactive": false
+      },
+      "cache": {
+        "hit": false,
+        "key": "46f2f86799b7612de36684bd"
+      },
+      "subject": {
+        "mode": "current",
+        "schema_version": 1,
+        "media_identity": "spotify:track:AAAAAAAAAAAAAAAAAAAAAA",
+        "observation_id": "<opaque-observation-redacted>",
+        "expires_at": 1792682749.2186365,
+        "expires_in": 29
+      }
+    },
+    "mixed": {
+      "success": false,
+      "error": "invalid_track_insight_subject",
+      "message": "Kies de huidige opname of een specifieke bijdrage."
+    },
+    "unavailable": {
+      "success": false,
+      "error": "current_track_unavailable",
+      "message": "De huidige opname kon niet worden gecontroleerd. Probeer het zo opnieuw."
+    },
+    "withdrawn": {
+      "success": false,
+      "error": "unauthorized",
+      "message": "Access was withdrawn."
+    }
+  },
+  "model_provider_calls": 0,
+  "model_reply_fixture_calls": 2,
+  "installed": "NOT_RUN",
+  "native": "NOT_RUN",
+  "source_pins": {
+    "custom_components/djconnect/__init__.py": "643363884a9e211fd58f84fe0ff6e1b213166e2caf60fed74a5d642c6cea62d6",
+    "custom_components/djconnect/current_track_insight.py": "6aa541ec1ef8b6ab421271b44bd64b084a34e7da19bbcdbbaf04b096fb583d60",
+    "custom_components/djconnect/track_insight.py": "c582c0fae1e5bd50096684d5801dd253cc150205e94aecb5bf77306e670404e8",
+    "custom_components/djconnect/track_insight_target.py": "6b599c7d0bb465ca7c30c5d6c47538fe5b8b13e18fb3f5be6e6307c0fcca625c",
+    "custom_components/djconnect/capability_contract.py": "e6475b84ce72d16fa71678be4bb5edbbfe72969d4e436fa52f339e28435c238d",
+    "custom_components/djconnect/playback_observation.py": "3c68b3ebe03bbbaaaa6b6f226d5e91f8e01382a54abe8ea063fc52ab16985fe5",
+    "custom_components/djconnect/spotify_backend.py": "f41969cbc70192c29f5627cccea6f21980430b65a0d2f61fbd902976904ae3e6",
+    "custom_components/djconnect/profile_context.py": "b65b5bc6159b10b4f8c864c5af4a2bdaeda34449eb8e839e0f253db302a58320",
+    "custom_components/djconnect/api_handlers.py": "5dd6d9c59d00641ce268df0a48a5ab6b82e49b79c50a31cab171159ba0659142",
+    "custom_components/djconnect/transport_delivery.py": "70b45afe6e25f960973affd39ae6d77e8a695db41df8919e749ca6885aedd8af",
+    "custom_components/djconnect/session_runtime.py": "10fa26e35afd940347fbb6282b992c686c2663bf8ad5d64b36b317783a9070c5",
+    "custom_components/djconnect/forecast_imagery.py": "28c15f023ddc1df1c43a3997d8a551fc74ae08a473b494398165d226c9e2fd9c",
+    "custom_components/djconnect/session_facts.py": "0cb8d6a0984baccdccc4ce3df5430c3b4dddf70c963537d45d2f7ce78acd79d7",
+    "custom_components/djconnect/session_conversation.py": "166df3182f09fc43320adeaeb544accbc552672fa7d80a47582718ba9e48b9d7"
+  },
+  "harness": "scripts/verification/verify_current_track_insight_http.py",
+  "harness_sha256": "f28b155e194a021f4ce92c6ea8f021b97155ab9fc73facfcfd7784762101f957",
+  "actual_ha_receipt_sha256": "0bffaaed746fb1496c88b9071bbf8c18141094c7767c4ec1dab452e6fedc32d3",
+  "source_unchanged": true,
+  "playback_mutations": 0
+}

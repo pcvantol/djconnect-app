@@ -1146,6 +1146,10 @@ func conversationFailureUsesAskDJCopyAndPreservesQuestionMetadata(_ failure: Str
     let expected = failure == "409" ? "ui.ask_dj.answer.context_changed" : "ui.ask_dj.answer.unavailable"
     #expect(turn.failed && turn.failureKey == expected)
     #expect(turn.contextChanged == (failure == "409"))
+    #expect(turn.canRetry == (failure != "409"))
+    var uncertain = turn
+    uncertain.contextChanged = false; uncertain.deliveryUncertain = true
+    #expect(!uncertain.canRetry)
     #expect(model.askDJErrorMessage == DJConnectLocalization.localized(key: expected, language: model.language))
     #expect(turn.id == initial.id && turn.payload == initial.payload)
     let original = try #require(model.askDJMessages.first { $0.id == turn.localMessageID })
@@ -1162,7 +1166,44 @@ func conversationFailureUsesAskDJCopyAndPreservesQuestionMetadata(_ failure: Str
 @Test @MainActor func conversationErrorKeysKeepTransportAndUncertainDeliveryDistinct() {
     #expect(DJConnectSessionHistoryModel.conversationErrorKey(URLError(.timedOut)) == "ui.ask_dj.answer.connection")
     #expect(DJConnectSessionHistoryModel.conversationErrorKey(DJConnectError.network(message: "fixture")) == "ui.ask_dj.answer.connection")
-    #expect(DJConnectSessionHistoryModel.conversationErrorKey(DJConnectHybridTransportError.deliveryUnknown) == DJConnectHybridTransportError.deliveryUnknown.localizationKey)
+    #expect(DJConnectSessionHistoryModel.conversationErrorKey(DJConnectHybridTransportError.deliveryUnknown) == "ui.ask_dj.answer.delivery_unknown")
+}
+
+@Test(arguments: ["current", "consumed", "epoch", "owner-reset", "wrong-owner"]) @MainActor
+func conversationQuestionReviewRejectsCapturedStaleScopeWithoutSending(_ change: String) async throws {
+    let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200,caps,0) }
+        if request.httpMethod == "POST", request.url!.path.hasSuffix("/ask_dj/message") {
+            return (500,Data(#"{"success":false,"error":"server"}"#.utf8),0)
+        }
+        return (200,profile,0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare()
+    model.askDJDraft = "Original scoped fixture question"
+    history.sendText()
+    for _ in 0..<100 where model.isSendingAskDJText { try await Task.sleep(for: .milliseconds(20)) }
+    var captured = try #require(history.pendingTurns.first)
+    if change == "consumed" { history.useCurrentContext(captured) }
+    if change == "epoch" { history.suspend(); await history.prepare() }
+    if change == "owner-reset" { history.reset() }
+    if change == "wrong-owner" {
+        captured = .init(id: captured.id, text: captured.text, context: captured.context,
+                         localMessageID: captured.localMessageID, payload: captured.payload,
+                         requestEpoch: captured.requestEpoch, ownerScope: "different-fixture-owner")
+    }
+    model.askDJDraft = "New context draft"
+    let requestsBefore = fixture.requests.count
+    history.useCurrentContext(captured)
+    #expect(model.askDJDraft == (change == "current" ? captured.text : "New context draft"))
+    #expect(fixture.requests.count == requestsBefore)
+    #expect(!model.isSendingAskDJText)
+    if change == "current" { #expect(!history.pendingTurns.contains(where: { $0.id == captured.id })) }
 }
 
 @Test @MainActor func sessionHistoryPeriodicReadCannotSupersedeExplicitOpen() async throws {
@@ -3582,6 +3623,9 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
 @Test(arguments: ["playing", "paused", "empty", "failure"])
 @MainActor func trackInsightScreenEntryLoadsOnceAndReusesCurrentAnalysis(_ scenario: String) async throws {
     let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") {
+            return (200, Data(#"{"success":true,"capabilities":{"current_track_insight_subject_v1":false},"contract_versions":{}}"#.utf8), 0)
+        }
         #expect(request.url!.path.hasSuffix("/track_insight"))
         let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
         #expect(body?["force_refresh"] as? Bool != true)
@@ -3593,25 +3637,74 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     model.pairingStatus = .paired
     model.apply(playback: scenario == "empty" ? nil : DJConnectPlayback(isPlaying: scenario != "paused", trackName: "Track A", artistName: "Artist A"))
     let first = Task { await model.loadTrackInsightOnOpen() }
-    for _ in 0..<100 where scenario != "paused" && scenario != "empty" && fixture.requests.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+    for _ in 0..<100 where scenario != "paused" && scenario != "empty" && fixture.requests.filter { $0.url!.path.hasSuffix("/track_insight") }.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
     // Another appearance while the request is pending must join the visible load.
     await model.loadTrackInsightOnOpen()
     await first.value
     let shouldLoad = scenario == "playing" || scenario == "failure"
-    #expect(fixture.requests.count == (shouldLoad ? 1 : 0))
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/track_insight") }.count == (shouldLoad ? 1 : 0))
     #expect(!model.isLoadingTrackInsight && model.trackInsightNavigationRequestID == nil)
     if scenario == "playing" {
         #expect(model.currentTrackInsight?.title == "Track A")
         await model.loadTrackInsightOnOpen()
-        #expect(fixture.requests.count == 1)
+        #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/track_insight") }.count == 1)
     } else if scenario == "failure" {
         #expect(model.currentTrackInsight == nil && model.trackInsightErrorMessage != nil)
     } else { #expect(model.currentTrackInsight == nil) }
 }
 
+@Test @MainActor func trackInsightOrdinaryScreenKeepsServerOwnedKnowledgeRoute() async throws {
+    let producer = try momentInsightProducerCase()
+    let qualifiedBody = try #require(producer["body"] as? [String: Any])
+    let track = try #require(qualifiedBody["track"] as? [String: Any])
+    let title = try #require(track["title"] as? String)
+    let artist = try #require(track["artist"] as? String)
+    let qualified = try historyData(qualifiedBody)
+    let unavailable = try historyData([
+        "track": ["title": title, "artist": artist],
+        "analysis": ["basis": "unmeasured_metadata_only_v1", "measured_audio": false,
+                     "summary": "No qualified analysis", "full_text": "No qualified analysis"]
+    ])
+    // Protected Core selects current_knowledge_context only without explicit
+    // title/artist claims. This causal wire fixture preserves that distinction.
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") {
+            return (200, Data(#"{"success":true,"capabilities":{"current_track_insight_subject_v1":false},"contract_versions":{}}"#.utf8), 0)
+        }
+        #expect(request.url!.path.hasSuffix("/track_insight"))
+        let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+        let legacy = body["title"] != nil || body["artist"] != nil
+        if !legacy {
+            for key in ["album", "artwork_url", "duration_ms", "progress_ms", "player_id", "entity_id", "music_backend", "track_insight_target"] {
+                #expect(body[key] == nil, "Current recording must stay server-owned: \(key)")
+            }
+            #expect(body["force_refresh"] as? Bool != true)
+        }
+        return (200, legacy ? unavailable : qualified, 0)
+    }
+    defer { fixture.close() }
+    let legacy = try await fixture.client().trackInsight(.init(title: title, artist: artist))
+    #expect(legacy.hasUnavailableAnalysis && legacy.verifiedCredit == nil)
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.apply(playback: DJConnectPlayback(isPlaying: true, trackName: title, artistName: artist))
+    await model.loadTrackInsightOnOpen()
+    let insight = try #require(model.currentTrackInsight)
+    #expect(insight.verifiedCredit != nil && !insight.hasUnavailableAnalysis)
+    #expect(insight.analysisBasis == "qualified_credit_and_interpretation_v1")
+    #expect(insight.verifiedCredit?.context.isEmpty == false)
+    #expect(insight.energy == nil && insight.danceability == nil && insight.intensity == nil,
+            "Credit/interpretation cannot manufacture audio measurements")
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/track_insight") }.count == 2)
+}
+
 @Test(arguments: ["track-change", "background", "cancel"])
 @MainActor func trackInsightScreenEntryRejectsLateResultsAfterContextChanges(_ scenario: String) async throws {
     let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") {
+            return (200, Data(#"{"success":true,"capabilities":{"current_track_insight_subject_v1":false},"contract_versions":{}}"#.utf8), 0)
+        }
         #expect(request.url!.path.hasSuffix("/track_insight"))
         return (200, Data(#"{"success":true,"track":{"title":"Track A","artist":"Artist A"},"analysis":{"summary":"Supplied analysis","full_text":"Supplied analysis"}}"#.utf8), 0.2)
     }
@@ -3620,15 +3713,15 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     model.pairingStatus = .paired
     model.apply(playback: DJConnectPlayback(isPlaying: true, trackName: "Track A", artistName: "Artist A"))
     let load = Task { await model.loadTrackInsightOnOpen() }
-    for _ in 0..<100 where fixture.requests.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
-    #expect(fixture.requests.count == 1)
+    for _ in 0..<100 where fixture.requests.filter { $0.url!.path.hasSuffix("/track_insight") }.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/track_insight") }.count == 1)
     if scenario == "track-change" { model.apply(playback: DJConnectPlayback(isPlaying: true, trackName: "Track B", artistName: "Artist B")) }
     if scenario == "background" { model.markInactiveSession() }
     if scenario == "cancel" { load.cancel() }
     await load.value
     #expect(model.currentTrackInsight == nil && model.trackInsightHistory.isEmpty)
     #expect(model.trackInsightErrorMessage == nil && !model.isLoadingTrackInsight)
-    #expect(fixture.requests.count == 1)
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/track_insight") }.count == 1)
 }
 
 private func momentInsightProducerCase() throws -> [String: Any] {
@@ -5711,7 +5804,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     #expect(receipt.admits(action, owner: "profile-a") == (mutation == "ok"))
 }
 
-@Test(arguments: ["completed", "pending", "wrong_receipt", "conflict", "withdrawn",
+@Test(arguments: ["completed", "completed_clear_revision", "completed_clear_revision_revoked", "pending", "wrong_receipt", "conflict", "withdrawn",
                   "status_completed", "status_pending", "status_unknown", "status_expired_unknown"])
 @MainActor func contentDeletionUsesFlatBoundWireAndNeverRenewsUnknown(_ outcome: String) async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -5748,10 +5841,27 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     let independent = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: detail)
     let list = try historyData(["success": true, "schema_version": 1,
         "sessions": [rebound(oldHeader)], "revision": "content-readback", "retention_days": 30])
+    let deletionReadback = HistoryAuthorityGate()
     let fixture = HistoryWireFixture { request in
         let path = request.url!.path
-        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
-        if path.hasSuffix("/ask_dj/history") { return (200, profile, 0) }
+        if path.hasSuffix("/capabilities") {
+            if outcome == "completed_clear_revision_revoked", deletionReadback.denied {
+                var revoked = try #require(JSONSerialization.jsonObject(with: caps) as? [String: Any])
+                var flags = try #require(revoked["capabilities"] as? [String: Bool])
+                flags["session_content_delete"] = false; revoked["capabilities"] = flags
+                return (200, try historyData(revoked), 0)
+            }
+            return (200, caps, 0)
+        }
+        if path.hasSuffix("/ask_dj/history") {
+            if outcome.hasPrefix("completed_clear_revision"), deletionReadback.denied {
+                var revised = try #require(JSONSerialization.jsonObject(with: profile) as? [String: Any])
+                revised["history_revision"] = 1000
+                revised["clear_revision"] = 1
+                return (200, try historyData(revised), 0)
+            }
+            return (200, profile, 0)
+        }
         if path.hasSuffix("/session/history") { return (200, list, 0) }
         if path.hasSuffix("/session/content/delete/prepare") { return (200, previewData, 0) }
         if path.hasSuffix("/session/content/delete/status") {
@@ -5774,6 +5884,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
             let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
             receipt["operation_id"] = body["operation_id"]
             if outcome == "wrong_receipt" { receipt["request_digest"] = "wrong" }
+            deletionReadback.denied = true
             return (200, try historyData(receipt), outcome == "withdrawn" ? 0.1 : 0)
         }
         return (200, detail, 0)
@@ -5785,6 +5896,14 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     await history.prepare()
     #expect(await history.loadSessions())
     #expect(await history.loadTimeline(scope.unit.session_id))
+    var renderedWindows: [[String]] = []
+    var renderedArchiveLists: [[String]] = []
+    let windowObservation = history.$timelines.sink {
+        renderedWindows.append($0[scope.unit.session_id]?.entries.map(\.id) ?? [])
+    }
+    let listObservation = history.$sessions.sink { renderedArchiveLists.append($0.map(\.id)) }
+    defer { windowObservation.cancel(); listObservation.cancel() }
+    let removalRevision = history.contentRemovalRevision
     let epoch = history.responseEpoch
     let archiveEpoch = history.archiveResponseEpoch
     let navigation = DJConnectSessionEntryReference(sessionID: scope.unit.session_id, entryID: independent.entries[0].id)
@@ -5806,7 +5925,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
         #expect(await task.value == false)
         await history.prepare()
     } else {
-        #expect(await history.deleteContent(prepared, expectedEpoch: epoch) == (outcome == "completed"))
+        #expect(await history.deleteContent(prepared, expectedEpoch: epoch) == (outcome.hasPrefix("completed")))
     }
     let mutations = fixture.requests.filter { $0.url!.path.hasSuffix("/session/content/delete") }
     #expect(mutations.count == 1)
@@ -5891,12 +6010,27 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
             #expect(query.first { $0.name == "confirmation_id" }?.value == saved.request.confirmation_id)
         }
         #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/content/delete") }.count == 1)
-    } else if outcome == "completed" {
+    } else if outcome.hasPrefix("completed") {
+        // Confirmed scoped erasure must never unmount unrelated rows/list
+        // between receipt admission and the authoritative readback, even when
+        // clear_revision advances. A full suspend produces empty emissions here.
+        let survivors = Set(independent.entries.map(\.id))
+        #expect(!survivors.isEmpty)
+        #expect(renderedWindows.allSatisfy { survivors.isSubset(of: Set($0)) })
+        #expect(renderedArchiveLists.allSatisfy { $0.contains(scope.unit.session_id) })
+        #expect(history.contentRemovalRevision != removalRevision)
         #expect(history.responseEpoch != epoch)
         #expect(history.archiveResponseEpoch == archiveEpoch)
         #expect(history.openTarget == navigation)
         #expect(history.sessions.map(\.id) == [scope.unit.session_id])
         #expect(history.timelines[scope.unit.session_id]?.entries == independent.entries)
+        // This is the exact availability guard used by every remaining row's
+        // swipe and context menu, after the first deletion has settled.
+        let nextEntry = try #require(independent.entries.first)
+        let nextTarget = DJConnectContentDeleteTarget(kind: "entry", sessionID: nextEntry.sessionID, targetID: nextEntry.id)
+        let stillSupported = outcome != "completed_clear_revision_revoked"
+        #expect(history.contentDeletionAvailable == stillSupported)
+        #expect(history.canDeleteContent(nextTarget) == stillSupported)
     }
 }
 
@@ -6170,6 +6304,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
             #expect(body["client_type"] as? String == "ios")
             #endif
             #expect(body["confirmed"] as? Bool == true)
+            #expect(Set(body.keys) == Set(["device_id", "client_type", "session_id", "expected_revision", "operation_id", "confirmed"]))
             #expect(body["session_id"] as? String == archive.id)
             #expect(body["expected_revision"] as? String == archive.revision.value)
             #expect(request.httpMethod == "POST")
@@ -6272,6 +6407,7 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     var activeHeader = newHeader; activeHeader["session_id"] = "active-preserved"; activeHeader["lifecycle_status"] = "ACTIVE"; activeHeader["read_only"] = false
     var activePage = archiveObject; activePage["session"] = activeHeader; activePage["entries"] = []
     let activePageData = try historyData(activePage)
+    let activeRevision = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: activePageData).revision.value
     let initialList = try historyData(["success":true,"schema_version":1,"sessions":[archiveObject["session"]!],"revision":"before","next_cursor":"unloaded-page","retention_days":30])
     let refreshedList = try historyData(["success":true,"schema_version":1,"sessions":[newHeader],"revision":"after","retention_days":30])
     var profileObject = try #require(fixtureObject["later_historical_answer"] as? [String:Any]); profileObject["historical_matches"] = []; profileObject["messages"] = []
@@ -6287,6 +6423,8 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     let activeObject = try JSONSerialization.jsonObject(with:JSONEncoder().encode(active))
     let activeData = try historyData(["success":true,"active_session":activeObject])
     let state = HistoryBulkDeleteFixtureState()
+    let activeReadGate = HistoryWireResponseGate()
+    defer { activeReadGate.release() }
     let fixture = HistoryWireFixture { request in
         let path = request.url!.path
         if path.hasSuffix("/capabilities") { return (200,caps,0) }
@@ -6299,8 +6437,8 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
         }
         if path.hasSuffix("/delete_all") {
             let body = try #require(JSONSerialization.jsonObject(with:presenceRequestBody(request)) as? [String:Any])
-            // The shared paired transport also carries its existing identity envelope.
-            #expect(Set(["device_id","client_type","snapshot_id","operation_id","confirmed"]).isSubset(of:Set(body.keys)))
+            // Core rejects any envelope, nested payload, or token in this body.
+            #expect(Set(body.keys) == Set(["device_id","client_type","snapshot_id","operation_id","confirmed"]))
             #expect(body["session_ids"] == nil && body["query"] == nil && body["cursor"] == nil)
             #expect(body["snapshot_id"] as? String == "opaque-all-pages" && body["confirmed"] as? Bool == true)
             let operation = try #require(body["operation_id"] as? String)
@@ -6318,7 +6456,10 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
             return (200,ack,outcome == "epoch" ? 0.15 : 0)
         }
         if path.hasSuffix("/session/history") { return (200,state.completed ? refreshedList : initialList,0) }
-        if path.hasSuffix("/active-preserved") { return (200,activePageData,0) }
+        if path.hasSuffix("/active-preserved") {
+            if state.takeReadHold() { throw HistoryWireHeldResponse(data: activePageData, gate: activeReadGate) }
+            return (200,activePageData,0)
+        }
         return (200,archiveData,0)
     }
     defer { fixture.close() }
@@ -6326,10 +6467,30 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     let history = model.sessionHistory
     #expect(await model.refreshActiveDJSession())
     await history.prepare(); await history.loadSessions(); await history.loadTimeline(archive.id)
-    let activeReadLoaded = await history.loadTimeline(active.id)
-    #expect(activeReadLoaded)
-    #expect(history.timelines[active.id]?.loading == false)
-    print("BULK_ACTIVE_BASELINE outcome=\(outcome) loaded=\(activeReadLoaded) loading=\(String(describing: history.timelines[active.id]?.loading))")
+    let preparedDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while history.timelines[active.id]?.loading == true,
+          ContinuousClock.now < preparedDeadline { try await Task.sleep(for: .milliseconds(1)) }
+    #expect(history.timelines[active.id]?.loading != true)
+    let previousActiveReads = fixture.requests.filter { $0.url!.path.hasSuffix("/active-preserved") }.count
+    state.armRead()
+    // Profile-history preparation may already own this read. A second caller
+    // must not start another request or mistake its busy result for completion.
+    let activeRead = Task { @MainActor in await history.loadTimeline(active.id) }
+    let startedDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while fixture.requests.filter({ $0.url!.path.hasSuffix("/active-preserved") }).count == previousActiveReads,
+          ContinuousClock.now < startedDeadline { try await Task.sleep(for: .milliseconds(1)) }
+    #expect(history.timelines[active.id]?.loading == true)
+    #expect(await history.loadTimeline(active.id) == false)
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/active-preserved") }.count == previousActiveReads + 1)
+    activeReadGate.release()
+    _ = await activeRead.value // May be the coalesced caller, not the read owner.
+    let loadedDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while history.timelines[active.id]?.loading == true,
+          ContinuousClock.now < loadedDeadline { try await Task.sleep(for: .milliseconds(1)) }
+    let loaded = try #require(history.timelines[active.id])
+    #expect(!loaded.loading && loaded.errorKey == nil)
+    #expect(loaded.session?.id == active.id && loaded.revision == activeRevision)
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/active-preserved") }.count == previousActiveReads + 1)
     let activeBefore = model.activeDJSession
     let liveBefore = history.timelines[active.id]
     let epoch = history.responseEpoch
@@ -6709,7 +6870,17 @@ func personaTouchCapabilityRefreshWithdrawsStaleSupportExceptCancellation(fault:
     let phase = HistoryAuthorityGate()
     let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         .appendingPathComponent("Fixtures/persona-touch-discovery-installed-20261019.json")
-    let discovery = try Data(contentsOf: url)
+    // Add the current withdrawal contract to this immutable older producer fixture.
+    var root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+    var persona = root["active_session_persona"] as! [String: Any]
+    var touch = persona["touch_reaction"] as! [String: Any]
+    touch["withdrawal_contract"] = ["version": 1, "transport": "paired_owner_actions",
+        "command": "djconnect/persona/reaction/observe", "event": "session/persona/reaction/withdrawn",
+        "required_for_display_and_playback": true, "maximum_observers_per_reaction": 1,
+        "server_guard_recheck_seconds": 0.25, "on_connection_loss": "withdraw_and_stop", "deadline_renewal": false]
+    touch["cancel_before_admission"] = "durable_original_uuidv7_fence_until_operation_deadline"
+    persona["touch_reaction"] = touch; root["active_session_persona"] = persona
+    let discovery = try JSONSerialization.data(withJSONObject: root)
     let fixture = HistoryWireFixture { request in
         guard request.url!.path.hasSuffix("/capabilities") else { return (404, Data(), 0) }
         if !phase.denied { return (200, discovery, 0) }
@@ -7058,7 +7229,8 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
-    let panel = SessionForecastContent(model: model, query: .constant(""))
+    let panel = SessionForecastContent(model: model, query: .constant(""), searchExpanded: .constant(false),
+                                       searchBoundsChanged: { _ in })
     let beforeOwner = panel.contextKey
     await model.sessionHistory.prepare()
     if fence == "current" {
@@ -7810,3 +7982,636 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
     try capture("ended-session-flow")
 }
 #endif
+
+@Test(arguments: ["complete", "profile-denied", "failed"])
+@MainActor func archiveListSearchFindsContentBeyondLoadedSessionsAndFencesFailures(_ outcome: String) async throws {
+    let receipt = try historyObject()
+    let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
+    let session = try #require(timeline["session"] as? [String: Any])
+    let id = try #require(session["session_id"] as? String)
+    var missing = session; missing["session_id"] = "archive-without-hit"
+    let revision = try #require(timeline["revision"])
+    let firstList = try historyData(["success": true, "schema_version": 1, "sessions": [missing],
+        "revision": revision, "retention_days": 30, "next_cursor": "archives-page-two"])
+    let secondList = try historyData(["success": true, "schema_version": 1, "sessions": [session],
+        "revision": revision, "retention_days": 30])
+    let query = "Needle"
+    let miss = try historyData(["success": true, "schema_version": 1, "session_id": "archive-without-hit", "query": query,
+        "revision": revision, "matches": [], "returned_count": 0, "total_count": 0, "complete": true,
+        "normalization": "NFKC-casefold", "highlight_units": "utf16"])
+    let firstSearch = try historyData(["success": true, "schema_version": 1, "session_id": id, "query": query,
+        "revision": revision, "matches": [], "returned_count": 0, "complete": false, "next_cursor": "content-page-two",
+        "normalization": "NFKC-casefold", "highlight_units": "utf16"])
+    let entries = try #require(timeline["entries"] as? [[String: Any]])
+    let lastSearch = try historyData(["success": true, "schema_version": 1, "session_id": id, "query": query,
+        "revision": revision, "matches": entries, "returned_count": entries.count, "complete": true,
+        "normalization": "NFKC-casefold", "highlight_units": "utf16"])
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        let cursor = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "cursor" }?.value
+        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("ask_dj/history") { return (200, profile, 0) }
+        if path.hasSuffix("/session/history") { return (200, cursor == nil ? firstList : secondList, 0) }
+        if path.hasSuffix("/archive-without-hit/search") { return (200, miss, 0) }
+        if path.hasSuffix("/search") {
+            if cursor == nil { return (200, firstSearch, 0) }
+            if outcome == "profile-denied" { return (403, Data(#"{"success":false,"error":"invalid_profile"}"#.utf8), 0) }
+            if outcome == "failed" { return (503, Data(#"{"success":false,"error":"unavailable"}"#.utf8), 0) }
+            return (200, lastSearch, 0)
+        }
+        throw DJConnectError.invalidResponse
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    await model.sessionHistory.loadSessions()
+    #expect(model.sessionHistory.sessions.map(\.id) == ["archive-without-hit"])
+    await model.sessionHistory.searchArchivedSessions(query: query)
+    if outcome == "complete" {
+        #expect(model.sessionHistory.archiveSearchComplete)
+        #expect(model.sessionHistory.archiveSearchSessions.map(\.id) == [id])
+        #expect(model.sessionHistory.archiveSearchErrorKey == nil)
+    } else {
+        #expect(!model.sessionHistory.archiveSearchComplete)
+        #expect(model.sessionHistory.archiveSearchSessions.isEmpty)
+        if outcome == "profile-denied" { #expect(!model.sessionHistory.hasAuthorizedOwner) }
+        else { #expect(model.sessionHistory.archiveSearchErrorKey != nil) }
+    }
+    #expect(!model.sessionHistory.archiveSearchLoading)
+    #expect(fixture.requests.allSatisfy { !$0.url!.path.contains("/playback") && !$0.url!.path.hasSuffix("/start") })
+    #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/" + id) })
+    model.sessionHistory.clearArchiveSearch()
+    #expect(model.sessionHistory.archiveSearchSessions.isEmpty && model.sessionHistory.archiveSearchQuery.isEmpty)
+}
+
+@Test @MainActor func sessionRenderSnapshotReuseExpiresUnchangedInputAndDropsRemovedRows() throws {
+    let data = try DJConnectDemoSessionData.make(language: "nl")
+    let entry = try #require(data.timelines[data.active.id]?.entries.first)
+    let deadline = try #require(DJConnectHistoryEntry.date(entry.retainedUntil))
+    let cache = SessionTimelineRenderCache(), epoch = UUID()
+    let first = cache.snapshot([entry], sessionID: data.active.id, epoch: epoch, at: deadline.addingTimeInterval(-1))
+    #expect(first.count == 1)
+    let reused = cache.snapshot([entry], sessionID: data.active.id, epoch: epoch, at: deadline.addingTimeInterval(-0.5))
+    #expect(reused == first)
+    #expect(cache.snapshot([entry], sessionID: data.active.id, epoch: epoch, at: deadline).isEmpty)
+    #expect(cache.snapshot([], sessionID: data.active.id, epoch: epoch, at: deadline).isEmpty)
+    let freshEpoch = cache.snapshot([entry], sessionID: data.active.id, epoch: UUID(), at: deadline.addingTimeInterval(-1))
+    #expect(freshEpoch.first?.message.id != first.first?.message.id)
+    #expect(cache.snapshot([], sessionID: data.active.id, epoch: UUID(), at: deadline.addingTimeInterval(-1)).isEmpty)
+}
+
+@Test(arguments: ["valid", "expired", "wrong-set", "duplicate-action", "missing-action", "nested-mismatch"])
+func frozenCatalogueReplayDecodesOriginalActionsAndIdentity(_ scenario: String) throws {
+    let uri = "spotify:track:AAAAAAAAAAAAAAAAAAAAAA"
+    let original: [String: Any] = ["id": "row-a", "title": "Original recording", "artist": "Artist A", "kind": "track",
+        "uri": uri, "command": "ask_dj_play_recommendation", "result_set_id": "set-a", "action_id": "action-a",
+        "value": ["uri": uri, "result_set_id": "set-a", "action_id": "action-a"]]
+    var frozen = original
+    if scenario == "wrong-set" { frozen["result_set_id"] = "other-set" }
+    if scenario == "missing-action" {
+        frozen.removeValue(forKey: "action_id")
+        frozen["value"] = ["uri": uri, "result_set_id": "set-a"]
+    }
+    if scenario == "nested-mismatch" { frozen["value"] = ["uri": uri, "result_set_id": "set-a", "action_id": "other-action"] }
+    let body: [String: Any] = ["success": true, "text": "Results:\n1. Original recording — Artist A",
+        "text_source": "qualified_catalog_result", "items": [original], "playback_actions": [],
+        "result_set": ["schema_version": 1, "result_set_id": "set-a", "expires_in": scenario == "expired" ? 0 : 30,
+                       "items": scenario == "duplicate-action" ? [frozen, frozen] : [frozen]]]
+    let response = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: historyData(body))
+    let assistant = try #require(response.assistantMessage)
+    let item = try #require(assistant.items.first)
+    #expect(item.resultSetID == "set-a" && item.actionID == "action-a" && item.subtitle == "Artist A")
+    let message = DJConnectAskDJMessage(role: .dj, textSource: assistant.textSource, text: assistant.text,
+        playbackActions: assistant.playbackActions, items: assistant.items)
+    if scenario == "valid" {
+        let action = try #require(message.playbackAction(forHistoryItem: item))
+        #expect(action.resultSetID == "set-a" && action.actionID == "action-a")
+        #expect(action.uri == uri && action.command == "ask_dj_play_recommendation")
+        #expect(action.value == .object(["uri": .string(uri), "result_set_id": .string("set-a"), "action_id": .string("action-a")]))
+        #expect(response.messages.last?.playbackActions == assistant.playbackActions)
+        let roundtrip = try JSONDecoder().decode(DJConnectAskDJHistoryItem.self, from: JSONEncoder().encode(item))
+        #expect(roundtrip == item)
+    } else {
+        #expect(assistant.playbackActions.isEmpty)
+        #expect(message.playbackAction(forHistoryItem: item) == nil)
+    }
+}
+
+@Test func cataloguePresentationKeepsNarrativeAndEditionsWithoutDuplicatingNumberedRows() {
+    let items = [
+        DJConnectAskDJHistoryItem(kind: "track", title: "Same title", subtitle: "Original edition", uri: "spotify:track:a", resultSetID: "set", actionID: "a"),
+        DJConnectAskDJHistoryItem(kind: "track", title: "Same title", subtitle: "Live edition", uri: "spotify:track:b", resultSetID: "set", actionID: "b")]
+    var message = DJConnectAskDJMessage(role: .dj, textSource: "qualified_catalog_result",
+        text: "These are the results:\n1. Same title — Original edition\n2. Same title — Live edition\nSource: Spotify\nAn additional note.", items: items)
+    #expect(message.catalogueTextForDisplay == "These are the results:\nSource: Spotify\nAn additional note.")
+    #expect(message.items.count == 2 && message.items[0].uri != message.items[1].uri)
+    message.textSource = nil
+    #expect(message.catalogueTextForDisplay == message.text)
+    message.textSource = "qualified_catalog_result"; message.items = []
+    #expect(message.catalogueTextForDisplay == message.text)
+    message.items = items
+    message.text = "1. Same title — Different edition\nA different statement."
+    #expect(message.catalogueTextForDisplay == message.text)
+}
+
+@Test func catalogueCardUsesOriginalIdentityAndRejectsMismatchedOrAmbiguousActions() throws {
+    let action = try JSONDecoder().decode(DJConnectAskDJPlaybackAction.self, from: Data(#"{"id":"album-row","title":"Album","kind":"album","uri":"spotify:album:AAAAAAAAAAAAAAAAAAAAAA","result_set_id":"set-a","action_id":"action-a","command":"ask_dj_play_recommendation"}"#.utf8))
+    var item = DJConnectAskDJHistoryItem(kind: "album", title: "Album", uri: action.uri, resultSetID: "set-a", actionID: "action-a")
+    var message = DJConnectAskDJMessage(role: .dj, text: "Album", playbackActions: [action], items: [item])
+    #expect(message.playbackAction(forHistoryItem: item) == action)
+    item.actionID = "other"; #expect(message.playbackAction(forHistoryItem: item) == nil)
+    item.actionID = "action-a"; item.resultSetID = "other"; #expect(message.playbackAction(forHistoryItem: item) == nil)
+    item.resultSetID = "set-a"; item.uri = "spotify:album:BBBBBBBBBBBBBBBBBBBBBB"; #expect(message.playbackAction(forHistoryItem: item) == nil)
+    item.uri = action.uri; message.playbackActions = [action, action]; #expect(message.playbackAction(forHistoryItem: item) == nil)
+}
+
+@Test func visualHelpUsesFreshServerCatalogueForEveryOpening() async throws {
+    let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/vibescape-visual-catalogue-v1.json")
+    let data = try Data(contentsOf: file)
+    let wire = HistoryWireFixture { request in
+        guard request.url?.path.hasSuffix("/capabilities") == true else { throw DJConnectError.invalidResponse }
+        return (200, data, 0)
+    }
+    defer { wire.close() }
+    let client = wire.client()
+    let first = try await client.visualDirectorHelp(language: "nl")
+    let second = try await client.visualDirectorHelp(language: "nl")
+    #expect(first.examples.count == 8 && first.scopes.count == 2)
+    #expect(first.examples.map(\.text) == second.examples.map(\.text))
+    #expect(wire.requests.count == 2)
+    #expect(wire.requests.allSatisfy { $0.httpMethod == "GET" && $0.cachePolicy == .reloadIgnoringLocalCacheData })
+}
+
+@Test func visualContextUsesClosedFlatPayloadWithoutConversationFallback() async throws {
+    let visit = UUID()
+    let reply = try historyData(["success": true, "schema_version": 1, "visit_id": visit.uuidString,
+        "context_lease_id": "lease-a", "observed_occurrence_id": "occurrence-a", "lease_duration_ms": 10000,
+        "expires_at": "2026-10-22T14:00:00Z"])
+    let wire = HistoryWireFixture { request in
+        guard request.url?.path.hasSuffix("/vibescape/context") == true else { throw DJConnectError.invalidResponse }
+        return (200, reply, 0)
+    }
+    defer { wire.close() }
+    let context = try await wire.client().visualDirectorContext(sessionID: "session-a", visitID: visit)
+    #expect(context.observed_occurrence_id == "occurrence-a")
+    let request = try #require(wire.requests.first)
+    let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+    #expect(Set(body.keys) == Set(["schema_version", "device_id", "client_type", "session_id", "visit_id"]))
+    #expect(request.httpMethod == "POST" && request.value(forHTTPHeaderField: "Cache-Control") == "no-store")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer synthetic-fixture-token")
+    #expect(!wire.requests.contains { $0.url!.path.contains("ask_dj") || $0.url!.path.contains("playback") })
+}
+
+private final class AskDJRepeatedDeletionState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var deleted = Set<String>()
+    private var scopes: [String: [String: Any]] = [:]
+    private let base: [String: Any]
+    let contexts = ["ask-one": "original-session-A", "ask-two": "original-session-B", "ask-three": ""]
+    init(base: [String: Any]) { self.base = base }
+    func history() throws -> Data {
+        try lock.withLock {
+            var value = base
+            value["messages"] = ["ask-one", "ask-two", "ask-three"].filter { !deleted.contains($0) }.map { id -> [String: Any] in
+                var message: [String: Any] = ["id": id, "role": "assistant", "message_kind": "assistant", "text": "Fixture " + id,
+                    "created_at": "2026-10-22T12:00:00Z", "historical_matches": []]
+                if !contexts[id]!.isEmpty { message["session_turn"] = ["context": ["session_id": contexts[id]!]] }
+                return message
+            }
+            value["history_revision"] = 1000 + deleted.count
+            value["clear_revision"] = deleted.count
+            value["historical_matches"] = []
+            return try historyData(value)
+        }
+    }
+    func prepare(_ target: [String: Any]) throws -> Data {
+        try lock.withLock {
+            let id = target["target_id"] as! String
+            // Match the actual Core resolver: no substituting current/blank Session.
+            guard let session = contexts[id], target["session_id"] as? String == session else {
+                return try historyData(["success": false, "error": "content_unavailable"])
+            }
+            let confirmation = "confirmation-" + id
+            let scope: [String: Any] = ["success": true, "schema_version": 1, "owner_profile_id": "profile-a",
+                "confirmation_id": confirmation, "target": target,
+                "unit": ["kind": "exchange", "session_id": session, "target_id": "exchange-" + id],
+                "affected_entries": [], "removed_message_ids": [id], "unavailable_message_ids": [],
+                "affected_moments": [], "fenced_request_count": 0, "music_playback_undone": false,
+                "created_at": ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1)),
+                "expires_at": ISO8601DateFormatter().string(from: Date().addingTimeInterval(240))]
+            scopes[confirmation] = scope
+            return try historyData(scope)
+        }
+    }
+    func complete(_ body: [String: Any]) throws -> Data {
+        try lock.withLock {
+            let scope = scopes[body["confirmation_id"] as! String]!
+            let decoded = try JSONDecoder().decode(DJConnectContentDeleteScope.self, from: historyData(scope))
+            var receipt = scope
+            receipt["operation_id"] = body["operation_id"]
+            receipt["state"] = "completed"; receipt["deleted"] = true
+            receipt["request_digest"] = decoded.requestDigest
+            deleted.formUnion(decoded.removed_message_ids)
+            return try historyData(receipt)
+        }
+    }
+}
+
+@Test @MainActor func askDJDeletesThreeContributionsUsingOriginalContextAfterEachClear() async throws {
+    let producer = try historyObject()
+    let state = AskDJRepeatedDeletionState(base: try #require(producer["later_historical_answer"] as? [String: Any]))
+    let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_content_delete": true],
+        "contract_versions": ["session_conversation_history": 1, "session_content_delete": 1]])
+    let list = try historyData(["success": true, "schema_version": 1, "sessions": [], "revision": "fixture", "retention_days": 30])
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("/ask_dj/history") { return (200, try state.history(), 0) }
+        if path.hasSuffix("/session/history") { return (200, list, 0) }
+        let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+        if path.hasSuffix("/session/content/delete/prepare") {
+            return (200, try state.prepare(try #require(body["target"] as? [String: Any])), 0)
+        }
+        if path.hasSuffix("/session/content/delete") { return (200, try state.complete(body), 0) }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare()
+    for (index, id) in ["ask-one", "ask-two", "ask-three"].enumerated() {
+        let message = try #require(model.askDJMessages.first { $0.serverID == id })
+        let target = try #require(history.contentDeletionTarget(for: message))
+        #expect(target.kind == "message" && target.session_id == state.contexts[id])
+        let prepared = try #require(await history.prepareContentDeletion(target, expectedEpoch: history.responseEpoch))
+        #expect(await history.deleteContent(prepared, expectedEpoch: history.responseEpoch))
+        #expect(!history.hasUnconfirmedDeletion)
+        #expect(model.askDJMessages.count == 2 - index)
+    }
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/content/delete") }.count == 3)
+    #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/history/delete") || $0.url!.path.hasSuffix("/session/end") })
+    // A message with no admitted server context cannot borrow any active Session.
+    let unknown = DJConnectAskDJMessage(serverID: "unobserved", role: .dj, text: "unknown")
+    #expect(history.contentDeletionTarget(for: unknown) == nil)
+}
+
+@Test func askDJMessageContextsNeverBorrowTheLatestTurnOrSelectedEntry() throws {
+    var response = try #require(historyObject()["later_historical_answer"] as? [String: Any])
+    let messages: [[String: Any]] = [
+        ["id": "context-one", "role": "assistant", "text": "one", "created_at": "2026-10-22T12:00:00Z",
+         "session_turn": ["context": ["session_id": "original-A"]]],
+        ["id": "context-two", "role": "user", "text": "two", "created_at": "2026-10-22T12:00:00Z",
+         "session_turn": ["context": ["session_id": "original-B"]]],
+        ["id": "context-none", "role": "assistant", "text": "standalone", "created_at": "2026-10-22T12:00:00Z"]]
+    response["messages"] = messages
+    let history = try JSONDecoder().decode(DJConnectProfileConversationHistory.self, from: historyData(response))
+    let live = try JSONDecoder().decode(DJConnectSessionConversationResponse.self, from: historyData(response))
+    for contexts in [history.messageContexts, live.messageContexts] {
+        #expect(contexts["context-one"]?.sessionID == "original-A")
+        #expect(contexts["context-two"]?.sessionID == "original-B")
+        #expect(contexts["context-none"] != nil && contexts["context-none"]?.sessionID == nil)
+        #expect(contexts["unknown"] == nil)
+    }
+}
+
+@Test(arguments: ["single", "bulk"])
+@MainActor func archiveDeletionReloadsRemainingSessionsAfterConversationClearRevision(_ mode: String) async throws {
+    let object = try historyObject()
+    let timeline = try #require(object["archived_timeline"] as? [String: Any])
+    let header = try #require(timeline["session"] as? [String: Any])
+    let archiveData = try historyData(timeline)
+    let archive = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: archiveData).session
+    var remaining = header
+    let remainingID = archive.id + "-remaining"
+    remaining["session_id"] = remainingID
+    // In the bulk case this session is created after the confirmed snapshot.
+    let before = try historyData(["success": true, "schema_version": 1,
+        "sessions": mode == "single" ? [header, remaining] : [header],
+        "revision": "before-delete", "retention_days": 30])
+    let after = try historyData(["success": true, "schema_version": 1,
+        "sessions": [remaining], "revision": "after-delete", "retention_days": 30])
+    var profile = try #require(object["later_historical_answer"] as? [String: Any])
+    profile["messages"] = []; profile["historical_matches"] = []; profile["clear_revision"] = 0
+    let originalProfile = try historyData(profile)
+    profile["history_revision"] = 1000; profile["clear_revision"] = 1
+    let clearedProfile = try historyData(profile)
+    let caps = try historyData(["capabilities": ["session_conversation_history": true,
+        "session_history_delete": true, "session_history_bulk_delete": true],
+        "contract_versions": ["session_conversation_history": 1,
+            "session_history_delete": 1, "session_history_bulk_delete": 1]])
+    let state = HistoryBulkDeleteFixtureState()
+    let formatter = ISO8601DateFormatter(), now = Date()
+    let snapshot = try historyData(["success": true, "schema_version": 1,
+        "owner_profile_id": "profile-a", "snapshot_id": "original-archive-set", "target_count": 1,
+        "created_at": formatter.string(from: now), "expires_at": formatter.string(from: now.addingTimeInterval(300))])
+    let fixture = HistoryWireFixture { request in
+        let path = request.url!.path
+        if path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if path.hasSuffix("/ask_dj/history") { return (200, state.completed ? clearedProfile : originalProfile, 0) }
+        if path.hasSuffix("/session/history") { return (200, state.completed ? after : before, 0) }
+        if path.hasSuffix("/delete_snapshot") { return (200, snapshot, 0) }
+        if path.hasSuffix("/delete") || path.hasSuffix("/delete_all") {
+            let body = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+            state.complete()
+            var receipt: [String: Any] = ["success": true, "schema_version": 1,
+                "owner_profile_id": "profile-a", "operation_id": body["operation_id"]!, "deleted": true]
+            if mode == "single" { receipt["deleted_session_id"] = archive.id }
+            else { receipt["snapshot_id"] = "original-archive-set"; receipt["deleted_session_count"] = 1 }
+            return (200, try historyData(receipt), 0)
+        }
+        return (200, archiveData, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare()
+    #expect(await history.loadSessions())
+    if mode == "single" {
+        #expect(await history.deleteSession(archive.id, expectedRevision: archive.revision.value, expectedEpoch: history.responseEpoch))
+    } else {
+        let prepared = try #require(await history.prepareBulkDeletion(expectedEpoch: history.responseEpoch))
+        #expect(await history.deleteAllSessions(prepared, expectedEpoch: history.responseEpoch))
+    }
+    for _ in 0..<500 {
+        if history.sessions.map(\.id) == [remainingID] && history.canDeleteSession(remainingID) { break }
+        try await Task.sleep(for: .milliseconds(2))
+    }
+    #expect(history.sessions.map(\.id) == [remainingID])
+    #expect(history.canDeleteSession(remainingID))
+    #expect(!history.hasUnconfirmedDeletion)
+    #expect(fixture.requests.filter { $0.httpMethod == "POST" }.count == 1)
+}
+
+@Test(arguments: ["accept", "same-name-version", "ABA", "pause", "seek-back", "background", "owner", "missing-uri", "expired", "ordinary-progress"])
+@MainActor func currentInsightQualifiedRequestRejectsLateOriginalContext(_ scenario: String) async throws {
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") {
+            return (200, Data(#"{"success":true,"capabilities":{"current_track_insight_subject_v1":true},"contract_versions":{"current_track_insight_subject":1}}"#.utf8), 0)
+        }
+        #expect(request.url!.path.hasSuffix("/track_insight"))
+        let payload = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+        #expect((payload["track_insight_subject"] as? [String: Any])?["mode"] as? String == "current")
+        for key in ["title", "artist", "album", "track", "playback", "uri", "entity_id", "player_id", "music_backend"] { #expect(payload[key] == nil) }
+        let budget: Double = scenario == "expired" ? 0.05 : 29
+        return (200, try historyData([
+            "success": true,
+            "subject": ["schema_version": 1, "mode": "current", "media_identity": "spotify:track:aaaaaaaaaaaaaaaaaaaaaa",
+                        "observation_id": "synthetic-current-observation", "expires_in": budget,
+                        "expires_at": Date().timeIntervalSince1970 + budget],
+            "track": ["title": "Same name", "artist": "Same artist"],
+            "analysis": ["summary": "Server supplied interpretation", "full_text": "Server supplied interpretation"]
+        ]), 0.15)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    var playback = DJConnectPlayback(uri: scenario == "missing-uri" ? nil : "spotify:track:aaaaaaaaaaaaaaaaaaaaaa",
+                                    hasPlayback: true, isPlaying: true, trackName: "Same name", artistName: "Same artist", progressMS: 20_000)
+    model.apply(playback: playback)
+    let load = Task { await model.loadTrackInsightOnOpen() }
+    for _ in 0..<100 where !fixture.requests.contains(where: { $0.url!.path.hasSuffix("/track_insight") }) {
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    #expect(fixture.requests.contains { $0.url!.path.hasSuffix("/track_insight") })
+    switch scenario {
+    case "same-name-version", "ABA":
+        var other = playback; other.uri = "spotify:track:bbbbbbbbbbbbbbbbbbbbbb"; model.apply(playback: other)
+        if scenario == "ABA" { model.apply(playback: playback) }
+    case "pause": playback.isPlaying = false; model.apply(playback: playback)
+    case "seek-back": playback.progressMS = 10_000; model.apply(playback: playback)
+    case "ordinary-progress": playback.progressMS = 21_000; model.apply(playback: playback)
+    case "background": model.markInactiveSession()
+    case "owner": model.sessionHistory.suspend()
+    default: break
+    }
+    await load.value
+    if ["accept", "ordinary-progress"].contains(scenario) {
+        #expect(model.currentTrackInsight?.summary == "Server supplied interpretation")
+        #expect(model.currentTrackInsight?.energy == nil)
+    } else { #expect(model.currentTrackInsight == nil && model.trackInsightHistory.isEmpty) }
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/track_insight") }.count == 1)
+    #expect(fixture.requests.allSatisfy { $0.url!.path.hasSuffix("/track_insight") || ($0.httpMethod == "GET" && $0.url!.path.hasSuffix("/capabilities")) })
+}
+
+@Test(arguments: ["six-visible", "capability-absent", "owner-withdrawal"])
+@MainActor func capturedReplyArtworkQueueDoesNotDropVisibleRepliesOrCrossOwner(_ scenario: String) async throws {
+    let receipt = try historyObject()
+    var page = try #require(receipt["archived_timeline"] as? [String: Any])
+    let oldRows = try #require(page["entries"] as? [[String: Any]])
+    let original = try #require(oldRows.first { $0["kind"] as? String == "conversation_dj" })
+    let sessionID = try #require(original["session_id"] as? String)
+    var rows: [[String: Any]] = []
+    for index in 1...6 {
+        var row = original
+        row["entry_id"] = "synthetic-reply-\(index)"; row["order"] = index
+        row["origin_message_id"] = "synthetic-message-\(index)"
+        row["open_action"] = nil
+        rows.append(row)
+    }
+    page["entries"] = rows
+    let timelineData = try historyData(page)
+    let fixtureURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/captured-reply-artwork-core-103dc6.json")
+    let golden = try Data(contentsOf: fixtureURL)
+    let conversation = try historyData(try #require(receipt["later_historical_answer"]))
+    let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_artwork": true,
+                                               "captured_reply_artwork": scenario != "capability-absent"],
+                                "contract_versions": ["session_conversation_history": 1, "session_artwork": 1, "captured_reply_artwork": 1]])
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.contains("/session/history/") { return (200, timelineData, 0) }
+        if request.url!.path.hasSuffix("/session/media/prepare") {
+            let payload = try #require(JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any])
+            let targets = try #require(payload["targets"] as? [[String: String]])
+            #expect(targets.count == 1)
+            let entryID = try #require(targets.first?["entry_id"])
+            let root = try #require(JSONSerialization.jsonObject(with: golden) as? [String: Any])
+            let examples = try #require(root["examples"] as? [String: Any])
+            var media = try #require(examples["reply_media"] as? [String: Any])
+            media["session_id"] = sessionID; media["entry_id"] = entryID
+            var art = try #require(media["artwork"] as? [String: Any])
+            art["captured_at"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1))
+            art["expires_at"] = ISO8601DateFormatter().string(from: Date().addingTimeInterval(60))
+            art["url"] = "/api/djconnect/v1/session/media/image/\(sessionID)/\(entryID)"
+            media["artwork"] = art
+            return (200, try historyData(["success": true, "contract_version": 1, "session_media": [media]]), 0.05)
+        }
+        return (200, conversation, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.sessionHistory.suspend(); defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    #expect(await model.sessionHistory.loadTimeline(sessionID))
+    let entries = try #require(model.sessionHistory.timelines[sessionID]?.entries)
+    #expect(entries.count == 6)
+    #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/media/prepare") })
+    // All six become visible together while the first request is still in flight.
+    for entry in entries { model.sessionHistory.enqueueReplyArtwork(for: entry) }
+    if scenario == "owner-withdrawal" {
+        for _ in 0..<100 where !fixture.requests.contains(where: { $0.url!.path.hasSuffix("/session/media/prepare") }) {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        model.sessionHistory.suspend()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(model.sessionHistory.timelines.isEmpty)
+        #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/media/prepare") }.count == 1)
+    } else if scenario == "capability-absent" {
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/media/prepare") })
+    } else {
+        for _ in 0..<300 where model.sessionHistory.timelines[sessionID]?.entries.filter({ $0.sessionMedia != nil }).count != 6 {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        let prepared = try #require(model.sessionHistory.timelines[sessionID]?.entries)
+        #expect(prepared.count == 6 && prepared.allSatisfy { $0.sessionMedia?.artwork.role == "captured_reply_subject" })
+        #expect(zip(entries, prepared).allSatisfy { $0.text == $1.text && $0.id == $1.id && $0.order == $1.order })
+        #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/media/prepare") }.count == 6)
+        for entry in prepared { model.sessionHistory.enqueueReplyArtwork(for: entry) }
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/media/prepare") }.count == 6)
+    }
+    #expect(!fixture.requests.contains { $0.url!.path.contains("/command") || $0.url!.path.hasSuffix("/start") })
+}
+
+@Test @MainActor func currentInsightOwnerWithdrawalDuringCapabilityReadStartsNoAnalysis() async throws {
+    let fixture = HistoryWireFixture { request in
+        #expect(request.httpMethod == "GET" && request.url!.path.hasSuffix("/capabilities"))
+        return (200, Data(#"{"success":true,"capabilities":{"current_track_insight_subject_v1":true},"contract_versions":{"current_track_insight_subject":1}}"#.utf8), 0.15)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.apply(playback: DJConnectPlayback(uri: "spotify:track:aaaaaaaaaaaaaaaaaaaaaa", isPlaying: true, trackName: "Track", artistName: "Artist"))
+    let loading = Task { await model.loadTrackInsightOnOpen() }
+    for _ in 0..<100 where fixture.requests.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+    model.sessionHistory.suspend()
+    await loading.value
+    #expect(model.currentTrackInsight == nil && model.trackInsightHistory.isEmpty)
+    #expect(fixture.requests.count == 1)
+    #expect(model.trackInsightErrorMessage == nil)
+}
+
+@Test(arguments: ["mood", "mood-ABA", "persona", "persona-ABA", "presence", "presence-ABA", "profile-mood", "profile-mood-ABA", "profile-persona", "profile-persona-ABA", "profile-presence", "profile-presence-ABA"], [false, true])
+@MainActor func currentInsightConfirmedSettingsRevisionClosesPendingAndAcceptedProof(_ axis: String, _ alreadyAccepted: Bool) async throws {
+    var base = try #require(JSONSerialization.jsonObject(with: activePersonaRuntimeWire()) as? [String: Any])
+    var runtime = try #require(base["session"] as? [String: Any])
+    runtime["selected_presence"] = "balanced"; runtime["presence_revision"] = 0
+    var broadcast = try #require(runtime["broadcast"] as? [String: Any])
+    var session = try #require(broadcast["session"] as? [String: Any])
+    session["selected_presence"] = "balanced"; session["presence_revision"] = 0
+    broadcast["session"] = session; runtime["broadcast"] = broadcast; base["session"] = runtime
+    let runtimeData = try historyData(base), originalBroadcast = try historyData(broadcast)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/session/active") { return (200, runtimeData, 0) }
+        if request.url!.path.hasSuffix("/capabilities") {
+            return (200, Data(#"{"capabilities":{"current_track_insight_subject_v1":true},"contract_versions":{"current_track_insight_subject":1}}"#.utf8), 0)
+        }
+        #expect(request.url!.path.hasSuffix("/track_insight"))
+        return (200, try historyData([
+            "success": true, "subject": ["schema_version": 1, "mode": "current", "media_identity": "spotify:track:aaaaaaaaaaaaaaaaaaaaaa",
+             "observation_id": "synthetic-settings-observation", "expires_in": 29, "expires_at": Date().timeIntervalSince1970 + 29],
+            "track": ["title": "Same track", "artist": "Same artist"], "analysis": ["summary": "Original settings interpretation"]
+        ]), 0.15)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    let isProfile = axis.hasPrefix("profile-")
+    if !isProfile { #expect(await model.refreshActiveDJSession()) }
+    let field = axis.contains("mood") ? "mood" : (axis.contains("persona") ? "persona" : "presence")
+    let profileURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/profile-settings3-core-1329ad1.json")
+    let profileRoot = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: profileURL)) as? [String: Any])
+    let cases = try #require(profileRoot["cases"] as? [[String: Any]])
+    let originalProfile = try #require(cases.first { $0["case"] as? String == "paired_no_session_all_five" }?["response"] as? [String: Any])
+    func applyProfile(_ object: [String: Any]) async throws {
+        let response = try JSONDecoder().decode(DJConnectProfileDJSettingsResponse.self, from: historyData(object))
+        model.profileDJSettings.bind(owner: "synthetic-current-profile", active: true)
+        await model.profileDJSettings.refresh(.init(read: { response }, update: { _, _, _ in throw CancellationError() }, receipt: { _, _ in throw CancellationError() }))
+        #expect(model.profileDJSettings.response?.snapshot == response.snapshot)
+    }
+    if isProfile { try await applyProfile(originalProfile) }
+    model.apply(playback: .init(uri: "spotify:track:aaaaaaaaaaaaaaaaaaaaaa", isPlaying: true, trackName: "Same track", artistName: "Same artist"))
+    let loading = Task { await model.loadTrackInsightOnOpen() }
+    for _ in 0..<100 where !fixture.requests.contains(where: { $0.url!.path.hasSuffix("/track_insight") }) {
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    if alreadyAccepted { await loading.value; #expect(model.currentTrackInsight != nil) }
+    for revision in 1...(axis.hasSuffix("ABA") ? 2 : 1) {
+        let restoring = revision == 2
+        if isProfile {
+            var response = originalProfile
+            var snapshot = try #require(response["snapshot"] as? [String: Any])
+            var values = try #require(snapshot["defaults"] as? [String: Any])
+            if !restoring { values[field] = field == "mood" ? "chill" : (field == "persona" ? "club_dj" : "presenter") }
+            snapshot["defaults"] = values; snapshot["defaults_revision"] = 1 + revision; response["snapshot"] = snapshot
+            try await applyProfile(response)
+        } else {
+            var state = try #require(JSONSerialization.jsonObject(with: originalBroadcast) as? [String: Any])
+            var accepted = try #require(state["session"] as? [String: Any])
+            let key = field == "mood" ? "selected_mood" : (field == "persona" ? "dj_persona" : "selected_presence")
+            if !restoring { accepted[key] = field == "mood" ? "energy" : (field == "persona" ? "club_dj" : "presenter") }
+            accepted[field + "_revision"] = revision; state["session"] = accepted
+            model.applySessionBroadcastSnapshot(try JSONDecoder().decode(DJConnectBroadcastState.self, from: historyData(state)))
+            let current = try #require(model.activeDJSession)
+            if field == "mood" { #expect(current.confirmedMoodRevision == revision) }
+            if field == "persona" { #expect(current.personaRevisionFloor == revision) }
+            if field == "presence" { #expect(current.presenceRevisionFloor == revision) }
+        }
+    }
+    await loading.value
+    #expect(model.currentTrackInsight == nil)
+    #expect(model.trackInsightHistory.count == (alreadyAccepted ? 1 : 0))
+    #expect(model.trackInsightErrorMessage == nil)
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/track_insight") }.count == 1)
+}
+
+@Test(arguments: [0.25, 1.0, 20.0])
+@MainActor func currentInsightShortOriginalMonotonicLeasePrecedesAllApplyEffects(_ elapsed: Double) async throws {
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") {
+            return (200, Data(#"{"capabilities":{"current_track_insight_subject_v1":true},"contract_versions":{"current_track_insight_subject":1}}"#.utf8), 0)
+        }
+        return (200, try historyData([
+            "success": true,
+            "subject": ["schema_version": 1, "mode": "current", "media_identity": "spotify:track:aaaaaaaaaaaaaaaaaaaaaa",
+                        "observation_id": "synthetic-short-lease", "expires_in": 1.0, "expires_at": 1001.0],
+            "track": ["title": "Short lease", "artist": "Fixture artist"],
+            "analysis": ["summary": "Original server interpretation", "full_text": "Original server interpretation"]
+        ]), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    model.pairingStatus = .paired
+    model.apply(playback: DJConnectPlayback(uri: "spotify:track:aaaaaaaaaaaaaaaaaaaaaa", hasPlayback: true,
+        isPlaying: true, trackName: "Short lease", artistName: "Fixture artist", progressMS: 20_000))
+    let anchor = ContinuousClock.now
+    var wallReads = 0, monoReads = 0
+    model.currentInsightReadClock = .init(wallNow: {
+        wallReads += 1
+        return Date(timeIntervalSince1970: wallReads == 1 ? 1000 : 1000.5)
+    }, monotonicNow: {
+        monoReads += 1
+        return monoReads == 1 ? anchor : anchor.advanced(by: .seconds(elapsed))
+    })
+    await model.loadTrackInsightOnOpen()
+    if elapsed < 1 {
+        #expect(model.currentTrackInsight?.summary == "Original server interpretation")
+        #expect(model.trackInsightHistory.count == 1)
+    } else {
+        // History insertion is an apply side effect, so an empty history proves
+        // the stale result was never briefly accepted then cleaned up.
+        #expect(model.currentTrackInsight == nil && model.trackInsightHistory.isEmpty)
+    }
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/track_insight") }.count == 1)
+}

@@ -247,6 +247,10 @@ extension DJConnectWatchModel: WCSessionDelegate {
             isCompanionReachable = session.isReachable
             if session.isReachable {
                 sendCompanionPairingRegistration()
+                if isAppForeground, paired {
+                    Task { await refreshStatus() }
+                    Task { await refreshForegroundSession(force: true) }
+                }
             }
         }
     }
@@ -436,6 +440,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     @Published var isShowingWelcome = false
     @Published var statusMessage = "Niet gekoppeld"
     @Published private(set) var voiceActivationStatus: VoiceActivationStatus = .paused
+    @Published private(set) var settingsOperationConfirmation: String?
     @Published private(set) var isAppForeground = true
     @Published var deviceSpeechPreferences = DJConnectDeviceSpeechPreferences.load(from: .standard) {
         didSet {
@@ -493,6 +498,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     private var companionPairingRegistrationRetryTask: Task<Void, Never>?
     private var companionPairingRegistrationWatchdogTask: Task<Void, Never>?
     private var hasReceivedCompanionPairingReady = false
+    private var companionPairingIntent: DJConnectWatchPairingIntent?
     private let companionRequests = DJConnectWatchProxyRequests()
     #endif
     #if canImport(Speech)
@@ -503,6 +509,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     init(monkeyTestingMode: Bool = false) {
         self.monkeyTestingMode = monkeyTestingMode
         super.init()
+        let installation = DJConnectWatchInstallation.load(defaults: .standard,
+            makeID: Self.makeStableInstallID, makeCode: Self.makePairingCode)
+        stableInstallID = installation.id
+        pairingCode = installation.code
+        companionPairingIntent = DJConnectWatchPairingIntent.load(defaults: .standard,
+            deviceID: identity.deviceID, pairCode: pairingCode)
         UserDefaults.standard.removeObject(forKey: "askDJMood") // Retired device-local personal preference.
         pushNotificationStatus = Self.pushNotificationStatus()
         syncAppLanguageOverrideToSharedDefaults()
@@ -521,6 +533,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             applyDemoState()
             appendDiagnosticLog("Watch gestart in demo modus")
         } else {
+            // A restored paired flag must not bypass WCSession activation.
+            // Initial scenePhase may already be active, so its foreground
+            // callback can legitimately take the unchanged-state fast path.
+            activateCompanionSession()
             connectionState = paired ? .paired : .unpaired
             statusMessage = paired ? "Gereed" : "Niet gekoppeld"
             appendDiagnosticLog(paired ? "Watch gestart met bestaande koppeling" : "Watch gestart zonder koppeling")
@@ -678,6 +694,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             return
         }
         isAppForeground = foreground
+        if !foreground { settingsOperationConfirmation = nil }
         foregroundSession.bind(owner: canUseBackend && !isDemoMode ? stableInstallID : nil, active: foreground)
         profileDJSettings.bind(owner: profileDJSettings.response?.binding, active: foreground && canUseBackend)
         if !foreground { companionRequests.cancelAll() }
@@ -893,18 +910,27 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
 
     func refreshForegroundSession(force: Bool = false) async {
         let active = isAppForeground && canUseBackend && !isDemoMode
+        if !active { settingsOperationConfirmation = nil }
         foregroundSession.bind(owner: active ? stableInstallID : nil, active: active)
         guard active else { return }
         await foregroundSession.refresh(force: force) { [unowned self] in
-            try await sendCompanionHARequest(.foregroundSession)
+            do { return try await sendCompanionHARequest(.foregroundSession) }
+            catch {
+                appendDiagnosticLog("Watch Session read failed: \(String(describing: error))", level: .warning)
+                throw error
+            }
         }
         guard isAppForeground, let current = foregroundSession.current() else {
             profileDJSettings.bind(owner: profileDJSettings.response?.binding, active: false)
             return
         }
+        if current.session != nil || profileDJSettings.response?.binding != current.settings.binding {
+            settingsOperationConfirmation = nil
+        }
         profileDJSettings.bind(owner: current.settings.binding, active: true)
         if profileDJSettings.hasUncertainOperation {
             await profileDJSettings.reconcile(sharedSettingsServices)
+            presentSettingsOperationConfirmation()
         } else {
             let services = ProfileDJSettingsModel.Services(read: { current.settings },
                 update: { [unowned self] response, patch, id in
@@ -918,10 +944,43 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
     }
 
+    func acceptCurrentForegroundSession() async {
+        guard isAppForeground, canUseBackend, !isDemoMode else { return }
+        await foregroundSession.useCurrent { [unowned self] in try await sendCompanionHARequest(.foregroundSession) }
+        await refreshForegroundSession(force: true)
+    }
+
+    func changeForegroundSession(expectedSessionID: String? = nil) async {
+        guard isAppForeground, canUseBackend, !isDemoMode,
+              !profileDJSettings.hasUncertainOperation,
+              let current = foregroundSession.current(), current.session?.id == expectedSessionID else { return }
+        sessionSpeech.stop()
+        await foregroundSession.change(language: language, write: { [unowned self] intent in
+            let _: Bool = try await sendCompanionHARequest(intent.sessionID == nil ? .startSession : .endSession,
+                                                          payload: intent)
+        }, read: { [unowned self] in try await sendCompanionHARequest(.foregroundSession) })
+        await refreshForegroundSession(force: true)
+    }
+
+    private func presentSettingsOperationConfirmation() {
+        guard let confirmation = profileDJSettings.takeOperationConfirmation(),
+              isAppForeground, canUseBackend, foregroundSession.current()?.session == nil else { return }
+        settingsOperationConfirmation = confirmation.text
+    }
+
+    func reconcileSharedDJSettings() async {
+        guard isAppForeground, canUseBackend, !isDemoMode else { return }
+        await profileDJSettings.reconcile(sharedSettingsServices)
+        presentSettingsOperationConfirmation()
+        await refreshForegroundSession(force: true)
+    }
+
     func changeSharedDJSettings(_ patch: DJConnectProfileDJSettings.Patch) async {
         guard isAppForeground, canUseBackend, !isDemoMode else { return }
         stopAskDJAudio()
+        settingsOperationConfirmation = nil
         await profileDJSettings.change(patch, using: sharedSettingsServices)
+        presentSettingsOperationConfirmation()
         await refreshForegroundSession(force: true)
     }
 
@@ -1022,8 +1081,10 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         companionPairingRegistrationRetryTask?.cancel()
         companionPairingRegistrationRetryTask = nil
         let identity = identity
+        guard let intent = companionPairingIntent else { return }
         let message: [String: Any] = [
             "type": "watch_proxy_register",
+            "pairing_intent_id": intent.identifier,
             "device_id": identity.deviceID,
             "device_name": identity.deviceName,
             "client_type": identity.clientType.rawValue,
@@ -1089,6 +1150,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         }
         switch type {
         case "watch_proxy_ready":
+            let newlyReady = !hasReceivedCompanionPairingReady
             hasReceivedCompanionPairingReady = true
             cancelCompanionPairingRegistrationWatchdog()
             applyCompanionSummary(message)
@@ -1096,14 +1158,16 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
                 companionPairingStatus = WCSession.default.isReachable ? "Gekoppeld via iPhone" : "Open DJConnect op je iPhone"
                 connectionState = .paired
                 statusMessage = "Gereed"
+                if isAppForeground, newlyReady {
+                    Task { await refreshStatus() }
+                    Task { await refreshForegroundSession() }
+                }
             } else {
                 companionPairingStatus = "Klaar om te koppelen"
                 connectionState = .pairing
                 statusMessage = "Wachten op Home Assistant via iPhone..."
             }
         case "watch_proxy_pair_result":
-            hasReceivedCompanionPairingReady = true
-            cancelCompanionPairingRegistrationWatchdog()
             applyCompanionPairingResult(message)
         case "watch_proxy_pair_request":
             companionPairingStatus = "iPhone koppelt Watch met Home Assistant..."
@@ -1145,19 +1209,20 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
     }
 
     private func applyCompanionPairingResult(_ message: [String: Any]) {
-        guard let token = message["device_token"] as? String, !token.isEmpty else {
-            companionPairingStatus = (message["message"] as? String) ?? "iPhone kon Watch-token niet ontvangen"
-            statusMessage = companionPairingStatus
-            return
-        }
+        guard let intent = companionPairingIntent else { return }
         do {
-            try tokenStore.saveToken(token)
+            guard try intent.receive(deviceID: message["device_id"] as? String,
+                identifier: message["pairing_intent_id"] as? String, pairCode: message["pair_code"] as? String,
+                token: message["device_token"] as? String, existingToken: try tokenStore.loadToken(),
+                save: { try tokenStore.saveToken($0) }) else { return }
         } catch {
             companionPairingStatus = "Watch kon device-token niet opslaan"
             statusMessage = companionPairingStatus
             appendDiagnosticLog("Companion pairing token opslaan mislukt: \(error.localizedDescription)", level: .error)
             return
         }
+        hasReceivedCompanionPairingReady = true
+        cancelCompanionPairingRegistrationWatchdog()
         if let haURL = message["ha_base_url"] as? String, !haURL.isEmpty {
             haBaseURL = haURL
         }
@@ -1175,9 +1240,12 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
             askDJAudioResponseSupported = supported
         }
         applyCompanionSummary(message)
+        let wasPaired = paired
         paired = true
         connectionState = .paired
-        isShowingPairingSuccess = true
+        // A replayed completion after WCSession reconnect is a readback, not a
+        // new pairing. Do not cover the current Session with Let's Rock again.
+        if !wasPaired { isShowingPairingSuccess = true }
         statusMessage = "Succesvol gekoppeld via iPhone"
         companionPairingStatus = "Gekoppeld via iPhone"
         requestRemoteNotificationRegistration()
@@ -1897,6 +1965,9 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         storedDemoMode = false
         isDemoMode = false
         pairingCode = Self.makePairingCode()
+        companionPairingIntent = DJConnectWatchPairingIntent.load(defaults: .standard,
+            deviceID: identity.deviceID, pairCode: pairingCode, reset: true)
+        hasReceivedCompanionPairingReady = false
         playback = nil
         playbackBeatSignature = nil
         currentTrackInsight = nil

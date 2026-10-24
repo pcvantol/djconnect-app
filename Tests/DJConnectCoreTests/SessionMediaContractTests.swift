@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import CryptoKit
 import ImageIO
 import Testing
 @testable import DJConnectCore
@@ -306,4 +307,75 @@ private func liveArtworkExample() throws -> DJConnectSessionMedia {
     #expect(decoded.image.width == 512 && decoded.image.height == 256)
 }
 
+}
+
+private func capturedReplyExample() throws -> [String: Any] {
+    let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Fixtures/captured-reply-artwork-core-103dc6.json")
+    let data = try Data(contentsOf: url)
+    let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    #expect(SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() == "7e58b912c55d72e4697f207213d5f79fba3ef6145d252a9f7e4216d03df07089")
+    let examples = try #require(root["examples"] as? [String: Any])
+    return try #require(examples["reply_media"] as? [String: Any])
+}
+
+@Test func capturedReplyArtworkUsesProtectedOriginalSubjectAndReplyAudienceOnly() throws {
+    let media = try decodeArtwork(capturedReplyExample())
+    let now = try artworkDate(media), target = try #require(media.target)
+    #expect(media.entryAudience == .reply)
+    #expect(media.artwork.subject?.uri == "spotify:track:AAAAAAAAAAAAAAAAAAAAAA")
+    #expect(media.artwork.subject?.albumURI == "spotify:album:BBBBBBBBBBBBBBBBBBBBBB")
+    #expect(media.admittedArtwork(session: media.sessionID, target: target, audience: .reply, at: now) != nil)
+    for audience in [DJConnectSessionMedia.Audience.current, .activeFlow, .history] {
+        #expect(media.admittedArtwork(session: media.sessionID, target: target, audience: audience, at: now) == nil)
+    }
+    #expect(media.admittedArtwork(session: "other", target: target, audience: .reply, at: now) == nil)
+    #expect(media.admittedArtwork(session: media.sessionID, target: .entry("different-reply"), audience: .reply, at: now) == nil)
+    let expiry = try #require(media.artwork.expiresAt.flatMap(DJConnectHistoryEntry.date))
+    #expect(media.admittedArtwork(session: media.sessionID, target: target, audience: .reply, at: expiry) == nil)
+}
+
+@Test func capturedReplyArtworkCannotInheritCurrentOrFlowPermissionsOrLoseAlbumEdition() throws {
+    let original = try capturedReplyExample()
+    for (field, value) in [("reply_display_allowed", false as Any), ("current_display_allowed", true as Any),
+                           ("active_flow_display_allowed", true as Any), ("edition_basis", "provider_resolved_now" as Any),
+                           ("url", "https://i.scdn.co/image/forbidden" as Any)] {
+        var object = original, art = try #require(original["artwork"] as? [String: Any])
+        art[field] = value; object["artwork"] = art
+        let media = try decodeArtwork(object)
+        #expect(media.admittedArtwork(session: media.sessionID, target: try #require(media.target), audience: .reply, at: try artworkDate(media)) == nil)
+    }
+    var object = original, art = try #require(original["artwork"] as? [String: Any])
+    var subject = try #require(art["subject"] as? [String: Any]); subject.removeValue(forKey: "album_uri")
+    art["subject"] = subject; object["artwork"] = art
+    let missingEdition = try decodeArtwork(object)
+    #expect(missingEdition.admittedArtwork(session: missingEdition.sessionID, target: try #require(missingEdition.target), audience: .reply, at: try artworkDate(missingEdition)) == nil)
+    let ordinary = try decodeArtwork(artworkExample("playback_cover"))
+    #expect(ordinary.admittedArtwork(session: ordinary.sessionID, target: try #require(ordinary.target), audience: .reply, at: try artworkDate(ordinary)) == nil)
+}
+
+@Test func capturedReplyCapabilityMustBeExactAndIndependentOfOrdinaryArt() throws {
+    for version in [0, 1, 2] {
+        let body: [String: Any] = ["capabilities": ["session_artwork": true, "captured_reply_artwork": true],
+                                  "contract_versions": ["session_artwork": 1, "captured_reply_artwork": version]]
+        let caps = try JSONDecoder().decode(DJConnectSessionHistoryCapabilities.self, from: JSONSerialization.data(withJSONObject: body))
+        #expect(caps.artworkAvailable)
+        #expect(caps.replyArtworkAvailable == (version == 1))
+    }
+}
+
+@Test func capturedAlbumArtworkBindsItselfWithoutRequiringTrackOnlyAlbumField() throws {
+    var object = try capturedReplyExample()
+    var art = try #require(object["artwork"] as? [String: Any])
+    let source = "https://open.spotify.com/album/BBBBBBBBBBBBBBBBBBBBBB"
+    art["subject"] = ["provider": "spotify", "type": "album", "uri": "spotify:album:BBBBBBBBBBBBBBBBBBBBBB"]
+    art["source_url"] = source
+    art["attribution"] = ["provider": "Spotify", "mark": "spotify", "url": source]
+    object["artwork"] = art
+    let album = try decodeArtwork(object)
+    #expect(album.admittedArtwork(session: album.sessionID, target: try #require(album.target), audience: .reply, at: try artworkDate(album)) != nil)
+    var subject = try #require(art["subject"] as? [String: Any]); subject["album_uri"] = "spotify:album:CCCCCCCCCCCCCCCCCCCCCC"
+    art["subject"] = subject; object["artwork"] = art
+    let mismatched = try decodeArtwork(object)
+    #expect(mismatched.admittedArtwork(session: mismatched.sessionID, target: try #require(mismatched.target), audience: .reply, at: try artworkDate(mismatched)) == nil)
 }

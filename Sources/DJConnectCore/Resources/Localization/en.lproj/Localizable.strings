@@ -1242,7 +1242,7 @@
 "ui.session.intro.toolbar.title" = "Menus at the top";
 "ui.session.intro.toolbar.body" = "Choose your mood, DJ presence and voice here. The connection icon shows your connection status.";
 "ui.session.intro.chat.title" = "Chat with the DJ";
-"ui.session.intro.chat.body" = "Ask a question, request a song or use the microphone to talk to the DJ. Type ‘help’ in the chat bar and send it for guidance on what you can ask.";
+"ui.session.intro.chat.body" = "Choose a suggestion or ask your own question by text or microphone. The question mark explains the available options.";
 "ui.session.intro.artwork.title" = "Control the album cover";
 "ui.session.intro.artwork.body" = "When a song is playing, use these gestures on its album cover. You do not need to try them now.";
 "ui.session.intro.gesture.1" = "1×: pause or play";
@@ -1445,16 +1445,16 @@
 // Native Session Forecast
 "ui.session.forecast.mode" = "View";
 "ui.session.forecast.flow" = "Flow";
-"ui.session.forecast.tab" = "Preview";
-"ui.session.forecast.title" = "Preview · ~15 min";
+"ui.session.forecast.tab" = "Horizon";
+"ui.session.forecast.title" = "Horizon · ~15 min";
 "ui.session.forecast.notice" = "A direction for the coming minutes. Music and contributions may change.";
-"ui.session.forecast.loading" = "Loading the preview…";
-"ui.session.forecast.unavailable" = "A current preview is not available.";
+"ui.session.forecast.loading" = "Loading Horizon…";
+"ui.session.forecast.unavailable" = "Horizon is currently unavailable.";
 "ui.session.forecast.source" = "Source";
 "ui.session.forecast.claim.current" = "Playing now";
 "ui.session.forecast.claim.intention" = "Intention";
 "ui.session.forecast.claim.conditional_target" = "Conditional aim";
-"ui.session.forecast.search" = "Search the preview";
+"ui.session.forecast.search" = "Search Horizon";
 // VibeCast rendezvous: routing preparation is distinct from display consent.
 "ui.rendezvous.scan" = "Scan TV QR code";
 "ui.rendezvous.choose" = "Choose your linked Home Assistant. This only sends its display address to this TV.";
@@ -1506,6 +1506,92 @@
 "ui.session.playback.speaker_question" = "Show available speakers.";
 
 "ui.rendezvous.sending" = "Preparing secure TV linking…";
-"ui.rendezvous.accepted" = "The address was sent. Continue on the TV and approve screen sharing in Home Assistant.";
+"ui.rendezvous.accepted" = "The address was sent. Continue on the TV and enter the TV code in the app to confirm screen sharing.";
 "ui.rendezvous.uncertain" = "We could not confirm whether the address was sent. Check the TV before trying again.";
 "ui.rendezvous.repairNeeded" = "Secure linking could not be prepared. Try again later.";
+
+// VibeScape preview: ephemeral native visuals.
+"ui.vibescape.dynamics" = "Dynamics";
+"ui.vibescape.dynamics.auto" = "Auto";
+"ui.vibescape.dynamics.manual" = "Manual";
+"ui.vibescape.dynamics.follow" = "Follow track intensity";
+"ui.vibescape.calm" = "Calm";
+"ui.vibescape.intense" = "Intense";
+"ui.vibescape.follow" = "Follow DJ";
+"ui.vibescape.unavailable" = "Visuals are unavailable on this device.";
+"ui.vibescape.voice.unavailable" = "Visual voice control is not available yet.";
+"ui.vibescape.voice.label" = "Speak about the visuals";
+
+"ui.ask_dj.answer.delivery_unknown" = "We cannot yet confirm whether your question was processed. Check the conversation history before sending it again.";
+"ui.ask_dj.answer.review_question" = "Review question";
+
+"ui.sources.current_playback" = "Current playback information";
+
+"ui.session.history.search_all" = "Search all sessions and contributions";
+
+"ui.vibescape.help.title" = "VibeScape help";
+"ui.vibescape.help.touch" = "Tap for a bright response. Drag your finger or mouse across the animation for a flowing effect.";
+"ui.vibescape.help.intensity" = "Use the slider to choose intensity manually. Reset resumes automatic following; without reliable track intensity, the setting stays neutral.";
+"ui.vibescape.help.controls" = "Controls hide after a few seconds. Tap their area or hover over it to reveal them.";
+
+"ui.vibescape.help.voice" = "Voice commands";
+"ui.vibescape.help.unavailable" = "Voice commands are currently unavailable.";
+"ui.vibescape.voice.recording" = "Speak your visual command. Tap again to stop.";
+"ui.vibescape.voice.applied" = "Visual command applied.";
+"ui.vibescape.voice.failed" = "The visual command could not be applied. Try again.";
+
+"ui.vibescape.help.loading" = "Loading voice commands…";
+"ui.vibescape.voice.stop" = "Stop recording";
+
+"ui.session.shortcut.open" = "Open DJ session";
+
+"ui.displayConsent.stop" = "Stop screen sharing";
+
+"ui.displayConsent.stopped" = "Screen sharing stopped. Your DJ session continues.";
+
+"ui.displayConsent.stop_uncertain" = "Stopping screen sharing could not be confirmed. Check the screen before continuing.";
+
+"ui.rendezvous.tv_code" = "Enter TV code";
+
+"ui.rendezvous.tv_code_help" = "Already have a code on the TV? Enter it here and confirm screen sharing for your active DJ session.";
+
+"ui.content.delete.failed" = "The contribution could not be deleted. Refresh and try again.";
+
+"ui.content.delete.unconfirmed" = "Deletion of this contribution has not yet been confirmed. Check the deletion status before trying again.";
+
+"ui.session.suggestion.match_mood" = "Play something that matches my session mood";
+"watch.session.connect_phone" = "Keep DJConnect open on your iPhone to connect your Watch.";
+"watch.session.retry" = "The session could not be loaded. Tap Refresh to try again.";
+"watch.session.pair_again" = "Pair your Watch again using DJConnect on your iPhone.";
+"watch.session.expired" = "Your session needs refreshing. Tap Refresh.";
+"watch.session.check_outcome" = "Checking your session. Tap Refresh to check whether the change was applied.";
+
+"ui.askdj.help.global.entry" = "How Ask DJ works";
+
+"ui.askdj.help.session.entry" = "Help during your DJ session";
+
+"ui.askdj.help.global.title" = "What would you like to hear?";
+
+"ui.askdj.help.global.intro" = "Ask your DJ in your own words. Request music, discover something or ask about it.";
+
+"ui.askdj.help.global.footer" = "A question or choice does not automatically start music. Playback requires an explicit request or a confirmed play action.";
+
+"ui.askdj.help.session.title" = "Listen with your DJ";
+
+"ui.askdj.help.session.intro" = "Ask about what you hear and what your DJ shows you. Mood sets the atmosphere, Persona the storytelling style and Presence how often your DJ speaks.";
+
+"ui.askdj.help.session.footer" = "Your DJ uses the available conversation context. You confirm a playback choice before music starts.";
+
+"ui.askdj.help.unavailable" = "I cannot confirm the available music options right now. You can still type your question.";
+
+"ui.rendezvous.repair" = "Repair secure linking";
+
+"ui.rendezvous.repairing" = "Repairing secure linking…";
+
+"ui.rendezvous.repaired" = "Secure linking has been repaired. Scan a new TV QR code to continue. No session is shared yet.";
+
+"ui.rendezvous.repair_wait" = "Repair is unconfirmed or not available yet. Wait before trying again. You can also enter the code from the Home Assistant receiver.";
+
+"ui.rendezvous.repair_paused" = "Secure linking remains paused. Your app and DJ session remain available. Use the code on the Home Assistant receiver to link this screen.";
+
+"ui.session.moment.dj_bulletin" = "DJ Bulletin";

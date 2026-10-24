@@ -1,0 +1,39 @@
+# Native offscreen VibeScape GPU probe
+
+Build from the repository root using Xcode's installed Metal Toolchain. Choose a
+fresh private output directory. No app launch, pairing, microphone, Profile,
+backend call or user image is involved. Example:
+
+```sh
+mkdir -p /tmp/djc-vibescape-gpu
+xcrun -sdk macosx metal -c Sources/DJConnectUI/VibeScapeShaders/VibeScape.metal -o /tmp/djc-vibescape-gpu/scene.air
+xcrun -sdk macosx metallib /tmp/djc-vibescape-gpu/scene.air -o /tmp/djc-vibescape-gpu/scene.metallib
+swiftc -parse-as-library Sources/DJConnectUI/VibeScapeScene.swift Sources/DJConnectUI/VibeScapeMetalEngine.swift Tools/qualification/vibescape/MetalProbe.swift -o /tmp/djc-vibescape-gpu/probe
+/tmp/djc-vibescape-gpu/probe /tmp/djc-vibescape-gpu/scene.metallib /tmp/djc-vibescape-gpu/output
+```
+
+Twenty scene PNGs, four Dynamics comparison PNGs and `gpu-report.json` describe synthetic native shader output and GPU
+command timings only. They do not establish UI lifecycle, voice correctness,
+physical iPhone/iPad quality, whole-app FPS, thermal/battery or user acceptance.
+See `docs/VIBESCAPE_APPLE_PREVIEW.md` for the closed production boundary.
+
+The Dynamics regression fixes composition and palette, renders the two slider
+extremes at an identical clock and after three seconds, and fails if static
+pixels do not differ or intense motion does not exceed calm motion. The report
+includes mean absolute byte deltas. This does not exercise native touch input.
+Optional fourth/fifth arguments specify width and height (64...2048); use
+`480 960` for a portrait render of the same native shader.
+
+Four touch comparison images check local deformation, different positions and
+exact restoration after expiry. The report includes near/far pixel deltas;
+native UIKit hit testing and touch delivery remain a separate device check.
+
+The probe additionally samples 79 touch ages over 2.6 seconds with the autonomous
+scene clock frozen, reporting mean/max successive-frame byte differences. This
+isolates touch-induced temporal variation. Compare the same inputs/resolution
+against the prior compiled shader; it is not physical iPhone flicker acceptance.
+
+`touch-tap.png` and `touch-swipe.png` compare identical input positions with
+strength2.4 versus0.8. The probe fails unless the tap produces a larger local
+pixel change than the swipe. Actual tap delivery and haptic feel remain device
+acceptance checks.

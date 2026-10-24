@@ -1242,7 +1242,7 @@
 "ui.session.intro.toolbar.title" = "Menu’s bovenaan";
 "ui.session.intro.toolbar.body" = "Kies hier je mood, DJ-aanwezigheid en stem. Via het verbindingsicoon bekijk je de status.";
 "ui.session.intro.chat.title" = "Chat met de DJ";
-"ui.session.intro.chat.body" = "Stel een vraag, vraag een nummer aan of gebruik de microfoon om met de DJ te praten. Typ ‘help’ in de chatbalk en verstuur het voor uitleg over wat je kunt vragen.";
+"ui.session.intro.chat.body" = "Kies een suggestie of stel je eigen vraag via tekst of microfoon. Bij het vraagteken vind je uitleg en de beschikbare mogelijkheden.";
 "ui.session.intro.artwork.title" = "Bedien de albumhoes";
 "ui.session.intro.artwork.body" = "Zodra er een nummer speelt, bedien je de muziek met deze gebaren op de albumhoes. Je hoeft ze nu niet uit te voeren.";
 "ui.session.intro.gesture.1" = "1×: pauzeren of afspelen";
@@ -1445,16 +1445,16 @@
 // Native Session Forecast
 "ui.session.forecast.mode" = "Weergave";
 "ui.session.forecast.flow" = "Flow";
-"ui.session.forecast.tab" = "Vooruitblik";
-"ui.session.forecast.title" = "Vooruitblik · ±15 min";
+"ui.session.forecast.tab" = "Horizon";
+"ui.session.forecast.title" = "Horizon · ±15 min";
 "ui.session.forecast.notice" = "Een richting voor de komende minuten. Muziek en bijdragen kunnen veranderen.";
-"ui.session.forecast.loading" = "Vooruitblik laden…";
-"ui.session.forecast.unavailable" = "Er is nu geen actuele vooruitblik beschikbaar.";
+"ui.session.forecast.loading" = "Horizon laden…";
+"ui.session.forecast.unavailable" = "Horizon is nu niet beschikbaar.";
 "ui.session.forecast.source" = "Bron";
 "ui.session.forecast.claim.current" = "Speelt nu";
 "ui.session.forecast.claim.intention" = "Voornemen";
 "ui.session.forecast.claim.conditional_target" = "Mogelijke richting";
-"ui.session.forecast.search" = "Zoek in de vooruitblik";
+"ui.session.forecast.search" = "Zoek in Horizon";
 // VibeCast rendezvous: routing preparation is distinct from display consent.
 "ui.rendezvous.scan" = "Scan TV-QR-code";
 "ui.rendezvous.choose" = "Kies je gekoppelde Home Assistant. Alleen het schermadres wordt met deze TV gedeeld.";
@@ -1506,6 +1506,92 @@
 "ui.session.playback.speaker_question" = "Toon beschikbare speakers.";
 
 "ui.rendezvous.sending" = "Veilige TV-koppeling voorbereiden…";
-"ui.rendezvous.accepted" = "Het adres is verstuurd. Ga verder op de TV en keur het schermdelen goed in Home Assistant.";
+"ui.rendezvous.accepted" = "Het adres is verstuurd. Ga verder op de TV en voer de TV-code in de app in om het schermdelen te bevestigen.";
 "ui.rendezvous.uncertain" = "We konden niet bevestigen of het adres is verstuurd. Controleer de TV voordat je opnieuw probeert.";
 "ui.rendezvous.repairNeeded" = "Veilig koppelen kon niet worden voorbereid. Probeer het later opnieuw.";
+
+// VibeScape preview: ephemeral native visuals.
+"ui.vibescape.dynamics" = "Dynamiek";
+"ui.vibescape.dynamics.auto" = "Auto";
+"ui.vibescape.dynamics.manual" = "Handmatig";
+"ui.vibescape.dynamics.follow" = "Volg nummerintensiteit";
+"ui.vibescape.calm" = "Rustig";
+"ui.vibescape.intense" = "Intens";
+"ui.vibescape.follow" = "Volg DJ";
+"ui.vibescape.unavailable" = "Visuals zijn niet beschikbaar op dit apparaat.";
+"ui.vibescape.voice.unavailable" = "Visuele spraakbediening is nog niet beschikbaar.";
+"ui.vibescape.voice.label" = "Praat over de visuals";
+
+"ui.ask_dj.answer.delivery_unknown" = "We kunnen nog niet bevestigen of je vraag is verwerkt. Controleer de gespreksgeschiedenis voordat je opnieuw verstuurt.";
+"ui.ask_dj.answer.review_question" = "Vraag bekijken";
+
+"ui.sources.current_playback" = "Huidige afspeelinformatie";
+
+"ui.session.history.search_all" = "Zoek in alle sessies en bijdragen";
+
+"ui.vibescape.help.title" = "VibeScape-hulp";
+"ui.vibescape.help.touch" = "Tik voor een felle reactie. Sleep met je vinger of muis door de animatie voor een vloeiend effect.";
+"ui.vibescape.help.intensity" = "Met de slider kies je handmatig de intensiteit. Reset hervat automatisch volgen; zonder betrouwbare nummerintensiteit blijft de stand neutraal.";
+"ui.vibescape.help.controls" = "De knoppen verdwijnen na enkele seconden. Tik op de plek van de bediening of houd de muis erboven om ze terug te halen.";
+
+"ui.vibescape.help.voice" = "Spraakopdrachten";
+"ui.vibescape.help.unavailable" = "Spraakopdrachten zijn nu niet beschikbaar.";
+"ui.vibescape.voice.recording" = "Spreek je visuele opdracht in. Tik nogmaals om te stoppen.";
+"ui.vibescape.voice.applied" = "Visuele opdracht toegepast.";
+"ui.vibescape.voice.failed" = "De visuele opdracht kon niet worden toegepast. Probeer opnieuw.";
+
+"ui.vibescape.help.loading" = "Spraakopdrachten ophalen…";
+"ui.vibescape.voice.stop" = "Stop opname";
+
+"ui.session.shortcut.open" = "Open DJ-sessie";
+
+"ui.displayConsent.stop" = "Schermdelen stoppen";
+
+"ui.displayConsent.stopped" = "Schermdelen is gestopt. Je DJ-sessie gaat door.";
+
+"ui.displayConsent.stop_uncertain" = "Het is niet bevestigd of het schermdelen is gestopt. Controleer het scherm voordat je verdergaat.";
+
+"ui.rendezvous.tv_code" = "TV-code invoeren";
+
+"ui.rendezvous.tv_code_help" = "Heb je een code op de TV? Voer die hier in en bevestig het schermdelen voor je actieve DJ-sessie.";
+
+"ui.content.delete.failed" = "De bijdrage kon niet worden verwijderd. Vernieuw en probeer opnieuw.";
+
+"ui.content.delete.unconfirmed" = "Het is nog niet bevestigd of de bijdrage is verwijderd. Controleer de verwijderstatus voordat je opnieuw probeert.";
+
+"ui.session.suggestion.match_mood" = "Speel iets dat past bij de stemming van mijn sessie";
+"watch.session.connect_phone" = "Houd DJConnect open op je iPhone om je Watch te verbinden.";
+"watch.session.retry" = "De sessie kon niet worden opgehaald. Tik op vernieuwen om opnieuw te proberen.";
+"watch.session.pair_again" = "Koppel je Watch opnieuw via DJConnect op je iPhone.";
+"watch.session.expired" = "Je sessie moet worden vernieuwd. Tik op vernieuwen.";
+"watch.session.check_outcome" = "Je sessie wordt gecontroleerd. Tik op vernieuwen om te zien of de wijziging is verwerkt.";
+
+"ui.askdj.help.global.entry" = "Zo werkt Ask DJ";
+
+"ui.askdj.help.session.entry" = "Help tijdens DJ-sessie";
+
+"ui.askdj.help.global.title" = "Wat wil je horen?";
+
+"ui.askdj.help.global.intro" = "Vraag het aan je DJ, gewoon in je eigen woorden. Je kunt muziek opvragen, ontdekken of er iets over vragen.";
+
+"ui.askdj.help.global.footer" = "Een vraag of keuze start niet vanzelf muziek. Afspelen gebeurt pas na een expliciete opdracht of bevestigde afspeelactie.";
+
+"ui.askdj.help.session.title" = "Luister samen met je DJ";
+
+"ui.askdj.help.session.intro" = "Vraag door over wat je hoort en wat je DJ laat zien. Mood bepaalt de sfeer, Persona de vertelstijl en Aanwezigheid hoe vaak je DJ iets vertelt.";
+
+"ui.askdj.help.session.footer" = "Je DJ gebruikt de beschikbare gesprekscontext. Je bevestigt zelf een afspeelkeuze voordat muziek start.";
+
+"ui.askdj.help.unavailable" = "Ik kan de beschikbare muziekmogelijkheden nu niet bevestigen. Je kunt je vraag wel gewoon typen.";
+
+"ui.rendezvous.repair" = "Veilig koppelen herstellen";
+
+"ui.rendezvous.repairing" = "Veilige koppeling herstellen…";
+
+"ui.rendezvous.repaired" = "Veilig koppelen is hersteld. Scan een nieuwe TV-QR-code om verder te gaan. Er wordt nog geen sessie gedeeld.";
+
+"ui.rendezvous.repair_wait" = "Herstel is nog niet bevestigd of nog niet beschikbaar. Wacht voordat je opnieuw probeert. Je kunt ook de code van de Home Assistant-receiver invoeren.";
+
+"ui.rendezvous.repair_paused" = "Veilig koppelen blijft gepauzeerd. Je app en DJ-sessie blijven beschikbaar. Gebruik de code op de Home Assistant-receiver om dit scherm te koppelen.";
+
+"ui.session.moment.dj_bulletin" = "DJ Bulletin";

@@ -232,12 +232,25 @@ public struct DJConnectSessionLiveActivityAttributes: ActivityAttributes, Sendab
 /// Device-private presentation bookkeeping, never the App Group projection.
 /// Keeping the random ID stable lets ActivityKit dismissal survive app restart.
 public enum DJConnectSessionSurfacePresentation {
+    /// Presentation identity only; foreground owner/session authorization must
+    /// be checked independently before any command is sent.
+    public static func matches(_ presentationID: String, sessionID: String, in defaults: UserDefaults) -> Bool {
+        UUID(uuidString: presentationID) != nil && !sessionID.isEmpty &&
+            defaults.string(forKey: "DJConnectSessionSurface.localBinding") == sessionID &&
+            defaults.string(forKey: "DJConnectSessionSurface.localPresentation") == presentationID
+    }
     // Separate request/build and exact-instance dismissal markers distinguish
     // OS retirement from a user action. No content or authorization is migrated.
     public static let requestedKey = "DJConnectSessionSurface.requested.v2"
     private static let requestedBuildKey = "DJConnectSessionSurface.requestedBuild.v2"
     private static let requestedActivityKey = "DJConnectSessionSurface.requestedActivity.v3"
     private static let dismissedKey = "DJConnectSessionSurface.dismissed.v3"
+    fileprivate static func ownsPushToken(presentationID: String, activityID: String, in defaults: UserDefaults) -> Bool {
+        defaults.string(forKey: "DJConnectSessionSurface.localPresentation") == presentationID &&
+            defaults.string(forKey: requestedKey) == presentationID &&
+            defaults.string(forKey: requestedActivityKey) == activityID &&
+            defaults.string(forKey: dismissedKey) != presentationID
+    }
     public static func canRequest(_ presentationID: String, build: String, in defaults: UserDefaults) -> Bool {
         guard defaults.string(forKey: dismissedKey) != presentationID else { return false }
         return defaults.string(forKey: requestedKey) != presentationID || defaults.string(forKey: requestedBuildKey) != build
@@ -273,5 +286,78 @@ public enum DJConnectSessionSurfacePresentation {
     public static func end(in deviceDefaults: UserDefaults) {
         deviceDefaults.removeObject(forKey: "DJConnectSessionSurface.localBinding")
         deviceDefaults.removeObject(forKey: "DJConnectSessionSurface.localPresentation")
+    }
+}
+
+/// Registered only by the owning app process. The extension never receives
+/// paired credentials or permission to turn passive snapshots into commands.
+@MainActor public enum DJConnectSessionPlaybackIntentBridge {
+    public static var nextTrack: (@MainActor (String) async -> Bool)?
+}
+
+/// Installation-local delivery plumbing only, separate from ordinary app APNs.
+/// This pending token is not server registration and grants no content authority.
+public struct DJConnectWidgetPushToken: Codable, Equatable, Sendable {
+    public static let storageKey = "DJConnectWidgetPushToken.pending.v1"
+    public let token: Data
+    public let extensionBundleID: String
+    public let widgetKinds: [String]
+    public let observedAt: Date
+
+    public init?(token: Data, extensionBundleID: String, widgetKinds: [String], at now: Date = Date()) {
+        guard !token.isEmpty, token.count <= 4096,
+              ["dev.djconnect.mac.track-insight-widget", "dev.djconnect.ios.track-insight-widget"].contains(extensionBundleID),
+              widgetKinds.contains(DJConnectSessionSurfaceSnapshot.widgetKind) else { return nil }
+        self.token = token; self.extensionBundleID = extensionBundleID
+        self.widgetKinds = [DJConnectSessionSurfaceSnapshot.widgetKind]; observedAt = now
+    }
+    public static func replace(_ value: Self?, in defaults: UserDefaults) throws {
+        if let value { defaults.set(try JSONEncoder().encode(value), forKey: storageKey) }
+        else { defaults.removeObject(forKey: storageKey) }
+    }
+    public static func load(from defaults: UserDefaults) -> Self? {
+        guard let data = defaults.data(forKey: storageKey), data.count <= 8192,
+              let value = try? JSONDecoder().decode(Self.self, from: data) else { return nil }
+        return Self(token: value.token, extensionBundleID: value.extensionBundleID,
+                    widgetKinds: value.widgetKinds, at: value.observedAt)
+    }
+}
+
+/// ActivityKit delivery token for an already admitted local presentation.
+/// Separate from widget/app tokens. Pending plumbing grants no server authority.
+public struct DJConnectActivityPushToken: Codable, Equatable, Sendable {
+    public static let storageKey = "DJConnectActivityPushToken.pending.v1"
+    public let token: Data
+    public let activityID: String
+    public let presentationID: String
+    public let observedAt: Date
+    public init?(token: Data, activityID: String, presentationID: String, at now: Date = Date()) {
+        guard !token.isEmpty, token.count <= 4096,
+              !activityID.isEmpty, activityID.utf8.count <= 256,
+              !presentationID.isEmpty, presentationID.utf8.count <= 256 else { return nil }
+        self.token = token; self.activityID = activityID; self.presentationID = presentationID; observedAt = now
+    }
+    public static func replace(_ value: Self?, in defaults: UserDefaults) throws {
+        if let value { defaults.set(try JSONEncoder().encode(value), forKey: storageKey) }
+        else { defaults.removeObject(forKey: storageKey) }
+    }
+    @discardableResult
+    public static func recordIfCurrent(_ value: Self, in defaults: UserDefaults) throws -> Bool {
+        // An old Activity's asynchronous token stream may still yield after its
+        // replacement starts. It must neither overwrite that target nor revive
+        // an ended/dismissed presentation. This is local custody, not a grant.
+        guard DJConnectSessionSurfacePresentation.ownsPushToken(
+            presentationID: value.presentationID, activityID: value.activityID, in: defaults) else { return false }
+        try replace(value, in: defaults)
+        return true
+    }
+    public static func load(from defaults: UserDefaults) -> Self? {
+        guard let data = defaults.data(forKey: storageKey), data.count <= 8192,
+              let value = try? JSONDecoder().decode(Self.self, from: data) else { return nil }
+        return Self(token: value.token, activityID: value.activityID, presentationID: value.presentationID, at: value.observedAt)
+    }
+    public static func withdraw(activityID: String, in defaults: UserDefaults) {
+        guard load(from: defaults)?.activityID == activityID else { return }
+        defaults.removeObject(forKey: storageKey)
     }
 }

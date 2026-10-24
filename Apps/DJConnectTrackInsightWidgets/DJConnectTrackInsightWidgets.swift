@@ -126,65 +126,82 @@ private struct DJConnectSessionWidgetView: View {
                 DJConnectSessionSurfaceView(isActive: entry.isActive, compact: family == .systemSmall, theme: theme)
             }
         }
-        .containerBackground(for: .widget) { SessionMoodBackground(theme: theme) }
+        .containerBackground(for: .widget) {
+            SessionMoodBackground(theme: theme)
+                .overlay { SessionWidgetVibeScapeArtwork(colors: theme.colors) }
+        }
         .widgetURL(sessionURL)
     }
 }
 
 @MainActor
 private func sessionConfiguration(kind: String) -> some WidgetConfiguration {
-    StaticConfiguration(kind: kind, provider: DJConnectSessionWidgetProvider()) {
+    let configuration = StaticConfiguration(kind: kind, provider: DJConnectSessionWidgetProvider()) {
         DJConnectSessionWidgetView(entry: $0)
     }
     .configurationDisplayName(text("ui.session.title"))
     .description(text("surface.session.description"))
     .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+    return configuration.pushHandler(DJConnectSessionWidgetPushHandler.self)
+}
+
+struct DJConnectSessionWidgetPushHandler: WidgetPushHandler {
+    func pushTokenDidChange(_ pushInfo: WidgetPushInfo, widgets: [WidgetInfo]) {
+        guard !DJConnectLocalization.isQualificationProcess,
+              let bundleID = Bundle.main.bundleIdentifier,
+              let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) else { return }
+        let value = DJConnectWidgetPushToken(token: pushInfo.token, extensionBundleID: bundleID,
+                                            widgetKinds: widgets.map(\.kind))
+        // Never send this token through ordinary app/Ask DJ registration.
+        // Core must negotiate its widget delivery/background-read contract first.
+        try? DJConnectWidgetPushToken.replace(value, in: shared)
+    }
 }
 
 struct DJConnectSessionWidget: Widget {
     var body: some WidgetConfiguration { sessionConfiguration(kind: DJConnectSessionSurfaceSnapshot.widgetKind) }
 }
-// Preserve configured identifiers. These are migration aliases of the same
-// provider/view, never independent Queue/Insight/chat data pipelines.
-struct DJConnectNowPlayingWidget: Widget {
-    var body: some WidgetConfiguration { sessionConfiguration(kind: "DJConnectNowPlayingWidget") }
-}
-struct DJConnectQueueWidget: Widget {
-    var body: some WidgetConfiguration { sessionConfiguration(kind: "DJConnectQueueWidget") }
-}
-struct DJConnectTrackInsightWidget: Widget {
-    var body: some WidgetConfiguration { sessionConfiguration(kind: "DJConnectTrackInsightWidget") }
-}
-struct DJConnectAskDJWidget: Widget {
-    var body: some WidgetConfiguration { sessionConfiguration(kind: "DJConnectAskDJWidget") }
-}
-
 #if os(iOS) && canImport(ActivityKit)
 struct DJConnectSessionActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: DJConnectSessionLiveActivityAttributes.self) { context in
             PassiveActivityBody(snapshot: context.state, stale: context.isStale)
-                .padding(16)
-                .background { SessionMoodBackground(theme: context.isStale ? .brand : context.state.renderingTheme(at: Date())) }
+                .padding(12)
+                .background {
+                    let theme = context.isStale ? DJConnectSessionMoodTheme.brand : context.state.renderingTheme(at: Date())
+                    SessionMoodBackground(theme: theme)
+                        .overlay { SessionWidgetVibeScapeArtwork(colors: theme.colors).opacity(0.75) }
+                }
                 .activityBackgroundTint((context.isStale ? DJConnectSessionMoodTheme.brand : context.state.renderingTheme(at: Date())).darkTint)
                 .activitySystemActionForegroundColor(.white)
                 .widgetURL(sessionURL)
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.trailing) {
-                    if let source = islandSpotifySource(snapshot: context.state, stale: context.isStale) {
-                        Link(destination: source) {
-                            Image("SpotifyAttribution").resizable().scaledToFit()
-                                .frame(width: 70, height: 21)
-                                .accessibilityLabel("Spotify")
-                        }
-                        .padding(.top, 4).padding(.trailing, 4)
+                DynamicIslandExpandedRegion(.leading) {
+                    HStack(spacing: 8) {
+                        SessionSurfaceAvatar(theme: context.isStale ? .brand : context.state.renderingTheme(at: Date()), side: 28)
+                        Text(text("ui.session.title"))
+                            .font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+                            .lineLimit(1).minimumScaleFactor(0.8)
                     }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    PassiveActivityBody(snapshot: context.state, stale: context.isStale, showsSpotifyCredit: false)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 16)
+                    HStack(alignment: .bottom, spacing: 12) {
+                        PassiveActivityBody(snapshot: context.state, stale: context.isStale,
+                                            showsSpotifyCredit: false, showsHeader: false)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Button(intent: DJConnectSessionNextTrackIntent(presentationID: context.attributes.presentationID)) {
+                            Image(systemName: "forward.end.fill")
+                                .font(.title3.weight(.semibold)).foregroundStyle(.white)
+                                .frame(width: 44, height: 44)
+                                .background(.white.opacity(0.14), in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(context.isStale || !context.state.isCurrent(at: Date()))
+                        .accessibilityLabel(text("ui.next.track"))
+                        .accessibilityIdentifier("session-island-next-track")
+                    }
+                    .padding(.horizontal, 12).padding(.bottom, 8)
                 }
             } compactLeading: {
                 SessionSurfaceAvatar(theme: context.isStale ? .brand : context.state.renderingTheme(at: Date()), side: 22)
@@ -200,17 +217,6 @@ struct DJConnectSessionActivityWidget: Widget {
 }
 #endif
 
-#if os(iOS) && canImport(ActivityKit)
-private func islandSpotifySource(snapshot: DJConnectSessionLiveActivityAttributes.ContentState, stale: Bool) -> URL? {
-    guard !stale, let rich = snapshot.rich, rich.isCurrent(at: Date()) else { return nil }
-    for attribution in [rich.nowPlaying?.attribution, rich.contribution?.source_attribution].compactMap({ $0 }) {
-        if attribution["mark"] == "spotify", let raw = attribution["url"], let url = URL(string: raw),
-           url.scheme == "https", url.user == nil, url.password == nil { return url }
-    }
-    return nil
-}
-#endif
-
 // Rich content comes only from the separate passive grant, never the foreground
 // owner Moment cache. Contribution and current music retain independent slots.
 private struct PassiveSessionContentView: View {
@@ -219,36 +225,57 @@ private struct PassiveSessionContentView: View {
     let cache: DJConnectPassiveSurfaceCache?
     var compact = false
     var large = false
+    var activity = false
+    var playbackState: String? = nil
     var showsSpotifyCredit = true
+    var showsHeader = true
     var theme: DJConnectSessionMoodTheme = .brand
     let date: Date
     var body: some View {
-        VStack(alignment: .leading, spacing: compact ? 6 : 8) {
+        Group {
+            if large, playback != nil, contribution == nil {
+                GeometryReader { geometry in
+                    content(artworkSide: min(156, max(80, geometry.size.height - 190)))
+                }
+            } else { content(artworkSide: nil) }
+        }
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity, maxHeight: activity ? nil : .infinity, alignment: .topLeading)
+        .accessibilityElement(children: .contain)
+    }
+    private func content(artworkSide: CGFloat?) -> some View {
+        VStack(alignment: .leading, spacing: activity || compact ? 6 : 8) {
+            if showsHeader {
             HStack(spacing: 8) {
-                SessionSurfaceAvatar(theme: theme, side: compact ? 24 : 36)
+                SessionSurfaceAvatar(theme: theme, side: activity || compact ? 24 : 36)
                 Text(text("ui.session.title"))
-                    .font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+                    .font((large ? Font.subheadline : .caption).weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+            }
             }
             if let playback {
+                if let artworkSide {
+                    spaciousPlayback(playback, artworkSide: artworkSide)
+                } else {
                 HStack(alignment: .top, spacing: compact ? 6 : 12) {
                     if cache?.projection.currentArtwork(slot: "now_playing", at: date) != nil {
                         cover(slot: "now_playing")
-                            .frame(width: large ? 104 : compact ? 32 : 56,
-                                   height: large ? 104 : compact ? 32 : 56)
+                            .frame(width: activity ? 64 : large ? 104 : compact ? 32 : 56,
+                                   height: activity ? 64 : large ? 104 : compact ? 32 : 56)
                     }
                     VStack(alignment: .leading, spacing: 3) {
                         if !compact {
-                            Text(text("ui.now.playing")).font(.caption2).foregroundStyle(.white.opacity(0.7))
+                            Text(text(!activity || playbackState == "playing" ? "ui.now.playing" : playbackState == "paused" ? "ui.paused" : "ui.playback")).font(.caption2).foregroundStyle(.white.opacity(0.7))
                         }
-                        Text(playback.track).font(.subheadline.weight(.semibold)).lineLimit(large ? 3 : compact ? 1 : 2)
-                        Text(playback.artist).font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(large ? 2 : 1)
-                        if large { Text(playback.album).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(2) }
+                        Text(playback.track).font((activity ? Font.headline : large ? .title3 : .subheadline).weight(.semibold)).lineLimit(activity ? 1 : large ? 3 : compact ? 1 : 2)
+                        Text(playback.artist).font(activity ? .subheadline : large ? .callout : .caption).foregroundStyle(.white.opacity(0.85)).lineLimit(large ? 2 : 1)
+                        if (large || activity) && !playback.album.isEmpty { Text(playback.album).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(activity ? 1 : 2) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                }
                 credit(playback.attribution)
             }
-            if let contribution {
+            if let contribution, !activity || playback == nil {
                 if playback != nil { Divider().overlay(.white.opacity(0.15)) }
                 HStack(alignment: .top, spacing: 10) {
                     if !compact, cache?.projection.currentArtwork(slot: "contribution", at: date) != nil {
@@ -264,9 +291,36 @@ private struct PassiveSessionContentView: View {
                 Text(text("surface.session.active")).font(.headline)
             }
         }
-        .foregroundStyle(.white)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .accessibilityElement(children: .contain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    private func spaciousPlayback(_ playback: DJConnectPassiveSession.NowPlaying, artworkSide: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Group {
+                if let cover = decodedCover(slot: "now_playing", side: artworkSide) {
+                    Image(cover.image, scale: 3, label: Text(cover.label))
+                        .resizable().scaledToFit()
+                } else {
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(.white.opacity(0.05))
+                        .overlay {
+                            Image(systemName: "music.note")
+                                .font(.system(size: artworkSide * 0.36, weight: .light))
+                                .foregroundStyle(.white.opacity(0.30))
+                        }
+                        .accessibilityHidden(true)
+                }
+            }
+            .frame(width: artworkSide, height: artworkSide)
+            .frame(maxWidth: .infinity)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(text("ui.now.playing")).font(.caption).foregroundStyle(.white.opacity(0.70))
+                Text(playback.track).font(.title2.bold()).lineLimit(2).minimumScaleFactor(0.8)
+                Text(playback.artist).font(.body).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
+                if !playback.album.isEmpty {
+                    Text(playback.album).font(.caption).foregroundStyle(.white.opacity(0.70)).lineLimit(1)
+                }
+            }
+        }
     }
     @ViewBuilder private func credit(_ attribution: [String: String]) -> some View {
         if attribution["mark"] == "spotify" {
@@ -283,21 +337,23 @@ private struct PassiveSessionContentView: View {
         }
     }
     @ViewBuilder private func cover(slot: String) -> some View {
-        if let cache, cache.isCurrent(at: date),
-           let artwork = cache.projection.currentArtwork(slot: slot, at: date), let data = cache.pixels[slot],
-           data.count <= DJConnectPassiveSurfaceCache.maximumImageBytes,
-           let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
-           CGImageSourceGetCount(source) == 1,
-           let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+        if let cover = decodedCover(slot: slot, side: activity ? 64 : large ? 104 : compact ? 32 : 56) {
+            Image(cover.image, scale: 3, label: Text(cover.label))
+                .resizable().scaledToFit()
+        }
+    }
+    private func decodedCover(slot: String, side: CGFloat) -> (image: CGImage, label: String)? {
+        guard let cache, cache.isCurrent(at: date),
+              let artwork = cache.projection.currentArtwork(slot: slot, at: date), let data = cache.pixels[slot],
+              data.count <= DJConnectPassiveSurfaceCache.maximumImageBytes,
+              let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              CGImageSourceGetCount(source) == 1,
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,
-                // Match the presentation's point size at Retina scale; a frame
-                // alone does not shrink the image archived by ActivityKit.
-                kCGImageSourceThumbnailMaxPixelSize: Int((large ? 104 : compact ? 32 : 56) * 3)
-           ] as CFDictionary) {
-            Image(image, scale: 3, label: Text(artwork.alt_text[DJConnectLocalization.defaultDisplayLanguageCode()] ?? artwork.alt_text["en"] ?? ""))
-                .resizable().scaledToFit() // The granted cover must not be cropped.
-        }
+                kCGImageSourceThumbnailMaxPixelSize: Int(side * 3)
+              ] as CFDictionary) else { return nil }
+        return (image, artwork.alt_text[DJConnectLocalization.defaultDisplayLanguageCode()] ?? artwork.alt_text["en"] ?? "")
     }
 }
 
@@ -306,9 +362,10 @@ private struct PassiveActivityBody: View {
     let snapshot: DJConnectSessionSurfaceSnapshot
     let stale: Bool
     var showsSpotifyCredit = true
+    var showsHeader = true
     var body: some View {
         let now = Date()
-        if !stale, let rich = snapshot.rich, rich.isCurrent(at: now) {
+        if !stale, snapshot.isCurrent(at: now), let rich = snapshot.rich, rich.isCurrent(at: now) {
             let cache = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier)
                 .flatMap { DJConnectPassiveSurfaceCache.load(surface: .liveActivity, from: $0, at: now) }
                 .flatMap { value in
@@ -317,8 +374,16 @@ private struct PassiveActivityBody: View {
                     value.projection.now_playing == rich.nowPlaying ? value : nil
                 }
             PassiveSessionContentView(contribution: rich.contribution, playback: rich.nowPlaying, cache: cache,
-                                      showsSpotifyCredit: showsSpotifyCredit,
+                                      activity: true, playbackState: rich.playbackState,
+                                      showsSpotifyCredit: showsSpotifyCredit, showsHeader: showsHeader && rich.nowPlaying == nil,
                                       theme: snapshot.renderingTheme(at: now), date: now)
+        } else if !showsHeader {
+            // The expanded Island already supplies its small leading header.
+            // Keep the fallback within its bottom region instead of inserting
+            // the full Lock Screen layout (duplicate avatar/title, clipped text).
+            Text(text(!stale && snapshot.isCurrent(at: now) ? "surface.session.active" : "surface.session.open.app"))
+                .font(.subheadline).foregroundStyle(.white.opacity(0.85))
+                .lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
         } else {
             DJConnectSessionSurfaceView(isActive: !stale && snapshot.isCurrent(at: now), theme: stale ? .brand : snapshot.renderingTheme(at: now))
         }
@@ -438,10 +503,6 @@ private struct SessionMomentLayoutPreview: View {
 struct DJConnectTrackInsightWidgetsBundle: WidgetBundle {
     var body: some Widget {
         DJConnectSessionWidget()
-        DJConnectNowPlayingWidget()
-        DJConnectQueueWidget()
-        DJConnectTrackInsightWidget()
-        DJConnectAskDJWidget()
         #if os(iOS) && canImport(ActivityKit)
         DJConnectSessionActivityWidget()
         #endif

@@ -4,7 +4,7 @@ import CryptoKit
 /// One explicit, foreground Core B approval intent. Independent of App Attest/A.
 /// No display bearer, auto-start, automatic replay, persistence or key operation.
 @MainActor public final class DJConnectDisplayConsentSession {
-    public enum State: Equatable, Sendable { case idle, resolving, ready, approving, approved, unavailable, uncertain }
+    public enum State: Equatable, Sendable { case idle, resolving, ready, approving, approved, revoking, revoked, revokeUncertain, unavailable, uncertain }
     public struct ExistingShare: Sendable {
         public let identifier: String
         public let generation: Int
@@ -54,7 +54,7 @@ import CryptoKit
 
     public init(client: DJConnectClient, installationID: String, sessionID: String, pairedLocalOrigin: URL?,
                 isCurrent: @escaping @MainActor @Sendable () -> Bool) throws {
-        guard client.identity.clientType == .ios, !installationID.isEmpty,
+        guard [.ios, .macos].contains(client.identity.clientType), !installationID.isEmpty,
               !sessionID.isEmpty, sessionID.utf8.count <= 128,
               sessionID == sessionID.trimmingCharacters(in: .whitespacesAndNewlines),
               sessionID.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }),
@@ -75,12 +75,12 @@ import CryptoKit
         return Data(SHA256.hash(data: Data(token.utf8))) == tokenDigest
     }
     public func withdraw() {
-        state = state == .approving ? .uncertain : .unavailable
+        state = state == .revoking || state == .revokeUncertain ? .revokeUncertain : state == .approving ? .uncertain : .unavailable
         resolvedClaim = nil; existingShare = nil; storedReceipt = nil
     }
     private func ownerContext() async throws -> DJConnectDisplayOwnerContext {
         let context = try await client.displayOwnerContext(expectedInstallationID: installationID,
-            pairedLocalOrigin: pairedLocalOrigin, isCurrent: { self.current() && (self.state == .resolving || self.state == .approving) })
+            pairedLocalOrigin: pairedLocalOrigin, isCurrent: { self.current() && (self.state == .resolving || self.state == .approving || self.state == .revoking) })
         guard current(), context.sessionID == sessionID else { throw DJConnectError.invalidResponse }
         return context
     }
@@ -106,7 +106,7 @@ import CryptoKit
             let context = try await ownerContext()
             let offered = try share(context, requestedAt: started, uptime: tick)
             let body = try JSONSerialization.data(withJSONObject: ["contract_version": 1, "code": code,
-                "identity": ["device_id": client.identity.deviceID, "client_type": "ios"]])
+                "identity": ["device_id": client.identity.deviceID, "client_type": client.identity.clientType.rawValue]])
             let requested = Date(), requestedTick = ProcessInfo.processInfo.systemUptime
             let data = try await client.displayConsentExchange(path: "resolve", body: body, isCurrent: {
                 self.current() && self.state == .resolving
@@ -180,6 +180,39 @@ import CryptoKit
             withdraw(); state = possibleEffect ? .uncertain : .unavailable; throw error
         }
     }
+    /// Distinct user intent: revoke this display only, preserving other displays
+    /// in the same share and the active owner Session. Never automatically replay.
+    public func revokeDisplay() async throws {
+        guard let approved = receipt, current() else { throw DJConnectError.invalidResponse }
+        storedReceipt = nil; state = .revoking
+        var possibleEffect = false
+        do {
+            let context = try await ownerContext()
+            guard current(), state == .revoking, context.displayEntryURL == route,
+                  context.issuerEpoch == resolvedClaim?.issuerEpoch,
+                  Date() >= approved.admittedAt, Date() < approved.expiresAt,
+                  ProcessInfo.processInfo.systemUptime >= approved.requestedUptime,
+                  ProcessInfo.processInfo.systemUptime < approved.deadline else {
+                throw DJConnectError.invalidResponse
+            }
+            let body = try JSONSerialization.data(withJSONObject: ["contract_version": 1,
+                "identity": ["device_id": client.identity.deviceID, "client_type": client.identity.clientType.rawValue],
+                "session_id": sessionID, "share_id": approved.shareID, "display_id": approved.displayID])
+            possibleEffect = true
+            let data = try await client.displayConsentExchange(path: "revoke", body: body, isCurrent: {
+                self.current() && self.state == .revoking && Date() >= approved.admittedAt && Date() < approved.expiresAt &&
+                    ProcessInfo.processInfo.systemUptime >= approved.requestedUptime && ProcessInfo.processInfo.systemUptime < approved.deadline
+            })
+            struct Reply: Decodable { let success: Bool; let contract_version: Int }
+            let reply = try JSONDecoder().decode(Reply.self, from: data)
+            guard current(), state == .revoking, reply.success, reply.contract_version == 1 else { throw DJConnectError.invalidResponse }
+            resolvedClaim = nil; existingShare = nil; state = .revoked
+        } catch {
+            storedReceipt = nil; state = possibleEffect ? .revokeUncertain : .unavailable
+            throw error
+        }
+    }
+
     private struct ApprovalWire: Decodable {
         let success: Bool
         let contract_version: Int

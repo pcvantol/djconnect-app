@@ -28,6 +28,9 @@ private actor HybridTestWire: DJConnectHybridWire {
     var requests: [URLRequest] = []
     var socketURLs: [URL] = []
     let localContext: HybridObject?
+    let pendingStatuses: Int
+    let expiredStatus: Bool
+    var statusReads = 0
     let install: String
     let failExecute: Bool
     let unavailableBody: Bool
@@ -35,11 +38,13 @@ private actor HybridTestWire: DJConnectHybridWire {
     let withdrawExecute: Bool
     let socketValue: (any DJConnectHybridSocket)?
     init(install: String = "test-install", failExecute: Bool = false, unavailableBody: Bool = false,
-         failedLocal: Bool = false, socket: (any DJConnectHybridSocket)? = nil, withdrawExecute: Bool = false, localContext: HybridObject? = nil) {
+         failedLocal: Bool = false, socket: (any DJConnectHybridSocket)? = nil, withdrawExecute: Bool = false, localContext: HybridObject? = nil,
+         pendingStatuses: Int = 0, expiredStatus: Bool = false) {
         self.install = install; self.failExecute = failExecute; self.unavailableBody = unavailableBody
         self.withdrawExecute = withdrawExecute
         self.localContext = localContext
         self.failedLocal = failedLocal; self.socketValue = socket
+        self.pendingStatuses = pendingStatuses; self.expiredStatus = expiredStatus
     }
     func http(_ request: URLRequest) async throws -> (Data, Int) {
         requests.append(request)
@@ -55,6 +60,15 @@ private actor HybridTestWire: DJConnectHybridWire {
         }
         if request.url!.path.hasSuffix("/operation"), failExecute { throw URLError(.networkConnectionLost) }
         let status = request.url!.path.hasSuffix("/status")
+        if status {
+            statusReads += 1
+            if statusReads <= pendingStatuses {
+                var receipt = hybridReceipt(body, available: false, phase: "accepted")
+                if expiredStatus { receipt["expires_at_ms"] = .int(Int(Date().timeIntervalSince1970*1000)-1) }
+                return (try JSONEncoder().encode(["success": DJConnectJSONValue.bool(true), "result_available": .bool(false),
+                                                 "operation_receipt": .object(receipt)]),202)
+            }
+        }
         let available = !status && !unavailableBody
         return (try JSONEncoder().encode(["success": DJConnectJSONValue.bool(true), "result_available": .bool(available),
                                          "operation_receipt": .object(hybridReceipt(body, available: available))]), 200)
@@ -129,6 +143,56 @@ private func hybridCoordinator(_ wire: HybridTestWire, local: URL? = nil) -> DJC
     #expect(first != second); #expect(UUID(uuidString: first) != nil)
     #expect(first.split(separator: "-")[2].first == "7")
     #expect(first.replacingOccurrences(of: "-", with: "").prefix(12) == String(format: "%012llx", 1_792_053_890_000))
+}
+
+@Test func hybridSlowConversationReconcilesPastThreePendingReadsWithoutResending() async throws {
+    let wire = HybridTestWire(failExecute: true, pendingStatuses: 4)
+    let coordinator = hybridCoordinator(wire)
+    var request = try hybridRequest()
+    request.url = URL(string: "https://remote.example/api/djconnect/v1/ask_dj/message")!
+    request.httpBody = Data(#"{"message":"Synthetic information question","client_message_id":"original-message"}"#.utf8)
+    do { _ = try await coordinator.perform(request); Issue.record("Expected confirmed receipt-only outcome") }
+    catch DJConnectHybridTransportError.outcome(let receipt) { #expect(receipt.phase == "confirmed") }
+    let requests = await wire.recorded()
+    let executes = requests.filter { $0.url?.path.hasSuffix("/operation") == true }
+    let statuses = requests.filter { $0.url?.path.hasSuffix("/status") == true }
+    #expect(executes.count == 1 && statuses.count == 5)
+    #expect(executes.first?.timeoutInterval == 120)
+    let original = try JSONDecoder().decode(HybridObject.self, from: #require(executes.first?.httpBody))
+    for status in statuses {
+        let observed = try JSONDecoder().decode(HybridObject.self, from: #require(status.httpBody))
+        #expect(observed["operation_id"] == original["operation_id"])
+        #expect(observed["operation_epoch"] == original["operation_epoch"])
+        #expect(observed["payload"] == nil)
+    }
+}
+
+@Test func hybridConversationStopsAtOriginalReceiptExpiryWithoutAnotherExecution() async throws {
+    let wire = HybridTestWire(failExecute: true, pendingStatuses: 5, expiredStatus: true)
+    let coordinator = hybridCoordinator(wire)
+    var request = try hybridRequest()
+    request.url = URL(string: "https://remote.example/api/djconnect/v1/ask_dj/message")!
+    await #expect(throws: DJConnectHybridTransportError.deliveryUnknown) { try await coordinator.perform(request) }
+    let requests = await wire.recorded()
+    #expect(requests.filter { $0.url?.path.hasSuffix("/operation") == true }.count == 1)
+    #expect(requests.filter { $0.url?.path.hasSuffix("/status") == true }.count == 1)
+}
+
+@Test func hybridConversationReconciliationStopsWhenAppBackgrounds() async throws {
+    let wire = HybridTestWire(failExecute: true, pendingStatuses: 100)
+    let coordinator = hybridCoordinator(wire)
+    var request = try hybridRequest()
+    request.url = URL(string: "https://remote.example/api/djconnect/v1/ask_dj/message")!
+    let operation = Task { try await coordinator.perform(request) }
+    for _ in 0..<100 where await wire.recorded().filter({ $0.url?.path.hasSuffix("/status") == true }).isEmpty {
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    await coordinator.lifecycle(foreground: false)
+    do { _ = try await operation.value; Issue.record("Expected lifecycle cancellation") }
+    catch is CancellationError { }
+    let requests = await wire.recorded()
+    #expect(requests.filter { $0.url?.path.hasSuffix("/operation") == true }.count == 1)
+    #expect(requests.filter { $0.url?.path.hasSuffix("/status") == true }.count <= 1)
 }
 @Test func hybridPinnedCoreFixtureDecodesWithoutRewritingReceipts() throws {
     let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()

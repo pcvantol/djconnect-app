@@ -2,12 +2,6 @@ import Foundation
 import Combine
 import DJConnectCore
 
-/// Source readiness is separate from release activation. The delivered producer
-/// can withdraw a lease after bytes were downloaded but exposes no consumer
-/// revocation signal. A journal receipt cannot attest continuing speech rights.
-/// See docs/feedback/APPLE_PERSONA_TOUCH_PRODUCER_GAPS_20261019.md.
-enum PersonaReactionConsumerGate { static let isQualified = false }
-
 /// One bounded foreground interaction, no queue, persistence, history or retries.
 @MainActor final class PersonaReactionController: ObservableObject {
     struct Services {
@@ -21,12 +15,16 @@ enum PersonaReactionConsumerGate { static let isQualified = false }
         var notice: String?
         /// Foreground presentation feedback, once per accepted current response.
         var admittedFeedback: @MainActor () -> Void = {}
+        /// Shipping caller always supplies the independently negotiated observer.
+        var observe: @MainActor (DJConnectPersonaReactionResult) async throws -> DJConnectPersonaReactionObservation = { _ in throw DJConnectHybridTransportError.unavailable }
     }
     @MainActor private final class Run {
         let services: Services
         var id: String?
         var reason: DJConnectPersonaReactionCancellation?
         var cancelSent = false
+        var observation: DJConnectPersonaReactionObservation?
+        var observationTask: Task<Void, Never>?
         init(_ services: Services) { self.services = services }
         func cancelOnServer() {
             guard !cancelSent, let id, let reason else { return }
@@ -52,7 +50,7 @@ enum PersonaReactionConsumerGate { static let isQualified = false }
         monitor = Task { [weak self, weak current] in
             while let self, let current, self.run === current, !Task.isCancelled {
                 let deadline = self.reaction?.deadline ?? pendingDeadline
-                guard current.services.current(), deadline > Date() else {
+                guard current.services.current(), deadline > Date(), current.observation?.isValid != false else {
                     self.cancel(.dismissed); return
                 }
                 do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
@@ -74,6 +72,20 @@ enum PersonaReactionConsumerGate { static let isQualified = false }
                     self.cancel(.dismissed); services.failure(); return
                 }
                 current.id = result.persona_reaction.id
+                do {
+                    let observation = try await services.observe(result)
+                    guard self.run === current, !Task.isCancelled, services.current(), observation.isValid else {
+                        await observation.close(); return
+                    }
+                    current.observation = observation
+                    current.observationTask = Task { [weak self, weak current] in
+                        for await _ in observation.withdrawals {
+                            guard let self, let current, self.run === current else { return }
+                            self.cancel(.dismissed); return
+                        }
+                    }
+                }
+                guard self.run === current, current.observation?.isValid != false, services.current(), !Task.isCancelled else { return }
                 self.reaction = result.persona_reaction
                 self.notice = services.notice
                 services.admittedFeedback()
@@ -107,6 +119,9 @@ enum PersonaReactionConsumerGate { static let isQualified = false }
         guard let current = run else { return }
         current.reason = reason
         run = nil // Fence callbacks before stopping their renderer.
+        current.observationTask?.cancel()
+        if let observation = current.observation { Task { await observation.close() } }
+        current.observation = nil
         task?.cancel(); task = nil; monitor?.cancel(); monitor = nil
         current.services.stop(reason)
         reaction = nil; preparing = false; speaking = false; notice = nil

@@ -1242,7 +1242,7 @@
 "ui.session.intro.toolbar.title" = "Menus en haut";
 "ui.session.intro.toolbar.body" = "Choisissez votre ambiance, la présence du DJ et sa voix. L’icône de connexion indique son état.";
 "ui.session.intro.chat.title" = "Discuter avec le DJ";
-"ui.session.intro.chat.body" = "Posez une question, demandez un morceau ou utilisez le microphone pour parler au DJ. Saisissez « help » dans la barre de discussion et envoyez-le pour découvrir ce que vous pouvez demander.";
+"ui.session.intro.chat.body" = "Choisissez une suggestion ou posez votre question par texte ou au microphone. Le point d’interrogation explique les possibilités disponibles.";
 "ui.session.intro.artwork.title" = "Contrôler la pochette";
 "ui.session.intro.artwork.body" = "Lorsqu’un morceau joue, utilisez ces gestes sur sa pochette. Il n’est pas nécessaire de les essayer maintenant.";
 "ui.session.intro.gesture.1" = "1× : pause ou lecture";
@@ -1445,16 +1445,16 @@
 // Native Session Forecast
 "ui.session.forecast.mode" = "Vue";
 "ui.session.forecast.flow" = "Flow";
-"ui.session.forecast.tab" = "Aperçu";
-"ui.session.forecast.title" = "Aperçu · env. 15 min";
+"ui.session.forecast.tab" = "Horizon";
+"ui.session.forecast.title" = "Horizon · env. 15 min";
 "ui.session.forecast.notice" = "Une direction pour les prochaines minutes. La musique et les interventions peuvent changer.";
-"ui.session.forecast.loading" = "Chargement de l’aperçu…";
-"ui.session.forecast.unavailable" = "Aucun aperçu actuel n’est disponible.";
+"ui.session.forecast.loading" = "Chargement de Horizon…";
+"ui.session.forecast.unavailable" = "Horizon est indisponible pour le moment.";
 "ui.session.forecast.source" = "Source";
 "ui.session.forecast.claim.current" = "En cours";
 "ui.session.forecast.claim.intention" = "Intention";
 "ui.session.forecast.claim.conditional_target" = "Objectif possible";
-"ui.session.forecast.search" = "Rechercher dans l’aperçu";
+"ui.session.forecast.search" = "Rechercher dans Horizon";
 // VibeCast rendezvous: routing preparation is distinct from display consent.
 "ui.rendezvous.scan" = "Scanner le code QR du téléviseur";
 "ui.rendezvous.choose" = "Choisissez votre Home Assistant associé. Seule son adresse d’affichage sera partagée avec ce téléviseur.";
@@ -1506,6 +1506,92 @@
 "ui.session.playback.speaker_question" = "Afficher les enceintes disponibles.";
 
 "ui.rendezvous.sending" = "Préparation de la connexion TV sécurisée…";
-"ui.rendezvous.accepted" = "L’adresse a été envoyée. Continuez sur le téléviseur et autorisez le partage dans Home Assistant.";
+"ui.rendezvous.accepted" = "L’adresse a été envoyée. Continuez sur le téléviseur et saisissez le code TV dans l’app pour confirmer le partage d’écran.";
 "ui.rendezvous.uncertain" = "Nous n’avons pas pu confirmer l’envoi de l’adresse. Vérifiez le téléviseur avant de réessayer.";
 "ui.rendezvous.repairNeeded" = "La connexion sécurisée n’a pas pu être préparée. Réessayez plus tard.";
+
+// VibeScape preview: ephemeral native visuals.
+"ui.vibescape.dynamics" = "Dynamique";
+"ui.vibescape.dynamics.auto" = "Auto";
+"ui.vibescape.dynamics.manual" = "Manuel";
+"ui.vibescape.dynamics.follow" = "Suivre l’intensité du titre";
+"ui.vibescape.calm" = "Calme";
+"ui.vibescape.intense" = "Intense";
+"ui.vibescape.follow" = "Suivre le DJ";
+"ui.vibescape.unavailable" = "Les visuels ne sont pas disponibles sur cet appareil.";
+"ui.vibescape.voice.unavailable" = "La commande vocale des visuels n’est pas encore disponible.";
+"ui.vibescape.voice.label" = "Parler des visuels";
+
+"ui.ask_dj.answer.delivery_unknown" = "Nous ne pouvons pas encore confirmer si ta question a été traitée. Consulte l’historique avant de la renvoyer.";
+"ui.ask_dj.answer.review_question" = "Vérifier la question";
+
+"ui.sources.current_playback" = "Informations sur la lecture en cours";
+
+"ui.session.history.search_all" = "Rechercher dans toutes les sessions et contributions";
+
+"ui.vibescape.help.title" = "Aide VibeScape";
+"ui.vibescape.help.touch" = "Touchez pour une réaction vive. Faites glisser le doigt ou la souris sur l’animation pour un effet fluide.";
+"ui.vibescape.help.intensity" = "Le curseur règle l’intensité manuellement. Réinitialiser réactive le suivi automatique ; sans intensité fiable du morceau, le réglage reste neutre.";
+"ui.vibescape.help.controls" = "Les commandes se masquent après quelques secondes. Touchez leur zone ou survolez-la pour les afficher.";
+
+"ui.vibescape.help.voice" = "Commandes vocales";
+"ui.vibescape.help.unavailable" = "Les commandes vocales sont actuellement indisponibles.";
+"ui.vibescape.voice.recording" = "Énoncez votre commande visuelle. Touchez à nouveau pour arrêter.";
+"ui.vibescape.voice.applied" = "Commande visuelle appliquée.";
+"ui.vibescape.voice.failed" = "La commande visuelle n’a pas pu être appliquée. Réessayez.";
+
+"ui.vibescape.help.loading" = "Chargement des commandes vocales…";
+"ui.vibescape.voice.stop" = "Arrêter l’enregistrement";
+
+"ui.session.shortcut.open" = "Ouvrir la session DJ";
+
+"ui.displayConsent.stop" = "Arrêter le partage d’écran";
+
+"ui.displayConsent.stopped" = "Le partage d’écran est arrêté. Votre session DJ continue.";
+
+"ui.displayConsent.stop_uncertain" = "L’arrêt du partage d’écran n’a pas été confirmé. Vérifiez l’écran avant de continuer.";
+
+"ui.rendezvous.tv_code" = "Saisir le code TV";
+
+"ui.rendezvous.tv_code_help" = "Un code est déjà affiché sur le téléviseur ? Saisissez-le ici et confirmez le partage d’écran pour votre session DJ active.";
+
+"ui.content.delete.failed" = "La contribution n’a pas pu être supprimée. Actualisez et réessayez.";
+
+"ui.content.delete.unconfirmed" = "La suppression de cette contribution n’est pas encore confirmée. Vérifiez son état avant de réessayer.";
+
+"ui.session.suggestion.match_mood" = "Mets une musique adaptée à l’ambiance de ma session";
+"watch.session.connect_phone" = "Gardez DJConnect ouvert sur votre iPhone pour connecter votre Watch.";
+"watch.session.retry" = "La session n’a pas pu être chargée. Touchez Actualiser pour réessayer.";
+"watch.session.pair_again" = "Jumelez à nouveau votre Watch via DJConnect sur votre iPhone.";
+"watch.session.expired" = "Votre session doit être actualisée. Touchez Actualiser.";
+"watch.session.check_outcome" = "Vérification de la session. Touchez Actualiser pour vérifier si la modification a été appliquée.";
+
+"ui.askdj.help.global.entry" = "Comment utiliser Ask DJ";
+
+"ui.askdj.help.session.entry" = "Aide pendant la session DJ";
+
+"ui.askdj.help.global.title" = "Que voulez-vous écouter ?";
+
+"ui.askdj.help.global.intro" = "Parlez à votre DJ avec vos propres mots. Demandez de la musique, faites des découvertes ou posez des questions.";
+
+"ui.askdj.help.global.footer" = "Une question ou un choix ne lance pas automatiquement la musique. La lecture nécessite une demande explicite ou une action de lecture confirmée.";
+
+"ui.askdj.help.session.title" = "Écoutez avec votre DJ";
+
+"ui.askdj.help.session.intro" = "Posez des questions sur ce que vous entendez et ce que votre DJ vous montre. Mood définit l’ambiance, Persona le style du récit et Présence la fréquence des interventions du DJ.";
+
+"ui.askdj.help.session.footer" = "Ton DJ utilise le contexte de conversation disponible. Tu confirmes ton choix avant que la musique démarre.";
+
+"ui.askdj.help.unavailable" = "Je ne peux pas confirmer les options musicales disponibles pour le moment. Vous pouvez toujours saisir votre question.";
+
+"ui.rendezvous.repair" = "Rétablir la liaison sécurisée";
+
+"ui.rendezvous.repairing" = "Rétablissement de la liaison sécurisée…";
+
+"ui.rendezvous.repaired" = "La liaison sécurisée a été rétablie. Scannez un nouveau QR code sur le téléviseur pour continuer. Aucune session n’est encore partagée.";
+
+"ui.rendezvous.repair_wait" = "Le rétablissement n’est pas confirmé ou n’est pas encore disponible. Patientez avant de réessayer. Vous pouvez aussi saisir le code du récepteur Home Assistant.";
+
+"ui.rendezvous.repair_paused" = "La liaison sécurisée reste en pause. Votre application et votre session DJ restent disponibles. Utilisez le code du récepteur Home Assistant pour associer cet écran.";
+
+"ui.session.moment.dj_bulletin" = "Bulletin du DJ";

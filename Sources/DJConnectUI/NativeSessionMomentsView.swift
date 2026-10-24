@@ -11,8 +11,8 @@ enum DJConnectAlbumArtworkLayout {
 }
 
 extension View {
-    func djSessionFrostedSurface(cornerRadius: CGFloat = DJConnectCardAppearance.cornerRadius, currentMomentBorder: Bool = false, mood: String? = nil) -> some View {
-        modifier(DJSessionGlassSurface(cornerRadius: cornerRadius, currentMomentBorder: currentMomentBorder, mood: mood))
+    func djSessionFrostedSurface(cornerRadius: CGFloat = DJConnectCardAppearance.cornerRadius, currentMomentBorder: Bool = false, mood: String? = nil, surfaceTint: Color? = nil) -> some View {
+        modifier(DJSessionGlassSurface(cornerRadius: cornerRadius, currentMomentBorder: currentMomentBorder, mood: mood, surfaceTint: surfaceTint))
     }
 
     func djAlbumArtworkGlassCard(artworkURL: URL? = nil) -> some View {
@@ -165,6 +165,7 @@ private struct DJSessionGlassSurface: ViewModifier {
     @Environment(\.currentMomentArtworkTint) private var artworkTint
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
+    @Environment(\.djConnectScrollingSurface) private var scrollingSurface
     @ViewBuilder func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         let tint = surfaceTint ?? (currentMomentBorder ? artworkTint : nil)
@@ -188,6 +189,8 @@ private struct DJSessionGlassSurface: ViewModifier {
         }
         if !glassEnabled || reduceTransparency {
             bordered.background(DJConnectGlassAppearance.opaqueSurface, in: shape)
+        } else if scrollingSurface {
+            bordered.background(DJConnectMaterial(.ultraThin), in: shape)
         } else if #available(iOS 26, macOS 26, watchOS 26, tvOS 26, *) {
             if let tint {
                 bordered.glassEffect(.regular.tint(tint.opacity(0.22)), in: shape)
@@ -209,10 +212,11 @@ private struct DJSessionGlassSurface: ViewModifier {
 struct DJSessionGlassGroup<Content: View>: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
+    @Environment(\.djConnectScrollingSurface) private var scrollingSurface
     let content: Content
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     var body: some View {
-        if #available(iOS 26, macOS 26, watchOS 26, tvOS 26, *), glassEnabled && !reduceTransparency {
+        if #available(iOS 26, macOS 26, watchOS 26, tvOS 26, *), glassEnabled && !reduceTransparency && !scrollingSurface {
             GlassEffectContainer(spacing: 0) { content }
         } else {
             content
@@ -377,7 +381,8 @@ struct NativeSessionMomentsView: View {
                 Text(text("ui.session.reconnecting")).font(.title2.weight(.semibold))
                     .accessibilityAddTraits(.isHeader)
             }
-        } else if session.runtimeState == "active", session.broadcast.playback?.state == "paused" {
+        } else if session.runtimeState == "active", session.broadcast.playback?.state == "paused",
+                  moment?.isSettingsConfirmation != true {
             VStack(alignment: .leading, spacing: 12) {
                 Image(systemName: "pause.circle.fill")
                     .font(.system(size: 36, weight: .medium))
@@ -578,14 +583,29 @@ struct NativeSessionMomentsView: View {
         }
     }
 
+    private var usesLargePlaybackTypography: Bool {
+        #if os(macOS)
+        true
+        #elseif os(iOS)
+        UIDevice.current.userInterfaceIdiom == .pad
+        #else
+        false
+        #endif
+    }
+
     private var musicDetails: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let playback = session.broadcast.playback {
                 if let title = playback.title, !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(title).font(.headline)
+                    Text(title).font(usesLargePlaybackTypography ? .title.bold() : .headline)
                 }
-                if let artist = playback.artist { Text(artist).foregroundStyle(.secondary) }
-                if let album = playback.album { Text(album).font(.caption).foregroundStyle(.secondary) }
+                if let artist = playback.artist {
+                    Text(artist).font(usesLargePlaybackTypography ? .title2 : .body).foregroundStyle(.secondary)
+                }
+                if let album = playback.album {
+                    Text(album).font(usesLargePlaybackTypography ? .body : .caption).foregroundStyle(.secondary)
+                }
+                if usesLargePlaybackTypography { Spacer(minLength: 0) }
                 if let duration = playback.durationMS, duration > 0, let position = playbackModel?.displayedSessionPositionMS(session) ?? playback.positionMS {
                     let current = max(0, min(position, duration))
                     ProgressView(value: Double(current), total: Double(duration))
@@ -597,7 +617,7 @@ struct NativeSessionMomentsView: View {
                         }
                         Spacer(minLength: 0)
                         Text("\(sessionPlaybackTime(current)) / \(sessionPlaybackTime(duration))")
-                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            .font((usesLargePlaybackTypography ? Font.body : .caption).monospacedDigit()).foregroundStyle(.secondary)
                             .accessibilityLabel(text("ui.session.music_duration"))
                             .accessibilityValue("\(sessionPlaybackTime(current)) / \(sessionPlaybackTime(duration))")
                     }
@@ -626,13 +646,13 @@ struct NativeSessionMomentsView: View {
                         .accessibilityValue(playbackModel?.currentPlaybackUsesLocalBluetooth == true ? "Bluetooth" : playbackModel?.currentPlaybackVolumePercent.map { "\($0)%" } ?? "-")
                         .accessibilityIdentifier("session-playback-volume")
                     }
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(usesLargePlaybackTypography ? .callout : .caption).foregroundStyle(.secondary)
                 }
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("session-music-details")
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: usesLargePlaybackTypography ? .infinity : nil, alignment: .topLeading)
     }
 }
 
@@ -791,8 +811,11 @@ private struct SessionCurrentColumns: Layout {
         }
         let (music, card, gap) = widths(.init(width: bounds.width, height: nil))
         subviews[0].place(at: bounds.origin, anchor: .topLeading, proposal: .init(width: music, height: nil))
+        // Give the details the full cover-row height so their progress/output
+        // group aligns with the bottom of the artwork. Natural text height still
+        // wins in sizeThatFits when long text or accessibility sizes need more room.
         subviews[1].place(at: CGPoint(x: bounds.minX + music + gap, y: bounds.minY), anchor: .topLeading,
-                          proposal: .init(width: card, height: nil))
+                          proposal: .init(width: card, height: bounds.height))
     }
 }
 
@@ -812,8 +835,11 @@ struct MomentCard: View {
                 SessionArtworkView(media: media, target: .moment(moment.id), audience: .current, language: language, model: model,
                     showsAttribution: moment.sourceAttribution?["provider"] != "Spotify" || moment.nativeSourceURLs.isEmpty)
             }
-            Text(kind).font(.caption.weight(.bold)).foregroundStyle(.secondary)
-            if !moment.title.isEmpty { Text(moment.title).font(.title2.bold()).accessibilityAddTraits(.isHeader) }
+            if moment.isBulletinV1 {
+                Label(kind, systemImage: "newspaper").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
+            } else { Text(kind).font(.caption.weight(.bold)).foregroundStyle(.secondary) }
+            if !moment.isBulletinV1 && !moment.title.isEmpty { Text(moment.title).font(.title2.bold()).accessibilityAddTraits(.isHeader) }
             Text(moment.content).font(.title3).fixedSize(horizontal: false, vertical: true)
             if let speech = presentation?.speech {
                 ForEach(speech.segments.filter { !(["dj", "primary_dj"].contains($0.speakerRole) && $0.text == moment.content) }.sorted { $0.ordinal < $1.ordinal }, id: \.ordinal) { segment in
@@ -836,9 +862,12 @@ struct MomentCard: View {
                 .accessibilityIdentifier("session-spotify-attribution")
             }
             ForEach(moment.nativeSourceURLs, id: \.absoluteString) { url in
-                Link(moment.sourceAttribution?["provider"] ?? url.host ?? "", destination: url)
+                let source = moment.isBulletinV1 ? moment.sources.first { $0.destination == url } : nil
+                let label = source?.attributionLabel ?? moment.sourceAttribution?["provider"] ?? url.host ?? ""
+                Link(label, destination: url)
                     .foregroundStyle(.white)
                     .tint(.white)
+                    .accessibilityLabel(source?.accessibilityLabel ?? label)
                     .accessibilityValue(url.absoluteString)
                     .accessibilityIdentifier("moment-source-" + url.absoluteString)
             }

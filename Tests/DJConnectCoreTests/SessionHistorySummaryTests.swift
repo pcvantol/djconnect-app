@@ -135,3 +135,19 @@ func historySummaryAllQualifiedMoodsUseLocalizedLabels(_ value: String) throws {
             DJConnectLocalization.localized(key: key, language: language)))
     }
 }
+
+@Test func historySourceLinksShowOnePreciseWikipediaCitation() {
+    let article = "https://en.wikipedia.org/wiki/Example"
+    let revision = "https://en.wikipedia.org/w/index.php?title=Example&oldid=123"
+    let other = "https://en.wikipedia.org/wiki/Other"
+    let musicBrainz = "https://musicbrainz.org/artist/example"
+    let urls = SessionSourceLinks.urls(playback: nil, sources: [
+        ["provider": "Wikipedia", "url": article],
+        ["provider": "Wikipedia", "url": article, "revision_url": revision],
+        ["provider": "Wikipedia", "url": other],
+        ["provider": "MusicBrainz", "url": musicBrainz]
+    ])
+    #expect(urls.map(\.absoluteString) == [revision, other, musicBrainz])
+    #expect(SessionSourceLinks.urls(playback: nil, sources: [["url": article, "revision_url": article]]).map(\.absoluteString) == [article])
+    #expect(SessionSourceLinks.urls(playback: article, sources: [["url": article, "revision_url": "javascript:bad"]]).map(\.absoluteString) == [article])
+}

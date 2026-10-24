@@ -1,0 +1,867 @@
+{
+  "schema_version": 1,
+  "catalogue_id": "ask_dj_examples_v1",
+  "revision": 1,
+  "language_families": [
+    "en",
+    "nl",
+    "de",
+    "fr",
+    "es"
+  ],
+  "required_contract": {
+    "ask_dj_examples": 1
+  },
+  "groups": [
+    {
+      "id": "play",
+      "order": 0,
+      "labels": {
+        "en": "Choose music",
+        "nl": "Muziek afspelen",
+        "de": "Musik auswählen",
+        "fr": "Choisir la musique",
+        "es": "Elegir música"
+      }
+    },
+    {
+      "id": "discover",
+      "order": 1,
+      "labels": {
+        "en": "Explore music",
+        "nl": "Muziek ontdekken",
+        "de": "Musik entdecken",
+        "fr": "Découvrir la musique",
+        "es": "Descubrir música"
+      }
+    },
+    {
+      "id": "listen",
+      "order": 2,
+      "labels": {
+        "en": "Listen together",
+        "nl": "Samen luisteren",
+        "de": "Gemeinsam hören",
+        "fr": "Écouter ensemble",
+        "es": "Escuchar juntos"
+      }
+    }
+  ],
+  "slot_labels": {
+    "artist": {
+      "en": "[artist]",
+      "nl": "[artiest]",
+      "de": "[Künstler]",
+      "fr": "[artiste]",
+      "es": "[artista]"
+    }
+  },
+  "intro": {
+    "en": "Ask in your own words. Here are a few ideas.",
+    "nl": "Vraag het gerust in je eigen woorden. Dit zijn een paar ideeën.",
+    "de": "Frag in deinen eigenen Worten. Hier sind ein paar Ideen.",
+    "fr": "Pose ta question avec tes mots. Voici quelques idées.",
+    "es": "Pregunta con tus propias palabras. Aquí tienes algunas ideas."
+  },
+  "unavailable": {
+    "en": "I cannot confirm the available music features right now. You can still type your question.",
+    "nl": "Ik kan de beschikbare muziekmogelijkheden nu niet bevestigen. Je kunt je vraag wel gewoon typen.",
+    "de": "Ich kann die verfügbaren Musikfunktionen gerade nicht bestätigen. Du kannst deine Frage weiterhin eingeben.",
+    "fr": "Je ne peux pas confirmer les fonctions musicales disponibles pour le moment. Tu peux toujours saisir ta question.",
+    "es": "Ahora no puedo confirmar las funciones musicales disponibles. Puedes seguir escribiendo tu pregunta."
+  },
+  "selection": {
+    "count": 3,
+    "preferred_contextual": 1,
+    "help_groups_maximum": 3,
+    "help_examples_per_group": 2,
+    "epochs": [
+      "surface_open",
+      "user_refresh",
+      "confirmed_context_or_capability_change"
+    ],
+    "never_epochs": [
+      "render",
+      "playback_position_tick",
+      "timer"
+    ],
+    "recent_ids_maximum": 6,
+    "offline": "no_executable_chips_keep_free_input",
+    "incompatible": "hide_catalogue_options_keep_free_input",
+    "invalidation": "withdraw_ineligible_options_without_rotating_remaining_while_editing_or_reading"
+  },
+  "excluded_until_separately_qualified": [
+    "natural_language_persona_change",
+    "natural_language_mood_change",
+    "natural_language_presence_change",
+    "music_dna_or_personal_recommendations_without_opt_in_and_evidence"
+  ],
+  "entries": [
+    {
+      "id": "play.artist",
+      "group": "play",
+      "intent": "play_music",
+      "route": "classify_ask_dj/play_music",
+      "templates": {
+        "en": "Play {artist}",
+        "nl": "Speel {artist}",
+        "de": "Spiele {artist}",
+        "fr": "Joue {artist}",
+        "es": "Reproduce {artist}"
+      },
+      "slots": [
+        "artist"
+      ],
+      "requires": [
+        "paired",
+        "online",
+        "backend_available",
+        "supports_search"
+      ],
+      "contracts": {},
+      "surfaces": [
+        "ask_dj",
+        "active_session"
+      ],
+      "contextual": false,
+      "help_rank": 1,
+      "publication": "candidate_v1",
+      "effect": "explicit_play",
+      "send": "existing_ask_dj_message_exact_prompt",
+      "safety": "normal_authorization_confirmations_and_provider_selection",
+      "qualification": {
+        "en": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "nl": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "de": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "fr": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "es": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        }
+      }
+    },
+    {
+      "id": "play.cooking",
+      "group": "play",
+      "intent": "play_music",
+      "route": "classify_ask_dj/play_music",
+      "templates": {
+        "en": "Play something for cooking",
+        "nl": "Speel iets voor tijdens het koken",
+        "de": "Spiel etwas zum Kochen",
+        "fr": "Mets quelque chose pour cuisiner",
+        "es": "Pon algo para cocinar"
+      },
+      "slots": [],
+      "requires": [
+        "paired",
+        "online",
+        "backend_available",
+        "supports_search",
+        "agent_available"
+      ],
+      "contracts": {},
+      "surfaces": [
+        "ask_dj",
+        "active_session"
+      ],
+      "contextual": false,
+      "help_rank": 2,
+      "publication": "candidate_v1",
+      "effect": "explicit_play",
+      "send": "existing_ask_dj_message_exact_prompt",
+      "safety": "normal_authorization_confirmations_and_provider_selection",
+      "qualification": {
+        "en": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "nl": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "de": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "fr": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "es": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        }
+      }
+    },
+    {
+      "id": "play.quiet",
+      "group": "play",
+      "intent": "play_music",
+      "route": "classify_ask_dj/play_music",
+      "templates": {
+        "en": "Put on a relaxing playlist",
+        "nl": "Zet een rustige playlist op",
+        "de": "Starte eine ruhige Playlist",
+        "fr": "Mets une playlist calme",
+        "es": "Pon una playlist tranquila"
+      },
+      "slots": [],
+      "requires": [
+        "paired",
+        "online",
+        "backend_available",
+        "supports_search",
+        "supports_playlists",
+        "spotify"
+      ],
+      "contracts": {},
+      "surfaces": [
+        "ask_dj",
+        "active_session"
+      ],
+      "contextual": false,
+      "help_rank": 3,
+      "publication": "candidate_v1",
+      "effect": "explicit_play",
+      "send": "existing_ask_dj_message_exact_prompt",
+      "safety": "normal_authorization_confirmations_and_provider_selection",
+      "qualification": {
+        "en": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "nl": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "de": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "fr": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "es": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        }
+      }
+    },
+    {
+      "id": "discover.artist_albums",
+      "group": "discover",
+      "intent": "artist_item_list",
+      "route": "classify_ask_dj/artist_item_list",
+      "templates": {
+        "en": "Show me albums by {artist}",
+        "nl": "Geef me albums van {artist}",
+        "de": "Zeig mir Alben von {artist}",
+        "fr": "Montre-moi les albums de {artist}",
+        "es": "Muéstrame álbumes de {artist}"
+      },
+      "slots": [
+        "artist"
+      ],
+      "requires": [
+        "paired",
+        "online",
+        "backend_available",
+        "supports_search",
+        "spotify"
+      ],
+      "contracts": {},
+      "surfaces": [
+        "ask_dj",
+        "active_session"
+      ],
+      "contextual": false,
+      "help_rank": 1,
+      "publication": "candidate_v1",
+      "effect": "read",
+      "send": "existing_ask_dj_message_exact_prompt",
+      "safety": "normal_authorization_confirmations_and_provider_selection",
+      "qualification": {
+        "en": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "nl": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "de": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "fr": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "es": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        }
+      }
+    },
+    {
+      "id": "discover.artist_tracks",
+      "group": "discover",
+      "intent": "artist_item_list",
+      "route": "classify_ask_dj/artist_item_list",
+      "templates": {
+        "en": "Give me 5 songs by {artist}",
+        "nl": "Geef me 5 nummers van {artist}",
+        "de": "Gib mir 5 Songs von {artist}",
+        "fr": "Donne-moi 5 titres de {artist}",
+        "es": "Dame 5 canciones de {artist}"
+      },
+      "slots": [
+        "artist"
+      ],
+      "requires": [
+        "paired",
+        "online",
+        "backend_available",
+        "supports_search",
+        "spotify"
+      ],
+      "contracts": {},
+      "surfaces": [
+        "ask_dj",
+        "active_session"
+      ],
+      "contextual": false,
+      "help_rank": 2,
+      "publication": "candidate_v1",
+      "effect": "read",
+      "send": "existing_ask_dj_message_exact_prompt",
+      "safety": "normal_authorization_confirmations_and_provider_selection",
+      "qualification": {
+        "en": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "nl": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "de": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "fr": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "es": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        }
+      }
+    },
+    {
+      "id": "discover.playlists",
+      "group": "discover",
+      "intent": "spotify_user_playlists",
+      "route": "classify_ask_dj/spotify_user_playlists",
+      "templates": {
+        "en": "Which playlists do I have?",
+        "nl": "Welke playlists heb ik?",
+        "de": "Welche Playlists habe ich?",
+        "fr": "Quelles playlists ai-je ?",
+        "es": "¿Qué playlists tengo?"
+      },
+      "slots": [],
+      "requires": [
+        "paired",
+        "online",
+        "backend_available",
+        "supports_playlists",
+        "spotify"
+      ],
+      "contracts": {},
+      "surfaces": [
+        "ask_dj",
+        "active_session"
+      ],
+      "contextual": false,
+      "help_rank": 3,
+      "publication": "candidate_v1",
+      "effect": "read",
+      "send": "existing_ask_dj_message_exact_prompt",
+      "safety": "normal_authorization_confirmations_and_provider_selection",
+      "qualification": {
+        "en": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "nl": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "de": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "fr": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "es": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        }
+      }
+    },
+    {
+      "id": "discover.recent",
+      "group": "discover",
+      "intent": "recently_played_history",
+      "route": "classify_ask_dj/recently_played_history",
+      "templates": {
+        "en": "Which songs did I play in the last hour?",
+        "nl": "Welke nummers heb ik afgelopen uur afgespeeld?",
+        "de": "Welche Songs habe ich in der letzten Stunde gehört?",
+        "fr": "Quels titres ai-je écoutés durant la dernière heure ?",
+        "es": "¿Qué canciones escuché en la última hora?"
+      },
+      "slots": [],
+      "requires": [
+        "paired",
+        "online",
+        "backend_available",
+        "supports_recently_played",
+        "spotify"
+      ],
+      "contracts": {},
+      "surfaces": [
+        "ask_dj",
+        "active_session"
+      ],
+      "contextual": false,
+      "help_rank": 4,
+      "publication": "candidate_v1",
+      "effect": "read",
+      "send": "existing_ask_dj_message_exact_prompt",
+      "safety": "normal_authorization_confirmations_and_provider_selection",
+      "qualification": {
+        "en": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "nl": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "de": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "fr": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "es": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        }
+      }
+    },
+    {
+      "id": "listen.current",
+      "group": "listen",
+      "intent": "current_track_reference",
+      "route": "observations/current_recording",
+      "templates": {
+        "en": "What is playing now?",
+        "nl": "Wat speelt er nu?",
+        "de": "Was läuft gerade?",
+        "fr": "Qu’est-ce qui passe maintenant ?",
+        "es": "¿Qué está sonando ahora?"
+      },
+      "slots": [],
+      "requires": [
+        "paired",
+        "online",
+        "backend_available",
+        "current_track"
+      ],
+      "contracts": {},
+      "surfaces": [
+        "ask_dj",
+        "active_session"
+      ],
+      "contextual": true,
+      "help_rank": 1,
+      "publication": "candidate_v1",
+      "effect": "read",
+      "send": "existing_ask_dj_message_exact_prompt",
+      "safety": "normal_authorization_confirmations_and_provider_selection",
+      "qualification": {
+        "en": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "nl": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "de": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "fr": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "es": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        }
+      }
+    },
+    {
+      "id": "listen.release",
+      "group": "listen",
+      "intent": "current_release_information",
+      "route": "observations/current_release",
+      "templates": {
+        "en": "When was this song released?",
+        "nl": "Wanneer is dit nummer uitgekomen?",
+        "de": "Wann wurde dieser Song veröffentlicht?",
+        "fr": "Quand ce titre est-il sorti ?",
+        "es": "¿Cuándo salió esta canción?"
+      },
+      "slots": [],
+      "requires": [
+        "paired",
+        "online",
+        "backend_available",
+        "current_track",
+        "spotify"
+      ],
+      "contracts": {},
+      "surfaces": [
+        "ask_dj",
+        "active_session"
+      ],
+      "contextual": true,
+      "help_rank": 2,
+      "publication": "candidate_v1",
+      "effect": "read",
+      "send": "existing_ask_dj_message_exact_prompt",
+      "safety": "normal_authorization_confirmations_and_provider_selection",
+      "qualification": {
+        "en": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "nl": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "de": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "fr": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "es": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        }
+      }
+    },
+    {
+      "id": "listen.artist",
+      "group": "listen",
+      "intent": "ask_music_info",
+      "route": "public_research/current_artist",
+      "templates": {
+        "en": "Tell me about this artist",
+        "nl": "Vertel iets over deze artiest",
+        "de": "Erzähl etwas über diesen Künstler",
+        "fr": "Parle-moi de cet artiste",
+        "es": "Cuéntame sobre este artista"
+      },
+      "slots": [],
+      "requires": [
+        "paired",
+        "online",
+        "backend_available",
+        "current_track",
+        "agent_available",
+        "spotify"
+      ],
+      "contracts": {},
+      "surfaces": [
+        "ask_dj",
+        "active_session"
+      ],
+      "contextual": true,
+      "help_rank": 3,
+      "publication": "candidate_v1",
+      "effect": "read",
+      "send": "existing_ask_dj_message_exact_prompt",
+      "safety": "normal_authorization_confirmations_and_provider_selection",
+      "qualification": {
+        "en": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "nl": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "de": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "fr": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "es": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        }
+      }
+    },
+    {
+      "id": "listen.album_tracks",
+      "group": "listen",
+      "intent": "album_tracks_information",
+      "route": "album_tracks/album_tracks_read",
+      "templates": {
+        "en": "Which other songs are on this album?",
+        "nl": "Welke nummers staan er nog meer op dit album?",
+        "de": "Welche anderen Songs sind auf diesem Album?",
+        "fr": "Quels autres titres figurent sur cet album ?",
+        "es": "¿Qué otras canciones hay en este álbum?"
+      },
+      "slots": [],
+      "requires": [
+        "paired",
+        "online",
+        "backend_available",
+        "current_track",
+        "current_album",
+        "supports_search",
+        "spotify"
+      ],
+      "contracts": {},
+      "surfaces": [
+        "ask_dj",
+        "active_session"
+      ],
+      "contextual": true,
+      "help_rank": 4,
+      "publication": "candidate_v1",
+      "effect": "read",
+      "send": "existing_ask_dj_message_exact_prompt",
+      "safety": "normal_authorization_confirmations_and_provider_selection",
+      "qualification": {
+        "en": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "nl": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "de": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "fr": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "es": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        }
+      }
+    },
+    {
+      "id": "listen.outputs",
+      "group": "listen",
+      "intent": "list_outputs",
+      "route": "classify_ask_dj/list_outputs",
+      "templates": {
+        "en": "Which speakers are available?",
+        "nl": "Welke speakers zijn er?",
+        "de": "Welche Speaker gibt es?",
+        "fr": "Quelles enceintes sont disponibles ?",
+        "es": "¿Qué altavoces hay?"
+      },
+      "slots": [],
+      "requires": [
+        "paired",
+        "online",
+        "backend_available",
+        "supports_outputs"
+      ],
+      "contracts": {},
+      "surfaces": [
+        "ask_dj",
+        "active_session"
+      ],
+      "contextual": false,
+      "help_rank": 10,
+      "publication": "candidate_v1",
+      "effect": "read",
+      "send": "existing_ask_dj_message_exact_prompt",
+      "safety": "normal_authorization_confirmations_and_provider_selection",
+      "qualification": {
+        "en": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "nl": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "de": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "fr": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "es": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        }
+      }
+    },
+    {
+      "id": "listen.queue",
+      "group": "listen",
+      "intent": "next_track_info",
+      "route": "observations/queue_read",
+      "templates": {
+        "en": "What is in the queue?",
+        "nl": "Wat staat er in de wachtrij?",
+        "de": "Was steht in der Warteschlange?",
+        "fr": "Qu’y a-t-il dans la file d’attente ?",
+        "es": "¿Qué hay en la cola?"
+      },
+      "slots": [],
+      "requires": [
+        "paired",
+        "online",
+        "backend_available",
+        "supports_queue"
+      ],
+      "contracts": {},
+      "surfaces": [
+        "ask_dj",
+        "active_session"
+      ],
+      "contextual": false,
+      "help_rank": 11,
+      "publication": "candidate_v1",
+      "effect": "read",
+      "send": "existing_ask_dj_message_exact_prompt",
+      "safety": "normal_authorization_confirmations_and_provider_selection",
+      "qualification": {
+        "en": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "nl": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "de": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "fr": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "es": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        }
+      }
+    },
+    {
+      "id": "listen.forecast",
+      "group": "listen",
+      "intent": "session_forecast_information",
+      "route": "observations/forecast_read",
+      "templates": {
+        "en": "Show the session forecast",
+        "nl": "Toon de vooruitblik",
+        "de": "Zeige den Ausblick",
+        "fr": "Montre l’aperçu",
+        "es": "Muestra el avance"
+      },
+      "slots": [],
+      "requires": [
+        "paired",
+        "online",
+        "backend_available",
+        "active_session",
+        "forecast_ready"
+      ],
+      "contracts": {
+        "session_forecast": 1
+      },
+      "surfaces": [
+        "ask_dj",
+        "active_session"
+      ],
+      "contextual": true,
+      "help_rank": 5,
+      "publication": "candidate_v1",
+      "effect": "read",
+      "send": "existing_ask_dj_message_exact_prompt",
+      "safety": "normal_authorization_confirmations_and_provider_selection",
+      "qualification": {
+        "en": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "nl": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "de": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "fr": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        },
+        "es": {
+          "state": "pending_owner_route_qualification",
+          "route": null
+        }
+      }
+    }
+  ],
+  "status": "draft_not_consumer_qualified",
+  "qualification_gate": "exact_rendered_prompt_through_normal_paired_owner_route_per_locale"
+}

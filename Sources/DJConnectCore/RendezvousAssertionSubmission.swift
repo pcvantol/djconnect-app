@@ -120,7 +120,7 @@ import DeviceCheck
         if occupied[key] == call { occupied.removeValue(forKey: key) }
     }
 }
-@MainActor private final class SystemRendezvousAssertionSDK: RendezvousAssertionSDK {
+@MainActor final class SystemRendezvousAssertionSDK: RendezvousAssertionSDK {
     private static let occupancy = RendezvousAssertionOccupancy()
     var isSupported: Bool {
         #if os(iOS) && canImport(DeviceCheck)
