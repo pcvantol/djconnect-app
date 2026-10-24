@@ -245,6 +245,12 @@ public enum DJConnectSessionSurfacePresentation {
     private static let requestedBuildKey = "DJConnectSessionSurface.requestedBuild.v2"
     private static let requestedActivityKey = "DJConnectSessionSurface.requestedActivity.v3"
     private static let dismissedKey = "DJConnectSessionSurface.dismissed.v3"
+    fileprivate static func ownsPushToken(presentationID: String, activityID: String, in defaults: UserDefaults) -> Bool {
+        defaults.string(forKey: "DJConnectSessionSurface.localPresentation") == presentationID &&
+            defaults.string(forKey: requestedKey) == presentationID &&
+            defaults.string(forKey: requestedActivityKey) == activityID &&
+            defaults.string(forKey: dismissedKey) != presentationID
+    }
     public static func canRequest(_ presentationID: String, build: String, in defaults: UserDefaults) -> Bool {
         guard defaults.string(forKey: dismissedKey) != presentationID else { return false }
         return defaults.string(forKey: requestedKey) != presentationID || defaults.string(forKey: requestedBuildKey) != build
@@ -334,6 +340,16 @@ public struct DJConnectActivityPushToken: Codable, Equatable, Sendable {
     public static func replace(_ value: Self?, in defaults: UserDefaults) throws {
         if let value { defaults.set(try JSONEncoder().encode(value), forKey: storageKey) }
         else { defaults.removeObject(forKey: storageKey) }
+    }
+    @discardableResult
+    public static func recordIfCurrent(_ value: Self, in defaults: UserDefaults) throws -> Bool {
+        // An old Activity's asynchronous token stream may still yield after its
+        // replacement starts. It must neither overwrite that target nor revive
+        // an ended/dismissed presentation. This is local custody, not a grant.
+        guard DJConnectSessionSurfacePresentation.ownsPushToken(
+            presentationID: value.presentationID, activityID: value.activityID, in: defaults) else { return false }
+        try replace(value, in: defaults)
+        return true
     }
     public static func load(from defaults: UserDefaults) -> Self? {
         guard let data = defaults.data(forKey: storageKey), data.count <= 8192,
