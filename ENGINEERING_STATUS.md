@@ -1,5 +1,36 @@
 # DJConnect App Engineering Status
 
+## 2026-10-24 — Necessary qualification repair / PR194
+
+[PR194](https://github.com/pcvantol/djconnect-app/pull/194) merged independently
+reviewed `c4515a9a0429e7d269cb15335a6b312f83f1933b` as `96122fe4be25795ea3a4d483e88a40c646ae1ad7`;
+both trees are `50d2e48f9481fb7b001b15d32e5b91af1e522229`.
+It repairs only the deletion test's active-read baseline, records the completed
+Help simulator qualification and clarifies the existing VibeCast implementation
+contract precedence. Product Sources/Apps/Help host/selector fixture are unchanged.
+
+Original Final193/main0b621e8 run40078612032 had ordinary CI SUCCESS but native
+coverage FAILURE (two baseline-ordering issues). That exact failure remains;
+it is not relabeled. Source194 is the necessary independently reviewed successor.
+Its own-main CI40081473653 and formal40082315411 qualified, with actual downloaded
+build/runner/coverage/formal artifacts, durable canonical integrity and12required
+checks independently verified. [Portable original receipt](docs/feedback/APPLE_194_QUALIFICATION_REPAIR_SOURCE_RECEIPT_20261024.json).
+
+The causal fixture holds the original active response, refuses a concurrent read
+without another request and requires the exact loaded revision before deletion.
+Local native results:1335total/1316passed/19skipped/0failed/parentexit0. The four
+iOS Help component tests passed, including20locale/surface/text-size variants;
+22screenshots and bothxcresults are preserved. The owned disposable simulator was
+removed afterward. Mac Help prestart failure, paired Help/Bulletin/VoiceOver,
+Core catalogue qualification, original clock repair and actual push/VibeCast
+acceptance remain open. Interface release permits selected VibeCast implementation;
+it does not supply bootstrap/native/effect authority.
+
+This separate documentary Finalization changes no compiled inputs and needs its
+own protected delivery. No ordinary build/version/install; Mac mini40450 observed
+today, other device versions remain historical. Original branches/worktrees and
+proofs are preserved. No new timer, paid call, real key or provider effect.
+
 ## 2026-10-24 — Reviewed source consolidation / PR192
 
 [PR192](https://github.com/pcvantol/djconnect-app/pull/192) merged reviewed
