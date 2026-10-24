@@ -1,0 +1,224 @@
+{
+  "baseline": "17d9d2224780e7e8445c43cb8246138cff5c5965",
+  "scope": "production native components with owned simulator fixture hosts; no paired, audio, permission, operator, provider or physical acceptance",
+  "clean_runs": {
+    "help-iphone-r1": {
+      "receipt_sha256": "74a887c13b71e534a6cd01a9038618d8f123bcb9312452a1727b349e0025ed9f",
+      "summary_sha256": "56c932befb0de037f4cf763786922c6cd3fb5d164ffd456f3a35b2233f9a3945",
+      "parent_exit": 0,
+      "tests": 4,
+      "failure_count": 0,
+      "skip_count": 0,
+      "source_hashes_equal": true,
+      "screenshots": 22,
+      "runtimeWarnings": []
+    },
+    "help-ipad-r2": {
+      "receipt_sha256": "db9fec436e9805d4074329113abe00efcbd35719de34883fc5caa0f5209d5f6b",
+      "summary_sha256": "56f83fee5767533e53dc9979a844f50a07c320026285459baf518133f716cdb3",
+      "parent_exit": 0,
+      "tests": 4,
+      "failure_count": 0,
+      "skip_count": 0,
+      "source_hashes_equal": true,
+      "screenshots": 22,
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Update the Info.plist: Support for all orientations will soon be required."
+        },
+        {
+          "issueType": "Runtime Warning",
+          "message": "Update the Info.plist: Support for all orientations will soon be required."
+        },
+        {
+          "issueType": "Runtime Warning",
+          "message": "Update the Info.plist: Support for all orientations will soon be required."
+        },
+        {
+          "issueType": "Runtime Warning",
+          "message": "Update the Info.plist: Support for all orientations will soon be required."
+        }
+      ]
+    },
+    "bulletin-iphone-r1": {
+      "receipt_sha256": "70849cccf1db0524c2cc25b9999db58bd911be10f27ca38d0f4cff2cc5a8a106",
+      "summary_sha256": "bc03567b61371feb10a686b649d4a757a1b93cf2aa606f946fcbbb240a9e5f1d",
+      "parent_exit": 0,
+      "tests": 3,
+      "failure_count": 0,
+      "skip_count": 0,
+      "source_hashes_equal": true,
+      "screenshots": 20,
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Adding '_UIGravityWellEffectAnchorView' as a subview of UIHostingController.view is not supported and may result in a broken view hierarchy. Add your view above UIHostingController.view in a common superview or insert it into your SwiftUI content in a UIViewRepresentable instead."
+        }
+      ]
+    },
+    "bulletin-ipad-r1": {
+      "receipt_sha256": "d43eda9b459886f16697fc24eb845fd192cf0df7179049bb0f45c361a70257f1",
+      "summary_sha256": "ec479ab2b2590ba0e66294b661f0e76f237f5e846ac687470b79db6a536a2a7f",
+      "parent_exit": 0,
+      "tests": 3,
+      "failure_count": 0,
+      "skip_count": 0,
+      "source_hashes_equal": true,
+      "screenshots": 20,
+      "runtimeWarnings": [
+        {
+          "issueType": "Runtime Warning",
+          "message": "Adding '_UIGravityWellEffectAnchorView' as a subview of UIHostingController.view is not supported and may result in a broken view hierarchy. Add your view above UIHostingController.view in a common superview or insert it into your SwiftUI content in a UIViewRepresentable instead."
+        },
+        {
+          "issueType": "Runtime Warning",
+          "message": "Update the Info.plist: Support for all orientations will soon be required."
+        },
+        {
+          "issueType": "Runtime Warning",
+          "message": "Update the Info.plist: Support for all orientations will soon be required."
+        },
+        {
+          "issueType": "Runtime Warning",
+          "message": "Update the Info.plist: Support for all orientations will soon be required."
+        }
+      ]
+    }
+  },
+  "original_anomaly_preserved": "help-ipad-r1: parent0/all4 assertions pass but original600s diagnostic shutdown anomaly retained separately; clean R2 does not rewrite it",
+  "visual_inspection": [
+    {
+      "run": "help-iphone-r1",
+      "scope": "native popover and accessibility reference initial viewport; scroll reachability not asserted by screenshots"
+    },
+    {
+      "run": "help-ipad-r2",
+      "scope": "native Session Help popover, three underlying stable suggestions, footer visible in normal viewport"
+    },
+    {
+      "run": "bulletin-ipad-r1",
+      "scope": "normal five-locale component representative NL view, ordinary Moment card, original attribution links"
+    },
+    {
+      "run": "bulletin-iphone-r1",
+      "scope": "NL light accessibility initial viewport of deliberately long synthetic producer narration; scroll/audible acceptance remains separate"
+    }
+  ],
+  "warnings_scope": "Original runtime warnings retained: UIKit internal gravity anchor during standard context menu; temporary iPad host orientation future-requirement warnings. No manual UIContextMenuInteraction/addSubview code was found in deletion component. No warning-free/whole-product claim.",
+  "actual_sdk_callback": {
+    "base_source": "339afb61313ec9841c29bf387d57f49f0dacd146",
+    "scope": "Actual production VibeScapeSpeechAuthorization default SFSpeechRecognizer SDK callback only; no VoiceControl/AppModel/recorder/recognizer task/network/physical-device claim",
+    "parent_exit": 0,
+    "source_hashes_equal": true,
+    "native_ui_tests": 1,
+    "failures": 0,
+    "skips": 0,
+    "runtime_warnings": [],
+    "requests": 2,
+    "actual_system_action": "Denied via Simulator SpringBoard Sta niet toe; second call cached denial; microphone status remains unchanged",
+    "originals": {
+      "receipt.json": "7aa2ef84f46a364654c5d8c463109879854131cc673713e211a94f35824a1868",
+      "summary.json": "cc920d38bbabe3484f6801f02946501d5aa08bb6f6905fcf13855565d03d9495",
+      "test.log": "bf2eecea35b9315adb8cceb52904afd90730417d64bae50ff346bd1234792b61"
+    },
+    "temporary_host_source_sha256": "9671a419e5e9598623230d121f89ca3596093d0b3e6095f0014e925ea2eef5ed",
+    "temporary_test_source_sha256": "3d05fb0826d1c6be13f70735f5ded1dc45ff63b03363b54de0a1d4eaca84f0e4",
+    "screenshot_sha256": "77f49134a4bd976293b0a4a5e12d94636b34b5253936cfc1153bb41c9ba64384"
+  },
+  "original_screenshot_hashes": {
+    "help-iphone-r1": {
+      "202CE12D-0AC2-4A59-A5FC-1DDD77D97EEB.png": "a3aec8b88017aa490712a61256d09e9ac7220b1d6c58f40e987bdb97be16493e",
+      "21CC9022-23FE-47AC-BF6A-84879129E46A.png": "396c4a6cdeb8c0d7846faa493a940e38ee8cc68a09b1045d8441e5cae1dd4725",
+      "29209854-3CAE-4FE0-9E9E-C5E453D64831.png": "50eb6b0c3a85ea3dfd232e2236afe770a9f687a4303d19a61a8c031f6010c8ca",
+      "293C9A58-770E-4650-AE32-1ED11CC74542.png": "216862552eef6a0d3dda1070d51585bf450824036ed4b08ba5c0427047197501",
+      "41B02982-6ECB-4A19-A065-4FBFD7BCCE45.png": "fdb84de4f60d0f980dfd86a55a664a76e215ae6d253cee871ff266c7733e6a93",
+      "52F6F4AD-2153-4C62-A44C-4E50288479B8.png": "35bb8377b442fc142aa9d1cc0d401aea5b973cb4aefc2319386aa03b42007116",
+      "548AE879-EA60-4D62-A3EE-83D22A440DA1.png": "0c28b3263823cfe212151bcc2ea0a2c450e788f9b6400654aed60915fc8a5508",
+      "57E3613D-3A24-43B9-8416-EEE23D5627FF.png": "426a60a30abbaf950540fbb319219246af70810936185599d5a0e7d58ef2e56c",
+      "685F19EC-D916-46E9-8889-CDA1E15F524C.png": "5a9e3d0d8fe183434d98793193537bee67b8da0352a9dc21887b39e9e241e7d2",
+      "783A5F17-F5F1-4FAC-8A7C-5F084040D139.png": "0218a02279e651547434a5c0f3e5c7fdfa0a528263b236bd6df0660c3c0a4d28",
+      "7A87098A-C3F6-4B1C-A9E6-CB8C3FBF0112.png": "dfdff7fe7ffe7223f638a1131adc343e87768f54a81082683a8180bc4076f852",
+      "90A69DA4-3E51-48A0-90F4-8C68D9CBAEC0.png": "135bb36e663a92a3ac29cc16f69c6174bc3914fe46503c756af7422acb3c65bc",
+      "9183E99A-58D9-4804-9FE7-2583188C625D.png": "d5fa38db17ad896b1af26d2492bc48c415358ce7771355be95a70cdee33bb533",
+      "A2A3BC98-4B07-4F37-B03C-6C1BF3AF0C29.png": "bcb35581c0f810744708db73aed9e12356c9bd5b1747db87d52a70b46b13040e",
+      "B980D57D-51D2-45B0-A79D-0A383B13F66E.png": "7ebc3c95195cac2559eed7b58b527c16864feaaf90993d887a624087f3b075d9",
+      "C1304E81-04E1-4097-9F17-465D663D242F.png": "f2f5067b0f966425358075638e7b24da0dd9cfbd245261ac67556a95d0eee920",
+      "C173A6EB-907B-44AE-8084-81AA49F815FA.png": "4ab174d3f7817ec8df4016fee40583e9da9bc92db475215a8ba9cf85c81175f4",
+      "C2745B7D-7817-41AB-9754-5BA892673FCC.png": "f5d85081a71bba20dfc44f5ce2b34ca8f9d800accc618321d53a825dc0c66a58",
+      "E51F110A-6688-41A2-8162-4F97FE37AE40.png": "f2e331518f8275450b9a9b24fe61eba3517e3235556ccda6022b56f55472ab17",
+      "EE21D4D7-A392-4543-8129-4BC929F45AA5.png": "4ebd1adb6cfeca838163b25386cf00d693aabb9230797c5a89c48f657a5244e6",
+      "F9620641-8CB9-49E8-BC4C-892ECA56F990.png": "197f9f9b84ff48ab7f80b026e35cb526060cc13fd4f684a78f462a53a05c366c",
+      "FE44E4EE-A83B-4815-9948-C0AD10729007.png": "da607a1701b0b79c6a548139dd62e5ee683a680a998062fc53a8c8b872ede826"
+    },
+    "help-ipad-r2": {
+      "00470B52-7346-4256-AE2E-8AEE6F7AECC4.png": "a31b96f162b1336b57d43b0722c6a957405bb12946bd8619828f41a80693f8dd",
+      "0108AF75-790A-42C7-B26B-8AA98DE72716.png": "7220077ec506fe966ff5ef7b53adeb80d596947ed0fea63593615016e4ec9416",
+      "0BB977C6-A356-447D-A0BE-008800FE05B9.png": "55ec6c647a746732923aca6bcc1f5ae6921cc271c5c6a1243d50e8906f6f2fa7",
+      "1539015E-0FDB-424E-B470-6AD9751620A2.png": "65a922764080716c12fed4ee025fa17f1713c713988dee01bf631d9d8c5e23ce",
+      "30EB4013-4900-471B-94FC-DFB4B8053519.png": "cfd8ffde3805225d5fc6200b7e905d81283601d23ad11672cf7957b743968895",
+      "32D74DE3-CBEA-47E3-AB08-9FC28BE1E51A.png": "f0e89eab7f3fbd8051cdb1e1ff1ac472a879ffafa4adef3dd2addc434a3db5ac",
+      "339C7AEE-C3D1-4C3D-9204-0D9D181F860F.png": "5005267c9353f5bea9686fbe421b71190612d03fb3d5b4df780e734a7a6e8b02",
+      "495E5065-E5ED-4D14-A238-FD01BA8B0E3F.png": "11d47b7b8b5dc5c0cf432f470dd1a0b2d16001b955dff4dfad294659f13e8840",
+      "514F0C03-9A54-4892-A4A4-39115A2F9E90.png": "35200d651d112ba8bcfae2617115b5074fe58566cda3b96040940517baa34657",
+      "5D812729-11BE-4D21-A91E-24AEEAF58B28.png": "149c985f230bba349cbefe8947e82b7fdbcc7701b42f778dc658a5c24cb0d585",
+      "67FE06A2-E75A-4D69-A6AA-04980060E961.png": "4eec475cebc453ab1f49228d264c32605c8ca777409bd9338148e9a343244f4a",
+      "70682F65-FFE5-4426-8A0F-E2844EA40899.png": "8ad0c88b0fc6aaf22abb3bbf86e86294a3b1d42f9c7e1a924be785a8a68d5e96",
+      "77DD4646-2A90-4DB2-AD9D-9D847B6D9E54.png": "9400b4b1d31aed6f843df8d082197484e98916a2028e66071465c0b117b324c8",
+      "791A4626-5F29-4961-B6F5-7FC07FD95D37.png": "87dc09c53456297f7aeb8e16c619c83cc0d18bddb30a6bc1ca1d89c8a790a909",
+      "81B629DA-82AE-4704-995D-62A39A9C636F.png": "53c238aee7e7a571a79f03e3afddd33442e7acf535b97481781e9e38f6315680",
+      "A239BE2C-78A8-44A0-B717-A6FFE0918B61.png": "8f707e7e05a8952d717f5f1673cc66fea116ea0657bb0421a707708f095d9f7f",
+      "B6F6C6EC-31AC-4272-8561-85554A862831.png": "0ee433b2b973dc53647b7ddf2592696ce8d97c6c329e965aa127392bf235eb9f",
+      "C1215D12-C181-4BDB-96E7-0C3D17F360EE.png": "db934d8a47235ac8c449736026c91fe7b535b17397268af6aa98dbdc8171a20d",
+      "C79BDE6A-E5E6-41A1-A75B-AB29D2C6C018.png": "ed6f4ab6b551613d177531e3d80f10b512e010cbeb769245f8762c772bff938b",
+      "CE67B883-8658-458A-8BC7-E37D933F3EFA.png": "5d540ae09266f00b757bc859fda5ef67cefe3a013bba30c67006e570f2497313",
+      "EB25E8AB-445A-4D23-B46A-CAD1BEDB1736.png": "b2f13ef774d0ccc26657d2f94c62bde6ca9287fbc4b7112672b86fe3c3659dd9",
+      "F487BD7A-1E56-40FC-B95E-1EAC55E63FF9.png": "e17b06b5d492f542bb5bad80f5510af408f091cf669855b4b84668c6bf39ea40"
+    },
+    "bulletin-iphone-r1": {
+      "0444F0C5-9752-45C1-A854-F247681D1BDC.png": "944740baa7c58f53a5c39fe340b45b58c418861a842443fae43872ed69112d91",
+      "04781F97-7AB9-4167-A839-EBCD9F9102C4.png": "014155a3f2b5d9cc0198b5b7b661e3f482807fd329e291359a4b42df3417c1bb",
+      "0CD60117-2075-4F6C-89D9-983A69AD610B.png": "4e10eaacde5c45c4bf9fed5b13a805891038a7dc40427edf12ec112226a0bc2f",
+      "39ACCE42-E54D-430B-9965-877B4A5EC6E5.png": "b5a60bacd31719fefc8b6edad787716f6288a435cf51fa9fc3d7b60453901cb3",
+      "3FC44463-7681-4781-A362-1D9F27624742.png": "264e0ea53bb2d5d4f43a49d4195acc1230315c91d94e72a2b91ad3db932a2348",
+      "48B9401F-66A1-4366-BBF4-43209BAFC8A1.png": "ef2ac7849b9a6835acd9d82ca5f8416c518ac96cb3ca7b4c26c5d09d3e85ad54",
+      "5E5565C8-C747-4D63-8742-7219BE78506E.png": "7b307e595f08deed2286c47c3c2e8a9b1ca1345a314a85e438e20cd796a2b6aa",
+      "702B4819-18BD-4294-92A5-EB4CB0169776.png": "8cf863c6226eb0b172e469b3ac89c7694e17841bc4501d725dff894fe9d2535a",
+      "765D8E5A-1939-47F8-8B49-6DCF822BC607.png": "2c9bad2c94859885fe4c0ada5f041bb42135c81358999a14f7bc3695cc68e655",
+      "7F8EB2C9-E4D2-40AB-AFA3-386661DDDAD1.png": "7fa07abfe021feea43b3b0822975aff5d202eb2e9c029af7a21e7696603e8c4d",
+      "8298D626-0425-4250-B2FA-711503F77AF1.png": "5a7f1e3f925c041d3aab0ec8ecc1063615bc4375050cf90fadd9a235cc05011f",
+      "84A90DDD-CDB9-4858-BB26-62A78A58BC34.png": "63fe48193c2e82223cdd88512dfac1c43e86a99be24a917cda8cbe73e2ac156c",
+      "92DF6552-E588-442C-9160-22BFD615BC0C.png": "5ecbbe4a7f4ad3621c938f0c9ba9858864e054a9de669d63b6f6815c2adda1cc",
+      "94342A95-DA7D-47E7-B7FC-A263CE14A8DA.png": "944740baa7c58f53a5c39fe340b45b58c418861a842443fae43872ed69112d91",
+      "95F9CF33-D5A0-44C9-9ACF-2CD502C8E82A.png": "fb4a3e542e04cbe1d155ce63fa0da18f57e0da6b11cde0a092b3525e0ce0f224",
+      "A67187EC-949B-4A15-B068-9B73A15E6C90.png": "9be7091b616fb2d9be99fdda98025714ca7de86b147d53220064f83a80001734",
+      "C31E069B-616F-4FAC-9878-F81E79AE9DC6.png": "0e438e984543d87d23ada082b2632e867e0822aaf59215d5e6e9a4f1681814a0",
+      "E28CC599-80E3-4956-A13D-D322F4630D2D.png": "f968b1bd21301b0967817e64cb7131547f14fb8a7e1604fef83d7cc1d4d6e1ee",
+      "E992331F-1852-41F1-98A7-8E9AFFA3CDD0.png": "db967a9dbb16db0d9786c104a3969d8591a29529dda98fb91fcc8e6179265f28",
+      "FBE64E37-F4B4-4515-9D56-3622CF18E9D2.png": "35d74b44d891db7243048cf30dcce9d450595eb894f8bb47b5467c665910fd85"
+    },
+    "bulletin-ipad-r1": {
+      "058587E5-C6C7-4B11-BA6E-6C6A778B9907.png": "9eefca805feb85c8845905cace09b08c20d34cbbcda4a85c98413778894d055a",
+      "0C05BA66-A25A-4546-B832-9E53D2ADEA1B.png": "8fd53c1c23eaaeb04bab6f9e9dfebec5ee865b97bdd5449c36c15e10fec9fc0b",
+      "1E40C130-8815-490C-AB5D-E9BA6AB38A3E.png": "b01d5ec90851c36c0ef2fd90427f9365a425da9bc450c93ee9d0ee558f7475c4",
+      "268C6210-1F85-436D-8852-F097DDF62AE2.png": "6d081865b2f808f3467b934d34bb8c8f687ca8e87797d583006c84bce31e4277",
+      "376F863E-7D40-4858-8C00-509E9A0F944C.png": "fd79423b2ea49fbfe891fcd5095ddc9a710efa84a1fd1136a158bc7eca830a17",
+      "394872BE-FE5E-4BE7-A192-3C07DA9CB22C.png": "b2d95fc4f23e1ea8e67e120b40a4192d13dae93150f0d540a78a42f4ef8b29ed",
+      "3EB20210-F466-4CE8-9F54-51A513DB15D8.png": "a66a7e3890b091267283092b0c1cb3187b5c2f813de3f9f840836f7ddb8ce02d",
+      "451341A7-9ADD-40C9-B10D-74B895999D66.png": "96c39f5741acaaa99d7bd3bfa7833ace558599d05c694b53998c1297125f8458",
+      "467BC66F-54F7-4D09-857B-0CDB77E1A2B5.png": "1e7d7bdd6785ea7f648b8d0ced48d694a486270f12a58e93ebbf0b96ead54f0e",
+      "4AB707B7-DA62-4F28-8F78-73C303242745.png": "6eaa898207b8bdf0db55ff2fb5c4747f0a94de8903fed1b4aa5d30045cb48441",
+      "4E8A8AB8-9D3D-4F29-9E50-2F68A9BE3F61.png": "5b400462bf3914548dea31b1b83aba07ba54575a183e6d8e1cebf5745579d04d",
+      "5236A8DF-703A-4B90-BEB8-55E09A7C7F9F.png": "288ecb52f886dacb3ef54089c62b1a5a4ae4084b483c64d4efc1aca314a04641",
+      "55A911DD-9769-488D-A8F8-68D3A1D26851.png": "f08988f51525d2e2c3cacc825660669b1c3b500618d249b57f7c765a51ce46a6",
+      "6741DC0E-1F33-4D02-8677-9C9C7D60871C.png": "dcae47efd4c52099cde7ab128bf436640c3f098cc8ce177b01a1104a0b6632ff",
+      "82D6CE26-589C-43F8-9F9F-4E148AD5D00A.png": "9ccb02fddee974894a41eb28562e5c5a8e453b67a4881048e2be97b14c4bb581",
+      "85573BDF-B897-423E-AC9C-6C326517C2BD.png": "70ef4c8eb81d21c64c1a1b8f9f9cd2edbb1472d5a40028383f04f3a9510fe5c5",
+      "B9CF409C-B3A7-4112-B892-E3F0355C1CB0.png": "bd5da421dee9801c1eb580488f9868be2388fe2108bfbb8c2ec6c80de9250513",
+      "C569EABA-71FE-4C90-9764-71A84DB9B986.png": "8a8ae649b97c278ab8fc3dc51d230b0739891c3e8090c83165c2a8b939cbbcbf",
+      "E343FD8C-60A1-4B00-92F4-3484F08CD537.png": "72fa3bdb27588bb72438111df6d63d49c396e73f8f93262a46b4b73196931b8d",
+      "FC1F1266-80BE-485E-B9DA-6A69CE106BBD.png": "72fa3bdb27588bb72438111df6d63d49c396e73f8f93262a46b4b73196931b8d"
+    }
+  },
+  "scope_note": "14 native UI component test cases on baseline17d9 plus1 actual SDK callback test case on339; original manifests/results/temporary hosts retained outside repository. Only representative screenshots visually inspected; all84 screenshot bytes hashed. No whole application/native audio/physical acceptance."
+}

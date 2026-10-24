@@ -1,0 +1,32 @@
+{
+  "at": "2026-10-24T18:06:26.636221+00:00",
+  "scope": "read-only installed Mac bundle metadata/entitlements; no app launch, registration, provider or runtime acceptance",
+  "format_note": "First read without --xml could not be parsed; no entitlement absence inferred",
+  "bundles": [
+    {
+      "path": "/Applications/DJConnect.app",
+      "bundle_id": "dev.djconnect.mac",
+      "version": "40450",
+      "aps_environment": "development",
+      "application_groups": [
+        "group.dev.djconnect"
+      ],
+      "signed_entitlements_sha256": "6dd6760285d8a0b7980e71c0ab985e13e89db48183747c3be70f22086ff2fbd3"
+    },
+    {
+      "path": "/Applications/DJConnect.app/Contents/PlugIns/TrackInsightWidget.appex",
+      "bundle_id": "dev.djconnect.mac.track-insight-widget",
+      "version": "40450",
+      "aps_environment": "development",
+      "application_groups": [
+        "group.dev.djconnect"
+      ],
+      "signed_entitlements_sha256": "daee635f517ac06016c58e96d1c560aa2bf314e814257cb06173b1fe4f2ffbc2"
+    }
+  ],
+  "strict_bundle_signature_check": {
+    "at": "2026-10-24T18:23:36.558781+00:00",
+    "exit": 0,
+    "scope": "installed bundle strict/deep signature check only; no runtime/push/registration acceptance"
+  }
+}
