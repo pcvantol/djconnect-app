@@ -303,5 +303,16 @@
       "log_sha256": "a5466330638e3c604bbfc1db6ca86370763ed959f8902842a0e91d117acdc4bb"
     }
   },
-  "snapshot_scope": "iPhone component view/host/test bytes match final, but predates model-only unresolved-turn guard and fake A/B fixture correction; final exact native coverage separately1283/29 plus86XCTest. iPad source component snapshot predates later README prose only. Original diagnostic/initial native failure retained."
+  "snapshot_scope": "iPhone component view/host/test bytes match final, but its captured inputs predate the later SessionHistoryModel unresolved-turn guard, SessionHistoryContractTests A/B destination-fixture correction and README prose. iPad captured inputs differ from final reviewed79eec4d in both SessionHistoryContractTests.swift (that package fixture correction) and contribution-exploration/README.md; its production component and isolated host/UI-test bytes remain unchanged. Neither earlier component run is exact final whole-input proof. Final exact native coverage separately1283/29 plus86XCTest; original diagnostic/initial native failure retained.",
+  "captured_input_differences_vs_reviewed_source": {
+    "exploration-iphone-native-r3": [
+      "Tools/qualification/contribution-exploration/README.md",
+      "Sources/DJConnectUI/DJConnectSessionHistoryModel.swift",
+      "Tests/DJConnectCoreTests/SessionHistoryContractTests.swift"
+    ],
+    "exploration-ipad-native-r3": [
+      "Tools/qualification/contribution-exploration/README.md",
+      "Tests/DJConnectCoreTests/SessionHistoryContractTests.swift"
+    ]
+  }
 }
