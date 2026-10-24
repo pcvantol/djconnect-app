@@ -231,7 +231,7 @@ Conventies:
 - Workflowstappen zijn expliciet benoemd en scheiden CI van public unsigned
   releasepublicatie.
 - De firmware-CodeQL-workflow houdt `init`, `autobuild` en `analyze` samen op
-  CodeQL Action `4.38.0`, telkens gepind op dezelfde immutable commit.
+  CodeQL Action `4.39.0`, telkens gepind op dezelfde immutable commit.
 - De TDE-observatieworkflow maakt in `RUNNER_TEMP` een geïsoleerde Python 3.11-
   venv met `-S`, zodat de TDE-runtime niet blokkeert op of schrijft naar de
   gedeelde PlatformIO-Pythonomgeving van de self-hosted Apple-runner.
@@ -325,7 +325,7 @@ vastlegt, staat "niet gepind".
 | Xcode / xcodebuild | Project build, archive, test, signing | Niet gepind in repo | Apple Developer tools terms | <https://developer.apple.com/xcode/> |
 | XcodeGen | Genereert Xcode project uit `project.yml` | Niet gepind in repo | MIT License | <https://github.com/yonaskolb/XcodeGen> |
 | GitHub Actions | CI en unsigned public release artifacts | Workflowversies niet centraal gepind | GitHub Terms of Service | <https://github.com/features/actions> |
-| GitHub CodeQL Action | C/C++ security analysis voor tracked firmware source | `4.38.0` (`b96794f015dfd88f77b49b1c93e0fa7110f94c63`) | Upstream license en notices | <https://github.com/github/codeql-action> |
+| GitHub CodeQL Action | C/C++ security analysis voor tracked firmware source | `4.39.0` (`6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee`) | Upstream license en notices | <https://github.com/github/codeql-action> |
 | GitHub CLI (`gh`) | Release- en cleanup-scripts | Niet gepind in repo | MIT License | <https://github.com/cli/cli> |
 | Apple notarytool | macOS notarization releaseflow | Xcode toolchain | Apple Developer tools terms | <https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution> |
 
