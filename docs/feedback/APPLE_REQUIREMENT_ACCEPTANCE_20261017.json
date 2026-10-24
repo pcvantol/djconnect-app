@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "as_of": "2026-10-24; source192 protected merged and own-main qualified; device-free work resumed; physical/product boundaries retained",
+  "as_of": "2026-10-24; protected source194 necessary qualification repair independently own-main qualified; original193 coverage failure preserved; physical/device-free boundaries explicit",
   "owning_lane": "https://github.com/pcvantol/djconnect-app/issues/87",
   "baseline": "24October: protected source192/main5015bba qualified with exact original artifacts and durable evidence. No new ordinary installation; local Mac mini40450 observed today; other device versions remain historical.",
-  "source_head": "5015bba447f86bb1a598c016e213cdbf4e955297 (protected source192; this separate documentary Finalization pending own delivery)",
+  "source_head": "96122fe4be25795ea3a4d483e88a40c646ae1ad7 (protected194; separate documentaryFinal pending own delivery)",
   "status_semantics": {
     "CLOSED_BOUNDED": "Functionele implementatie/expliciet benoemde bewijslevering afgerond binnen de genoemde bewijsgrens; geen sluiting van parentproduct, bronPR of nativejointacceptatie.",
     "SUPERSEDED": "Vervangen door latere directe ownerbeslissing; niet opnieuw bouwen.",
@@ -282,7 +282,7 @@
       "requirement": "VibeCast QR→gekozen bestaande HA→enige HA6digitdisplayapproval",
       "status": "BLOCKED",
       "source": "https://github.com/pcvantol/djconnect-app/issues/87#issuecomment-6224544732",
-      "evidence": "Ownerroute beslist: geen aanvullende code/nieuwepairing; copiedQR-keuze geaccepteerd. API94freshhead250be2f blijft0.4draft. 20261022 Apple source review: docs/feedback/APPLE_VIBECAST_APP_CONNECTION_20261022.md. Mac and iOS share Core B consent with actual identity; targeted display revoke, QR system Paste and explicit TV-code continuation added. Ordinary native A stops before I/O; exact finite admission preserved. New test source added but not compiled/run, per owner no-build instruction. API/Core coordination explicitly authorized and sent to existing writers.",
+      "evidence": "Ownerroute beslist: geen aanvullende code/nieuwepairing; copiedQR-keuze geaccepteerd. API94freshhead250be2f blijft0.4draft. 20261022 Apple source review: docs/feedback/APPLE_VIBECAST_APP_CONNECTION_20261022.md. Mac and iOS share Core B consent with actual identity; targeted display revoke, QR system Paste and explicit TV-code continuation added. Ordinary native A stops before I/O; exact finite admission preserved. New test source added but not compiled/run, per owner no-build instruction. API/Core coordination explicitly authorized and sent to existing writers. Current6APIcontractblobs69ed0fd equal9ab24315; explicitimplementationrelease selects source/wire semantics and supersedes historicaldraftlabels onlywithin its scope. docs/VIBECAST_HANDLE_JOURNAL_COMPOSITION.md current24Octreadback. No bootstrap/native/effectgrant orwholefactoryclaim.",
       "remaining": "Exact API/native execution admission and complete source review response; implementation source release is not public activation. Explicit owner build request before compilation/signing/install; then genuine phone/HA/receiver/TV acceptance, including targeted revoke and unknown outcomes. Explicit recovery/replacement/rollover product orchestration and independent source review remain open; no automatic repair or new key. Approved-screen stop is scoped to the current foreground form; no persisted display-management inventory."
     },
     {
@@ -314,8 +314,8 @@
       "requirement": "Onafhankelijke review/beschermde bronPR en aparte Finalization",
       "status": "PARTIAL",
       "source": "Bestaande Appleproductgovernance",
-      "evidence": "PR111 protected squash merge b47d17a3; reviewed head0688cf6 and main have exact tree422cf117. All premerge checks/Owner Authorization PASS; portable784tests89.368s/native784tests82.596s and unsigned Applebuilds PASS. Main CI39061192756 including native coverage PASS; formal run39061762379 refused unqualified evidence before publication; original WIP recovery verified. 24October source192: reviewed ef05b37 protected merged5015bba/equal treec12ea33; own-main CI/coverage40075625014 and formal40076439775 qualified; original artifacts/durable integrity/12checks verified. docs/feedback/APPLE_CONSOLIDATION_192_SOURCE_RECEIPT_20261024.json",
-      "remaining": "Source192 bounded delivery qualified. This separate documentary Finalization still needs own protected merge/readback; native/device/provider product acceptance remains separate."
+      "evidence": "PR111 protected squash merge b47d17a3; reviewed head0688cf6 and main have exact tree422cf117. All premerge checks/Owner Authorization PASS; portable784tests89.368s/native784tests82.596s and unsigned Applebuilds PASS. Main CI39061192756 including native coverage PASS; formal run39061762379 refused unqualified evidence before publication; original WIP recovery verified. 24October source192: reviewed ef05b37 protected merged5015bba/equal treec12ea33; own-main CI/coverage40075625014 and formal40076439775 qualified; original artifacts/durable integrity/12checks verified. docs/feedback/APPLE_CONSOLIDATION_192_SOURCE_RECEIPT_20261024.json Necessary194 qualified successor: c4515a9 protected96122fe/tree50d2e48; exact independent review and own-main coverage/artifact/formal/durable joinsPASS. Original193/main0b coverageFAILED preserved; ordinaryCI wasSUCCESS. docs/feedback/APPLE_194_QUALIFICATION_REPAIR_SOURCE_RECEIPT_20261024.json",
+      "remaining": "This separate documentaryFinal still needs own protected merge/readback. Qualified194 reconciles the necessary source repair; original193 is not retroactivePASS. Original product/native/provider acceptance remains separate."
     },
     {
       "id": "passive-automatic-ui",
