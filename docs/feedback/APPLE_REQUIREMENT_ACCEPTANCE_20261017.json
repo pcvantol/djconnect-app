@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "as_of": "25October Source206/207 original-qualified; device-free source/component evidence; separate documentary Final pending own delivery",
+  "as_of": "25October Source209 original test-readiness qualification; historical Final208 failed; separate documentary Final pending own delivery",
   "owning_lane": "https://github.com/pcvantol/djconnect-app/issues/87",
   "baseline": "24October fresh read-only Mac mini40450 parent+widget metadata: development APS/group.dev.djconnect, strict/deep signaturePASS; no new ordinary build/install/runtime claim. Other device versions remain historical.",
-  "source_head": "1b01b1990e266d37fd8e29b2ec7a93ac3b16943a (protected207; Source206 originally qualified; separate documentary Final only)",
+  "source_head": "dcf476f7dd2943c47acb82d74b234138e040e41f (originally qualified test-only209; historical208failed; separate documentary Final only)",
   "status_semantics": {
     "CLOSED_BOUNDED": "Functionele implementatie/expliciet benoemde bewijslevering afgerond binnen de genoemde bewijsgrens; geen sluiting van parentproduct, bronPR of nativejointacceptatie.",
     "SUPERSEDED": "Vervangen door latere directe ownerbeslissing; niet opnieuw bouwen.",
@@ -14,7 +14,7 @@
   },
   "counts": {
     "BLOCKED": 4,
-    "CLOSED_BOUNDED": 28,
+    "CLOSED_BOUNDED": 29,
     "OPEN": 4,
     "PARKED": 1,
     "PARTIAL": 45,
@@ -746,6 +746,14 @@
       "remaining": "Only qualified bounded source consumer adoption closes. Actual HA deployment/Planner publication/shared native display, real speech/output/RSS/provider/audio and physical product acceptance remain separate.",
       "requirement": "Exact Core1328 shared Bulletin display consumer",
       "source": "Direct owner: all device-free lane work, simulators and normal protected merges; Apple150/182 and visual permission request"
+    },
+    {
+      "id": "exploration-recovery-readiness-qualification-20261025",
+      "status": "CLOSED_BOUNDED",
+      "evidence": "Source209 reviewed93c55ac/protecteddcf476f7dd2943c47acb82d74b234138e040e41f new original CI/formal/durable12 qualified; complete1286/29+86XCT/five skips/zero failures. Actual B-tail/capability readiness replaces premature test assertion; source/destination, draft, reading and same UUID/uncertain retry checks retained. APPLE_EXPLORATION_READINESS_209_SOURCE_RECEIPT_20261025.json. Original Final208 coverage failure remains failure.",
+      "remaining": "Only this qualification-test repair and its exact new source evidence close. No production/push/provider/model/audio/physical/Mac UI or general flake-free/whole-product acceptance; all prior gates and old statuses remain.",
+      "requirement": "Wait for original current-B recovery before archive-A action test",
+      "source": "Direct owner device-free lane task; original Final208 main failure"
     }
   ],
   "execution_feedback_40258": {
