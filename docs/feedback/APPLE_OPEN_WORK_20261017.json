@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "as_of": "25October Source206/207 original-qualified; device-free source/component evidence; separate documentary Final pending own delivery",
+  "as_of": "25October Source209 original test-readiness qualification; historical Final208 failed; separate documentary Final pending own delivery",
   "owning_lane": "https://github.com/pcvantol/djconnect-app/issues/87",
   "writer": "Existing sole Apple writer; no second Apple writer, Core/API/receiver mutation or WIP reset",
-  "head": "1b01b1990e266d37fd8e29b2ec7a93ac3b16943a (protected207; documentary Final changes no source/test/tool bytes)",
+  "head": "dcf476f7dd2943c47acb82d74b234138e040e41f (protected test-only Source209; documentary Final changes no compiled/tool input)",
   "installed_baseline": "24October fresh read-only Mac mini40450 parent+widget metadata: development APS/group.dev.djconnect, strict/deep signaturePASS; no new ordinary build/install/runtime claim. Other device versions remain historical.",
   "items": [
     {
@@ -656,6 +656,14 @@
       "remaining": "Only qualified bounded source consumer adoption closes. Actual HA deployment/Planner publication/shared native display, real speech/output/RSS/provider/audio and physical product acceptance remain separate.",
       "topic": "Exact Core1328 shared Bulletin display consumer",
       "owner": "Apple"
+    },
+    {
+      "id": "exploration-recovery-readiness-qualification-20261025",
+      "status": "CLOSED_BOUNDED",
+      "evidence": "Source209 reviewed93c55ac/protecteddcf476f7dd2943c47acb82d74b234138e040e41f new original CI/formal/durable12 qualified; complete1286/29+86XCT/five skips/zero failures. Actual B-tail/capability readiness replaces premature test assertion; source/destination, draft, reading and same UUID/uncertain retry checks retained. APPLE_EXPLORATION_READINESS_209_SOURCE_RECEIPT_20261025.json. Original Final208 coverage failure remains failure.",
+      "remaining": "Only this qualification-test repair and its exact new source evidence close. No production/push/provider/model/audio/physical/Mac UI or general flake-free/whole-product acceptance; all prior gates and old statuses remain.",
+      "topic": "Bounded native exploration test readiness repair",
+      "owner": "Apple"
     }
   ],
   "qualification": {
@@ -894,6 +902,30 @@
         }
       },
       "note": "Prior receipts/installed status remain historical; no old requirement status rewritten."
+    },
+    {
+      "as_of": "2026-10-25T00:07:28.799534+00:00",
+      "kind": "prior_current_fields_before_209_readiness_final",
+      "record": {
+        "as_of": "25October Source206/207 original-qualified; device-free source/component evidence; separate documentary Final pending own delivery",
+        "head": "1b01b1990e266d37fd8e29b2ec7a93ac3b16943a (protected207; documentary Final changes no source/test/tool bytes)",
+        "head_role": "Original Source206/207 qualified, no ordinary installation or new product authority.",
+        "current_qualification": {
+          "source_prs": [
+            206,
+            207
+          ],
+          "source_main": "1b01b1990e266d37fd8e29b2ec7a93ac3b16943a",
+          "source_receipts": [
+            "APPLE_EXPLORATION_206_SOURCE_RECEIPT_20261025.json",
+            "APPLE_VISUAL_BULLETIN_207_SOURCE_RECEIPT_20261025.json"
+          ],
+          "native_component_receipt": "APPLE_VISUAL_CONTROLS_NATIVE_20261025.json",
+          "installation": "NO_NEW_INSTALL",
+          "product_acceptance": "PARTIAL; explicit producer/physical/paired/Mac gates remain"
+        }
+      },
+      "note": "Historical208 original failure remains explicit; no prior status rewritten."
     }
   ],
   "execution_feedback_40258": {
@@ -956,20 +988,15 @@
     "original_wip": "Both original checkouts now clean main; 18/155 WIP paths preserved in independently hash-verified archives and Git stashes; excluded experiments retained",
     "source_main_ci": "PASS with native coverage; independently verified artifact digests and embedded exact main SHA"
   },
-  "head_role": "Original Source206/207 qualified, no ordinary installation or new product authority.",
+  "head_role": "Source209 new original qualified SHA; Source208 historical original failure not promoted; Source206/207 retain only own scopes.",
   "current_qualification": {
-    "source_prs": [
-      206,
-      207
-    ],
-    "source_main": "1b01b1990e266d37fd8e29b2ec7a93ac3b16943a",
-    "source_receipts": [
-      "APPLE_EXPLORATION_206_SOURCE_RECEIPT_20261025.json",
-      "APPLE_VISUAL_BULLETIN_207_SOURCE_RECEIPT_20261025.json"
-    ],
-    "native_component_receipt": "APPLE_VISUAL_CONTROLS_NATIVE_20261025.json",
+    "source_pr": 209,
+    "source_main": "dcf476f7dd2943c47acb82d74b234138e040e41f",
+    "source_receipt": "APPLE_EXPLORATION_READINESS_209_SOURCE_RECEIPT_20261025.json",
+    "historical_final208": "NOT_ORIGINALLY_QUALIFIED",
+    "production_code": "UNCHANGED_FROM_SOURCE207",
     "installation": "NO_NEW_INSTALL",
-    "product_acceptance": "PARTIAL; explicit producer/physical/paired/Mac gates remain"
+    "product_acceptance": "PARTIAL; previous gates retained"
   },
   "qualification_40312": {
     "build": "40312",

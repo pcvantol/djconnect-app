@@ -1,3 +1,43 @@
+## 2026-10-25 — Original native readiness repair / Source209
+
+Documentary Final208 remains historically NOT_ORIGINALLY_QUALIFIED: main
+`187a2235193004c0467f7c76e1843de85113f772` passed regular tests/builds, but its
+original coverage job121014859857 failed three active-session exploration
+assertions; CI40141786057 failed and formal40142687012 was skipped. That run
+is preserved as failed, not retried or relabeled. Source206/207 retain only their
+own previously established original scopes and receipts.
+
+Test-only Source209 merged reviewed `93c55ac3adae47f929d5b0250ee9e94449d93582`
+as `dcf476f7dd2943c47acb82d74b234138e040e41f` and is now originally own-main qualified.
+Its actual CI/formal/durable12 and original1286/29 plus86XCTest/five skips/zero
+failures are in the [portable source receipt](docs/feedback/APPLE_EXPLORATION_READINESS_209_SOURCE_RECEIPT_20261025.json).
+The test now awaits original current-B retained tail and finished capability
+preparation before exercising archive A. The original failed log explicitly
+shows preparing=true/descriptor=nil with the same valid owner and epoch.
+No production guard, Profile/model/provider logic, source/destination, draft,
+reading position, UUID or uncertain retry assertion is relaxed. Production,
+Apps, Tools and project/package bytes remain equal to qualified Source207.
+
+Final focused2cases and full1286/29serial tests passed; diagnostic parents and
+input snapshots remain separate. The delayed pre-barrier focused PASS is not a
+native reproduction; a first readiness barrier failed on an unnecessary initial
+English assumption. The final readiness predicate makes no such assumption and
+the original Dutch action assertion remains. No whole-product/native UI/audio,
+physical or backend acceptance is derived from these contract tests.
+
+This separate documentary Final changes no source/test/tool/app/project/package
+input and requires its own exact independent review, normal merge and original
+main qualification. All prior status bodies and all old work/requirement rows
+remain unchanged; one new row closes only this bounded qualification repair.
+No ordinary version/install, actual push/Activity rights, qualified new Help
+catalogue, physical VibeCast/App Attest, provider/model/audio, Mac UI/VoiceOver or
+measured numeric Track Insight acceptance is added. The earlier source-only,
+producer and device gates remain explicit. Eight fully remote-covered merged
+local branch refs were removed; unique history/evidence and five other old
+branches were preserved, with one worktree and zero stashes.
+
+---
+
 ## 2026-10-25 — Original contribution context, visual interruption and shared Bulletin
 
 Protected Source206 (`6e2f3ef51dc564458d7a8d8f0a8ff69994cc78a6`) and
