@@ -1601,6 +1601,3 @@
 "ui.ask_dj.answer.retained_unavailable" = "Your request was processed. The original answer is not available in the saved history.";
 
 "ui.askdj.suggestions.title" = "Suggestions";
-"ui.askdj.suggestions.hide.title" = "Hide automatic suggestions?";
-"ui.askdj.suggestions.hide.session" = "For this session";
-"ui.askdj.suggestions.hide.always" = "Always";

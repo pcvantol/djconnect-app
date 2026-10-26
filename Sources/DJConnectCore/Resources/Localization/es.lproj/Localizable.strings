@@ -1601,6 +1601,3 @@
 "ui.ask_dj.answer.retained_unavailable" = "Tu solicitud se ha procesado. La respuesta original no está disponible en el historial guardado.";
 
 "ui.askdj.suggestions.title" = "Sugerencias";
-"ui.askdj.suggestions.hide.title" = "¿Ocultar las sugerencias automáticas?";
-"ui.askdj.suggestions.hide.session" = "Durante esta sesión";
-"ui.askdj.suggestions.hide.always" = "Siempre";

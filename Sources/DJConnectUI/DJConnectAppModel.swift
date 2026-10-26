@@ -1178,16 +1178,9 @@ public final class DJConnectAppModel: ObservableObject {
     @Published private(set) var askDJExampleRefreshEpoch = UUID()
     @Published var askDJHelpIsPresented = false
     @Published var askDJHelpOpenRequest: AskDJHelpOpenRequest?
-    @Published private(set) var askDJHelpVisibility = AskDJHelpVisibility()
     var askDJHelpScope: AskDJHelpScope {
         .init(owner: sessionHistory.authorizedProfileID, session: activeDJSession?.id,
               conversation: activeDJSession == nil ? sessionHistory.responseEpoch : nil)
-    }
-    func hideAskDJSuggestions(always: Bool) {
-        askDJHelpVisibility.hide(in: askDJHelpScope, always: always)
-        // This preference only suppresses automatic client UI. Explicit Help
-        // remains available, and no command capability/Profile state changes.
-        if always { defaults.set(true, forKey: "DJConnectAutomaticHelpHidden") }
     }
     // Intentionally absent until the canonical producer observation is qualified.
     // A global capabilities pin or local agent flag cannot install this adapter.
@@ -2424,7 +2417,8 @@ public final class DJConnectAppModel: ObservableObject {
         diagnosticLogDirectory: URL? = nil
     ) {
         self.defaults = defaults
-        self._askDJHelpVisibility = Published(initialValue: AskDJHelpVisibility(alwaysHidden: defaults.bool(forKey: "DJConnectAutomaticHelpHidden")))
+        // Retire the old auto-suggestion preference. Help is always manual.
+        defaults.removeObject(forKey: "DJConnectAutomaticHelpHidden")
         self.startBackgroundTasks = startBackgroundTasks
         self.monkeyTestingMode = monkeyTestingMode
         self.homeAssistantWebSocketAuth = homeAssistantWebSocketAuth

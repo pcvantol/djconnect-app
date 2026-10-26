@@ -120,11 +120,11 @@ import XCTest
         start.press(forDuration: 0.1, thenDragTo: end)
     }
     #endif
-    func testFocusShowsAnchoredHelpWithAndWithoutExistingContentAndHideChoices() {
+    func testHelpClickShowsAnchoredPopoutWhileFocusAndTypingDoNot() {
         for surface in ["ask_dj", "active_session"] {
             for populated in [false, true] {
                 let app = XCUIApplication()
-                app.launchEnvironment = ["HELP_AUTO_POPOUT": "1", "HELP_SURFACE": surface, "HELP_POPULATED": populated ? "1" : "0"]
+                app.launchEnvironment = ["HELP_COMPOSER_POPOUT": "1", "HELP_SURFACE": surface, "HELP_POPULATED": populated ? "1" : "0"]
                 app.launch()
                 #if os(macOS)
                 let field = app.textFields.firstMatch
@@ -132,29 +132,34 @@ import XCTest
                 let field = app.textViews.firstMatch
                 #endif
                 XCTAssertTrue(field.waitForExistence(timeout: 5))
+                let initialHelp = app.buttons["ask-dj-help-" + surface]
+                XCTAssertTrue(initialHelp.waitForExistence(timeout: 3), app.debugDescription)
+                #if os(macOS)
+                let initialShot = app.windows.firstMatch.screenshot()
+                #else
+                let initialShot = app.screenshot()
+                #endif
+                let initialAttachment = XCTAttachment(screenshot: initialShot)
+                initialAttachment.name = "manual-help-empty-composer-\(surface)-\(populated ? "populated" : "empty")"
+                initialAttachment.lifetime = .keepAlways; add(initialAttachment)
                 activate(field)
                 let close = app.buttons["ask-dj-suggestions-close"]
+                let help = app.buttons["ask-dj-help-" + surface]
+                XCTAssertFalse(close.exists, "Focus must not automatically open suggestions")
+                XCTAssertTrue(help.waitForExistence(timeout: 5), app.debugDescription)
+                XCTAssertGreaterThan(help.frame.midX, field.frame.midX)
+                activate(help)
                 XCTAssertTrue(close.waitForExistence(timeout: 5), app.debugDescription)
                 let more = app.buttons["ask-dj-more-" + surface]
                 XCTAssertTrue(more.exists)
                 XCTAssertLessThan(more.frame.maxY, field.frame.minY)
                 activate(close)
-                let hideSession = app.buttons["For this session"]
-                XCTAssertTrue(hideSession.waitForExistence(timeout: 3), app.debugDescription)
-                activate(hideSession)
                 XCTAssertTrue(close.waitForNonExistence(timeout: 3))
+                XCTAssertFalse(app.buttons["For this session"].exists)
+                XCTAssertFalse(app.buttons["Always"].exists)
                 activate(field)
-                XCTAssertFalse(close.exists)
-                // Explicit Help overrides auto-suppression, never catalogue admission.
-                activate(app.buttons["ask-dj-help-" + surface])
-                XCTAssertTrue(close.waitForExistence(timeout: 3))
-                activate(close)
-                activate(app.buttons["Always"])
-                XCTAssertTrue(close.waitForNonExistence(timeout: 3), app.debugDescription)
-                XCTAssertEqual(app.staticTexts["help-probe-visibility"].label, "always-hidden", app.debugDescription)
-                activate(field)
-                XCTAssertFalse(close.exists)
-                activate(app.buttons["ask-dj-help-" + surface])
+                XCTAssertFalse(close.exists, "Refocusing must not reopen Help")
+                activate(help)
                 XCTAssertTrue(close.waitForExistence(timeout: 3))
                 #if os(macOS)
                 var shot = app.windows.firstMatch.screenshot()
@@ -174,6 +179,16 @@ import XCTest
                 attachment = XCTAttachment(screenshot: shot)
                 attachment.name = "composer-more-closed-catalogue-\(surface)-\(populated ? "populated" : "empty")"
                 attachment.lifetime = .keepAlways; add(attachment)
+                activate(app.buttons["ask-dj-help-close"])
+                activate(help)
+                XCTAssertTrue(close.waitForExistence(timeout: 3))
+                activate(field)
+                field.typeText("x")
+                XCTAssertTrue(help.waitForNonExistence(timeout: 3), app.debugDescription)
+                XCTAssertTrue(close.waitForNonExistence(timeout: 3), app.debugDescription)
+                field.typeText(XCUIKeyboardKey.delete.rawValue)
+                XCTAssertTrue(help.waitForExistence(timeout: 3), app.debugDescription)
+                XCTAssertFalse(close.exists, "Clearing the draft must not reopen suggestions")
                 app.terminate()
             }
         }

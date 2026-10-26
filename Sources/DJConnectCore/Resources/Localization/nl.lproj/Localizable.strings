@@ -1601,6 +1601,3 @@
 "ui.ask_dj.answer.retained_unavailable" = "Je verzoek is verwerkt. Het oorspronkelijke antwoord is niet beschikbaar in de bewaarde geschiedenis.";
 
 "ui.askdj.suggestions.title" = "Suggesties";
-"ui.askdj.suggestions.hide.title" = "Automatische suggesties verbergen?";
-"ui.askdj.suggestions.hide.session" = "Deze sessie";
-"ui.askdj.suggestions.hide.always" = "Altijd";

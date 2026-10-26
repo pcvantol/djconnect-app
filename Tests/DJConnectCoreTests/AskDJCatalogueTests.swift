@@ -250,34 +250,19 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     }
 }
 
-@Test func composerHelpDefaultAndSessionOrAlwaysHidingDoNotDependOnHistoryCount() {
-    let first = AskDJHelpScope(owner: "owner-a", session: "session-a", conversation: nil)
-    let second = AskDJHelpScope(owner: "owner-a", session: "session-b", conversation: nil)
-    var state = AskDJHelpVisibility()
-    // History count is intentionally not an admission input: focus opens in
-    // both empty and populated conversations/timelines.
-    #expect(state.opensAutomatically(in: first))
-    state.hide(in: first, always: false)
-    #expect(!state.opensAutomatically(in: first))
-    #expect(state.opensAutomatically(in: second))
-    #expect(state.opensAutomatically(in: .init(owner: "owner-b", session: "session-a", conversation: nil)))
-    state.hide(in: second, always: true)
-    #expect(!state.opensAutomatically(in: first) && !state.opensAutomatically(in: second))
-}
-
-@Test @MainActor func composerHelpAlwaysIsOnlyLocalPresentationAndExplicitHelpRemainsPossible() throws {
-    let name = "help-visibility-test-" + UUID().uuidString
+@Test @MainActor func composerHelpRetiresAutomaticPreferenceAndKeepsManualRequestsTransient() throws {
+    let name = "help-manual-test-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name))
     defer { defaults.removePersistentDomain(forName: name) }
     defaults.set(true, forKey: "DJConnectAutomaticHelpHidden")
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: nil), startBackgroundTasks: false)
-    #expect(!model.askDJHelpVisibility.opensAutomatically(in: model.askDJHelpScope))
-    #expect(model.askDJHelpCatalogueReader == nil)
+    #expect(defaults.object(forKey: "DJConnectAutomaticHelpHidden") == nil)
+    #expect(model.askDJHelpOpenRequest == nil && model.askDJHelpCatalogueReader == nil)
     model.askDJHelpOpenRequest = .init(surface: .askDJ)
     #expect(model.askDJHelpOpenRequest?.surface == .askDJ)
-    #expect(defaults.bool(forKey: "DJConnectAutomaticHelpHidden"))
+    #expect(defaults.object(forKey: "DJConnectAutomaticHelpHidden") == nil)
     for language in DJConnectLocalization.supportedLanguageCodes {
-        for key in ["ui.askdj.suggestions.title", "ui.askdj.suggestions.hide.title", "ui.askdj.suggestions.hide.session", "ui.askdj.suggestions.hide.always", "ui.ask_dj.answer.retained_unavailable"] {
+        for key in ["ui.askdj.suggestions.title", "ui.ask_dj.answer.retained_unavailable"] {
             #expect(DJConnectLocalization.localized(key: key, language: language) != key)
         }
     }

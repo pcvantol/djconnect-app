@@ -1,19 +1,11 @@
 import SwiftUI
 import DJConnectCore
 
-/// Device-local UI preference only; no Profile intelligence or server capability.
+/// Transient conversation scope for closing stale Help; no visibility preference.
 struct AskDJHelpScope: Equatable {
     var owner: String?
     var session: String?
     var conversation: UUID?
-}
-struct AskDJHelpVisibility: Equatable {
-    private(set) var hiddenSession: AskDJHelpScope?
-    var alwaysHidden = false
-    func opensAutomatically(in scope: AskDJHelpScope) -> Bool { !alwaysHidden && hiddenSession != scope }
-    mutating func hide(in scope: AskDJHelpScope, always: Bool) {
-        if always { alwaysHidden = true } else { hiddenSession = scope }
-    }
 }
 struct AskDJHelpOpenRequest: Equatable {
     let id = UUID()

@@ -1661,6 +1661,17 @@ func pairedLiveActualProducerWithdrawsChangedProfileAndRejectsInvalidToken() asy
     }
 }
 
+private func stopPairedRedirectFixture(_ process: Process) async {
+    if process.isRunning { process.terminate() }
+    // Yield to Foundation's process-exit observation with a hard monotonic end;
+    // never block a cooperative executor in Process.waitUntilExit.
+    let stopBy = ContinuousClock.now.advanced(by: .seconds(2))
+    while process.isRunning && ContinuousClock.now < stopBy {
+        try? await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(!process.isRunning, "Owned redirect fixture must terminate within two seconds")
+}
+
 @Test func pairedLiveDiscoveryRejectsRealRedirectBeforeDestinationOrCredentialExposure() async throws {
     let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let file = FileManager.default.temporaryDirectory.appendingPathComponent("paired-redirect-" + UUID().uuidString + ".json")
@@ -1668,26 +1679,32 @@ func pairedLiveActualProducerWithdrawsChangedProfileAndRejectsInvalidToken() asy
     process.arguments = [repo.appendingPathComponent("Tools/paired_discovery_http_fixture.py").path, file.path]
     let output = Pipe(); process.standardOutput = output; process.standardError = Pipe()
     try process.run()
-    defer { process.terminate(); process.waitUntilExit(); try? FileManager.default.removeItem(at: file) }
-    var line = Data()
-    while let byte = try output.fileHandleForReading.read(upToCount: 1), !byte.isEmpty {
-        if byte == Data([10]) { break }; line.append(byte)
+    defer { try? FileManager.default.removeItem(at: file) }
+    do {
+        var line = Data()
+        while let byte = try output.fileHandleForReading.read(upToCount: 1), !byte.isEmpty {
+            if byte == Data([10]) { break }; line.append(byte)
+        }
+        let ports = try #require(JSONSerialization.jsonObject(with: line) as? [String: Int])
+        let port = try #require(ports["source_port"])
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpAdditionalHeaders = ["Authorization": "fixture-must-not-leave", "X-DJConnect-Device-ID": "fixture-must-not-leave"]
+        let client = DJConnectClient(baseURL: URL(string: "http://127.0.0.1:\(port)/?identity=fixture-must-not-leave")!,
+            identity: .init(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Fixture", clientType: .ios, firmware: "4.0.0", platform: .ios),
+            tokenStore: DJConnectInMemoryTokenStore(token: "fixture-must-not-leave"), session: URLSession(configuration: configuration))
+        do { _ = try await client.pairedOwnerLiveCapability(); Issue.record("A redirect must not supply live discovery") }
+        catch let error as DJConnectError { guard case .routeMissing = error else { throw error } }
+        let records = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+        #expect((records["source_requests"] as? Int) == 1)
+        #expect((records["target_requests"] as? Int) == 0)
+        #expect((records["authorization_present"] as? Bool) == false)
+        #expect((records["identity_present"] as? Bool) == false)
+        #expect((records["query_present"] as? Bool) == false)
+    } catch {
+        await stopPairedRedirectFixture(process)
+        throw error
     }
-    let ports = try #require(JSONSerialization.jsonObject(with: line) as? [String: Int])
-    let port = try #require(ports["source_port"])
-    let configuration = URLSessionConfiguration.ephemeral
-    configuration.httpAdditionalHeaders = ["Authorization": "fixture-must-not-leave", "X-DJConnect-Device-ID": "fixture-must-not-leave"]
-    let client = DJConnectClient(baseURL: URL(string: "http://127.0.0.1:\(port)/?identity=fixture-must-not-leave")!,
-        identity: .init(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Fixture", clientType: .ios, firmware: "4.0.0", platform: .ios),
-        tokenStore: DJConnectInMemoryTokenStore(token: "fixture-must-not-leave"), session: URLSession(configuration: configuration))
-    do { _ = try await client.pairedOwnerLiveCapability(); Issue.record("A redirect must not supply live discovery") }
-    catch let error as DJConnectError { guard case .routeMissing = error else { throw error } }
-    let records = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
-    #expect((records["source_requests"] as? Int) == 1)
-    #expect((records["target_requests"] as? Int) == 0)
-    #expect((records["authorization_present"] as? Bool) == false)
-    #expect((records["identity_present"] as? Bool) == false)
-    #expect((records["query_present"] as? Bool) == false)
+    await stopPairedRedirectFixture(process)
 }
 
 @Test func sessionArchiveSummaryUsesActualTimezoneDurationAndBothDates() throws {

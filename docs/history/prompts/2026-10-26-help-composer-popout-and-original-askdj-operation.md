@@ -11,3 +11,6 @@ Root's exact4a94 review identified a delayed-child deadline P2. Preserve that ca
 
 
 Independent review successor: preserved original6bdc API CHANGES_REQUESTED receipt and corrected conservative context-expiry anchoring and actual owner/suspension cancellation. Added delayed-context and gated preflight/legacyHTTP regressions; absolute watchdog now sleeps until its original continuous instant. Local serial1311 tests pass with unchanged520 input hashes; actual iPad component3 tests pass. Shipping Help publication/Reader remain closed pending separate producer/adoption gates. No HA-dev/provider/device action.
+
+
+Latest owner override: Help opens only from a white question-mark inside the empty composer (right, top-right when expanded). Focus never opens; typing hides the icon and closes suggestions. Clearing restores only the icon. X closes immediately; remove hide-now/always prompt, RAM suppression and persisted preference. Preserve original auto-focus receipts as historical, qualify this new successor independently. No ordinary release/install requested.

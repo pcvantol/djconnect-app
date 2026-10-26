@@ -13561,7 +13561,6 @@ struct AskDJInputBar: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var suggestionsOpen = false
     @State private var suggestionsHeight: CGFloat = 0
-    @State private var asksHideScope = false
     let helpSurface: DJConnectAskDJCatalogue.Surface
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -13615,6 +13614,9 @@ struct AskDJInputBar: View {
             // must not expand the composer; an actual edit is deliberate input.
             if value != editorDraftValue, isInputFocused.wrappedValue { isMacEditorEngaged = true }
             #endif
+            // Native typing changes the edit revision, not app replacement
+            // revision. Retire the open state now so clearing cannot revive it.
+            if !value.isEmpty { suggestionsOpen = false }
             editorDraftValue = value
             model.setAskDJDraftFromEditor(value)
         })
@@ -13709,9 +13711,10 @@ struct AskDJInputBar: View {
                         }
                         return .handled
                     }
-                    .background(AskDJMacOutsideClickDismissal(isInputFocused: isInputFocused, isEditing: $isMacEditorEngaged, allowsDismissal: !suggestionsOpen && !asksHideScope && !model.askDJHelpIsPresented))
+                    .background(AskDJMacOutsideClickDismissal(isInputFocused: isInputFocused, isEditing: $isMacEditorEngaged, allowsDismissal: !suggestionsOpen && !model.askDJHelpIsPresented))
                 #endif
             }
+            .padding(.trailing, model.askDJDraft.isEmpty ? 44 : 0)
             .accessibilityIdentifier("ask-dj-composer-input")
             .frame(maxWidth: .infinity)
             .layoutPriority(1)
@@ -13738,11 +13741,18 @@ struct AskDJInputBar: View {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .stroke(.white.opacity(isExpanded ? 0 : 0.20), lineWidth: 1)
             }
+            .overlay(alignment: isExpanded ? .topTrailing : .trailing) {
+                if model.askDJDraft.isEmpty {
+                    AskDJHelpButton(model: model, surface: helpSurface)
+                        .foregroundStyle(.white)
+                        .tint(.white)
+                        .frame(width: 44, height: 44)
+                        .padding(.trailing, 4)
+                }
+            }
 
             HStack(spacing: 10) {
             if isExpanded { Spacer(minLength: 0) }
-            AskDJHelpButton(model: model, surface: helpSurface)
-                .frame(width: 44, height: 44)
             AskDJVoiceInputButton(model: model, isEnabled: canUseVoiceInput,
                                  startAction: startVoiceAction, stopAction: stopVoiceAction,
                                  toggleAction: toggleVoiceAction, cancelAction: cancelVoiceAction)
@@ -13773,8 +13783,8 @@ struct AskDJInputBar: View {
         }
         }
         .overlay(alignment: .top) {
-            if suggestionsOpen && !model.isSendingAskDJText && !model.isRecordingVoice {
-                AskDJComposerHelpPopout(model: model, surface: helpSurface, close: { suggestionsOpen = false; asksHideScope = true }) { prompt in
+            if suggestionsOpen && model.askDJDraft.isEmpty && !model.isSendingAskDJText && !model.isRecordingVoice {
+                AskDJComposerHelpPopout(model: model, surface: helpSurface, close: { suggestionsOpen = false }) { prompt in
                     guard model.askDJDraft.isEmpty, !model.isSendingAskDJText, !model.isRecordingVoice else { return }
                     model.askDJDraft = prompt
                     suggestionsOpen = false
@@ -13787,34 +13797,17 @@ struct AskDJInputBar: View {
                 .transition(.opacity)
             }
         }
-        .confirmationDialog(localizedKey(model.language, "ui.askdj.suggestions.hide.title"), isPresented: $asksHideScope, titleVisibility: .visible) {
-            Button(localizedKey(model.language, "ui.askdj.suggestions.hide.session")) {
-                suggestionsOpen = false; asksHideScope = false; model.hideAskDJSuggestions(always: false)
-            }
-            Button(localizedKey(model.language, "ui.askdj.suggestions.hide.always")) {
-                suggestionsOpen = false; asksHideScope = false; model.hideAskDJSuggestions(always: true)
-            }
-            Button(localizedKey(model.language, "ui.cancel"), role: .cancel) { suggestionsOpen = true }
-        }
-        .onChange(of: isInputFocused.wrappedValue) { _, focused in
-            if focused && !asksHideScope && model.askDJHelpVisibility.opensAutomatically(in: model.askDJHelpScope) { suggestionsOpen = true }
-        }
-        .onChange(of: isExpanded) { _, focused in
-            if focused && !asksHideScope && model.askDJHelpVisibility.opensAutomatically(in: model.askDJHelpScope) { suggestionsOpen = true }
-        }
         .onChange(of: model.askDJHelpOpenRequest) { _, request in
-            if request?.surface == helpSurface { suggestionsOpen = true }
+            if request?.surface == helpSurface, model.askDJDraft.isEmpty { suggestionsOpen = true }
         }
         .onChange(of: model.askDJHelpScope) { _, _ in
-            suggestionsOpen = false; asksHideScope = false
-        }
-        .onAppear {
-            if isInputFocused.wrappedValue && model.askDJHelpVisibility.opensAutomatically(in: model.askDJHelpScope) { suggestionsOpen = true }
+            suggestionsOpen = false
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: isExpanded)
         .onChange(of: model.askDJDraftRevision) { _, _ in
             let value = model.askDJDraft
             if editorDraftValue != value { editorDraftValue = value }
+            if !value.isEmpty { suggestionsOpen = false }
         }
         .onChange(of: model.askDJCatalogueFocusRequest) { _, request in
             guard let request, let range = model.askDJCatalogueInputSelection else { return }
@@ -13837,7 +13830,7 @@ struct AskDJInputBar: View {
         .padding(.bottom, floating ? 12 : 18)
         #endif
         #if os(iOS)
-        .background(AskDJOutsideTapDismissal(isInputFocused: isInputFocused, allowsDismissal: !suggestionsOpen && !asksHideScope && !model.askDJHelpIsPresented))
+        .background(AskDJOutsideTapDismissal(isInputFocused: isInputFocused, allowsDismissal: !suggestionsOpen && !model.askDJHelpIsPresented))
         #endif
         .background {
             if floating {

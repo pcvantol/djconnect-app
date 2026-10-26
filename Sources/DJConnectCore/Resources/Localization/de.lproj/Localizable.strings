@@ -1601,6 +1601,3 @@
 "ui.ask_dj.answer.retained_unavailable" = "Deine Anfrage wurde verarbeitet. Die ursprüngliche Antwort ist im gespeicherten Verlauf nicht verfügbar.";
 
 "ui.askdj.suggestions.title" = "Vorschläge";
-"ui.askdj.suggestions.hide.title" = "Automatische Vorschläge ausblenden?";
-"ui.askdj.suggestions.hide.session" = "Für diese Sitzung";
-"ui.askdj.suggestions.hide.always" = "Immer";

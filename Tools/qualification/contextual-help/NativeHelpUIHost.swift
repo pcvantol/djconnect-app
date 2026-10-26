@@ -17,7 +17,7 @@ import DJConnectCore
         #endif
     }
     @ViewBuilder private var host: some View {
-        if ProcessInfo.processInfo.environment["HELP_AUTO_POPOUT"] == "1" { HelpAutoPopoutProbe() }
+        if ProcessInfo.processInfo.environment["HELP_COMPOSER_POPOUT"] == "1" { HelpComposerPopoutProbe() }
         else { HelpProbe() }
     }
 }
@@ -155,14 +155,14 @@ import DJConnectCore
 
 /// Real production composer, existing-content layouts and real closed shipping
 /// catalogue. This test does not fabricate three qualified suggestions.
-@MainActor private struct HelpAutoPopoutProbe: View {
+@MainActor private struct HelpComposerPopoutProbe: View {
     @StateObject private var model: DJConnectAppModel
     @FocusState private var focused: Bool
     private let domain: String
     private let surface = DJConnectAskDJCatalogue.Surface(rawValue: ProcessInfo.processInfo.environment["HELP_SURFACE"] ?? "ask_dj")!
     private let populated = ProcessInfo.processInfo.environment["HELP_POPULATED"] == "1"
     init() {
-        let name = "help-auto-popout-" + UUID().uuidString
+        let name = "help-composer-popout-" + UUID().uuidString
         domain = name
         let model = DJConnectAppModel(defaults: UserDefaults(suiteName: name)!,
             tokenStore: DJConnectInMemoryTokenStore(token: nil), startBackgroundTasks: false)
@@ -175,8 +175,6 @@ import DJConnectCore
             ScrollView {
                 VStack(spacing: 22) {
                     Text("UI qualification · closed catalogue · no network").foregroundStyle(.white)
-                    Text(model.askDJHelpVisibility.alwaysHidden ? "always-hidden" : "auto-enabled")
-                        .accessibilityIdentifier("help-probe-visibility")
                     if populated {
                         ForEach(0..<8) { number in
                             Text("Synthetic existing conversation item \(number)")
