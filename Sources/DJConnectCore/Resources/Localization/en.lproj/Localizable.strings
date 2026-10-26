@@ -52,6 +52,8 @@
 "appModel.dinner.vibes" = "Dinner Vibes";
 "ui.no.output.device.selected" = "No output device selected";
 "ui.more" = "More";
+"ui.askdj.help.catalogue.title" = "Ask your DJ";
+"ui.askdj.help.catalogue.instructions" = "Choose a complete request to send it. For a request with a placeholder, fill in the highlighted part before sending.";
 "ui.value.min.ago" = "%d min ago";
 "ui.yesterday" = "Yesterday";
 "ui.value.days.ago" = "%d days ago";

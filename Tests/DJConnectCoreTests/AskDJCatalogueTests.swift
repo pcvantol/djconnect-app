@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 @testable import DJConnectCore
+@testable import DJConnectUI
 
 private func askDJGolden() throws -> [String: Any] {
     let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -20,6 +21,84 @@ private func askDJContext(_ raw: [String: Any]) throws -> DJConnectAskDJCatalogu
     if context.flags["current_track"] == true { context.trackID = "track-a" }
     if context.flags["active_session"] == true { context.sessionID = "session-a" }
     return context
+}
+
+private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskDJCatalogue.Context, Set<String>) {
+    let raw = try askDJGolden()
+    let catalogue = try askDJDecode(DJConnectAskDJCatalogue.self, #require(raw["synthetic_catalogue"]))
+    let vector = try #require((raw["cases"] as? [[String: Any]])?.first)
+    var context = try askDJContext(#require(vector["context"] as? [String: Any]))
+    for entry in catalogue.entries {
+        for required in entry.requires { context.flags[required] = true }
+        for (key, value) in entry.contracts { context.contracts[key] = value }
+    }
+    context.sessionID = "session-a"; context.trackID = "track-a"
+    context.slots = [:]
+    return (catalogue, context, Set(catalogue.entries.map(\.id)))
+}
+
+@Test func fullHelpKeepsAllEligibleEntriesAndGenericInputsWithoutChipSlots() throws {
+    let (catalogue, context, ids) = try fullHelpFixture()
+    for language in ["en", "nl", "de", "fr", "es"] {
+        let items = catalogue.catalogueSections(context, surface: .askDJ, language: language, eligibleIDs: ids).flatMap(\.items)
+        #expect(items.count == ids.count)
+        let artist = try #require(items.first { $0.id == "play.artist" })
+        #expect(artist.requiresInput)
+        let range = try #require(artist.inputRange)
+        #expect((artist.prompt as NSString).substring(with: range).hasPrefix("["))
+        #expect(!catalogue.select(context, surface: .askDJ, language: language, epoch: "no-slots").contains { $0.id == artist.id })
+        #expect(items.first { $0.id == "listen.current" }?.requiresInput == false)
+        #expect(catalogue.catalogueSections(context, surface: .askDJ, language: language, eligibleIDs: []).isEmpty)
+        #expect(catalogue.catalogueSections(context, surface: .askDJ, language: language, eligibleIDs: [artist.id]).flatMap(\.items) == [artist])
+    }
+    let shipped = try #require(DJConnectAskDJCatalogue.bundled)
+    #expect(shipped.catalogueSections(context, surface: .askDJ, language: "nl", eligibleIDs: ids).isEmpty)
+}
+
+@Test @MainActor func fullHelpReadClosesWithoutProducerAndPreservesOriginalRequestDeadline() async throws {
+    let (catalogue, context, ids) = try fullHelpFixture()
+    var instant = ContinuousClock.now
+    let model = AskDJHelpCatalogueModel(now: { instant })
+    let unavailable = await model.read(catalogue: catalogue, surface: .askDJ, language: "nl", context: { context }, reader: nil)
+    #expect(unavailable == nil && model.sections.isEmpty)
+    let late = await model.read(catalogue: catalogue, surface: .askDJ, language: "nl", context: { context }, reader: { _, _, _ in
+        instant = instant.advanced(by: .seconds(15))
+        return ids
+    })
+    #expect(late == nil && model.sections.isEmpty && !model.isCurrent)
+    let fresh = await model.read(catalogue: catalogue, surface: .askDJ, language: "nl", context: { context }, reader: { _, _, _ in ids })
+    #expect(fresh?.flatMap(\.items).count == ids.count && model.isCurrent)
+    instant = instant.advanced(by: .seconds(15))
+    #expect(!model.isCurrent)
+    model.close()
+}
+
+@Test @MainActor func fullHelpInvalidationDuringReadCannotResurrectAnEarlierOwnerOrObservation() async throws {
+    let (catalogue, initial, ids) = try fullHelpFixture()
+    var context = initial
+    let model = AskDJHelpCatalogueModel()
+    let changed = await model.read(catalogue: catalogue, surface: .session, language: "en", context: { context }, reader: { _, _, _ in
+        context.ownerEpoch = "other-owner"
+        return ids
+    })
+    #expect(changed == nil && model.sections.isEmpty)
+    context = initial
+    let aba = await model.read(catalogue: catalogue, surface: .session, language: "en", context: { context }, reader: { _, _, _ in
+        model.close()
+        return ids
+    })
+    #expect(aba == nil && model.sections.isEmpty)
+}
+
+@Test @MainActor func fullHelpFailedFreshClickReadCannotRetainPreviousPositiveObservation() async throws {
+    let (catalogue, context, ids) = try fullHelpFixture()
+    let model = AskDJHelpCatalogueModel()
+    _ = await model.read(catalogue: catalogue, surface: .askDJ, language: "en", context: { context }, reader: { _, _, _ in ids })
+    #expect(model.isCurrent && !model.sections.isEmpty)
+    let failed = await model.read(catalogue: catalogue, surface: .askDJ, language: "en", context: { context }, reader: { _, _, _ in
+        throw URLError(.notConnectedToInternet)
+    })
+    #expect(failed == nil && !model.isCurrent && model.sections.isEmpty && !model.busy)
 }
 
 @Test func askDJShippingDraftNeverAdvertisesCandidateCommandsAndBytesArePinned() throws {
@@ -81,7 +160,8 @@ private func askDJContext(_ raw: [String: Any]) throws -> DJConnectAskDJCatalogu
     context.flags["current_track"] = false
     context.slots = [:]
     cursor.update(catalogue: catalogue, context: context, surface: .askDJ, language: "nl", frozen: true, epoch: "editing")
-    #expect(cursor.suggestions == original.filter { catalogue.retains($0, context: context, surface: .askDJ, language: "nl") })
+    let retained = original.filter { catalogue.retains($0, context: context, surface: .askDJ, language: "nl") }
+    #expect(cursor.suggestions == (retained.count == 3 ? retained : []))
     context.ownerEpoch = "owner-b"; context.descriptor = nil
     cursor.update(catalogue: catalogue, context: context, surface: .askDJ, language: "nl", frozen: true)
     #expect(cursor.suggestions.isEmpty)
@@ -119,7 +199,8 @@ private func askDJContext(_ raw: [String: Any]) throws -> DJConnectAskDJCatalogu
     #expect(shown.count == 3 && shown.contains { $0.trackID != nil })
     context.trackID = "track-b"
     cursor.update(catalogue: catalogue, context: context, surface: .session, language: "en", frozen: true)
-    #expect(cursor.suggestions == shown.filter { $0.trackID == nil })
+    #expect(shown.filter { $0.trackID == nil }.count < 3)
+    #expect(cursor.suggestions.isEmpty)
     #expect(!shown.filter { $0.trackID != nil }.contains { catalogue.retains($0, context: context, surface: .session, language: "en") })
     context.sessionID = "session-b"
     #expect(!shown.contains { catalogue.retains($0, context: context, surface: .session, language: "en") })

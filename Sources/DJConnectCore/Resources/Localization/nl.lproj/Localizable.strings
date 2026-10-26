@@ -52,6 +52,8 @@
 "appModel.dinner.vibes" = "Dinner vibes";
 "ui.no.output.device.selected" = "Geen uitvoerapparaat geselecteerd";
 "ui.more" = "Meer";
+"ui.askdj.help.catalogue.title" = "Vraag het je DJ";
+"ui.askdj.help.catalogue.instructions" = "Tik op een complete opdracht om deze te versturen. Bij een opdracht met een invulveld vul je eerst het geselecteerde gedeelte aan.";
 "ui.value.min.ago" = "%d minuten geleden";
 "ui.yesterday" = "Gisteren";
 "ui.value.days.ago" = "%d dagen geleden";

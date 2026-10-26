@@ -13676,7 +13676,8 @@ struct AskDJInputBar: View {
 
                 #if os(iOS)
                 AskDJPromptTextView(text: editorDraft, isInputFocused: isInputFocused,
-                                    isEditing: $isNativeEditorFocused, replacementRevision: model.askDJDraftRevision, replacementText: model.askDJDraft)
+                                    isEditing: $isNativeEditorFocused, replacementRevision: model.askDJDraftRevision, replacementText: model.askDJDraft,
+                                    inputSelection: model.askDJCatalogueInputSelection, selectionRequest: model.askDJCatalogueFocusRequest)
                     .frame(minHeight: 44)
                 #else
                 TextField("", text: editorDraft, selection: $promptSelection, axis: .vertical)
@@ -13771,6 +13772,19 @@ struct AskDJInputBar: View {
         .onChange(of: model.askDJDraftRevision) { _, _ in
             let value = model.askDJDraft
             if editorDraftValue != value { editorDraftValue = value }
+        }
+        .onChange(of: model.askDJCatalogueFocusRequest) { _, request in
+            guard let request, let range = model.askDJCatalogueInputSelection else { return }
+            isInputFocused.wrappedValue = true
+            #if os(macOS)
+            let draft = model.askDJDraft
+            isMacEditorEngaged = true
+            DispatchQueue.main.async {
+                guard model.askDJCatalogueFocusRequest == request, model.askDJDraft == draft,
+                      let selected = Range(range, in: draft) else { return }
+                promptSelection = TextSelection(range: selected)
+            }
+            #endif
         }
         .padding(.horizontal, floating ? 12 : djConnectScreenHorizontalPadding)
         .padding(.top, floating ? 12 : 18)
@@ -13981,6 +13995,8 @@ private struct AskDJPromptTextView: UIViewRepresentable {
     @Binding var isEditing: Bool
     let replacementRevision: Int
     let replacementText: String
+    let inputSelection: NSRange?
+    let selectionRequest: UUID?
 
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
@@ -14008,6 +14024,7 @@ private struct AskDJPromptTextView: UIViewRepresentable {
             context.coordinator.lastReplacementRevision = replacementRevision
         }
 
+        let pendingSelection = selectionRequest != nil && context.coordinator.lastSelectionRequest != selectionRequest && inputSelection != nil
         let requestedFocus = isInputFocused.wrappedValue
         defer {
             context.coordinator.lastRequestedFocus = requestedFocus
@@ -14020,6 +14037,11 @@ private struct AskDJPromptTextView: UIViewRepresentable {
             }
         } else if textView.isFirstResponder, context.coordinator.lastRequestedFocus {
             textView.resignFirstResponder()
+        }
+        if pendingSelection, let inputSelection, let selectionRequest {
+            context.coordinator.requestSelection(inputSelection, request: selectionRequest, in: textView)
+        } else if inputSelection == nil {
+            context.coordinator.pendingSelectionRequest = nil
         }
     }
 
@@ -14043,6 +14065,34 @@ private struct AskDJPromptTextView: UIViewRepresentable {
         @Binding var isEditing: Bool
         var lastRequestedFocus = false
         var lastReplacementRevision: Int?
+        var lastSelectionRequest: UUID?
+        var pendingSelectionRequest: UUID?
+
+        func requestSelection(_ range: NSRange, request: UUID, in view: UITextView) {
+            guard pendingSelectionRequest != request, lastSelectionRequest != request else { return }
+            pendingSelectionRequest = request
+            let original = view.text ?? ""
+            // SwiftUI's disappear event can precede UIKit's dismissal completion.
+            // Restore focus/selection after that actual transition, not a delay.
+            DispatchQueue.main.async { [weak self, weak view] in
+                guard let self, let view, self.pendingSelectionRequest == request else { return }
+                let finish: () -> Void = { [weak self, weak view] in
+                    guard let self, let view, self.pendingSelectionRequest == request,
+                          view.window != nil, view.text == original, Range(range, in: original) != nil else { return }
+                    self.pendingSelectionRequest = nil
+                    guard view.becomeFirstResponder() else { return }
+                    view.selectedRange = range
+                    view.scrollRangeToVisible(range)
+                    self.lastSelectionRequest = request
+                    self.setInputFocus(true)
+                }
+                var controller = view.window?.rootViewController
+                while let next = controller?.presentedViewController { controller = next }
+                if let transition = controller?.transitionCoordinator,
+                   transition.animate(alongsideTransition: nil, completion: { _ in finish() }) { return }
+                finish()
+            }
+        }
 
         init(text: Binding<String>, isInputFocused: FocusState<Bool>.Binding, isEditing: Binding<Bool>) {
             _text = text
