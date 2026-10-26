@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "kind": "apple_native_surface_push_source214_finalization",
+  "source_pr": 214,
+  "source_candidate": "1de3d159cb0ce6e28139e1d3360869601b1285a0",
+  "source_main": "b9d0ea6922c6a6036feec8f88f67314bf75b5bb3",
+  "source_tree": "6f8c147ce197fa8495078c3bfdc53d4f6d62e004",
+  "reviewed_and_merged_tree_equal": true,
+  "formal_run": 40388088761,
+  "formal_decision": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+  "formal_digest": "a5b499d62bafcf781fdbfb1f84dadd862de48d22fc75b09e84b53e4d5638e5de",
+  "formal_findings": [],
+  "durable_asset_id": 679237329,
+  "durable_provider_and_actual_sha256": "a752abab68a56a1e996a06db8e247120dac9685d635e4dafd9d7d760b1965ec2",
+  "durable_required_checks": {
+    "post_merge_build_validation": "PASS",
+    "post_merge_ci": "PASS",
+    "post_merge_coverage": "PASS",
+    "post_merge_governance": "PASS",
+    "post_merge_lint": "PASS",
+    "post_merge_static_analysis": "PASS",
+    "post_merge_tests": "PASS",
+    "required_checks": "PASS",
+    "software_assurance": "PASS",
+    "trusted_delivery": "PASS",
+    "verification": "PASS",
+    "workflow_integrity": "PASS"
+  },
+  "source_scope": "SDK inventory and unshipped local codec/remote profile proposal only",
+  "not_accepted": [
+    "production admission factory",
+    "native original clock/rate/suspend/domain and first-purpose history",
+    "cold extension read delegation",
+    "remote Activity profile adoption",
+    "enrollment or provider activation",
+    "physical token/provisioning/APNs delivery",
+    "OS display or privacy wipe guarantees",
+    "ordinary build or installation"
+  ],
+  "successor_source_pr": 215,
+  "successor_qualification": "Separate unmerged source review; no qualification inherited from Source214"
+}
