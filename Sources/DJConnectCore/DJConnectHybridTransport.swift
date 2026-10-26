@@ -10,6 +10,87 @@ extension DJConnectJSONValue {
     var hybridStrings: [String] { if case let .array(v) = self { v.compactMap(\.hybridString) } else { [] } }
 }
 
+// A local observation budget never renews the server operation. All branches
+// check it again after awaits; expiry cancels the actual Foundation task/waiter.
+struct DJConnectOperationTiming: Sendable {
+    private static let origin = ContinuousClock.now
+    private static func seconds() -> TimeInterval {
+        let elapsed = origin.duration(to: ContinuousClock.now).components
+        return Double(elapsed.seconds) + Double(elapsed.attoseconds) / 1e18
+    }
+    // ContinuousClock also advances across system suspension. UI foreground
+    // cancellation and original server expiry remain independent fences.
+    var now: @Sendable () -> TimeInterval = { DJConnectOperationTiming.seconds() }
+    var sleep: @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }
+}
+struct DJConnectOperationDeadline: Sendable {
+    let end: TimeInterval
+    let timing: DJConnectOperationTiming
+    init(seconds: TimeInterval = 300, timing: DJConnectOperationTiming = .init()) {
+        self.timing = timing; end = timing.now() + seconds
+    }
+    init(end: TimeInterval, timing: DJConnectOperationTiming) { self.end = end; self.timing = timing }
+    var remaining: TimeInterval { max(0, end - timing.now()) }
+    func check() throws {
+        try Task.checkCancellation()
+        guard remaining > 0 else { throw DJConnectHybridTransportError.deliveryUnknown }
+    }
+    func run<T: Sendable>(_ operation: @escaping @Sendable () async throws -> T) async throws -> T {
+        try check()
+        let race = DJConnectDeadlineRace<T>()
+        let seconds = remaining
+        let value = try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                race.start(continuation, seconds: seconds, operation: operation)
+            }
+        } onCancel: { race.finish(.failure(CancellationError())) }
+        try check()
+        return value
+    }
+}
+// Continuation ownership is independent of a shared route/connection task's
+// cooperative cancellation. A late child is cancelled and cannot dispatch after
+// its next deadline check; it cannot retain or return a private result to caller.
+private final class DJConnectDeadlineRace<T: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<T, Error>?
+    private var result: Result<T, Error>?
+    private var tasks: [Task<Void, Never>] = []
+    func start(_ next: CheckedContinuation<T, Error>, seconds: TimeInterval,
+               operation: @escaping @Sendable () async throws -> T) {
+        let ready = lock.withLock { () -> Result<T, Error>? in
+            if let result { return result }; continuation = next; return nil
+        }
+        if let ready { next.resume(with: ready); return }
+        let work = Task {
+            do { try Task.checkCancellation(); self.finish(.success(try await operation())) }
+            catch { self.finish(.failure(error)) }
+        }
+        let timer = Task {
+            do { try await Task.sleep(for: .seconds(seconds)) }
+            catch { return }
+            self.finish(.failure(DJConnectHybridTransportError.deliveryUnknown))
+        }
+        let cancel = lock.withLock { () -> Bool in
+            guard result == nil else { return true }; tasks = [work, timer]; return false
+        }
+        if cancel { work.cancel(); timer.cancel() }
+    }
+    func finish(_ value: Result<T, Error>) {
+        let owned = lock.withLock { () -> (CheckedContinuation<T, Error>?, [Task<Void, Never>]) in
+            guard result == nil else { return (nil, []) }
+            result = value; let next = continuation; continuation = nil
+            let old = tasks; tasks = []; return (next, old)
+        }
+        owned.1.forEach { $0.cancel() }; owned.0?.resume(with: value)
+    }
+}
+
+enum DJConnectAskDJDispatchResult: Sendable {
+    case response(Data, Int)
+    case legacy(DJConnectOperationDeadline)
+}
+
 public struct DJConnectOperationReceipt: Codable, Equatable, Sendable {
     public let contractVersion: Int
     public let operationID: String
@@ -106,6 +187,7 @@ public final class DJConnectHybridURLWire: DJConnectHybridWire, @unchecked Senda
         c.httpCookieStorage = nil; c.httpShouldSetCookies = false
         c.requestCachePolicy = .reloadIgnoringLocalCacheData
         c.timeoutIntervalForRequest = 15
+        c.timeoutIntervalForResource = 300
         session = URLSession(configuration: c, delegate: DJConnectPublicDiscoveryDelegate(original: nil), delegateQueue: nil)
     }
     deinit { session.invalidateAndCancel() }
@@ -152,14 +234,20 @@ public actor DJConnectHybridTransport {
     private var retryDelay: TimeInterval = 15
     private var foreground = true
     private var inFlight = 0
+    private var conversationTasks: [UUID: @Sendable () -> Void] = [:]
+    private var legacyContextAbsent: [URL: TimeInterval] = [:]
     private var offlineRetryAfter: TimeInterval = 0
     private var action: DJConnectPairedActionConnection?
     private var actionURL: URL?
     private var reactionObserver: DJConnectPairedActionConnection?
     private var actionGeneration = UUID()
     private var receipts: [String: DJConnectOperationReceipt] = [:]
+    private var timing = DJConnectOperationTiming()
+    // Internal deterministic test seam; configured before starting any operation.
+    func setOperationTiming(_ value: DJConnectOperationTiming) { timing = value }
     // Compact uncertainty metadata only; payload/result bodies never survive a call.
-    private var pendingIntents: [String: (epoch: String, expires: Int)] = [:]
+    private var pendingIntents: [String: (epoch: String, expires: Int, deadline: TimeInterval)] = [:]
+    private var receiptEnds: [String: TimeInterval] = [:]
 
     public init(localURL: URL?, remoteURL: URL?, expectedInstallID: String, identity: DJConnectIdentity,
                 tokenStore: DJConnectTokenStore, wire: any DJConnectHybridWire = DJConnectHybridURLWire(),
@@ -191,6 +279,8 @@ public actor DJConnectHybridTransport {
         guard self.foreground != foreground else { return }
         self.foreground = foreground
         generation = UUID(); routeTask?.cancel(); routeTask = nil; route = nil
+        conversationTasks.values.forEach { $0() }; conversationTasks = [:]
+        legacyContextAbsent = [:]
         retryLocalAfter = 0; offlineRetryAfter = 0
         await action?.stop(); action = nil; actionURL = nil
         await reactionObserver?.stop(); reactionObserver = nil
@@ -203,14 +293,26 @@ public actor DJConnectHybridTransport {
         let epoch = generation
         for (id, intent) in Array(pendingIntents.prefix(8)) {
             do {
-                let route = try await readyRoute()
+                let deadline = DJConnectOperationDeadline(end: min(intent.deadline, receiptEnds[id] ?? intent.deadline), timing: timing)
+                let route = try await deadline.run { try await self.readyRoute() }
+                try deadline.check()
                 guard epoch == generation, foreground, !Task.isCancelled else { return }
                 let body: HybridObject = ["contract_version": .int(1), "operation_id": .string(id), "operation_epoch": .string(intent.epoch)]
-                let result = try await wire.http(protectedRequest(route.url, path: "/api/djconnect/v1/transport/operation/status", body: body))
-                _ = try accept(result, id: id, operationEpoch: intent.epoch, epoch: epoch)
+                var request = try protectedRequest(route.url, path: "/api/djconnect/v1/transport/operation/status", body: body)
+                request.timeoutInterval = min(request.timeoutInterval, deadline.remaining)
+                let fixed = request
+                let result = try await deadline.run { try await self.wire.http(fixed) }
+                _ = try accept(result, id: id, operationEpoch: intent.epoch, epoch: epoch, receiptClock: route)
             } catch DJConnectHybridTransportError.authority { return }
             catch { /* Retain uncertainty; resume never executes the original payload. */ }
         }
+    }
+    static func isAskDJText(_ request: URLRequest) -> Bool {
+        guard request.httpMethod == "POST" else { return false }
+        if request.url?.path.hasSuffix("/ask_dj/message") == true { return true }
+        guard request.url?.path.hasSuffix("/command") == true, let data = request.httpBody,
+              let body = try? JSONDecoder().decode(HybridObject.self, from: data) else { return false }
+        return body["command"] == .string("ask_dj_message")
     }
     public static func canReplayLegacy(_ request: URLRequest) -> Bool {
         if ["GET", "HEAD"].contains(request.httpMethod ?? "GET") { return true }
@@ -289,19 +391,27 @@ public actor DJConnectHybridTransport {
     }
     private func qualify(_ url: URL, local: Bool) async throws -> Route {
         diagnostics.probes += 1
+        legacyContextAbsent.removeValue(forKey: url)
         let (data, status) = try await wire.http(protectedRequest(url, path: "/api/djconnect/v1/transport/context", body: ["contract_version": .int(1)]))
         try Task.checkCancellation()
+        // A real missing transport endpoint is compatibility evidence only.
+        // Network errors, malformed context, 401/403/426 and trust failures
+        // never authorize a downgrade to legacy execution.
+        if status == 404 {
+            legacyContextAbsent[url] = timing.now()
+            throw DJConnectHybridTransportError.unavailable
+        }
         let body = try JSONDecoder().decode(HybridObject.self, from: data)
         try checkAuthority(body, status: status)
         guard status == 200, body["success"] == .bool(true), body["contract_version"] == .int(1),
               DJConnectHybridLocalPolicy.acceptsContext(body, origin: url, pairedLocalOrigin: local ? localURL : nil), body["operation_lifetime_ms"] == .int(300_000),
               body["operation_epoch"]?.hybridString?.isEmpty == false, let clock = body["server_time_ms"]?.hybridInt else { throw DJConnectHybridTransportError.unavailable }
         guard body["ha_install_id"] == .string(expectedInstallID) else { throw DJConnectHybridTransportError.installationMismatch }
-        return Route(url: url, local: local && (Self.isLocalTransportCandidate(url) || DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(url)), context: body, clock: clock, anchor: ProcessInfo.processInfo.systemUptime)
+        return Route(url: url, local: local && (Self.isLocalTransportCandidate(url) || DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(url)), context: body, clock: clock, anchor: timing.now())
     }
     private func readyRoute() async throws -> Route {
         guard foreground else { throw CancellationError() }
-        let now = ProcessInfo.processInfo.systemUptime
+        let now = timing.now()
         if let route, now - route.anchor < 60, route.local || now < retryLocalAfter { return route }
         if let routeTask { return try await routeTask.value }
         guard now >= offlineRetryAfter else { throw DJConnectHybridTransportError.unavailable }
@@ -322,7 +432,7 @@ public actor DJConnectHybridTransport {
         if let localURL, eligibleOrigin(localURL) { candidates.append((localURL, true)) }
         if let remoteURL, Self.trustedOrigin(remoteURL), remoteURL != localURL { candidates.append((remoteURL, false)) }
         for (url, local) in candidates {
-            if (withdrawnOrigins[url] ?? 0) > ProcessInfo.processInfo.systemUptime { continue }
+            if (withdrawnOrigins[url] ?? 0) > timing.now() { continue }
             do { return try await qualify(url, local: local) }
             catch let error as DJConnectHybridTransportError {
                 if case .routeWithdrawn = error { withdrawOrigin(url) }
@@ -333,7 +443,7 @@ public actor DJConnectHybridTransport {
             if local { state(.localDegraded) }
         }
         try Task.checkCancellation()
-        offlineRetryAfter = ProcessInfo.processInfo.systemUptime + min(60, retryDelay)
+        offlineRetryAfter = timing.now() + min(60, retryDelay)
         retryDelay = min(60, retryDelay * 2)
         state(.recoveringOffline); throw DJConnectHybridTransportError.unavailable
     }
@@ -349,7 +459,7 @@ public actor DJConnectHybridTransport {
         return next
     }
     private func withdrawOrigin(_ url: URL) {
-        withdrawnOrigins[url] = ProcessInfo.processInfo.systemUptime + 60
+        withdrawnOrigins[url] = timing.now() + 60
         if route?.url == url { route = nil }
         diagnostics.activeOrigin = nil
         diagnostics.websocketConnected = false
@@ -367,7 +477,51 @@ public actor DJConnectHybridTransport {
     /// Returns the original handler body/status. Receipt-only acceptance is a typed outcome,
     /// never decoded as a second answer or converted to another execute request.
     public func perform(_ request: URLRequest) async throws -> (Data, Int) {
-        try await perform(request, operation: nil, payload: nil, onOperationID: nil)
+        if Self.isAskDJText(request) {
+            let deadline = DJConnectOperationDeadline(timing: timing)
+            return try await boundedConversation(deadline) {
+                try await self.perform(request, operation: nil, payload: nil, onOperationID: nil, deadline: deadline)
+            }
+        }
+        return try await perform(request, operation: nil, payload: nil, onOperationID: nil)
+    }
+    private func boundedConversation<T: Sendable>(_ deadline: DJConnectOperationDeadline,
+        operation: @escaping @Sendable () async throws -> T) async throws -> T {
+        guard conversationTasks.count < 8 else { throw DJConnectHybridTransportError.capacity }
+        let id = UUID()
+        let task = Task { try await deadline.run(operation) }
+        conversationTasks[id] = { task.cancel() }
+        defer { conversationTasks.removeValue(forKey: id) }
+        return try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
+    }
+    /// The only downgrade is chosen BEFORE execute and only for a configured
+    /// origin with an actual absent context endpoint. Carry the original budget
+    /// to the client's single legacy attempt; never catch post-execute failures.
+    func dispatchAskDJ(_ request: URLRequest, legacyOrigin: URL) async throws -> DJConnectAskDJDispatchResult {
+        guard Self.isAskDJText(request) else { throw DJConnectHybridTransportError.unavailable }
+        let deadline = DJConnectOperationDeadline(timing: timing), epoch = generation
+        return try await boundedConversation(deadline) {
+            try await self.selectAskDJDispatch(request, legacyOrigin: legacyOrigin, deadline: deadline, epoch: epoch)
+        }
+    }
+    private func selectAskDJDispatch(_ request: URLRequest, legacyOrigin: URL,
+        deadline: DJConnectOperationDeadline, epoch: UUID) async throws -> DJConnectAskDJDispatchResult {
+        // A previous absence is never a new submission's proof. Permit a new
+        // explicit preflight on an older server despite ordinary offline backoff.
+        if legacyContextAbsent.removeValue(forKey: legacyOrigin) != nil { offlineRetryAfter = 0 }
+        do { _ = try await readyRoute() }
+        catch DJConnectHybridTransportError.unavailable {
+            try deadline.check()
+            guard epoch == generation, foreground,
+                  let observed = legacyContextAbsent[legacyOrigin], observed >= deadline.end - 300,
+                  timing.now() - observed < 30,
+                  (withdrawnOrigins[legacyOrigin] ?? 0) <= timing.now() else { throw DJConnectHybridTransportError.unavailable }
+            return .legacy(deadline)
+        }
+        try deadline.check()
+        guard epoch == generation, foreground else { throw CancellationError() }
+        let (data, status) = try await perform(request, operation: nil, payload: nil, onOperationID: nil, deadline: deadline)
+        return .response(data, status)
     }
     /// These operations have no legacy endpoint. Preserve the ordinary operation
     /// owner's identity, capacity, route qualification and uncertain-send recovery.
@@ -392,7 +546,7 @@ public actor DJConnectHybridTransport {
         return try await perform(nil, operation: operation.rawValue, payload: body, onOperationID: onOperationID)
     }
     private func perform(_ request: URLRequest?, operation suppliedOperation: String?, payload suppliedPayload: HybridObject?,
-                         onOperationID: (@Sendable (String) -> Void)?) async throws -> (Data, Int) {
+                         onOperationID: (@Sendable (String) -> Void)?, deadline originalDeadline: DJConnectOperationDeadline? = nil) async throws -> (Data, Int) {
         try Task.checkCancellation()
         guard inFlight < 8 else { throw DJConnectHybridTransportError.capacity }
         inFlight += 1
@@ -408,16 +562,17 @@ public actor DJConnectHybridTransport {
         if let originalPayload = payload["payload"]?.hybridObject { payload = originalPayload }
         for key in ["device_token", "identity", "client_id", "device_name"] { payload.removeValue(forKey: key) }
         guard (try JSONEncoder().encode(payload)).count <= 60_000 else { throw DJConnectHybridTransportError.capacity }
-        let nowMS = route.clock + Int((ProcessInfo.processInfo.systemUptime - route.anchor) * 1000)
-        let operationStarted = ProcessInfo.processInfo.systemUptime
-        if receipts.count >= 256, let expired = receipts.values.filter({ $0.expiresAtMS <= nowMS }).min(by: { $0.expiresAtMS < $1.expiresAtMS }) { receipts.removeValue(forKey: expired.operationID) }
+        try originalDeadline?.check()
+        let nowMS = route.clock + Int((timing.now() - route.anchor) * 1000)
+        let operationStarted = timing.now()
+        if receipts.count >= 256, let expired = receipts.values.filter({ $0.expiresAtMS <= nowMS }).min(by: { $0.expiresAtMS < $1.expiresAtMS }) { receipts.removeValue(forKey: expired.operationID); receiptEnds.removeValue(forKey: expired.operationID) }
         pendingIntents = pendingIntents.filter { $0.value.expires > nowMS }
         guard receipts.count + pendingIntents.count < 256 else { throw DJConnectHybridTransportError.capacity }
         let id = DJConnectOperationIdentity.uuidV7(milliseconds: nowMS)
         let operationEpoch = route.context["operation_epoch"]!.hybridString!
         onOperationID?(id)
         let envelope: HybridObject = ["contract_version": .int(1), "operation_id": .string(id), "operation_epoch": .string(operationEpoch), "operation": .string(operation), "payload": .object(payload)]
-        pendingIntents[id] = (operationEpoch, nowMS + 300_000)
+        pendingIntents[id] = (operationEpoch, nowMS + 300_000, originalDeadline?.end ?? operationStarted + 300)
         var response: (Data, Int)?
         var possibleSend = false
         var routeWithdrawn = false
@@ -425,9 +580,10 @@ public actor DJConnectHybridTransport {
             do {
                 let socket = try await connection(route)
                 try await socket.prepare()
+                try originalDeadline?.check()
                 guard epoch == generation, foreground, !Task.isCancelled else { throw CancellationError() }
                 possibleSend = true
-                response = try await socket.request(type: "djconnect/operation/execute", body: envelope)
+                response = try await socket.request(type: "djconnect/operation/execute", body: envelope, timeout: originalDeadline.map { min(120, $0.remaining) })
                 diagnostics.websocketConnected = true; report?(diagnostics)
             } catch DJConnectHybridTransportError.routeWithdrawn {
                 withdrawOrigin(route.url); routeWithdrawn = true
@@ -444,42 +600,62 @@ public actor DJConnectHybridTransport {
             guard epoch == generation, foreground, !Task.isCancelled else { throw CancellationError() }
             // Once handed to URLSession, even an apparent pre-connect error is conservatively uncertain.
             possibleSend = true
-            do { response = try await wire.http(protectedRequest(route.url, path: "/api/djconnect/v1/transport/operation", body: envelope)) }
+            do {
+                try originalDeadline?.check()
+                var execute = try protectedRequest(route.url, path: "/api/djconnect/v1/transport/operation", body: envelope)
+                if let originalDeadline { execute.timeoutInterval = min(execute.timeoutInterval, originalDeadline.remaining) }
+                response = try await wire.http(execute)
+            }
             catch is CancellationError { throw CancellationError() }
             catch { response = nil }
         }
+        try originalDeadline?.check()
         if let response {
-            do { return try accept(response, id: id, operationEpoch: operationEpoch, epoch: epoch) }
+            do { return try accept(response, id: id, operationEpoch: operationEpoch, epoch: epoch, receiptClock: originalDeadline == nil ? nil : route) }
             catch DJConnectHybridTransportError.outcome(let receipt) where ["accepted", "sent_unknown"].contains(receipt.phase) { }
             catch DJConnectHybridTransportError.routeWithdrawn { withdrawOrigin(route.url) }
         }
         diagnostics.reconciliations += 1; diagnostics.websocketConnected = false
-        await action?.stop(); action = nil; actionURL = nil; self.route = nil
+        let oldAction = action
+        action = nil; actionURL = nil; actionGeneration = UUID(); self.route = nil
+        // Closing a spent socket is not a new lease or part of the result wait.
+        Task { await oldAction?.stop() }
         // Deliberately no second execute. Reconcile original ID/epoch, even across restart.
         let statusBody: HybridObject = ["contract_version": .int(1), "operation_id": .string(id), "operation_epoch": .string(operationEpoch)]
-        let isConversation = operation == "ask_dj/message"
-        let reconciliationDeadline = min(operationStarted + 300, ProcessInfo.processInfo.systemUptime + 120)
-        for attempt in 0..<(isConversation ? 64 : 3) {
+        let isConversation = originalDeadline != nil
+        let reconciliationDeadline = originalDeadline?.end ?? min(operationStarted + 300, timing.now() + 120)
+        var attempt = 0
+        while isConversation || attempt < 3 {
             guard epoch == generation, foreground, !Task.isCancelled else { throw CancellationError() }
-            let receiptDeadline = receipts[id].map { route.anchor + Double($0.expiresAtMS-route.clock)/1000 } ?? operationStarted + 300
+            let receiptDeadline = receiptEnds[id] ?? receipts[id].map { route.anchor + Double($0.expiresAtMS-route.clock)/1000 } ?? operationStarted + 300
             let deadline = min(reconciliationDeadline, receiptDeadline)
-            if isConversation, ProcessInfo.processInfo.systemUptime >= deadline { break }
+            if isConversation, timing.now() >= deadline { break }
             if attempt > 0 {
                 let delay = isConversation ? min(2.0, Double(attempt)*0.25) : Double(attempt)*0.25
-                let remaining = deadline-ProcessInfo.processInfo.systemUptime
+                let remaining = deadline-timing.now()
                 if isConversation, remaining <= 0 { break }
-                try await Task.sleep(for: .seconds(isConversation ? min(delay,remaining) : delay))
+                try await timing.sleep(isConversation ? min(delay,remaining) : delay)
             }
+            attempt += 1
             do {
-                let recovered = try await readyRoute()
+                let bounded = DJConnectOperationDeadline(end: deadline, timing: timing)
+                let recovered = isConversation ? try await bounded.run { try await self.readyRoute() } : try await readyRoute()
+                if isConversation { try bounded.check() }
                 var request = try protectedRequest(recovered.url, path: "/api/djconnect/v1/transport/operation/status", body: statusBody)
                 if isConversation {
-                    let remaining = deadline-ProcessInfo.processInfo.systemUptime
+                    let remaining = deadline-timing.now()
                     guard remaining > 0 else { break }
                     request.timeoutInterval = min(request.timeoutInterval,remaining)
                 }
-                let result = try await wire.http(request)
-                return try accept(result, id: id, operationEpoch: operationEpoch, epoch: epoch)
+                let result: (Data, Int)
+                if isConversation {
+                    let bounded = DJConnectOperationDeadline(end: deadline, timing: timing)
+                    let fixed = request
+                    result = try await bounded.run { try await self.wire.http(fixed) }
+                } else { result = try await wire.http(request) }
+                try originalDeadline?.check()
+                guard !isConversation || timing.now() < deadline else { throw DJConnectHybridTransportError.deliveryUnknown }
+                return try accept(result, id: id, operationEpoch: operationEpoch, epoch: epoch, receiptClock: originalDeadline == nil ? nil : route)
             } catch let error as DJConnectHybridTransportError {
                 switch error {
                 case .outcome(let receipt) where ["accepted", "sent_unknown"].contains(receipt.phase):
@@ -494,7 +670,7 @@ public actor DJConnectHybridTransport {
         }
         throw DJConnectHybridTransportError.deliveryUnknown
     }
-    private func accept(_ result: (Data, Int), id: String, operationEpoch: String, epoch: UUID) throws -> (Data, Int) {
+    private func accept(_ result: (Data, Int), id: String, operationEpoch: String, epoch: UUID, receiptClock: Route? = nil) throws -> (Data, Int) {
         guard epoch == generation, foreground, !Task.isCancelled else { throw CancellationError() }
         let body = try JSONDecoder().decode(HybridObject.self, from: result.0)
         try checkAuthority(body, status: result.1)
@@ -507,6 +683,13 @@ public actor DJConnectHybridTransport {
         guard receipt.contractVersion == 1, receipt.operationID == id, receipt.operationEpoch == operationEpoch,
               ["accepted", "sent_unknown", "confirmed", "rejected", "cancelled", "unknown"].contains(receipt.phase) else { throw DJConnectHybridTransportError.invalidFrame }
         if receipts[id]?.phase != "confirmed" { receipts[id] = receipt }
+        if let receiptClock {
+            let expires = receiptClock.anchor + Double(receipt.expiresAtMS - receiptClock.clock) / 1000
+            let original = pendingIntents[id]?.deadline ?? expires
+            let end = min(receiptEnds[id] ?? original, expires)
+            receiptEnds[id] = end // Earlier expiry is sticky; a later receipt never renews it.
+            guard end > timing.now() else { throw DJConnectHybridTransportError.deliveryUnknown }
+        }
         if !["accepted", "sent_unknown"].contains(receipt.phase) { pendingIntents.removeValue(forKey: id) }
         guard receipt.resultAvailable, body["result_available"] == .bool(true) else { throw DJConnectHybridTransportError.outcome(receipts[id] ?? receipt) }
         return result

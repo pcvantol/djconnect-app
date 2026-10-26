@@ -71,6 +71,15 @@ public struct DJConnectWatchProxyRequest: Codable, Sendable {
     public var operation: DJConnectWatchProxyOperation
     public var payload: Data?
 
+    /// Presentation timing/replay classification only; never aliases one server
+    /// operation to another or advertises an execution capability.
+    public var isAskDJTextSubmission: Bool {
+        if operation == .askDJMessage { return true }
+        guard operation == .command, let payload,
+              let object = try? JSONDecoder().decode([String: DJConnectJSONValue].self, from: payload) else { return false }
+        return object["command"] == .string("ask_dj_message")
+    }
+
     public init(operation: DJConnectWatchProxyOperation, payload: Data? = nil) {
         self.operation = operation
         self.payload = payload

@@ -1,5 +1,16 @@
 # Full Help catalogue and explicit selection
 
+## Corrected composer presentation (owner clarification, 26 October)
+
+The owner explicitly clarified that the primary three suggestions belong in a glass popout **above the chat bar**, opened automatically when the composer receives focus. This applies to both existing surfaces regardless of Ask DJ history or DJ-session timeline contents. It supersedes the empty-state/first-play placement from older issue128. Those locations no longer render a second suggestion strip.
+
+The shared `AskDJInputBar` owns the anchored popout; `AskDJComposerHelpPopout` renders it. The close cross asks whether to hide automatic suggestions for this session or always, with Cancel preserving the panel. Session suppression is RAM-only and keyed to the current owner/DJ session (or current standalone conversation epoch without an active session). Always is a device-local presentation preference, never a Profile capability or intelligence field. The Help icon beside the microphone can explicitly reopen the panel despite automatic suppression. More opens the existing larger scrollable catalogue. Opening/closing does not submit a question or modify the draft.
+
+The dynamic source/eligibility rules and three-or-zero invariant remain unchanged. Focus does not qualify a catalogue. While the actual wire catalogue remains DFAA revision1 `false`/70pending and the production observation Reader is nil, the popout shows honest unavailable copy and accepts normal free typing. Separately accepted EN/NL40 content does not itself change the wire pin/publication/configuration or qualify other locales. Synthetic component examples cannot activate this production path.
+
+This is source work in progress until its exact review and validation receipts are delivered. The historical source receipt below remains bound to its original delivery; the new presentation is not retroactively attributed to that receipt.
+
+
 Peter requested More beside the three suggestions, a large scrollable glass popover, immediate ordinary Ask DJ submission for explicitly clicked complete requests, and editable drafts with the missing artist selected for parameterized requests. This supersedes the private R5 no-autosend proposal for complete catalogue choices only; it does not authorize autonomous sending or backend execution rights.
 
 ## Client preparation

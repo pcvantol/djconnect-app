@@ -287,3 +287,19 @@ private extension String {
         Issue.record("An uncertain response cannot become success")
     } catch { #expect(writes == 2) }
 }
+
+@Test @MainActor func watchTextReplyUsesItsOwnBoundWithoutRetryingOrChangingOtherRequests() async throws {
+    let pending = DJConnectWatchProxyRequests(timeout: .milliseconds(5))
+    let payload = try JSONEncoder().encode(["command": "ask_dj_message"])
+    #expect(DJConnectWatchProxyRequest(operation: .askDJMessage).isAskDJTextSubmission)
+    #expect(DJConnectWatchProxyRequest(operation: .command, payload: payload).isAskDJTextSubmission)
+    #expect(!DJConnectWatchProxyRequest(operation: .command, payload: Data("bad".utf8)).isAskDJTextSubmission)
+    var sends = 0
+    var original: String?
+    let task = Task { await pending.request(timeout: .seconds(1)) { id in sends += 1; original = id } }
+    while original == nil { await Task.yield() }
+    try await Task.sleep(for: .milliseconds(30))
+    #expect(pending.count == 1 && sends == 1)
+    pending.receive(id: original!, data: try JSONEncoder().encode(DJConnectWatchProxyResponse(success: true, payload: Data())))
+    #expect(await task.value.success && pending.count == 0 && sends == 1)
+}

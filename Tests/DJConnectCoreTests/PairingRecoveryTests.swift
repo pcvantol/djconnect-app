@@ -30,7 +30,7 @@ private final class PairingRecoveryURLProtocol: URLProtocol, @unchecked Sendable
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         guard let wire = PairingRecoveryWire.lock.withLock({ PairingRecoveryWire.wires[request.url?.host ?? ""] }) else { return }
-        operation = Task {
+        operation = Task { @Sendable [self, wire] in
             do {
                 let (status, data) = try await wire.handler(request, wire.next(request.url!.path))
                 let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!

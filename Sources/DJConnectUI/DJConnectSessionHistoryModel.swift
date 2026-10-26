@@ -243,6 +243,14 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     private weak var host: DJConnectAppModel?
     public private(set) var historyContractVersion = 1
     @Published public private(set) var historyNeedsUpgrade = false
+    private var pendingSubmissionTasks: [UUID: Task<Void, Never>] = [:]
+    private func launchSubmission(_ turn: PendingTurn) {
+        let id = UUID()
+        pendingSubmissionTasks[id] = Task {
+            defer { pendingSubmissionTasks.removeValue(forKey: id) }
+            await submit(turn)
+        }
+    }
     private var epoch = UUID()
     @Published private var ownerScope: String? {
         didSet { if ownerScope != oldValue { host?.activeVoiceOwnerDidChange() } }
@@ -464,6 +472,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func reset() {
+        pendingSubmissionTasks.values.forEach { $0.cancel() }; pendingSubmissionTasks = [:]
+        host?.cancelAskDJTextSubmissions()
         contributionExploration = nil
         contentDeletionAvailable = false
         summaryAvailable = false
@@ -878,8 +888,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         guard profileScopeActive, let host, host.canRefreshSessionHistory else { return false }
         let captured = epoch, archives = archiveGeneration
         do {
-            let response = try await host.withHomeAssistantClient { try await $0.profileConversationHistory() }
-            guard captured == epoch, archives == archiveGeneration, !response.ownerScope.isEmpty else { return false }
+            let response = try await host.withHomeAssistantClient(allowsOperationReplay: false) { try await $0.profileConversationHistory() }
+            guard !Task.isCancelled, host.isAskDJPresentationActive, captured == epoch, archives == archiveGeneration, !response.ownerScope.isEmpty else { return false }
             let scope = response.ownerScope
             if let ownerScope, ownerScope != scope {
                 suspend(); host.enterProfileConversationScope()
@@ -1335,7 +1345,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             preservesOriginalSelection: preservingSelection)
         pendingTurns.append(turn)
         if !preservingComposer { selectedEntry = nil }
-        Task { await submit(turn) }
+        launchSubmission(turn)
         return true
     }
 
@@ -1347,7 +1357,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             id: turn.id, text: turn.text, context: turn.context, localMessageID: turn.localMessageID, payload: turn.payload,
             requestEpoch: turn.requestEpoch, ownerScope: turn.ownerScope, preservesOriginalSelection: turn.preservesOriginalSelection, createdAt: turn.createdAt))
         host.setProfileConversationSending(true)
-        Task { await submit(turn) }
+        launchSubmission(turn)
     }
 
     public func useCurrentContext(_ turn: PendingTurn) {
@@ -1388,7 +1398,11 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
                 pendingTurns.removeAll { $0.id == turn.id }
                 host.confirmProfileConversationText(id: turn.localMessageID)
                 host.setProfileConversationSending(false)
-                await refreshConversation()
+                let retained = await refreshConversation()
+                guard captured == epoch, ownerScope == turn.ownerScope else { return }
+                if !retained || !host.askDJMessages.contains(where: { $0.role == .dj && $0.clientMessageID == turn.id }) {
+                    host.showRetainedAskDJAnswerUnavailable()
+                }
                 return
             }
             if let index = pendingTurns.firstIndex(where: { $0.id == turn.id }) {
@@ -1450,8 +1464,8 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         guard let host, host.canRefreshSessionHistory else { throw CancellationError() }
         let captured = epoch, archives = archiveGeneration
         do {
-            let response = try await host.withHomeAssistantClient { try await $0.profileConversationHistory() }
-            guard captured == epoch, archives == archiveGeneration, !response.ownerScope.isEmpty else { throw CancellationError() }
+            let response = try await host.withHomeAssistantClient(allowsOperationReplay: false) { try await $0.profileConversationHistory() }
+            guard !Task.isCancelled, host.isAskDJPresentationActive, captured == epoch, archives == archiveGeneration, !response.ownerScope.isEmpty else { throw CancellationError() }
             let scope = response.ownerScope
             if ownerScope != nil && ownerScope != scope { suspend(); host.enterProfileConversationScope() }
             ownerScope = scope
@@ -1475,7 +1489,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         do {
             let payload = host.profileConversationPayload(text: text, clientMessageID: clientMessageID, context: currentContext())
             selectedEntry = nil
-            let response = try await host.withHomeAssistantClient { try await $0.sendSessionConversation(payload) }
+            let response = try await host.withHomeAssistantClient(allowsOperationReplay: false) { try await $0.sendSessionConversation(payload) }
             guard captured == epoch else { throw CancellationError() }
             try await accept(response, fallback: nil, apply: false, historicalGeneration: archives)
             return response.base

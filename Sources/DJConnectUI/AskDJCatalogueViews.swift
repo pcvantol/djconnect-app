@@ -1,6 +1,54 @@
 import SwiftUI
 import DJConnectCore
 
+/// Device-local UI preference only; no Profile intelligence or server capability.
+struct AskDJHelpScope: Equatable {
+    var owner: String?
+    var session: String?
+    var conversation: UUID?
+}
+struct AskDJHelpVisibility: Equatable {
+    private(set) var hiddenSession: AskDJHelpScope?
+    var alwaysHidden = false
+    func opensAutomatically(in scope: AskDJHelpScope) -> Bool { !alwaysHidden && hiddenSession != scope }
+    mutating func hide(in scope: AskDJHelpScope, always: Bool) {
+        if always { alwaysHidden = true } else { hiddenSession = scope }
+    }
+}
+struct AskDJHelpOpenRequest: Equatable {
+    let id = UUID()
+    let surface: DJConnectAskDJCatalogue.Surface
+}
+
+/// Anchored by the shared composer, independent of timeline/history emptiness.
+struct AskDJComposerHelpPopout: View {
+    @ObservedObject var model: DJConnectAppModel
+    let surface: DJConnectAskDJCatalogue.Surface
+    let close: () -> Void
+    let select: (String) -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(DJConnectLocalization.localized(key: "ui.askdj.suggestions.title", language: model.language))
+                    .font(.headline).foregroundStyle(.white)
+                Spacer()
+                Button(action: close) { Image(systemName: "xmark") }
+                    .buttonStyle(.plain).frame(width: 44, height: 44)
+                    .accessibilityLabel(DJConnectLocalization.localized(key: "ui.close", language: model.language))
+                    .accessibilityIdentifier("ask-dj-suggestions-close")
+            }
+            AskDJSuggestionStrip(model: model, surface: surface, reading: false, select: select)
+        }
+        .padding(16)
+        .frame(maxWidth: 580)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(DJConnectMaterial(.regular), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(.white.opacity(0.16), lineWidth: 0.6))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("ask-dj-suggestions-popout-" + surface.rawValue)
+    }
+}
+
 /// Both surfaces use this renderer and the same byte-verified Core catalogue.
 struct AskDJHelpButton: View {
     @ObservedObject var model: DJConnectAppModel
@@ -9,6 +57,7 @@ struct AskDJHelpButton: View {
     var send: (() -> Void)? = nil
     @State private var presented = false
     var body: some View {
+        if showsMoreLabel {
         AskDJHelpEntry(surface: surface, language: model.language, presented: $presented, showsMoreLabel: showsMoreLabel, onDismissed: {
             if model.askDJCatalogueInputSelection != nil { model.askDJCatalogueFocusRequest = UUID() }
         }) {
@@ -16,6 +65,11 @@ struct AskDJHelpButton: View {
         }
         .onChange(of: presented) { _, value in model.askDJHelpIsPresented = value }
         .onDisappear { if presented { model.askDJHelpIsPresented = false } }
+        } else {
+            Button { model.askDJHelpOpenRequest = .init(surface: surface) } label: { Image(systemName: "questionmark.circle") }
+                .accessibilityLabel(DJConnectLocalization.localized(key: surface == .session ? "ui.askdj.help.session.entry" : "ui.askdj.help.global.entry", language: model.language))
+                .accessibilityIdentifier("ask-dj-help-" + surface.rawValue)
+        }
     }
 }
 
@@ -209,6 +263,11 @@ struct AskDJSuggestionStrip: View {
                 update(revokeOnly: true); return
             }
             select(suggestion.prompt)
+        }
+        if suggestions.isEmpty {
+            Text(DJConnectLocalization.localized(key: "ui.askdj.help.unavailable", language: model.language))
+                .font(.subheadline).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         AskDJHelpButton(model: model, surface: surface, showsMoreLabel: true)
         .onAppear { update(visit: true) }

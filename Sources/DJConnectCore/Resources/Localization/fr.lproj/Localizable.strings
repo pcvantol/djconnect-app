@@ -1597,3 +1597,10 @@
 "ui.rendezvous.repair_paused" = "La liaison sécurisée reste en pause. Votre application et votre session DJ restent disponibles. Utilisez le code du récepteur Home Assistant pour associer cet écran.";
 
 "ui.session.moment.dj_bulletin" = "Bulletin du DJ";
+
+"ui.ask_dj.answer.retained_unavailable" = "Votre demande a été traitée. La réponse originale n’est pas disponible dans l’historique enregistré.";
+
+"ui.askdj.suggestions.title" = "Suggestions";
+"ui.askdj.suggestions.hide.title" = "Masquer les suggestions automatiques ?";
+"ui.askdj.suggestions.hide.session" = "Pour cette session";
+"ui.askdj.suggestions.hide.always" = "Toujours";

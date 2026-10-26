@@ -120,6 +120,65 @@ import XCTest
         start.press(forDuration: 0.1, thenDragTo: end)
     }
     #endif
+    func testFocusShowsAnchoredHelpWithAndWithoutExistingContentAndHideChoices() {
+        for surface in ["ask_dj", "active_session"] {
+            for populated in [false, true] {
+                let app = XCUIApplication()
+                app.launchEnvironment = ["HELP_AUTO_POPOUT": "1", "HELP_SURFACE": surface, "HELP_POPULATED": populated ? "1" : "0"]
+                app.launch()
+                #if os(macOS)
+                let field = app.textFields.firstMatch
+                #else
+                let field = app.textViews.firstMatch
+                #endif
+                XCTAssertTrue(field.waitForExistence(timeout: 5))
+                activate(field)
+                let close = app.buttons["ask-dj-suggestions-close"]
+                XCTAssertTrue(close.waitForExistence(timeout: 5), app.debugDescription)
+                let more = app.buttons["ask-dj-more-" + surface]
+                XCTAssertTrue(more.exists)
+                XCTAssertLessThan(more.frame.maxY, field.frame.minY)
+                activate(close)
+                let hideSession = app.buttons["For this session"]
+                XCTAssertTrue(hideSession.waitForExistence(timeout: 3), app.debugDescription)
+                activate(hideSession)
+                XCTAssertTrue(close.waitForNonExistence(timeout: 3))
+                activate(field)
+                XCTAssertFalse(close.exists)
+                // Explicit Help overrides auto-suppression, never catalogue admission.
+                activate(app.buttons["ask-dj-help-" + surface])
+                XCTAssertTrue(close.waitForExistence(timeout: 3))
+                activate(close)
+                activate(app.buttons["Always"])
+                XCTAssertTrue(close.waitForNonExistence(timeout: 3), app.debugDescription)
+                XCTAssertEqual(app.staticTexts["help-probe-visibility"].label, "always-hidden", app.debugDescription)
+                activate(field)
+                XCTAssertFalse(close.exists)
+                activate(app.buttons["ask-dj-help-" + surface])
+                XCTAssertTrue(close.waitForExistence(timeout: 3))
+                #if os(macOS)
+                var shot = app.windows.firstMatch.screenshot()
+                #else
+                var shot = app.screenshot()
+                #endif
+                var attachment = XCTAttachment(screenshot: shot)
+                attachment.name = "composer-help-\(surface)-\(populated ? "populated" : "empty")"
+                attachment.lifetime = .keepAlways; add(attachment)
+                activate(more)
+                XCTAssertTrue(app.buttons["ask-dj-help-close"].waitForExistence(timeout: 3))
+                #if os(macOS)
+                shot = app.windows.firstMatch.screenshot()
+                #else
+                shot = app.screenshot()
+                #endif
+                attachment = XCTAttachment(screenshot: shot)
+                attachment.name = "composer-more-closed-catalogue-\(surface)-\(populated ? "populated" : "empty")"
+                attachment.lifetime = .keepAlways; add(attachment)
+                app.terminate()
+            }
+        }
+    }
+
     func testReferenceInFiveLocalesBothSurfacesAndTextSizes() throws {
         for language in ["nl", "en", "de", "fr", "es"] {
             for surface in ["ask_dj", "active_session"] {

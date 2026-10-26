@@ -11874,9 +11874,6 @@ private struct AskDJEmptyState: View {
         VStack(spacing: 14) {
             hero
 
-            AskDJSuggestionStrip(model: model, surface: .askDJ, reading: reading, select: selectExample)
-                .padding(.top, 2)
-
             if isRequestingIdleSuggestion {
                 HStack(spacing: 7) {
                     ProgressView()
@@ -13562,6 +13559,10 @@ extension View {
 
 struct AskDJInputBar: View {
     @ObservedObject var model: DJConnectAppModel
+    @State private var suggestionsOpen = false
+    @State private var suggestionsHeight: CGFloat = 0
+    @State private var asksHideScope = false
+    let helpSurface: DJConnectAskDJCatalogue.Surface
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
@@ -13590,13 +13591,14 @@ struct AskDJInputBar: View {
          isInputFocused: FocusState<Bool>.Binding, sendAction: (() -> Void)? = nil,
          startVoiceAction: (() -> Void)? = nil, stopVoiceAction: (() -> Void)? = nil,
          toggleVoiceAction: (() -> Void)? = nil, cancelVoiceAction: (() -> Void)? = nil,
-         caretRequest: UUID? = nil, floating: Bool = false, placeholderKey: String? = nil, surfaceColors: [Color]? = nil) {
+         caretRequest: UUID? = nil, floating: Bool = false, placeholderKey: String? = nil, surfaceColors: [Color]? = nil, helpSurface: DJConnectAskDJCatalogue.Surface = .askDJ) {
         self.model = model; self.canSend = canSend; self.canUseVoiceInput = canUseVoiceInput
         self.isInputFocused = isInputFocused; self.sendAction = sendAction
         self.startVoiceAction = startVoiceAction; self.stopVoiceAction = stopVoiceAction
         self.toggleVoiceAction = toggleVoiceAction; self.cancelVoiceAction = cancelVoiceAction
         self.caretRequest = caretRequest; self.floating = floating; self.placeholderKey = placeholderKey
         self.surfaceColors = surfaceColors
+        self.helpSurface = helpSurface
         _editorDraftValue = State(initialValue: model.askDJDraft)
     }
 
@@ -13707,7 +13709,7 @@ struct AskDJInputBar: View {
                         }
                         return .handled
                     }
-                    .background(AskDJMacOutsideClickDismissal(isInputFocused: isInputFocused, isEditing: $isMacEditorEngaged))
+                    .background(AskDJMacOutsideClickDismissal(isInputFocused: isInputFocused, isEditing: $isMacEditorEngaged, allowsDismissal: !suggestionsOpen && !asksHideScope && !model.askDJHelpIsPresented))
                 #endif
             }
             .accessibilityIdentifier("ask-dj-composer-input")
@@ -13739,6 +13741,8 @@ struct AskDJInputBar: View {
 
             HStack(spacing: 10) {
             if isExpanded { Spacer(minLength: 0) }
+            AskDJHelpButton(model: model, surface: helpSurface)
+                .frame(width: 44, height: 44)
             AskDJVoiceInputButton(model: model, isEnabled: canUseVoiceInput,
                                  startAction: startVoiceAction, stopAction: stopVoiceAction,
                                  toggleAction: toggleVoiceAction, cancelAction: cancelVoiceAction)
@@ -13768,6 +13772,45 @@ struct AskDJInputBar: View {
             .fixedSize(horizontal: !isExpanded, vertical: false)
         }
         }
+        .overlay(alignment: .top) {
+            if suggestionsOpen && !model.isSendingAskDJText && !model.isRecordingVoice {
+                AskDJComposerHelpPopout(model: model, surface: helpSurface, close: { suggestionsOpen = false; asksHideScope = true }) { prompt in
+                    guard model.askDJDraft.isEmpty, !model.isSendingAskDJText, !model.isRecordingVoice else { return }
+                    model.askDJDraft = prompt
+                    suggestionsOpen = false
+                    send()
+                }
+                .padding(.horizontal, 4)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { suggestionsHeight = $0 }
+                .offset(y: -suggestionsHeight - 12)
+                .opacity(suggestionsHeight > 0 ? 1 : 0)
+                .transition(.opacity)
+            }
+        }
+        .confirmationDialog(localizedKey(model.language, "ui.askdj.suggestions.hide.title"), isPresented: $asksHideScope, titleVisibility: .visible) {
+            Button(localizedKey(model.language, "ui.askdj.suggestions.hide.session")) {
+                suggestionsOpen = false; asksHideScope = false; model.hideAskDJSuggestions(always: false)
+            }
+            Button(localizedKey(model.language, "ui.askdj.suggestions.hide.always")) {
+                suggestionsOpen = false; asksHideScope = false; model.hideAskDJSuggestions(always: true)
+            }
+            Button(localizedKey(model.language, "ui.cancel"), role: .cancel) { suggestionsOpen = true }
+        }
+        .onChange(of: isInputFocused.wrappedValue) { _, focused in
+            if focused && !asksHideScope && model.askDJHelpVisibility.opensAutomatically(in: model.askDJHelpScope) { suggestionsOpen = true }
+        }
+        .onChange(of: isExpanded) { _, focused in
+            if focused && !asksHideScope && model.askDJHelpVisibility.opensAutomatically(in: model.askDJHelpScope) { suggestionsOpen = true }
+        }
+        .onChange(of: model.askDJHelpOpenRequest) { _, request in
+            if request?.surface == helpSurface { suggestionsOpen = true }
+        }
+        .onChange(of: model.askDJHelpScope) { _, _ in
+            suggestionsOpen = false; asksHideScope = false
+        }
+        .onAppear {
+            if isInputFocused.wrappedValue && model.askDJHelpVisibility.opensAutomatically(in: model.askDJHelpScope) { suggestionsOpen = true }
+        }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: isExpanded)
         .onChange(of: model.askDJDraftRevision) { _, _ in
             let value = model.askDJDraft
@@ -13794,7 +13837,7 @@ struct AskDJInputBar: View {
         .padding(.bottom, floating ? 12 : 18)
         #endif
         #if os(iOS)
-        .background(AskDJOutsideTapDismissal(isInputFocused: isInputFocused))
+        .background(AskDJOutsideTapDismissal(isInputFocused: isInputFocused, allowsDismissal: !suggestionsOpen && !asksHideScope && !model.askDJHelpIsPresented))
         #endif
         .background {
             if floating {
@@ -13870,16 +13913,19 @@ struct AskDJInputBar: View {
 private struct AskDJMacOutsideClickDismissal: NSViewRepresentable {
     var isInputFocused: FocusState<Bool>.Binding
     @Binding var isEditing: Bool
+    var allowsDismissal = true
     func makeNSView(context: Context) -> ClickProbe { ClickProbe() }
     func updateNSView(_ view: ClickProbe, context: Context) {
         view.inputFocus = isInputFocused
         view.editing = $isEditing
+        view.allowsDismissal = allowsDismissal
     }
     static func dismantleNSView(_ view: ClickProbe, coordinator: ()) { view.stopObserving() }
 
     final class ClickProbe: NSView {
         var inputFocus: FocusState<Bool>.Binding?
         var editing: Binding<Bool>?
+        var allowsDismissal = true
         private var monitor: Any?
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
         override func viewDidMoveToWindow() {
@@ -13887,7 +13933,7 @@ private struct AskDJMacOutsideClickDismissal: NSViewRepresentable {
             stopObserving()
             guard window != nil else { return }
             monitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
-                guard let self, let window = self.window else { return event }
+                guard let self, let window = self.window, self.allowsDismissal else { return event }
                 if event.window === window, self.bounds.contains(self.convert(event.locationInWindow, from: nil)) {
                     self.editing?.wrappedValue = true
                     return event
@@ -13915,16 +13961,19 @@ private struct AskDJMacOutsideClickDismissal: NSViewRepresentable {
 /// The window recognizer also covers empty space beside a narrow iPad composer.
 private struct AskDJOutsideTapDismissal: UIViewRepresentable {
     var isInputFocused: FocusState<Bool>.Binding
+    var allowsDismissal = true
 
     func makeUIView(context: Context) -> OutsideTapView {
         let view = OutsideTapView()
         view.isUserInteractionEnabled = false
         view.focus = isInputFocused
+        view.allowsDismissal = allowsDismissal
         return view
     }
 
     func updateUIView(_ view: OutsideTapView, context: Context) {
         view.focus = isInputFocused
+        view.allowsDismissal = allowsDismissal
     }
 
     static func dismantleUIView(_ view: OutsideTapView, coordinator: ()) {
@@ -13933,6 +13982,7 @@ private struct AskDJOutsideTapDismissal: UIViewRepresentable {
 
     final class OutsideTapView: UIView, UIGestureRecognizerDelegate {
         var focus: FocusState<Bool>.Binding?
+        var allowsDismissal = true
         private weak var observedWindow: UIWindow?
         private lazy var outsideTap: UITapGestureRecognizer = {
             let gesture = UITapGestureRecognizer(target: self, action: #selector(dismissInput))
@@ -13956,7 +14006,7 @@ private struct AskDJOutsideTapDismissal: UIViewRepresentable {
         }
 
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-            guard let window,
+            guard allowsDismissal, let window,
                   !convert(bounds, to: window).contains(touch.location(in: window)),
                   let editor = firstResponder(in: window) as? UITextView,
                   convert(bounds, to: window).intersects(editor.convert(editor.bounds, to: window)) else { return false }

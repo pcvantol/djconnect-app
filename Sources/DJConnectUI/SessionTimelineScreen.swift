@@ -1220,20 +1220,6 @@ struct SessionTimelineScreen: View {
                     submittedQuestion = SessionSubmittedQuestion(sessionID: sessionID, localID: question.id, clientID: question.clientMessageID)
                 }
             }, contributionQuestion: history.contributionQuestion)
-            HStack {
-                Spacer()
-                AskDJHelpButton(model: model, surface: .session)
-            }
-            if model.activeDJSession?.id == sessionID {
-                AskDJSuggestionStrip(model: model, surface: .session, reading: !currentHeaderVisible || inputFocused) { prompt in
-                    guard model.activeDJSession?.id == sessionID,
-                          !model.isSendingAskDJText, !model.isRecordingVoice,
-                          model.askDJDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-                    model.askDJDraft = prompt
-                    sendComposerQuestion()
-                }
-                .frame(maxWidth: .infinity)
-            }
         }
         .onChange(of: hasSessionPlayback, initial: true) { _, observed in
             if observed { history.rememberObservedPlayback(sessionID: sessionID) }
@@ -1444,7 +1430,7 @@ struct SessionTimelineScreen: View {
                       canUseVoiceInput: (model.isDemoMode || model.canUseProfileConversation) && model.canUseVoiceInputRoute,
                       isInputFocused: $inputFocused, sendAction: sendComposerQuestion,
                       floating: floating, placeholderKey: "ui.session.chat.placeholder",
-                      surfaceColors: activeSession.map { DJConnectSessionMoodPalette(mood: $0.selectedMood).colors })
+                      surfaceColors: activeSession.map { DJConnectSessionMoodPalette(mood: $0.selectedMood).colors }, helpSurface: .session)
         .sessionIntroductionTarget("chat")
     }
 

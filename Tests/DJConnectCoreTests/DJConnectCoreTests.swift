@@ -1376,7 +1376,7 @@ private func makePairedMusicDNAModel(
     let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
 
     #expect(request.url?.path == "/api/djconnect/v1/ask_dj/message")
-    #expect(request.timeoutInterval == 30)
+    #expect(request.timeoutInterval == 300)
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == identity.deviceID)
     #expect(json?["device_id"] as? String == identity.deviceID)
@@ -5446,15 +5446,18 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(counter.count == 1)
 }
 
-@Test func askDJMessageWebSocketFastPathDecodesMessagesAndRevisions() async throws {
+@Test func askDJMessagePreselectsOneHTTPAttemptEvenWhenLegacyWebSocketIsAvailable() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJMessage])
     let client = DJConnectClient(
         baseURL: URL(string: "http://ask-fast.local:8123")!,
         identity: testIOSIdentity(),
         tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
         session: mockSession(host: "ask-fast.local") { request in
-            Issue.record("HTTP should not be used when WebSocket Ask DJ succeeds")
-            return (try httpResponse(for: request, statusCode: 500), Data())
+            #expect(request.timeoutInterval <= 300 && request.timeoutInterval > 299)
+            let reply = DJConnectAskDJMessageResponse(
+                assistantMessage: DJConnectAskDJHistoryMessage(id: "http-assistant", role: .assistant, text: "Retained answer", createdAt: Date()),
+                historyRevision: 12, clearRevision: 3)
+            return (try httpResponse(for: request, statusCode: 200), try JSONEncoder().encode(reply))
         },
         webSocketFastPath: fastPath
     )
@@ -5471,11 +5474,9 @@ private final class ProfileConsentServer: @unchecked Sendable {
 
     #expect(response.historyRevision == 12)
     #expect(response.clearRevision == 3)
-    #expect(response.assistantMessage?.text == "Fast answer")
-    #expect(await fastPath.askDJCalls == 1)
-    #expect(await fastPath.receivedAskPayload?.musicDNAKey == "music-dna")
-    #expect(await fastPath.receivedAskPayload?.language == "de-DE")
-    #expect(await fastPath.receivedTokens == ["device-token"])
+    #expect(response.assistantMessage?.text == "Retained answer")
+    #expect(await fastPath.askDJCalls == 0)
+    #expect(await fastPath.receivedTokens.isEmpty)
 }
 
 @Test func trackInsightWebSocketFastPathSucceeds() async throws {
@@ -5806,13 +5807,14 @@ private final class ProfileConsentServer: @unchecked Sendable {
 
         try await routeCase.operation(client)
 
-        #expect(await routeCase.webSocketCallCount(fastPath) == 1, "\(routeCase.name) should try WebSocket once")
+        let expectedSocketCalls = routeCase.name == "ask_dj/message" ? 0 : 1
+        #expect(await routeCase.webSocketCallCount(fastPath) == expectedSocketCalls, "\(routeCase.name) selects its route before dispatch")
         #expect(counter.count == 1, "\(routeCase.name) should fall back to exactly one HTTP request")
         #expect(recorder.requests.first?.url?.path == routeCase.expectedPath, "\(routeCase.name) should fall back to \(routeCase.expectedPath)")
     }
 }
 
-@Test func webSocketFailureFallsBackToHTTPExactlyOnce() async throws {
+@Test func legacyAskDJSocketFailureCannotTriggerAnHTTPReplay() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJMessage])
     await fastPath.setAskDJError(DJConnectError.network(message: "timeout"))
     final class Counter: @unchecked Sendable {
@@ -5840,7 +5842,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     ))
 
     #expect(response.assistantMessage?.text == "HTTP answer")
-    #expect(await fastPath.askDJCalls == 1)
+    #expect(await fastPath.askDJCalls == 0)
     #expect(counter.count == 1)
 }
 
@@ -5855,8 +5857,8 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     case "server": failure = DJConnectError.server(statusCode: 200, message: "Command rejected")
     default: failure = DJConnectError.backendUnavailable(message: nil)
     }
-    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJMessage])
-    await fastPath.setAskDJError(failure)
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.command])
+    await fastPath.setCommandError(failure)
     let client = DJConnectClient(baseURL: URL(string: "http://ws-no-replay.local:8123")!,
         identity: testIOSIdentity(), tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
         session: mockSession(host: "ws-no-replay.local") { request in
@@ -5864,7 +5866,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
             return (try httpResponse(for: request, statusCode: 200), Data(#"{"history_revision":9,"clear_revision":1,"assistant_message":{"role":"assistant","text":"Unexpected replay"}}"#.utf8))
         }, webSocketFastPath: fastPath)
     do {
-        _ = try await client.sendAskDJMessage(DJConnectAskDJRequest(identity: testIOSIdentity(), text: "Question"))
+        _ = try await client.sendCommandResponse(DJConnectCommandPayload(identity: testIOSIdentity(), command: "next"))
         Issue.record("Expected the original failure")
     } catch is CancellationError {
         #expect(kind == "cancelled" || kind == "url_cancelled")
@@ -14146,4 +14148,68 @@ func bluetoothDeviceNameRequiresOneUnambiguousNamedRoute(names: [String]) throws
         #expect(width == 70 * scale && height == 21 * scale,
                 "Live Activity assets must be prepared at their actual display size, not merely framed smaller")
     }
+}
+
+@Test func askDJLegacyUncertainHTTPDoesNotTryAvailableWebSocketOrAnotherWrite() async throws {
+    let counter = RequestCounter()
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJMessage])
+    let client = DJConnectClient(baseURL: URL(string: "http://ask-uncertain.local:8123")!, identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "synthetic"),
+        session: mockSession(host: "ask-uncertain.local") { _ in
+            counter.increment(); throw URLError(.networkConnectionLost)
+        }, webSocketFastPath: fastPath)
+    await #expect(throws: DJConnectHybridTransportError.deliveryUnknown) {
+        try await client.sendAskDJMessage(.init(identity: testIOSIdentity(), text: "Synthetic question", clientMessageID: "one-original-message"))
+    }
+    #expect(counter.count == 1)
+    #expect(await fastPath.askDJCalls == 0)
+}
+
+@Test @MainActor func retainedCatalogueCaptionDoesNotReconstructOriginalResultActionsOrMedia() throws {
+    let name = "ask-caption-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: nil), startBackgroundTasks: false)
+    let caption = "I found three playlists."
+    let retained = DJConnectAskDJHistoryMessage(id: "caption", clientMessageID: "original", exchangeID: "exchange", exchangeOrder: 1,
+        role: .assistant, text: caption, createdAt: Date())
+    let projected = model.sessionResponseMessage(retained)
+    #expect(projected.text == caption && projected.clientMessageID == "original")
+    #expect(projected.items.isEmpty && projected.playbackActions.isEmpty && projected.images.isEmpty)
+    #expect(projected.audioURL == nil && projected.trackInsight == nil)
+}
+
+private actor AbsentAskDJOperationContext: DJConnectHybridWire {
+    var probes = 0
+    func http(_ request: URLRequest) async throws -> (Data, Int) {
+        #expect(request.url?.path == "/api/djconnect/v1/transport/context")
+        probes += 1
+        return (Data(#"{"message":"Not Found"}"#.utf8), 404)
+    }
+    func socket(_ url: URL) async throws -> any DJConnectHybridSocket { throw URLError(.cannotConnectToHost) }
+}
+
+@Test func legacyFreeTextWithHybridCoordinatorUsesFresh404AndOneHTTPAttemptPerSubmission() async throws {
+    let origin = URL(string: "https://ask-legacy-proof.example")!
+    let identity = testIOSIdentity(), token = DJConnectInMemoryTokenStore(token: "synthetic")
+    let wire = AbsentAskDJOperationContext(), counter = RequestCounter()
+    let hybrid = DJConnectHybridTransport(localURL: nil, remoteURL: origin, expectedInstallID: "legacy-install", identity: identity, tokenStore: token, wire: wire)
+    let client = DJConnectClient(baseURL: origin, identity: identity, tokenStore: token,
+        session: mockSession(host: "ask-legacy-proof.example") { request in
+            counter.increment()
+            #expect(request.url!.path == "/api/djconnect/v1/ask_dj/message")
+            #expect(request.timeoutInterval > 290 && request.timeoutInterval <= 300)
+            let bytes = try #require(try requestBodyData(request))
+            let body = try #require(try JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+            let original = try #require(body["client_message_id"] as? String)
+            let reply = DJConnectAskDJMessageResponse(assistantMessage: .init(id: "reply-" + original, clientMessageID: original,
+                role: .assistant, text: "Retained answer", createdAt: Date()), historyRevision: counter.count, clearRevision: 0)
+            return (try httpResponse(for: request, statusCode: 200), try JSONEncoder().encode(reply))
+        }, hybridTransport: hybrid)
+    for original in ["original-one", "original-two"] {
+        let result = try await client.sendAskDJMessage(.init(identity: identity, text: "Synthetic free text", clientMessageID: original))
+        #expect(result.assistantMessage?.clientMessageID == original)
+    }
+    #expect(counter.count == 2)
+    #expect(await wire.probes == 2)
 }

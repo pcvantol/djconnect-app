@@ -25,6 +25,7 @@ public final class DJConnectClient: Sendable {
     private let surfacePushTransport: DJConnectSurfacePushHTTP
     private let sessionArtworkTransport: DJConnectSessionArtworkTransport
     private let sessionProjectionSession: URLSession
+    private let askDJSession: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private let responseLogger: (@Sendable (_ requestSummary: String, _ statusCode: Int) -> Void)?
@@ -57,6 +58,11 @@ public final class DJConnectClient: Sendable {
         projectionConfiguration.httpShouldSetCookies = false
         projectionConfiguration.urlCredentialStorage = nil
         self.sessionProjectionSession = URLSession(configuration: projectionConfiguration, delegate: session.delegate, delegateQueue: session.delegateQueue)
+        let askConfiguration = projectionConfiguration
+        askConfiguration.timeoutIntervalForRequest = 300
+        askConfiguration.timeoutIntervalForResource = 300
+        self.askDJSession = URLSession(configuration: askConfiguration,
+            delegate: DJConnectPublicDiscoveryDelegate(original: session.delegate), delegateQueue: session.delegateQueue)
         self.speechTransport = DJConnectSpeechTransport(configuration: session.configuration)
         self.settingsTransport = DJConnectProfileDJSettingsTransport(configuration: session.configuration)
         self.surfacePushTransport = DJConnectSurfacePushHTTP(configuration: session.configuration)
@@ -68,7 +74,7 @@ public final class DJConnectClient: Sendable {
         self.failureLogger = failureLogger
     }
 
-    deinit { sessionProjectionSession.invalidateAndCancel() }
+    deinit { sessionProjectionSession.invalidateAndCancel(); askDJSession.invalidateAndCancel() }
 
     /// Always re-read immediately before HA speech use; never use legacy support flags.
     public func currentDeviceSpeech(language: String, expectedInstallationID: String) async throws -> DJConnectDeviceSpeechAvailability? {
@@ -180,7 +186,7 @@ public final class DJConnectClient: Sendable {
     }
 
     public func sendCommand(_ payload: DJConnectCommandPayload) async throws -> DJConnectEnvelope<DJConnectPlayback> {
-        if let response: DJConnectEnvelope<DJConnectPlayback> = try await webSocketCommandIfSupported(payload) {
+        if payload.command != "ask_dj_message", let response: DJConnectEnvelope<DJConnectPlayback> = try await webSocketCommandIfSupported(payload) {
             return response
         }
         let request = try commandRequest(payload)
@@ -188,7 +194,7 @@ public final class DJConnectClient: Sendable {
     }
 
     public func sendCommandResponse(_ payload: DJConnectCommandPayload) async throws -> DJConnectCommandResponse {
-        if let response: DJConnectCommandResponse = try await webSocketCommandIfSupported(payload) {
+        if payload.command != "ask_dj_message", let response: DJConnectCommandResponse = try await webSocketCommandIfSupported(payload) {
             return response
         }
         let request = try commandRequest(payload)
@@ -196,19 +202,22 @@ public final class DJConnectClient: Sendable {
     }
 
     public func sendAskDJ(_ payload: DJConnectAskDJRequest) async throws -> DJConnectAskDJResponse {
-        let request = try askDJRequest(payload)
+        var request = try askDJRequest(payload)
+        request.timeoutInterval = 300
         return try await decodedResponse(for: request)
     }
 
     public func sendAskDJMessage(_ payload: DJConnectAskDJRequest) async throws -> DJConnectAskDJMessageResponse {
-        if let response = try await webSocketAskDJMessageIfSupported(payload) {
-            return response
-        }
+        // Select one qualified operation or one legacy HTTP attempt. A legacy
+        // WS timeout cannot establish notSent and must never trigger HTTP replay.
         let request = try askDJMessageRequest(payload)
         return try await decodedResponse(for: request)
     }
 
     public func askDJHistory(sinceRevision: Int? = nil) async throws -> DJConnectAskDJHistoryResponse {
+        try await DJConnectOperationDeadline(seconds: 10).run { try await self.readAskDJHistory(sinceRevision: sinceRevision) }
+    }
+    private func readAskDJHistory(sinceRevision: Int?) async throws -> DJConnectAskDJHistoryResponse {
         if let response = try await webSocketAskDJHistoryIfSupported(sinceRevision: sinceRevision) {
             return response
         }
@@ -1077,6 +1086,9 @@ public final class DJConnectClient: Sendable {
     }
 
     public func profileConversationHistory() async throws -> DJConnectProfileConversationHistory {
+        try await DJConnectOperationDeadline(seconds: 10).run { try await self.readProfileConversationHistory() }
+    }
+    private func readProfileConversationHistory() async throws -> DJConnectProfileConversationHistory {
         let response: DJConnectProfileConversationHistory
         if let scoped = try await webSocketFastPathResult({ fastPath, token in
             try await fastPath.profileConversationHistory(identity: makeDJConnectIdentity(deviceToken: token))
@@ -1290,7 +1302,7 @@ public final class DJConnectClient: Sendable {
 
     public func askDJMessageRequest(_ payload: DJConnectAskDJRequest) throws -> URLRequest {
         var request = try jsonRequest(path: Self.apiV1Path("ask_dj/message"), payload: payload)
-        request.timeoutInterval = 30
+        request.timeoutInterval = 300
         return request
     }
 
@@ -1737,11 +1749,21 @@ public final class DJConnectClient: Sendable {
 
     private func dataAndStatusCodeResponse(for request: URLRequest, using requestSession: URLSession? = nil,
                                           acceptingStatuses: Set<Int> = []) async throws -> (Data, Int) {
+        var selectedLegacyDeadline: DJConnectOperationDeadline?
         if let hybridTransport, DJConnectHybridTransport.operation(for: request) != nil || DJConnectHybridTransport.isActiveRead(request) {
             do {
-                let (data, status) = try await hybridTransport.perform(request)
-                if !acceptingStatuses.contains(status), let error = classify(statusCode: status, body: data) { throw error }
-                return (data, status)
+                if DJConnectHybridTransport.isAskDJText(request) {
+                    switch try await hybridTransport.dispatchAskDJ(request, legacyOrigin: baseURL) {
+                    case .response(let data, let status):
+                        if !acceptingStatuses.contains(status), let error = classify(statusCode: status, body: data) { throw error }
+                        return (data, status)
+                    case .legacy(let deadline): selectedLegacyDeadline = deadline
+                    }
+                } else {
+                    let (data, status) = try await hybridTransport.perform(request)
+                    if !acceptingStatuses.contains(status), let error = classify(statusCode: status, body: data) { throw error }
+                    return (data, status)
+                }
             } catch DJConnectHybridTransportError.authority(let code) {
                 if ["unauthorized", "pairing_revoked"].contains(code) { throw DJConnectError.authStale(statusCode: 401, message: code) }
                 throw DJConnectError.profile(code: .profileAccessDenied, statusCode: 403, message: code)
@@ -1749,7 +1771,14 @@ public final class DJConnectClient: Sendable {
         }
         let (data, response): (Data, URLResponse)
         do {
-            (data, response) = try await (requestSession ?? session).data(for: request)
+            if DJConnectHybridTransport.isAskDJText(request) || request.url?.path.hasSuffix("/api/djconnect/v1/ask") == true {
+                let deadline = selectedLegacyDeadline ?? DJConnectOperationDeadline()
+                var bounded = request; bounded.timeoutInterval = min(300, deadline.remaining)
+                let fixed = bounded
+                (data, response) = try await deadline.run { try await self.askDJSession.data(for: fixed) }
+            } else {
+                (data, response) = try await (requestSession ?? session).data(for: request)
+            }
         } catch {
             if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
                 throw CancellationError()

@@ -43,8 +43,14 @@ def main():
         assert len(vector["help"]) <= 3 and all(len(group[1]) <= 2 for group in vector["help"])
     ui = (ROOT / "Sources/DJConnectUI/DJConnectRootView.swift").read_text()
     session = (ROOT / "Sources/DJConnectUI/SessionTimelineScreen.swift").read_text()
-    assert 'AskDJSuggestionStrip(model: model, surface: .askDJ' in ui
-    assert 'AskDJSuggestionStrip(model: model, surface: .session' in session
+    shared = (ROOT / "Sources/DJConnectUI/AskDJCatalogueViews.swift").read_text()
+    composer = ui[ui.index('struct AskDJInputBar:'):ui.index('struct AskDJInputBar:') + 18000]
+    assert 'AskDJComposerHelpPopout(model: model, surface: helpSurface' in composer
+    assert 'AskDJSuggestionStrip(model: model, surface: surface' in shared
+    assert 'helpSurface: .session' in session
+    # Suggestions are composer-owned, never duplicated in empty/start content.
+    assert 'AskDJSuggestionStrip(' not in session
+    assert 'AskDJSuggestionStrip(' not in ui
     assert 'private var examples: [String]' not in ui[ui.index('private struct AskDJEmptyState:'):ui.index('private struct AskDJOfflineNotice:')]
     assert 'ui.session.suggestion.match_mood' not in session
     states = {}
