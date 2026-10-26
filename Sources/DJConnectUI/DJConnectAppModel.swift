@@ -1110,6 +1110,11 @@ public final class DJConnectAppModel: ObservableObject {
     }
     public lazy var sessionHistory = DJConnectSessionHistoryModel(host: self)
     public let passiveSurfaces = PassiveSessionSurfaceModel()
+    // Native candidate/task custody only. Both public owners have no qualified
+    // original-purpose/clock factory; tokens cannot open acquisition themselves.
+    let nativeWidgetPushOwner = DJConnectSurfacePushTaskOwner(role: .widget)
+    let nativeActivityPushOwner = DJConnectSurfacePushTaskOwner(role: .liveActivityUpdate)
+    private let nativeWidgetRegistrationInstance = UUID().uuidString
     private var passiveSurfaceObservation: AnyCancellable?
     public let profileDJSettings = ProfileDJSettingsModel()
     private let profileDJChoiceScheduler = ProfileDJChoiceScheduler()
@@ -3032,6 +3037,7 @@ public final class DJConnectAppModel: ObservableObject {
         #if os(iOS) && canImport(WatchConnectivity)
         invalidateWatchProxyPairingWork()
         #endif
+        nativeWidgetPushOwner.withdrawLocally(); nativeActivityPushOwner.withdrawLocally()
         passiveSurfaces.suspend()
         automaticPassiveTask?.cancel(); automaticPassiveTask = nil
         automaticPassiveTaskID = UUID(); lastAutomaticPassiveQueryAt = nil
@@ -10731,7 +10737,53 @@ public final class DJConnectAppModel: ObservableObject {
         syncSessionSurfaces()
     }
 
+    private func bindNativePushOwners() {
+        guard isAppInForeground, !isDemoMode, pairingStatus == .paired,
+              activeDJSession?.runtimeState == "active", profileDJSettings.active,
+              let settings = profileDJSettings.response, settings.isValid,
+              let session = activeDJSession?.id,
+              let installation = defaults.string(forKey: haInstallIDKey),
+              let origin = Self.normalizedHomeAssistantURL(from: haConnectionMode == .remote ? haRemoteURL : localHomeAssistantURL()),
+              let scope = DJConnectSurfacePushTaskOwner.Scope(installation: installation,
+                  binding: settings.binding, sessionID: session, origin: origin,
+                  deviceID: identity.deviceID, clientType: identity.clientType.rawValue) else {
+            nativeWidgetPushOwner.bind(nil); nativeActivityPushOwner.bind(nil); return
+        }
+        nativeWidgetPushOwner.bind(scope); nativeActivityPushOwner.bind(scope)
+    }
+    private func observeNativePushToken(_ token: Data?, role: DJConnectSurfacePushTaskOwner.Role,
+                                        target: [String: String], binding: String, session: String) {
+        guard !Task.isCancelled, isAppInForeground, !isDemoMode, pairingStatus == .paired,
+              profileDJSettings.active, profileDJSettings.response?.binding == binding,
+              activeDJSession?.id == session, activeDJSession?.runtimeState == "active" else { return }
+        let owner = role == .widget ? nativeWidgetPushOwner : nativeActivityPushOwner
+        guard let token else { owner.observe(nil); return }
+        #if os(macOS)
+        let platform = "macos"
+        #else
+        #if canImport(UIKit)
+        let platform = UIDevice.current.userInterfaceIdiom == .pad ? "ipados" : "ios"
+        #else
+        let platform = "ios"
+        #endif
+        #endif
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        guard let candidate = DJConnectSurfacePushTaskOwner.Candidate(role: role, token: token,
+            platform: platform, osVersion: "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)",
+            environment: nil, target: target) else { owner.observe(nil); return }
+        // Signed deployment/environment and original clock/consent admission
+        // are separate missing qualifications; never infer them from DEBUG.
+        owner.observe(candidate)
+        let generation = owner.observationGeneration
+        guard let origin = Self.normalizedHomeAssistantURL(from: haConnectionMode == .remote ? haRemoteURL : localHomeAssistantURL()) else { return }
+        // No generic transport selection/mode reporting or replay: this client
+        // belongs to the already bound exact paired origin for this operation.
+        let client = DJConnectClient(baseURL: origin, identity: identity, tokenStore: tokenStore, session: urlSession)
+        owner.register(using: client, observationGeneration: generation)
+    }
+
     private func bindPassiveSessionSurfaces() {
+        bindNativePushOwners()
         guard !isDemoMode, pairingStatus == .paired, activeDJSession?.runtimeState == "active" else {
             passiveSurfaces.bind(owner: nil, sessionID: nil, foreground: false); return
         }
@@ -10826,15 +10878,34 @@ public final class DJConnectAppModel: ObservableObject {
                                }(),
                                widgetKinds: configured.map(\.kind)) {
                             try? DJConnectWidgetPushToken.replace(token, in: shared)
+                            observeNativePushToken(bytes, role: .widget, target: [
+                                "instance_id": nativeWidgetRegistrationInstance, // Local operation target, NOT a WidgetInfo placement UUID.
+                                "app_bundle_id": identity.clientType == .macos ? "dev.djconnect.mac" : "dev.djconnect.ios",
+                                "extension_bundle_id": token.extensionBundleID,
+                                "widget_kind": DJConnectSessionSurfaceSnapshot.widgetKind], binding: settings.binding, session: sessionID)
+                        } else {
+                            observeNativePushToken(nil, role: .widget, target: [:], binding: settings.binding, session: sessionID)
                         }
                     } else {
                         try? DJConnectWidgetPushToken.replace(nil, in: shared)
+                        observeNativePushToken(nil, role: .widget, target: [:], binding: settings.binding, session: sessionID)
                     }
                 }
-            } catch { return } // Unknown OS state never creates or revokes a grant.
+            } catch {
+                nativeWidgetPushOwner.withdrawLocally() // Unknown OS state closes local custody, never a remote grant.
+                return
+            }
             #endif
             #if os(iOS) && canImport(ActivityKit)
             if ActivityAuthorizationInfo().areActivitiesEnabled { surfaces.insert(.liveActivity) }
+            if let native = DJConnectSessionSurfaceActivityController.currentNativePushToken(presentationID: sessionSurfaceIdentity) {
+                observeNativePushToken(native.token, role: .liveActivityUpdate, target: [
+                    "instance_id": native.presentationID, "app_bundle_id": "dev.djconnect.ios",
+                    "activity_id": native.activityID, "attributes_type": "DJConnectSessionLiveActivityAttributes"],
+                    binding: settings.binding, session: sessionID)
+            } else {
+                observeNativePushToken(nil, role: .liveActivityUpdate, target: [:], binding: settings.binding, session: sessionID)
+            }
             #endif
             guard !Task.isCancelled, isAppInForeground, !isDemoMode, pairingStatus == .paired,
                   activeDJSession?.id == sessionID, activeDJSession?.runtimeState == "active",
@@ -10952,7 +11023,18 @@ public final class DJConnectAppModel: ObservableObject {
                 await previousTask?.value
                 guard let self, self.sessionSurfaceGeneration == generation else { return }
                 if let status = await DJConnectSessionSurfaceActivityController.sync(snapshot: snapshot, presentationID: identity,
-                    canStart: canStart, endReason: changedSubject ? "subject_changed" : (!confirmed ? "session_inactive" : "snapshot_expired")) {
+                    canStart: canStart, endReason: changedSubject ? "subject_changed" : (!confirmed ? "session_inactive" : "snapshot_expired"),
+                    nativePushChanged: { [weak self] token, activityID in
+                        guard let self else { return }
+                        guard let token else { self.nativeActivityPushOwner.nativeActivityEnded(activityID); return }
+                        guard self.sessionSurfaceIdentity == token.presentationID,
+                              let session = self.activeDJSession?.id,
+                              let binding = self.profileDJSettings.response?.binding else { return }
+                        self.observeNativePushToken(token.token, role: .liveActivityUpdate, target: [
+                            "instance_id": token.presentationID, "app_bundle_id": "dev.djconnect.ios",
+                            "activity_id": token.activityID, "attributes_type": "DJConnectSessionLiveActivityAttributes"],
+                            binding: binding, session: session)
+                    }) {
                     self.log(.info, status)
                 }
             }

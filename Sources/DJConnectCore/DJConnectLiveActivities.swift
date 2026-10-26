@@ -245,7 +245,9 @@ public enum DJConnectSessionSurfacePresentation {
     private static let requestedBuildKey = "DJConnectSessionSurface.requestedBuild.v2"
     private static let requestedActivityKey = "DJConnectSessionSurface.requestedActivity.v3"
     private static let dismissedKey = "DJConnectSessionSurface.dismissed.v3"
-    fileprivate static func ownsPushToken(presentationID: String, activityID: String, in defaults: UserDefaults) -> Bool {
+    /// Exact local presentation bookkeeping only, never server authorization.
+    /// UI must additionally obtain the token from the current native Activity.
+    public static func ownsPushToken(presentationID: String, activityID: String, in defaults: UserDefaults) -> Bool {
         defaults.string(forKey: "DJConnectSessionSurface.localPresentation") == presentationID &&
             defaults.string(forKey: requestedKey) == presentationID &&
             defaults.string(forKey: requestedActivityKey) == activityID &&
