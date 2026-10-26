@@ -1,3 +1,40 @@
+## 2026-10-26 — Full Help catalogue source preparation / Source211
+
+Source211 merged reviewed `10c0383d774f43f56d5fb85df303014da0a25028` as
+`a3dcede2f6c79ef446f1037fe65b768df3ec3034` and is originally own-main source-qualified.
+CI40299814688 and formal40301326697 succeeded; all12 canonical provider/durable
+checks and five original ZIPs/148 member hashes were verified. Canonical native
+coverage executes1,290functions/29suites plus86XCTest/five skips/zero failures.
+The [source receipt](docs/feedback/APPLE_HELP_CATALOGUE_211_SOURCE_RECEIPT_20261026.json)
+retains exact review, original artifacts, durable and local component provenance.
+
+More opens the full scrollable glass catalogue. Explicit complete requests use
+the ordinary Ask DJ sender; parameterized requests become drafts with the first
+missing input selected. Fresh read/context/language/edit-revision guards preserve
+user text. Native dismissal completion restores focus and selection. Four native
+iPhone/iPad component cases passed, including actual typed replacement in the
+existing composer; the synthetic host cannot issue real commands. The original
+missing-project-file CI failure and earlier diagnostic failures remain failures;
+XcodeGen's six-line iOS/Mac membership repair has its own successful native CI.
+
+Operational Help is still OPEN: the production reader is nil, the exact qualified
+Core observation/decoder/eligibility adoption is not delivered, and the DFAA
+catalogue remains draft/70pending. Core's current editorial scope is EN/NL;
+presentation translations do not qualify other producer locales. Ordinary free
+Ask DJ input remains independent. Widget/Live Activity push is also OPEN: API
+main b554df9 has dispatch disabled/no Activity profiles, and the original-clock
+runtime/admission/provider handoff is absent. No endpoint, positive agent flag,
+clock-rate assumption, content/hash grant, ordinary version or installation is
+invented. VibeCast physical/App Attest, numeric Track Insight and Mac UI/real
+provider/audio/device acceptance retain their previous independent gates.
+
+This separate documentary Final changes no source/test/tool/app/package/project
+input and adds one PARTIAL work/requirement row. All58 old work rows and84 old
+requirements remain identical. Its own review, normal merge and original main
+qualification remain required; source qualification is not full-product approval.
+
+---
+
 ## 2026-10-25 — Original native readiness repair / Source209
 
 Documentary Final208 remains historically NOT_ORIGINALLY_QUALIFIED: main
