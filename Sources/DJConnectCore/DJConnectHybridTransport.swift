@@ -26,22 +26,30 @@ struct DJConnectOperationTiming: Sendable {
 struct DJConnectOperationDeadline: Sendable {
     let end: TimeInterval
     let timing: DJConnectOperationTiming
+    private let continuousEnd: ContinuousClock.Instant
     init(seconds: TimeInterval = 300, timing: DJConnectOperationTiming = .init()) {
+        let started = ContinuousClock.now
         self.timing = timing; end = timing.now() + seconds
+        continuousEnd = started.advanced(by: .seconds(seconds))
     }
-    init(end: TimeInterval, timing: DJConnectOperationTiming) { self.end = end; self.timing = timing }
+    init(end: TimeInterval, timing: DJConnectOperationTiming) {
+        let started = ContinuousClock.now
+        self.end = end; self.timing = timing
+        continuousEnd = started.advanced(by: .seconds(max(0, end - timing.now())))
+    }
     var remaining: TimeInterval { max(0, end - timing.now()) }
     func check() throws {
         try Task.checkCancellation()
-        guard remaining > 0 else { throw DJConnectHybridTransportError.deliveryUnknown }
+        guard remaining > 0, ContinuousClock.now < continuousEnd else { throw DJConnectHybridTransportError.deliveryUnknown }
     }
     func run<T: Sendable>(_ operation: @escaping @Sendable () async throws -> T) async throws -> T {
         try check()
         let race = DJConnectDeadlineRace<T>()
         let seconds = remaining
+        let sleepUntil = min(continuousEnd, ContinuousClock.now.advanced(by: .seconds(seconds)))
         let value = try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
-                race.start(continuation, seconds: seconds) {
+                race.start(continuation, until: sleepUntil) {
                     // The child may start after scheduling delay or suspension.
                     // Recheck the SAME deadline immediately before invocation.
                     try self.check()
@@ -61,7 +69,7 @@ private final class DJConnectDeadlineRace<T: Sendable>: @unchecked Sendable {
     private var continuation: CheckedContinuation<T, Error>?
     private var result: Result<T, Error>?
     private var tasks: [Task<Void, Never>] = []
-    func start(_ next: CheckedContinuation<T, Error>, seconds: TimeInterval,
+    func start(_ next: CheckedContinuation<T, Error>, until: ContinuousClock.Instant,
                operation: @escaping @Sendable () async throws -> T) {
         let ready = lock.withLock { () -> Result<T, Error>? in
             if let result { return result }; continuation = next; return nil
@@ -72,7 +80,7 @@ private final class DJConnectDeadlineRace<T: Sendable>: @unchecked Sendable {
             catch { self.finish(.failure(error)) }
         }
         let timer = Task {
-            do { try await Task.sleep(for: .seconds(seconds)) }
+            do { try await Task.sleep(until: until, clock: .continuous) }
             catch { return }
             self.finish(.failure(DJConnectHybridTransportError.deliveryUnknown))
         }
@@ -222,7 +230,7 @@ public enum DJConnectOperationIdentity {
 
 /// One coordinator per paired client/configuration, shared by all short-lived HTTP clients.
 public actor DJConnectHybridTransport {
-    struct Route: Sendable { let url: URL; let local: Bool; let context: HybridObject; let clock: Int; let anchor: TimeInterval }
+    struct Route: Sendable { let url: URL; let local: Bool; let context: HybridObject; let clock: Int; let anchor: TimeInterval; let receivedAt: TimeInterval }
     private let localURL: URL?
     private let remoteURL: URL?
     private let expectedInstallID: String
@@ -397,7 +405,9 @@ public actor DJConnectHybridTransport {
     private func qualify(_ url: URL, local: Bool) async throws -> Route {
         diagnostics.probes += 1
         legacyContextAbsent.removeValue(forKey: url)
+        let requestedAt = timing.now()
         let (data, status) = try await wire.http(protectedRequest(url, path: "/api/djconnect/v1/transport/context", body: ["contract_version": .int(1)]))
+        let receivedAt = timing.now()
         try Task.checkCancellation()
         // A real missing transport endpoint is compatibility evidence only.
         // Network errors, malformed context, 401/403/426 and trust failures
@@ -412,12 +422,12 @@ public actor DJConnectHybridTransport {
               DJConnectHybridLocalPolicy.acceptsContext(body, origin: url, pairedLocalOrigin: local ? localURL : nil), body["operation_lifetime_ms"] == .int(300_000),
               body["operation_epoch"]?.hybridString?.isEmpty == false, let clock = body["server_time_ms"]?.hybridInt else { throw DJConnectHybridTransportError.unavailable }
         guard body["ha_install_id"] == .string(expectedInstallID) else { throw DJConnectHybridTransportError.installationMismatch }
-        return Route(url: url, local: local && (Self.isLocalTransportCandidate(url) || DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(url)), context: body, clock: clock, anchor: timing.now())
+        return Route(url: url, local: local && (Self.isLocalTransportCandidate(url) || DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(url)), context: body, clock: clock, anchor: requestedAt, receivedAt: receivedAt)
     }
     private func readyRoute() async throws -> Route {
         guard foreground else { throw CancellationError() }
         let now = timing.now()
-        if let route, now - route.anchor < 60, route.local || now < retryLocalAfter { return route }
+        if let route, now - route.receivedAt < 60, route.local || now < retryLocalAfter { return route }
         if let routeTask { return try await routeTask.value }
         guard now >= offlineRetryAfter else { throw DJConnectHybridTransportError.unavailable }
         let epoch = generation
@@ -568,7 +578,7 @@ public actor DJConnectHybridTransport {
         for key in ["device_token", "identity", "client_id", "device_name"] { payload.removeValue(forKey: key) }
         guard (try JSONEncoder().encode(payload)).count <= 60_000 else { throw DJConnectHybridTransportError.capacity }
         try originalDeadline?.check()
-        let nowMS = route.clock + Int((timing.now() - route.anchor) * 1000)
+        let nowMS = route.clock + Int((timing.now() - route.receivedAt) * 1000)
         let operationStarted = timing.now()
         if receipts.count >= 256, let expired = receipts.values.filter({ $0.expiresAtMS <= nowMS }).min(by: { $0.expiresAtMS < $1.expiresAtMS }) { receipts.removeValue(forKey: expired.operationID); receiptEnds.removeValue(forKey: expired.operationID) }
         pendingIntents = pendingIntents.filter { $0.value.expires > nowMS }

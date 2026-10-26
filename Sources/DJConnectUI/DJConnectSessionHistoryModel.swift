@@ -244,6 +244,11 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     public private(set) var historyContractVersion = 1
     @Published public private(set) var historyNeedsUpgrade = false
     private var pendingSubmissionTasks: [UUID: Task<Void, Never>] = [:]
+    var activeTextSubmissionCount: Int { pendingSubmissionTasks.count }
+    func cancelTextSubmissions() {
+        pendingSubmissionTasks.values.forEach { $0.cancel() }; pendingSubmissionTasks = [:]
+        host?.cancelAskDJTextSubmissions()
+    }
     private func launchSubmission(_ turn: PendingTurn) {
         let id = UUID()
         pendingSubmissionTasks[id] = Task {
@@ -472,8 +477,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func reset() {
-        pendingSubmissionTasks.values.forEach { $0.cancel() }; pendingSubmissionTasks = [:]
-        host?.cancelAskDJTextSubmissions()
+        cancelTextSubmissions()
         contributionExploration = nil
         contentDeletionAvailable = false
         summaryAvailable = false
@@ -502,6 +506,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     public func suspend(preservingVoicePreference: Bool = false, cancelPreparation: Bool = true,
                         preservingArchiveNavigation: Bool = false) {
+        cancelTextSubmissions()
         contributionExploration = nil
         contentDeletionAvailable = false
         summaryAvailable = false
@@ -772,6 +777,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     /// A scoped erasure retires in-flight work/commands, not unrelated history.
     /// Existing rows retain their original owner and source/retention deadlines.
     private func fenceContentDeletionReadback(cancelPreparation: Bool) {
+        cancelTextSubmissions()
         host?.invalidateSessionPlaybackActions()
         host?.withdrawLiveConversationPresentations()
         host?.invalidateConversationResultLeases()
@@ -840,6 +846,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     private func invalidateDeletedSessions(_ sessionIDs: Set<String>, expectedOwner: String) {
+        cancelTextSubmissions()
         for sessionID in sessionIDs {
             let removed = (timelines[sessionID]?.entries ?? []) + searchMatches.filter { $0.sessionID == sessionID }
                 + historicalMatches.values.flatMap { $0.filter { $0.sessionID == sessionID } }

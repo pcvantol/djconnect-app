@@ -204,6 +204,7 @@ private final class HistoryWireFixture: @unchecked Sendable {
     var baseURL: URL { URL(string: "http://" + hostname + ":8123")! }
     private let lock = NSLock()
     private var captured: [URLRequest] = []
+    private var stoppedRequests: [URLRequest] = []
     let cacheControl: String
     let reply: @Sendable (URLRequest) throws -> (Int, Data, TimeInterval)
     init(cacheControl: String = "no-store", reply: @escaping @Sendable (URLRequest) throws -> (Int, Data, TimeInterval)) {
@@ -212,6 +213,8 @@ private final class HistoryWireFixture: @unchecked Sendable {
     func close() { HistoryWireProtocol.unregister(hostname) }
     func record(_ request: URLRequest) { lock.withLock { captured.append(request) } }
     var requests: [URLRequest] { lock.withLock { captured } }
+    func recordStop(_ request: URLRequest) { lock.withLock { stoppedRequests.append(request) } }
+    var stops: [URLRequest] { lock.withLock { stoppedRequests } }
     func client(historyContractVersion: Int = 1) -> DJConnectClient {
         DJConnectClient(baseURL: baseURL, identity: .init(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Test", clientType: .ios, firmware: "4.0.0-rc.1", platform: .ios),
                         tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-fixture-token"), session: session(), historyContractVersion: historyContractVersion)
@@ -301,7 +304,12 @@ private final class HistoryWireProtocol: URLProtocol, @unchecked Sendable {
             }
         } catch { client?.urlProtocol(self, didFailWithError: error) }
     }
-    override func stopLoading() { stateLock.withLock { stopped = true } }
+    override func stopLoading() {
+        stateLock.withLock { stopped = true }
+        if let host = request.url?.host, let fixture = Self.registryLock.withLock({ Self.fixtures[host] }) {
+            fixture.recordStop(request)
+        }
+    }
 }
 
 @Test func sessionHistoryAuthenticatedNoStoreReadAndValidatedNavigation() async throws {
@@ -8839,4 +8847,85 @@ func contributionExplorationOriginalArchiveDestinationDraftAndRetryStayBound(_ a
         #expect(history.pendingTurns.first?.preservesOriginalSelection == true)
     }
     #expect(model.askDJDraft == "Unsent live draft")
+}
+
+@Test(arguments: ["suspend", "reset", "authority"]) @MainActor
+func sessionHistoryOwnerWithdrawalCancelsActiveLegacyHTTPBeforeLateResponse(_ action: String) async throws {
+    let receipt = try historyObject()
+    let profile = try historyData(try #require(receipt["later_historical_answer"]))
+    let response = try historyData(try #require(receipt["text_turn"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let gate = HistoryWireResponseGate()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/ask_dj/message") { throw HistoryWireHeldResponse(data: response, gate: gate) }
+        return (200, profile, 0)
+    }
+    defer { gate.release(); fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    model.askDJDraft = "Synthetic held question"
+    model.sessionHistory.sendText()
+    for _ in 0..<100 where !fixture.requests.contains(where: { $0.url!.path.hasSuffix("/ask_dj/message") }) {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(model.sessionHistory.activeTextSubmissionCount == 1)
+    #expect(fixture.requests.contains { $0.url!.path.hasSuffix("/ask_dj/message") })
+    switch action {
+    case "reset": model.sessionHistory.reset()
+    case "authority": #expect(model.sessionHistory.withdrawAuthority(for: DJConnectError.authStale(statusCode: 401, message: nil)))
+    default: model.sessionHistory.suspend()
+    }
+    #expect(model.sessionHistory.activeTextSubmissionCount == 0)
+    for _ in 0..<100 where !fixture.stops.contains(where: { $0.url!.path.hasSuffix("/ask_dj/message") }) {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    // Assert actual URLSession cancellation while the response remains gated.
+    #expect(fixture.stops.contains { $0.url!.path.hasSuffix("/ask_dj/message") })
+    let ids = model.askDJMessages.map(\.id)
+    gate.release()
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/ask_dj/message") }.count == 1)
+    #expect(model.askDJMessages.map(\.id) == ids)
+    #expect(!model.isSendingAskDJText && !model.sessionHistory.hasAuthorizedOwner)
+}
+
+@Test(arguments: ["suspend", "reset", "authority"]) @MainActor
+func sessionHistoryOwnerWithdrawalDuringPreflightCannotSendAfterGateRelease(_ action: String) async throws {
+    let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
+    let context = try JSONSerialization.data(withJSONObject: ["success": true, "contract_version": 1,
+        "ha_install_id": "held-install", "operation_epoch": "boot-1", "server_time_ms": Int(Date().timeIntervalSince1970 * 1000),
+        "operation_lifetime_ms": 300000, "requires_authenticated_tls": true,
+        "http_operations": ["ask_dj/message"], "action_operations": [String](), "read_operations": ["session/active"]])
+    let gate = HistoryWireResponseGate()
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/transport/context") { throw HistoryWireHeldResponse(data: context, gate: gate) }
+        return (200, profile, 0)
+    }
+    defer { gate.release(); fixture.close() }
+    let (model, defaults, name) = fixture.model(remoteURL: URL(string: "https://" + fixture.hostname)!)
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    await model.sessionHistory.prepare()
+    defaults.set("held-install", forKey: "DJConnectHAInstallID")
+    model.askDJDraft = "Synthetic never-sent question"
+    model.sessionHistory.sendText()
+    for _ in 0..<100 where !fixture.requests.contains(where: { $0.url!.path.hasSuffix("/transport/context") }) {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(fixture.requests.contains { $0.url!.path.hasSuffix("/transport/context") })
+    switch action {
+    case "reset": model.sessionHistory.reset()
+    case "authority": #expect(model.sessionHistory.withdrawAuthority(for: DJConnectError.authStale(statusCode: 401, message: nil)))
+    default: model.sessionHistory.suspend()
+    }
+    #expect(model.sessionHistory.activeTextSubmissionCount == 0)
+    let ids = model.askDJMessages.map(\.id)
+    gate.release()
+    try await Task.sleep(for: .milliseconds(150))
+    #expect(fixture.requests.allSatisfy { !$0.url!.path.hasSuffix("/transport/operation") && !$0.url!.path.hasSuffix("/ask_dj/message") })
+    #expect(model.askDJMessages.map(\.id) == ids)
+    #expect(!model.isSendingAskDJText && !model.sessionHistory.hasAuthorizedOwner)
 }

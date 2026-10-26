@@ -1929,7 +1929,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var askDJTextTasks: [UUID: Task<Void, Never>] = [:]
     func cancelAskDJTextSubmissions() {
         askDJTextTasks.values.forEach { $0.cancel() }; askDJTextTasks = [:]
-        isSendingAskDJText = false
+        isSendingAskDJText = false; playingAskDJActionID = nil
     }
     private var isAppInForeground = true
     var isAskDJPresentationActive: Bool { isAppInForeground }
@@ -5701,7 +5701,7 @@ public final class DJConnectAppModel: ObservableObject {
         let taskID = UUID()
         askDJTextTasks[taskID] = Task {
             defer { askDJTextTasks.removeValue(forKey: taskID) }
-            defer { if epoch == sessionHistory.responseEpoch { playingAskDJActionID = nil } }
+            defer { if epoch == sessionHistory.responseEpoch, askDJTextTasks[taskID] != nil { playingAskDJActionID = nil } }
             @MainActor func current() -> Bool {
                 !Task.isCancelled && isAppInForeground && epoch == sessionHistory.responseEpoch &&
                 session == activeDJSession?.id && owner == sessionHistory.authorizedProfileID
@@ -5804,7 +5804,7 @@ public final class DJConnectAppModel: ObservableObject {
         let taskID = UUID()
         askDJTextTasks[taskID] = Task {
             defer { askDJTextTasks.removeValue(forKey: taskID) }
-            defer { if epoch == sessionHistory.responseEpoch { isSendingAskDJText = false } }
+            defer { if epoch == sessionHistory.responseEpoch, askDJTextTasks[taskID] != nil { isSendingAskDJText = false } }
             @MainActor func current() -> Bool {
                 !Task.isCancelled && isAppInForeground && epoch == sessionHistory.responseEpoch &&
                 session == activeDJSession?.id && owner == sessionHistory.authorizedProfileID
@@ -7671,6 +7671,8 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     func activeVoiceOwnerDidChange() {
+        // This callback is owned by the actual conversation ownerScope change.
+        sessionHistory.cancelTextSubmissions()
         bindProfileDJSettings(active: isAppInForeground)
         bindPassiveSessionSurfaces()
         guard sessionHistory.hasAuthorizedOwner else { invalidateActiveVoiceInventory(); return }
