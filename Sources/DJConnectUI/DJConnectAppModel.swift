@@ -10839,6 +10839,21 @@ public final class DJConnectAppModel: ObservableObject {
     }
     #endif
 
+    struct NativePushInventoryAttempt {
+        let request: UUID
+        let widget: UUID
+        let activity: UUID
+    }
+    func captureNativePushInventoryAttempt() -> NativePushInventoryAttempt {
+        .init(request: automaticPassiveTaskID, widget: nativeWidgetPushOwner.observationGeneration,
+              activity: nativeActivityPushOwner.observationGeneration)
+    }
+    func isCurrentNativePushInventory(_ attempt: NativePushInventoryAttempt,
+                                      role: DJConnectSurfacePushTaskOwner.Role) -> Bool {
+        !Task.isCancelled && automaticPassiveTaskID == attempt.request &&
+            (role == .widget ? nativeWidgetPushOwner.observationGeneration == attempt.widget :
+                nativeActivityPushOwner.observationGeneration == attempt.activity)
+    }
     private func scheduleAutomaticPassiveSessionSurfaces() {
         guard isAppInForeground, !isDemoMode, pairingStatus == .paired,
               activeDJSession?.runtimeState == "active", hasObservedSessionSurfaceAuthority,
@@ -10857,17 +10872,21 @@ public final class DJConnectAppModel: ObservableObject {
         automaticPassiveTask = Task { @MainActor [weak self] in
             guard let self else { return }
             defer { if automaticPassiveTaskID == request { automaticPassiveTask = nil } }
+            let inventoryAttempt = captureNativePushInventoryAttempt()
             var surfaces: Set<DJConnectPassiveSurface> = []
             #if canImport(WidgetKit)
             do {
                 let configured = try await WidgetCenter.shared.currentConfigurations()
+                guard isCurrentNativePushInventory(inventoryAttempt, role: .widget) else { return }
                 let kinds = Set([DJConnectSessionSurfaceSnapshot.widgetKind] + DJConnectSessionSurfaceSnapshot.legacyKinds)
                 if configured.contains(where: { kinds.contains($0.kind) }) { surfaces.insert(.widget) }
                 // Installation-local WidgetKit token, separate from app APNs.
                 // Server registration waits for the owning Core widget contract.
                 if let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) {
                     if surfaces.contains(.widget) {
-                        if let bytes = await Self.currentWidgetPushTokenBytes(),
+                        let observedBytes = await Self.currentWidgetPushTokenBytes()
+                        guard isCurrentNativePushInventory(inventoryAttempt, role: .widget) else { return }
+                        if let bytes = observedBytes,
                            let token = DJConnectWidgetPushToken(token: bytes,
                                extensionBundleID: {
                                    #if os(macOS)
@@ -10892,11 +10911,13 @@ public final class DJConnectAppModel: ObservableObject {
                     }
                 }
             } catch {
+                guard isCurrentNativePushInventory(inventoryAttempt, role: .widget) else { return }
                 nativeWidgetPushOwner.withdrawLocally() // Unknown OS state closes local custody, never a remote grant.
                 return
             }
             #endif
             #if os(iOS) && canImport(ActivityKit)
+            guard isCurrentNativePushInventory(inventoryAttempt, role: .liveActivityUpdate) else { return }
             if ActivityAuthorizationInfo().areActivitiesEnabled { surfaces.insert(.liveActivity) }
             if let native = DJConnectSessionSurfaceActivityController.currentNativePushToken(presentationID: sessionSurfaceIdentity) {
                 observeNativePushToken(native.token, role: .liveActivityUpdate, target: [

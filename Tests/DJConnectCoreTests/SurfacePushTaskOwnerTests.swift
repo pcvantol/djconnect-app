@@ -296,6 +296,44 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         owner.observe(c); owner.register(using: f.client(), observationGeneration: owner.observationGeneration)
         #expect(f.requests.isEmpty)
     }
+    @Test(arguments: ["success", "error", "cancel-success", "cancel-error"], [Owner.Role.widget, .liveActivityUpdate])
+    func appInventoryFenceRejectsDelayedResultsAndErrors(_ outcome: String, _ role: Owner.Role) async throws {
+        let name = "owner-inventory-model-" + UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+        let f = OwnerFixture(); defer { f.close() }
+        let owner = role == .widget ? model.nativeWidgetPushOwner : model.nativeActivityPushOwner
+        let scope = try f.scope()
+        owner.bind(scope)
+        let attempt = model.captureNativePushInventoryAttempt()
+        #expect(model.isCurrentNativePushInventory(attempt, role: role))
+        let gate = OwnerGate()
+        var entered = false, published = false
+        // Gated SDK-inventory model; exercises the SAME AppModel predicate used
+        // after real SDK awaits and in their catch. No native SDK callback claim.
+        let pending = Task {
+            entered = true
+            do {
+                await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                    gate.hold { continuation.resume() }
+                }
+                if outcome.hasSuffix("error") { throw DJConnectError.invalidResponse }
+                guard model.isCurrentNativePushInventory(attempt, role: role) else { return }
+                published = true
+            } catch {
+                guard model.isCurrentNativePushInventory(attempt, role: role) else { return }
+                owner.withdrawLocally()
+            }
+        }
+        while !entered { await Task.yield() }
+        if outcome.hasPrefix("cancel") { pending.cancel() }
+        else { owner.bind(nil); owner.bind(scope) } // Same visible A after a lost owner.
+        let successorGeneration = owner.observationGeneration
+        gate.release(); await pending.value
+        #expect(!published && owner.observationGeneration == successorGeneration && owner.phase == .idle)
+        #expect(f.requests.isEmpty)
+    }
     @Test func appBackgroundWithdrawsBothNativeOwnersWithoutHistoryAuthority() throws {
         let name = "owner-model-" + UUID().uuidString; let defaults = try #require(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
