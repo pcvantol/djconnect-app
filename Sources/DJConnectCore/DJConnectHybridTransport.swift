@@ -41,7 +41,12 @@ struct DJConnectOperationDeadline: Sendable {
         let seconds = remaining
         let value = try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
-                race.start(continuation, seconds: seconds, operation: operation)
+                race.start(continuation, seconds: seconds) {
+                    // The child may start after scheduling delay or suspension.
+                    // Recheck the SAME deadline immediately before invocation.
+                    try self.check()
+                    return try await operation()
+                }
             }
         } onCancel: { race.finish(.failure(CancellationError())) }
         try check()

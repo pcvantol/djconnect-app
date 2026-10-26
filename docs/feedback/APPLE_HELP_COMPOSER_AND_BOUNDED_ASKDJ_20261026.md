@@ -26,7 +26,7 @@ Qualified execution keeps one UUIDv7/epoch and original client_message_id, with 
 
 A confirmed/no-body status acknowledges execution. A separately bounded current-authorized history read can show only retained text/fields correlated to original client_message_id. Catalogue history may intentionally be a caption; Session history omits media/actions/audio; privacy/deletion/trim can prevent recovery. No full original result, lists/actions/media/audio or playback authority is reconstructed; no automatic replay/audio from recovery.
 
-## Local evidence
+## Original 4a94 local evidence
 
 External immutable run root: `/Volumes/Shared Data/tmp/pcvantol/apple-askdj-bounded-20261026/`. Portable binding is the hashed input manifest, not an inferred installed build.
 
@@ -43,3 +43,14 @@ External immutable run root: `/Volumes/Shared Data/tmp/pcvantol/apple-askdj-boun
 Original compile, obsolete transport assertions/parallel timing failures, nil-body test-mock failure and failed native placement/close interaction runs remain in the external run root. The mock now reads Foundation's body stream; no product crash is inferred. The first native panel was misplaced and inherited child accessibility identifiers; later outside-dismissal moved native controls during selection. These were corrected and successors independently qualified. The interrupted diagnostic writer from the failed native run is not a completed passing xcresult. No old failure is rewritten as a pass.
 
 Final source and product qualification must use their own exact reviewed head, original CI/artifact receipts and normal protected delivery. This local receipt does not grant whole-app/native/provider/installed acceptance or positive Help adoption.
+
+
+## Review successor: check the original deadline inside the owned child
+
+Root's personal review of exact `4a94a8c11961febadee9a00960474c2bf79a4105` found a P2: scheduling could delay the unstructured child until after the original end. Caller-side checks then returned deliveryUnknown even though the operation had already been invoked. The original review SHA `c196445c41aa7f3244abe6475b63b4035a5dee81205f44cbeb73a0ecf81b3294` and its causal invocation-at301/end300 proof remain immutable. No GO or merge of that original candidate is claimed.
+
+The successor rechecks cancellation and the SAME original deadline inside the child immediately before invoking the operation; it creates no new budget or retry. The preselected legacy dispatch is factored into an internal routine to test that concrete URLSession boundary without sending anything. Three new causal regressions cover expiry after remaining-time capture/before child start, cancellation before child dispatch and zero concrete legacy HTTP invocations after expiry.
+
+`full-r18-child-start-successor.log`: **1307 serial tests/29 suites PASS131.524s,parent0**; package XCTest86/5 existing skips/0 failures. `successor-inputs-r18-before.json` and `...after.json`: all520 runtime inputs unchanged. `child-start-r17.log`:4 targeted tests PASS. The reviewer's original unchanged causal probe compiled with the exact successor utility returns deliveryUnknown with **operation-invocations=0** (original4a94:1). Its source/extract/log and independent parent0 are retained in the run root. `local-r18-successor-receipt.json` binds the hashes; personal Root closure and exact independent successor review remain pending.
+
+All UI/App/native-host bytes are identical to4a94; the existing iPhone/iPad component receipts therefore remain explicitly bounded to that UI. The successor Core utility/client changes have their own logical compilation/testing and require normal exact-source CI; they are not retroactively called a new whole-app/native/installed acceptance. Pin/Reader stay closed. The original4a94 failures and review do not become passing records because a successor exists.

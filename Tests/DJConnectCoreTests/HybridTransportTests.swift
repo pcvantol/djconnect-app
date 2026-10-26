@@ -680,3 +680,54 @@ func askDJLegacyChoiceNeverDowngradesAuthSecurityOrInvalidContext(_ status: Int)
     } catch { }
     #expect(await wire.paths.allSatisfy { $0.hasSuffix("/context") })
 }
+
+/// Exactly the Root counterexample: the read that captures remaining time
+/// returns zero-origin time, then advances beyond end before the child starts.
+final class AskDJChildStartClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private let triggerRead: Int
+    private let expires: Bool
+    private let onTrigger: @Sendable () -> Void
+    private var reads = 0
+    private var time: TimeInterval = 0
+    private var invocations = 0
+    init(triggerRead: Int = 3, expires: Bool = true, onTrigger: @escaping @Sendable () -> Void = {}) {
+        self.triggerRead = triggerRead; self.expires = expires; self.onTrigger = onTrigger
+    }
+    func now() -> TimeInterval {
+        let (value, trigger) = lock.withLock { () -> (TimeInterval, Bool) in
+            reads += 1; let value = time
+            if reads == triggerRead, expires { time = 301 }
+            return (value, reads == triggerRead)
+        }
+        if trigger { onTrigger() }
+        return value
+    }
+    func invoke() { lock.withLock { invocations += 1 } }
+    var count: Int { lock.withLock { invocations } }
+}
+
+@Test func askDJChildStartingAfterOriginalDeadlineCannotInvokeItsOperation() async throws {
+    let clock = AskDJChildStartClock()
+    let deadline = DJConnectOperationDeadline(timing: .init(now: { clock.now() }))
+    await #expect(throws: DJConnectHybridTransportError.deliveryUnknown) {
+        try await deadline.run { clock.invoke(); return 1 }
+    }
+    #expect(clock.count == 0)
+}
+
+@Test @MainActor func askDJCancellationBeforeChildDispatchCannotInvokeItsOperation() async throws {
+    final class CancellationSlot: @unchecked Sendable {
+        let lock = NSLock()
+        private var cancellation: (@Sendable () -> Void)?
+        func install(_ value: @escaping @Sendable () -> Void) { lock.withLock { cancellation = value } }
+        func cancel() { lock.withLock { cancellation }?() }
+    }
+    let slot = CancellationSlot()
+    let clock = AskDJChildStartClock(expires: false, onTrigger: { slot.cancel() })
+    let deadline = DJConnectOperationDeadline(timing: .init(now: { clock.now() }))
+    let task = Task { try await deadline.run { clock.invoke(); return 1 } }
+    slot.install { task.cancel() } // Installed before this actor yields to its child.
+    await #expect(throws: CancellationError.self) { try await task.value }
+    #expect(clock.count == 0)
+}

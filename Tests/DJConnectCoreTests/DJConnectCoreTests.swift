@@ -14213,3 +14213,21 @@ private actor AbsentAskDJOperationContext: DJConnectHybridWire {
     #expect(counter.count == 2)
     #expect(await wire.probes == 2)
 }
+
+@Test func legacyAskDJExpiredChildDoesNotStartTheHTTPTask() async throws {
+    let counter = RequestCounter()
+    let client = DJConnectClient(baseURL: URL(string: "https://legacy-expired-child.example")!, identity: testIOSIdentity(),
+        tokenStore: DJConnectInMemoryTokenStore(token: "synthetic"),
+        session: mockSession(host: "legacy-expired-child.example") { request in
+            counter.increment()
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"history_revision":1,"clear_revision":0}"#.utf8))
+        })
+    let request = try client.askDJMessageRequest(.init(identity: testIOSIdentity(), text: "Synthetic question", clientMessageID: "original-child"))
+    // One additional read caps this concrete legacy request timeout before run.
+    let clock = AskDJChildStartClock(triggerRead: 4)
+    let deadline = DJConnectOperationDeadline(timing: .init(now: { clock.now() }))
+    await #expect(throws: DJConnectHybridTransportError.deliveryUnknown) {
+        try await client.legacyAskDJData(request, deadline: deadline)
+    }
+    #expect(counter.count == 0)
+}

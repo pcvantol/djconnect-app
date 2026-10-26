@@ -1747,6 +1747,15 @@ public final class DJConnectClient: Sendable {
         return data
     }
 
+    /// One preselected legacy attempt; the caller retains authority/status policy.
+    /// Exposing the internal dispatch boundary also permits a no-network causal
+    /// test of a child that starts after its original deadline has expired.
+    func legacyAskDJData(_ request: URLRequest, deadline: DJConnectOperationDeadline) async throws -> (Data, URLResponse) {
+        var bounded = request; bounded.timeoutInterval = min(300, deadline.remaining)
+        let fixed = bounded
+        return try await deadline.run { try await self.askDJSession.data(for: fixed) }
+    }
+
     private func dataAndStatusCodeResponse(for request: URLRequest, using requestSession: URLSession? = nil,
                                           acceptingStatuses: Set<Int> = []) async throws -> (Data, Int) {
         var selectedLegacyDeadline: DJConnectOperationDeadline?
@@ -1773,9 +1782,7 @@ public final class DJConnectClient: Sendable {
         do {
             if DJConnectHybridTransport.isAskDJText(request) || request.url?.path.hasSuffix("/api/djconnect/v1/ask") == true {
                 let deadline = selectedLegacyDeadline ?? DJConnectOperationDeadline()
-                var bounded = request; bounded.timeoutInterval = min(300, deadline.remaining)
-                let fixed = bounded
-                (data, response) = try await deadline.run { try await self.askDJSession.data(for: fixed) }
+                (data, response) = try await legacyAskDJData(request, deadline: deadline)
             } else {
                 (data, response) = try await (requestSession ?? session).data(for: request)
             }
