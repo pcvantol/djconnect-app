@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "as_of": "25October Source209 original test-readiness qualification; historical Final208 failed; separate documentary Final pending own delivery",
+  "as_of": "26October Source211 original source-qualified; operational Help/push remain open; documentary Final pending own qualification",
   "owning_lane": "https://github.com/pcvantol/djconnect-app/issues/87",
   "writer": "Existing sole Apple writer; no second Apple writer, Core/API/receiver mutation or WIP reset",
-  "head": "dcf476f7dd2943c47acb82d74b234138e040e41f (protected test-only Source209; documentary Final changes no compiled/tool input)",
+  "head": "a3dcede2f6c79ef446f1037fe65b768df3ec3034 (protected Source211; documentary Final changes no source/test/tool/project input)",
   "installed_baseline": "24October fresh read-only Mac mini40450 parent+widget metadata: development APS/group.dev.djconnect, strict/deep signaturePASS; no new ordinary build/install/runtime claim. Other device versions remain historical.",
   "items": [
     {
@@ -664,6 +664,14 @@
       "remaining": "Only this qualification-test repair and its exact new source evidence close. No production/push/provider/model/audio/physical/Mac UI or general flake-free/whole-product acceptance; all prior gates and old statuses remain.",
       "topic": "Bounded native exploration test readiness repair",
       "owner": "Apple"
+    },
+    {
+      "id": "full-help-catalogue-click-preparation-20261026",
+      "status": "PARTIAL",
+      "topic": "Full Help catalogue, explicit complete request and selected-input draft",
+      "owner": "Apple; Core eligibility separately open",
+      "evidence": "Source211 reviewed10c0383/protecteda3dcede2f6c79ef446f1037fe65b768df3ec3034 originally qualified: CI40299814688/formal40301326697; all12 provider/durable joins; canonical native1290/29+86XCT/five skips/zero failures. Full glass catalogue, More, complete-click versus editable-placeholder, native dismissal/focus and three-or-zero withdrawal prepared. Native2iPhone+2iPadPASS; real composer replaces artist by ABBA, no actual Send. APPLE_HELP_CATALOGUE_211_SOURCE_RECEIPT_20261026.json",
+      "remaining": "PARTIAL: production Reader remains nil pending exact qualified Core catalogue/current-config eligibility/transport adoption. Current DFAA draft70 stays closed; EN/NL editorial qualification is separate. Actual Ask DJ delivery and Mac UI remain separate. Widget/Activity push clock/runtime/profile/registration/provider gates unchanged; no installation or product GO."
     }
   ],
   "qualification": {
@@ -926,6 +934,24 @@
         }
       },
       "note": "Historical208 original failure remains explicit; no prior status rewritten."
+    },
+    {
+      "kind": "prior_current_fields_before_211_help_final",
+      "record": {
+        "as_of": "25October Source209 original test-readiness qualification; historical Final208 failed; separate documentary Final pending own delivery",
+        "head": "dcf476f7dd2943c47acb82d74b234138e040e41f (protected test-only Source209; documentary Final changes no compiled/tool input)",
+        "head_role": "Source209 new original qualified SHA; Source208 historical original failure not promoted; Source206/207 retain only own scopes.",
+        "current_qualification": {
+          "source_pr": 209,
+          "source_main": "dcf476f7dd2943c47acb82d74b234138e040e41f",
+          "source_receipt": "APPLE_EXPLORATION_READINESS_209_SOURCE_RECEIPT_20261025.json",
+          "historical_final208": "NOT_ORIGINALLY_QUALIFIED",
+          "production_code": "UNCHANGED_FROM_SOURCE207",
+          "installation": "NO_NEW_INSTALL",
+          "product_acceptance": "PARTIAL; previous gates retained"
+        }
+      },
+      "note": "All existing rows retained; new Help row stays PARTIAL."
     }
   ],
   "execution_feedback_40258": {
@@ -988,15 +1014,13 @@
     "original_wip": "Both original checkouts now clean main; 18/155 WIP paths preserved in independently hash-verified archives and Git stashes; excluded experiments retained",
     "source_main_ci": "PASS with native coverage; independently verified artifact digests and embedded exact main SHA"
   },
-  "head_role": "Source209 new original qualified SHA; Source208 historical original failure not promoted; Source206/207 retain only own scopes.",
+  "head_role": "Bounded Help source preparation qualified; no operational catalogue/push or ordinary installation.",
   "current_qualification": {
-    "source_pr": 209,
-    "source_main": "dcf476f7dd2943c47acb82d74b234138e040e41f",
-    "source_receipt": "APPLE_EXPLORATION_READINESS_209_SOURCE_RECEIPT_20261025.json",
-    "historical_final208": "NOT_ORIGINALLY_QUALIFIED",
-    "production_code": "UNCHANGED_FROM_SOURCE207",
+    "source_pr": 211,
+    "source_main": "a3dcede2f6c79ef446f1037fe65b768df3ec3034",
+    "source_receipt": "APPLE_HELP_CATALOGUE_211_SOURCE_RECEIPT_20261026.json",
     "installation": "NO_NEW_INSTALL",
-    "product_acceptance": "PARTIAL; previous gates retained"
+    "product_acceptance": "PARTIAL; Reader nil, qualified producer/adoption and real integration open"
   },
   "qualification_40312": {
     "build": "40312",
