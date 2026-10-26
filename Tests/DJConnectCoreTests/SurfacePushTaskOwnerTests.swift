@@ -334,6 +334,33 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         #expect(!published && owner.observationGeneration == successorGeneration && owner.phase == .idle)
         #expect(f.requests.isEmpty)
     }
+    @Test(arguments: ["aba", "cancel", "current"], [Owner.Role.widget, .liveActivityUpdate])
+    func appInventoryCapturesBeforeDelayedChildStarts(_ scenario: String, _ role: Owner.Role) async throws {
+        let name = "owner-child-start-model-" + UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+        let f = OwnerFixture(); defer { f.close() }
+        let owner = role == .widget ? model.nativeWidgetPushOwner : model.nativeActivityPushOwner
+        let scope = try f.scope(); owner.bind(scope)
+        let attempt = model.captureNativePushInventoryAttempt() // Same pre-scheduling placement as production.
+        var started = false, inventoryCalls = 0
+        let pending = Task { @MainActor in
+            started = true
+            guard model.isCurrentNativePushInventory(attempt, role: .widget),
+                  model.isCurrentNativePushInventory(attempt, role: .liveActivityUpdate) else { return }
+            inventoryCalls += 1 // Model the first SDK operation, without calling WidgetKit.
+        }
+        // No suspension: MainActor child cannot run before this owner change.
+        #expect(!started)
+        if scenario == "aba" { owner.bind(nil); owner.bind(scope) }
+        if scenario == "cancel" { pending.cancel() }
+        let successorGeneration = owner.observationGeneration
+        await pending.value
+        #expect(started && inventoryCalls == (scenario == "current" ? 1 : 0))
+        #expect(owner.observationGeneration == successorGeneration && owner.phase == .idle)
+        #expect(f.requests.isEmpty)
+    }
     @Test func appBackgroundWithdrawsBothNativeOwnersWithoutHistoryAuthority() throws {
         let name = "owner-model-" + UUID().uuidString; let defaults = try #require(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }

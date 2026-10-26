@@ -10869,10 +10869,14 @@ public final class DJConnectAppModel: ObservableObject {
               lastAutomaticPassiveQueryAt.map({ Date().timeIntervalSince($0) >= 30 }) != false else { return }
         lastAutomaticPassiveQueryAt = Date()
         let request = UUID(); automaticPassiveTaskID = request
+        // Capture before scheduling: a delayed child must not adopt a later A
+        // after an A-to-nil-to-A owner change with the same visible settings.
+        let inventoryAttempt = captureNativePushInventoryAttempt()
         automaticPassiveTask = Task { @MainActor [weak self] in
             guard let self else { return }
             defer { if automaticPassiveTaskID == request { automaticPassiveTask = nil } }
-            let inventoryAttempt = captureNativePushInventoryAttempt()
+            guard isCurrentNativePushInventory(inventoryAttempt, role: .widget),
+                  isCurrentNativePushInventory(inventoryAttempt, role: .liveActivityUpdate) else { return }
             var surfaces: Set<DJConnectPassiveSurface> = []
             #if canImport(WidgetKit)
             do {
