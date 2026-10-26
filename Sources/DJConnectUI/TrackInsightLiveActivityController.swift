@@ -15,7 +15,9 @@ enum DJConnectSessionSurfaceActivityController {
     private static let pushRequestedKey = "DJConnectSessionActivity.pushRequestedID.v1"
     private static var stateObservers: [String: Task<Void, Never>] = [:]
     private static var tokenObservers: [String: Task<Void, Never>] = [:]
+    private static var nativePushChanged: (@MainActor (DJConnectActivityPushToken?, String) -> Void)?
     private static func withdrawPush(_ activity: Activity<DJConnectSessionLiveActivityAttributes>) {
+        nativePushChanged?(nil, activity.id) // The model fences removal by exact native activity ID.
         tokenObservers.removeValue(forKey: activity.id)?.cancel()
         DJConnectActivityPushToken.withdraw(activityID: activity.id, in: .standard)
         if UserDefaults.standard.string(forKey: pushRequestedKey) == activity.id {
@@ -26,7 +28,9 @@ enum DJConnectSessionSurfaceActivityController {
         guard activity.activityState == .active || activity.activityState == .stale,
               let pending = DJConnectActivityPushToken(token: token, activityID: activity.id,
                   presentationID: activity.attributes.presentationID) else { return }
-        try? DJConnectActivityPushToken.recordIfCurrent(pending, in: .standard)
+        if (try? DJConnectActivityPushToken.recordIfCurrent(pending, in: .standard)) == true {
+            nativePushChanged?(pending, activity.id)
+        }
     }
     private static func observe(_ activity: Activity<DJConnectSessionLiveActivityAttributes>) {
         guard stateObservers[activity.id] == nil else { return }
@@ -49,8 +53,21 @@ enum DJConnectSessionSurfaceActivityController {
             stateObservers[activity.id] = nil
         }
     }
+    // Fresh actual SDK inventory only. Never restore authority from a pending
+    // token saved by a previous process or from a different Activity instance.
+    static func currentNativePushToken(presentationID: String?) -> DJConnectActivityPushToken? {
+        guard let presentationID,
+              let activity = Activity<DJConnectSessionLiveActivityAttributes>.activities.first(where: {
+                  $0.attributes.presentationID == presentationID && ($0.activityState == .active || $0.activityState == .stale)
+              }), let token = activity.pushToken,
+              DJConnectSessionSurfacePresentation.ownsPushToken(presentationID: presentationID,
+                  activityID: activity.id, in: .standard) else { return nil }
+        return DJConnectActivityPushToken(token: token, activityID: activity.id, presentationID: presentationID)
+    }
     static func sync(snapshot: DJConnectSessionSurfaceSnapshot?, presentationID: String?,
-                     canStart: Bool, endReason: String) async -> String? {
+                     canStart: Bool, endReason: String,
+                     nativePushChanged: (@MainActor (DJConnectActivityPushToken?, String) -> Void)? = nil) async -> String? {
+        self.nativePushChanged = nativePushChanged
         let defaults = UserDefaults.standard
         // Retire the old fixed playback-only activity, including after upgrade.
         for old in Activity<TrackInsightLiveActivityAttributes>.activities {
