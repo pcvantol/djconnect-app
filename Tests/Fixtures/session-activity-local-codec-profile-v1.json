@@ -1,0 +1,120 @@
+{
+  "attributes_keys": [
+    "presentationID"
+  ],
+  "attributes_type": "DJConnectSessionLiveActivityAttributes",
+  "causal_cases": [
+    "foreign_receivedUptime_does_not_render_current",
+    "optional_null_normalizes_to_omission",
+    "ordinary_date_decode_uses_2001_not_Unix",
+    "remote_clock_mapping_not_derived",
+    "ActivityKit_stale_does_not_guarantee_pixel_erasure"
+  ],
+  "content_state_keys": {
+    "optional": [
+      "theme",
+      "rich"
+    ],
+    "required": [
+      "observedAt",
+      "expiresAt"
+    ]
+  },
+  "content_state_type": "DJConnectSessionSurfaceSnapshot",
+  "contribution_keys": [
+    "moment_id",
+    "published_at",
+    "text",
+    "persona",
+    "source_attribution",
+    "usage_basis",
+    "expires_at"
+  ],
+  "date_encoding": {
+    "encoder": "Foundation.JSONEncoder.default",
+    "epoch": "2001-01-01T00:00:00Z",
+    "optional_nil_encoding": "omitted",
+    "optional_null_decoding": "nil",
+    "unit": "seconds"
+  },
+  "now_playing_keys": [
+    "item_id",
+    "subject_uri",
+    "track",
+    "artist",
+    "album",
+    "observed_at",
+    "expires_at",
+    "source_url",
+    "attribution",
+    "usage_basis"
+  ],
+  "remote_profile_admitted": false,
+  "rich_keys": {
+    "optional": [
+      "contribution",
+      "nowPlaying",
+      "playbackState"
+    ],
+    "required": [
+      "bindingID",
+      "generation",
+      "sequence",
+      "receivedAt",
+      "receivedUptime",
+      "expiresAt"
+    ]
+  },
+  "rights": "NONE: synthetic encoder specimens are not export/locked-display/remote-content rights",
+  "status": "LEGACY_LOCAL_CODEC_INVENTORY_NOT_REMOTE_ADMISSION",
+  "vectors": {
+    "neutral": {
+      "expiresAt": 821692920,
+      "observedAt": 821692800
+    },
+    "rich": {
+      "expiresAt": 821692860,
+      "observedAt": 821692800,
+      "rich": {
+        "bindingID": "synthetic-binding",
+        "contribution": {
+          "expires_at": "2027-01-15T08:01:00Z",
+          "moment_id": "synthetic-moment",
+          "persona": "synthetic",
+          "published_at": "2027-01-15T08:00:00Z",
+          "source_attribution": {
+            "provider": "synthetic"
+          },
+          "text": "Synthetic test text",
+          "usage_basis": "synthetic-test-only"
+        },
+        "expiresAt": 821692860,
+        "generation": "synthetic-generation",
+        "nowPlaying": {
+          "album": "Synthetic album",
+          "artist": "Synthetic artist",
+          "attribution": {
+            "provider": "synthetic"
+          },
+          "expires_at": "2027-01-15T08:01:00Z",
+          "item_id": "synthetic-track",
+          "observed_at": "2027-01-15T08:00:00Z",
+          "source_url": "https://example.invalid/track",
+          "subject_uri": "spotify:track:synthetic",
+          "track": "Synthetic track",
+          "usage_basis": "synthetic-test-only"
+        },
+        "playbackState": "playing",
+        "receivedAt": 821692800,
+        "receivedUptime": 1000,
+        "sequence": 1
+      },
+      "theme": "groove"
+    },
+    "theme_only": {
+      "expiresAt": 821692920,
+      "observedAt": 821692800,
+      "theme": "groove"
+    }
+  }
+}

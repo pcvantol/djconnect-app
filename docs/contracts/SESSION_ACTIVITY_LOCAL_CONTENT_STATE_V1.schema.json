@@ -1,0 +1,182 @@
+{
+  "$comment": "Inventory of current encoder keys/types and optional null decoding only. NOT an admitted remote Activity profile, strict product ingress decoder, rights or clock authority. Date numbers use Foundation default reference epoch2001. Source synthesized decoder tolerates unknown keys; additionalProperties=false describes exact source encoder output, not runtime enforcement.",
+  "$id": "urn:djconnect:inventory:local-session-activity-content-state:1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "expiresAt": {
+      "type": "number"
+    },
+    "observedAt": {
+      "type": "number"
+    },
+    "rich": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "bindingID": {
+              "type": "string"
+            },
+            "contribution": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "expires_at": {
+                      "type": "string"
+                    },
+                    "moment_id": {
+                      "type": "string"
+                    },
+                    "persona": {
+                      "type": "string"
+                    },
+                    "published_at": {
+                      "type": "string"
+                    },
+                    "source_attribution": {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "usage_basis": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "moment_id",
+                    "published_at",
+                    "text",
+                    "persona",
+                    "source_attribution",
+                    "usage_basis",
+                    "expires_at"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "expiresAt": {
+              "type": "number"
+            },
+            "generation": {
+              "type": "string"
+            },
+            "nowPlaying": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "album": {
+                      "type": "string"
+                    },
+                    "artist": {
+                      "type": "string"
+                    },
+                    "attribution": {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    },
+                    "expires_at": {
+                      "type": "string"
+                    },
+                    "item_id": {
+                      "type": "string"
+                    },
+                    "observed_at": {
+                      "type": "string"
+                    },
+                    "source_url": {
+                      "type": "string"
+                    },
+                    "subject_uri": {
+                      "type": "string"
+                    },
+                    "track": {
+                      "type": "string"
+                    },
+                    "usage_basis": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "item_id",
+                    "subject_uri",
+                    "track",
+                    "artist",
+                    "album",
+                    "observed_at",
+                    "expires_at",
+                    "source_url",
+                    "attribution",
+                    "usage_basis"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "playbackState": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "receivedAt": {
+              "type": "number"
+            },
+            "receivedUptime": {
+              "type": "number"
+            },
+            "sequence": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "bindingID",
+            "generation",
+            "sequence",
+            "receivedAt",
+            "receivedUptime",
+            "expiresAt"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "theme": {
+      "enum": [
+        "brand",
+        "chill",
+        "groove",
+        "energy",
+        "party",
+        null
+      ]
+    }
+  },
+  "required": [
+    "observedAt",
+    "expiresAt"
+  ],
+  "type": "object"
+}
