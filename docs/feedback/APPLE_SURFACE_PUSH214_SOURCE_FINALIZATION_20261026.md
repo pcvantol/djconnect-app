@@ -4,4 +4,4 @@ PR214 merged as `b9d0ea6922c6a6036feec8f88f67314bf75b5bb3`; its complete tree eq
 
 This closes the documentary source record for the SDK inventory and unshipped Activity codec proposal. It does not approve a production admission factory, cold widget delegation, remote Activity profile, enrollment, APNs delivery, native display or privacy-wipe behavior. Local/model tests and SDK compilation remain distinct from physical provider acceptance. No ordinary build, provisioning or device installation is part of this Final.
 
-The registration-task implementation is separately reviewed in Source215. Its own exact candidate, CI, independent review and original main evidence must qualify independently; this record grants that successor no runtime or source acceptance.
+The registration-task implementation in Source215 has separate exact candidate, CI, independent review and original main receipts, recorded in the companion Source215 finalization pair. This Source214 record grants that successor no inherited runtime or source acceptance.

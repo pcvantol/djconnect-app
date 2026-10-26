@@ -38,5 +38,5 @@
     "ordinary build or installation"
   ],
   "successor_source_pr": 215,
-  "successor_qualification": "Separate unmerged source review; no qualification inherited from Source214"
+  "successor_qualification": "Source215 has its own original protected-source receipts in the separate Source215 finalization record; no inheritance"
 }
