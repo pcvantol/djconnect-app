@@ -1177,6 +1177,11 @@ public final class DJConnectAppModel: ObservableObject {
     @Published private(set) var askDJExampleCapabilities: DJConnectAskDJCatalogue.Capabilities?
     @Published private(set) var askDJExampleRefreshEpoch = UUID()
     @Published var askDJHelpIsPresented = false
+    // Intentionally absent until the canonical producer observation is qualified.
+    // A global capabilities pin or local agent flag cannot install this adapter.
+    var askDJHelpCatalogueReader: AskDJHelpCatalogueModel.Reader?
+    @Published var askDJCatalogueInputSelection: NSRange?
+    @Published var askDJCatalogueFocusRequest: UUID?
     private var askDJSuggestionCursors: [String: DJConnectAskDJSuggestionCursor] = [:]
     func updateAskDJSuggestions(surface: DJConnectAskDJCatalogue.Surface, frozen: Bool, visit: Bool, refresh: Bool) -> [DJConnectAskDJCatalogue.Suggestion] {
         var cursor = askDJSuggestionCursors[surface.rawValue] ?? DJConnectAskDJSuggestionCursor()
@@ -1632,6 +1637,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var askDJScrollRequestID: UUID?
     private var composerDraft = ""
     public private(set) var askDJDraftRevision = 0
+    private(set) var askDJDraftEditRevision = 0
     public var askDJDraft: String {
         get { composerDraft }
         set {
@@ -1639,6 +1645,8 @@ public final class DJConnectAppModel: ObservableObject {
             objectWillChange.send()
             composerDraft = newValue
             askDJDraftRevision &+= 1
+            askDJDraftEditRevision &+= 1
+            if askDJCatalogueInputSelection != nil { askDJCatalogueInputSelection = nil }
         }
     }
 
@@ -1649,6 +1657,8 @@ public final class DJConnectAppModel: ObservableObject {
         let isEmpty = value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         if wasEmpty != isEmpty { objectWillChange.send() }
         composerDraft = value
+        askDJDraftEditRevision &+= 1
+        if askDJCatalogueInputSelection != nil { askDJCatalogueInputSelection = nil }
     }
     @Published public private(set) var isSendingAskDJText = false
     @Published public private(set) var isRequestingAskDJIdleSuggestion = false

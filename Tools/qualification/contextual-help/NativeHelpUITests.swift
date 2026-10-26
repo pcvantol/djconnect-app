@@ -18,6 +18,108 @@ import XCTest
         element.tap()
         #endif
     }
+    func testFullCatalogueMoreScrollAndCompleteVersusPlaceholderSelection() {
+        let app = XCUIApplication()
+        app.launchEnvironment = ["HELP_LANGUAGE": "en", "HELP_SURFACE": "ask_dj", "HELP_SYNTHETIC": "1", "HELP_FULL_CATALOGUE": "1"]
+        app.launch()
+        defer { app.terminate() }
+        let more = app.buttons["ask-dj-more-ask_dj"]
+        XCTAssertTrue(more.waitForExistence(timeout: 10))
+        activate(more)
+        let artist = app.buttons["ask-dj-catalogue-play.artist"]
+        XCTAssertTrue(artist.waitForExistence(timeout: 5))
+        activate(artist)
+        let selected = app.staticTexts["help-selected-prompt"]
+        let drafted = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            selected.exists && selected.label.hasPrefix("draft:")
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [drafted], timeout: 5), .completed, app.debugDescription)
+        XCTAssertTrue(app.staticTexts["help-selected-prompt"].label.contains("[artist]"))
+        let scroll = app.scrollViews["ask-dj-full-catalogue"]
+        XCTAssertTrue(scroll.waitForNonExistence(timeout: 5))
+        activate(more)
+        XCTAssertTrue(scroll.waitForExistence(timeout: 5))
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in scroll.isHittable }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
+        let opening = XCTAttachment(screenshot: app.screenshot())
+        opening.name = "full-catalogue-before-scroll"
+        opening.lifetime = .keepAlways; add(opening)
+        let current = app.buttons["ask-dj-catalogue-listen.current"]
+        for _ in 0..<8 {
+            if current.exists && current.isHittable { break }
+            #if os(macOS)
+            app.scrollViews.firstMatch.scroll(byDeltaX: 0, deltaY: -180)
+            #else
+            dragCatalogue(scroll, in: app)
+            #endif
+        }
+        XCTAssertTrue(current.isHittable)
+        activate(current)
+        let sent = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            selected.exists && selected.label == "send:What is playing now?"
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [sent], timeout: 5), .completed, app.debugDescription)
+        XCTAssertTrue(scroll.waitForNonExistence(timeout: 5))
+        activate(more)
+        XCTAssertTrue(scroll.waitForExistence(timeout: 5))
+        let reopened = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in scroll.isHittable }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [reopened], timeout: 5), .completed)
+        let last = app.buttons["ask-dj-catalogue-listen.forecast"]
+        for _ in 0..<8 {
+            if last.exists && last.isHittable { break }
+            #if os(macOS)
+            app.scrollViews.firstMatch.scroll(byDeltaX: 0, deltaY: -180)
+            #else
+            dragCatalogue(scroll, in: app)
+            #endif
+        }
+        XCTAssertTrue(last.isHittable)
+        #if os(macOS)
+        let shot = app.windows.firstMatch.screenshot()
+        #else
+        let shot = app.screenshot()
+        #endif
+        let attachment = XCTAttachment(screenshot: shot)
+        attachment.name = "full-help-catalogue-bottom"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+    #if !os(macOS)
+    func testPlaceholderIsSelectedInTheRealNativeComposer() {
+        let app = XCUIApplication()
+        app.launchEnvironment = ["HELP_LANGUAGE": "en", "HELP_SURFACE": "ask_dj", "HELP_SYNTHETIC": "1", "HELP_FULL_CATALOGUE": "1", "HELP_COMPOSER": "1"]
+        app.launch()
+        defer { app.terminate() }
+        let more = app.buttons["ask-dj-more-ask_dj"]
+        XCTAssertTrue(more.waitForExistence(timeout: 10))
+        activate(more)
+        let artist = app.buttons["ask-dj-catalogue-play.artist"]
+        XCTAssertTrue(artist.waitForExistence(timeout: 5))
+        activate(artist)
+        let input = app.textViews.firstMatch
+        let prepared = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            input.exists && (input.value as? String) == "Play [artist]"
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [prepared], timeout: 8), .completed, app.debugDescription)
+        print("COMPOSER_DIAGNOSTICS", app.staticTexts["help-composer-diagnostics"].label)
+        input.typeText("ABBA")
+        XCTAssertEqual(input.value as? String, "Play ABBA")
+        XCTAssertFalse(app.buttons["ask-dj-composer-send"].isEnabled)
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "real-composer-placeholder-replaced"
+        attachment.lifetime = .keepAlways; add(attachment)
+    }
+    private func dragCatalogue(_ scroll: XCUIElement, in app: XCUIApplication) {
+        // XCTest's swipeUp cannot obtain a visible-frame path for this native
+        // glass popover. Drag within its observed on-screen scroll rectangle.
+        let frame = scroll.frame.intersection(app.windows.firstMatch.frame)
+        XCTAssertFalse(frame.isEmpty, app.debugDescription)
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        let start = origin.withOffset(CGVector(dx: frame.midX, dy: frame.maxY - 35))
+        let end = origin.withOffset(CGVector(dx: frame.midX, dy: frame.minY + 35))
+        start.press(forDuration: 0.1, thenDragTo: end)
+    }
+    #endif
     func testReferenceInFiveLocalesBothSurfacesAndTextSizes() throws {
         for language in ["nl", "en", "de", "fr", "es"] {
             for surface in ["ask_dj", "active_session"] {

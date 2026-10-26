@@ -69,6 +69,18 @@ public struct DJConnectAskDJCatalogue: Decodable, Sendable {
         public let title: String
         public let examples: [String]
     }
+    public struct HelpItem: Equatable, Sendable, Identifiable {
+        public let id: String
+        public let prompt: String
+        /// UTF-16 range of the first localized input placeholder, for native editors.
+        public let inputRange: NSRange?
+        public var requiresInput: Bool { inputRange != nil }
+    }
+    public struct CatalogueSection: Equatable, Sendable, Identifiable {
+        public let id: String
+        public let title: String
+        public let items: [HelpItem]
+    }
     let schema_version: Int
     let catalogue_id: String
     let revision: Int
@@ -182,6 +194,33 @@ public struct DJConnectAskDJCatalogue: Decodable, Sendable {
         return sections
     }
     public func unavailableText(language: String) -> String { unavailable[locale(language) ?? "en"] ?? "" }
+
+    /// Full reference, without the compact Help's two-example limit. The caller
+    /// must supply a fresh, independently admitted producer eligibility set.
+    /// Generic Help placeholders do not require already-filled chip slots.
+    public func catalogueSections(_ context: Context, surface: Surface, language: String,
+                                  eligibleIDs: Set<String>) -> [CatalogueSection] {
+        guard let language = locale(language) else { return [] }
+        let candidates = eligible(context, surface: surface, language: language, help: true)
+            .filter { eligibleIDs.contains($0.id) }
+        return groups.compactMap { group in
+            let items = candidates.filter { $0.group == group.id }.sorted {
+                ($0.help_rank, $0.id) < ($1.help_rank, $1.id)
+            }.compactMap { entry -> HelpItem? in
+                guard let value = prompt(entry, language: language, slots: [:], help: true) else { return nil }
+                var ranges: [NSRange] = []
+                for slot in entry.slots {
+                    guard let label = slot_labels[slot]?[language] else { return nil }
+                    let range = (value as NSString).range(of: label)
+                    guard range.location != NSNotFound else { return nil }
+                    ranges.append(range)
+                }
+                return HelpItem(id: entry.id, prompt: value, inputRange: ranges.min { $0.location < $1.location })
+            }
+            guard !items.isEmpty, let title = group.labels[language] else { return nil }
+            return CatalogueSection(id: group.id, title: title, items: items)
+        }
+    }
 }
 private final class AskDJCatalogueBundleToken {}
 
@@ -201,6 +240,9 @@ public struct DJConnectAskDJSuggestionCursor: Sendable {
         guard visit || refresh || changed || pendingSelection else { return }
         if ownerChanged { suggestions = []; recent = [] }
         suggestions = suggestions.filter { catalogue?.retains($0, context: next, surface: surface, language: language) == true }
+        // Withdrawal also applies while reading/editing: never leave a partial
+        // one- or two-chip strip and never refill it during a frozen visit.
+        if suggestions.count != 3 { suggestions = [] }
         context = next; self.language = language
         if frozen { pendingSelection = pendingSelection || visit || refresh || changed; return }
         pendingSelection = false
