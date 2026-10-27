@@ -2381,6 +2381,30 @@ public extension DJConnectClient {
         try DJConnectSurfaceBackgroundHTTP(baseURL: baseURL, configuration: session.configuration)
     }
 
+    /// Passive comparison data for the exact paired device, independent of an
+    /// active Session. This cannot register a token or arm a native task owner.
+    @MainActor public func automaticSurfaceRegistrationState(
+        role: DJConnectAutomaticSurfaceRole, scope: DJConnectAutomaticSurfaceScope,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool
+    ) async throws -> DJConnectAutomaticSurfaceState {
+        guard scope.deviceID == identity.deviceID, scope.clientType == identity.clientType.rawValue,
+              isCurrent(), !Task.isCancelled else { throw CancellationError() }
+        let originalToken = try loadedToken()
+        _ = try makeDJConnectIdentity(deviceToken: originalToken)
+        var request = URLRequest(url: endpoint(path: role.statePath))
+        request.httpMethod = "GET"; request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("Bearer " + originalToken, forHTTPHeaderField: "Authorization")
+        request.setValue(identity.deviceID, forHTTPHeaderField: "X-DJConnect-Device-ID")
+        request.setValue(identity.clientType.rawValue, forHTTPHeaderField: "X-DJConnect-Client-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        let transport = DJConnectAutomaticSurfaceHTTP(configuration: session.configuration)
+        return try await transport.read(request, role: role, scope: scope, isCurrent: {
+            isCurrent() && (try? self.tokenStore.loadToken()) == originalToken
+        })
+    }
+
     // Internal task-owner port; strict outer-v3 validation stays independent of
     // historical v1/v2 APIs. No fallback or new authority is created here.
     @MainActor func nativeSurfacePushV3POST(_ part: String, bytes: Data,
