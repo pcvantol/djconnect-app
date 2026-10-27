@@ -545,6 +545,15 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         pendingTurns = []; host?.setProfileConversationSending(false)
     }
 
+    /// Only the readback of a server-confirmed scoped deletion may preserve
+    /// unrelated presentation identities across its clear-revision advance.
+    var preservesRowsForConfirmedContentDeletion: Bool {
+        guard let ownerScope else { return false }
+        return contentDeletionReadback.map {
+            $0.owner == ownerScope && $0.archiveEpoch == archiveResponseEpoch
+        } ?? false
+    }
+
     /// An admitted clear changes content/epoch, not the authenticated Profile.
     /// Authority errors and lifecycle changes still use suspend() directly.
     func invalidateClearedConversation() {
@@ -552,10 +561,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         // A confirmed single-contribution deletion can also advance the Profile
         // clear revision. Its readback must not turn that data fence into a pop.
         // Ordinary clears and authority/lifecycle invalidation retain their fences.
-        let keepsArchive = contentDeletionReadback.map {
-            $0.owner == admittedOwner && $0.archiveEpoch == archiveResponseEpoch
-        } ?? false
-        if keepsArchive {
+        if preservesRowsForConfirmedContentDeletion {
             // This clear belongs to an admitted scoped deletion. Retire stale
             // work and grants, keeping unrelated rows and the viewport mounted.
             fenceContentDeletionReadback(cancelPreparation: false)

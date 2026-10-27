@@ -5921,6 +5921,17 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     await history.prepare()
     #expect(await history.loadSessions())
     #expect(await history.loadTimeline(scope.unit.session_id))
+    let originalMessageIDs = Dictionary(uniqueKeysWithValues: model.askDJMessages.compactMap { message in
+        message.serverID.map { ($0, message.id) }
+    })
+    #expect(!originalMessageIDs.isEmpty)
+    var renderedConversations: [[String: UUID]] = []
+    let messageObservation = model.$askDJMessages.sink { messages in
+        renderedConversations.append(Dictionary(uniqueKeysWithValues: messages.compactMap { message in
+            message.serverID.map { ($0, message.id) }
+        }))
+    }
+    defer { messageObservation.cancel() }
     var renderedWindows: [[String]] = []
     var renderedArchiveLists: [[String]] = []
     let windowObservation = history.$timelines.sink {
@@ -6042,6 +6053,11 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
         let survivors = Set(independent.entries.map(\.id))
         #expect(!survivors.isEmpty)
         #expect(renderedWindows.allSatisfy { survivors.isSubset(of: Set($0)) })
+        // A scoped erasure may advance clear_revision, but unrelated retained
+        // bubbles must never disappear or receive new SwiftUI identities.
+        #expect(renderedConversations.allSatisfy { frame in
+            originalMessageIDs.allSatisfy { frame[$0.key] == $0.value }
+        })
         #expect(renderedArchiveLists.allSatisfy { $0.contains(scope.unit.session_id) })
         #expect(history.contentRemovalRevision != removalRevision)
         #expect(history.responseEpoch != epoch)
@@ -8945,4 +8961,39 @@ func sessionHistoryOwnerWithdrawalDuringPreflightCannotSendAfterGateRelease(_ ac
     #expect(fixture.requests.allSatisfy { !$0.url!.path.hasSuffix("/transport/operation") && !$0.url!.path.hasSuffix("/ask_dj/message") })
     #expect(model.askDJMessages.map(\.id) == ids)
     #expect(!model.isSendingAskDJText && !model.sessionHistory.hasAuthorizedOwner)
+}
+
+
+@Test(arguments: ["refresh", "clear", "forced_clear"])
+@MainActor func conversationReadbackPublishesOneProjectionAndHonorsFullClear(_ mode: String) throws {
+    let suite = "DJConnectStableProjection-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    defer { model.markInactiveSession() }
+    let a = DJConnectAskDJHistoryMessage(id: "unrelated-original-a", role: .assistant,
+        text: "First retained answer", createdAt: Date(timeIntervalSince1970: 100))
+    let b = DJConnectAskDJHistoryMessage(id: "unrelated-original-b", role: .assistant,
+        text: "Second retained answer", createdAt: Date(timeIntervalSince1970: 101))
+    model.applyAskDJHistory(.init(historyRevision: 1, clearRevision: 0, messages: [a, b]))
+    let originalID = try #require(model.askDJMessages.first(where: { $0.serverID == b.id })?.id)
+    var frames: [[DJConnectAskDJMessage]] = []
+    let observation = model.$askDJMessages.sink { frames.append($0) }
+    defer { observation.cancel() }
+    model.applyAskDJHistory(.init(historyRevision: 2, clearRevision: mode == "clear" ? 1 : 0,
+                                 messages: [b]), forceClear: mode == "forced_clear")
+    // Initial subscription plus exactly one complete projection; no empty frame.
+    #expect(frames.count == 2)
+    #expect(frames.allSatisfy { !$0.isEmpty })
+    let retained = try #require(model.askDJMessages.first(where: { $0.serverID == b.id }))
+    if mode == "refresh" {
+        #expect(retained.id == originalID)
+        #expect(model.askDJMessages.contains { $0.serverID == a.id })
+    } else {
+        // Unlike a confirmed scoped deletion, a full/forced clear retires old
+        // presentation identity even if the new server result reuses its ID.
+        #expect(retained.id != originalID)
+        #expect(model.askDJMessages.count == 1)
+        #expect(!model.askDJMessages.contains { $0.serverID == a.id })
+    }
 }

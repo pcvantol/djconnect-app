@@ -10768,12 +10768,17 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     func applyAskDJHistory(_ response: DJConnectAskDJHistoryResponse, forceClear: Bool = false) {
+        let preservesScopedRows = !forceClear && sessionHistory.preservesRowsForConfirmedContentDeletion
         if sessionHistory.profileScopeActive {
             guard response.historyRevision >= profileConversationHistoryRevision,
                   response.clearRevision >= profileConversationClearRevision else { return }
             if response.clearRevision > profileConversationClearRevision { sessionHistory.invalidateClearedConversation() }
+        }
+        // Capture after the clear fence has withdrawn transient private rows.
+        var nextMessages = askDJMessages
+        if sessionHistory.profileScopeActive {
             let allowed = Set(response.messages.map(\.id))
-            askDJMessages.removeAll { message in
+            nextMessages.removeAll { message in
                 if liveConversationPresentations.values.contains(where: {
                     $0.isPrivateEphemeral && $0.questionID == message.id && $0.epoch == sessionHistory.responseEpoch
                         && ($0.deadline.map { $0 > Date() } ?? true)
@@ -10787,10 +10792,12 @@ public final class DJConnectAppModel: ObservableObject {
             }
         }
         let localClearRevision = sessionHistory.profileScopeActive ? profileConversationClearRevision : defaults.integer(forKey: askDJClearRevisionKey)
-        if forceClear || response.clearRevision > localClearRevision {
-            askDJMessages.removeAll()
+        if forceClear || (response.clearRevision > localClearRevision && !preservesScopedRows) {
+            nextMessages.removeAll()
         }
-        var nextMessages = askDJMessages
+        // Build the complete admitted projection locally. Publishing an empty
+        // intermediate array remounts every bubble, even if readback is immediate.
+        // Scoped deletion keeps surviving row IDs; full/forced clears do not.
         for message in response.messages {
             upsertAskDJHistoryMessage(message, into: &nextMessages, fallbackID: nil)
         }
