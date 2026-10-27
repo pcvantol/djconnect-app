@@ -133,8 +133,8 @@ private struct AskDJHelpContent: View {
             await model.refreshAskDJExampleCapabilities()
             _ = await refresh()
         }
-        .onChange(of: context) { _, _ in if !catalogueModel.busy { catalogueModel.close() } }
-        .onChange(of: model.language) { _, _ in catalogueModel.close() }
+        .onChange(of: context) { _, next in catalogueModel.contextChanged(to: next) }
+        .onChange(of: model.language) { _, _ in catalogueModel.contextChanged(to: context) }
         .onDisappear { catalogueModel.close() }
     }
 }
@@ -275,8 +275,8 @@ struct AskDJSuggestionStrip: View {
             disabled: selecting || frozen || !model.canUseAskDJFeatures) { item in Task { await choose(item) } }
         AskDJHelpButton(model: model, surface: surface, showsMoreLabel: true)
         .task { await open() }
-        .onChange(of: context) { _, _ in if !observation.busy { observation.close(); suggestions = [] } }
-        .onChange(of: model.language) { _, _ in observation.close(); suggestions = [] }
+        .onChange(of: context) { _, next in observation.contextChanged(to: next); if !observation.isCurrent { suggestions = [] } }
+        .onChange(of: model.language) { _, _ in observation.contextChanged(to: context); if !observation.isCurrent { suggestions = [] } }
         .onChange(of: observation.admittedContext) { _, value in if value == nil { suggestions = [] } }
         .onChange(of: model.askDJExampleRefreshEpoch) { _, _ in Task { await open() } }
         .onDisappear { observation.close(); suggestions = [] }

@@ -120,6 +120,151 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     #expect(sections?.flatMap(\.items).contains(where: { $0.id == "listen.current" }) == false)
 }
 
+@MainActor private final class HelpPendingReadGate {
+    var continuation: CheckedContinuation<AskDJHelpCatalogueModel.Observation, Never>?
+    func wait() async -> AskDJHelpCatalogueModel.Observation {
+        await withCheckedContinuation { continuation = $0 }
+    }
+}
+
+@Test @MainActor func fullHelpObservedBusyContextABANeverReadmitsTheOriginalReply() async throws {
+    let (catalogue, original, ids) = try fullHelpFixture()
+    for kind in ["artist", "album", "capabilities", "settings", "owner"] {
+        var context = original
+        context.slots["artist"] = "Artist A"
+        let captured = context, model = AskDJHelpCatalogueModel(), gate = HelpPendingReadGate()
+        let task = Task { await model.read(catalogue: catalogue, surface: .askDJ, language: "en", context: { context },
+            reader: { _, _, _, _ in await gate.wait() }) }
+        for _ in 0..<1000 { if gate.continuation != nil { break }; await Task.yield() }
+        let continuation = try #require(gate.continuation)
+        #expect(model.busy)
+        switch kind {
+        case "artist": context.slots["artist"] = "Artist B"
+        case "album": context.flags["current_album"] = false
+        case "capabilities": context.contracts["ask_dj_examples"] = 99
+        case "settings": context.settingsIdentity = "new observed settings"
+        default: context.ownerEpoch = "new-owner"
+        }
+        model.contextChanged(to: context) // Retirement applies while reader is pending.
+        context = captured
+        model.contextChanged(to: context)
+        continuation.resume(returning: .init(ids: ids, trackID: context.trackID))
+        let result = await task.value
+        #expect(result == nil && model.sections.isEmpty && model.admittedContext == nil)
+    }
+}
+
+@Test @MainActor func fullHelpOwnCapturedContextPublicationDoesNotCancelItsRead() async throws {
+    let (catalogue, context, ids) = try fullHelpFixture()
+    let model = AskDJHelpCatalogueModel(), gate = HelpPendingReadGate()
+    let task = Task { await model.read(catalogue: catalogue, surface: .askDJ, language: "en", context: { context },
+        reader: { _, _, _, _ in await gate.wait() }) }
+    for _ in 0..<1000 { if gate.continuation != nil { break }; await Task.yield() }
+    let continuation = try #require(gate.continuation)
+    model.contextChanged(to: context) // Delayed view callback for already-captured discovery.
+    #expect(model.busy)
+    continuation.resume(returning: .init(ids: ids, trackID: context.trackID))
+    let result = await task.value
+    #expect(result?.isEmpty == false && !model.sections.isEmpty)
+    model.contextChanged(to: context) // Published admitted mask is not the base context.
+    #expect(!model.sections.isEmpty && model.isCurrent)
+    model.close()
+}
+
+@Test @MainActor func fullHelpRetiredBusyReplyCannotClearANewerSuccessfulRead() async throws {
+    let (catalogue, original, ids) = try fullHelpFixture()
+    var context = original
+    let model = AskDJHelpCatalogueModel(), gate = HelpPendingReadGate()
+    let old = Task { await model.read(catalogue: catalogue, surface: .askDJ, language: "en", context: { context }, reader: { _, _, _, _ in await gate.wait() }) }
+    for _ in 0..<1000 { if gate.continuation != nil { break }; await Task.yield() }
+    let continuation = try #require(gate.continuation)
+    context.ownerEpoch = "new-owner"
+    model.contextChanged(to: context)
+    let fresh = await model.read(catalogue: catalogue, surface: .askDJ, language: "en", context: { context }, reader: { _, _, _, _ in .init(ids: ids, trackID: context.trackID) })
+    #expect(fresh?.isEmpty == false)
+    continuation.resume(returning: .init(ids: ids, trackID: original.trackID))
+    let retired = await old.value
+    #expect(retired == nil && !model.sections.isEmpty && model.admittedContext?.ownerEpoch == "new-owner")
+    model.close()
+}
+
+@Test @MainActor func fullHelpCancellationReachesOwnedReaderAndLateCompletionCannotPublish() async throws {
+    let (catalogue, context, ids) = try fullHelpFixture()
+    let model = AskDJHelpCatalogueModel(), gate = HelpPendingReadGate()
+    var childCancelled = false
+    let task = Task { await model.read(catalogue: catalogue, surface: .askDJ, language: "en", context: { context }, reader: { _, _, _, _ in
+        let value = await gate.wait(); childCancelled = Task.isCancelled; return value
+    }) }
+    for _ in 0..<1000 { if gate.continuation != nil { break }; await Task.yield() }
+    let continuation = try #require(gate.continuation)
+    task.cancel()
+    continuation.resume(returning: .init(ids: ids, trackID: context.trackID))
+    let result = await task.value
+    #expect(result == nil && childCancelled && model.sections.isEmpty)
+}
+
+@Test @MainActor func fullHelpDelayedOwnedChildChecksOriginalDeadlineBeforeCallingReader() async throws {
+    let (catalogue, context, ids) = try fullHelpFixture()
+    let started = ContinuousClock.now
+    var clockCalls = 0, readerCalls = 0
+    let model = AskDJHelpCatalogueModel(now: {
+        clockCalls += 1
+        return started.advanced(by: .seconds(clockCalls == 1 ? 0 : 15))
+    })
+    let result = await model.read(catalogue: catalogue, surface: .askDJ, language: "en", context: { context }, reader: { _, _, _, _ in
+        readerCalls += 1; return .init(ids: ids, trackID: context.trackID)
+    })
+    #expect(result == nil && readerCalls == 0 && model.sections.isEmpty)
+}
+
+@Test @MainActor func helpActualAppModelBackendCapabilityABARetiresTheOldGeneration() throws {
+    let name = "help-backend-aba-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: nil), startBackgroundTasks: false)
+    var summary = DJConnectMusicBackendSummary(musicBackend: "spotify_direct", musicBackendRevision: 3,
+        musicBackendCapabilities: .init(supportsSearch: true, supportsQueue: true))
+    model.apply(musicBackendSummary: summary)
+    let original = model.askDJExampleContext().ownerEpoch
+    model.apply(musicBackendSummary: summary)
+    #expect(model.askDJExampleContext().ownerEpoch == original)
+    summary.musicBackendCapabilities?.supportsSearch = false; model.apply(musicBackendSummary: summary)
+    summary.musicBackendCapabilities?.supportsSearch = true; model.apply(musicBackendSummary: summary)
+    #expect(model.askDJExampleContext().ownerEpoch != original)
+}
+
+@Test @MainActor func helpActualAppModelSameTrackMetadataAndFreshnessRetireButProgressDoesNot() throws {
+    let name = "help-playback-aba-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: nil), startBackgroundTasks: false)
+    model.startDemoMode() // Existing memory-only path; no Profile/HA/native authority.
+    defer { model.stopDemoMode() }
+    var snapshot = try #require(model.activeDJSession?.broadcast)
+    _ = try #require(snapshot.playback)
+    snapshot.playback?.updatedAt = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-2))
+    model.applySessionBroadcastSnapshot(snapshot)
+    let baseline = model.askDJExampleContext().ownerEpoch
+    let nextPosition = (snapshot.playback?.positionMS ?? 0) + 1000
+    snapshot.playback?.positionMS = nextPosition
+    snapshot.playback?.updatedAt = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1))
+    model.applySessionBroadcastSnapshot(snapshot)
+    #expect(model.askDJExampleContext().ownerEpoch == baseline)
+    for field in ["artist", "album", "state", "freshness"] {
+        let before = model.askDJExampleContext().ownerEpoch
+        let original = snapshot.playback
+        switch field {
+        case "artist": snapshot.playback?.artist = "Changed artist, same item"
+        case "album": snapshot.playback?.album = "Changed album, same item"
+        case "state": snapshot.playback?.state = "paused"
+        default: snapshot.playback?.updatedAt = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-40))
+        }
+        model.applySessionBroadcastSnapshot(snapshot)
+        snapshot.playback = original; model.applySessionBroadcastSnapshot(snapshot)
+        #expect(model.askDJExampleContext().ownerEpoch != before)
+    }
+}
+
 @Test func askDJShippingDraftNeverAdvertisesCandidateCommandsAndBytesArePinned() throws {
     let catalogue = try #require(DJConnectAskDJCatalogue.bundled)
     let data = try askDJGolden()

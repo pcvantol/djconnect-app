@@ -130,13 +130,17 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
     }
 
-    @Published public private(set) var available = false
+    @Published public private(set) var available = false {
+        didSet { if oldValue != available { host?.invalidateAskDJHelpObservationContext() } }
+    }
     @Published private var contributionExploration: DJConnectContributionExploration?
     @Published public private(set) var summaryAvailable = false
     @Published public private(set) var bulkDeletionAvailable = false
     @Published public private(set) var bulkDeletionBusy = false
     @Published public private(set) var contentDeletionAvailable = false
-    @Published public private(set) var contentDeletionBusy = false
+    @Published public private(set) var contentDeletionBusy = false {
+        didSet { if oldValue != contentDeletionBusy { host?.invalidateAskDJHelpObservationContext() } }
+    }
     @Published private(set) var contentRemovalRevision = UUID()
     var showsUnconfirmedDeletionNotice: Bool {
         hasUnconfirmedDeletion && !contentDeletionBusy && !bulkDeletionBusy && deletingSessionID == nil
@@ -208,7 +212,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     @Published public private(set) var preparing = false
     @Published public private(set) var searchAvailable = false
     @Published public private(set) var momentInsightAvailable = false
-    @Published public private(set) var profileScopeActive = false
+    @Published public private(set) var profileScopeActive = false {
+        didSet { if oldValue != profileScopeActive { host?.invalidateAskDJHelpObservationContext() } }
+    }
     @Published public private(set) var sessions: [DJConnectSavedSession] = []
     @Published public private(set) var listLoading = false
     @Published public private(set) var listErrorKey: String?
