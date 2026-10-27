@@ -1322,6 +1322,7 @@ public final class DJConnectAppModel: ObservableObject {
                 updateNowPlayingPollTimer()
                 refreshWebSocketFastPathStatus()
             } else if pairingStatus != .paired {
+                automaticSurfaceDiscovery.bind(nil)
                 passiveSurfaces.bind(owner: nil, sessionID: nil, foreground: false)
                 stopResponsePlayback(clearText: false)
                 if let old = hybridTransport { Task { await old.lifecycle(foreground: false) } }
@@ -1937,6 +1938,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var pairedIdentityRecoveryGeneration = UUID()
     private var pairingTask: Task<Void, Never>?
     private var pairingTaskGeneration = UUID()
+    let automaticSurfaceDiscovery = AutomaticSurfaceDiscoveryModel()
     private var scheduledPairingTask: Task<Void, Never>?
     private var volumeCommandTask: Task<Void, Never>?
     private var playbackProgressTask: Task<Void, Never>?
@@ -3109,6 +3111,7 @@ public final class DJConnectAppModel: ObservableObject {
         cancelRendezvous()
         personaReactions.cancel(.background)
         isAppInForeground = false
+        automaticSurfaceDiscovery.bind(nil)
         askDJHelpRuntimeGeneration = UUID()
         cancelAskDJTextSubmissions()
         #if os(iOS) && canImport(WatchConnectivity)
@@ -8465,6 +8468,7 @@ public final class DJConnectAppModel: ObservableObject {
             registerStoredPushTokenIfPossible()
             authenticatedStatusOrigin = client.baseURL
             markHomeAssistantReachable(backendAvailableAfterResponse: hasPlaybackSnapshot ? true : (response.backendAvailable ?? true))
+            refreshAutomaticSurfaceDiscovery()
             if backendAvailable {
                 clearRecoverableVoiceErrorIfNeeded()
             }
@@ -10873,6 +10877,45 @@ public final class DJConnectAppModel: ObservableObject {
         standaloneWidgetTheme = moods[step]
         standaloneWidgetThemeEpoch = sessionHistory.responseEpoch
         syncSessionSurfaces()
+    }
+
+    private func refreshAutomaticSurfaceDiscovery() {
+        guard startBackgroundTasks, !monkeyTestingMode, !DJConnectLocalization.isQualificationProcess,
+              isAppInForeground, !isDemoMode, pairingStatus == .paired,
+              let origin = authenticatedStatusOrigin,
+              let installation = defaults.string(forKey: haInstallIDKey),
+              let application = Bundle.main.bundleIdentifier else {
+            automaticSurfaceDiscovery.bind(nil); return
+        }
+        #if os(macOS)
+        let platform = "macos"
+        #else
+        #if canImport(UIKit)
+        let platform = UIDevice.current.userInterfaceIdiom == .pad ? "ipados" : "ios"
+        #else
+        let platform = identity.clientType.rawValue
+        #endif
+        #endif
+        guard let scope = DJConnectAutomaticSurfaceScope(installationID: installation,
+            deviceID: identity.deviceID, clientType: identity.clientType.rawValue,
+            platform: platform, applicationID: application) else {
+            automaticSurfaceDiscovery.bind(nil); return
+        }
+        let owner = AutomaticSurfaceDiscoveryModel.Owner(scope: scope, origin: origin,
+            pairingAttempt: pairingTaskGeneration)
+        automaticSurfaceDiscovery.bind(owner)
+        let client = DJConnectClient(baseURL: origin, identity: identity, tokenStore: tokenStore, session: urlSession)
+        automaticSurfaceDiscovery.refresh(isCurrent: { [weak self] in
+            guard let self else { return false }
+            return self.isAppInForeground && !self.isDemoMode && self.pairingStatus == .paired &&
+                self.pairingTaskGeneration == owner.pairingAttempt && self.authenticatedStatusOrigin == origin &&
+                self.defaults.string(forKey: self.haInstallIDKey) == installation && self.identity.deviceID == scope.deviceID &&
+                self.identity.clientType.rawValue == scope.clientType
+        }, read: { role, scope, current in
+            try await client.automaticSurfaceRegistrationState(role: role, scope: scope, isCurrent: current)
+        })
+        // DATA only: deliberately no connection to bindNativePushOwners,
+        // passive display grants or Activity/Widget token acquisition.
     }
 
     private func bindNativePushOwners() {
