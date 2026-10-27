@@ -1,0 +1,79 @@
+{
+  "source_pr": 213,
+  "candidate": "3348c0c44c5224667e28a87a657c63d884426271",
+  "main": "52c31123a3cf4c54f6c23a8889aadbacf1c1f8f6",
+  "tree": "396145d8a6ed1ceed160e022401ddb9ab3b6be6a",
+  "reviewed_and_merged_tree_equal": true,
+  "main_CI_run": 40435791810,
+  "formal_run": 40437070211,
+  "formal_decision": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+  "formal_digest": "5a357f27916f05eb020abd9ed25b79eff8173e02009b445185a5e2dac373b599",
+  "formal_findings": [],
+  "formal_raw_sha256": "61c805863cb69e27a8ee56d68465b45e121ce7aadd3617f1a044ca5a096650c9",
+  "durable_asset_id": 680162740,
+  "durable_actual_and_provider_sha256": "1db264c1450885a0785baf5b9578236e88b0c0a5f9e29be12a636964f39aa8d6",
+  "durable_inner_integrity_verified": true,
+  "all12_required_checks": {
+    "post_merge_build_validation": "PASS",
+    "post_merge_ci": "PASS",
+    "post_merge_coverage": "PASS",
+    "post_merge_governance": "PASS",
+    "post_merge_lint": "PASS",
+    "post_merge_static_analysis": "PASS",
+    "post_merge_tests": "PASS",
+    "required_checks": "PASS",
+    "software_assurance": "PASS",
+    "trusted_delivery": "PASS",
+    "verification": "PASS",
+    "workflow_integrity": "PASS"
+  },
+  "review_sha256": "5c2ce0f9da309df23614452ea7bae6f3b1c3ff37a5dc4b77c11a48a2f7852e25",
+  "scope": "Owning Help/R5 EN-NL source delivery and original PR213 bounded AskDJ/Hybrid/Watch; no paired/native/provider/ordinary installation acceptance",
+  "schema_version": 1,
+  "kind": "apple_help213_source_finalization",
+  "qualification_receipt_sha256": "4aeabeb5115e1aa8e74d1fc2d78e94937256ecac4af6411a25a974c9916f6641",
+  "frozen_source_packet_sha256": "a111a839a2e35420bf22fb1077f4ee4d771ad77771cfbb65b088827396504b39",
+  "local_validation": {
+    "software_tests": 1337,
+    "software_suites": 31,
+    "tracked_source_support_inputs": 543,
+    "unchanged_before_after_and_exact_candidate_git_join": true,
+    "iOS_arm64_testbuild": "PASS",
+    "native_component_functions_per_platform": 3,
+    "native_component_platforms": [
+      "iPhone simulator",
+      "iPad simulator"
+    ],
+    "native_component_parent_exit_codes": [
+      0,
+      0
+    ],
+    "optional_test_diagnostics_collection": "never; same assertions; no successor process intervention",
+    "paired_R5_AppModel_or_real_AskDJ_execution": false,
+    "Mac_GUI_qualification": false
+  },
+  "catalogue_adoption": {
+    "revision": 2,
+    "sha256": "5c8c52c044782f18dae53f10d6babe02b6c6e414131e52f16255d65ad60f730b",
+    "EN_NL_qualified_entry_locale_leaves": 28,
+    "DE_FR_ES_pending_entry_locale_leaves": 42,
+    "exact_Core_wire_cases": 18,
+    "automatic_focus_open": false,
+    "chip_selection": "draft only",
+    "full_catalogue_selection": "complete command sends; placeholder command prepares editable draft"
+  },
+  "preserved_predecessors": {
+    "367945930470a34e8b3b3f3de4be06814e02fbc7": "HOLD; busy A-B-A finding remains historical failure",
+    "prior_failures": "Original setup/compile failures and causal counterproofs retained; successors independently qualified",
+    "inventory_correction": "Earlier 547-file inventory classified as 543 tracked source/support inputs and four unchanged unrelated ignored build metadata files",
+    "predecessor_iPad_diagnostic_hang": "Three assertions passed; optional diagnostic child terminated before parent exit 0; not an untouched clean run"
+  },
+  "open_acceptance": [
+    "Paired production R5 AppModel and actual Ask DJ execution",
+    "Mac GUI presentation and requested genuine app screenshots",
+    "Ordinary build and installation",
+    "Actual owner/native provisioning and authenticated Core/API admission bridge",
+    "Widget and Live Activity provider registration and real push delivery"
+  ],
+  "no_effects": "No positive push factory, native key/token operation, provider/HA mutation, Activity request, ordinary build or installation. Separate documentary Final requires its own exact-head review, CI and original-main qualification."
+}
