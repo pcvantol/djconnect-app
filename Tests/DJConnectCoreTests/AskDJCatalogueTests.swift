@@ -13,7 +13,11 @@ private func askDJDecode<T: Decodable>(_ type: T.Type, _ value: Any) throws -> T
 }
 private func askDJContext(_ raw: [String: Any]) throws -> DJConnectAskDJCatalogue.Context {
     var context = DJConnectAskDJCatalogue.Context()
-    context.descriptor = try askDJDecode(DJConnectAskDJCatalogue.Descriptor.self, #require(raw["catalogue"]))
+    var descriptor = try #require(raw["catalogue"] as? [String: Any])
+    // Preserve the historical 70-vector bytes; bind their synthetic descriptor
+    // to the current presentation pin without qualifying their draft revision.
+    descriptor["sha256"] = DJConnectAskDJCatalogue.pinnedSHA256
+    context.descriptor = try askDJDecode(DJConnectAskDJCatalogue.Descriptor.self, descriptor)
     context.contracts = try #require(raw["contracts"] as? [String: Int])
     context.slots = raw["slots"] as? [String: String] ?? [:]
     for (key, value) in raw where value is Bool { context.flags[key] = value as? Bool }
@@ -61,12 +65,13 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     let model = AskDJHelpCatalogueModel(now: { instant })
     let unavailable = await model.read(catalogue: catalogue, surface: .askDJ, language: "nl", context: { context }, reader: nil)
     #expect(unavailable == nil && model.sections.isEmpty)
-    let late = await model.read(catalogue: catalogue, surface: .askDJ, language: "nl", context: { context }, reader: { _, _, _ in
+    let late = await model.read(catalogue: catalogue, surface: .askDJ, language: "nl", context: { context }, reader: { _, _, _, originalDeadline in
+        #expect(originalDeadline == instant.advanced(by: .seconds(15)))
         instant = instant.advanced(by: .seconds(15))
-        return ids
+        return .init(ids: ids, trackID: context.trackID)
     })
     #expect(late == nil && model.sections.isEmpty && !model.isCurrent)
-    let fresh = await model.read(catalogue: catalogue, surface: .askDJ, language: "nl", context: { context }, reader: { _, _, _ in ids })
+    let fresh = await model.read(catalogue: catalogue, surface: .askDJ, language: "nl", context: { context }, reader: { _, _, _, _ in .init(ids: ids, trackID: context.trackID) })
     #expect(fresh?.flatMap(\.items).count == ids.count && model.isCurrent)
     instant = instant.advanced(by: .seconds(15))
     #expect(!model.isCurrent)
@@ -77,15 +82,15 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     let (catalogue, initial, ids) = try fullHelpFixture()
     var context = initial
     let model = AskDJHelpCatalogueModel()
-    let changed = await model.read(catalogue: catalogue, surface: .session, language: "en", context: { context }, reader: { _, _, _ in
+    let changed = await model.read(catalogue: catalogue, surface: .session, language: "en", context: { context }, reader: { _, _, _, _ in
         context.ownerEpoch = "other-owner"
-        return ids
+        return .init(ids: ids, trackID: context.trackID)
     })
     #expect(changed == nil && model.sections.isEmpty)
     context = initial
-    let aba = await model.read(catalogue: catalogue, surface: .session, language: "en", context: { context }, reader: { _, _, _ in
+    let aba = await model.read(catalogue: catalogue, surface: .session, language: "en", context: { context }, reader: { _, _, _, _ in
         model.close()
-        return ids
+        return .init(ids: ids, trackID: context.trackID)
     })
     #expect(aba == nil && model.sections.isEmpty)
 }
@@ -93,12 +98,26 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
 @Test @MainActor func fullHelpFailedFreshClickReadCannotRetainPreviousPositiveObservation() async throws {
     let (catalogue, context, ids) = try fullHelpFixture()
     let model = AskDJHelpCatalogueModel()
-    _ = await model.read(catalogue: catalogue, surface: .askDJ, language: "en", context: { context }, reader: { _, _, _ in ids })
+    _ = await model.read(catalogue: catalogue, surface: .askDJ, language: "en", context: { context }, reader: { _, _, _, _ in .init(ids: ids, trackID: context.trackID) })
     #expect(model.isCurrent && !model.sections.isEmpty)
-    let failed = await model.read(catalogue: catalogue, surface: .askDJ, language: "en", context: { context }, reader: { _, _, _ in
+    let failed = await model.read(catalogue: catalogue, surface: .askDJ, language: "en", context: { context }, reader: { _, _, _, _ in
         throw URLError(.notConnectedToInternet)
     })
     #expect(failed == nil && !model.isCurrent && model.sections.isEmpty && !model.busy)
+}
+
+@Test @MainActor func fullHelpNullProducerTrackKeepsGenericArtistDraftButCannotFillChipsFromLocalMetadata() async throws {
+    let (catalogue, initial, ids) = try fullHelpFixture()
+    var context = initial; context.slots["artist"] = "Original observed artist"
+    #expect(context.trackID != nil && context.slots["artist"] != nil)
+    let model = AskDJHelpCatalogueModel()
+    let sections = await model.read(catalogue: catalogue, surface: .askDJ, language: "en", context: { context },
+        reader: { _, _, _, _ in .init(ids: ids, trackID: nil) })
+    let admitted = try #require(model.admittedContext)
+    #expect(admitted.trackID == nil && admitted.slots.isEmpty)
+    #expect(sections?.flatMap(\.items).contains(where: { $0.id == "play.artist" && $0.requiresInput }) == true)
+    #expect(!catalogue.select(admitted, surface: .askDJ, language: "en", epoch: "null-track").contains(where: { $0.id == "play.artist" }))
+    #expect(sections?.flatMap(\.items).contains(where: { $0.id == "listen.current" }) == false)
 }
 
 @Test func askDJShippingDraftNeverAdvertisesCandidateCommandsAndBytesArePinned() throws {
@@ -257,7 +276,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     defaults.set(true, forKey: "DJConnectAutomaticHelpHidden")
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: nil), startBackgroundTasks: false)
     #expect(defaults.object(forKey: "DJConnectAutomaticHelpHidden") == nil)
-    #expect(model.askDJHelpOpenRequest == nil && model.askDJHelpCatalogueReader == nil)
+    #expect(model.askDJHelpOpenRequest == nil && model.askDJHelpCatalogueReader != nil)
     model.askDJHelpOpenRequest = .init(surface: .askDJ)
     #expect(model.askDJHelpOpenRequest?.surface == .askDJ)
     #expect(defaults.object(forKey: "DJConnectAutomaticHelpHidden") == nil)

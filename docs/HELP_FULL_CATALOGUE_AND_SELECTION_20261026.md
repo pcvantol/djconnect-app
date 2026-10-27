@@ -26,3 +26,6 @@ API's fresh 2026-10-26 readback reports main `b554df90ab8db4d96d75b1dc34bb5a2a1f
 ## Verification boundaries
 
 Core tests use the existing synthetic reference catalogue only. They cover all 14 examples in five rendering locales, generic placeholder versus filled-slot chip behavior, exact admitted-ID intersection, shipping draft closure, missing reader, pre-await expiry and owner/generation invalidation. Native component qualification uses only disposable test apps and records choices to probe labels; it does not issue real Ask DJ requests. Ordinary app builds, installation, real HA/model effects, APNs delivery, physical clock/native permission/audio/VoiceOver acceptance and original-main qualification are separate claims. Actual results are recorded after execution in the source handoff.
+
+
+27 October adoption candidate: the original nil-reader/DFAA boundary above describes Source211. The successor consumes Core1366/Final1367's qualified R5 wire and exact revision2 EN/NL catalogue. It installs the bounded paired observation reader, keeps the original fifteen-second deadline and per-entry server configuration intersection, and clears artist slots when the server supplies no current track. The manual white icon is unchanged. Review and protected delivery remain pending; see `feedback/APPLE_HELP_R5_CLIENT_ADOPTION_20261027.md`.

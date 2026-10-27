@@ -1170,7 +1170,9 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var haRemoteURL = "" {
         didSet { if oldValue != haRemoteURL { cancelRendezvous() } }
     }
-    @Published public private(set) var haConnectionMode: DJConnectHAConnectionMode = .offline
+    @Published public private(set) var haConnectionMode: DJConnectHAConnectionMode = .offline {
+        didSet { if oldValue != haConnectionMode { askDJHelpRuntimeGeneration = UUID() } }
+    }
     @Published public private(set) var pushNotificationStatus = DJConnectPushNotificationStatus()
     @Published public private(set) var remoteSupported = false
     @Published public private(set) var musicBackendSummary = DJConnectMusicBackendSummary()
@@ -1187,9 +1189,27 @@ public final class DJConnectAppModel: ObservableObject {
         .init(owner: sessionHistory.authorizedProfileID, session: activeDJSession?.id,
               conversation: activeDJSession == nil ? sessionHistory.responseEpoch : nil)
     }
-    // Intentionally absent until the canonical producer observation is qualified.
-    // A global capabilities pin or local agent flag cannot install this adapter.
-    var askDJHelpCatalogueReader: AskDJHelpCatalogueModel.Reader?
+    private var askDJHelpRuntimeGeneration = UUID()
+    var askDJHelpCatalogueReader: AskDJHelpCatalogueModel.Reader? {
+        { [weak self] original, surface, language, deadline in
+            guard let self, let catalogue = DJConnectAskDJCatalogue.bundled,
+                  self.canUseProfileConversation, self.isAppInForeground,
+                  self.askDJExampleContext() == original, self.language == language,
+                  let origin = Self.normalizedHomeAssistantURL(from: self.haConnectionMode == .remote ? self.haRemoteURL : self.localHomeAssistantURL()) else { throw CancellationError() }
+            let generation = self.askDJHelpRuntimeGeneration
+            guard ContinuousClock.now < deadline else { throw CancellationError() }
+            let request = try DJConnectAskDJHelpObservation.Request(surface: surface, language: language, sessionID: original.sessionID)
+            let client = DJConnectClient(baseURL: origin, identity: self.identity, tokenStore: self.tokenStore, session: self.urlSession)
+            let result = try await client.askDJHelpObservation(request, catalogue: catalogue,
+                pairedLocalOrigin: Self.normalizedHomeAssistantURL(from: self.localHomeAssistantURL()), isCurrent: { [weak self] in
+                guard let self else { return false }
+                return self.askDJHelpRuntimeGeneration == generation && self.isAppInForeground &&
+                    self.canUseProfileConversation && self.language == language && self.askDJExampleContext() == original && ContinuousClock.now < deadline
+            })
+            guard result.available, result.trackID == nil || result.trackID == original.trackID else { throw DJConnectError.invalidResponse }
+            return .init(ids: result.eligibleIDs, trackID: result.trackID)
+        }
+    }
     @Published var askDJCatalogueInputSelection: NSRange?
     @Published var askDJCatalogueFocusRequest: UUID?
     private var askDJSuggestionCursors: [String: DJConnectAskDJSuggestionCursor] = [:]
@@ -1230,7 +1250,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     func askDJExampleContext(at now: Date = Date()) -> DJConnectAskDJCatalogue.Context {
         var result = DJConnectAskDJCatalogue.Context()
-        result.ownerEpoch = sessionHistory.responseEpoch.uuidString
+        result.ownerEpoch = sessionHistory.responseEpoch.uuidString + ":" + askDJHelpRuntimeGeneration.uuidString
         guard askDJExampleOwnerEpoch == sessionHistory.responseEpoch, canUseProfileConversation,
               isConnected, backendAvailable, musicBackendSummary.musicBackendAvailable == true,
               let caps = askDJExampleCapabilities, caps.success, caps.capabilities?["ask_dj_examples"] == true else { return result }
@@ -1283,7 +1303,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
     @Published public var pairingStatus: DJConnectPairingStatus = .unpaired {
         didSet {
-            if oldValue != pairingStatus { cancelRendezvous() }
+            if oldValue != pairingStatus { askDJHelpRuntimeGeneration = UUID(); cancelRendezvous() }
             if startBackgroundTasks, oldValue != .paired, pairingStatus == .paired {
                 schedulePairedRefresh(reason: "Pairing became online")
                 updateNowPlayingPollTimer()
@@ -1311,7 +1331,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
     @Published public var isConnected = false {
-        didSet { updateWakeWordListeningForAvailability() }
+        didSet { if oldValue != isConnected { askDJHelpRuntimeGeneration = UUID() }; updateWakeWordListeningForAvailability() }
     }
     @Published public var isPairing = false
     private var manualRefreshTask: Task<Bool, Never>?
@@ -1322,6 +1342,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var isLoadingPlaylists = false
     @Published public var backendAvailable = true {
         didSet {
+            if oldValue != backendAvailable { askDJHelpRuntimeGeneration = UUID() }
             if backendAvailable {
                 refreshScheduler.cancelBackendRecovery()
             } else {
@@ -1369,6 +1390,11 @@ public final class DJConnectAppModel: ObservableObject {
 
     @Published public private(set) var activeDJSession: DJConnectSessionRuntime? {
         didSet {
+            if oldValue.map(CurrentInsightSessionStyle.init) != activeDJSession.map(CurrentInsightSessionStyle.init) ||
+                oldValue?.id != activeDJSession?.id || oldValue?.runtimeState != activeDJSession?.runtimeState ||
+                oldValue?.broadcast.playback?.itemID != activeDJSession?.broadcast.playback?.itemID {
+                askDJHelpRuntimeGeneration = UUID()
+            }
             if oldValue.map(CurrentInsightSessionStyle.init) != activeDJSession.map(CurrentInsightSessionStyle.init) {
                 invalidateCurrentInsightSettings()
             }
@@ -1704,7 +1730,7 @@ public final class DJConnectAppModel: ObservableObject {
     public var isDiagnosticLoggingEnabled: Bool {
         DJConnectAppLogLevel.parse(logLevel) != .off
     }
-    @Published public var language = "en"
+    @Published public var language = "en" { didSet { if oldValue != language { askDJHelpRuntimeGeneration = UUID() } } }
     @Published public private(set) var appLanguageOverrideCode = ""
     @Published private var deviceSpeechAvailability: DJConnectDeviceSpeechAvailability?
     private var deviceSpeechContext: [String] = []
@@ -2547,6 +2573,7 @@ public final class DJConnectAppModel: ObservableObject {
             let style = response.map(CurrentInsightProfileStyle.init)
             if self.currentInsightObservedProfileStyle != style {
                 self.currentInsightObservedProfileStyle = style
+                self.askDJHelpRuntimeGeneration = UUID()
                 self.invalidateCurrentInsightSettings()
             }
         }
@@ -3047,6 +3074,7 @@ public final class DJConnectAppModel: ObservableObject {
         cancelRendezvous()
         personaReactions.cancel(.background)
         isAppInForeground = false
+        askDJHelpRuntimeGeneration = UUID()
         cancelAskDJTextSubmissions()
         #if os(iOS) && canImport(WatchConnectivity)
         invalidateWatchProxyPairingWork()

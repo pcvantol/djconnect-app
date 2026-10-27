@@ -2,12 +2,17 @@ import Combine
 import Foundation
 import DJConnectCore
 
-/// Presentation adapter seam, not a proposed HTTP contract. No production reader
-/// is installed until Core delivers its qualified current-configuration contract.
+/// Bounded presentation owner for the qualified Core Help observation reader.
+/// An observation narrows examples; it never grants execution authority.
 @MainActor final class AskDJHelpCatalogueModel: ObservableObject {
-    typealias Reader = @MainActor (DJConnectAskDJCatalogue.Context, DJConnectAskDJCatalogue.Surface, String) async throws -> Set<String>
+    struct Observation {
+        let ids: Set<String>
+        let trackID: String?
+    }
+    typealias Reader = @MainActor (DJConnectAskDJCatalogue.Context, DJConnectAskDJCatalogue.Surface, String, ContinuousClock.Instant) async throws -> Observation
     @Published private(set) var sections: [DJConnectAskDJCatalogue.CatalogueSection] = []
     @Published private(set) var busy = false
+    @Published private(set) var admittedContext: DJConnectAskDJCatalogue.Context?
     private var generation = UUID()
     private var deadline: ContinuousClock.Instant?
     private var expiry: Task<Void, Never>?
@@ -17,7 +22,7 @@ import DJConnectCore
     func close() {
         generation = UUID(); deadline = nil
         expiry?.cancel(); expiry = nil
-        sections = []; busy = false
+        sections = []; admittedContext = nil; busy = false
     }
 
     /// Every open and every explicit catalogue click gets its own read. Renders,
@@ -32,12 +37,21 @@ import DJConnectCore
         busy = true
         defer { if captured == generation { busy = false } }
         do {
-            let ids = try await reader(original, surface, language)
+            let observation = try await reader(original, surface, language, limit)
+            let ids = observation.ids
             guard !Task.isCancelled, captured == generation, context() == original, now() < limit else {
                 if captured == generation { close() }
                 return nil
             }
-            let result = catalogue.catalogueSections(original, surface: surface, language: language, eligibleIDs: ids)
+            guard observation.trackID == nil || observation.trackID == original.trackID else { close(); return nil }
+            var admitted = original; admitted.serverEligibleIDs = ids
+            admitted.trackID = observation.trackID
+            if observation.trackID == nil {
+                admitted.slots = [:]
+                for key in ["current_track", "current_album", "forecast_ready"] { admitted.flags[key] = false }
+            }
+            let result = catalogue.catalogueSections(admitted, surface: surface, language: language, eligibleIDs: ids)
+            admittedContext = admitted
             sections = result
             let remaining = now().duration(to: limit)
             expiry = Task { @MainActor [weak self] in

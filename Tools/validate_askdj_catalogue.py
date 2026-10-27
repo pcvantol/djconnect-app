@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
-PIN = "dfaa98a1659ef5673037da26f98136314b314beea8afe8e31af4ffd5bd6ac4e7"
+PIN = "5c8c52c044782f18dae53f10d6babe02b6c6e414131e52f16255d65ad60f730b"
 
 
 def main():
@@ -22,7 +22,7 @@ def main():
     if args.core_root:
         assert data == (args.core_root / "custom_components/djconnect/ask_dj/examples_v1.json").read_bytes()
     catalogue = json.loads(data)
-    assert catalogue["schema_version"] == catalogue["revision"] == 1
+    assert catalogue["schema_version"] == 1 and catalogue["revision"] == 2
     assert catalogue["catalogue_id"] == "ask_dj_examples_v1"
     assert catalogue["selection"]["count"] == 3
     assert len({row["id"] for row in catalogue["entries"]}) == len(catalogue["entries"])
@@ -32,7 +32,7 @@ def main():
     assert '== "qualified_owner_route"' in swift
     assert 'e.publication == "qualified_v1"' in swift
     fixtures = json.loads((ROOT / "Tests/Fixtures/askdj-catalogue-selector-golden-v1.json").read_text())
-    assert fixtures["source_sha256"] == PIN and "SYNTHETIC TEST ONLY" in fixtures["notice"]
+    assert fixtures["source_sha256"] == "dfaa98a1659ef5673037da26f98136314b314beea8afe8e31af4ffd5bd6ac4e7" and "SYNTHETIC TEST ONLY" in fixtures["notice"]
     assert len(fixtures["cases"]) == 70
     for vector in fixtures["cases"]:
         rows = vector["expected"]

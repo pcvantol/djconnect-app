@@ -13788,7 +13788,7 @@ struct AskDJInputBar: View {
                     guard model.askDJDraft.isEmpty, !model.isSendingAskDJText, !model.isRecordingVoice else { return }
                     model.askDJDraft = prompt
                     suggestionsOpen = false
-                    send()
+                    // Suggestion chips prepare a draft; only explicit Send executes.
                 }
                 .padding(.horizontal, 4)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { suggestionsHeight = $0 }

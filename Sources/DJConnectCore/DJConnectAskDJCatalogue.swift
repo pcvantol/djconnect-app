@@ -3,7 +3,7 @@ import CryptoKit
 
 /// Presentation only. Execution always sends the displayed text through Ask DJ.
 public struct DJConnectAskDJCatalogue: Decodable, Sendable {
-    public static let pinnedSHA256 = "dfaa98a1659ef5673037da26f98136314b314beea8afe8e31af4ffd5bd6ac4e7"
+    public static let pinnedSHA256 = "5c8c52c044782f18dae53f10d6babe02b6c6e414131e52f16255d65ad60f730b"
     public enum Surface: String, Sendable { case askDJ = "ask_dj", session = "active_session" }
     public struct Descriptor: Decodable, Equatable, Sendable {
         public let schema_version: Int
@@ -31,6 +31,8 @@ public struct DJConnectAskDJCatalogue: Decodable, Sendable {
         public var descriptor: Descriptor?
         public var contracts: [String: Int] = [:]
         public var flags: [String: Bool] = [:]
+        /// Qualified per-entry producer configuration mask; never a global agent flag.
+        public var serverEligibleIDs: Set<String>?
         public var slots: [String: String] = [:]
         /// Installation/runtime scope only; never persisted as user intelligence.
         public var ownerEpoch = ""
@@ -126,10 +128,13 @@ public struct DJConnectAskDJCatalogue: Decodable, Sendable {
     }
     private func eligible(_ context: Context, surface: Surface, language: String, help: Bool = false) -> [Entry] {
         guard let language = locale(language), compatible(context),
+              revision != 2 || context.serverEligibleIDs != nil,
               surface != .session || context.flags["active_session"] == true else { return [] }
         return entries.filter { e in
             e.publication == "qualified_v1" && e.qualification[language]?.state == "qualified_owner_route" &&
-                e.surfaces.contains(surface.rawValue) && e.requires.allSatisfy { context.flags[$0] == true } &&
+                e.surfaces.contains(surface.rawValue) &&
+                (context.serverEligibleIDs.map { $0.contains(e.id) } ?? true) &&
+                e.requires.allSatisfy { (context.serverEligibleIDs != nil && $0 == "agent_available") || context.flags[$0] == true } &&
                 e.contracts.allSatisfy { context.contracts[$0.key] == $0.value } &&
                 (help || e.slots.allSatisfy { Self.safeSlot(context.slots[$0]) })
         }

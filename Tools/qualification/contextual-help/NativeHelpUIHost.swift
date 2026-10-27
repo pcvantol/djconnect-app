@@ -47,8 +47,12 @@ import DJConnectCore
             from: JSONSerialization.data(withJSONObject: root["synthetic_catalogue"]!)) : .bundled
         let raw = (root["cases"] as! [[String: Any]])[0]["context"] as! [String: Any]
         var value = DJConnectAskDJCatalogue.Context()
+        var descriptor = raw["catalogue"] as! [String: Any]
+        // Historical synthetic vectors remain unchanged; this disposable host
+        // binds their descriptor to the current catalogue pin for rendering only.
+        descriptor["sha256"] = DJConnectAskDJCatalogue.pinnedSHA256
         value.descriptor = try! JSONDecoder().decode(DJConnectAskDJCatalogue.Descriptor.self,
-            from: JSONSerialization.data(withJSONObject: raw["catalogue"]!))
+            from: JSONSerialization.data(withJSONObject: descriptor))
         value.contracts = raw["contracts"] as! [String: Int]
         value.slots = raw["slots"] as! [String: String]
         for (key, flag) in raw where flag is Bool { value.flags[key] = flag as? Bool }

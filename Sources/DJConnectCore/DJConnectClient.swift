@@ -26,6 +26,7 @@ public final class DJConnectClient: Sendable {
     private let sessionArtworkTransport: DJConnectSessionArtworkTransport
     private let sessionProjectionSession: URLSession
     private let askDJSession: URLSession
+    private let helpObservationSession: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private let responseLogger: (@Sendable (_ requestSummary: String, _ statusCode: Int) -> Void)?
@@ -48,6 +49,13 @@ public final class DJConnectClient: Sendable {
         self.tokenStore = tokenStore
         self.historyContractVersion = historyContractVersion == 2 ? 2 : 1
         self.session = session
+        let helpConfiguration = session.configuration
+        helpConfiguration.httpAdditionalHeaders = nil
+        helpConfiguration.urlCache = nil; helpConfiguration.httpCookieStorage = nil
+        helpConfiguration.httpShouldSetCookies = false; helpConfiguration.urlCredentialStorage = nil
+        helpConfiguration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        helpConfiguration.timeoutIntervalForRequest = 10; helpConfiguration.timeoutIntervalForResource = 10
+        self.helpObservationSession = URLSession(configuration: helpConfiguration)
         self.hybridTransport = hybridTransport
         // Owner Session responses contain ephemeral Moment text. Keep this
         // transport out of URLCache/cookies even if a server omits no-store.
@@ -74,7 +82,7 @@ public final class DJConnectClient: Sendable {
         self.failureLogger = failureLogger
     }
 
-    deinit { sessionProjectionSession.invalidateAndCancel(); askDJSession.invalidateAndCancel() }
+    deinit { sessionProjectionSession.invalidateAndCancel(); askDJSession.invalidateAndCancel(); helpObservationSession.invalidateAndCancel() }
 
     /// Always re-read immediately before HA speech use; never use legacy support flags.
     public func currentDeviceSpeech(language: String, expectedInstallationID: String) async throws -> DJConnectDeviceSpeechAvailability? {
@@ -435,6 +443,38 @@ public final class DJConnectClient: Sendable {
 
     public func askDJExampleCapabilities() async throws -> DJConnectAskDJCatalogue.Capabilities {
         try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
+    }
+
+    @MainActor public func askDJHelpObservation(_ query: DJConnectAskDJHelpObservation.Request,
+        catalogue: DJConnectAskDJCatalogue, pairedLocalOrigin: URL? = nil,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectAskDJHelpObservation {
+        guard isCurrent(), !Task.isCancelled else { throw CancellationError() }
+        guard DJConnectHybridTransport.trustedOrigin(baseURL) ||
+                (baseURL == pairedLocalOrigin && DJConnectHybridLocalPolicy.isLocalCandidate(baseURL)) else { throw DJConnectError.invalidResponse }
+        let originalToken = try loadedToken()
+        var components = URLComponents(url: endpoint(path: "/api/djconnect/v1/ask_dj/help-context"), resolvingAgainstBaseURL: false)!
+        components.percentEncodedQuery = query.query()
+        guard let url = components.url, query.query().utf8.count <= 4096 else { throw DJConnectError.invalidResponse }
+        var request = try authenticatedRequest(url: url)
+        request.httpMethod = "GET"; request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
+        let response = try await DJConnectBoundedHTTPTransport.send(request, using: helpObservationSession, maximumBytes: 16384,
+            beforeDispatch: {
+                guard isCurrent(), !Task.isCancelled, (try? self.tokenStore.loadToken()) == originalToken else { throw CancellationError() }
+            }, validateResponse: { http in
+                guard http.statusCode == 200 else { throw DJConnectError.server(statusCode: http.statusCode, message: nil) }
+                guard http.mimeType == "application/json",
+                      http.textEncodingName.map({ ["utf-8", "utf8"].contains($0.lowercased()) }) ?? true,
+                      http.value(forHTTPHeaderField: "Content-Encoding").map({ $0.lowercased() == "identity" }) ?? true,
+                      http.value(forHTTPHeaderField: "Cache-Control")?.lowercased().split(separator: ",").contains(where: { $0.trimmingCharacters(in: .whitespaces) == "no-store" }) == true,
+                      http.value(forHTTPHeaderField: "Referrer-Policy") == "no-referrer",
+                      http.value(forHTTPHeaderField: "X-Content-Type-Options") == "nosniff" else { throw DJConnectError.invalidResponse }
+                return "application/json"
+            })
+        guard isCurrent(), !Task.isCancelled, (try? tokenStore.loadToken()) == originalToken else { throw CancellationError() }
+        return try DJConnectAskDJHelpObservation.decode(response.data, matching: query, catalogue: catalogue)
     }
 
     public func activeSessionMoodCapabilities() async throws -> DJConnectActiveMoodCapabilities {
