@@ -1,0 +1,11 @@
+# Prepared-proof Source220 finalization
+
+Source220 merged as `1d7f31717ce65e285518de77fd19848101211c52`; its complete tree equals independently reviewed candidate `ff78ad6ba1668dcaa4f07db16ba72cc70e239ec6`. Its own original main CI40441424900 and formal run40442739546 qualify this bounded source. All twelve required checks pass. Durable asset680280825 was downloaded and its actual bytes, provider digest, inner integrity, original source/formal/producer identities were verified. The companion JSON binds these originals and the whole-nine-file review.
+
+The accepted source is Tools-only, SDK-independent parser and synthetic lifecycle preparation. Actual Swift 6 compilation and execution passed 105 controls, with eight consumed source/support inputs unchanged before/after and joined to the exact candidate. iOS simulator cross-compilation also passed; no simulator execution or native delivery is claimed. Three original synthetic expired byte/hash controls and 29 original shape/context expectations remain byte-preserved. Private R9/v2/R2 data does not become a normative accepted contract through this merge.
+
+Frozen c4e0e49 remains HOLD for the scope-byte-change finding: its original 103 controls passed, but an external added causal control on its exact parser failed with actual parent exit one. Only successorff78ad6 closes that finding with exact UTF8 scope comparison and irreversible retirement/return-ABA controls. Prior context-expectation and string-equality causal failures and the first compiler-driver setup failure remain preserved separately.
+
+No shipping package/project/widget/Activity import, positive factory, native SDK, key, token, Activity, credential-store, network, provider or HA operation was added. Actual authenticated owner/operator admission, qualified original Core/API clock mapping, protected runtime composition, full native verification/provisioning and real push delivery remain open. This is not installation or product acceptance.
+
+This documentary Final requires its own independent exact-head review, CI, protected merge and original-main qualification. Source evidence does not qualify this Final itself or authorize subsequent native/provider effects.
