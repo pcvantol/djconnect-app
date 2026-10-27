@@ -172,7 +172,7 @@ enum PreparedPushProof {
             originalScope = scope; self.originalDeadline = originalDeadline
             self.originalKey = originalKey; self.originalTarget = originalTarget
         }
-        func observeScope(_ s: String) { if s != originalScope { retired = true } }
+        func observeScope(_ s: String) { if !s.utf8.elementsEqual(originalScope.utf8) { retired = true } }
         func loseReply() { retired = true }
         func observeSyntheticKeyVerification(ref: String, tick: Int64) throws {
             do {

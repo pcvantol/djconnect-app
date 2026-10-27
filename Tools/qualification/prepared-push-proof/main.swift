@@ -155,5 +155,15 @@ check("canonical-decomposed-Unicode-is-preserved") {
     let p = try P.decode(bytes(envelope(original, variant: variants[0])), expected: expected(original, variant: variants[0]))
     try P.require(p.originalBytes == bytes(original))
 }
+check("observed-scope-byte-change-is-terminal") {
+    let f = P.ModelFlow(scope: "é", originalDeadline: 100, originalKey: e, originalTarget: te)
+    f.observeScope("e\u{301}")
+    try P.require(f.retired)
+}
+check("scope-byte-change-cannot-revive-after-return") {
+    let f = P.ModelFlow(scope: "é", originalDeadline: 100, originalKey: e, originalTarget: te)
+    f.observeScope("e\u{301}"); f.observeScope("é")
+    try P.require(f.retired)
+}
 print("RESULT \(passed) PASS / \(failed) FAIL; pure parser + synthetic logical model, no native/provider/admission effects")
 exit(failed == 0 ? 0 : 1)
