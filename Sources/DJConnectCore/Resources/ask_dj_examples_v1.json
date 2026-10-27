@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "catalogue_id": "ask_dj_examples_v1",
-  "revision": 1,
+  "revision": 2,
   "language_families": [
     "en",
     "nl",
@@ -125,18 +125,18 @@
       ],
       "contextual": false,
       "help_rank": 1,
-      "publication": "candidate_v1",
+      "publication": "qualified_v1",
       "effect": "explicit_play",
       "send": "existing_ask_dj_message_exact_prompt",
       "safety": "normal_authorization_confirmations_and_provider_selection",
       "qualification": {
         "en": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "classify_ask_dj/play_music"
         },
         "nl": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "classify_ask_dj/play_music"
         },
         "de": {
           "state": "pending_owner_route_qualification",
@@ -179,18 +179,18 @@
       ],
       "contextual": false,
       "help_rank": 2,
-      "publication": "candidate_v1",
+      "publication": "qualified_v1",
       "effect": "explicit_play",
       "send": "existing_ask_dj_message_exact_prompt",
       "safety": "normal_authorization_confirmations_and_provider_selection",
       "qualification": {
         "en": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "classify_ask_dj/play_music"
         },
         "nl": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "classify_ask_dj/play_music"
         },
         "de": {
           "state": "pending_owner_route_qualification",
@@ -234,18 +234,18 @@
       ],
       "contextual": false,
       "help_rank": 3,
-      "publication": "candidate_v1",
+      "publication": "qualified_v1",
       "effect": "explicit_play",
       "send": "existing_ask_dj_message_exact_prompt",
       "safety": "normal_authorization_confirmations_and_provider_selection",
       "qualification": {
         "en": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "classify_ask_dj/play_music"
         },
         "nl": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "classify_ask_dj/play_music"
         },
         "de": {
           "state": "pending_owner_route_qualification",
@@ -290,18 +290,18 @@
       ],
       "contextual": false,
       "help_rank": 1,
-      "publication": "candidate_v1",
+      "publication": "qualified_v1",
       "effect": "read",
       "send": "existing_ask_dj_message_exact_prompt",
       "safety": "normal_authorization_confirmations_and_provider_selection",
       "qualification": {
         "en": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "classify_ask_dj/artist_item_list"
         },
         "nl": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "classify_ask_dj/artist_item_list"
         },
         "de": {
           "state": "pending_owner_route_qualification",
@@ -346,18 +346,18 @@
       ],
       "contextual": false,
       "help_rank": 2,
-      "publication": "candidate_v1",
+      "publication": "qualified_v1",
       "effect": "read",
       "send": "existing_ask_dj_message_exact_prompt",
       "safety": "normal_authorization_confirmations_and_provider_selection",
       "qualification": {
         "en": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "classify_ask_dj/artist_item_list"
         },
         "nl": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "classify_ask_dj/artist_item_list"
         },
         "de": {
           "state": "pending_owner_route_qualification",
@@ -400,18 +400,18 @@
       ],
       "contextual": false,
       "help_rank": 3,
-      "publication": "candidate_v1",
+      "publication": "qualified_v1",
       "effect": "read",
       "send": "existing_ask_dj_message_exact_prompt",
       "safety": "normal_authorization_confirmations_and_provider_selection",
       "qualification": {
         "en": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "classify_ask_dj/spotify_user_playlists"
         },
         "nl": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "classify_ask_dj/spotify_user_playlists"
         },
         "de": {
           "state": "pending_owner_route_qualification",
@@ -454,18 +454,18 @@
       ],
       "contextual": false,
       "help_rank": 4,
-      "publication": "candidate_v1",
+      "publication": "qualified_v1",
       "effect": "read",
       "send": "existing_ask_dj_message_exact_prompt",
       "safety": "normal_authorization_confirmations_and_provider_selection",
       "qualification": {
         "en": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "classify_ask_dj/recently_played_history"
         },
         "nl": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "classify_ask_dj/recently_played_history"
         },
         "de": {
           "state": "pending_owner_route_qualification",
@@ -507,18 +507,18 @@
       ],
       "contextual": true,
       "help_rank": 1,
-      "publication": "candidate_v1",
+      "publication": "qualified_v1",
       "effect": "read",
       "send": "existing_ask_dj_message_exact_prompt",
       "safety": "normal_authorization_confirmations_and_provider_selection",
       "qualification": {
         "en": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "observations/current_recording"
         },
         "nl": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "observations/current_recording"
         },
         "de": {
           "state": "pending_owner_route_qualification",
@@ -561,18 +561,18 @@
       ],
       "contextual": true,
       "help_rank": 2,
-      "publication": "candidate_v1",
+      "publication": "qualified_v1",
       "effect": "read",
       "send": "existing_ask_dj_message_exact_prompt",
       "safety": "normal_authorization_confirmations_and_provider_selection",
       "qualification": {
         "en": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "observations/current_release"
         },
         "nl": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "observations/current_release"
         },
         "de": {
           "state": "pending_owner_route_qualification",
@@ -616,18 +616,18 @@
       ],
       "contextual": true,
       "help_rank": 3,
-      "publication": "candidate_v1",
+      "publication": "qualified_v1",
       "effect": "read",
       "send": "existing_ask_dj_message_exact_prompt",
       "safety": "normal_authorization_confirmations_and_provider_selection",
       "qualification": {
         "en": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "public_research/current_artist"
         },
         "nl": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "public_research/current_artist"
         },
         "de": {
           "state": "pending_owner_route_qualification",
@@ -672,18 +672,18 @@
       ],
       "contextual": true,
       "help_rank": 4,
-      "publication": "candidate_v1",
+      "publication": "qualified_v1",
       "effect": "read",
       "send": "existing_ask_dj_message_exact_prompt",
       "safety": "normal_authorization_confirmations_and_provider_selection",
       "qualification": {
         "en": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "album_tracks/album_tracks_read"
         },
         "nl": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "album_tracks/album_tracks_read"
         },
         "de": {
           "state": "pending_owner_route_qualification",
@@ -725,18 +725,18 @@
       ],
       "contextual": false,
       "help_rank": 10,
-      "publication": "candidate_v1",
+      "publication": "qualified_v1",
       "effect": "read",
       "send": "existing_ask_dj_message_exact_prompt",
       "safety": "normal_authorization_confirmations_and_provider_selection",
       "qualification": {
         "en": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "classify_ask_dj/list_outputs"
         },
         "nl": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "classify_ask_dj/list_outputs"
         },
         "de": {
           "state": "pending_owner_route_qualification",
@@ -778,18 +778,18 @@
       ],
       "contextual": false,
       "help_rank": 11,
-      "publication": "candidate_v1",
+      "publication": "qualified_v1",
       "effect": "read",
       "send": "existing_ask_dj_message_exact_prompt",
       "safety": "normal_authorization_confirmations_and_provider_selection",
       "qualification": {
         "en": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "observations/queue_read"
         },
         "nl": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "observations/queue_read"
         },
         "de": {
           "state": "pending_owner_route_qualification",
@@ -834,18 +834,18 @@
       ],
       "contextual": true,
       "help_rank": 5,
-      "publication": "candidate_v1",
+      "publication": "qualified_v1",
       "effect": "read",
       "send": "existing_ask_dj_message_exact_prompt",
       "safety": "normal_authorization_confirmations_and_provider_selection",
       "qualification": {
         "en": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "observations/forecast_read"
         },
         "nl": {
-          "state": "pending_owner_route_qualification",
-          "route": null
+          "state": "qualified_owner_route",
+          "route": "observations/forecast_read"
         },
         "de": {
           "state": "pending_owner_route_qualification",
@@ -862,6 +862,31 @@
       }
     }
   ],
-  "status": "draft_not_consumer_qualified",
-  "qualification_gate": "exact_rendered_prompt_through_normal_paired_owner_route_per_locale"
+  "status": "qualified_v1",
+  "qualification_gate": "exact_rendered_prompt_through_normal_paired_owner_route_per_locale",
+  "qualification_evidence": {
+    "scope": "actual_paired_HA_text_with_synthetic_provider_fixtures_not_installed_native_or_provider_health",
+    "qualified_language_families": [
+      "en",
+      "nl"
+    ],
+    "pending_language_families": [
+      "de",
+      "fr",
+      "es"
+    ],
+    "qualified_entry_locale_count": 28,
+    "pending_entry_locale_count": 42,
+    "execution_profile": "help_medium_v1",
+    "original_source": "608bc7d15aab813649edb0095476ceb4cfb42a7e",
+    "original_catalogue_sha256": "dfaa98a1659ef5673037da26f98136314b314beea8afe8e31af4ffd5bd6ac4e7",
+    "original_content_digest": "963fd08e23b433fba943901b0aca6846fb47e11ef5eb318f2304c89a9949a2aa",
+    "workflow_run": 40320113775,
+    "artifact_id": 12648649358,
+    "report_sha256": "9d83547a620127010d07782dfa7d3dbadb9a50221d28f7b1c1e7618f2d5ca64d",
+    "root_editorial_sha256": "c98ad0d4b55282ab51ab23656806707df8da28b735421336c25c3087be77169a",
+    "independent_editorial_sha256": "134d2dba9268b6f59c43a0d07f7698cdc5abf69f35253c206a5c7d69b66356bc",
+    "runtime_configuration": "per_entry_selected_loaded_execution_class_required",
+    "availability": "same_committed_context_for_typed_help_and_R5_base_ids"
+  }
 }

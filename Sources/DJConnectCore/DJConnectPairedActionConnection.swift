@@ -110,7 +110,7 @@ actor DJConnectPairedActionConnection {
         guard data.count <= 65_536 else { throw DJConnectHybridTransportError.invalidFrame }
         return try JSONDecoder().decode(HybridObject.self, from: data)
     }
-    func request(type: String, body: HybridObject) async throws -> (Data, Int) {
+    func request(type: String, body: HybridObject, timeout: TimeInterval? = nil) async throws -> (Data, Int) {
         try Task.checkCancellation()
         try await prepare()
         guard pending.count < 8, nextID <= 256, let socket, let connectionID else { throw DJConnectHybridTransportError.capacity }
@@ -135,7 +135,7 @@ actor DJConnectPairedActionConnection {
                     }
                 }
                 timeouts[id] = Task {
-                    let seconds = type == "djconnect/operation/execute" && body["operation"] == .string("ask_dj/message") ? 120 : 30
+                    let seconds = timeout ?? (type == "djconnect/operation/execute" && body["operation"] == .string("ask_dj/message") ? 120 : 30)
                     do { try await Task.sleep(for: .seconds(seconds)) } catch { return }
                     self.finish(id, epoch: epoch, error: DJConnectHybridTransportError.deliveryUnknown)
                 }

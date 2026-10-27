@@ -10,11 +10,15 @@ import DJConnectCore
     var body: some Scene {
         #if os(macOS)
         Window("Synthetic contextual Help qualification", id: "help-test") {
-            HelpProbe().frame(width: 700, height: 800)
+            host.frame(width: 700, height: 800)
         }.defaultLaunchBehavior(.presented)
         #else
-        WindowGroup { HelpProbe() }
+        WindowGroup { host }
         #endif
+    }
+    @ViewBuilder private var host: some View {
+        if ProcessInfo.processInfo.environment["HELP_COMPOSER_POPOUT"] == "1" { HelpComposerPopoutProbe() }
+        else { HelpProbe() }
     }
 }
 
@@ -43,8 +47,12 @@ import DJConnectCore
             from: JSONSerialization.data(withJSONObject: root["synthetic_catalogue"]!)) : .bundled
         let raw = (root["cases"] as! [[String: Any]])[0]["context"] as! [String: Any]
         var value = DJConnectAskDJCatalogue.Context()
+        var descriptor = raw["catalogue"] as! [String: Any]
+        // Historical synthetic vectors remain unchanged; this disposable host
+        // binds their descriptor to the current catalogue pin for rendering only.
+        descriptor["sha256"] = DJConnectAskDJCatalogue.pinnedSHA256
         value.descriptor = try! JSONDecoder().decode(DJConnectAskDJCatalogue.Descriptor.self,
-            from: JSONSerialization.data(withJSONObject: raw["catalogue"]!))
+            from: JSONSerialization.data(withJSONObject: descriptor))
         value.contracts = raw["contracts"] as! [String: Int]
         value.slots = raw["slots"] as! [String: String]
         for (key, flag) in raw where flag is Bool { value.flags[key] = flag as? Bool }
@@ -146,5 +154,48 @@ import DJConnectCore
             }
             .onDisappear { UserDefaults.standard.removePersistentDomain(forName: domain) }
         }
+    }
+}
+
+/// Real production composer, existing-content layouts and real closed shipping
+/// catalogue. This test does not fabricate three qualified suggestions.
+@MainActor private struct HelpComposerPopoutProbe: View {
+    @StateObject private var model: DJConnectAppModel
+    @FocusState private var focused: Bool
+    private let domain: String
+    private let surface = DJConnectAskDJCatalogue.Surface(rawValue: ProcessInfo.processInfo.environment["HELP_SURFACE"] ?? "ask_dj")!
+    private let populated = ProcessInfo.processInfo.environment["HELP_POPULATED"] == "1"
+    init() {
+        let name = "help-composer-popout-" + UUID().uuidString
+        domain = name
+        let model = DJConnectAppModel(defaults: UserDefaults(suiteName: name)!,
+            tokenStore: DJConnectInMemoryTokenStore(token: nil), startBackgroundTasks: false)
+        model.language = "en"
+        _model = StateObject(wrappedValue: model)
+    }
+    var body: some View {
+        ZStack {
+            DJConnectCanvasBackground()
+            ScrollView {
+                VStack(spacing: 22) {
+                    Text("UI qualification · closed catalogue · no network").foregroundStyle(.white)
+                    if populated {
+                        ForEach(0..<8) { number in
+                            Text("Synthetic existing conversation item \(number)")
+                                .padding(22).frame(maxWidth: .infinity)
+                                .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 18))
+                        }
+                    }
+                    Button("Defocus") { focused = false }.accessibilityIdentifier("help-probe-defocus")
+                }.padding()
+            }
+            .safeAreaInset(edge: .bottom) {
+                AskDJInputBar(model: model, canSend: false, canUseVoiceInput: false,
+                    isInputFocused: $focused, floating: true, helpSurface: surface)
+                    .padding(.horizontal, 12)
+            }
+        }
+        .preferredColorScheme(.dark)
+        .onDisappear { UserDefaults(suiteName: domain)?.removePersistentDomain(forName: domain) }
     }
 }

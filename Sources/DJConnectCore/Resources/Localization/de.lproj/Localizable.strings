@@ -1597,3 +1597,7 @@
 "ui.rendezvous.repair_paused" = "Die sichere Verbindung bleibt pausiert. App und DJ-Session bleiben verfügbar. Nutze den Code auf dem Home Assistant-Receiver, um diesen Bildschirm zu verbinden.";
 
 "ui.session.moment.dj_bulletin" = "DJ-Bulletin";
+
+"ui.ask_dj.answer.retained_unavailable" = "Deine Anfrage wurde verarbeitet. Die ursprüngliche Antwort ist im gespeicherten Verlauf nicht verfügbar.";
+
+"ui.askdj.suggestions.title" = "Vorschläge";

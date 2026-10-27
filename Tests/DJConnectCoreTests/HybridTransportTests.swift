@@ -28,6 +28,9 @@ private actor HybridTestWire: DJConnectHybridWire {
     var requests: [URLRequest] = []
     var socketURLs: [URL] = []
     let localContext: HybridObject?
+    let waitsDuringExecute: Bool
+    var executing = false
+    var cancelledExecute = false
     let pendingStatuses: Int
     let expiredStatus: Bool
     var statusReads = 0
@@ -39,12 +42,13 @@ private actor HybridTestWire: DJConnectHybridWire {
     let socketValue: (any DJConnectHybridSocket)?
     init(install: String = "test-install", failExecute: Bool = false, unavailableBody: Bool = false,
          failedLocal: Bool = false, socket: (any DJConnectHybridSocket)? = nil, withdrawExecute: Bool = false, localContext: HybridObject? = nil,
-         pendingStatuses: Int = 0, expiredStatus: Bool = false) {
+         pendingStatuses: Int = 0, expiredStatus: Bool = false, waitsDuringExecute: Bool = false) {
         self.install = install; self.failExecute = failExecute; self.unavailableBody = unavailableBody
         self.withdrawExecute = withdrawExecute
         self.localContext = localContext
         self.failedLocal = failedLocal; self.socketValue = socket
         self.pendingStatuses = pendingStatuses; self.expiredStatus = expiredStatus
+        self.waitsDuringExecute = waitsDuringExecute
     }
     func http(_ request: URLRequest) async throws -> (Data, Int) {
         requests.append(request)
@@ -57,6 +61,11 @@ private actor HybridTestWire: DJConnectHybridWire {
         if request.url!.path.hasSuffix("/active") { return (Data(#"{"success":true}"#.utf8), 200) }
         if withdrawExecute, request.url?.host == "ha.local", request.url!.path.hasSuffix("/operation") {
             return (Data(#"{"error":"transport_security_required"}"#.utf8), 426)
+        }
+        if request.url!.path.hasSuffix("/operation"), waitsDuringExecute {
+            executing = true
+            do { try await Task.sleep(for: .seconds(30)) }
+            catch { cancelledExecute = true; throw error }
         }
         if request.url!.path.hasSuffix("/operation"), failExecute { throw URLError(.networkConnectionLost) }
         let status = request.url!.path.hasSuffix("/status")
@@ -132,7 +141,7 @@ private actor HybridTestSocket: DJConnectHybridSocket {
     func count() -> Int { sent.count }
     func operationEnvelope() -> HybridObject? { sent.first }
 }
-private func hybridCoordinator(_ wire: HybridTestWire, local: URL? = nil) -> DJConnectHybridTransport {
+private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = nil) -> DJConnectHybridTransport {
     DJConnectHybridTransport(localURL: local, remoteURL: URL(string: "https://remote.example"), expectedInstallID: "test-install",
                              identity: hybridIdentity(), tokenStore: DJConnectInMemoryTokenStore(token: "paired-test-token"), wire: wire)
 }
@@ -506,4 +515,271 @@ func personaTouchUsesOnlyAdvertisedOrdinaryOperationAndOriginalRecoveryIdentity(
         }
         #expect(!requests.contains { $0.url!.path.hasSuffix("/session/persona/reaction") })
     }
+}
+
+private final class AskDJTestClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = ProcessInfo.processInfo.systemUptime
+    func now() -> TimeInterval { lock.withLock { value } }
+    func advance(_ seconds: TimeInterval) { lock.withLock { value += seconds } }
+    var timing: DJConnectOperationTiming {
+        .init(now: { self.now() }, sleep: { self.advance($0); await Task.yield() })
+    }
+}
+private actor AskDJBudgetWire: DJConnectHybridWire {
+    enum Scenario { case late, many, sticky }
+    let scenario: Scenario
+    let clock: AskDJTestClock
+    var requests: [URLRequest] = []
+    var statuses = 0
+    init(_ scenario: Scenario, clock: AskDJTestClock) { self.scenario = scenario; self.clock = clock }
+    func http(_ request: URLRequest) async throws -> (Data, Int) {
+        requests.append(request)
+        if request.url!.path.hasSuffix("/context") { return (try JSONEncoder().encode(hybridContext()), 200) }
+        let body = try JSONDecoder().decode(HybridObject.self, from: request.httpBody!)
+        if request.url!.path.hasSuffix("/operation") {
+            if scenario == .late { clock.advance(130) }
+            throw URLError(.timedOut) // May have executed; never retry the payload.
+        }
+        statuses += 1
+        let id = body["operation_id"]!.hybridString!.replacingOccurrences(of: "-", with: "")
+        let created = Int(id.prefix(12), radix: 16)!
+        var receipt = hybridReceipt(body, available: false, phase: "accepted")
+        receipt["expires_at_ms"] = .int(created + (scenario == .sticky && statuses == 1 ? 600 : 300_000))
+        switch scenario {
+        case .late:
+            clock.advance(statuses == 1 ? 60 : 70)
+            if statuses == 2 { receipt["phase"] = .string("confirmed") }
+        case .many:
+            if statuses == 71 { receipt["phase"] = .string("confirmed") }
+        case .sticky: break
+        }
+        return (try JSONEncoder().encode(["operation_receipt": DJConnectJSONValue.object(receipt), "result_available": .bool(false)]), 202)
+    }
+    func socket(_ url: URL) async throws -> any DJConnectHybridSocket { throw URLError(.cannotConnectToHost) }
+    func recorded() -> [URLRequest] { requests }
+}
+
+@Test func askDJOriginalBudgetReceivesLateConfirmationWithoutSecondExecute() async throws {
+    let clock = AskDJTestClock()
+    // Use the same clock for routing, operation expiry and scripted network waits.
+    let shared = AskDJBudgetWire(.late, clock: clock)
+    let coordinator = hybridCoordinator(shared)
+    await coordinator.setOperationTiming(clock.timing)
+    var request = try hybridRequest(); request.url = URL(string: "https://remote.example/api/djconnect/v1/ask_dj/message")!
+    do { _ = try await coordinator.perform(request); Issue.record("Expected receipt-only confirmation") }
+    catch DJConnectHybridTransportError.outcome(let receipt) { #expect(receipt.phase == "confirmed") }
+    let requests = await shared.recorded()
+    #expect(requests.filter { $0.url!.path.hasSuffix("/operation") }.count == 1)
+    #expect(requests.filter { $0.url!.path.hasSuffix("/status") }.count == 2)
+}
+
+@Test func askDJContinuationCanPass64ReadsWithoutRenewingOrResending() async throws {
+    let clock = AskDJTestClock(), wireClock = AskDJTestClock()
+    let wire = AskDJBudgetWire(.many, clock: wireClock)
+    let coordinator = hybridCoordinator(wire)
+    await coordinator.setOperationTiming(clock.timing)
+    var request = try hybridRequest(); request.url = URL(string: "https://remote.example/api/djconnect/v1/ask_dj/message")!
+    do { _ = try await coordinator.perform(request); Issue.record("Expected receipt") }
+    catch DJConnectHybridTransportError.outcome(let receipt) { #expect(receipt.phase == "confirmed") }
+    let requests = await wire.recorded()
+    #expect(requests.filter { $0.url!.path.hasSuffix("/operation") }.count == 1)
+    #expect(requests.filter { $0.url!.path.hasSuffix("/status") }.count == 71)
+}
+
+@Test func askDJEarlierReceiptExpiryCannotBeRenewedByLaterReceipt() async throws {
+    let clock = AskDJTestClock(), wire = AskDJBudgetWire(.sticky, clock: AskDJTestClock())
+    let coordinator = hybridCoordinator(wire)
+    await coordinator.setOperationTiming(clock.timing)
+    var request = try hybridRequest(); request.url = URL(string: "https://remote.example/api/djconnect/v1/ask_dj/message")!
+    await #expect(throws: DJConnectHybridTransportError.deliveryUnknown) { try await coordinator.perform(request) }
+    let requests = await wire.recorded()
+    #expect(requests.filter { $0.url!.path.hasSuffix("/operation") }.count == 1)
+    #expect(requests.filter { $0.url!.path.hasSuffix("/status") }.count == 2)
+}
+
+@Test func askDJDeadlineCancelsUnderlyingWaitAndRejectsLateValue() async throws {
+    actor Cleanup { var cancelled = false; func mark() { cancelled = true } }
+    let cleanup = Cleanup()
+    await #expect(throws: DJConnectHybridTransportError.deliveryUnknown) {
+        try await DJConnectOperationDeadline(seconds: 0.02).run {
+            do { try await Task.sleep(for: .seconds(30)); return 1 }
+            catch { await cleanup.mark(); throw error }
+        }
+    }
+    while !(await cleanup.cancelled) { await Task.yield() }
+    #expect(await cleanup.cancelled)
+}
+
+@Test func askDJCommandAliasPreservesItsEnvelopeAndOneOriginalOperation() async throws {
+    let clock = AskDJTestClock()
+    let wire = AskDJBudgetWire(.late, clock: clock)
+    let coordinator = hybridCoordinator(wire)
+    await coordinator.setOperationTiming(clock.timing)
+    var request = try hybridRequest(command: "ask_dj_message")
+    request.httpBody = Data(#"{"command":"ask_dj_message","value":{"text":"Synthetic question"}}"#.utf8)
+    #expect(DJConnectHybridTransport.operation(for: request) == "command")
+    do { _ = try await coordinator.perform(request); Issue.record("Expected confirmation only") }
+    catch DJConnectHybridTransportError.outcome(let receipt) { #expect(receipt.phase == "confirmed") }
+    let executes = await wire.recorded().filter { $0.url!.path.hasSuffix("/operation") }
+    #expect(executes.count == 1)
+    let envelope = try JSONDecoder().decode(HybridObject.self, from: #require(executes.first?.httpBody))
+    #expect(envelope["operation"] == .string("command"))
+    #expect(envelope["payload"]?.hybridObject?["command"] == .string("ask_dj_message"))
+}
+
+@Test func askDJBackgroundCancelsTheActualExecuteWaitWithoutReplayingOrReadingStatus() async throws {
+    let wire = HybridTestWire(waitsDuringExecute: true)
+    let coordinator = hybridCoordinator(wire)
+    var request = try hybridRequest(); request.url = URL(string: "https://remote.example/api/djconnect/v1/ask_dj/message")!
+    let task = Task { try await coordinator.perform(request) }
+    while !(await wire.executing) { await Task.yield() }
+    await coordinator.lifecycle(foreground: false)
+    await #expect(throws: CancellationError.self) { try await task.value }
+    while !(await wire.cancelledExecute) { await Task.yield() }
+    let requests = await wire.recorded()
+    #expect(requests.filter { $0.url!.path.hasSuffix("/operation") }.count == 1)
+    #expect(requests.filter { $0.url!.path.hasSuffix("/status") }.isEmpty)
+}
+
+private actor AskDJLegacyContextWire: DJConnectHybridWire {
+    let status: Int
+    var paths: [String] = []
+    init(_ status: Int) { self.status = status }
+    func http(_ request: URLRequest) async throws -> (Data, Int) {
+        paths.append(request.url!.path)
+        #expect(request.url!.path.hasSuffix("/context"))
+        let code = status == 426 ? "transport_security_required" : status == 403 ? "profile_device_mismatch" : "unavailable"
+        return (try JSONEncoder().encode(["error": code]), status)
+    }
+    func socket(_ url: URL) async throws -> any DJConnectHybridSocket { throw URLError(.cannotConnectToHost) }
+}
+
+@Test func askDJMissingContextPreselectsLegacyOnlyOnTheExactOriginBeforeExecute() async throws {
+    let origin = URL(string: "https://remote.example")!
+    let wire = AskDJLegacyContextWire(404)
+    let coordinator = hybridCoordinator(wire)
+    var request = try hybridRequest(); request.url = origin.appendingPathComponent("api/djconnect/v1/ask_dj/message")
+    let selected = try await coordinator.dispatchAskDJ(request, legacyOrigin: origin)
+    guard case .legacy(let deadline) = selected else { Issue.record("Expected preselected legacy attempt"); return }
+    #expect(deadline.remaining > 290 && deadline.remaining <= 300)
+    #expect(await wire.paths == ["/api/djconnect/v1/transport/context"])
+    await #expect(throws: DJConnectHybridTransportError.unavailable) {
+        try await coordinator.dispatchAskDJ(request, legacyOrigin: URL(string: "https://another.example")!)
+    }
+}
+
+@Test(arguments: [401, 403, 426, 500])
+func askDJLegacyChoiceNeverDowngradesAuthSecurityOrInvalidContext(_ status: Int) async throws {
+    let wire = AskDJLegacyContextWire(status)
+    let coordinator = hybridCoordinator(wire)
+    var request = try hybridRequest(); request.url = URL(string: "https://remote.example/api/djconnect/v1/ask_dj/message")!
+    do {
+        _ = try await coordinator.dispatchAskDJ(request, legacyOrigin: URL(string: "https://remote.example")!)
+        Issue.record("A missing authority/trust qualification must not select legacy")
+    } catch { }
+    #expect(await wire.paths.allSatisfy { $0.hasSuffix("/context") })
+}
+
+/// Exactly the Root counterexample: the read that captures remaining time
+/// returns zero-origin time, then advances beyond end before the child starts.
+final class AskDJChildStartClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private let triggerRead: Int
+    private let expires: Bool
+    private let onTrigger: @Sendable () -> Void
+    private var reads = 0
+    private var time: TimeInterval = 0
+    private var invocations = 0
+    init(triggerRead: Int = 3, expires: Bool = true, onTrigger: @escaping @Sendable () -> Void = {}) {
+        self.triggerRead = triggerRead; self.expires = expires; self.onTrigger = onTrigger
+    }
+    func now() -> TimeInterval {
+        let (value, trigger) = lock.withLock { () -> (TimeInterval, Bool) in
+            reads += 1; let value = time
+            if reads == triggerRead, expires { time = 301 }
+            return (value, reads == triggerRead)
+        }
+        if trigger { onTrigger() }
+        return value
+    }
+    func invoke() { lock.withLock { invocations += 1 } }
+    var count: Int { lock.withLock { invocations } }
+}
+
+@Test func askDJChildStartingAfterOriginalDeadlineCannotInvokeItsOperation() async throws {
+    let clock = AskDJChildStartClock()
+    let deadline = DJConnectOperationDeadline(timing: .init(now: { clock.now() }))
+    await #expect(throws: DJConnectHybridTransportError.deliveryUnknown) {
+        try await deadline.run { clock.invoke(); return 1 }
+    }
+    #expect(clock.count == 0)
+}
+
+@Test @MainActor func askDJCancellationBeforeChildDispatchCannotInvokeItsOperation() async throws {
+    final class CancellationSlot: @unchecked Sendable {
+        let lock = NSLock()
+        private var cancellation: (@Sendable () -> Void)?
+        func install(_ value: @escaping @Sendable () -> Void) { lock.withLock { cancellation = value } }
+        func cancel() { lock.withLock { cancellation }?() }
+    }
+    let slot = CancellationSlot()
+    let clock = AskDJChildStartClock(expires: false, onTrigger: { slot.cancel() })
+    let deadline = DJConnectOperationDeadline(timing: .init(now: { clock.now() }))
+    let task = Task { try await deadline.run { clock.invoke(); return 1 } }
+    slot.install { task.cancel() } // Installed before this actor yields to its child.
+    await #expect(throws: CancellationError.self) { try await task.value }
+    #expect(clock.count == 0)
+}
+
+@Test func askDJOriginalAbsoluteEndCannotBeRenewedByADelayedRunWithAStalledLogicalClock() async throws {
+    let counter = AskDJChildStartClock(triggerRead: Int.max, expires: false)
+    let deadline = DJConnectOperationDeadline(seconds: 0.02, timing: .init(now: { 0 }))
+    try await Task.sleep(for: .milliseconds(40))
+    await #expect(throws: DJConnectHybridTransportError.deliveryUnknown) {
+        try await deadline.run { counter.invoke(); return 1 }
+    }
+    #expect(counter.count == 0)
+}
+
+private actor AskDJDelayedContextWire: DJConnectHybridWire {
+    let clock: AskDJTestClock
+    let serverTime = Int(Date().timeIntervalSince1970 * 1000)
+    var requests: [URLRequest] = []
+    var statuses = 0
+    var contexts = 0
+    let started: TimeInterval
+    init(clock: AskDJTestClock) { self.clock = clock; started = clock.now() }
+    func http(_ request: URLRequest) async throws -> (Data, Int) {
+        requests.append(request)
+        if request.url!.path.hasSuffix("/context") {
+            var context = hybridContext()
+            context["server_time_ms"] = .int(serverTime + Int((clock.now() - started) * 1000))
+            contexts += 1
+            if contexts == 1 { clock.advance(5) } // Only the initial qualification is delayed.
+            return (try JSONEncoder().encode(context), 200)
+        }
+        if request.url!.path.hasSuffix("/operation") { throw URLError(.timedOut) }
+        statuses += 1
+        let body = try JSONDecoder().decode(HybridObject.self, from: request.httpBody!)
+        var receipt = hybridReceipt(body, available: false, phase: "accepted")
+        receipt["expires_at_ms"] = .int(serverTime + 10_000)
+        // The second result is too late for the earlier server expiry. Mapping
+        // the timestamp from response arrival would wrongly admit it at t=12.
+        if statuses == 2 { clock.advance(6.75); receipt["phase"] = .string("confirmed") }
+        return (try JSONEncoder().encode(["operation_receipt": DJConnectJSONValue.object(receipt), "result_available": .bool(false)]), 202)
+    }
+    func socket(_ url: URL) async throws -> any DJConnectHybridSocket { throw URLError(.cannotConnectToHost) }
+    func recorded() -> [URLRequest] { requests }
+}
+
+@Test func askDJDelayedContextCannotExtendEarlierServerReceiptExpiry() async throws {
+    let clock = AskDJTestClock(), wire = AskDJDelayedContextWire(clock: clock)
+    let coordinator = hybridCoordinator(wire)
+    await coordinator.setOperationTiming(clock.timing)
+    var request = try hybridRequest(); request.url = URL(string: "https://remote.example/api/djconnect/v1/ask_dj/message")!
+    await #expect(throws: DJConnectHybridTransportError.deliveryUnknown) { try await coordinator.perform(request) }
+    let requests = await wire.recorded()
+    #expect(requests.filter { $0.url!.path.hasSuffix("/operation") }.count == 1)
+    #expect(requests.filter { $0.url!.path.hasSuffix("/status") }.count == 2)
 }

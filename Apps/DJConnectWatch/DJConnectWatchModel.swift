@@ -1283,7 +1283,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
         guard requestData.count < 42_000 else {
             throw DJConnectError.payloadTooLarge(limitBytes: 42_000, actualBytes: requestData.count)
         }
-        let response = await companionRequests.request { correlationID in
+        let response = await companionRequests.request(timeout: request.isAskDJTextSubmission ? .seconds(300) : nil) { correlationID in
             WCSession.default.sendMessage([
                 "type": "watch_proxy_ha_request", "correlation_id": correlationID, "request": requestData
             ], replyHandler: nil) { [weak self] _ in
@@ -1297,6 +1297,7 @@ final class DJConnectWatchModel: NSObject, ObservableObject {
            let rejection = try? JSONDecoder().decode(DJConnectProfileDJSettingsFailure.self, from: data) {
             throw rejection
         }
+        if response.error == "outcome_unknown" { throw DJConnectHybridTransportError.deliveryUnknown }
         guard response.success, let data = response.payload else {
             throw Self.errorFromCompanionProxy(response)
         }

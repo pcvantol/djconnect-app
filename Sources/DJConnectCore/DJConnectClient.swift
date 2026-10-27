@@ -25,6 +25,8 @@ public final class DJConnectClient: Sendable {
     private let surfacePushTransport: DJConnectSurfacePushHTTP
     private let sessionArtworkTransport: DJConnectSessionArtworkTransport
     private let sessionProjectionSession: URLSession
+    private let askDJSession: URLSession
+    private let helpObservationSession: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private let responseLogger: (@Sendable (_ requestSummary: String, _ statusCode: Int) -> Void)?
@@ -47,6 +49,13 @@ public final class DJConnectClient: Sendable {
         self.tokenStore = tokenStore
         self.historyContractVersion = historyContractVersion == 2 ? 2 : 1
         self.session = session
+        let helpConfiguration = session.configuration
+        helpConfiguration.httpAdditionalHeaders = nil
+        helpConfiguration.urlCache = nil; helpConfiguration.httpCookieStorage = nil
+        helpConfiguration.httpShouldSetCookies = false; helpConfiguration.urlCredentialStorage = nil
+        helpConfiguration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        helpConfiguration.timeoutIntervalForRequest = 10; helpConfiguration.timeoutIntervalForResource = 10
+        self.helpObservationSession = URLSession(configuration: helpConfiguration)
         self.hybridTransport = hybridTransport
         // Owner Session responses contain ephemeral Moment text. Keep this
         // transport out of URLCache/cookies even if a server omits no-store.
@@ -57,6 +66,11 @@ public final class DJConnectClient: Sendable {
         projectionConfiguration.httpShouldSetCookies = false
         projectionConfiguration.urlCredentialStorage = nil
         self.sessionProjectionSession = URLSession(configuration: projectionConfiguration, delegate: session.delegate, delegateQueue: session.delegateQueue)
+        let askConfiguration = projectionConfiguration
+        askConfiguration.timeoutIntervalForRequest = 300
+        askConfiguration.timeoutIntervalForResource = 300
+        self.askDJSession = URLSession(configuration: askConfiguration,
+            delegate: DJConnectPublicDiscoveryDelegate(original: session.delegate), delegateQueue: session.delegateQueue)
         self.speechTransport = DJConnectSpeechTransport(configuration: session.configuration)
         self.settingsTransport = DJConnectProfileDJSettingsTransport(configuration: session.configuration)
         self.surfacePushTransport = DJConnectSurfacePushHTTP(configuration: session.configuration)
@@ -68,7 +82,7 @@ public final class DJConnectClient: Sendable {
         self.failureLogger = failureLogger
     }
 
-    deinit { sessionProjectionSession.invalidateAndCancel() }
+    deinit { sessionProjectionSession.invalidateAndCancel(); askDJSession.invalidateAndCancel(); helpObservationSession.invalidateAndCancel() }
 
     /// Always re-read immediately before HA speech use; never use legacy support flags.
     public func currentDeviceSpeech(language: String, expectedInstallationID: String) async throws -> DJConnectDeviceSpeechAvailability? {
@@ -180,7 +194,7 @@ public final class DJConnectClient: Sendable {
     }
 
     public func sendCommand(_ payload: DJConnectCommandPayload) async throws -> DJConnectEnvelope<DJConnectPlayback> {
-        if let response: DJConnectEnvelope<DJConnectPlayback> = try await webSocketCommandIfSupported(payload) {
+        if payload.command != "ask_dj_message", let response: DJConnectEnvelope<DJConnectPlayback> = try await webSocketCommandIfSupported(payload) {
             return response
         }
         let request = try commandRequest(payload)
@@ -188,7 +202,7 @@ public final class DJConnectClient: Sendable {
     }
 
     public func sendCommandResponse(_ payload: DJConnectCommandPayload) async throws -> DJConnectCommandResponse {
-        if let response: DJConnectCommandResponse = try await webSocketCommandIfSupported(payload) {
+        if payload.command != "ask_dj_message", let response: DJConnectCommandResponse = try await webSocketCommandIfSupported(payload) {
             return response
         }
         let request = try commandRequest(payload)
@@ -196,19 +210,22 @@ public final class DJConnectClient: Sendable {
     }
 
     public func sendAskDJ(_ payload: DJConnectAskDJRequest) async throws -> DJConnectAskDJResponse {
-        let request = try askDJRequest(payload)
+        var request = try askDJRequest(payload)
+        request.timeoutInterval = 300
         return try await decodedResponse(for: request)
     }
 
     public func sendAskDJMessage(_ payload: DJConnectAskDJRequest) async throws -> DJConnectAskDJMessageResponse {
-        if let response = try await webSocketAskDJMessageIfSupported(payload) {
-            return response
-        }
+        // Select one qualified operation or one legacy HTTP attempt. A legacy
+        // WS timeout cannot establish notSent and must never trigger HTTP replay.
         let request = try askDJMessageRequest(payload)
         return try await decodedResponse(for: request)
     }
 
     public func askDJHistory(sinceRevision: Int? = nil) async throws -> DJConnectAskDJHistoryResponse {
+        try await DJConnectOperationDeadline(seconds: 10).run { try await self.readAskDJHistory(sinceRevision: sinceRevision) }
+    }
+    private func readAskDJHistory(sinceRevision: Int?) async throws -> DJConnectAskDJHistoryResponse {
         if let response = try await webSocketAskDJHistoryIfSupported(sinceRevision: sinceRevision) {
             return response
         }
@@ -426,6 +443,38 @@ public final class DJConnectClient: Sendable {
 
     public func askDJExampleCapabilities() async throws -> DJConnectAskDJCatalogue.Capabilities {
         try await decodedResponse(for: sessionHistoryReadRequest(route: "capabilities"), using: sessionProjectionSession)
+    }
+
+    @MainActor public func askDJHelpObservation(_ query: DJConnectAskDJHelpObservation.Request,
+        catalogue: DJConnectAskDJCatalogue, pairedLocalOrigin: URL? = nil,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectAskDJHelpObservation {
+        guard isCurrent(), !Task.isCancelled else { throw CancellationError() }
+        guard DJConnectHybridTransport.trustedOrigin(baseURL) ||
+                (baseURL == pairedLocalOrigin && DJConnectHybridLocalPolicy.isLocalCandidate(baseURL)) else { throw DJConnectError.invalidResponse }
+        let originalToken = try loadedToken()
+        var components = URLComponents(url: endpoint(path: "/api/djconnect/v1/ask_dj/help-context"), resolvingAgainstBaseURL: false)!
+        components.percentEncodedQuery = query.query()
+        guard let url = components.url, query.query().utf8.count <= 4096 else { throw DJConnectError.invalidResponse }
+        var request = try authenticatedRequest(url: url)
+        request.httpMethod = "GET"; request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
+        let response = try await DJConnectBoundedHTTPTransport.send(request, using: helpObservationSession, maximumBytes: 16384,
+            beforeDispatch: {
+                guard isCurrent(), !Task.isCancelled, (try? self.tokenStore.loadToken()) == originalToken else { throw CancellationError() }
+            }, validateResponse: { http in
+                guard http.statusCode == 200 else { throw DJConnectError.server(statusCode: http.statusCode, message: nil) }
+                guard http.mimeType == "application/json",
+                      http.textEncodingName.map({ ["utf-8", "utf8"].contains($0.lowercased()) }) ?? true,
+                      http.value(forHTTPHeaderField: "Content-Encoding").map({ $0.lowercased() == "identity" }) ?? true,
+                      http.value(forHTTPHeaderField: "Cache-Control")?.lowercased().split(separator: ",").contains(where: { $0.trimmingCharacters(in: .whitespaces) == "no-store" }) == true,
+                      http.value(forHTTPHeaderField: "Referrer-Policy") == "no-referrer",
+                      http.value(forHTTPHeaderField: "X-Content-Type-Options") == "nosniff" else { throw DJConnectError.invalidResponse }
+                return "application/json"
+            })
+        guard isCurrent(), !Task.isCancelled, (try? tokenStore.loadToken()) == originalToken else { throw CancellationError() }
+        return try DJConnectAskDJHelpObservation.decode(response.data, matching: query, catalogue: catalogue)
     }
 
     public func activeSessionMoodCapabilities() async throws -> DJConnectActiveMoodCapabilities {
@@ -1077,6 +1126,9 @@ public final class DJConnectClient: Sendable {
     }
 
     public func profileConversationHistory() async throws -> DJConnectProfileConversationHistory {
+        try await DJConnectOperationDeadline(seconds: 10).run { try await self.readProfileConversationHistory() }
+    }
+    private func readProfileConversationHistory() async throws -> DJConnectProfileConversationHistory {
         let response: DJConnectProfileConversationHistory
         if let scoped = try await webSocketFastPathResult({ fastPath, token in
             try await fastPath.profileConversationHistory(identity: makeDJConnectIdentity(deviceToken: token))
@@ -1290,7 +1342,7 @@ public final class DJConnectClient: Sendable {
 
     public func askDJMessageRequest(_ payload: DJConnectAskDJRequest) throws -> URLRequest {
         var request = try jsonRequest(path: Self.apiV1Path("ask_dj/message"), payload: payload)
-        request.timeoutInterval = 30
+        request.timeoutInterval = 300
         return request
     }
 
@@ -1735,13 +1787,32 @@ public final class DJConnectClient: Sendable {
         return data
     }
 
+    /// One preselected legacy attempt; the caller retains authority/status policy.
+    /// Exposing the internal dispatch boundary also permits a no-network causal
+    /// test of a child that starts after its original deadline has expired.
+    func legacyAskDJData(_ request: URLRequest, deadline: DJConnectOperationDeadline) async throws -> (Data, URLResponse) {
+        var bounded = request; bounded.timeoutInterval = min(300, deadline.remaining)
+        let fixed = bounded
+        return try await deadline.run { try await self.askDJSession.data(for: fixed) }
+    }
+
     private func dataAndStatusCodeResponse(for request: URLRequest, using requestSession: URLSession? = nil,
                                           acceptingStatuses: Set<Int> = []) async throws -> (Data, Int) {
+        var selectedLegacyDeadline: DJConnectOperationDeadline?
         if let hybridTransport, DJConnectHybridTransport.operation(for: request) != nil || DJConnectHybridTransport.isActiveRead(request) {
             do {
-                let (data, status) = try await hybridTransport.perform(request)
-                if !acceptingStatuses.contains(status), let error = classify(statusCode: status, body: data) { throw error }
-                return (data, status)
+                if DJConnectHybridTransport.isAskDJText(request) {
+                    switch try await hybridTransport.dispatchAskDJ(request, legacyOrigin: baseURL) {
+                    case .response(let data, let status):
+                        if !acceptingStatuses.contains(status), let error = classify(statusCode: status, body: data) { throw error }
+                        return (data, status)
+                    case .legacy(let deadline): selectedLegacyDeadline = deadline
+                    }
+                } else {
+                    let (data, status) = try await hybridTransport.perform(request)
+                    if !acceptingStatuses.contains(status), let error = classify(statusCode: status, body: data) { throw error }
+                    return (data, status)
+                }
             } catch DJConnectHybridTransportError.authority(let code) {
                 if ["unauthorized", "pairing_revoked"].contains(code) { throw DJConnectError.authStale(statusCode: 401, message: code) }
                 throw DJConnectError.profile(code: .profileAccessDenied, statusCode: 403, message: code)
@@ -1749,7 +1820,12 @@ public final class DJConnectClient: Sendable {
         }
         let (data, response): (Data, URLResponse)
         do {
-            (data, response) = try await (requestSession ?? session).data(for: request)
+            if DJConnectHybridTransport.isAskDJText(request) || request.url?.path.hasSuffix("/api/djconnect/v1/ask") == true {
+                let deadline = selectedLegacyDeadline ?? DJConnectOperationDeadline()
+                (data, response) = try await legacyAskDJData(request, deadline: deadline)
+            } else {
+                (data, response) = try await (requestSession ?? session).data(for: request)
+            }
         } catch {
             if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
                 throw CancellationError()

@@ -1160,31 +1160,68 @@ public final class DJConnectAppModel: ObservableObject {
     }
     @Published public var homeAssistantURL = "" {
         didSet {
-            if oldValue != homeAssistantURL { cancelRendezvous() }
+            if oldValue != homeAssistantURL { invalidateAskDJHelpObservationContext(); cancelRendezvous() }
             defaults.set(homeAssistantURL, forKey: homeAssistantURLKey)
         }
     }
     @Published public private(set) var haLocalURL = "" {
-        didSet { if oldValue != haLocalURL { cancelRendezvous() } }
+        didSet { if oldValue != haLocalURL { invalidateAskDJHelpObservationContext(); cancelRendezvous() } }
     }
     @Published public private(set) var haRemoteURL = "" {
-        didSet { if oldValue != haRemoteURL { cancelRendezvous() } }
+        didSet { if oldValue != haRemoteURL { invalidateAskDJHelpObservationContext(); cancelRendezvous() } }
     }
-    @Published public private(set) var haConnectionMode: DJConnectHAConnectionMode = .offline
+    @Published public private(set) var haConnectionMode: DJConnectHAConnectionMode = .offline {
+        didSet { if oldValue != haConnectionMode { askDJHelpRuntimeGeneration = UUID() } }
+    }
     @Published public private(set) var pushNotificationStatus = DJConnectPushNotificationStatus()
     @Published public private(set) var remoteSupported = false
-    @Published public private(set) var musicBackendSummary = DJConnectMusicBackendSummary()
+    @Published public private(set) var musicBackendSummary = DJConnectMusicBackendSummary() {
+        didSet { if oldValue != musicBackendSummary { invalidateAskDJHelpObservationContext() } }
+    }
     @Published public private(set) var assistPipelineID = ""
     @Published public private(set) var apiBase = ""
     @Published public private(set) var voicePath = ""
     @Published public private(set) var statusPath = ""
     @Published public private(set) var eventPath = ""
-    @Published private(set) var askDJExampleCapabilities: DJConnectAskDJCatalogue.Capabilities?
+    @Published private(set) var askDJExampleCapabilities: DJConnectAskDJCatalogue.Capabilities? {
+        didSet {
+            if oldValue?.success != askDJExampleCapabilities?.success ||
+                oldValue?.ask_dj_examples != askDJExampleCapabilities?.ask_dj_examples ||
+                oldValue?.contract_versions != askDJExampleCapabilities?.contract_versions ||
+                oldValue?.capabilities?["ask_dj_examples"] != askDJExampleCapabilities?.capabilities?["ask_dj_examples"] {
+                invalidateAskDJHelpObservationContext()
+            }
+        }
+    }
     @Published private(set) var askDJExampleRefreshEpoch = UUID()
     @Published var askDJHelpIsPresented = false
-    // Intentionally absent until the canonical producer observation is qualified.
-    // A global capabilities pin or local agent flag cannot install this adapter.
-    var askDJHelpCatalogueReader: AskDJHelpCatalogueModel.Reader?
+    @Published var askDJHelpOpenRequest: AskDJHelpOpenRequest?
+    var askDJHelpScope: AskDJHelpScope {
+        .init(owner: sessionHistory.authorizedProfileID, session: activeDJSession?.id,
+              conversation: activeDJSession == nil ? sessionHistory.responseEpoch : nil)
+    }
+    private var askDJHelpRuntimeGeneration = UUID()
+    func invalidateAskDJHelpObservationContext() { askDJHelpRuntimeGeneration = UUID() }
+    var askDJHelpCatalogueReader: AskDJHelpCatalogueModel.Reader? {
+        { [weak self] original, surface, language, deadline in
+            guard let self, let catalogue = DJConnectAskDJCatalogue.bundled,
+                  self.canUseProfileConversation, self.isAppInForeground, !self.isOfflineModeActive,
+                  self.askDJExampleContext() == original, self.language == language,
+                  let origin = Self.normalizedHomeAssistantURL(from: self.haConnectionMode == .remote ? self.haRemoteURL : self.localHomeAssistantURL()) else { throw CancellationError() }
+            let generation = self.askDJHelpRuntimeGeneration
+            guard ContinuousClock.now < deadline else { throw CancellationError() }
+            let request = try DJConnectAskDJHelpObservation.Request(surface: surface, language: language, sessionID: original.sessionID)
+            let client = DJConnectClient(baseURL: origin, identity: self.identity, tokenStore: self.tokenStore, session: self.urlSession)
+            let result = try await client.askDJHelpObservation(request, catalogue: catalogue,
+                pairedLocalOrigin: Self.normalizedHomeAssistantURL(from: self.localHomeAssistantURL()), isCurrent: { [weak self] in
+                guard let self else { return false }
+                return self.askDJHelpRuntimeGeneration == generation && self.isAppInForeground &&
+                    self.canUseProfileConversation && !self.isOfflineModeActive && self.language == language && self.askDJExampleContext() == original && ContinuousClock.now < deadline
+            })
+            guard result.available, result.trackID == nil || result.trackID == original.trackID else { throw DJConnectError.invalidResponse }
+            return .init(ids: result.eligibleIDs, trackID: result.trackID)
+        }
+    }
     @Published var askDJCatalogueInputSelection: NSRange?
     @Published var askDJCatalogueFocusRequest: UUID?
     private var askDJSuggestionCursors: [String: DJConnectAskDJSuggestionCursor] = [:]
@@ -1210,7 +1247,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
         }
         let generation = UUID(); askDJExampleReadGeneration = generation
-        guard canUseProfileConversation else { askDJExampleCapabilities = nil; return }
+        guard canUseProfileConversation, isAppInForeground, !isOfflineModeActive else { askDJExampleCapabilities = nil; return }
         do {
             let response = try await withHomeAssistantClient { try await $0.askDJExampleCapabilities() }
             guard !Task.isCancelled, generation == askDJExampleReadGeneration,
@@ -1225,8 +1262,9 @@ public final class DJConnectAppModel: ObservableObject {
 
     func askDJExampleContext(at now: Date = Date()) -> DJConnectAskDJCatalogue.Context {
         var result = DJConnectAskDJCatalogue.Context()
-        result.ownerEpoch = sessionHistory.responseEpoch.uuidString
+        result.ownerEpoch = sessionHistory.responseEpoch.uuidString + ":" + askDJHelpRuntimeGeneration.uuidString
         guard askDJExampleOwnerEpoch == sessionHistory.responseEpoch, canUseProfileConversation,
+              isAppInForeground, !isOfflineModeActive,
               isConnected, backendAvailable, musicBackendSummary.musicBackendAvailable == true,
               let caps = askDJExampleCapabilities, caps.success, caps.capabilities?["ask_dj_examples"] == true else { return result }
         result.descriptor = caps.ask_dj_examples
@@ -1278,7 +1316,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
     @Published public var pairingStatus: DJConnectPairingStatus = .unpaired {
         didSet {
-            if oldValue != pairingStatus { cancelRendezvous() }
+            if oldValue != pairingStatus { askDJHelpRuntimeGeneration = UUID(); cancelRendezvous() }
             if startBackgroundTasks, oldValue != .paired, pairingStatus == .paired {
                 schedulePairedRefresh(reason: "Pairing became online")
                 updateNowPlayingPollTimer()
@@ -1306,7 +1344,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
     @Published public var isConnected = false {
-        didSet { updateWakeWordListeningForAvailability() }
+        didSet { if oldValue != isConnected { askDJHelpRuntimeGeneration = UUID() }; updateWakeWordListeningForAvailability() }
     }
     @Published public var isPairing = false
     private var manualRefreshTask: Task<Bool, Never>?
@@ -1317,6 +1355,7 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var isLoadingPlaylists = false
     @Published public var backendAvailable = true {
         didSet {
+            if oldValue != backendAvailable { askDJHelpRuntimeGeneration = UUID() }
             if backendAvailable {
                 refreshScheduler.cancelBackendRecovery()
             } else {
@@ -1327,6 +1366,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
     @Published public var updateRequiredMessage: String? {
         didSet {
+            if oldValue != updateRequiredMessage { invalidateAskDJHelpObservationContext() }
             if !isRuntimeCompatible {
                 refreshScheduler.cancelBackendRecovery()
             } else if oldValue != nil {
@@ -1364,6 +1404,16 @@ public final class DJConnectAppModel: ObservableObject {
 
     @Published public private(set) var activeDJSession: DJConnectSessionRuntime? {
         didSet {
+            let helpNow = Date()
+            if AskDJHelpPlaybackProjection(oldValue?.broadcast.playback, at: helpNow) != AskDJHelpPlaybackProjection(activeDJSession?.broadcast.playback, at: helpNow) ||
+                oldValue.map(ForecastScope.init) != activeDJSession.map(ForecastScope.init) {
+                invalidateAskDJHelpObservationContext()
+            }
+            if oldValue.map(CurrentInsightSessionStyle.init) != activeDJSession.map(CurrentInsightSessionStyle.init) ||
+                oldValue?.id != activeDJSession?.id || oldValue?.runtimeState != activeDJSession?.runtimeState ||
+                oldValue?.broadcast.playback?.itemID != activeDJSession?.broadcast.playback?.itemID {
+                askDJHelpRuntimeGeneration = UUID()
+            }
             if oldValue.map(CurrentInsightSessionStyle.init) != activeDJSession.map(CurrentInsightSessionStyle.init) {
                 invalidateCurrentInsightSettings()
             }
@@ -1424,20 +1474,32 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var isLoadingDJSession = false
     @Published public private(set) var isSessionIntroductionPresented = false
     @Published public private(set) var djSessionErrorMessage: String?
-    @Published public private(set) var djSessionIsRecovering = false
+    @Published public private(set) var djSessionIsRecovering = false {
+        didSet { if oldValue != djSessionIsRecovering { invalidateAskDJHelpObservationContext() } }
+    }
     private var sessionRecoveryCursor: String?
     private var sessionRecoveryCursorSessionID: String?
     @Published public private(set) var hybridConnectionDiagnostics: DJConnectHybridDiagnostics?
     /// Origin of a successful, authority-checked status response in this foreground.
     @Published public private(set) var authenticatedStatusOrigin: URL?
     private var lastHybridRouteState: DJConnectHybridDiagnostics.State?
-    @Published public private(set) var djSessionLiveUnavailable = false
+    @Published public private(set) var djSessionLiveUnavailable = false {
+        didSet { if oldValue != djSessionLiveUnavailable { invalidateAskDJHelpObservationContext() } }
+    }
     @Published public private(set) var isLoadingVibeCastHandoff = false
     @Published public private(set) var vibeCastHandoffApproved = false
     @Published public private(set) var vibeCastHandoffFailed = false
     @Published public private(set) var vibeCastHandoffErrorKey: String?
-    @Published public private(set) var forecastCursor: DJConnectForecastCursor?
-    @Published public private(set) var forecastAvailable = false
+    @Published public private(set) var forecastCursor: DJConnectForecastCursor? {
+        didSet {
+            if oldValue?.projection != forecastCursor?.projection || oldValue?.revisionFloor != forecastCursor?.revisionFloor || oldValue?.sessionID != forecastCursor?.sessionID {
+                invalidateAskDJHelpObservationContext()
+            }
+        }
+    }
+    @Published public private(set) var forecastAvailable = false {
+        didSet { if oldValue != forecastAvailable { invalidateAskDJHelpObservationContext() } }
+    }
     @Published public private(set) var forecastLoading = false
     private var forecastGeneration = UUID()
     @Published private(set) var forecastAuthorityGeneration = UUID()
@@ -1447,7 +1509,7 @@ public final class DJConnectAppModel: ObservableObject {
         let authority: UUID
     }
     private var forecastReadContext: ForecastReadContext?
-    private var forecastEpoch: UUID?
+    private var forecastEpoch: UUID? { didSet { if oldValue != forecastEpoch { invalidateAskDJHelpObservationContext() } } }
     private var forecastExpiryTask: Task<Void, Never>?
     struct ForecastScope: Equatable {
         let sessionID: String
@@ -1474,7 +1536,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
     /// The panel's task and admission gate share the exact same material context.
     var sessionForecastRefreshScope: ForecastScope? { activeDJSession.map(ForecastScope.init) }
-    private var forecastScope: ForecastScope?
+    private var forecastScope: ForecastScope? { didSet { if oldValue != forecastScope { invalidateAskDJHelpObservationContext() } } }
 
     /// Shared read/presentation admission; retry must not advertise an operation
     /// that the current owner or runtime cannot perform.
@@ -1699,7 +1761,7 @@ public final class DJConnectAppModel: ObservableObject {
     public var isDiagnosticLoggingEnabled: Bool {
         DJConnectAppLogLevel.parse(logLevel) != .off
     }
-    @Published public var language = "en"
+    @Published public var language = "en" { didSet { if oldValue != language { askDJHelpRuntimeGeneration = UUID() } } }
     @Published public private(set) var appLanguageOverrideCode = ""
     @Published private var deviceSpeechAvailability: DJConnectDeviceSpeechAvailability?
     private var deviceSpeechContext: [String] = []
@@ -1859,8 +1921,12 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var pairingFlowTarget: DJConnectPairingFlowTarget = .iPhone
     @Published public private(set) var isLocalNetworkAvailable = false
     @Published public private(set) var hasEvaluatedLocalNetwork = false
-    @Published public private(set) var isDeviceNetworkAvailable = false
-    @Published public private(set) var hasEvaluatedDeviceNetwork = false
+    @Published public private(set) var isDeviceNetworkAvailable = false {
+        didSet { if oldValue != isDeviceNetworkAvailable { invalidateAskDJHelpObservationContext() } }
+    }
+    @Published public private(set) var hasEvaluatedDeviceNetwork = false {
+        didSet { if oldValue != hasEvaluatedDeviceNetwork { invalidateAskDJHelpObservationContext() } }
+    }
     @Published public private(set) var networkRefreshRequestID = UUID()
     @Published public private(set) var diagnosticLogLines: [DJConnectDiagnosticLogLine] = []
 
@@ -1919,7 +1985,13 @@ public final class DJConnectAppModel: ObservableObject {
     private var pendingVolumePercent: Int?
     private var pendingSeekTargetMS: Int?
     private var seekCommandTask: Task<Void, Never>?
+    private var askDJTextTasks: [UUID: Task<Void, Never>] = [:]
+    func cancelAskDJTextSubmissions() {
+        askDJTextTasks.values.forEach { $0.cancel() }; askDJTextTasks = [:]
+        isSendingAskDJText = false; playingAskDJActionID = nil
+    }
     private var isAppInForeground = true
+    var isAskDJPresentationActive: Bool { isAppInForeground }
     private var speechAutoplayAdmission = SessionSpeechAutoplayAdmission()
     private var automaticSpeechQueue: [(speech: DJConnectSessionSpeech, text: String, epoch: UUID)] = []
     private var automaticSpeechClaims = Set<DJConnectSpeechReference>()
@@ -2411,6 +2483,8 @@ public final class DJConnectAppModel: ObservableObject {
         diagnosticLogDirectory: URL? = nil
     ) {
         self.defaults = defaults
+        // Retire the old auto-suggestion preference. Help is always manual.
+        defaults.removeObject(forKey: "DJConnectAutomaticHelpHidden")
         self.startBackgroundTasks = startBackgroundTasks
         self.monkeyTestingMode = monkeyTestingMode
         self.homeAssistantWebSocketAuth = homeAssistantWebSocketAuth
@@ -2534,6 +2608,7 @@ public final class DJConnectAppModel: ObservableObject {
             let style = response.map(CurrentInsightProfileStyle.init)
             if self.currentInsightObservedProfileStyle != style {
                 self.currentInsightObservedProfileStyle = style
+                self.askDJHelpRuntimeGeneration = UUID()
                 self.invalidateCurrentInsightSettings()
             }
         }
@@ -3034,6 +3109,8 @@ public final class DJConnectAppModel: ObservableObject {
         cancelRendezvous()
         personaReactions.cancel(.background)
         isAppInForeground = false
+        askDJHelpRuntimeGeneration = UUID()
+        cancelAskDJTextSubmissions()
         #if os(iOS) && canImport(WatchConnectivity)
         invalidateWatchProxyPairingWork()
         #endif
@@ -5682,17 +5759,31 @@ public final class DJConnectAppModel: ObservableObject {
         let clientMessageID = UUID().uuidString
         let messageID = appendAskDJMessage(role: .user, text: text, clientMessageID: clientMessageID, status: .sending)
         log(.info, "Sending Ask DJ follow-up action")
-        Task {
-            defer { playingAskDJActionID = nil }
+        let epoch = sessionHistory.responseEpoch, session = activeDJSession?.id
+        let owner = sessionHistory.authorizedProfileID, edit = askDJDraftEditRevision
+        let taskID = UUID()
+        askDJTextTasks[taskID] = Task {
+            defer { askDJTextTasks.removeValue(forKey: taskID) }
+            defer { if epoch == sessionHistory.responseEpoch, askDJTextTasks[taskID] != nil { playingAskDJActionID = nil } }
+            @MainActor func current() -> Bool {
+                !Task.isCancelled && isAppInForeground && epoch == sessionHistory.responseEpoch &&
+                session == activeDJSession?.id && owner == sessionHistory.authorizedProfileID
+            }
             do {
                 let response = try await sendAskDJTextWithFallback(text, clientMessageID: clientMessageID)
+                guard current() else { return }
                 applyAskDJMessageResponse(response, fallbackUserMessageID: messageID)
                 if let messageID {
                     updateAskDJMessageStatus(id: messageID, status: .sent)
                 }
                 requestAskDJScrollToBottom()
                 await refreshAfterDJResponse()
+            } catch let outcome as DJConnectHybridTransportError {
+                guard current() else { return }
+                await recoverRetainedAskDJAnswer(outcome, text: text, clientMessageID: clientMessageID,
+                    userMessageID: messageID, draftRevision: edit)
             } catch let error as DJConnectError {
+                guard current() else { return }
                 if let messageID {
                     updateAskDJMessageStatus(id: messageID, status: .failed)
                 }
@@ -5700,6 +5791,7 @@ public final class DJConnectAppModel: ObservableObject {
                 showAskDJToast(for: error)
                 log(.warning, "Ask DJ follow-up action failed: \(Self.describe(error))")
             } catch {
+                guard current() else { return }
                 if let messageID {
                     updateAskDJMessageStatus(id: messageID, status: .failed)
                 }
@@ -5768,12 +5860,21 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
 
+        let epoch = sessionHistory.responseEpoch, session = activeDJSession?.id
+        let owner = sessionHistory.authorizedProfileID, edit = askDJDraftEditRevision
         isSendingAskDJText = true
         log(.info, "Sending Ask DJ text request")
-        Task {
-            defer { isSendingAskDJText = false }
+        let taskID = UUID()
+        askDJTextTasks[taskID] = Task {
+            defer { askDJTextTasks.removeValue(forKey: taskID) }
+            defer { if epoch == sessionHistory.responseEpoch, askDJTextTasks[taskID] != nil { isSendingAskDJText = false } }
+            @MainActor func current() -> Bool {
+                !Task.isCancelled && isAppInForeground && epoch == sessionHistory.responseEpoch &&
+                session == activeDJSession?.id && owner == sessionHistory.authorizedProfileID
+            }
             do {
                 let response = try await sendAskDJTextWithFallback(text, clientMessageID: clientMessageID)
+                guard current() else { return }
                 applyAskDJMessageResponse(response, fallbackUserMessageID: userMessageID)
                 applyTrackInsightIfNeeded(from: response, open: true)
                 let assistant = response.assistantMessage
@@ -5787,6 +5888,7 @@ public final class DJConnectAppModel: ObservableObject {
                 await refreshAfterDJResponse()
                 log(.info, "Ask DJ text request completed")
             } catch let error as DJConnectError {
+                guard current() else { return }
                 let describedError = Self.describe(error)
                 if isDeferredAskDJTimeout(error) {
                     askDJErrorMessage = nil
@@ -5810,12 +5912,11 @@ public final class DJConnectAppModel: ObservableObject {
                 }
                 log(.warning, "Ask DJ text request failed: \(describedError)")
             } catch let outcome as DJConnectHybridTransportError {
-                askDJErrorMessage = localized(key: outcome.localizationKey)
-                if case .outcome(let receipt) = outcome, receipt.phase == "confirmed" {
-                    if let userMessageID { updateAskDJMessageStatus(id: userMessageID, status: .sent) }
-                    await syncAskDJHistory(showErrors: false)
-                }
+                guard current() else { return }
+                await recoverRetainedAskDJAnswer(outcome, text: text, clientMessageID: clientMessageID,
+                    userMessageID: userMessageID, draftRevision: edit)
             } catch {
+                guard current() else { return }
                 if isDeferredAskDJTimeout(error) {
                     askDJErrorMessage = nil
                     showAskDJToast(localized(key: "appModel.ask.dj.is.processing"))
@@ -7633,6 +7734,9 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     func activeVoiceOwnerDidChange() {
+        invalidateAskDJHelpObservationContext()
+        // This callback is owned by the actual conversation ownerScope change.
+        sessionHistory.cancelTextSubmissions()
         bindProfileDJSettings(active: isAppInForeground)
         bindPassiveSessionSurfaces()
         guard sessionHistory.hasAuthorizedOwner else { invalidateActiveVoiceInventory(); return }
@@ -9205,7 +9309,7 @@ public final class DJConnectAppModel: ObservableObject {
         if sessionHistory.profileScopeActive {
             return try await sessionHistory.sendExistingText(text, clientMessageID: clientMessageID)
         }
-        return try await withHomeAssistantClient { client in
+        return try await withHomeAssistantClient(allowsOperationReplay: false) { client in
             try await client.sendAskDJMessage(DJConnectAskDJRequest(
                 identity: identity,
                 text: text,
@@ -9235,7 +9339,7 @@ public final class DJConnectAppModel: ObservableObject {
         if sessionHistory.profileScopeActive {
             return try await sessionHistory.fetchExistingHistory()
         }
-        return try await withHomeAssistantClient { client in
+        return try await withHomeAssistantClient(allowsOperationReplay: false) { client in
             try await client.askDJHistory(sinceRevision: sinceRevision)
         }
     }
@@ -10530,12 +10634,39 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func syncAskDJHistoryAfterDeferredAskDJResponse() async {
-        for attempt in 0..<4 {
-            if attempt > 0 {
-                try? await Task.sleep(nanoseconds: 1_500_000_000)
-            }
-            await syncAskDJHistory(showErrors: false)
+        await syncAskDJHistory(showErrors: false)
+    }
+
+    func showRetainedAskDJAnswerUnavailable() {
+        askDJErrorMessage = localized(key: "ui.ask_dj.answer.retained_unavailable")
+    }
+
+    /// A receipt confirms execution, not full answer retention. This read may
+    /// recover only an archived caption. Never rebuild omitted actions/media or
+    /// autoplay from history, and never send the original request again.
+    private func recoverRetainedAskDJAnswer(_ outcome: DJConnectHybridTransportError, text: String,
+        clientMessageID: String, userMessageID: UUID?, draftRevision: Int) async {
+        let epoch = sessionHistory.responseEpoch, owner = sessionHistory.authorizedProfileID, session = activeDJSession?.id
+        let confirmed: Bool
+        if case .outcome(let receipt) = outcome, receipt.phase == "confirmed" { confirmed = true }
+        else { confirmed = false }
+        if confirmed, let userMessageID { updateAskDJMessageStatus(id: userMessageID, status: .sent) }
+        askDJErrorMessage = localized(key: confirmed ? "ui.ask_dj.answer.retained_unavailable" : outcome.localizationKey)
+        if !confirmed, askDJDraft.isEmpty, askDJDraftEditRevision == draftRevision { askDJDraft = text }
+        switch outcome {
+        case .outcome, .deliveryUnknown: break
+        default: return
         }
+        do {
+            let history = try await fetchAskDJHistory(sinceRevision: nil)
+            guard !Task.isCancelled, isAppInForeground, epoch == sessionHistory.responseEpoch,
+                  owner == sessionHistory.authorizedProfileID, session == activeDJSession?.id else { return }
+            applyAskDJHistory(history)
+            if history.messages.contains(where: { $0.role != .user && $0.messageKind != .system && $0.clientMessageID == clientMessageID }) {
+                if let userMessageID { updateAskDJMessageStatus(id: userMessageID, status: .sent) }
+                askDJErrorMessage = nil // Actual retained content is shown, not a fabricated full answer.
+            }
+        } catch { /* Honest acknowledgement/uncertainty remains; refresh is explicit. */ }
     }
 
     private func isDeferredAskDJTimeout(_ error: Error) -> Bool {
@@ -13192,7 +13323,7 @@ public final class DJConnectAppModel: ObservableObject {
         var outputAccepted = true
         var explicitlyConfirmed = false
         do {
-            try await withHomeAssistantClient(allowsOperationReplay: command != "set_output") { client in
+            try await withHomeAssistantClient(allowsOperationReplay: command != "set_output" && command != "ask_dj_message") { client in
                 // Reads may use fallback; a transfer write is never replayed.
                 if (command == "devices" || command == "set_output"), outputGeneration != outputSelectionGeneration {
                     throw CancellationError()
@@ -14620,7 +14751,7 @@ public final class DJConnectAppModel: ObservableObject {
         }
         do {
             let encoded = try await withWatchProxyHomeAssistantClient(identity: registration.identity, token: token,
-                allowsOperationReplay: request.operation != .updateProfileDJSettings && request.operation != .prepareSessionSpeech &&
+                allowsOperationReplay: !request.isAskDJTextSubmission && request.operation != .updateProfileDJSettings && request.operation != .prepareSessionSpeech &&
                     request.operation != .startSession && request.operation != .endSession) { client in
                 try await self.performWatchProxyOperation(request, client: client)
             }

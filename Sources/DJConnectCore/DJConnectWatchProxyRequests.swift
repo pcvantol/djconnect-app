@@ -12,15 +12,16 @@ import Foundation
     public init(timeout: Duration = .seconds(20)) { self.timeout = timeout }
     public var count: Int { pending.count }
 
-    public func request(send: (String) -> Void) async -> DJConnectWatchProxyResponse {
+    public func request(timeout override: Duration? = nil, send: (String) -> Void) async -> DJConnectWatchProxyResponse {
         guard pending.count < 8, !Task.isCancelled else {
             return .init(success: false, error: "outcome_unknown")
         }
         let id = UUID().uuidString
         return await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
-                let task = Task { [weak self, timeout] in
-                    try? await Task.sleep(for: timeout)
+                let duration = min(override ?? timeout, .seconds(300))
+                let task = Task { [weak self] in
+                    try? await Task.sleep(for: duration)
                     guard !Task.isCancelled else { return }
                     self?.complete(id: id, response: .init(success: false, error: "outcome_unknown"))
                 }

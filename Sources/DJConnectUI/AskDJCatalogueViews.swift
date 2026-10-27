@@ -1,6 +1,46 @@
 import SwiftUI
 import DJConnectCore
 
+/// Transient conversation scope for closing stale Help; no visibility preference.
+struct AskDJHelpScope: Equatable {
+    var owner: String?
+    var session: String?
+    var conversation: UUID?
+}
+struct AskDJHelpOpenRequest: Equatable {
+    let id = UUID()
+    let surface: DJConnectAskDJCatalogue.Surface
+}
+
+/// Anchored by the shared composer, independent of timeline/history emptiness.
+struct AskDJComposerHelpPopout: View {
+    @ObservedObject var model: DJConnectAppModel
+    let surface: DJConnectAskDJCatalogue.Surface
+    let close: () -> Void
+    let select: (String) -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(DJConnectLocalization.localized(key: "ui.askdj.suggestions.title", language: model.language))
+                    .font(.headline).foregroundStyle(.white)
+                Spacer()
+                Button(action: close) { Image(systemName: "xmark") }
+                    .buttonStyle(.plain).frame(width: 44, height: 44)
+                    .accessibilityLabel(DJConnectLocalization.localized(key: "ui.close", language: model.language))
+                    .accessibilityIdentifier("ask-dj-suggestions-close")
+            }
+            AskDJSuggestionStrip(model: model, surface: surface, reading: false, select: select)
+        }
+        .padding(16)
+        .frame(maxWidth: 580)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(DJConnectMaterial(.regular), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(.white.opacity(0.16), lineWidth: 0.6))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("ask-dj-suggestions-popout-" + surface.rawValue)
+    }
+}
+
 /// Both surfaces use this renderer and the same byte-verified Core catalogue.
 struct AskDJHelpButton: View {
     @ObservedObject var model: DJConnectAppModel
@@ -9,6 +49,7 @@ struct AskDJHelpButton: View {
     var send: (() -> Void)? = nil
     @State private var presented = false
     var body: some View {
+        if showsMoreLabel {
         AskDJHelpEntry(surface: surface, language: model.language, presented: $presented, showsMoreLabel: showsMoreLabel, onDismissed: {
             if model.askDJCatalogueInputSelection != nil { model.askDJCatalogueFocusRequest = UUID() }
         }) {
@@ -16,6 +57,11 @@ struct AskDJHelpButton: View {
         }
         .onChange(of: presented) { _, value in model.askDJHelpIsPresented = value }
         .onDisappear { if presented { model.askDJHelpIsPresented = false } }
+        } else {
+            Button { model.askDJHelpOpenRequest = .init(surface: surface) } label: { Image(systemName: "questionmark.circle") }
+                .accessibilityLabel(DJConnectLocalization.localized(key: surface == .session ? "ui.askdj.help.session.entry" : "ui.askdj.help.global.entry", language: model.language))
+                .accessibilityIdentifier("ask-dj-help-" + surface.rawValue)
+        }
     }
 }
 
@@ -87,8 +133,8 @@ private struct AskDJHelpContent: View {
             await model.refreshAskDJExampleCapabilities()
             _ = await refresh()
         }
-        .onChange(of: context) { _, _ in catalogueModel.close() }
-        .onChange(of: model.language) { _, _ in catalogueModel.close() }
+        .onChange(of: context) { _, next in catalogueModel.contextChanged(to: next) }
+        .onChange(of: model.language) { _, _ in catalogueModel.contextChanged(to: context) }
         .onDisappear { catalogueModel.close() }
     }
 }
@@ -194,35 +240,46 @@ struct AskDJSuggestionStrip: View {
     let surface: DJConnectAskDJCatalogue.Surface
     var reading = false
     let select: (String) -> Void
+    @StateObject private var observation = AskDJHelpCatalogueModel()
     @State private var suggestions: [DJConnectAskDJCatalogue.Suggestion] = []
+    @State private var selecting = false
+    @State private var visit = UUID().uuidString
     private var context: DJConnectAskDJCatalogue.Context { model.askDJExampleContext() }
     private var frozen: Bool { reading || model.askDJHelpIsPresented || !model.askDJDraft.isEmpty || model.isRecordingVoice || model.isSendingAskDJText }
-    private func update(visit: Bool = false, refresh: Bool = false, revokeOnly: Bool = false) {
-        suggestions = model.updateAskDJSuggestions(surface: surface, frozen: frozen || revokeOnly, visit: visit, refresh: refresh)
+    private func read() async -> DJConnectAskDJCatalogue.Context? {
+        _ = await observation.read(catalogue: .bundled, surface: surface, language: model.language,
+            context: { model.askDJExampleContext() }, reader: model.askDJHelpCatalogueReader)
+        return observation.admittedContext
+    }
+    private func open() async {
+        suggestions = []
+        await model.refreshAskDJExampleCapabilities()
+        guard let admitted = await read(), !frozen else { return }
+        suggestions = DJConnectAskDJCatalogue.bundled?.select(admitted, surface: surface, language: model.language, epoch: visit) ?? []
+    }
+    private func choose(_ item: DJConnectAskDJCatalogue.Suggestion) async {
+        guard !selecting, !frozen, observation.isCurrent, suggestions.count == 3,
+              suggestions.contains(item), model.canUseAskDJFeatures else { return }
+        selecting = true; defer { selecting = false }
+        let original = suggestions, owner = context, language = model.language, edit = model.askDJDraftEditRevision
+        guard let fresh = await read(), !Task.isCancelled, context == owner, model.language == language,
+              model.askDJDraftEditRevision == edit, model.askDJDraft.isEmpty, !frozen,
+              model.canUseAskDJFeatures, observation.isCurrent,
+              original.allSatisfy({ DJConnectAskDJCatalogue.bundled?.retains($0, context: fresh, surface: surface, language: language) == true }) else {
+            suggestions = []; return
+        }
+        select(item.prompt) // Chips only prepare the original draft; never send.
     }
     var body: some View {
-        AskDJSuggestionRows(suggestions: suggestions, surface: surface, disabled: frozen || !model.canUseAskDJFeatures) { suggestion in
-            guard model.askDJDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  !model.isSendingAskDJText, !model.isRecordingVoice,
-                  model.canUseAskDJFeatures,
-                  DJConnectAskDJCatalogue.bundled?.retains(suggestion, context: context, surface: surface, language: model.language) == true else {
-                update(revokeOnly: true); return
-            }
-            select(suggestion.prompt)
-        }
+        AskDJSuggestionRows(suggestions: observation.isCurrent ? suggestions : [], surface: surface,
+            disabled: selecting || frozen || !model.canUseAskDJFeatures) { item in Task { await choose(item) } }
         AskDJHelpButton(model: model, surface: surface, showsMoreLabel: true)
-        .onAppear { update(visit: true) }
-        .onChange(of: context) { update() }
-        .onChange(of: model.askDJExampleRefreshEpoch) { update(refresh: true) }
-        .onChange(of: model.language) { update() }
-        .onChange(of: frozen) { update() }
-        // Expiry can only revoke. It never shuffles, refills or makes a request.
-        .task(id: model.activeDJSession?.broadcast.playback?.updatedAt) {
-            guard let date = DJConnectSessionForecast.timestamp(model.activeDJSession?.broadcast.playback?.updatedAt) else { return }
-            let remaining = date.addingTimeInterval(30).timeIntervalSinceNow
-            if remaining > 0 { try? await Task.sleep(for: .seconds(remaining)) }
-            guard !Task.isCancelled else { return }; update(revokeOnly: true)
-        }
+        .task { await open() }
+        .onChange(of: context) { _, next in observation.contextChanged(to: next); if !observation.isCurrent { suggestions = [] } }
+        .onChange(of: model.language) { _, _ in observation.contextChanged(to: context); if !observation.isCurrent { suggestions = [] } }
+        .onChange(of: observation.admittedContext) { _, value in if value == nil { suggestions = [] } }
+        .onChange(of: model.askDJExampleRefreshEpoch) { _, _ in Task { await open() } }
+        .onDisappear { observation.close(); suggestions = [] }
     }
 }
 
