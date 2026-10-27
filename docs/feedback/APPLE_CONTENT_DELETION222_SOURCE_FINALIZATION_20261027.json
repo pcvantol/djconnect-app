@@ -1,0 +1,59 @@
+{
+  "source_pr": 222,
+  "candidate": "25465e62bfa4db62bdc3412c5f28942bec510c68",
+  "main": "c629d5f6ee154023d75d9d4db2ed06f4d86e5238",
+  "tree": "3f31fcd5c994d358e694d3b44ff1cab8a6faf7ad",
+  "reviewed_and_merged_tree_equal": true,
+  "main_CI_run": 40484303796,
+  "formal_run": 40485890490,
+  "original_run_attempts": 1,
+  "formal_decision": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+  "formal_digest": "da5f92b648ac377355cbdd74bf86d13d4e7011fffa9f703543f9fc3f9d37d4e9",
+  "formal_findings": [],
+  "formal_raw_sha256": "5e8bac6ffc4b91ec76495bb001feb917b77dc9757bbc2773d939096919c63a56",
+  "durable_asset_id": 681190648,
+  "durable_actual_and_provider_sha256": "c7d3b343626a12050c50ce381d919d1dd61db40eae7d18949a5ede19f26591bc",
+  "durable_inner_integrity_verified": true,
+  "all12_required_checks": {
+    "post_merge_build_validation": "PASS",
+    "post_merge_ci": "PASS",
+    "post_merge_coverage": "PASS",
+    "post_merge_governance": "PASS",
+    "post_merge_lint": "PASS",
+    "post_merge_static_analysis": "PASS",
+    "post_merge_tests": "PASS",
+    "required_checks": "PASS",
+    "software_assurance": "PASS",
+    "trusted_delivery": "PASS",
+    "verification": "PASS",
+    "workflow_integrity": "PASS"
+  },
+  "review_sha256": "b202df9aa35cdbb1bfce5bb7a5578e379af5f3a1254667bb799c9c43f814fe0a",
+  "scope": "Confirmed scoped deletion survivor identity and atomic history projection or its documentary Final; no native UI, personal deletion, provider or installation acceptance",
+  "schema_version": 1,
+  "kind": "apple_content_deletion_source222_finalization",
+  "source_test_receipt_sha256": "ea00e3ab2dfa7c901ecb222beba308adcb736196d5a98ddfb42bb78148c285c9",
+  "source_packet_sha256": "eac8d3d6307739d64db221a24726d6f957307703253c0adf4c939f8e7571bd52",
+  "software_validation": {
+    "focused_functions": 4,
+    "focused_argument_cases": 16,
+    "full_tests": 1338,
+    "full_suites": 31,
+    "actual_parent_exit": 0,
+    "unsigned_iOS_compile": "PASS",
+    "tracked_source_support_inputs": 556,
+    "unchanged_before_after_and_candidate_git_join": true
+  },
+  "historical_regression": {
+    "actual_parent_exit": 1,
+    "failing_assertions": 2,
+    "argument_cases": 11,
+    "scope": "New identity assertion on unchanged product source; original failures retained"
+  },
+  "limits": [
+    "Opaque non-UUID survivor identity and atomic admitted publication; no universal fresh-UUID claim for UUID-shaped server IDs after full clear",
+    "No native animation/pixel acceptance; console prerequisite readback root",
+    "No actual personal deletion, HA/model/playback/provider or ordinary installation",
+    "Separate documentary Final requires its own exact-head review, normal CI/protected merge and original-main qualification"
+  ]
+}
