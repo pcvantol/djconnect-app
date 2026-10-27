@@ -1,0 +1,210 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "request_id",
+    "available",
+    "observation",
+    "cache_policy"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": 1
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "available": {
+      "type": "boolean"
+    },
+    "observation": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "grant_epoch",
+            "target_generation",
+            "source_generation",
+            "observed_at_unix_ms",
+            "phase",
+            "playback_state"
+          ],
+          "properties": {
+            "grant_epoch": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "target_generation": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "source_generation": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "observed_at_unix_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "phase": {
+              "enum": [
+                "active",
+                "ended"
+              ]
+            },
+            "playback_state": {
+              "enum": [
+                "playing",
+                "paused",
+                "stopped",
+                "unknown",
+                null
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "phase": {
+                    "const": "ended"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "playback_state": {
+                    "type": "null"
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "playback_state": {
+                    "enum": [
+                      "playing",
+                      "paused",
+                      "stopped",
+                      "unknown"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "cache_policy": {
+      "const": "private,no-store"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:djconnect:candidate:widget-status-observation:1",
+  "$comment": "PRIVATE status-only candidate; no credential/expiry/commands/track/artwork in response. Lexical parser and tuple crossfields independent.",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "available": {
+            "const": false
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "observation": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "observation": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "grant_epoch",
+              "target_generation",
+              "source_generation",
+              "observed_at_unix_ms",
+              "phase",
+              "playback_state"
+            ],
+            "properties": {
+              "grant_epoch": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "target_generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "source_generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "observed_at_unix_ms": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "phase": {
+                "enum": [
+                  "active",
+                  "ended"
+                ]
+              },
+              "playback_state": {
+                "enum": [
+                  "playing",
+                  "paused",
+                  "stopped",
+                  "unknown",
+                  null
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "phase": {
+                      "const": "ended"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "playback_state": {
+                      "type": "null"
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "playback_state": {
+                      "enum": [
+                        "playing",
+                        "paused",
+                        "stopped",
+                        "unknown"
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

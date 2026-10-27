@@ -2336,6 +2336,28 @@ public extension DJConnectClient {
         guard DJConnectSurfacePushCoordinate.identifier(sessionID), [.ios,.macos].contains(identity.clientType) else { throw DJConnectError.invalidResponse }
         return ["contract_version":1,"device_id":identity.deviceID,"client_type":identity.clientType.rawValue,"session_id":sessionID]
     }
+    @MainActor func nativeSurfaceBackgroundTransport() throws -> DJConnectSurfaceBackgroundHTTP {
+        // The dedicated transport strips ambient app headers/cookies/credentials.
+        try DJConnectSurfaceBackgroundHTTP(baseURL: baseURL, configuration: session.configuration)
+    }
+
+    // Internal task-owner port; strict outer-v3 validation stays independent of
+    // historical v1/v2 APIs. No fallback or new authority is created here.
+    @MainActor func nativeSurfacePushV3POST(_ part: String, bytes: Data,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> Data {
+        try DJConnectSurfacePushJSON.validate(bytes)
+        guard ["context", "register"].contains(part),
+              let body = try JSONSerialization.jsonObject(with: bytes) as? [String: Any],
+              body["contract_version"] as? Int == 3,
+              body["device_id"] as? String == identity.deviceID,
+              body["client_type"] as? String == identity.clientType.rawValue else { throw DJConnectError.invalidResponse }
+        let fields: Set<String> = part == "context"
+            ? ["contract_version", "device_id", "client_type", "session_id", "operation_id"]
+            : ["contract_version", "device_id", "client_type", "session_id", "operation_id", "platform", "os_version", "token_role", "target", "apns_token", "apns_environment", "expected_registration", "consent", "context_handle"]
+        guard Set(body.keys) == fields, part != "register" || body["token_role"] as? String == "widget" else { throw DJConnectError.invalidResponse }
+        return try await surfacePushPOST(part, bytes: bytes, isCurrent: isCurrent)
+    }
+
     @MainActor private func surfacePushPOST(_ path: String, body: [String: Any],
         isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> Data {
         try await surfacePushPOST(path, bytes:JSONSerialization.data(withJSONObject:body), isCurrent:isCurrent)

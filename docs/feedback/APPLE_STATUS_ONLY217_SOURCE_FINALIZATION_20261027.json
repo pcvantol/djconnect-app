@@ -1,0 +1,59 @@
+{
+  "source_pr": 217,
+  "candidate": "3e3b3ffc1f698563ed7bda3b7a314a1c9bf973ed",
+  "main": "abc03e4426e2bd6e76dc13804cff3946a3dec41e",
+  "tree": "473b4639181c291f87e6ecfb55f282e58ad28ff9",
+  "reviewed_and_merged_tree_equal": true,
+  "main_CI_run": 40416656758,
+  "formal_run": 40418151258,
+  "formal_decision": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+  "formal_digest": "b62e2e3cf4e4d368de859d96a290816b977402ec8922b1873508dfd59028ff4f",
+  "formal_findings": [],
+  "durable_asset_id": 679781693,
+  "durable_actual_and_provider_sha256": "204f88cdd04ee8e79cdbd470e9128a6b17234da6a9d661c7fb7ccb6f7bbe0ee0",
+  "all12_required_checks": {
+    "post_merge_build_validation": "PASS",
+    "post_merge_ci": "PASS",
+    "post_merge_coverage": "PASS",
+    "post_merge_governance": "PASS",
+    "post_merge_lint": "PASS",
+    "post_merge_static_analysis": "PASS",
+    "post_merge_tests": "PASS",
+    "required_checks": "PASS",
+    "software_assurance": "PASS",
+    "trusted_delivery": "PASS",
+    "verification": "PASS",
+    "workflow_integrity": "PASS"
+  },
+  "review_sha256": "4d44566dcfa9d0ab18f43c77e37ac48cb12deb7ea1f453affe5f7515bfe4ab8b",
+  "scope": "Tools-only private status codec/renderer preparation; no normative contract/native/runtime/provider/installation approval",
+  "schema_version": 1,
+  "kind": "apple_status_only_source217_finalization",
+  "native_test_receipt_sha256": "00878cefc7599ce34d191ec9657983ea09a899d8fc95811f86561fdd50c684da",
+  "native_preparation": {
+    "tests_per_platform": 8,
+    "platforms": [
+      "iOS simulator",
+      "macOS"
+    ],
+    "source_raw_shape_vectors": 33,
+    "languages": [
+      "nl",
+      "en",
+      "de",
+      "fr",
+      "es"
+    ],
+    "offscreen_component_PNGs": 10,
+    "native_OS_raw_lexical_rejection_claim": false,
+    "delivery_or_installed_acceptance": false
+  },
+  "closed_gates": [
+    "Normative bootstrap/approval/proof/revoke/error/APS-order contracts",
+    "Genuine owner and native target proof",
+    "Actual AppIDPrefix/platform identity/provisioning policy and key custody",
+    "Issuer/operator/APNs provider authority and enrollment",
+    "Registered Activity profile or shipping widget/Activity adoption",
+    "Physical/native delivery, OS display and ordinary build/install"
+  ]
+}
