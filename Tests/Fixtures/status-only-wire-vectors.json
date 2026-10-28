@@ -1,0 +1,325 @@
+{
+  "status": "SYNTHETIC_SOURCE_CONTRACT_VECTORS_NOT_EXECUTED_NATIVE_OR_AUTHORITY_EVIDENCE",
+  "activity_schema_sha256": "2e38225064a2cec0252f8cab60f8d1db8eada5dba53a9701333fab47c02c239c",
+  "widget_schema_sha256": "bd305b0a229390cc447489734c7fefbc6299fba47a8d1f8c8878c1203886091c",
+  "cases": [
+    {
+      "id": "activity-active-playing",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"playing\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": true,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "activity-active-paused",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"paused\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": true,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "activity-active-stopped",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"stopped\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": true,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "activity-active-unknown",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"unknown\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": true,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "activity-neutral-ended",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"ended\",\"playback_state\":null}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": true,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-bool-version",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":true,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"playing\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-float-version",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1.0,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"playing\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-unsafe-sequence",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":9007199254740992,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"playing\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-bool-sequence",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":true,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"playing\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-negative-observation",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":-1,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"playing\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-float-observation",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000.0,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"playing\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-wrong-display-mode",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"live\",\"phase\":\"active\",\"playback_state\":\"playing\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-active-null-state",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":null}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-unbounded-state",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"buffering\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-foreign-UUID-version",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-7000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"playing\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-extra-track",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"playing\",\"track\":\"forbidden\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-extra-artist",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"playing\",\"artist\":\"forbidden\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-extra-artwork",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"playing\",\"artwork\":\"forbidden\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-extra-receivedUptime",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"playing\",\"receivedUptime\":\"forbidden\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-extra-expires_at_unix_ms",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"playing\",\"expires_at_unix_ms\":\"forbidden\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-ended-playing",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"ended\",\"playback_state\":\"playing\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-missing-observation",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"playing\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-duplicate-phase",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\": 1, \"presentation_id\": \"00000000-0000-4000-8000-000000000001\", \"presentation_generation\": \"00000000-0000-4000-8000-000000000002\", \"sequence\": 1, \"observed_at_unix_ms\": 1793052000000, \"display_mode\": \"last_observed\", \"phase\": \"active\", \"playback_state\": \"playing\",\"phase\":\"ended\"}",
+      "rule": "Original UTF8 lexical duplicate rejection before object decoding",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-BOM",
+      "kind": "activity",
+      "wire_utf8": "﻿{\"contract_version\": 1, \"presentation_id\": \"00000000-0000-4000-8000-000000000001\", \"presentation_generation\": \"00000000-0000-4000-8000-000000000002\", \"sequence\": 1, \"observed_at_unix_ms\": 1793052000000, \"display_mode\": \"last_observed\", \"phase\": \"active\", \"playback_state\": \"playing\"}",
+      "rule": "Strict UTF8 without BOM",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "widget-closed-unavailable",
+      "kind": "widget",
+      "wire_utf8": "{\"contract_version\":1,\"request_id\":\"00000000-0000-4000-8000-000000000001\",\"available\":false,\"observation\":null,\"cache_policy\":\"private,no-store\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": true,
+      "consumer_boundary": "B-network original-byte preflight then decoded value validator"
+    },
+    {
+      "id": "widget-positive-status-shape",
+      "kind": "widget",
+      "wire_utf8": "{\"contract_version\":1,\"request_id\":\"00000000-0000-4000-8000-000000000001\",\"available\":true,\"observation\":{\"grant_epoch\":\"00000000-0000-4000-8000-000000000001\",\"target_generation\":\"00000000-0000-4000-8000-000000000002\",\"source_generation\":\"00000000-0000-4000-8000-000000000001\",\"observed_at_unix_ms\":1793052000000,\"phase\":\"active\",\"playback_state\":\"paused\"},\"cache_policy\":\"private,no-store\"}",
+      "rule": "Shape only; actual response still requires genuine servergrant and original tuple/currentness. Matching original request_id/target_generation assumed by external test context.",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": true,
+      "consumer_boundary": "B-network original-byte preflight then decoded value validator"
+    },
+    {
+      "id": "reject-widget-true-null",
+      "kind": "widget",
+      "wire_utf8": "{\"contract_version\":1,\"request_id\":\"00000000-0000-4000-8000-000000000001\",\"available\":true,\"observation\":null,\"cache_policy\":\"private,no-store\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "B-network original-byte preflight then decoded value validator"
+    },
+    {
+      "id": "reject-widget-false-positive-observation",
+      "kind": "widget",
+      "wire_utf8": "{\"contract_version\":1,\"request_id\":\"00000000-0000-4000-8000-000000000001\",\"available\":false,\"observation\":{\"grant_epoch\":\"00000000-0000-4000-8000-000000000001\",\"target_generation\":\"00000000-0000-4000-8000-000000000002\",\"source_generation\":\"00000000-0000-4000-8000-000000000001\",\"observed_at_unix_ms\":1793052000000,\"phase\":\"active\",\"playback_state\":\"paused\"},\"cache_policy\":\"private,no-store\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "B-network original-byte preflight then decoded value validator"
+    },
+    {
+      "id": "reject-widget-int-bool",
+      "kind": "widget",
+      "wire_utf8": "{\"contract_version\":1,\"request_id\":\"00000000-0000-4000-8000-000000000001\",\"available\":1,\"observation\":null,\"cache_policy\":\"private,no-store\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "B-network original-byte preflight then decoded value validator"
+    },
+    {
+      "id": "reject-widget-wrong-cache-literal",
+      "kind": "widget",
+      "wire_utf8": "{\"contract_version\":1,\"request_id\":\"00000000-0000-4000-8000-000000000001\",\"available\":false,\"observation\":null,\"cache_policy\":\"no-store\"}",
+      "rule": "closed shape and lexical policy",
+      "authorization": "Not supplied by this synthetic vector; no genuine grant or native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "B-network original-byte preflight then decoded value validator"
+    },
+    {
+      "id": "reject-duplicate-phase-otherwise-positive",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"playing\",\"phase\":\"active\"}",
+      "rule": "Must reject lexical duplicate before map overwrite; independently stdlib last-wins object equals an exact known positive fixture, so crossfield failure cannot substitute for duplicate detection",
+      "counterfactual_default_last_wins_equals_positive_fixture": true,
+      "authorization": "Synthetic shape only, not genuine authorization/native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-escaped-equivalent-key-otherwise-positive",
+      "kind": "activity",
+      "wire_utf8": "{\"contract_version\":1,\"presentation_id\":\"00000000-0000-4000-8000-000000000001\",\"presentation_generation\":\"00000000-0000-4000-8000-000000000002\",\"sequence\":1,\"observed_at_unix_ms\":1793052000000,\"display_mode\":\"last_observed\",\"phase\":\"active\",\"playback_state\":\"playing\",\"pha\\u0073e\":\"active\"}",
+      "rule": "Must reject lexical duplicate before map overwrite; independently stdlib last-wins object equals an exact known positive fixture, so crossfield failure cannot substitute for duplicate detection",
+      "counterfactual_default_last_wins_equals_positive_fixture": true,
+      "authorization": "Synthetic shape only, not genuine authorization/native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "Core/API original-byte preflight before APNs; native codec receives decoded values and is not raw lexical acceptance oracle"
+    },
+    {
+      "id": "reject-widget-nested-duplicate-otherwise-positive",
+      "kind": "widget",
+      "wire_utf8": "{\"contract_version\":1,\"request_id\":\"00000000-0000-4000-8000-000000000001\",\"available\":true,\"observation\":{\"grant_epoch\":\"00000000-0000-4000-8000-000000000001\",\"target_generation\":\"00000000-0000-4000-8000-000000000002\",\"source_generation\":\"00000000-0000-4000-8000-000000000001\",\"observed_at_unix_ms\":1793052000000,\"phase\":\"active\",\"playback_state\":\"paused\",\"playback_state\":\"paused\"},\"cache_policy\":\"private,no-store\"}",
+      "rule": "Must reject lexical duplicate before map overwrite; independently stdlib last-wins object equals an exact known positive fixture, so crossfield failure cannot substitute for duplicate detection",
+      "counterfactual_default_last_wins_equals_positive_fixture": true,
+      "authorization": "Synthetic shape only, not genuine authorization/native/provider acceptance",
+      "expected_source_raw_contract_acceptance": false,
+      "consumer_boundary": "B-network original-byte preflight then decoded value validator"
+    }
+  ],
+  "separate_transport_cases": [
+    "wrong requestUUID/targetgeneration closes despite schema validity",
+    "malformedUTF8 e.g. c328 and nonfinite JSON reject",
+    "max8192 response bytes; oversized bodyreject",
+    "originalgrant expired/revoked/missingboot closes; no A fallback or renewal",
+    "late child/cancel/duplicate/ABA cannot publish",
+    "complete APNs JSON over4096 rejects without truncation",
+    "same-second APS update/end ordering unresolved until exact policy/native tests",
+    "Attributes decoder rejects unknown/missing/noncanonical identities; actual native target/issued generation still separate"
+  ],
+  "attributes_schema_sha256": "639dad776e1ee25465cc82154ccdf1b0d2c0a59a48b326fc3e7a91b55224a76b",
+  "profile_tuple_sha256": "090b8c9cd0d0b74622cd8ce00accaaecd816feb9d762f0554a9709bbf6342517",
+  "duplicate_coverage_correction": "Original duplicate-phase ended/playing remains a negative crossfield fixture, not proof of lexical duplicate guard. Three new counterfactual-valid duplicates include decoded escaped-equivalent and nested keys. No candidate parser or native acceptance execution claimed.",
+  "validation_boundaries": {
+    "source_raw": "Core/API and B-network raw preflight validate original lexical bytes/duplicates/numbers before map overwrite",
+    "native_activity": "ActivityKit native Codable validates decoded values/closed keysets/null/identity only; no documented original APSData hook; raw duplicate/integerlexical failures cannot be claimed as nativeOS rejection",
+    "positive_shape": "Synthetic schema/vector validity is never genuine owner/admission/native/provider acceptance"
+  }
+}
