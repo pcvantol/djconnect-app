@@ -4,6 +4,8 @@ import SwiftUI
 @testable import DJConnectCore
 @testable import DJConnectUI
 
+private final class ShippingStatusFixtureBundle: NSObject {}
+
 /// Real shipping modules, synthetic DATA only. No Activity/token/network calls.
 @Suite(.serialized) @MainActor struct StatusOnlyShippingComponentTests {
     private struct Vectors: Decodable {
@@ -16,8 +18,13 @@ import SwiftUI
         let cases: [Row]
     }
     private func rows() throws -> [Vectors.Row] {
-        let url = try #require(Bundle.module.url(forResource: "status-only-wire-vectors", withExtension: "json", subdirectory: "Fixtures")
-                               ?? Bundle.module.url(forResource: "status-only-wire-vectors", withExtension: "json"))
+        #if SWIFT_PACKAGE
+        let bundle = Bundle.module
+        #else
+        let bundle = Bundle(for: ShippingStatusFixtureBundle.self)
+        #endif
+        let url = try #require(bundle.url(forResource: "status-only-wire-vectors", withExtension: "json", subdirectory: "Fixtures")
+                               ?? bundle.url(forResource: "status-only-wire-vectors", withExtension: "json"))
         return try JSONDecoder().decode(Vectors.self, from: Data(contentsOf: url)).cases
     }
     private func bytes(_ id: String) throws -> Data {
