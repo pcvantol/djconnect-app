@@ -2387,11 +2387,55 @@ public extension DJConnectClient {
         role: DJConnectAutomaticSurfaceRole, scope: DJConnectAutomaticSurfaceScope,
         isCurrent: @escaping @MainActor @Sendable () -> Bool
     ) async throws -> DJConnectAutomaticSurfaceState {
+        try await automaticSurfaceQuery(path: role.statePath, scope: scope, isCurrent: isCurrent) { transport, request, current in
+            try await transport.read(request, role: role, scope: scope, isCurrent: current)
+        }
+    }
+
+    /// Passive child metadata only. A required finite parsing bound is supplied
+    /// by the owning policy; this API never selects a default or grants rights.
+    @MainActor public func automaticSurfaceChildIndex(
+        parent: DJConnectAutomaticSurfaceDescriptor, maximumChildren: Int,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool
+    ) async throws -> DJConnectAutomaticSurfaceChildIndexRead {
+        guard maximumChildren > 0, Int64(maximumChildren) <= 9_007_199_254_740_991 else { throw DJConnectError.invalidResponse }
+        return try await automaticSurfaceQuery(path: parent.role.childIndexPath, scope: parent.scope, isCurrent: isCurrent) { transport, request, current in
+            try await transport.index(request, parent: parent, maximumChildren: maximumChildren, isCurrent: current)
+        }
+    }
+
+    @MainActor public func automaticSurfaceChildState(
+        parent: DJConnectAutomaticSurfaceDescriptor, childID: String,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool
+    ) async throws -> DJConnectAutomaticSurfaceChildRead {
+        guard let path = DJConnectAutomaticSurfaceRole.childStatePath(childID) else { throw DJConnectError.invalidResponse }
+        return try await automaticSurfaceQuery(path: path, scope: parent.scope, isCurrent: isCurrent) { transport, request, current in
+            try await transport.child(request, parent: parent, childID: childID, isCurrent: current)
+        }
+    }
+
+    /// Original hash-bound bytes, explicitly NOT signature-verified B authority.
+    @MainActor public func automaticSurfaceChildReceipt(
+        parent: DJConnectAutomaticSurfaceDescriptor, child: DJConnectAutomaticSurfaceChildState,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool
+    ) async throws -> DJConnectAutomaticSurfaceChildReceiptRead {
+        guard child.parent == parent.coordinate, child.outcome == .current,
+              let path = DJConnectAutomaticSurfaceRole.childReceiptPath(child.childID) else { throw DJConnectError.invalidResponse }
+        return try await automaticSurfaceQuery(path: path, scope: parent.scope, isCurrent: isCurrent) { transport, request, current in
+            try await transport.receipt(request, parent: parent, child: child, isCurrent: current)
+        }
+    }
+
+    @MainActor private func automaticSurfaceQuery<T: Sendable>(
+        path: String, scope: DJConnectAutomaticSurfaceScope,
+        isCurrent: @escaping @MainActor @Sendable () -> Bool,
+        read: @MainActor (DJConnectAutomaticSurfaceHTTP, URLRequest, @escaping @MainActor @Sendable () -> Bool) async throws -> T
+    ) async throws -> T {
         guard scope.deviceID == identity.deviceID, scope.clientType == identity.clientType.rawValue,
               isCurrent(), !Task.isCancelled else { throw CancellationError() }
         let originalToken = try loadedToken()
         _ = try makeDJConnectIdentity(deviceToken: originalToken)
-        var request = URLRequest(url: endpoint(path: role.statePath))
+        var request = URLRequest(url: endpoint(path: path))
         request.httpMethod = "GET"; request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer " + originalToken, forHTTPHeaderField: "Authorization")
         request.setValue(identity.deviceID, forHTTPHeaderField: "X-DJConnect-Device-ID")
@@ -2400,7 +2444,7 @@ public extension DJConnectClient {
         request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
         request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
         let transport = DJConnectAutomaticSurfaceHTTP(configuration: session.configuration)
-        return try await transport.read(request, role: role, scope: scope, isCurrent: {
+        return try await read(transport, request, {
             isCurrent() && (try? self.tokenStore.loadToken()) == originalToken
         })
     }
