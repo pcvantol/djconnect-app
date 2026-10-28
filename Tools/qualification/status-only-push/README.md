@@ -15,3 +15,18 @@ The new native type is `DJConnectRemotePlaybackStatusActivityAttributesV1`, sepa
 Generate outside the repository with `prepare_native_status_tests.py DEST --jose-checkout PINNED_JOSE --platform iOS` (or macOS). Run the generated `StatusOnly` scheme on an explicitly owned destination. The generator sets a private offscreen artifact directory under DEST; use the external Shared Data scratch root. Inspect the test results and five component PNGs. These are offscreen SwiftUI component renders, not installed Lock Screen, Island or WidgetKit acceptance.
 
 No ordinary build/version/install or Keychain operation is part of this preparation. Private candidate shape agreement must not activate a runtime factory or API profile.
+
+## Inactive shipping component integration
+
+`Sources/DJConnectCore/DJConnectStatusOnlySurface.swift` and
+`Sources/DJConnectUI/StatusOnlySurfaceView.swift` contain the separately named,
+inactive shipping-module versions. The historical prototype files above remain
+unchanged. The active widget bundle and native controller do not select the new
+configuration. This is not positive registration or delivery.
+
+`prepare_shipping_status_tests.py DEST --jose-checkout PINNED_JOSE --platform
+macOS` (or iOS) creates a separate offscreen render test target importing the
+actual Core/UI source directories. It excludes the Tools prototype codec/view;
+rendering is isolated from concurrent contract fixtures. Build the real app and
+widget-extension targets separately to establish their actual membership.
+Generated PNGs are component images, never Lock Screen, Island or APNs evidence.
