@@ -9081,3 +9081,42 @@ func sessionHistoryOwnerWithdrawalDuringPreflightCannotSendAfterGateRelease(_ ac
     #expect(!historyModel.containsHistoricalArtworkEntry(entry.reference, matching: { _ in true }))
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
 }
+
+@Test @MainActor func artworkReferenceIndexInvalidatesWhenAnAnswerIsUpdatedInPlace() async throws {
+    let original = try #require(historyObject()["later_historical_answer"] as? [String: Any])
+    let history = try historyData(original)
+    var response = original
+    var row = try #require((original["historical_matches"] as? [[String: Any]])?.first)
+    let old = try JSONDecoder().decode(DJConnectHistoryEntry.self, from: historyData(row))
+    row["entry_id"] = "synthetic-later-historical"; row.removeValue(forKey: "open_action")
+    let next = try JSONDecoder().decode(DJConnectHistoryEntry.self, from: historyData(row))
+    response["historical_matches"] = [row]; response["navigation_actions"] = []
+    response["history_revision"] = (original["history_revision"] as? Int ?? 0) + 1
+    func patch(_ message: [String: Any]) -> [String: Any] {
+        guard message["role"] as? String != "user" else { return message }
+        var message = message
+        message["historical_matches"] = [row]; message["navigation_actions"] = []
+        message["historical_entry_references"] = []
+        return message
+    }
+    response["messages"] = try #require(original["messages"] as? [[String: Any]]).map(patch)
+    response["assistant_message"] = patch(try #require(original["assistant_message"] as? [String: Any]))
+    let turn = try historyData(response)
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true},"contract_versions":{"session_conversation_history":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/ask_dj/message") { return (200, turn, 0) }
+        return (200, history, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.sessionHistory.suspend(); defaults.removePersistentDomain(forName: name) }
+    let historyModel = model.sessionHistory
+    await historyModel.prepare()
+    #expect(historyModel.containsHistoricalArtworkEntry(old.reference, matching: { $0.isRetained() }))
+    #expect(!historyModel.containsHistoricalArtworkEntry(next.reference, matching: { _ in true }))
+    _ = try await historyModel.sendExistingText("Synthetic history update", clientMessageID: "synthetic-index-update")
+    #expect(historyModel.containsHistoricalArtworkEntry(next.reference, matching: { $0.isRetained() }))
+    #expect(!historyModel.containsHistoricalArtworkEntry(old.reference, matching: { _ in true }))
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" || ($0.httpMethod == "POST" && $0.url!.path.hasSuffix("/ask_dj/message")) })
+}
