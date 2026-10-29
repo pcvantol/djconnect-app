@@ -292,5 +292,28 @@ private final class NativeOnceDatabase {
         let snapshot = try #require(await journal.status(request.operation))
         #expect(!snapshot.dispatchConsumed && !snapshot.terminalConsumed)
     }
+
+    @Test(arguments: [false, true])
+    func clearedCommittedFlagCannotAcknowledgeConsumptionOrRestoreAttempt(_ terminal: Bool) async throws {
+        let database = try NativeOnceDatabase(capacity: 1), journal = try database.journal()
+        let request = NativeOnceDatabase.request()
+        guard case .committed = await journal.reserve(request) else { Issue.record("reserve failed"); return }
+        let column = terminal ? "terminal_consumed" : "dispatch_consumed"
+        try database.sql("CREATE TRIGGER clear_consumed AFTER UPDATE OF \(column) ON native_status_operations WHEN NEW.\(column)=1 BEGIN UPDATE native_status_operations SET \(column)=0 WHERE operation_id=NEW.operation_id; END;")
+        let result = terminal ? await journal.consumeTerminal(request.operation) : await journal.consumeDispatch(request.operation)
+        #expect(result == .unknown(request.operation))
+        let unchanged = try #require(await journal.status(request.operation))
+        #expect(unchanged.request == request)
+        #expect(!unchanged.dispatchConsumed && !unchanged.terminalConsumed)
+        try database.sql("DROP TRIGGER clear_consumed")
+        let retry = terminal ? await journal.consumeTerminal(request.operation) : await journal.consumeDispatch(request.operation)
+        #expect(retry == .denied(.originalProcessReservationMissing))
+        #expect(await journal.reserve(NativeOnceDatabase.request()) == .denied(.capacity))
+        // The failed role cannot recreate credit or consume the other role.
+        let independent = terminal ? await journal.consumeDispatch(request.operation) : await journal.consumeTerminal(request.operation)
+        guard case .committed(let snapshot) = independent else { Issue.record("independent role lost"); return }
+        #expect(snapshot.dispatchConsumed == terminal && snapshot.terminalConsumed == !terminal)
+        #expect(await journal.reserve(NativeOnceDatabase.request()) == .denied(.capacity))
+    }
 }
 #endif

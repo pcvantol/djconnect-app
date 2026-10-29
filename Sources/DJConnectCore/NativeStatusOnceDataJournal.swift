@@ -141,7 +141,8 @@ actor NativeStatusOnceDataJournal {
             guard replyLoss != (terminal ? .terminal : .dispatch) else { return .unknown(operation) }
             do {
                 try connection.validate()
-                guard let current = try connection.snapshot(operation), current.request == original else { return .unknown(operation) }
+                guard let current = try connection.snapshot(operation), current.request == original,
+                      terminal ? current.terminalConsumed : current.dispatchConsumed else { return .unknown(operation) }
                 return .committed(current)
             } catch { return .unknown(operation, storageFailure: Self.storageCode(error)) }
         } catch Connection.Failure.sql(let code) {
