@@ -23,9 +23,10 @@ extension DJConnectAppModel {
                 $0.id == id && $0.sessionID == media.sessionID && $0.isRetained() && $0.sessionMedia == media
                     && (media.artwork.role != "captured_reply_subject" || $0.kind == .conversationDJ)
             }
-            // Short-circuit existing collections instead of copying every loaded
-            // timeline/search entry for each image on every scroll update.
-            return sessionHistory.timelines.values.contains { $0.entries.contains(where: matches) }
+            // Timelines are keyed by their validated session ID. Do not scan
+            // unrelated loaded sessions for every visible artwork check.
+            // Historical matches are keyed by answer, so retain their full scan.
+            return sessionHistory.timelines[media.sessionID]?.entries.contains(where: matches) == true
                 || sessionHistory.historicalMatches.values.contains { $0.contains(where: matches) }
                 || sessionHistory.searchMatches.contains(where: matches)
         }
