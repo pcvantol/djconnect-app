@@ -352,6 +352,8 @@ targets:
         buildPhase: resources
       - path: Tests/Fixtures/rendezvous-fixed-qa-wire-3b43332.json
         buildPhase: resources
+      - path: Tests/Fixtures/native-status-once-data-test-schema-v1.sql
+        buildPhase: resources
     dependencies:
       - target: DJConnectCoreMac
       - target: DJConnectUIMac

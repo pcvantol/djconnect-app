@@ -5,6 +5,8 @@ import SQLite3
 import Darwin
 @testable import DJConnectCore
 
+private final class NativeOnceFixtureBundleAnchor: NSObject {}
+
 private final class NativeOnceDatabase {
     let folder: URL
     let path: URL
@@ -25,7 +27,13 @@ private final class NativeOnceDatabase {
         // Explicit fresh disposable TEST bootstrap only; product source has none.
         let fd = open(path.path, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW, mode_t(0o600))
         try #require(fd >= 0); close(fd)
-        let schema = try #require(Bundle.module.url(forResource: "native-status-once-data-test-schema-v1", withExtension: "sql", subdirectory: "Fixtures"))
+        #if SWIFT_PACKAGE
+        let bundle = Bundle.module
+        #else
+        let bundle = Bundle(for: NativeOnceFixtureBundleAnchor.self)
+        #endif
+        let schema = try #require(bundle.url(forResource: "native-status-once-data-test-schema-v1", withExtension: "sql", subdirectory: "Fixtures")
+            ?? bundle.url(forResource: "native-status-once-data-test-schema-v1", withExtension: "sql"))
         try sql(String(contentsOf: schema, encoding: .utf8))
         try sql("INSERT INTO native_status_root VALUES(1,1,'\(storeID.uuidString.lowercased())',\(capacity))")
     }
