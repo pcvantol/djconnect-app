@@ -30,3 +30,13 @@ actual Core/UI source directories. It excludes the Tools prototype codec/view;
 rendering is isolated from concurrent contract fixtures. Build the real app and
 widget-extension targets separately to establish their actual membership.
 Generated PNGs are component images, never Lock Screen, Island or APNs evidence.
+
+The shipping render tests also contain iOS-only checks of the actual
+`DJConnectRemotePlaybackStatusActivityAttributesV1.ContentState` alias and
+native default decoding, all four active playback values, exact two-field
+attributes, mismatched generations, legacy separation and explicit ended null.
+A native-idiom component records its original observation and iPhone/iPad image
+geometry. These tests do not call Activity request/update/end or token APIs;
+iPad component success does not admit an iPad status-activity transport role.
+Use a separate generated project/artifact directory per device to retain each
+result and PNG set. Simulator receipt is not proof of OS surface or APNs delivery.
