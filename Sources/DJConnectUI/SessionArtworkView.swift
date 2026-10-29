@@ -25,10 +25,8 @@ extension DJConnectAppModel {
             }
             // Timelines are keyed by their validated session ID. Do not scan
             // unrelated loaded sessions for every visible artwork check.
-            // Historical matches are keyed by answer, so retain their full scan.
             return sessionHistory.timelines[media.sessionID]?.entries.contains(where: matches) == true
-                || sessionHistory.historicalMatches.values.contains { $0.contains(where: matches) }
-                || sessionHistory.searchMatches.contains(where: matches)
+                || sessionHistory.containsHistoricalArtworkEntry(.init(sessionID: media.sessionID, entryID: id), matching: matches)
         }
     }
 

@@ -2,6 +2,33 @@ import Foundation
 import Combine
 import DJConnectCore
 
+/// Ephemeral row positions only. Always resolve the current source row and
+/// evaluate the caller's current retention/media checks; never cache admission.
+struct SessionHistoryEntryIndex<Source: Hashable> {
+    private struct Position {
+        let source: Source
+        let offset: Int
+    }
+    private var positions: [DJConnectSessionEntryReference: [Position]] = [:]
+
+    init(_ sources: [Source: [DJConnectHistoryEntry]]) {
+        for (source, rows) in sources {
+            for (offset, row) in rows.enumerated() {
+                positions[row.reference, default: []].append(.init(source: source, offset: offset))
+            }
+        }
+    }
+
+    func contains(_ reference: DJConnectSessionEntryReference,
+                  entryAt: (Source, Int) -> DJConnectHistoryEntry?,
+                  matching predicate: (DJConnectHistoryEntry) -> Bool) -> Bool {
+        (positions[reference] ?? []).contains { position in
+            guard let row = entryAt(position.source, position.offset), row.reference == reference else { return false }
+            return predicate(row)
+        }
+    }
+}
+
 /// In-memory presentation state, owned by the existing Apple application model.
 /// Entry identity, ordering, rights, search and conversation context remain Core-owned.
 @MainActor
@@ -221,12 +248,32 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     @Published public private(set) var listNextCursor: String?
     @Published public private(set) var timelines: [String: Timeline] = [:]
     private var conversationMessageContexts: [String: DJConnectConversationContext] = [:]
-    @Published public private(set) var historicalMatches: [String: [DJConnectHistoryEntry]] = [:]
+    @Published public private(set) var historicalMatches: [String: [DJConnectHistoryEntry]] = [:] {
+        didSet { historicalArtworkIndex = nil }
+    }
     @Published public private(set) var pendingTurns: [PendingTurn] = []
     @Published public var selectedEntry: DJConnectSessionEntryReference?
     @Published public var openTarget: DJConnectSessionEntryReference?
     @Published public private(set) var navigationErrorKey: String?
-    @Published public private(set) var searchMatches: [DJConnectHistoryEntry] = []
+    @Published public private(set) var searchMatches: [DJConnectHistoryEntry] = [] {
+        didSet { searchArtworkIndex = nil }
+    }
+    private var historicalArtworkIndex: SessionHistoryEntryIndex<String>?
+    private var searchArtworkIndex: SessionHistoryEntryIndex<Int>?
+
+    func containsHistoricalArtworkEntry(_ reference: DJConnectSessionEntryReference,
+                                       matching predicate: (DJConnectHistoryEntry) -> Bool) -> Bool {
+        if historicalArtworkIndex == nil { historicalArtworkIndex = .init(historicalMatches) }
+        if historicalArtworkIndex?.contains(reference, entryAt: { source, offset in
+            guard let rows = historicalMatches[source], rows.indices.contains(offset) else { return nil }
+            return rows[offset]
+        }, matching: predicate) == true { return true }
+        if searchArtworkIndex == nil { searchArtworkIndex = .init([0: searchMatches]) }
+        return searchArtworkIndex?.contains(reference, entryAt: { _, offset in
+            guard searchMatches.indices.contains(offset) else { return nil }
+            return searchMatches[offset]
+        }, matching: predicate) == true
+    }
     @Published public private(set) var searchLoading = false
     @Published public private(set) var searchErrorKey: String?
     @Published public private(set) var searchComplete = false
