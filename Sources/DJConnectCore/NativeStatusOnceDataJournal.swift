@@ -40,8 +40,8 @@ actor NativeStatusOnceDataJournal {
 
     private let connection: Connection
     private let replyLoss: ReplyLoss
-    private var reservations = Set<UUID>()
-    private var terminals = Set<UUID>()
+    private var reservations: [UUID: Request] = [:]
+    private var terminals: [UUID: Request] = [:]
     private var dispatchAttempts = Set<UUID>()
     private var terminalAttempts = Set<UUID>()
     private var withdrawn = false
@@ -87,8 +87,14 @@ actor NativeStatusOnceDataJournal {
             do { try connection.commit() }
             catch { return .unknown(request.operation, storageFailure: Self.storageCode(error)) }
             guard replyLoss != .reserve else { return .unknown(request.operation) }
-            reservations.insert(request.operation); terminals.insert(request.terminalOperation)
-            return .committed(.init(request: request, dispatchConsumed: false, terminalConsumed: false))
+            do {
+                try connection.validate()
+                let expected = Snapshot(request: request, dispatchConsumed: false, terminalConsumed: false)
+                guard try connection.snapshot(request.operation) == expected else { return .unknown(request.operation) }
+                reservations[request.operation] = request
+                terminals[request.operation] = request
+                return .committed(expected)
+            } catch { return .unknown(request.operation, storageFailure: Self.storageCode(error)) }
         } catch Connection.Failure.sql(let code) {
             try? connection.rollback()
             return .denied(.transaction(code))
@@ -114,20 +120,28 @@ actor NativeStatusOnceDataJournal {
             try connection.validate()
             guard let old = try connection.snapshot(operation) else { return .denied(.invalid) }
             if terminal ? old.terminalConsumed : old.dispatchConsumed { return .alreadyRecorded(old) }
-            let original = terminal ? terminals.contains(old.request.terminalOperation) : reservations.contains(operation)
+            let original = terminal ? terminals[operation] : reservations[operation]
             let attempted = terminal ? terminalAttempts.contains(operation) : dispatchAttempts.contains(operation)
-            guard original, !attempted else { return .denied(.originalProcessReservationMissing) }
+            guard let original, !attempted else { return .denied(.originalProcessReservationMissing) }
             // Latch before beginning the transaction. Even a definitive denial
             // cannot free prior P1 capacity or make a new same-process attempt.
             if terminal { terminalAttempts.insert(operation) } else { dispatchAttempts.insert(operation) }
+            // Retain the complete original binding. Observing a different valid
+            // row spends this attempt too; restoring old SQL cannot revive it.
+            guard old.request == original else { return .denied(.conflict) }
             try connection.begin()
+            // Another connection could change metadata before BEGIN IMMEDIATE.
+            // Compare again while the write transaction holds serialization.
+            guard let locked = try connection.snapshot(operation), locked.request == original else {
+                try connection.rollback(); return .denied(.conflict)
+            }
             try connection.markConsumed(operation, terminal: terminal)
             do { try connection.commit() }
             catch { return .unknown(operation, storageFailure: Self.storageCode(error)) }
             guard replyLoss != (terminal ? .terminal : .dispatch) else { return .unknown(operation) }
             do {
                 try connection.validate()
-                guard let current = try connection.snapshot(operation) else { return .unknown(operation) }
+                guard let current = try connection.snapshot(operation), current.request == original else { return .unknown(operation) }
                 return .committed(current)
             } catch { return .unknown(operation, storageFailure: Self.storageCode(error)) }
         } catch Connection.Failure.sql(let code) {
@@ -177,8 +191,8 @@ actor NativeStatusOnceDataJournal {
             db = handle
             do {
                 try execute("PRAGMA trusted_schema=OFF; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL; PRAGMA fullfsync=ON;")
-                guard try string("PRAGMA journal_mode") == "wal", try string("PRAGMA synchronous") == "2",
-                      try string("PRAGMA fullfsync") == "1" else { throw Failure.unavailable }
+                guard try string("PRAGMA journal_mode") == "wal", try integer("PRAGMA synchronous") == 2,
+                      try integer("PRAGMA fullfsync") == 1 else { throw Failure.unavailable }
                 try validate()
             } catch { sqlite3_close(handle); closed = true; throw error }
         }
@@ -209,7 +223,7 @@ actor NativeStatusOnceDataJournal {
             let statement = try prepare("SELECT schema_version, store_id, capacity FROM native_status_root WHERE singleton=1")
             defer { sqlite3_finalize(statement) }
             guard sqlite3_step(statement) == SQLITE_ROW, sqlite3_column_type(statement, 0) == SQLITE_INTEGER,
-                  sqlite3_column_type(statement, 2) == SQLITE_INTEGER, sqlite3_column_int(statement, 0) == 1,
+                  sqlite3_column_type(statement, 2) == SQLITE_INTEGER, sqlite3_column_int64(statement, 0) == 1,
                   text(statement, 1) == storeID.uuidString.lowercased(), sqlite3_column_int64(statement, 2) == Int64(capacity),
                   sqlite3_step(statement) == SQLITE_DONE else { throw Failure.unavailable }
             let roles = try prepare("SELECT id,kind,reservation_operation_id FROM native_status_operation_ids LIMIT 0")
@@ -223,7 +237,11 @@ actor NativeStatusOnceDataJournal {
             do { try validate(); try execute("COMMIT") }
             catch { poisoned = true; try? rollback(); throw error }
         }
-        func count() throws -> Int { Int(try string("SELECT COUNT(*) FROM native_status_operations")) ?? capacity }
+        func count() throws -> Int {
+            let value = try integer("SELECT COUNT(*) FROM native_status_operations")
+            guard value >= 0, let count = Int(exactly: value) else { throw Failure.unavailable }
+            return count
+        }
         func execute(_ sql: String) throws {
             guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else { throw Failure.sql(sqlite3_extended_errcode(db)) }
         }
@@ -237,8 +255,21 @@ actor NativeStatusOnceDataJournal {
             guard sqlite3_step(statement) == SQLITE_ROW, let value = text(statement, 0) else { throw Failure.sql(sqlite3_extended_errcode(db)) }
             return value
         }
+        private func integer(_ sql: String) throws -> Int64 {
+            let statement = try prepare(sql); defer { sqlite3_finalize(statement) }
+            guard sqlite3_step(statement) == SQLITE_ROW else { throw Failure.sql(sqlite3_extended_errcode(db)) }
+            guard sqlite3_column_type(statement, 0) == SQLITE_INTEGER else { throw Failure.unavailable }
+            return sqlite3_column_int64(statement, 0)
+        }
         private func text(_ statement: OpaquePointer, _ column: Int32) -> String? {
-            sqlite3_column_text(statement, column).map { String(cString: $0) }
+            // Only closed UUID/literal cells use this helper. Never coerce BLOB
+            // or numeric cells to text, truncate at NUL or decode invalid UTF8.
+            guard sqlite3_column_type(statement, column) == SQLITE_TEXT else { return nil }
+            let count = Int(sqlite3_column_bytes(statement, column))
+            guard (1...36).contains(count), let bytes = sqlite3_column_text(statement, column) else { return nil }
+            let data = Data(bytes: bytes, count: count)
+            guard !data.contains(0) else { return nil }
+            return String(data: data, encoding: .utf8)
         }
         private func uuid(_ statement: OpaquePointer, _ column: Int32) -> UUID? {
             guard let raw = text(statement, column), let value = UUID(uuidString: raw),
@@ -288,7 +319,7 @@ actor NativeStatusOnceDataJournal {
                   sqlite3_column_type(statement, 6) == SQLITE_INTEGER else { throw Failure.unavailable }
             let request = Request(operation: operation, decision: decision, presentation: presentation,
                                   presentationGeneration: generation, binding: Data(bytes: bytes, count: 32), terminalOperation: terminal)
-            let dispatch = sqlite3_column_int(statement, 5), negative = sqlite3_column_int(statement, 6)
+            let dispatch = sqlite3_column_int64(statement, 5), negative = sqlite3_column_int64(statement, 6)
             guard request.valid, [0,1].contains(dispatch), [0,1].contains(negative) else { throw Failure.unavailable }
             let roles = try prepare("SELECT id,kind FROM native_status_operation_ids WHERE reservation_operation_id=?")
             defer { sqlite3_finalize(roles) }; try bind(operation, to: roles, at: 1)

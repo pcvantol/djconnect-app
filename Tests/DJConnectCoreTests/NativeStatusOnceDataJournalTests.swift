@@ -14,7 +14,12 @@ private final class NativeOnceDatabase {
         self.capacity = capacity
         let root = ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_SQLITE_TEST_ROOT"].map { URL(fileURLWithPath: $0) }
             ?? FileManager.default.temporaryDirectory
-        folder = root.resolvingSymlinksInPath().appendingPathComponent("native-status-data-tests-" + UUID().uuidString)
+        // SQLite NOFOLLOW also rejects symlinked parent components. Darwin's
+        // default /var temporary URL can survive Foundation URL normalization;
+        // resolve the existing test root through the filesystem itself.
+        let resolved = try #require(realpath(root.path, nil))
+        defer { free(resolved) }
+        folder = URL(fileURLWithPath: String(cString: resolved)).appendingPathComponent("native-status-data-tests-" + UUID().uuidString)
         path = folder.appendingPathComponent("existing.sqlite3")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         // Explicit fresh disposable TEST bootstrap only; product source has none.
@@ -190,6 +195,102 @@ private final class NativeOnceDatabase {
         guard case .committed = await journal.reserve(request) else { Issue.record("typed metadata rejected"); return }
         guard case .committed = await journal.consumeDispatch(id) else { Issue.record("consume failed"); return }
         guard case .alreadyRecorded = await journal.consumeDispatch(id) else { Issue.record("duplicate was not retained"); return }
+    }
+
+    @Test(arguments: ["schema_version", "dispatch_consumed", "terminal_consumed"])
+    func fullWidthSQLiteIntegersCannotAliasAcceptedVersionOrFlags(_ column: String) async throws {
+        let database = try NativeOnceDatabase(), journal = try database.journal()
+        let request = NativeOnceDatabase.request()
+        guard case .committed = await journal.reserve(request) else { Issue.record("reserve failed"); return }
+        if column == "schema_version" {
+            try database.sql("PRAGMA ignore_check_constraints=ON; UPDATE native_status_root SET schema_version=4294967297")
+            #expect(throws: (any Error).self) { try database.journal() }
+        } else {
+            try database.sql("PRAGMA ignore_check_constraints=ON; UPDATE native_status_operations SET \(column)=4294967296")
+            var rejected = false
+            do { _ = try await journal.status(request.operation) } catch { rejected = true }
+            #expect(rejected)
+        }
+    }
+
+    @Test(arguments: ["store_nul", "decision_nul", "role_nul", "kind_nul", "kind_invalid_utf8", "store_blob"])
+    func identityTextRejectsEmbeddedNULAndNonTextCells(_ mutation: String) async throws {
+        let database = try NativeOnceDatabase(), journal = try database.journal()
+        let request = NativeOnceDatabase.request()
+        guard case .committed = await journal.reserve(request) else { Issue.record("reserve failed"); return }
+        switch mutation {
+        case "store_nul": try database.sql("UPDATE native_status_root SET store_id=store_id||char(0)||'suffix'")
+        case "decision_nul": try database.sql("UPDATE native_status_operations SET decision_id=decision_id||char(0)||'suffix'")
+        case "role_nul": try database.sql("UPDATE native_status_operation_ids SET id=id||char(0)||'suffix'")
+        case "kind_nul": try database.sql("PRAGMA ignore_check_constraints=ON; UPDATE native_status_operation_ids SET kind=kind||char(0)||'suffix'")
+        case "kind_invalid_utf8": try database.sql("PRAGMA ignore_check_constraints=ON; UPDATE native_status_operation_ids SET kind=CAST(x'80' AS TEXT) WHERE kind='dispatch'")
+        default: try database.sql("UPDATE native_status_root SET store_id=CAST(store_id AS BLOB)")
+        }
+        var rejected = false
+        do { _ = try await journal.status(request.operation) } catch { rejected = true }
+        #expect(rejected)
+    }
+
+    @Test(arguments: ["binding", "decision_id", "presentation_id", "presentation_generation", "terminal_operation_id"], [false, true])
+    func processReservationRetainsItsOriginalImmutableRequest(_ column: String, _ terminal: Bool) async throws {
+        let database = try NativeOnceDatabase(), journal = try database.journal()
+        let request = NativeOnceDatabase.request()
+        guard case .committed = await journal.reserve(request) else { Issue.record("reserve failed"); return }
+        let changed = column == "binding" ? "zeroblob(32)" : "'\(UUID().uuidString.lowercased())'"
+        try database.sql("UPDATE native_status_operations SET \(column)=\(changed)")
+        if column == "terminal_operation_id" {
+            try database.sql("UPDATE native_status_operation_ids SET id=\(changed) WHERE kind='terminal'")
+        }
+        let rejected = terminal ? await journal.consumeTerminal(request.operation) : await journal.consumeDispatch(request.operation)
+        #expect(rejected == .denied(.conflict))
+        let original: String
+        switch column {
+        case "binding": original = "x'" + request.binding.map { String(format: "%02x", $0) }.joined() + "'"
+        case "decision_id": original = "'\(request.decision.uuidString.lowercased())'"
+        case "presentation_id": original = "'\(request.presentation.uuidString.lowercased())'"
+        case "presentation_generation": original = "'\(request.presentationGeneration.uuidString.lowercased())'"
+        default: original = "'\(request.terminalOperation.uuidString.lowercased())'"
+        }
+        try database.sql("UPDATE native_status_operations SET \(column)=\(original)")
+        if column == "terminal_operation_id" {
+            try database.sql("UPDATE native_status_operation_ids SET id=\(original) WHERE kind='terminal'")
+        }
+        let retry = terminal ? await journal.consumeTerminal(request.operation) : await journal.consumeDispatch(request.operation)
+        #expect(retry == .denied(.originalProcessReservationMissing))
+        let snapshot = try #require(await journal.status(request.operation))
+        #expect(!snapshot.dispatchConsumed && !snapshot.terminalConsumed)
+    }
+
+    @Test(arguments: [false, true])
+    func changedCommittedBindingCannotReturnPositiveAcknowledgement(_ terminal: Bool) async throws {
+        let database = try NativeOnceDatabase(), journal = try database.journal()
+        let request = NativeOnceDatabase.request()
+        guard case .committed = await journal.reserve(request) else { Issue.record("reserve failed"); return }
+        let column = terminal ? "terminal_consumed" : "dispatch_consumed"
+        try database.sql("CREATE TRIGGER change_binding AFTER UPDATE OF \(column) ON native_status_operations BEGIN UPDATE native_status_operations SET binding=zeroblob(32) WHERE operation_id=NEW.operation_id; END;")
+        let result = terminal ? await journal.consumeTerminal(request.operation) : await journal.consumeDispatch(request.operation)
+        #expect(result == .unknown(request.operation))
+        try database.sql("DROP TRIGGER change_binding")
+        let original = request.binding.map { String(format: "%02x", $0) }.joined()
+        try database.sql("UPDATE native_status_operations SET binding=x'\(original)'")
+        let snapshot = try #require(await journal.status(request.operation))
+        #expect(snapshot.dispatchConsumed == !terminal && snapshot.terminalConsumed == terminal)
+        let retry = terminal ? await journal.consumeTerminal(request.operation) : await journal.consumeDispatch(request.operation)
+        #expect(retry == .alreadyRecorded(snapshot))
+    }
+
+    @Test func changedReserveReadbackCannotMintOriginalProcessReservation() async throws {
+        let database = try NativeOnceDatabase(), journal = try database.journal()
+        let request = NativeOnceDatabase.request()
+        try database.sql("CREATE TRIGGER change_reserve AFTER INSERT ON native_status_operations BEGIN UPDATE native_status_operations SET binding=zeroblob(32) WHERE operation_id=NEW.operation_id; END;")
+        #expect(await journal.reserve(request) == .unknown(request.operation))
+        try database.sql("DROP TRIGGER change_reserve")
+        let original = request.binding.map { String(format: "%02x", $0) }.joined()
+        try database.sql("UPDATE native_status_operations SET binding=x'\(original)'")
+        #expect(await journal.consumeDispatch(request.operation) == .denied(.originalProcessReservationMissing))
+        #expect(await journal.consumeTerminal(request.operation) == .denied(.originalProcessReservationMissing))
+        let snapshot = try #require(await journal.status(request.operation))
+        #expect(!snapshot.dispatchConsumed && !snapshot.terminalConsumed)
     }
 }
 #endif
