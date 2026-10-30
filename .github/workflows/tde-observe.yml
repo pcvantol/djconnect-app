@@ -73,13 +73,19 @@ jobs:
           tde --version | tee tde-observe/runtime-version.txt
 
           set +e
-          tde --format json --profile standard assess . > tde-observe/assessment.json
+          tde --format json --profile standard assess . > tde-observe/assessment.json 2> tde-observe/assessment.stderr.txt
           assessment_exit="$?"
           tde --format json \
             --repository-definition .github/tde/repository-definition.json \
-            qualify . > tde-observe/qualification.json
+            qualify . > tde-observe/qualification.json 2> tde-observe/qualification.stderr.txt
           qualification_exit="$?"
           set -e
+          printf '%s\n' "$assessment_exit" > tde-observe/assessment.exit
+          printf '%s\n' "$qualification_exit" > tde-observe/qualification.exit
+          cat tde-observe/assessment.stderr.txt >&2
+          cat tde-observe/qualification.stderr.txt >&2
+          blocked="$(python3.14 Tools/qualification/tde_observe_diagnostics.py detect tde-observe)"
+          echo "blocked=$blocked" >> "$GITHUB_OUTPUT"
 
           completed_seconds="$(date +%s)"
           duration_seconds="$((completed_seconds - started_seconds))"
@@ -101,6 +107,22 @@ jobs:
             echo "- Started: ${started_at}"
             echo "- Evidence artifact: \`tde-observe-evidence\`"
           } | tee tde-observe/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Capture supplemental BLOCKED diagnostic (NOT QUALIFIED)
+        if: steps.tde.outputs.blocked == 'true'
+        continue-on-error: true
+        run: |
+          "$RUNNER_TEMP/tde-venv/bin/python" Tools/qualification/tde_observe_diagnostics.py capture \
+            "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/tde-observe" "$RUNNER_TEMP/tde-observe-diagnostic"
+
+      - name: Publish supplemental diagnostic (NOT QUALIFIED)
+        if: always() && steps.tde.outputs.blocked == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tde-observe-diagnostic-NOT-QUALIFIED
+          path: ${{ runner.temp }}/tde-observe-diagnostic/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Publish TDE observe evidence
         if: always()
