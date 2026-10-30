@@ -354,6 +354,8 @@ targets:
         buildPhase: resources
       - path: Tests/Fixtures/native-status-once-data-test-schema-v1.sql
         buildPhase: resources
+      - path: Tests/Fixtures/rich-surface-original-encoder-v1.json
+        buildPhase: resources
     dependencies:
       - target: DJConnectCoreMac
       - target: DJConnectUIMac
