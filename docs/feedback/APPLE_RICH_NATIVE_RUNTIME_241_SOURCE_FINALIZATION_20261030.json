@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "decision": "ORIGINAL_QUALIFIED_BOUNDED_SOURCE241",
+  "scope": "Existing foreground Session cache/native invocation guards, accepted-ingress liveness and short update transition; separate documentary Final, not complete push acceptance.",
+  "branch": "codex/apple-rich-native-custody-20261030",
+  "source_pr": 241,
+  "source_delivery": {
+    "source_pr": 241,
+    "candidate": "978c863bccd8cb99dbe35120ca7bae1e340b6b3a",
+    "main": "5e32917e90c29f09142e1ef4ee20f9129578c85c",
+    "tree": "00af26d18dc74fb40bdd2a59eb891a1ec2f3a378",
+    "reviewed_and_merged_tree_equal": true,
+    "main_CI_run": 41059471748,
+    "formal_run": 41061160201,
+    "original_run_attempts": 1,
+    "formal_decision": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+    "formal_digest": "0fc4bee2c038cdf4382b111c4a744e7e52d998db484a47eaf8b365b047912502",
+    "formal_findings": [],
+    "formal_raw_sha256": "784445328a7bf68238013220d5f1513ea39057a39d2ec89b97e1ee796a977c4b",
+    "formal_original_artifact_id": 12979470959,
+    "formal_original_ZIP_actual_provider_sha256": "e6b930050c2ba8f8e910527f2c1b777b4665d4dbd5426275d8e99d5faaaa1121",
+    "formal_raw_joined_to_original_ZIP": true,
+    "durable_asset_id": 692166542,
+    "durable_actual_and_provider_sha256": "311acde9c255886bf854fcaa745475a1b45680831a44879e720f1fec427fd43d",
+    "durable_inner_integrity_verified": true,
+    "all12_required_checks": {
+      "post_merge_build_validation": "PASS",
+      "post_merge_ci": "PASS",
+      "post_merge_coverage": "PASS",
+      "post_merge_governance": "PASS",
+      "post_merge_lint": "PASS",
+      "post_merge_static_analysis": "PASS",
+      "post_merge_tests": "PASS",
+      "required_checks": "PASS",
+      "software_assurance": "PASS",
+      "trusted_delivery": "PASS",
+      "verification": "PASS",
+      "workflow_integrity": "PASS"
+    },
+    "review_sha256": "de1a7d58863b3e92098bee01d67181b0ef47c791a61b1ff310153f53c342b367",
+    "scope": "Existing foreground Session cache/native invocation guard and transition source only; no original successor permission, cross-domain rate or operational push acceptance"
+  },
+  "source_policy_and_coverage": {
+    "scope": "Original exact-policy deterministic validation and own coverage binding; not independent reviewer closure or native acceptance.",
+    "source_pr": 241,
+    "candidate": "978c863bccd8cb99dbe35120ca7bae1e340b6b3a",
+    "main": "5e32917e90c29f09142e1ef4ee20f9129578c85c",
+    "original_qualification_receipt_sha256": "012d56cbb2b533e7fa5856882076b0b03f17d17d0e3f5bedf8ff09d852bf855b",
+    "policy_ref": "ebbb35f038a7a3c7d46c12660968bcd50eb67580",
+    "policy_sha256": "2419a355e1fb6b85448d362681c061470d59d45936b06f2b9a6249278351a449",
+    "policy_validation_findings": [],
+    "original_coverage": {
+      "main": "5e32917e90c29f09142e1ef4ee20f9129578c85c",
+      "own_main_run": 41059471748,
+      "artifact_id": 12977658616,
+      "actual_and_provider_zip_sha256": "5e1581d3efd551eafdae13448f5fa34cdb8df61c3d06e2fbbe37d18fca3bdae1",
+      "members": {
+        "coverage.json": {
+          "bytes": 3424218,
+          "sha256": "a77d5aa2ddb5e25f34b6732483fc5df36355b56c7ec5145b2114daaabf285b2e"
+        },
+        "coverage-main-sha.txt": {
+          "bytes": 41,
+          "sha256": "b06021cf1a6a15ef0bc6e0b125f7da80961902540e404aac7e09c5f688020dc3"
+        }
+      },
+      "selected_native_runtime_coverage": [
+        {
+          "name": "DJConnectRichSurfaceFieldGuard.swift",
+          "coveredLines": 42,
+          "executableLines": 43
+        },
+        {
+          "name": "DJConnectNativeSurfaceClockCapture.swift",
+          "coveredLines": 54,
+          "executableLines": 54
+        },
+        {
+          "name": "SessionSurfaceNativeCustody.swift",
+          "coveredLines": 78,
+          "executableLines": 83
+        },
+        {
+          "name": "PassiveSessionSurfaceModel.swift",
+          "coveredLines": 422,
+          "executableLines": 436
+        },
+        {
+          "name": "DJConnectAppModel.swift",
+          "coveredLines": 11408,
+          "executableLines": 17771
+        }
+      ],
+      "scope": "Own original selected native Core/UI runtime coverage; iOS-only SDK and widget animation are not covered by Mac target, no physical/provider/push acceptance."
+    },
+    "native_coverage_limit": "Own Source241 selected native runtime coverage; not successor permission, cross-domain rate, iOS-only SDK/provider/push or OS animation acceptance."
+  },
+  "independent_source_review_sha256": "de1a7d58863b3e92098bee01d67181b0ef47c791a61b1ff310153f53c342b367",
+  "independent_original_closure": {
+    "at": "2026-10-30T13:16:12.693105+00:00",
+    "verdict": "ORIGINAL_SOURCE_QUALIFIED",
+    "source_pr": 241,
+    "reviewed": "978c863bccd8cb99dbe35120ca7bae1e340b6b3a",
+    "protected": "5e32917e90c29f09142e1ef4ee20f9129578c85c",
+    "tree": "00af26d18dc74fb40bdd2a59eb891a1ec2f3a378",
+    "packet_sha256": "267f7243dcf545f4dc4703daf1ae9e03225fd2a08742d47493737b38db3845b6",
+    "checks": {
+      "all_16_packet_hashes": "MATCH",
+      "git_reviewed_protected_tree_and_parent": "MATCH",
+      "live_original_runs": [
+        {
+          "id": 41059471748,
+          "head_sha": "5e32917e90c29f09142e1ef4ee20f9129578c85c",
+          "status": "completed",
+          "conclusion": "success",
+          "run_attempt": 1
+        },
+        {
+          "id": 41061160201,
+          "head_sha": "5e32917e90c29f09142e1ef4ee20f9129578c85c",
+          "status": "completed",
+          "conclusion": "success",
+          "run_attempt": 1
+        }
+      ],
+      "own_main_jobs": [
+        {
+          "name": "Post-merge coverage evidence",
+          "conclusion": "success"
+        },
+        {
+          "name": "CI",
+          "conclusion": "success"
+        },
+        {
+          "name": "Software Assurance governance / Validate canonical governance policy",
+          "conclusion": "success"
+        },
+        {
+          "name": "Cleanup old workflow runs",
+          "conclusion": "success"
+        }
+      ],
+      "live_provider_formal_coverage_durable_digests": "MATCH",
+      "formal_inner_canonical_digest": "0fc4bee2c038cdf4382b111c4a744e7e52d998db484a47eaf8b365b047912502",
+      "exact_archived_canonical_policy_findings": [],
+      "durable_all_12_checks": "PASS",
+      "own_coverage_marker_and_zip_members": "MATCH"
+    },
+    "scope": "Original Source241 engineering delivery only. Separate Final required. No installation, successor permission, signer/key custody, authenticated successor wire, numeric cross-domain rate, provider or native/OS/device acceptance."
+  },
+  "independent_original_closure_sha256": "e191e8aa15d4eb4daf7b3f41cb530669dd2a33e95f302697999e7d9f4a77c167",
+  "validation": {
+    "swift_functions": 1413,
+    "swift_suites": 36,
+    "native_mac_passed": 1480,
+    "native_mac_skipped": 19,
+    "native_mac_failed": 0,
+    "targeted_functions": 24,
+    "targeted_limit": "19 actual custody/registry/client-route functions and five unchanged recovery regressions with isolated synthetic input/inert observers; not HA/native SDK acceptance.",
+    "iOS_widget_watch_compilation": "ios-build-r10 actual0",
+    "causal_limit": "Original four identical old-model tests fail with nine issues; no fabricated old-head or SDK acceptance for the newer routing cases.",
+    "os_animation_or_physical_push": "NOT_CLAIMED"
+  },
+  "implemented": [
+    "Original pre-await native capture, exact local counter arithmetic and unsupported rate/restore remain explicit.",
+    "Original cache pins survive artwork and identical/as_of-only reads; actual last-use cache/render/SDK fences.",
+    "Current negative retirement, strict owner/frame/queue lifecycle, original warm background retention without cached-only restart.",
+    "Only accepted HTTP or actually applied current-generation WS progress can mark positive Session liveness; local clear/duplicate/stale/denied/subscription-only cannot renew.",
+    "Exact-object native retirement frees live capacity without reviving retained references or evicting valid/stale handles.",
+    "0.75-second track/palette background transition, static for Reduce Motion/reduced luminance/stale."
+  ],
+  "remaining": [
+    "Actual original rich-start/read permission and independently authenticated successor receiving/artwork wire are not implemented by these foreground guards.",
+    "Qualified server/client lower-rate/suspend mapping and cold restore remain closed; actual native capture and integer math do not invent rho.",
+    "New background-role/native enrollment, original prepared-byte artwork association and provider/OS/device delivery need their own integration and acceptance.",
+    "No second status-only widget/Activity or user setting; one rich Session surface per platform remains the product target."
+  ],
+  "this_documentary_final": "Requires own exact review, normal CI/protected merge and original qualification. Source241 receipts do not qualify this Final.",
+  "compiled_inputs_preserved": 678,
+  "record_preservation": "All prior IDs/statuses/counts/evidence/remaining prefixes preserved; no other open lane task closed.",
+  "compiled_inputs_definition": "678 tracked paths excluding docs/ and files ending in .md; all unchanged. The complete tracked tree outside docs/ contains 726 identical entries.",
+  "all_tracked_entries_outside_docs_preserved": 726
+}
