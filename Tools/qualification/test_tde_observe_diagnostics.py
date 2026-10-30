@@ -61,6 +61,21 @@ class ObserveDiagnosticTests(unittest.TestCase):
             self.assertEqual((root / "github-output").read_text(), "blocked=true\n")
             self.assertIn("Assessment decision: unavailable", (output / "summary.md").read_text())
 
+            # The canonical assessment decision alone must trigger diagnostics,
+            # even when qualification is unavailable and validation is not BLOCKED.
+            canonical = b'{"evidence":{"assessmentDecision":{"decision":"BLOCKED"},"assessment":{"executedCapabilities":[]}}}\n'
+            unavailable = b'{"status":"unavailable"}\n'
+            fake.write_text(fake.read_text().replace(repr(assessment), repr(canonical)).replace(repr(qualification), repr(unavailable)))
+            (root / "github-output").unlink()
+            result = subprocess.run(["bash", "-c", shell], cwd=root, env=env, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((output / "assessment.json").read_bytes(), canonical)
+            self.assertEqual((output / "qualification.json").read_bytes(), unavailable)
+            self.assertEqual((output / "assessment.exit").read_bytes(), b"3\n")
+            self.assertEqual((output / "qualification.exit").read_bytes(), b"7\n")
+            self.assertEqual((root / "github-output").read_text(), "blocked=true\n")
+            self.assertIn("Assessment decision: BLOCKED", (output / "summary.md").read_text())
+
     def test_nonblocked_or_unreadable_result_never_creates_diagnostic(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

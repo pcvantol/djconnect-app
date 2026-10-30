@@ -31,6 +31,7 @@ def blocked(directory: Path) -> bool:
         # Observe public decisions only. Exit3 alone is not a BLOCKED decision.
         for keys in (("status",), ("validation", "status"),
                      ("evidence", "validation", "status"),
+                     ("evidence", "assessmentDecision", "decision"),
                      ("repositoryQualification", "qualificationStatus")):
             current = value
             for key in keys:
