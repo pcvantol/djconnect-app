@@ -48,6 +48,18 @@ registration or provider factory from DATA.
   settings/active flags cannot rebuild a scope or clear the start fence;
   an actual foreground Session observation is needed. Missing/invalid settings
   or changed scope close the presentation even while backgrounded.
+- Generic `activeDJSession.didSet` only reconciles. Positive Session liveness
+  is recorded explicitly after accepted HTTP request checks or actually applied
+  WS sequence progress in the existing current generation. Local disconnect/
+  stop/clear bookkeeping, stale/duplicate frames, reducer denial and subscription
+  revocation cannot renew the observation or clear the resume-start fence.
+  Genuine authoritative no-Session/end responses retain negative retirement.
+- Isolated models execute the same RAM selection while the existing effect
+  boundary excludes AppGroup access, persisted presentation markers and native
+  publication. Their presentation nonce is RAM-only. The route harness supplies
+  synthetic HTTP responses through URLProtocol, holds/rejects late responses,
+  closes unsupported live capability with HTTP404, and refuses unknown hosts.
+  Existing production capability/HTTP-recovery behavior remains unchanged.
 - The rich renderer independently checks each field's source interval and its
   original receive/uptime cap at paint. Aggregate validity cannot keep an expired
   contribution alive or let wall rollback renew a playback field.
@@ -111,6 +123,13 @@ and `ios-build-r8` passed the iOS/widget/Watch simulator compilation. The
 `full-r6` and `mac-native-r3` test compilations failed on a Swift Testing macro's
 keypath assertion; the same retired-reference assertion is now expressed
 explicitly for every retained object, with no product-code workaround.
+The final provenance correction passes `full-r9`: 1,413 Swift tests in 36
+suites. `observation-targeted-r3` passes 24 functions, combining the 19 custody/
+route functions and the five previously affected recovery functions. `ios-build-r10`
+passes. The earlier `full-r8` exposed 17 issues caused by an overly broad
+test-isolation guard on the existing broadcast bootstrap; that guard was removed
+without changing test expectations. The original failed full/native runs remain
+separate. No failed run qualifies the later revision.
 
 The exact same four regression tests were also run against the actual
 predecessor model at `3bec8aae7f5139cc07c6e2ac444c2f3cc695aaac`.
@@ -137,3 +156,7 @@ The independent GitHub review additionally identified the accidental lifetime
 registry: 512 sequential lifecycles, retained retired references, 128 concurrent
 entries with closed overflow, and late retirement against a replacement. They
 are not synthetic successful ActivityKit requests or native acceptance.
+The subsequent local-bookkeeping/accepted-ingress P2 also supersedes the initial
+positive review of `5c9ac38` on that point. Real AppModel HTTP and WS reducer
+routes are now tested with synthetic isolated transport inputs, not fabricated
+old-head reconstruction, authenticated HA acceptance or native SDK effects.
