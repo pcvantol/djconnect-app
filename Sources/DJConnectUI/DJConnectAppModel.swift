@@ -2010,6 +2010,7 @@ public final class DJConnectAppModel: ObservableObject {
     private var sessionSurfaceIdentity: String?
     private var liveActivitySkipInFlight = false
     private var sessionSurfaceGeneration = UUID()
+    private let sessionSurfaceNativeCustody = SessionSurfaceNativeCustody()
     private var sessionSurfaceActivityTask: Task<Void, Never>?
     private var sessionSurfaceExpiryTask: Task<Void, Never>?
     private var sessionSurfaceBinding: String?
@@ -10974,7 +10975,9 @@ public final class DJConnectAppModel: ObservableObject {
         }
         // Independent of history's suspension epoch. Actual Profile/installation
         // replacement changes the opaque Core binding; the grant read checks ABA.
-        passiveSurfaces.bind(owner: settings.binding, sessionID: activeDJSession?.id, foreground: true)
+        passiveSurfaces.bind(owner: settings.binding, sessionID: activeDJSession?.id, foreground: true,
+            settingsRevision: settings.snapshot.session?.revision ?? settings.snapshot.defaults_revision,
+            settingsGeneration: settings.snapshot.session?.generation)
     }
     var passiveSurfaceServices: PassiveSessionSurfaceModel.Services {
         .init(available: { [weak self] in
@@ -11168,6 +11171,16 @@ public final class DJConnectAppModel: ObservableObject {
             sessionSurfaceSnapshot = .init(observedAt: previous.observedAt, theme: previous.theme)
         }
         let snapshot = sessionSurfaceSnapshot
+        let nativeScope: SessionSurfaceNativeCustody.Scope?
+        if confirmed, let settings = profileDJSettings.response, settings.isValid, profileDJSettings.active,
+           let session = activeDJSession?.id {
+            nativeScope = .init(installation: defaults.string(forKey: haInstallIDKey), binding: settings.binding,
+                session: session, settingsGeneration: settings.snapshot.session?.generation,
+                settingsRevision: settings.snapshot.session?.revision ?? settings.snapshot.defaults_revision)
+        } else { nativeScope = nil }
+        sessionSurfaceNativeCustody.bind(scope: nativeScope, presentationID: sessionSurfaceIdentity, snapshot: snapshot,
+                                        foreground: isAppInForeground)
+        let publication = sessionSurfaceNativeCustody.capture()
         guard let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) else { return }
         let richWidget = passiveSurfaces.caches[.widget].flatMap { $0.isCurrent(at: now) ? $0.removingExpiredFields(at: now) : nil }
         var richChanged = false
@@ -11175,6 +11188,7 @@ public final class DJConnectAppModel: ObservableObject {
             richChanged = !(lastPublishedWidgetRich?.hasSameDisplayContent(as: richWidget) ?? (richWidget == nil))
             for surface in DJConnectPassiveSurface.allCases {
                 let value = passiveSurfaces.caches[surface].flatMap { $0.isCurrent(at: now) ? $0.removingExpiredFields(at: now) : nil }
+                guard publication.isCurrent else { return }
                 try? DJConnectPassiveSurfaceCache.replace(value, surface: surface, in: shared)
             }
             lastPublishedPassiveRevision = passiveSurfaces.renderingRevision
@@ -11190,7 +11204,10 @@ public final class DJConnectAppModel: ObservableObject {
         let paletteChanged = previousPalette?.theme != palette.theme
         let previous = DJConnectSessionSurfaceSnapshot.load(from: shared, at: now)
         let changed: Bool
-        do { changed = try DJConnectSessionSurfaceSnapshot.replace(snapshot, in: shared) }
+        do {
+            guard publication.isCurrent else { return }
+            changed = try DJConnectSessionSurfaceSnapshot.replace(publication.canPublish() ? snapshot : nil, in: shared)
+        }
         catch { log(.warning, "Session surface snapshot could not be saved"); return }
         #if canImport(WidgetKit)
         // No progress tick reloads. Freshness renewal is bounded; OS budgets
@@ -11227,11 +11244,12 @@ public final class DJConnectAppModel: ObservableObject {
             let canStart = isAppInForeground
             sessionSurfaceActivityTask = Task { [weak self] in
                 await previousTask?.value
-                guard let self, self.sessionSurfaceGeneration == generation else { return }
+                guard let self, !Task.isCancelled, publication.isCurrent, self.sessionSurfaceGeneration == generation else { return }
                 if let status = await DJConnectSessionSurfaceActivityController.sync(snapshot: snapshot, presentationID: identity,
-                    canStart: canStart, endReason: changedSubject ? "subject_changed" : (!confirmed ? "session_inactive" : "snapshot_expired"),
+                    canStart: canStart, publication: publication,
+                    endReason: changedSubject ? "subject_changed" : (!confirmed ? "session_inactive" : "snapshot_expired"),
                     nativePushChanged: { [weak self] token, activityID in
-                        guard let self else { return }
+                        guard let self, publication.isOwnerCurrent else { return }
                         guard let token else { self.nativeActivityPushOwner.nativeActivityEnded(activityID); return }
                         guard self.sessionSurfaceIdentity == token.presentationID,
                               let session = self.activeDJSession?.id,

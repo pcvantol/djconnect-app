@@ -12,11 +12,42 @@ import Foundation
 @available(iOS 16.1, *)
 @MainActor
 enum DJConnectSessionSurfaceActivityController {
+    /// Native side of the future receiving port. Only an actual request result
+    /// can create this object. It supplies no rich-start/read/relay permission,
+    /// no rate qualification and no cold-process adoption.
+    @MainActor final class NativeTarget {
+        private let activity: Activity<DJConnectSessionLiveActivityAttributes>
+        let originalAttributes: Data
+        let dispatchCapture: DJConnectNativeSurfaceClockCapture
+        private let custody: SessionSurfaceNativeCustody.Ticket
+        private var retired = false
+        var activityID: String { activity.id }
+        var presentationID: String { activity.attributes.presentationID }
+        fileprivate init(activity: Activity<DJConnectSessionLiveActivityAttributes>, attributes: Data,
+                         custody: SessionSurfaceNativeCustody.Ticket) {
+            self.activity = activity; originalAttributes = attributes; self.custody = custody
+            dispatchCapture = custody.dispatchCapture
+        }
+        var isCurrent: Bool {
+            guard !retired, custody.isOwnerCurrent,
+                  activity.activityState == .active || activity.activityState == .stale,
+                  (try? JSONEncoder().encode(activity.attributes)) == originalAttributes else { return false }
+            let inventory = Activity<DJConnectSessionLiveActivityAttributes>.activities.filter { $0.id == activity.id }
+            return inventory.count == 1 && inventory[0].attributes.presentationID == presentationID
+        }
+        fileprivate func retire() { retired = true }
+    }
+    private static var nativeTargets: [String: NativeTarget] = [:]
+    static func currentCapturedTarget(presentationID: String) -> NativeTarget? {
+        let matching = nativeTargets.values.filter { $0.presentationID == presentationID && $0.isCurrent }
+        return matching.count == 1 ? matching[0] : nil
+    }
     private static let pushRequestedKey = "DJConnectSessionActivity.pushRequestedID.v1"
     private static var stateObservers: [String: Task<Void, Never>] = [:]
     private static var tokenObservers: [String: Task<Void, Never>] = [:]
     private static var nativePushChanged: (@MainActor (DJConnectActivityPushToken?, String) -> Void)?
     private static func withdrawPush(_ activity: Activity<DJConnectSessionLiveActivityAttributes>) {
+        nativeTargets[activity.id]?.retire() // Never reactivate a retired native handle.
         nativePushChanged?(nil, activity.id) // The model fences removal by exact native activity ID.
         tokenObservers.removeValue(forKey: activity.id)?.cancel()
         DJConnectActivityPushToken.withdraw(activityID: activity.id, in: .standard)
@@ -56,27 +87,32 @@ enum DJConnectSessionSurfaceActivityController {
     // Fresh actual SDK inventory only. Never restore authority from a pending
     // token saved by a previous process or from a different Activity instance.
     static func currentNativePushToken(presentationID: String?) -> DJConnectActivityPushToken? {
-        guard let presentationID,
-              let activity = Activity<DJConnectSessionLiveActivityAttributes>.activities.first(where: {
-                  $0.attributes.presentationID == presentationID && ($0.activityState == .active || $0.activityState == .stale)
-              }), let token = activity.pushToken,
+        guard let presentationID else { return nil }
+        let inventory = Activity<DJConnectSessionLiveActivityAttributes>.activities.filter {
+            $0.attributes.presentationID == presentationID && ($0.activityState == .active || $0.activityState == .stale)
+        }
+        guard inventory.count == 1, let activity = inventory.first, let token = activity.pushToken,
               DJConnectSessionSurfacePresentation.ownsPushToken(presentationID: presentationID,
                   activityID: activity.id, in: .standard) else { return nil }
         return DJConnectActivityPushToken(token: token, activityID: activity.id, presentationID: presentationID)
     }
     static func sync(snapshot: DJConnectSessionSurfaceSnapshot?, presentationID: String?,
-                     canStart: Bool, endReason: String,
+                     canStart: Bool, publication: SessionSurfaceNativeCustody.Ticket, endReason: String,
                      nativePushChanged: (@MainActor (DJConnectActivityPushToken?, String) -> Void)? = nil) async -> String? {
+        guard publication.isCurrent else { return nil }
         self.nativePushChanged = nativePushChanged
         let defaults = UserDefaults.standard
         // Retire the old fixed playback-only activity, including after upgrade.
         for old in Activity<TrackInsightLiveActivityAttributes>.activities {
+            guard publication.isCurrent else { return nil }
             await old.end(nil, dismissalPolicy: .immediate)
         }
+        guard publication.isCurrent else { return nil }
         var activities = Activity<DJConnectSessionLiveActivityAttributes>.activities
         for activity in activities { observe(activity) }
         guard let snapshot, snapshot.isCurrent(at: Date()), let presentationID else {
             for activity in activities {
+                guard publication.isCurrent else { return nil }
                 DJConnectSessionSurfacePresentation.applicationEnded(activity.attributes.presentationID,
                     wasDismissed: activity.activityState == .dismissed, activityID: activity.id, in: defaults)
                 withdrawPush(activity)
@@ -90,29 +126,40 @@ enum DJConnectSessionSurfaceActivityController {
         for activity in activities where canStart && activity.attributes.presentationID == presentationID &&
             (activity.activityState == .active || activity.activityState == .stale) &&
             defaults.string(forKey: pushRequestedKey) != activity.id {
+            guard publication.isCurrent else { return nil }
             DJConnectSessionSurfacePresentation.applicationEnded(presentationID,
                 wasDismissed: false, activityID: activity.id, in: defaults)
             withdrawPush(activity)
             await activity.end(nil, dismissalPolicy: .immediate)
+            guard publication.isCurrent else { return nil }
             activities.removeAll { $0.id == activity.id }
         }
         for activity in activities where activity.attributes.presentationID != presentationID {
+            guard publication.isCurrent else { return nil }
             DJConnectSessionSurfacePresentation.applicationEnded(activity.attributes.presentationID,
                 wasDismissed: activity.activityState == .dismissed, activityID: activity.id, in: defaults)
             withdrawPush(activity)
             await activity.end(nil, dismissalPolicy: .immediate)
         }
+        guard publication.canPublish() else { return nil }
         let content = ActivityContent(state: snapshot, staleDate: snapshot.expiresAt)
-        if let current = activities.first(where: { $0.attributes.presentationID == presentationID && $0.activityState != .ended && $0.activityState != .dismissed }) {
+        let matching = activities.filter { $0.attributes.presentationID == presentationID && $0.activityState != .ended && $0.activityState != .dismissed }
+        guard matching.count <= 1 else { return nil } // Ambiguous inventory is never first-match adoption.
+        if let current = matching.first {
+            guard publication.canPublish() else { return nil }
             await current.update(content)
-        } else if canStart, ActivityAuthorizationInfo().areActivitiesEnabled,
+        } else if canStart, publication.canStart, ActivityAuthorizationInfo().areActivitiesEnabled,
                   DJConnectSessionSurfacePresentation.canRequest(presentationID,
                     build: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown", in: defaults) {
             // Persist only a random local marker. Respect user/OS dismissal
             // across app resumes; do not create an activity on every live tick.
             do {
-                let activity = try Activity.request(attributes: DJConnectSessionLiveActivityAttributes(presentationID: presentationID),
+                let attributes = DJConnectSessionLiveActivityAttributes(presentationID: presentationID)
+                let attributesBytes = try JSONEncoder().encode(attributes)
+                guard nativeTargets.count < 128, publication.canPublish() else { return nil }
+                let activity = try Activity.request(attributes: attributes,
                                          content: content, pushType: .token)
+                nativeTargets[activity.id] = NativeTarget(activity: activity, attributes: attributesBytes, custody: publication)
                 defaults.set(activity.id, forKey: pushRequestedKey)
                 DJConnectSessionSurfacePresentation.requested(presentationID,
                     build: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown", activityID: activity.id, in: defaults)

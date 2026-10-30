@@ -200,6 +200,11 @@ public struct DJConnectSessionSurfaceSnapshot: Codable, Equatable, Hashable, Sen
 
     @discardableResult
     public static func replace(_ snapshot: Self?, in defaults: UserDefaults) throws -> Bool {
+        try replace(snapshot, in: defaults, now: { Date() }, uptime: { ProcessInfo.processInfo.systemUptime })
+    }
+    @discardableResult
+    static func replace(_ snapshot: Self?, in defaults: UserDefaults,
+                        now: () -> Date, uptime: () -> TimeInterval) throws -> Bool {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         let encoded = try snapshot.map { try encoder.encode($0) }
@@ -211,7 +216,16 @@ public struct DJConnectSessionSurfaceSnapshot: Codable, Equatable, Hashable, Sen
             if defaults.object(forKey: key) != nil { changed = true; defaults.removeObject(forKey: key) }
         }
         if changed {
-            if let encoded { defaults.set(encoded, forKey: storageKey) }
+            if let encoded, let snapshot {
+                let invocationDate = now(), invocationUptime = uptime()
+                guard !Task.isCancelled, snapshot.isCurrent(at: invocationDate) else { throw DJConnectError.invalidResponse }
+                if let rich = snapshot.rich {
+                    guard rich.isCurrent(at: invocationDate, uptime: invocationUptime),
+                          rich.contribution == nil || rich.currentContribution(at: invocationDate, uptime: invocationUptime) != nil,
+                          rich.nowPlaying == nil || rich.currentPlayback(at: invocationDate, uptime: invocationUptime) != nil else { throw DJConnectError.invalidResponse }
+                }
+                defaults.set(encoded, forKey: storageKey)
+            }
             else { defaults.removeObject(forKey: storageKey) }
         }
         return changed
