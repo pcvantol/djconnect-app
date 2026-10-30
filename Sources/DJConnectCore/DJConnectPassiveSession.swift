@@ -233,6 +233,17 @@ public struct DJConnectPassiveSurfaceCache: Codable, Equatable, Sendable {
         copy.pixels = pixels.filter { projection.currentArtwork(slot: $0.key, at: now) != nil }
         return copy // Keep the original receive time and uptime fence.
     }
+    /// Stage optional pixels into the same original observation. Never rebuild
+    /// the receive pair after asynchronous image IO or restore it from DATA.
+    public func staging(pixels next: [String: Data], at now: Date,
+                        uptime: TimeInterval = ProcessInfo.processInfo.systemUptime) throws -> Self {
+        guard isCurrent(at: now, uptime: uptime), next.count <= 2,
+              next.values.allSatisfy({ $0.count <= Self.maximumImageBytes }),
+              next.keys.allSatisfy({ projection.currentArtwork(slot: $0, at: now) != nil }) else { throw DJConnectError.invalidResponse }
+        var copy = removingExpiredFields(at: now)
+        copy.pixels = next
+        return copy
+    }
     /// A pure read/as_of change or a fresh observation of the same item does not
     /// spend a widget reload. Cache expiry still keeps its original source bound.
     public func hasSameDisplayContent(as other: Self?) -> Bool {
@@ -247,10 +258,21 @@ public struct DJConnectPassiveSurfaceCache: Codable, Equatable, Sendable {
     }
     public static func key(_ surface: DJConnectPassiveSurface) -> String { "DJConnectPassiveSurface.v1." + surface.rawValue }
     public static func replace(_ value: Self?, surface: DJConnectPassiveSurface, in defaults: UserDefaults) throws {
+        try replace(value, surface: surface, in: defaults, now: { Date() }, uptime: { ProcessInfo.processInfo.systemUptime })
+    }
+    // Deterministic clock seam for tests only; production publication samples
+    // the actual invocation, never the cache's saved receive timestamp.
+    static func replace(_ value: Self?, surface: DJConnectPassiveSurface, in defaults: UserDefaults,
+                        at now: Date, uptime: TimeInterval) throws {
+        try replace(value, surface: surface, in: defaults, now: { now }, uptime: { uptime })
+    }
+    static func replace(_ value: Self?, surface: DJConnectPassiveSurface, in defaults: UserDefaults,
+                        now: () -> Date, uptime: () -> TimeInterval) throws {
         guard let value else { defaults.removeObject(forKey: key(surface)); return }
-        guard value.projection.surface == surface, value.isCurrent(at: value.receivedAt, uptime: value.receivedUptime) else { throw DJConnectError.invalidResponse }
+        guard !Task.isCancelled, value.projection.surface == surface, value.isCurrent(at: now(), uptime: uptime()) else { throw DJConnectError.invalidResponse }
         let data = try JSONEncoder().encode(value)
         guard data.count <= maximumEncodedBytes else { throw DJConnectError.payloadTooLarge(limitBytes: maximumEncodedBytes, actualBytes: data.count) }
+        guard !Task.isCancelled, value.isCurrent(at: now(), uptime: uptime()) else { throw DJConnectError.invalidResponse }
         defaults.set(data, forKey: key(surface))
     }
     public static func load(surface: DJConnectPassiveSurface, from defaults: UserDefaults, at now: Date = Date(),

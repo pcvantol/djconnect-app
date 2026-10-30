@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-import DJConnectCore
+@testable import DJConnectCore
 import DJConnectUI
 
 @Test @MainActor func sessionActivitySkipRejectsInvalidAndDemoRequestsWithoutPlaybackChanges() async throws {
@@ -50,7 +50,7 @@ import DJConnectUI
     defer { defaults.removePersistentDomain(forName: suite) }
     let now = Date(timeIntervalSince1970: 1_800_000_000)
     let snapshot = DJConnectSessionSurfaceSnapshot(observedAt: now)
-    try DJConnectSessionSurfaceSnapshot.replace(snapshot, in: defaults)
+    try DJConnectSessionSurfaceSnapshot.replace(snapshot, in: defaults, now: { now }, uptime: { 0 })
     for seconds in [0.0, 60, 119.999] {
         #expect(DJConnectSessionSurfaceSnapshot.load(from: defaults, at: now.addingTimeInterval(seconds)) == snapshot)
     }
@@ -124,7 +124,7 @@ import DJConnectUI
     for mood in ["chill", "groove", "energy", "party"] {
         let snapshot = try #require(DJConnectSessionSurfaceSnapshot.observe(runtimeState: "active", authorized: true,
             isDemo: false, confirmedMood: mood, at: now))
-        try DJConnectSessionSurfaceSnapshot.replace(snapshot, in: defaults)
+        try DJConnectSessionSurfaceSnapshot.replace(snapshot, in: defaults, now: { now }, uptime: { 0 })
         let restored = try #require(DJConnectSessionSurfaceSnapshot.load(from: defaults, at: now))
         #expect(restored.renderingTheme(at: now).rawValue == mood)
         #expect(restored.renderingTheme(at: snapshot.expiresAt) == .brand)

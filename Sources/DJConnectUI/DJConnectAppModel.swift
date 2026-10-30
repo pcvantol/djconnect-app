@@ -1436,7 +1436,9 @@ public final class DJConnectAppModel: ObservableObject {
                 sessionHistory.discardLiveResponses()
             }
             let moodChanged = oldValue?.id == activeDJSession?.id && oldValue?.selectedMood != activeDJSession?.selectedMood
-            syncSessionSurfaces(observedSession: true, refreshPassiveImmediately: moodChanged)
+            // Local disconnect/optimistic bookkeeping also mutates this value.
+            // Only the accepted HTTP/WS ingress may renew a Session observation.
+            syncSessionSurfaces(refreshPassiveImmediately: moodChanged)
             observeSessionSpeechAutoplay()
         }
     }
@@ -2003,14 +2005,21 @@ public final class DJConnectAppModel: ObservableObject {
     private var lastFullRefreshAt: Date?
     private var lastBackendCollectionsRefreshAt: Date?
     private var lastBackendUnavailableNoticeAt: Date?
-    private var sessionSurfaceSnapshot: DJConnectSessionSurfaceSnapshot?
+    private(set) var sessionSurfaceSnapshot: DJConnectSessionSurfaceSnapshot?
+    private var sessionSurfaceAcceptedObservationAt: Date?
+    private var sessionSurfaceAcceptedObservationSessionID: String?
+    private var sessionSurfaceSelectedPublication: SessionSurfaceNativeCustody.Ticket?
+    var sessionSurfaceCanStart: Bool { sessionSurfaceSelectedPublication?.canStart == true }
     private var lastSessionWidgetReloadAt: Date?
     private var lastPublishedPassiveRevision: UUID?
     private var lastPublishedWidgetRich: DJConnectPassiveSurfaceCache?
-    private var sessionSurfaceIdentity: String?
+    private(set) var sessionSurfaceIdentity: String?
     private var liveActivitySkipInFlight = false
     private var sessionSurfaceGeneration = UUID()
+    private let sessionSurfaceNativeCustody = SessionSurfaceNativeCustody()
     private var sessionSurfaceActivityTask: Task<Void, Never>?
+    private var sessionSurfaceActivityDispatchVersion = UUID()
+    private var lastActivitySurfacePublication: SessionSurfaceNativeCustody.Ticket?
     private var sessionSurfaceExpiryTask: Task<Void, Never>?
     private var sessionSurfaceBinding: String?
     private var automaticPassiveTask: Task<Void, Never>?
@@ -3111,6 +3120,7 @@ public final class DJConnectAppModel: ObservableObject {
         cancelRendezvous()
         personaReactions.cancel(.background)
         isAppInForeground = false
+        sessionSurfaceNativeCustody.suspend() // Fence already queued foreground starts immediately.
         automaticSurfaceDiscovery.bind(nil)
         askDJHelpRuntimeGeneration = UUID()
         cancelAskDJTextSubmissions()
@@ -3138,6 +3148,7 @@ public final class DJConnectAppModel: ObservableObject {
         cancelAutomaticSpeech()
         authenticatedStatusOrigin = nil
         bindProfileDJSettings(active: false)
+        syncSessionSurfaces() // Reconcile the fenced queue without reading or creating a background scope.
         if let hybridTransport { Task { await hybridTransport.lifecycle(foreground: false) } }
         discoveryArtworkRenewalTask?.cancel(); discoveryArtworkRenewalTask = nil
         discoveryResponseGeneration = UUID()
@@ -7130,6 +7141,9 @@ public final class DJConnectAppModel: ObservableObject {
             } else {
                 activeDJSession = response.resolvedSession
             }
+            if !Task.isCancelled, request == sessionRequestGeneration {
+                acceptSessionSurfaceObservation(sessionID: response.resolvedSession?.id)
+            }
             djSessionErrorMessage = nil
             startSessionBroadcastIfNeeded()
             return true
@@ -7913,6 +7927,9 @@ public final class DJConnectAppModel: ObservableObject {
             vibeCastHandoffApproved = false
             vibeCastHandoffFailed = false
             activeDJSession = incoming
+            if !Task.isCancelled, request == sessionRequestGeneration {
+                acceptSessionSurfaceObservation(sessionID: incoming.id)
+            }
             djSessionErrorMessage = response.resolvedSession == nil ? localized(key: "ui.session.unavailable") : nil
             startSessionBroadcastIfNeeded()
             presentSessionIntroductionIfNeeded()
@@ -7971,6 +7988,7 @@ public final class DJConnectAppModel: ObservableObject {
             guard request == sessionRequestGeneration, activeDJSession?.id == sessionID else { return }
             guard response.success else { throw DJConnectError.invalidResponse }
             activeDJSession = nil
+            if !Task.isCancelled, request == sessionRequestGeneration { acceptSessionSurfaceObservation(sessionID: nil) }
             djSessionErrorMessage = nil
             vibeCastHandoffApproved = false
             vibeCastHandoffFailed = false
@@ -8304,7 +8322,14 @@ public final class DJConnectAppModel: ObservableObject {
 
     func applySessionBroadcastSnapshot(_ snapshot: DJConnectBroadcastState) {
         guard let active = activeDJSession, active.sessionID == snapshot.session.sessionID else { return }
+        let originalGeneration = sessionBroadcastGeneration
         activeDJSession = active.applying(broadcastState: snapshot)
+        if originalGeneration == sessionBroadcastGeneration,
+           let sequence = snapshot.delivery?.snapshotWatermark,
+           sequence > (active.broadcast.delivery?.snapshotWatermark ?? -1),
+           activeDJSession?.broadcast.delivery?.snapshotWatermark == sequence {
+            acceptSessionSurfaceObservation(sessionID: active.id)
+        }
         if (snapshot.delivery?.snapshotWatermark ?? 0) >= (active.broadcast.delivery?.snapshotWatermark ?? 0), forecastAvailable {
             acceptSessionForecast(snapshot.sessionForecast, invalidatesPendingReads: true)
         }
@@ -8314,6 +8339,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     func applySessionBroadcastEvent(_ event: DJConnectSessionBroadcastEvent) {
         guard let active = activeDJSession, active.sessionID == event.sessionID else { return }
+        let originalGeneration = sessionBroadcastGeneration
         if event.eventType == "runtime_ended" || event.eventType == "broadcast_stopped" {
             if event.payload.nativeDelivery?.revocationScope == "subscription" {
                 invalidateSessionRequest()
@@ -8323,6 +8349,7 @@ public final class DJConnectAppModel: ObservableObject {
             }
             invalidateSessionRequest()
             activeDJSession = nil
+            if originalGeneration == sessionBroadcastGeneration { acceptSessionSurfaceObservation(sessionID: nil) }
             djSessionErrorMessage = nil
             vibeCastHandoffApproved = false
             vibeCastHandoffFailed = false
@@ -8330,6 +8357,11 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         activeDJSession = active.applying(broadcastEvent: event)
+        if originalGeneration == sessionBroadcastGeneration, let sequence = event.deliverySequence,
+           sequence > (active.broadcast.delivery?.snapshotWatermark ?? -1),
+           activeDJSession?.broadcast.delivery?.snapshotWatermark == sequence {
+            acceptSessionSurfaceObservation(sessionID: active.id)
+        }
         if event.deliverySequence == nil {
             // The reducer denied native authority. Revoke the separate cursor
             // and any owner read that started before that denial as well.
@@ -10974,7 +11006,9 @@ public final class DJConnectAppModel: ObservableObject {
         }
         // Independent of history's suspension epoch. Actual Profile/installation
         // replacement changes the opaque Core binding; the grant read checks ABA.
-        passiveSurfaces.bind(owner: settings.binding, sessionID: activeDJSession?.id, foreground: true)
+        passiveSurfaces.bind(owner: settings.binding, sessionID: activeDJSession?.id, foreground: true,
+            settingsRevision: settings.snapshot.session?.revision ?? settings.snapshot.defaults_revision,
+            settingsGeneration: settings.snapshot.session?.generation)
     }
     var passiveSurfaceServices: PassiveSessionSurfaceModel.Services {
         .init(available: { [weak self] in
@@ -11120,14 +11154,32 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
+    private func acceptSessionSurfaceObservation(sessionID: String?) {
+        guard isAppInForeground, pairingStatus == .paired, !isDemoMode,
+              activeDJSession?.id == sessionID else { return }
+        // This is existing foreground liveness bookkeeping, not a successor
+        // source permission or qualified original cross-domain clock.
+        if activeDJSession?.runtimeState == "active", let sessionID {
+            sessionSurfaceAcceptedObservationSessionID = sessionID
+            sessionSurfaceAcceptedObservationAt = Date()
+        } else {
+            sessionSurfaceAcceptedObservationSessionID = nil
+            sessionSurfaceAcceptedObservationAt = nil
+        }
+        syncSessionSurfaces(observedSession: true)
+    }
+
     private func syncSessionSurfaces(observedSession: Bool = false, refreshPassiveImmediately: Bool = false) {
-        // Isolated fixtures/Demo must never touch the installed shared group.
-        guard startBackgroundTasks, !monkeyTestingMode,
-              !DJConnectLocalization.isQualificationProcess else { return }
-        bindPassiveSessionSurfaces()
+        // Isolated models still reconcile their real RAM selection. They never
+        // read, write the installed shared group, persist a presentation marker
+        // or invoke native SDK effects. Demo remains unable to form a scope.
+        let allowsEffects = startBackgroundTasks && !monkeyTestingMode && !DJConnectLocalization.isQualificationProcess
+        if allowsEffects { bindPassiveSessionSurfaces() }
         if observedSession { hasObservedSessionSurfaceAuthority = true }
-        scheduleAutomaticPassiveSessionSurfaces()
-        passiveSurfaces.refresh(passiveSurfaceServices, force: refreshPassiveImmediately)
+        if allowsEffects {
+            scheduleAutomaticPassiveSessionSurfaces()
+            passiveSurfaces.refresh(passiveSurfaceServices, force: refreshPassiveImmediately)
+        }
         let now = Date()
         let epoch = sessionHistory.responseEpoch
         // Conversation suspension changes history's epoch on every background
@@ -11144,18 +11196,21 @@ public final class DJConnectAppModel: ObservableObject {
         if !confirmed {
             sessionSurfaceSnapshot = nil
             sessionSurfaceIdentity = nil
-            if observedSession { DJConnectSessionSurfacePresentation.end(in: defaults) }
-        } else if observedSession && isAppInForeground {
+            if observedSession && allowsEffects { DJConnectSessionSurfacePresentation.end(in: defaults) }
+        } else if observedSession && isAppInForeground,
+                  sessionSurfaceAcceptedObservationSessionID == activeDJSession?.id,
+                  let acceptedAt = sessionSurfaceAcceptedObservationAt {
             // Identity stays local. Neither Profile nor backend session IDs are
             // exported to passive surfaces. A new subject gets a new marker.
             if sessionSurfaceIdentity == nil {
                 if let sessionID = activeDJSession?.id {
-                    sessionSurfaceIdentity = DJConnectSessionSurfacePresentation.identity(for: sessionID, in: defaults)
+                    sessionSurfaceIdentity = allowsEffects
+                        ? DJConnectSessionSurfacePresentation.identity(for: sessionID, in: defaults) : UUID().uuidString
                 }
             }
             sessionSurfaceSnapshot = .observe(runtimeState: activeDJSession?.runtimeState,
                                                authorized: pairingStatus == .paired, isDemo: isDemoMode,
-                                               confirmedMood: activeDJSession?.selectedMood, at: now)
+                                               confirmedMood: activeDJSession?.selectedMood, at: acceptedAt)
         } else {
             // A contribution/cover deadline withdraws that content, not the
             // separately confirmed Session within its original 120s lease.
@@ -11168,6 +11223,13 @@ public final class DJConnectAppModel: ObservableObject {
             sessionSurfaceSnapshot = .init(observedAt: previous.observedAt, theme: previous.theme)
         }
         let snapshot = sessionSurfaceSnapshot
+        let publication = prepareSessionSurfacePublication(confirmed: confirmed, sessionID: activeDJSession?.id,
+            identity: sessionSurfaceIdentity, snapshot: snapshot, foreground: isAppInForeground, observedSession: observedSession)
+        sessionSurfaceSelectedPublication = publication
+        guard allowsEffects else { return }
+        // One effective value for storage, reloads and native retirement. A
+        // current negative ticket can end an old Activity without a content lease.
+        var publishedSnapshot = publication.currentSnapshot()
         guard let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) else { return }
         let richWidget = passiveSurfaces.caches[.widget].flatMap { $0.isCurrent(at: now) ? $0.removingExpiredFields(at: now) : nil }
         var richChanged = false
@@ -11175,6 +11237,7 @@ public final class DJConnectAppModel: ObservableObject {
             richChanged = !(lastPublishedWidgetRich?.hasSameDisplayContent(as: richWidget) ?? (richWidget == nil))
             for surface in DJConnectPassiveSurface.allCases {
                 let value = passiveSurfaces.caches[surface].flatMap { $0.isCurrent(at: now) ? $0.removingExpiredFields(at: now) : nil }
+                guard publication.isCurrent else { return }
                 try? DJConnectPassiveSurfaceCache.replace(value, surface: surface, in: shared)
             }
             lastPublishedPassiveRevision = passiveSurfaces.renderingRevision
@@ -11190,25 +11253,37 @@ public final class DJConnectAppModel: ObservableObject {
         let paletteChanged = previousPalette?.theme != palette.theme
         let previous = DJConnectSessionSurfaceSnapshot.load(from: shared, at: now)
         let changed: Bool
-        do { changed = try DJConnectSessionSurfaceSnapshot.replace(snapshot, in: shared) }
-        catch { log(.warning, "Session surface snapshot could not be saved"); return }
+        do {
+            guard publication.isCurrent else { return }
+            changed = try DJConnectSessionSurfaceSnapshot.replace(publishedSnapshot, in: shared)
+        }
+        catch {
+            guard publication.isCurrent else { return }
+            log(.warning, "Session surface snapshot could not be saved")
+            // In particular, expiry during encoding must still reach native
+            // retirement rather than returning before the negative dispatch.
+            publishedSnapshot = publication.currentSnapshot()
+            if publishedSnapshot == nil {
+                changed = (try? DJConnectSessionSurfaceSnapshot.replace(nil, in: shared)) ?? false
+            } else { return }
+        }
         #if canImport(WidgetKit)
         // No progress tick reloads. Freshness renewal is bounded; OS budgets
         // still own actual rendering and background scheduling.
         let paletteRenewalDue = palette.theme != .brand && lastSessionWidgetReloadAt.map { now.timeIntervalSince($0) >= 60 } != false
-        if richChanged || paletteChanged || paletteRenewalDue || (changed && snapshot == nil) || DJConnectSessionSurfaceSnapshot.needsWidgetReload(
-            current: snapshot, previous: previous, lastReloadAt: lastSessionWidgetReloadAt, at: now) {
+        if richChanged || paletteChanged || paletteRenewalDue || (changed && publishedSnapshot == nil) || DJConnectSessionSurfaceSnapshot.needsWidgetReload(
+            current: publishedSnapshot, previous: previous, lastReloadAt: lastSessionWidgetReloadAt, at: now) {
             lastSessionWidgetReloadAt = now
             for kind in [DJConnectSessionSurfaceSnapshot.widgetKind] + DJConnectSessionSurfaceSnapshot.legacyKinds {
                 WidgetCenter.shared.reloadTimelines(ofKind: kind)
             }
         }
         #endif
-        if !hasSyncedSessionSurfaceActivity || lastActivitySurfaceSnapshot != snapshot ||
+        if !hasSyncedSessionSurfaceActivity || lastActivitySurfaceSnapshot != publishedSnapshot ||
             lastActivitySurfaceIdentity != sessionSurfaceIdentity { sessionSurfaceGeneration = UUID() }
         let generation = sessionSurfaceGeneration
         sessionSurfaceExpiryTask?.cancel()
-        if let snapshot {
+        if let snapshot = publishedSnapshot {
             sessionSurfaceExpiryTask = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(max(0, snapshot.expiresAt.timeIntervalSinceNow)))
                 guard !Task.isCancelled, let self, self.sessionSurfaceGeneration == generation else { return }
@@ -11217,21 +11292,15 @@ public final class DJConnectAppModel: ObservableObject {
         }
         #if os(iOS) && canImport(ActivityKit)
         if #available(iOS 16.1, *),
-           hasObservedSessionSurfaceAuthority || pairingStatus != .paired || isDemoMode,
-           !hasSyncedSessionSurfaceActivity || lastActivitySurfaceSnapshot != snapshot || lastActivitySurfaceIdentity != sessionSurfaceIdentity {
-            hasSyncedSessionSurfaceActivity = true
-            lastActivitySurfaceSnapshot = snapshot
-            lastActivitySurfaceIdentity = sessionSurfaceIdentity
-            let previousTask = sessionSurfaceActivityTask
-            let identity = sessionSurfaceIdentity
-            let canStart = isAppInForeground
-            sessionSurfaceActivityTask = Task { [weak self] in
-                await previousTask?.value
-                guard let self, self.sessionSurfaceGeneration == generation else { return }
+           hasObservedSessionSurfaceAuthority || pairingStatus != .paired || isDemoMode {
+            scheduleSessionSurfaceActivity(publication: publication, identity: sessionSurfaceIdentity,
+                canStart: isAppInForeground) { [weak self] snapshot, identity, canStart, publication in
+                guard let self else { return }
                 if let status = await DJConnectSessionSurfaceActivityController.sync(snapshot: snapshot, presentationID: identity,
-                    canStart: canStart, endReason: changedSubject ? "subject_changed" : (!confirmed ? "session_inactive" : "snapshot_expired"),
+                    canStart: canStart, publication: publication,
+                    endReason: changedSubject ? "subject_changed" : (!confirmed ? "session_inactive" : "snapshot_expired"),
                     nativePushChanged: { [weak self] token, activityID in
-                        guard let self else { return }
+                        guard let self, publication.isOwnerCurrent else { return }
                         guard let token else { self.nativeActivityPushOwner.nativeActivityEnded(activityID); return }
                         guard self.sessionSurfaceIdentity == token.presentationID,
                               let session = self.activeDJSession?.id,
@@ -11246,6 +11315,56 @@ public final class DJConnectAppModel: ObservableObject {
             }
         }
         #endif
+    }
+
+    // Production scope selection reads this AppModel's actual settings state.
+    // Tests can exercise selection/queueing without starting unrelated background
+    // services, writing the installed shared group or invoking ActivityKit.
+    func prepareSessionSurfacePublication(confirmed: Bool, sessionID: String?, identity: String?,
+        snapshot: DJConnectSessionSurfaceSnapshot?, foreground: Bool, observedSession: Bool) -> SessionSurfaceNativeCustody.Ticket {
+        let scope: SessionSurfaceNativeCustody.Scope?
+        if confirmed, let settings = profileDJSettings.response, settings.isValid,
+           let sessionID {
+            let candidate = SessionSurfaceNativeCustody.Scope(installation: defaults.string(forKey: haInstallIDKey), binding: settings.binding,
+                session: sessionID, settingsGeneration: settings.snapshot.session?.generation,
+                settingsRevision: settings.snapshot.session?.revision ?? settings.snapshot.defaults_revision)
+            // Local background suspension does not revoke an existing warm
+            // presentation's original lease or establish a new background scope.
+            let existing = sessionSurfaceNativeCustody.retains(scope: candidate, presentationID: identity)
+            let retainOriginal = existing && (profileDJSettings.active || !foreground || sessionSurfaceNativeCustody.awaitingForegroundConfirmation)
+            scope = (foreground && observedSession && profileDJSettings.active) || retainOriginal ? candidate : nil
+        } else { scope = nil }
+        sessionSurfaceNativeCustody.bind(scope: scope, presentationID: identity, snapshot: snapshot, foreground: foreground,
+            confirmedForeground: observedSession && profileDJSettings.active)
+        return sessionSurfaceNativeCustody.capture()
+    }
+
+    /// The actual native dispatch queue, also exercised with inert observers by
+    /// isolated AppModel tests. No test path creates native permission or effects.
+    @discardableResult
+    func scheduleSessionSurfaceActivity(publication: SessionSurfaceNativeCustody.Ticket, identity: String?, canStart: Bool,
+        dispatch: @escaping @MainActor (DJConnectSessionSurfaceSnapshot?, String?, Bool, SessionSurfaceNativeCustody.Ticket) async -> Void
+    ) -> Task<Void, Never>? {
+        guard publication.isCurrent else { return nil }
+        let effective = publication.currentSnapshot()
+        guard !hasSyncedSessionSurfaceActivity || lastActivitySurfaceSnapshot != effective ||
+                lastActivitySurfaceIdentity != identity || lastActivitySurfacePublication?.isCurrent != true else { return nil }
+        hasSyncedSessionSurfaceActivity = true
+        lastActivitySurfaceSnapshot = effective
+        lastActivitySurfaceIdentity = identity
+        lastActivitySurfacePublication = publication
+        let version = UUID(); sessionSurfaceActivityDispatchVersion = version
+        let previousTask = sessionSurfaceActivityTask
+        let task = Task { [weak self] in
+            await previousTask?.value
+            guard let self, !Task.isCancelled, publication.isCurrent,
+                  self.sessionSurfaceActivityDispatchVersion == version else { return }
+            // Expiry while waiting selects the negative/end route. It must not
+            // merely skip an update and leave a previous Activity displayed.
+            await dispatch(publication.currentSnapshot(), identity, canStart && publication.canStart, publication)
+        }
+        sessionSurfaceActivityTask = task
+        return task
     }
 
     /// Route public playback covers through the confirmed HA connection, including Session headers.

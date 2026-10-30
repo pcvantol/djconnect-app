@@ -47,6 +47,28 @@ private struct SessionMoodBackground: View {
     }
 }
 
+/// One short transition on a real track/palette update. No timeline, timer or
+/// repeated animation; stale/Always-On/Reduce Motion remain immediately static.
+private struct SessionSurfaceBackground: View {
+    let theme: DJConnectSessionMoodTheme
+    let trackID: String?
+    var artworkOpacity = 1.0
+    var permitsTransition = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isLuminanceReduced) private var luminanceReduced
+    private struct Update: Hashable { let theme: DJConnectSessionMoodTheme; let trackID: String? }
+    private var animates: Bool { permitsTransition && !reduceMotion && !luminanceReduced }
+    var body: some View {
+        ZStack {
+            SessionMoodBackground(theme: theme)
+                .overlay { SessionWidgetVibeScapeArtwork(colors: theme.colors).opacity(artworkOpacity) }
+                .id(Update(theme: theme, trackID: trackID))
+                .transition(animates ? .opacity.combined(with: .scale(scale: 0.985)) : .identity)
+        }
+        .animation(animates ? .easeInOut(duration: 0.75) : nil, value: Update(theme: theme, trackID: trackID))
+    }
+}
+
 struct DJConnectSessionWidgetEntry: TimelineEntry {
     let date: Date
     let snapshot: DJConnectSessionSurfaceSnapshot?
@@ -127,8 +149,8 @@ private struct DJConnectSessionWidgetView: View {
             }
         }
         .containerBackground(for: .widget) {
-            SessionMoodBackground(theme: theme)
-                .overlay { SessionWidgetVibeScapeArtwork(colors: theme.colors) }
+            SessionSurfaceBackground(theme: theme, trackID: rich?.projection.currentPlayback(at: now)?.item_id,
+                                     permitsTransition: entry.snapshot?.isCurrent(at: now) == true || rich != nil)
         }
         .widgetURL(sessionURL)
     }
@@ -169,8 +191,9 @@ struct DJConnectSessionActivityWidget: Widget {
                 .padding(12)
                 .background {
                     let theme = context.isStale ? DJConnectSessionMoodTheme.brand : context.state.renderingTheme(at: Date())
-                    SessionMoodBackground(theme: theme)
-                        .overlay { SessionWidgetVibeScapeArtwork(colors: theme.colors).opacity(0.75) }
+                    SessionSurfaceBackground(theme: theme,
+                        trackID: context.state.rich?.currentPlayback(at: Date())?.item_id, artworkOpacity: 0.75,
+                        permitsTransition: !context.isStale && context.state.isCurrent(at: Date()))
                 }
                 .activityBackgroundTint((context.isStale ? DJConnectSessionMoodTheme.brand : context.state.renderingTheme(at: Date())).darkTint)
                 .activitySystemActionForegroundColor(.white)
@@ -366,6 +389,8 @@ private struct PassiveActivityBody: View {
     var body: some View {
         let now = Date()
         if !stale, snapshot.isCurrent(at: now), let rich = snapshot.rich, rich.isCurrent(at: now) {
+            let contribution = rich.currentContribution(at: now)
+            let playback = rich.currentPlayback(at: now)
             let cache = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier)
                 .flatMap { DJConnectPassiveSurfaceCache.load(surface: .liveActivity, from: $0, at: now) }
                 .flatMap { value in
@@ -373,9 +398,9 @@ private struct PassiveActivityBody: View {
                     value.projection.delivery_sequence == rich.sequence && value.projection.contribution == rich.contribution &&
                     value.projection.now_playing == rich.nowPlaying ? value : nil
                 }
-            PassiveSessionContentView(contribution: rich.contribution, playback: rich.nowPlaying, cache: cache,
-                                      activity: true, playbackState: rich.playbackState,
-                                      showsSpotifyCredit: showsSpotifyCredit, showsHeader: showsHeader && rich.nowPlaying == nil,
+            PassiveSessionContentView(contribution: contribution, playback: playback, cache: cache,
+                                      activity: true, playbackState: playback == nil ? nil : rich.playbackState,
+                                      showsSpotifyCredit: showsSpotifyCredit, showsHeader: showsHeader && playback == nil,
                                       theme: snapshot.renderingTheme(at: now), date: now)
         } else if !showsHeader {
             // The expanded Island already supplies its small leading header.
