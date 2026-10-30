@@ -178,5 +178,7 @@
   ],
   "this_documentary_final": "Requires own exact review, normal CI/protected merge and original qualification. Source241 receipts do not qualify this Final.",
   "compiled_inputs_preserved": 678,
-  "record_preservation": "All prior IDs/statuses/counts/evidence/remaining prefixes preserved; no other open lane task closed."
+  "record_preservation": "All prior IDs/statuses/counts/evidence/remaining prefixes preserved; no other open lane task closed.",
+  "compiled_inputs_definition": "678 tracked paths excluding docs/ and files ending in .md; all unchanged. The complete tracked tree outside docs/ contains 726 identical entries.",
+  "all_tracked_entries_outside_docs_preserved": 726
 }
