@@ -273,10 +273,11 @@
       "topic": "TDE observe: broncomplexiteit",
       "status": "open",
       "owner": "Apple",
-      "evidence": "Native coverage run39060662445 PASS784tests82.596s. TDE1.1.1 observe workflow PASS but assessment FAIL/repository qualification FAILED:3CRITICAL and174HIGH complexity findings; maximum668. No regression baseline, no new runtime/crash conclusion. Findings include widget source, AppModel and RootView.",
+      "evidence": "Native coverage run39060662445 PASS784tests82.596s. TDE1.1.1 observe workflow PASS but assessment FAIL/repository qualification FAILED:3CRITICAL and174HIGH complexity findings; maximum668. No regression baseline, no new runtime/crash conclusion. Findings include widget source, AppModel and RootView. 30 October 2026: Source #243 reviewed bbc3f15a17001bbd0706b9d1d6a3ba8635e54819 -> protected 6c25c4d4f34f823532304e4a843de2d01241ba89 independently originally qualified, with its own CI/formal/coverage/Owner Authorization and actual main-observe receipts. Original CLI stdout/stderr/exit/decisions are preserved; separate public Runtime diagnostics remain NOT_QUALIFIED. Actual main observe still reports BLOCKED/exit3, not a qualified TDE analysis. See APPLE_TDE_OBSERVE_DIAGNOSTICS_243_SOURCE_FINALIZATION_20261030.json.",
       "remaining": [
         "Triage analyzer findings against actual Swift declaration boundaries and existing AppModel/refactor work.",
-        "No suppression, threshold relaxation or technical-debt-free claim in this consolidation."
+        "No suppression, threshold relaxation or technical-debt-free claim in this consolidation.",
+        "Bounded observe diagnostics are delivered; original assessment/repository qualification remain BLOCKED. Correctly qualified Swift symbol attribution and subsequent genuine complexity triage remain OPEN; no source refactor, suppression or threshold relaxation is implied."
       ],
       "next_action": "Carry current observe findings into existing Apple refactor work after bounded source consolidation."
     },

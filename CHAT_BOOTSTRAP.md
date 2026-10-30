@@ -20,3 +20,9 @@ CodeQL maintenance: PR180 now pins all three firmware-analysis action references
 to 4.39.0 (`6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee`). Its original main
 qualification is recorded in `docs/feedback/APPLE_CODEQL_180_SOURCE_RECEIPT_20261024.json`.
 This workflow-only update is not an app version or device-installation receipt.
+
+TDE observe diagnostics: Source #243 preserves original CLI stdout/stderr/exits and
+BLOCKED decisions, and publishes supplemental public Runtime diagnostics only as
+`NOT_QUALIFIED`. Observe success is not a successful TDE assessment. Original
+source qualification and remaining analyzer gates are recorded in
+`docs/feedback/APPLE_TDE_OBSERVE_DIAGNOSTICS_243_SOURCE_FINALIZATION_20261030.md`.
