@@ -31,6 +31,23 @@ registration or provider factory from DATA.
   the native Activity object/ID and pre-request original attributes bytes.
   Retired handles do not revive; ambiguous inventory is not first-match adopted.
   Cold inventory cannot construct this process-local captured target.
+- The private native-handle registry bounds 128 simultaneous owned handles,
+  not lifetime requests. Explicit withdrawal irreversibly retires the exact
+  object before releasing its entry. Retired objects cannot be reinserted;
+  late retirement cannot remove a replacement, and capacity pressure never
+  evicts a valid/stale handle or adopts an inventory object. This RAM registry
+  is not an operation journal, replay tombstone or original once-admission.
+- One effective publication snapshot is used for cache storage, reloads and
+  native change detection/queueing. Settings withdrawal selects a current
+  negative/end ticket even if Session, identity and raw frame are unchanged.
+  Expiry during queueing or before the SDK selects retirement, not a skipped
+  update. A late retirement cannot use an obsolete owner/frame ticket.
+- The real `markInactiveSession` call synchronously fences foreground starts.
+  Local background suspension can retain only an already matching warm scope
+  and its original lease. It creates no positive capture. Resume from cached
+  settings/active flags cannot rebuild a scope or clear the start fence;
+  an actual foreground Session observation is needed. Missing/invalid settings
+  or changed scope close the presentation even while backgrounded.
 - The rich renderer independently checks each field's source interval and its
   original receive/uptime cap at paint. Aggregate validity cannot keep an expired
   contribution alive or let wall rollback renew a playback field.
@@ -89,6 +106,11 @@ The isolated validation directory is
 including the widget and embedded Watch dependency, passed in `ios-build-r5`.
 The preceding `ios-build-r4` failed on sandbox access to Xcode caches and
 CoreSimulator, before source compilation; it is retained as a setup failure.
+After the review corrections, `full-r7` passed 1,409 Swift tests in 36 suites
+and `ios-build-r8` passed the iOS/widget/Watch simulator compilation. The
+`full-r6` and `mac-native-r3` test compilations failed on a Swift Testing macro's
+keypath assertion; the same retired-reference assertion is now expressed
+explicitly for every retained object, with no product-code workaround.
 
 The exact same four regression tests were also run against the actual
 predecessor model at `3bec8aae7f5139cc07c6e2ac444c2f3cc695aaac`.
@@ -102,3 +124,16 @@ not establish OS transition rendering, original source permission, simulator
 APNs delivery, physical-device delivery, production activation or a cross-clock
 rate bound. No device installation or provider operation is performed by these
 checks.
+
+The later AppModel withdrawal correction supersedes the initial whole-source
+review of `48b78e7` for this discovered P2. Tests exercise the actual AppModel
+settings selection, actual dispatch queue and real `markInactiveSession` path
+using isolated defaults and inert dispatch observers. They do not call or fake
+successful native SDK operations. The first targeted compile was invalidated
+because its test input was edited during compilation; that setup failure is
+retained separately. The new exact head requires its own review and checks.
+The independent GitHub review additionally identified the accidental lifetime
+128-start limit. Registry tests use inert objects through the actual production
+registry: 512 sequential lifecycles, retained retired references, 128 concurrent
+entries with closed overflow, and late retirement against a replacement. They
+are not synthetic successful ActivityKit requests or native acceptance.
