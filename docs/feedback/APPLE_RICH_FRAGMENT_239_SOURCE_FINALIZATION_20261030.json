@@ -1,0 +1,251 @@
+{
+  "schema_version": 1,
+  "scope": "Separate documentary Final for Source239 internal pure rich-fragment DATA preflight only. No production owner/clock/cache/render/SDK/provider or native push acceptance.",
+  "source239_original_qualification": {
+    "source_pr": 239,
+    "candidate": "b5384fdaa70ded07afb462022db84fdb0402dbaa",
+    "main": "4eca59cfdf022c09aad2c140773dfb5661e6ff1d",
+    "tree": "a2d229c1bf6d4e8ad5200660854f0035ffa7c72c",
+    "reviewed_and_merged_tree_equal": true,
+    "main_CI_run": 41028621594,
+    "formal_run": 41029904690,
+    "original_run_attempts": 1,
+    "formal_decision": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+    "formal_digest": "ccc9e1df507d2a3ba65a85d63226e8cc9dfd23ddd2d9cbde39ce5b4b1231a956",
+    "formal_findings": [],
+    "formal_raw_sha256": "94746f5687a78307c0a05fa291c482bd4d2a50994d63840f6774c2ffc85e365c",
+    "formal_original_artifact_id": 12965690824,
+    "formal_original_ZIP_actual_provider_sha256": "e9738162a96d64bd0977476a31e828be2c88dffe59d126e90146bed8cb68cf0e",
+    "formal_raw_joined_to_original_ZIP": true,
+    "durable_asset_id": 691523419,
+    "durable_actual_and_provider_sha256": "f65f2c8647c2bc9145a1d3aa483ae3a478638b1bbc4c8bbe4b6f30a11f1d996a",
+    "durable_inner_integrity_verified": true,
+    "all12_required_checks": {
+      "post_merge_build_validation": "PASS",
+      "post_merge_ci": "PASS",
+      "post_merge_coverage": "PASS",
+      "post_merge_governance": "PASS",
+      "post_merge_lint": "PASS",
+      "post_merge_static_analysis": "PASS",
+      "post_merge_tests": "PASS",
+      "required_checks": "PASS",
+      "software_assurance": "PASS",
+      "trusted_delivery": "PASS",
+      "verification": "PASS",
+      "workflow_integrity": "PASS"
+    },
+    "review_sha256": "db9ed58dfa172e02bc4ef674fe1b7b9734c25aa41046bddd445386c96014c8df",
+    "scope": "Bounded original rich Session fragment DATA preflight only; no actual owner/clock/factory/native/provider/physical acceptance"
+  },
+  "source239_original_receipt_sha256": "94cdfa99169b23c0a914906e82498b438356ee713887ecc9ca7714c5788677ab",
+  "source239_original_policy_coverage": {
+    "scope": "Original exact-policy deterministic validation and own coverage binding; not independent reviewer closure or native acceptance.",
+    "source_pr": 239,
+    "candidate": "b5384fdaa70ded07afb462022db84fdb0402dbaa",
+    "main": "4eca59cfdf022c09aad2c140773dfb5661e6ff1d",
+    "original_qualification_receipt_sha256": "94cdfa99169b23c0a914906e82498b438356ee713887ecc9ca7714c5788677ab",
+    "policy_ref": "ebbb35f038a7a3c7d46c12660968bcd50eb67580",
+    "policy_sha256": "2419a355e1fb6b85448d362681c061470d59d45936b06f2b9a6249278351a449",
+    "policy_validation_findings": [],
+    "original_coverage": {
+      "main": "4eca59cfdf022c09aad2c140773dfb5661e6ff1d",
+      "own_main_run": 41028621594,
+      "artifact_id": 12965805206,
+      "actual_and_provider_zip_sha256": "3fd9fcd771edd299c38e1aafd762771339f1b7d293bb367953c0a375de685ff4",
+      "members": {
+        "coverage.json": {
+          "bytes": 3373192,
+          "sha256": "71dd684bc52390ccd61a4949ea507d786b326d959fba8ac3077c12c50f5c8777"
+        },
+        "coverage-main-sha.txt": {
+          "bytes": 41,
+          "sha256": "eb565f185fa15532d974a70f7e82fb58b9937d8c6d3e22f384fde57a24f680a7"
+        }
+      },
+      "rich_fragment_coverage_file": {
+        "name": "DJConnectRichSurfaceFragments.swift",
+        "coveredLines": 168,
+        "executableLines": 173
+      },
+      "scope": "Own original selected native Core target coverage; no physical/provider/push acceptance."
+    },
+    "native_coverage_limit": "Own Source239 selected native parser/test coverage; not original owner/clock/factory/native/provider/push admission."
+  },
+  "source239_policy_coverage_sha256": "406f2109f4c3ff7d8d793859efd18a393b49243d3d049835a76a733b9b707096",
+  "source239_independent_original_closure": {
+    "time_utc": "2026-10-30T09:01:24.077001+00:00",
+    "verdict": "ORIGINAL_QUALIFIED_BOUNDED_SOURCE239",
+    "reviewer": "Root independent personal readonly closure",
+    "candidate": "b5384fdaa70ded07afb462022db84fdb0402dbaa",
+    "protected": "4eca59cfdf022c09aad2c140773dfb5661e6ff1d",
+    "tree": "a2d229c1bf6d4e8ad5200660854f0035ffa7c72c",
+    "source_review_sha256": "db9ed58dfa172e02bc4ef674fe1b7b9734c25aa41046bddd445386c96014c8df",
+    "original_receipt_sha256": "94cdfa99169b23c0a914906e82498b438356ee713887ecc9ca7714c5788677ab",
+    "policy_coverage_supplement_sha256": "406f2109f4c3ff7d8d793859efd18a393b49243d3d049835a76a733b9b707096",
+    "personal_checks": [
+      "OriginalformalZIP/providerdigest/rawmember bytejoin",
+      "Formalcanonical digest exactPR/candidate/main and6filedelta",
+      "Durableasset/providerdigest/innerintegrity/sourceevidencedigest/all12PASS",
+      "Exactebbb35policy SHA2419a355 validate_record findings empty",
+      "OwncoverageZIP/providerdigest/memberhashes/exact41Bmainmarker",
+      "Ownattempt1 mainCI41028621594 andformal41029904690 success verified freshliveGitHub",
+      "FreshlivePR merged exacthead/protected andformalartifact/durableassetdigests",
+      "Reviewed/protected tree equality"
+    ],
+    "formal_digest": "ccc9e1df507d2a3ba65a85d63226e8cc9dfd23ddd2d9cbde39ce5b4b1231a956",
+    "formal_raw_sha256": "94746f5687a78307c0a05fa291c482bd4d2a50994d63840f6774c2ffc85e365c",
+    "scope": "Only six-file internal pure DATA preflight. No real owner/clock/custody/factory/provider/native/iPhone/push acceptance.",
+    "separate_Final": "Still separately required with own exact review/CI/protected merge/original records. Source receipt cannot qualify Final.",
+    "source_or_runtime_mutation_by_Root": false,
+    "prior_sandbox_network_failure": "Preserved tool output; no closure file written on failure; native readonly metadata check succeeded now."
+  },
+  "source239_independent_closure_sha256": "bff1b7d0c4dd522c2a78707a9a3ce6a618e889e4a5f959441e9baa3266d141ec",
+  "software_evidence": {
+    "scope": "Exact candidate DATA-only software tests; no native push/runtime/owner/clock acceptance",
+    "candidate": "b5384fdaa70ded07afb462022db84fdb0402dbaa",
+    "full_swift_testing": {
+      "functions": 1384,
+      "suites": 35,
+      "seconds": 140.782,
+      "exit": 0
+    },
+    "legacy_xctest": {
+      "tests": 86,
+      "skipped": 5,
+      "failures": 0
+    },
+    "native_mac_new_functions": {
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "exit": 0
+    },
+    "CoreIOS_compile_exit": 0,
+    "CoreWatch_compile_exit": 0,
+    "root_independent_review_sha256": "db9ed58dfa172e02bc4ef674fe1b7b9734c25aa41046bddd445386c96014c8df",
+    "members": {
+      "full-r2.log": {
+        "bytes": 381181,
+        "sha256": "9bbce372b83c22ad5f4e7b92a0b73c41199df886f0021310fb696dcb5e0bd699"
+      },
+      "full-r2.exit": {
+        "bytes": 2,
+        "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+      },
+      "ios-build-r1.log": {
+        "bytes": 10418,
+        "sha256": "320f4e84e8e244e6117e13649c83148010c64696f6d5c8898fd78f3018ae8324"
+      },
+      "ios-build-r1.exit": {
+        "bytes": 2,
+        "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+      },
+      "watch-build-r1.log": {
+        "bytes": 10420,
+        "sha256": "39d2716730c8120f59e644721ba4c31808b217fca1e442aaacbc2795b890c86c"
+      },
+      "watch-build-r1.exit": {
+        "bytes": 2,
+        "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+      },
+      "mac-fragments-r1.log": {
+        "bytes": 45874,
+        "sha256": "96369c351987d1ac21d0d26fff58a4bf2a416bb78e3dd2a3073e57668ebbefd2"
+      },
+      "mac-fragments-r1.exit": {
+        "bytes": 2,
+        "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+      },
+      "mac-fragments-r1-summary.json": {
+        "bytes": 978,
+        "sha256": "d07c98769abdd9a4f54278311adcd26612e001a1a0dacaf212d4026f4b4d171b"
+      },
+      "original-33-member-proof.json": {
+        "bytes": 250,
+        "sha256": "42c8479085f0e1f1e571f888da8a24d3c140ab35d0dc70bdb5a3ed77f49e363a"
+      }
+    }
+  },
+  "simulator_evidence": {
+    "candidate": "b5384fdaa70ded07afb462022db84fdb0402dbaa",
+    "scope": "Actual iOS27.0 simulator execution of original compiled CoreIOS internal pure DATA preflight;38positive/negative codec cases, not authenticated original-owner/clock or native lifecycle/provider/push acceptance",
+    "actual_helper_compile_exit": 0,
+    "actual_simulator_helper_exit": 0,
+    "cases": 38,
+    "failed_setup_preserved": "iOS27.1 listed available but simctl create actual147 incompatibledevice; no simulator created. iOS27.0 known compatible was used in separate r2directory.",
+    "cleanup": {
+      "owned_uuid": "121BC7BC-A063-4B34-919D-BBEA8AD960F0",
+      "owned_removed": true,
+      "all_preexisting_states_preserved": true,
+      "preexisting_device_count": 13,
+      "actual_simulator_data_cases": 38,
+      "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-27-0",
+      "no_peer_reset_or_deletion": true
+    },
+    "members": {
+      "SimulatorPreflight.swift": {
+        "bytes": 3581,
+        "sha256": "1f05e68f24898672f47dee74389c092f460b2288f67b947138e533c5f85238af"
+      },
+      "SimulatorPreflight": {
+        "bytes": 118752,
+        "sha256": "162369be7989d74d9fa9720a928d9b063d2fe274e84e6e6d3bfd66de9e8acc45"
+      },
+      "simulator-compile-r1.log": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "simulator-compile-r1.exit": {
+        "bytes": 2,
+        "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+      },
+      "sim-create.log": {
+        "bytes": 315,
+        "sha256": "6e348c01140ca2eaaa43c94970e86ef77a8ab14f5650f755ace330d37f9e5170"
+      },
+      "sim-create.exit": {
+        "bytes": 4,
+        "sha256": "5c862790153d23a72dd410bb8b36819d51ac248cbaec4f6742efd8e75f20b175"
+      },
+      "simulator-cleanup.json": {
+        "bytes": 264,
+        "sha256": "5e961a0ad29b67d8f207cb559fc7eee28a884000fa2980a000487bcc7d043e42"
+      },
+      "simulator-r2/data-results.json": {
+        "bytes": 1547,
+        "sha256": "33e96ccd421f8152e0a67a2e9738c56e63f73c1bc6bb84cbfbd3c52354fa9aae"
+      },
+      "simulator-r2/data-run.log": {
+        "bytes": 33,
+        "sha256": "b93079e2cd711fd24645e68bee686237ddf2bae61a893abf43790306bef36824"
+      },
+      "simulator-r2/data-run.exit": {
+        "bytes": 2,
+        "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+      },
+      "simulator-r2/cleanup.json": {
+        "bytes": 296,
+        "sha256": "09ae4f665561296bee64877e63715742bdd3644750e8f18b85eb68d76882574e"
+      },
+      "simulator-r2/owned-simulator.json": {
+        "bytes": 147,
+        "sha256": "2929e0e3f6e8449d5ef19d96874d4427c389410cc3374ec1bc2a3bbc6befbe7d"
+      }
+    }
+  },
+  "product": "One existing rich Session widget and one existing rich Session Live Activity with push; playback/artwork/static VibeScape retained; no second status-only user variant.",
+  "remaining": [
+    "Actual independently authenticated rich-start/read/artwork successor contracts and concrete original source/purpose/signing custody. The canonical R4 format contract is already delivered, not an outstanding dependency.",
+    "Qualified original native C0/boot/domain/rho/suspend/restore and private target/generation/withdrawal custody; no cold re-delegation or fabricated owner.",
+    "Actual per-field original source and mapped monotonic guards at read/cache/image/render/SDK invocation after the last await/hop; DATA parsing is not that adapter.",
+    "Authorized matching artwork staging, separately admitted background scopes and original enrollment/provider/APNs/physical acceptance.",
+    "Existing Help EN/NL, ordinary Ask DJ, VibeCast, HA production and Pi gates are retained."
+  ],
+  "preserved_failed_attempts": [
+    "Initial sandbox manifest cache denial actual1; not a product test result.",
+    "First new test compile failed actual1 due nested require macro; corrected before successful final exact-source1384 run.",
+    "Initial XcodeGen and xcresulttool sandbox temp writes denied; successful scoped native reruns retained separately.",
+    "iOS27.1 simulator create actual147 incompatibledevice; created no simulator. Distinct iOS27.0 r2 successfully ran38 DATA cases and deleted only its own simulator."
+  ],
+  "this_documentary_Final": "Requires its own independent whole/exact review, normal CI/protected merge and original formal/durable/coverage qualification. Source239 evidence does not qualify this Final."
+}
