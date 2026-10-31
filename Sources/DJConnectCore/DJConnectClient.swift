@@ -1156,7 +1156,7 @@ public final class DJConnectClient: Sendable {
     }
     private func readProfileConversationHistory() async throws -> DJConnectProfileConversationHistory {
         let response: DJConnectProfileConversationHistory
-        if let scoped = try await webSocketFastPathResult({ fastPath, token in
+        if let scoped = try await webSocketFastPathResult(replaySafe: true, { fastPath, token in
             try await fastPath.profileConversationHistory(identity: makeDJConnectIdentity(deviceToken: token))
         }) { response = scoped }
         else {
@@ -1893,7 +1893,7 @@ public final class DJConnectClient: Sendable {
     }
 
     private func webSocketCommandIfSupported<T: Decodable & Sendable>(_ payload: DJConnectCommandPayload) async throws -> T? {
-        try await webSocketFastPathResult { fastPath, token in
+        try await webSocketFastPathResult(replaySafe: DJConnectHybridTransport.canReplayLegacyCommand(payload.command)) { fastPath, token in
             try await fastPath.command(payload, identity: makeDJConnectIdentity(deviceToken: token), responseType: T.self)
         }
     }
@@ -1905,7 +1905,7 @@ public final class DJConnectClient: Sendable {
     }
 
     private func webSocketAskDJHistoryIfSupported(sinceRevision: Int?) async throws -> DJConnectAskDJHistoryResponse? {
-        try await webSocketFastPathResult { fastPath, token in
+        try await webSocketFastPathResult(replaySafe: true) { fastPath, token in
             try await fastPath.askDJHistory(identity: makeDJConnectIdentity(deviceToken: token), sinceRevision: sinceRevision)
         }
     }
@@ -1917,7 +1917,7 @@ public final class DJConnectClient: Sendable {
     }
 
     private func webSocketMusicDNAProfileIfSupported(mood: Int?, musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDNAProfileResponse? {
-        try await webSocketFastPathResult { fastPath, token in
+        try await webSocketFastPathResult(replaySafe: true) { fastPath, token in
             try await fastPath.musicDNAProfile(
                 identity: makeDJConnectIdentity(deviceToken: token),
                 mood: mood,
@@ -1961,7 +1961,7 @@ public final class DJConnectClient: Sendable {
     }
 
     private func webSocketMusicDiscoveryFeedIfSupported(musicDNAKey: String?, language: String?) async throws -> DJConnectMusicDiscoveryResponse? {
-        try await webSocketFastPathResult { fastPath, token in
+        try await webSocketFastPathResult(replaySafe: true) { fastPath, token in
             try await fastPath.musicDiscoveryFeed(
                 identity: makeDJConnectIdentity(deviceToken: token),
                 musicDNAKey: musicDNAKey,
@@ -1996,6 +1996,7 @@ public final class DJConnectClient: Sendable {
     }
 
     private func webSocketFastPathResult<T: Sendable>(
+        replaySafe: Bool = false,
         _ operation: (any DJConnectWebSocketFastPathTransport, String) async throws -> T
     ) async throws -> T? {
         guard let webSocketFastPath else {
@@ -2010,18 +2011,30 @@ public final class DJConnectClient: Sendable {
             if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
                 throw CancellationError()
             }
+            let beforeDispatch = error as? DJConnectWebSocketPreDispatchFailure
+            let error = beforeDispatch?.error ?? error
+            if error is CancellationError || (error as? URLError)?.code == .cancelled { throw CancellationError() }
             // A rejected operation is an authoritative answer, not a transport
             // failure. Replaying it over HTTP can duplicate a write or hide a
             // Profile/authentication rejection.
             if let error = error as? DJConnectError {
                 switch error {
-                case .routeMissing, .network, .invalidResponse:
+                case .routeMissing:
+                    return nil // Protocol contract: unsupported before business dispatch.
+                case .network, .invalidResponse:
+                    guard replaySafe || beforeDispatch != nil else { throw DJConnectHybridTransportError.deliveryUnknown }
                     return nil
                 default:
                     throw error
                 }
             }
-            if error is URLError { return nil }
+            if error is URLError {
+                guard replaySafe || beforeDispatch != nil else { throw DJConnectHybridTransportError.deliveryUnknown }
+                return nil
+            }
+            // A conformer may expose POSIX/decoding/SDK errors directly. Do
+            // not let the outer origin coordinator replay an uncertain write.
+            if !replaySafe && beforeDispatch == nil { throw DJConnectHybridTransportError.deliveryUnknown }
             throw error
         }
     }

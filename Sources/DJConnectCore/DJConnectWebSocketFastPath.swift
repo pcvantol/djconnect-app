@@ -50,6 +50,8 @@ public struct DJConnectFastPathDiagnostics: Equatable, Sendable {
     }
 }
 
+/// `routeMissing` means the operation was not dispatched. After native dispatch,
+/// mutations must report `deliveryUnknown` rather than permit an HTTP replay.
 public protocol DJConnectWebSocketFastPathTransport: Sendable {
     var diagnostics: DJConnectFastPathDiagnostics { get async }
     func prepare() async throws
@@ -81,10 +83,29 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
 
     private let session: URLSession
     private let homeAssistantAuth: DJConnectHomeAssistantWebSocketAuth
+    private let timing: DJConnectWebSocketRuntimeTiming
     private let decoder = JSONDecoder()
     private let encoder = JSONEncoder()
     private var task: URLSessionWebSocketTask?
     private var nextID = 1
+    private static let maximumPendingRequests = 8
+    private var socketEpoch = UUID()
+    private var authenticated = false
+    private var readerTask: Task<Void, Never>?
+    private var negotiationID: UUID?
+    private var negotiationTask: Task<Void, Never>?
+    private var negotiationTimer: Task<Void, Never>?
+    private var negotiationClosed = false
+    private var negotiationWaiters: [UUID: CheckedContinuation<Set<DJConnectFastPathRoute>, Error>] = [:]
+    private struct Pending {
+        let epoch: UUID
+        let continuation: CheckedContinuation<Data, Error>
+        var sender: Task<Void, Never>?
+        var timer: Task<Void, Never>?
+        var dispatched = false
+        var sendCompleted = false
+    }
+    private var pending: [Int: Pending] = [:]
     private var commands: Set<String> = []
     private var capabilitiesLoadedAt: Date?
     private var unhealthyUntil: Date?
@@ -98,12 +119,31 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         self.baseURL = baseURL
         self.homeAssistantAuth = homeAssistantAuth
         self.session = session
+        self.timing = .live
+    }
+
+    init(baseURL: URL, homeAssistantAuth: DJConnectHomeAssistantWebSocketAuth,
+         session: URLSession, timing: DJConnectWebSocketRuntimeTiming, firstRequestID: Int = 1) {
+        self.baseURL = baseURL; self.homeAssistantAuth = homeAssistantAuth
+        self.session = session; self.timing = timing; self.nextID = firstRequestID
+    }
+
+    deinit {
+        readerTask?.cancel(); negotiationTask?.cancel(); negotiationTimer?.cancel()
+        task?.cancel(with: .goingAway, reason: nil) // Never invalidate the supplied URLSession.
+    }
+
+    var startupIsActive: Bool { negotiationID != nil }
+
+    private var ignoredReplies = 0
+    var inFlightCounts: (startup: Int, requests: Int, sending: Int, ignored: Int) {
+        (negotiationWaiters.count, pending.count, pending.values.filter { $0.dispatched && !$0.sendCompleted }.count, ignoredReplies)
     }
 
     public var diagnostics: DJConnectFastPathDiagnostics {
         DJConnectFastPathDiagnostics(
-            fastPathTransport: task == nil ? "http" : "websocket",
-            websocketConnected: task != nil,
+            fastPathTransport: authenticated && task != nil ? "websocket" : "http",
+            websocketConnected: authenticated && task != nil,
             lastWebSocketError: lastError,
             lastCapabilityRefresh: capabilitiesLoadedAt,
             websocketCommands: commands.sorted()
@@ -123,55 +163,55 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         identity: DJConnectAPIIdentity,
         responseType: T.Type
     ) async throws -> T {
-        guard try await ensureCapabilities().contains(.command) else {
+        guard try await operationCapabilities().contains(.command) else {
             throw DJConnectError.routeMissing(message: "WebSocket command capability unavailable")
         }
-        let request = DJConnectWebSocketCommandMessage(id: allocateID(), identity: identity, payload: payload)
-        return try await sendResult(request, timeout: Self.timeout(for: payload.command), responseType: T.self)
+        let request = DJConnectWebSocketCommandMessage(id: try allocateID(), identity: identity, payload: payload)
+        return try await sendResult(request, timeout: Self.timeout(for: payload.command), responseType: T.self, replaySafe: DJConnectHybridTransport.canReplayLegacyCommand(payload.command))
     }
 
     public func askDJMessage(_ payload: DJConnectAskDJRequest, identity: DJConnectAPIIdentity) async throws -> DJConnectAskDJMessageResponse {
-        guard try await ensureCapabilities().contains(.askDJMessage) else {
+        guard try await operationCapabilities().contains(.askDJMessage) else {
             throw DJConnectError.routeMissing(message: "WebSocket Ask DJ capability unavailable")
         }
-        let request = DJConnectWebSocketAskDJMessage(id: allocateID(), identity: identity, payload: payload)
+        let request = DJConnectWebSocketAskDJMessage(id: try allocateID(), identity: identity, payload: payload)
         return try await sendResult(request, timeout: 15, responseType: DJConnectAskDJMessageResponse.self)
     }
 
     public func profileConversationHistory(identity: DJConnectAPIIdentity) async throws -> DJConnectProfileConversationHistory {
-        guard try await ensureCapabilities().contains(.askDJHistory) else {
+        guard try await operationCapabilities().contains(.askDJHistory) else {
             throw DJConnectError.routeMissing(message: "Scoped Profile history is unavailable")
         }
-        let request = DJConnectWebSocketProfileHistoryMessage(id: allocateID(), identity: identity)
-        return try await sendResult(request, timeout: 10, responseType: DJConnectProfileConversationHistory.self, privateResponse: true)
+        let request = DJConnectWebSocketProfileHistoryMessage(id: try allocateID(), identity: identity)
+        return try await sendResult(request, timeout: 10, responseType: DJConnectProfileConversationHistory.self, privateResponse: true, replaySafe: true)
     }
 
     public func askDJHistory(
         identity: DJConnectAPIIdentity,
         sinceRevision: Int?
     ) async throws -> DJConnectAskDJHistoryResponse {
-        guard try await ensureCapabilities().contains(.askDJHistory) else {
+        guard try await operationCapabilities().contains(.askDJHistory) else {
             throw DJConnectError.routeMissing(message: "WebSocket Ask DJ history capability unavailable")
         }
         let request = DJConnectWebSocketAskDJHistoryMessage(
-            id: allocateID(),
+            id: try allocateID(),
             type: DJConnectFastPathRoute.askDJHistory.rawValue,
             identity: identity,
             sinceRevision: sinceRevision,
             musicDNAKey: nil
         )
-        return try await sendResult(request, timeout: 10, responseType: DJConnectAskDJHistoryResponse.self)
+        return try await sendResult(request, timeout: 10, responseType: DJConnectAskDJHistoryResponse.self, replaySafe: true)
     }
 
     public func clearAskDJHistory(
         identity: DJConnectAPIIdentity,
         musicDNAKey: String?
     ) async throws -> DJConnectAskDJHistoryResponse {
-        guard try await ensureCapabilities().contains(.askDJHistoryClear) else {
+        guard try await operationCapabilities().contains(.askDJHistoryClear) else {
             throw DJConnectError.routeMissing(message: "WebSocket Ask DJ clear-history capability unavailable")
         }
         let request = DJConnectWebSocketAskDJHistoryMessage(
-            id: allocateID(),
+            id: try allocateID(),
             type: DJConnectFastPathRoute.askDJHistoryClear.rawValue,
             identity: identity,
             sinceRevision: nil,
@@ -186,17 +226,17 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         musicDNAKey: String?,
         language: String?
     ) async throws -> DJConnectMusicDNAProfileResponse {
-        guard try await ensureCapabilities().contains(.musicDNAProfile) else {
+        guard try await operationCapabilities().contains(.musicDNAProfile) else {
             throw DJConnectError.routeMissing(message: "WebSocket Music DNA profile capability unavailable")
         }
         let payload = DJConnectMusicDNAFastPathPayload(mood: mood, musicDNAKey: musicDNAKey, language: language)
         let request = DJConnectWebSocketMusicDNARequestMessage(
-            id: allocateID(),
+            id: try allocateID(),
             type: DJConnectFastPathRoute.musicDNAProfile.rawValue,
             identity: identity,
             payload: payload
         )
-        return try await sendResult(request, timeout: 10, responseType: DJConnectMusicDNAProfileResponse.self)
+        return try await sendResult(request, timeout: 10, responseType: DJConnectMusicDNAProfileResponse.self, replaySafe: true)
     }
 
     public func setMusicDNAEnabled(
@@ -206,12 +246,12 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         musicDNAKey: String?,
         language: String?
     ) async throws -> DJConnectMusicDNAProfileResponse {
-        guard try await ensureCapabilities().contains(.musicDNASettings) else {
+        guard try await operationCapabilities().contains(.musicDNASettings) else {
             throw DJConnectError.routeMissing(message: "WebSocket Music DNA settings capability unavailable")
         }
         let payload = DJConnectMusicDNAFastPathPayload(enabled: enabled, mood: mood, musicDNAKey: musicDNAKey, language: language)
         let request = DJConnectWebSocketMusicDNARequestMessage(
-            id: allocateID(),
+            id: try allocateID(),
             type: DJConnectFastPathRoute.musicDNASettings.rawValue,
             identity: identity,
             payload: payload
@@ -225,12 +265,12 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         musicDNAKey: String?,
         language: String?
     ) async throws -> DJConnectMusicDNAProfileResponse {
-        guard try await ensureCapabilities().contains(.musicDNAClear) else {
+        guard try await operationCapabilities().contains(.musicDNAClear) else {
             throw DJConnectError.routeMissing(message: "WebSocket Music DNA clear capability unavailable")
         }
         let payload = DJConnectMusicDNAFastPathPayload(mood: mood, musicDNAKey: musicDNAKey, language: language)
         let request = DJConnectWebSocketMusicDNARequestMessage(
-            id: allocateID(),
+            id: try allocateID(),
             type: DJConnectFastPathRoute.musicDNAClear.rawValue,
             identity: identity,
             payload: payload
@@ -243,17 +283,17 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         musicDNAKey: String?,
         language: String?
     ) async throws -> DJConnectMusicDiscoveryResponse {
-        guard try await ensureCapabilities().contains(.musicDiscoveryFeed) else {
+        guard try await operationCapabilities().contains(.musicDiscoveryFeed) else {
             throw DJConnectError.routeMissing(message: "WebSocket Music Discovery feed capability unavailable")
         }
         let request = DJConnectWebSocketMusicDiscoveryRequestMessage(
-            id: allocateID(),
+            id: try allocateID(),
             type: DJConnectFastPathRoute.musicDiscoveryFeed.rawValue,
             identity: identity,
             musicDNAKey: musicDNAKey,
             language: language
         )
-        return try await sendResult(request, timeout: 10, responseType: DJConnectMusicDiscoveryResponse.self)
+        return try await sendResult(request, timeout: 10, responseType: DJConnectMusicDiscoveryResponse.self, replaySafe: true)
     }
 
     public func refreshMusicDiscovery(
@@ -261,11 +301,11 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         musicDNAKey: String?,
         language: String?
     ) async throws -> DJConnectMusicDiscoveryResponse {
-        guard try await ensureCapabilities().contains(.musicDiscoveryRefresh) else {
+        guard try await operationCapabilities().contains(.musicDiscoveryRefresh) else {
             throw DJConnectError.routeMissing(message: "WebSocket Music Discovery refresh capability unavailable")
         }
         let request = DJConnectWebSocketMusicDiscoveryRequestMessage(
-            id: allocateID(),
+            id: try allocateID(),
             type: DJConnectFastPathRoute.musicDiscoveryRefresh.rawValue,
             identity: identity,
             musicDNAKey: musicDNAKey,
@@ -278,11 +318,11 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         _ payload: DJConnectMusicDiscoveryPlayRequest,
         identity: DJConnectAPIIdentity
     ) async throws -> DJConnectCommandResponse {
-        guard try await ensureCapabilities().contains(.musicDiscoveryPlay) else {
+        guard try await operationCapabilities().contains(.musicDiscoveryPlay) else {
             throw DJConnectError.routeMissing(message: "WebSocket Music Discovery play capability unavailable")
         }
         let request = DJConnectWebSocketMusicDiscoveryActionMessage(
-            id: allocateID(),
+            id: try allocateID(),
             type: DJConnectFastPathRoute.musicDiscoveryPlay.rawValue,
             identity: identity,
             payload: payload
@@ -294,11 +334,11 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         _ payload: DJConnectMusicDiscoveryFeedbackRequest,
         identity: DJConnectAPIIdentity
     ) async throws -> DJConnectCommandResponse {
-        guard try await ensureCapabilities().contains(.musicDiscoveryFeedback) else {
+        guard try await operationCapabilities().contains(.musicDiscoveryFeedback) else {
             throw DJConnectError.routeMissing(message: "WebSocket Music Discovery feedback capability unavailable")
         }
         let request = DJConnectWebSocketMusicDiscoveryActionMessage(
-            id: allocateID(),
+            id: try allocateID(),
             type: DJConnectFastPathRoute.musicDiscoveryFeedback.rawValue,
             identity: identity,
             payload: payload
@@ -310,10 +350,10 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         _ payload: DJConnectTrackInsightRequest,
         identity: DJConnectAPIIdentity
     ) async throws -> TrackInsight {
-        guard try await ensureCapabilities().contains(.trackInsight) else {
+        guard try await operationCapabilities().contains(.trackInsight) else {
             throw DJConnectError.routeMissing(message: "WebSocket Track Insight capability unavailable")
         }
-        let request = DJConnectWebSocketTrackInsightMessage(id: allocateID(), identity: identity, payload: payload)
+        let request = DJConnectWebSocketTrackInsightMessage(id: try allocateID(), identity: identity, payload: payload)
         let response: TrackInsightEndpointResponse = try await sendResult(request, timeout: 15, responseType: TrackInsightEndpointResponse.self)
         guard response.success != false, let insight = response.trackInsightValue(
             fallbackTitle: payload.title,
@@ -331,161 +371,342 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
         _ payload: DJConnectVibeCastRequest,
         identity: DJConnectAPIIdentity
     ) async throws -> DJConnectVibeCastResponse {
-        guard try await ensureCapabilities().contains(.vibeCast) else {
+        guard try await operationCapabilities().contains(.vibeCast) else {
             throw DJConnectError.routeMissing(message: "WebSocket VibeCast capability unavailable")
         }
-        let request = DJConnectWebSocketVibeCastMessage(id: allocateID(), identity: identity, payload: payload)
+        let request = DJConnectWebSocketVibeCastMessage(id: try allocateID(), identity: identity, payload: payload)
         return try await sendResult(request, timeout: 10, responseType: DJConnectVibeCastResponse.self)
     }
 
-    private func ensureCapabilities() async throws -> Set<DJConnectFastPathRoute> {
-        if let unhealthyUntil, unhealthyUntil > Date() {
-            throw DJConnectError.network(message: "WebSocket fast path is backing off")
+    // Startup only negotiates transport support; no business operation has
+    // been dispatched. Preserve that fact across the common client fallback.
+    private func operationCapabilities() async throws -> Set<DJConnectFastPathRoute> {
+        do { return try await ensureCapabilities() }
+        catch {
+            if error is CancellationError || Task.isCancelled || (error as? URLError)?.code == .cancelled { throw CancellationError() }
+            if error is URLError { throw DJConnectWebSocketPreDispatchFailure(error: error) }
+            if let typed = error as? DJConnectError {
+                switch typed {
+                case .network, .invalidResponse: throw DJConnectWebSocketPreDispatchFailure(error: typed)
+                default: throw typed
+                }
+            }
+            // Foundation may expose POSIX/CFNetwork errors directly during
+            // the handshake. This is still before business dispatch; export
+            // neither an arbitrary SDK description nor credential context.
+            throw DJConnectWebSocketPreDispatchFailure(error: DJConnectError.network(message: "WebSocket startup failed"))
         }
-        if let capabilitiesLoadedAt, Date().timeIntervalSince(capabilitiesLoadedAt) < 60 {
-            return Set(commands.compactMap(DJConnectFastPathRoute.init(rawValue:)))
-        }
-        try await connectIfNeeded()
-        let request = DJConnectWebSocketTypeMessage(id: allocateID(), type: "djconnect/capabilities")
-        let response: DJConnectWebSocketCapabilitiesResponse = try await sendResult(request, timeout: 5, responseType: DJConnectWebSocketCapabilitiesResponse.self)
-        guard response.websocketSupported == true, response.transports?.websocket == true else {
-            throw DJConnectError.routeMissing(message: "Home Assistant did not advertise DJConnect WebSocket transport support")
-        }
-        commands = Set(response.advertisedCommands)
-        capabilitiesLoadedAt = Date()
-        return Set(response.advertisedCommands.compactMap(DJConnectFastPathRoute.init(rawValue:)))
     }
 
-    private func connectIfNeeded() async throws {
-        if task != nil {
-            return
+    private func ensureCapabilities() async throws -> Set<DJConnectFastPathRoute> {
+        try Task.checkCancellation()
+        if let unhealthyUntil, unhealthyUntil > timing.now() {
+            throw DJConnectError.network(message: "WebSocket fast path is backing off")
         }
+        if let loaded = capabilitiesLoadedAt, timing.now().timeIntervalSince(loaded) < 60 {
+            return Set(commands.compactMap(DJConnectFastPathRoute.init(rawValue:)))
+        }
+        guard !negotiationClosed, negotiationWaiters.count < Self.maximumPendingRequests else {
+            throw DJConnectError.routeMissing(message: "WebSocket negotiation capacity unavailable")
+        }
+        let waiter = UUID()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                guard !Task.isCancelled else { continuation.resume(throwing: CancellationError()); return }
+                negotiationWaiters[waiter] = continuation
+                if negotiationID == nil {
+                    let id = UUID(); negotiationID = id
+                    let sleep = timing.sleep
+                    negotiationTimer = Task { [weak self] in
+                        do { try await sleep(15); await self?.expireNegotiation(id: id) } catch { }
+                    }
+                    negotiationTask = Task { [weak self] in await self?.negotiate(id: id) }
+                }
+            }
+        } onCancel: { Task { await self.cancelNegotiation(waiter: waiter) } }
+    }
+
+    private func negotiate(id: UUID) async {
         do {
-            guard Self.isLocalHomeAssistantURL(baseURL) else {
-                throw DJConnectError.routeMissing(message: "WebSocket fast path is local-only")
+            try await connectIfNeeded(negotiation: id)
+            guard negotiationID == id else { return }
+            try Task.checkCancellation()
+            let epoch = socketEpoch
+            let request = DJConnectWebSocketTypeMessage(id: try allocateID(), type: "djconnect/capabilities")
+            let response: DJConnectWebSocketCapabilitiesResponse = try await sendResult(request, timeout: 5,
+                responseType: DJConnectWebSocketCapabilitiesResponse.self, replaySafe: true)
+            guard negotiationID == id else { return }
+            try Task.checkCancellation()
+            guard socketEpoch == epoch, authenticated else { throw DJConnectError.network(message: "WebSocket startup retired") }
+            guard response.websocketSupported == true, response.transports?.websocket == true else {
+                throw DJConnectError.routeMissing(message: "Home Assistant did not advertise DJConnect WebSocket transport support")
             }
-            guard let homeAssistantToken = try await homeAssistantAuth.accessToken()?
-                .trimmingCharacters(in: .whitespacesAndNewlines),
-                !homeAssistantToken.isEmpty else {
-                throw DJConnectError.routeMissing(message: "Home Assistant WebSocket auth token is unavailable")
-            }
-            let websocketURL = try Self.websocketURL(from: baseURL)
-            let task = session.webSocketTask(with: websocketURL)
-            self.task = task
-            task.resume()
-            let authRequired: DJConnectWebSocketAuthMessage = try await receive(timeout: 5)
-            guard authRequired.type == "auth_required" else {
-                throw DJConnectError.invalidResponse
-            }
-            try await send(DJConnectWebSocketAuthRequest(type: "auth", accessToken: homeAssistantToken))
-            let authResponse: DJConnectWebSocketAuthMessage = try await receive(timeout: 5)
-            guard authResponse.type == "auth_ok" else {
-                throw DJConnectError.network(message: "Home Assistant WebSocket auth failed")
-            }
+            commands = Set(response.advertisedCommands); capabilitiesLoadedAt = timing.now()
+            finishNegotiation(id: id, result: .success(Set(commands.compactMap(DJConnectFastPathRoute.init(rawValue:)))))
         } catch {
-            markUnhealthy(error)
-            throw error
+            guard negotiationID == id else { return }
+            // An old startup completion must never retire a replacement socket.
+            if !authenticated { retireSocket(epoch: socketEpoch, error: error, backoff: !(error is CancellationError)) }
+            finishNegotiation(id: id, result: .failure(error))
+        }
+    }
+
+    private func finishNegotiation(id: UUID, result: Result<Set<DJConnectFastPathRoute>, Error>) {
+        guard negotiationID == id else { return }
+        negotiationID = nil; negotiationTask = nil; negotiationClosed = false
+        negotiationTimer?.cancel(); negotiationTimer = nil
+        let waiters = negotiationWaiters; negotiationWaiters.removeAll()
+        for continuation in waiters.values { continuation.resume(with: result) }
+    }
+
+    private func cancelNegotiation(waiter: UUID) {
+        guard let continuation = negotiationWaiters.removeValue(forKey: waiter) else { return }
+        continuation.resume(throwing: CancellationError())
+        guard negotiationWaiters.isEmpty else { return } // Other consumers still own shared startup.
+        // Retain one cancelled startup slot until a possibly non-cooperative
+        // token provider returns. Never fan out replacement credential reads.
+        negotiationClosed = true; negotiationTask?.cancel()
+        negotiationTimer?.cancel(); negotiationTimer = nil
+        // An established socket may still serve unrelated in-flight requests
+        // during a capability refresh. Their ownership is independent.
+        if pending.isEmpty || !authenticated {
+            retireSocket(epoch: socketEpoch, error: CancellationError(), backoff: false)
+        }
+    }
+
+    private func expireNegotiation(id: UUID) {
+        guard negotiationID == id, !negotiationClosed else { return }
+        negotiationClosed = true; negotiationTask?.cancel()
+        let values = negotiationWaiters; negotiationWaiters.removeAll()
+        for value in values.values { value.resume(throwing: DJConnectError.network(message: "WebSocket startup timeout")) }
+        if !authenticated { retireSocket(epoch: socketEpoch, error: DJConnectError.network(message: "WebSocket startup timeout"), backoff: true) }
+    }
+
+    private func connectIfNeeded(negotiation id: UUID) async throws {
+        if authenticated, task != nil { return }
+        guard Self.isLocalHomeAssistantURL(baseURL) else {
+            throw DJConnectError.routeMissing(message: "WebSocket fast path is local-only")
+        }
+        let token = try await homeAssistantAuth.accessToken()?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard negotiationID == id, !Task.isCancelled else { throw CancellationError() }
+        guard let token, !token.isEmpty else {
+            throw DJConnectError.routeMissing(message: "Home Assistant WebSocket auth token is unavailable")
+        }
+        let socket = session.webSocketTask(with: try Self.websocketURL(from: baseURL))
+        socket.maximumMessageSize = min(socket.maximumMessageSize, DJConnectIncomingPayloadLimiter.defaultMaxPayloadBytes)
+        let epoch = UUID(); socketEpoch = epoch; task = socket; authenticated = false
+        socket.resume()
+        let required: DJConnectWebSocketAuthMessage = try await receiveHandshake(socket, timeout: 5)
+        guard socketEpoch == epoch, negotiationID == id, required.type == "auth_required" else { throw DJConnectError.invalidResponse }
+        let bytes = try encoder.encode(DJConnectWebSocketAuthRequest(type: "auth", accessToken: token))
+        try await socket.send(.string(String(decoding: bytes, as: UTF8.self)))
+        let auth: DJConnectWebSocketAuthMessage = try await receiveHandshake(socket, timeout: 5)
+        guard socketEpoch == epoch, negotiationID == id, !Task.isCancelled else { throw CancellationError() }
+        guard auth.type == "auth_ok" else { throw DJConnectError.network(message: "Home Assistant WebSocket auth failed") }
+        authenticated = true
+        // Auth's sole receiver has finished. Only this loop receives from here.
+        let beforeFailure = timing.beforeReaderFailure, afterFailure = timing.afterReaderFailure
+        readerTask = Task { [weak self, socket] in
+            do {
+                while !Task.isCancelled {
+                    let message = try await socket.receive()
+                    await self?.route(message, epoch: epoch)
+                }
+            } catch {
+                await beforeFailure()
+                await self?.readerFailed(epoch: epoch)
+                await afterFailure()
+            }
+        }
+    }
+
+    private func receiveHandshake<T: Decodable & Sendable>(_ socket: URLSessionWebSocketTask, timeout: TimeInterval) async throws -> T {
+        try await withTimeout(seconds: timeout, sleep: timing.sleep) {
+            try await withTaskCancellationHandler {
+                let message = try await socket.receive()
+                return try JSONDecoder().decode(T.self, from: Self.messageData(message))
+            } onCancel: { socket.cancel(with: .goingAway, reason: nil) }
         }
     }
 
     private func sendResult<T: Encodable, U: Decodable & Sendable>(
-        _ message: T,
-        timeout: TimeInterval,
-        responseType: U.Type,
-        privateResponse: Bool = false
+        _ message: T, timeout: TimeInterval, responseType: U.Type,
+        privateResponse: Bool = false, replaySafe: Bool = false
     ) async throws -> U {
+        let data = try encoder.encode(message)
+        // Reserving bounded bytes/capacity/ID precedes any native send.
+        guard data.count <= DJConnectIncomingPayloadLimiter.defaultMaxPayloadBytes else {
+            throw DJConnectError.routeMissing(message: "WebSocket request capacity unavailable")
+        }
+        let header = try decoder.decode(DJConnectWebSocketRequestHeader.self, from: data)
+        let epoch = socketEpoch
         do {
-            guard task != nil else {
-                throw DJConnectError.network(message: "WebSocket is not connected")
+            let raw = try await exchange(id: header.id, data: data, timeout: timeout, epoch: epoch)
+            let status = try decoder.decode(DJConnectWebSocketResultStatus.self, from: raw)
+            guard status.success else {
+                throw DJConnectError.server(statusCode: 200, message: status.error?.message ?? status.error?.code)
             }
-            try await send(message)
-            let envelope: DJConnectWebSocketResultEnvelope<U> = try await receive(timeout: timeout)
-            guard envelope.success else {
-                throw DJConnectError.server(statusCode: 200, message: envelope.error?.message ?? envelope.error?.code)
-            }
-            guard let result = envelope.result else {
-                throw DJConnectError.invalidResponse
-            }
+            let envelope = try decoder.decode(DJConnectWebSocketResultEnvelope<U>.self, from: raw)
+            guard let result = envelope.result else { throw DJConnectError.invalidResponse }
             return result
         } catch {
-            let safeError = recordTransportFailure(error, privateResponse: privateResponse)
-            throw safeError
-        }
-    }
-
-    /// Private conversation responses never enter exportable diagnostics as free text.
-    @discardableResult
-    func recordTransportFailure(_ error: Error, privateResponse: Bool) -> Error {
-        if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
-            return CancellationError()
-        }
-        let safeError: Error
-        if privateResponse, let typed = error as? DJConnectError {
-            // Redact private text without changing an authoritative failure into
-            // a retryable network error.
-            switch typed {
-            case let .authStale(statusCode, _): safeError = DJConnectError.authStale(statusCode: statusCode, message: nil)
-            case let .profile(code, statusCode, _): safeError = DJConnectError.profile(code: code, statusCode: statusCode, message: nil)
-            case let .server(statusCode, _): safeError = DJConnectError.server(statusCode: statusCode, message: nil)
-            case .backendUnavailable: safeError = DJConnectError.backendUnavailable(message: nil)
-            case .routeMissing: safeError = DJConnectError.routeMissing(message: nil)
-            case .missingToken: safeError = DJConnectError.missingToken
-            case .invalidResponse: safeError = DJConnectError.invalidResponse
-            default: safeError = DJConnectError.network(message: "Scoped Profile history request failed")
+            if Task.isCancelled || error is CancellationError { throw CancellationError() }
+            if let wire = error as? DJConnectWebSocketWireFailure {
+                if wire.dispatched && !replaySafe { throw DJConnectHybridTransportError.deliveryUnknown }
+                let safe = sanitizedTransportError(wire.error, privateResponse: privateResponse)
+                if !wire.dispatched {
+                    if let typed = safe as? DJConnectError, case .routeMissing = typed { throw typed }
+                    throw DJConnectWebSocketPreDispatchFailure(error: safe)
+                }
+                throw safe
             }
-        } else {
-            safeError = privateResponse ? DJConnectError.network(message: "Scoped Profile history request failed") : error
-        }
-        if privateResponse {
-            markUnhealthy(DJConnectError.network(message: "Scoped Profile history request failed"))
-        } else { markUnhealthy(safeError) }
-        return safeError
-    }
-
-    private func send<T: Encodable>(_ value: T) async throws {
-        guard let task else {
-            throw DJConnectError.network(message: "WebSocket is not connected")
-        }
-        let data = try encoder.encode(value)
-        guard let text = String(data: data, encoding: .utf8) else {
-            throw DJConnectError.invalidResponse
-        }
-        try await task.send(.string(text))
-    }
-
-    private func receive<T: Decodable & Sendable>(_ type: T.Type = T.self, timeout: TimeInterval) async throws -> T {
-        try await withTimeout(seconds: timeout) {
-            guard let task = await self.task else {
-                throw DJConnectError.network(message: "WebSocket is not connected")
+            // A received error is authoritative; do not replay it. A successful
+            // envelope whose body cannot be decoded leaves a write uncertain.
+            if let typed = error as? DJConnectError, case .server = typed {
+                let safe = sanitizedTransportError(typed, privateResponse: privateResponse)
+                if socketEpoch == epoch { lastError = Self.redactedError(safe) }
+                throw safe
             }
-            let message = try await task.receive()
-            let data: Data
-            switch message {
-            case let .string(text):
-                try DJConnectIncomingPayloadLimiter.validate(text)
-                data = Data(text.utf8)
-            case let .data(value):
-                try DJConnectIncomingPayloadLimiter.validate(value)
-                data = value
-            @unknown default:
-                throw DJConnectError.invalidResponse
-            }
-            return try self.decoder.decode(T.self, from: data)
+            if !replaySafe { throw DJConnectHybridTransportError.deliveryUnknown }
+            throw sanitizedTransportError(error, privateResponse: privateResponse)
         }
     }
 
-    private func allocateID() -> Int {
+    private func exchange(id: Int, data: Data, timeout: TimeInterval, epoch: UUID) async throws -> Data {
+        try Task.checkCancellation()
+        guard authenticated, let socket = task, socketEpoch == epoch else {
+            throw DJConnectWebSocketWireFailure(dispatched: false, error: DJConnectError.network(message: "WebSocket is not connected"))
+        }
+        guard id > 0, pending[id] == nil, pending.count < Self.maximumPendingRequests else {
+            throw DJConnectWebSocketWireFailure(dispatched: false, error: DJConnectError.routeMissing(message: "WebSocket request capacity unavailable"))
+        }
+        let sleep = timing.sleep
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                guard !Task.isCancelled else { continuation.resume(throwing: CancellationError()); return }
+                pending[id] = Pending(epoch: epoch, continuation: continuation)
+                pending[id]?.timer = Task { [weak self] in
+                    do { try await sleep(timeout); await self?.expire(id: id, epoch: epoch) }
+                    catch { }
+                }
+                pending[id]?.sender = Task { [weak self, socket] in
+                    await self?.dispatch(id: id, data: data, socket: socket, epoch: epoch)
+                }
+            }
+        } onCancel: { Task { await self.cancelPending(id: id, epoch: epoch) } }
+    }
+
+    private func dispatch(id: Int, data: Data, socket: URLSessionWebSocketTask, epoch: UUID) async {
+        guard pending[id]?.epoch == epoch, socketEpoch == epoch, !Task.isCancelled else { return }
+        pending[id]?.dispatched = true // Conservative native boundary; never infer notSent from a later error.
+        do {
+            try await socket.send(.string(String(decoding: data, as: UTF8.self)))
+            if pending[id]?.epoch == epoch { pending[id]?.sendCompleted = true }
+        } catch {
+            guard pending[id]?.epoch == epoch, socketEpoch == epoch else { return }
+            retireSocket(epoch: epoch, error: DJConnectError.network(message: "WebSocket send failed"), backoff: true)
+        }
+    }
+
+    private func route(_ message: URLSessionWebSocketTask.Message, epoch: UUID) {
+        guard socketEpoch == epoch, authenticated else { return }
+        do {
+            let data = try Self.messageData(message)
+            let header = try decoder.decode(DJConnectWebSocketResultHeader.self, from: data)
+            guard header.id > 0, header.type == "result" else { throw DJConnectError.invalidResponse }
+            // Unknown/late/duplicate IDs cannot satisfy a later request. IDs do
+            // not wrap or get reused within this adapter's lifetime.
+            guard pending[header.id]?.epoch == epoch else {
+                if ignoredReplies < Int.max { ignoredReplies += 1 }
+                return
+            }
+            finishPending(id: header.id, result: .success(data))
+        } catch { retireSocket(epoch: epoch, error: DJConnectError.invalidResponse, backoff: true) }
+    }
+
+    private func readerFailed(epoch: UUID) {
+        retireSocket(epoch: epoch, error: DJConnectError.network(message: "WebSocket connection failed"), backoff: true)
+    }
+
+    private func finishPending(id: Int, result: Result<Data, Error>) {
+        guard let value = pending.removeValue(forKey: id) else { return }
+        value.timer?.cancel()
+        if case .failure = result { value.sender?.cancel() }
+        value.continuation.resume(with: result)
+    }
+
+    private func cancelPending(id: Int, epoch: UUID) {
+        guard let value = pending[id], value.epoch == epoch else { return }
+        finishPending(id: id, result: .failure(CancellationError()))
+        if value.dispatched && !value.sendCompleted {
+            retireSocket(epoch: epoch, error: DJConnectError.network(message: "WebSocket send cancelled"), backoff: false)
+        }
+    }
+
+    private func expire(id: Int, epoch: UUID) {
+        guard let value = pending[id], value.epoch == epoch else { return }
+        finishPending(id: id, result: .failure(DJConnectWebSocketWireFailure(dispatched: value.dispatched,
+            error: DJConnectError.network(message: "WebSocket timeout"))))
+        if value.dispatched && !value.sendCompleted {
+            retireSocket(epoch: epoch, error: DJConnectError.network(message: "WebSocket send expired"), backoff: true)
+        }
+    }
+
+    private func retireSocket(epoch: UUID, error: Error, backoff: Bool) {
+        guard socketEpoch == epoch else { return }
+        socketEpoch = UUID(); authenticated = false
+        readerTask?.cancel(); readerTask = nil; task?.cancel(with: .goingAway, reason: nil); task = nil
+        commands = []; capabilitiesLoadedAt = nil
+        if backoff { unhealthyUntil = timing.now().addingTimeInterval(10); lastError = Self.redactedError(error) }
+        let values = pending; pending.removeAll()
+        for value in values.values {
+            value.timer?.cancel(); value.sender?.cancel()
+            value.continuation.resume(throwing: DJConnectWebSocketWireFailure(dispatched: value.dispatched, error: error))
+        }
+    }
+
+    private nonisolated static func messageData(_ message: URLSessionWebSocketTask.Message) throws -> Data {
+        let data: Data
+        switch message {
+        case .string(let text): try DJConnectIncomingPayloadLimiter.validate(text); data = Data(text.utf8)
+        case .data(let bytes): data = bytes
+        @unknown default: throw DJConnectError.invalidResponse
+        }
+        try DJConnectIncomingPayloadLimiter.validate(data)
+        return data
+    }
+
+    private func allocateID() throws -> Int {
+        guard nextID > 0, nextID < Int.max else { throw DJConnectError.routeMissing(message: "WebSocket request IDs exhausted") }
         defer { nextID += 1 }
         return nextID
     }
 
     private func markUnhealthy(_ error: Error) {
-        lastError = Self.redactedError(error)
-        unhealthyUntil = Date().addingTimeInterval(10)
-        task?.cancel(with: .goingAway, reason: nil)
-        task = nil
-        commands = []
-        capabilitiesLoadedAt = nil
+        retireSocket(epoch: socketEpoch, error: error, backoff: true)
+    }
+
+    private func sanitizedTransportError(_ error: Error, privateResponse: Bool) -> Error {
+        guard privateResponse else { return error }
+        guard let typed = error as? DJConnectError else { return DJConnectError.network(message: "Scoped Profile history request failed") }
+        switch typed {
+        case let .authStale(status, _): return DJConnectError.authStale(statusCode: status, message: nil)
+        case let .profile(code, status, _): return DJConnectError.profile(code: code, statusCode: status, message: nil)
+        case let .server(status, _): return DJConnectError.server(statusCode: status, message: nil)
+        case .backendUnavailable: return DJConnectError.backendUnavailable(message: nil)
+        case .routeMissing: return DJConnectError.routeMissing(message: nil)
+        case .missingToken, .invalidResponse: return typed
+        default: return DJConnectError.network(message: "Scoped Profile history request failed")
+        }
+    }
+
+    /// Existing internal diagnostic boundary, also used by privacy regressions.
+    @discardableResult
+    func recordTransportFailure(_ error: Error, privateResponse: Bool) -> Error {
+        if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled { return CancellationError() }
+        let safe = sanitizedTransportError(error, privateResponse: privateResponse)
+        markUnhealthy(privateResponse ? DJConnectError.network(message: "Scoped Profile history request failed") : safe)
+        return safe
     }
 
     private static func timeout(for command: String) -> TimeInterval {
@@ -582,15 +803,18 @@ public actor DJConnectHomeAssistantWebSocketFastPath: DJConnectWebSocketFastPath
     }
 }
 
-private func withTimeout<T: Sendable>(seconds: TimeInterval, operation: @escaping @Sendable () async throws -> T) async throws -> T {
+private func withTimeout<T: Sendable>(seconds: TimeInterval,
+    sleep: @escaping @Sendable (TimeInterval) async throws -> Void,
+    operation: @escaping @Sendable () async throws -> T) async throws -> T {
     try await withThrowingTaskGroup(of: T.self) { group in
         group.addTask {
             try await operation()
         }
         group.addTask {
-            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            try await sleep(seconds)
             throw DJConnectError.network(message: "WebSocket timeout")
         }
+        defer { group.cancelAll() }
         guard let result = try await group.next() else {
             throw DJConnectError.network(message: "WebSocket timeout")
         }
@@ -1149,3 +1373,21 @@ struct DJConnectWebSocketProfileHistoryMessage: Encodable {
     let identity: DJConnectAPIIdentity
     let payload = ["conversation_scope": "profile"]
 }
+
+private struct DJConnectWebSocketRequestHeader: Decodable { let id: Int }
+private struct DJConnectWebSocketResultHeader: Decodable { let id: Int; let type: String }
+private struct DJConnectWebSocketResultStatus: Decodable { let success: Bool; let error: DJConnectWebSocketError? }
+private struct DJConnectWebSocketWireFailure: Error { let dispatched: Bool; let error: Error }
+
+/// Only local transport scheduling. This is not a producer/admission clock.
+struct DJConnectWebSocketRuntimeTiming: Sendable {
+    var now: @Sendable () -> Date
+    var sleep: @Sendable (TimeInterval) async throws -> Void
+    var beforeReaderFailure: @Sendable () async -> Void = {}
+    var afterReaderFailure: @Sendable () async -> Void = {}
+    static let live = Self(now: { Date() }, sleep: { try await Task.sleep(for: .seconds($0)) })
+}
+
+/// Internal proof from the native adapter that a business operation never
+/// crossed the SDK send boundary. A generic network error is not such proof.
+struct DJConnectWebSocketPreDispatchFailure: Error { let error: Error }

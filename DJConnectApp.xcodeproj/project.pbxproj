@@ -193,6 +193,7 @@
 		47FEB0088AAB2512BA7234AD /* DJConnectSessionMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = E43BD38CC6CE41843416A5C6 /* DJConnectSessionMedia.swift */; };
 		483C3B9ECBB629BA9184BDFF /* DirectRichWireTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81872C6153C0CD2FEC974160 /* DirectRichWireTests.swift */; };
 		48BB007BB077FEBBB1C1AAD9 /* DJConnectSurfacePushJSON.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46E2CA04DF764E37B71176FB /* DJConnectSurfacePushJSON.swift */; };
+		48C22A02D09295F3C4E63567 /* WebSocketNativeConcurrencyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A731C5D2092E1C72BF10DB0 /* WebSocketNativeConcurrencyTests.swift */; };
 		48FEFDD9C1BB63B236E6ECFC /* RendezvousRepairJournal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 017498F59115FB4D0D9D7D5A /* RendezvousRepairJournal.swift */; };
 		4960BFE9BF58E4D189DD7347 /* RendezvousBuildProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19555057252E624E7DD717FE /* RendezvousBuildProfileTests.swift */; };
 		49B254B1B10D85F9E8C9063A /* ForecastHeaderAlignmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 162F49D4A38953DC56448F7D /* ForecastHeaderAlignmentTests.swift */; };
@@ -937,6 +938,7 @@
 		2A0D4497AB084460E9597132 /* SessionHistorySummaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHistorySummaryTests.swift; sourceTree = "<group>"; };
 		2A299E9A1F26760BDB5DF8D1 /* DJConnectAskDJHelpObservation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectAskDJHelpObservation.swift; sourceTree = "<group>"; };
 		2A30E01DCBBC74B7F694B6F6 /* RendezvousRepairWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendezvousRepairWindow.swift; sourceTree = "<group>"; };
+		2A731C5D2092E1C72BF10DB0 /* WebSocketNativeConcurrencyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketNativeConcurrencyTests.swift; sourceTree = "<group>"; };
 		2A850188DA3CF90644DDB2A1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		2AE4A26BF2B8086174972ABF /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		2AE5D50E601B5FEC6BEBBBE6 /* RendezvousOwnerTransportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendezvousOwnerTransportTests.swift; sourceTree = "<group>"; };
@@ -1670,6 +1672,7 @@
 				F8E42BDE7A79FC0B0AB82BB8 /* WatchPairingIntentTests.swift */,
 				42306ADBDAFA10044451B8AB /* WatchSessionActivityPresentationTests.swift */,
 				FA957BFACA0180B09F8EB71E /* WatchSessionSpeechTests.swift */,
+				2A731C5D2092E1C72BF10DB0 /* WebSocketNativeConcurrencyTests.swift */,
 			);
 			path = DJConnectCoreTests;
 			sourceTree = "<group>";
@@ -2482,6 +2485,7 @@
 				A672491284CCD0708513761B /* WatchPairingIntentTests.swift in Sources */,
 				618B2308A2751D77AE3AB6C0 /* WatchSessionActivityPresentationTests.swift in Sources */,
 				E9D87CC9B77A30F8A683E5F9 /* WatchSessionSpeechTests.swift in Sources */,
+				48C22A02D09295F3C4E63567 /* WebSocketNativeConcurrencyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

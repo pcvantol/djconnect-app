@@ -254,6 +254,7 @@ private final class HistoryWireResponseGate: @unchecked Sendable {
     private let lock = NSLock()
     private var released = false
     private var deliveries: [@Sendable () -> Void] = []
+    var hasHeldResponse: Bool { lock.withLock { !deliveries.isEmpty } }
     func hold(_ delivery: @escaping @Sendable () -> Void) {
         let deliverNow = lock.withLock {
             if released { return true }
@@ -4406,14 +4407,21 @@ func activePersonaRejectsUnconfirmedMutationReplies(_ fault:String) async throws
     };defer{fixture.close()}
     let(model,defaults,name)=fixture.model();defer{defaults.removePersistentDomain(forName:name)}
     await model.sessionHistory.prepare();await model.refreshActiveDJSession();await model.refreshActiveMoodCapability()
+    // This tests the pending persona HTTP reply, not the independent broadcast
+    // recovery which may legitimately remove an ended Session altogether.
+    model.stopSessionBroadcast()
+    defer { model.markInactiveSession() }
     let epoch=model.sessionHistory.responseEpoch
     let pending=Task{await model.changeActiveSessionPersona(.radioDJ,expectedSessionID:id,expectedEpoch:epoch)}
-    try await Task.sleep(for:.milliseconds(25));#expect(model.activePersonaPending)
+    for _ in 0..<200 where !personaReply.hasHeldResponse { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(personaReply.hasHeldResponse && model.activePersonaPending)
     gate.denied=true;await model.refreshActiveDJSession()
+    model.stopSessionBroadcast() // Fence the refresh's newly scheduled recovery before yielding.
     #expect(model.activeDJSession?.runtimeState == "ended" && !model.activePersonaPending && !model.activePersonaAvailable)
     personaReply.release()
     await pending.value
     #expect(model.activeDJSession?.confirmedPersona?.selectedPersona == .homeDJ && model.activePersonaError == nil)
+    #expect(model.activeDJSession?.runtimeState == "ended")
     #expect(fixture.requests.filter{$0.url!.path.hasSuffix("/session/persona")}.count == 1)
 }
 

@@ -114,3 +114,7 @@ broader performance or device-acceptance work registers.
   integration should be expanded as the app targets mature.
 - `xcodebuild` may print simulator/cache warnings in the sandboxed Codex
   environment even when builds succeed.
+
+Shared native WebSocket source qualification is in progress; see
+[the bounded adapter scope and original failures](feedback/APPLE_NATIVE_WEBSOCKET_CONCURRENCY_20261031.md).
+This does not close general performance or authorize additional Discovery concurrency.

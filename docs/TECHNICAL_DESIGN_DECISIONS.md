@@ -408,3 +408,47 @@ and follow-up; validation itself must never rebind withdrawn authority. A curren
 authority failure reconciles native surface retirement without positive work.
 Held real URLProtocol requests cover old/new ordering, coalescing, owner ABA and
 401 withdrawal. Durable settings and permission remain backend-owned.
+
+## 2026-10-31: Bounded shared native WebSocket exchanges
+
+The existing collection refresh already overlaps devices, queue and playlists.
+Its real Foundation adapter must therefore support concurrent consumers before
+any further feature-level parallelization is adopted. Authentication and
+capability discovery share one startup task and its original 15-second budget;
+a cancelled joiner only releases its own continuation. A cancelled or expired
+credential lookup retains one closed slot until the provider returns, preventing
+unbounded replacement lookups. One handshake receiver hands off to one socket
+reader, which correlates strict positive integer result IDs. IDs never wrap or
+reuse; unknown and late replies cannot satisfy another operation.
+
+Reserve capacity before send: at most eight pending requests and the existing
+incoming payload byte limit also bounds outgoing encoded messages. Each request
+owns its cancellation and deadline. Socket epochs reject stale callbacks after
+replacement. Retiring an adapter closes only its own socket, never the supplied
+URLSession. Original auth/exchange timeouts, capability TTL and backoff remain.
+
+A native send is an uncertainty boundary for writes. A lost acknowledgement or
+undecodable successful body produces the existing deliveryUnknown error, without
+HTTP or remote-origin replay. The common client also rejects ambiguous transport
+errors for mutations; only positively classified pre-dispatch failures and the
+protocol's pre-dispatch routeMissing permit fallback. Existing safe read-command
+allowlisting is shared with HTTP policy. Server rejections remain authoritative;
+private history error bodies remain redacted. No new backend wire fields or
+intelligence are introduced.
+
+The macOS regression suite uses actual URLSessionWebSocketTask I/O against an
+owned loopback Node fixture, including held auth/token callbacks, reverse-order
+replies, capacity, cancellation, malformed IDs, oversized bodies and old native
+callbacks. Injected scheduling affects only local transport timeouts, never
+producer or push-admission clocks. These tests prove local native transport
+behavior, not real HA authentication, provider delivery or device acceptance.
+Additional Discovery parallelization and the separate TDE stage-budget work are
+not part of this increment.
+
+The common fallback boundary also converts unclassified SDK/POSIX/decoding
+mutation failures to deliveryUnknown so the outer local/remote coordinator
+cannot repeat them. Typed and wrapped cancellation remains cancellation after
+unwrapping. Actual manager tests observe one original call and no HTTP replay.
+The persona HTTP invalidation fixture separately fences Broadcast recovery,
+which can legitimately clear an ended Session; a held wire response replaces
+its guessed 25 ms start delay without weakening the original value/error checks.
