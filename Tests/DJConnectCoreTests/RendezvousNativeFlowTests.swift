@@ -117,7 +117,7 @@ private final class FlowWire: URLProtocol, @unchecked Sendable {
 }
 
 @Suite(.serialized) @MainActor struct RendezvousNativeFlowTests {
-    @Test func initialEnrollmentUsesBinaryNonceThenExactClientDataAndReusesActiveKey() async throws {
+    @Test(.isolatedClientResources) func initialEnrollmentUsesBinaryNonceThenExactClientDataAndReusesActiveKey() async throws {
         let fixture = try SubmissionFixture(), harness = FlowHarness(fixture)
         FlowWire.install(fixture)
         let receipt = try await harness.connect(fixture)
@@ -136,7 +136,7 @@ private final class FlowWire: URLProtocol, @unchecked Sendable {
         #expect(FlowWire.requests == ["/v1/rendezvous/submit-challenge","/v1/rendezvous/submit"])
     }
 
-    @Test func lostRegistrationDoesNotActivateOrCreateAnotherKey() async throws {
+    @Test(.isolatedClientResources) func lostRegistrationDoesNotActivateOrCreateAnotherKey() async throws {
         let fixture = try SubmissionFixture(), harness = FlowHarness(fixture)
         FlowWire.install(fixture,registrationLost:true)
         await #expect(throws:(any Error).self) { try await harness.connect(fixture) }
@@ -146,7 +146,7 @@ private final class FlowWire: URLProtocol, @unchecked Sendable {
         #expect(!FlowWire.requests.contains("/v1/rendezvous/submit"))
     }
 
-    @Test func lostSubmissionCannotReturnSuccessOrAutomaticallyResignAndResend() async throws {
+    @Test(.isolatedClientResources) func lostSubmissionCannotReturnSuccessOrAutomaticallyResignAndResend() async throws {
         let fixture = try SubmissionFixture(), harness = FlowHarness(fixture)
         FlowWire.install(fixture,submissionLost:true)
         await #expect(throws:(any Error).self) { try await harness.connect(fixture) }
@@ -157,7 +157,7 @@ private final class FlowWire: URLProtocol, @unchecked Sendable {
         #expect(FlowWire.requests.filter {$0 == "/v1/rendezvous/submit-challenge"}.count == 1)
     }
 
-    @Test func withdrawnOwnerAfterSigningNeverSendsDestination() async throws {
+    @Test(.isolatedClientResources) func withdrawnOwnerAfterSigningNeverSendsDestination() async throws {
         let fixture = try SubmissionFixture(), harness = FlowHarness(fixture), owner = FlowOwner()
         FlowWire.install(fixture)
         harness.sdk.onAssertion = { owner.current = false }
@@ -166,7 +166,7 @@ private final class FlowWire: URLProtocol, @unchecked Sendable {
         #expect(!FlowWire.requests.contains("/v1/rendezvous/submit"))
     }
 
-    @Test func unsupportedSDKNeverGeneratesOrCallsHTTP() async throws {
+    @Test(.isolatedClientResources) func unsupportedSDKNeverGeneratesOrCallsHTTP() async throws {
         let fixture = try SubmissionFixture(), harness = FlowHarness(fixture)
         harness.sdk.isSupported = false
         FlowWire.install(fixture)
@@ -174,7 +174,7 @@ private final class FlowWire: URLProtocol, @unchecked Sendable {
         #expect(harness.sdk.generationCalls == 0 && FlowWire.requests.isEmpty)
     }
 
-    @Test func twoScansSerializeWholeChallengeSignAndSubmit() async throws {
+    @Test(.isolatedClientResources) func twoScansSerializeWholeChallengeSignAndSubmit() async throws {
         let first = try SubmissionFixture(), harness = FlowHarness(first)
         FlowWire.install(first); _ = try await harness.connect(first)
         let second = try SubmissionFixture(transaction:"00000000-0000-4000-8000-000000000002")
@@ -196,7 +196,7 @@ private final class FlowWire: URLProtocol, @unchecked Sendable {
                                      "/v1/rendezvous/submit-challenge","/v1/rendezvous/submit"])
     }
 
-    @Test func lateDuplicateCallbackCannotReleaseANewerSDKCall() throws {
+    @Test(.isolatedClientResources) func lateDuplicateCallbackCannotReleaseANewerSDKCall() throws {
         let fixture = try SubmissionFixture(), occupancy = RendezvousAssertionOccupancy()
         let original = try occupancy.reserve(fixture.key)
         #expect(throws:(any Error).self) { try occupancy.reserve(fixture.key) }
@@ -221,7 +221,7 @@ private enum FlowWaitFailure: Error { case deadline }
     }
 }
 
-@MainActor @Test func rendezvousUnadmittedNativeEntryHasNoSDKEffects() async throws {
+@MainActor @Test(.isolatedClientResources) func rendezvousUnadmittedNativeEntryHasNoSDKEffects() async throws {
     var effects = 0
     #expect(!RendezvousNativeAdmission.isAdmitted)
     for action in RendezvousNativeEffect.allCases {

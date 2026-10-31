@@ -36,6 +36,10 @@ jobs:
           set -euo pipefail
           echo "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer" >> "$GITHUB_ENV"
           xcodebuild -version
+          scratch="$RUNNER_TEMP/djconnect-ci-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          mkdir -p "$scratch/tmp"
+          echo "DJC_CI_SCRATCH=$scratch" >> "$GITHUB_ENV"
+          echo "TMPDIR=$scratch/tmp" >> "$GITHUB_ENV"
 
       - name: Update third-party packages, dependencies and tools
         run: |
@@ -64,60 +68,22 @@ jobs:
             echo "Skipping Postman collection validation; no collection validator is present in this repository."
           fi
 
-      - name: WebSocket contract e2e
-        run: node Tools/websocket_e2e_contract.js
+      - name: Independent contract, localization and hygiene checks (four workers)
+        run: /usr/bin/python3 Tools/qualification/run_parallel_validation.py --phase checks --output-root "$DJC_CI_SCRATCH"
 
-      - name: HTTP contract e2e
-        run: node Tools/http_e2e_contract.js
+      - name: Swift suites (parallel cases and independent package workers)
+        run: /usr/bin/python3 Tools/qualification/run_parallel_validation.py --phase swift --output-root "$DJC_CI_SCRATCH"
 
-      - name: HA contract fixture security validation
-        run: node Tools/validate_ha_contract_fixture_security.js
+      - name: macOS and iOS unsigned builds (isolated parallel workers)
+        run: /usr/bin/python3 Tools/qualification/run_parallel_validation.py --phase builds --output-root "$DJC_CI_SCRATCH"
 
-      - name: Validate Apple localizations
-        run: /usr/bin/python3 scripts/validate_localizations.py
-
-      - name: Validate shared brand tagline
-        run: /usr/bin/python3 Tools/validate_brand_tagline.py
-
-      - name: Validate pinned Brand V2 assets
-        run: /usr/bin/python3 Tools/validate_brand_assets.py
-
-      - name: Ordinary app installation hygiene
-        run: /usr/bin/python3 -m unittest discover -s Tools/qualification -p 'test_*.py'
-
-      - name: Validate Apple work register projections
-        run: /usr/bin/python3 Tools/qualification/validate_apple_work_registers.py
-
-      - name: Client Golden orchestration checks (no live calls)
-        run: /usr/bin/python3 -m unittest discover -s Tools/qualification/askdj-golden -p 'test_*.py'
-
-      - name: Swift tests
-        run: swift test --no-parallel
-
-      - name: VibeCast binary input qualification (no SDK)
-        run: swift test --package-path Tools/qualification/vibecast-native --scratch-path "$RUNNER_TEMP/djc-vibecast-binding" --jobs 2
-
-      - name: macOS unsigned build
-        run: |
-          xcodebuild \
-            -project DJConnectApp.xcodeproj \
-            -scheme DJConnectMac \
-            -configuration Debug \
-            -destination platform=macOS \
-            -derivedDataPath .xcode-derived \
-            CODE_SIGNING_ALLOWED=NO \
-            build
-
-      - name: iOS unsigned build
-        run: |
-          xcodebuild \
-            -project DJConnectApp.xcodeproj \
-            -scheme DJConnectIOS \
-            -configuration Debug \
-            -destination generic/platform=iOS \
-            -derivedDataPath .xcode-derived \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+      - name: Upload all parallel validation results and original logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apple-parallel-validation-logs
+          path: ${{ env.DJC_CI_SCRATCH }}/logs-*
+          if-no-files-found: error
 
       - name: Upload unsigned Apple build artifacts
         if: always()
@@ -125,8 +91,8 @@ jobs:
         with:
           name: apple-unsigned-build-artifacts
           path: |
-            .xcode-derived/Build/Products/Debug/DJConnect.app
-            .xcode-derived/Build/Products/Debug-iphoneos/DJConnect.app
+            ${{ env.DJC_CI_SCRATCH }}/derived-macos/Build/Products/Debug/DJConnect.app
+            ${{ env.DJC_CI_SCRATCH }}/derived-ios/Build/Products/Debug-iphoneos/DJConnect.app
           if-no-files-found: error
 
       - name: Record runner qualification evidence
@@ -157,6 +123,7 @@ jobs:
 
   post-merge-coverage:
     name: Post-merge coverage evidence
+    needs: test-and-unsigned-build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: [self-hosted, internal-release, qualification, apple, macmini-build]
     steps:
@@ -168,8 +135,10 @@ jobs:
           # The shared scheme also contains DJConnectMacUITests.  Coverage
           # evidence is deliberately limited to the non-interactive core
           # target: UI automation requires a dedicated GUI test environment.
-          xcodebuild test -project DJConnectApp.xcodeproj -scheme DJConnectMac -only-testing:DJConnectCoreTests -destination platform=macOS -enableCodeCoverage YES -resultBundlePath coverage.xcresult CODE_SIGNING_ALLOWED=NO
-          xcrun xccov view --report --json coverage.xcresult > coverage.json
+          set -euo pipefail
+          coverage_root="$RUNNER_TEMP/djconnect-coverage-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          xcodebuild test -project DJConnectApp.xcodeproj -scheme DJConnectMac -only-testing:DJConnectCoreTests -destination platform=macOS -parallel-testing-enabled YES -enableCodeCoverage YES -derivedDataPath "$coverage_root/derived" -resultBundlePath "$coverage_root/coverage.xcresult" CODE_SIGNING_ALLOWED=NO
+          xcrun xccov view --report --json "$coverage_root/coverage.xcresult" > coverage.json
           printf '%s\n' "$GITHUB_SHA" > coverage-main-sha.txt
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

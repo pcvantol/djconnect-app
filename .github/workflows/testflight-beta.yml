@@ -156,7 +156,7 @@ jobs:
         run: python3 scripts/validate_localizations.py
 
       - name: Swift tests
-        run: swift test --no-parallel
+        run: swift test --parallel
 
       - name: Archive iOS app
         shell: bash

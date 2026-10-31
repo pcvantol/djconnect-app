@@ -35,7 +35,7 @@ private func helpBody(_ q: DJConnectAskDJHelpObservation.Request) -> [String: An
      "available": true, "observation_id": UUID().uuidString.lowercased(), "eligible_entry_ids": []]
 }
 
-@Test func helpObservationUsesExactLanguageSessionAndEscapedPlus() throws {
+@Test(.isolatedClientResources) func helpObservationUsesExactLanguageSessionAndEscapedPlus() throws {
     let q = try DJConnectAskDJHelpObservation.Request(surface: .session, language: "nl", sessionID: "own+a/b")
     #expect(q.query().contains("session_id=own%2Ba%2Fb"))
     #expect(q.query().split(separator: "&").count == 8)
@@ -43,7 +43,7 @@ private func helpBody(_ q: DJConnectAskDJHelpObservation.Request) -> [String: An
     #expect(throws: (any Error).self) { try DJConnectAskDJHelpObservation.Request(surface: .askDJ, language: "nl-NL", sessionID: nil) }
 }
 
-@Test func helpObservationClosedDecoderRejectsShapeEchoPinAndLexicalMutations() throws {
+@Test(.isolatedClientResources) func helpObservationClosedDecoderRejectsShapeEchoPinAndLexicalMutations() throws {
     let catalogue = try #require(DJConnectAskDJCatalogue.bundled)
     let q = try DJConnectAskDJHelpObservation.Request(surface: .askDJ, language: "en", sessionID: nil)
     let base = helpBody(q)
@@ -75,7 +75,7 @@ private func helpBody(_ q: DJConnectAskDJHelpObservation.Request) -> [String: An
     #expect(try !DJConnectAskDJHelpObservation.decode(bytes(closed), matching: q, catalogue: catalogue).available)
 }
 
-@Test func helpObservationCanonicalOrderAndPerEntryMaskPreservePendingLocales() throws {
+@Test(.isolatedClientResources) func helpObservationCanonicalOrderAndPerEntryMaskPreservePendingLocales() throws {
     let catalogue = try #require(DJConnectAskDJCatalogue.bundled)
     let q = try DJConnectAskDJHelpObservation.Request(surface: .askDJ, language: "nl", sessionID: nil)
     let ids = catalogue.entries.filter { !$0.requires.contains("current_track") }.map(\.id)
@@ -101,7 +101,7 @@ private func helpBody(_ q: DJConnectAskDJHelpObservation.Request) -> [String: An
     }
 }
 
-@Test func helpObservationConsumesOriginalCoreActualHAWireCases() throws {
+@Test(.isolatedClientResources) func helpObservationConsumesOriginalCoreActualHAWireCases() throws {
     let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         .appendingPathComponent("Fixtures/askdj-help-r5-core-wire.json")
     let fixture = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
@@ -132,7 +132,7 @@ private func helpBody(_ q: DJConnectAskDJHelpObservation.Request) -> [String: An
 }
 
 @Suite(.serialized) @MainActor struct HelpObservationHTTPTests {
-    @Test func exactGETDoesNotBorrowAmbientHeadersAndLateReplyCannotRestoreAuthority() async throws {
+    @Test(.isolatedClientResources) func exactGETDoesNotBorrowAmbientHeadersAndLateReplyCannotRestoreAuthority() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [HelpObservationWire.self]
         configuration.httpAdditionalHeaders = ["X-Ambient-Secret": "forbidden", "Authorization": "Bearer forbidden"]

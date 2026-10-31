@@ -368,3 +368,40 @@ Bij iedere release moet deze checklist worden uitgevoerd:
 - Controleer dat `docs/HANDOFF.md`, `docs/RELEASE.md`,
   `docs/ARCHITECTURE_DECISIONS.md` en `CHANGELOG.md` dezelfde release- en
   contractlijn beschrijven.
+
+
+## 2026-10-31: Parallel client validation and independent discovery reads
+
+Independent simulated client runtimes receive task-scoped transport pools and
+App Attest sequencing, without changing the shared production default or the
+limits inside one runtime. Child tasks retain the same runtime. Fixture cases
+are bounded at eight; the AppKit key window is an exclusive test resource.
+Service-boundary gates replace guessed response timing in affected race tests.
+The dispatch regression observes the actual synchronous resume boundary rather
+than relying on Foundation publishing `URLSessionTask.state` immediately; the
+original final-state and wire assertions remain.
+
+CI keeps dependency/tool mutation before validation. Independent checks, Swift
+packages and unsigned platform builds use bounded worker groups with distinct
+logs/build roots; a failed child cannot be hidden by another child's success.
+Post-merge native coverage waits for normal CI and uses its own output root.
+
+A proposed Discovery read parallelization was rejected in source review: both
+reads share a real WebSocket negotiation/result reader which does not yet have
+single-flight or exchange exclusion. Its mock-only overlap proof was insufficient.
+The shipping app method is restored exactly to the protected baseline. Fixing and
+causally testing the real shared adapter is a separate next increment; no new
+product protocol concurrency is adopted here. Settings, commands, consent, key
+generation and operation receipts retain their existing ordered dependencies.
+Backend-owned intelligence, contracts and push admission are unchanged.
+
+### Foreground settings read custody (2026-10-31)
+
+Parallel qualification exposed an AppModel lifecycle race independently of the
+Core settings reducer. Replace the wrapper Boolean with an owner/context-scoped
+request UUID, invalidate it on suspension/pairing/owner change, and release it
+only if still owned by that request. Validate responses before reducer admission
+and follow-up; validation itself must never rebind withdrawn authority. A current
+authority failure reconciles native surface retirement without positive work.
+Held real URLProtocol requests cover old/new ordering, coalescing, owner ABA and
+401 withdrawal. Durable settings and permission remain backend-owned.

@@ -4,7 +4,7 @@ import DJConnectCore
 @testable import DJConnectUI
 
 @Suite @MainActor struct VibeScapeFrameFenceTests {
-    @Test func submissionFailureAndRetryNeverEarnFalseAcknowledgment() throws {
+    @Test(.isolatedClientResources) func submissionFailureAndRetryNeverEarnFalseAcknowledgment() throws {
         let visit = VisualDirectorVisit()
         visit.enter(mood: "chill", occurrence: nil, salt: 1)
         let fence = VibeScapeFrameFence(visit: visit)
@@ -24,7 +24,7 @@ import DJConnectCore
         #expect(fence.begin(scene) == nil)
     }
 
-    @Test func lateSceneFrameCannotClearOrAcknowledgeItsReplacement() throws {
+    @Test(.isolatedClientResources) func lateSceneFrameCannotClearOrAcknowledgeItsReplacement() throws {
         let visit = VisualDirectorVisit()
         visit.enter(mood: "groove", occurrence: "A", salt: 1)
         let fence = VibeScapeFrameFence(visit: visit)
@@ -42,7 +42,7 @@ import DJConnectCore
         #expect(fence.begin(try #require(visit.ticket)) != nil)
     }
 
-    @Test func exitReentryAndExpiryRejectOutstandingFrames() throws {
+    @Test(.isolatedClientResources) func exitReentryAndExpiryRejectOutstandingFrames() throws {
         var time: TimeInterval = 10
         let visit = VisualDirectorVisit()
         visit.now = { time }
@@ -64,7 +64,7 @@ import DJConnectCore
 }
 
 @Suite @MainActor struct VibeScapeVisitTests {
-    @Test func serverIntensityFollowsUntilManualOverrideAndResetUsesLatestServerValue() throws {
+    @Test(.isolatedClientResources) func serverIntensityFollowsUntilManualOverrideAndResetUsesLatestServerValue() throws {
         let visit = VisualDirectorVisit(); visit.enter(mood: "groove", occurrence: "A", salt: 1)
         #expect(visit.followsTrackIntensity && visit.dynamics == 0.5)
         visit.updateTrackIntensity(0.8)
@@ -92,7 +92,7 @@ import DJConnectCore
         #expect(visit.dynamics == 0.5 && visit.ticket == nil)
     }
 
-    @Test func serverIntensityRequiresMatchingCurrentTrackAndAnActualValidMetric() throws {
+    @Test(.isolatedClientResources) func serverIntensityRequiresMatchingCurrentTrackAndAnActualValidMetric() throws {
         let data = Data(#"{"item_id":"track-a","state":"playing","title":"Fixture track","artist":"Fixture artist","album":"Fixture album","duration_ms":180000}"#.utf8)
         var playback = try JSONDecoder().decode(DJConnectSessionPlayback.self, from: data)
         var insight = TrackInsight(title: "Fixture track", artist: "Fixture artist", album: "Fixture album", duration: 180, intensity: 0.8,
@@ -123,7 +123,7 @@ import DJConnectCore
         #expect(VibeScapeTrackIntensity.resolve(insight: nil, playback: playback, numericBasisQualified: true) == nil)
     }
 
-    @Test func touchesAreLocalBoundedAndRevokedWithTheirVisit() throws {
+    @Test(.isolatedClientResources) func touchesAreLocalBoundedAndRevokedWithTheirVisit() throws {
         let visit = VisualDirectorVisit()
         var time: TimeInterval = 10
         visit.now = { time }
@@ -161,7 +161,7 @@ import DJConnectCore
         #expect(!visit.nudge(at: SIMD2(0.5, 0.5), aspect: 0.5))
     }
 
-    @Test func paletteMatchesSessionThemesAndMoodRefreshPreservesCompositionAndExplicitStyle() throws {
+    @Test(.isolatedClientResources) func paletteMatchesSessionThemesAndMoodRefreshPreservesCompositionAndExplicitStyle() throws {
         for theme in DJConnectSessionMoodTheme.allCases {
             let rgb = theme.colorValues[0]
             let expected = SIMD3<Float>(Float((rgb >> 16) & 255), Float((rgb >> 8) & 255), Float(rgb & 255)) / 255
@@ -190,7 +190,7 @@ import DJConnectCore
         #expect(visit.scene == nil)
     }
 
-    @Test func patchesPreserveFieldsAndRequireActualRendererAcknowledgment() throws {
+    @Test(.isolatedClientResources) func patchesPreserveFieldsAndRequireActualRendererAcknowledgment() throws {
         let visit = VisualDirectorVisit()
         visit.enter(mood:"chill",occurrence:"track-A",salt:12)
         let initial = try #require(visit.scene)
@@ -206,7 +206,7 @@ import DJConnectCore
         #expect(visit.rendererCompleted(try #require(visit.ticket)))
         #expect(visit.appliedRevision == visit.ticket?.revision)
     }
-    @Test func trackScopeUndoAndReset() throws {
+    @Test(.isolatedClientResources) func trackScopeUndoAndReset() throws {
         let visit = VisualDirectorVisit(); visit.enter(mood:"groove",occurrence:"A",salt:1)
         #expect(visit.apply(VibeScapePatch(depth:0.9,scope:.continuousVisit),expected:try #require(visit.ticket)))
         #expect(visit.apply(VibeScapePatch(motion:0.01),expected:try #require(visit.ticket)))
@@ -223,7 +223,7 @@ import DJConnectCore
         #expect(visit.resetToDJ(expected:try #require(visit.ticket)))
         #expect(visit.scene?.depth != 0.9)
     }
-    @Test func revokedVisitCannotBeResurrectedAndReentryIsFresh() throws {
+    @Test(.isolatedClientResources) func revokedVisitCannotBeResurrectedAndReentryIsFresh() throws {
         let visit = VisualDirectorVisit(); visit.enter(mood:"party",occurrence:"A",salt:1)
         let stale = try #require(visit.ticket)
         visit.revoke()
@@ -236,7 +236,7 @@ import DJConnectCore
         #expect(!visit.rendererCompleted(stale))
         #expect(visit.dynamics == 0.5)
     }
-    @Test func invalidUnboundedAndExpiredChangesAreNoEffect() throws {
+    @Test(.isolatedClientResources) func invalidUnboundedAndExpiredChangesAreNoEffect() throws {
         let visit = VisualDirectorVisit()
         var time: TimeInterval = 10
         visit.now = { time }; visit.enter(mood:nil,occurrence:"qualified-fixture",salt:0)
@@ -252,7 +252,7 @@ import DJConnectCore
         #expect(!visit.rendererCompleted(try #require(visit.ticket)))
         #expect(!visit.setDynamics(0.4))
     }
-    @Test func absentOccurrenceCannotAuthorizeInterpretedPatches() throws {
+    @Test(.isolatedClientResources) func absentOccurrenceCannotAuthorizeInterpretedPatches() throws {
         let visit = VisualDirectorVisit(); visit.enter(mood:"chill",occurrence:nil,salt:0)
         #expect(!visit.apply(VibeScapePatch(depth:1),expected:try #require(visit.ticket)))
         #expect(!visit.holdExplicitStyle(expected:try #require(visit.ticket)))
@@ -262,7 +262,7 @@ import DJConnectCore
         visit.enter(mood:nil,occurrence:String(repeating:"a",count:257))
         #expect(visit.scene == nil && visit.ticket == nil)
     }
-    @Test(arguments: ["",String(repeating:"a",count:257),String(repeating:"🎵",count:65)])
+    @Test(.isolatedClientResources, arguments: ["",String(repeating:"a",count:257),String(repeating:"🎵",count:65)])
     func invalidTrackOccurrenceRevokesInsteadOfRetainingOrAcknowledging(_ invalid: String) throws {
         let visit = VisualDirectorVisit(); visit.enter(mood:"chill",occurrence:"A",salt:1)
         let old = try #require(visit.ticket)
@@ -271,7 +271,7 @@ import DJConnectCore
         #expect(!visit.rendererCompleted(old))
         #expect(!visit.apply(VibeScapePatch(depth:0.9),expected:old))
     }
-    @Test func twentyTrackCompositionsAndRepeatedPlaybackVaryWithoutInventedMusicFacts() {
+    @Test(.isolatedClientResources) func twentyTrackCompositionsAndRepeatedPlaybackVaryWithoutInventedMusicFacts() {
         let visit = VisualDirectorVisit(); visit.enter(mood:"groove",occurrence:"0",salt:10)
         var scenes: [VibeScapeScene] = []
         for n in 0..<20 {
@@ -284,7 +284,7 @@ import DJConnectCore
         let replay = VibeScapeScene.autonomous(mood:"groove",salt:2)
         #expect(first.composition != replay.composition)
     }
-    @Test func visibleVisualsCannotFallThroughToGeneralAskDJOrRecording() throws {
+    @Test(.isolatedClientResources) func visibleVisualsCannotFallThroughToGeneralAskDJOrRecording() throws {
         let name = "vibescape-negative-" + UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName:name))
         defer { defaults.removePersistentDomain(forName:name) }
@@ -309,7 +309,7 @@ import DJConnectCore
 }
 
 @Suite @MainActor struct VibeScapeStyleStateTests {
-    @Test func fourTurnCorrectionHoldAndTrackHandoverRetainOnlyExplicitStyle() throws {
+    @Test(.isolatedClientResources) func fourTurnCorrectionHoldAndTrackHandoverRetainOnlyExplicitStyle() throws {
         let visit = VisualDirectorVisit(); visit.enter(mood:"groove",occurrence:"A",salt:7)
         let identity = try #require(visit.ticket).visit
         let baseline = try #require(visit.scene)
@@ -327,7 +327,7 @@ import DJConnectCore
         #expect(visit.scene?.palette == corrected)
         #expect(visit.ticket?.visit == identity)
     }
-    @Test func visitScopeSupersedesOldTrackFieldsWithoutPromotingBaseline() throws {
+    @Test(.isolatedClientResources) func visitScopeSupersedesOldTrackFieldsWithoutPromotingBaseline() throws {
         let visit = VisualDirectorVisit(); visit.enter(mood:"chill",occurrence:"A",salt:8)
         #expect(visit.apply(VibeScapePatch(palette:SIMD3(0.1,0.2,0.9)),expected:try #require(visit.ticket)))
         let gold = SIMD3<Float>(0.9,0.7,0.2)
@@ -339,7 +339,7 @@ import DJConnectCore
         #expect(visit.resetToDJ(expected:try #require(visit.ticket)))
         #expect(visit.scene?.palette != gold)
     }
-    @Test func undoHoldRestoresTrackScopeRatherThanKeepingPromotedFields() throws {
+    @Test(.isolatedClientResources) func undoHoldRestoresTrackScopeRatherThanKeepingPromotedFields() throws {
         let visit = VisualDirectorVisit(); visit.enter(mood:"groove",occurrence:"A",salt:9)
         #expect(visit.apply(VibeScapePatch(motion:0.1),expected:try #require(visit.ticket)))
         #expect(visit.holdExplicitStyle(expected:try #require(visit.ticket)))
@@ -348,7 +348,7 @@ import DJConnectCore
         visit.trackChanged(mood:"groove",occurrence:"B")
         #expect(visit.scene?.motion == 0.3)
     }
-    @Test func variantChangesOnlyCompositionAndUndoRestoresOriginalDJBaseline() throws {
+    @Test(.isolatedClientResources) func variantChangesOnlyCompositionAndUndoRestoresOriginalDJBaseline() throws {
         let visit = VisualDirectorVisit(); visit.enter(mood:"party",occurrence:"A",salt:91)
         let baseline = try #require(visit.scene)
         #expect(visit.apply(VibeScapePatch(palette:SIMD3(0.9,0.7,0.2),motion:0.1),expected:try #require(visit.ticket)))
@@ -365,7 +365,7 @@ import DJConnectCore
         #expect(visit.resetToDJ(expected:try #require(visit.ticket)))
         #expect(visit.scene == baseline && visit.dynamics == 0.5)
     }
-    @Test func noEffectDoesNotCreateNewRevisionOrEarnAppliedAcknowledgment() throws {
+    @Test(.isolatedClientResources) func noEffectDoesNotCreateNewRevisionOrEarnAppliedAcknowledgment() throws {
         let visit = VisualDirectorVisit(); visit.enter(mood:"groove",occurrence:"A",salt:10)
         let initial = try #require(visit.ticket)
         #expect(!visit.holdExplicitStyle(expected:initial))
@@ -379,7 +379,7 @@ import DJConnectCore
         #expect(!visit.apply(VibeScapePatch(motion:motion),expected:explicit))
         #expect(visit.ticket == explicit && visit.appliedRevision == nil)
     }
-    @Test func variantAndHoldRespectOriginalVisitBudgetAndRevocation() throws {
+    @Test(.isolatedClientResources) func variantAndHoldRespectOriginalVisitBudgetAndRevocation() throws {
         let visit = VisualDirectorVisit(); visit.enter(mood:"chill",occurrence:"A",salt:11)
         for _ in 0..<32 { #expect(visit.varyComposition(expected:try #require(visit.ticket))) }
         let exhausted = try #require(visit.ticket)
@@ -392,7 +392,7 @@ import DJConnectCore
 
 
 @Suite @MainActor struct VibeScapeTurnFenceTests {
-    @Test func cancelledTurnCannotReplaceNewTurnAtSameSceneRevision() throws {
+    @Test(.isolatedClientResources) func cancelledTurnCannotReplaceNewTurnAtSameSceneRevision() throws {
         let visit = VisualDirectorVisit(); visit.enter(mood:"groove",occurrence:"A",salt:1)
         let fence = VisualDirectorTurnFence(visit:visit)
         let old = try #require(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{true}))
@@ -406,7 +406,7 @@ import DJConnectCore
         #expect(applications == 1)
         #expect(visit.appliedRevision == nil) // Interpretation is not GPU ACK.
     }
-    @Test func originalLeaseCannotBeExtendedByLaterContextOrClockRollback() throws {
+    @Test(.isolatedClientResources) func originalLeaseCannotBeExtendedByLaterContextOrClockRollback() throws {
         let visit = VisualDirectorVisit(); var time:TimeInterval = 100
         visit.now = {time}; visit.enter(mood:nil,occurrence:"A",salt:1)
         let fence = VisualDirectorTurnFence(visit:visit)
@@ -418,7 +418,7 @@ import DJConnectCore
         time = 99
         #expect(!fence.complete(fresh) { Issue.record("Clock rollback accepted"); return true })
     }
-    @Test func sceneChangeRevokeAndOwnerLossPreventCallback() throws {
+    @Test(.isolatedClientResources) func sceneChangeRevokeAndOwnerLossPreventCallback() throws {
         let visit = VisualDirectorVisit(); visit.enter(mood:nil,occurrence:"A",salt:1)
         let fence = VisualDirectorTurnFence(visit:visit)
         var owner = true
@@ -433,7 +433,7 @@ import DJConnectCore
         visit.revoke()
         #expect(!fence.complete(last) { Issue.record("Exited visit applied"); return true })
     }
-    @Test func rejectedOrCancelledTurnsConsumeBoundedAttemptBudget() throws {
+    @Test(.isolatedClientResources) func rejectedOrCancelledTurnsConsumeBoundedAttemptBudget() throws {
         let visit = VisualDirectorVisit(); visit.enter(mood:nil,occurrence:"A",salt:1)
         let fence = VisualDirectorTurnFence(visit:visit)
         for _ in 0..<32 {
@@ -448,7 +448,7 @@ import DJConnectCore
         #expect(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{true}) != nil)
         fence.cancel()
     }
-    @Test func exitImmediatelyReleasesCapturedOriginalContext() throws {
+    @Test(.isolatedClientResources) func exitImmediatelyReleasesCapturedOriginalContext() throws {
         final class Context {}
         let visit = VisualDirectorVisit(); visit.enter(mood:nil,occurrence:"A",salt:1)
         let fence = VisualDirectorTurnFence(visit:visit)
@@ -461,7 +461,7 @@ import DJConnectCore
         visit.revoke()
         #expect(retained == nil)
     }
-    @Test func unknownOccurrenceOrInvalidSourceDeadlineCannotStart() {
+    @Test(.isolatedClientResources) func unknownOccurrenceOrInvalidSourceDeadlineCannotStart() {
         let visit = VisualDirectorVisit(); visit.enter(mood:nil,occurrence:nil,salt:1)
         let fence = VisualDirectorTurnFence(visit:visit)
         #expect(fence.begin(originalSourceDeadline:visit.now()+10,isCurrent:{true}) == nil)
@@ -488,7 +488,7 @@ private struct DynamicsPointerProbe: View {
             .frame(width: 240, height: 44)
     }
 }
-@Test @MainActor func nativeHorizontalDynamicsSliderCellTracksPointerAndUpdatesBinding() async throws {
+@Test(.isolatedAppKitResources) @MainActor func nativeHorizontalDynamicsSliderCellTracksPointerAndUpdatesBinding() async throws {
     _ = NSApplication.shared
     let observation = DynamicsPointerObservation()
     let host = NSHostingView(rootView: DynamicsPointerProbe(observation: observation))

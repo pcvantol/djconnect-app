@@ -8,7 +8,7 @@ import Testing
         private(set) var isRetired = false
         func retire() { isRetired = true }
     }
-    @Test func nativeHandleRegistryBoundsLiveEntriesWithoutALifetimeStartLimitOrRetiredRevival() {
+    @Test(.isolatedClientResources) func nativeHandleRegistryBoundsLiveEntriesWithoutALifetimeStartLimitOrRetiredRevival() {
         let registry = SessionSurfaceNativeHandleRegistry<Handle>()
         var old: [Handle] = []
         for index in 0..<512 {
@@ -24,7 +24,7 @@ import Testing
         #expect(!registry.insert(Handle(), id: "overflow") && registry.count == 128)
         #expect(registry.values.allSatisfy { !$0.isRetired }) // No pressure-driven eviction.
     }
-    @Test func nativeHandleRegistryLateRetirementCannotRemoveOrRetireTheReplacement() {
+    @Test(.isolatedClientResources) func nativeHandleRegistryLateRetirementCannotRemoveOrRetireTheReplacement() {
         let registry = SessionSurfaceNativeHandleRegistry<Handle>()
         let original = Handle(), replacement = Handle()
         #expect(registry.insert(original, id: "same-test-slot"))
@@ -57,7 +57,8 @@ import Testing
         let host = UUID().uuidString.lowercased() + ".native-surface.invalid"
         let server = NativeSurfaceObservationWire.install(host: host, data: [
             "/api/djconnect/v1/session/active": try JSONSerialization.data(withJSONObject: rebind(try #require(original["response"]))),
-            "/api/djconnect/v1/profile/settings": try JSONSerialization.data(withJSONObject: object)])
+            "/api/djconnect/v1/profile/settings": try JSONSerialization.data(withJSONObject: object),
+            "/api/djconnect/v1/capabilities": Data(#"{"capabilities":{"profile_session_settings":true},"contract_versions":{"profile_session_settings":3}}"#.utf8)])
         defaults.set("https://" + host, forKey: "DJConnectHomeAssistantURL")
         defaults.set("https://" + host, forKey: "DJConnectHALocalURL")
         let configuration = URLSessionConfiguration.ephemeral; configuration.protocolClasses = [NativeSurfaceObservationWire.self]
@@ -76,7 +77,7 @@ import Testing
         model.prepareSessionSurfacePublication(confirmed: true, sessionID: model.activeDJSession?.id, identity: model.sessionSurfaceIdentity,
             snapshot: snapshot, foreground: foreground, observedSession: observed)
     }
-    @Test func actualAppModelQueuesRetirementForInactiveOrWithdrawnSettingsWithTheSameRawFrame() async throws {
+    @Test(.isolatedClientResources) func actualAppModelQueuesRetirementForInactiveOrWithdrawnSettingsWithTheSameRawFrame() async throws {
         for withdrawAuthority in [false, true] {
             try await appModel { model, _ in
                 let snapshot = DJConnectSessionSurfaceSnapshot(observedAt: Date())
@@ -98,7 +99,7 @@ import Testing
             }
         }
     }
-    @Test func actualAppModelWithdrawalDuringPreviousTaskAwaitAndCachedABAStayNegative() async throws {
+    @Test(.isolatedClientResources) func actualAppModelWithdrawalDuringPreviousTaskAwaitAndCachedABAStayNegative() async throws {
         try await appModel { model, _ in
             let snapshot = DJConnectSessionSurfaceSnapshot(observedAt: Date())
             let original = publication(model, snapshot: snapshot, observed: true)
@@ -123,7 +124,7 @@ import Testing
             #expect(reconfirmed.canStart && !original.isCurrent && !negative.isCurrent)
         }
     }
-    @Test func actualAppModelExpiryDuringPreviousTaskAwaitSelectsRetirement() async throws {
+    @Test(.isolatedClientResources) func actualAppModelExpiryDuringPreviousTaskAwaitSelectsRetirement() async throws {
         try await appModel { model, _ in
             let original = publication(model, snapshot: .init(observedAt: Date()), observed: true)
             var release: CheckedContinuation<Void, Never>?
@@ -146,7 +147,7 @@ import Testing
             #expect(retired)
         }
     }
-    @Test func actualAppModelLateRetirementCannotDispatchAfterNewerReconfirmation() async throws {
+    @Test(.isolatedClientResources) func actualAppModelLateRetirementCannotDispatchAfterNewerReconfirmation() async throws {
         try await appModel { model, _ in
             let snapshot = DJConnectSessionSurfaceSnapshot(observedAt: Date())
             let original = publication(model, snapshot: snapshot, observed: true)
@@ -171,7 +172,7 @@ import Testing
             #expect(selected == [true, true] && !withdrawn.isCurrent && !original.isCurrent)
         }
     }
-    @Test func actualMarkInactiveSessionFencesStartsAndResumeDoesNotRecreatePositiveCustodyFromCachedSettings() async throws {
+    @Test(.isolatedClientResources) func actualMarkInactiveSessionFencesStartsAndResumeDoesNotRecreatePositiveCustodyFromCachedSettings() async throws {
         try await appModel { model, _ in
             let snapshot = DJConnectSessionSurfaceSnapshot(observedAt: Date())
             let original = publication(model, snapshot: snapshot, observed: true)
@@ -201,7 +202,7 @@ import Testing
         }
         #expect(condition(), "Timed out waiting for isolated AppModel route")
     }
-    @Test func actualHTTPAndLocalDisconnectRoutesCannotReconfirmFromCachedSessionBookkeeping() async throws {
+    @Test(.isolatedClientResources) func actualHTTPAndLocalDisconnectRoutesCannotReconfirmFromCachedSessionBookkeeping() async throws {
         try await appModel { model, _ in
             let wire = try #require(NativeSurfaceObservationWire.server(host: URL(string: model.homeAssistantURL)!.host!))
             let original = try #require(model.sessionSurfaceSnapshot)
@@ -217,7 +218,7 @@ import Testing
             #expect(model.sessionSurfaceSnapshot!.observedAt > original.observedAt)
         }
     }
-    @Test func actualLateHTTPResponseCannotRenewAfterTheForegroundRequestWasWithdrawn() async throws {
+    @Test(.isolatedClientResources) func actualLateHTTPResponseCannotRenewAfterTheForegroundRequestWasWithdrawn() async throws {
         try await appModel { model, _ in
             let wire = try #require(NativeSurfaceObservationWire.server(host: URL(string: model.homeAssistantURL)!.host!))
             let original = try #require(model.sessionSurfaceSnapshot)
@@ -228,7 +229,7 @@ import Testing
             #expect(!model.sessionSurfaceCanStart && model.sessionSurfaceSnapshot?.observedAt == original.observedAt)
         }
     }
-    @Test func actualAuthoritativeNoSessionResponseClearsThePriorObservationWithoutCreatingALease() async throws {
+    @Test(.isolatedClientResources) func actualAuthoritativeNoSessionResponseClearsThePriorObservationWithoutCreatingALease() async throws {
         try await appModel { model, _ in
             let wire = try #require(NativeSurfaceObservationWire.server(host: URL(string: model.homeAssistantURL)!.host!))
             #expect(model.sessionSurfaceSnapshot != nil)
@@ -237,7 +238,7 @@ import Testing
             #expect(model.activeDJSession == nil && model.sessionSurfaceSnapshot == nil && !model.sessionSurfaceCanStart)
         }
     }
-    @Test func actualWSReducerRoutesRequireNewAcceptedSequenceAndDoNotRenewOnDuplicatesOrRevocation() async throws {
+    @Test(.isolatedClientResources) func actualWSReducerRoutesRequireNewAcceptedSequenceAndDoNotRenewOnDuplicatesOrRevocation() async throws {
         try await appModel { model, _ in
             let wire = try #require(NativeSurfaceObservationWire.server(host: URL(string: model.homeAssistantURL)!.host!))
             wire.holdSessionResponses(); model.markInactiveSession(); model.markActiveSession()
@@ -271,7 +272,89 @@ import Testing
             #expect(!model.sessionSurfaceCanStart && model.sessionSurfaceSnapshot?.observedAt == latest.observedAt)
         }
     }
-    @Test func actualNativeClockSamplesDoNotConferRatePermissionOrRestore() {
+    @Test(.isolatedClientResources, arguments: [false, true])
+    func foregroundSettingsReadSupersedesHeldPriorReadWithoutLosingItsSlot(oldFails: Bool) async throws {
+        try await appModel { model, original in
+            let wire = try #require(NativeSurfaceObservationWire.server(host: URL(string: model.homeAssistantURL)!.host!))
+            wire.holdSessionResponses(); wire.holdSettingsResponses()
+            let old = Task { await model.refreshProfileDJSettings() }
+            defer { old.cancel(); wire.releasePending() }
+            try await waitFor { wire.pendingSettingsCount == 1 }
+            model.markInactiveSession(); model.markActiveSession()
+            try await waitFor { wire.pendingSettingsCount == 2 }
+            // Finish the old request while its successor is still on the wire.
+            // Its defer must not release the successor's coalescing slot.
+            wire.releaseSettings(at: 0, failing: oldFails)
+            await old.value
+            await model.refreshProfileDJSettings()
+            #expect(wire.settingsRequestCount == 2 && wire.pendingSettingsCount == 1)
+            wire.releaseSettings(at: 0)
+            try await waitFor { model.profileDJSettings.active && model.profileDJSettings.phase == .ready }
+            #expect(model.profileDJSettings.response == original)
+        }
+    }
+
+    @Test(.isolatedClientResources, arguments: [false, true])
+    func foregroundSettingsLatePriorSuccessOrFailureCannotReplaceCurrentRead(oldFails: Bool) async throws {
+        try await appModel { model, original in
+            let wire = try #require(NativeSurfaceObservationWire.server(host: URL(string: model.homeAssistantURL)!.host!))
+            wire.holdSessionResponses(); wire.holdSettingsResponses()
+            let old = Task { await model.refreshProfileDJSettings() }
+            defer { old.cancel(); wire.releasePending() }
+            try await waitFor { wire.pendingSettingsCount == 1 }
+            var current = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
+            current["as_of"] = "2026-10-31T12:00:01Z"
+            wire.setSettingsResponse(try JSONSerialization.data(withJSONObject: current))
+            model.markInactiveSession(); model.markActiveSession()
+            try await waitFor { wire.pendingSettingsCount == 2 }
+            wire.releaseSettings(at: 1)
+            try await waitFor { model.profileDJSettings.response?.as_of == "2026-10-31T12:00:01Z" }
+            let accepted = model.profileDJSettings.response
+            wire.releaseSettings(at: 0, failing: oldFails)
+            await old.value
+            #expect(model.profileDJSettings.active && model.profileDJSettings.phase == .ready)
+            #expect(model.profileDJSettings.response == accepted && wire.settingsRequestCount == 2)
+        }
+    }
+    @Test(.isolatedClientResources)
+    func settingsAuthorityFailureStaysWithdrawnAfterCallerCompletion() async throws {
+        try await appModel { model, _ in
+            let wire = try #require(NativeSurfaceObservationWire.server(host: URL(string: model.homeAssistantURL)!.host!))
+            wire.holdSettingsResponses()
+            let read = Task { await model.refreshProfileDJSettings() }
+            defer { read.cancel(); wire.releasePending() }
+            try await waitFor { wire.pendingSettingsCount == 1 }
+            wire.releaseSettings(at: 0, status: 401)
+            await read.value
+            #expect(!model.profileDJSettings.active && model.profileDJSettings.response == nil)
+            #expect(!model.sessionSurfaceCanStart)
+        }
+    }
+
+    @Test(.isolatedClientResources)
+    func settingsReadCannotCrossPairedOwnerABA() async throws {
+        try await appModel { model, _ in
+            let wire = try #require(NativeSurfaceObservationWire.server(host: URL(string: model.homeAssistantURL)!.host!))
+            wire.holdSettingsResponses()
+            let old = Task { await model.refreshProfileDJSettings() }
+            defer { old.cancel(); wire.releasePending() }
+            try await waitFor { wire.pendingSettingsCount == 1 }
+            model.pairingStatus = .unpaired
+            model.pairingStatus = .paired
+            #expect(model.profileDJSettings.response == nil)
+            wire.releaseSettings(at: 0)
+            await old.value
+            #expect(model.profileDJSettings.response == nil)
+            let current = Task { await model.refreshProfileDJSettings() }
+            defer { current.cancel() }
+            try await waitFor { wire.pendingSettingsCount == 1 }
+            wire.releaseSettings(at: 0)
+            await current.value
+            #expect(model.profileDJSettings.active && model.profileDJSettings.response != nil)
+            #expect(wire.settingsRequestCount == 2)
+        }
+    }
+    @Test(.isolatedClientResources) func actualNativeClockSamplesDoNotConferRatePermissionOrRestore() {
         let a = DJConnectNativeSurfaceClockCapture.capture(), b = DJConnectNativeSurfaceClockCapture.capture()
         #expect(a.continuous <= b.continuous); #expect(a.uptime <= b.uptime)
         #expect(a.process == b.process); #expect(a.missingQualifications.count == 3)
@@ -281,7 +364,7 @@ import Testing
         // Optional native boot data may be unavailable on a platform. Neither
         // a sample nor equality mints an original source/rate/restore witness.
     }
-    @Test func warmCounterConversionFloorsExactRationalsAndRejectsOverflow() {
+    @Test(.isolatedClientResources) func warmCounterConversionFloorsExactRationalsAndRejectsOverflow() {
         #expect(DJConnectNativeSurfaceClockCapture.nanosecondsFloor(ticks: 1, numerator: 1, denominator: 3) == 0)
         #expect(DJConnectNativeSurfaceClockCapture.nanosecondsFloor(ticks: 2, numerator: 125, denominator: 3) == 83)
         #expect(DJConnectNativeSurfaceClockCapture.nanosecondsFloor(ticks: 3, numerator: 125, denominator: 3) == 125)
@@ -291,7 +374,7 @@ import Testing
         #expect(DJConnectNativeSurfaceClockCapture.nanosecondsFloor(ticks: 1, numerator: 1, denominator: 0) == nil)
         #expect(DJConnectNativeSurfaceClockCapture.nanosecondsFloor(ticks: 1, numerator: 0, denominator: 1) == nil)
     }
-    @Test func actualWarmCounterBracketsYieldOnlyALocalMeasurement() async throws {
+    @Test(.isolatedClientResources) func actualWarmCounterBracketsYieldOnlyALocalMeasurement() async throws {
         let a = DJConnectNativeSurfaceClockCapture.capture()
         try await Task.sleep(for: .milliseconds(20))
         let b = DJConnectNativeSurfaceClockCapture.capture()
@@ -306,7 +389,7 @@ import Testing
         }
         #expect(a.missingQualifications.count == 3) // Still no cross-machine rho/permission/restore.
     }
-    @Test func ownerSettingsABAAndWithdrawAreTerminalForCapturedDispatch() async {
+    @Test(.isolatedClientResources) func ownerSettingsABAAndWithdrawAreTerminalForCapturedDispatch() async {
         let owner = SessionSurfaceNativeCustody(), now = Date()
         let snapshot = DJConnectSessionSurfaceSnapshot(observedAt: now)
         owner.bind(scope: scope(), presentationID: "test-presentation", snapshot: snapshot)
@@ -319,7 +402,7 @@ import Testing
         let next = owner.capture(); owner.withdraw()
         #expect(!next.isCurrent && !next.canPublish(at: now))
     }
-    @Test func frameReplacementFencesSDKDispatchAfterAwaitButKeepsNativeOwnerSeparate() async {
+    @Test(.isolatedClientResources) func frameReplacementFencesSDKDispatchAfterAwaitButKeepsNativeOwnerSeparate() async {
         let owner = SessionSurfaceNativeCustody(), now = Date()
         let first = DJConnectSessionSurfaceSnapshot(observedAt: now, theme: .chill)
         owner.bind(scope: scope(), presentationID: "test-presentation", snapshot: first)
@@ -336,7 +419,7 @@ import Testing
         release?.resume(); await pending.value
         #expect(calls == 0 && !ticket.isCurrent && ticket.isOwnerCurrent)
     }
-    @Test func cancelledQueuedSDKDispatchAndExpiredFramesAreClosed() async {
+    @Test(.isolatedClientResources) func cancelledQueuedSDKDispatchAndExpiredFramesAreClosed() async {
         let owner = SessionSurfaceNativeCustody(), now = Date()
         owner.bind(scope: scope(), presentationID: "test-presentation", snapshot: .init(observedAt: now))
         let ticket = owner.capture()
@@ -352,7 +435,7 @@ import Testing
         owner.bind(scope: nil, presentationID: nil, snapshot: nil)
         #expect(!owner.capture().canPublish())
     }
-    @Test func backgroundTransitionClosesAQueuedForegroundStartWithoutRetiringItsNativeOwner() {
+    @Test(.isolatedClientResources) func backgroundTransitionClosesAQueuedForegroundStartWithoutRetiringItsNativeOwner() {
         let owner = SessionSurfaceNativeCustody(), snapshot = DJConnectSessionSurfaceSnapshot(observedAt: Date())
         owner.bind(scope: scope(), presentationID: "test-presentation", snapshot: snapshot, foreground: true)
         let queued = owner.capture()
@@ -361,7 +444,7 @@ import Testing
         #expect(!queued.isCurrent && !queued.canStart && queued.isOwnerCurrent)
         #expect(!owner.capture().canStart)
     }
-    @Test func rendererChecksNestedSourceAndOriginalUptimeAtActualUse() throws {
+    @Test(.isolatedClientResources) func rendererChecksNestedSourceAndOriginalUptimeAtActualUse() throws {
         #if SWIFT_PACKAGE
         let bundle = Bundle.module
         #else
@@ -389,26 +472,46 @@ private final class NativeSurfaceObservationWire: URLProtocol, @unchecked Sendab
         private let lock = NSLock()
         private var data: [String: Data]
         private var holding = false
+        private var holdingSettings = false
+        private var settingsRequests = 0
+        private var settingsPending: [(NativeSurfaceObservationWire, Data?)] = []
         private var pending: [NativeSurfaceObservationWire] = []
         init(data: [String: Data]) { self.data = data }
         var pendingCount: Int { lock.withLock { pending.count } }
         func holdSessionResponses() { lock.withLock { holding = true } }
+        func holdSettingsResponses() { lock.withLock { holdingSettings = true } }
+        var settingsRequestCount: Int { lock.withLock { settingsRequests } }
+        var pendingSettingsCount: Int { lock.withLock { settingsPending.count } }
+        func setSettingsResponse(_ value: Data) { lock.withLock { data["/api/djconnect/v1/profile/settings"] = value } }
+        func releaseSettings(at index: Int, failing: Bool = false, status: Int = 200) {
+            let value = lock.withLock { settingsPending.remove(at: index) }
+            if failing { value.0.client?.urlProtocol(value.0, didFailWithError: URLError(.cannotConnectToHost)) }
+            else { reply(value.0, capturedBody: value.1, status: status) }
+        }
         func setSessionResponse(_ value: Data) { lock.withLock { data["/api/djconnect/v1/session/active"] = value } }
         func releasePending() {
             let values = lock.withLock { holding = false; let values = pending; pending = []; return values }
             for value in values { reply(value) }
+            let settings = lock.withLock { holdingSettings = false; let values = settingsPending; settingsPending = []; return values }
+            for (value, body) in settings { reply(value, capturedBody: body) }
         }
         func accept(_ value: NativeSurfaceObservationWire) {
             let held = lock.withLock {
+                if value.request.url?.path == "/api/djconnect/v1/profile/settings" {
+                    settingsRequests += 1
+                    if holdingSettings { settingsPending.append((value, data[value.request.url!.path])); return true }
+                }
                 if holding && value.request.url?.path == "/api/djconnect/v1/session/active" { pending.append(value); return true }
                 return false
             }
             if !held { reply(value) }
         }
-        func remove(_ value: NativeSurfaceObservationWire) { lock.withLock { pending.removeAll { $0 === value } } }
-        private func reply(_ value: NativeSurfaceObservationWire) {
-            let body = lock.withLock { data[value.request.url!.path] }
-            let response = HTTPURLResponse(url: value.request.url!, statusCode: body == nil ? 404 : 200, httpVersion: nil,
+        func remove(_ value: NativeSurfaceObservationWire) { lock.withLock {
+            pending.removeAll { $0 === value }; settingsPending.removeAll { $0.0 === value }
+        } }
+        private func reply(_ value: NativeSurfaceObservationWire, capturedBody: Data? = nil, status: Int = 200) {
+            let body = capturedBody ?? lock.withLock { data[value.request.url!.path] }
+            let response = HTTPURLResponse(url: value.request.url!, statusCode: body == nil ? 404 : status, httpVersion: nil,
                 headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"])!
             value.client?.urlProtocol(value, didReceive: response, cacheStoragePolicy: .notAllowed)
             value.client?.urlProtocol(value, didLoad: body ?? Data("{}".utf8))

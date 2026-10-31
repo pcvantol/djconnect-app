@@ -26,3 +26,10 @@ BLOCKED decisions, and publishes supplemental public Runtime diagnostics only as
 `NOT_QUALIFIED`. Observe success is not a successful TDE assessment. Original
 source qualification and remaining analyzer gates are recorded in
 `docs/feedback/APPLE_TDE_OBSERVE_DIAGNOSTICS_243_SOURCE_FINALIZATION_20261030.md`.
+
+Parallel validation preparation (2026-10-31): independent client fixtures retain
+per-runtime caps and child-task ownership, while CI validators/packages/native
+builds use bounded workers and isolated output roots. Source review, exact-head
+CI and protected delivery are still required; local results are not installation
+or physical acceptance. See `docs/feedback/APPLE_PARALLEL_CLIENT_VALIDATION_20261031.md`
+and `docs/DEVELOPMENT.md`. This note does not declare protected delivery.

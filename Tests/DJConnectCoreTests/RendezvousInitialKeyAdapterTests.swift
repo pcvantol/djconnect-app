@@ -74,7 +74,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
         try await RendezvousKeyLifecycleJournal(storage:store).snapshot(appContext:context,at:Int64(Date().timeIntervalSince1970*1000))
     }
 }
-@Test @MainActor func rendezvousInitialGenerationPersistsBeforeSDKAndCannotReplay() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialGenerationPersistsBeforeSDKAndCannotReplay() async throws {
     let f = try InitialFixture()
     f.sdk.callback = { #expect((try? f.store.read()) != nil) }
     try await f.run()
@@ -83,7 +83,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     await #expect(throws:(any Error).self) { try await f.run() }
     #expect(f.sdk.calls == 1)
 }
-@Test @MainActor func rendezvousInitialGenerationRejectsUnsupportedAndMissingAdmission() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialGenerationRejectsUnsupportedAndMissingAdmission() async throws {
     let f = try InitialFixture(); f.sdk.isSupported = false
     await #expect(throws:(any Error).self) { try await f.run() }
     f.sdk.isSupported = true; f.admitted = false
@@ -91,7 +91,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     #expect(f.sdk.calls == 0 && f.finishes == 0)
     #expect(try await f.handles().isEmpty)
 }
-@Test @MainActor func rendezvousInitialGenerationRejectsUncertainStorageBeforeSDK() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialGenerationRejectsUncertainStorageBeforeSDK() async throws {
     for committed in [false,true] {
         let f = try InitialFixture(); f.store.beforeWrite = !committed; f.store.afterWrite = committed
         await #expect(throws:(any Error).self) { try await f.run() }
@@ -103,7 +103,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
         }
     }
 }
-@Test @MainActor func rendezvousInitialGenerationOwnerLossDuringCallbackRetainsKnownHandle() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialGenerationOwnerLossDuringCallbackRetainsKnownHandle() async throws {
     let f = try InitialFixture()
     f.sdk.callback = { f.admitted = false }
     await #expect(throws:(any Error).self) { try await f.run() }
@@ -113,14 +113,14 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     await #expect(throws:(any Error).self) { try await f.run() }
     #expect(f.sdk.calls == 1)
 }
-@Test @MainActor func rendezvousInitialGenerationUnknownResultRetainsSlotAcrossRestart() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialGenerationUnknownResultRetainsSlotAcrossRestart() async throws {
     let f = try InitialFixture(); f.sdk.result = .failure(InitialStore.Failure.unavailable)
     await #expect(throws:(any Error).self) { try await f.run() }
     #expect(try await f.handles().first?.phase == .generationUnknown)
     await #expect(throws:(any Error).self) { try await f.run() }
     #expect(f.sdk.calls == 1 && f.finishes == 0)
 }
-@Test @MainActor func rendezvousInitialGenerationAnyLegacyOccupancyBlocksNewKey() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialGenerationAnyLegacyOccupancyBlocksNewKey() async throws {
     let f = try InitialFixture()
     // A valid older enrollment attempt must block even though the new lifecycle
     // account is empty; no diagnostic marker/handle is silently adopted/reset.
@@ -134,7 +134,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     #expect(try await f.handles().isEmpty)
 }
 
-@Test @MainActor func rendezvousInitialGenerationOwnerLossDuringPersistencePreventsSDK() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialGenerationOwnerLossDuringPersistencePreventsSDK() async throws {
     let f = try InitialFixture(), admission = InitialAdmission()
     f.store.onWrite = { admission.lose() }
     await #expect(throws:(any Error).self) {
@@ -148,7 +148,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     #expect(try await f.handles().first?.phase == .generationPending)
 }
 
-@Test @MainActor func rendezvousInitialGenerationEnrollmentFailureDoesNotGenerateAgain() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialGenerationEnrollmentFailureDoesNotGenerateAgain() async throws {
     let f = try InitialFixture(); f.finishFails = true
     await #expect(throws:(any Error).self) { try await f.run() }
     #expect(f.sdk.calls == 1 && f.finishes == 1)
@@ -156,7 +156,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     await #expect(throws:(any Error).self) { try await f.run() }
     #expect(f.sdk.calls == 1)
 }
-@Test @MainActor func rendezvousInitialGenerationMalformedCallbackDoesNotFreeSlot() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialGenerationMalformedCallbackDoesNotFreeSlot() async throws {
     let f = try InitialFixture(); f.sdk.result = .success("invalid-key")
     await #expect(throws:(any Error).self) { try await f.run() }
     #expect(try await f.handles().first?.phase == .generationUnknown)
@@ -164,7 +164,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     #expect(f.sdk.calls == 1 && f.finishes == 0)
 }
 
-@Test(arguments:["registration","recovery","repair"])
+@Test(.isolatedClientResources, arguments:["registration","recovery","repair"])
 @MainActor func rendezvousInitialGenerationUnreadableLegacyStateBlocksSDK(kind:String) async throws {
     let f = try InitialFixture()
     let store = kind == "registration" ? f.registrationStore : (kind == "recovery" ? f.recoveryStore : f.repairStore)
@@ -173,7 +173,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     #expect(f.sdk.calls == 0 && f.finishes == 0)
     #expect(try await f.handles().isEmpty)
 }
-@Test @MainActor func rendezvousInitialGenerationCallbackStorageUncertaintyBlocksEnrollment() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialGenerationCallbackStorageUncertaintyBlocksEnrollment() async throws {
     let f = try InitialFixture()
     f.sdk.callback = { f.store.afterWrite = true }
     await #expect(throws:(any Error).self) { try await f.run() }
@@ -184,7 +184,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     #expect(f.sdk.calls == 1)
 }
 
-@Test @MainActor func rendezvousInitialGenerationHistoricalDiagnosticOccupancyBlocksSDK() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialGenerationHistoricalDiagnosticOccupancyBlocksSDK() async throws {
     let f = try InitialFixture()
     for unavailable in [false,true] {
         await #expect(throws:(any Error).self) {
@@ -200,7 +200,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     #expect(try await f.handles().isEmpty)
 }
 
-@Test @MainActor func rendezvousInitialGenerationHistoricalPathGuardUsesPresenceNotContents() throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialGenerationHistoricalPathGuardUsesPresenceNotContents() throws {
     let manager = FileManager.default
     let root = manager.temporaryDirectory.appendingPathComponent("djc-initial-path-"+UUID().uuidString)
     try manager.createDirectory(at:root,withIntermediateDirectories:false)
@@ -227,7 +227,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     func hold() async { entered = true; await withCheckedContinuation { continuation = $0 } }
     func release() { continuation?.resume(); continuation = nil }
 }
-@Test @MainActor func rendezvousLegacyCreationWaitsForInitialGenerationBoundary() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousLegacyCreationWaitsForInitialGenerationBoundary() async throws {
     let gate = InitialSerializationGate(), key = Data(repeating:3,count:32).base64EncodedString()
     let token = String(repeating:"A",count:43), now:Int64 = 1000, expiry:Int64 = 121000
     let stores = (0..<4).map { _ in InitialStore() }
@@ -271,7 +271,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     try await first.value; try await second.value; try await third.value; try await fourth.value
     #expect(gate.completed == 4)
 }
-@Test @MainActor func rendezvousInitialGenerationCommitsExactAttemptBeforeEnrollmentContinuation() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialGenerationCommitsExactAttemptBeforeEnrollmentContinuation() async throws {
     let f = try InitialFixture()
     let operation = Task {
             try await RendezvousInitialKeyAdapter(sdk:f.sdk).generate(qr:f.qr,appContext:f.context,
@@ -298,7 +298,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     #expect(f.sdk.calls == 1 && f.finishes == 1)
 }
 
-@Test @MainActor func rendezvousInitialEnrollmentPrecedesAlreadyQueuedLegacyWriter() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialEnrollmentPrecedesAlreadyQueuedLegacyWriter() async throws {
     let f = try InitialFixture()
     let journal = RendezvousRegistrationJournal(storage:f.registrationStore)
     let token = String(repeating:"A",count:43), otherKey = Data(repeating:4,count:32).base64EncodedString()
@@ -333,7 +333,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     #expect(state.keyIdentifier == Data(repeating:3,count:32).base64EncodedString())
     #expect(f.sdk.calls == 1 && f.finishes == 1)
 }
-@Test @MainActor func rendezvousInitialEnrollmentLeaseRejectsWrongKeyAndClosedScope() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialEnrollmentLeaseRejectsWrongKeyAndClosedScope() async throws {
     let f = try InitialFixture(), key = Data(repeating:3,count:32).base64EncodedString()
     let lease = RendezvousInitialEnrollmentLease(key:key,qr:f.qr)
     let journal = RendezvousRegistrationJournal(storage:f.registrationStore)
@@ -352,7 +352,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     }
     #expect(try f.registrationStore.read() == nil)
 }
-@Test @MainActor func rendezvousInitialEnrollmentNeverWaitsForAnOccupiedPerKeySlot() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialEnrollmentNeverWaitsForAnOccupiedPerKeySlot() async throws {
     let f = try InitialFixture(), key = Data(repeating:3,count:32).base64EncodedString()
     let gate = InitialSerializationGate()
     let owner = Task { try await RendezvousAppKeyOperations.shared.perform(keyIdentifier:key) { await gate.hold() } }
@@ -367,7 +367,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     lease.close(); gate.release(); try await owner.value
 }
 
-@Test @MainActor func rendezvousInitialEnrollmentInheritedChildCannotCreateAfterScopeCloses() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialEnrollmentInheritedChildCannotCreateAfterScopeCloses() async throws {
     let f = try InitialFixture(), key = Data(repeating:3,count:32).base64EncodedString()
     let lease = RendezvousInitialEnrollmentLease(key:key,qr:f.qr), gate = InitialSerializationGate()
     let journal = RendezvousRegistrationJournal(storage:f.registrationStore)
@@ -385,7 +385,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     await #expect(throws:(any Error).self) { try await child.value }
     #expect(try f.registrationStore.read() == nil)
 }
-@Test @MainActor func rendezvousInitialEnrollmentLeaseCannotReenterRecoveryOrRepair() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialEnrollmentLeaseCannotReenterRecoveryOrRepair() async throws {
     let f = try InitialFixture(), key = Data(repeating:3,count:32).base64EncodedString()
     let token = String(repeating:"A",count:43), lease = RendezvousInitialEnrollmentLease(key:key,qr:f.qr)
     let bytes = try JSONSerialization.data(withJSONObject:["v":"djc-rendezvous/1","action":"recover-key",
@@ -405,7 +405,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     #expect(try f.repairStore.read() == nil)
 }
 
-@Test @MainActor func rendezvousInitialEnrollmentChildrenCannotSelectDifferentAttempt() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialEnrollmentChildrenCannotSelectDifferentAttempt() async throws {
     let f = try InitialFixture(), journal = RendezvousRegistrationJournal(storage:InitialStore())
     let wrongToken = Data(repeating:1,count:32).base64EncodedString().replacingOccurrences(of:"+",with:"-").replacingOccurrences(of:"/",with:"_").replacingOccurrences(of:"=",with:"")
     var intended:DJConnectRendezvousEnrollmentChallenge?
@@ -436,7 +436,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
         })
     #expect(f.sdk.calls == 1 && f.finishes == 1)
 }
-@Test @MainActor func rendezvousInitialEnrollmentAdmissionIsOneShotAcrossJournals() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialEnrollmentAdmissionIsOneShotAcrossJournals() async throws {
     let f = try InitialFixture(), firstStore = InitialStore(), secondStore = InitialStore()
     let key = Data(repeating:3,count:32).base64EncodedString(), challenge = try f.challenge()
     let cap = RendezvousInitialRegistrationAdmission(key:key,challenge:challenge,qr:f.qr,at:Int64(Date().timeIntervalSince1970*1000))
@@ -447,7 +447,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
     await #expect(throws:(any Error).self) { try await second.beginInitialAttestation(cap) }
     #expect(try secondStore.read() == nil)
 }
-@Test @MainActor func rendezvousInitialEnrollmentAdmissionFailureNeverRefundsClaim() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialEnrollmentAdmissionFailureNeverRefundsClaim() async throws {
     for committed in [false,true] {
         let f = try InitialFixture(), store = InitialStore(), secondStore = InitialStore()
         let key = Data(repeating:3,count:32).base64EncodedString(), challenge = try f.challenge()
@@ -466,7 +466,7 @@ private final class InitialStore:RendezvousRepairStorage,@unchecked Sendable {
         }
     }
 }
-@Test @MainActor func rendezvousInitialEnrollmentOwnerLossAfterChallengeNeverCreatesAttempt() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousInitialEnrollmentOwnerLossAfterChallengeNeverCreatesAttempt() async throws {
     let f = try InitialFixture()
     await #expect(throws:(any Error).self) {
         try await RendezvousInitialKeyAdapter(sdk:f.sdk).generate(qr:f.qr,appContext:f.context,

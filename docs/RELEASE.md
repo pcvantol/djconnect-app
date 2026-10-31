@@ -116,10 +116,15 @@ After renewing the Apple Developer Program membership:
   third-party content.
 - Consolidate `CHANGELOG.md`: move finished Unreleased entries into the new
   release section and leave a clean Unreleased placeholder.
+- CI and release test gates use the same parallel-capable client fixtures.
+  Tool/dependency mutation, signing, artifact verification and publication retain
+  their existing ordered gates. Separate platform builds use separate output
+  roots; see [Development](DEVELOPMENT.md). No release workflow was invoked by
+  the parallel-validation source qualification.
 - Run local verification:
 
 ```sh
-swift test --no-parallel
+swift test --parallel
 python3 scripts/validate_localizations.py
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination generic/platform=iOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
@@ -132,7 +137,7 @@ git diff --check
 - Confirm the `Public unsigned release` GitHub Actions workflow succeeds. It
   publishes unsigned macOS and iOS diagnostic zips plus checksums to
   `pcvantol/djconnect-app-releases`.
-- The workflow runs `swift test --no-parallel` before building artifacts or
+- The workflow runs `swift test --parallel` before building artifacts or
   publishing static release notes. Keep tests locale-independent or explicitly
   set/test the intended app language before asserting localized strings, so a
   runner's default language cannot block release-note publication.
@@ -654,7 +659,7 @@ open a prefilled GitHub issue in `pcvantol/djconnect` and submit it manually.
 
 The private source repo uses GitHub Actions only for deterministic checks:
 
-- `swift test --no-parallel`
+- `swift test --parallel`
 - unsigned macOS Debug build
 - unsigned iOS Debug generic build
 

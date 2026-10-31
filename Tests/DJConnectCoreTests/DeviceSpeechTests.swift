@@ -3,7 +3,7 @@ import Testing
 @testable import DJConnectCore
 @testable import DJConnectUI
 
-@Test func haSpeechConfigurationPresentationUsesQualifiedProducerStates() throws {
+@Test(.isolatedClientResources) func haSpeechConfigurationPresentationUsesQualifiedProducerStates() throws {
     let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         .appendingPathComponent("Fixtures/device-speech-core-604b80f8.json")
     let root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
@@ -38,7 +38,7 @@ import Testing
     #expect(S(nil) == .unknown)
 }
 
-@Test func deviceSpeechPreferencesAreOptInBoundedAndInstallationLocal() throws {
+@Test(.isolatedClientResources) func deviceSpeechPreferencesAreOptInBoundedAndInstallationLocal() throws {
     let a = "device-speech-a-" + UUID().uuidString, b = "device-speech-b-" + UUID().uuidString
     let first = UserDefaults(suiteName: a)!, second = UserDefaults(suiteName: b)!
     defer { first.removePersistentDomain(forName: a); second.removePersistentDomain(forName: b) }
@@ -58,7 +58,7 @@ import Testing
     #expect(!DJConnectDeviceSpeechPreferences.load(from: first).enabled)
 }
 
-@Test func localSpeechRoutingPreservesHAAndNeverBypassesSettings3() throws {
+@Test(.isolatedClientResources) func localSpeechRoutingPreservesHAAndNeverBypassesSettings3() throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/profile-settings3-core-1329ad1.json")
     let object = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root)) as? [String: Any])
     let rows = try #require(object["cases"] as? [[String: Any]])
@@ -93,7 +93,7 @@ import Testing
 }
 
 #if canImport(AVFoundation)
-@Test @MainActor func deviceVoiceSelectionUsesRealInventoryAndNeverReplacesMissingExplicitVoice() {
+@Test(.isolatedClientResources) @MainActor func deviceVoiceSelectionUsesRealInventoryAndNeverReplacesMissingExplicitVoice() {
     var preferences = DJConnectDeviceSpeechPreferences(); preferences.enabled = true
     let voices = DJConnectAppleSpeechRenderer.voices()
     #expect(Set(voices.map(\.id)).count == voices.count)
@@ -106,7 +106,7 @@ import Testing
 }
 #endif
 
-@Test @MainActor func deviceSpeechOverrideDoesNotEnableAutoplayOrRequestServerSynthesis() async throws {
+@Test(.isolatedClientResources) @MainActor func deviceSpeechOverrideDoesNotEnableAutoplayOrRequestServerSynthesis() async throws {
     let suite = "native-override-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: suite))
     defer { defaults.removePersistentDomain(forName: suite) }
@@ -168,7 +168,7 @@ import Testing
     #expect(DJConnectDeviceSpeechPreferences.load(from: defaults).enabled)
 }
 
-@Test @MainActor func deviceSTTPreferenceIsLocalOptInAndCancelsCurrentCapture() throws {
+@Test(.isolatedClientResources) @MainActor func deviceSTTPreferenceIsLocalOptInAndCancelsCurrentCapture() throws {
     let firstName = "device-stt-" + UUID().uuidString, secondName = "device-stt-" + UUID().uuidString
     let first = try #require(UserDefaults(suiteName: firstName)), second = try #require(UserDefaults(suiteName: secondName))
     defer { first.removePersistentDomain(forName: firstName); second.removePersistentDomain(forName: secondName) }
@@ -193,7 +193,7 @@ private func availability(_ json: [String: Any]) throws -> DJConnectDeviceSpeech
     try JSONDecoder().decode(DJConnectDeviceSpeechAvailability.self, from: JSONSerialization.data(withJSONObject: json))
 }
 
-@Test func deviceSpeechUsesOriginalProducerCasesAndIndependentRoutes() throws {
+@Test(.isolatedClientResources) func deviceSpeechUsesOriginalProducerCasesAndIndependentRoutes() throws {
     let cases = try availabilityCases()
     #expect(cases.count == 15)
     for item in cases {
@@ -210,7 +210,7 @@ private func availability(_ json: [String: Any]) throws -> DJConnectDeviceSpeech
     }
 }
 
-@Test func deviceSpeechRejectsFutureVersionsStatesAndContradictoryAvailability() throws {
+@Test(.isolatedClientResources) func deviceSpeechRejectsFutureVersionsStatesAndContradictoryAvailability() throws {
     let original = try #require(availabilityCases().first?["snapshot"] as? [String: Any])
     for version in [0, 2, 999] {
         var json = original; json["schema_version"] = version
@@ -228,7 +228,7 @@ private func availability(_ json: [String: Any]) throws -> DJConnectDeviceSpeech
     }
 }
 
-@Test func deviceSpeechLegacySupportFlagsCannotQualifyRoutes() throws {
+@Test(.isolatedClientResources) func deviceSpeechLegacySupportFlagsCannotQualifyRoutes() throws {
     let decoder = JSONDecoder()
     let absent = try decoder.decode(DJConnectEnvelope<DJConnectPlayback>.self,
         from: Data(#"{"success":true,"voice_supported":true,"ask_dj_voice_supported":true}"#.utf8))
@@ -241,7 +241,7 @@ private func availability(_ json: [String: Any]) throws -> DJConnectDeviceSpeech
     #expect(pair.deviceSpeech == nil)
 }
 
-@Test func deviceSpeechMatchesProducerLocaleFamilyWithoutBorrowingAnotherLanguage() throws {
+@Test(.isolatedClientResources) func deviceSpeechMatchesProducerLocaleFamilyWithoutBorrowingAnotherLanguage() throws {
     let original = try #require(availabilityCases().first?["snapshot"] as? [String: Any])
     let value = try availability(original)
     #expect(value.qualifies(locale: "en-US"))
@@ -251,7 +251,7 @@ private func availability(_ json: [String: Any]) throws -> DJConnectDeviceSpeech
     #expect(!value.qualifies(locale: "-en"))
 }
 
-@Test func deviceSpeechMalformedDiscoveryDoesNotBreakOrdinaryStatus() throws {
+@Test(.isolatedClientResources) func deviceSpeechMalformedDiscoveryDoesNotBreakOrdinaryStatus() throws {
     for value: Any in ["future", ["schema_version": 2], ["schema_version": 1, "ha_stt": "changed"]] {
         let body: [String: Any] = ["success": true, "device_speech": value, "ha_install_id": "same"]
         let status = try JSONDecoder().decode(DJConnectEnvelope<DJConnectPlayback>.self,
@@ -261,7 +261,7 @@ private func availability(_ json: [String: Any]) throws -> DJConnectDeviceSpeech
     }
 }
 
-@Test func deviceSpeechRequiresKnownOperationalEvidenceAndRetriesExpiredFailure() throws {
+@Test(.isolatedClientResources) func deviceSpeechRequiresKnownOperationalEvidenceAndRetriesExpiredFailure() throws {
     let original = try #require(availabilityCases().first?["snapshot"] as? [String: Any])
     var route = try #require(original["ha_tts"] as? [String: Any])
     route["operational"] = nil
@@ -280,7 +280,7 @@ private func availability(_ json: [String: Any]) throws -> DJConnectDeviceSpeech
     }
 }
 
-@Test func deviceSpeechRequiresCompatibleCaptureAndCurrentRouteMetadata() throws {
+@Test(.isolatedClientResources) func deviceSpeechRequiresCompatibleCaptureAndCurrentRouteMetadata() throws {
     let item = try #require(availabilityCases().first { $0["case"] as? String == "configuration_stt_True_tts_True" })
     let original = try #require(item["snapshot"] as? [String: Any])
     for key in ["audio", "locale"] {

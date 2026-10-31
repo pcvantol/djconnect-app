@@ -6,7 +6,7 @@ import SwiftUI
 import AppKit
 #endif
 
-@Test(arguments: [CGFloat(16), CGFloat(20), CGFloat(24), CGFloat(80)])
+@Test(.isolatedClientResources, arguments: [CGFloat(16), CGFloat(20), CGFloat(24), CGFloat(80)])
 func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
     for rect in [CGRect(x: 0, y: 0, width: size, height: size), CGRect(x: 3, y: 5, width: size * 2, height: size)] {
         let path = DJPersonaMark().path(in: rect)
@@ -18,7 +18,7 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
 }
 
 #if os(macOS)
-@Test @MainActor func personaNativeRenderingSupportsMoodAccessibilityAndMenuSizes() throws {
+@Test(.isolatedClientResources) @MainActor func personaNativeRenderingSupportsMoodAccessibilityAndMenuSizes() throws {
     let preview = VStack(alignment: .leading, spacing: 24) {
         HStack(spacing: 24) {
             ForEach(["brand", "chill", "groove", "energy", "party"], id: \.self) { mood in
@@ -60,7 +60,7 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
 #endif
 
 #if os(macOS)
-@Test(arguments: ["moment", "quiet", "paused", "recovering", "unavailable"], [CGFloat(320), CGFloat(620)])
+@Test(.isolatedClientResources, arguments: ["moment", "quiet", "paused", "recovering", "unavailable"], [CGFloat(320), CGFloat(620)])
 @MainActor func personaCurrentCardRenderingRetainsEveryState(state: String, width: CGFloat) throws {
     var session = try DJConnectDemoSessionData.make(language: "nl").active
     if state == "quiet" { session.broadcast.djMoments = [] }
@@ -89,7 +89,7 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
 }
 #endif
 
-@Test func personaActivityRequiresAuthorityAndActualOutput() {
+@Test(.isolatedClientResources) func personaActivityRequiresAuthorityAndActualOutput() {
     var evidence = DJPersonaActivity.Evidence()
     evidence.capturing = true; evidence.pending = true; evidence.speaking = true
     #expect(DJPersonaActivity.resolve(evidence) == .resting)
@@ -103,7 +103,7 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
     #expect(DJPersonaActivity.resolve(evidence) == .resting)
 }
 
-@Test func personaCurrentAnnouncementDoesNotMaskNewExplicitInteraction() {
+@Test(.isolatedClientResources) func personaCurrentAnnouncementDoesNotMaskNewExplicitInteraction() {
     var evidence = DJPersonaActivity.Evidence()
     evidence.authorized = true; evidence.announcementID = "old-moment"
     #expect(DJPersonaActivity.resolve(evidence) == .announcement)
@@ -119,7 +119,7 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
     #expect(DJPersonaActivity.resolve(evidence) == .listening)
 }
 
-@Test func personaSilenceRestsUnlessActualInteractionHasPriority() {
+@Test(.isolatedClientResources) func personaSilenceRestsUnlessActualInteractionHasPriority() {
     var evidence = DJPersonaActivity.Evidence()
     evidence.authorized = true
     #expect(DJPersonaActivity.resolve(evidence) == .resting)
@@ -129,7 +129,7 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
     #expect(DJPersonaActivity.resolve(evidence) == .resting)
 }
 
-@Test func personaTrackStoryAloneIsNotAnAnnouncement() throws {
+@Test(.isolatedClientResources) func personaTrackStoryAloneIsNotAnAnnouncement() throws {
     var moment = try #require(DJConnectDemoSessionData.make(language: "nl").active.broadcast.djMoments.first)
     moment.type = "track"
     moment.knowledgeIntent = ["type": "track_context"]
@@ -144,7 +144,7 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
 }
 
 #if os(macOS)
-@Test @MainActor func personaEveryActivityRendersInFixedGeometry() throws {
+@Test(.isolatedClientResources) @MainActor func personaEveryActivityRendersInFixedGeometry() throws {
     let preview = HStack(spacing: 16) {
         ForEach(DJPersonaActivity.allCases, id: \.rawValue) { activity in
             VStack {
@@ -167,7 +167,7 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
 }
 #endif
 
-@Test func personaNativeSilenceIdentitySurvivesDecodingWithoutBecomingCurrentContent() throws {
+@Test(.isolatedClientResources) func personaNativeSilenceIdentitySurvivesDecodingWithoutBecomingCurrentContent() throws {
     let data = Data(#"{"schema_version":1,"session_id":"session","revision":"rev","current_moment_id":null,"current_silence_moment_id":"silence-1","active_flow_moment_ids":[],"admissions":[],"revocation_scope":"session"}"#.utf8)
     let delivery = try JSONDecoder().decode(DJConnectNativeMomentDelivery.self, from: data)
     #expect(delivery.currentMomentID == nil)
@@ -179,7 +179,7 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
     #expect(older.currentSilenceMomentID == nil)
 }
 
-@Test @MainActor func personaOptimisticCaptureAndHistoricalDemoConferNoLiveAuthority() throws {
+@Test(.isolatedClientResources) @MainActor func personaOptimisticCaptureAndHistoricalDemoConferNoLiveAuthority() throws {
     let suite = "persona-authorization-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: suite))
     defer { defaults.removePersistentDomain(forName: suite) }
@@ -193,7 +193,7 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
     model.cancelVoiceRecording()
 }
 
-@Test func personaConflictingSilenceCannotRetainAnAnnouncement() throws {
+@Test(.isolatedClientResources) func personaConflictingSilenceCannotRetainAnAnnouncement() throws {
     var broadcast = try DJConnectDemoSessionData.make(language: "nl").active.broadcast
     let now = Date()
     #expect(broadcast.nativeCurrentMoment(at: now, spotifyAttributionAvailable: true) != nil)
@@ -202,7 +202,7 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
 }
 
 #if os(macOS)
-@Test @MainActor func personaOpaqueBackingCoversOuterHeadsetOnBrightMood() throws {
+@Test(.isolatedClientResources) @MainActor func personaOpaqueBackingCoversOuterHeadsetOnBrightMood() throws {
     for activity in DJPersonaActivity.allCases {
         let view = DJPersonaGraphic(colors: [.pink, .purple], highContrast: false, opaque: true,
                                     activity: activity)

@@ -18,7 +18,7 @@ private struct FindShortcutProbe: View {
     }
 }
 
-@Test @MainActor func nativeFindShortcutDispatchesRepeatedCommandF() async throws {
+@Test(.isolatedAppKitResources) @MainActor func nativeFindShortcutDispatchesRepeatedCommandF() async throws {
     _ = NSApplication.shared
     let observation = FindShortcutObservation()
     let host = NSHostingView(rootView: FindShortcutProbe(observation: observation))
@@ -76,7 +76,7 @@ private struct SearchFocusProbe: View {
     }
 }
 
-@Test(arguments: [false, true]) @MainActor
+@Test(.isolatedAppKitResources, arguments: [false, true]) @MainActor
 func nativeFindMovesTypingFromComposerToMountedSearchAndRefocuses(_ forecast: Bool) async throws {
     _ = NSApplication.shared
     let suite = "find-focus-" + UUID().uuidString

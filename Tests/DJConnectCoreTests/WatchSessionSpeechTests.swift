@@ -64,7 +64,7 @@ func nativeWatchSpeechFixture(expiresIn: TimeInterval = 60) throws -> (DJConnect
     return (result, .init(settings: settings, moment: moment, source: source), snapshot)
 }
 
-@Test func frozenNativeSettingsSpeechPreservesAllActualProducerGrantsAndOutputDenials() throws {
+@Test(.isolatedClientResources) func frozenNativeSettingsSpeechPreservesAllActualProducerGrantsAndOutputDenials() throws {
     let cases = try nativeWatchFixtureCases()
     let rows = try #require(cases["output_intent_target_matrix"] as? [[String: Any]])
     #expect(rows.count == 24)
@@ -97,7 +97,7 @@ func nativeWatchSpeechFixture(expiresIn: TimeInterval = 60) throws -> (DJConnect
     }
 }
 
-@Test func nativeGrantRejectsAssetsWrongProcessorSettingsTextAndExpiredOrWithdrawnSource() throws {
+@Test(.isolatedClientResources) func nativeGrantRejectsAssetsWrongProcessorSettingsTextAndExpiredOrWithdrawnSource() throws {
     let (result, request, _) = try nativeWatchSpeechFixture()
     let original = result.session_speech
     let encoded = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
@@ -114,7 +114,7 @@ func nativeWatchSpeechFixture(expiresIn: TimeInterval = 60) throws -> (DJConnect
     #expect(!DJConnectNativeSpeechAdmission.admits(original, reference: request.reference, text: request.moment.content, settings: try nativeWatchSettings(original, output: .textOnly)))
 }
 
-@Test func watchSpeechBridgeContainsOnlyVisibleOriginalRevisionsAndRejectsSourceWithdrawal() throws {
+@Test(.isolatedClientResources) func watchSpeechBridgeContainsOnlyVisibleOriginalRevisionsAndRejectsSourceWithdrawal() throws {
     let (_, request, snapshot) = try nativeWatchSpeechFixture()
     #expect(snapshot.isValid && request.matches(snapshot))
     let bytes = try JSONEncoder().encode(snapshot)
@@ -143,7 +143,7 @@ func nativeWatchSpeechFixture(expiresIn: TimeInterval = 60) throws -> (DJConnect
     return false
 }
 
-@Test @MainActor func watchNativeSpeechNeverStartsAfterStopOrOwnerLossAndLateCompletionCannotStopReplacement() async throws {
+@Test(.isolatedClientResources) @MainActor func watchNativeSpeechNeverStartsAfterStopOrOwnerLossAndLateCompletionCannotStopReplacement() async throws {
     let (result, request, _) = try nativeWatchSpeechFixture()
     var stops = 0, starts = 0, prepares = 0
     let player = DJConnectWatchSessionSpeech { stops += 1 }
@@ -170,7 +170,7 @@ func nativeWatchSpeechFixture(expiresIn: TimeInterval = 60) throws -> (DJConnect
     #expect(stops > 0)
 }
 
-@Test @MainActor func watchNativeSpeechFailureRemainsClearAndDoesNotSubstituteVisibleText() async throws {
+@Test(.isolatedClientResources) @MainActor func watchNativeSpeechFailureRemainsClearAndDoesNotSubstituteVisibleText() async throws {
     let (_, request, _) = try nativeWatchSpeechFixture()
     var preferences = DJConnectDeviceSpeechPreferences(); preferences.enabled = true
     let player = DJConnectWatchSessionSpeech(stopOutput: {})
@@ -182,7 +182,7 @@ func nativeWatchSpeechFixture(expiresIn: TimeInterval = 60) throws -> (DJConnect
     #expect(player.state == .idle && player.momentID == nil)
 }
 
-@Test @MainActor func watchNativeSpeechExpiresWithoutRenewalAndRejectsRevisedPrepare() async throws {
+@Test(.isolatedClientResources) @MainActor func watchNativeSpeechExpiresWithoutRenewalAndRejectsRevisedPrepare() async throws {
     let (result, request, snapshot) = try nativeWatchSpeechFixture(expiresIn: 0.4)
     var preferences = DJConnectDeviceSpeechPreferences(); preferences.enabled = true
     var starts = 0

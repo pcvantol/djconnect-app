@@ -3,7 +3,7 @@ import Testing
 @testable import DJConnectCore
 import DJConnectUI
 
-@Test @MainActor func sessionActivitySkipRejectsInvalidAndDemoRequestsWithoutPlaybackChanges() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionActivitySkipRejectsInvalidAndDemoRequestsWithoutPlaybackChanges() async throws {
     let name = "session-action-model-test-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name))
     defer { defaults.removePersistentDomain(forName: name) }
@@ -15,7 +15,7 @@ import DJConnectUI
     #expect(model.playback == playback)
 }
 
-@Test func liveActivityActionPresentationMatchIsReadOnlyAndCannotRetargetAnotherSession() throws {
+@Test(.isolatedClientResources) func liveActivityActionPresentationMatchIsReadOnlyAndCannotRetargetAnotherSession() throws {
     let suite = "session-action-test-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: suite))
     defer { defaults.removePersistentDomain(forName: suite) }
@@ -34,7 +34,7 @@ import DJConnectUI
     #expect(!DJConnectSessionSurfacePresentation.matches(replacement, sessionID: "session-b", in: defaults))
 }
 
-@Test func sessionSurfaceRequiresConfirmedAuthorizedActiveSession() {
+@Test(.isolatedClientResources) func sessionSurfaceRequiresConfirmedAuthorizedActiveSession() {
     let now = Date(timeIntervalSince1970: 1_800_000_000)
     #expect(DJConnectSessionSurfaceSnapshot.observe(runtimeState: "active", authorized: true, isDemo: false, at: now) != nil)
     for state: String? in [nil, "ended", "interrupted", "opening", "unknown"] {
@@ -44,7 +44,7 @@ import DJConnectUI
     #expect(DJConnectSessionSurfaceSnapshot.observe(runtimeState: "active", authorized: true, isDemo: true, at: now) == nil)
 }
 
-@Test func sessionSurfaceLeaseCannotSlideOnReadOrShowFutureOrExpiredStatus() throws {
+@Test(.isolatedClientResources) func sessionSurfaceLeaseCannotSlideOnReadOrShowFutureOrExpiredStatus() throws {
     let suite = "session-surface-test-" + UUID().uuidString
     let defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }
@@ -65,7 +65,7 @@ import DJConnectUI
     #expect(DJConnectSessionSurfaceSnapshot.load(from: defaults, at: now) == nil)
 }
 
-@Test func sessionSurfaceMigrationRemovesOnlyRetiredTransientCachesAndDeduplicatesWrites() throws {
+@Test(.isolatedClientResources) func sessionSurfaceMigrationRemovesOnlyRetiredTransientCachesAndDeduplicatesWrites() throws {
     let suite = "session-surface-test-" + UUID().uuidString
     let defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }
@@ -86,7 +86,7 @@ import DJConnectUI
     #expect(defaults.string(forKey: "AskDJMessages") == "keep history")
 }
 
-@Test func sessionSurfaceNavigationIsExplicitAndDoesNotRetargetLegacyDestinations() throws {
+@Test(.isolatedClientResources) func sessionSurfaceNavigationIsExplicitAndDoesNotRetargetLegacyDestinations() throws {
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://dj-session"))) == .djSession)
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://ask-dj"))) == .askDJ)
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://now-playing"))) == .nowPlaying)
@@ -94,7 +94,7 @@ import DJConnectUI
 }
 
 
-@Test func sessionSurfaceDismissalIdentitySurvivesResumeButNotSessionReplacementOrEnd() {
+@Test(.isolatedClientResources) func sessionSurfaceDismissalIdentitySurvivesResumeButNotSessionReplacementOrEnd() {
     let suite = "session-surface-test-" + UUID().uuidString
     let defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }
@@ -108,7 +108,7 @@ import DJConnectUI
 }
 
 
-@Test func sessionSurfaceCopyExistsInAllFiveLanguages() {
+@Test(.isolatedClientResources) func sessionSurfaceCopyExistsInAllFiveLanguages() {
     for language in DJConnectLocalization.supportedLanguageCodes {
         for key in ["surface.session.active", "surface.session.open", "surface.session.open.app", "surface.session.description"] {
             #expect(DJConnectLocalization.localized(key: key, language: language) != key)
@@ -116,7 +116,7 @@ import DJConnectUI
     }
 }
 
-@Test func sessionSurfacePaletteFollowsConfirmedMoodAndExpiresWithoutChangingContentRights() throws {
+@Test(.isolatedClientResources) func sessionSurfacePaletteFollowsConfirmedMoodAndExpiresWithoutChangingContentRights() throws {
     let suite = "session-surface-theme-" + UUID().uuidString
     let defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }
@@ -137,7 +137,7 @@ import DJConnectUI
     #expect(DJConnectSessionSurfaceSnapshot.observe(runtimeState: "ended", authorized: true, isDemo: false, confirmedMood: "party", at: now) == nil)
 }
 
-@Test func sessionSurfaceMoodChangeRequestsImmediateReloadWithoutHeartbeatSpam() throws {
+@Test(.isolatedClientResources) func sessionSurfaceMoodChangeRequestsImmediateReloadWithoutHeartbeatSpam() throws {
     let now = Date(timeIntervalSince1970: 1_800_000_000)
     let previous = DJConnectSessionSurfaceSnapshot(observedAt: now, theme: .chill)
     let heartbeat = DJConnectSessionSurfaceSnapshot(observedAt: now.addingTimeInterval(10), theme: .chill)
@@ -150,7 +150,7 @@ import DJConnectUI
     #expect(!DJConnectSessionSurfaceSnapshot.needsWidgetReload(current: nil, previous: nil, lastReloadAt: now, at: now.addingTimeInterval(61)))
 }
 
-@Test func widgetPaletteUsesSessionThenTrackInsightThenProfileWithoutExportingContent() throws {
+@Test(.isolatedClientResources) func widgetPaletteUsesSessionThenTrackInsightThenProfileWithoutExportingContent() throws {
     #expect(DJConnectWidgetPaletteSnapshot.resolve(session: "party", trackInsight: .groove, profile: "chill") == .party)
     #expect(DJConnectWidgetPaletteSnapshot.resolve(session: nil, trackInsight: .groove, profile: "chill") == .groove)
     #expect(DJConnectWidgetPaletteSnapshot.resolve(session: nil, trackInsight: nil, profile: "energy") == .energy)
@@ -172,7 +172,7 @@ import DJConnectUI
     #expect(DJConnectSessionSurfaceSnapshot.load(from: defaults, at: now) == nil, "A palette never asserts an active Session")
 }
 
-@Test func sessionSurfaceApplicationEndAllowsRestartButUserDismissalSurvives() throws {
+@Test(.isolatedClientResources) func sessionSurfaceApplicationEndAllowsRestartButUserDismissalSurvives() throws {
     let suite = "surface-request-marker-" + UUID().uuidString
     let defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }
@@ -188,7 +188,7 @@ import DJConnectUI
     #expect(DJConnectSessionSurfacePresentation.identity(for: "session-a", in: defaults) == first)
 }
 
-@Test func sessionSurfaceUpgradeRestoresOSRetirementButNeverKnownUserDismissal() throws {
+@Test(.isolatedClientResources) func sessionSurfaceUpgradeRestoresOSRetirementButNeverKnownUserDismissal() throws {
     let suite = "surface-upgrade-" + UUID().uuidString
     let defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }
@@ -205,7 +205,7 @@ import DJConnectUI
     #expect(DJConnectSessionSurfacePresentation.canRequest(next, build: "3", in: defaults))
 }
 
-@Test func sessionSurfaceLateDismissalFromAppRetirementCannotDismissReplacement() throws {
+@Test(.isolatedClientResources) func sessionSurfaceLateDismissalFromAppRetirementCannotDismissReplacement() throws {
     let suite = "surface-instance-fence-" + UUID().uuidString
     let defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }
@@ -223,7 +223,7 @@ import DJConnectUI
     #expect(!DJConnectSessionSurfacePresentation.canRequest(identity, build: "2", in: defaults))
 }
 
-@Test func confirmedSessionMoodImmediatelyOutranksOlderRichWidgetPalette() throws {
+@Test(.isolatedClientResources) func confirmedSessionMoodImmediatelyOutranksOlderRichWidgetPalette() throws {
     let now = Date(timeIntervalSince1970: 1_790_000_000)
     let before = DJConnectSessionSurfaceSnapshot(observedAt: now, theme: .chill)
     let changed = DJConnectSessionSurfaceSnapshot(observedAt: now.addingTimeInterval(1), theme: .party)
@@ -239,7 +239,7 @@ import DJConnectUI
     #expect(changed.expiresAt == changed.observedAt.addingTimeInterval(120))
 }
 
-@Test func widgetPushTokenIsSeparateBoundedRotatableAndCannotGrantContent() throws {
+@Test(.isolatedClientResources) func widgetPushTokenIsSeparateBoundedRotatableAndCannotGrantContent() throws {
     let suite = "widget-push-token-test-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: suite))
     defer { defaults.removePersistentDomain(forName: suite) }
@@ -261,7 +261,7 @@ import DJConnectUI
     #expect(DJConnectWidgetPushToken.load(from: defaults) == nil)
 }
 
-@Test func iOSWidgetAndActivityTokensRemainSeparateAndOldActivityCannotClearReplacement() throws {
+@Test(.isolatedClientResources) func iOSWidgetAndActivityTokensRemainSeparateAndOldActivityCannotClearReplacement() throws {
     let name = "surface-push-test-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name))
     defer { defaults.removePersistentDomain(forName: name) }
@@ -286,7 +286,7 @@ import DJConnectUI
     #expect(DJConnectWidgetPushToken.load(from: defaults) == widget)
 }
 
-@Test func activityTokenCallbacksCannotOverwriteSuccessorOrRestoreWithdrawnPresentation() throws {
+@Test(.isolatedClientResources) func activityTokenCallbacksCannotOverwriteSuccessorOrRestoreWithdrawnPresentation() throws {
     let name = "activity-push-owner-test-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name))
     defer { defaults.removePersistentDomain(forName: name) }

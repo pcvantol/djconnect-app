@@ -1139,7 +1139,8 @@ public final class DJConnectAppModel: ObservableObject {
     private var localAudioRouteObservation: AnyCancellable?
     private var personaReactionInterruption: AnyCancellable?
     @Published var localAudioRoute = DJConnectLocalAudioRoute()
-    private var profileDJSettingsReadInProgress = false
+    private var profileDJSettingsReadID: UUID?
+    private var profileDJSettingsBoundOwner: String?
     private var profileSettingsOwnerFence = DJConnectProfileSettingsOwnerFence()
     @Published public private(set) var sharedSpeechReference: DJConnectSpeechReference?
     @Published public private(set) var sharedSpeechDelivery: [String: String] = [:]
@@ -1340,6 +1341,10 @@ public final class DJConnectAppModel: ObservableObject {
                 stopWakeWordListening()
                 webSocketFastPathCache.removeAll()
                 fastPathDiagnostics = DJConnectFastPathDiagnostics()
+            }
+            if oldValue != pairingStatus {
+                profileDJSettingsReadID = nil
+                bindProfileDJSettings(active: isAppInForeground)
             }
             updateWakeWordListeningForAvailability()
         }
@@ -7323,20 +7328,35 @@ public final class DJConnectAppModel: ObservableObject {
         }
     }
 
-    func bindProfileDJSettings(active: Bool) {
+    private var profileDJSettingsContext: String? {
         let installation = defaults.string(forKey: haInstallIDKey) ?? ""
         let boundary = installation.isEmpty ? homeAssistantURL : installation
-        let context: String? = !isDemoMode && pairingStatus == .paired
+        return !isDemoMode && pairingStatus == .paired
             ? [identity.deviceID, boundary].joined(separator: "|") : nil
-        let owner = profileSettingsOwnerFence.owner(context: context,
+    }
+
+    func bindProfileDJSettings(active: Bool) {
+        let owner = profileSettingsOwnerFence.owner(context: profileDJSettingsContext,
             confirmedProfile: sessionHistory.authorizedProfileID)
+        // An old read must not block a new foreground/owner, nor release its
+        // successor's slot when the old transport eventually completes.
+        if !active || owner != profileDJSettingsBoundOwner { profileDJSettingsReadID = nil }
+        profileDJSettingsBoundOwner = owner
         profileDJSettings.bind(owner: owner, active: active)
     }
 
     var profileDJSettingsServices: ProfileDJSettingsModel.Services {
+        profileDJSettingsServices(readIsCurrent: { true })
+    }
+
+    private func profileDJSettingsServices(readIsCurrent: @escaping () -> Bool) -> ProfileDJSettingsModel.Services {
         .init(read: { [weak self] in
-            guard let self else { throw CancellationError() }
-            return try await self.withHomeAssistantClient { try await $0.profileDJSettings() } },
+            guard let self, readIsCurrent() else { throw CancellationError() }
+            let response = try await self.withHomeAssistantClient { try await $0.profileDJSettings() }
+            // Validate before returning into the settings reducer, not only
+            // before follow-up UI/speech work in the caller.
+            guard readIsCurrent() else { throw CancellationError() }
+            return response },
               update: { [weak self] current, patch, id in
                   guard let self else { throw CancellationError() }
                   return try await self.withHomeAssistantClient(allowsOperationReplay: false) {
@@ -7349,20 +7369,41 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func refreshProfileDJSettings() async {
-        guard !profileDJSettingsReadInProgress, isAppInForeground, pairingStatus == .paired, !isDemoMode else { return }
-        profileDJSettingsReadInProgress = true
-        defer { profileDJSettingsReadInProgress = false }
         bindProfileDJSettings(active: isAppInForeground)
-        guard profileDJSettings.active else { return }
+        guard profileDJSettingsReadID == nil, isAppInForeground, pairingStatus == .paired,
+              !isDemoMode, profileDJSettings.active, !Task.isCancelled else { return }
+        let request = UUID(), owner = profileDJSettingsBoundOwner, context = profileDJSettingsContext
+        profileDJSettingsReadID = request
+        defer { if profileDJSettingsReadID == request { profileDJSettingsReadID = nil } }
+        let isCurrent = { [weak self] in
+            guard let self else { return false }
+            return self.profileDJSettingsReadID == request && self.profileDJSettingsBoundOwner == owner &&
+                self.profileDJSettingsContext == context &&
+                self.isAppInForeground && self.pairingStatus == .paired && !self.isDemoMode && !Task.isCancelled
+        }
+        let services = profileDJSettingsServices(readIsCurrent: { [weak self] in
+            isCurrent() && self?.profileDJSettings.active == true
+        })
         do {
             if !profileDJSettings.negotiated {
                 let capability = try await withHomeAssistantClient { try await $0.activeSessionMoodCapabilities() }
-                guard capability.sharedSettingsAvailable else { return }
+                guard isCurrent(), capability.sharedSettingsAvailable else { return }
             }
+            guard isCurrent(), profileDJSettings.active else { return }
             let before = profileDJSettings.response
-            await profileDJSettings.refresh(profileDJSettingsServices)
+            await profileDJSettings.refresh(services)
+            guard isCurrent() else { return }
+            guard profileDJSettings.active else {
+                // Current authority was withdrawn by the reducer. Reconcile
+                // retirement without rebinding or authorizing follow-up work.
+                syncSessionSurfaces()
+                return
+            }
             if profileDJSettings.hasUncertainOperation {
-                presentProfileSettingsRejection(await profileDJSettings.reconcile(profileDJSettingsServices))
+                let rejected = await profileDJSettings.reconcile(services)
+                guard isCurrent() else { return }
+                guard profileDJSettings.active else { syncSessionSurfaces(); return }
+                presentProfileSettingsRejection(rejected)
             }
             presentSettingsOperationConfirmation()
             syncSessionSurfaces()

@@ -146,7 +146,7 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
                              identity: hybridIdentity(), tokenStore: DJConnectInMemoryTokenStore(token: "paired-test-token"), wire: wire)
 }
 
-@Test func hybridUUIDV7RetainsCreationTimeAndMakesDistinctIntents() {
+@Test(.isolatedClientResources) func hybridUUIDV7RetainsCreationTimeAndMakesDistinctIntents() {
     let first = DJConnectOperationIdentity.uuidV7(milliseconds: 1_792_053_890_000)
     let second = DJConnectOperationIdentity.uuidV7(milliseconds: 1_792_053_890_000)
     #expect(first != second); #expect(UUID(uuidString: first) != nil)
@@ -154,7 +154,7 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
     #expect(first.replacingOccurrences(of: "-", with: "").prefix(12) == String(format: "%012llx", 1_792_053_890_000))
 }
 
-@Test func hybridSlowConversationReconcilesPastThreePendingReadsWithoutResending() async throws {
+@Test(.isolatedClientResources) func hybridSlowConversationReconcilesPastThreePendingReadsWithoutResending() async throws {
     let wire = HybridTestWire(failExecute: true, pendingStatuses: 4)
     let coordinator = hybridCoordinator(wire)
     var request = try hybridRequest()
@@ -176,7 +176,7 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
     }
 }
 
-@Test func hybridConversationStopsAtOriginalReceiptExpiryWithoutAnotherExecution() async throws {
+@Test(.isolatedClientResources) func hybridConversationStopsAtOriginalReceiptExpiryWithoutAnotherExecution() async throws {
     let wire = HybridTestWire(failExecute: true, pendingStatuses: 5, expiredStatus: true)
     let coordinator = hybridCoordinator(wire)
     var request = try hybridRequest()
@@ -187,7 +187,7 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
     #expect(requests.filter { $0.url?.path.hasSuffix("/status") == true }.count == 1)
 }
 
-@Test func hybridConversationReconciliationStopsWhenAppBackgrounds() async throws {
+@Test(.isolatedClientResources) func hybridConversationReconciliationStopsWhenAppBackgrounds() async throws {
     let wire = HybridTestWire(failExecute: true, pendingStatuses: 100)
     let coordinator = hybridCoordinator(wire)
     var request = try hybridRequest()
@@ -203,7 +203,7 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
     #expect(requests.filter { $0.url?.path.hasSuffix("/operation") == true }.count == 1)
     #expect(requests.filter { $0.url?.path.hasSuffix("/status") == true }.count <= 1)
 }
-@Test func hybridPinnedCoreFixtureDecodesWithoutRewritingReceipts() throws {
+@Test(.isolatedClientResources) func hybridPinnedCoreFixtureDecodesWithoutRewritingReceipts() throws {
     let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         .appendingPathComponent("Fixtures/hybrid_transport_v1_core_f0a7ff4.json")
     let fixture = try JSONDecoder().decode(HybridObject.self, from: Data(contentsOf: url))
@@ -217,7 +217,7 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
     }
     #expect(count >= 14)
 }
-@Test func hybridRejectsPlaintextAndCredentialsInOriginsBeforeAnyRequest() async throws {
+@Test(.isolatedClientResources) func hybridRejectsPlaintextAndCredentialsInOriginsBeforeAnyRequest() async throws {
     for raw in ["http://ha.local", "https://user:secret@ha.local", "https://ha.local?token=x"] {
         #expect(!DJConnectHybridTransport.trustedOrigin(URL(string: raw)!))
     }
@@ -227,14 +227,14 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
     await #expect(throws: DJConnectHybridTransportError.self) { try await coordinator.perform(hybridRequest()) }
     #expect(await wire.recorded().isEmpty)
 }
-@Test func hybridWrongInstallStopsBeforeEffectAndDoesNotTryAnotherAccount() async throws {
+@Test(.isolatedClientResources) func hybridWrongInstallStopsBeforeEffectAndDoesNotTryAnotherAccount() async throws {
     let wire = HybridTestWire(install: "wrong-install")
     let coordinator = hybridCoordinator(wire, local: URL(string: "https://ha.local"))
     await #expect(throws: DJConnectHybridTransportError.installationMismatch) { try await coordinator.perform(hybridRequest()) }
     let requests = await wire.recorded()
     #expect(requests.count == 1); #expect(requests[0].url?.path.hasSuffix("/context") == true)
 }
-@Test func hybridAfterPossibleHTTPSendOnlyReconcilesOriginalIdentity() async throws {
+@Test(.isolatedClientResources) func hybridAfterPossibleHTTPSendOnlyReconcilesOriginalIdentity() async throws {
     let wire = HybridTestWire(failExecute: true)
     let coordinator = hybridCoordinator(wire)
     do { _ = try await coordinator.perform(hybridRequest()); Issue.record("Expected receipt-only outcome") }
@@ -248,7 +248,7 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
     #expect(execute["operation_id"] == status["operation_id"])
     #expect(execute["operation_epoch"] == status["operation_epoch"])
 }
-@Test func hybridConfirmedMissingBodyNeverRegeneratesAndDeliberateActionsHaveNewIDs() async throws {
+@Test(.isolatedClientResources) func hybridConfirmedMissingBodyNeverRegeneratesAndDeliberateActionsHaveNewIDs() async throws {
     let wire = HybridTestWire(unavailableBody: true), coordinator = hybridCoordinator(wire)
     for _ in 0..<2 {
         do { _ = try await coordinator.perform(hybridRequest()); Issue.record("Expected confirmed receipt") }
@@ -259,7 +259,7 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
     let ids = try requests.map { try JSONDecoder().decode(HybridObject.self, from: $0.httpBody!)["operation_id"] }
     #expect(ids[0] != ids[1])
 }
-@Test func hybridRemoteReadinessSharesOneProbeAndDoesNotPayLANTimeoutPerAction() async throws {
+@Test(.isolatedClientResources) func hybridRemoteReadinessSharesOneProbeAndDoesNotPayLANTimeoutPerAction() async throws {
     let wire = HybridTestWire(failedLocal: true), coordinator = hybridCoordinator(wire, local: URL(string: "https://ha.local"))
     async let a = coordinator.perform(hybridRequest()); async let b = coordinator.perform(hybridRequest())
     _ = try await (a, b)
@@ -273,7 +273,7 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
     #expect(await coordinator.snapshot().state == .recoveringOffline)
     #expect(await coordinator.snapshot().websocketConnected == false)
 }
-@Test func hybridSocketDemultiplexesOutOfOrderRepliesAndUsesOneReader() async throws {
+@Test(.isolatedClientResources) func hybridSocketDemultiplexesOutOfOrderRepliesAndUsesOneReader() async throws {
     let socket = HybridTestSocket(.reverseTwo), wire = HybridTestWire(socket: socket)
     let connection = DJConnectPairedActionConnection(baseURL: URL(string: "https://ha.local")!, expectedInstallID: "test-install",
         identity: hybridIdentity(), tokenStore: DJConnectInMemoryTokenStore(token: "secret"), wire: wire)
@@ -282,7 +282,7 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
     let results = try await [a, b].map { try JSONDecoder().decode(HybridObject.self, from: $0.0)["request"] }
     #expect(Set(results.compactMap { $0?.hybridInt }) == [1, 2]); await connection.stop()
 }
-@Test func hybridWrongConnectionCannotCompleteNewRequest() async throws {
+@Test(.isolatedClientResources) func hybridWrongConnectionCannotCompleteNewRequest() async throws {
     let socket = HybridTestSocket(.wrongConnection), wire = HybridTestWire(socket: socket)
     let connection = DJConnectPairedActionConnection(baseURL: URL(string: "https://ha.local")!, expectedInstallID: "test-install",
         identity: hybridIdentity(), tokenStore: DJConnectInMemoryTokenStore(token: "secret"), wire: wire)
@@ -290,7 +290,7 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
     await connection.stop()
 }
 
-@Test func hybridCapacityAndBackgroundCancellationDoNotDispatchHTTPFallback() async throws {
+@Test(.isolatedClientResources) func hybridCapacityAndBackgroundCancellationDoNotDispatchHTTPFallback() async throws {
     let socket = HybridTestSocket(.silent), wire = HybridTestWire(socket: socket)
     let coordinator = hybridCoordinator(wire, local: URL(string: "https://ha.local"))
     let tasks = (0..<8).map { _ in Task { try await coordinator.perform(hybridRequest()) } }
@@ -301,7 +301,7 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
     for task in tasks { _ = await task.result }
     #expect(await wire.recorded().filter { $0.url?.path.hasSuffix("/operation") == true }.isEmpty)
 }
-@Test func hybridLegacyUploadsAndMutationsCannotUseBlindHTTPFallback() throws {
+@Test(.isolatedClientResources) func hybridLegacyUploadsAndMutationsCannotUseBlindHTTPFallback() throws {
     var request = try hybridRequest()
     #expect(!DJConnectHybridTransport.canReplayLegacy(request))
     request.httpBody = Data(#"{"command":"status"}"#.utf8)
@@ -311,7 +311,7 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
         #expect(!DJConnectHybridTransport.canReplayLegacy(request))
     }
 }
-@Test func hybridNormalizesIdentifiedPayloadWithoutCopyingBearerIntoOperation() async throws {
+@Test(.isolatedClientResources) func hybridNormalizesIdentifiedPayloadWithoutCopyingBearerIntoOperation() async throws {
     let wire = HybridTestWire(), coordinator = hybridCoordinator(wire)
     var request = try hybridRequest()
     request.httpBody = Data(#"{"command":"next","device_token":"secret","identity":{"device_token":"secret"},"payload":{"command":"next","device_token":"secret","device_id":"djconnect-ios-ABCDEF123456","client_type":"ios","identity":{"device_token":"secret"}}}"#.utf8)
@@ -323,7 +323,7 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
     #expect(payload["command"] == .string("next"))
 }
 
-@Test func hybridRouteWithdrawalBeforeSendNeverDispatchesFallbackOrClearsToken() async throws {
+@Test(.isolatedClientResources) func hybridRouteWithdrawalBeforeSendNeverDispatchesFallbackOrClearsToken() async throws {
     let socket = HybridTestSocket(.rejectRouteAuth), wire = HybridTestWire(socket: socket)
     let store = DJConnectInMemoryTokenStore(token: "paired-test-token")
     let coordinator = DJConnectHybridTransport(localURL: URL(string: "https://ha.local"),
@@ -336,7 +336,7 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
     #expect(await coordinator.snapshot().state != .terminalAuthorityWithdrawn)
     #expect(try await coordinator.authorizedBaseURL() == URL(string: "https://remote.example"))
 }
-@Test func hybridRouteWithdrawalAfterSendOnlyReconcilesOriginalIDOnTrustedTLS() async throws {
+@Test(.isolatedClientResources) func hybridRouteWithdrawalAfterSendOnlyReconcilesOriginalIDOnTrustedTLS() async throws {
     let socket = HybridTestSocket(.withdrawAfterSend), wire = HybridTestWire(socket: socket)
     let coordinator = hybridCoordinator(wire, local: URL(string: "https://ha.local"))
     do { _ = try await coordinator.perform(hybridRequest()); Issue.record("Expected receipt-only outcome") }
@@ -353,7 +353,7 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
     #expect(submitted["operation_epoch"] == queried["operation_epoch"])
 }
 
-@Test func hybridHTTP426AfterDispatchReconcilesInsteadOfReexecutingOrResettingPairing() async throws {
+@Test(.isolatedClientResources) func hybridHTTP426AfterDispatchReconcilesInsteadOfReexecutingOrResettingPairing() async throws {
     let wire = HybridTestWire(withdrawExecute: true)
     let coordinator = hybridCoordinator(wire, local: URL(string: "https://ha.local"))
     do { _ = try await coordinator.perform(hybridRequest()); Issue.record("Expected receipt-only outcome") }
@@ -369,7 +369,7 @@ private func hybridCoordinator(_ wire: any DJConnectHybridWire, local: URL? = ni
     #expect(first["operation_epoch"] == recovered["operation_epoch"])
     #expect(await coordinator.snapshot().state != .terminalAuthorityWithdrawn)
 }
-@Test func hybridReadWithdrawalRecoversThroughTrustedTLSWithoutMutation() async throws {
+@Test(.isolatedClientResources) func hybridReadWithdrawalRecoversThroughTrustedTLSWithoutMutation() async throws {
     let socket = HybridTestSocket(.rejectRouteAuth), wire = HybridTestWire(socket: socket)
     let coordinator = hybridCoordinator(wire, local: URL(string: "https://ha.local"))
     let request = URLRequest(url: URL(string: "https://ha.local/api/djconnect/v1/session/active")!)
@@ -392,7 +392,7 @@ private func hybridQualifiedLocalContext() -> HybridObject {
         "forwarded_plaintext": .string("forbidden"), "mode": .string("qualified_direct_http")])
     return context
 }
-@Test func hybridQualifiedLocalHTTPContextAndAuthUseWSWithDemultiplexedReads() async throws {
+@Test(.isolatedClientResources) func hybridQualifiedLocalHTTPContextAndAuthUseWSWithDemultiplexedReads() async throws {
     let context = hybridQualifiedLocalContext()
     let socket = HybridTestSocket(.reverseTwo, localContext: context)
     let wire = HybridTestWire(socket: socket, localContext: context)
@@ -407,13 +407,13 @@ private func hybridQualifiedLocalContext() -> HybridObject {
     #expect(await coordinator.snapshot().state == .localReady)
     await coordinator.lifecycle(foreground: false)
 }
-@Test func hybridUnqualifiedHTTPContextFallsBackOnlyToTrustedTLS() async throws {
+@Test(.isolatedClientResources) func hybridUnqualifiedHTTPContextFallsBackOnlyToTrustedTLS() async throws {
     let wire = HybridTestWire()
     let coordinator = hybridCoordinator(wire, local: URL(string: "http://ha.local:8123"))
     #expect(try await coordinator.authorizedBaseURL() == URL(string: "https://remote.example"))
     #expect(await wire.openedSockets().isEmpty)
 }
-@Test func hybridSocketAuthCannotDowngradeAQualifiedContext() async throws {
+@Test(.isolatedClientResources) func hybridSocketAuthCannotDowngradeAQualifiedContext() async throws {
     let socket = HybridTestSocket(.reverseTwo)
     let wire = HybridTestWire(socket: socket, localContext: hybridQualifiedLocalContext())
     let coordinator = hybridCoordinator(wire, local: URL(string: "http://ha.local:8123"))
@@ -424,7 +424,7 @@ private func hybridQualifiedLocalContext() -> HybridObject {
     #expect(executes.isEmpty)
 }
 
-@Test func hybridDiagnosticsReportActualSchemeAndClearUnqualifiedOrigin() {
+@Test(.isolatedClientResources) func hybridDiagnosticsReportActualSchemeAndClearUnqualifiedOrigin() {
     var status = DJConnectHybridDiagnostics()
     #expect(status.transportDisplayName == nil)
     status.activeOrigin = URL(string: "http://ha.local:8123")
@@ -439,7 +439,7 @@ private func hybridQualifiedLocalContext() -> HybridObject {
     #expect(status.transportDisplayName == nil)
 }
 
-@Test func hybridRepeatedActiveDoesNotWithdrawQualifiedRouteOrProbeAgain() async throws {
+@Test(.isolatedClientResources) func hybridRepeatedActiveDoesNotWithdrawQualifiedRouteOrProbeAgain() async throws {
     let wire = HybridTestWire()
     let coordinator = DJConnectHybridTransport(localURL: URL(string: "https://ha.local"),
         remoteURL: URL(string: "https://remote.example"), expectedInstallID: "test-install",
@@ -455,7 +455,7 @@ private func hybridQualifiedLocalContext() -> HybridObject {
     #expect(await wire.recorded().count == 2)
 }
 
-@Test func hybridLANQualificationIsBoundedBeforeAuthenticatedTLSFallback() async throws {
+@Test(.isolatedClientResources) func hybridLANQualificationIsBoundedBeforeAuthenticatedTLSFallback() async throws {
     let wire = HybridTestWire(failedLocal: true)
     let coordinator = DJConnectHybridTransport(localURL: URL(string: "https://ha.local"),
         remoteURL: URL(string: "https://remote.example"), expectedInstallID: "test-install",
@@ -492,7 +492,7 @@ private actor PersonaTouchHybridWire: DJConnectHybridWire {
     func recorded() -> [URLRequest] { requests }
 }
 
-@Test(arguments: [DJConnectPersonaReactionOperation.request, .cancel])
+@Test(.isolatedClientResources, arguments: [DJConnectPersonaReactionOperation.request, .cancel])
 func personaTouchUsesOnlyAdvertisedOrdinaryOperationAndOriginalRecoveryIdentity(operation: DJConnectPersonaReactionOperation) async throws {
     for supported in [false, true] {
         let wire = PersonaTouchHybridWire(supported: supported, loseExecute: true)
@@ -560,7 +560,7 @@ private actor AskDJBudgetWire: DJConnectHybridWire {
     func recorded() -> [URLRequest] { requests }
 }
 
-@Test func askDJOriginalBudgetReceivesLateConfirmationWithoutSecondExecute() async throws {
+@Test(.isolatedClientResources) func askDJOriginalBudgetReceivesLateConfirmationWithoutSecondExecute() async throws {
     let clock = AskDJTestClock()
     // Use the same clock for routing, operation expiry and scripted network waits.
     let shared = AskDJBudgetWire(.late, clock: clock)
@@ -574,7 +574,7 @@ private actor AskDJBudgetWire: DJConnectHybridWire {
     #expect(requests.filter { $0.url!.path.hasSuffix("/status") }.count == 2)
 }
 
-@Test func askDJContinuationCanPass64ReadsWithoutRenewingOrResending() async throws {
+@Test(.isolatedClientResources) func askDJContinuationCanPass64ReadsWithoutRenewingOrResending() async throws {
     let clock = AskDJTestClock(), wireClock = AskDJTestClock()
     let wire = AskDJBudgetWire(.many, clock: wireClock)
     let coordinator = hybridCoordinator(wire)
@@ -587,7 +587,7 @@ private actor AskDJBudgetWire: DJConnectHybridWire {
     #expect(requests.filter { $0.url!.path.hasSuffix("/status") }.count == 71)
 }
 
-@Test func askDJEarlierReceiptExpiryCannotBeRenewedByLaterReceipt() async throws {
+@Test(.isolatedClientResources) func askDJEarlierReceiptExpiryCannotBeRenewedByLaterReceipt() async throws {
     let clock = AskDJTestClock(), wire = AskDJBudgetWire(.sticky, clock: AskDJTestClock())
     let coordinator = hybridCoordinator(wire)
     await coordinator.setOperationTiming(clock.timing)
@@ -598,7 +598,7 @@ private actor AskDJBudgetWire: DJConnectHybridWire {
     #expect(requests.filter { $0.url!.path.hasSuffix("/status") }.count == 2)
 }
 
-@Test func askDJDeadlineCancelsUnderlyingWaitAndRejectsLateValue() async throws {
+@Test(.isolatedClientResources) func askDJDeadlineCancelsUnderlyingWaitAndRejectsLateValue() async throws {
     actor Cleanup { var cancelled = false; func mark() { cancelled = true } }
     let cleanup = Cleanup()
     await #expect(throws: DJConnectHybridTransportError.deliveryUnknown) {
@@ -611,7 +611,7 @@ private actor AskDJBudgetWire: DJConnectHybridWire {
     #expect(await cleanup.cancelled)
 }
 
-@Test func askDJCommandAliasPreservesItsEnvelopeAndOneOriginalOperation() async throws {
+@Test(.isolatedClientResources) func askDJCommandAliasPreservesItsEnvelopeAndOneOriginalOperation() async throws {
     let clock = AskDJTestClock()
     let wire = AskDJBudgetWire(.late, clock: clock)
     let coordinator = hybridCoordinator(wire)
@@ -628,7 +628,7 @@ private actor AskDJBudgetWire: DJConnectHybridWire {
     #expect(envelope["payload"]?.hybridObject?["command"] == .string("ask_dj_message"))
 }
 
-@Test func askDJBackgroundCancelsTheActualExecuteWaitWithoutReplayingOrReadingStatus() async throws {
+@Test(.isolatedClientResources) func askDJBackgroundCancelsTheActualExecuteWaitWithoutReplayingOrReadingStatus() async throws {
     let wire = HybridTestWire(waitsDuringExecute: true)
     let coordinator = hybridCoordinator(wire)
     var request = try hybridRequest(); request.url = URL(string: "https://remote.example/api/djconnect/v1/ask_dj/message")!
@@ -655,7 +655,7 @@ private actor AskDJLegacyContextWire: DJConnectHybridWire {
     func socket(_ url: URL) async throws -> any DJConnectHybridSocket { throw URLError(.cannotConnectToHost) }
 }
 
-@Test func askDJMissingContextPreselectsLegacyOnlyOnTheExactOriginBeforeExecute() async throws {
+@Test(.isolatedClientResources) func askDJMissingContextPreselectsLegacyOnlyOnTheExactOriginBeforeExecute() async throws {
     let origin = URL(string: "https://remote.example")!
     let wire = AskDJLegacyContextWire(404)
     let coordinator = hybridCoordinator(wire)
@@ -669,7 +669,7 @@ private actor AskDJLegacyContextWire: DJConnectHybridWire {
     }
 }
 
-@Test(arguments: [401, 403, 426, 500])
+@Test(.isolatedClientResources, arguments: [401, 403, 426, 500])
 func askDJLegacyChoiceNeverDowngradesAuthSecurityOrInvalidContext(_ status: Int) async throws {
     let wire = AskDJLegacyContextWire(status)
     let coordinator = hybridCoordinator(wire)
@@ -707,7 +707,7 @@ final class AskDJChildStartClock: @unchecked Sendable {
     var count: Int { lock.withLock { invocations } }
 }
 
-@Test func askDJChildStartingAfterOriginalDeadlineCannotInvokeItsOperation() async throws {
+@Test(.isolatedClientResources) func askDJChildStartingAfterOriginalDeadlineCannotInvokeItsOperation() async throws {
     let clock = AskDJChildStartClock()
     let deadline = DJConnectOperationDeadline(timing: .init(now: { clock.now() }))
     await #expect(throws: DJConnectHybridTransportError.deliveryUnknown) {
@@ -716,7 +716,7 @@ final class AskDJChildStartClock: @unchecked Sendable {
     #expect(clock.count == 0)
 }
 
-@Test @MainActor func askDJCancellationBeforeChildDispatchCannotInvokeItsOperation() async throws {
+@Test(.isolatedClientResources) @MainActor func askDJCancellationBeforeChildDispatchCannotInvokeItsOperation() async throws {
     final class CancellationSlot: @unchecked Sendable {
         let lock = NSLock()
         private var cancellation: (@Sendable () -> Void)?
@@ -732,7 +732,7 @@ final class AskDJChildStartClock: @unchecked Sendable {
     #expect(clock.count == 0)
 }
 
-@Test func askDJOriginalAbsoluteEndCannotBeRenewedByADelayedRunWithAStalledLogicalClock() async throws {
+@Test(.isolatedClientResources) func askDJOriginalAbsoluteEndCannotBeRenewedByADelayedRunWithAStalledLogicalClock() async throws {
     let counter = AskDJChildStartClock(triggerRead: Int.max, expires: false)
     let deadline = DJConnectOperationDeadline(seconds: 0.02, timing: .init(now: { 0 }))
     try await Task.sleep(for: .milliseconds(40))
@@ -773,7 +773,7 @@ private actor AskDJDelayedContextWire: DJConnectHybridWire {
     func recorded() -> [URLRequest] { requests }
 }
 
-@Test func askDJDelayedContextCannotExtendEarlierServerReceiptExpiry() async throws {
+@Test(.isolatedClientResources) func askDJDelayedContextCannotExtendEarlierServerReceiptExpiry() async throws {
     let clock = AskDJTestClock(), wire = AskDJDelayedContextWire(clock: clock)
     let coordinator = hybridCoordinator(wire)
     await coordinator.setOperationTiming(clock.timing)

@@ -1,5 +1,17 @@
 import Foundation
 
+/// A single application process shares the default resource limits. An internal
+/// task scope lets independent client runtimes (including test fixtures) own
+/// separate pools without changing the limits within one runtime.
+final class DJConnectTransportResources: Sendable {
+    static let shared = DJConnectTransportResources()
+    @TaskLocal static var current = shared
+    let artwork = SessionArtworkBudget()
+    let speech = SpeechTransferBudget()
+    let surfacePush = SurfacePushBudget()
+    let appKeys = RendezvousAppKeyOperations()
+}
+
 public struct DJConnectAPIFailureLogDetails: Equatable, Sendable {
     public var route: String
     public var httpStatus: Int?

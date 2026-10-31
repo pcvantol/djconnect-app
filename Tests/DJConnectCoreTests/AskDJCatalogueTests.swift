@@ -41,7 +41,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     return (catalogue, context, Set(catalogue.entries.map(\.id)))
 }
 
-@Test func fullHelpKeepsAllEligibleEntriesAndGenericInputsWithoutChipSlots() throws {
+@Test(.isolatedClientResources) func fullHelpKeepsAllEligibleEntriesAndGenericInputsWithoutChipSlots() throws {
     let (catalogue, context, ids) = try fullHelpFixture()
     for language in ["en", "nl", "de", "fr", "es"] {
         let items = catalogue.catalogueSections(context, surface: .askDJ, language: language, eligibleIDs: ids).flatMap(\.items)
@@ -59,7 +59,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     #expect(shipped.catalogueSections(context, surface: .askDJ, language: "nl", eligibleIDs: ids).isEmpty)
 }
 
-@Test @MainActor func fullHelpReadClosesWithoutProducerAndPreservesOriginalRequestDeadline() async throws {
+@Test(.isolatedClientResources) @MainActor func fullHelpReadClosesWithoutProducerAndPreservesOriginalRequestDeadline() async throws {
     let (catalogue, context, ids) = try fullHelpFixture()
     var instant = ContinuousClock.now
     let model = AskDJHelpCatalogueModel(now: { instant })
@@ -78,7 +78,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     model.close()
 }
 
-@Test @MainActor func fullHelpInvalidationDuringReadCannotResurrectAnEarlierOwnerOrObservation() async throws {
+@Test(.isolatedClientResources) @MainActor func fullHelpInvalidationDuringReadCannotResurrectAnEarlierOwnerOrObservation() async throws {
     let (catalogue, initial, ids) = try fullHelpFixture()
     var context = initial
     let model = AskDJHelpCatalogueModel()
@@ -95,7 +95,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     #expect(aba == nil && model.sections.isEmpty)
 }
 
-@Test @MainActor func fullHelpFailedFreshClickReadCannotRetainPreviousPositiveObservation() async throws {
+@Test(.isolatedClientResources) @MainActor func fullHelpFailedFreshClickReadCannotRetainPreviousPositiveObservation() async throws {
     let (catalogue, context, ids) = try fullHelpFixture()
     let model = AskDJHelpCatalogueModel()
     _ = await model.read(catalogue: catalogue, surface: .askDJ, language: "en", context: { context }, reader: { _, _, _, _ in .init(ids: ids, trackID: context.trackID) })
@@ -106,7 +106,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     #expect(failed == nil && !model.isCurrent && model.sections.isEmpty && !model.busy)
 }
 
-@Test @MainActor func fullHelpNullProducerTrackKeepsGenericArtistDraftButCannotFillChipsFromLocalMetadata() async throws {
+@Test(.isolatedClientResources) @MainActor func fullHelpNullProducerTrackKeepsGenericArtistDraftButCannotFillChipsFromLocalMetadata() async throws {
     let (catalogue, initial, ids) = try fullHelpFixture()
     var context = initial; context.slots["artist"] = "Original observed artist"
     #expect(context.trackID != nil && context.slots["artist"] != nil)
@@ -127,7 +127,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     }
 }
 
-@Test @MainActor func fullHelpObservedBusyContextABANeverReadmitsTheOriginalReply() async throws {
+@Test(.isolatedClientResources) @MainActor func fullHelpObservedBusyContextABANeverReadmitsTheOriginalReply() async throws {
     let (catalogue, original, ids) = try fullHelpFixture()
     for kind in ["artist", "album", "capabilities", "settings", "owner"] {
         var context = original
@@ -154,7 +154,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     }
 }
 
-@Test @MainActor func fullHelpOwnCapturedContextPublicationDoesNotCancelItsRead() async throws {
+@Test(.isolatedClientResources) @MainActor func fullHelpOwnCapturedContextPublicationDoesNotCancelItsRead() async throws {
     let (catalogue, context, ids) = try fullHelpFixture()
     let model = AskDJHelpCatalogueModel(), gate = HelpPendingReadGate()
     let task = Task { await model.read(catalogue: catalogue, surface: .askDJ, language: "en", context: { context },
@@ -171,7 +171,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     model.close()
 }
 
-@Test @MainActor func fullHelpRetiredBusyReplyCannotClearANewerSuccessfulRead() async throws {
+@Test(.isolatedClientResources) @MainActor func fullHelpRetiredBusyReplyCannotClearANewerSuccessfulRead() async throws {
     let (catalogue, original, ids) = try fullHelpFixture()
     var context = original
     let model = AskDJHelpCatalogueModel(), gate = HelpPendingReadGate()
@@ -188,7 +188,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     model.close()
 }
 
-@Test @MainActor func fullHelpCancellationReachesOwnedReaderAndLateCompletionCannotPublish() async throws {
+@Test(.isolatedClientResources) @MainActor func fullHelpCancellationReachesOwnedReaderAndLateCompletionCannotPublish() async throws {
     let (catalogue, context, ids) = try fullHelpFixture()
     let model = AskDJHelpCatalogueModel(), gate = HelpPendingReadGate()
     var childCancelled = false
@@ -203,7 +203,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     #expect(result == nil && childCancelled && model.sections.isEmpty)
 }
 
-@Test @MainActor func fullHelpDelayedOwnedChildChecksOriginalDeadlineBeforeCallingReader() async throws {
+@Test(.isolatedClientResources) @MainActor func fullHelpDelayedOwnedChildChecksOriginalDeadlineBeforeCallingReader() async throws {
     let (catalogue, context, ids) = try fullHelpFixture()
     let started = ContinuousClock.now
     var clockCalls = 0, readerCalls = 0
@@ -217,7 +217,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     #expect(result == nil && readerCalls == 0 && model.sections.isEmpty)
 }
 
-@Test @MainActor func helpActualAppModelBackendCapabilityABARetiresTheOldGeneration() throws {
+@Test(.isolatedClientResources) @MainActor func helpActualAppModelBackendCapabilityABARetiresTheOldGeneration() throws {
     let name = "help-backend-aba-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name))
     defer { defaults.removePersistentDomain(forName: name) }
@@ -233,7 +233,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     #expect(model.askDJExampleContext().ownerEpoch != original)
 }
 
-@Test @MainActor func helpActualAppModelSameTrackMetadataAndFreshnessRetireButProgressDoesNot() throws {
+@Test(.isolatedClientResources) @MainActor func helpActualAppModelSameTrackMetadataAndFreshnessRetireButProgressDoesNot() throws {
     let name = "help-playback-aba-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name))
     defer { defaults.removePersistentDomain(forName: name) }
@@ -265,7 +265,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     }
 }
 
-@Test func askDJShippingDraftNeverAdvertisesCandidateCommandsAndBytesArePinned() throws {
+@Test(.isolatedClientResources) func askDJShippingDraftNeverAdvertisesCandidateCommandsAndBytesArePinned() throws {
     let catalogue = try #require(DJConnectAskDJCatalogue.bundled)
     let data = try askDJGolden()
     let vector = try #require((data["cases"] as? [[String: Any]])?.first)
@@ -279,7 +279,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     #expect(DJConnectAskDJCatalogue.verified(data: synthetic) == nil)
 }
 
-@Test func askDJSelectorAndCompactHelpMatchSeventyIndependentCoreReferenceVectors() throws {
+@Test(.isolatedClientResources) func askDJSelectorAndCompactHelpMatchSeventyIndependentCoreReferenceVectors() throws {
     let fixture = try askDJGolden()
     // Test-only decode. Production exclusively uses byte-verified bundled data.
     let catalogue = try askDJDecode(DJConnectAskDJCatalogue.self, #require(fixture["synthetic_catalogue"]))
@@ -309,7 +309,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     }
 }
 
-@Test func askDJEditingOnlyWithdrawsAndOwnerChangeCannotResurrectSuggestions() throws {
+@Test(.isolatedClientResources) func askDJEditingOnlyWithdrawsAndOwnerChangeCannotResurrectSuggestions() throws {
     let fixture = try askDJGolden()
     let catalogue = try askDJDecode(DJConnectAskDJCatalogue.self, #require(fixture["synthetic_catalogue"]))
     let vector = try #require((fixture["cases"] as? [[String: Any]])?.first)
@@ -333,7 +333,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     #expect(cursor.suggestions.isEmpty)
 }
 
-@Test func askDJUnknownContractsLocaleAndUnsafeSlotsDoNotCreateExecutableTemplates() throws {
+@Test(.isolatedClientResources) func askDJUnknownContractsLocaleAndUnsafeSlotsDoNotCreateExecutableTemplates() throws {
     let fixture = try askDJGolden()
     let catalogue = try askDJDecode(DJConnectAskDJCatalogue.self, #require(fixture["synthetic_catalogue"]))
     let vector = try #require((fixture["cases"] as? [[String: Any]])?.first)
@@ -352,7 +352,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     #expect(decoded.success && decoded.ask_dj_examples == nil && decoded.contract_versions == nil)
 }
 
-@Test func askDJCurrentSongPromptCannotSilentlyRetargetWhileReading() throws {
+@Test(.isolatedClientResources) func askDJCurrentSongPromptCannotSilentlyRetargetWhileReading() throws {
     let fixture = try askDJGolden()
     let catalogue = try askDJDecode(DJConnectAskDJCatalogue.self, #require(fixture["synthetic_catalogue"]))
     let vector = try #require((fixture["cases"] as? [[String: Any]])?.first)
@@ -370,7 +370,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     #expect(!shown.contains { catalogue.retains($0, context: context, surface: .session, language: "en") })
 }
 
-@Test func askDJSessionHelpUsesItsOwnSurfaceEligibility() throws {
+@Test(.isolatedClientResources) func askDJSessionHelpUsesItsOwnSurfaceEligibility() throws {
     let fixture = try askDJGolden()
     var raw = try #require(fixture["synthetic_catalogue"] as? [String: Any])
     var entries = try #require(raw["entries"] as? [[String: Any]])
@@ -384,7 +384,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     #expect(!catalogue.helpSections(context, surface: .session, language: "nl").isEmpty)
 }
 
-@Test func askDJHelpWithdrawsTrackSessionAndUnavailableRoutesInEveryLocale() throws {
+@Test(.isolatedClientResources) func askDJHelpWithdrawsTrackSessionAndUnavailableRoutesInEveryLocale() throws {
     let fixture = try askDJGolden()
     let catalogue = try askDJDecode(DJConnectAskDJCatalogue.self, #require(fixture["synthetic_catalogue"]))
     let vector = try #require((fixture["cases"] as? [[String: Any]])?.first)
@@ -414,7 +414,7 @@ private func fullHelpFixture() throws -> (DJConnectAskDJCatalogue, DJConnectAskD
     }
 }
 
-@Test @MainActor func composerHelpRetiresAutomaticPreferenceAndKeepsManualRequestsTransient() throws {
+@Test(.isolatedClientResources) @MainActor func composerHelpRetiresAutomaticPreferenceAndKeepsManualRequestsTransient() throws {
     let name = "help-manual-test-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name))
     defer { defaults.removePersistentDomain(forName: name) }

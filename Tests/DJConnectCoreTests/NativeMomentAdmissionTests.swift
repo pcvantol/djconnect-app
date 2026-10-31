@@ -14,7 +14,7 @@ private func nativeDate(_ raw: String) throws -> Date {
     let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     return try #require(f.date(from: raw))
 }
-@Test func pinnedNativeOwnerReceiptPreservesCurrentRecallBothLinksAndOriginalDeadlines() throws {
+@Test(.isolatedClientResources) func pinnedNativeOwnerReceiptPreservesCurrentRecallBothLinksAndOriginalDeadlines() throws {
     let receipt = try nativeReceipt()
     #expect(receipt["producer_sha"] as? String == "3d17994d28c71402a9076c0082c490820204ccda")
     let after = try #require(receipt["after"] as? [String: Any])
@@ -50,7 +50,7 @@ private func nativeDate(_ raw: String) throws -> Date {
     #expect(missingAuthority.nativeFlowMoments(at: secondDate).isEmpty)
     #expect(missingAuthority.nativeCurrentMoment(at: secondDate) == nil)
 }
-@Test func ownerEventsReplaceAdmissionExpiryAndTerminalDenialPrecedesOrdering() throws {
+@Test(.isolatedClientResources) func ownerEventsReplaceAdmissionExpiryAndTerminalDenialPrecedesOrdering() throws {
     let receipt = try nativeReceipt(); let after = receipt["after"] as! [String: Any]
     let initial = try decodeSnapshot((after["http_initial"] as! [String: Any])["snapshot"]!)
     let events = try JSONDecoder().decode([DJConnectSessionBroadcastEvent].self, from: JSONSerialization.data(withJSONObject: after["events"]!))
@@ -80,7 +80,7 @@ private func nativeDate(_ raw: String) throws -> Date {
     #expect(runtime.broadcast.djMoments.isEmpty)
 }
 
-@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_NETWORK_TEST"] == "1")) @MainActor
+@Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_NETWORK_TEST"] == "1")) @MainActor
 func nativeOwnerHTTPWebSocketBackgroundExpiryReconnectAndUnsequencedTerminal() async throws {
     let base = URL(string: "http://127.0.0.1:18787")!
     _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/native_reset"))
@@ -121,7 +121,7 @@ func nativeOwnerHTTPWebSocketBackgroundExpiryReconnectAndUnsequencedTerminal() a
     defaults.removePersistentDomain(forName: "native-owner-contract-test")
 }
 
-@Test func actualSpotifyProducerCardRequiresLogoAlbumLinkAndNeverGrantsRecall() throws {
+@Test(.isolatedClientResources) func actualSpotifyProducerCardRequiresLogoAlbumLinkAndNeverGrantsRecall() throws {
     let receipt = try nativeReceipt()
     let spotify = try #require(receipt["spotify"] as? [String: Any])
     let snapshot = try decodeSnapshot(spotify["snapshot"]!)
@@ -143,7 +143,7 @@ func nativeOwnerHTTPWebSocketBackgroundExpiryReconnectAndUnsequencedTerminal() a
     #expect(expired.djMoments.isEmpty)
 }
 
-@Test func unsequencedOrdinaryEventCannotRestoreWithdrawnCardAuthority() throws {
+@Test(.isolatedClientResources) func unsequencedOrdinaryEventCannotRestoreWithdrawnCardAuthority() throws {
     let after = try #require(try nativeReceipt()["after"] as? [String:Any])
     let shared = try decodeSnapshot((after["http_shared_producer"] as! [String:Any])["snapshot"]!)
     let events = try JSONDecoder().decode([DJConnectSessionBroadcastEvent].self, from: JSONSerialization.data(withJSONObject: after["events"]!))
@@ -160,7 +160,7 @@ func nativeOwnerHTTPWebSocketBackgroundExpiryReconnectAndUnsequencedTerminal() a
     #expect(rejected.broadcast.delivery == runtime.broadcast.delivery)
 }
 
-@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_NETWORK_TEST"] == "1")) @MainActor
+@Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_NETWORK_TEST"] == "1")) @MainActor
 func nativeOwnerCurrentFailureResetsLoadingAndObsoleteFailureCannotClearRecovery() async throws {
     let base=URL(string:"http://127.0.0.1:18787")!
     _=try await URLSession.shared.data(from:base.appendingPathComponent("fixture/native_reset"))

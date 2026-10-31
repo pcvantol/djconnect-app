@@ -6,7 +6,7 @@ import Testing
 @testable import DJConnectCore
 @testable import DJConnectUI
 
-@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_MAC_PERMISSION_DIR"] != nil))
+@Test(.isolatedAppKitResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_MAC_PERMISSION_DIR"] != nil))
 @MainActor func permissionRowsRenderInNativeMacHost() async throws {
     let folder = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DJCONNECT_MAC_PERMISSION_DIR"]))
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

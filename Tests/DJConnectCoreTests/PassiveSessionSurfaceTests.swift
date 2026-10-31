@@ -43,7 +43,7 @@ private func passiveCurrent(surface: DJConnectPassiveSurface = .widget, mutation
     return try passiveDecode(root)
 }
 
-@Test @MainActor func passiveHomeWidgetAcceptsItsOwnGrantWithoutLockedScreenPermission() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveHomeWidgetAcceptsItsOwnGrantWithoutLockedScreenPermission() async throws {
     let response = try passiveCurrent()
     #expect(response.passive_session.cache_policy.locked_display == false)
     #expect(response.validates(sessionID: response.passive_session.session_id, surface: .widget))
@@ -57,7 +57,7 @@ private func passiveCurrent(surface: DJConnectPassiveSurface = .widget, mutation
     #expect(model.caches[.widget]?.projection.currentContribution(at: Date())?.text == response.passive_session.contribution?.text)
 }
 
-@Test @MainActor func passiveSkipRefreshBypassesThrottleAndRejectsTheUnchangedOldObservation() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveSkipRefreshBypassesThrottleAndRejectsTheUnchangedOldObservation() async throws {
     let original = try passiveCurrent(surface: .liveActivity) { $0["artwork"] = [] }
     let next = try passiveCurrent(surface: .liveActivity) { p in
         p["delivery_sequence"] = (p["delivery_sequence"] as! Int) + 1
@@ -89,7 +89,7 @@ private func passiveCurrent(surface: DJConnectPassiveSurface = .widget, mutation
     #expect(!model.awaitingPlaybackChange)
 }
 
-@Test @MainActor func passiveSkipWithdrawalSurvivesImmediateBackgroundWithoutNetworkReads() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveSkipWithdrawalSurvivesImmediateBackgroundWithoutNetworkReads() async throws {
     let original = try passiveCurrent(surface: .liveActivity) { $0["artwork"] = [] }
     var reads = 0
     let model = PassiveSessionSurfaceModel()
@@ -105,7 +105,7 @@ private func passiveCurrent(surface: DJConnectPassiveSurface = .widget, mutation
     #expect(!model.awaitingPlaybackChange && !model.enabled(.liveActivity))
 }
 
-@Test @MainActor func passiveSkipCannotRestoreOldPixelsFromCancelledImageWork() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveSkipCannotRestoreOldPixelsFromCancelledImageWork() async throws {
     let original = try passiveCurrent(surface: .liveActivity)
     var release: CheckedContinuation<Data, Never>?
     let model = PassiveSessionSurfaceModel()
@@ -125,7 +125,7 @@ private func passiveCurrent(surface: DJConnectPassiveSurface = .widget, mutation
     #expect(model.caches.isEmpty && model.awaitingPlaybackChange)
 }
 
-@Test @MainActor func passiveLiveActivityStillRejectsMissingLockedScreenPermission() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveLiveActivityStillRejectsMissingLockedScreenPermission() async throws {
     let response = try passiveCurrent(surface: .liveActivity) { p in
         var policy = p["cache_policy"] as! [String: Any]; policy["locked_display"] = false; p["cache_policy"] = policy
     }
@@ -137,7 +137,7 @@ private func passiveCurrent(surface: DJConnectPassiveSurface = .widget, mutation
     #expect(!model.enabled(.liveActivity) && model.caches[.liveActivity] == nil)
 }
 
-@Test @MainActor func passivePublicationHintDuringImageLoadStillReadsNewestContribution() async throws {
+@Test(.isolatedClientResources) @MainActor func passivePublicationHintDuringImageLoadStillReadsNewestContribution() async throws {
     let first = try passiveCurrent()
     let newest = try passiveCurrent { p in
         p["delivery_sequence"] = (p["delivery_sequence"] as! Int) + 1
@@ -171,7 +171,7 @@ private func passiveCurrent(surface: DJConnectPassiveSurface = .widget, mutation
     model.bind(owner: nil, sessionID: nil, foreground: false)
 }
 
-@Test func pinnedPassiveProjectionPreservesTextSubjectDeadlinesAndNoGrantInCache() throws {
+@Test(.isolatedClientResources) func pinnedPassiveProjectionPreservesTextSubjectDeadlinesAndNoGrantInCache() throws {
     let response = try passiveDecode(passiveOriginal())
     let p = response.passive_session
     let now = try #require(DJConnectHistoryEntry.date(p.as_of)).addingTimeInterval(0.001)
@@ -194,7 +194,7 @@ private func passiveCurrent(surface: DJConnectPassiveSurface = .widget, mutation
     #expect(!p.isCurrent(at: now.addingTimeInterval(121)))
 }
 
-@Test(arguments: ["ttl", "subject", "role", "rights", "path", "crop", "alt", "presence", "private", "long_text"])
+@Test(.isolatedClientResources, arguments: ["ttl", "subject", "role", "rights", "path", "crop", "alt", "presence", "private", "long_text"])
 func passiveRejectsRightsSubjectClockOrContentSubstitution(_ fault: String) throws {
     var root = try passiveOriginal(), p = try #require(root["passive_session"] as? [String: Any])
     if fault == "ttl" { p["expires_at"] = "2030-01-01T00:00:00Z" }
@@ -222,7 +222,7 @@ func passiveRejectsRightsSubjectClockOrContentSubstitution(_ fault: String) thro
     #expect(try passiveDecode(root).passive_session.isValid == false)
 }
 
-@Test func passiveCacheWithdrawsExpiredAndLimitsPixelsAndPurpose() throws {
+@Test(.isolatedClientResources) func passiveCacheWithdrawsExpiredAndLimitsPixelsAndPurpose() throws {
     let r = try passiveCurrent()
     let now = Date(), suite = "passive-test-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: suite)); defer { defaults.removePersistentDomain(forName: suite) }
@@ -240,7 +240,7 @@ func passiveRejectsRightsSubjectClockOrContentSubstitution(_ fault: String) thro
     }
 }
 
-@Test func passiveActivityPayloadIsSmallPurposeBoundAndUsesOriginalEarliestExpiry() throws {
+@Test(.isolatedClientResources) func passiveActivityPayloadIsSmallPurposeBoundAndUsesOriginalEarliestExpiry() throws {
     let r = try passiveCurrent(surface: .liveActivity), now = Date()
     let cache = try DJConnectPassiveSurfaceCache(projection: r.passive_session, at: now)
     let rich = try #require(DJConnectPassiveActivityContent(cache: cache, at: now))
@@ -256,7 +256,7 @@ func passiveRejectsRightsSubjectClockOrContentSubstitution(_ fault: String) thro
     #expect(DJConnectPassiveActivityContent(cache: try DJConnectPassiveSurfaceCache(projection: widget.passive_session)) == nil)
 }
 
-@Test func passiveActivityFieldExpiryKeepsOriginalNeutralSessionAndOtherCurrentField() throws {
+@Test(.isolatedClientResources) func passiveActivityFieldExpiryKeepsOriginalNeutralSessionAndOtherCurrentField() throws {
     let now = Date()
     let r = try passiveCurrent(surface: .liveActivity) { p in
         var contribution = p["contribution"] as! [String: Any]
@@ -283,7 +283,7 @@ func passiveRejectsRightsSubjectClockOrContentSubstitution(_ fault: String) thro
     #expect(remaining.isCurrent(at: later))
 }
 
-@Test @MainActor func passiveConsentIsExplicitReadsCoalesceAndABARejectsLateCompletion() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveConsentIsExplicitReadsCoalesceAndABARejectsLateCompletion() async throws {
     let model = PassiveSessionSurfaceModel(), r = try passiveCurrent()
     var authorizes = 0, reads = 0
     let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, enabled in
@@ -311,7 +311,7 @@ func passiveRejectsRightsSubjectClockOrContentSubstitution(_ fault: String) thro
     #expect(model.caches.isEmpty && !model.enabled(.widget))
 }
 
-@Test @MainActor func passiveReadFailureDoesNotRenewAndRevocationClearsOnlySurface() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveReadFailureDoesNotRenewAndRevocationClearsOnlySurface() async throws {
     let model = PassiveSessionSurfaceModel(), r = try passiveCurrent()
     let normal = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, enabled in enabled ? r : nil },
         read: { _, _, _ in throw URLError(.notConnectedToInternet) }, image: { _, _ in Data() })
@@ -376,7 +376,7 @@ private func passivePNG() throws -> Data {
     let destination = try #require(CGImageDestinationCreateWithData(bytes, "public.png" as CFString, 1, nil))
     CGImageDestinationAddImage(destination, image, nil); #expect(CGImageDestinationFinalize(destination)); return bytes as Data
 }
-@Test func passiveTransportUsesExactOwnerAndPurposeWithoutPrivateURLFetch() async throws {
+@Test(.isolatedClientResources) func passiveTransportUsesExactOwnerAndPurposeWithoutPrivateURLFetch() async throws {
     let response = try passiveCurrent(), p = response.passive_session
     let bytes = try passivePNG()
     var root = try passiveOriginal(); root["passive_session"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(p))
@@ -418,16 +418,28 @@ private func passivePNG() throws -> Data {
     }
 }
 
-@Test @MainActor func passiveOldImageCannotRestoreARevokedProfileAndNoConsentSurvivesNewModel() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveOldImageCannotRestoreARevokedProfileAndNoConsentSurvivesNewModel() async throws {
     let model = PassiveSessionSurfaceModel(), r = try passiveCurrent(), image = try passivePNG()
+    var imageReply: CheckedContinuation<Data, Never>?
+    var imageReleased = false
     let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, _ in r }, read: { _, _, _ in r }, image: { _, _ in
-        try? await Task.sleep(for: .milliseconds(80)); return image
+        if imageReleased { return image }
+        return await withCheckedContinuation { imageReply = $0 }
     })
     model.bind(owner: "A", sessionID: r.passive_session.session_id, foreground: true); await model.discover(services)
     let action = Task { await model.setEnabled(true, surface: .widget, services: services) }
-    try await Task.sleep(for: .milliseconds(20))
+    defer {
+        // Latch release even if a failed fixture reaches image preparation late.
+        imageReleased = true; action.cancel()
+        imageReply?.resume(returning: image); imageReply = nil
+    }
+    // Use the same bounded condition wait as the neighbouring image fixtures.
+    for _ in 0..<100 where imageReply == nil { try await Task.sleep(for: .milliseconds(5)) }
+    try #require(imageReply != nil, "Image preparation did not reach its held boundary")
     #expect(model.caches[.widget]?.projection.contribution != nil)
     model.bind(owner: nil, sessionID: nil, foreground: true)
+    imageReleased = true
+    imageReply?.resume(returning: image); imageReply = nil
     await action.value
     #expect(model.caches.isEmpty && !model.enabled(.widget))
     let restarted = PassiveSessionSurfaceModel()
@@ -437,7 +449,7 @@ private func passivePNG() throws -> Data {
 }
 
 
-@Test func passiveGrantIsFullyRedactedAndOwnerHintNeverReencoded() throws {
+@Test(.isolatedClientResources) func passiveGrantIsFullyRedactedAndOwnerHintNeverReencoded() throws {
     let grant = "abcdefghijklmnopqrstuvwx_1234567"
     let raw = "https://fixture.invalid/path?grant_id=\(grant)&surface=widget"
     #expect(!DJConnectLogRedactor.redactText(raw).contains(grant))
@@ -450,7 +462,7 @@ private func passivePNG() throws -> Data {
     #expect(!String(decoding: try JSONEncoder().encode(event), as: UTF8.self).contains("passive_surface"))
 }
 
-@Test @MainActor func passiveHintBurstOnlyRereadsExistingGrantOnceAndNeverAuthorizes() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveHintBurstOnlyRereadsExistingGrantOnceAndNeverAuthorizes() async throws {
     let model = PassiveSessionSurfaceModel(), r = try passiveCurrent()
     var reads = 0, authorizes = 0
     let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, _ in authorizes += 1; return r },
@@ -465,7 +477,7 @@ private func passivePNG() throws -> Data {
     #expect(reads == 1 && authorizes == 1)
 }
 
-@Test @MainActor func passiveResumeRevalidatesOriginalGrantWithoutRestoringOldHistoryEpoch() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveResumeRevalidatesOriginalGrantWithoutRestoringOldHistoryEpoch() async throws {
     let model = PassiveSessionSurfaceModel(), r = try passiveCurrent()
     var authorizes = 0, reads = 0
     let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, _ in authorizes += 1; return r },
@@ -487,7 +499,7 @@ private func passivePNG() throws -> Data {
     #expect(model.caches.isEmpty && !model.enabled(.widget))
 }
 
-@Test @MainActor func passiveAutomaticConfigurationAuthorizesOnceAndRevalidatesWithoutAnotherSwitch() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveAutomaticConfigurationAuthorizesOnceAndRevalidatesWithoutAnotherSwitch() async throws {
     let widget = try passiveCurrent(), activity = try passiveCurrent(surface: .liveActivity)
     let model = PassiveSessionSurfaceModel()
     var writes: [String] = [], reads = 0
@@ -514,7 +526,7 @@ private func passivePNG() throws -> Data {
     #expect(writes.last == "widget:on")
 }
 
-@Test @MainActor func passiveAutomaticUncertainAuthorizationIsNotReplayedByResumeOrTicks() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveAutomaticUncertainAuthorizationIsNotReplayedByResumeOrTicks() async throws {
     let model = PassiveSessionSurfaceModel(), response = try passiveCurrent()
     var writes = 0
     let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, _ in
@@ -530,7 +542,7 @@ private func passivePNG() throws -> Data {
     #expect(writes == 2)
 }
 
-@Test @MainActor func passiveAutomaticOSRemovalFencesLateImageAndRevokesImmediately() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveAutomaticOSRemovalFencesLateImageAndRevokesImmediately() async throws {
     let model = PassiveSessionSurfaceModel(), response = try passiveCurrent(), png = try passivePNG()
     var disabled = 0
     let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, enabled in
@@ -546,7 +558,7 @@ private func passivePNG() throws -> Data {
     #expect(disabled == 1 && !model.enabled(.widget) && model.caches[.widget] == nil)
 }
 
-@Test @MainActor func passiveDiagnosticsIdentifyWidgetWithdrawalWithoutLeakingPrivateFieldsOrRetryingWrites() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveDiagnosticsIdentifyWidgetWithdrawalWithoutLeakingPrivateFieldsOrRetryingWrites() async throws {
     let response = try passiveCurrent(), model = PassiveSessionSurfaceModel()
     var events: [String] = [], writes = 0
     model.onDiagnostic = { events.append($0) }
@@ -569,7 +581,7 @@ private func passivePNG() throws -> Data {
     }
 }
 
-@Test func passiveActivityPlaybackStateKeepsLeaseAndDecodesOlderActivities() throws {
+@Test(.isolatedClientResources) func passiveActivityPlaybackStateKeepsLeaseAndDecodesOlderActivities() throws {
     let now = Date()
     let response = try passiveCurrent(surface: .liveActivity) { $0["playback_state"] = "paused" }
     let cache = try DJConnectPassiveSurfaceCache(projection: response.passive_session, at: now)
@@ -594,7 +606,7 @@ private func passiveResponseObject(_ response: DJConnectPassiveSurfaceResponse) 
             "grant_id": response.grant_id, "passive_session": projection]
 }
 
-@Test @MainActor func passiveArtworkCompletionRetainsTheExactOriginalReceivePair() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveArtworkCompletionRetainsTheExactOriginalReceivePair() async throws {
     let response = try passiveCurrent(), model = PassiveSessionSurfaceModel(), png = try passivePNG()
     var waiting: CheckedContinuation<Data, Never>?
     var first = true
@@ -617,7 +629,7 @@ private func passiveResponseObject(_ response: DJConnectPassiveSurfaceResponse) 
     #expect(completed.projection.expires_at == original.projection.expires_at)
 }
 
-@Test @MainActor func passiveIdenticalFrameAndAsOfReadCannotRenewTheReceivePair() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveIdenticalFrameAndAsOfReadCannotRenewTheReceivePair() async throws {
     let response = try passiveCurrent { $0["artwork"] = [] }, model = PassiveSessionSurfaceModel()
     var next = response
     let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, _ in response },
@@ -638,7 +650,7 @@ private func passiveResponseObject(_ response: DJConnectPassiveSurfaceResponse) 
     #expect(model.caches[.widget]?.receivedUptime == original.receivedUptime)
 }
 
-@Test @MainActor func passiveReadMustMatchItsOriginalGrantNotJustBindingAndGeneration() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveReadMustMatchItsOriginalGrantNotJustBindingAndGeneration() async throws {
     let response = try passiveCurrent { $0["artwork"] = [] }, model = PassiveSessionSurfaceModel()
     var root = try passiveResponseObject(response)
     root["grant_id"] = "another-grant"
@@ -651,7 +663,7 @@ private func passiveResponseObject(_ response: DJConnectPassiveSurfaceResponse) 
     #expect(!model.enabled(.widget)); #expect(model.caches[.widget] == nil)
 }
 
-@Test @MainActor func passiveParentCancellationCannotPublishLateArtwork() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveParentCancellationCannotPublishLateArtwork() async throws {
     let response = try passiveCurrent(), model = PassiveSessionSurfaceModel(), png = try passivePNG()
     var waiting: CheckedContinuation<Data, Never>?
     var first = true
@@ -670,7 +682,7 @@ private func passiveResponseObject(_ response: DJConnectPassiveSurfaceResponse) 
     #expect(model.caches[.widget]?.pixels.isEmpty == true)
 }
 
-@Test @MainActor func passiveSettingsRevisionWithdrawalCannotRestoreAwaitingArtwork() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveSettingsRevisionWithdrawalCannotRestoreAwaitingArtwork() async throws {
     let response = try passiveCurrent(), model = PassiveSessionSurfaceModel(), png = try passivePNG()
     var waiting: CheckedContinuation<Data, Never>?
     let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, _ in response },
@@ -688,7 +700,7 @@ private func passiveResponseObject(_ response: DJConnectPassiveSurfaceResponse) 
     #expect(model.caches.isEmpty && !model.enabled(.widget))
 }
 
-@Test @MainActor func passiveExpiredImageCannotPublishAfterItsOriginalDeadline() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveExpiredImageCannotPublishAfterItsOriginalDeadline() async throws {
     let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     let expires = Date().addingTimeInterval(0.7)
     let response = try passiveCurrent { $0["expires_at"] = formatter.string(from: expires) }
@@ -707,7 +719,7 @@ private func passiveResponseObject(_ response: DJConnectPassiveSurfaceResponse) 
     #expect(model.caches[.widget]?.pixels.isEmpty != false)
 }
 
-@Test @MainActor func passiveLateErrorCannotClearReplacementSessionAndCapture() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveLateErrorCannotClearReplacementSessionAndCapture() async throws {
     let a = try passiveCurrent { $0["artwork"] = [] }
     let b = try passiveCurrent { p in
         p["artwork"] = []; p["session_id"] = "replacement-session"
@@ -735,7 +747,7 @@ private func passiveResponseObject(_ response: DJConnectPassiveSurfaceResponse) 
     #expect(after.continuous == captureB.continuous && after.uptime == captureB.uptime)
 }
 
-@Test @MainActor func passivePreAwaitCaptureCanPublishOnlyAtTheActualCurrentCacheBoundary() async throws {
+@Test(.isolatedClientResources) @MainActor func passivePreAwaitCaptureCanPublishOnlyAtTheActualCurrentCacheBoundary() async throws {
     let model = PassiveSessionSurfaceModel()
     let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, _ in
@@ -754,7 +766,7 @@ private func passiveResponseObject(_ response: DJConnectPassiveSurfaceResponse) 
     #expect(DJConnectPassiveSurfaceCache.load(surface: .widget, from: defaults) != nil)
 }
 
-@Test @MainActor func passiveCacheWriteCannotUseItsSavedReceiveTimeToPublishExpiredData() async throws {
+@Test(.isolatedClientResources) @MainActor func passiveCacheWriteCannotUseItsSavedReceiveTimeToPublishExpiredData() async throws {
     let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     let expires = Date().addingTimeInterval(0.2)
     let response = try passiveCurrent { p in p["artwork"] = []; p["expires_at"] = formatter.string(from: expires) }
@@ -766,7 +778,7 @@ private func passiveResponseObject(_ response: DJConnectPassiveSurfaceResponse) 
     #expect(defaults.data(forKey: DJConnectPassiveSurfaceCache.key(.widget)) == nil)
 }
 
-@Test func passiveCacheEncodingCrossesExpiryAndCannotCommitUsingItsEarlierSample() throws {
+@Test(.isolatedClientResources) func passiveCacheEncodingCrossesExpiryAndCannotCommitUsingItsEarlierSample() throws {
     let response = try passiveCurrent { $0["artwork"] = [] }, now = Date()
     let cache = try DJConnectPassiveSurfaceCache(projection: response.passive_session, at: now, uptime: 100)
     let name = "passive-post-encode-" + UUID().uuidString

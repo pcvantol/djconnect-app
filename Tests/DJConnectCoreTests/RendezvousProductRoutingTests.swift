@@ -4,7 +4,7 @@ import SwiftUI
 @testable import DJConnectCore
 @testable import DJConnectUI
 
-@MainActor @Test func rendezvousProductQRDoesNotUnpairAndUnsupportedDoesNotSend() async throws {
+@MainActor @Test(.isolatedClientResources) func rendezvousProductQRDoesNotUnpairAndUnsupportedDoesNotSend() async throws {
     let suite = "djc-rendezvous-product-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName:suite))
     defer { defaults.removePersistentDomain(forName:suite) }
@@ -56,7 +56,7 @@ private final class NativeConsentRejectionWire: URLProtocol, @unchecked Sendable
     override func stopLoading() {}
 }
 
-@MainActor @Test func rendezvousOldScreenCannotCancelSeparateConsentOrReopenedQR() throws {
+@MainActor @Test(.isolatedClientResources) func rendezvousOldScreenCannotCancelSeparateConsentOrReopenedQR() throws {
     let suite = "djc-rendezvous-presentation-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suite))
     defer { defaults.removePersistentDomain(forName: suite) }
@@ -119,7 +119,7 @@ private final class NativeConsentRejectionWire: URLProtocol, @unchecked Sendable
     #expect(!model.rendezvousHasQR)
     #expect(NativeConsentRejectionWire.requests == 0)
 }
-@MainActor @Test func nativeDisplayConsentNeverDispatchesWithoutCurrentSession() async throws {
+@MainActor @Test(.isolatedClientResources) func nativeDisplayConsentNeverDispatchesWithoutCurrentSession() async throws {
     let suite = "djc-native-consent-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suite))
     defer { defaults.removePersistentDomain(forName: suite) }
