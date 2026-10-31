@@ -27,6 +27,14 @@ struct SessionHistoryEntryIndex<Source: Hashable> {
             return predicate(row)
         }
     }
+
+    func rows(_ reference: DJConnectSessionEntryReference,
+              entryAt: (Source, Int) -> DJConnectHistoryEntry?) -> [DJConnectHistoryEntry] {
+        (positions[reference] ?? []).compactMap { position in
+            guard let row = entryAt(position.source, position.offset), row.reference == reference else { return nil }
+            return row
+        }
+    }
 }
 
 /// In-memory presentation state, owned by the existing Apple application model.
@@ -252,7 +260,9 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     @Published public private(set) var listLoading = false
     @Published public private(set) var listErrorKey: String?
     @Published public private(set) var listNextCursor: String?
-    @Published public private(set) var timelines: [String: Timeline] = [:]
+    @Published public private(set) var timelines: [String: Timeline] = [:] {
+        didSet { selectedTimelineIndex = nil }
+    }
     private var conversationMessageContexts: [String: DJConnectConversationContext] = [:]
     @Published public private(set) var historicalMatches: [String: [DJConnectHistoryEntry]] = [:] {
         didSet { historicalArtworkIndex = nil }
@@ -266,6 +276,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
     private var historicalArtworkIndex: SessionHistoryEntryIndex<String>?
     private var searchArtworkIndex: SessionHistoryEntryIndex<Int>?
+    private var selectedTimelineIndex: (sessionID: String, entries: SessionHistoryEntryIndex<String>)?
 
     func containsHistoricalArtworkEntry(_ reference: DJConnectSessionEntryReference,
                                        matching predicate: (DJConnectHistoryEntry) -> Bool) -> Bool {
@@ -338,9 +349,37 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     var responseEpoch: UUID { epoch }
     var hasAuthorizedOwner: Bool { ownerScope != nil }
     public var selectedEntryPreview: String? {
+        selectedEntryPreview(at: Date())
+    }
+    // Retention is evaluated at actual paint time, never cached in an index.
+    func selectedEntryPreview(at date: Date) -> String? {
         guard let reference = selectedEntry else { return nil }
-        return (timelines[reference.sessionID]?.entries ?? []).first { $0.reference == reference && $0.isRetained() }?.text
-            ?? historicalMatches.values.flatMap { $0 }.first { $0.reference == reference && $0.isRetained() }?.text
+        return selectedTimelineRows(reference).first { $0.isRetained(at: date) }?.text
+            ?? selectedHistoricalRows(reference).first { $0.isRetained(at: date) }?.text
+    }
+    var selectedEntryRefreshDeadlines: [Date] {
+        guard let reference = selectedEntry else { return [] }
+        // Include exact-reference fallback copies too: one may outlive the first
+        // row. This changes neither existing precedence nor its retention test.
+        return (selectedTimelineRows(reference) + selectedHistoricalRows(reference))
+            .compactMap { DJConnectHistoryEntry.date($0.retainedUntil) }
+    }
+    private func selectedTimelineRows(_ reference: DJConnectSessionEntryReference) -> [DJConnectHistoryEntry] {
+        if selectedTimelineIndex?.sessionID != reference.sessionID {
+            selectedTimelineIndex = (reference.sessionID,
+                .init([reference.sessionID: timelines[reference.sessionID]?.entries ?? []]))
+        }
+        return selectedTimelineIndex?.entries.rows(reference, entryAt: { source, offset in
+            guard let rows = timelines[source]?.entries, rows.indices.contains(offset) else { return nil }
+            return rows[offset]
+        }) ?? []
+    }
+    private func selectedHistoricalRows(_ reference: DJConnectSessionEntryReference) -> [DJConnectHistoryEntry] {
+        if historicalArtworkIndex == nil { historicalArtworkIndex = .init(historicalMatches) }
+        return historicalArtworkIndex?.rows(reference, entryAt: { source, offset in
+            guard let rows = historicalMatches[source], rows.indices.contains(offset) else { return nil }
+            return rows[offset]
+        }) ?? []
     }
 
     /// Resolve only a retained, server-owned answer identity; never infer an entry from its text.
