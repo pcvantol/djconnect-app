@@ -27,9 +27,9 @@ BLOCKED decisions, and publishes supplemental public Runtime diagnostics only as
 source qualification and remaining analyzer gates are recorded in
 `docs/feedback/APPLE_TDE_OBSERVE_DIAGNOSTICS_243_SOURCE_FINALIZATION_20261030.md`.
 
-Parallel validation preparation (2026-10-31): independent client fixtures retain
-per-runtime caps and child-task ownership, while CI validators/packages/native
-builds use bounded workers and isolated output roots. Source review, exact-head
-CI and protected delivery are still required; local results are not installation
-or physical acceptance. See `docs/feedback/APPLE_PARALLEL_CLIENT_VALIDATION_20261031.md`
-and `docs/DEVELOPMENT.md`. This note does not declare protected delivery.
+Parallel validation Source #245 is delivered at protected0590166 with identical
+reviewed tree408a3931. Own original main/formal and independent source closure
+are recorded in `docs/feedback/APPLE_PARALLEL_VALIDATION_245_SOURCE_FINALIZATION_20261031.md`.
+This separate documentary Final still requires its own delivery/qualification.
+General performance, actual shared WebSocket correctness, separate TDE budgets,
+selected-context92abb integration and clean simulator readiness remain open.
