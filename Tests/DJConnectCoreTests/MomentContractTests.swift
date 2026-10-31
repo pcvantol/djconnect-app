@@ -23,7 +23,7 @@ private func receiptData() throws -> Data {
     return try Data(contentsOf: root.appendingPathComponent("Fixtures/moment-contract-receipt.json"))
 }
 
-@Test func producerReceiptSnapshotAndEventsPreserveMomentsFlowAndPresentation() throws {
+@Test(.isolatedClientResources) func producerReceiptSnapshotAndEventsPreserveMomentsFlowAndPresentation() throws {
     let receipt = try JSONDecoder().decode(MomentReceipt.self, from: receiptData())
     #expect(receipt.producerSHA == "ee05c9422cd7a7a08bbe769925248632fa651961")
     var runtime = receipt.runtime.applying(broadcastState: receipt.snapshot)
@@ -53,7 +53,7 @@ private func receiptData() throws -> Data {
     #expect(runtime.broadcast.sessionFlow.items.last?.momentType == "silence")
 }
 
-@Test func lateSnapshotDuplicateEventsAndPreviousSessionCannotRollbackProducerState() throws {
+@Test(.isolatedClientResources) func lateSnapshotDuplicateEventsAndPreviousSessionCannotRollbackProducerState() throws {
     let receipt = try JSONDecoder().decode(MomentReceipt.self, from: receiptData())
     var runtime = receipt.runtime.applying(broadcastState: receipt.updatedSnapshot)
     let latest = runtime
@@ -66,7 +66,7 @@ private func receiptData() throws -> Data {
     #expect(runtime.applying(broadcastEvent: foreign) == latest)
 }
 
-@Test func malformedOptionalMomentCannotDiscardSessionOrOtherAuthorizedMoments() throws {
+@Test(.isolatedClientResources) func malformedOptionalMomentCannotDiscardSessionOrOtherAuthorizedMoments() throws {
     let receipt = try JSONDecoder().decode(MomentReceipt.self, from: receiptData())
     var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(receipt.updatedSnapshot)) as? [String: Any])
     var moments = try #require(json["dj_moments"] as? [[String: Any]])
@@ -104,7 +104,7 @@ private func receiptData() throws -> Data {
 
 // Opt-in network acceptance against Tools/moment_contract_server.js.
 // This uses the same client, owner WebSocket, state reducer as the native app.
-@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_MOMENT_NETWORK_TEST"] == "1")) @MainActor func ownerHTTPAndWebSocketDriveAppStateAcrossReconnectAndEnd() async throws {
+@Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_MOMENT_NETWORK_TEST"] == "1")) @MainActor func ownerHTTPAndWebSocketDriveAppStateAcrossReconnectAndEnd() async throws {
     guard ProcessInfo.processInfo.environment["DJCONNECT_MOMENT_NETWORK_TEST"] == "1" else { return }
     let base = URL(string: "http://127.0.0.1:18787")!
     _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reset"))
@@ -133,7 +133,7 @@ private func receiptData() throws -> Data {
     defaults.removePersistentDomain(forName: "moment-network-contract-test")
 }
 
-@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_MOMENT_NETWORK_TEST"] == "1")) @MainActor
+@Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_MOMENT_NETWORK_TEST"] == "1")) @MainActor
 func rejectedOwnerSubscriptionRemovesPrivateProjectionWithoutClaimingRuntimeEnd() async throws {
     let base = URL(string: "http://127.0.0.1:18787")!
     _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reset"))
@@ -156,7 +156,7 @@ func rejectedOwnerSubscriptionRemovesPrivateProjectionWithoutClaimingRuntimeEnd(
     defaults.removePersistentDomain(forName: "moment-owner-rejection-test")
 }
 
-@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_MOMENT_NETWORK_TEST"] == "1"))
+@Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_MOMENT_NETWORK_TEST"] == "1"))
 func ownerSessionTextNeverEntersParentURLCacheEvenWithCacheableResponse() async throws {
     let base = URL(string: "http://127.0.0.1:18787")!
     _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reset"))
@@ -181,7 +181,7 @@ func ownerSessionTextNeverEntersParentURLCacheEvenWithCacheableResponse() async 
     #expect(cache.cachedResponse(for: request) != nil)
 }
 
-@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_MOMENT_NETWORK_TEST"] == "1"))
+@Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_MOMENT_NETWORK_TEST"] == "1"))
 func sessionDecodeFailureOmitsPrivateMomentBodyFromDiagnostics() async throws {
     let base = URL(string: "http://127.0.0.1:18787")!
     _ = try await URLSession.shared.data(from: base.appendingPathComponent("fixture/reset"))
@@ -198,7 +198,7 @@ func sessionDecodeFailureOmitsPrivateMomentBodyFromDiagnostics() async throws {
     }
 }
 
-@Test func activeMoodHighestRevisionSurvivesLateSnapshotAndPreviousSessionReply() throws {
+@Test(.isolatedClientResources) func activeMoodHighestRevisionSurvivesLateSnapshotAndPreviousSessionReply() throws {
     var runtime = try JSONDecoder().decode(MomentReceipt.self, from: receiptData()).runtime
     runtime.moodRevision = 0; runtime.broadcast.session.moodRevision = 0
     func response(_ id: String, _ mood: String, _ revision: Int) throws -> DJConnectSessionMoodResponse {

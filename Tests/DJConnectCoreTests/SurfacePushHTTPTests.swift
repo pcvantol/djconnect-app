@@ -52,7 +52,7 @@ private func pushHTTPConfig() -> URLSessionConfiguration {
             identity:.init(deviceID:"djconnect-ios-ABCDEF123456",deviceName:"Fixture",clientType:.ios,firmware:"4.0.0",platform:.ios),
             tokenStore:DJConnectInMemoryTokenStore(token:"paired-fixture-token"),session:s)
     }
-    @Test func backgroundReadUsesOnlyOriginalSeparateCredentialAndClosedRequest() async throws {
+    @Test(.isolatedClientResources) func backgroundReadUsesOnlyOriginalSeparateCredentialAndClosedRequest() async throws {
         let fixture = try pushHTTPFixture("read"), registered = try pushHTTPFixture("register")
         let registration = try JSONDecoder().decode(DJConnectSurfacePushResponse.self,from:JSONSerialization.data(withJSONObject:registered["response_body"]!))
         let read = try #require(registration.background_read)
@@ -70,7 +70,7 @@ private func pushHTTPConfig() -> URLSessionConfiguration {
         let object = try #require(JSONSerialization.jsonObject(with:requestBytes) as? [String:Any])
         #expect(Set(object.keys) == ["contract_version","registration_id"])
     }
-    @Test func pairedRegistrationMatchesOriginalCoreRequestWithoutRetryOrRoleCoercion() async throws {
+    @Test(.isolatedClientResources) func pairedRegistrationMatchesOriginalCoreRequestWithoutRetryOrRoleCoercion() async throws {
         let fixture = try pushHTTPFixture("register"), raw = try #require(fixture["request_json"] as? [String:Any])
         let c = client()
         let request = try #require(DJConnectSurfacePushRequest(identity:c.identity,sessionID:raw["session_id"] as! String,
@@ -90,7 +90,7 @@ private func pushHTTPConfig() -> URLSessionConfiguration {
         await #expect(throws:(any Error).self) { _ = try await c.registerSurfacePush(request,isCurrent:{false}) }
         #expect(SurfacePushHTTPWire.captured.isEmpty)
     }
-    @Test func contextAndStatusAreMetadataOnlyAndDoNotRegister() async throws {
+    @Test(.isolatedClientResources) func contextAndStatusAreMetadataOnlyAndDoNotRegister() async throws {
         let c = client()
         for kind in ["context","status"] {
             let fixture = try pushHTTPFixture(kind)
@@ -103,7 +103,7 @@ private func pushHTTPConfig() -> URLSessionConfiguration {
             #expect(SurfacePushHTTPWire.captured.count == 1 && SurfacePushHTTPWire.captured[0].url?.lastPathComponent == kind)
         }
     }
-    @Test func responsePrivacyEncodingAndSizeFailuresNeverRetry() async throws {
+    @Test(.isolatedClientResources) func responsePrivacyEncodingAndSizeFailuresNeverRetry() async throws {
         let c = client()
         for patch in [["Cache-Control":"public"],["Content-Encoding":"gzip"],["Content-Type":"text/html"],["Referrer-Policy":"unsafe-url"]] {
             SurfacePushHTTPWire.setup(Data("{}".utf8),headers:patch)
@@ -114,7 +114,7 @@ private func pushHTTPConfig() -> URLSessionConfiguration {
         await #expect(throws:(any Error).self) { _ = try await c.surfacePushContext(sessionID:"synthetic-session",isCurrent:{true}) }
         #expect(SurfacePushHTTPWire.captured.count == 1)
     }
-    @Test func strictWireRejectsDecodedDuplicateKeysAmbiguousNumbersAndDeepObjects() throws {
+    @Test(.isolatedClientResources) func strictWireRejectsDecodedDuplicateKeysAmbiguousNumbersAndDeepObjects() throws {
         for body in [#"{"success":true,"\u0073uccess":false}"#, #"{"x":{"id":1,"id":2}}"#, #"{"x":[{"id":1,"id":2}]}"#,
                      #"{"x":9007199254740992}"#, #"{"x":1.0}"#, #"{"x":1e2}"#, #"{"x":01}"#, #"{"x":"\ud800"}"#,
                      String(repeating:"{\"x\":",count:18)+"null"+String(repeating:"}",count:18)] {
@@ -128,7 +128,7 @@ private func pushHTTPConfig() -> URLSessionConfiguration {
 
 @MainActor private final class SurfaceHTTPAuthority { var current = true }
 extension SurfacePushHTTPTests {
-    @Test func closedRequestRejectsUnconsentedRolesStartAndInvalidNativeTargets() throws {
+    @Test(.isolatedClientResources) func closedRequestRejectsUnconsentedRolesStartAndInvalidNativeTargets() throws {
         let raw = try #require(pushHTTPFixture("register")["request_json"] as? [String:Any])
         let identity = DJConnectIdentity(deviceID:"djconnect-ios-ABCDEF123456",deviceName:"Fixture",clientType:.ios,firmware:"4.0.0",platform:.ios)
         let target = raw["target"] as! [String:String], consent = raw["consent"] as! [String:Bool]
@@ -150,7 +150,7 @@ extension SurfacePushHTTPTests {
         var start = activity;start.removeValue(forKey:"activity_id")
         #expect(request(start,export) == nil)
     }
-    @Test func backgroundReadCannotDispatchAfterWithdrawalOrOriginalExpiry() async throws {
+    @Test(.isolatedClientResources) func backgroundReadCannotDispatchAfterWithdrawalOrOriginalExpiry() async throws {
         let raw = try pushHTTPFixture("register")
         let registration = try JSONDecoder().decode(DJConnectSurfacePushResponse.self,from:JSONSerialization.data(withJSONObject:raw["response_body"]!))
         let read = try #require(registration.background_read)
@@ -165,7 +165,7 @@ extension SurfacePushHTTPTests {
         }
         #expect(SurfacePushHTTPWire.captured.isEmpty)
     }
-    @Test func actualIOSActivityDefaultCodecKeepsOriginalDatesAndOmitsUnadmittedRichContent() throws {
+    @Test(.isolatedClientResources) func actualIOSActivityDefaultCodecKeepsOriginalDatesAndOmitsUnadmittedRichContent() throws {
         let file = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/activity-surface-default-ios-20261023.json")
         let root = try #require(JSONSerialization.jsonObject(with:Data(contentsOf:file)) as? [String:Any])
         #expect(root["native_effects"] as? Bool == false)
@@ -181,7 +181,7 @@ extension SurfacePushHTTPTests {
             #expect(Int64(floor(snapshot.expiresAt.timeIntervalSince1970 * 1000)) == row["expires_at_ms"] as? Int64)
         }
     }
-    @Test func v2HTTPJoinsOriginalContextAndRegistrationWithoutLegacyFallback() async throws {
+    @Test(.isolatedClientResources) func v2HTTPJoinsOriginalContextAndRegistrationWithoutLegacyFallback() async throws {
         let fixture = try pushHTTPFixture("register")
         let raw = try #require(fixture["request_json"] as? [String:Any])
         let sessionID = try #require(raw["session_id"] as? String)

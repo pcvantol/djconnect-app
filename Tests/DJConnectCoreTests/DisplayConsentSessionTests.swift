@@ -128,7 +128,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
             sessionID: "fixture-session", pairedLocalOrigin: origin, isCurrent: { authority.get() })
         return (flow, store, authority)
     }
-    @Test func lookupDoesNotApproveAndExplicitConfirmationSendsOneEffect() async throws {
+    @Test(.isolatedClientResources) func lookupDoesNotApproveAndExplicitConfirmationSendsOneEffect() async throws {
         let (flow, _, _) = try make()
         try await flow.resolve(code: "000000")
         #expect(flow.state == .ready && flow.resolvedClaim != nil)
@@ -141,7 +141,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
         await #expect(throws: (any Error).self) { _ = try await flow.approve(share: .createTwoHours) }
         #expect(ConsentWire.requests.count == 6)
     }
-    @Test func macConsentPreservesIdentityAndRevokesOnlyTheApprovedDisplay() async throws {
+    @Test(.isolatedClientResources) func macConsentPreservesIdentityAndRevokesOnlyTheApprovedDisplay() async throws {
         let (flow, _, _) = try make(clientType: .macos)
         try await flow.resolve(code: "000000")
         let receipt = try await flow.approve(share: .createTwoHours)
@@ -161,7 +161,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
         await #expect(throws: (any Error).self) { try await flow.revokeDisplay() }
         #expect(ConsentWire.requests.count == count)
     }
-    @Test func unknownRevocationNeverReplaysOrKeepsApproval() async throws {
+    @Test(.isolatedClientResources) func unknownRevocationNeverReplaysOrKeepsApproval() async throws {
         let (flow, _, _) = try make("unknown-revoke")
         try await flow.resolve(code: "000000")
         _ = try await flow.approve(share: .createTwoHours)
@@ -173,7 +173,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
         flow.withdraw()
         #expect(flow.state == .revokeUncertain)
     }
-    @Test func changedIssuerCannotStopAnOldDisplay() async throws {
+    @Test(.isolatedClientResources) func changedIssuerCannotStopAnOldDisplay() async throws {
         let (flow, _, _) = try make("changed-revoke-epoch")
         try await flow.resolve(code: "000000")
         _ = try await flow.approve(share: .createTwoHours)
@@ -181,11 +181,11 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
         #expect(flow.state == .unavailable && flow.receipt == nil)
         #expect(!ConsentWire.requests.contains { $0.url!.path.hasSuffix("/owner/revoke") })
     }
-    @Test func unsupportedClientCannotEnterDisplayConsent() throws {
+    @Test(.isolatedClientResources) func unsupportedClientCannotEnterDisplayConsent() throws {
         #expect(throws: (any Error).self) { _ = try make(clientType: .watchos) }
         #expect(ConsentWire.requests.isEmpty)
     }
-    @Test func withdrawnOwnerCannotRevoke() async throws {
+    @Test(.isolatedClientResources) func withdrawnOwnerCannotRevoke() async throws {
         let (flow, _, owner) = try make()
         try await flow.resolve(code: "000000")
         _ = try await flow.approve(share: .createTwoHours)
@@ -194,7 +194,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
         await #expect(throws: (any Error).self) { try await flow.revokeDisplay() }
         #expect(ConsentWire.requests.count == count)
     }
-    @Test func unknownOrMismatchedApprovalNeverReplays() async throws {
+    @Test(.isolatedClientResources) func unknownOrMismatchedApprovalNeverReplays() async throws {
         for mode in ["unknown", "bad-receipt"] {
             let (flow, _, _) = try make(mode); try await flow.resolve(code: "000000")
             await #expect(throws: (any Error).self) { _ = try await flow.approve(share: .createTwoHours) }
@@ -205,7 +205,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
             #expect(ConsentWire.requests.filter { $0.url!.path.hasSuffix("/approve") }.count == 1)
         }
     }
-    @Test func freshContextChangeCannotApproveOldClaim() async throws {
+    @Test(.isolatedClientResources) func freshContextChangeCannotApproveOldClaim() async throws {
         for mode in ["changed-session", "changed-epoch", "new-share"] {
             let (flow, _, _) = try make(mode); try await flow.resolve(code: "000000")
             await #expect(throws: (any Error).self) { _ = try await flow.approve(share: .createTwoHours) }
@@ -213,7 +213,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
             #expect(!ConsentWire.requests.contains { $0.url!.path.hasSuffix("/approve") })
         }
     }
-    @Test func existingShareRequiresExactOfferedBinding() async throws {
+    @Test(.isolatedClientResources) func existingShareRequiresExactOfferedBinding() async throws {
         let (flow, _, _) = try make("existing"); try await flow.resolve(code: "000000")
         #expect(flow.existingShare?.identifier == consentShare)
         let receipt = try await flow.approve(share: .existing(id: consentShare, generation: 1))
@@ -224,7 +224,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
             #expect(!ConsentWire.requests.contains { $0.url!.path.hasSuffix("/approve") })
         }
     }
-    @Test func ownerTokenAndDismissalWithdrawBeforeAnyMoreIO() async throws {
+    @Test(.isolatedClientResources) func ownerTokenAndDismissalWithdrawBeforeAnyMoreIO() async throws {
         for kind in ["owner", "token", "dismiss"] {
             let (flow, store, authority) = try make(); try await flow.resolve(code: "000000")
             if kind == "owner" { authority.withdraw() }
@@ -235,14 +235,14 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
             #expect(ConsentWire.requests.count == count)
         }
     }
-    @Test func ownerWithdrawalAfterPossibleApprovalWithholdsReceipt() async throws {
+    @Test(.isolatedClientResources) func ownerWithdrawalAfterPossibleApprovalWithholdsReceipt() async throws {
         let (flow, _, authority) = try make(); try await flow.resolve(code: "000000")
         ConsentWire.onApproval { authority.withdraw() }
         await #expect(throws: (any Error).self) { _ = try await flow.approve(share: .createTwoHours) }
         #expect(flow.state == .uncertain && flow.receipt == nil && flow.resolvedClaim == nil)
         #expect(ConsentWire.requests.filter { $0.url!.path.hasSuffix("/approve") }.count == 1)
     }
-    @Test func expiredClaimWithdrawsWithoutOwnerReadOrApproval() async throws {
+    @Test(.isolatedClientResources) func expiredClaimWithdrawsWithoutOwnerReadOrApproval() async throws {
         let (flow, _, _) = try make("short-claim"); try await flow.resolve(code: "000000")
         let count = ConsentWire.requests.count
         try await Task.sleep(for: .milliseconds(1200))
@@ -250,7 +250,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
         #expect(flow.state == .unavailable && flow.resolvedClaim == nil)
         #expect(ConsentWire.requests.count == count)
     }
-    @Test func reportedRemainingLifetimeBoundsReceipt() async throws {
+    @Test(.isolatedClientResources) func reportedRemainingLifetimeBoundsReceipt() async throws {
         let (flow, _, _) = try make("short-receipt"); try await flow.resolve(code: "000000")
         let receipt = try await flow.approve(share: .createTwoHours)
         let dispatched = try #require(ConsentWire.approvalStartedAt)
@@ -265,7 +265,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
         #expect(!receipt.isCurrent())
         #expect(flow.receipt == nil)
     }
-    @Test func earlierAbsoluteReceiptExpiryAlsoBoundsMonotonicTime() async throws {
+    @Test(.isolatedClientResources) func earlierAbsoluteReceiptExpiryAlsoBoundsMonotonicTime() async throws {
         let (flow, _, _) = try make("short-absolute-receipt")
         try await flow.resolve(code: "000000")
         let receipt = try await flow.approve(share: .createTwoHours)
@@ -275,7 +275,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
         // shorter absolute expiry has passed in monotonic time.
         #expect(!receipt.isCurrent(now: originalWall, uptime: originalTick + 2))
     }
-    @Test func completedReceiptCannotOutliveOwnerOrToken() async throws {
+    @Test(.isolatedClientResources) func completedReceiptCannotOutliveOwnerOrToken() async throws {
         for kind in ["owner", "token", "dismiss"] {
             let (flow, store, authority) = try make(); try await flow.resolve(code: "000000")
             let retained = try await flow.approve(share: .createTwoHours)
@@ -291,7 +291,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
             #expect(flow.receipt == nil && flow.state == .unavailable)
         }
     }
-    @Test func concurrentConfirmationsCannotSendTwoApprovals() async throws {
+    @Test(.isolatedClientResources) func concurrentConfirmationsCannotSendTwoApprovals() async throws {
         let (flow, _, _) = try make(); try await flow.resolve(code: "000000")
         let first = Task { try await flow.approve(share: .createTwoHours) }
         for _ in 0..<100 where flow.state == .ready { await Task.yield() }
@@ -300,7 +300,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
         _ = try await first.value
         #expect(ConsentWire.requests.filter { $0.url!.path.hasSuffix("/approve") }.count == 1)
     }
-    @Test func badCodeOrWrongInstallationAndSessionCannotResolve() async throws {
+    @Test(.isolatedClientResources) func badCodeOrWrongInstallationAndSessionCannotResolve() async throws {
         let (flow, _, _) = try make()
         await #expect(throws: (any Error).self) { try await flow.resolve(code: "１２３４５６") }
         #expect(ConsentWire.requests.isEmpty)
@@ -313,7 +313,7 @@ private final class ConsentWire: URLProtocol, @unchecked Sendable {
     }
 }
 
-@Test func displayWireDatesAcceptFractionalAndWholeSecondISO() {
+@Test(.isolatedClientResources) func displayWireDatesAcceptFractionalAndWholeSecondISO() {
     #expect(displayWireDate("2026-10-20T16:00:00+00:00") != nil)
     #expect(displayWireDate("2026-10-20T16:00:00.123456+00:00") != nil)
     #expect(displayWireDate("not-a-date") == nil)
@@ -325,7 +325,7 @@ private final class NativeConsentFixtureBundle: NSObject {}
 /// Actual iOS AppModel over a URLProtocol wire. Synthetic isolated owner/HTTP
 /// responses, not installed HA, native taps, App Attest or physical acceptance.
 extension DisplayConsentSessionTests {
-    @Test func actualIOSSingleVibeCastSheetContainsOneCodeEntry() async throws {
+    @Test(.isolatedClientResources) func actualIOSSingleVibeCastSheetContainsOneCodeEntry() async throws {
         let (model, defaults, suite, _) = try await makeNativeModel()
         defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
         func fields(in view: UIView) -> [UITextField] {
@@ -409,7 +409,7 @@ extension DisplayConsentSessionTests {
 
     /// Bounded visual observation of the actual withdrawn archive's empty copy.
     /// It does not replace the separate, incomplete full archive qualification.
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_ARCHIVE_EMPTY_COPY_DIR"] != nil))
+    @Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_ARCHIVE_EMPTY_COPY_DIR"] != nil))
     func actualIOSNativeWithdrawnArchiveCopy() async throws {
         let (model, defaults, suite, _) = try await makeNativeModel(summaryArchive: true)
         defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
@@ -438,7 +438,7 @@ extension DisplayConsentSessionTests {
     }
 
     /// Actual archive list over the qualified owner and unchanged summary fixture.
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_ARCHIVE_DIR"] != nil))
+    @Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_ARCHIVE_DIR"] != nil))
     func actualIOSNativeArchiveSummaryWithdrawal() async throws {
         let (model, defaults, suite, _) = try await makeNativeModel(summaryArchive: true)
         defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
@@ -495,7 +495,7 @@ extension DisplayConsentSessionTests {
     }
 
     /// Public UIKeyInput insertion, without directly invoking the delegate.
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_KEYINPUT_DIR"] != nil))
+    @Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_NATIVE_KEYINPUT_DIR"] != nil))
     func actualIOSNativeCodeUIKeyInput() async throws {
         let (model, defaults, suite, _) = try await makeNativeModel()
         defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
@@ -563,7 +563,7 @@ extension DisplayConsentSessionTests {
     }
 
     /// Real native hierarchy removal must run the production disappearance fence.
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_LIFECYCLE_DIR"] != nil))
+    @Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_LIFECYCLE_DIR"] != nil))
     func actualIOSNativeConsentFormLifecycle() async throws {
         let (model, defaults, suite, _) = try await makeNativeModel()
         defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
@@ -629,7 +629,7 @@ extension DisplayConsentSessionTests {
     }
 
     /// Hierarchy disappearance while a synthetic approval acknowledgement is delayed.
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_INFLIGHT_DIR"] != nil))
+    @Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_INFLIGHT_DIR"] != nil))
     func actualIOSNativeConsentInflightLifecycle() async throws {
         let (model, defaults, suite, _) = try await makeNativeModel("delayed-approval")
         defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
@@ -699,7 +699,7 @@ extension DisplayConsentSessionTests {
     }
 
     /// The production form refresh task must remove expired claim/receipt UI.
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_EXPIRY_DIR"] != nil))
+    @Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_EXPIRY_DIR"] != nil))
     func actualIOSNativeConsentExpiryPresentation() async throws {
         let folder = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_EXPIRY_DIR"]))
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -765,7 +765,7 @@ extension DisplayConsentSessionTests {
     }
 
     /// Native input controls must follow the production form's disabled states.
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_INPUT_STATES_DIR"] != nil))
+    @Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_INPUT_STATES_DIR"] != nil))
     func actualIOSNativeInputConsentStates() async throws {
         let folder = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_INPUT_STATES_DIR"]))
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -827,7 +827,7 @@ extension DisplayConsentSessionTests {
 
     /// Exercise actual UIKit fields and coordinator callbacks; no physical
     /// typing, backend lookup, approval, or accessibility bridge is required.
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_DIGITS_DIR"] != nil))
+    @Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_DIGITS_DIR"] != nil))
     func actualIOSNativeCodeEntryEditingAndFocus() async throws {
         let (model, defaults, suite, _) = try await makeNativeModel()
         defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
@@ -904,7 +904,7 @@ extension DisplayConsentSessionTests {
     /// Opt-in in-process UIKit observation, independent of the UI-testing runner.
     /// Public automation/container metadata may be unavailable in a unit host;
     /// preserve that limitation rather than manufacturing an enabled-state PASS.
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_UIKIT_DIR"] != nil))
+    @Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CONSENT_UIKIT_DIR"] != nil))
     func actualIOSNativeFormWithdrawalObservation() async throws {
         let (model, defaults, suite, _) = try await makeNativeModel()
         defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
@@ -983,7 +983,7 @@ extension DisplayConsentSessionTests {
             .write(to: folder.appendingPathComponent("uikit-consent-result.json"))
     }
 
-    @Test func actualIOSModelLookupThenExplicitConfirmation() async throws {
+    @Test(.isolatedClientResources) func actualIOSModelLookupThenExplicitConfirmation() async throws {
         let (model, defaults, suite, _) = try await makeNativeModel()
         defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
         await model.resolveDisplayConsent(code: "000000")
@@ -995,7 +995,7 @@ extension DisplayConsentSessionTests {
         #expect(ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count == 1)
     }
 
-    @Test func actualIOSModelWithdrawalPreventsLateApproval() async throws {
+    @Test(.isolatedClientResources) func actualIOSModelWithdrawalPreventsLateApproval() async throws {
         for reason in ["dismiss", "background", "profile", "token", "route", "installation", "pairing", "session"] {
             let (model, defaults, suite, store) = try await makeNativeModel()
             defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
@@ -1020,7 +1020,7 @@ extension DisplayConsentSessionTests {
         }
     }
 
-    @Test func actualIOSModelUnknownApprovalDoesNotReplay() async throws {
+    @Test(.isolatedClientResources) func actualIOSModelUnknownApprovalDoesNotReplay() async throws {
         let (model, defaults, suite, _) = try await makeNativeModel("unknown")
         defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
         await model.resolveDisplayConsent(code: "000000")
@@ -1031,7 +1031,7 @@ extension DisplayConsentSessionTests {
         #expect(ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count == 1)
     }
 
-    @Test func actualIOSModelExistingSharePreservesOriginalChoice() async throws {
+    @Test(.isolatedClientResources) func actualIOSModelExistingSharePreservesOriginalChoice() async throws {
         let (model, defaults, suite, _) = try await makeNativeModel("existing")
         defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
         await model.resolveDisplayConsent(code: "000000")
@@ -1043,7 +1043,7 @@ extension DisplayConsentSessionTests {
         #expect(ConsentWire.requests.filter { $0.url?.path.hasSuffix("/owner/approve") == true }.count == 1)
     }
 
-    @Test func actualIOSModelApprovedPresentationWithdrawsWithOwner() async throws {
+    @Test(.isolatedClientResources) func actualIOSModelApprovedPresentationWithdrawsWithOwner() async throws {
         let (model, defaults, suite, _) = try await makeNativeModel()
         defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
         await model.resolveDisplayConsent(code: "000000")

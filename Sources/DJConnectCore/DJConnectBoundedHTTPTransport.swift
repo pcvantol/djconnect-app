@@ -9,6 +9,7 @@ enum DJConnectBoundedHTTPTransport {
         beforeDispatch:@escaping @MainActor @Sendable () throws -> Void,
         isBodyCurrent:@escaping @Sendable ()->Bool = {true},
         taskCreated:(@MainActor @Sendable (URLSessionDataTask)->Void)? = nil,
+        taskResumed:(@MainActor @Sendable (URLSessionDataTask)->Void)? = nil,
         validateResponse:@escaping @Sendable (HTTPURLResponse)throws->String) async throws -> Response {
         try Task.checkCancellation()
         guard let url = request.url,maximumBytes > 0 else { throw DJConnectError.invalidResponse }
@@ -25,6 +26,7 @@ enum DJConnectBoundedHTTPTransport {
             try Task.checkCancellation()
             guard isBodyCurrent() else { throw DJConnectError.invalidResponse }
             task.resume() // Synchronous, without yielding the authority actor.
+            taskResumed?(task) // Internal call-order witness; no SDK-state timing assumption.
             let response = try await reply.value()
             try Task.checkCancellation()
             guard isBodyCurrent() else { throw DJConnectError.invalidResponse }

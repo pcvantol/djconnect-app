@@ -15,7 +15,7 @@ private func settingsFixture(_ name: String, operationID: String? = nil) throws 
 private let noSessionSettingsCase = "paired_no_session_all_five"
 private let activeSettingsCase = "active_atomic_all_five_and_replay"
 
-@Test @MainActor func voiceMenuIgnoresClockRefreshButUpdatesForTextOnlyAndWithdrawal() async throws {
+@Test(.isolatedClientResources) @MainActor func voiceMenuIgnoresClockRefreshButUpdatesForTextOnlyAndWithdrawal() async throws {
     let model = ProfileDJSettingsModel(); model.bind(owner: "ProfileA", active: true)
     var current = try settingsFixture(noSessionSettingsCase)
     let services = ProfileDJSettingsModel.Services(read: { current }, update: { _, _, _ in throw CancellationError() },
@@ -48,7 +48,7 @@ private let activeSettingsCase = "active_atomic_all_five_and_replay"
     #expect(publications == 3 && presentation.value.response == nil && !presentation.value.canEdit)
 }
 
-@Test(arguments: [false, true]) @MainActor
+@Test(.isolatedClientResources, arguments: [false, true]) @MainActor
 func voiceChoiceDuringFreshnessReadFencesLateSnapshotOrRejection(rejectLateRead: Bool) async throws {
     let model = ProfileDJSettingsModel(); model.bind(owner: "ProfileA", active: true)
     let old = try settingsFixture(noSessionSettingsCase)
@@ -77,7 +77,7 @@ func voiceChoiceDuringFreshnessReadFencesLateSnapshotOrRejection(rejectLateRead:
     #expect(model.canEdit && model.active && model.phase == .saved && model.effective?.mood == "party")
 }
 
-@Test @MainActor func voiceChoiceWaitsForCurrentMutationReadbackBeforeAnotherWrite() async throws {
+@Test(.isolatedClientResources) @MainActor func voiceChoiceWaitsForCurrentMutationReadbackBeforeAnotherWrite() async throws {
     let model = ProfileDJSettingsModel(); model.bind(owner: "ProfileA", active: true)
     var current = try settingsFixture(noSessionSettingsCase)
     var reads = 0, writes = 0
@@ -100,7 +100,7 @@ func voiceChoiceDuringFreshnessReadFencesLateSnapshotOrRejection(rejectLateRead:
     #expect(model.canEdit && model.effective?.mood == "party" && writes == 1)
 }
 
-@Test @MainActor func voiceMenuIdentityIgnoresUnrelatedPlaybackTicks() throws {
+@Test(.isolatedClientResources) @MainActor func voiceMenuIdentityIgnoresUnrelatedPlaybackTicks() throws {
     let suite = "voice-menu-identity-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: suite))
     defer { defaults.removePersistentDomain(forName: suite) }
@@ -125,7 +125,7 @@ private func settingsOperation(_ phase: String, id: String) throws -> DJConnectP
     return try JSONDecoder().decode(DJConnectProfileDJSettingsOperation.self, from: JSONSerialization.data(withJSONObject: value))
 }
 
-@Test @MainActor func choiceBurstCoalescesLastValuePerFieldBeforeOneSend() async throws {
+@Test(.isolatedClientResources) @MainActor func choiceBurstCoalescesLastValuePerFieldBeforeOneSend() async throws {
     let scheduler = ProfileDJChoiceScheduler()
     var sent: [DJConnectProfileDJSettings.Patch] = []
     var pending: [Bool] = []
@@ -142,7 +142,7 @@ private func settingsOperation(_ phase: String, id: String) throws -> DJConnectP
     #expect(!scheduler.hasPending && pending == [true, false])
 }
 
-@Test @MainActor func queuedChoiceDropsOnScopeChangeAndDoesNotMergePreviousOwner() async throws {
+@Test(.isolatedClientResources) @MainActor func queuedChoiceDropsOnScopeChangeAndDoesNotMergePreviousOwner() async throws {
     let scheduler = ProfileDJChoiceScheduler()
     var current = true
     var sent: [DJConnectProfileDJSettings.Patch] = []
@@ -157,7 +157,7 @@ private func settingsOperation(_ phase: String, id: String) throws -> DJConnectP
     #expect(sent == [.init(mood: "party")])
 }
 
-@Test(arguments: [false, true]) @MainActor
+@Test(.isolatedClientResources, arguments: [false, true]) @MainActor
 func confirmedSettingsReadClearsStickyConflictButReturnsRealRejection(readFails: Bool) async throws {
     let model = ProfileDJSettingsModel(); model.bind(owner: "A", active: true)
     let current = try settingsFixture(noSessionSettingsCase)
@@ -181,7 +181,7 @@ func confirmedSettingsReadClearsStickyConflictButReturnsRealRejection(readFails:
     }
 }
 
-@Test @MainActor func rejectedReceiptIsReportedOnceWithoutReplayingOrStickyConflict() async throws {
+@Test(.isolatedClientResources) @MainActor func rejectedReceiptIsReportedOnceWithoutReplayingOrStickyConflict() async throws {
     let model = ProfileDJSettingsModel(); model.bind(owner: "A", active: true)
     let current = try settingsFixture(noSessionSettingsCase)
     var writes = 0, receipts = 0
@@ -197,7 +197,7 @@ func confirmedSettingsReadClearsStickyConflictButReturnsRealRejection(readFails:
 }
 
 @Suite("Profile settings3") struct ProfileDJSettingsContractTests {
-    @Test func exactProducerSnapshotsAndUnavailableChoices() throws {
+    @Test(.isolatedClientResources) func exactProducerSnapshotsAndUnavailableChoices() throws {
         let initial = try settingsFixture("ordinary_legacy_HTTP_start_unknown_mood_askdj1_prepare1_settings_read")
         #expect(initial.isValid && initial.requiresSelection)
         #expect(initial.snapshot.session?.settings == nil)
@@ -214,7 +214,7 @@ func confirmedSettingsReadClearsStickyConflictButReturnsRealRejection(readFails:
         #expect(textOnly.snapshot.effective.voice.voice_id == "GuyNeural")
     }
 
-    @Test func patchContainsOnlyExplicitFieldsAndFullReviewIsSix() throws {
+    @Test(.isolatedClientResources) func patchContainsOnlyExplicitFieldsAndFullReviewIsSix() throws {
         let patch = DJConnectProfileDJSettings.Patch(mood: "party")
         let data = try JSONEncoder().encode(patch)
         let dict = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
@@ -224,7 +224,7 @@ func confirmedSettingsReadClearsStickyConflictButReturnsRealRejection(readFails:
         #expect(!DJConnectProfileDJSettings.Patch(mood: "invented").isValid)
     }
 
-    @Test @MainActor func noSessionEditUsesOneAtomicWriteAndCurrentRead() async throws {
+    @Test(.isolatedClientResources) @MainActor func noSessionEditUsesOneAtomicWriteAndCurrentRead() async throws {
         let model = ProfileDJSettingsModel(); model.bind(owner: "ProfileA-device", active: true)
         var current = try settingsFixture(noSessionSettingsCase)
         var writes = 0
@@ -242,7 +242,7 @@ func confirmedSettingsReadClearsStickyConflictButReturnsRealRejection(readFails:
         #expect(model.effective?.mood == "party")
     }
 
-    @Test @MainActor func lostReplyReadsReceiptWithoutReplayingPatch() async throws {
+    @Test(.isolatedClientResources) @MainActor func lostReplyReadsReceiptWithoutReplayingPatch() async throws {
         let model = ProfileDJSettingsModel(); model.bind(owner: "ProfileA", active: true)
         var current = try settingsFixture(noSessionSettingsCase)
         var writes = 0, receipts = 0
@@ -256,7 +256,7 @@ func confirmedSettingsReadClearsStickyConflictButReturnsRealRejection(readFails:
         #expect(model.effective?.presence == .musicOnly)
     }
 
-    @Test @MainActor func expiredUnknownOutcomeStaysUnknownAndNeverResends() async throws {
+    @Test(.isolatedClientResources) @MainActor func expiredUnknownOutcomeStaysUnknownAndNeverResends() async throws {
         let model = ProfileDJSettingsModel(); model.bind(owner: "ProfileA", active: true)
         let current = try settingsFixture(noSessionSettingsCase)
         var writes = 0
@@ -271,7 +271,7 @@ func confirmedSettingsReadClearsStickyConflictButReturnsRealRejection(readFails:
         #expect(model.phase == .ready && model.canEdit && writes == 1)
     }
 
-    @Test @MainActor func ownerABALateReadCannotRestoreOldProfile() async throws {
+    @Test(.isolatedClientResources) @MainActor func ownerABALateReadCannotRestoreOldProfile() async throws {
         let model = ProfileDJSettingsModel(); model.bind(owner: "ProfileA", active: true)
         let current = try settingsFixture(noSessionSettingsCase)
         var continuation: CheckedContinuation<DJConnectProfileDJSettingsResponse, Error>?
@@ -287,7 +287,7 @@ func confirmedSettingsReadClearsStickyConflictButReturnsRealRejection(readFails:
         #expect(model.response == nil && !model.negotiated)
     }
 
-    @Test @MainActor func migrationPartialPatchDoesNotWriteOrActivate() async throws {
+    @Test(.isolatedClientResources) @MainActor func migrationPartialPatchDoesNotWriteOrActivate() async throws {
         let model = ProfileDJSettingsModel(); model.bind(owner: "ProfileA", active: true)
         let current = try settingsFixture("ordinary_legacy_HTTP_start_unknown_mood_askdj1_prepare1_settings_read")
         var writes = 0
@@ -297,7 +297,7 @@ func confirmedSettingsReadClearsStickyConflictButReturnsRealRejection(readFails:
         await model.change(.init(mood: "party"), using: services)
         #expect(writes == 0 && model.response?.requiresSelection == true)
     }
-    @Test @MainActor func backgroundDuringSaveReconcilesOriginalOperationWithoutReplay() async throws {
+    @Test(.isolatedClientResources) @MainActor func backgroundDuringSaveReconcilesOriginalOperationWithoutReplay() async throws {
         let model = ProfileDJSettingsModel(); model.bind(owner: "ProfileA", active: true)
         var current = try settingsFixture(noSessionSettingsCase)
         var completion: CheckedContinuation<DJConnectProfileDJSettingsResponse, Error>?
@@ -325,7 +325,7 @@ func confirmedSettingsReadClearsStickyConflictButReturnsRealRejection(readFails:
         #expect(model.effective?.mood == "party")
     }
 
-    @Test @MainActor func malformedReadLeavesLoadingAndCannotBecomeEditable() async throws {
+    @Test(.isolatedClientResources) @MainActor func malformedReadLeavesLoadingAndCannotBecomeEditable() async throws {
         let model = ProfileDJSettingsModel(); model.bind(owner: "ProfileA", active: true)
         var object = try #require(JSONSerialization.jsonObject(with: settingsRawFixture(noSessionSettingsCase)) as? [String: Any])
         object["cache_policy"] = "public"
@@ -374,7 +374,7 @@ private final class SettingsURLProtocol: URLProtocol, @unchecked Sendable {
     override func stopLoading() {}
 }
 
-@Test @MainActor func settingsColdStartDoesNotRequireConversationHistoryCapabilityOrRead() async throws {
+@Test(.isolatedClientResources) @MainActor func settingsColdStartDoesNotRequireConversationHistoryCapabilityOrRead() async throws {
     let raw = try settingsRawFixture(noSessionSettingsCase)
     let wire = SettingsWire { request in
         switch request.url?.path {
@@ -404,7 +404,7 @@ private final class SettingsURLProtocol: URLProtocol, @unchecked Sendable {
     #expect(model.profileDJSettings.response == before)
 }
 
-@Test func settingsOwnerFenceIgnoresHistoryAvailabilityButFencesRealProfileAndPairingABA() throws {
+@Test(.isolatedClientResources) func settingsOwnerFenceIgnoresHistoryAvailabilityButFencesRealProfileAndPairingABA() throws {
     var fence = DJConnectProfileSettingsOwnerFence()
     let absent = fence.owner(context: nil, confirmedProfile: nil)
     #expect(absent == nil)
@@ -421,7 +421,7 @@ private final class SettingsURLProtocol: URLProtocol, @unchecked Sendable {
     #expect(cleared == nil && rebound != third)
 }
 
-@Test @MainActor func settingsRevocationRetainsUncertaintyButAChangedServerBindingCannotReplayIt() async throws {
+@Test(.isolatedClientResources) @MainActor func settingsRevocationRetainsUncertaintyButAChangedServerBindingCannotReplayIt() async throws {
     let initial = try settingsFixture(noSessionSettingsCase)
     var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(initial)) as? [String: Any])
     json["binding"] = String(repeating: initial.binding.first == "a" ? "b" : "a", count: 64)
@@ -466,7 +466,7 @@ private func settingsRawFixture(_ name: String, operationID: String? = nil) thro
 }
 
 extension ProfileDJSettingsContractTests {
-    @Test func HTTPReadHasExactOwnerQueryAndNoCache() async throws {
+    @Test(.isolatedClientResources) func HTTPReadHasExactOwnerQueryAndNoCache() async throws {
         let fixture = try settingsRawFixture(noSessionSettingsCase)
         let wire = SettingsWire { request in
             #expect(request.httpMethod == "GET")
@@ -484,7 +484,7 @@ extension ProfileDJSettingsContractTests {
         #expect(result.isValid && result.snapshot.session == nil)
     }
 
-    @Test func HTTPPatchSendsExplicitNullSessionAndOnlyOneField() async throws {
+    @Test(.isolatedClientResources) func HTTPPatchSendsExplicitNullSessionAndOnlyOneField() async throws {
         let current = try settingsFixture(noSessionSettingsCase)
         let id = DJConnectOperationIdentity.uuidV7(milliseconds: 1_792_178_000_000)
         let reply = try settingsRawFixture(activeSettingsCase, operationID: id)
@@ -502,7 +502,7 @@ extension ProfileDJSettingsContractTests {
         _ = try await wire.client().updateProfileDJSettings(current, patch: .init(mood: "party"), operationID: id)
     }
 
-    @Test func HTTPConflictIsTypedAndDoesNotResend() async throws {
+    @Test(.isolatedClientResources) func HTTPConflictIsTypedAndDoesNotResend() async throws {
         let wire = SettingsWire { _ in (409, Data(#"{"success":false,"error":"settings_revision_conflict"}"#.utf8)) }
         defer { wire.close() }
         do {
@@ -511,7 +511,7 @@ extension ProfileDJSettingsContractTests {
         } catch let error as DJConnectProfileDJSettingsFailure { #expect(error.error == "settings_revision_conflict") }
     }
 
-    @Test func textOnlyDisallowsAllSpeechWithoutARequest() async throws {
+    @Test(.isolatedClientResources) func textOnlyDisallowsAllSpeechWithoutARequest() async throws {
         let textOnly = try settingsFixture("text_only_zero_synthesis_old_audio_denied_and_owner_controls_removed")
         for target in [DJConnectSharedSpeechTarget.local, .haSpeaker, .both] { #expect(!textOnly.allowsSpeech(target)) }
         let wire = SettingsWire { _ in Issue.record("Text only must make zero speech requests"); return (500, Data()) }
@@ -544,7 +544,7 @@ private func sharedSpeechFixture(settings: DJConnectProfileDJSettingsResponse, o
 }
 
 extension ProfileDJSettingsContractTests {
-    @Test(arguments: [false, true]) func sharedPrepareUsesExactContract3PayloadWithoutVoiceOverrides(automatic: Bool) async throws {
+    @Test(.isolatedClientResources, arguments: [false, true]) func sharedPrepareUsesExactContract3PayloadWithoutVoiceOverrides(automatic: Bool) async throws {
         let settings = try settingsFixture(noSessionSettingsCase)
         let (data, speech) = try sharedSpeechFixture(settings: settings)
         #expect(speech.effectiveVoice?.hasQualifiedSelection == true)
@@ -566,7 +566,7 @@ extension ProfileDJSettingsContractTests {
         }
     }
 
-    @Test(arguments: ["fence", "text", "provider", "version"])
+    @Test(.isolatedClientResources, arguments: ["fence", "text", "provider", "version"])
     func sharedPrepareRejectsWrongSettingsTextOrProvider(_ fault: String) async throws {
         let settings = try settingsFixture(noSessionSettingsCase)
         var override: [String: Any] = [:]
@@ -589,7 +589,7 @@ extension ProfileDJSettingsContractTests {
         }
     }
 
-    @Test @MainActor func retainedSpeechDeadlineStartsBoundedPlayerInsteadOfSilentlyRefusing() throws {
+    @Test(.isolatedClientResources) @MainActor func retainedSpeechDeadlineStartsBoundedPlayerInsteadOfSilentlyRefusing() throws {
         let settings = try settingsFixture(noSessionSettingsCase)
         let now = Date()
         let (_, speech) = try sharedSpeechFixture(settings: settings, override: ["expires_at": ISO8601DateFormatter().string(from: now.addingTimeInterval(30 * 86400))])
@@ -611,7 +611,7 @@ extension ProfileDJSettingsContractTests {
 
 
 extension ProfileDJSettingsContractTests {
-    @Test(arguments: ["provider_default", "configured"])
+    @Test(.isolatedClientResources, arguments: ["provider_default", "configured"])
     func providerWithoutInventoryRequiresExplicitDefaultEvidence(selection: String) async throws {
         var object = try #require(JSONSerialization.jsonObject(with: settingsRawFixture(noSessionSettingsCase)) as? [String: Any])
         var snapshot = try #require(object["snapshot"] as? [String: Any])
@@ -659,7 +659,7 @@ extension ProfileDJSettingsContractTests {
     }
 }
 
-@Test @MainActor func sharedConversationNegotiatesSpeech3AndAutoplayOnlyWhenEnabled() async throws {
+@Test(.isolatedClientResources) @MainActor func sharedConversationNegotiatesSpeech3AndAutoplayOnlyWhenEnabled() async throws {
     let suite = "autoplay-request-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: suite))
     defer { defaults.removePersistentDomain(forName: suite) }
@@ -679,13 +679,13 @@ extension ProfileDJSettingsContractTests {
     }
 }
 
-@Test func presenceOffersMusicAndThreeLevelsWithoutRewritingHistoricalValues() throws {
+@Test(.isolatedClientResources) func presenceOffersMusicAndThreeLevelsWithoutRewritingHistoricalValues() throws {
     #expect(DJConnectSessionPresenceValue.selectableChoices.map(\.rawValue) == ["music_only", "occasional", "balanced", "presenter"])
     #expect(DJConnectSessionPresenceValue.selectableChoices.map(\.choiceGlyph) == ["music.note", "bubble.left", "bubble.left.and.bubble.right", "mic.fill"])
     #expect(try JSONDecoder().decode(DJConnectSessionPresenceValue.self, from: Data("\"talkative\"".utf8)) == .talkative)
 }
 
-@Test func nativeSettingsPrepareUsesOnlyReferenceAndWatchIdentityAndCannotDispatchSpeakers() async throws {
+@Test(.isolatedClientResources) func nativeSettingsPrepareUsesOnlyReferenceAndWatchIdentityAndCannotDispatchSpeakers() async throws {
     let (result, intent, _) = try nativeWatchSpeechFixture()
     let reply = try JSONEncoder().encode(result)
     let wire = SettingsWire { request in

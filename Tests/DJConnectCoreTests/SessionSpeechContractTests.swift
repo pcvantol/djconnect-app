@@ -83,7 +83,7 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
 }
 
 @Suite(.serialized) struct SessionSpeechContractTests {
-    @Test func speechContractPinnedDescriptorsRetainExactTextAndIdentity() throws {
+    @Test(.isolatedClientResources) func speechContractPinnedDescriptorsRetainExactTextAndIdentity() throws {
         let cases = try speechCases()
         var count = 0
         func visit(_ value: Any) throws {
@@ -109,7 +109,7 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
         #expect(!accepted.admits(reference: accepted.reference, text: "Replacement local story"))
     }
 
-    @Test func speechContractMixedReferencesAndOversizedTextAreRejected() throws {
+    @Test(.isolatedClientResources) func speechContractMixedReferencesAndOversizedTextAreRejected() throws {
         for value: [String: String] in [["turn_id":"a","moment_id":"b"], ["session_id":"a"], ["turn_id":""], ["turn_id":" padded "], ["turn_id":String(repeating:"x",count:129)]] {
             #expect(throws: (any Error).self) { try speechDecode(value, as: DJConnectSpeechReference.self) }
         }
@@ -123,14 +123,14 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
         #expect(!withdrawn.admits(reference: withdrawn.reference, text: "anything"))
     }
 
-    @Test func speechContractServerDefaultDoesNotInventGenderSupport() throws {
+    @Test(.isolatedClientResources) func speechContractServerDefaultDoesNotInventGenderSupport() throws {
         let envelope = try #require(speechCases()["provider_voice_options"] as? [String: Any])
         let options = try speechDecode(try #require(envelope["speech_voice_options"]), as: DJConnectSpeechVoiceOptions.self)
         #expect(options.isValid && options.supports(.default))
         #expect(options.selectableGenders.isEmpty && !options.supports(.male) && !options.supports(.female))
     }
 
-    @Test func speechContractExpiredAndByteDifferentTextNeverAdmit() throws {
+    @Test(.isolatedClientResources) func speechContractExpiredAndByteDifferentTextNeverAdmit() throws {
         let descriptor = try freshSpeech("accepted_reply")
         let text = descriptor.segments.map(\.text).joined()
         let deadline = try #require(descriptor.expiresAt.flatMap(DJConnectHistoryEntry.date))
@@ -143,14 +143,14 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
         #expect(!unicode.admits(reference: unicode.reference, text: "e\u{301}"))
     }
 
-    @Test func speechContractMinimalUnavailableStateRemainsNonExecutable() throws {
+    @Test(.isolatedClientResources) func speechContractMinimalUnavailableStateRemainsNonExecutable() throws {
         let unavailable = try speechDecode(["schema_version":1,"reference":["turn_id":"turn-1"],"state":"unavailable",
             "reason":"voice_gender_unavailable","manual_allowed":false,"autoplay_eligible":false,
             "segments":[],"processors":[],"cache_policy":"private,no-store"] as [String:Any], as: DJConnectSessionSpeech.self)
         #expect(unavailable.reason == "voice_gender_unavailable")
         #expect(!unavailable.admits(reference: .turn("turn-1"), text: ""))
     }
-    @Test func speechContractPairedPrepareAndBytesUseExactPrivatePOST() async throws {
+    @Test(.isolatedClientResources) func speechContractPairedPrepareAndBytesUseExactPrivatePOST() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [SpeechContractURLProtocol.self]
         let session = URLSession(configuration:configuration)
@@ -186,7 +186,7 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
         await #expect(throws:DJConnectError.invalidResponse) { try await client("badwav.speech.invalid").speechAudio(ha,acceptedText:text) }
     }
 
-    @Test func speechContractWAVStructureRejectsTruncationAndFalseLength() throws {
+    @Test(.isolatedClientResources) func speechContractWAVStructureRejectsTruncationAndFalseLength() throws {
         let valid = speechWAV()
         try DJConnectSpeechTransport.validateWAV(valid)
         for count in [0,12,20,43,valid.count-1] {
@@ -196,7 +196,7 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
         #expect(throws:DJConnectError.invalidResponse) { try DJConnectSpeechTransport.validateWAV(bad) }
     }
 
-    @Test func speechContractCorrectedAdvertisementPermitsAttemptWithoutGrantingAudio() async throws {
+    @Test(.isolatedClientResources) func speechContractCorrectedAdvertisementPermitsAttemptWithoutGrantingAudio() async throws {
         let old = try freshSpeech("accepted_reply")
         let corrected = try freshSpeech("accepted_reply", corrected: true)
         #expect(!old.advertisesPreparationAttempt(.haConfigured))
@@ -222,13 +222,13 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
         #expect(!denied.advertisesPreparationAttempt(.haConfigured))
     }
 
-    @Test(arguments: ["mpeg1", "mpeg2", "mpeg25"])
+    @Test(.isolatedClientResources, arguments: ["mpeg1", "mpeg2", "mpeg25"])
     func speechMP3IndependentNativeDecoderFixtures(_ version: String) throws {
         let bytes = try speechMP3(version)
         #expect(try DJConnectSpeechTransport.validateMP3(bytes) == bytes)
     }
 
-    @Test func speechMP3StripsBoundedID3WithoutTreatingTagAsAudio() throws {
+    @Test(.isolatedClientResources) func speechMP3StripsBoundedID3WithoutTreatingTagAsAudio() throws {
         let frames = try speechMP3()
         // Synthetic ID3v2.3 TIT2 frame containing only "x"; no actual metadata.
         let tag = Data([0x49,0x44,0x33,3,0,0,0,0,0,13, 0x54,0x49,0x54,0x32,0,0,0,3,0,0,0,0x78,0])
@@ -241,7 +241,7 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
         #expect(try DJConnectSpeechTransport.validateMP3(footerTag + footer + frames) == frames)
     }
 
-    @Test func speechMP3RejectsMalformedFramesAndUndeclaredTrailingBytes() throws {
+    @Test(.isolatedClientResources) func speechMP3RejectsMalformedFramesAndUndeclaredTrailingBytes() throws {
         let bytes = try speechMP3()
         var faults = [Data(), Data(bytes.prefix(3)), Data(bytes.dropLast()), bytes + Data([0]), speechWAV()]
         var bad = bytes; bad[1] = 0xef; faults.append(bad) // Reserved MPEG version.
@@ -253,7 +253,7 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
         }
     }
 
-    @Test func speechDurationIsBoundedIndependentlyOfByteLimit() throws {
+    @Test(.isolatedClientResources) func speechDurationIsBoundedIndependentlyOfByteLimit() throws {
         let mp3 = try speechMP3()
         var longMP3 = Data(); for _ in 0..<100 { longMP3.append(mp3) }
         #expect(longMP3.count < 2 * 1024 * 1024)
@@ -271,7 +271,7 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
         #expect(throws: DJConnectError.invalidResponse) { try DJConnectSpeechTransport.validateWAV(wav(seconds: 21)) }
     }
 
-    @Test func speechPrivatePOSTAcceptsMP3AndRejectsMIMESpoofing() async throws {
+    @Test(.isolatedClientResources) func speechPrivatePOSTAcceptsMP3AndRejectsMIMESpoofing() async throws {
         let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [SpeechContractURLProtocol.self]
         let session = URLSession(configuration: config); defer { session.invalidateAndCancel() }
         func client(_ host: String) -> DJConnectClient {
@@ -286,7 +286,7 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
         }
     }
 
-    @Test func speechOptionalOwnerProjectionsDecodeWithoutPersistingGrants() throws {
+    @Test(.isolatedClientResources) func speechOptionalOwnerProjectionsDecodeWithoutPersistingGrants() throws {
         let cases = try speechCases()
         let reply = try #require(cases["accepted_reply"] as? [String: Any])
         let expected = try speechDecode(try #require(reply["session_speech"]), as: DJConnectSessionSpeech.self)
@@ -316,7 +316,7 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
         #expect(restoredReply.sessionSpeech == nil && restoredReply.text == common.text)
     }
 
-    @Test func speechOptionalUnknownOrMalformedProjectionKeepsAnswerAndHistoryUsable() throws {
+    @Test(.isolatedClientResources) func speechOptionalUnknownOrMalformedProjectionKeepsAnswerAndHistoryUsable() throws {
         let cases = try speechCases()
         let original = try #require(cases["accepted_reply"] as? [String: Any])
         let moments = try #require(cases["published_and_retained_moment_speech"] as? [String: Any])
@@ -348,7 +348,7 @@ private final class SpeechContractURLProtocol: URLProtocol, @unchecked Sendable 
 
 }
 
-@Test func liveBroadcastPayloadRetainsPrivateSpeechAndDoesNotExportIt() throws {
+@Test(.isolatedClientResources) func liveBroadcastPayloadRetainsPrivateSpeechAndDoesNotExportIt() throws {
     let descriptor = try speechDescriptor()
     let payload = try speechDecode(["session_speech": ["schema_version": 1, "moments": [descriptor]]], as: DJConnectSessionBroadcastEvent.Payload.self)
     #expect(payload.sessionSpeech.count == 1)

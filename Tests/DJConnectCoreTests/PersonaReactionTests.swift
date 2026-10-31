@@ -45,7 +45,7 @@ private func touchCase(native: Bool = true, output: DJAnnouncementOutput = .clie
     return (request, settings, try JSONDecoder().decode(DJConnectPersonaReactionResult.self, from: touchJSON(body)))
 }
 
-@Test(arguments: [true, false]) func personaTouchAdmitsExactProducerReactionWithoutInventingAChatTurn(native: Bool) throws {
+@Test(.isolatedClientResources, arguments: [true, false]) func personaTouchAdmitsExactProducerReactionWithoutInventingAChatTurn(native: Bool) throws {
     let now = Date()
     let (request, settings, result) = try touchCase(native: native, now: now)
     #expect(result.persona_reaction.admits(request: request, settings: settings, receipt: result.operation_receipt, started: now, at: now))
@@ -57,7 +57,7 @@ private func touchCase(native: Bool = true, output: DJAnnouncementOutput = .clie
     #expect((try? JSONDecoder().decode(DJConnectSpeechReference.self, from: touchJSON(["reaction_id": result.persona_reaction.id, "session_id": request.session.session_id]))) == nil)
 }
 
-@Test(arguments: ["session", "generation", "revision", "kind", "locale", "persona", "mood", "expiry", "renewal", "history", "cache", "basis", "id"])
+@Test(.isolatedClientResources, arguments: ["session", "generation", "revision", "kind", "locale", "persona", "mood", "expiry", "renewal", "history", "cache", "basis", "id"])
 func personaTouchRejectsForeignStaleAndRepublishedContent(fault: String) throws {
     let now = Date()
     let (request, settings, result) = try touchCase(now: now) { value in
@@ -81,7 +81,7 @@ func personaTouchRejectsForeignStaleAndRepublishedContent(fault: String) throws 
     #expect(!result.persona_reaction.admits(request: request, settings: settings, receipt: result.operation_receipt, started: now, at: now))
 }
 
-@Test(arguments: ["text", "source", "reference", "settings", "processor", "ready", "audio", "deadline"])
+@Test(.isolatedClientResources, arguments: ["text", "source", "reference", "settings", "processor", "ready", "audio", "deadline"])
 func personaTouchNeverSubstitutesSpeechForInvalidOrDifferentEvidence(fault: String) throws {
     let (request, settings, result) = try touchCase { reaction in
         var speech = reaction["speech"] as! [String: Any]
@@ -100,7 +100,7 @@ func personaTouchNeverSubstitutesSpeechForInvalidOrDifferentEvidence(fault: Stri
     #expect(!result.persona_reaction.admitsSpeech(request: request, settings: settings))
 }
 
-@Test(arguments: [DJAnnouncementOutput.textOnly, .haSpeaker, .both])
+@Test(.isolatedClientResources, arguments: [DJAnnouncementOutput.textOnly, .haSpeaker, .both])
 func personaTouchRespectsOutputWithoutSubstitutingClientAudio(output: DJAnnouncementOutput) throws {
     let (request, settings, result) = try touchCase(output: output)
     #expect(result.persona_reaction.admitsSpeech(request: request, settings: settings) == (output == .both))
@@ -122,7 +122,7 @@ func personaTouchRespectsOutputWithoutSubstitutingClientAudio(output: DJAnnounce
     return observation
 }
 
-@Test @MainActor func personaTouchCancellationBeforeDispatchFencesLateResultAndCancelsOriginalID() async throws {
+@Test(.isolatedClientResources) @MainActor func personaTouchCancellationBeforeDispatchFencesLateResultAndCancelsOriginalID() async throws {
     let (_, _, result) = try touchCase()
     let controller = PersonaReactionController()
     var continuation: CheckedContinuation<DJConnectPersonaReactionResult, Error>?
@@ -146,7 +146,7 @@ func personaTouchRespectsOutputWithoutSubstitutingClientAudio(output: DJAnnounce
     #expect(controller.reaction == nil && !controller.preparing && !controller.speaking)
 }
 
-@Test @MainActor func personaTouchOnlyActualAudioCallbackSpeaksAndLateCallbacksCannotReviveIt() async throws {
+@Test(.isolatedClientResources) @MainActor func personaTouchOnlyActualAudioCallbackSpeaksAndLateCallbacksCannotReviveIt() async throws {
     let (_, _, result) = try touchCase()
     let controller = PersonaReactionController()
     var observed: (@MainActor (Bool) -> Void)?
@@ -171,7 +171,7 @@ func personaTouchRespectsOutputWithoutSubstitutingClientAudio(output: DJAnnounce
 
 @MainActor private final class TouchTestAuthority { var current = true }
 
-@Test @MainActor func personaTouchOwnerChangeWithdrawsTextAndActualOutputWithoutRestart() async throws {
+@Test(.isolatedClientResources) @MainActor func personaTouchOwnerChangeWithdrawsTextAndActualOutputWithoutRestart() async throws {
     let (_, _, result) = try touchCase()
     let controller = PersonaReactionController()
     let authority = TouchTestAuthority()
@@ -188,7 +188,7 @@ func personaTouchRespectsOutputWithoutSubstitutingClientAudio(output: DJAnnounce
     #expect(plays == 1 && stopped == 1 && controller.reaction == nil && !controller.speaking)
 }
 
-@Test @MainActor func personaTouchTextOnlyNeverRequestsAudioAndKeepsOriginalExpiry() async throws {
+@Test(.isolatedClientResources) @MainActor func personaTouchTextOnlyNeverRequestsAudioAndKeepsOriginalExpiry() async throws {
     let (_, _, result) = try touchCase(output: .textOnly)
     let controller = PersonaReactionController()
     var plays = 0
@@ -202,7 +202,7 @@ func personaTouchRespectsOutputWithoutSubstitutingClientAudio(output: DJAnnounce
 }
 
 #if os(macOS)
-@Test(arguments: [CGFloat(320), CGFloat(620)]) @MainActor func personaTouchBubbleRendersCompactAndWideWithoutExtraAvatar(width: CGFloat) throws {
+@Test(.isolatedClientResources, arguments: [CGFloat(320), CGFloat(620)]) @MainActor func personaTouchBubbleRendersCompactAndWideWithoutExtraAvatar(width: CGFloat) throws {
     let view = PersonaReactionBubble(text: "Die tik verdient een klein feestje: denk de confetti er gerust bij.",
                                     notice: "Deze reactie speelt alleen op dit apparaat.", closeLabel: "Sluiten", dismiss: {})
         .environment(\.djConnectGlassEffectsEnabled, false).frame(width: width).padding(24).background(.black)
@@ -218,7 +218,7 @@ func personaTouchRespectsOutputWithoutSubstitutingClientAudio(output: DJAnnounce
 #endif
 
 
-@Test(arguments: ["valid", "missing", "version", "owner", "speaker", "queue", "lifecycle", "malformed"])
+@Test(.isolatedClientResources, arguments: ["valid", "missing", "version", "owner", "speaker", "queue", "lifecycle", "malformed"])
 func personaTouchRequiresItsOwnDiscoveryWithoutBreakingBasePersona(fault: String) throws {
     var root = try touchFixture("persona-touch-discovery-installed-20261019.json")
     var persona = root["active_session_persona"] as! [String: Any]
@@ -247,7 +247,7 @@ func personaTouchRequiresItsOwnDiscoveryWithoutBreakingBasePersona(fault: String
     #expect(result.personaReactionAvailable == (fault == "valid"))
 }
 
-@Test @MainActor func personaTouchOriginalExpiryClosesTextWithoutAnyLocalRenewal() async throws {
+@Test(.isolatedClientResources) @MainActor func personaTouchOriginalExpiryClosesTextWithoutAnyLocalRenewal() async throws {
     let now = Date()
     let (_, _, result) = try touchCase(now: now)
     let clock = TouchTestClock(now)
@@ -262,7 +262,7 @@ func personaTouchRequiresItsOwnDiscoveryWithoutBreakingBasePersona(fault: String
     #expect(controller.reaction == nil && stopped == 1)
 }
 
-@Test func personaTouchHasNoLegacyEndpointFallback() async throws {
+@Test(.isolatedClientResources) func personaTouchHasNoLegacyEndpointFallback() async throws {
     let (request, settings, result) = try touchCase()
     let client = DJConnectClient(baseURL: URL(string: "https://never-sent.invalid")!,
         identity: .init(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Touch test", clientType: .ios, firmware: "4.0.0", platform: .ios),
@@ -276,7 +276,7 @@ func personaTouchRequiresItsOwnDiscoveryWithoutBreakingBasePersona(fault: String
 }
 
 
-@Test @MainActor func personaTouchFailedAudioStartReleasesOutputImmediatelyButRetainsText() async throws {
+@Test(.isolatedClientResources) @MainActor func personaTouchFailedAudioStartReleasesOutputImmediatelyButRetainsText() async throws {
     let (_, _, result) = try touchCase()
     let controller = PersonaReactionController()
     var stopped = 0, cancellations = 0
@@ -288,7 +288,7 @@ func personaTouchRequiresItsOwnDiscoveryWithoutBreakingBasePersona(fault: String
     controller.cancel(.dismissed)
 }
 
-@Test @MainActor func personaTouchStaleResponseCannotEmitAdmissionFeedback() async throws {
+@Test(.isolatedClientResources) @MainActor func personaTouchStaleResponseCannotEmitAdmissionFeedback() async throws {
     let (_, _, result) = try touchCase()
     let controller = PersonaReactionController()
     let authority = TouchTestAuthority()
@@ -306,14 +306,14 @@ func personaTouchRequiresItsOwnDiscoveryWithoutBreakingBasePersona(fault: String
     controller.cancel(.dismissed)
 }
 
-@Test func personaTouchOlderProducerWithoutWithdrawalCannotActivateTaps() throws {
+@Test(.isolatedClientResources) func personaTouchOlderProducerWithoutWithdrawalCannotActivateTaps() throws {
     let root = try touchFixture("persona-touch-discovery-installed-20261019.json")
     let result = try JSONDecoder().decode(DJConnectActiveMoodCapabilities.self, from: touchJSON(root))
     #expect(result.personaAvailable)
     #expect(!result.personaReactionAvailable)
 }
 
-@Test func personaTouchObservationNeverRenewsOrReadmitsWithdrawnReaction() async throws {
+@Test(.isolatedClientResources) func personaTouchObservationNeverRenewsOrReadmitsWithdrawnReaction() async throws {
     let (_, _, result) = try touchCase()
     let observation = DJConnectPersonaReactionObservation(result: result, close: {})
     let snapshot: [String: Any] = ["contract_version": 1, "observation_id": 1,
@@ -335,7 +335,7 @@ func personaTouchRequiresItsOwnDiscoveryWithoutBreakingBasePersona(fault: String
     await observation.close()
 }
 
-@Test @MainActor func personaTouchRemoteWithdrawalRemovesTextAndStopsOwnedOutput() async throws {
+@Test(.isolatedClientResources) @MainActor func personaTouchRemoteWithdrawalRemovesTextAndStopsOwnedOutput() async throws {
     let (_, _, result) = try touchCase()
     let observation = DJConnectPersonaReactionObservation(result: result, close: {})
     try observation.accept(touchJSON(["contract_version": 1, "observation_id": 1,
@@ -354,7 +354,7 @@ func personaTouchRequiresItsOwnDiscoveryWithoutBreakingBasePersona(fault: String
     #expect(stops == 1)
 }
 
-@Test @MainActor func personaTouchMissingObserverCannotPresentOrPlayEvenValidReaction() async throws {
+@Test(.isolatedClientResources) @MainActor func personaTouchMissingObserverCannotPresentOrPlayEvenValidReaction() async throws {
     let (_, _, result) = try touchCase()
     let controller = PersonaReactionController()
     var failures = 0, plays = 0
@@ -371,7 +371,7 @@ func personaTouchRequiresItsOwnDiscoveryWithoutBreakingBasePersona(fault: String
     init(_ value: Date) { self.value = value }
 }
 
-@Test @MainActor func personaTouchAlreadyExpiredResultClosesOriginalRunAndLateOperationCallback() async throws {
+@Test(.isolatedClientResources) @MainActor func personaTouchAlreadyExpiredResultClosesOriginalRunAndLateOperationCallback() async throws {
     let (_, _, result) = try touchCase()
     let clock = TouchTestClock(try #require(result.persona_reaction.deadline).addingTimeInterval(1))
     let controller = PersonaReactionController()

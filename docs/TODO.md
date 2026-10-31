@@ -7,7 +7,19 @@ roadmap lives in `pcvantol/djconnect/PRODUCT_ROADMAP.md`; if roadmap changes
 originate here, update `pcvantol/djconnect` separately. Concrete backlog items
 with acceptance criteria live in [ISSUES.md](ISSUES.md).
 
+## Parallel validation follow-through (2026-10-31)
+
+Local parallel-test/CI preparation is recorded in
+[the source evidence](feedback/APPLE_PARALLEL_CLIENT_VALIDATION_20261031.md).
+Exact-head review/CI, protected source delivery and separate Finalization remain
+open until their original receipts exist. This preparation does not close the
+broader performance or device-acceptance work registers.
+
 ## High Priority
+
+- Qualify shared WebSocket authentication/capabilities and a single result-reader
+  before enabling additional product-read concurrency. The rejected Discovery
+  prototype is excluded from the parallel-CI/resource-isolation increment.
 
 - Validate live backend devices, queue, playlists, liked proxy, and voice flows
   against a real Home Assistant `djconnect` setup.

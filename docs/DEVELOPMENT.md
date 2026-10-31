@@ -246,11 +246,42 @@ keyboard.
 
 ## Test
 
-Swift Package tests:
+Swift Package tests (parallel execution):
 
 ```sh
-swift test
+swift test --parallel
 ```
+
+Client-runtime fixtures use `IsolatedClientResources`, a Swift Testing scope
+trait, to keep independent simulated clients from consuming the same process
+transport budgets or App Attest installation queue. A test's clients and child
+tasks still share their original limits. Shipping code retains one shared
+process runtime and the same two-request limits; no public override is added.
+Up to eight fixture cases run concurrently. Only tests that own the process's
+AppKit key-window/focus resource take its exclusive fixture permit. Explicit
+races inside every test remain concurrent, and existing deadlines and assertions
+are preserved. Parameterized cases own scopes individually, never a permit
+retained by their outer parameterized function.
+
+CI retains its serial tool/dependency preflight and then runs independent
+validators with four workers, both Swift packages with two package workers, and
+unsigned macOS/iOS builds with two workers and separate DerivedData roots.
+The main Swift suite runs with `--parallel`; the isolated VibeCast XCTest package
+also bounds its subprocess workers. Run the same phases locally using a fresh,
+external directory for each validation run:
+
+```sh
+python3 Tools/qualification/run_parallel_validation.py --phase checks --output-root "$DJCONNECT_VALIDATION_ROOT"
+python3 Tools/qualification/run_parallel_validation.py --phase swift --output-root "$DJCONNECT_VALIDATION_ROOT"
+python3 Tools/qualification/run_parallel_validation.py --phase builds --output-root "$DJCONNECT_VALIDATION_ROOT"
+```
+
+Set `DJCONNECT_VALIDATION_ROOT` to a unique directory under Shared Data temporary
+storage and `TMPDIR` to a directory inside that run. Every command retains its
+own original log and exit code; all checks in a phase finish and any failure
+fails the phase. Native coverage follows successful normal main CI in its own
+build/result directory. These software checks do not establish signing,
+installation, backend/provider operation or physical-device acceptance.
 
 Autonomous WebSocket contract e2e:
 

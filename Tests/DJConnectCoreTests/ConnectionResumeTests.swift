@@ -3,7 +3,7 @@ import Testing
 @testable import DJConnectCore
 @testable import DJConnectUI
 
-@Test @MainActor func sessionTransportRecoveryDoesNotHideConfirmedHTTPConnection() {
+@Test(.isolatedClientResources) @MainActor func sessionTransportRecoveryDoesNotHideConfirmedHTTPConnection() {
     var hybrid = DJConnectHybridDiagnostics()
     for state in [DJConnectHybridDiagnostics.State.recoveringOffline, .localDegraded] {
         hybrid.state = state
@@ -17,7 +17,7 @@ import Testing
     #expect(DJConnectAppModel.resolvedConnectionMode(statusMode: .local, hybrid: hybrid) == .remote)
 }
 
-@Test func statusUsesBoundedLANReadAndLongerExternalRead() throws {
+@Test(.isolatedClientResources) func statusUsesBoundedLANReadAndLongerExternalRead() throws {
     let identity = DJConnectIdentity(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Test",
         clientType: .ios, firmware: "4.0.0", appVersion: "4.0.0", platform: .ios)
     let payload = DJConnectStatusPayload(identity: identity, haPairingStatus: .paired,
@@ -29,7 +29,7 @@ import Testing
     }
 }
 
-@Test func publicProxyArtworkFollowsConfirmedRouteWithoutRetargetingProvidersOrOwnerGrants() throws {
+@Test(.isolatedClientResources) func publicProxyArtworkFollowsConfirmedRouteWithoutRetargetingProvidersOrOwnerGrants() throws {
     let local = URL(string: "http://192.168.1.134:8123")!
     let remote = URL(string: "https://paired.example")!
     let known = [local, remote]

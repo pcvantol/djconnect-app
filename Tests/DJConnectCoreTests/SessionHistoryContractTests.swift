@@ -12,7 +12,7 @@ import AppKit
 import SwiftUI
 #endif
 
-@Test @MainActor func sessionHistoryPhysicalTestEndpointRequiresExplicitBoundedLaunch() {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryPhysicalTestEndpointRequiresExplicitBoundedLaunch() {
     let host = "192.168.1.134"
     let environment = ["DJCONNECT_UITEST_PHYSICAL_HISTORY_HOST": host]
     let arguments = ["--physical-session-history-test"]
@@ -36,7 +36,7 @@ private func historyObject(_ name: String = "producer-receipt") throws -> [Strin
 }
 private func historyData(_ value: Any) throws -> Data { try JSONSerialization.data(withJSONObject: value) }
 
-@Test(arguments: ["missing", "wrong_session", "withdrawn", "known"])
+@Test(.isolatedClientResources, arguments: ["missing", "wrong_session", "withdrawn", "known"])
 @MainActor func artworkSpeakerChoiceUsesScopedConversationAndPreservesDraft(_ state: String) async throws {
     let receipt = try historyObject()
     let sessionID = try #require(receipt["session_id"] as? String)
@@ -92,7 +92,11 @@ private func historyData(_ value: Any) throws -> Data { try JSONSerialization.da
         #expect(!model.sessionHistory.requestSessionSpeakerChoice(sessionID: sessionID))
         let turn = try #require(model.sessionHistory.pendingTurns.first)
         #expect(turn.context.sessionID == sessionID && turn.context.selectedEntry == nil)
-        for _ in 0..<100 where model.isSendingAskDJText { try await Task.sleep(for: .milliseconds(20)) }
+        // Sending ends before the caller commits the accepted turn. Wait for
+        // the turn's actual terminal state, using the same bounded wait.
+        for _ in 0..<100 where model.sessionHistory.pendingTurns.contains(where: { $0.id == turn.id && !$0.failed }) {
+            try await Task.sleep(for: .milliseconds(20))
+        }
         let posts = fixture.requests.filter { $0.httpMethod == "POST" && $0.url!.path.hasSuffix("/ask_dj/message") }
         #expect(posts.count == 1)
         let post = try #require(posts.first)
@@ -109,7 +113,7 @@ private func historyData(_ value: Any) throws -> Data { try JSONSerialization.da
     #expect(!fixture.requests.contains { $0.httpMethod == "POST" && $0.url!.path.hasSuffix("/command") })
 }
 
-@Test(arguments: ["text", "voice", "setting_feedback", "unknown", "", "SETTING_FEEDBACK"])
+@Test(.isolatedClientResources, arguments: ["text", "voice", "setting_feedback", "unknown", "", "SETTING_FEEDBACK"])
 func sessionTimelineRecognizesOnlyQualifiedConversationInputTypes(_ input: String) throws {
     let receipt = try historyObject()
     var body = try #require(receipt["archived_timeline"] as? [String: Any])
@@ -128,7 +132,7 @@ func sessionTimelineRecognizesOnlyQualifiedConversationInputTypes(_ input: Strin
 }
 
 /// Optional local readback; personal response bytes never become a fixture or test output.
-@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CAPTURED_TIMELINE_FILE"] != nil))
+@Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_CAPTURED_TIMELINE_FILE"] != nil))
 func sessionTimelineValidatesPrivateCapturedReadback() throws {
     let path = try #require(ProcessInfo.processInfo.environment["DJCONNECT_CAPTURED_TIMELINE_FILE"])
     let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: Data(contentsOf: URL(fileURLWithPath: path)))
@@ -137,7 +141,7 @@ func sessionTimelineValidatesPrivateCapturedReadback() throws {
     #expect(page.entries.allSatisfy { $0.sessionID == page.session.id && $0.isContractValid })
 }
 
-@Test func askDJAnswerContextUsesRetainedServerIdentityOnly() throws {
+@Test(.isolatedClientResources) func askDJAnswerContextUsesRetainedServerIdentityOnly() throws {
     let receipt = try historyObject()
     let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self,
         from: historyData(try #require(receipt["archived_timeline"])))
@@ -159,7 +163,7 @@ func sessionTimelineValidatesPrivateCapturedReadback() throws {
     #expect(DJConnectSessionHistoryModel.contextEntry(for: message, entries: page.entries, at: now) == nil)
 }
 
-@Test func sessionHistoryPinnedProducerBytesAndConfirmedOrder() throws {
+@Test(.isolatedClientResources) func sessionHistoryPinnedProducerBytesAndConfirmedOrder() throws {
     #expect(SHA256.hash(data: try historyFixture()).map { String(format: "%02x", $0) }.joined() == "d4b901aa3d6ec7d7e93767c2efc538dddc5f92dc2e3cbaa9213e03b0da471f93")
     let receipt = try historyObject()
     let timeline = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: historyData(try #require(receipt["archived_timeline"])))
@@ -177,7 +181,7 @@ func sessionTimelineValidatesPrivateCapturedReadback() throws {
     #expect(later.historicalMatches.first?.openAction?.reference == timeline.entries[0].reference)
 }
 
-@Test func sessionHistoryPinnedWindowIsNotFullTimelineCoverage() throws {
+@Test(.isolatedClientResources) func sessionHistoryPinnedWindowIsNotFullTimelineCoverage() throws {
     #expect(SHA256.hash(data: try historyFixture("window-producer-receipt")).map { String(format: "%02x", $0) }.joined() == "93b7c9ee23b396605e0b3c671d06884cff42a0cc814993e3fbff22612d07e74f")
     let receipt = try historyObject("window-producer-receipt")
     let tail = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: historyData(try #require(receipt["tail_window"])))
@@ -188,7 +192,7 @@ func sessionTimelineValidatesPrivateCapturedReadback() throws {
     #expect(anchor.entries.map(\.order) == [11, 12, 13])
 }
 
-@Test func sessionHistoryUTF16RangesNeverSplitUnicodeClustersOrOverflow() {
+@Test(.isolatedClientResources) func sessionHistoryUTF16RangesNeverSplitUnicodeClustersOrOverflow() {
     let text = "🎧 e\u{301} 👩‍👩‍👧‍👦 Straße"
     #expect(DJConnectHistoryHighlight(startUTF16: 0, lengthUTF16: 2).safeRange(in: text) != nil)
     #expect(DJConnectHistoryHighlight(startUTF16: 1, lengthUTF16: 1).safeRange(in: text) == nil)
@@ -312,7 +316,7 @@ private final class HistoryWireProtocol: URLProtocol, @unchecked Sendable {
     }
 }
 
-@Test func sessionHistoryAuthenticatedNoStoreReadAndValidatedNavigation() async throws {
+@Test(.isolatedClientResources) func sessionHistoryAuthenticatedNoStoreReadAndValidatedNavigation() async throws {
     let receipt = try historyObject()
     let timeline = try historyData(try #require(receipt["archived_timeline"]))
     let opened = try historyData(try #require(receipt["validated_open_target"]))
@@ -332,7 +336,7 @@ private final class HistoryWireProtocol: URLProtocol, @unchecked Sendable {
     #expect(fixture.requests.allSatisfy { !$0.url!.path.contains("playback") && !$0.url!.path.hasSuffix("/start") })
 }
 
-@Test(arguments: ["owner_metadata_narration_v1", "public_artist_narration_v1"])
+@Test(.isolatedClientResources, arguments: ["owner_metadata_narration_v1", "public_artist_narration_v1"])
 func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis: String) async throws {
     let receipt = try historyObject()
     var timeline = try #require(receipt["archived_timeline"] as? [String: Any])
@@ -352,7 +356,7 @@ func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis:
     #expect(fixture.requests.first?.value(forHTTPHeaderField: "Cache-Control") == "no-store")
 }
 
-@Test func sessionHistoryNarrationStillRequiresKnownBasisAndOwnerHistoryFences() throws {
+@Test(.isolatedClientResources) func sessionHistoryNarrationStillRequiresKnownBasisAndOwnerHistoryFences() throws {
     let receipt = try historyObject()
     let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
     let entries = try #require(timeline["entries"] as? [[String: Any]])
@@ -368,7 +372,7 @@ func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis:
     }
 }
 
-@Test func sessionHistoryPinnedCoreNarrationAndReceiptPageLoadsAsOneWindow() async throws {
+@Test(.isolatedClientResources) func sessionHistoryPinnedCoreNarrationAndReceiptPageLoadsAsOneWindow() async throws {
     let raw = try historyFixture("retention-bases-v2")
     #expect(SHA256.hash(data: raw).map { String(format: "%02x", $0) }.joined() == "da5d8674dc49adb1cc0fabcca51d4f8b730d31f1179462160d1f68aa97e19b14")
     let receipt = try historyObject("retention-bases-v2")
@@ -386,7 +390,7 @@ func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis:
     }
 }
 
-@Test @MainActor func sessionHistoryWithdrawalReplacesAcceptedTextWithSameIdentityReceipt() throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryWithdrawalReplacesAcceptedTextWithSameIdentityReceipt() throws {
     let receipt = try historyObject("retention-bases-v2")
     let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: historyData(try #require(receipt["tail_window"])))
     let withdrawn = try JSONDecoder().decode(DJConnectHistoryEntry.self, from: historyData(try #require(receipt["withdrawn_same_identity"])))
@@ -402,7 +406,7 @@ func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis:
     #expect(replacement[0].entry.sources == nil && replacement[0].entry.sessionSpeech == nil && replacement[0].entry.sessionMedia == nil)
 }
 
-@Test func sessionHistoryPublicationReceiptsCannotSmuggleContentOrSpeech() throws {
+@Test(.isolatedClientResources) func sessionHistoryPublicationReceiptsCannotSmuggleContentOrSpeech() throws {
     let receipt = try historyObject("retention-bases-v2")
     let page = try #require(receipt["tail_window"] as? [String: Any])
     let entries = try #require(page["entries"] as? [[String: Any]])
@@ -416,7 +420,7 @@ func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis:
     }
 }
 
-@Test @MainActor func sessionHistoryNegotiationDropsOldCursorsAndRecoversAfterTypedUpgrade() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryNegotiationDropsOldCursorsAndRecoversAfterTypedUpgrade() async throws {
     let receipt = try historyObject()
     let profile = try historyData(try #require(receipt["later_historical_answer"]))
     var timeline = try #require(receipt["archived_timeline"] as? [String: Any])
@@ -456,7 +460,7 @@ func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis:
     #expect(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.contains(.init(name: "history_contract_version", value: "2")) == true)
 }
 
-@Test func sessionHistoryVersionTwoStaysOnHistoryRoutesAndRequiresExactResponseVersion() async throws {
+@Test(.isolatedClientResources) func sessionHistoryVersionTwoStaysOnHistoryRoutesAndRequiresExactResponseVersion() async throws {
     let receipt = try historyObject()
     var opened = try #require(receipt["validated_open_target"] as? [String: Any])
     opened["schema_version"] = 2; opened["history_contract_version"] = 2
@@ -482,7 +486,7 @@ func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis:
     }
 }
 
-@Test func sessionHistoryVoiceUsesWavAndCapturedServerContext() async throws {
+@Test(.isolatedClientResources) func sessionHistoryVoiceUsesWavAndCapturedServerContext() async throws {
     let receipt = try historyObject()
     let responseData = try historyData(try #require(receipt["voice_derived_turn"]))
     let decoded = try JSONDecoder().decode(DJConnectSessionConversationResponse.self, from: responseData)
@@ -498,7 +502,7 @@ func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis:
     // Header/decoder acceptance only: these bytes are not a microphone/STT proof.
 }
 
-@Test @MainActor func sessionHistoryScopeClearsLegacyDiskCacheAndWithdrawnMessages() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryScopeClearsLegacyDiskCacheAndWithdrawnMessages() async throws {
     let data = try historyData(try #require(historyObject()["later_historical_answer"]))
     let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
     let fixture = HistoryWireFixture { request in (200, request.url!.path.hasSuffix("/capabilities") ? caps : data, 0) }
@@ -520,7 +524,7 @@ func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis:
     #expect(defaults.object(forKey: "DJConnectAskDJHistoryRevision") == nil)
 }
 
-@Test @MainActor func sessionHistorySearchRejectsStaleQueryAndWrongScopeWithoutMutations() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistorySearchRejectsStaleQueryAndWrongScopeWithoutMutations() async throws {
     let receipt = try historyObject()
     let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
     let entries = try #require(timeline["entries"] as? [[String: Any]])
@@ -555,7 +559,7 @@ func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis:
     #expect(fixture.requests.allSatisfy { !$0.url!.path.contains("playback") && !$0.url!.path.hasSuffix("/start") && !$0.url!.path.hasSuffix("/end") })
 }
 
-@Test @MainActor func sessionHistorySearchRejectsOwnerlessReadUntilRequalified() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistorySearchRejectsOwnerlessReadUntilRequalified() async throws {
     let receipt = try historyObject()
     let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
     let entries = try #require(timeline["entries"] as? [[String: Any]])
@@ -596,7 +600,7 @@ func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis:
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
 }
 
-@Test @MainActor func sessionHistoryWindowsKeepLoadedCanonicalEntriesAndFindTailBeyondPage() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryWindowsKeepLoadedCanonicalEntriesAndFindTailBeyondPage() async throws {
     let receipt = try historyObject("window-producer-receipt")
     let first = try historyData(try #require(receipt["first_page"]))
     let tail = try historyData(try #require(receipt["tail_window"]))
@@ -635,7 +639,7 @@ private final class HistoryReplySequence: @unchecked Sendable {
     func next() -> Data { lock.withLock { let i = min(index, values.count - 1); index += 1; return values[i] } }
 }
 
-@Test @MainActor func sessionHistoryOpenRejectsOwnerlessReadUntilRequalified() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryOpenRejectsOwnerlessReadUntilRequalified() async throws {
     let receipt = try historyObject()
     let history = try historyData(try #require(receipt["later_historical_answer"]))
     let opened = try historyData(try #require(receipt["validated_open_target"]))
@@ -669,7 +673,7 @@ private final class HistoryReplySequence: @unchecked Sendable {
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" || ($0.httpMethod == "POST" && $0.url!.path.hasSuffix("/session/history/open")) })
 }
 
-@Test @MainActor func sessionHistoryProfileChangeDiscardsLatePreviouslyAuthorizedOpen() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryProfileChangeDiscardsLatePreviouslyAuthorizedOpen() async throws {
     let receipt = try historyObject()
     let original = try historyData(try #require(receipt["later_historical_answer"]))
     let nextProfile = Data(#"{"success":true,"owner_profile_id":"profile-b","user_id":null,"history_revision":0,"clear_revision":0,"messages":[]}"#.utf8)
@@ -697,7 +701,7 @@ private final class HistoryReplySequence: @unchecked Sendable {
     #expect(!model.sessionHistory.containsHistoricalArtworkEntry(action.reference, matching: { _ in true }))
 }
 
-@Test @MainActor func sessionHistoryBackgroundEpochDiscardsInflightPrivateTimeline() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryBackgroundEpochDiscardsInflightPrivateTimeline() async throws {
     let receipt = try historyObject()
     let history = try historyData(try #require(receipt["later_historical_answer"]))
     let timeline = try historyData(try #require(receipt["archived_timeline"]))
@@ -720,7 +724,7 @@ private final class HistoryReplySequence: @unchecked Sendable {
     #expect(defaults.data(forKey: "DJConnectAskDJMessages") == nil)
 }
 
-@Test @MainActor func sessionHistoryEmptySearchCancelsBusyState() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryEmptySearchCancelsBusyState() async throws {
     let receipt = try historyObject()
     let data = try historyData(try #require(receipt["later_historical_answer"]))
     let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
@@ -736,7 +740,7 @@ private final class HistoryReplySequence: @unchecked Sendable {
     #expect(fixture.requests.allSatisfy { !$0.url!.path.hasSuffix("/search") })
 }
 
-@Test @MainActor func sessionHistoryNewerOpenRejectsOlderTimelineResponse() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryNewerOpenRejectsOlderTimelineResponse() async throws {
     let receipt = try historyObject()
     let timelineData = try historyData(try #require(receipt["archived_timeline"]))
     var opened = try #require(receipt["validated_open_target"] as? [String: Any])
@@ -763,7 +767,7 @@ private final class HistoryReplySequence: @unchecked Sendable {
     #expect(model.sessionHistory.timelines[action.sessionID]?.loading == false)
 }
 
-@Test func sessionHistoryArchiveCannotGrantCurrentPresentation() throws {
+@Test(.isolatedClientResources) func sessionHistoryArchiveCannotGrantCurrentPresentation() throws {
     var receipt = try historyObject()
     var timeline = try #require(receipt["archived_timeline"] as? [String: Any])
     var entries = try #require(timeline["entries"] as? [[String: Any]])
@@ -773,7 +777,7 @@ private final class HistoryReplySequence: @unchecked Sendable {
     #expect(!page.entries[0].isContractValid)
 }
 
-@Test @MainActor func sessionHistoryOldVoiceFailureCannotCancelNewCapture() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryOldVoiceFailureCannotCancelNewCapture() async throws {
     let receipt = try historyObject()
     let history = try historyData(try #require(receipt["later_historical_answer"]))
     let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
@@ -810,7 +814,7 @@ private final class HistoryReplySequence: @unchecked Sendable {
     #expect(model.askDJMessages.isEmpty)
 }
 
-@Test @MainActor func sessionHistoryProfileQuestionsRemainAvailableWithoutPlaybackBackend() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryProfileQuestionsRemainAvailableWithoutPlaybackBackend() async throws {
     let receipt = try historyObject()
     let history = try historyData(try #require(receipt["later_historical_answer"]))
     let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
@@ -826,7 +830,7 @@ private final class HistoryReplySequence: @unchecked Sendable {
     #expect(!model.canUseProfileConversation)
 }
 
-@Test func sessionHistoryWebSocketCapabilitiesAcceptActualOperationMapsAndLegacyArrays() throws {
+@Test(.isolatedClientResources) func sessionHistoryWebSocketCapabilitiesAcceptActualOperationMapsAndLegacyArrays() throws {
     let actual = try JSONDecoder().decode(DJConnectWebSocketFallback.self, from: Data(#"{"http_paths":{"history":"/api/djconnect/v1/ask_dj/history","clear":"/api/djconnect/v1/ask_dj/history/clear"}}"#.utf8))
     #expect(actual.hasHTTPPath)
     #expect(actual.httpPaths == ["/api/djconnect/v1/ask_dj/history/clear", "/api/djconnect/v1/ask_dj/history"])
@@ -839,7 +843,7 @@ private final class HistoryReplySequence: @unchecked Sendable {
     }
 }
 
-@Test func sessionHistoryWebSocketRequestEncodesProfileScope() throws {
+@Test(.isolatedClientResources) func sessionHistoryWebSocketRequestEncodesProfileScope() throws {
     let identity = DJConnectIdentity(clientName: "Contract iPhone", deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Contract iPhone", clientType: .ios, firmware: "3.4.0", appVersion: "4.0.0", protocolVersion: "3.4.0", platform: .ios)
     let message = DJConnectWebSocketProfileHistoryMessage(id: 17, identity: DJConnectAPIIdentity(identity: identity, deviceToken: "synthetic-fixture-token"))
     let data = try JSONEncoder().encode(message)
@@ -849,7 +853,7 @@ private final class HistoryReplySequence: @unchecked Sendable {
     #expect((object["identity"] as? [String: Any])?["device_id"] as? String == identity.deviceID)
 }
 
-@Test func sessionHistoryPrivateWebSocketFailureNeverExportsConversationText() async throws {
+@Test(.isolatedClientResources) func sessionHistoryPrivateWebSocketFailureNeverExportsConversationText() async throws {
     let transport = DJConnectHomeAssistantWebSocketFastPath(baseURL: URL(string: "http://127.0.0.1:18191")!, homeAssistantAuth: DJConnectHomeAssistantWebSocketAuth { nil })
     let privateText = "private-question-7d94f60b"
     let wire = Data(("{\"error\":{\"code\":\"invalid_context\",\"message\":\"" + privateText + "\"}}").utf8)
@@ -865,7 +869,7 @@ private final class HistoryReplySequence: @unchecked Sendable {
     #expect(cancelled is CancellationError)
 }
 
-@Test func sessionHistoryCorrectiveHTTPProducerUsesStrictProfileNamespace() async throws {
+@Test(.isolatedClientResources) func sessionHistoryCorrectiveHTTPProducerUsesStrictProfileNamespace() async throws {
     let bytes = try historyFixture("http-scope-fix-producer-receipt")
     #expect(SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined() == "2462f35a06413716e41734be7fd03ac9181e717c857877765e1493a5148537bc")
     let receipt = try #require(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
@@ -898,7 +902,7 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     var denied: Bool { get { lock.withLock { value } } set { lock.withLock { value = newValue } } }
 }
 
-@Test(arguments: ["refresh", "list", "timeline", "search", "open", "fetch", "send", "voice", "clear"])
+@Test(.isolatedClientResources, arguments: ["refresh", "list", "timeline", "search", "open", "fetch", "send", "voice", "clear"])
 @MainActor func sessionHistoryProfileFailureWithdrawsAllPrivateStateAndRecovers(_ operation: String) async throws {
     let receipt = try historyObject()
     let timelineObject = try #require(receipt["archived_timeline"] as? [String: Any])
@@ -958,7 +962,7 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     #expect(fixture.requests.last?.url?.query?.contains("window=tail") == true)
 }
 
-@Test @MainActor func sessionHistoryQueuedTurnCannotSendAfterSynchronousBackground() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryQueuedTurnCannotSendAfterSynchronousBackground() async throws {
     let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
     let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
     let fixture = HistoryWireFixture { request in (200, request.url!.path.hasSuffix("/capabilities") ? caps : profile, 0) }
@@ -978,7 +982,7 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     #expect(model.sessionHistory.hasAuthorizedOwner)
 }
 
-@Test @MainActor func pairedProfileRecoveryCannotReadSessionAfterBackgroundDuringPreparation() async throws {
+@Test(.isolatedClientResources) @MainActor func pairedProfileRecoveryCannotReadSessionAfterBackgroundDuringPreparation() async throws {
     let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
     let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
     let fixture = HistoryWireFixture { request in
@@ -998,7 +1002,7 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     #expect(model.activeDJSession == nil && model.askDJMessages.isEmpty)
 }
 
-@Test @MainActor func pairedProfileRecoveryClearsPendingSendingAndIgnoresOldReply() async throws {
+@Test(.isolatedClientResources) @MainActor func pairedProfileRecoveryClearsPendingSendingAndIgnoresOldReply() async throws {
     let receipt = try historyObject()
     let profile = try historyData(try #require(receipt["later_historical_answer"]))
     let response = try historyData(try #require(receipt["voice_derived_turn"]))
@@ -1033,7 +1037,7 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     #expect(!model.isSendingAskDJText && model.sessionHistory.pendingTurns.isEmpty)
 }
 
-@Test @MainActor func sessionHistoryReadingAnchorsRemainPresentationOnlyAndClearWithAuthority() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryReadingAnchorsRemainPresentationOnlyAndClearWithAuthority() async throws {
     let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
     let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
     let fixture = HistoryWireFixture { request in (200, request.url!.path.hasSuffix("/capabilities") ? caps : profile, 0) }
@@ -1056,7 +1060,7 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     #expect(model.sessionHistory.readingAnchor(sessionID: "session-a") == nil)
 }
 
-@Test @MainActor func sessionHistoryQueuedTurnOfflineBeforeDispatchFailsAndCanRetry() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryQueuedTurnOfflineBeforeDispatchFailsAndCanRetry() async throws {
     let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
     let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
     let fixture = HistoryWireFixture { request in (200, request.url!.path.hasSuffix("/capabilities") ? caps : profile, 0) }
@@ -1088,7 +1092,7 @@ private final class HistoryAuthorityGate: @unchecked Sendable {
     #expect(!model.isSendingAskDJText && model.sessionHistory.pendingTurns.first?.failed == true)
 }
 
-@Test(arguments: ["profile", "network"]) @MainActor
+@Test(.isolatedClientResources, arguments: ["profile", "network"]) @MainActor
 func sessionHistoryActualComposerHandlesFailureAfterTransportGoesOffline(_ failure: String) async throws {
     let receipt = try historyObject()
     let profile = try historyData(try #require(receipt["later_historical_answer"]))
@@ -1132,7 +1136,7 @@ func sessionHistoryActualComposerHandlesFailureAfterTransportGoesOffline(_ failu
     }
 }
 
-@Test(arguments: ["502", "503", "decode", "409"]) @MainActor
+@Test(.isolatedClientResources, arguments: ["502", "503", "decode", "409"]) @MainActor
 func conversationFailureUsesAskDJCopyAndPreservesQuestionMetadata(_ failure: String) async throws {
     let receipt = try historyObject()
     let profile = try historyData(try #require(receipt["later_historical_answer"]))
@@ -1173,13 +1177,13 @@ func conversationFailureUsesAskDJCopyAndPreservesQuestionMetadata(_ failure: Str
     #expect(fixture.requests.filter { $0.httpMethod == "POST" && $0.url!.path.hasSuffix("/ask_dj/message") }.count == 1)
 }
 
-@Test @MainActor func conversationErrorKeysKeepTransportAndUncertainDeliveryDistinct() {
+@Test(.isolatedClientResources) @MainActor func conversationErrorKeysKeepTransportAndUncertainDeliveryDistinct() {
     #expect(DJConnectSessionHistoryModel.conversationErrorKey(URLError(.timedOut)) == "ui.ask_dj.answer.connection")
     #expect(DJConnectSessionHistoryModel.conversationErrorKey(DJConnectError.network(message: "fixture")) == "ui.ask_dj.answer.connection")
     #expect(DJConnectSessionHistoryModel.conversationErrorKey(DJConnectHybridTransportError.deliveryUnknown) == "ui.ask_dj.answer.delivery_unknown")
 }
 
-@Test(arguments: ["current", "consumed", "epoch", "owner-reset", "wrong-owner"]) @MainActor
+@Test(.isolatedClientResources, arguments: ["current", "consumed", "epoch", "owner-reset", "wrong-owner"]) @MainActor
 func conversationQuestionReviewRejectsCapturedStaleScopeWithoutSending(_ change: String) async throws {
     let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
     let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
@@ -1216,7 +1220,7 @@ func conversationQuestionReviewRejectsCapturedStaleScopeWithoutSending(_ change:
     if change == "current" { #expect(!history.pendingTurns.contains(where: { $0.id == captured.id })) }
 }
 
-@Test @MainActor func sessionHistoryPeriodicReadCannotSupersedeExplicitOpen() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryPeriodicReadCannotSupersedeExplicitOpen() async throws {
     let receipt = try historyObject()
     let profile = try historyData(try #require(receipt["later_historical_answer"]))
     let timeline = try historyData(try #require(receipt["archived_timeline"]))
@@ -1243,7 +1247,7 @@ func conversationQuestionReviewRejectsCapturedStaleScopeWithoutSending(_ change:
     #expect(model.sessionHistory.openTarget == target.entry.reference)
 }
 
-@Test func sessionHistoryGeneralReplyWithoutAudioPreservesConfirmedText() throws {
+@Test(.isolatedClientResources) func sessionHistoryGeneralReplyWithoutAudioPreservesConfirmedText() throws {
     let receipt = try historyObject("generic-no-audio-response")
     let response = try JSONDecoder().decode(DJConnectSessionConversationResponse.self,
         from: historyData(try #require(receipt["response"])))
@@ -1261,7 +1265,7 @@ func conversationQuestionReviewRejectsCapturedStaleScopeWithoutSending(_ change:
     #expect(DJConnectAskDJRequest.AudioResponse(rawValue: "unavailable") == nil)
 }
 
-@Test func sessionHistoryServerOnlyAudioOutcomeCannotReplayOnClient() throws {
+@Test(.isolatedClientResources) func sessionHistoryServerOnlyAudioOutcomeCannotReplayOnClient() throws {
     var object = try #require(try historyObject("generic-no-audio-response")["response"] as? [String: Any])
     var announcement = try #require(object["announcement"] as? [String: Any])
     announcement["audio_response_effective"] = "server_only"
@@ -1279,7 +1283,7 @@ func conversationQuestionReviewRejectsCapturedStaleScopeWithoutSending(_ change:
     #expect(unavailable.base.audioURL == nil)
 }
 
-@Test func sessionHistoryNestedAudioDenialWinsOverTopLevelReplayFallback() throws {
+@Test(.isolatedClientResources) func sessionHistoryNestedAudioDenialWinsOverTopLevelReplayFallback() throws {
     let receipt = try historyObject("generic-no-audio-response")
     for outcome in ["unavailable", "server_only"] {
         var object = try #require(receipt["response"] as? [String: Any])
@@ -1303,7 +1307,7 @@ func conversationQuestionReviewRejectsCapturedStaleScopeWithoutSending(_ change:
     }
 }
 
-@Test @MainActor func sessionHistoryActualProviderErrorPreservesReachableProfileConversation() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryActualProviderErrorPreservesReachableProfileConversation() async throws {
     let history = try historyData(try #require(historyObject()["later_historical_answer"]))
     let backendError = try historyData(try #require(historyObject("backend-unavailable-response")["response"]))
     let caps = Data(#"{"capabilities":{"session_conversation_history":true},"contract_versions":{"session_conversation_history":1}}"#.utf8)
@@ -1330,14 +1334,14 @@ func conversationQuestionReviewRejectsCapturedStaleScopeWithoutSending(_ change:
     #expect(!model.canUseProfileConversation)
 }
 
-@Test @MainActor func sessionHistoryTestAuthRequiresActualCredential() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryTestAuthRequiresActualCredential() async throws {
     #expect(DJConnectAppModel.sessionHistoryTestWebSocketAuth(token: nil) == nil)
     #expect(DJConnectAppModel.sessionHistoryTestWebSocketAuth(token: "  ") == nil)
     let auth = try #require(DJConnectAppModel.sessionHistoryTestWebSocketAuth(token: "fixture-issued-credential"))
     #expect(try await auth.accessToken() == "fixture-issued-credential")
 }
 
-@Test @MainActor func sessionHistoryServiceFailuresKeepHAReachableAndNeverConfirmConsent() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryServiceFailuresKeepHAReachableAndNeverConfirmConsent() async throws {
     let history = try historyData(try #require(historyObject()["later_historical_answer"]))
     let dnaError = try historyData(try #require(historyObject("music-dna-unavailable-response")["response"]))
     let sttError = try historyData(try #require(historyObject("stt-failed-response")["response"]))
@@ -1372,7 +1376,7 @@ func conversationQuestionReviewRejectsCapturedStaleScopeWithoutSending(_ change:
     #expect(model.haConnectionMode == .local && model.canUseProfileConversation)
 }
 
-@Test @MainActor func sessionHistoryMissingLiveAuthPreservesSessionAndStopsSpinner() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryMissingLiveAuthPreservesSessionAndStopsSpinner() async throws {
     let active = try historyData(try #require(historyObject("active-session-before-auth-failure")["response"]))
     let fixture = HistoryWireFixture { _ in (200, active, 0) }; defer { fixture.close() }
     let name = "session-auth-missing-" + UUID().uuidString
@@ -1402,7 +1406,7 @@ private func pairedCapabilityWire() throws -> Data {
         .appendingPathComponent("Fixtures/paired-owner-live-capability-v1.json"))
 }
 
-@Test func pairedLiveRejectsOverbroadOrForeignDiscovery() throws {
+@Test(.isolatedClientResources) func pairedLiveRejectsOverbroadOrForeignDiscovery() throws {
     let wire = try pairedCapabilityWire()
     let valid = try #require(JSONDecoder().decode(DJConnectPairedOwnerLiveDiscovery.self, from: wire).sessionBroadcast?.pairedOwnerWebsocket)
     let url = try valid.websocketURL(baseURL: URL(string: "https://trusted.invalid/?credential=forbidden#fragment")!, clientType: .ios)
@@ -1420,7 +1424,7 @@ private func pairedCapabilityWire() throws -> Data {
     }
 }
 
-@Test func pairedLiveDiscoveryNeverCarriesIdentityOrConfiguredAuthorization() async throws {
+@Test(.isolatedClientResources) func pairedLiveDiscoveryNeverCarriesIdentityOrConfiguredAuthorization() async throws {
     let wire = try pairedCapabilityWire()
     let fixture = HistoryWireFixture { _ in (200, wire, 0) }; defer { fixture.close() }
     let configuration = URLSessionConfiguration.ephemeral
@@ -1437,7 +1441,7 @@ private func pairedCapabilityWire() throws -> Data {
     #expect(request.value(forHTTPHeaderField: "X-DJConnect-Device-ID") == nil)
 }
 
-@Test func pairedLiveAuthAndCommandExcludeCallerAuthorityAndURLSecrets() throws {
+@Test(.isolatedClientResources) func pairedLiveAuthAndCommandExcludeCallerAuthorityAndURLSecrets() throws {
     let auth = DJConnectPairedOwnerAuthRequest(deviceID: "djconnect-ios-ABCDEF123456", clientType: .ios, deviceToken: "fixture-paired-secret")
     let object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(auth)) as? [String: Any])
     #expect(Set(object.keys) == ["type", "protocol_version", "device_id", "client_type", "device_token"])
@@ -1469,7 +1473,7 @@ private final class HTTPRecoveryActiveReadCounter: @unchecked Sendable {
     var value: Int { lock.withLock { count } }
 }
 
-@Test(arguments: ["unauthorized", "invalid_profile"])
+@Test(.isolatedClientResources, arguments: ["unauthorized", "invalid_profile"])
 @MainActor func sessionHTTPRecoveryWithdrawsPrivateOwnerState(_ denial: String) async throws {
     let receipt = try historyObject()
     let profile = try historyData(try #require(receipt["later_historical_answer"]))
@@ -1515,7 +1519,7 @@ private final class HTTPRecoveryActiveReadCounter: @unchecked Sendable {
     if denial == "unauthorized" { #expect(model.pairingStatus == .stale) }
 }
 
-@Test func sessionBroadcastAutomaticallyRecoversHTTPWhenLocalWebSocketIsUnavailable() async throws {
+@Test(.isolatedClientResources) func sessionBroadcastAutomaticallyRecoversHTTPWhenLocalWebSocketIsUnavailable() async throws {
     let response = try JSONDecoder().decode(DJConnectSessionResponse.self,
         from: historyData(try #require(historyObject("active-session-before-auth-failure")["response"])))
     let snapshot = try #require(response.resolvedSession?.broadcast)
@@ -1560,7 +1564,7 @@ private actor PairedProducerProbe {
     func isUnavailable() -> Bool { unavailable }
 }
 
-@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_TEST_PAIRED_PRODUCER"] == "1"))
+@Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_TEST_PAIRED_PRODUCER"] == "1"))
 func pairedLiveActualProducerPairsWithoutHAUserThenStreamsAndEnds() async throws {
     let base = URL(string: "http://127.0.0.1:18196")!
     func control(_ name: String) async throws -> [String: Any] {
@@ -1601,7 +1605,7 @@ func pairedLiveActualProducerPairsWithoutHAUserThenStreamsAndEnds() async throws
 }
 
 
-@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_TEST_PAIRED_PRODUCER"] == "1"))
+@Test(.isolatedClientResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_TEST_PAIRED_PRODUCER"] == "1"))
 func pairedLiveActualProducerWithdrawsChangedProfileAndRejectsInvalidToken() async throws {
     let base = URL(string: "http://127.0.0.1:18196")!
     func control(_ name: String) async throws {
@@ -1645,7 +1649,7 @@ func pairedLiveActualProducerWithdrawsChangedProfileAndRejectsInvalidToken() asy
     await invalid.stop()
 }
 
-@Test func pairedLivePairingRetainsBackendFailureWithoutRejectingCredential() throws {
+@Test(.isolatedClientResources) func pairedLivePairingRetainsBackendFailureWithoutRejectingCredential() throws {
     let wire = Data(#"{"success":true,"device_token":"synthetic-paired-secret","client_type":"ios","music_backend_available":false,"music_backend_error":{"code":"music_backend_not_configured","message":"Kies een muziekbackend"}}"#.utf8)
     let paired = try JSONDecoder().decode(DJConnectPairingResponse.self, from: wire)
     #expect(paired.success && paired.resolvedDeviceToken != nil)
@@ -1655,7 +1659,7 @@ func pairedLiveActualProducerWithdrawsChangedProfileAndRejectsInvalidToken() asy
 }
 
 
-@Test func pairedLiveUpgradeRejectsRedirectAndIdentityButAllowsFoundationHTTPMapping() {
+@Test(.isolatedClientResources) func pairedLiveUpgradeRejectsRedirectAndIdentityButAllowsFoundationHTTPMapping() {
     let expected = URL(string: "wss://trusted.invalid/api/djconnect/v1/session/broadcast/paired")!
     #expect(pairedLiveUpgradeMatches(URL(string: "https://trusted.invalid:443/api/djconnect/v1/session/broadcast/paired"), expected: expected))
     for denied in ["http://trusted.invalid/api/djconnect/v1/session/broadcast/paired", "https://foreign.invalid/api/djconnect/v1/session/broadcast/paired", "https://trusted.invalid/other", "https://trusted.invalid/api/djconnect/v1/session/broadcast/paired?token=forbidden", "https://user:secret@trusted.invalid/api/djconnect/v1/session/broadcast/paired"] {
@@ -1674,7 +1678,7 @@ private func stopPairedRedirectFixture(_ process: Process) async {
     #expect(!process.isRunning, "Owned redirect fixture must terminate within two seconds")
 }
 
-@Test func pairedLiveDiscoveryRejectsRealRedirectBeforeDestinationOrCredentialExposure() async throws {
+@Test(.isolatedClientResources) func pairedLiveDiscoveryRejectsRealRedirectBeforeDestinationOrCredentialExposure() async throws {
     let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let file = FileManager.default.temporaryDirectory.appendingPathComponent("paired-redirect-" + UUID().uuidString + ".json")
     let process = Process(); process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
@@ -1709,7 +1713,7 @@ private func stopPairedRedirectFixture(_ process: Process) async {
     await stopPairedRedirectFixture(process)
 }
 
-@Test func sessionArchiveSummaryUsesActualTimezoneDurationAndBothDates() throws {
+@Test(.isolatedClientResources) func sessionArchiveSummaryUsesActualTimezoneDurationAndBothDates() throws {
     let session = try JSONDecoder().decode(DJConnectSavedSession.self, from: Data(#"{"session_id":"summary","lifecycle_status":"ENDED","created_at":"2026-10-11T10:00:00Z","started_at":"2026-10-11T10:00:00Z","ended_at":"2026-10-11T16:00:00Z","interrupted_at":"","revision":"r1","read_only":true,"history_coverage":"retained"}"#.utf8))
     let text = SessionArchiveSummary.text(session, language: "nl", timeZone: try #require(TimeZone(identifier: "Europe/Amsterdam")))
     #expect(text.contains("11 oktober 2026"))
@@ -1718,7 +1722,7 @@ private func stopPairedRedirectFixture(_ process: Process) async {
     #expect(!text.hasPrefix("ma")) // The example date is actually Sunday.
 }
 
-@Test func sessionArchiveSummaryNeverInventsMissingOrInvalidEnd() throws {
+@Test(.isolatedClientResources) func sessionArchiveSummaryNeverInventsMissingOrInvalidEnd() throws {
     for end in ["", "2026-10-11T09:00:00Z"] {
         let json: [String: Any] = ["session_id":"summary", "lifecycle_status":"ENDED", "created_at":"2026-10-11T10:00:00Z", "started_at":"2026-10-11T10:00:00Z", "ended_at":end, "interrupted_at":"", "revision":"r1", "read_only":true, "history_coverage":"retained"]
         let session = try JSONDecoder().decode(DJConnectSavedSession.self, from: JSONSerialization.data(withJSONObject: json))
@@ -1726,7 +1730,7 @@ private func stopPairedRedirectFixture(_ process: Process) async {
     }
 }
 
-@Test(arguments: ["saved", "end-failed", "archive-failed", "history-reset"])
+@Test(.isolatedClientResources, arguments: ["saved", "end-failed", "archive-failed", "history-reset"])
 @MainActor func sessionEndDoesNotShowSavedToastOrFetchArchive(outcome: String) async throws {
     var archive = try #require(historyObject()["archived_timeline"] as? [String: Any])
     let saved = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: historyData(archive)).session
@@ -1768,7 +1772,7 @@ private func stopPairedRedirectFixture(_ process: Process) async {
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/end") }.count == 1)
 }
 
-@Test @MainActor func sessionHistoryNewestWindowSurvivesEarlierPagingAndRestore() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryNewestWindowSurvivesEarlierPagingAndRestore() async throws {
     let receipt = try historyObject("window-producer-receipt")
     var tail = try #require(receipt["tail_window"] as? [String: Any])
     tail["window_limit"] = 20
@@ -1797,14 +1801,14 @@ private func stopPairedRedirectFixture(_ process: Process) async {
     #expect(fixture.requests.last?.url?.query?.contains("window=tail") == true)
 }
 
-@Test func sessionArchiveSummaryShowsEndDateForOvernightSessions() throws {
+@Test(.isolatedClientResources) func sessionArchiveSummaryShowsEndDateForOvernightSessions() throws {
     let session = try JSONDecoder().decode(DJConnectSavedSession.self, from: Data(#"{"session_id":"overnight","lifecycle_status":"ENDED","created_at":"2026-10-10T21:00:00Z","started_at":"2026-10-10T21:00:00Z","ended_at":"2026-10-11T04:00:00Z","interrupted_at":"","revision":"r1","read_only":true,"history_coverage":"retained"}"#.utf8))
     let text = SessionArchiveSummary.text(session, language: "nl", timeZone: try #require(TimeZone(identifier: "Europe/Amsterdam")))
     #expect(text.contains("10 oktober 2026") && text.contains("11 oktober 2026"))
     #expect(text.contains("7 uur") && text.contains("23:00") && text.contains("06:00"))
 }
 
-@Test func musicDNAPrivacyUsesLocalizedClaimsWithoutInventingUnknownAssurances() throws {
+@Test(.isolatedClientResources) func musicDNAPrivacyUsesLocalizedClaimsWithoutInventingUnknownAssurances() throws {
     let wire = Data(#"{"enabled":true,"data_sources":[{"label":"Ask DJ playback context","enabled":false}],"controls":{"clear_supported":true,"export_supported":false,"import_supported":true,"opt_out_preserves_clear":true},"stores_raw_audio":false,"stores_oauth_tokens":false,"stores_full_prompts":true,"flags":{"unknown_internal_flag":true}}"#.utf8)
     let dashboard = try JSONDecoder().decode(DJConnectMusicDNAPrivacyDashboard.self, from: wire)
     let text = MusicDNAPrivacySummary.text(dashboard, language: "nl")
@@ -1820,7 +1824,7 @@ private func stopPairedRedirectFixture(_ process: Process) async {
     }
 }
 
-@Test @MainActor func sessionArchiveExplicitRefreshSupersedesSlowOldFailure() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionArchiveExplicitRefreshSupersedesSlowOldFailure() async throws {
     let receipt = try historyObject()
     let profile = try historyData(try #require(receipt["later_historical_answer"]))
     let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
@@ -1863,7 +1867,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     return try historyData(["success":true,"session":runtime])
 }
 
-@Test func activeMoodRequestUsesExactlyOwnerContractAndPinnedCapability() throws {
+@Test(.isolatedClientResources) func activeMoodRequestUsesExactlyOwnerContractAndPinnedCapability() throws {
     let fixture = HistoryWireFixture { _ in (200, Data(), 0) }; defer { fixture.close() }
     let client = fixture.client()
     let request = try client.sessionMoodRequest(sessionID: "current", mood: "energy", expectedRevision: 3)
@@ -1877,7 +1881,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(!(try JSONDecoder().decode(DJConnectActiveMoodCapabilities.self, from: Data(#"{"capabilities":{"active_session_mood":true},"contract_versions":{"active_session_mood":1}}"#.utf8))).available)
 }
 
-@Test(arguments: ["mood", "capabilities"])
+@Test(.isolatedClientResources, arguments: ["mood", "capabilities"])
 @MainActor func activeMoodAuthorityDenialWithdrawsLoadedProfile(_ route: String) async throws {
     let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
     let runtime = try activeMoodRuntimeWire()
@@ -1900,7 +1904,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(!model.activeMoodPending && !model.activeMoodAvailable && model.activeMoodError == nil)
 }
 
-@Test @MainActor func activeMoodLateFailureAfterBackgroundCannotRestoreOldStatus() async throws {
+@Test(.isolatedClientResources) @MainActor func activeMoodLateFailureAfterBackgroundCannotRestoreOldStatus() async throws {
     let runtime = try activeMoodRuntimeWire()
     let fixture = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/capabilities") { return (200, activeMoodCapsWire, 0) }
@@ -1927,14 +1931,14 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(model.activeMoodAvailable && !model.activeMoodPending && model.activeMoodError == nil)
 }
 
-@Test func sessionArchiveDoesNotInventDurationFromCreationWhenStartIsMissing() throws {
+@Test(.isolatedClientResources) func sessionArchiveDoesNotInventDurationFromCreationWhenStartIsMissing() throws {
     let session = try JSONDecoder().decode(DJConnectSavedSession.self, from: Data(#"{"session_id":"unknown-start","lifecycle_status":"ENDED","created_at":"2026-10-11T10:00:00Z","started_at":"","ended_at":"2026-10-11T16:00:00Z","interrupted_at":"","revision":"1","read_only":true,"history_coverage":"retained_visible"}"#.utf8))
     let text = SessionArchiveSummary.text(session, language: "nl")
     #expect(text.contains("begintijd onbekend"))
     #expect(!text.contains("6 uur"))
 }
 
-@Test @MainActor func reviewDemoSessionsUseNativeModelsAndNeverBecomeLiveAuthority() async throws {
+@Test(.isolatedClientResources) @MainActor func reviewDemoSessionsUseNativeModelsAndNeverBecomeLiveAuthority() async throws {
     let name = "demo-session-test-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name))
     defer { defaults.removePersistentDomain(forName: name) }
@@ -1995,7 +1999,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(model.sessionHistory.readingAnchor(sessionID: archive.id) == nil)
 }
 
-@Test @MainActor func demoExamplesCannotInstallOutsideDemoAndAreLocalized() throws {
+@Test(.isolatedClientResources) @MainActor func demoExamplesCannotInstallOutsideDemoAndAreLocalized() throws {
     let name = "demo-off-test-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name)); defer { defaults.removePersistentDomain(forName: name) }
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
@@ -2007,7 +2011,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     }
 }
 
-@Test @MainActor func demoInputNeverPersistsAndCannotUploadCapturedVoice() async throws {
+@Test(.isolatedClientResources) @MainActor func demoInputNeverPersistsAndCannotUploadCapturedVoice() async throws {
     let name = "demo-private-test-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name)); defer { defaults.removePersistentDomain(forName: name) }
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
@@ -2031,7 +2035,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(next.askDJMessages.isEmpty && next.activeDJSession == nil && !next.sessionHistory.available)
 }
 
-@Test @MainActor func reviewDemoAllActionsStayOfflineAndPreserveNormalChatCache() async throws {
+@Test(.isolatedClientResources) @MainActor func reviewDemoAllActionsStayOfflineAndPreserveNormalChatCache() async throws {
     let wire = HistoryWireFixture { _ in (503, Data(), 0) }; defer { wire.close() }
     let name = "demo-cache-test-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name)); defer { defaults.removePersistentDomain(forName: name) }
@@ -2054,7 +2058,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(next.askDJMessages.map(\.text) == ["Existing ordinary chat"])
 }
 
-@Test func sessionTimelineRefreshHonorsExactExpiryBetweenMinuteTicks() {
+@Test(.isolatedClientResources) func sessionTimelineRefreshHonorsExactExpiryBetweenMinuteTicks() {
     let start = Date(timeIntervalSince1970: 120)
     let expires = start.addingTimeInterval(7.125)
     let schedule = SessionEntryRefreshSchedule(deadlines: [expires, expires, start.addingTimeInterval(-1)])
@@ -2062,7 +2066,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(dates == [start, expires, start.addingTimeInterval(60), start.addingTimeInterval(120)])
 }
 
-@Test func sessionTimelineMinuteBoundaryExpiryDoesNotDuplicateTicks() {
+@Test(.isolatedClientResources) func sessionTimelineMinuteBoundaryExpiryDoesNotDuplicateTicks() {
     let start = Date(timeIntervalSince1970: 119)
     let boundary = Date(timeIntervalSince1970: 120)
     let schedule = SessionEntryRefreshSchedule(deadlines: [boundary, boundary])
@@ -2072,7 +2076,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(sessionPlaybackTime(3601000) == "60:01")
 }
 
-@Test @MainActor func activeMoodBoundIntentDoesNotTargetReplacementSession() async throws {
+@Test(.isolatedClientResources) @MainActor func activeMoodBoundIntentDoesNotTargetReplacementSession() async throws {
     let runtime = try activeMoodRuntimeWire()
     let object = try #require(JSONSerialization.jsonObject(with: runtime) as? [String: Any])
     let session = try #require(object["session"] as? [String: Any])
@@ -2121,7 +2125,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(model.activeDJSession?.id == replacement.id)
 }
 
-@Test func pairedConnectionIndicatorDoesNotTreatPairingAsLiveHealth() {
+@Test(.isolatedClientResources) func pairedConnectionIndicatorDoesNotTreatPairingAsLiveHealth() {
     #expect(SessionConnectionStatus.resolve(demo: false, pairing: .paired, mode: .offline, backendAvailable: true, recovering: false, liveUnavailable: false) == .offline)
     #expect(SessionConnectionStatus.resolve(demo: false, pairing: .paired, mode: .local, backendAvailable: true, recovering: true, liveUnavailable: false) == .recovering)
     #expect(SessionConnectionStatus.resolve(demo: false, pairing: .paired, mode: .remote, backendAvailable: true, recovering: false, liveUnavailable: true) == .liveUnavailable)
@@ -2130,7 +2134,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(SessionConnectionStatus.resolve(demo: true, pairing: .unpaired, mode: .offline, backendAvailable: false, recovering: false, liveUnavailable: false) == .demo)
 }
 
-@Test @MainActor func reviewDemoExitRestoresRequiredPairingGateAndCanRestartDemo() throws {
+@Test(.isolatedClientResources) @MainActor func reviewDemoExitRestoresRequiredPairingGateAndCanRestartDemo() throws {
     let defaults = try #require(UserDefaults(suiteName: "demo-exit-gate-" + UUID().uuidString))
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.applyUITestRuntimeFixture("review_demo")
@@ -2146,7 +2150,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(!model.shouldShowPairingScreen)
 }
 
-@Test @MainActor func playbackSurfacesFollowConfirmedSessionMoodInsteadOfLegacyAskDJMood() async throws {
+@Test(.isolatedClientResources) @MainActor func playbackSurfacesFollowConfirmedSessionMoodInsteadOfLegacyAskDJMood() async throws {
     let name = "playback-mood-test-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name))
     defer { defaults.removePersistentDomain(forName: name) }
@@ -2173,7 +2177,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(payload.mood == nil)
 }
 
-@Test @MainActor func sessionRenderCacheKeepsStableRowsAndHonorsExactExpiryAndEpoch() throws {
+@Test(.isolatedClientResources) @MainActor func sessionRenderCacheKeepsStableRowsAndHonorsExactExpiryAndEpoch() throws {
     let data = try DJConnectDemoSessionData.make(language: "nl")
     let entries = try #require(data.timelines[data.active.id]?.entries)
     let cache = SessionTimelineRenderCache(); let epoch = UUID()
@@ -2191,7 +2195,7 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(cache.snapshot([], sessionID: data.active.id, epoch: epoch).isEmpty)
 }
 
-@Test @MainActor func sessionEquatableRowsInvalidateForContextSearchAndLanguage() throws {
+@Test(.isolatedClientResources) @MainActor func sessionEquatableRowsInvalidateForContextSearchAndLanguage() throws {
     let data = try DJConnectDemoSessionData.make(language: "nl")
     let entry = try #require(data.timelines[data.active.id]?.entries.first)
     let base = SessionEntryView(entry: entry, language: "nl", contextEpoch: UUID(), opensActiveComposer: true)
@@ -2204,7 +2208,7 @@ private func activeMoodRuntimeWire() throws -> Data {
 
 #if os(macOS)
 /// Presentation only; supplied callback grants no history playback authority.
-@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_ENTRY_PLAY_NATIVE_DIR"] != nil)) @MainActor
+@Test(.isolatedAppKitResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_ENTRY_PLAY_NATIVE_DIR"] != nil)) @MainActor
 func sessionPlaybackEntryShowsWhitePlayControl() async throws {
     let directory = try #require(ProcessInfo.processInfo.environment["DJCONNECT_ENTRY_PLAY_NATIVE_DIR"])
     let folder = URL(fileURLWithPath: directory)
@@ -2235,7 +2239,7 @@ func sessionPlaybackEntryShowsWhitePlayControl() async throws {
 }
 #endif
 
-@Test func outputDevicesKeepRowsWithNumericObservedTimestamps() throws {
+@Test(.isolatedClientResources) func outputDevicesKeepRowsWithNumericObservedTimestamps() throws {
     let data = Data(#"{"success":true,"devices":[{"id":"speaker-1","name":"Living Room","active":true,"first_seen_at":1791882000.25,"last_seen_at":1791883000.5},{"id":"speaker-2","name":"Kitchen","cached":true,"provider":"spotify","first_seen_at":"2026-10-13T08:00:00Z","last_seen_at":null}]}"#.utf8)
     let response = try JSONDecoder().decode(DJConnectCommandResponse.self, from: data)
     #expect(response.devices?.count == 2)
@@ -2245,7 +2249,7 @@ func sessionPlaybackEntryShowsWhitePlayControl() async throws {
     #expect(response.devices?.last?.lastSeenAt == nil)
 }
 
-@Test func localizationBundleCacheKeepsConcurrentLanguageSelectionAndFallback() async {
+@Test(.isolatedClientResources) func localizationBundleCacheKeepsConcurrentLanguageSelectionAndFallback() async {
     let expected: [String: String] = ["nl": "Verstuur", "en": "Send", "de": "Send", "fr": "Send", "es": "Send"]
     await withTaskGroup(of: Bool.self) { group in
         for index in 0..<100 {
@@ -2258,7 +2262,7 @@ func sessionPlaybackEntryShowsWhitePlayControl() async throws {
     #expect(DJConnectLocalization.localized(key: "ui.search.value", language: "nl", arguments: "Music") == "Zoek in Music")
 }
 
-@Test @MainActor func composerEditorKeepsDraftWithoutRepublishingEveryCharacter() throws {
+@Test(.isolatedClientResources) @MainActor func composerEditorKeepsDraftWithoutRepublishingEveryCharacter() throws {
     let fixture = HistoryWireFixture { _ in (200, Data("{}".utf8), 0) }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
@@ -2280,7 +2284,7 @@ func sessionPlaybackEntryShowsWhitePlayControl() async throws {
     #expect(model.askDJDraftRevision == 2)
 }
 
-@Test @MainActor func sessionHistoryNavigationCancellationPreservesLoadedContentAndConnection() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryNavigationCancellationPreservesLoadedContentAndConnection() async throws {
     let receipt = try historyObject()
     let timelineObject = try #require(receipt["archived_timeline"] as? [String: Any])
     let timelineData = try historyData(timelineObject)
@@ -2325,7 +2329,7 @@ private final class MusicDNARecoveryAttempts: @unchecked Sendable {
     func next() -> Int { lock.withLock { value += 1; return value } }
 }
 
-@Test(arguments: [false, true]) @MainActor func musicDNAProfileAutomaticallyRecoversTransientReadFailure(backendUnavailable: Bool) async throws {
+@Test(.isolatedClientResources, arguments: [false, true]) @MainActor func musicDNAProfileAutomaticallyRecoversTransientReadFailure(backendUnavailable: Bool) async throws {
     let attempts = MusicDNARecoveryAttempts()
     let fixture = HistoryWireFixture { _ in
         let attempt = attempts.next()
@@ -2344,7 +2348,7 @@ private final class MusicDNARecoveryAttempts: @unchecked Sendable {
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "POST" && $0.url?.path.hasSuffix("/music_dna/profile") == true })
 }
 
-@Test @MainActor func musicDNAProfileRetryIsBoundedAndRetainsLastLoadedProfile() async throws {
+@Test(.isolatedClientResources) @MainActor func musicDNAProfileRetryIsBoundedAndRetainsLastLoadedProfile() async throws {
     let gate = HistoryAuthorityGate()
     let fixture = HistoryWireFixture { _ in
         if gate.denied { return (503, Data(#"{"success":false,"error":"temporary_failure"}"#.utf8), 0) }
@@ -2361,7 +2365,7 @@ private final class MusicDNARecoveryAttempts: @unchecked Sendable {
     #expect(model.musicDNAErrorMessage == DJConnectLocalization.localized(key: "ui.music.dna.recovering", language: model.language))
 }
 
-@Test @MainActor func musicDNAProfileCancellationDoesNotBecomeRecoveryError() async throws {
+@Test(.isolatedClientResources) @MainActor func musicDNAProfileCancellationDoesNotBecomeRecoveryError() async throws {
     let fixture = HistoryWireFixture { _ in throw URLError(.cancelled) }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
@@ -2370,7 +2374,7 @@ private final class MusicDNARecoveryAttempts: @unchecked Sendable {
     #expect(!model.musicDNAProfileNeedsRecovery && model.musicDNAErrorMessage == nil && !model.isLoadingMusicDNA)
 }
 
-@Test @MainActor func musicDNAProfileAccessDenialDoesNotRetry() async throws {
+@Test(.isolatedClientResources) @MainActor func musicDNAProfileAccessDenialDoesNotRetry() async throws {
     let fixture = HistoryWireFixture { _ in (403, Data(#"{"success":false,"error":"invalid_profile","message":"Profile denied"}"#.utf8), 0) }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
@@ -2396,7 +2400,7 @@ private func presenceRuntimeWire(value: String = "balanced", revision: Int = 0, 
 }
 private let presenceCapsWire = Data(#"{"capabilities":{"active_session_presence":true},"contract_versions":{"active_session_presence":1},"active_session_presence":{"available":true,"version":1,"path":"/api/djconnect/v1/session/presence","method":"POST","authentication":"paired_device_bearer","values":["music_only","occasional","balanced","talkative","presenter"],"default":"balanced","ordering":"expected_presence_revision","scope":"active_device_bound_owner_session"}}"#.utf8)
 
-@Test func presenceProducerPinAndExactSixFieldOwnerRequest() throws {
+@Test(.isolatedClientResources) func presenceProducerPinAndExactSixFieldOwnerRequest() throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let bytes = try Data(contentsOf: root.appendingPathComponent("Fixtures/session-presence-core-b5c25f7-transport.json"))
     #expect(SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined() == "e42956b4f544878e4a0840a4b54d5f6bbb3a5d70ab83da52c02127f74a8ae40e")
@@ -2421,7 +2425,7 @@ private let presenceCapsWire = Data(#"{"capabilities":{"active_session_presence"
     #expect(!(try JSONDecoder().decode(DJConnectActiveMoodCapabilities.self, from: Data(#"{"capabilities":{"active_session_presence":true},"contract_versions":{"active_session_presence":1}}"#.utf8))).presenceAvailable)
 }
 
-@Test(arguments: [0,1,2,3,4,5,20,21,22,23,24,25,26,27,28,29,30,31,32,33])
+@Test(.isolatedClientResources, arguments: [0,1,2,3,4,5,20,21,22,23,24,25,26,27,28,29,30,31,32,33])
 func presenceActualProducerResponses(_ index: Int) async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let entries = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-presence-core-b5c25f7-transport.json"))) as? [[String: Any]])
@@ -2440,7 +2444,7 @@ func presenceActualProducerResponses(_ index: Int) async throws {
     }
 }
 
-@Test func presenceReducerOrdersIndependentlyAndPreserves40021Projection() throws {
+@Test(.isolatedClientResources) func presenceReducerOrdersIndependentlyAndPreserves40021Projection() throws {
     let runtime = try #require(JSONDecoder().decode(DJConnectSessionResponse.self, from: presenceRuntimeWire()).resolvedSession)
     let original = runtime.broadcast
     let newest = runtime.applying(presence: .init(sessionID: runtime.id, selectedPresence: .musicOnly, presenceRevision: 4))
@@ -2476,7 +2480,7 @@ private final class PresenceScript: @unchecked Sendable {
     var writes: Int { lock.withLock { writeNumber } }
 }
 
-@Test @MainActor func presenceRapidIntentsHaveOnePendingWriteAndLatestQueue() async throws {
+@Test(.isolatedClientResources) @MainActor func presenceRapidIntentsHaveOnePendingWriteAndLatestQueue() async throws {
     let runtime = try presenceRuntimeWire(), script = PresenceScript()
     let firstReplyGate = DispatchSemaphore(value: 0)
     defer { firstReplyGate.signal() }
@@ -2514,7 +2518,7 @@ private final class PresenceScript: @unchecked Sendable {
     #expect(model.activeDJSession?.selectedMood == (try JSONDecoder().decode(DJConnectSessionResponse.self, from: runtime).resolvedSession?.selectedMood))
 }
 
-@Test(arguments: ["conflict", "lost", "denial", "background", "replacement"])
+@Test(.isolatedClientResources, arguments: ["conflict", "lost", "denial", "background", "replacement"])
 @MainActor func presenceStopsAfterUnknownOrWithdrawnOutcome(_ scenario: String) async throws {
     let runtime = try presenceRuntimeWire(), script = PresenceScript()
     let after = try presenceRuntimeWire(value: "music_only", revision: 4, suffix: scenario == "replacement" ? "-new" : "")
@@ -2571,7 +2575,7 @@ private func presenceRequestBody(_ request: URLRequest) throws -> Data {
     }
 }
 
-@Test @MainActor func presenceSingleAttemptDoesNotReplayMutationOnRemoteRoute() async throws {
+@Test(.isolatedClientResources) @MainActor func presenceSingleAttemptDoesNotReplayMutationOnRemoteRoute() async throws {
     let fixture = HistoryWireFixture { _ in (200, Data(), 0) }; defer { fixture.close() }
     let manager = DJConnectHATransportManager(localURL: URL(string: "http://local.test"), remoteURL: URL(string: "https://remote.test"), allowsRemoteFallback: true, clientFactory: { _ in fixture.client() })
     var attempts = 0
@@ -2588,7 +2592,7 @@ private func presenceRequestBody(_ request: URLRequest) throws -> Data {
     #expect(read && attempts == 2, "Ordinary recovery reads still retain the existing HTTP fallback")
 }
 
-@Test @MainActor func presenceActualActiveReadRetainsRevisionFloorThroughContradiction() async throws {
+@Test(.isolatedClientResources) @MainActor func presenceActualActiveReadRetainsRevisionFloorThroughContradiction() async throws {
     var first = try #require(JSONSerialization.jsonObject(with: presenceRuntimeWire(value: "balanced", revision: 4)) as? [String: Any])
     var session = first["session"] as! [String: Any], broadcast = session["broadcast"] as! [String: Any]
     var metadata = broadcast["session"] as! [String: Any]
@@ -2615,7 +2619,7 @@ private func presenceRequestBody(_ request: URLRequest) throws -> Data {
     #expect(model.activeDJSession?.confirmedPresence?.selectedPresence == .occasional && model.activeDJSession?.presenceRevisionFloor == 5)
 }
 
-@Test @MainActor func presenceCompleteHTTPRuntimeCannotConfirmOneHalfOfNewerContradiction() async throws {
+@Test(.isolatedClientResources) @MainActor func presenceCompleteHTTPRuntimeCannotConfirmOneHalfOfNewerContradiction() async throws {
     let first = try presenceRuntimeWire(value: "balanced", revision: 4)
     var contradiction = try #require(JSONSerialization.jsonObject(with: presenceRuntimeWire(value: "talkative", revision: 5)) as? [String: Any])
     var root = contradiction["session"] as! [String: Any], broadcast = root["broadcast"] as! [String: Any]
@@ -2665,7 +2669,7 @@ private final class PresenceModes: @unchecked Sendable {
     var values: [DJConnectHAConnectionMode] { lock.withLock { modes } }
 }
 
-@Test(arguments: [DJConnectHAConnectionMode.local, .remote])
+@Test(.isolatedClientResources, arguments: [DJConnectHAConnectionMode.local, .remote])
 @MainActor func presenceTypedCASConflictKeepsReachableRoute(_ mode: DJConnectHAConnectionMode) async throws {
     let fixture = HistoryWireFixture { _ in (409, Data(#"{"success":false,"error":"presence_revision_conflict","current":{"session_id":"current","selected_presence":"music_only","presence_revision":4}}"#.utf8), 0) }
     defer { fixture.close() }
@@ -2680,7 +2684,7 @@ private final class PresenceModes: @unchecked Sendable {
     #expect(modes.values == [mode] && fixture.requests.count == 1)
 }
 
-@Test @MainActor func presenceConflictRetainsOwnerGrantAndExplicitDecision() async throws {
+@Test(.isolatedClientResources) @MainActor func presenceConflictRetainsOwnerGrantAndExplicitDecision() async throws {
     var caps = try #require(JSONSerialization.jsonObject(with: activeMoodCapsWire) as? [String: Any])
     let presence = try #require(JSONSerialization.jsonObject(with: presenceCapsWire) as? [String: Any])
     var booleans = caps["capabilities"] as! [String: Bool], versions = caps["contract_versions"] as! [String: Int]
@@ -2712,7 +2716,7 @@ private final class PresenceModes: @unchecked Sendable {
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/presence") }.count == 1)
 }
 
-@Test @MainActor func queueSelectionRefreshesQueueWhileStatusRefreshIsBusy() async throws {
+@Test(.isolatedClientResources) @MainActor func queueSelectionRefreshesQueueWhileStatusRefreshIsBusy() async throws {
     let wire = HistoryWireFixture { request in
         let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
         switch body?["command"] as? String {
@@ -2744,7 +2748,7 @@ private final class PresenceModes: @unchecked Sendable {
     #expect(model.isRefreshing) // Queue refresh does not take over the status refresh.
 }
 
-@Test @MainActor func queueSelectionWaitsForOlderQueueReadThenFetchesFreshRows() async throws {
+@Test(.isolatedClientResources) @MainActor func queueSelectionWaitsForOlderQueueReadThenFetchesFreshRows() async throws {
     let counter = HTTPRecoveryActiveReadCounter()
     let wire = HistoryWireFixture { request in
         let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
@@ -2787,7 +2791,7 @@ private final class PresenceModes: @unchecked Sendable {
     #expect(commands == ["queue", "play_context_at", "queue"])
 }
 
-@Test(arguments: ["track", "playlist"]) @MainActor
+@Test(.isolatedClientResources, arguments: ["track", "playlist"]) @MainActor
 func activeSessionProjectsLivePlayNowWithoutPromotingArchivedActions(kind: String) async throws {
     let receipt = try historyObject()
     let sessionID = try #require(receipt["session_id"] as? String)
@@ -2874,7 +2878,7 @@ func activeSessionProjectsLivePlayNowWithoutPromotingArchivedActions(kind: Strin
     #expect(archiveOnly.first?.message.playbackActions.isEmpty == true)
 }
 
-@Test(arguments: [true, false]) @MainActor
+@Test(.isolatedClientResources, arguments: [true, false]) @MainActor
 func sessionPlayNowWithdrawalFencesDispatchAndLateResponse(beforeDispatch: Bool) async throws {
     let replyGate = DispatchSemaphore(value: 0)
     defer { replyGate.signal() }
@@ -2913,7 +2917,7 @@ func sessionPlayNowWithdrawalFencesDispatchAndLateResponse(beforeDispatch: Bool)
     #expect(wire.requests.filter { $0.url!.path.hasSuffix("/command") }.count == (beforeDispatch ? 0 : 1))
 }
 
-@Test(arguments: ["status", "devices"], [false, true]) @MainActor
+@Test(.isolatedClientResources, arguments: ["status", "devices"], [false, true]) @MainActor
 func sessionPlayNowFollowUpReadsDoNotApplyAfterWithdrawal(stage: String, fail: Bool) async throws {
     let replyGate = DispatchSemaphore(value: 0)
     defer { replyGate.signal() }
@@ -2967,7 +2971,7 @@ func sessionPlayNowFollowUpReadsDoNotApplyAfterWithdrawal(stage: String, fail: B
     }
 }
 
-@Test func askDJNewestFirstSearchKeepsSelectedMessageWhenReplyIsPrepended() {
+@Test(.isolatedClientResources) func askDJNewestFirstSearchKeepsSelectedMessageWhenReplyIsPrepended() {
     let oldA = UUID(), oldB = UUID(), newReply = UUID()
     let results = [newReply, oldA, oldB]
     let index = askDJSearchResultIndex(preserving: oldB, fallback: 1, in: results)
@@ -2978,7 +2982,7 @@ func sessionPlayNowFollowUpReadsDoNotApplyAfterWithdrawal(stage: String, fail: B
     #expect(askDJSearchResultIndex(preserving: oldB, fallback: 1, in: []) == 0)
 }
 
-@Test @MainActor func presenceCapabilityReadFailureIsTransientAndRetryRetainsRevisionZero() async throws {
+@Test(.isolatedClientResources) @MainActor func presenceCapabilityReadFailureIsTransientAndRetryRetainsRevisionZero() async throws {
     let gate = HistoryAuthorityGate()
     let runtime = try presenceRuntimeWire()
     let fixture = HistoryWireFixture { request in
@@ -3006,7 +3010,7 @@ func sessionPlayNowFollowUpReadsDoNotApplyAfterWithdrawal(stage: String, fail: B
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
 }
 
-@Test @MainActor func presenceCapabilityLateReadCannotOverrideNewerUnsupportedState() async throws {
+@Test(.isolatedClientResources) @MainActor func presenceCapabilityLateReadCannotOverrideNewerUnsupportedState() async throws {
     let gate = HistoryAuthorityGate()
     let runtime = try presenceRuntimeWire()
     let fixture = HistoryWireFixture { request in
@@ -3034,7 +3038,7 @@ func sessionPlayNowFollowUpReadsDoNotApplyAfterWithdrawal(stage: String, fail: B
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
 }
 
-@Test @MainActor func presenceCapabilityMalformedResponseIsNotUnsupportedOrConfirmed() async throws {
+@Test(.isolatedClientResources) @MainActor func presenceCapabilityMalformedResponseIsNotUnsupportedOrConfirmed() async throws {
     let fixture = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/capabilities") {
             return (200, Data(#"{"capabilities":{"active_session_presence":"yes"}}"#.utf8), 0)
@@ -3049,7 +3053,7 @@ func sessionPlayNowFollowUpReadsDoNotApplyAfterWithdrawal(stage: String, fail: B
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
 }
 
-@Test(arguments: [false, true]) @MainActor
+@Test(.isolatedClientResources, arguments: [false, true]) @MainActor
 func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIncludesOldDevices: Bool) async throws {
     let wire = HistoryWireFixture { request in
         let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
@@ -3082,7 +3086,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     #expect(model.isRefreshing) // Device confirmation is independent of a busy status refresh.
 }
 
-@Test @MainActor func outputTransferOneTapSurvivesDelayedConfirmationWithoutGlobalRefresh() async throws {
+@Test(.isolatedClientResources) @MainActor func outputTransferOneTapSurvivesDelayedConfirmationWithoutGlobalRefresh() async throws {
     let reads = HTTPRecoveryActiveReadCounter()
     let wire = HistoryWireFixture { request in
         let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
@@ -3125,7 +3129,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     #expect(commands == ["set_output", "devices", "status", "devices"])
 }
 
-@Test @MainActor func rejectedOutputTransferClearsPendingAndKeepsConfirmedSpeaker() async throws {
+@Test(.isolatedClientResources) @MainActor func rejectedOutputTransferClearsPendingAndKeepsConfirmedSpeaker() async throws {
     let wire = HistoryWireFixture { _ in (200, Data(#"{"success":false,"error":"transfer_failed"}"#.utf8), 0.05) }
     defer { wire.close() }
     let (model, defaults, name) = wire.model(); defer { defaults.removePersistentDomain(forName: name) }
@@ -3144,7 +3148,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     #expect(wire.requests.count == 1)
 }
 
-@Test @MainActor func unconfirmedOutputTransferStopsWaitingWithoutReplayingWrite() async throws {
+@Test(.isolatedClientResources) @MainActor func unconfirmedOutputTransferStopsWaitingWithoutReplayingWrite() async throws {
     let wire = HistoryWireFixture { request in
         let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
         if body?["command"] as? String == "set_output" { return (200, Data(#"{"success":true}"#.utf8), 0) }
@@ -3171,7 +3175,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     #expect(commands.filter { $0 == "devices" }.count == 4)
 }
 
-@Test @MainActor func outputTransferRejectsStatusSnapshotStartedBeforeSelection() async throws {
+@Test(.isolatedClientResources) @MainActor func outputTransferRejectsStatusSnapshotStartedBeforeSelection() async throws {
     let reads = HTTPRecoveryActiveReadCounter()
     let wire = HistoryWireFixture { request in
         let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
@@ -3200,7 +3204,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     #expect(!model.isRefreshing)
 }
 
-@Test @MainActor func structuredOutputActionKeepsBackendTargetAndSingleConfirmationRead() async throws {
+@Test(.isolatedClientResources) @MainActor func structuredOutputActionKeepsBackendTargetAndSingleConfirmationRead() async throws {
     let wire = HistoryWireFixture { request in
         let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
         if body?["command"] as? String == "set_output" { return (200, Data(#"{"success":true}"#.utf8), 0) }
@@ -3226,7 +3230,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     #expect(!model.isRefreshing)
 }
 
-@Test @MainActor func lateOutputConfirmationCannotReplaceNewerSelection() async throws {
+@Test(.isolatedClientResources) @MainActor func lateOutputConfirmationCannotReplaceNewerSelection() async throws {
     let reads = HTTPRecoveryActiveReadCounter()
     let wire = HistoryWireFixture { request in
         let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
@@ -3261,7 +3265,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     #expect(model.availableOutputs.filter { $0.active == true }.map(\.id) == ["b"])
 }
 
-@Test @MainActor func supersededOutputSelectionCannotReplayOnRemoteFallback() async throws {
+@Test(.isolatedClientResources) @MainActor func supersededOutputSelectionCannotReplayOnRemoteFallback() async throws {
     let attempts = HTTPRecoveryActiveReadCounter()
     let local = HistoryWireFixture { request in
         let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
@@ -3297,7 +3301,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
 }
 
 
-@Test @MainActor func foregroundPollDiscoversAndReplacesProfileSessionWithoutPlaybackOrManualRefresh() async throws {
+@Test(.isolatedClientResources) @MainActor func foregroundPollDiscoversAndReplacesProfileSessionWithoutPlaybackOrManualRefresh() async throws {
     let phase = PresenceReadPhase()
     let first = try presenceRuntimeWire(), successor = try presenceRuntimeWire(suffix: "-successor")
     let none = Data(#"{"success":true,"session":null}"#.utf8)
@@ -3336,7 +3340,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
 }
 
 
-@Test func artworkNoStoreIsNotRetainedByAppCache() async throws {
+@Test(.isolatedClientResources) func artworkNoStoreIsNotRetainedByAppCache() async throws {
     let fixture = HistoryWireFixture { _ in (200, Data([1, 2, 3]), 0) }
     defer { fixture.close() }
     let cache = DJConnectArtworkDataCache(session: fixture.session())
@@ -3347,7 +3351,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
 }
 
 
-@Test func musicDNAArtworkUsesOnlyExactUnexpiredSameProfileGrant() throws {
+@Test(.isolatedClientResources) func musicDNAArtworkUsesOnlyExactUnexpiredSameProfileGrant() throws {
     let now = Date(timeIntervalSince1970: 1000)
     func feed(profile: String = "profile-a", expires: Double = 1100, kind: String = "artist", conflicting: Bool = false) throws -> DJConnectMusicDiscoveryResponse {
         var items: [[String: Any]] = [["id":"a", "kind":kind, "title":"Same display name", "uri":"spotify:artist:exact", "reason":"Profile evidence", "image_url":"/api/djconnect/v1/artwork/grant-a", "image_expires_at":expires]]
@@ -3367,14 +3371,14 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     #expect(currentMusicDNAArtworkReference(discovery: try feed(conflicting: true), profileID: "profile-a", uri: "spotify:artist:exact", artist: true, at: now) == nil)
 }
 
-@Test func musicDNAArtistContractPreservesExactIdentityAndPublicImageReference() throws {
+@Test(.isolatedClientResources) func musicDNAArtistContractPreservesExactIdentityAndPublicImageReference() throws {
     let value = try JSONDecoder().decode(DJConnectMusicDNANameValue.self, from: Data(#"{"name":"An artist","uri":"spotify:artist:exact","image_url":"/api/djconnect/v1/artwork/lease"}"#.utf8))
     #expect(value.uri == "spotify:artist:exact")
     #expect(value.imageURL == "/api/djconnect/v1/artwork/lease")
 }
 
 
-@Test @MainActor func transientHistoryRefreshRetainsConfirmedListAndConversationButDenialWithdraws() async throws {
+@Test(.isolatedClientResources) @MainActor func transientHistoryRefreshRetainsConfirmedListAndConversationButDenialWithdraws() async throws {
     let receipt = try historyObject()
     let profile = try historyData(try #require(receipt["later_historical_answer"]))
     let timelineObject = try #require(receipt["archived_timeline"] as? [String: Any])
@@ -3408,7 +3412,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
 }
 
 
-@Test func speakerActionPreservesNumericObservationTimesAndFrozenChoiceIdentity() throws {
+@Test(.isolatedClientResources) func speakerActionPreservesNumericObservationTimesAndFrozenChoiceIdentity() throws {
     let data = Data(#"{"id":"speaker-a","title":"Speaker A","kind":"output","command":"set_output","first_seen_at":1000.25,"last_seen_at":1100,"result_set_id":"set-a","action_id":"action-a","value":{"device_id":"speaker-a"}}"#.utf8)
     let action = try JSONDecoder().decode(DJConnectAskDJPlaybackAction.self, from: data)
     #expect(action.firstSeenAt?.hasPrefix("1970-01-01") == true)
@@ -3422,7 +3426,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     #expect(!conflicting.hasConsistentResultIdentity)
 }
 
-@Test(arguments: ["expiry", "suspend", "invalid"])
+@Test(.isolatedClientResources, arguments: ["expiry", "suspend", "invalid"])
 @MainActor func currentRichReplySurvivesReducedHistoryOnlyWithinOriginalGrant(scenario: String) async throws {
     let receipt = try historyObject()
     let profile = try historyData(try #require(receipt["later_historical_answer"]))
@@ -3461,7 +3465,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
 }
 
 
-@Test(arguments: ["newer", "background"])
+@Test(.isolatedClientResources, arguments: ["newer", "background"])
 @MainActor func obsoleteDiscoveryFeedCannotRestoreOldArtwork(scenario: String) async throws {
     func feed(_ revision: Int) throws -> Data {
         try historyData(["success":true,"enabled":true,"revision":revision,"profile_id":"profile-a",
@@ -3491,7 +3495,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     #expect(!model.isLoadingMusicDiscovery && !model.isRefreshingMusicDiscovery)
 }
 
-@Test(arguments: [false, true]) @MainActor func discoveryArtworkLeaseRenewsByReadWithoutRegeneratingRecommendations(producerKeepsExpired: Bool) async throws {
+@Test(.isolatedClientResources, arguments: [false, true]) @MainActor func discoveryArtworkLeaseRenewsByReadWithoutRegeneratingRecommendations(producerKeepsExpired: Bool) async throws {
     let count = PresenceReadPhase()
     let fixture = HistoryWireFixture { request in
         guard request.url!.path.hasSuffix("/music_discovery") else { return (404, Data(), 0) }
@@ -3513,7 +3517,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
 }
 
 
-@Test(arguments: ["lost-reply", "wrong-session", "successor"])
+@Test(.isolatedClientResources, arguments: ["lost-reply", "wrong-session", "successor"])
 @MainActor func vibeCastApprovalNeverReplaysOrConfirmsAnotherSession(scenario: String) async throws {
     let first = try presenceRuntimeWire(), next = try presenceRuntimeWire(suffix: "-next")
     let sessionID = try #require(try JSONDecoder().decode(DJConnectSessionResponse.self, from: first).resolvedSession?.id)
@@ -3552,7 +3556,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     else { #expect(!model.vibeCastHandoffFailed) }
 }
 
-@Test(arguments: [false, true]) @MainActor func musicDNAContextChangeWithdrawsOldProjectionAndRecoversWithinBound(permanent: Bool) async throws {
+@Test(.isolatedClientResources, arguments: [false, true]) @MainActor func musicDNAContextChangeWithdrawsOldProjectionAndRecoversWithinBound(permanent: Bool) async throws {
     let attempts = MusicDNARecoveryAttempts()
     let fixture = HistoryWireFixture { _ in
         let attempt = attempts.next()
@@ -3578,7 +3582,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     }
 }
 
-@Test @MainActor func unrelatedMusicDNAConflictIsNotAutomaticallyRetried() async throws {
+@Test(.isolatedClientResources) @MainActor func unrelatedMusicDNAConflictIsNotAutomaticallyRetried() async throws {
     let fixture = HistoryWireFixture { _ in (409, Data(#"{"success":false,"error":"another_conflict"}"#.utf8), 0) }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
@@ -3587,7 +3591,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     #expect(!model.musicDNAProfileNeedsRecovery && !model.isLoadingMusicDNA)
 }
 
-@Test @MainActor func currentArtistProducerReplyIsAcceptedAfterExistingHistoryRevision() async throws {
+@Test(.isolatedClientResources) @MainActor func currentArtistProducerReplyIsAcceptedAfterExistingHistoryRevision() async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let data = try Data(contentsOf: root.appendingPathComponent("Fixtures/current-artist-identification-producer.json"))
     #expect(SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() == "6fac84203cc3ce18c380895a5e59dcbcf93dc038034bc9f4be8f5c5ca8e14536")
@@ -3622,7 +3626,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     }
 }
 
-@Test func privateCurrentResponseCannotMasqueradeAsAHistorySnapshot() throws {
+@Test(.isolatedClientResources) func privateCurrentResponseCannotMasqueradeAsAHistorySnapshot() throws {
     for marker in ["", "\"history_persisted\":false,"] {
         let wire = "{\"success\":true,\"text\":\"Current answer\"," + marker + "\"conversation\":{\"schema_version\":1,\"history_scope\":\"private_ephemeral\"}}"
         #expect(try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: Data(wire.utf8)).isPrivateEphemeralResponse)
@@ -3639,7 +3643,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     }
 }
 
-@Test func currentResponseCodecPreservesOriginalResultGrant() throws {
+@Test(.isolatedClientResources) func currentResponseCodecPreservesOriginalResultGrant() throws {
     let wire = Data(#"{"text":"Current reply","result_set":{"schema_version":1,"result_set_id":"original-result","expires_in":0.125}}"#.utf8)
     let original = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: wire)
     let decoded = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: JSONEncoder().encode(original))
@@ -3647,7 +3651,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     #expect(decoded.resultSet?.expiresIn == 0.125)
 }
 
-@Test(arguments: ["playing", "paused", "empty", "failure"])
+@Test(.isolatedClientResources, arguments: ["playing", "paused", "empty", "failure"])
 @MainActor func trackInsightScreenEntryLoadsOnceAndReusesCurrentAnalysis(_ scenario: String) async throws {
     let fixture = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/capabilities") {
@@ -3680,7 +3684,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     } else { #expect(model.currentTrackInsight == nil) }
 }
 
-@Test @MainActor func trackInsightOrdinaryScreenKeepsServerOwnedKnowledgeRoute() async throws {
+@Test(.isolatedClientResources) @MainActor func trackInsightOrdinaryScreenKeepsServerOwnedKnowledgeRoute() async throws {
     let producer = try momentInsightProducerCase()
     let qualifiedBody = try #require(producer["body"] as? [String: Any])
     let track = try #require(qualifiedBody["track"] as? [String: Any])
@@ -3726,7 +3730,7 @@ func outputSelectionImmediatelyReadsConfirmedDevicesAfterAcceptance(acceptanceIn
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/track_insight") }.count == 2)
 }
 
-@Test(arguments: ["track-change", "background", "cancel"])
+@Test(.isolatedClientResources, arguments: ["track-change", "background", "cancel"])
 @MainActor func trackInsightScreenEntryRejectsLateResultsAfterContextChanges(_ scenario: String) async throws {
     let fixture = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/capabilities") {
@@ -3801,7 +3805,7 @@ private func momentInsightRuntimeWire(movedOn: Bool = false, successor: Bool = f
     return try historyData(envelope)
 }
 
-@Test func momentInsightNavigationIsInertExactAndBounded() throws {
+@Test(.isolatedClientResources) func momentInsightNavigationIsInertExactAndBounded() throws {
     let wire = try momentInsightRuntimeWire()
     let response = try JSONDecoder().decode(DJConnectSessionResponse.self, from: wire)
     var broadcast = try #require(response.session?.broadcast)
@@ -3817,7 +3821,7 @@ private func momentInsightRuntimeWire(movedOn: Bool = false, successor: Bool = f
     #expect(!capabilities.momentInsightAvailable)
 }
 
-@Test(arguments: ["valid", "foreign", "missing", "expired", "excessive", "wrong-mode", "unqualified-debug"])
+@Test(.isolatedClientResources, arguments: ["valid", "foreign", "missing", "expired", "excessive", "wrong-mode", "unqualified-debug"])
 func momentInsightOwnerRouteRequiresExactSubjectAndNeverUsesPlaybackFallback(_ variant: String) async throws {
     let producer = try momentInsightProducerCase()
     var body = try #require(producer["body"] as? [String: Any])
@@ -3852,7 +3856,7 @@ func momentInsightOwnerRouteRequiresExactSubjectAndNeverUsesPlaybackFallback(_ v
     #expect(fixture.requests.count == 1)
 }
 
-@Test(arguments: ["plain", "object-text", "unknown-basis", "missing-source", "unsafe-source", "unqualified-context"])
+@Test(.isolatedClientResources, arguments: ["plain", "object-text", "unknown-basis", "missing-source", "unsafe-source", "unqualified-context"])
 func momentInsightCreditProvenanceDoesNotInventAnalysisOrParseDebugObjects(_ variant: String) throws {
     var body = try #require(momentInsightProducerCase()["body"] as? [String: Any])
     var analysis = body["analysis"] as! [String: Any]
@@ -3879,7 +3883,7 @@ func momentInsightCreditProvenanceDoesNotInventAnalysisOrParseDebugObjects(_ var
     }
 }
 
-@Test(arguments: ["advance", "successor", "background", "expired", "forbidden"])
+@Test(.isolatedClientResources, arguments: ["advance", "successor", "background", "expired", "forbidden"])
 @MainActor func explicitMomentInsightKeepsAWhileBPlaysAndWithdrawsOnAuthorityLoss(_ scenario: String) async throws {
     let phase = PresenceReadPhase()
     let first = try momentInsightRuntimeWire(), moved = try momentInsightRuntimeWire(movedOn: true), next = try momentInsightRuntimeWire(successor: true)
@@ -3936,7 +3940,7 @@ func momentInsightCreditProvenanceDoesNotInventAnalysisOrParseDebugObjects(_ var
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/track_insight") }.count == 1)
 }
 
-@Test(arguments: [false, true]) @MainActor func momentInsightUnavailableRuntimeNeverLeavesAQueuedSpinner(changesAfterOpen: Bool) async throws {
+@Test(.isolatedClientResources, arguments: [false, true]) @MainActor func momentInsightUnavailableRuntimeNeverLeavesAQueuedSpinner(changesAfterOpen: Bool) async throws {
     let runtime = try momentInsightRuntimeWire()
     let caps = Data(#"{"capabilities":{"moment_track_insight_navigation_v1":true},"contract_versions":{"moment_track_insight_navigation_v1":1}}"#.utf8)
     let fixture = HistoryWireFixture { request in
@@ -3961,7 +3965,7 @@ func momentInsightCreditProvenanceDoesNotInventAnalysisOrParseDebugObjects(_ var
     else { #expect(model.momentTrackInsightTarget == nil) }
 }
 
-@Test @MainActor func lateMissingOptionalLiveCapabilityCannotWithdrawAuthenticatedHTTPMomentDetail() async throws {
+@Test(.isolatedClientResources) @MainActor func lateMissingOptionalLiveCapabilityCannotWithdrawAuthenticatedHTTPMomentDetail() async throws {
     let runtime = try momentInsightRuntimeWire(), detail = try historyData(momentInsightProducerCase()["body"]!)
     let caps = Data(#"{"capabilities":{"moment_track_insight_navigation_v1":true},"contract_versions":{"moment_track_insight_navigation_v1":1}}"#.utf8)
     let capabilityReads = HTTPRecoveryActiveReadCounter()
@@ -3987,7 +3991,7 @@ func momentInsightCreditProvenanceDoesNotInventAnalysisOrParseDebugObjects(_ var
     #expect(fixture.requests.filter { $0.httpMethod == "POST" }.allSatisfy { $0.url!.path.hasSuffix("/track_insight") })
 }
 
-@Test(arguments: [false, true]) @MainActor func momentInsightRetryCannotRenewDeadlineOrChangeRecording(changedRecording: Bool) async throws {
+@Test(.isolatedClientResources, arguments: [false, true]) @MainActor func momentInsightRetryCannotRenewDeadlineOrChangeRecording(changedRecording: Bool) async throws {
     let first = try momentInsightRuntimeWire()
     let attempts = MusicDNARecoveryAttempts()
     let original = try #require(momentInsightProducerCase()["body"] as? [String: Any])
@@ -4023,7 +4027,7 @@ func momentInsightCreditProvenanceDoesNotInventAnalysisOrParseDebugObjects(_ var
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/track_insight") }.count == 2)
 }
 
-@Test(arguments: ["selected", "repeat", "unknown"])
+@Test(.isolatedClientResources, arguments: ["selected", "repeat", "unknown"])
 @MainActor func frozenConversationChoicesKeepOriginalLeaseAcrossSelection(_ scenario: String) async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let producer = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/moment-insight-core-producer.json"))) as? [String: Any])
@@ -4054,7 +4058,7 @@ func momentInsightCreditProvenanceDoesNotInventAnalysisOrParseDebugObjects(_ var
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
 }
 
-@Test @MainActor func frozenConversationExpiryCannotBeRestoredByLaterSelectionOrScopeChange() throws {
+@Test(.isolatedClientResources) @MainActor func frozenConversationExpiryCannotBeRestoredByLaterSelectionOrScopeChange() throws {
     let fixture = HistoryWireFixture { _ in (500, Data(), 0) }; defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
     let valid = try JSONDecoder().decode(DJConnectAskDJMessageResponse.self, from: Data(#"{"result_set":{"schema_version":1,"result_set_id":"set-a","expires_in":30}}"#.utf8))
@@ -4069,7 +4073,7 @@ func momentInsightCreditProvenanceDoesNotInventAnalysisOrParseDebugObjects(_ var
     #expect(model.resolveConversationPresentationDeadline(selected, now: now.addingTimeInterval(4)) == .distantPast)
 }
 
-@Test @MainActor func liveRuntimeReplacementRevalidatesHTTPBeforeWithdrawingPairing() async throws {
+@Test(.isolatedClientResources) @MainActor func liveRuntimeReplacementRevalidatesHTTPBeforeWithdrawingPairing() async throws {
     let fixture = HistoryWireFixture { request in
         #expect(request.url!.path.hasSuffix("/status"))
         return (200, Data(#"{"success":true}"#.utf8), 0)
@@ -4085,7 +4089,7 @@ func momentInsightCreditProvenanceDoesNotInventAnalysisOrParseDebugObjects(_ var
     #expect(model.activeDJSession == nil && model.askDJMessages.isEmpty)
 }
 
-@Test @MainActor func liveRuntimeReplacementOnlyRevokesAfterQualifiedHTTPRefusal() async throws {
+@Test(.isolatedClientResources) @MainActor func liveRuntimeReplacementOnlyRevokesAfterQualifiedHTTPRefusal() async throws {
     let fixture = HistoryWireFixture { _ in (401, Data(#"{"success":false,"error":"unauthorized"}"#.utf8), 0) }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
@@ -4094,7 +4098,7 @@ func momentInsightCreditProvenanceDoesNotInventAnalysisOrParseDebugObjects(_ var
     #expect(model.pairingStatus == .stale)
 }
 
-@Test @MainActor func liveRuntimeReplacementPreservesPairingOnUnqualifiedProxy401() async throws {
+@Test(.isolatedClientResources) @MainActor func liveRuntimeReplacementPreservesPairingOnUnqualifiedProxy401() async throws {
     let fixture = HistoryWireFixture { _ in (401, Data("<html>Proxy authentication required</html>".utf8), 0) }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
@@ -4105,7 +4109,7 @@ func momentInsightCreditProvenanceDoesNotInventAnalysisOrParseDebugObjects(_ var
     #expect(model.activeDJSession == nil)
 }
 
-@Test @MainActor func liveRuntimeReplacementCancelsValidationWhenBackgrounded() async throws {
+@Test(.isolatedClientResources) @MainActor func liveRuntimeReplacementCancelsValidationWhenBackgrounded() async throws {
     let fixture = HistoryWireFixture { _ in (200, Data(#"{"success":true}"#.utf8), 0.2) }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
@@ -4118,7 +4122,7 @@ func momentInsightCreditProvenanceDoesNotInventAnalysisOrParseDebugObjects(_ var
     #expect(model.activeDJSession == nil)
 }
 
-@Test @MainActor func liveRuntimeReplacement503RecoveryIsBoundedAndRetainsPairing() async throws {
+@Test(.isolatedClientResources) @MainActor func liveRuntimeReplacement503RecoveryIsBoundedAndRetainsPairing() async throws {
     let fixture = HistoryWireFixture { _ in (503, Data(#"{"success":false,"error":"not_configured"}"#.utf8), 0) }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
@@ -4128,7 +4132,7 @@ func momentInsightCreditProvenanceDoesNotInventAnalysisOrParseDebugObjects(_ var
     #expect(fixture.requests.allSatisfy { $0.url!.path.hasSuffix("/status") })
 }
 
-@Test @MainActor func obsoleteLiveRecoveryCannotWithdrawReplacementCredential() async throws {
+@Test(.isolatedClientResources) @MainActor func obsoleteLiveRecoveryCannotWithdrawReplacementCredential() async throws {
     let fixture = HistoryWireFixture { _ in (401, Data(#"{"success":false,"error":"unauthorized"}"#.utf8), 0.2) }
     defer { fixture.close() }
     let name = "paired-recovery-replacement-" + UUID().uuidString
@@ -4144,7 +4148,7 @@ func momentInsightCreditProvenanceDoesNotInventAnalysisOrParseDebugObjects(_ var
     #expect(try store.loadToken() == "replacement-synthetic-token")
 }
 
-@Test @MainActor func obsoleteLiveRecoveryCannotWithdrawAfterHAConfigurationChange() async throws {
+@Test(.isolatedClientResources) @MainActor func obsoleteLiveRecoveryCannotWithdrawAfterHAConfigurationChange() async throws {
     let fixture = HistoryWireFixture { _ in (401, Data(#"{"success":false,"error":"unauthorized"}"#.utf8), 0.2) }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
@@ -4162,7 +4166,7 @@ private final class HistoryArtworkDenialSwitch: @unchecked Sendable {
     var isDenied: Bool { lock.withLock { denied } }
 }
 
-@Test @MainActor func sessionHistoryArtworkVisibilityPreparesOnceAndDenialClearsOnlyPixels() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryArtworkVisibilityPreparesOnceAndDenialClearsOnlyPixels() async throws {
     let receipt = try historyObject()
     let timelineData = try historyData(try #require(receipt["archived_timeline"]))
     let timeline = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: timelineData)
@@ -4257,7 +4261,7 @@ private func activePersonaRuntimeWire() throws -> Data {
     return try historyData(response)
 }
 
-@Test func activePersonaExactRequestAndRealProducerResponses() throws {
+@Test(.isolatedClientResources) func activePersonaExactRequestAndRealProducerResponses() throws {
     let fixture = HistoryWireFixture { _ in (200,Data(),0) }; defer {fixture.close()}
     let request = try fixture.client().sessionPersonaRequest(sessionID:"current",persona:.radioDJ,expectedRevision:0)
     let requestBody = try #require(request.httpBody)
@@ -4278,7 +4282,7 @@ private func activePersonaRuntimeWire() throws -> Data {
     #expect(!(try JSONDecoder().decode(DJConnectActiveMoodCapabilities.self,from:activeMoodCapsWire).personaAvailable))
 }
 
-@Test func activePersonaRejectsStaleAndConflictingRevisionsWithoutRewritingMoments() throws {
+@Test(.isolatedClientResources) func activePersonaRejectsStaleAndConflictingRevisionsWithoutRewritingMoments() throws {
     let runtime = try #require(JSONDecoder().decode(DJConnectSessionResponse.self,from:activePersonaRuntimeWire()).session)
     let first = runtime.applying(persona:.init(sessionID:runtime.id,selectedPersona:.radioDJ,personaRevision:1))
     var late = runtime.broadcast; late.delivery = .init(snapshotWatermark:999)
@@ -4296,7 +4300,7 @@ private func activePersonaRuntimeWire() throws -> Data {
     #expect(recovered.applying(broadcastEvent:event).confirmedPersona?.selectedPersona == .clubDJ)
 }
 
-@Test(arguments:[200,409,403], [false,true]) @MainActor
+@Test(.isolatedClientResources, arguments:[200,409,403], [false,true]) @MainActor
 func activePersonaConfirmedConflictAndAuthorityHandling(_ status:Int, _ background:Bool) async throws {
     let runtime = try activePersonaRuntimeWire(), caps = try activePersonaCapsWire()
     let sessionID = try #require(JSONDecoder().decode(DJConnectSessionResponse.self,from:runtime).session).id
@@ -4330,7 +4334,7 @@ func activePersonaConfirmedConflictAndAuthorityHandling(_ status:Int, _ backgrou
     if status == 403 {#expect(!model.sessionHistory.hasAuthorizedOwner && model.activeDJSession == nil && !model.activePersonaAvailable)}
 }
 
-@Test(arguments:["jump","wrong-session","wrong-value","false-success"])
+@Test(.isolatedClientResources, arguments:["jump","wrong-session","wrong-value","false-success"])
 func activePersonaRejectsUnconfirmedMutationReplies(_ fault:String) async throws {
     var body:[String:Any] = ["success":true,"contract_version":1,"session_id":"current","selected_persona":"radio_dj","persona_revision":1,"changed":true]
     if fault == "jump" {body["persona_revision"] = 9}
@@ -4345,7 +4349,7 @@ func activePersonaRejectsUnconfirmedMutationReplies(_ fault:String) async throws
     #expect(fixture.requests.count == 1)
 }
 
-@Test @MainActor func activePersonaSessionEndImmediatelyInvalidatesPendingReply() async throws {
+@Test(.isolatedClientResources) @MainActor func activePersonaSessionEndImmediatelyInvalidatesPendingReply() async throws {
     let runtime = try activePersonaRuntimeWire(), caps = try activePersonaCapsWire()
     let id = try #require(JSONDecoder().decode(DJConnectSessionResponse.self,from:runtime).session).id
     var ended = try #require(JSONSerialization.jsonObject(with:runtime) as? [String:Any])
@@ -4356,12 +4360,13 @@ func activePersonaRejectsUnconfirmedMutationReplies(_ fault:String) async throws
     let endedData = try historyData(ended)
     let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
     let reply = try historyData(["success":true,"contract_version":1,"session_id":id,"selected_persona":"radio_dj","persona_revision":1,"changed":true])
-    let gate = HistoryAuthorityGate()
+    let gate = HistoryAuthorityGate(), personaReply = HistoryWireResponseGate()
+    defer { personaReply.release() }
     let fixture = HistoryWireFixture {request in
         if request.url!.path.hasSuffix("/capabilities") {return(200,caps,0)}
         if request.url!.path.hasSuffix("/session/active") {return(200,gate.denied ? endedData : runtime,0)}
         if request.url!.path.hasSuffix("ask_dj/history") {return(200,profile,0)}
-        if request.url!.path.hasSuffix("/session/persona") {return(200,reply,0.15)}
+        if request.url!.path.hasSuffix("/session/persona") {throw HistoryWireHeldResponse(data: reply, gate: personaReply)}
         return(404,Data(#"{"success":false}"#.utf8),0)
     };defer{fixture.close()}
     let(model,defaults,name)=fixture.model();defer{defaults.removePersistentDomain(forName:name)}
@@ -4371,6 +4376,7 @@ func activePersonaRejectsUnconfirmedMutationReplies(_ fault:String) async throws
     try await Task.sleep(for:.milliseconds(25));#expect(model.activePersonaPending)
     gate.denied=true;await model.refreshActiveDJSession()
     #expect(model.activeDJSession?.runtimeState == "ended" && !model.activePersonaPending && !model.activePersonaAvailable)
+    personaReply.release()
     await pending.value
     #expect(model.activeDJSession?.confirmedPersona?.selectedPersona == .homeDJ && model.activePersonaError == nil)
     #expect(fixture.requests.filter{$0.url!.path.hasSuffix("/session/persona")}.count == 1)
@@ -4394,7 +4400,7 @@ private func genericTTS6ecePrepared(_ row:[String:Any], voiceID:String? = nil) t
 
 // Respect the production two-transfer budget; these independent fixture cases are serial.
 @Suite(.serialized) struct GenericTTS6eceContractTests {
-@Test func genericTTS6eceActualFiveLanguageInventoryAndReadiness() throws {
+@Test(.isolatedClientResources) func genericTTS6eceActualFiveLanguageInventoryAndReadiness() throws {
     let rows=try #require(try genericTTS6eceFixture()["rows"] as? [[String:Any]])
     #expect(rows.count == 5)
     for row in rows {
@@ -4410,7 +4416,7 @@ private func genericTTS6ecePrepared(_ row:[String:Any], voiceID:String? = nil) t
     #expect(!speechLocaleMatches("en//US","en") && !speechLocaleMatches("fr-FR","nl"))
 }
 
-@Test(arguments:["scope","duplicate","control","count"])
+@Test(.isolatedClientResources, arguments:["scope","duplicate","control","count"])
 func genericTTS6eceRejectsUnqualifiedVoiceInventory(_ fault:String) throws {
     let rows=try #require(try genericTTS6eceFixture()["rows"] as? [[String:Any]])
     var envelope=try #require(rows[0]["voice_options"] as? [String:Any])
@@ -4425,7 +4431,7 @@ func genericTTS6eceRejectsUnqualifiedVoiceInventory(_ fault:String) throws {
     #expect(decoded.selectableVoices.isEmpty)
 }
 
-@Test(arguments:["code","action","repeat","backoff","version"])
+@Test(.isolatedClientResources, arguments:["code","action","repeat","backoff","version"])
 func genericTTS6eceSafeNotificationsFailClosed(_ fault:String) throws {
     let fixture=try genericTTS6eceFixture()
     let failure=try #require(fixture["runtime_failure_fixture"] as? [String:Any])
@@ -4440,7 +4446,7 @@ func genericTTS6eceSafeNotificationsFailClosed(_ fault:String) throws {
     #expect(!(try JSONDecoder().decode(DJConnectSpeechNotification.self,from:historyData(notice))).isValid)
 }
 
-@Test func genericTTS6eceRuntimeFailureAndPrivateAudio409RemainFunctional() async throws {
+@Test(.isolatedClientResources) func genericTTS6eceRuntimeFailureAndPrivateAudio409RemainFunctional() async throws {
     let wire=try genericTTS6eceFixture(), rows=try #require(wire["rows"] as? [[String:Any]])
     let failure=try #require(wire["runtime_failure_fixture"] as? [String:Any])
     let options=try JSONDecoder().decode(DJConnectSpeechVoiceOptionsResponse.self,from:historyData(#require(failure["provider_status"]))).speech_voice_options
@@ -4460,7 +4466,7 @@ func genericTTS6eceSafeNotificationsFailClosed(_ fault:String) throws {
     #expect(fixture.requests.count == 1)
 }
 
-@Test(arguments:[true,false]) func genericTTS6eceExplicitVoiceIsBoundToInventoryAndConfirmation(_ correctVoice:Bool) async throws {
+@Test(.isolatedClientResources, arguments:[true,false]) func genericTTS6eceExplicitVoiceIsBoundToInventoryAndConfirmation(_ correctVoice:Bool) async throws {
     let rows=try #require(try genericTTS6eceFixture()["rows"] as? [[String:Any]])
     let row=rows[1]
     let options=try JSONDecoder().decode(DJConnectSpeechVoiceOptionsResponse.self,from:historyData(#require(row["voice_options"]))).speech_voice_options
@@ -4512,7 +4518,7 @@ private func scopedVoiceOptions(removing voiceID: String? = nil) throws -> DJCon
     return try JSONDecoder().decode(DJConnectSpeechVoiceOptions.self, from: historyData(payload))
 }
 
-@Test func speechVoicePreferenceRequiresEveryConfirmedIdentity() throws {
+@Test(.isolatedClientResources) func speechVoicePreferenceRequiresEveryConfirmedIdentity() throws {
     for index in 0..<4 {
         for invalid in ["", "   ", "a\nb", String(repeating: "x", count: 513)] {
             var fields = ["ha", "profile", "session", "device"]
@@ -4526,7 +4532,7 @@ private func scopedVoiceOptions(removing voiceID: String? = nil) throws -> DJCon
     #expect({ !state.select("cedar") && state.resolution == .unavailable }())
 }
 
-@Test func speechVoicePreferenceDiscardsAcrossEveryScopeDimension() throws {
+@Test(.isolatedClientResources) func speechVoicePreferenceDiscardsAcrossEveryScopeDimension() throws {
     let base = try #require(DJConnectSpeechVoiceScope(installationID: "ha", profileID: "profile", sessionID: "session", deviceID: "device"))
     let options = try scopedVoiceOptions()
     for index in 0..<4 {
@@ -4550,7 +4556,7 @@ private func scopedVoiceOptions(removing voiceID: String? = nil) throws -> DJCon
         DJConnectSpeechVoiceScope(installationID: "a", profileID: "b|c", sessionID: "s", deviceID: "d"))
 }
 
-@Test func speechVoicePreferenceRemovedVoiceNeverFallsBackSilently() throws {
+@Test(.isolatedClientResources) func speechVoicePreferenceRemovedVoiceNeverFallsBackSilently() throws {
     var state = DJConnectSpeechVoicePreferenceState()
     state.bind(try #require(DJConnectSpeechVoiceScope(installationID: "ha", profileID: "profile", sessionID: "session", deviceID: "device")))
     let options = try scopedVoiceOptions()
@@ -4568,7 +4574,7 @@ private func scopedVoiceOptions(removing voiceID: String? = nil) throws -> DJCon
     #expect({ state.select(nil) && state.resolution == .configuredDefault }())
 }
 
-@Test func speechVoicePreferenceRefreshFencesBackgroundAndSessionEnd() throws {
+@Test(.isolatedClientResources) func speechVoicePreferenceRefreshFencesBackgroundAndSessionEnd() throws {
     var state = DJConnectSpeechVoicePreferenceState()
     let scope = try #require(DJConnectSpeechVoiceScope(installationID: "ha", profileID: "profile", sessionID: "session", deviceID: "device"))
     state.bind(scope)
@@ -4594,7 +4600,7 @@ private func scopedVoiceOptions(removing voiceID: String? = nil) throws -> DJCon
 }
 
 @Suite(.serialized) struct ActiveVoiceMenuIntegrationTests {
-@Test @MainActor func activeVoiceMenuReadsOnlyAndAutoplayKeepsExistingPreference() async throws {
+@Test(.isolatedClientResources) @MainActor func activeVoiceMenuReadsOnlyAndAutoplayKeepsExistingPreference() async throws {
     let runtime = try activePersonaRuntimeWire(), caps = try activePersonaCapsWire()
     let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
     let rows = try #require(try genericTTS6eceFixture()["rows"] as? [[String: Any]])
@@ -4649,7 +4655,7 @@ private func scopedVoiceOptions(removing voiceID: String? = nil) throws -> DJCon
     #expect(model.activeVoicePreference.scope == nil && model.activeVoicePreference.selectedVoiceID == nil)
 }
 
-@Test(arguments: ["background", "owner", "installation", "end"])
+@Test(.isolatedClientResources, arguments: ["background", "owner", "installation", "end"])
 @MainActor func activeVoiceMenuRejectsLateInventory(_ change: String) async throws {
     let runtime = try activePersonaRuntimeWire(), caps = try activePersonaCapsWire()
     var profileObject = try #require(historyObject()["later_historical_answer"] as? [String: Any])
@@ -4712,7 +4718,7 @@ private func providerGenderOptions(_ row: [String: Any]) throws -> DJConnectSpee
 }
 
 @Suite(.serialized) struct ProviderQualifiedVoiceGenderTests {
-    @Test func fiveLanguageProducerMappingsAdmitOnlyExplicitMetadata() throws {
+    @Test(.isolatedClientResources) func fiveLanguageProducerMappingsAdmitOnlyExplicitMetadata() throws {
         let rows = try providerGenderRows()
         #expect(rows.count == 5)
         for row in rows {
@@ -4728,7 +4734,7 @@ private func providerGenderOptions(_ row: [String: Any]) throws -> DJConnectSpee
         }
     }
 
-    @Test(arguments: ["missing-map", "wrong-target", "missing-voice", "unknown-key", "duplicate", "no-metadata", "disabled"])
+    @Test(.isolatedClientResources, arguments: ["missing-map", "wrong-target", "missing-voice", "unknown-key", "duplicate", "no-metadata", "disabled"])
     func malformedOrWithdrawnGenderHidesButtonsWithoutInventingValues(_ fault: String) throws {
         let row = try #require(providerGenderRows().first)
         let envelope = try #require(row["options"] as? [String: Any])
@@ -4754,7 +4760,7 @@ private func providerGenderOptions(_ row: [String: Any]) throws -> DJConnectSpee
         #expect(decoded.qualifiedGenderVoiceID(.male) == nil)
     }
 
-    @Test func localGenderIntentUsesProducerTargetAndSurvivesWithdrawalUntilExplicitReset() throws {
+    @Test(.isolatedClientResources) func localGenderIntentUsesProducerTargetAndSurvivesWithdrawalUntilExplicitReset() throws {
         let options = try providerGenderOptions(#require(providerGenderRows().first))
         let male = try #require(options.qualifiedGenderVoiceID(.male)), female = try #require(options.qualifiedGenderVoiceID(.female))
         let scope = try #require(DJConnectSpeechVoiceScope(installationID: "ha", profileID: "profile", sessionID: "session", deviceID: "device"))
@@ -4782,7 +4788,7 @@ private func providerGenderOptions(_ row: [String: Any]) throws -> DJConnectSpee
         #expect(state.selectedGender == .default && state.selectedVoiceID == nil && state.scope == nil)
     }
 
-    @Test func prepareRejectsConflictingGenderBeforeAnyRequest() async throws {
+    @Test(.isolatedClientResources) func prepareRejectsConflictingGenderBeforeAnyRequest() async throws {
         let row = try #require(providerGenderRows().first), options = try providerGenderOptions(row)
         let renewed = try genericTTS6ecePrepared(row)
         let original = try JSONDecoder().decode(DJConnectSpeechResponse.self, from: historyData(renewed)).session_speech
@@ -4795,7 +4801,7 @@ private func providerGenderOptions(_ row: [String: Any]) throws -> DJConnectSpee
         }
         #expect(fixture.requests.isEmpty)
     }
-    @Test(arguments: ["valid", "unknown-voice", "different-qualified-voice"])
+    @Test(.isolatedClientResources, arguments: ["valid", "unknown-voice", "different-qualified-voice"])
     func prepareConfirmsExactAdvertisedGenderTarget(_ outcome: String) async throws {
         let row = try #require(providerGenderRows().first)
         var options = try providerGenderOptions(row)
@@ -4838,7 +4844,7 @@ private func providerGenderOptions(_ row: [String: Any]) throws -> DJConnectSpee
 
 }
 
-@Test @MainActor func sessionTimelineRejectsOwnerlessReadUntilRequalified() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionTimelineRejectsOwnerlessReadUntilRequalified() async throws {
     let receipt = try historyObject()
     let page = try historyData(try #require(receipt["archived_timeline"]))
     let decoded = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: page)
@@ -4867,7 +4873,7 @@ private func providerGenderOptions(_ row: [String: Any]) throws -> DJConnectSpee
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
 }
 
-@Test @MainActor func savedSessionsRejectOwnerlessReadsUntilRequalified() async throws {
+@Test(.isolatedClientResources) @MainActor func savedSessionsRejectOwnerlessReadsUntilRequalified() async throws {
     let receipt = try historyObject()
     let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
     let row = try #require(timeline["session"] as? [String: Any])
@@ -4897,7 +4903,7 @@ private func providerGenderOptions(_ row: [String: Any]) throws -> DJConnectSpee
     #expect(history.sessions == admitted)
 }
 
-@Test @MainActor func savedSessionsLazyPagingAppendsOnceAndStopsAtEnd() async throws {
+@Test(.isolatedClientResources) @MainActor func savedSessionsLazyPagingAppendsOnceAndStopsAtEnd() async throws {
     let receipt = try historyObject()
     let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
     let original = try #require(timeline["session"] as? [String: Any])
@@ -4940,7 +4946,7 @@ private func providerGenderOptions(_ row: [String: Any]) throws -> DJConnectSpee
     #expect(reads.count == 2)
 }
 
-@Test(arguments: ["transient", "repeated_cursor", "revision_change"])
+@Test(.isolatedClientResources, arguments: ["transient", "repeated_cursor", "revision_change"])
 @MainActor func savedSessionsLazyPagingFailurePreservesRowsAndDoesNotRetry(_ failure: String) async throws {
     let receipt = try historyObject()
     let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
@@ -4975,7 +4981,7 @@ private func providerGenderOptions(_ row: [String: Any]) throws -> DJConnectSpee
 }
 
 
-@Test(arguments: [false, true]) @MainActor
+@Test(.isolatedClientResources, arguments: [false, true]) @MainActor
 func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) async throws {
     let phase = HistoryAuthorityGate()
     let runtime = try presenceRuntimeWire()
@@ -5009,7 +5015,7 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
 }
 
-@Test @MainActor func cancelledPresenceMenuReadCannotRestoreOverNewerCapabilityRead() async throws {
+@Test(.isolatedClientResources) @MainActor func cancelledPresenceMenuReadCannotRestoreOverNewerCapabilityRead() async throws {
     let phase = PresenceReadPhase()
     let fixture = HistoryWireFixture { request in
         guard request.url!.path.hasSuffix("/capabilities") else { return (404, Data(), 0) }
@@ -5027,7 +5033,7 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     #expect(!model.activePresenceAvailable && model.activePresenceCapabilityStatus == .unsupported)
 }
 
-@Test @MainActor func sessionIntroductionOnlyFollowsFirstSuccessfulExplicitStart() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionIntroductionOnlyFollowsFirstSuccessfulExplicitStart() async throws {
     let name = "session-introduction-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name))
     defer { defaults.removePersistentDomain(forName: name) }
@@ -5049,7 +5055,7 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     #expect(!relaunched.isSessionIntroductionPresented, "Completion/skip survives app relaunch for this installation")
 }
 
-@Test(arguments: [0, 6]) @MainActor func currentOnlyConversationKeepsQuestionAndSessionReplyAcrossHistoryRefresh(choiceCount: Int) async throws {
+@Test(.isolatedClientResources, arguments: [0, 6]) @MainActor func currentOnlyConversationKeepsQuestionAndSessionReplyAcrossHistoryRefresh(choiceCount: Int) async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let data = try Data(contentsOf: root.appendingPathComponent("Fixtures/current-artist-identification-producer.json"))
     let receipt = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
@@ -5096,7 +5102,7 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     #expect(!model.askDJMessages.contains { $0.id == question })
 }
 
-@Test @MainActor func demoPresenceChoicesStayLocalAndRespectSessionScope() async throws {
+@Test(.isolatedClientResources) @MainActor func demoPresenceChoicesStayLocalAndRespectSessionScope() async throws {
     let fixture = HistoryWireFixture { _ in (500, Data(), 0) }; defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
     model.startDemoMode()
@@ -5115,7 +5121,7 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     #expect(!model.activePresencePending && fixture.requests.isEmpty)
 }
 
-@Test func sharedBrandTaglineUsesExactApprovedCopyInEveryLanguage() {
+@Test(.isolatedClientResources) func sharedBrandTaglineUsesExactApprovedCopyInEveryLanguage() {
     let expected = [
         "en": "Your music. Your DJ.",
         "nl": "Jouw muziek. Jouw DJ.",
@@ -5131,7 +5137,7 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     #expect(DJConnectLocalization.localized(key: "brand.tagline", language: "unsupported") == expected["en"])
 }
 
-@Test @MainActor func sessionArtworkPrefetchWindowIsVisibleFirstAndBounded() throws {
+@Test(.isolatedClientResources) @MainActor func sessionArtworkPrefetchWindowIsVisibleFirstAndBounded() throws {
     let receipt = try historyObject()
     let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: historyData(try #require(receipt["archived_timeline"])))
     let rows = page.entries
@@ -5147,7 +5153,7 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     #expect(DJConnectSessionHistoryModel.artworkWindow(entries: rows, visibleIDs: [middle.id], at: .distantFuture).isEmpty)
 }
 
-@Test @MainActor func sessionHistoryActiveForegroundIgnoresOldBubbleAnchorWhileArchiveRetainsIt() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionHistoryActiveForegroundIgnoresOldBubbleAnchorWhileArchiveRetainsIt() async throws {
     let receipt = try historyObject("window-producer-receipt")
     // The foreground API requests its ordinary 20-row window. Adapt only the
     // fixture's request echo; retain its canonical identities, entries and order.
@@ -5184,7 +5190,7 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
 }
 
-@Test @MainActor func sessionContributionRecoveryRetainsRowsRetriesTransientReadAndWithdrawsOnDenial() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionContributionRecoveryRetainsRowsRetriesTransientReadAndWithdrawsOnDenial() async throws {
     let receipt = try historyObject("window-producer-receipt")
     var tailObject = try #require(receipt["tail_window"] as? [String: Any])
     tailObject["window_limit"] = 20
@@ -5225,7 +5231,7 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
 }
 
-@Test @MainActor func statusEndpointUpdatesBothRoutesPersistsAndRejectsStaleOrInvalidValues() throws {
+@Test(.isolatedClientResources) @MainActor func statusEndpointUpdatesBothRoutesPersistsAndRejectsStaleOrInvalidValues() throws {
     let fixture = HistoryWireFixture { _ in (200, Data(), 0) }; defer { fixture.close() }
     let (model, defaults, name) = fixture.model()
     defer { defaults.removePersistentDomain(forName: name) }
@@ -5257,7 +5263,7 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     #expect(model.haRemoteURL.isEmpty && !model.remoteSupported)
 }
 
-@Test @MainActor func connectionEndpointHeartbeatReadsStatusOnceAndPreservesPairing() async throws {
+@Test(.isolatedClientResources) @MainActor func connectionEndpointHeartbeatReadsStatusOnceAndPreservesPairing() async throws {
     let data = Data(#"{"success":true,"ha_install_id":"same-install","ha_local_url":"http://192.168.1.134:8123","ha_remote_url":"https://new-endpoint.example","remote_supported":true}"#.utf8)
     let fixture = HistoryWireFixture { request in
         #expect(request.url?.path.hasSuffix("/status") == true)
@@ -5276,7 +5282,7 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     #expect(model.pairingStatus == .paired)
 }
 
-@Test @MainActor func earlierSessionManualSpeechCanRegenerateWithoutAnOldAudioGrant() async throws {
+@Test(.isolatedClientResources) @MainActor func earlierSessionManualSpeechCanRegenerateWithoutAnOldAudioGrant() async throws {
     let receipt = try historyObject()
     let timeline = try historyData(try #require(receipt["archived_timeline"]))
     let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: timeline)
@@ -5301,7 +5307,7 @@ func cancelledPresenceMenuReadPreservesConfirmedState(capabilityRead: Bool) asyn
     #expect(!model.retainedSpeechSourceIsCurrent(entry), "Old Profile/epoch data cannot be used after withdrawal")
 }
 
-@Test(arguments: [DJConnectHAConnectionMode.local, .remote])
+@Test(.isolatedClientResources, arguments: [DJConnectHAConnectionMode.local, .remote])
 func missingOptionalSpeechRouteKeepsReachableOriginAndNeverReplays(_ mode: DJConnectHAConnectionMode) async throws {
     let fixture = HistoryWireFixture { _ in (404, Data(#"{"success":false,"error":"not_found"}"#.utf8), 0) }
     defer { fixture.close() }
@@ -5319,7 +5325,7 @@ func missingOptionalSpeechRouteKeepsReachableOriginAndNeverReplays(_ mode: DJCon
     #expect(fixture.requests.count == 1)
 }
 
-@Test @MainActor func sessionOwnedTransportRecoveryDoesNotLeakGenericToastOrReplay() async throws {
+@Test(.isolatedClientResources) @MainActor func sessionOwnedTransportRecoveryDoesNotLeakGenericToastOrReplay() async throws {
     let fixture = HistoryWireFixture { _ in Issue.record("No HTTP request is expected"); return (500, Data(), 0) }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model()
@@ -5335,7 +5341,7 @@ func missingOptionalSpeechRouteKeepsReachableOriginAndNeverReplays(_ mode: DJCon
 }
 
 
-@Test @MainActor func missingOrFailedOutputDoesNotDisableAllPlayback() async throws {
+@Test(.isolatedClientResources) @MainActor func missingOrFailedOutputDoesNotDisableAllPlayback() async throws {
     for status in [404, 500, 200] {
         let wire = HistoryWireFixture { request in
             let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
@@ -5362,7 +5368,7 @@ func missingOptionalSpeechRouteKeepsReachableOriginAndNeverReplays(_ mode: DJCon
     }
 }
 
-@Test @MainActor func sameNameDifferentDeviceCannotConfirmOutputTransfer() async throws {
+@Test(.isolatedClientResources) @MainActor func sameNameDifferentDeviceCannotConfirmOutputTransfer() async throws {
     let wire = HistoryWireFixture { request in
         let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
         if body?["command"] as? String == "set_output" {
@@ -5385,7 +5391,7 @@ func missingOptionalSpeechRouteKeepsReachableOriginAndNeverReplays(_ mode: DJCon
 }
 
 
-@Test @MainActor func outputListDeduplicatesStableIDsAndDoesNotActivateSameNamePhone() async throws {
+@Test(.isolatedClientResources) @MainActor func outputListDeduplicatesStableIDsAndDoesNotActivateSameNamePhone() async throws {
     let fixture = HistoryWireFixture { _ in (200, Data(#"{"success":true}"#.utf8), 0) }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
@@ -5402,7 +5408,7 @@ func missingOptionalSpeechRouteKeepsReachableOriginAndNeverReplays(_ mode: DJCon
 }
 
 
-@Test @MainActor func externalPlaybackChangeUpdatesOutputRowsAndSameSnapshotWinsOverOldFlags() async throws {
+@Test(.isolatedClientResources) @MainActor func externalPlaybackChangeUpdatesOutputRowsAndSameSnapshotWinsOverOldFlags() async throws {
     let wire = HistoryWireFixture { _ in (200, Data(#"{"success":true}"#.utf8), 0) }; defer { wire.close() }
     let (model, defaults, name) = wire.model(); defer { defaults.removePersistentDomain(forName: name) }
     let oldRows: [DJConnectOutputDevice] = [.init(id: "phone", name: "iPhone", active: true), .init(id: "mac", name: "MacBook", active: false)]
@@ -5415,7 +5421,7 @@ func missingOptionalSpeechRouteKeepsReachableOriginAndNeverReplays(_ mode: DJCon
     #expect(model.availableOutputs.filter { $0.active == true }.map(\.id) == ["mac"])
 }
 
-@Test @MainActor func outputRefreshReadsActualPlaybackWithoutTransferOrGlobalRefresh() async throws {
+@Test(.isolatedClientResources) @MainActor func outputRefreshReadsActualPlaybackWithoutTransferOrGlobalRefresh() async throws {
     let wire = HistoryWireFixture { request in
         let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
         if body?["command"] as? String == "devices" {
@@ -5441,7 +5447,7 @@ func missingOptionalSpeechRouteKeepsReachableOriginAndNeverReplays(_ mode: DJCon
     #expect(!commands.contains("set_output"))
 }
 
-@Test @MainActor func delayedDeviceInventoryCannotUndoNewerPlaybackOutput() async throws {
+@Test(.isolatedClientResources) @MainActor func delayedDeviceInventoryCannotUndoNewerPlaybackOutput() async throws {
     let wire = HistoryWireFixture { _ in
         (200, Data(#"{"success":true,"devices":[{"id":"phone","name":"iPhone","active":true},{"id":"mac","name":"MacBook","active":false}]}"#.utf8), 0.15)
     }; defer { wire.close() }
@@ -5455,7 +5461,7 @@ func missingOptionalSpeechRouteKeepsReachableOriginAndNeverReplays(_ mode: DJCon
     #expect(model.availableOutputs.filter { $0.active == true }.map(\.id) == ["mac"])
 }
 
-@Test func historyRowPlaybackRequiresOneExplicitServerAction() {
+@Test(.isolatedClientResources) func historyRowPlaybackRequiresOneExplicitServerAction() {
     let item = DJConnectAskDJHistoryItem(kind: "track", title: "Thank U", uri: "spotify:track:example", playedAtLabel: "20:26")
     var message = DJConnectAskDJMessage(role: .dj, text: "Recently played", items: [item, item])
     #expect(message.playbackAction(forHistoryItem: item) == nil)
@@ -5475,7 +5481,7 @@ func missingOptionalSpeechRouteKeepsReachableOriginAndNeverReplays(_ mode: DJCon
     #expect(message.playbackAction(forHistoryItem: item) == nil)
 }
 
-@Test(arguments: [false, true]) @MainActor
+@Test(.isolatedClientResources, arguments: [false, true]) @MainActor
 func profileConversationClearPreservesSendingAndRejectsOldHistory(_ remoteClear: Bool) async throws {
     let original = try #require(historyObject()["later_historical_answer"] as? [String: Any])
     let initial = try historyData(original)
@@ -5521,7 +5527,7 @@ func profileConversationClearPreservesSendingAndRejectsOldHistory(_ remoteClear:
     #expect(model.canUseProfileConversation)
 }
 
-@Test @MainActor func sessionCoverUsesConfirmedArtworkRouteInsteadOfPinnedLAN() throws {
+@Test(.isolatedClientResources) @MainActor func sessionCoverUsesConfirmedArtworkRouteInsteadOfPinnedLAN() throws {
     let remote = try #require(URL(string: "https://paired.example"))
     let fixture = HistoryWireFixture { _ in (500, Data(), 0) }; defer { fixture.close() }
     let (model, defaults, name) = fixture.model(remoteURL: remote)
@@ -5544,7 +5550,7 @@ func profileConversationClearPreservesSendingAndRejectsOldHistory(_ remoteClear:
     #expect(fixture.requests.isEmpty)
 }
 
-@Test @MainActor func askDJArtworkRestorationUsesConfirmedRouteAndPreservesResponseIdentity() throws {
+@Test(.isolatedClientResources) @MainActor func askDJArtworkRestorationUsesConfirmedRouteAndPreservesResponseIdentity() throws {
     let remote = try #require(URL(string: "https://paired.example"))
     let fixture = HistoryWireFixture { _ in (500, Data(), 0) }; defer { fixture.close() }
     let (model, defaults, name) = fixture.model(remoteURL: remote)
@@ -5584,7 +5590,7 @@ func profileConversationClearPreservesSendingAndRejectsOldHistory(_ remoteClear:
     #expect(fixture.requests.isEmpty)
 }
 
-@Test(arguments: ["nl", "en", "de", "fr", "es"])
+@Test(.isolatedClientResources, arguments: ["nl", "en", "de", "fr", "es"])
 func sessionStartMetadataUsesServerStartLocalTimeAndTranslatedFullDate(language: String) throws {
     let zone = try #require(TimeZone(identifier: "Europe/Amsterdam"))
     let text = try #require(SessionStartMetadata.text(startedAt: "2026-10-10T15:30:00Z", language: language, timeZone: zone))
@@ -5597,7 +5603,7 @@ func sessionStartMetadataUsesServerStartLocalTimeAndTranslatedFullDate(language:
     #expect(winter.contains("17:30"))
 }
 
-@Test @MainActor func albumBorderTintIsImmediatelyReusableAcrossScreensWithoutExtendingLifetime() throws {
+@Test(.isolatedClientResources) @MainActor func albumBorderTintIsImmediatelyReusableAcrossScreensWithoutExtendingLifetime() throws {
     let cache = DJConnectArtworkTintCache()
     let now = Date(timeIntervalSince1970: 1000)
     let cover = try #require(URL(string: "https://paired.example/api/djconnect/v1/image_proxy/cover-a"))
@@ -5615,7 +5621,7 @@ func sessionStartMetadataUsesServerStartLocalTimeAndTranslatedFullDate(language:
     #expect(cache.value(for: cover, at: tint.expiresAt) == nil, "Remounting cannot renew expired tint")
 }
 
-@Test(arguments: ["no-store", "no-cache", "public, max-age=0"])
+@Test(.isolatedClientResources, arguments: ["no-store", "no-cache", "public, max-age=0"])
 func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) async throws {
     let fixture = HistoryWireFixture(cacheControl: cacheControl) { _ in (200, Data([1, 2, 3]), 0) }
     defer { fixture.close() }
@@ -5626,7 +5632,7 @@ func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) asy
     #expect(fixture.requests.count == 1)
 }
 
-@Test @MainActor func albumBorderTintWarmDownloadIsImmediatelyAvailableOnBothScreens() async throws {
+@Test(.isolatedClientResources) @MainActor func albumBorderTintWarmDownloadIsImmediatelyAvailableOnBothScreens() async throws {
     let png = try #require(Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII="))
     let fixture = HistoryWireFixture(cacheControl: "public, max-age=60") { _ in (200, png, 0) }
     defer { fixture.close() }
@@ -5644,7 +5650,7 @@ func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) asy
     #expect(fixture.requests.count == 1, "Opening another screen must not refetch or resample the cover")
 }
 
-@Test @MainActor func submittedQuestionScrollTracksPendingRetainedAndCurrentOnlyIdentity() throws {
+@Test(.isolatedClientResources) @MainActor func submittedQuestionScrollTracksPendingRetainedAndCurrentOnlyIdentity() throws {
     let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self,
         from: historyData(try #require(historyObject()["archived_timeline"])))
     let entry = try #require(page.entries.first(where: { $0.kind == .conversationUser }))
@@ -5671,7 +5677,7 @@ func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) asy
     #expect(question.target(sessionID: entry.sessionID, pending: [], entries: page.entries, current: [], at: expired) == nil)
 }
 
-@Test func playbackFieldHighlightsPreserveUnicodeOffsetsAndIgnoreOtherFields() {
+@Test(.isolatedClientResources) func playbackFieldHighlightsPreserveUnicodeOffsetsAndIgnoreOtherFields() {
     let source = "🎧 Titel · Artiest · Album"
     let title = "🎧 Titel"
     let artist = "Artiest"
@@ -5687,7 +5693,7 @@ func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) asy
     #expect(SessionPlaybackHighlights.project(highlights, source: source, field: "").isEmpty)
 }
 
-@Test(arguments: ["public, max-age=60", "no-store", "no-cache", "public, max-age=0"])
+@Test(.isolatedClientResources, arguments: ["public, max-age=60", "no-store", "no-cache", "public, max-age=0"])
 @MainActor func decodedArtworkReusesPixelsOnlyWithinHTTPLifetime(cacheControl: String) async throws {
     let context = try #require(CGContext(data: nil, width: 8, height: 8, bitsPerComponent: 8, bytesPerRow: 32,
         space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
@@ -5710,7 +5716,7 @@ func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) asy
     #expect(first.byteCost >= 8 * 8 * 4)
 }
 
-@Test func historyTimestampParserPreservesFractionalWholeOffsetAndConcurrentResults() async {
+@Test(.isolatedClientResources) func historyTimestampParserPreservesFractionalWholeOffsetAndConcurrentResults() async {
     let samples = ["2026-10-18T00:00:00Z", "2026-10-18T00:00:00.123Z", "2026-10-18T02:00:00+02:00", "", "not-a-date"]
     let expected = samples.map { text in
         let parser = ISO8601DateFormatter(); parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -5724,7 +5730,7 @@ func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) asy
     }
 }
 
-@Test @MainActor func longHistoryArtworkWindowMatchesRetentionFilteredReference() throws {
+@Test(.isolatedClientResources) @MainActor func longHistoryArtworkWindowMatchesRetentionFilteredReference() throws {
     let demo = try DJConnectDemoSessionData.make(language: "nl")
     let original = try #require(demo.timelines[demo.active.id]?.entries.first(where: { [.playbackObserved, .djMoment].contains($0.kind) }))
     let prototype = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
@@ -5744,7 +5750,7 @@ func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) asy
     #expect(DJConnectSessionHistoryModel.artworkWindow(entries: rows, visibleIDs: visible, at: now.addingTimeInterval(1000)).isEmpty)
 }
 
-@Test @MainActor func timelineRefreshKeepsFailureVisibleUntilReadActuallySucceeds() async throws {
+@Test(.isolatedClientResources) @MainActor func timelineRefreshKeepsFailureVisibleUntilReadActuallySucceeds() async throws {
     let first = try historyData(try #require(historyObject("window-producer-receipt")["first_page"]))
     let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: first)
     let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
@@ -5781,7 +5787,7 @@ func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) asy
     #expect(history.hasAuthorizedOwner)
 }
 
-@Test @MainActor func firstPlayHelperUsesSessionMusicHistoryAndStaysDismissedAfterPlaybackClears() throws {
+@Test(.isolatedClientResources) @MainActor func firstPlayHelperUsesSessionMusicHistoryAndStaysDismissedAfterPlaybackClears() throws {
     let name = "first-play-helper-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name))
     defer { defaults.removePersistentDomain(forName: name) }
@@ -5810,14 +5816,14 @@ func protectedArtworkCannotPopulateTheSharedBorderTint(cacheControl: String) asy
     #expect(!model.sessionHistory.hasPlaybackForFirstPlayHelper(session))
 }
 
-@Test(arguments: [0, 1, 2]) func sessionArchiveDeletionCapabilityRequiresExactVersion(_ version: Int) throws {
+@Test(.isolatedClientResources, arguments: [0, 1, 2]) func sessionArchiveDeletionCapabilityRequiresExactVersion(_ version: Int) throws {
     let data = try historyData(["capabilities": ["session_conversation_history": true, "session_history_delete": true],
                                 "contract_versions": ["session_conversation_history": 1, "session_history_delete": version]])
     let capabilities = try JSONDecoder().decode(DJConnectSessionHistoryCapabilities.self, from: data)
     #expect(capabilities.deletionAvailable == (version == 1))
 }
 
-@Test(arguments: ["ok", "owner", "target", "operation", "schema", "deleted", "success"])
+@Test(.isolatedClientResources, arguments: ["ok", "owner", "target", "operation", "schema", "deleted", "success"])
 func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutation: String) throws {
     let action = DJConnectSessionDeleteRequest(sessionID: "archive-a", expectedRevision: "opaque-r1")
     var object: [String: Any] = ["success": true, "schema_version": 1, "operation_id": action.operationID,
@@ -5835,7 +5841,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     #expect(receipt.admits(action, owner: "profile-a") == (mutation == "ok"))
 }
 
-@Test(arguments: ["completed", "completed_clear_revision", "completed_clear_revision_revoked", "pending", "wrong_receipt", "conflict", "withdrawn",
+@Test(.isolatedClientResources, arguments: ["completed", "completed_clear_revision", "completed_clear_revision_revoked", "pending", "wrong_receipt", "conflict", "withdrawn",
                   "status_completed", "status_pending", "status_unknown", "status_expired_unknown"])
 @MainActor func contentDeletionUsesFlatBoundWireAndNeverRenewsUnknown(_ outcome: String) async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -6081,7 +6087,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     }
 }
 
-@Test(arguments: ["malformed", "oversized", "content-malformed", "content-oversized"])
+@Test(.isolatedClientResources, arguments: ["malformed", "oversized", "content-malformed", "content-oversized"])
 @MainActor func invalidDeletionJournalCannotEnableAnotherMutation(_ mode: String) async throws {
     let producer = try historyObject()
     let archiveData = try historyData(try #require(producer["archived_timeline"]))
@@ -6113,7 +6119,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
 }
 
 #if os(macOS)
-@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_PENDING_ARCHIVE_NATIVE_DIR"] != nil))
+@Test(.isolatedAppKitResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_PENDING_ARCHIVE_NATIVE_DIR"] != nil))
 @MainActor func nativeArchiveRetainsUnconfirmedDeletionNoticeAcrossReadRefresh() async throws {
     let directory = try #require(ProcessInfo.processInfo.environment["DJCONNECT_PENDING_ARCHIVE_NATIVE_DIR"])
     let folder = URL(fileURLWithPath: directory)
@@ -6198,7 +6204,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
 }
 #endif
 
-@Test(arguments: ["single", "bulk"])
+@Test(.isolatedClientResources, arguments: ["single", "bulk"])
 @MainActor func deletionJournalBlocksNewOperationAfterUnknownResult(_ outcome: String) async throws {
     let producer = try historyObject()
     let archiveData = try historyData(try #require(producer["archived_timeline"]))
@@ -6281,7 +6287,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     #expect(fixture.requests.filter { $0.httpMethod == "POST" }.count == 1)
 }
 
-@Test(arguments: ["fresh", "failure", "withdrawn", "became-active"])
+@Test(.isolatedClientResources, arguments: ["fresh", "failure", "withdrawn", "became-active"])
 @MainActor func archiveDeletionConfirmationRequiresFreshDetail(_ outcome: String) async throws {
     let producer = try historyObject()
     let initial = try #require(producer["archived_timeline"] as? [String: Any])
@@ -6323,7 +6329,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
 }
 
-@Test(arguments: ["ok", "failure", "conflict", "owner", "epoch", "stale-revision", "unsupported", "active"])
+@Test(.isolatedClientResources, arguments: ["ok", "failure", "conflict", "owner", "epoch", "stale-revision", "unsupported", "active"])
 @MainActor func sessionArchiveDeletionPreservesFailuresAndFencesStaleConfirmation(_ outcome: String) async throws {
     let fixtureObject = try historyObject()
     var archiveObject = try #require(fixtureObject["archived_timeline"] as? [String: Any])
@@ -6401,7 +6407,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/end") || $0.url!.path.hasSuffix("/session/start") })
 }
 
-@Test(arguments: [0, 1, 2]) func sessionBulkDeletionRequiresItsOwnCapability(_ version: Int) throws {
+@Test(.isolatedClientResources, arguments: [0, 1, 2]) func sessionBulkDeletionRequiresItsOwnCapability(_ version: Int) throws {
     let data = try historyData(["capabilities":["session_conversation_history":true,"session_history_bulk_delete":true],
                                "contract_versions":["session_conversation_history":1,"session_history_bulk_delete":version]])
     let caps = try JSONDecoder().decode(DJConnectSessionHistoryCapabilities.self, from: data)
@@ -6409,7 +6415,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     #expect(!caps.deletionAvailable)
 }
 
-@Test(arguments: ["ok", "expired", "future", "unbounded", "negative", "owner", "schema"])
+@Test(.isolatedClientResources, arguments: ["ok", "expired", "future", "unbounded", "negative", "owner", "schema"])
 func sessionBulkDeletionSnapshotRequiresOwnerAndBoundedExpiry(_ change: String) throws {
     let now = Date(timeIntervalSince1970: 1_792_320_000)
     let formatter = ISO8601DateFormatter()
@@ -6444,7 +6450,7 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     func complete() { lock.withLock { erased = true } }
 }
 
-@Test(arguments: ["ok", "failure", "conflict", "network", "owner", "count", "snapshot", "epoch", "zero", "expired", "unsupported"])
+@Test(.isolatedClientResources, arguments: ["ok", "failure", "conflict", "network", "owner", "count", "snapshot", "epoch", "zero", "expired", "unsupported"])
 @MainActor func sessionBulkDeletionIsOneSnapshotBoundOperationPreservingActiveFlow(_ outcome: String) async throws {
     let fixtureObject = try historyObject()
     let archiveObject = try #require(fixtureObject["archived_timeline"] as? [String: Any])
@@ -6504,8 +6510,18 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
         }
         if path.hasSuffix("/session/history") { return (200,state.completed ? refreshedList : initialList,0) }
         if path.hasSuffix("/active-preserved") {
-            if state.takeReadHold() { throw HistoryWireHeldResponse(data: activePageData, gate: activeReadGate) }
-            return (200,activePageData,0)
+            var reply = try #require(JSONSerialization.jsonObject(with: activePageData) as? [String: Any])
+            let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            if let window = query.first(where: { $0.name == "window" })?.value {
+                // A background tail read can own the coalesced request. Match
+                // its actual contract instead of returning an invalid plain page.
+                reply["window"] = window
+                reply["window_limit"] = Int(query.first(where: { $0.name == "limit" })?.value ?? "20")
+                reply["scan_complete"] = true; reply["next_cursor"] = NSNull()
+            }
+            let data = try historyData(reply)
+            if state.takeReadHold() { throw HistoryWireHeldResponse(data: data, gate: activeReadGate) }
+            return (200,data,0)
         }
         return (200,archiveData,0)
     }
@@ -6574,7 +6590,7 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/end") || $0.url!.path.hasSuffix("/session/start") || $0.url!.path.hasSuffix("/session/history/delete") })
 }
 
-@Test(arguments:["timeline","conversation-history"])
+@Test(.isolatedClientResources, arguments:["timeline","conversation-history"])
 @MainActor func sessionBulkDeletionRejectsPreAcknowledgementArchiveCallbacks(_ read: String) async throws {
     let object = try historyObject()
     let timelineData = try historyData(try #require(object["archived_timeline"]))
@@ -6632,7 +6648,7 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/delete_all") }.count == 1)
 }
 
-@Test @MainActor func deviceSTTSubmitsOneTextTurnAndNeverAnAudioRequest() async throws {
+@Test(.isolatedClientResources) @MainActor func deviceSTTSubmitsOneTextTurnAndNeverAnAudioRequest() async throws {
     let receipt = try historyObject()
     let history = try historyData(try #require(receipt["later_historical_answer"]))
     let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
@@ -6664,7 +6680,7 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     #expect(fixture.requests.count == before)
 }
 
-@Test @MainActor func deviceSTTRejectsStaleContextEmptyOrEditedDraftWithoutSending() async throws {
+@Test(.isolatedClientResources) @MainActor func deviceSTTRejectsStaleContextEmptyOrEditedDraftWithoutSending() async throws {
     let fixture = HistoryWireFixture { _ in (503, Data(), 0) }; defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
     model.deviceSTTEnabled = true
@@ -6691,7 +6707,7 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     #expect(fixture.requests.isEmpty)
 }
 
-@Test(arguments: [false, true]) @MainActor
+@Test(.isolatedClientResources, arguments: [false, true]) @MainActor
 func sessionSearchAutomaticPagingFencesOldFootersAndRepeatedCursors(repeatsCursor: Bool) async throws {
     let receipt = try historyObject()
     let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
@@ -6735,7 +6751,7 @@ func sessionSearchAutomaticPagingFencesOldFootersAndRepeatedCursors(repeatsCurso
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/search") }.count == 2)
 }
 
-@Test @MainActor func manualRefreshSharesResultAndSurvivesGestureCancellation() async throws {
+@Test(.isolatedClientResources) @MainActor func manualRefreshSharesResultAndSurvivesGestureCancellation() async throws {
     let reads = HTTPRecoveryActiveReadCounter()
     let wire = HistoryWireFixture { request in
         let body = try? JSONSerialization.jsonObject(with: presenceRequestBody(request)) as? [String: Any]
@@ -6760,7 +6776,7 @@ func sessionSearchAutomaticPagingFencesOldFootersAndRepeatedCursors(repeatsCurso
     #expect(model.pairingStatus == .paired)
 }
 
-@Test @MainActor func manualRefreshWaitsForBusyRefreshInsteadOfReportingFailure() async throws {
+@Test(.isolatedClientResources) @MainActor func manualRefreshWaitsForBusyRefreshInsteadOfReportingFailure() async throws {
     let wire = HistoryWireFixture { _ in (200, Data(#"{"success":true}"#.utf8), 0) }
     defer { wire.close() }
     let (model, defaults, name) = wire.model(); defer { defaults.removePersistentDomain(forName: name) }
@@ -6773,7 +6789,7 @@ func sessionSearchAutomaticPagingFencesOldFootersAndRepeatedCursors(repeatsCurso
     #expect(!model.isRefreshing)
 }
 
-@Test @MainActor func manualRefreshStillReportsRealTransportFailure() async throws {
+@Test(.isolatedClientResources) @MainActor func manualRefreshStillReportsRealTransportFailure() async throws {
     let wire = HistoryWireFixture { _ in throw URLError(.cannotConnectToHost) }
     defer { wire.close() }
     let (model, defaults, name) = wire.model(); defer { defaults.removePersistentDomain(forName: name) }
@@ -6782,7 +6798,7 @@ func sessionSearchAutomaticPagingFencesOldFootersAndRepeatedCursors(repeatsCurso
     #expect(!model.isRefreshing)
 }
 
-@Test @MainActor func discoveryManualRefreshSurvivesCancelledGestureAndSharesToolbarRequest() async throws {
+@Test(.isolatedClientResources) @MainActor func discoveryManualRefreshSurvivesCancelledGestureAndSharesToolbarRequest() async throws {
     let reads = HTTPRecoveryActiveReadCounter()
     let wire = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/music_discovery/refresh") {
@@ -6807,7 +6823,7 @@ func sessionSearchAutomaticPagingFencesOldFootersAndRepeatedCursors(repeatsCurso
     #expect(!model.isRefreshingMusicDiscovery)
 }
 
-@Test @MainActor func discoveryCancelledGestureStillRejectsResponseAfterSuspension() async throws {
+@Test(.isolatedClientResources) @MainActor func discoveryCancelledGestureStillRejectsResponseAfterSuspension() async throws {
     let reads = HTTPRecoveryActiveReadCounter()
     let wire = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/music_discovery/refresh") {
@@ -6828,7 +6844,7 @@ func sessionSearchAutomaticPagingFencesOldFootersAndRepeatedCursors(repeatsCurso
     #expect(!model.isRefreshingMusicDiscovery)
 }
 
-@Test @MainActor func unifiedManualRefreshShowsBothPhasesAndSharesCancelledGesture() async throws {
+@Test(.isolatedClientResources) @MainActor func unifiedManualRefreshShowsBothPhasesAndSharesCancelledGesture() async throws {
     let controller = DJConnectManualRefreshController()
     var calls = 0
     let gesture = Task {
@@ -6857,7 +6873,7 @@ func sessionSearchAutomaticPagingFencesOldFootersAndRepeatedCursors(repeatsCurso
     #expect(controller.notice?.text == "Bijwerken mislukt")
 }
 
-@Test @MainActor func unifiedManualRefreshWaitsForBackgroundWorkAndRejectsChangedOwner() async throws {
+@Test(.isolatedClientResources) @MainActor func unifiedManualRefreshWaitsForBackgroundWorkAndRejectsChangedOwner() async throws {
     let controller = DJConnectManualRefreshController()
     var busy = true
     var current = true
@@ -6893,7 +6909,7 @@ func sessionSearchAutomaticPagingFencesOldFootersAndRepeatedCursors(repeatsCurso
     #expect(controller.notice?.text == "Bijgewerkt")
 }
 
-@Test @MainActor func unifiedManualRefreshCannotPublishCompletionAfterContextChanges() async throws {
+@Test(.isolatedClientResources) @MainActor func unifiedManualRefreshCannotPublishCompletionAfterContextChanges() async throws {
     let controller = DJConnectManualRefreshController()
     var current = true
     var started = false
@@ -6912,7 +6928,7 @@ func sessionSearchAutomaticPagingFencesOldFootersAndRepeatedCursors(repeatsCurso
 }
 
 
-@Test(arguments: ["cancelled", "transient", "incompatible"]) @MainActor
+@Test(.isolatedClientResources, arguments: ["cancelled", "transient", "incompatible"]) @MainActor
 func personaTouchCapabilityRefreshWithdrawsStaleSupportExceptCancellation(fault: String) async throws {
     let phase = HistoryAuthorityGate()
     let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -6957,7 +6973,7 @@ func personaTouchCapabilityRefreshWithdrawsStaleSupportExceptCancellation(fault:
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
 }
 
-@Test @MainActor func deviceSpeechStatusIsEphemeralScopedAndNeverOverridesApplePreference() throws {
+@Test(.isolatedClientResources) @MainActor func deviceSpeechStatusIsEphemeralScopedAndNeverOverridesApplePreference() throws {
     let fixture = HistoryWireFixture { _ in (200, Data(), 0) }; defer { fixture.close() }
     let (model, defaults, name) = fixture.model()
     defer { defaults.removePersistentDomain(forName: name) }
@@ -6994,7 +7010,7 @@ func personaTouchCapabilityRefreshWithdrawsStaleSupportExceptCancellation(fault:
     #expect(!model.canUseHASpeechOutput(.local))
 }
 
-@Test(arguments: [DJConnectClientType.ios, .watchos])
+@Test(.isolatedClientResources, arguments: [DJConnectClientType.ios, .watchos])
 func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clientType: DJConnectClientType) async throws {
     let source = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/device-speech-core-604b80f8.json")
     let root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: source)) as? [String: Any])
@@ -7018,7 +7034,7 @@ func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clie
     #expect(fixture.requests.count == 3)
 }
 
-@Test @MainActor func deviceSpeechUnknownMetadataBlocksHAUploadWithoutSwitchingAppleInput() async throws {
+@Test(.isolatedClientResources) @MainActor func deviceSpeechUnknownMetadataBlocksHAUploadWithoutSwitchingAppleInput() async throws {
     let body = Data(#"{"success":true,"ha_install_id":"speech-install","voice_supported":true,"ask_dj_voice_supported":true}"#.utf8)
     let fixture = HistoryWireFixture { _ in (200, body, 0) }; defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
@@ -7033,7 +7049,7 @@ func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clie
     #expect(model.deviceSTTEnabled && model.canUseVoiceInputRoute)
 }
 
-@Test @MainActor func legacyAskDJTextNeverRequestsInlineSynthesisDespiteSavedAudioPreference() async throws {
+@Test(.isolatedClientResources) @MainActor func legacyAskDJTextNeverRequestsInlineSynthesisDespiteSavedAudioPreference() async throws {
     let body = Data(#"{"success":true,"text":"Synthetic answer","dj_text":"Synthetic answer"}"#.utf8)
     let fixture = HistoryWireFixture { request in
         #expect(request.url?.path == "/api/djconnect/v1/ask_dj/message")
@@ -7051,7 +7067,7 @@ func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clie
     #expect(model.localResponseAudioEnabled)
 }
 
-@Test @MainActor func switchingBackFromAppleSTTRequalifiesHAInputWithoutSendingAudio() async throws {
+@Test(.isolatedClientResources) @MainActor func switchingBackFromAppleSTTRequalifiesHAInputWithoutSendingAudio() async throws {
     let source = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/device-speech-core-604b80f8.json")
     let root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: source)) as? [String: Any])
     let cases = try #require(root["cases"] as? [[String: Any]])
@@ -7077,7 +7093,7 @@ func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clie
 }
 
 
-@Test @MainActor func avatarAuthorityDoesNotDependOnPlaybackBackendAvailability() async throws {
+@Test(.isolatedClientResources) @MainActor func avatarAuthorityDoesNotDependOnPlaybackBackendAvailability() async throws {
     let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
     let runtime = try activeMoodRuntimeWire()
     let fixture = HistoryWireFixture { request in
@@ -7113,7 +7129,7 @@ func deviceSpeechFreshReadUsesStatusWithoutAudioAndRequiresSameInstallation(clie
     #expect(!model.personaEvidence(for: session, admittedMoment: nil).authorized)
 }
 
-@Test @MainActor func unavailableBackendMetadataSchedulesRecoveryWithoutManualRefresh() async throws {
+@Test(.isolatedClientResources) @MainActor func unavailableBackendMetadataSchedulesRecoveryWithoutManualRefresh() async throws {
     let fixture = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/status") { return (200, Data(#"{"success":true,"backend_available":true}"#.utf8), 0) }
         return (404, Data(), 0)
@@ -7163,7 +7179,7 @@ private final class ForecastWireDataSlot: @unchecked Sendable {
 }
 
 // Native Forecast crosses ordinary paired transport; all replies here are explicit fixtures.
-@Test(arguments: ["current", "background", "owner-reset", "context-same", "context-older", "persona-conflict", "unsequenced-live", "unsequenced-live-during-read", "context-locale", "context-direction", "context-read-replacement", "transport-recovery", "disconnect-during-read", "sequenced-event-withdrawal", "sequenced-snapshot-withdrawal", "sequenced-withdrawal-equal-read"]) @MainActor
+@Test(.isolatedClientResources, arguments: ["current", "background", "owner-reset", "context-same", "context-older", "persona-conflict", "unsequenced-live", "unsequenced-live-during-read", "context-locale", "context-direction", "context-read-replacement", "transport-recovery", "disconnect-during-read", "sequenced-event-withdrawal", "sequenced-snapshot-withdrawal", "sequenced-withdrawal-equal-read"]) @MainActor
 func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: String) async throws {
     let fixtureRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let rows = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtureRoot.appendingPathComponent("Fixtures/session-forecast-core-3cfa5512.json"))) as? [[String: Any]])
@@ -7913,7 +7929,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     var values: [URL] = []
 }
 
-@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_NATIVE_DIR"] != nil)) @MainActor
+@Test(.isolatedAppKitResources, .enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_NATIVE_DIR"] != nil)) @MainActor
 func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let rows = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/session-forecast-core-3cfa5512.json"))) as? [[String: Any]])
@@ -8030,7 +8046,7 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
 }
 #endif
 
-@Test(arguments: ["complete", "profile-denied", "failed"])
+@Test(.isolatedClientResources, arguments: ["complete", "profile-denied", "failed"])
 @MainActor func archiveListSearchFindsContentBeyondLoadedSessionsAndFencesFailures(_ outcome: String) async throws {
     let receipt = try historyObject()
     let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
@@ -8093,7 +8109,7 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
     #expect(model.sessionHistory.archiveSearchSessions.isEmpty && model.sessionHistory.archiveSearchQuery.isEmpty)
 }
 
-@Test @MainActor func sessionRenderSnapshotReuseExpiresUnchangedInputAndDropsRemovedRows() throws {
+@Test(.isolatedClientResources) @MainActor func sessionRenderSnapshotReuseExpiresUnchangedInputAndDropsRemovedRows() throws {
     let data = try DJConnectDemoSessionData.make(language: "nl")
     let entry = try #require(data.timelines[data.active.id]?.entries.first)
     let deadline = try #require(DJConnectHistoryEntry.date(entry.retainedUntil))
@@ -8109,7 +8125,7 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
     #expect(cache.snapshot([], sessionID: data.active.id, epoch: UUID(), at: deadline.addingTimeInterval(-1)).isEmpty)
 }
 
-@Test(arguments: ["valid", "expired", "wrong-set", "duplicate-action", "missing-action", "nested-mismatch"])
+@Test(.isolatedClientResources, arguments: ["valid", "expired", "wrong-set", "duplicate-action", "missing-action", "nested-mismatch"])
 func frozenCatalogueReplayDecodesOriginalActionsAndIdentity(_ scenario: String) throws {
     let uri = "spotify:track:AAAAAAAAAAAAAAAAAAAAAA"
     let original: [String: Any] = ["id": "row-a", "title": "Original recording", "artist": "Artist A", "kind": "track",
@@ -8146,7 +8162,7 @@ func frozenCatalogueReplayDecodesOriginalActionsAndIdentity(_ scenario: String) 
     }
 }
 
-@Test func cataloguePresentationKeepsNarrativeAndEditionsWithoutDuplicatingNumberedRows() {
+@Test(.isolatedClientResources) func cataloguePresentationKeepsNarrativeAndEditionsWithoutDuplicatingNumberedRows() {
     let items = [
         DJConnectAskDJHistoryItem(kind: "track", title: "Same title", subtitle: "Original edition", uri: "spotify:track:a", resultSetID: "set", actionID: "a"),
         DJConnectAskDJHistoryItem(kind: "track", title: "Same title", subtitle: "Live edition", uri: "spotify:track:b", resultSetID: "set", actionID: "b")]
@@ -8163,7 +8179,7 @@ func frozenCatalogueReplayDecodesOriginalActionsAndIdentity(_ scenario: String) 
     #expect(message.catalogueTextForDisplay == message.text)
 }
 
-@Test func catalogueCardUsesOriginalIdentityAndRejectsMismatchedOrAmbiguousActions() throws {
+@Test(.isolatedClientResources) func catalogueCardUsesOriginalIdentityAndRejectsMismatchedOrAmbiguousActions() throws {
     let action = try JSONDecoder().decode(DJConnectAskDJPlaybackAction.self, from: Data(#"{"id":"album-row","title":"Album","kind":"album","uri":"spotify:album:AAAAAAAAAAAAAAAAAAAAAA","result_set_id":"set-a","action_id":"action-a","command":"ask_dj_play_recommendation"}"#.utf8))
     var item = DJConnectAskDJHistoryItem(kind: "album", title: "Album", uri: action.uri, resultSetID: "set-a", actionID: "action-a")
     var message = DJConnectAskDJMessage(role: .dj, text: "Album", playbackActions: [action], items: [item])
@@ -8174,7 +8190,7 @@ func frozenCatalogueReplayDecodesOriginalActionsAndIdentity(_ scenario: String) 
     item.uri = action.uri; message.playbackActions = [action, action]; #expect(message.playbackAction(forHistoryItem: item) == nil)
 }
 
-@Test func visualHelpUsesFreshServerCatalogueForEveryOpening() async throws {
+@Test(.isolatedClientResources) func visualHelpUsesFreshServerCatalogueForEveryOpening() async throws {
     let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         .appendingPathComponent("Fixtures/vibescape-visual-catalogue-v1.json")
     let data = try Data(contentsOf: file)
@@ -8192,7 +8208,7 @@ func frozenCatalogueReplayDecodesOriginalActionsAndIdentity(_ scenario: String) 
     #expect(wire.requests.allSatisfy { $0.httpMethod == "GET" && $0.cachePolicy == .reloadIgnoringLocalCacheData })
 }
 
-@Test func visualContextUsesClosedFlatPayloadWithoutConversationFallback() async throws {
+@Test(.isolatedClientResources) func visualContextUsesClosedFlatPayloadWithoutConversationFallback() async throws {
     let visit = UUID()
     let reply = try historyData(["success": true, "schema_version": 1, "visit_id": visit.uuidString,
         "context_lease_id": "lease-a", "observed_occurrence_id": "occurrence-a", "lease_duration_ms": 10000,
@@ -8267,7 +8283,7 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
     }
 }
 
-@Test @MainActor func askDJDeletesThreeContributionsUsingOriginalContextAfterEachClear() async throws {
+@Test(.isolatedClientResources) @MainActor func askDJDeletesThreeContributionsUsingOriginalContextAfterEachClear() async throws {
     let producer = try historyObject()
     let state = AskDJRepeatedDeletionState(base: try #require(producer["later_historical_answer"] as? [String: Any]))
     let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_content_delete": true],
@@ -8306,7 +8322,7 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
     #expect(history.contentDeletionTarget(for: unknown) == nil)
 }
 
-@Test func askDJMessageContextsNeverBorrowTheLatestTurnOrSelectedEntry() throws {
+@Test(.isolatedClientResources) func askDJMessageContextsNeverBorrowTheLatestTurnOrSelectedEntry() throws {
     var response = try #require(historyObject()["later_historical_answer"] as? [String: Any])
     let messages: [[String: Any]] = [
         ["id": "context-one", "role": "assistant", "text": "one", "created_at": "2026-10-22T12:00:00Z",
@@ -8325,7 +8341,7 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
     }
 }
 
-@Test(arguments: ["single", "bulk"])
+@Test(.isolatedClientResources, arguments: ["single", "bulk"])
 @MainActor func archiveDeletionReloadsRemainingSessionsAfterConversationClearRevision(_ mode: String) async throws {
     let object = try historyObject()
     let timeline = try #require(object["archived_timeline"] as? [String: Any])
@@ -8394,7 +8410,7 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
     #expect(fixture.requests.filter { $0.httpMethod == "POST" }.count == 1)
 }
 
-@Test(arguments: ["accept", "same-name-version", "ABA", "pause", "seek-back", "background", "owner", "missing-uri", "expired", "ordinary-progress"])
+@Test(.isolatedClientResources, arguments: ["accept", "same-name-version", "ABA", "pause", "seek-back", "background", "owner", "missing-uri", "expired", "ordinary-progress"])
 @MainActor func currentInsightQualifiedRequestRejectsLateOriginalContext(_ scenario: String) async throws {
     let fixture = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/capabilities") {
@@ -8446,7 +8462,7 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
     #expect(fixture.requests.allSatisfy { $0.url!.path.hasSuffix("/track_insight") || ($0.httpMethod == "GET" && $0.url!.path.hasSuffix("/capabilities")) })
 }
 
-@Test(arguments: ["six-visible", "capability-absent", "owner-withdrawal"])
+@Test(.isolatedClientResources, arguments: ["six-visible", "capability-absent", "owner-withdrawal"])
 @MainActor func capturedReplyArtworkQueueDoesNotDropVisibleRepliesOrCrossOwner(_ scenario: String) async throws {
     let receipt = try historyObject()
     var page = try #require(receipt["archived_timeline"] as? [String: Any])
@@ -8527,7 +8543,7 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
     #expect(!fixture.requests.contains { $0.url!.path.contains("/command") || $0.url!.path.hasSuffix("/start") })
 }
 
-@Test @MainActor func currentInsightOwnerWithdrawalDuringCapabilityReadStartsNoAnalysis() async throws {
+@Test(.isolatedClientResources) @MainActor func currentInsightOwnerWithdrawalDuringCapabilityReadStartsNoAnalysis() async throws {
     let fixture = HistoryWireFixture { request in
         #expect(request.httpMethod == "GET" && request.url!.path.hasSuffix("/capabilities"))
         return (200, Data(#"{"success":true,"capabilities":{"current_track_insight_subject_v1":true},"contract_versions":{"current_track_insight_subject":1}}"#.utf8), 0.15)
@@ -8546,7 +8562,7 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
     #expect(model.trackInsightErrorMessage == nil)
 }
 
-@Test(arguments: ["mood", "mood-ABA", "persona", "persona-ABA", "presence", "presence-ABA", "profile-mood", "profile-mood-ABA", "profile-persona", "profile-persona-ABA", "profile-presence", "profile-presence-ABA"], [false, true])
+@Test(.isolatedClientResources, arguments: ["mood", "mood-ABA", "persona", "persona-ABA", "presence", "presence-ABA", "profile-mood", "profile-mood-ABA", "profile-persona", "profile-persona-ABA", "profile-presence", "profile-presence-ABA"], [false, true])
 @MainActor func currentInsightConfirmedSettingsRevisionClosesPendingAndAcceptedProof(_ axis: String, _ alreadyAccepted: Bool) async throws {
     var base = try #require(JSONSerialization.jsonObject(with: activePersonaRuntimeWire()) as? [String: Any])
     var runtime = try #require(base["session"] as? [String: Any])
@@ -8622,7 +8638,7 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
     #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/track_insight") }.count == 1)
 }
 
-@Test(arguments: [0.25, 1.0, 20.0])
+@Test(.isolatedClientResources, arguments: [0.25, 1.0, 20.0])
 @MainActor func currentInsightShortOriginalMonotonicLeasePrecedesAllApplyEffects(_ elapsed: Double) async throws {
     let fixture = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/capabilities") {
@@ -8677,7 +8693,7 @@ private func contributionExplorationCapsWire() throws -> Data {
     return try historyData(root)
 }
 
-@Test(arguments: ["en", "nl", "de", "fr", "es", "nl-NL", "unsupported"])
+@Test(.isolatedClientResources, arguments: ["en", "nl", "de", "fr", "es", "nl-NL", "unsupported"])
 func contributionExplorationUsesOnlyServerLocalizedQuestion(_ locale: String) throws {
     let caps = try JSONDecoder().decode(DJConnectSessionHistoryCapabilities.self, from: contributionExplorationCapsWire())
     let descriptor = try #require(caps.contributionExploration)
@@ -8685,7 +8701,7 @@ func contributionExplorationUsesOnlyServerLocalizedQuestion(_ locale: String) th
     #expect(descriptor.question(language: locale) == expected[locale == "nl-NL" ? "nl" : locale])
 }
 
-@Test(arguments: ["missing", "malformed", "flag", "contract", "version", "operation", "context", "attribute_required", "effect", "subject_authority", "unqualified_context", "client_gesture_owner", "maximum_agent_calls"])
+@Test(.isolatedClientResources, arguments: ["missing", "malformed", "flag", "contract", "version", "operation", "context", "attribute_required", "effect", "subject_authority", "unqualified_context", "client_gesture_owner", "maximum_agent_calls"])
 func contributionExplorationUnsupportedCapabilityDoesNotBreakHistory(_ field: String) throws {
     var root = try #require(JSONSerialization.jsonObject(with: contributionExplorationCapsWire()) as? [String: Any])
     var descriptor = try #require(root["ask_dj_contextual_exploration"] as? [String: Any])
@@ -8705,7 +8721,7 @@ func contributionExplorationUnsupportedCapabilityDoesNotBreakHistory(_ field: St
     #expect(caps.available && caps.contributionExploration == nil)
 }
 
-@Test func contributionExplorationContextPreservesNullDestinationAndExclusiveOriginalIdentity() throws {
+@Test(.isolatedClientResources) func contributionExplorationContextPreservesNullDestinationAndExclusiveOriginalIdentity() throws {
     let moment = DJConnectSelectedMomentReference(sessionID: "original-session", momentID: "original-moment")
     let context = DJConnectConversationContext(sessionID: nil, selectedMoment: moment)
     let encoded = try JSONEncoder().encode(context)
@@ -8718,7 +8734,7 @@ func contributionExplorationUnsupportedCapabilityDoesNotBreakHistory(_ field: St
     #expect(throws: (any Error).self) { try JSONDecoder().decode(DJConnectConversationContext.self, from: Data(#"{"selected_entry":{"session_id":"a","entry_id":"e"},"selected_moment":{"session_id":"b","moment_id":"m"}}"#.utf8)) }
 }
 
-@Test(arguments: [false, true]) @MainActor
+@Test(.isolatedClientResources, arguments: [false, true]) @MainActor
 func contributionExplorationOriginalArchiveDestinationDraftAndRetryStayBound(_ active: Bool) async throws {
     let receipt = try historyObject()
     let sourceID = try #require(receipt["session_id"] as? String)
@@ -8825,7 +8841,7 @@ func contributionExplorationOriginalArchiveDestinationDraftAndRetryStayBound(_ a
     #expect(model.askDJDraft == "Keep my unsent draft")
 }
 
-@Test(arguments: ["current", "moved_on", "withdrawn", "wrong_epoch", "unsupported", "changed_content", "expired"])
+@Test(.isolatedClientResources, arguments: ["current", "moved_on", "withdrawn", "wrong_epoch", "unsupported", "changed_content", "expired"])
 @MainActor func contributionExplorationLiveMomentKeepsOriginalIdentityAndAdmission(_ state: String) async throws {
     let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
     let caps = state == "unsupported" ? activeMoodCapsWire : try contributionExplorationCapsWire()
@@ -8888,7 +8904,7 @@ func contributionExplorationOriginalArchiveDestinationDraftAndRetryStayBound(_ a
     #expect(model.askDJDraft == "Unsent live draft")
 }
 
-@Test(arguments: ["suspend", "reset", "authority"]) @MainActor
+@Test(.isolatedClientResources, arguments: ["suspend", "reset", "authority"]) @MainActor
 func sessionHistoryOwnerWithdrawalCancelsActiveLegacyHTTPBeforeLateResponse(_ action: String) async throws {
     let receipt = try historyObject()
     let profile = try historyData(try #require(receipt["later_historical_answer"]))
@@ -8930,7 +8946,7 @@ func sessionHistoryOwnerWithdrawalCancelsActiveLegacyHTTPBeforeLateResponse(_ ac
     #expect(!model.isSendingAskDJText && !model.sessionHistory.hasAuthorizedOwner)
 }
 
-@Test(arguments: ["suspend", "reset", "authority"]) @MainActor
+@Test(.isolatedClientResources, arguments: ["suspend", "reset", "authority"]) @MainActor
 func sessionHistoryOwnerWithdrawalDuringPreflightCannotSendAfterGateRelease(_ action: String) async throws {
     let profile = try historyData(try #require(historyObject()["later_historical_answer"]))
     let caps = Data(#"{"capabilities":{"session_conversation_history":true,"session_flow_text_search":true},"contract_versions":{"session_conversation_history":1,"session_flow_text_search":1}}"#.utf8)
@@ -8970,7 +8986,7 @@ func sessionHistoryOwnerWithdrawalDuringPreflightCannotSendAfterGateRelease(_ ac
 }
 
 
-@Test(arguments: ["refresh", "clear", "forced_clear"])
+@Test(.isolatedClientResources, arguments: ["refresh", "clear", "forced_clear"])
 @MainActor func conversationReadbackPublishesOneProjectionAndHonorsFullClear(_ mode: String) throws {
     let suite = "DJConnectStableProjection-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suite))
@@ -9004,7 +9020,7 @@ func sessionHistoryOwnerWithdrawalDuringPreflightCannotSendAfterGateRelease(_ ac
     }
 }
 
-@Test func artworkReferenceIndexResolvesFreshRowsAndRetentionWithoutUnrelatedScans() throws {
+@Test(.isolatedClientResources) func artworkReferenceIndexResolvesFreshRowsAndRetentionWithoutUnrelatedScans() throws {
     let page = try JSONDecoder().decode(DJConnectSessionTimelinePage.self,
         from: historyData(try #require(historyObject()["archived_timeline"])))
     var wanted = try #require(page.entries.first { $0.kind == .conversationDJ })
@@ -9040,7 +9056,7 @@ func sessionHistoryOwnerWithdrawalDuringPreflightCannotSendAfterGateRelease(_ ac
     #expect(!index.contains(wanted.reference, entryAt: entryAt, matching: { _ in true }))
 }
 
-@Test @MainActor func artworkReferenceIndexTracksSearchReplacementAndOwnerWithdrawal() async throws {
+@Test(.isolatedClientResources) @MainActor func artworkReferenceIndexTracksSearchReplacementAndOwnerWithdrawal() async throws {
     let receipt = try historyObject()
     let sessionID = try #require(receipt["session_id"] as? String)
     let timeline = try #require(receipt["archived_timeline"] as? [String: Any])
@@ -9082,7 +9098,7 @@ func sessionHistoryOwnerWithdrawalDuringPreflightCannotSendAfterGateRelease(_ ac
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
 }
 
-@Test @MainActor func artworkReferenceIndexInvalidatesWhenAnAnswerIsUpdatedInPlace() async throws {
+@Test(.isolatedClientResources) @MainActor func artworkReferenceIndexInvalidatesWhenAnAnswerIsUpdatedInPlace() async throws {
     let original = try #require(historyObject()["later_historical_answer"] as? [String: Any])
     let history = try historyData(original)
     var response = original

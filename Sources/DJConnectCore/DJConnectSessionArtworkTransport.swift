@@ -15,7 +15,7 @@ private final class SessionArtworkRedirectGuard: NSObject, URLSessionTaskDelegat
     }
 }
 
-private actor SessionArtworkBudget {
+actor SessionArtworkBudget {
     private var active = 0
     func acquire() throws {
         guard active < 2 else { throw DJConnectError.invalidResponse }
@@ -27,14 +27,19 @@ private actor SessionArtworkBudget {
 /// Separate credentialed owner transport: redirects, cookies and URLCache are
 /// disabled. Bounded streaming precedes static-image validation and decoding.
 final class DJConnectSessionArtworkTransport: Sendable {
-    private static let budget = SessionArtworkBudget()
+    private let budget: SessionArtworkBudget
     private let session: URLSession
     private let preparationSession: URLSession
     private let preparationTaskCreated:(@MainActor @Sendable (URLSessionDataTask)->Void)?
+    private let preparationTaskResumed:(@MainActor @Sendable (URLSessionDataTask)->Void)?
     static let maximumBytes = 2 * 1024 * 1024
 
-    init(configuration: URLSessionConfiguration, preparationTaskCreated:(@MainActor @Sendable (URLSessionDataTask)->Void)? = nil) {
+    init(configuration: URLSessionConfiguration,
+         preparationTaskCreated:(@MainActor @Sendable (URLSessionDataTask)->Void)? = nil,
+         preparationTaskResumed:(@MainActor @Sendable (URLSessionDataTask)->Void)? = nil) {
+        budget = DJConnectTransportResources.current.artwork
         self.preparationTaskCreated = preparationTaskCreated
+        self.preparationTaskResumed = preparationTaskResumed
         configuration.urlCache = nil
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         configuration.httpCookieStorage = nil
@@ -50,27 +55,27 @@ final class DJConnectSessionArtworkTransport: Sendable {
     deinit { session.invalidateAndCancel(); preparationSession.invalidateAndCancel() }
 
     func load(_ request: URLRequest, width: Int, height: Int) async throws -> DJConnectSessionArtworkImage {
-        try await Self.budget.acquire()
+        try await budget.acquire()
         do {
             let result = try await download(request, width: width, height: height)
-            await Self.budget.release()
+            await budget.release()
             return result
         } catch {
-            await Self.budget.release()
+            await budget.release()
             throw error
         }
     }
 
     func prepare(_ request: URLRequest, isCurrent: (@MainActor @Sendable () -> Bool)? = nil) async throws -> Data {
-        try await Self.budget.acquire()
+        try await budget.acquire()
         do {
             let (data, _) = try await responseData(request, using: preparationSession,
                 maximumBytes: 64 * 1024, allowedMIMEs: ["application/json"],
-                isCurrent:isCurrent,taskCreated:preparationTaskCreated)
-            await Self.budget.release()
+                isCurrent:isCurrent,taskCreated:preparationTaskCreated,taskResumed:preparationTaskResumed)
+            await budget.release()
             return data
         } catch {
-            await Self.budget.release()
+            await budget.release()
             throw error
         }
     }
@@ -78,7 +83,7 @@ final class DJConnectSessionArtworkTransport: Sendable {
     /// Forecast v1 supplies no dimensions; inspect bounded static bytes before
     /// using the same strict type/dimension/thumbnail decoder as Session art.
     func loadForecast(_ request: URLRequest) async throws -> DJConnectSessionArtworkImage {
-        try await Self.budget.acquire()
+        try await budget.acquire()
         do {
             let (data, mime) = try await responseData(request, using: session,
                 maximumBytes: Self.maximumBytes, allowedMIMEs: ["image/png", "image/jpeg"])
@@ -87,9 +92,9 @@ final class DJConnectSessionArtworkTransport: Sendable {
                   let width = properties[kCGImagePropertyPixelWidth] as? Int,
                   let height = properties[kCGImagePropertyPixelHeight] as? Int else { throw DJConnectError.invalidResponse }
             let result = try Self.decode(data, mime: mime, width: width, height: height)
-            await Self.budget.release()
+            await budget.release()
             return result
-        } catch { await Self.budget.release(); throw error }
+        } catch { await budget.release(); throw error }
     }
 
     private func download(_ request: URLRequest, width: Int, height: Int) async throws -> DJConnectSessionArtworkImage {
@@ -101,13 +106,14 @@ final class DJConnectSessionArtworkTransport: Sendable {
     private func responseData(_ request: URLRequest, using transport: URLSession,
                               maximumBytes: Int, allowedMIMEs: [String],
                               isCurrent:(@MainActor @Sendable ()->Bool)? = nil,
-                              taskCreated:(@MainActor @Sendable (URLSessionDataTask)->Void)? = nil) async throws -> (Data, String) {
+                              taskCreated:(@MainActor @Sendable (URLSessionDataTask)->Void)? = nil,
+                              taskResumed:(@MainActor @Sendable (URLSessionDataTask)->Void)? = nil) async throws -> (Data, String) {
         let response = try await DJConnectBoundedHTTPTransport.send(request,using:transport,maximumBytes:maximumBytes,
             beforeDispatch:{
                 // Budget and executor hops may outlive the credential owner.
                 // This check and synchronous resume share one actor segment.
                 if let isCurrent,!isCurrent() { throw CancellationError() }
-            },taskCreated:taskCreated,validateResponse:{ response in
+            },taskCreated:taskCreated,taskResumed:taskResumed,validateResponse:{ response in
                 switch response.statusCode {
                 case 200: break
                 case 401: throw DJConnectError.authStale(statusCode:401,message:nil)

@@ -55,7 +55,7 @@ private func beginAdapter(_ journal:RendezvousRegistrationJournal,_ challenge:DJ
         nonce:nonce ?? challenge.nonce,admittedAtMS:Int64(Date().timeIntervalSince1970*1000),deadlineMS:challenge.expiresAtMS)
 }
 
-@Test @MainActor func rendezvousSDKAdapterPersistsBeforeCallAndDoesNotReplay() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousSDKAdapterPersistsBeforeCallAndDoesNotReplay() async throws {
     let (qr,challenge) = try adapterChallenge(), store = AdapterStore()
     let journal = RendezvousRegistrationJournal(storage:store), sdk = AdapterSDK()
     let id = try await beginAdapter(journal,challenge)
@@ -79,7 +79,7 @@ private func beginAdapter(_ journal:RendezvousRegistrationJournal,_ challenge:DJ
     #expect(sdk.calls == 1)
 }
 
-@Test @MainActor func rendezvousSDKAdapterRejectsStorageUncertaintyBeforeSDK() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousSDKAdapterRejectsStorageUncertaintyBeforeSDK() async throws {
     for uncertain in [false,true] {
         let (qr,challenge) = try adapterChallenge(), store = AdapterStore()
         let journal = RendezvousRegistrationJournal(storage:store), sdk = AdapterSDK()
@@ -103,7 +103,7 @@ private func beginAdapter(_ journal:RendezvousRegistrationJournal,_ challenge:DJ
     }
 }
 
-@Test @MainActor func rendezvousSDKAdapterFencesOwnerAcrossPersistenceAndCallback() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousSDKAdapterFencesOwnerAcrossPersistenceAndCallback() async throws {
     for duringCallback in [false,true] {
         let (qr,challenge) = try adapterChallenge(), store = AdapterStore(), flag = AdapterFlag()
         let journal = RendezvousRegistrationJournal(storage:store), sdk = AdapterSDK()
@@ -121,7 +121,7 @@ private func beginAdapter(_ journal:RendezvousRegistrationJournal,_ challenge:DJ
     }
 }
 
-@Test @MainActor func rendezvousSDKAdapterBindsNonceAndPreservesSameKeyRetryWindow() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousSDKAdapterBindsNonceAndPreservesSameKeyRetryWindow() async throws {
     for wrongNonce in [true,false] {
         let (qr,challenge) = try adapterChallenge(), store = AdapterStore()
         let journal = RendezvousRegistrationJournal(storage:store), sdk = AdapterSDK()
@@ -141,7 +141,7 @@ private func beginAdapter(_ journal:RendezvousRegistrationJournal,_ challenge:DJ
     }
 }
 
-@Test @MainActor func rendezvousSDKUnsupportedOrStaleContextNeverConsumesReservation() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousSDKUnsupportedOrStaleContextNeverConsumesReservation() async throws {
     for unsupported in [true,false] {
         let (qr,challenge) = try adapterChallenge(), store = AdapterStore()
         let journal = RendezvousRegistrationJournal(storage:store), sdk = AdapterSDK()
@@ -157,7 +157,7 @@ private func beginAdapter(_ journal:RendezvousRegistrationJournal,_ challenge:DJ
     }
 }
 
-@Test @MainActor func rendezvousSDKReplyCompletesOnceAndBoundsMissingCallback() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousSDKReplyCompletesOnceAndBoundsMissingCallback() async throws {
     let reply = RendezvousSDKReply()
     let data:Data = try await withCheckedThrowingContinuation { continuation in
         reply.start(continuation,deadline:ProcessInfo.processInfo.systemUptime+1)
@@ -183,7 +183,7 @@ private func beginAdapter(_ journal:RendezvousRegistrationJournal,_ challenge:DJ
     #expect(!cancelled.isWaiting)
 }
 
-@Test @MainActor func rendezvousSDKAdapterRejectsDifferentChallengeWithSameNonce() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousSDKAdapterRejectsDifferentChallengeWithSameNonce() async throws {
     let (qr,challenge) = try adapterChallenge(), store = AdapterStore()
     let journal = RendezvousRegistrationJournal(storage:store), sdk = AdapterSDK()
     let id = try await beginAdapter(journal,challenge)
@@ -199,7 +199,7 @@ private func beginAdapter(_ journal:RendezvousRegistrationJournal,_ challenge:DJ
     #expect(sdk.calls == 0)
 }
 
-@Test @MainActor func rendezvousSDKAdapterCancellationKeepsConsumedCallAndRejectsLateProof() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousSDKAdapterCancellationKeepsConsumedCallAndRejectsLateProof() async throws {
     let (qr,challenge) = try adapterChallenge(), store = AdapterStore()
     let journal = RendezvousRegistrationJournal(storage:store), sdk = AdapterSDK()
     let id = try await beginAdapter(journal,challenge)
@@ -231,7 +231,7 @@ private func beginAdapter(_ journal:RendezvousRegistrationJournal,_ challenge:DJ
     }
     func release() { completion?.resume(); completion = nil }
 }
-@Test @MainActor func rendezvousSDKAdapterHoldsKeyThroughRegistrationCompletion() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousSDKAdapterHoldsKeyThroughRegistrationCompletion() async throws {
     let (qr,challenge) = try adapterChallenge(), firstStore = AdapterStore(), secondStore = AdapterStore()
     let firstJournal = RendezvousRegistrationJournal(storage:firstStore)
     let secondJournal = RendezvousRegistrationJournal(storage:secondStore)
@@ -253,7 +253,7 @@ private func beginAdapter(_ journal:RendezvousRegistrationJournal,_ challenge:DJ
     #expect(sdk.calls == 2)
 }
 
-@Test @MainActor func rendezvousSDKCompletionWriteUncertaintyCannotStartRegistration() async throws {
+@Test(.isolatedClientResources) @MainActor func rendezvousSDKCompletionWriteUncertaintyCannotStartRegistration() async throws {
     let (qr,challenge) = try adapterChallenge(), store = AdapterStore(), registrationNotCalled = AdapterFlag()
     let journal = RendezvousRegistrationJournal(storage:store), sdk = AdapterSDK()
     let id = try await beginAdapter(journal,challenge)

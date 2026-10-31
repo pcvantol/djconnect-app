@@ -16,7 +16,7 @@ private func forecastDecode(_ object: Any) throws -> DJConnectSessionForecast {
     try JSONDecoder().decode(DJConnectSessionForecast.self, from: JSONSerialization.data(withJSONObject: object))
 }
 
-@Test func forecastActualProducerLocalesAndPersonasDecodeWithOriginalExpiry() throws {
+@Test(.isolatedClientResources) func forecastActualProducerLocalesAndPersonasDecodeWithOriginalExpiry() throws {
     let cases = try forecastCases()
     #expect(Set(cases.compactMap { $0["language"] as? String }) == ["en", "nl", "de", "fr", "es"])
     #expect(Set(cases.compactMap { $0["persona"] as? String }).count == 4)
@@ -37,7 +37,7 @@ private func forecastDecode(_ object: Any) throws -> DJConnectSessionForecast {
     }
 }
 
-@Test func forecastRevisionsCannotRestoreWithdrawnOrConflictingContent() throws {
+@Test(.isolatedClientResources) func forecastRevisionsCannotRestoreWithdrawnOrConflictingContent() throws {
     let item = try #require(forecastCases().first)
     let read = try #require(item["owner_read"] as? [String: Any])
     var object = try #require(read["forecast"] as? [String: Any])
@@ -64,7 +64,7 @@ private func forecastDecode(_ object: Any) throws -> DJConnectSessionForecast {
     #expect(cursor.revisionFloor == fresh.revision)
 }
 
-@Test func forecastUnknownSchemaAndIntentCannotBecomePlaybackClaims() throws {
+@Test(.isolatedClientResources) func forecastUnknownSchemaAndIntentCannotBecomePlaybackClaims() throws {
     let item = try #require(forecastCases().first)
     let read = try #require(item["owner_read"] as? [String: Any])
     let original = try #require(read["forecast"] as? [String: Any])
@@ -80,7 +80,7 @@ private func forecastDecode(_ object: Any) throws -> DJConnectSessionForecast {
     #expect(try !forecastDecode(object).structurallyValid)
 }
 
-@Test func forecastEmptyWithoutTimestampsIsAnHonestWithdrawal() throws {
+@Test(.isolatedClientResources) func forecastEmptyWithoutTimestampsIsAnHonestWithdrawal() throws {
     let value = try forecastDecode(["contract_version": 1, "session_id": "s", "revision": 0,
         "state": "empty", "nominal_window_seconds": 900, "supported_window_seconds": 0,
         "summary": "", "sections": [], "imagery": []])
@@ -88,7 +88,7 @@ private func forecastDecode(_ object: Any) throws -> DJConnectSessionForecast {
     #expect(!value.isVisible(sessionID: "s", playbackItemID: nil, playbackSource: nil, at: Date()))
 }
 
-@Test func forecastReadUsesExactOrdinaryPairedContractWithoutHistoryLimit() throws {
+@Test(.isolatedClientResources) func forecastReadUsesExactOrdinaryPairedContractWithoutHistoryLimit() throws {
     let client = DJConnectClient(baseURL: URL(string: "https://fixture.invalid")!,
         identity: .init(deviceID: "djconnect-ios-ABCDEF123456", deviceName: "Test", clientType: .ios, firmware: "test", platform: .ios),
         tokenStore: DJConnectInMemoryTokenStore(token: "synthetic-test-only"))
@@ -103,7 +103,7 @@ private func forecastDecode(_ object: Any) throws -> DJConnectSessionForecast {
     #expect(request.value(forHTTPHeaderField: "Cache-Control") == "no-store")
 }
 
-@Test func forecastMonotonicLeaseSurvivesFrozenClockAndArtOnlyRevision() throws {
+@Test(.isolatedClientResources) func forecastMonotonicLeaseSurvivesFrozenClockAndArtOnlyRevision() throws {
     let read = try #require(forecastCases().first?["owner_read"] as? [String: Any])
     var object = try #require(read["forecast"] as? [String: Any])
     let forecast = try forecastDecode(object)
@@ -121,7 +121,7 @@ private func forecastDecode(_ object: Any) throws -> DJConnectSessionForecast {
                            at: issued.addingTimeInterval(-1), uptime: 201) == nil)
 }
 
-@Test func forecastOptionalArtCannotBecomeHotlinkOrSuppressAuthoredText() throws {
+@Test(.isolatedClientResources) func forecastOptionalArtCannotBecomeHotlinkOrSuppressAuthoredText() throws {
     let read = try #require(forecastCases().first?["owner_read"] as? [String: Any])
     var object = try #require(read["forecast"] as? [String: Any])
     let original = try forecastDecode(object)
@@ -145,7 +145,7 @@ private func forecastDecode(_ object: Any) throws -> DJConnectSessionForecast {
 }
 
 
-@Test(arguments: ["", "short", String(repeating: "A", count: 23), "../outside", "valid?query=1", "spotify:artist:6eUKZXaKkcviH0Ku9w2n3V", String(repeating: "é", count: 22)])
+@Test(.isolatedClientResources, arguments: ["", "short", String(repeating: "A", count: 23), "../outside", "valid?query=1", "spotify:artist:6eUKZXaKkcviH0Ku9w2n3V", String(repeating: "é", count: 22)])
 func forecastOptionalArtRequiresCanonicalArtistIdentity(_ artistID: String) throws {
     let read = try #require(forecastCases().first?["owner_read"] as? [String: Any])
     var object = try #require(read["forecast"] as? [String: Any])
@@ -166,7 +166,7 @@ func forecastOptionalArtRequiresCanonicalArtistIdentity(_ artistID: String) thro
 }
 
 #if os(macOS)
-@Test @MainActor func forecastNativeTextRendersAllAuthoredLocalesAndLargeType() throws {
+@Test(.isolatedClientResources) @MainActor func forecastNativeTextRendersAllAuthoredLocalesAndLargeType() throws {
     for item in try forecastCases() where item["persona"] as? String == "home_dj" {
         let language = try #require(item["language"] as? String)
         let read = try #require(item["owner_read"] as? [String: Any])

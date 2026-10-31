@@ -728,7 +728,7 @@ private func makePairedMusicDNAModel(
     return model
 }
 
-@Test func userDefaultsTokenStorePersistsAndClearsToken() throws {
+@Test(.isolatedClientResources) func userDefaultsTokenStorePersistsAndClearsToken() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -745,7 +745,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func tokenStorageFailureShowsPairingRecoveryWithoutKeychainPrompt() throws {
+@Test(.isolatedClientResources) func tokenStorageFailureShowsPairingRecoveryWithoutKeychainPrompt() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -771,7 +771,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func tokenStorageFailureResetPairingClearsTokenAndShowsPairingUX() throws {
+@Test(.isolatedClientResources) func tokenStorageFailureResetPairingClearsTokenAndShowsPairingUX() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -808,7 +808,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func resetPairingRotatesLocalIdentityAndClearsPairCode() throws {
+@Test(.isolatedClientResources) func resetPairingRotatesLocalIdentityAndClearsPairCode() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -827,7 +827,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func resetPairingClearsLegacyAndPlatformInstallIDs() throws {
+@Test(.isolatedClientResources) func resetPairingClearsLegacyAndPlatformInstallIDs() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -846,7 +846,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func freshInstallIgnoresOrphanedPersistentDeviceToken() throws {
+@Test(.isolatedClientResources) func freshInstallIgnoresOrphanedPersistentDeviceToken() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -865,7 +865,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func freshInstallDoesNotGenerateLocalPairCode() throws {
+@Test(.isolatedClientResources) func freshInstallDoesNotGenerateLocalPairCode() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -881,7 +881,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func pairingAuthStaleShowsPairCodeRetryWithoutLocalDiscovery() throws {
+@Test(.isolatedClientResources) func pairingAuthStaleShowsPairCodeRetryWithoutLocalDiscovery() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -905,7 +905,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func pairingNetworkErrorsAreLocalizedWithoutRawSystemText() throws {
+@Test(.isolatedClientResources) func pairingNetworkErrorsAreLocalizedWithoutRawSystemText() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -923,7 +923,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func pairingHTTPStatusErrorsAreLocalized() throws {
+@Test(.isolatedClientResources) func pairingHTTPStatusErrorsAreLocalized() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -938,7 +938,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func pairingErrorsSuppressHTMLBackendPages() throws {
+@Test(.isolatedClientResources) func pairingErrorsSuppressHTMLBackendPages() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -972,7 +972,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func pairingNotConfiguredDuringManualPairingShowsInvalidCode() throws {
+@Test(.isolatedClientResources) func pairingNotConfiguredDuringManualPairingShowsInvalidCode() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -987,7 +987,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func pairingClientTypeMismatchShowsWrongAppType() throws {
+@Test(.isolatedClientResources) func pairingClientTypeMismatchShowsWrongAppType() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -1002,7 +1002,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func pairingOfficialClientTypeMismatchKeepsInputsAndShowsRequestedMessage() throws {
+@Test(.isolatedClientResources) func pairingOfficialClientTypeMismatchKeepsInputsAndShowsRequestedMessage() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -1028,7 +1028,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func authStaleClearsTokenAndReopensPairing() throws {
+@Test(.isolatedClientResources) func authStaleClearsTokenAndReopensPairing() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -1052,7 +1052,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func notConfiguredDuringRuntimeReloadRetainsExistingPairedCredential() throws {
+@Test(.isolatedClientResources) func notConfiguredDuringRuntimeReloadRetainsExistingPairedCredential() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -1078,7 +1078,7 @@ private func makePairedMusicDNAModel(
 }
 
 @MainActor
-@Test func notConfiguredDuringActivePairingKeepsEnteredPairCode() throws {
+@Test(.isolatedClientResources) func notConfiguredDuringActivePairingKeepsEnteredPairCode() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -1104,7 +1104,7 @@ private func makePairedMusicDNAModel(
     #expect(model.pairingMessage == "Wacht op afronden in Home Assistant.")
 }
 
-@Test func statusRequestIncludesContractFieldsAndHeaders() throws {
+@Test(.isolatedClientResources) func statusRequestIncludesContractFieldsAndHeaders() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -1165,7 +1165,7 @@ private func makePairedMusicDNAModel(
     #expect(json?["music_dna_key"] as? String == "user:peter")
 }
 
-@Test func appleReleaseVersionIntegrityUsesBundleMetadataAndIndependentProtocolMetadata() throws {
+@Test(.isolatedClientResources) func appleReleaseVersionIntegrityUsesBundleMetadataAndIndependentProtocolMetadata() throws {
     let coreSource = try loadRepositoryText("Sources/DJConnectCore/DJConnectModels.swift")
     let appModelSource = try loadRepositoryText("Sources/DJConnectUI/DJConnectAppModel.swift")
     let launchSource = try loadRepositoryText("Sources/DJConnectUI/DJConnectLaunchView.swift")
@@ -1188,12 +1188,12 @@ private func makePairedMusicDNAModel(
     #expect(watchAboutSource.contains("DJConnectApplicationVersion.releaseVersion"))
 }
 
-@Test func platformFourReleaseCandidateUsesNativePackageAndPublicProtocolMapping() {
+@Test(.isolatedClientResources) func platformFourReleaseCandidateUsesNativePackageAndPublicProtocolMapping() {
     #expect(DJConnectApplicationVersion.publicReleaseIdentity == "4.0.0-rc.1")
     #expect(DJConnectProtocolVersion.current == "4.0.0-rc.1")
 }
 
-@Test func homeAssistantClientRoutesUseCanonicalV1Prefix() throws {
+@Test(.isolatedClientResources) func homeAssistantClientRoutesUseCanonicalV1Prefix() throws {
     let checkedRoots = ["Sources", "Apps"]
     let legacyRoutes = [
         "/api/djconnect/pair",
@@ -1243,7 +1243,7 @@ private func makePairedMusicDNAModel(
     #expect(offenders == [])
 }
 
-@Test func commandRequestSupportsTypedValues() throws {
+@Test(.isolatedClientResources) func commandRequestSupportsTypedValues() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
@@ -1295,7 +1295,7 @@ private func makePairedMusicDNAModel(
     #expect(json?["mood"] as? Int == 70)
 }
 
-@Test func askDJRequestUsesAskEndpointAndMusicDNAContext() throws {
+@Test(.isolatedClientResources) func askDJRequestUsesAskEndpointAndMusicDNAContext() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -1346,7 +1346,7 @@ private func makePairedMusicDNAModel(
     #expect(json?["language"] as? String == "nl-NL")
 }
 
-@Test func askDJMessageRequestUsesSyncedHistoryEndpointAndClientMessageID() throws {
+@Test(.isolatedClientResources) func askDJMessageRequestUsesSyncedHistoryEndpointAndClientMessageID() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -1401,7 +1401,7 @@ private func makePairedMusicDNAModel(
     #expect(json?["language"] as? String == "nl-NL")
 }
 
-@Test func clearAskDJHistoryRequestIncludesClientIdentityAndMusicDNAKey() throws {
+@Test(.isolatedClientResources) func clearAskDJHistoryRequestIncludesClientIdentityAndMusicDNAKey() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -1439,7 +1439,7 @@ private func makePairedMusicDNAModel(
     #expect(json?["music_dna_key"] as? String == "djconnect_ios_8F3A2C91B45D")
 }
 
-@Test func clearAskDJHistoryMacOSRequestIncludesFullClientIdentity() throws {
+@Test(.isolatedClientResources) func clearAskDJHistoryMacOSRequestIncludesFullClientIdentity() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
@@ -1467,7 +1467,7 @@ private func makePairedMusicDNAModel(
     #expect(json?["device_name"] as? String == "DJConnect Mac")
 }
 
-@Test func exportAskDJHistoryRequestUsesHTTPAndNestedIdentityEnvelope() throws {
+@Test(.isolatedClientResources) func exportAskDJHistoryRequestUsesHTTPAndNestedIdentityEnvelope() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -1502,7 +1502,7 @@ private func makePairedMusicDNAModel(
     #expect(payload?["music_dna_key"] == nil)
 }
 
-@Test func musicDNARequestsUseBearerIdentityAndCanonicalClientType() throws {
+@Test(.isolatedClientResources) func musicDNARequestsUseBearerIdentityAndCanonicalClientType() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
@@ -1614,7 +1614,7 @@ private func makePairedMusicDNAModel(
     #expect(exportPayload?["app_version"] as? String == "3.2.3")
 }
 
-@Test func musicDNAExportDownloadsExactBackendEnvelopeOverHTTP() async throws {
+@Test(.isolatedClientResources) func musicDNAExportDownloadsExactBackendEnvelopeOverHTTP() async throws {
     let host = "musicdna-export.local"
     let recorder = RequestRecorder()
     let exportedBody = Data("""
@@ -1669,7 +1669,7 @@ private func makePairedMusicDNAModel(
     }
 }
 
-@Test func musicDiscoveryRequestsUseDedicatedEndpointsAndIdentity() throws {
+@Test(.isolatedClientResources) func musicDiscoveryRequestsUseDedicatedEndpointsAndIdentity() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "iPhone",
@@ -1732,7 +1732,7 @@ private func makePairedMusicDNAModel(
     #expect(feedbackJSON["music_dna_key"] as? String == "user:abc123")
 }
 
-@Test func webSocketSessionRequestUsesAuthenticatedDJConnectEndpointWithoutHAToken() throws {
+@Test(.isolatedClientResources) func webSocketSessionRequestUsesAuthenticatedDJConnectEndpointWithoutHAToken() throws {
     let client = DJConnectClient(
         baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
         identity: testIOSIdentity(),
@@ -1756,7 +1756,7 @@ private func makePairedMusicDNAModel(
     #expect(requestedCommands.contains("djconnect/track_insight"))
 }
 
-@Test func webSocketSessionAuthProviderCachesShortLivedTokenUntilExpiryWindow() async throws {
+@Test(.isolatedClientResources) func webSocketSessionAuthProviderCachesShortLivedTokenUntilExpiryWindow() async throws {
     let recorder = RequestRecorder()
     let session = mockSession(host: "homeassistant.local") { request in
         recorder.append(request)
@@ -1788,7 +1788,7 @@ private func makePairedMusicDNAModel(
     #expect(recorder.requests.first?.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
 }
 
-@Test func webSocketSessionAuthProviderRefreshesWhenTokenExpiresInsideSafetyWindow() async throws {
+@Test(.isolatedClientResources) func webSocketSessionAuthProviderRefreshesWhenTokenExpiresInsideSafetyWindow() async throws {
     let recorder = RequestRecorder()
     let session = mockSession(host: "expiring-homeassistant.local") { request in
         recorder.append(request)
@@ -1819,7 +1819,7 @@ private func makePairedMusicDNAModel(
     #expect(recorder.requests.count == 2)
 }
 
-@Test func webSocketSessionAuthProviderRefreshesExpiredToken() async throws {
+@Test(.isolatedClientResources) func webSocketSessionAuthProviderRefreshesExpiredToken() async throws {
     let recorder = RequestRecorder()
     let session = mockSession(host: "expired-homeassistant.local") { request in
         recorder.append(request)
@@ -1850,7 +1850,7 @@ private func makePairedMusicDNAModel(
     #expect(recorder.requests.count == 2)
 }
 
-@Test func webSocketSessionAuthProviderCachesTokenWithoutExpiry() async throws {
+@Test(.isolatedClientResources) func webSocketSessionAuthProviderCachesTokenWithoutExpiry() async throws {
     let recorder = RequestRecorder()
     let session = mockSession(host: "no-expiry-homeassistant.local") { request in
         recorder.append(request)
@@ -1880,7 +1880,7 @@ private func makePairedMusicDNAModel(
     #expect(recorder.requests.count == 1)
 }
 
-@Test func webSocketSessionAuthProviderInvalidateForcesRefreshBeforeExpiry() async throws {
+@Test(.isolatedClientResources) func webSocketSessionAuthProviderInvalidateForcesRefreshBeforeExpiry() async throws {
     let recorder = RequestRecorder()
     let session = mockSession(host: "invalidate-homeassistant.local") { request in
         recorder.append(request)
@@ -1924,7 +1924,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func appModelActiveLifecycleRefreshesWebSocketFastPathWhenPairedAndEnabled() async throws {
+@Test(.isolatedClientResources) func appModelActiveLifecycleRefreshesWebSocketFastPathWhenPairedAndEnabled() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -1951,7 +1951,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func appModelPairingBecamePairedRefreshesWebSocketFastPathWhenEnabled() async throws {
+@Test(.isolatedClientResources) func appModelPairingBecamePairedRefreshesWebSocketFastPathWhenEnabled() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -1980,7 +1980,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func appModelInactiveAndUnpairedLifecycleDoesNotRefreshWebSocketFastPath() async throws {
+@Test(.isolatedClientResources) func appModelInactiveAndUnpairedLifecycleDoesNotRefreshWebSocketFastPath() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -2010,7 +2010,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
     #expect(model.fastPathDiagnostics == DJConnectFastPathDiagnostics())
 }
 
-@Test func authenticatedRequestsRejectClientTypeDeviceIDPrefixMismatch() throws {
+@Test(.isolatedClientResources) func authenticatedRequestsRejectClientTypeDeviceIDPrefixMismatch() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
@@ -2030,7 +2030,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
     }
 }
 
-@Test func musicDNAProfileDecodesPopulatedEmptyAndDisabledStates() throws {
+@Test(.isolatedClientResources) func musicDNAProfileDecodesPopulatedEmptyAndDisabledStates() throws {
     let populated = try JSONDecoder().decode(
         DJConnectMusicDNAProfileResponse.self,
         from: Data("""
@@ -2309,7 +2309,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
     #expect(eligibleEmptyConditionalBlocks.profile.isEmpty == true)
 }
 
-@Test func musicDNADiscoveryFeedbackDecodesCompactAcceptedRecommendations() throws {
+@Test(.isolatedClientResources) func musicDNADiscoveryFeedbackDecodesCompactAcceptedRecommendations() throws {
     let feedback = try JSONDecoder().decode(
         DJConnectMusicDNADiscoveryFeedback.self,
         from: Data(#"{"accepted_recommendations":[{"title":"Accepted Discovery","subtitle":"Warm"}],"negative_signals":[{"kind":"less_like_this","title":"Too bright","count":2}],"hidden_artists":[{"name":"Hidden Artist"}],"counts":{"not_for_me":2}}"#.utf8)
@@ -2323,7 +2323,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
     #expect(feedback.counts["not_for_me"] == 2)
 }
 
-@Test func musicDiscoveryResponseParsesDisabledFeedAndPreservesBackendItems() throws {
+@Test(.isolatedClientResources) func musicDiscoveryResponseParsesDisabledFeedAndPreservesBackendItems() throws {
     let disabled = try JSONDecoder().decode(
         DJConnectMusicDiscoveryResponse.self,
         from: Data(#"{"success":true,"enabled":false,"reason":"music_dna_disabled","sections":[]}"#.utf8)
@@ -2451,7 +2451,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func musicDNAProfileLoadsPopulatedBackendProfile() async throws {
+@Test(.isolatedClientResources) func musicDNAProfileLoadsPopulatedBackendProfile() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "musicdna-populated.local") { request in
@@ -2627,7 +2627,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func musicDNAProfileLoadsEnabledEmptyState() async throws {
+@Test(.isolatedClientResources) func musicDNAProfileLoadsEnabledEmptyState() async throws {
     let defaults = try testDefaults()
     let session = mockSession(host: "musicdna-empty.local") { request in
         (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"profile":{}}"#.utf8))
@@ -2648,7 +2648,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func musicDNAProfileLoadsDisabledOptInStateWithoutLocalProfile() async throws {
+@Test(.isolatedClientResources) func musicDNAProfileLoadsDisabledOptInStateWithoutLocalProfile() async throws {
     let defaults = try testDefaults()
     let session = mockSession(host: "musicdna-disabled.local") { request in
         (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":false,"profile":{}}"#.utf8))
@@ -2662,7 +2662,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func musicDiscoveryLoadsDisabledFeedAndEnabledRecommendations() async throws {
+@Test(.isolatedClientResources) func musicDiscoveryLoadsDisabledFeedAndEnabledRecommendations() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     var enabled = false
@@ -2708,7 +2708,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func musicDiscoveryRetriesEmptyFeedWithoutPlayingAndCachesRecoveredItems() async throws {
+@Test(.isolatedClientResources) func musicDiscoveryRetriesEmptyFeedWithoutPlayingAndCachesRecoveredItems() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let generatedAt = ISO8601DateFormatter().string(from: Date())
@@ -2736,7 +2736,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func musicDiscoveryRefreshAndPlayUseDedicatedEndpoints() async throws {
+@Test(.isolatedClientResources) func musicDiscoveryRefreshAndPlayUseDedicatedEndpoints() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "discovery-actions.local") { request in
@@ -2786,7 +2786,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func musicDiscoveryPlayNotFoundKeepsExistingRecommendations() async throws {
+@Test(.isolatedClientResources) func musicDiscoveryPlayNotFoundKeepsExistingRecommendations() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "discovery-play-stale.local") { request in
@@ -2831,7 +2831,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func musicDiscoveryArtworkResolvesRelativeProxyAgainstHomeAssistantBaseURL() throws {
+@Test(.isolatedClientResources) func musicDiscoveryArtworkResolvesRelativeProxyAgainstHomeAssistantBaseURL() throws {
     let defaults = try testDefaults()
     defaults.set("http://discovery-art.local:8123", forKey: "DJConnectHomeAssistantURL")
     let model = DJConnectAppModel(defaults: defaults, startBackgroundTasks: false)
@@ -2842,7 +2842,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func musicDiscoveryRateLimitedRefreshFallsBackToFeed() async throws {
+@Test(.isolatedClientResources) func musicDiscoveryRateLimitedRefreshFallsBackToFeed() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "discovery-rate-limited.local") { request in
@@ -2887,7 +2887,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func musicDiscoveryDisabledRefreshDoesNotUseLocalFallbackRecommendations() async throws {
+@Test(.isolatedClientResources) func musicDiscoveryDisabledRefreshDoesNotUseLocalFallbackRecommendations() async throws {
     let defaults = try testDefaults()
     let session = mockSession(host: "discovery-disabled.local") { request in
         #expect(request.url?.path == "/api/djconnect/v1/music_discovery/refresh")
@@ -2906,7 +2906,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func musicDiscoveryPushReceivedInBackgroundRefreshesBackend() async throws {
+@Test(.isolatedClientResources) func musicDiscoveryPushReceivedInBackgroundRefreshesBackend() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "discovery-push-background.local") { request in
@@ -2940,7 +2940,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func musicDiscoveryPushEmptyEnabledRefreshKeepsExistingRecommendations() async throws {
+@Test(.isolatedClientResources) func musicDiscoveryPushEmptyEnabledRefreshKeepsExistingRecommendations() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let refreshCount = RequestCounter()
@@ -2990,7 +2990,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func musicDiscoveryPushTapNavigatesToDiscover() async throws {
+@Test(.isolatedClientResources) func musicDiscoveryPushTapNavigatesToDiscover() async throws {
     let defaults = try testDefaults()
     let session = mockSession(host: "discovery-push-tap.local") { request in
         #expect(request.url?.path == "/api/djconnect/v1/music_discovery/refresh")
@@ -3006,7 +3006,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func musicDiscoveryPushNestedDataPayloadRefreshesBackend() async throws {
+@Test(.isolatedClientResources) func musicDiscoveryPushNestedDataPayloadRefreshesBackend() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "discovery-push-nested.local") { request in
@@ -3037,7 +3037,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func musicDiscoveryPushReceiveAndTapCoalesceRefreshes() async throws {
+@Test(.isolatedClientResources) func musicDiscoveryPushReceiveAndTapCoalesceRefreshes() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "discovery-push-coalesce.local") { request in
@@ -3055,7 +3055,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func clearMusicDNAUsesClearEndpointAndRefreshesProfile() async throws {
+@Test(.isolatedClientResources) func clearMusicDNAUsesClearEndpointAndRefreshesProfile() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "musicdna-clear.local") { request in
@@ -3078,7 +3078,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func optOutMusicDNAUsesSettingsEndpointAndRefreshesDisabledProfile() async throws {
+@Test(.isolatedClientResources) func optOutMusicDNAUsesSettingsEndpointAndRefreshesDisabledProfile() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "musicdna-optout.local") { request in
@@ -3098,7 +3098,7 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
 }
 
 @MainActor
-@Test func musicDNAOptInPromptWaitsForExplicitDisabledStatus() throws {
+@Test(.isolatedClientResources) func musicDNAOptInPromptWaitsForExplicitDisabledStatus() throws {
     let defaults = try testDefaults()
     let model = DJConnectAppModel(
         defaults: defaults,
@@ -3143,7 +3143,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func musicDNAActivationRefreshesDiscoverAndSurvivesFreshClientWithoutLocalConsent() async throws {
+@Test(.isolatedClientResources) func musicDNAActivationRefreshesDiscoverAndSurvivesFreshClientWithoutLocalConsent() async throws {
     let defaults = try testDefaults()
     let server = ProfileConsentServer()
     let recorder = RequestRecorder()
@@ -3168,7 +3168,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func confirmedMusicDNAActivationLoadsDiscoverEvenIfFollowupProfileReadFails() async throws {
+@Test(.isolatedClientResources) func confirmedMusicDNAActivationLoadsDiscoverEvenIfFollowupProfileReadFails() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "musicdna-followup-glitch.local") { request in
@@ -3186,7 +3186,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func optInMusicDNAUsesSettingsEndpointAndRefreshesProfile() async throws {
+@Test(.isolatedClientResources) func optInMusicDNAUsesSettingsEndpointAndRefreshesProfile() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "musicdna-optin.local") { request in
@@ -3209,7 +3209,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func musicDNAOptInSurvivesStaleProfileRefresh() async throws {
+@Test(.isolatedClientResources) func musicDNAOptInSurvivesStaleProfileRefresh() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "musicdna-stale-optin.local") { request in
@@ -3238,7 +3238,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func demoModeRequiresLocalMusicDNAOptInAndSupportsClear() async throws {
+@Test(.isolatedClientResources) func demoModeRequiresLocalMusicDNAOptInAndSupportsClear() async throws {
     let defaults = try testDefaults()
     let model = DJConnectAppModel(
         defaults: defaults,
@@ -3284,7 +3284,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func authFailureClearsMusicDNALocalDisplay() async throws {
+@Test(.isolatedClientResources) func authFailureClearsMusicDNALocalDisplay() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "musicdna-auth.local") { request in
@@ -3307,7 +3307,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func musicDNAExportAuthFailureUsesPairingRecoveryAndClearsLocalDisplay() async throws {
+@Test(.isolatedClientResources) func musicDNAExportAuthFailureUsesPairingRecoveryAndClearsLocalDisplay() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "musicdna-export-auth.local") { request in
@@ -3338,7 +3338,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(model.pairingMessage?.isEmpty == false)
 }
 
-@Test func askDJIdleSuggestionRequestUsesDedicatedEndpoint() throws {
+@Test(.isolatedClientResources) func askDJIdleSuggestionRequestUsesDedicatedEndpoint() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-watchos-8F3A2C91B45D",
         deviceName: "Apple Watch",
@@ -3371,7 +3371,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(json?["dj_style"] as? String == "warm_radio_dj")
 }
 
-@Test func pushRegisterRequestUsesAuthenticatedEndpointAndSandboxEnvironment() throws {
+@Test(.isolatedClientResources) func pushRegisterRequestUsesAuthenticatedEndpointAndSandboxEnvironment() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -3408,7 +3408,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(json["categories"] as? [String] == ["ask_dj"])
 }
 
-@Test func iOSPushRegisterRequestUsesCanonicalIdentityAndBootstrapProofWhenProvided() throws {
+@Test(.isolatedClientResources) func iOSPushRegisterRequestUsesCanonicalIdentityAndBootstrapProofWhenProvided() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -3448,7 +3448,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(json["bootstrap_proof"] as? String == "short-lived-proof")
 }
 
-@Test func macOSPushRegisterRequestUsesCanonicalIdentityAndBootstrapProofWhenProvided() throws {
+@Test(.isolatedClientResources) func macOSPushRegisterRequestUsesCanonicalIdentityAndBootstrapProofWhenProvided() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
@@ -3488,13 +3488,13 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(json["bootstrap_proof"] as? String == "short-lived-proof")
 }
 
-@Test func pushEnvironmentResolvesDevelopmentEntitlementToSandbox() {
+@Test(.isolatedClientResources) func pushEnvironmentResolvesDevelopmentEntitlementToSandbox() {
     #expect(DJConnectAppModel.pushEnvironment(apsEnvironment: "development") == .sandbox)
     #expect(DJConnectAppModel.pushEnvironment(apsEnvironment: "sandbox") == .sandbox)
     #expect(DJConnectAppModel.pushEnvironment(apsEnvironment: "production") == .production)
 }
 
-@Test func watchOSPushRegisterRequestUsesCanonicalIdentityAndBootstrapProofWhenProvided() throws {
+@Test(.isolatedClientResources) func watchOSPushRegisterRequestUsesCanonicalIdentityAndBootstrapProofWhenProvided() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-watchos-8F3A2C91B45D",
         deviceName: "DJConnect Watch",
@@ -3534,7 +3534,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(json["bootstrap_proof"] as? String == "short-lived-proof")
 }
 
-@Test func pushLogRedactionRedactsSecretsRecursively() throws {
+@Test(.isolatedClientResources) func pushLogRedactionRedactsSecretsRecursively() throws {
     let sanitized = DJConnectLogRedactor.sanitizeForLog([
         "push_token": "abcdef1234567890",
         "bootstrap_proof": "djcbootstrapproof1234567890",
@@ -3560,7 +3560,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(!rendered.contains("secret-token-value"))
 }
 
-@Test func logRedactionRedactsFreeTextSecrets() throws {
+@Test(.isolatedClientResources) func logRedactionRedactsFreeTextSecrets() throws {
     let text = """
     Authorization: Bearer secret-token-value device_token=abc12345678901234567890123456789 audio_url=https://ha.local/api/djconnect/audio/clip.mp3?token=temporary-audio-token {"push_token":"push-secret-value","bootstrap_proof":"proof-secret-value","response_audio_url":"https://ha.local/api/djconnect/audio/clip.wav?token=temporary-audio-token"} djci_secret_identifier
     """
@@ -3582,7 +3582,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(redacted.contains(#""response_audio_url":"[redacted]""#))
 }
 
-@Test func webSocketLogRedactionRedactsSessionAndBearerTokens() throws {
+@Test(.isolatedClientResources) func webSocketLogRedactionRedactsSessionAndBearerTokens() throws {
     let text = """
     WebSocket auth failed Authorization: Bearer ha-bearer-secret access_token=ha_ws_session_secret device_token=djci_device_secret {"access_token":"ha_ws_json_secret","device_token":"djci_json_secret"}
     """
@@ -3601,7 +3601,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(redacted.contains(#""device_token":"[redacted]""#))
 }
 
-@Test func webSocketDiagnosticsRedactAuthProviderErrors() async throws {
+@Test(.isolatedClientResources) func webSocketDiagnosticsRedactAuthProviderErrors() async throws {
     let fastPath = DJConnectHomeAssistantWebSocketFastPath(
         baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
         homeAssistantAuth: DJConnectHomeAssistantWebSocketAuth {
@@ -3628,7 +3628,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func runtimeDiagnosticLogsRedactSecretsBeforePersistence() throws {
+@Test(.isolatedClientResources) func runtimeDiagnosticLogsRedactSecretsBeforePersistence() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -3662,7 +3662,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     }
 }
 
-@Test func pushUnregisterRequestUsesAuthenticatedEndpoint() throws {
+@Test(.isolatedClientResources) func pushUnregisterRequestUsesAuthenticatedEndpoint() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
@@ -3691,7 +3691,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(json["push_token"] as? String == "abcdef123456")
 }
 
-@Test func commandResponseDecodesPushRegistrationStatusFields() throws {
+@Test(.isolatedClientResources) func commandResponseDecodesPushRegistrationStatusFields() throws {
     let json = """
     {
       "success": false,
@@ -3725,7 +3725,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(response.pairingSessionID == "pairing_session_status")
 }
 
-@Test func commandResponseDecodesDevelopmentPushEnvironmentAsSandbox() throws {
+@Test(.isolatedClientResources) func commandResponseDecodesDevelopmentPushEnvironmentAsSandbox() throws {
     let json = """
     {
       "success": true,
@@ -3744,7 +3744,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func aboutPushNotificationStatusReflectsStoredRegistrationState() throws {
+@Test(.isolatedClientResources) func aboutPushNotificationStatusReflectsStoredRegistrationState() throws {
     let defaults = try testDefaults()
 
     var model = DJConnectAppModel(defaults: defaults, startBackgroundTasks: false)
@@ -3770,7 +3770,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(model.pushNotificationStatus.state == .unavailable)
 }
 
-@Test func aboutPushNotificationStatusLabelsAreLocalizedForSupportedLanguages() throws {
+@Test(.isolatedClientResources) func aboutPushNotificationStatusLabelsAreLocalizedForSupportedLanguages() throws {
     let expected: [String: [String: String]] = [
         "en": [
             "ui.push.notifications": "Push notifications",
@@ -3816,7 +3816,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     }
 }
 
-@Test func statusEnvelopeDecodesBootstrapProofForPushRegistration() throws {
+@Test(.isolatedClientResources) func statusEnvelopeDecodesBootstrapProofForPushRegistration() throws {
     let json = """
     {
       "success": true,
@@ -3842,7 +3842,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func macOSDevelopmentPushRegistrationAcceptsCanonicalSandboxResponse() async throws {
+@Test(.isolatedClientResources) func macOSDevelopmentPushRegistrationAcceptsCanonicalSandboxResponse() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "push-sandbox.local") { request in
@@ -3870,7 +3870,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func macOSPushMissingBootstrapProofFetchesProofAndRetriesRegistration() async throws {
+@Test(.isolatedClientResources) func macOSPushMissingBootstrapProofFetchesProofAndRetriesRegistration() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let registerPayloads = RequestJSONRecorder()
@@ -3962,7 +3962,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func statusResponseBootstrapContextIsUsedForPushIssuerRequest() async throws {
+@Test(.isolatedClientResources) func statusResponseBootstrapContextIsUsedForPushIssuerRequest() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let issuerPayloads = RequestJSONRecorder()
@@ -4033,7 +4033,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func macOSPushInvalidBootstrapProofStopsWithoutIssuerRetry() async throws {
+@Test(.isolatedClientResources) func macOSPushInvalidBootstrapProofStopsWithoutIssuerRetry() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let registerAttempts = RequestCounter()
@@ -4070,7 +4070,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func macOSPushInvalidBootstrapProofAfterFreshProofStopsBestEffort() async throws {
+@Test(.isolatedClientResources) func macOSPushInvalidBootstrapProofAfterFreshProofStopsBestEffort() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let registerAttempts = RequestCounter()
@@ -4140,7 +4140,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func macOSPushBootstrapProofUnavailableStopsBestEffort() async throws {
+@Test(.isolatedClientResources) func macOSPushBootstrapProofUnavailableStopsBestEffort() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "push-bootstrap-unavailable.local") { request in
@@ -4193,7 +4193,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func macOSPushCentralBootstrapErrorsPersistSpecificSafeCodes() async throws {
+@Test(.isolatedClientResources) func macOSPushCentralBootstrapErrorsPersistSpecificSafeCodes() async throws {
     for code in [
         "bootstrap_proof_unavailable",
         "invalid_client_type",
@@ -4253,7 +4253,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func macOSPushIssuerRejectsInvalidProofPrefixClientSide() async throws {
+@Test(.isolatedClientResources) func macOSPushIssuerRejectsInvalidProofPrefixClientSide() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "push-invalid-issuer-proof.local") { request in
@@ -4305,7 +4305,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func macOSPushIssuerRejectsExpiredProofClientSide() async throws {
+@Test(.isolatedClientResources) func macOSPushIssuerRejectsExpiredProofClientSide() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let expired = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-60))
@@ -4358,7 +4358,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func macOSPushRegistrationCoalescesDuplicateTokenCallbacksDuringBootstrapRecovery() async throws {
+@Test(.isolatedClientResources) func macOSPushRegistrationCoalescesDuplicateTokenCallbacksDuringBootstrapRecovery() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let registerAttempts = RequestCounter()
@@ -4422,7 +4422,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @MainActor
-@Test func sandboxPushRegistrationRejectsProductionResponseEnvironment() async throws {
+@Test(.isolatedClientResources) func sandboxPushRegistrationRejectsProductionResponseEnvironment() async throws {
     let defaults = try testDefaults()
     let recorder = RequestRecorder()
     let session = mockSession(host: "push-production-mismatch.local") { request in
@@ -4449,7 +4449,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(defaults.string(forKey: "DJConnectLastPushError") == "push_environment_mismatch")
 }
 
-@Test func askDJHistoryResponseDecodesRevisionAndRichMessages() throws {
+@Test(.isolatedClientResources) func askDJHistoryResponseDecodesRevisionAndRichMessages() throws {
     let json = """
     {
       "user_id": "ha-user-1",
@@ -4535,7 +4535,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(assistantMessage.playbackActions.first?.contextURI == "spotify:album:123")
 }
 
-@Test func askDJHistoryResponseDecodesRaspberryPiClientType() throws {
+@Test(.isolatedClientResources) func askDJHistoryResponseDecodesRaspberryPiClientType() throws {
     let json = """
     {
       "history_revision": 35,
@@ -4559,7 +4559,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(message.clientType == .raspberryPi)
 }
 
-@Test func askDJHistoryResponseDecodesSystemAmbientMessageWithoutUser() throws {
+@Test(.isolatedClientResources) func askDJHistoryResponseDecodesSystemAmbientMessageWithoutUser() throws {
     let json = """
     {
       "history_revision": 50,
@@ -4589,7 +4589,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(message.audioURL == nil)
 }
 
-@Test func askDJLocalMessageDefaultsMissingMessageKindToAssistant() throws {
+@Test(.isolatedClientResources) func askDJLocalMessageDefaultsMissingMessageKindToAssistant() throws {
     let json = """
     {
       "role": "dj",
@@ -4605,7 +4605,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(message.audioURL == nil)
 }
 
-@Test func askDJMessageResponseAcceptsInformationalTextWithoutAudioURL() throws {
+@Test(.isolatedClientResources) func askDJMessageResponseAcceptsInformationalTextWithoutAudioURL() throws {
     let json = """
     {
       "history_revision": 43,
@@ -4629,7 +4629,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(response.assistantMessage?.audioURL == nil)
 }
 
-@Test func askDJMessageResponseDecodesMoodMetadataForAssistantRendering() throws {
+@Test(.isolatedClientResources) func askDJMessageResponseDecodesMoodMetadataForAssistantRendering() throws {
     let payload = Data("""
     {
       "dj_text": "Dit past bij de energie van nu.",
@@ -4668,7 +4668,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(response.messages.first(where: { $0.role == .assistant })?.mood == 82)
 }
 
-@Test func askDJHistoryMessageDecodesOwnMoodMetadata() throws {
+@Test(.isolatedClientResources) func askDJHistoryMessageDecodesOwnMoodMetadata() throws {
     let payload = Data("""
     {
       "id": "assistant-party",
@@ -4684,7 +4684,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(message.mood == 94)
 }
 
-@Test func trackInsightRequestUsesDirectEndpointAndPayload() throws {
+@Test(.isolatedClientResources) func trackInsightRequestUsesDirectEndpointAndPayload() throws {
     let client = DJConnectClient(
         baseURL: URL(string: "http://homeassistant.local:8123")!,
         identity: DJConnectIdentity(
@@ -4772,7 +4772,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect((object?["include_raw_response"] as? Bool) == true)
 }
 
-@Test func trackInsightRequestUsesMacOSIdentityAliases() throws {
+@Test(.isolatedClientResources) func trackInsightRequestUsesMacOSIdentityAliases() throws {
     let client = DJConnectClient(
         baseURL: URL(string: "http://homeassistant-mac.local:8123")!,
         identity: DJConnectIdentity(
@@ -4805,7 +4805,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect((object?["artist_name"] as? String) == "Moby")
 }
 
-@Test func vibeCastResponseDecodesSuccessAndStructuredText() throws {
+@Test(.isolatedClientResources) func vibeCastResponseDecodesSuccessAndStructuredText() throws {
     let json = Data(#"""
     {
       "enabled": true,
@@ -4862,7 +4862,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(response.items.first?.plainText == "♪ ♫ This track rides on space and pulse.")
 }
 
-@Test func vibeCastGenreBadgeHidesWhenMissingOrLabelIsEmptyAndSupportsLongLabels() throws {
+@Test(.isolatedClientResources) func vibeCastGenreBadgeHidesWhenMissingOrLabelIsEmptyAndSupportsLongLabels() throws {
     let missing = try JSONDecoder().decode(
         DJConnectVibeCastResponse.self,
         from: Data(#"{"enabled":true,"context":{"track_id":"track-1"},"items":[]}"#.utf8)
@@ -4886,7 +4886,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(long.context?.genreBadge?.resolvedPlacement == "top_trailing")
 }
 
-@Test func vibeCastResponseDecodesDisabledAndUnknownSegmentsGracefully() throws {
+@Test(.isolatedClientResources) func vibeCastResponseDecodesDisabledAndUnknownSegmentsGracefully() throws {
     let disabled = try JSONDecoder().decode(
         DJConnectVibeCastResponse.self,
         from: Data(#"{"enabled":false,"reason":"no_active_playback","ttl_seconds":30,"poll_after_seconds":30,"items":[]}"#.utf8)
@@ -4904,7 +4904,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(unknown.items.first?.plainText == "safe fallback")
 }
 
-@Test func vibeCastResponseDecodesOnlyProxiedContextArtistImage() throws {
+@Test(.isolatedClientResources) func vibeCastResponseDecodesOnlyProxiedContextArtistImage() throws {
     let response = try JSONDecoder().decode(
         DJConnectVibeCastResponse.self,
         from: Data(#"{"enabled":true,"revision":3,"context":{"artist_image_url":"/api/djconnect/v1/proxy/images/artist.jpg"},"items":[]}"#.utf8)
@@ -4923,7 +4923,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(external.artistShoutOutImage == nil)
 }
 
-@Test func vibeCastResponseDecodesEmojiOnlyBubbleSegments() throws {
+@Test(.isolatedClientResources) func vibeCastResponseDecodesEmojiOnlyBubbleSegments() throws {
     let single = try JSONDecoder().decode(
         DJConnectVibeCastResponse.self,
         from: Data(#"{"enabled":true,"items":[{"id":"single-emoji","kind":"mood_note","text":[{"type":"emoji","value":"🎧 "}]}]}"#.utf8)
@@ -4940,7 +4940,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(response.items.first?.plainText == "♪ ♫ ✨ 🎧 ")
 }
 
-@Test func vibeCastResponseStillDecodesLegacyStructuredTextWithoutEmoji() throws {
+@Test(.isolatedClientResources) func vibeCastResponseStillDecodesLegacyStructuredTextWithoutEmoji() throws {
     let response = try JSONDecoder().decode(
         DJConnectVibeCastResponse.self,
         from: Data(#"{"enabled":true,"items":[{"id":"legacy","kind":"track_fact","text":[{"type":"text","value":"This track rides on "},{"type":"strong","value":"space and pulse"},{"type":"text","value":"."}]}]}"#.utf8)
@@ -4950,7 +4950,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(response.items.first?.plainText == "This track rides on space and pulse.")
 }
 
-@Test func vibeCastRequestsUseEquivalentIOSAndMacOSMetadata() throws {
+@Test(.isolatedClientResources) func vibeCastRequestsUseEquivalentIOSAndMacOSMetadata() throws {
     let iosClient = DJConnectClient(
         baseURL: URL(string: "http://homeassistant.local:8123")!,
         identity: DJConnectIdentity(
@@ -5002,7 +5002,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(iosQuery.first(where: { $0.name == "timezone" })?.value == macQuery.first(where: { $0.name == "timezone" })?.value)
 }
 
-@Test func musicDiscoveryRefreshUsesWebSocketFastPathWhenAdvertised() async throws {
+@Test(.isolatedClientResources) func musicDiscoveryRefreshUsesWebSocketFastPathWhenAdvertised() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.musicDiscoveryRefresh])
     let client = DJConnectClient(
         baseURL: URL(string: "http://homeassistant.local:8123")!,
@@ -5026,7 +5026,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(await fastPath.receivedMusicDiscoveryLanguage == "nl")
 }
 
-@Test func musicDNAProfileUsesWebSocketFastPathWhenAdvertised() async throws {
+@Test(.isolatedClientResources) func musicDNAProfileUsesWebSocketFastPathWhenAdvertised() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.musicDNAProfile])
     let client = DJConnectClient(
         baseURL: URL(string: "http://homeassistant.local:8123")!,
@@ -5050,7 +5050,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(await fastPath.receivedMusicDNALanguage == "nl")
 }
 
-@Test func musicDNASettingsUsesWebSocketFastPathWhenAdvertised() async throws {
+@Test(.isolatedClientResources) func musicDNASettingsUsesWebSocketFastPathWhenAdvertised() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.musicDNASettings])
     let client = DJConnectClient(
         baseURL: URL(string: "http://homeassistant.local:8123")!,
@@ -5073,7 +5073,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(await fastPath.receivedMusicDNALanguage == "en")
 }
 
-@Test func musicDNAClearUsesWebSocketFastPathWhenAdvertised() async throws {
+@Test(.isolatedClientResources) func musicDNAClearUsesWebSocketFastPathWhenAdvertised() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.musicDNAClear])
     let client = DJConnectClient(
         baseURL: URL(string: "http://homeassistant.local:8123")!,
@@ -5095,7 +5095,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(await fastPath.receivedMusicDNALanguage == "de")
 }
 
-@Test func musicDNAExportAndImportStayHTTPWhenWebSocketMusicDNARoutesAreAdvertised() async throws {
+@Test(.isolatedClientResources) func musicDNAExportAndImportStayHTTPWhenWebSocketMusicDNARoutesAreAdvertised() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.musicDNAProfile, .musicDNASettings, .musicDNAClear])
     let host = "musicdna-http-only.local"
     let recorder = RequestRecorder()
@@ -5159,7 +5159,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(await fastPath.musicDNAClearCalls == 0)
 }
 
-@Test func sessionStartRequestIncludesMoodAndLanguage() throws {
+@Test(.isolatedClientResources) func sessionStartRequestIncludesMoodAndLanguage() throws {
     let client = DJConnectClient(
         baseURL: URL(string: "http://homeassistant.local:8123")!,
         identity: testIOSIdentity(deviceID: "djconnect-ios-session-locale"),
@@ -5178,7 +5178,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(json["language"] as? String == "nl-NL")
 }
 
-@Test func vibeCastRequestCanOmitEmojiSafeCapabilityWithoutCrashing() throws {
+@Test(.isolatedClientResources) func vibeCastRequestCanOmitEmojiSafeCapabilityWithoutCrashing() throws {
     let client = DJConnectClient(
         baseURL: URL(string: "http://homeassistant.local:8123")!,
         identity: testIOSIdentity(deviceID: "djconnect-ios-no-emoji"),
@@ -5193,7 +5193,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(capabilities?.contains("accent") == true)
 }
 
-@Test func vibeCastPiHandoffApprovalUsesPairedOwnerWithoutCarryingBroadcastToken() throws {
+@Test(.isolatedClientResources) func vibeCastPiHandoffApprovalUsesPairedOwnerWithoutCarryingBroadcastToken() throws {
     let client = DJConnectClient(
         baseURL: URL(string: "http://homeassistant.local:8123")!,
         identity: testIOSIdentity(deviceID: "djconnect-ios-8F3A2C91B45D"),
@@ -5227,7 +5227,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(activeQuery.first(where: { $0.name == "client_type" })?.value == "ios")
 }
 
-@Test func vibeCastPiHandoffPromptsExistInAllFiveProductLanguages() {
+@Test(.isolatedClientResources) func vibeCastPiHandoffPromptsExistInAllFiveProductLanguages() {
     for language in ["en", "nl", "de", "fr", "es"] {
         for key in ["title", "instructions", "code", "approve", "approved", "failed"] {
             let fullKey = "ui.vibecast.handoff.\(key)"
@@ -5238,7 +5238,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     }
 }
 
-@Test func vibeCastWebSocketFastPathSucceedsWithoutHTTP() async throws {
+@Test(.isolatedClientResources) func vibeCastWebSocketFastPathSucceedsWithoutHTTP() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.vibeCast])
     let client = DJConnectClient(
         baseURL: URL(string: "http://vibecast-fast.local:8123")!,
@@ -5265,7 +5265,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(await fastPath.receivedTokens == ["device-token"])
 }
 
-@Test func vibeCastWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
+@Test(.isolatedClientResources) func vibeCastWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.vibeCast])
     await fastPath.setVibeCastError(DJConnectError.network(message: "timeout"))
     final class Counter: @unchecked Sendable {
@@ -5299,7 +5299,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(counter.count == 1)
 }
 
-@Test func appleClientCodeDoesNotReferenceRemovedDJConnectHAPlaybackEntities() throws {
+@Test(.isolatedClientResources) func appleClientCodeDoesNotReferenceRemovedDJConnectHAPlaybackEntities() throws {
     let repositoryRoot = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .deletingLastPathComponent()
@@ -5347,7 +5347,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     }
 }
 
-@Test func commandWebSocketFastPathSucceedsWithoutHTTP() async throws {
+@Test(.isolatedClientResources) func commandWebSocketFastPathSucceedsWithoutHTTP() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.command])
     let client = DJConnectClient(
         baseURL: URL(string: "http://fast-path.local:8123")!,
@@ -5375,7 +5375,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(await fastPath.receivedCommandPayload?.language == "en-GB")
 }
 
-@Test func homeAssistantWebSocketURLUsesNativeAPIPath() throws {
+@Test(.isolatedClientResources) func homeAssistantWebSocketURLUsesNativeAPIPath() throws {
     let local = try DJConnectHomeAssistantWebSocketFastPath.websocketURL(from: #require(URL(string: "http://homeassistant.local:8123")))
     let secure = try DJConnectHomeAssistantWebSocketFastPath.websocketURL(from: #require(URL(string: "https://ha.example.com/lovelace?x=1")))
 
@@ -5383,7 +5383,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(secure.absoluteString == "wss://ha.example.com/api/websocket")
 }
 
-@Test func missingWebSocketCapabilityFallsBackToHTTPCommand() async throws {
+@Test(.isolatedClientResources) func missingWebSocketCapabilityFallsBackToHTTPCommand() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [])
     final class Counter: @unchecked Sendable {
         let lock = NSLock()
@@ -5414,7 +5414,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(counter.count == 1)
 }
 
-@Test func commandWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
+@Test(.isolatedClientResources) func commandWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.command])
     await fastPath.setCommandError(DJConnectError.network(message: "timeout"))
     final class Counter: @unchecked Sendable {
@@ -5446,7 +5446,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(counter.count == 1)
 }
 
-@Test func askDJMessagePreselectsOneHTTPAttemptEvenWhenLegacyWebSocketIsAvailable() async throws {
+@Test(.isolatedClientResources) func askDJMessagePreselectsOneHTTPAttemptEvenWhenLegacyWebSocketIsAvailable() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJMessage])
     let client = DJConnectClient(
         baseURL: URL(string: "http://ask-fast.local:8123")!,
@@ -5479,7 +5479,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(await fastPath.receivedTokens.isEmpty)
 }
 
-@Test func trackInsightWebSocketFastPathSucceeds() async throws {
+@Test(.isolatedClientResources) func trackInsightWebSocketFastPathSucceeds() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.trackInsight])
     let client = DJConnectClient(
         baseURL: URL(string: "http://insight-fast.local:8123")!,
@@ -5520,7 +5520,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(await fastPath.receivedTokens == ["device-token"])
 }
 
-@Test func trackInsightWebSocketFastPathUsesMacOSIdentity() async throws {
+@Test(.isolatedClientResources) func trackInsightWebSocketFastPathUsesMacOSIdentity() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.trackInsight])
     let client = DJConnectClient(
         baseURL: URL(string: "http://insight-fast-mac.local:8123")!,
@@ -5554,7 +5554,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(await fastPath.receivedTokens == ["device-token"])
 }
 
-@Test func trackInsightWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
+@Test(.isolatedClientResources) func trackInsightWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
     let fastPath = FailingTrackInsightFastPathTransport(error: DJConnectError.network(message: "timeout"))
     final class Counter: @unchecked Sendable {
         let lock = NSLock()
@@ -5603,7 +5603,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(counter.count == 1)
 }
 
-@Test func fastPathDiagnosticsExposeAdvertisedCapabilities() async throws {
+@Test(.isolatedClientResources) func fastPathDiagnosticsExposeAdvertisedCapabilities() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJMessage, .trackInsight])
     let client = DJConnectClient(
         baseURL: URL(string: "http://diagnostics-fast.local:8123")!,
@@ -5619,7 +5619,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(diagnostics.websocketCommands == ["djconnect/ask_dj/message", "djconnect/track_insight"])
 }
 
-@Test func webSocketRouteMissingFallsBackToHTTPExactlyOncePerRouteMatrix() async throws {
+@Test(.isolatedClientResources) func webSocketRouteMissingFallsBackToHTTPExactlyOncePerRouteMatrix() async throws {
     struct RouteFallbackCase {
         var name: String
         var expectedPath: String
@@ -5814,7 +5814,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     }
 }
 
-@Test func legacyAskDJSocketFailureCannotTriggerAnHTTPReplay() async throws {
+@Test(.isolatedClientResources) func legacyAskDJSocketFailureCannotTriggerAnHTTPReplay() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJMessage])
     await fastPath.setAskDJError(DJConnectError.network(message: "timeout"))
     final class Counter: @unchecked Sendable {
@@ -5846,7 +5846,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(counter.count == 1)
 }
 
-@Test(arguments: ["cancelled", "url_cancelled", "auth", "profile", "server", "backend"])
+@Test(.isolatedClientResources, arguments: ["cancelled", "url_cancelled", "auth", "profile", "server", "backend"])
 func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) async throws {
     let failure: any Error
     switch kind {
@@ -5875,7 +5875,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     }
 }
 
-@Test func remoteOnlyClientStaysHTTPWithoutFastPath() async throws {
+@Test(.isolatedClientResources) func remoteOnlyClientStaysHTTPWithoutFastPath() async throws {
     final class Counter: @unchecked Sendable {
         let lock = NSLock()
         var value = 0
@@ -5901,7 +5901,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(counter.count == 1)
 }
 
-@Test func askDJHistoryWebSocketFastPathSucceedsWhenAdvertised() async throws {
+@Test(.isolatedClientResources) func askDJHistoryWebSocketFastPathSucceedsWhenAdvertised() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJHistory])
     let client = DJConnectClient(
         baseURL: URL(string: "http://history-fast.local:8123")!,
@@ -5922,7 +5922,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(await fastPath.receivedTokens == ["device-token"])
 }
 
-@Test func clearAskDJHistoryWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
+@Test(.isolatedClientResources) func clearAskDJHistoryWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [])
     final class Counter: @unchecked Sendable {
         let lock = NSLock()
@@ -5951,7 +5951,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
 }
 
 @MainActor
-@Test func httpClearAskDJHistoryResponseWithClearedTrueClearsLocalCacheImmediately() async throws {
+@Test(.isolatedClientResources) func httpClearAskDJHistoryResponseWithClearedTrueClearsLocalCacheImmediately() async throws {
     let defaults = try testDefaults()
     defaults.set(true, forKey: "DJConnectWelcomeSeen")
     let staleMessage = DJConnectAskDJMessage(
@@ -5983,7 +5983,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
 }
 
 @MainActor
-@Test func webSocketClearAskDJHistoryResponseWithClearedTrueClearsLocalCacheImmediately() async throws {
+@Test(.isolatedClientResources) func webSocketClearAskDJHistoryResponseWithClearedTrueClearsLocalCacheImmediately() async throws {
     let defaults = try testDefaults()
     let staleMessage = DJConnectAskDJMessage(
         role: .dj,
@@ -6040,14 +6040,14 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(await fastPath.receivedClearIdentity?.deviceName == "DJConnect Mac")
 }
 
-@Test func homeAssistantWebSocketFastPathAllowsOnlyLocalURLs() {
+@Test(.isolatedClientResources) func homeAssistantWebSocketFastPathAllowsOnlyLocalURLs() {
     #expect(DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(URL(string: "http://homeassistant.local:8123")!))
     #expect(DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(URL(string: "http://192.168.1.10:8123")!))
     #expect(DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(URL(string: "http://172.20.1.10:8123")!))
     #expect(!DJConnectHomeAssistantWebSocketFastPath.isLocalHomeAssistantURL(URL(string: "https://remote.ui.nabu.casa")!))
 }
 
-@Test func fastPathPolicyRequiresOptInAuthAndMatchingLocalURL() {
+@Test(.isolatedClientResources) func fastPathPolicyRequiresOptInAuthAndMatchingLocalURL() {
     let localURL = URL(string: "http://homeassistant.local:8123")!
     let remoteURL = URL(string: "https://remote.ui.nabu.casa")!
     let auth = DJConnectHomeAssistantWebSocketAuth { "ha-token" }
@@ -6074,7 +6074,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     ) != nil)
 }
 
-@Test func trackInsightEndpointResponseDecodesNormalizedBackendContract() throws {
+@Test(.isolatedClientResources) func trackInsightEndpointResponseDecodesNormalizedBackendContract() throws {
     let json = """
     {
       "success": true,
@@ -6160,7 +6160,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(insight.sections.map(\.title) == ["Intro", "Lift"])
 }
 
-@Test func trackInsightEndpointResponseDecodesCamelCaseWrapper() throws {
+@Test(.isolatedClientResources) func trackInsightEndpointResponseDecodesCamelCaseWrapper() throws {
     let json = """
     {
       "success": true,
@@ -6184,7 +6184,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(insight.summary == "Camel-case wrapper insight.")
 }
 
-@Test func trackInsightEndpointResponseFillsWatchMetricsFromNestedAudioFeaturesAndSections() throws {
+@Test(.isolatedClientResources) func trackInsightEndpointResponseFillsWatchMetricsFromNestedAudioFeaturesAndSections() throws {
     let json = """
     {
       "success": true,
@@ -6236,7 +6236,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(insight.visualProfile?.motionStyle == .pulsing)
 }
 
-@Test func trackInsightEndpointResponseDecodesCanonicalStandalonePayload() throws {
+@Test(.isolatedClientResources) func trackInsightEndpointResponseDecodesCanonicalStandalonePayload() throws {
     let json = """
     {
       "id": "track_insight_direct",
@@ -6293,7 +6293,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(insight.musicDNASummary == nil)
 }
 
-@Test func trackInsightEndpointResponseBuildsInsightFromSuccessfulTextContract() throws {
+@Test(.isolatedClientResources) func trackInsightEndpointResponseBuildsInsightFromSuccessfulTextContract() throws {
     let json = """
     {
       "success": true,
@@ -6328,7 +6328,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(insight.summary == "Deze track werkt door spanning en release.")
 }
 
-@Test func askDJMessageResponseDecodesTrackInsightMetadataAndOpenScreen() throws {
+@Test(.isolatedClientResources) func askDJMessageResponseDecodesTrackInsightMetadataAndOpenScreen() throws {
     let json = """
     {
       "history_revision": 44,
@@ -6367,7 +6367,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(assistantMessage.trackInsight?.artist == "Samuel Barber")
 }
 
-@Test func askDJMessageResponseFallsBackToTopLevelAudioURL() throws {
+@Test(.isolatedClientResources) func askDJMessageResponseFallsBackToTopLevelAudioURL() throws {
     let json = """
     {
       "history_revision": 44,
@@ -6388,7 +6388,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(response.assistantMessage?.audioURL?.path == "/api/djconnect/audio/response-456.mp3")
 }
 
-@Test func askDJResponseDecodesImageAttachments() throws {
+@Test(.isolatedClientResources) func askDJResponseDecodesImageAttachments() throws {
     let json = """
     {
       "success": true,
@@ -6445,7 +6445,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(response.links?.last?.subtitle == "Albums en releases")
 }
 
-@Test func askDJResponseDecodesPlaybackActions() throws {
+@Test(.isolatedClientResources) func askDJResponseDecodesPlaybackActions() throws {
     let json = """
     {
       "success": true,
@@ -6482,7 +6482,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(action.reason == "Past bij je recente melodic house profiel.")
 }
 
-@Test func askDJPlaybackActionsDecodeAlbumArtAliases() throws {
+@Test(.isolatedClientResources) func askDJPlaybackActionsDecodeAlbumArtAliases() throws {
     let json = """
     {
       "success": true,
@@ -6520,7 +6520,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     ])
 }
 
-@Test func askDJResponseDecodesOutputPlaybackActions() throws {
+@Test(.isolatedClientResources) func askDJResponseDecodesOutputPlaybackActions() throws {
     let json = """
     {
       "success": true,
@@ -6554,7 +6554,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(action.isActiveOutputAction == true)
 }
 
-@Test func askDJMessageResponseDecodesTrimMetadataAndConfirmationActions() throws {
+@Test(.isolatedClientResources) func askDJMessageResponseDecodesTrimMetadataAndConfirmationActions() throws {
     let json = """
     {
       "history_revision": 45,
@@ -6606,7 +6606,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(yesAction.actionStyle == "primary_confirmation")
 }
 
-@Test func askDJActionDecodesAndPreservesObjectValue() throws {
+@Test(.isolatedClientResources) func askDJActionDecodesAndPreservesObjectValue() throws {
     let json = """
     {
       "history_revision": 47,
@@ -6645,7 +6645,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(action.resolvedArtistName == "Kebu")
 }
 
-@Test func askDJMessageActionConstructsArtistPromptWhenLabelIsGeneric() throws {
+@Test(.isolatedClientResources) func askDJMessageActionConstructsArtistPromptWhenLabelIsGeneric() throws {
     let json = """
     {
       "id": "more-artist",
@@ -6666,7 +6666,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(action.resolvedAskDJMessageText == "Meer van Charly Lownoise & Mental Theo")
 }
 
-@Test func askDJMessageActionFallsBackToSafePromptInsteadOfEmptyText() throws {
+@Test(.isolatedClientResources) func askDJMessageActionFallsBackToSafePromptInsteadOfEmptyText() throws {
     let json = """
     {
       "id": "more-artist",
@@ -6683,7 +6683,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(action.resolvedAskDJMessageText == "Laat meer muziek van deze artiest zien")
 }
 
-@Test func askDJMessageResponsePrefersAssistantMessageImages() throws {
+@Test(.isolatedClientResources) func askDJMessageResponsePrefersAssistantMessageImages() throws {
     let json = """
     {
       "history_revision": 46,
@@ -6729,7 +6729,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(image.source == "spotify")
 }
 
-@Test func askDJMessageResponseFallsBackToTopLevelImages() throws {
+@Test(.isolatedClientResources) func askDJMessageResponseFallsBackToTopLevelImages() throws {
     let json = """
     {
       "history_revision": 47,
@@ -6764,7 +6764,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(image.kind == "album_art")
 }
 
-@Test func askDJRecentlyPlayedHistoryRendersItemsWithoutPlaybackActions() throws {
+@Test(.isolatedClientResources) func askDJRecentlyPlayedHistoryRendersItemsWithoutPlaybackActions() throws {
     let json = """
     {
       "history_revision": 48,
@@ -6809,7 +6809,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(assistant.confirmationActions.isEmpty)
 }
 
-@Test func commandResponseRecentlyPlayedItemsStayOnCurrentResponseOnly() throws {
+@Test(.isolatedClientResources) func commandResponseRecentlyPlayedItemsStayOnCurrentResponseOnly() throws {
     let json = """
     {
       "success": true,
@@ -6836,7 +6836,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(assistant.playbackActions.isEmpty)
 }
 
-@Test func askDJHistoryResponseDecodesTrackMixUrisAndTrimMetadata() throws {
+@Test(.isolatedClientResources) func askDJHistoryResponseDecodesTrackMixUrisAndTrimMetadata() throws {
     let json = """
     {
       "history_revision": 46,
@@ -6878,7 +6878,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(action.contextURI == nil)
 }
 
-@Test func commandResponseDecodesAskDJClearFlagFromEnvelope() throws {
+@Test(.isolatedClientResources) func commandResponseDecodesAskDJClearFlagFromEnvelope() throws {
     let json = """
     {
       "success": true,
@@ -6893,7 +6893,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(response.askDJClearRequired == true)
 }
 
-@Test func commandResponseDecodesPlayNowAssistantMessage() throws {
+@Test(.isolatedClientResources) func commandResponseDecodesPlayNowAssistantMessage() throws {
     let json = """
     {
       "success": true,
@@ -6940,7 +6940,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(response.playbackActions?.count == 1)
 }
 
-@Test func commandResponseBuildsPlayNowAssistantMessageFromTopLevelFallbacks() throws {
+@Test(.isolatedClientResources) func commandResponseBuildsPlayNowAssistantMessageFromTopLevelFallbacks() throws {
     let json = """
     {
       "success": true,
@@ -6971,7 +6971,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(assistant.playbackActions.isEmpty)
 }
 
-@Test func playbackCommandRequestsUsePlaybackEndpointAndIdentity() throws {
+@Test(.isolatedClientResources) func playbackCommandRequestsUsePlaybackEndpointAndIdentity() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -7005,7 +7005,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     }
 }
 
-@Test func queueCommandPayloadRequestsOneHundredItems() throws {
+@Test(.isolatedClientResources) func queueCommandPayloadRequestsOneHundredItems() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -7034,7 +7034,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(json?["limit"] as? Int == 100)
 }
 
-@Test func volumeNormalizerMapsNormalizedSliderToBackendPercent() {
+@Test(.isolatedClientResources) func volumeNormalizerMapsNormalizedSliderToBackendPercent() {
     #expect(DJConnectVolumeNormalizer.backendPercent(fromNormalized: 0.0) == 0)
     #expect(DJConnectVolumeNormalizer.backendPercent(fromNormalized: 0.5) == 50)
     #expect(DJConnectVolumeNormalizer.backendPercent(fromNormalized: 1.0) == 100)
@@ -7043,7 +7043,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(DJConnectVolumeNormalizer.normalized(fromBackendPercent: 50) == 0.5)
 }
 
-@Test func invalidBackendVolumeIsUnavailable() {
+@Test(.isolatedClientResources) func invalidBackendVolumeIsUnavailable() {
     #expect(DJConnectVolumeNormalizer.normalized(fromBackendPercent: nil) == nil)
     #expect(DJConnectVolumeNormalizer.normalized(fromBackendPercent: -1) == nil)
     #expect(DJConnectVolumeNormalizer.normalized(fromBackendPercent: 101) == nil)
@@ -7057,7 +7057,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(sanitized?.device?.volumePercent == nil)
 }
 
-@Test func watchVolumeCommandUsesBackendSpotifyPercent() throws {
+@Test(.isolatedClientResources) func watchVolumeCommandUsesBackendSpotifyPercent() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-watchos-8F3A2C91B45D",
         deviceName: "DJConnect Watch",
@@ -7090,7 +7090,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(json?["play"] as? Bool == true)
 }
 
-@Test func saveCurrentTrackCommandUsesDirectCommandPayload() throws {
+@Test(.isolatedClientResources) func saveCurrentTrackCommandUsesDirectCommandPayload() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-watchos-8F3A2C91B45D",
         deviceName: "DJConnect Watch",
@@ -7121,7 +7121,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(json?["value"] == nil)
 }
 
-@Test func setCurrentTrackFavoriteCommandUsesBooleanValuePayload() throws {
+@Test(.isolatedClientResources) func setCurrentTrackFavoriteCommandUsesBooleanValuePayload() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -7148,7 +7148,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(json?["value"] as? Bool == false)
 }
 
-@Test func askDJSaveCurrentTrackControlActionIsRecognized() throws {
+@Test(.isolatedClientResources) func askDJSaveCurrentTrackControlActionIsRecognized() throws {
     let json = """
     {
       "id": "fav-current",
@@ -7166,7 +7166,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(action.imageURL == nil)
 }
 
-@Test func askDJFavoriteControlActionDecodesToggleMetadata() throws {
+@Test(.isolatedClientResources) func askDJFavoriteControlActionDecodesToggleMetadata() throws {
     let json = """
     {
       "id": "fav-current",
@@ -7191,7 +7191,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(action.clientPrompt == "haal huidig nummer uit favorieten")
 }
 
-@Test func askDJRecommendationActionUsesOnlySupportedPlaybackKinds() throws {
+@Test(.isolatedClientResources) func askDJRecommendationActionUsesOnlySupportedPlaybackKinds() throws {
     let track = DJConnectAskDJPlaybackAction(
         title: "Lithium",
         uri: "spotify:track:lithium",
@@ -7207,7 +7207,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(!textOnlyLink.isRecommendationAction)
 }
 
-@Test func askDJActionFullValuePreservesBackendMetadata() throws {
+@Test(.isolatedClientResources) func askDJActionFullValuePreservesBackendMetadata() throws {
     let action = DJConnectAskDJPlaybackAction(
         id: "mix-1",
         title: "Pearl Jam x Metallica",
@@ -7236,7 +7236,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     ]))
 }
 
-@Test func commandResponseDecodesNoActiveOutputPlaybackActions() throws {
+@Test(.isolatedClientResources) func commandResponseDecodesNoActiveOutputPlaybackActions() throws {
     let json = """
     {
       "success": false,
@@ -7271,7 +7271,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     ]))
 }
 
-@Test func playbackDecodesFavoriteStatusAliases() throws {
+@Test(.isolatedClientResources) func playbackDecodesFavoriteStatusAliases() throws {
     let favoriteJSON = """
     {
       "has_playback": true,
@@ -7295,14 +7295,14 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
 }
 
 @MainActor
-@Test func appCommandsUseSpotifySafeCollectionLimits() {
+@Test(.isolatedClientResources) func appCommandsUseSpotifySafeCollectionLimits() {
     #expect(DJConnectAppModel.commandLimit(for: "queue") == 100)
     #expect(DJConnectAppModel.commandLimit(for: "playlists") == 100)
     #expect(DJConnectAppModel.commandLimit(for: "status") == nil)
     #expect(DJConnectAppModel.commandLimit(for: "play") == nil)
 }
 
-@Test func commandPayloadsDoNotSendRemovedHAOverrideOptions() throws {
+@Test(.isolatedClientResources) func commandPayloadsDoNotSendRemovedHAOverrideOptions() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-test",
         deviceName: "Test iPhone",
@@ -7332,7 +7332,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
 }
 
 @MainActor
-@Test func wakeWordCandidatesIncludeCommonPronunciationVariants() {
+@Test(.isolatedClientResources) func wakeWordCandidatesIncludeCommonPronunciationVariants() {
     let djCandidates = Set(DJConnectAppModel.normalizedWakeWordCandidates(for: "Hey DJ"))
     #expect(djCandidates.contains("hey dj"))
     #expect(djCandidates.contains("hey dee jay"))
@@ -7348,7 +7348,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(nabuCandidates.contains("okay nah boo"))
 }
 
-@Test func commandRequestSupportsPlayContextAtObjectValues() throws {
+@Test(.isolatedClientResources) func commandRequestSupportsPlayContextAtObjectValues() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -7392,7 +7392,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(json?["play"] as? Bool == true)
 }
 
-@Test func commandRequestSupportsAskDJJsonObjectValues() throws {
+@Test(.isolatedClientResources) func commandRequestSupportsAskDJJsonObjectValues() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -7434,7 +7434,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(json["play"] as? Bool == true)
 }
 
-@Test func commandRequestSupportsAskDJFollowupResponseValues() throws {
+@Test(.isolatedClientResources) func commandRequestSupportsAskDJFollowupResponseValues() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-watchos-8F3A2C91B45D",
         deviceName: "Apple Watch",
@@ -7470,7 +7470,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
     #expect(json["play"] as? Bool == false)
 }
 
-@Test func commandRequestForwardsAskDJOutputActionPayload() throws {
+@Test(.isolatedClientResources) func commandRequestForwardsAskDJOutputActionPayload() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -7518,7 +7518,7 @@ func webSocketCancellationAndAuthoritativeFailuresNeverReplayHTTP(kind: String) 
 }
 
 @MainActor
-@Test(arguments: ["iPhone", "iPad", "Mac"])
+@Test(.isolatedClientResources, arguments: ["iPhone", "iPad", "Mac"])
 func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throws {
     let localURL = try #require(URL(string: "http://192.168.1.13:8123"))
     let remoteURL = try #require(URL(string: "https://example.ui.nabu.casa"))
@@ -7552,7 +7552,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func transportReportsOfflineWhenNoURLIsReachable() async throws {
+@Test(.isolatedClientResources) func transportReportsOfflineWhenNoURLIsReachable() async throws {
     let recorder = ConnectionModeRecorder()
     let identity = DJConnectIdentity(
         deviceID: "djconnect-macos-8F3A2C91B45D",
@@ -7583,7 +7583,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(recorder.modes == [.offline])
 }
 
-@Test @MainActor func preferredRemoteHTTPAvoidsRepeatedLANTimeoutAndCanReturnToLocal() async throws {
+@Test(.isolatedClientResources) @MainActor func preferredRemoteHTTPAvoidsRepeatedLANTimeoutAndCanReturnToLocal() async throws {
     let local = URL(string: "http://192.168.1.13:8123")!
     let remote = URL(string: "https://example.ui.nabu.casa")!
     let recorder = ConnectionModeRecorder()
@@ -7602,7 +7602,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(next.candidates.map(\.mode) == [.local, .remote])
 }
 
-@Test func pairingAndCommandResponsesDecodeMusicBackendSummary() throws {
+@Test(.isolatedClientResources) func pairingAndCommandResponsesDecodeMusicBackendSummary() throws {
     let decoder = JSONDecoder()
     let pairing = try decoder.decode(
         DJConnectPairingResponse.self,
@@ -7659,7 +7659,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(command.musicBackendError == "Backend unavailable")
 }
 
-@Test func commandPayloadPreservesMusicAssistantActionValueAndRevision() throws {
+@Test(.isolatedClientResources) func commandPayloadPreservesMusicAssistantActionValueAndRevision() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -7698,7 +7698,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func sessionSpeakerUsesPlaybackAuthorityInsteadOfPendingOrNormalizedOutputs() throws {
+@Test(.isolatedClientResources) func sessionSpeakerUsesPlaybackAuthorityInsteadOfPendingOrNormalizedOutputs() throws {
     let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.language = "nl"
     model.startDemoMode()
@@ -7721,7 +7721,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func outputDevicesExcludeSyntheticNoOutputChoices() throws {
+@Test(.isolatedClientResources) func outputDevicesExcludeSyntheticNoOutputChoices() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -7747,7 +7747,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func playNowCommandResponseAppendsAssistantBubbleWithoutReusingOldActions() throws {
+@Test(.isolatedClientResources) func playNowCommandResponseAppendsAssistantBubbleWithoutReusingOldActions() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -7798,7 +7798,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func askDJTextOnlyResponseDoesNotReuseStaleArtworkActionsOrRecentItems() throws {
+@Test(.isolatedClientResources) func askDJTextOnlyResponseDoesNotReuseStaleArtworkActionsOrRecentItems() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -7853,7 +7853,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func appStartsWithNoOutputSelected() async throws {
+@Test(.isolatedClientResources) func appStartsWithNoOutputSelected() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -7869,7 +7869,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func defaultLanguageUsesDeviceLanguageUntilAppOverrideIsSet() throws {
+@Test(.isolatedClientResources) func defaultLanguageUsesDeviceLanguageUntilAppOverrideIsSet() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -7907,7 +7907,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func noOutputSelectionBlocksPlaybackStartCommands() throws {
+@Test(.isolatedClientResources) func noOutputSelectionBlocksPlaybackStartCommands() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -7929,7 +7929,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(model.userNotice?.text == "Kies eerst een uitvoerapparaat")
 }
 
-@Test func queueContractDecodesItemsContextAndImageAliases() throws {
+@Test(.isolatedClientResources) func queueContractDecodesItemsContextAndImageAliases() throws {
     let response = try JSONDecoder().decode(
         DJConnectCommandResponse.self,
         from: Data(
@@ -7968,7 +7968,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(response.queue?.last?.albumImageURL?.absoluteString == "https://example.test/entity.jpg")
 }
 
-@Test func queueContractDecodesFlatHAQueueContextURI() throws {
+@Test(.isolatedClientResources) func queueContractDecodesFlatHAQueueContextURI() throws {
     let response = try JSONDecoder().decode(
         DJConnectCommandResponse.self,
         from: Data(
@@ -7996,7 +7996,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(response.queue?.first?.albumImageURL?.absoluteString == "https://example.test/queue.jpg")
 }
 
-@Test func queueContractDecodesArtistSubtitleFallbackAndNestedContextURI() throws {
+@Test(.isolatedClientResources) func queueContractDecodesArtistSubtitleFallbackAndNestedContextURI() throws {
     let response = try JSONDecoder().decode(
         DJConnectCommandResponse.self,
         from: Data(
@@ -8040,7 +8040,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func emptyBackendQueueClearsRenderedQueueItems() throws {
+@Test(.isolatedClientResources) func emptyBackendQueueClearsRenderedQueueItems() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -8059,7 +8059,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func repeatedBackendQueueItemsKeepStableDistinctRowIdentity() throws {
+@Test(.isolatedClientResources) func repeatedBackendQueueItemsKeepStableDistinctRowIdentity() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -8103,7 +8103,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func playlistsCommandDoesNotOverwriteQueueWithPlaylistItems() async throws {
+@Test(.isolatedClientResources) func playlistsCommandDoesNotOverwriteQueueWithPlaylistItems() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -8152,7 +8152,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func queueEpisodeItemsCanStartWithoutPlaybackContext() throws {
+@Test(.isolatedClientResources) func queueEpisodeItemsCanStartWithoutPlaybackContext() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -8166,7 +8166,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(model.canStartQueueItem(episode))
 }
 
-@Test func playlistContractDecodesArtworkAliases() throws {
+@Test(.isolatedClientResources) func playlistContractDecodesArtworkAliases() throws {
     let response = try JSONDecoder().decode(
         DJConnectCommandResponse.self,
         from: Data(
@@ -8193,7 +8193,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     ])
 }
 
-@Test func statusCommandResponseDecodesRichPlaybackSnapshot() throws {
+@Test(.isolatedClientResources) func statusCommandResponseDecodesRichPlaybackSnapshot() throws {
     let response = try JSONDecoder().decode(
         DJConnectCommandResponse.self,
         from: Data(
@@ -8227,7 +8227,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(response.playback?.device?.name == "Living Room")
 }
 
-@Test func commandResponseDecodesEmptyPlaybackSnapshotWithNullFields() throws {
+@Test(.isolatedClientResources) func commandResponseDecodesEmptyPlaybackSnapshotWithNullFields() throws {
     let response = try JSONDecoder().decode(
         DJConnectCommandResponse.self,
         from: Data(
@@ -8276,7 +8276,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(response.playback?.device?.volumePercent == nil)
 }
 
-@Test func commandResponseDecodesBackendCollectionsFromDataEnvelope() throws {
+@Test(.isolatedClientResources) func commandResponseDecodesBackendCollectionsFromDataEnvelope() throws {
     let response = try JSONDecoder().decode(
         DJConnectCommandResponse.self,
         from: Data(
@@ -8315,7 +8315,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(response.playlists?[1].imageURL?.absoluteString == "https://example.test/dinner.jpg")
 }
 
-@Test func playlistCollectionsDecodeFromSupportedContractShapes() throws {
+@Test(.isolatedClientResources) func playlistCollectionsDecodeFromSupportedContractShapes() throws {
     let shapes = [
         #"{ "success": true, "playlists": [{"name":"Top","uri":"spotify:playlist:top"}] }"#,
         #"{ "success": true, "items": [{"name":"Top","uri":"spotify:playlist:top"}] }"#,
@@ -8333,7 +8333,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     }
 }
 
-@Test func playlistItemsDoNotDecodeAsOutputDevices() throws {
+@Test(.isolatedClientResources) func playlistItemsDoNotDecodeAsOutputDevices() throws {
     let response = try JSONDecoder().decode(
         DJConnectCommandResponse.self,
         from: Data(
@@ -8353,7 +8353,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(response.devices == nil)
 }
 
-@Test func playlistItemsDecodeAliasesForTitleValueSubtitleAndArtwork() throws {
+@Test(.isolatedClientResources) func playlistItemsDecodeAliasesForTitleValueSubtitleAndArtwork() throws {
     let response = try JSONDecoder().decode(
         DJConnectCommandResponse.self,
         from: Data(
@@ -8399,7 +8399,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     ])
 }
 
-@Test func emptyPlaylistsResponseDecodesWithoutCrash() throws {
+@Test(.isolatedClientResources) func emptyPlaylistsResponseDecodesWithoutCrash() throws {
     let response = try JSONDecoder().decode(
         DJConnectCommandResponse.self,
         from: Data(#"{ "success": true, "backend_available": true, "playlists": [] }"#.utf8)
@@ -8410,7 +8410,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(response.playlists == [])
 }
 
-@Test func playlistsDecodeAtMostOneHundredItems() throws {
+@Test(.isolatedClientResources) func playlistsDecodeAtMostOneHundredItems() throws {
     let items = (0..<120)
         .map { #"{"name":"Playlist \#($0)","uri":"spotify:playlist:\#($0)"}"# }
         .joined(separator: ",")
@@ -8424,7 +8424,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(response.playlists?.last?.name == "Playlist 99")
 }
 
-@Test func queueDecodesOneHundredItemsFromTopLevelItems() throws {
+@Test(.isolatedClientResources) func queueDecodesOneHundredItemsFromTopLevelItems() throws {
     let items = (0..<100)
         .map { #"{"title":"Track \#($0)","artist":"Artist","uri":"spotify:track:\#($0)"}"# }
         .joined(separator: ",")
@@ -8438,7 +8438,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(response.queue?.last?.uri == "spotify:track:99")
 }
 
-@Test func devicesDecodeFromOutputsAndItemsWithOptionalFields() throws {
+@Test(.isolatedClientResources) func devicesDecodeFromOutputsAndItemsWithOptionalFields() throws {
     let outputsResponse = try JSONDecoder().decode(
         DJConnectCommandResponse.self,
         from: Data(#"{ "success": true, "outputs": [{ "name": "Living Room" }] }"#.utf8)
@@ -8454,7 +8454,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(itemsResponse.devices?.first?.name == "speaker-id")
 }
 
-@Test func outputDevicesDecodeCachedSpotifyMetadataFromAliases() throws {
+@Test(.isolatedClientResources) func outputDevicesDecodeCachedSpotifyMetadataFromAliases() throws {
     let response = try JSONDecoder().decode(
         DJConnectCommandResponse.self,
         from: Data(#"""
@@ -8502,7 +8502,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func cachedSpotifyOutputsRenderSelectableWithoutBecomingActiveOrStale() throws {
+@Test(.isolatedClientResources) func cachedSpotifyOutputsRenderSelectableWithoutBecomingActiveOrStale() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -8539,7 +8539,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func playbackDeviceMatchCanMarkCachedOutputActiveWhenHAReportsItCurrent() throws {
+@Test(.isolatedClientResources) func playbackDeviceMatchCanMarkCachedOutputActiveWhenHAReportsItCurrent() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -8557,7 +8557,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(model.availableOutputs.first { $0.id == "cached-speaker" }?.active == true)
 }
 
-@Test func askDJOutputActionsPreserveCachedSpotifyMetadata() throws {
+@Test(.isolatedClientResources) func askDJOutputActionsPreserveCachedSpotifyMetadata() throws {
     let response = try JSONDecoder().decode(
         DJConnectCommandResponse.self,
         from: Data(#"""
@@ -8591,7 +8591,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(action.lastSeenAt == "2026-07-01T10:00:00Z")
 }
 
-@Test func pairingRequestUsesPairEndpointWithoutBearerToken() throws {
+@Test(.isolatedClientResources) func pairingRequestUsesPairEndpointWithoutBearerToken() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
@@ -8628,7 +8628,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(json?["firmware"] as? String == "3.1.7")
 }
 
-@Test func appleAppInfoPlistsDeclareOnlySupportedBonjourServices() throws {
+@Test(.isolatedClientResources) func appleAppInfoPlistsDeclareOnlySupportedBonjourServices() throws {
     let iOSPlist = try loadRepositoryPlist("Apps/DJConnectIOS/Info.plist")
     let macPlist = try loadRepositoryPlist("Apps/DJConnectMac/Info.plist")
     let iOSBonjourServices = try #require(iOSPlist["NSBonjourServices"] as? [String])
@@ -8640,7 +8640,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(String(describing: macPlist).contains("_djconnect") == false)
 }
 
-@Test func iOSPairingRequestUsesPairEndpointWithoutLocalCallbackFields() throws {
+@Test(.isolatedClientResources) func iOSPairingRequestUsesPairEndpointWithoutLocalCallbackFields() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -8672,7 +8672,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(json?["pair_path"] == nil)
 }
 
-@Test func iOSPairingDeepLinkParsesHomeAssistantPayload() throws {
+@Test(.isolatedClientResources) func iOSPairingDeepLinkParsesHomeAssistantPayload() throws {
     let url = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
 
     let payload = try DJConnectPairingDeepLink.parse(url, expectedClientType: .ios)
@@ -8683,7 +8683,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(payload.pairPath == "/api/djconnect/v1/pair")
 }
 
-@Test func iOSPairingDeepLinkStillParsesLegacyPairPath() throws {
+@Test(.isolatedClientResources) func iOSPairingDeepLinkStillParsesLegacyPairPath() throws {
     let url = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fpair"))
 
     let payload = try DJConnectPairingDeepLink.parse(url, expectedClientType: .ios)
@@ -8694,7 +8694,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(payload.pairPath == "/api/djconnect/pair")
 }
 
-@Test func pairingURLPolicyAllowsNgrokFreeDevelopmentTunnel() throws {
+@Test(.isolatedClientResources) func pairingURLPolicyAllowsNgrokFreeDevelopmentTunnel() throws {
     let url = try #require(URL(string: "https://victory-curvy-refold.ngrok-free.dev"))
     let pairingLink = try #require(URL(string: "djconnect://pair?ha_url=https%3A%2F%2Fvictory-curvy-refold.ngrok-free.dev&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
 
@@ -8707,7 +8707,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(payload.pairCode == "123456")
 }
 
-@Test func pairingURLPolicyRequiresPlausibleHomeAssistantHostSyntax() throws {
+@Test(.isolatedClientResources) func pairingURLPolicyRequiresPlausibleHomeAssistantHostSyntax() throws {
     let localMDNS = try #require(URL(string: "http://homeassistant.local:8123"))
     let localIP = try #require(URL(string: "http://192.168.1.10:8123"))
     let localhost = try #require(URL(string: "http://localhost:8123"))
@@ -8725,14 +8725,14 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     }
 }
 
-@Test func pairingURLPolicyRejectsNonWhitelistedRemoteHTTPS() throws {
+@Test(.isolatedClientResources) func pairingURLPolicyRejectsNonWhitelistedRemoteHTTPS() throws {
     let nabuCasa = try #require(URL(string: "https://example.ui.nabu.casa"))
 
     #expect(!DJConnectPairingURLPolicy.isAllowedPairingURL(nabuCasa))
     #expect(!DJConnectPairingURLPolicy.isWhitelistedDevelopmentTunnelURL(nabuCasa))
 }
 
-@Test func iOSPairingDeepLinkRejectsInvalidPayloads() throws {
+@Test(.isolatedClientResources) func iOSPairingDeepLinkRejectsInvalidPayloads() throws {
     let missingURL = try #require(URL(string: "djconnect://pair?pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
     let remoteURL = try #require(URL(string: "djconnect://pair?ha_url=https%3A%2F%2Fexample.ui.nabu.casa&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
     let badCode = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=12AB56&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
@@ -8746,7 +8746,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     }
 }
 
-@Test func watchPairingDeepLinkParsesHomeAssistantPayload() throws {
+@Test(.isolatedClientResources) func watchPairingDeepLinkParsesHomeAssistantPayload() throws {
     let url = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=watchos&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
 
     let payload = try DJConnectPairingDeepLink.parse(url, expectedClientType: .watchos)
@@ -8757,7 +8757,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(payload.pairPath == "/api/djconnect/v1/pair")
 }
 
-@Test func watchPairingDeepLinkRejectsWrongClientTypeAndPairPath() throws {
+@Test(.isolatedClientResources) func watchPairingDeepLinkRejectsWrongClientTypeAndPairPath() throws {
     let wrongClient = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=ios&pair_path=%2Fapi%2Fdjconnect%2Fv1%2Fpair"))
     let wrongPath = try #require(URL(string: "djconnect://pair?ha_url=http%3A%2F%2Fhomeassistant.local%3A8123&pair_code=123456&client_type=watchos&pair_path=%2Fapi%2Fdevice%2Fpair"))
 
@@ -8769,7 +8769,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     }
 }
 
-@Test func watchPairingRequestUsesHomeAssistantPairEndpoint() throws {
+@Test(.isolatedClientResources) func watchPairingRequestUsesHomeAssistantPairEndpoint() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-watchos-8F3A2C91B45D",
         deviceName: "Apple Watch van Peter",
@@ -8801,7 +8801,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(json?["pair_path"] == nil)
 }
 
-@Test func iPhoneWatchProxyPairRequestPreservesWatchIdentity() async throws {
+@Test(.isolatedClientResources) func iPhoneWatchProxyPairRequestPreservesWatchIdentity() async throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-watchos-8F3A2C91B45D",
         deviceName: "Apple Watch van Peter",
@@ -8854,7 +8854,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(try tokenStore.loadToken() == "watch-secret")
 }
 
-@Test func pairingRequestRejectsMismatchedClientTypeAndDeviceIDPrefix() throws {
+@Test(.isolatedClientResources) func pairingRequestRejectsMismatchedClientTypeAndDeviceIDPrefix() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
@@ -8874,7 +8874,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     }
 }
 
-@Test func pairingResponseAcceptsCommonTokenFieldNames() throws {
+@Test(.isolatedClientResources) func pairingResponseAcceptsCommonTokenFieldNames() throws {
     let decoder = JSONDecoder()
 
     let deviceToken = try decoder.decode(
@@ -8904,7 +8904,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func pairingResponseStoresHALocalURLAndKeepsDeviceLanguage() throws {
+@Test(.isolatedClientResources) func pairingResponseStoresHALocalURLAndKeepsDeviceLanguage() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -8951,7 +8951,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func macOSPairingPostsOnlyToHomeAssistantPairEndpoint() async throws {
+@Test(.isolatedClientResources) func macOSPairingPostsOnlyToHomeAssistantPairEndpoint() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -9012,7 +9012,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func macOSPairingCompletesOnlyAfterAuthenticatedStatusSucceeds() async throws {
+@Test(.isolatedClientResources) func macOSPairingCompletesOnlyAfterAuthenticatedStatusSucceeds() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -9078,7 +9078,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func macOSPairingStaysPendingBeyondInitialStatusRetries() async throws {
+@Test(.isolatedClientResources) func macOSPairingStaysPendingBeyondInitialStatusRetries() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -9138,7 +9138,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func pendingHomeAssistantPairingResumesAfterBackgroundWithoutReposting() async throws {
+@Test(.isolatedClientResources) func pendingHomeAssistantPairingResumesAfterBackgroundWithoutReposting() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -9213,7 +9213,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func pairingCompletesImmediatelyWhenHomeAssistantReportsSetupNotPending() async throws {
+@Test(.isolatedClientResources) func pairingCompletesImmediatelyWhenHomeAssistantReportsSetupNotPending() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -9270,7 +9270,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func appLifecycleTracksForegroundStateForBatterySensitiveWork() throws {
+@Test(.isolatedClientResources) func appLifecycleTracksForegroundStateForBatterySensitiveWork() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -9285,7 +9285,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(model.isAppInForegroundForTests)
 }
 
-@Test func pairSuccessStoresReturnedBearerToken() async throws {
+@Test(.isolatedClientResources) func pairSuccessStoresReturnedBearerToken() async throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -9319,7 +9319,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(try tokenStore.loadToken() == "client-secret")
 }
 
-@Test func pairPendingResponseDoesNotStoreToken() async throws {
+@Test(.isolatedClientResources) func pairPendingResponseDoesNotStoreToken() async throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-macos-8F3A2C91B45D",
         deviceName: "DJConnect Mac",
@@ -9350,7 +9350,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func diagnosticsExportRedactsPairingCodesAndTokenState() throws {
+@Test(.isolatedClientResources) func diagnosticsExportRedactsPairingCodesAndTokenState() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -9382,7 +9382,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func diagnosticLoggingDefaultsOffAndCreatesNoFile() throws {
+@Test(.isolatedClientResources) func diagnosticLoggingDefaultsOffAndCreatesNoFile() throws {
     let name = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: name))
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(name)
@@ -9401,7 +9401,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func diagnosticLogPreferenceAloneCannotDeleteHistoryWithoutConfirmation() throws {
+@Test(.isolatedClientResources) func diagnosticLogPreferenceAloneCannotDeleteHistoryWithoutConfirmation() throws {
     let name = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: name))
     defaults.set("info", forKey: "DJConnectLogLevel")
@@ -9432,7 +9432,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func confirmedDiagnosticLoggingDisableDeletesAllHistoryAndStaysOff() throws {
+@Test(.isolatedClientResources) func confirmedDiagnosticLoggingDisableDeletesAllHistoryAndStaysOff() throws {
     let name = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: name))
     defaults.set("info", forKey: "DJConnectLogLevel")
@@ -9465,7 +9465,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func diagnosticLogsPersistAcrossModelLaunches() throws {
+@Test(.isolatedClientResources) func diagnosticLogsPersistAcrossModelLaunches() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -9498,7 +9498,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func clearingDiagnosticLogsClearsPersistentLogHistory() throws {
+@Test(.isolatedClientResources) func clearingDiagnosticLogsClearsPersistentLogHistory() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -9533,7 +9533,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func visibleDiagnosticLogsShowNewestEntriesFirst() throws {
+@Test(.isolatedClientResources) func visibleDiagnosticLogsShowNewestEntriesFirst() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -9574,7 +9574,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect((markerIndex ?? Int.max) < (clearedIndex ?? Int.max))
 }
 
-@Test func voiceRequestUsesRawWavContentType() throws {
+@Test(.isolatedClientResources) func voiceRequestUsesRawWavContentType() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -9611,7 +9611,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(request.httpBody == wav)
 }
 
-@Test func voiceAudioFileLoaderReadsOnlyUpToConfiguredBound() throws {
+@Test(.isolatedClientResources) func voiceAudioFileLoaderReadsOnlyUpToConfiguredBound() throws {
     let directory = FileManager.default.temporaryDirectory
         .appendingPathComponent("DJConnectAudioFileLoader-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -9639,7 +9639,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     }
 }
 
-@Test func voiceRequestRejectsOversizedWavPayload() throws {
+@Test(.isolatedClientResources) func voiceRequestRejectsOversizedWavPayload() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-8F3A2C91B45D",
         deviceName: "DJConnect iPhone",
@@ -9667,7 +9667,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func commandRefreshSchedulerCoalescesPendingRefreshes() async throws {
+@Test(.isolatedClientResources) func commandRefreshSchedulerCoalescesPendingRefreshes() async throws {
     let scheduler = DJConnectRefreshScheduler()
     var refreshIncludesQueue: [Bool] = []
     var cleanupCount = 0
@@ -9698,7 +9698,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(cleanupCount == 1)
 }
 
-@Test func versionMismatchIsClassifiedWithoutClearingPairing() throws {
+@Test(.isolatedClientResources) func versionMismatchIsClassifiedWithoutClearingPairing() throws {
     let client = DJConnectClient(
         baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
         identity: DJConnectIdentity(
@@ -9737,7 +9737,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     ))
 }
 
-@Test func clientTypeMismatchIsClassifiedBeforeGenericBadRequest() throws {
+@Test(.isolatedClientResources) func clientTypeMismatchIsClassifiedBeforeGenericBadRequest() throws {
     let client = DJConnectClient(
         baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
         identity: DJConnectIdentity(
@@ -9770,7 +9770,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     ))
 }
 
-@Test func networkFixtureStatusDecodesPlaybackEnvelope() async throws {
+@Test(.isolatedClientResources) func networkFixtureStatusDecodesPlaybackEnvelope() async throws {
     let identity = testIOSIdentity()
     let host = "status-fixture.local"
     let requestRecorder = RequestRecorder()
@@ -9815,7 +9815,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
 }
 
-@Test func incomingPayloadLimiterRejectsOversizedText() throws {
+@Test(.isolatedClientResources) func incomingPayloadLimiterRejectsOversizedText() throws {
     let maxBytes = 16
     let text = String(repeating: "x", count: maxBytes + 1)
 
@@ -9827,7 +9827,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     }
 }
 
-@Test func networkFixtureOversizedCommandResponseIsRejectedBeforeDecode() async throws {
+@Test(.isolatedClientResources) func networkFixtureOversizedCommandResponseIsRejectedBeforeDecode() async throws {
     let identity = testIOSIdentity()
     let host = "oversized-payload-fixture.local"
     let oversizedBody = Data(
@@ -9858,7 +9858,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     }
 }
 
-@Test func networkFixtureCommandDecodesQueueAndPlaylistsCollections() async throws {
+@Test(.isolatedClientResources) func networkFixtureCommandDecodesQueueAndPlaylistsCollections() async throws {
     let identity = testIOSIdentity()
     let host = "collections-fixture.local"
     let requestRecorder = RequestRecorder()
@@ -9910,7 +9910,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     ])
 }
 
-@Test func networkFixtureBackendUnavailableMapsHTTPStatusAndLogsFailureDetails() async throws {
+@Test(.isolatedClientResources) func networkFixtureBackendUnavailableMapsHTTPStatusAndLogsFailureDetails() async throws {
     let identity = testIOSIdentity()
     let host = "backend-unavailable-fixture.local"
     let failures = APIFailureDetailsRecorder()
@@ -9956,7 +9956,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(failure.redactedClientID.contains("8F3A2C91B45D") == false)
 }
 
-@Test func networkFixtureVoiceServerErrorRedactsMessageAndFailureLog() async throws {
+@Test(.isolatedClientResources) func networkFixtureVoiceServerErrorRedactsMessageAndFailureLog() async throws {
     let identity = testIOSIdentity()
     let host = "voice-error-fixture.local"
     let failures = APIFailureDetailsRecorder()
@@ -10002,7 +10002,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(failure.serverMessage?.contains("open-sesame") == false)
 }
 
-@Test func networkFixtureMalformedCommandResponseRedactsBodySecrets() async throws {
+@Test(.isolatedClientResources) func networkFixtureMalformedCommandResponseRedactsBodySecrets() async throws {
     let identity = testIOSIdentity()
     let host = "malformed-command-fixture.local"
     let session = mockSession(host: host) { request in
@@ -10035,7 +10035,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     }
 }
 
-@Test func backendUnavailableIsNotAuthStale() throws {
+@Test(.isolatedClientResources) func backendUnavailableIsNotAuthStale() throws {
     let client = DJConnectClient(
         baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
         identity: DJConnectIdentity(
@@ -10064,7 +10064,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(error == .backendUnavailable(message: "Spotify authorization has expired or was revoked."))
 }
 
-@Test func twoHundredBackendUnavailableIsNotAuthStale() throws {
+@Test(.isolatedClientResources) func twoHundredBackendUnavailableIsNotAuthStale() throws {
     let client = DJConnectClient(
         baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
         identity: DJConnectIdentity(
@@ -10094,7 +10094,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func backendUnavailableUsesRecoveryCopyAndThrottlesRepeatedNotices() throws {
+@Test(.isolatedClientResources) func backendUnavailableUsesRecoveryCopyAndThrottlesRepeatedNotices() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10128,7 +10128,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func playbackBackendUnavailableCommandUsesRecoveryCopyWithoutResettingPairing() async throws {
+@Test(.isolatedClientResources) func playbackBackendUnavailableCommandUsesRecoveryCopyWithoutResettingPairing() async throws {
     let defaults = try testDefaults()
     let host = "playback-backend-unavailable.local"
     let session = mockSession(host: host) { request in
@@ -10163,7 +10163,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(model.pairingStatus == .paired)
 }
 
-@Test func authAndRouteErrorsAreClassifiedAsStaleSetupStates() throws {
+@Test(.isolatedClientResources) func authAndRouteErrorsAreClassifiedAsStaleSetupStates() throws {
     let client = DJConnectClient(
         baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
         identity: DJConnectIdentity(
@@ -10189,7 +10189,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(missingRoute == .routeMissing(message: "Route missing"))
 }
 
-@Test func serverErrorsIncludeRedactedResponseBodyForDiagnostics() throws {
+@Test(.isolatedClientResources) func serverErrorsIncludeRedactedResponseBodyForDiagnostics() throws {
     let client = DJConnectClient(
         baseURL: try #require(URL(string: "http://homeassistant.local:8123")),
         identity: DJConnectIdentity(
@@ -10213,7 +10213,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     ))
 }
 
-@Test func decodeFailuresIncludeRedactedResponseBodyForDiagnostics() async throws {
+@Test(.isolatedClientResources) func decodeFailuresIncludeRedactedResponseBodyForDiagnostics() async throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-5ECE7DF8D495",
         deviceName: "DJConnect iPhone",
@@ -10256,7 +10256,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     }
 }
 
-@Test func emptySuccessfulCommandBodyIsReportedAsContractError() async throws {
+@Test(.isolatedClientResources) func emptySuccessfulCommandBodyIsReportedAsContractError() async throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-ios-5ECE7DF8D495",
         deviceName: "DJConnect iPhone",
@@ -10299,7 +10299,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func userInitiatedBackendErrorsShowConnectionNotice() throws {
+@Test(.isolatedClientResources) func userInitiatedBackendErrorsShowConnectionNotice() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10318,7 +10318,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func djAnnouncementExtractsMessageFromServerJSON() throws {
+@Test(.isolatedClientResources) func djAnnouncementExtractsMessageFromServerJSON() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10336,7 +10336,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func djAnnouncementMapsNoActiveDeviceServerMessage() throws {
+@Test(.isolatedClientResources) func djAnnouncementMapsNoActiveDeviceServerMessage() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10354,7 +10354,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func djAnnouncementMapsPlaybackRestrictionServerMessage() throws {
+@Test(.isolatedClientResources) func djAnnouncementMapsPlaybackRestrictionServerMessage() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10372,7 +10372,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func shuffleCommandRestrictionShowsSpecificUserNotice() async throws {
+@Test(.isolatedClientResources) func shuffleCommandRestrictionShowsSpecificUserNotice() async throws {
     let defaults = try testDefaults()
     let host = "shuffle-restricted.local"
     let session = mockSession(host: host) { request in
@@ -10398,7 +10398,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func djAnnouncementSuppressesHTMLBackendErrorPages() throws {
+@Test(.isolatedClientResources) func djAnnouncementSuppressesHTMLBackendErrorPages() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10422,7 +10422,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func trackInsightSuppressesHTMLBackendErrorPages() async throws {
+@Test(.isolatedClientResources) func trackInsightSuppressesHTMLBackendErrorPages() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10470,7 +10470,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func trackInsightLocalizesNoCurrentlyPlayingBackendMessage() async throws {
+@Test(.isolatedClientResources) func trackInsightLocalizesNoCurrentlyPlayingBackendMessage() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10517,7 +10517,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func activeVibeCastAutoAnalyzesCurrentAndNextTrackInsight() async throws {
+@Test(.isolatedClientResources) func activeVibeCastAutoAnalyzesCurrentAndNextTrackInsight() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10616,7 +10616,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func vibeCastRefreshUpdatesItemsWhenTextChangesWithoutRevisionChange() async throws {
+@Test(.isolatedClientResources) func vibeCastRefreshUpdatesItemsWhenTextChangesWithoutRevisionChange() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10674,7 +10674,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func vibeCastRefreshClearsGenreBadgeWhenNextResponseOmitsIt() async throws {
+@Test(.isolatedClientResources) func vibeCastRefreshClearsGenreBadgeWhenNextResponseOmitsIt() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10731,7 +10731,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func demoVibeCastFeedIncludesGenreBadgeFromDemoTrackInsight() async throws {
+@Test(.isolatedClientResources) func demoVibeCastFeedIncludesGenreBadgeFromDemoTrackInsight() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10756,7 +10756,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func haVersionOutsideAppMinorRangeDisablesRuntimeControls() throws {
+@Test(.isolatedClientResources) func haVersionOutsideAppMinorRangeDisablesRuntimeControls() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10790,7 +10790,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func haVersionWithinAppMinorRangeKeepsRuntimeEnabled() throws {
+@Test(.isolatedClientResources) func haVersionWithinAppMinorRangeKeepsRuntimeEnabled() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10813,7 +10813,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func recoverableSpotifyVoiceMessageClearsWhenBackendRecovers() throws {
+@Test(.isolatedClientResources) func recoverableSpotifyVoiceMessageClearsWhenBackendRecovers() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10844,7 +10844,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func startingVoiceRecordingClearsExistingDJResponseImmediately() throws {
+@Test(.isolatedClientResources) func startingVoiceRecordingClearsExistingDJResponseImmediately() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10861,7 +10861,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func demoVoiceExampleDoesNotRequestMicrophoneConsent() throws {
+@Test(.isolatedClientResources) func demoVoiceExampleDoesNotRequestMicrophoneConsent() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10883,7 +10883,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func welcomeScreenIsShownOncePerInstall() throws {
+@Test(.isolatedClientResources) func welcomeScreenIsShownOncePerInstall() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -10898,7 +10898,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(secondLaunch.isShowingWelcome == false)
 }
 
-@Test func onboardingTourPromotesDiscoverInsteadOfMiniGames() throws {
+@Test(.isolatedClientResources) func onboardingTourPromotesDiscoverInsteadOfMiniGames() throws {
     let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
     let stepsStart = try #require(source.range(of: "static func steps(language: String) -> [WelcomeTourStep]"))
     let stepsEnd = try #require(source[stepsStart.lowerBound...].range(of: "private struct WelcomeTourPreview"))
@@ -10910,7 +10910,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func uiTestRuntimeFixtureBuildsDeterministicPlayableContent() throws {
+@Test(.isolatedClientResources) func uiTestRuntimeFixtureBuildsDeterministicPlayableContent() throws {
     let model = DJConnectAppModel(
         defaults: try testDefaults(),
         tokenStore: DJConnectInMemoryTokenStore(),
@@ -10934,7 +10934,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func uiTestRuntimeFixtureExposesExplicitFailureAndPairingScenarios() throws {
+@Test(.isolatedClientResources) func uiTestRuntimeFixtureExposesExplicitFailureAndPairingScenarios() throws {
     let model = DJConnectAppModel(
         defaults: try testDefaults(),
         tokenStore: DJConnectInMemoryTokenStore(),
@@ -10961,7 +10961,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func whatsNewReleaseNotesLoadFromThePublicCanonicalEndpoint() async throws {
+@Test(.isolatedClientResources) func whatsNewReleaseNotesLoadFromThePublicCanonicalEndpoint() async throws {
     let requests = RequestPathRecorder()
     let session = mockSession(host: "djconnect.dev") { request in
         requests.append(request.url?.path ?? "")
@@ -10993,7 +10993,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func whatsNewReleaseNotesUseLocalizedFallbackAfterEndpointFailures() async throws {
+@Test(.isolatedClientResources) func whatsNewReleaseNotesUseLocalizedFallbackAfterEndpointFailures() async throws {
     let session = mockSession(host: "djconnect.dev") { request in
         throw URLError(.cannotConnectToHost)
     }
@@ -11012,7 +11012,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func updateCheckPublishesNewReleaseNotesFromCanonicalFixtures() async throws {
+@Test(.isolatedClientResources) func updateCheckPublishesNewReleaseNotesFromCanonicalFixtures() async throws {
     let requests = RequestPathRecorder()
     let session = mockSession(host: "djconnect.dev") { request in
         throw URLError(.badServerResponse)
@@ -11063,7 +11063,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func demoPlaybackCommandsRemainLocallyActionableWithoutBackendAccess() async throws {
+@Test(.isolatedClientResources) func demoPlaybackCommandsRemainLocallyActionableWithoutBackendAccess() async throws {
     let model = DJConnectAppModel(
         defaults: try testDefaults(),
         tokenStore: DJConnectInMemoryTokenStore(),
@@ -11096,7 +11096,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func pairingLinksPopulateTheCanonicalPairingFlowAndRejectInvalidInput() throws {
+@Test(.isolatedClientResources) func pairingLinksPopulateTheCanonicalPairingFlowAndRejectInvalidInput() throws {
     let session = mockSession(host: "homeassistant.local") { request in
         (try httpResponse(for: request, statusCode: 503), Data())
     }
@@ -11121,7 +11121,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func whatsNewDoesNotAppearOnFirstInstall() throws {
+@Test(.isolatedClientResources) func whatsNewDoesNotAppearOnFirstInstall() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11133,7 +11133,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func whatsNewAppearsAfterInstalledVersionChanges() throws {
+@Test(.isolatedClientResources) func whatsNewAppearsAfterInstalledVersionChanges() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11149,12 +11149,12 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(defaults.string(forKey: "DJConnectLastSeenAppVersion") == model.version)
 }
 
-@Test func whatsNewReleaseTagsArePlatformSpecific() throws {
+@Test(.isolatedClientResources) func whatsNewReleaseTagsArePlatformSpecific() throws {
     #expect(DJConnectAppModel.publicReleaseTag(version: "3.1.20", clientType: .ios) == "ios/v3.1.20")
     #expect(DJConnectAppModel.publicReleaseTag(version: "3.1.20", clientType: .macos) == "macos/v3.1.20")
 }
 
-@Test func whatsNewReleaseURLsEncodePlatformTags() throws {
+@Test(.isolatedClientResources) func whatsNewReleaseURLsEncodePlatformTags() throws {
     let iosURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.20", clientType: .ios))
     let macURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.20", clientType: .macos))
     let iosDutchURL = try #require(DJConnectAppModel.publicReleaseNotesURL(version: "3.1.20", clientType: .ios, language: "nl"))
@@ -11177,7 +11177,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(DJConnectAppModel.normalizedReleaseNotesLanguageCode("it") == "en")
 }
 
-@Test func whatsNewGitHubFallbackReleaseURLsEncodePlatformTags() throws {
+@Test(.isolatedClientResources) func whatsNewGitHubFallbackReleaseURLsEncodePlatformTags() throws {
     let iosURL = try #require(DJConnectAppModel.githubReleaseNotesURL(version: "3.1.20", clientType: .ios))
     let macURL = try #require(DJConnectAppModel.githubReleaseNotesURL(version: "3.1.20", clientType: .macos))
 
@@ -11185,7 +11185,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(macURL.absoluteString.hasSuffix("/releases/tags/macos%2Fv3.1.20"))
 }
 
-@Test func whatsNewFallbackDownloadLinksArePlatformSpecific() throws {
+@Test(.isolatedClientResources) func whatsNewFallbackDownloadLinksArePlatformSpecific() throws {
     let iosURL = try #require(DJConnectAppModel.publicDownloadsURL(clientType: .ios))
     let macURL = try #require(DJConnectAppModel.publicDownloadsURL(clientType: .macos))
 
@@ -11194,7 +11194,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func crashPromptAppearsAfterUncleanPreviousSession() throws {
+@Test(.isolatedClientResources) func crashPromptAppearsAfterUncleanPreviousSession() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11214,7 +11214,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func wakeWordPromptDoesNotAppearAutomaticallyAfterFreshPairing() throws {
+@Test(.isolatedClientResources) func wakeWordPromptDoesNotAppearAutomaticallyAfterFreshPairing() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11230,7 +11230,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func wakeWordPromptAppearsWhenVoiceActivationIsEnabledFromSettings() throws {
+@Test(.isolatedClientResources) func wakeWordPromptAppearsWhenVoiceActivationIsEnabledFromSettings() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11244,7 +11244,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func wakeWordPromptActivationEnablesWakeWord() throws {
+@Test(.isolatedClientResources) func wakeWordPromptActivationEnablesWakeWord() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11259,7 +11259,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func pairingScreenBlocksUnpairedRuntimeUntilPairingSucceeds() throws {
+@Test(.isolatedClientResources) func pairingScreenBlocksUnpairedRuntimeUntilPairingSucceeds() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11296,7 +11296,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func demoModeAskDJTextStaysLocalUntilPaired() throws {
+@Test(.isolatedClientResources) func demoModeAskDJTextStaysLocalUntilPaired() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11319,7 +11319,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func manualAskDJRefreshCallsBackendEvenWhenForegroundFlagIsStale() async throws {
+@Test(.isolatedClientResources) func manualAskDJRefreshCallsBackendEvenWhenForegroundFlagIsStale() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11365,7 +11365,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func askDJHistoryRefreshAppliesServerConversationInChronologicalOrder() async throws {
+@Test(.isolatedClientResources) func askDJHistoryRefreshAppliesServerConversationInChronologicalOrder() async throws {
     let host = "ask-dj-history-fixture.local"
     let requests = RequestPathRecorder()
     let session = mockSession(host: host) { request in
@@ -11404,7 +11404,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(model.isCheckingAskDJHistoryState == false)
 }
 
-@Test func coreResponseModelsRoundTripCanonicalPayloads() throws {
+@Test(.isolatedClientResources) func coreResponseModelsRoundTripCanonicalPayloads() throws {
     let message = DJConnectAskDJHistoryMessage(
         id: "history-1",
         clientMessageID: "client-1",
@@ -11459,7 +11459,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(try decoder.decode(DJConnectMusicDNAPrivacyDashboard.self, from: encoder.encode(privacy)) == privacy)
 }
 
-@Test func askDJResponseModelsEncodeCanonicalOptionalFields() throws {
+@Test(.isolatedClientResources) func askDJResponseModelsEncodeCanonicalOptionalFields() throws {
     let response = DJConnectAskDJResponse(
         text: "Queued.",
         djText: "The next track is ready.",
@@ -11492,7 +11492,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(messageJSON?["open_screen"] as? String == "now_playing")
 }
 
-@Test func errorPresentationCoversPairingAndAuthorizationVariants() {
+@Test(.isolatedClientResources) func errorPresentationCoversPairingAndAuthorizationVariants() {
     let pairing = DJConnectErrorPresentationContext.pairing(expectedPairingFlowName: "Mac")
 
     #expect(DJConnectErrorPresentation.userMessage(for: .clientTypeMismatch(message: nil, expectedClientType: nil, receivedClientType: nil), language: "en", context: pairing) != nil)
@@ -11505,7 +11505,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(DJConnectErrorPresentation.userMessage(for: .routeMissing(message: nil), language: "en") == nil)
 }
 
-@Test func trackInsightRequestDecodesLegacyAliasesAndNormalizesForTheCurrentDevice() throws {
+@Test(.isolatedClientResources) func trackInsightRequestDecodesLegacyAliasesAndNormalizesForTheCurrentDevice() throws {
     let payload = """
     {
       "track_name": "Midnight City",
@@ -11535,7 +11535,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func askDJFeedbackDraftIncludesContextWithoutLocalIdentifiers() throws {
+@Test(.isolatedClientResources) func askDJFeedbackDraftIncludesContextWithoutLocalIdentifiers() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11579,7 +11579,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func demoModeNextCommandAdvancesThroughQueue() async throws {
+@Test(.isolatedClientResources) func demoModeNextCommandAdvancesThroughQueue() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11614,7 +11614,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func demoModeVibeCastAutoAnalyzesNextTrack() async throws {
+@Test(.isolatedClientResources) func demoModeVibeCastAutoAnalyzesNextTrack() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11644,7 +11644,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func demoModeSeekSetsExactPlaybackPosition() throws {
+@Test(.isolatedClientResources) func demoModeSeekSetsExactPlaybackPosition() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11664,7 +11664,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func demoModeSeekRelativeMovesPlaybackPosition() async throws {
+@Test(.isolatedClientResources) func demoModeSeekRelativeMovesPlaybackPosition() async throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11687,7 +11687,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func askDJGeneratedTextMetadataMapsToLocalAssistantMessage() throws {
+@Test(.isolatedClientResources) func askDJGeneratedTextMetadataMapsToLocalAssistantMessage() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11717,7 +11717,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func askDJMoodMetadataMapsToLocalAssistantMessage() throws {
+@Test(.isolatedClientResources) func askDJMoodMetadataMapsToLocalAssistantMessage() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11745,7 +11745,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func askDJTopLevelGeneratedTextMetadataIsUsedOnlyForSyntheticAssistantMessage() throws {
+@Test(.isolatedClientResources) func askDJTopLevelGeneratedTextMetadataIsUsedOnlyForSyntheticAssistantMessage() throws {
     let payload = Data("""
     {
       "dj_text": "Pearl Jam komt binnen alsof de festivalweide net wakker wordt.",
@@ -11763,7 +11763,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func askDJTopLevelGeneratedTextMetadataFillsMissingAssistantMessageMetadata() throws {
+@Test(.isolatedClientResources) func askDJTopLevelGeneratedTextMetadataFillsMissingAssistantMessageMetadata() throws {
     let payload = Data("""
     {
       "dj_text": "Top-level generated text.",
@@ -11786,7 +11786,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func askDJGeneratedWatSpeeltErResponseKeepsAssistantAudioAndGeneratedMetadata() throws {
+@Test(.isolatedClientResources) func askDJGeneratedWatSpeeltErResponseKeepsAssistantAudioAndGeneratedMetadata() throws {
     let payload = Data("""
     {
       "dj_text": "Je luistert nu naar Alive van Pearl Jam.",
@@ -11818,7 +11818,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func askDJNonGeneratedAssistantMessageKeepsAudioReplayMetadata() throws {
+@Test(.isolatedClientResources) func askDJNonGeneratedAssistantMessageKeepsAudioReplayMetadata() throws {
     let payload = Data("""
     {
       "assistant_message": {
@@ -11841,7 +11841,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func askDJLegacyTopLevelFallbackFieldsHydrateSyntheticAssistantMessage() throws {
+@Test(.isolatedClientResources) func askDJLegacyTopLevelFallbackFieldsHydrateSyntheticAssistantMessage() throws {
     let payload = Data("""
     {
       "dj_text": "Legacy top-level antwoord met TTS.",
@@ -11860,7 +11860,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func askDJAnnouncementBothUsesNestedReplayAudioURL() throws {
+@Test(.isolatedClientResources) func askDJAnnouncementBothUsesNestedReplayAudioURL() throws {
     let payload = Data("""
     {
       "audio_url": "https://example.test/audio/legacy.mp3",
@@ -11893,7 +11893,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func askDJAnnouncementHASpeakerAndTextOnlySuppressClientReplayAudioURL() throws {
+@Test(.isolatedClientResources) func askDJAnnouncementHASpeakerAndTextOnlySuppressClientReplayAudioURL() throws {
     for delivery in ["ha_speaker", "text_only"] {
         let payload = Data("""
         {
@@ -11919,7 +11919,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func djAnnouncementCapabilitiesWithoutSpeakerLockSpeakerModes() throws {
+@Test(.isolatedClientResources) func djAnnouncementCapabilitiesWithoutSpeakerLockSpeakerModes() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11942,7 +11942,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func djAnnouncementCapabilitiesWithSpeakerExposeAllModesAndDefaultBoth() throws {
+@Test(.isolatedClientResources) func djAnnouncementCapabilitiesWithSpeakerExposeAllModesAndDefaultBoth() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -11964,7 +11964,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(model.djAnnouncementSpeakerDisplayName == "Voice Preview")
 }
 
-@Test func askDJRequestEncodesDJAnnouncementOutputWithoutSpeakerEntity() throws {
+@Test(.isolatedClientResources) func askDJRequestEncodesDJAnnouncementOutputWithoutSpeakerEntity() throws {
     let identity = DJConnectIdentity(
         deviceID: "ios-test",
         deviceName: "iPhone",
@@ -11998,7 +11998,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func askDJFallbackTextMetadataMapsWithoutGeneratedFlag() throws {
+@Test(.isolatedClientResources) func askDJFallbackTextMetadataMapsWithoutGeneratedFlag() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -12028,7 +12028,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func askDJResponseWithoutUserMessageKeepsLocalUserBubble() throws {
+@Test(.isolatedClientResources) func askDJResponseWithoutUserMessageKeepsLocalUserBubble() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -12092,7 +12092,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func askDJHistorySyncHigherClearRevisionClearsLocalCacheBeforeMerge() throws {
+@Test(.isolatedClientResources) func askDJHistorySyncHigherClearRevisionClearsLocalCacheBeforeMerge() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -12138,7 +12138,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func askDJHistorySyncEmptyMessagesAfterClearDoesNotRestoreOldLocalMessages() throws {
+@Test(.isolatedClientResources) func askDJHistorySyncEmptyMessagesAfterClearDoesNotRestoreOldLocalMessages() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -12168,7 +12168,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func askDJMessageExchangeOrderKeepsUserQuestionAboveAssistantAnswer() throws {
+@Test(.isolatedClientResources) func askDJMessageExchangeOrderKeepsUserQuestionAboveAssistantAnswer() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -12228,7 +12228,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func monkeyTestingModeStartsSafeLocalDemoWithoutPairing() throws {
+@Test(.isolatedClientResources) func monkeyTestingModeStartsSafeLocalDemoWithoutPairing() throws {
     let suiteName = "DJConnectTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -12254,7 +12254,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func permissionRequestActionPromptsWhenPermissionsAreUnknown() {
+@Test(.isolatedClientResources) func permissionRequestActionPromptsWhenPermissionsAreUnknown() {
     #expect(DJConnectAppModel.permissionRequestAction(
         microphone: .unknown,
         speech: .unknown
@@ -12262,7 +12262,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func permissionRequestActionSkipsWhenPermissionsAreAlreadyGranted() {
+@Test(.isolatedClientResources) func permissionRequestActionSkipsWhenPermissionsAreAlreadyGranted() {
     #expect(DJConnectAppModel.permissionRequestAction(
         microphone: .granted,
         speech: .granted
@@ -12270,7 +12270,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func permissionRequestActionOpensSettingsWhenMicrophoneWasDenied() {
+@Test(.isolatedClientResources) func permissionRequestActionOpensSettingsWhenMicrophoneWasDenied() {
     #expect(DJConnectAppModel.permissionRequestAction(
         microphone: .denied,
         speech: .granted
@@ -12278,7 +12278,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func permissionRequestActionOpensSettingsWhenSpeechPermissionWasRevoked() {
+@Test(.isolatedClientResources) func permissionRequestActionOpensSettingsWhenSpeechPermissionWasRevoked() {
     #expect(DJConnectAppModel.permissionRequestAction(
         microphone: .granted,
         speech: .denied
@@ -12286,14 +12286,14 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func permissionRequestActionOpensSettingsWhenPermissionIsRestricted() {
+@Test(.isolatedClientResources) func permissionRequestActionOpensSettingsWhenPermissionIsRestricted() {
     #expect(DJConnectAppModel.permissionRequestAction(
         microphone: .restricted,
         speech: .unknown
     ) == .openSystemSettings)
 }
 
-@Test func permissionCoordinatorRequestActionMatchesPermissionPolicy() {
+@Test(.isolatedClientResources) func permissionCoordinatorRequestActionMatchesPermissionPolicy() {
     #expect(DJConnectPermissionCoordinator.requestAction(
         microphone: .unknown,
         speech: .granted
@@ -12309,7 +12309,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     ) == .openSystemSettings)
 }
 
-@Test func watchProxyRequestEncodesBackendAgnosticMusicAssistantAction() throws {
+@Test(.isolatedClientResources) func watchProxyRequestEncodesBackendAgnosticMusicAssistantAction() throws {
     let actionValue: DJConnectCommandValue = .object([
         "item_id": "track-123",
         "provider": "music_assistant",
@@ -12349,7 +12349,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     }
 }
 
-@Test func watchProxyVoicePayloadCarriesAudioWithoutPersistentURL() throws {
+@Test(.isolatedClientResources) func watchProxyVoicePayloadCarriesAudioWithoutPersistentURL() throws {
     let payload = DJConnectWatchProxyVoicePayload(
         wavData: Data([0x52, 0x49, 0x46, 0x46]),
         mood: 70,
@@ -12368,7 +12368,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(decodedPayload.language == "nl-NL")
 }
 
-@Test func watchProxyAskDJMessagePayloadCarriesTextContext() throws {
+@Test(.isolatedClientResources) func watchProxyAskDJMessagePayloadCarriesTextContext() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-watchos-ABC123",
         deviceName: "DJConnect Watch",
@@ -12400,7 +12400,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(decodedPayload.language == "nl-NL")
 }
 
-@Test func watchProxyMusicDNASettingsPayloadUsesWatchIdentity() throws {
+@Test(.isolatedClientResources) func watchProxyMusicDNASettingsPayloadUsesWatchIdentity() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-watchos-ABC123",
         deviceName: "DJConnect Watch",
@@ -12421,7 +12421,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(decodedPayload.mood == 70)
 }
 
-@Test func watchProxyMusicDNASettingsPayloadSupportsWatchOptOut() throws {
+@Test(.isolatedClientResources) func watchProxyMusicDNASettingsPayloadSupportsWatchOptOut() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-watchos-ABC123",
         deviceName: "DJConnect Watch",
@@ -12441,7 +12441,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(decodedPayload.enabled == false)
 }
 
-@Test func watchProxyMusicDNAProfileOperationRoundTrips() throws {
+@Test(.isolatedClientResources) func watchProxyMusicDNAProfileOperationRoundTrips() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-watchos-ABC123",
         deviceName: "DJConnect Watch",
@@ -12461,7 +12461,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(decodedPayload.mood == 40)
 }
 
-@Test func watchProxyMusicDNAClearOperationRoundTrips() throws {
+@Test(.isolatedClientResources) func watchProxyMusicDNAClearOperationRoundTrips() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-watchos-ABC123",
         deviceName: "DJConnect Watch",
@@ -12481,7 +12481,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(decodedPayload.mood == 100)
 }
 
-@Test func watchProxyMusicDiscoveryOperationsRoundTripWithWatchIdentity() throws {
+@Test(.isolatedClientResources) func watchProxyMusicDiscoveryOperationsRoundTripWithWatchIdentity() throws {
     let identity = DJConnectIdentity(
         deviceID: "djconnect-watchos-ABC123",
         deviceName: "DJConnect Watch",
@@ -12528,7 +12528,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(decodedPlayPayload.musicDNAKey == "djconnect-watchos-ABC123")
 }
 
-@Test func commandResponseExposesBackendSummaryForWatchSync() throws {
+@Test(.isolatedClientResources) func commandResponseExposesBackendSummaryForWatchSync() throws {
     let json = """
     {
       "success": true,
@@ -12560,7 +12560,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(response.remoteSupported == true)
 }
 
-@Test func commandResponseDecodesObjectMusicBackendError() throws {
+@Test(.isolatedClientResources) func commandResponseDecodesObjectMusicBackendError() throws {
     let json = """
     {
       "success": false,
@@ -12581,7 +12581,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(response.musicBackendSummary.musicBackendError == response.musicBackendError)
 }
 
-@Test func commandResponseDecodesNestedMusicBackendErrorObjectFallbackCode() throws {
+@Test(.isolatedClientResources) func commandResponseDecodesNestedMusicBackendErrorObjectFallbackCode() throws {
     let json = """
     {
       "success": false,
@@ -12598,7 +12598,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(response.musicBackendError == "music_assistant_unavailable")
 }
 
-@Test func sharedClientTypeDecodesWindowsForCrossRepoContract() throws {
+@Test(.isolatedClientResources) func sharedClientTypeDecodesWindowsForCrossRepoContract() throws {
     let json = """
     {
       "success": true,
@@ -12614,7 +12614,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(response.deviceID == "djconnect-windows-ABCDEF123456")
 }
 
-@Test func trackInsightParserDecodesStructuredJSON() throws {
+@Test(.isolatedClientResources) func trackInsightParserDecodesStructuredJSON() throws {
     let json = """
     {
       "title": "Innerbloom",
@@ -12640,7 +12640,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(insight.summary == "A slow-blooming electronic piece.")
 }
 
-@Test func trackInsightUsesTrackGenresWhenAnalysisGenreIsMissing() throws {
+@Test(.isolatedClientResources) func trackInsightUsesTrackGenresWhenAnalysisGenreIsMissing() throws {
     let json = """
     {
       "success": true,
@@ -12663,7 +12663,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(insight.genre == "dream pop, ambient, electronic")
 }
 
-@Test func trackInsightWidgetSnapshotKeepsOnlySafeVisibleFields() throws {
+@Test(.isolatedClientResources) func trackInsightWidgetSnapshotKeepsOnlySafeVisibleFields() throws {
     let insight = TrackInsight(
         title: "  Innerbloom\n",
         artist: "RUFUS DU SOL",
@@ -12694,7 +12694,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(!snapshot.summary.contains("\n"))
 }
 
-@Test func trackInsightWidgetSnapshotStoresAndLoadsFromSharedDefaults() throws {
+@Test(.isolatedClientResources) func trackInsightWidgetSnapshotStoresAndLoadsFromSharedDefaults() throws {
     let suiteName = "DJConnectWidgetSnapshotTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -12717,7 +12717,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(loaded == snapshot)
 }
 
-@Test func askDJWidgetSnapshotStoresOnlyCompactVisibleText() throws {
+@Test(.isolatedClientResources) func askDJWidgetSnapshotStoresOnlyCompactVisibleText() throws {
     let suiteName = "DJConnectAskDJWidgetSnapshotTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -12740,7 +12740,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(loaded.artist == "RUFUS DU SOL")
 }
 
-@Test func nowPlayingWidgetSnapshotKeepsOnlySafeVisibleFields() throws {
+@Test(.isolatedClientResources) func nowPlayingWidgetSnapshotKeepsOnlySafeVisibleFields() throws {
     let playback = DJConnectPlayback(
         hasPlayback: true,
         isPlaying: true,
@@ -12769,7 +12769,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(snapshot.deviceName == "Living Room")
 }
 
-@Test func nowPlayingWidgetSnapshotStoresAndLoadsFromSharedDefaults() throws {
+@Test(.isolatedClientResources) func nowPlayingWidgetSnapshotStoresAndLoadsFromSharedDefaults() throws {
     let suiteName = "DJConnectNowPlayingWidgetSnapshotTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -12790,7 +12790,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(loaded == snapshot)
 }
 
-@Test func nowPlayingWidgetSnapshotKeepsProgressClockInputs() throws {
+@Test(.isolatedClientResources) func nowPlayingWidgetSnapshotKeepsProgressClockInputs() throws {
     let updatedAt = Date(timeIntervalSince1970: 1_000)
     let snapshot = DJConnectNowPlayingWidgetSnapshot(
         updatedAt: updatedAt,
@@ -12807,7 +12807,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(snapshot.isPlaying)
 }
 
-@Test func queueWidgetSnapshotKeepsOnlySafeVisibleItems() throws {
+@Test(.isolatedClientResources) func queueWidgetSnapshotKeepsOnlySafeVisibleItems() throws {
     let items = (0..<7).map { index in
         DJConnectQueueItem(
             id: "private-\(index)",
@@ -12835,7 +12835,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(cachedArtworkItem.artworkData == Data([0x89, 0x50, 0x4e, 0x47]))
 }
 
-@Test func queueWidgetSnapshotStoresAndLoadsFromSharedDefaults() throws {
+@Test(.isolatedClientResources) func queueWidgetSnapshotStoresAndLoadsFromSharedDefaults() throws {
     let suiteName = "DJConnectQueueWidgetSnapshotTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -12850,7 +12850,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(loaded == snapshot)
 }
 
-@Test func playlistsWidgetSnapshotKeepsOnlySafeVisibleItems() throws {
+@Test(.isolatedClientResources) func playlistsWidgetSnapshotKeepsOnlySafeVisibleItems() throws {
     let playlists = (0..<7).map { index in
         DJConnectPlaylist(
             id: "private-playlist-\(index)",
@@ -12870,7 +12870,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(snapshot.items.first?.imageURL == URL(string: "https://example.com/playlist-0.jpg"))
 }
 
-@Test func playlistsWidgetSnapshotStoresAndLoadsFromSharedDefaults() throws {
+@Test(.isolatedClientResources) func playlistsWidgetSnapshotStoresAndLoadsFromSharedDefaults() throws {
     let suiteName = "DJConnectPlaylistsWidgetSnapshotTests-\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suiteName))
     defaults.removePersistentDomain(forName: suiteName)
@@ -12888,7 +12888,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(loaded.items.first?.imageData == Data([0x89, 0x50, 0x4e, 0x47]))
 }
 
-@Test func localizationNormalizesDutchLanguageVariants() {
+@Test(.isolatedClientResources) func localizationNormalizesDutchLanguageVariants() {
     #expect(DJConnectLocalization.localized(key: "About", language: "nl") == "Over")
     #expect(DJConnectLocalization.localized(key: "About", language: "nl-NL") == "Over")
     #expect(DJConnectLocalization.localized(key: "About", language: "NL") == "Over")
@@ -12906,7 +12906,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(DJConnectLocalization.preferredLanguageCode([]) == "en")
 }
 
-@Test func localizationNormalizesEscapedNewlines() {
+@Test(.isolatedClientResources) func localizationNormalizesEscapedNewlines() {
     let message = DJConnectLocalization.localized(
         key: "ui.playback.is.unavailable.ncheck.the.spotify.authorization.in.home.assistant",
         language: "nl"
@@ -12915,7 +12915,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(!message.contains("\\n"))
 }
 
-@Test func localizationResolvesWatchScreenKeys() {
+@Test(.isolatedClientResources) func localizationResolvesWatchScreenKeys() {
     let dutchExpectations = [
         "watch.settings": "Instellingen",
         "watch.legal": "Juridisch",
@@ -12935,7 +12935,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(DJConnectLocalization.localized(key: "watch.app.language", language: "en") == "App Language")
 }
 
-@Test func watchAppTargetsEmbedSharedLocalizableStrings() throws {
+@Test(.isolatedClientResources) func watchAppTargetsEmbedSharedLocalizableStrings() throws {
     let project = try loadRepositoryText("project.yml")
     for target in ["DJConnectWatch", "DJConnectWatchComplications"] {
         // Check resource ownership in each target, independently of additional
@@ -12954,7 +12954,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(complicationResources.contains("Localizable.strings in Resources"))
 }
 
-@Test func defaultDisplayLanguageUsesSharedAppLanguageOverrideForWidgets() throws {
+@Test(.isolatedClientResources) func defaultDisplayLanguageUsesSharedAppLanguageOverrideForWidgets() throws {
     let sharedDefaults = try #require(UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier))
     let oldSharedOverride = sharedDefaults.string(forKey: DJConnectLocalization.appLanguageOverrideDefaultsKey)
     defer {
@@ -12973,7 +12973,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(DJConnectLocalization.defaultDisplayLanguageCode(preferredLanguages: ["nl-NL"]) == "nl")
 }
 
-@Test func localizationMapsClientLanguagesToBCP47Locales() {
+@Test(.isolatedClientResources) func localizationMapsClientLanguagesToBCP47Locales() {
     #expect(DJConnectLocalization.bcp47LocaleIdentifier(for: "nl") == "nl-NL")
     #expect(DJConnectLocalization.bcp47LocaleIdentifier(for: "en-GB") == "en-GB")
     #expect(DJConnectLocalization.bcp47LocaleIdentifier(for: "de_DE") == "de-DE")
@@ -12982,7 +12982,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(DJConnectLocalization.bcp47LocaleIdentifier(for: "") == "en-US")
 }
 
-@Test func pairingErrorPresentationLocalizesKnownHTTPCodes() {
+@Test(.isolatedClientResources) func pairingErrorPresentationLocalizesKnownHTTPCodes() {
     let context = DJConnectErrorPresentationContext.pairing(expectedPairingFlowName: "iPhone/iPad")
 
     let clientMismatch = DJConnectError.clientTypeMismatch(
@@ -13012,7 +13012,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     )
 }
 
-@Test func homeScreenActionsDecodeWidgetAndShortcutDeepLinks() throws {
+@Test(.isolatedClientResources) func homeScreenActionsDecodeWidgetAndShortcutDeepLinks() throws {
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://now-playing"))) == .nowPlaying)
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://queue"))) == .queue)
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://ask-dj"))) == .askDJ)
@@ -13026,7 +13026,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(DJConnectHomeScreenAction(deepLinkURL: try #require(URL(string: "djconnect://unknown"))) == nil)
 }
 
-@Test func homeScreenActionRequestsAreUniqueEventsForRepeatedActions() {
+@Test(.isolatedClientResources) func homeScreenActionRequestsAreUniqueEventsForRepeatedActions() {
     let first = DJConnectHomeScreenActionRequest(action: .askDJ)
     let second = DJConnectHomeScreenActionRequest(action: .askDJ)
 
@@ -13034,7 +13034,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(first != second)
 }
 
-@Test func iOSInfoPlistContainsCameraConsentAndNavigationMetadata() throws {
+@Test(.isolatedClientResources) func iOSInfoPlistContainsCameraConsentAndNavigationMetadata() throws {
     let plist = try loadRepositoryPlist("Apps/DJConnectIOS/Info.plist")
     let cameraUsage = try #require(plist["NSCameraUsageDescription"] as? String)
     let urlTypes = try #require(plist["CFBundleURLTypes"] as? [[String: Any]])
@@ -13054,7 +13054,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     ])
 }
 
-@Test func iOSInfoPlistLocalizesDiscoverShortcutStrings() throws {
+@Test(.isolatedClientResources) func iOSInfoPlistLocalizesDiscoverShortcutStrings() throws {
     let expectedTitles = [
         "en": "Discover",
         "nl": "Ontdek",
@@ -13069,7 +13069,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     }
 }
 
-@Test func musicDNAIPhonePanelsStayTallAndInternallyScrollable() throws {
+@Test(.isolatedClientResources) func musicDNAIPhonePanelsStayTallAndInternallyScrollable() throws {
     let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
 
     #expect(source.contains("private let musicDNAIPhoneDashboardPanelHeight: CGFloat = 320"))
@@ -13079,7 +13079,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(source.contains(".scrollBounceBehavior(.basedOnSize)"))
 }
 
-@Test func moodPickerIsCentralizedInSessionToolbarOnly() throws {
+@Test(.isolatedClientResources) func moodPickerIsCentralizedInSessionToolbarOnly() throws {
     let root = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
     let timeline = try loadRepositoryText("Sources/DJConnectUI/SessionTimelineScreen.swift")
     let nowPlaying = try #require(root.structBody(named: "NowPlayingView"))
@@ -13093,7 +13093,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(timeline.contains("struct ActiveSessionMoodToolbar: View"))
 }
 
-@Test func gamesViewportUsesAvailableHeightAndKeepsControlsReachable() {
+@Test(.isolatedClientResources) func gamesViewportUsesAvailableHeightAndKeepsControlsReachable() {
     let picker: CGFloat = 60
     let controls: CGFloat = 180
     for viewport: CGFloat in [320, 600, 834, 1194] {
@@ -13112,7 +13112,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
                                               chromeHeight: controls, verticalPadding: 12) > 560)
 }
 
-@Test func publicReleaseWorkflowPublishesFiveLocalizedReleaseNoteJSONFiles() throws {
+@Test(.isolatedClientResources) func publicReleaseWorkflowPublishesFiveLocalizedReleaseNoteJSONFiles() throws {
     let workflow = try loadRepositoryText(".github/workflows/public-unsigned-release.yml")
     let readme = try loadRepositoryText("README.md")
     let releaseDocs = try loadRepositoryText("docs/RELEASE.md")
@@ -13129,7 +13129,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(DJConnectAppModel.normalizedReleaseNotesLanguageCode("es-ES") == "es")
 }
 
-@Test func internalDualMacDistributionRelayIsManifestBoundAndDeveloperSigned() throws {
+@Test(.isolatedClientResources) func internalDualMacDistributionRelayIsManifestBoundAndDeveloperSigned() throws {
     let deployment = try loadRepositoryText(".github/workflows/apple-secure-distribution-relay.yml")
     let smoke = try loadRepositoryText(".github/workflows/apple-post-deployment-smoke.yml")
     let installer = try loadRepositoryText("Tools/release/install_signed_macos_archive.sh")
@@ -13160,7 +13160,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(releaseDocs.contains("Internal Release: Dual-Mac Developer Deployment"))
 }
 
-@Test func internalIPhoneWatchSmokeRequiresExactInstalledManifestVersion() throws {
+@Test(.isolatedClientResources) func internalIPhoneWatchSmokeRequiresExactInstalledManifestVersion() throws {
     let smoke = try loadRepositoryText(".github/workflows/apple-iphone-post-deployment-smoke.yml")
 
     #expect(smoke.contains("--json-output iphone-apps.json"))
@@ -13170,7 +13170,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(smoke.contains(".bundleIdentifier == \"dev.djconnect.ios.watch\" and .version == $version"))
 }
 
-@Test func internalIPadRelayIsManifestBoundAndDoesNotRequireWatchValidation() throws {
+@Test(.isolatedClientResources) func internalIPadRelayIsManifestBoundAndDoesNotRequireWatchValidation() throws {
     let deployment = try loadRepositoryText(".github/workflows/apple-ipad-secure-distribution-relay.yml")
     let smoke = try loadRepositoryText(".github/workflows/apple-ipad-post-deployment-smoke.yml")
     let resigning = try loadRepositoryText("Tools/release/resign_internal_ios_bundle.sh")
@@ -13202,7 +13202,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(releaseDocs.contains("Internal Release: iPad"))
 }
 
-@Test func logsCopyToolbarIconStaysWhiteOnIOS() throws {
+@Test(.isolatedClientResources) func logsCopyToolbarIconStaysWhiteOnIOS() throws {
     let source = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
     let copyLogsRange = try #require(source.range(of: #"Image(systemName: "doc.on.doc")"#))
     let copyLogsSnippet = String(source[copyLogsRange.lowerBound...].prefix(220))
@@ -13212,7 +13212,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     #expect(copyLogsSnippet.contains(".tint(.white)"))
 }
 
-@Test func trackInsightSharePreviewUsesFormatSpecificSpacing() throws {
+@Test(.isolatedClientResources) func trackInsightSharePreviewUsesFormatSpecificSpacing() throws {
     let source = try loadRepositoryText("Sources/DJConnectUI/TrackInsightShareViews.swift")
 
     #expect(source.contains("private var actionStackTopPadding: CGFloat"))
@@ -13223,7 +13223,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func trackInsightShareFormatsExposeLocalizedTitlesAndCanonicalSizes() {
+@Test(.isolatedClientResources) func trackInsightShareFormatsExposeLocalizedTitlesAndCanonicalSizes() {
     let formats = TrackInsightShareFormat.allCases
 
     #expect(formats.map(\.rawValue) == ["story", "square"])
@@ -13235,7 +13235,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func trackInsightStaticSharePayloadPublishesRendererOutputAndProgress() async throws {
+@Test(.isolatedClientResources) func trackInsightStaticSharePayloadPublishesRendererOutputAndProgress() async throws {
     let insight = TrackInsight(
         title: "Innerbloom",
         artist: "RUFUS DU SOL",
@@ -13265,7 +13265,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
 }
 
 @MainActor
-@Test func trackInsightShareTextUsesOnlyRendererSafeTrackInsightContent() {
+@Test(.isolatedClientResources) func trackInsightShareTextUsesOnlyRendererSafeTrackInsightContent() {
     let insight = TrackInsight(
         title: "Innerbloom",
         artist: "RUFUS DU SOL",
@@ -13302,7 +13302,7 @@ func transportFallsBackFromLocalToRemoteAfterPairing(device: String) async throw
     }
 }
 
-@Test func trackInsightSharePathRequiresLocalUserSelectionAndKeepsAppleOwnership() throws {
+@Test(.isolatedClientResources) func trackInsightSharePathRequiresLocalUserSelectionAndKeepsAppleOwnership() throws {
     let rootView = try loadRepositoryText("Sources/DJConnectUI/DJConnectRootView.swift")
     let shareView = try loadRepositoryText("Sources/DJConnectUI/TrackInsightShareViews.swift")
     let shareService = try loadRepositoryText("Sources/DJConnectUI/TrackInsightShareService.swift")
@@ -13375,7 +13375,7 @@ private extension String {
 }
 
 @MainActor
-@Test func trackInsightShareCleanupKeepsRecentExportsAndRemovesOldExports() throws {
+@Test(.isolatedClientResources) func trackInsightShareCleanupKeepsRecentExportsAndRemovesOldExports() throws {
     let directory = TrackInsightShareRenderer.temporaryOutputDirectory()
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     let oldURL = directory.appendingPathComponent("old-\(UUID().uuidString).mp4")
@@ -13393,7 +13393,7 @@ private extension String {
     try? FileManager.default.removeItem(at: recentURL)
 }
 
-@Test func trackVibeProfileIsDeterministicForSameInsight() {
+@Test(.isolatedClientResources) func trackVibeProfileIsDeterministicForSameInsight() {
     let insight = TrackInsight(
         title: "Marea",
         artist: "Fred again..",
@@ -13411,7 +13411,7 @@ private extension String {
     #expect(TrackVibeProfile.make(for: insight) == TrackVibeProfile.make(for: insight))
 }
 
-@Test func demoTrackInsightServiceMapsDemoQueueTracksToDistinctInsights() async throws {
+@Test(.isolatedClientResources) func demoTrackInsightServiceMapsDemoQueueTracksToDistinctInsights() async throws {
     let service = DemoTrackInsightService()
     let demoTracks = [
         DJConnectPlayback(trackName: "Midnight City", artistName: "M83"),
@@ -13432,7 +13432,7 @@ private extension String {
     #expect(profiles[0] != profiles[2])
 }
 
-@Test func demoTrackInsightServiceLocalizesDutchDemoCopy() async throws {
+@Test(.isolatedClientResources) func demoTrackInsightServiceLocalizesDutchDemoCopy() async throws {
     let service = DemoTrackInsightService(
         tracks: DemoTrackInsightService.localizedDefaultTracks(language: "nl")
     )
@@ -13446,7 +13446,7 @@ private extension String {
     #expect(insight.summary == "Een gloeiend nachtelijke drive-anthem met een heldere synthhook, brede pads en een filmische rush.")
 }
 
-@Test func releaseScriptPinsRemoteBasePushAndVersionScopedNotes() throws {
+@Test(.isolatedClientResources) func releaseScriptPinsRemoteBasePushAndVersionScopedNotes() throws {
     let script = try loadRepositoryText("release.sh")
 
     #expect(script.contains("git fetch origin main"))
@@ -13457,7 +13457,7 @@ private extension String {
     #expect(!script.contains("See CHANGELOG.md for details."))
 }
 
-@Test func sessionBroadcastSnapshotAndEventsUpdateOnlyServerOwnedSessionState() throws {
+@Test(.isolatedClientResources) func sessionBroadcastSnapshotAndEventsUpdateOnlyServerOwnedSessionState() throws {
     let flow = DJConnectSessionFlow(
         flowID: "flow-session-1",
         planningHorizonMinutes: 15,
@@ -13504,7 +13504,7 @@ private extension String {
     #expect(try JSONDecoder().decode(DJConnectSessionRuntime.self, from: encodedRuntime) == runtime)
 }
 
-@Test func sessionResponseDecodesBackendOwnedDirectionFromBroadcast() throws {
+@Test(.isolatedClientResources) func sessionResponseDecodesBackendOwnedDirectionFromBroadcast() throws {
     let payload = """
     {
       "success": true,
@@ -13549,7 +13549,7 @@ private extension String {
     #expect(session.broadcast.planner.currentDirection == "maintain")
 }
 
-@Test func sessionBroadcastTransportStopsCleanlyWhenAuthenticationIsUnavailable() async {
+@Test(.isolatedClientResources) func sessionBroadcastTransportStopsCleanlyWhenAuthenticationIsUnavailable() async {
     let transport = DJConnectSessionBroadcastTransport(
         baseURL: URL(string: "http://homeassistant.local:8123")!,
         auth: DJConnectHomeAssistantWebSocketAuth(accessToken: { nil })
@@ -13567,7 +13567,7 @@ private extension String {
 }
 
 @MainActor
-@Test func discoveryPublicArtworkDoesNotBroadenProtectedResponseImagePolicy() throws {
+@Test(.isolatedClientResources) func discoveryPublicArtworkDoesNotBroadenProtectedResponseImagePolicy() throws {
     let defaults = try testDefaults()
     defaults.set("https://discovery-art.local", forKey: "DJConnectHomeAssistantURL")
     let model = DJConnectAppModel(defaults: defaults, startBackgroundTasks: false)
@@ -13580,7 +13580,7 @@ private extension String {
 }
 
 @MainActor
-@Test func sessionFavoriteRejectsMissingOrChangedPlayback() async throws {
+@Test(.isolatedClientResources) func sessionFavoriteRejectsMissingOrChangedPlayback() async throws {
     let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.startDemoMode()
     let session = try #require(model.activeDJSession)
@@ -13607,7 +13607,7 @@ private extension String {
 }
 
 @MainActor
-@Test(arguments: [false, true]) func transportCancellationNeverReportsOffline(rawURLCancellation: Bool) async throws {
+@Test(.isolatedClientResources, arguments: [false, true]) func transportCancellationNeverReportsOffline(rawURLCancellation: Bool) async throws {
     let recorder = ConnectionModeRecorder()
     let identity = DJConnectIdentity(deviceID: "cancellation-test", deviceName: "Test", clientType: .macos,
                                      firmware: "4.0.0", platform: .macos)
@@ -13627,7 +13627,7 @@ private extension String {
 }
 
 @MainActor
-@Test func commandRefreshSchedulerRetainsQueueInvalidationWhileReadIsWaiting() async throws {
+@Test(.isolatedClientResources) func commandRefreshSchedulerRetainsQueueInvalidationWhileReadIsWaiting() async throws {
     let scheduler = DJConnectRefreshScheduler()
     var refreshes: [Bool] = []
     scheduler.scheduleCommandRefresh(
@@ -13654,7 +13654,7 @@ private extension String {
 }
 
 @MainActor
-@Test func freshOutputDevicesDoNotReactivatePreviousPlaybackSpeaker() throws {
+@Test(.isolatedClientResources) func freshOutputDevicesDoNotReactivatePreviousPlaybackSpeaker() throws {
     let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.apply(playback: DJConnectPlayback(device: DJConnectPlaybackDevice(id: "old", name: "Old speaker")))
     model.apply(commandResponse: DJConnectCommandResponse(success: true, backendAvailable: true, devices: [
@@ -13666,7 +13666,7 @@ private extension String {
 }
 
 
-@MainActor @Test func pushAPNsFailureReplacesStaleRegisteredStatus() throws {
+@MainActor @Test(.isolatedClientResources) func pushAPNsFailureReplacesStaleRegisteredStatus() throws {
     let defaults = try testDefaults()
     defaults.set(true, forKey: "DJConnectPushRegistered")
     let model = DJConnectAppModel(defaults: defaults, startBackgroundTasks: false)
@@ -13676,13 +13676,13 @@ private extension String {
     #expect(!defaults.bool(forKey: "DJConnectPushRegistered"))
 }
 
-@MainActor @Test func pushBootstrapFailureIsConfigurationNotPermission() {
+@MainActor @Test(.isolatedClientResources) func pushBootstrapFailureIsConfigurationNotPermission() {
     let status = DJConnectPushNotificationStatus(state: .actionNeeded, lastError: "missing_bootstrap_proof")
     #expect(status.failureKind == .configuration)
     #expect(status.titleKey == "ui.push.configuration_needed")
 }
 
-@MainActor @Test func pushRegistrationRequiresExplicitServerConfirmation() async throws {
+@MainActor @Test(.isolatedClientResources) func pushRegistrationRequiresExplicitServerConfirmation() async throws {
     let defaults = try testDefaults()
     let session = mockSession(host: "push-unconfirmed.local") { request in
         (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"push_supported":true,"push_environment":"sandbox"}"#.utf8))
@@ -13696,7 +13696,7 @@ private extension String {
     #expect(model.pushNotificationStatus.lastError == "push_registration_unconfirmed")
 }
 
-@MainActor @Test func pushStartupRegistrationKeepsLatestCallbackAndDrainsOnce() {
+@MainActor @Test(.isolatedClientResources) func pushStartupRegistrationKeepsLatestCallbackAndDrainsOnce() {
     var buffer = DJConnectPushStartupBuffer()
     buffer.received(token: Data([1]))
     buffer.failed(NSError(domain: "synthetic", code: 1))
@@ -13713,7 +13713,7 @@ private extension String {
     #expect(emptyRegistration.token == nil)
 }
 
-@MainActor @Test func pushStartupPreservesDiscoveryTapWithoutRetainingNotificationContent() {
+@MainActor @Test(.isolatedClientResources) func pushStartupPreservesDiscoveryTapWithoutRetainingNotificationContent() {
     var buffer = DJConnectPushStartupBuffer()
     let received = buffer.enqueue(["data": ["eventType": "music_discovery_ready"], "aps": ["alert": "private text"], "token": "not-retained"])
     let tapped = buffer.enqueue(["event_type": "music_discovery_ready"], openedFromTap: true)
@@ -13734,7 +13734,7 @@ private extension String {
     #expect(legacy.deliveries.first?.eventType == "ask_dj_response")
 }
 
-@Test func appleAppBundlesShipCanonicalTrustedPushIssuer() throws {
+@Test(.isolatedClientResources) func appleAppBundlesShipCanonicalTrustedPushIssuer() throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     for app in ["DJConnectIOS", "DJConnectMac"] {
         let data = try Data(contentsOf: root.appendingPathComponent("Apps/\(app)/Info.plist"))
@@ -13743,7 +13743,7 @@ private extension String {
     }
 }
 
-@MainActor @Test func obsoletePushRegistrationCannotAcceptOrReportFailureAfterHARouteChange() async throws {
+@MainActor @Test(.isolatedClientResources) func obsoletePushRegistrationCannotAcceptOrReportFailureAfterHARouteChange() async throws {
     for fails in [false, true] {
         let defaults = try testDefaults(), gate = PushReplyGate()
         let host = "push-obsolete-\(fails).local"
@@ -13762,7 +13762,7 @@ private extension String {
     }
 }
 
-@MainActor @Test func obsoletePushRegistrationCannotReconfirmAfterUnpairing() async throws {
+@MainActor @Test(.isolatedClientResources) func obsoletePushRegistrationCannotReconfirmAfterUnpairing() async throws {
     let defaults = try testDefaults(), gate = PushReplyGate()
     let session = mockSession(host: "push-unpaired.local") { request in
         throw DeferredPushReply(gate: gate, response: try httpResponse(for: request, statusCode: 200),
@@ -13778,7 +13778,7 @@ private extension String {
     #expect(defaults.string(forKey: "DJConnectLastPushError") == nil)
 }
 
-@MainActor @Test func pushKnownAskDJEventsAndLegacyTapsRouteWithoutTreatingUnknownEventsAsReplies() async throws {
+@MainActor @Test(.isolatedClientResources) func pushKnownAskDJEventsAndLegacyTapsRouteWithoutTreatingUnknownEventsAsReplies() async throws {
     let model = DJConnectAppModel(defaults: try testDefaults(), startBackgroundTasks: false)
     let unknown = await model.handleRemoteNotificationPayload(["event_type": "unrelated"])
     #expect(!unknown)
@@ -13791,7 +13791,7 @@ private extension String {
     #expect(model.homeScreenActionRequest?.action == .askDJ)
 }
 
-@MainActor @Test func pushRegistrationRecoversOnceAfterForegroundOwnerEpochTransition() async throws {
+@MainActor @Test(.isolatedClientResources) func pushRegistrationRecoversOnceAfterForegroundOwnerEpochTransition() async throws {
     let defaults = try testDefaults(), gate = PushReplyGate(), counter = RequestCounter()
     let session = mockSession(host: "push-owner-transition.local") { request in
         counter.increment()
@@ -13812,7 +13812,7 @@ private extension String {
     #expect(defaults.bool(forKey: "DJConnectPushRegistered"))
 }
 
-@MainActor @Test func pushOwnerTransitionRecoveryIsBoundedAndDoesNotRetryInBackground() async throws {
+@MainActor @Test(.isolatedClientResources) func pushOwnerTransitionRecoveryIsBoundedAndDoesNotRetryInBackground() async throws {
     for background in [false, true] {
         let defaults = try testDefaults(), first = PushReplyGate(), second = PushReplyGate(), counter = RequestCounter()
         let host = "push-owner-bounded-\(background).local"
@@ -13838,7 +13838,7 @@ private extension String {
     }
 }
 
-@MainActor @Test(arguments: [503, 401])
+@MainActor @Test(.isolatedClientResources, arguments: [503, 401])
 func pushFailureCannotWithdrawPairingWithoutIndependentHTTPRefusal(_ failure: Int) async throws {
     let defaults = try testDefaults()
     defaults.set(true, forKey: "DJConnectPushRegistered") // An earlier confirmation must not survive this failure.
@@ -13867,7 +13867,7 @@ func pushFailureCannotWithdrawPairingWithoutIndependentHTTPRefusal(_ failure: In
 
 /// A decorative success overlay must not interpret a transport-level HTTP 200 as action acceptance.
 @MainActor
-@Test func artworkPlaybackFeedbackRequiresExplicitAcceptance() async throws {
+@Test(.isolatedClientResources) func artworkPlaybackFeedbackRequiresExplicitAcceptance() async throws {
     for success in [true, false, nil] as [Bool?] {
         let defaults = try testDefaults()
         let host = "artwork-feedback-\(UUID().uuidString.lowercased()).local"
@@ -13890,7 +13890,7 @@ func pushFailureCannotWithdrawPairingWithoutIndependentHTTPRefusal(_ failure: In
 }
 
 
-@Test func sessionHeartbeatCompletionResumesOnlyOnce() async throws {
+@Test(.isolatedClientResources) func sessionHeartbeatCompletionResumesOnlyOnce() async throws {
     try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
         let gate = DJConnectSessionPingCompletion(continuation)
         gate.finish(error: nil)
@@ -13908,7 +13908,7 @@ func pushFailureCannotWithdrawPairingWithoutIndependentHTTPRefusal(_ failure: In
 }
 
 
-@Test func appleLocalATSIsRestrictedToSupportedPrivateNetworkExceptions() throws {
+@Test(.isolatedClientResources) func appleLocalATSIsRestrictedToSupportedPrivateNetworkExceptions() throws {
     let ranges: Set<String> = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "fc00::/7", "fe80::/10", "::1/128"]
     for platform in ["IOS", "Mac", "Watch"] {
         let plist = try loadRepositoryPlist("Apps/DJConnect\(platform)/Info.plist")
@@ -13926,7 +13926,7 @@ func pushFailureCannotWithdrawPairingWithoutIndependentHTTPRefusal(_ failure: In
 }
 
 @MainActor
-@Test func playbackVolumeFollowsOutputCapability() throws {
+@Test(.isolatedClientResources) func playbackVolumeFollowsOutputCapability() throws {
     let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore())
     model.playback = DJConnectPlayback(volumePercent: 50, device: DJConnectPlaybackDevice(id: "bluetooth", supportsVolume: false))
     #expect(!model.canControlPlaybackVolume)
@@ -13937,7 +13937,7 @@ func pushFailureCannotWithdrawPairingWithoutIndependentHTTPRefusal(_ failure: In
 }
 
 @MainActor
-@Test(arguments: ["nl", "en", "de", "fr", "es"])
+@Test(.isolatedClientResources, arguments: ["nl", "en", "de", "fr", "es"])
 func volumeControlFailureIsLocalized(language: String) throws {
     let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore())
     model.language = language
@@ -13948,7 +13948,7 @@ func volumeControlFailureIsLocalized(language: String) throws {
 }
 
 @MainActor
-@Test func volumeRefusalHidesControlOnlyForAffectedOutput() async throws {
+@Test(.isolatedClientResources) func volumeRefusalHidesControlOnlyForAffectedOutput() async throws {
     let host = "volume-restricted.local"
     let session = mockSession(host: host) { request in
         return (try httpResponse(for: request, statusCode: 200), Data("""
@@ -13968,7 +13968,7 @@ func volumeControlFailureIsLocalized(language: String) throws {
     #expect(model.canControlPlaybackVolume)
 }
 
-@Test func outputNamesAndVolumesDoNotExposeTransportFallbacks() throws {
+@Test(.isolatedClientResources) func outputNamesAndVolumesDoNotExposeTransportFallbacks() throws {
     let opaque = "9a2c703675ba2ecd05fe97eb-b78d644b481b3c07"
     let device = try JSONDecoder().decode(DJConnectOutputDevice.self, from: Data("{\"id\":\"\(opaque)\"}".utf8))
     #expect(!device.hasDisplayName)
@@ -13983,7 +13983,7 @@ func volumeControlFailureIsLocalized(language: String) throws {
 }
 
 @MainActor
-@Test func outputReadPreservesExactKnownNameWithoutBorrowingPlaybackVolume() throws {
+@Test(.isolatedClientResources) func outputReadPreservesExactKnownNameWithoutBorrowingPlaybackVolume() throws {
     let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore())
     let id = "9a2c703675ba2ecd05fe97eb-b78d644b481b3c07"
     model.apply(commandResponse: DJConnectCommandResponse(success: true, backendAvailable: true, devices: [
@@ -14000,7 +14000,7 @@ func volumeControlFailureIsLocalized(language: String) throws {
 }
 
 @MainActor
-@Test func bluetoothDeviceNameFollowsRouteWithoutReplacingPlaybackIdentity() throws {
+@Test(.isolatedClientResources) func bluetoothDeviceNameFollowsRouteWithoutReplacingPlaybackIdentity() throws {
     let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.isConnected = true; model.backendAvailable = true
     let phone = DJConnectOutputDevice(id: "this-phone", name: "iPhone", type: "Smartphone", active: true, supportsVolume: false)
@@ -14021,7 +14021,7 @@ func volumeControlFailureIsLocalized(language: String) throws {
 }
 
 @MainActor
-@Test(arguments: ["speaker", "other-phone", "same-name-other-id", "cached", "offline", "backend-unavailable"])
+@Test(.isolatedClientResources, arguments: ["speaker", "other-phone", "same-name-other-id", "cached", "offline", "backend-unavailable"])
 func bluetoothDeviceNameDoesNotBorrowLocalRouteForOtherOutputs(reason: String) throws {
     let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.isConnected = true; model.backendAvailable = true
@@ -14043,7 +14043,7 @@ func bluetoothDeviceNameDoesNotBorrowLocalRouteForOtherOutputs(reason: String) t
 }
 
 @MainActor
-@Test(arguments: [[], [""], ["One", "Two"]])
+@Test(.isolatedClientResources, arguments: [[], [""], ["One", "Two"]])
 func bluetoothDeviceNameRequiresOneUnambiguousNamedRoute(names: [String]) throws {
     let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.isConnected = true; model.backendAvailable = true
@@ -14059,7 +14059,7 @@ func bluetoothDeviceNameRequiresOneUnambiguousNamedRoute(names: [String]) throws
 }
 
 @MainActor
-@Test func currentPlaybackVolumePresentationRejectsUnsupportedAndUnknownLevels() throws {
+@Test(.isolatedClientResources) func currentPlaybackVolumePresentationRejectsUnsupportedAndUnknownLevels() throws {
     let model = DJConnectAppModel(defaults: try testDefaults(), tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     model.playback = DJConnectPlayback(volumePercent: 100, device: DJConnectPlaybackDevice(id: "phone", name: "iPhone", supportsVolume: false))
     #expect(model.currentPlaybackVolumePercent == nil)
@@ -14072,7 +14072,7 @@ func bluetoothDeviceNameRequiresOneUnambiguousNamedRoute(names: [String]) throws
 }
 
 @MainActor
-@Test func singleQueueItemSnapshotsReplaceRepeatedQueueRowsWithoutAccumulating() throws {
+@Test(.isolatedClientResources) func singleQueueItemSnapshotsReplaceRepeatedQueueRowsWithoutAccumulating() throws {
     let name = "queue-one-item-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name))
     defer { defaults.removePersistentDomain(forName: name) }
@@ -14100,7 +14100,7 @@ func bluetoothDeviceNameRequiresOneUnambiguousNamedRoute(names: [String]) throws
 }
 
 @MainActor
-@Test func queueRowIdentitySurvivesMetadataDifferencesAndReservedSuffixes() throws {
+@Test(.isolatedClientResources) func queueRowIdentitySurvivesMetadataDifferencesAndReservedSuffixes() throws {
     let defaults = try #require(UserDefaults(suiteName: "DJConnectQueueIdentity-\(UUID().uuidString)"))
     let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
     let items = [
@@ -14132,7 +14132,7 @@ func bluetoothDeviceNameRequiresOneUnambiguousNamedRoute(names: [String]) throws
     #expect(model.queueItems.isEmpty)
 }
 
-@Test func liveActivitySpotifyMarkHasBoundedScaleSpecificAssets() throws {
+@Test(.isolatedClientResources) func liveActivitySpotifyMarkHasBoundedScaleSpecificAssets() throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         .appendingPathComponent("Apps/DJConnectTrackInsightWidgets/Assets.xcassets/SpotifyAttribution.imageset")
     let manifest = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Contents.json"))) as? [String: Any])
@@ -14150,7 +14150,7 @@ func bluetoothDeviceNameRequiresOneUnambiguousNamedRoute(names: [String]) throws
     }
 }
 
-@Test func askDJLegacyUncertainHTTPDoesNotTryAvailableWebSocketOrAnotherWrite() async throws {
+@Test(.isolatedClientResources) func askDJLegacyUncertainHTTPDoesNotTryAvailableWebSocketOrAnotherWrite() async throws {
     let counter = RequestCounter()
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.askDJMessage])
     let client = DJConnectClient(baseURL: URL(string: "http://ask-uncertain.local:8123")!, identity: testIOSIdentity(),
@@ -14165,7 +14165,7 @@ func bluetoothDeviceNameRequiresOneUnambiguousNamedRoute(names: [String]) throws
     #expect(await fastPath.askDJCalls == 0)
 }
 
-@Test @MainActor func retainedCatalogueCaptionDoesNotReconstructOriginalResultActionsOrMedia() throws {
+@Test(.isolatedClientResources) @MainActor func retainedCatalogueCaptionDoesNotReconstructOriginalResultActionsOrMedia() throws {
     let name = "ask-caption-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name))
     defer { defaults.removePersistentDomain(forName: name) }
@@ -14189,7 +14189,7 @@ private actor AbsentAskDJOperationContext: DJConnectHybridWire {
     func socket(_ url: URL) async throws -> any DJConnectHybridSocket { throw URLError(.cannotConnectToHost) }
 }
 
-@Test func legacyFreeTextWithHybridCoordinatorUsesFresh404AndOneHTTPAttemptPerSubmission() async throws {
+@Test(.isolatedClientResources) func legacyFreeTextWithHybridCoordinatorUsesFresh404AndOneHTTPAttemptPerSubmission() async throws {
     let origin = URL(string: "https://ask-legacy-proof.example")!
     let identity = testIOSIdentity(), token = DJConnectInMemoryTokenStore(token: "synthetic")
     let wire = AbsentAskDJOperationContext(), counter = RequestCounter()
@@ -14214,7 +14214,7 @@ private actor AbsentAskDJOperationContext: DJConnectHybridWire {
     #expect(await wire.probes == 2)
 }
 
-@Test func legacyAskDJExpiredChildDoesNotStartTheHTTPTask() async throws {
+@Test(.isolatedClientResources) func legacyAskDJExpiredChildDoesNotStartTheHTTPTask() async throws {
     let counter = RequestCounter()
     let client = DJConnectClient(baseURL: URL(string: "https://legacy-expired-child.example")!, identity: testIOSIdentity(),
         tokenStore: DJConnectInMemoryTokenStore(token: "synthetic"),
@@ -14230,4 +14230,128 @@ private actor AbsentAskDJOperationContext: DJConnectHybridWire {
         try await client.legacyAskDJData(request, deadline: deadline)
     }
     #expect(counter.count == 0)
+}
+
+/// One runtime per test case, including parameterized cases. Child tasks inherit
+/// the same pools; parallel tests cannot exhaust one another's process fixture.
+private actor ClientFixtureParallelism {
+    static let shared = ClientFixtureParallelism(limit: 8)
+    static let appKitFocus = ClientFixtureParallelism(limit: 1)
+    private let limit: Int
+    private var active = 0
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+    init(limit: Int) { self.limit = limit }
+    private func acquire() async {
+        if active < limit { active += 1; return }
+        await withCheckedContinuation { waiting.append($0) }
+    }
+    private func release() {
+        if waiting.isEmpty { active -= 1 } else { waiting.removeFirst().resume() }
+    }
+    func run(_ operation: @Sendable () async throws -> Void) async throws {
+        await acquire()
+        defer { release() }
+        try Task.checkCancellation()
+        try await operation()
+    }
+}
+struct IsolatedClientResources: TestTrait, TestScoping {
+    var appKitFocus = false
+    func scopeProvider(for test: Test, testCase: Test.Case?) -> Self? {
+        // A parameterized function also has an outer scope. Taking a permit
+        // there would retain it while its cases wait for the same pool.
+        testCase == nil ? nil : self
+    }
+    func provideScope(for test: Test, testCase: Test.Case?,
+                      performing function: @Sendable () async throws -> Void) async throws {
+        // Bound independent fixture load, not the concurrent operations under
+        // test. The app's original deadlines and all assertions remain intact.
+        try await ClientFixtureParallelism.shared.run {
+            try await DJConnectTransportResources.$current.withValue(DJConnectTransportResources()) {
+                if appKitFocus {
+                    try await ClientFixtureParallelism.appKitFocus.run(function)
+                } else { try await function() }
+            }
+        }
+    }
+}
+extension Trait where Self == IsolatedClientResources {
+    static var isolatedClientResources: Self { Self() }
+    static var isolatedAppKitResources: Self { Self(appKitFocus: true) }
+}
+
+@Test func clientResourceScopesPreserveLimitsAndDoNotShareIndependentRuntimeCapacity() async throws {
+    let first = DJConnectTransportResources(), second = DJConnectTransportResources()
+    #expect(DJConnectTransportResources.current === DJConnectTransportResources.shared)
+    try await first.artwork.acquire(); try await first.artwork.acquire()
+    await #expect(throws: DJConnectError.invalidResponse) { try await first.artwork.acquire() }
+    try await second.artwork.acquire(); await second.artwork.release()
+    await first.artwork.release(); await first.artwork.release()
+    try await first.speech.acquire(); try await first.speech.acquire()
+    await #expect(throws: DJConnectError.invalidResponse) { try await first.speech.acquire() }
+    try await second.speech.acquire(); await second.speech.release()
+    await first.speech.release(); await first.speech.release()
+    await DJConnectTransportResources.$current.withValue(first) {
+        #expect(DJConnectTransportResources.current === first)
+        #expect(RendezvousAppKeyOperations.shared === first.appKeys)
+        await Task {
+            #expect(DJConnectTransportResources.current === first)
+            #expect(RendezvousAppKeyOperations.shared === first.appKeys)
+        }.value
+    }
+    #expect(DJConnectTransportResources.current === DJConnectTransportResources.shared)
+}
+
+@Test(.isolatedClientResources, arguments: Array(0..<16))
+func parallelClientCasesShareTheirOwnCapsAndKeyQueue(_ caseNumber: Int) async throws {
+    let own = DJConnectTransportResources.current
+    #expect(own !== DJConnectTransportResources.shared)
+    #expect(RendezvousAppKeyOperations.shared === own.appKeys)
+    try await own.artwork.acquire(); try await own.artwork.acquire()
+    await #expect(throws: DJConnectError.invalidResponse) { try await own.artwork.acquire() }
+    await Task {
+        #expect(DJConnectTransportResources.current === own)
+        #expect(RendezvousAppKeyOperations.shared === own.appKeys)
+    }.value
+    await own.artwork.release(); await own.artwork.release()
+}
+
+
+@Test(.isolatedClientResources) func capturedClientPoolsKeepTheirLimitsWithoutBlockingAnotherRuntime() async throws {
+    let first = DJConnectTransportResources(), second = DJConnectTransportResources()
+    let host = "captured-pools.local", gates = [PushReplyGate(), PushReplyGate()]
+    let recorder = RequestPathRecorder()
+    let session = mockSession(host: host) { request in
+        recorder.append(request.url!.path)
+        let response = try httpResponse(for: request, statusCode: 200)
+        if let slot = Int(request.url!.lastPathComponent), slot < 2 {
+            throw DeferredPushReply(gate: gates[slot], response: response, data: Data("{}".utf8))
+        }
+        return (response, Data("{}".utf8))
+    }
+    defer { session.invalidateAndCancel(); gates.forEach { $0.release() } }
+    let firstTransport = DJConnectTransportResources.$current.withValue(first) {
+        DJConnectSessionArtworkTransport(configuration: session.configuration)
+    }
+    let secondTransport = DJConnectTransportResources.$current.withValue(second) {
+        DJConnectSessionArtworkTransport(configuration: session.configuration)
+    }
+    func request(_ index: Int) -> URLRequest { URLRequest(url: URL(string: "https://" + host + "/" + String(index))!) }
+    let one = Task { try await firstTransport.prepare(request(0)) }
+    await gates[0].waitForRequest()
+    let two = Task { try await firstTransport.prepare(request(1)) }
+    await gates[1].waitForRequest()
+    do {
+        await #expect(throws: DJConnectError.invalidResponse) { try await firstTransport.prepare(request(2)) }
+        #expect(!recorder.paths.contains("/2")) // The original per-runtime cap stays two.
+        #expect(try await secondTransport.prepare(request(3)) == Data("{}".utf8))
+        #expect(recorder.paths.contains("/3")) // Another fixture is not the same runtime.
+        gates.forEach { $0.release() }
+        #expect(try await one.value == Data("{}".utf8))
+        #expect(try await two.value == Data("{}".utf8))
+    } catch {
+        gates.forEach { $0.release() }
+        _ = try? await one.value; _ = try? await two.value
+        throw error
+    }
 }

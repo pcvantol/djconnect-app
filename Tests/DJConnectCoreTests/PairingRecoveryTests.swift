@@ -61,7 +61,7 @@ private func pairingRecoveryClient(_ wire: PairingRecoveryWire, token: DJConnect
     DJConnectClient(baseURL: URL(string: "http://" + wire.host)!, identity: .init(deviceID: "djconnect-macos-ABCDEF123456", deviceName: "Pairing fixture", clientType: .macos, firmware: "4.0.0", platform: .macos), tokenStore: token, session: wire.session())
 }
 
-@Test @MainActor func pairingCompletionSurvivesConversationEpochChangeWithoutAnotherPairPost() async throws {
+@Test(.isolatedClientResources) @MainActor func pairingCompletionSurvivesConversationEpochChangeWithoutAnotherPairPost() async throws {
     let wire = PairingRecoveryWire { _, _ in (200, pairingStatusSuccess) }
     defer { wire.close() }
     let (model, defaults, token, suite) = try pendingPairingModel(wire.session())
@@ -78,7 +78,7 @@ private func pairingRecoveryClient(_ wire: PairingRecoveryWire, token: DJConnect
     #expect(scoped.requests == ["/api/djconnect/v1/status"])
 }
 
-@Test @MainActor func pairingCompletionRetriesTransportCancellationAsStatusOnly() async throws {
+@Test(.isolatedClientResources) @MainActor func pairingCompletionRetriesTransportCancellationAsStatusOnly() async throws {
     let wire = PairingRecoveryWire { _, attempt in
         if attempt == 1 { throw URLError(.cancelled) }
         return (200, pairingStatusSuccess)
@@ -92,7 +92,7 @@ private func pairingRecoveryClient(_ wire: PairingRecoveryWire, token: DJConnect
     #expect(model.pairingMessage?.contains("CancellationError") == false)
 }
 
-@Test @MainActor func pairingCompletionRejectsLateCredentialOrOperationReplacement() async throws {
+@Test(.isolatedClientResources) @MainActor func pairingCompletionRejectsLateCredentialOrOperationReplacement() async throws {
     for replacement in ["token", "operation", "endpoint", "installation"] {
         let bootstrap = PairingRecoveryWire { _, _ in (200, pairingStatusSuccess) }
         defer { bootstrap.close() }
@@ -118,7 +118,7 @@ private func pairingRecoveryClient(_ wire: PairingRecoveryWire, token: DJConnect
     }
 }
 
-@Test @MainActor func pairingCompletionHonorsTerminalRejectionWithoutRetry() async throws {
+@Test(.isolatedClientResources) @MainActor func pairingCompletionHonorsTerminalRejectionWithoutRetry() async throws {
     let wire = PairingRecoveryWire { _, _ in (401, Data(#"{"success":false,"error":"unauthorized"}"#.utf8)) }
     defer { wire.close() }
     let (model, defaults, token, suite) = try pendingPairingModel(wire.session())
@@ -130,7 +130,7 @@ private func pairingRecoveryClient(_ wire: PairingRecoveryWire, token: DJConnect
     #expect(wire.requests.count == 1)
 }
 
-@Test(arguments: [nil, "backend_unavailable", "playback_backend_unavailable"] as [String?])
+@Test(.isolatedClientResources, arguments: [nil, "backend_unavailable", "playback_backend_unavailable"] as [String?])
 @MainActor func pairingCompletionAdoptsFinalInstallationOnlyForAcceptedPendingCredential(backendFailure: String?) async throws {
     var payload: [String: Any] = ["success": backendFailure == nil, "ha_install_id": "final-install", "backend_available": false]
     if let backendFailure { payload["error"] = backendFailure }
@@ -148,7 +148,7 @@ private func pairingRecoveryClient(_ wire: PairingRecoveryWire, token: DJConnect
     #expect(wire.requests == ["/api/djconnect/v1/status"])
 }
 
-@Test @MainActor func pairingCompletionDoesNotAdmitIncompatibleIntegrationVersion() async throws {
+@Test(.isolatedClientResources) @MainActor func pairingCompletionDoesNotAdmitIncompatibleIntegrationVersion() async throws {
     let wire = PairingRecoveryWire { _, _ in
         (200, Data(#"{"success":true,"ha_install_id":"final-install","ha_major_minor":"3.2"}"#.utf8))
     }
@@ -162,7 +162,7 @@ private func pairingRecoveryClient(_ wire: PairingRecoveryWire, token: DJConnect
     #expect(try token.loadToken() == "accepted-fixture-token")
 }
 
-@Test @MainActor func pairingBackendFailureWithoutRuntimeInstallationCannotCompleteSetup() async throws {
+@Test(.isolatedClientResources) @MainActor func pairingBackendFailureWithoutRuntimeInstallationCannotCompleteSetup() async throws {
     let wire = PairingRecoveryWire { _, attempt in
         if attempt == 1 { return (200, Data(#"{"success":false,"error":"backend_unavailable","backend_available":false}"#.utf8)) }
         return (200, pairingStatusSuccess)

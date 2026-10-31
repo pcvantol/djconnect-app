@@ -68,10 +68,15 @@ public struct DJConnectSurfacePushStatus: Decodable, Sendable {
 
 /// A fixed HA POST only. No WS/HTTP fallback, retry, redirects, cookie/auth
 /// storage, ambient headers, credential minting or persistent response cache.
+@MainActor final class SurfacePushBudget {
+    var active = 0
+    nonisolated init() {}
+}
 @MainActor final class DJConnectSurfacePushHTTP {
-    private static var active = 0
+    private let budget: SurfacePushBudget
     private let session: URLSession
     nonisolated init(configuration: URLSessionConfiguration = .ephemeral) {
+        budget = DJConnectTransportResources.current.surfacePush
         configuration.httpAdditionalHeaders = nil; configuration.urlCache = nil
         configuration.httpCookieStorage = nil; configuration.httpShouldSetCookies = false
         configuration.urlCredentialStorage = nil; configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
@@ -80,12 +85,12 @@ public struct DJConnectSurfacePushStatus: Decodable, Sendable {
     }
     deinit { session.invalidateAndCancel() }
     func send(_ request: URLRequest, isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> Data {
-        guard Self.active < 2, request.httpMethod == "POST", let bytes = request.httpBody, bytes.count <= 16384,
+        guard budget.active < 2, request.httpMethod == "POST", let bytes = request.httpBody, bytes.count <= 16384,
               let url = request.url, let c = URLComponents(url:url,resolvingAgainstBaseURL:false),
               ["https","http"].contains(c.scheme), c.host?.isEmpty == false,
               c.user == nil, c.password == nil, c.query == nil, c.fragment == nil,
               isCurrent(), !Task.isCancelled else { throw DJConnectError.invalidResponse }
-        Self.active += 1; defer { Self.active -= 1 }
+        budget.active += 1; defer { budget.active -= 1 }
         let result = try await DJConnectBoundedHTTPTransport.send(request,using:session,maximumBytes:65536,
             beforeDispatch:{ guard isCurrent() else { throw CancellationError() } },validateResponse:{ response in
                 switch response.statusCode {

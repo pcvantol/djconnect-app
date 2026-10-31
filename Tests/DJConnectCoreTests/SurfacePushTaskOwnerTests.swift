@@ -141,7 +141,7 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         for _ in 0..<200 where owner.hasOwnedTask { try await Task.sleep(for: .milliseconds(10)) }
         #expect(!owner.hasOwnedTask)
     }
-    @Test func publicFactoryAndActivityRoleRemainClosedWithZeroWireCalls() async throws {
+    @Test(.isolatedClientResources) func publicFactoryAndActivityRoleRemainClosedWithZeroWireCalls() async throws {
         let f = OwnerFixture(); defer { f.close() }
         for role in [Owner.Role.widget, .liveActivityUpdate] {
             let owner = Owner(role: role); owner.bind(try f.scope())
@@ -156,7 +156,7 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         }
         #expect(f.requests.isEmpty)
     }
-    @Test func modeledV3OneOperationRotationAndOriginalExpiry() async throws {
+    @Test(.isolatedClientResources) func modeledV3OneOperationRotationAndOriginalExpiry() async throws {
         let f = OwnerFixture(); defer { f.close() }; let a = admission()
         let owner = Owner(role: .widget, modelProvider: { _,_ in a }); defer { owner.withdrawLocally() }
         owner.bind(try f.scope()); owner.observe(try candidate()); let client = f.client()
@@ -174,7 +174,7 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         #expect(bodies[0]["operation_id"] as? String != bodies[2]["operation_id"] as? String)
         #expect((bodies[3]["expected_registration"] as? [String: Any])?["revision"] as? Int == 1)
     }
-    @Test(arguments: ["context", "register"]) func modeledWithdrawalCancelsHTTPAndRejectsLateABA(_ part: String) async throws {
+    @Test(.isolatedClientResources, arguments: ["context", "register"]) func modeledWithdrawalCancelsHTTPAndRejectsLateABA(_ part: String) async throws {
         let f = OwnerFixture(gatedPart: part); defer { f.close() }; let a = admission()
         let owner = Owner(role: .widget, modelProvider: { _,_ in a })
         let original = try f.scope(); owner.bind(original); owner.observe(try candidate())
@@ -192,7 +192,7 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         owner.observe(try candidate()); owner.register(using: f.client(), observationGeneration: old)
         try await Task.sleep(for: .milliseconds(30)); #expect(f.requests.count == count)
     }
-    @Test func modeledUnknownNeverReplaysOnPollingOrTokenRotation() async throws {
+    @Test(.isolatedClientResources) func modeledUnknownNeverReplaysOnPollingOrTokenRotation() async throws {
         let f = OwnerFixture(uncertain: true); defer { f.close() }; let a = admission()
         let owner = Owner(role: .widget, modelProvider: { _,_ in a }); defer { owner.withdrawLocally() }
         owner.bind(try f.scope()); owner.observe(try candidate()); let client = f.client()
@@ -202,7 +202,7 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         try await Task.sleep(for: .milliseconds(40))
         #expect(f.requests.filter { $0.url!.lastPathComponent == "register" }.count == 1)
     }
-    @Test func modeledEarlierPinExpiresInsteadOfRenewingOnRotation() async throws {
+    @Test(.isolatedClientResources) func modeledEarlierPinExpiresInsteadOfRenewingOnRotation() async throws {
         let f = OwnerFixture(); defer { f.close() }; let a = admission(1000)
         let owner = Owner(role: .widget, modelProvider: { _,_ in a })
         owner.bind(try f.scope()); owner.observe(try candidate()); let client = f.client()
@@ -213,7 +213,7 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         try await Task.sleep(for: .milliseconds(600))
         #expect(!owner.hasReadCustody && owner.phase == .withdrawn)
     }
-    @Test func modeledRevokeScrubsSynchronouslyAndLateReplyCannotRestore() async throws {
+    @Test(.isolatedClientResources) func modeledRevokeScrubsSynchronouslyAndLateReplyCannotRestore() async throws {
         let f = OwnerFixture(gatedPart: "revoke"); defer { f.close() }; let a = admission()
         let owner = Owner(role: .widget, modelProvider: { _,_ in a })
         owner.bind(try f.scope()); owner.observe(try candidate()); owner.register(using: f.client(), observationGeneration: owner.observationGeneration)
@@ -224,7 +224,7 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         owner.bind(nil); f.gate!.release(); try await Task.sleep(for: .milliseconds(40))
         #expect(!owner.hasReadCustody && owner.coordinate == nil)
     }
-    @Test func modeledStatusAndScopedReadNeverUseAmbientAppAuthorityOrRenew() async throws {
+    @Test(.isolatedClientResources) func modeledStatusAndScopedReadNeverUseAmbientAppAuthorityOrRenew() async throws {
         let f = OwnerFixture(); defer { f.close() }; let a = admission()
         let owner = Owner(role: .widget, modelProvider: { _,_ in a }); defer { owner.withdrawLocally() }
         owner.bind(try f.scope()); owner.observe(try candidate())
@@ -240,7 +240,7 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         #expect(try await owner.read() == nil)
         #expect(!owner.hasReadCustody)
     }
-    @Test(arguments: ["status", "read"]) func modeledWithdrawalOwnsAndCancelsAuxiliaryReads(_ part: String) async throws {
+    @Test(.isolatedClientResources, arguments: ["status", "read"]) func modeledWithdrawalOwnsAndCancelsAuxiliaryReads(_ part: String) async throws {
         let f = OwnerFixture(gatedPart: part); defer { f.close() }; let a = admission()
         let owner = Owner(role: .widget, modelProvider: { _,_ in a })
         owner.bind(try f.scope()); owner.observe(try candidate())
@@ -254,7 +254,7 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         f.gate!.release(); await request.value
         #expect(!owner.hasReadCustody && owner.coordinate == nil)
     }
-    @Test func modeledObservedConsentLossCannotReviveAndCancelledCallerCannotStart() async throws {
+    @Test(.isolatedClientResources) func modeledObservedConsentLossCannotReviveAndCancelledCallerCannotStart() async throws {
         let f = OwnerFixture(); defer { f.close() }
         var current = true
         let a = Owner.Admission(modelConsent: ["background_read": true, "os_snapshot_cache": true,
@@ -271,7 +271,7 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         current = true; #expect(!owner.hasReadCustody && owner.phase == .withdrawn)
         #expect(try await owner.read() == nil)
     }
-    @Test func modeledDelayedContextCannotReanchorOriginalC0OrRetry() async throws {
+    @Test(.isolatedClientResources) func modeledDelayedContextCannotReanchorOriginalC0OrRetry() async throws {
         let f = OwnerFixture(gatedPart: "context"); defer { f.close() }; let a = admission(100)
         let owner = Owner(role: .widget, modelProvider: { _,_ in a }); defer { owner.withdrawLocally() }
         owner.bind(try f.scope()); owner.observe(try candidate()); let client = f.client()
@@ -283,7 +283,7 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         owner.register(using: client, observationGeneration: owner.observationGeneration); try await settle(owner)
         #expect(f.requests.count == 1 && f.requests.allSatisfy { $0.url!.lastPathComponent == "context" })
     }
-    @Test func modeledAdmissionCannotGuessMissingEnvironmentOrAnotherPairedDevice() async throws {
+    @Test(.isolatedClientResources) func modeledAdmissionCannotGuessMissingEnvironmentOrAnotherPairedDevice() async throws {
         let f = OwnerFixture(); defer { f.close() }; let a = admission()
         let owner = Owner(role: .widget, modelProvider: { _,_ in a })
         let c = try candidate()
@@ -296,7 +296,7 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         owner.observe(c); owner.register(using: f.client(), observationGeneration: owner.observationGeneration)
         #expect(f.requests.isEmpty)
     }
-    @Test(arguments: ["success", "error", "cancel-success", "cancel-error"], [Owner.Role.widget, .liveActivityUpdate])
+    @Test(.isolatedClientResources, arguments: ["success", "error", "cancel-success", "cancel-error"], [Owner.Role.widget, .liveActivityUpdate])
     func appInventoryFenceRejectsDelayedResultsAndErrors(_ outcome: String, _ role: Owner.Role) async throws {
         let name = "owner-inventory-model-" + UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: name))
@@ -334,7 +334,7 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         #expect(!published && owner.observationGeneration == successorGeneration && owner.phase == .idle)
         #expect(f.requests.isEmpty)
     }
-    @Test(arguments: ["aba", "cancel", "current"], [Owner.Role.widget, .liveActivityUpdate])
+    @Test(.isolatedClientResources, arguments: ["aba", "cancel", "current"], [Owner.Role.widget, .liveActivityUpdate])
     func appInventoryCapturesBeforeDelayedChildStarts(_ scenario: String, _ role: Owner.Role) async throws {
         let name = "owner-child-start-model-" + UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: name))
@@ -361,7 +361,7 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         #expect(owner.observationGeneration == successorGeneration && owner.phase == .idle)
         #expect(f.requests.isEmpty)
     }
-    @Test func appBackgroundWithdrawsBothNativeOwnersWithoutHistoryAuthority() throws {
+    @Test(.isolatedClientResources) func appBackgroundWithdrawsBothNativeOwnersWithoutHistoryAuthority() throws {
         let name = "owner-model-" + UUID().uuidString; let defaults = try #require(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)

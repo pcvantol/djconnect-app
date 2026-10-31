@@ -5,7 +5,7 @@ private final class SpeechRedirectGuard: NSObject, URLSessionTaskDelegate, Senda
                     willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
                     completionHandler: @escaping @Sendable (URLRequest?) -> Void) { completionHandler(nil) }
 }
-private actor SpeechTransferBudget {
+actor SpeechTransferBudget {
     private var active = 0
     func acquire() throws { guard active < 2 else { throw DJConnectError.invalidResponse }; active += 1 }
     func release() { active -= 1 }
@@ -13,8 +13,9 @@ private actor SpeechTransferBudget {
 /// Private paired POST resources; no legacy URL fallback, persistence or logs.
 final class DJConnectSpeechTransport: Sendable {
     private let session: URLSession
-    private static let budget = SpeechTransferBudget()
+    private let budget: SpeechTransferBudget
     init(configuration: URLSessionConfiguration) {
+        budget = DJConnectTransportResources.current.speech
         configuration.urlCache = nil; configuration.httpCookieStorage = nil
         configuration.httpShouldSetCookies = false; configuration.urlCredentialStorage = nil
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
@@ -23,11 +24,11 @@ final class DJConnectSpeechTransport: Sendable {
     }
     deinit { session.invalidateAndCancel() }
     func data(for request: URLRequest, audio: Bool = false) async throws -> Data {
-        try await Self.budget.acquire()
+        try await budget.acquire()
         do {
             let data = try await read(request, audio: audio)
-            await Self.budget.release(); return data
-        } catch { await Self.budget.release(); throw error }
+            await budget.release(); return data
+        } catch { await budget.release(); throw error }
     }
     private func read(_ request: URLRequest, audio: Bool) async throws -> Data {
         let (bytes, response) = try await session.bytes(for: request)

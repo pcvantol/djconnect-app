@@ -113,7 +113,7 @@ struct DJConnectClientContractFixtureTests {
         return decoder
     }()
 
-    @Test("Manifest lists and loads every exported HA client contract fixture")
+    @Test("Manifest lists and loads every exported HA client contract fixture", .isolatedClientResources)
     func manifestLoadsEveryFixture() throws {
         let manifest = try Self.manifest()
         #expect(manifest.fixtures.map(\.file) == [
@@ -135,7 +135,7 @@ struct DJConnectClientContractFixtureTests {
         }
     }
 
-    @Test("Profile context fixtures decode canonical request, response and error contracts")
+    @Test("Profile context fixtures decode canonical request, response and error contracts", .isolatedClientResources)
     func profileContextFixturesDecode() throws {
         let requests = try Self.decode(DJConnectProfileContextRequestsFixture.self, file: "profile_context.requests.json")
         #expect(requests.contractVersion == 1)
@@ -164,7 +164,7 @@ struct DJConnectClientContractFixtureTests {
         #expect(errors.errors["private_session_restriction"]?.retryable == false)
     }
 
-    @Test("Profile-aware requests generate canonical context envelope for Apple and watchOS")
+    @Test("Profile-aware requests generate canonical context envelope for Apple and watchOS", .isolatedClientResources)
     func profileAwareRequestsGenerateCanonicalEnvelope() throws {
         let tokenStore = DJConnectInMemoryTokenStore(token: "test-token")
         let identity = DJConnectIdentity(
@@ -231,7 +231,7 @@ struct DJConnectClientContractFixtureTests {
         #expect(decoded?["request_source"] as? String == "discover")
     }
 
-    @Test("Profile platform errors classify into typed non-auth failures")
+    @Test("Profile platform errors classify into typed non-auth failures", .isolatedClientResources)
     func profilePlatformErrorsClassify() throws {
         let client = DJConnectClient(
             baseURL: URL(string: "http://ha.local:8123")!,
@@ -249,7 +249,7 @@ struct DJConnectClientContractFixtureTests {
         #expect(privateSession == .profile(code: .privateSessionRestriction, statusCode: 409, message: "This action is not available during a private session."))
     }
 
-    @Test("Capabilities fixture advertises WebSocket routes and HTTP fallbacks without version gating")
+    @Test("Capabilities fixture advertises WebSocket routes and HTTP fallbacks without version gating", .isolatedClientResources)
     func capabilitiesFixtureDecodesRoutesAndFallbacks() throws {
         let capabilities = try Self.decode(DJConnectCapabilitiesFixture.self, file: "capabilities.websocket.json")
         #expect(capabilities.websocketSupported)
@@ -278,7 +278,7 @@ struct DJConnectClientContractFixtureTests {
         #expect(capabilities.fallbacks["music_discovery_feedback"]?.missingBehavior == "hide_negative_feedback_controls")
     }
 
-    @Test("Music DNA fixtures decode disabled, empty and rich profile states")
+    @Test("Music DNA fixtures decode disabled, empty and rich profile states", .isolatedClientResources)
     func musicDNAFixturesDecodeBackendOwnedState() throws {
         let disabled = try Self.decode(DJConnectMusicDNAProfileResponse.self, file: "music_dna.profile.disabled.json")
         #expect(disabled.enabled == false)
@@ -321,7 +321,7 @@ struct DJConnectClientContractFixtureTests {
         #expect(richPrivacy.storesFullPrompts == false)
     }
 
-    @Test("Music Discovery fixture renders backend sections and item quality fields in order")
+    @Test("Music Discovery fixture renders backend sections and item quality fields in order", .isolatedClientResources)
     func musicDiscoveryFixturePreservesBackendOwnedFeed() throws {
         let feed = try Self.decode(DJConnectMusicDiscoveryResponse.self, file: "music_discovery.feed.json")
         #expect(feed.enabled)
@@ -374,7 +374,7 @@ struct DJConnectClientContractFixtureTests {
         #expect(feedback.feedback == DJConnectMusicDiscoveryFeedback.notForMe)
     }
 
-    @Test("Ask DJ recently played fixture renders informational items without stale playback actions")
+    @Test("Ask DJ recently played fixture renders informational items without stale playback actions", .isolatedClientResources)
     @MainActor
     func askDJRecentlyPlayedFixtureMapsCurrentResponseOnly() throws {
         let response = try Self.decode(DJConnectAskDJMessageResponse.self, file: "ask_dj.recently_played_history.json")

@@ -10,7 +10,7 @@ private func watchSettings() throws -> DJConnectProfileDJSettingsResponse {
     return try JSONDecoder().decode(DJConnectProfileDJSettingsResponse.self, from: JSONSerialization.data(withJSONObject: value))
 }
 
-@Test @MainActor func watchForegroundSessionRequiresOwnContextAndNeverResurrectsAfterResumeOrABA() async throws {
+@Test(.isolatedClientResources) @MainActor func watchForegroundSessionRequiresOwnContextAndNeverResurrectsAfterResumeOrABA() async throws {
     let value = DJConnectWatchSessionSnapshot(settings: try watchSettings(), session: nil)
     #expect(value.isValid)
     let state = DJConnectWatchForegroundSession()
@@ -41,7 +41,7 @@ private func watchSettings() throws -> DJConnectProfileDJSettingsResponse {
     #expect(state.current() == nil && state.unavailable)
 }
 
-@Test func watchSettingsCompanionRoundTripPreservesCASAndDoesNotCarryBearerOrPassiveGrant() throws {
+@Test(.isolatedClientResources) func watchSettingsCompanionRoundTripPreservesCASAndDoesNotCarryBearerOrPassiveGrant() throws {
     let current = try watchSettings()
     let update = DJConnectWatchSettingsUpdate(current: current, patch: .init(mood: "groove"), operationID: UUID().uuidString)
     let encoded = try JSONEncoder().encode(update)
@@ -53,7 +53,7 @@ private func watchSettings() throws -> DJConnectProfileDJSettingsResponse {
     #expect(encoded.count < 42_000)
 }
 
-@Test @MainActor func watchCompanionTimeoutMalformedCancellationAndLateRepliesAlwaysFinishOnce() async throws {
+@Test(.isolatedClientResources) @MainActor func watchCompanionTimeoutMalformedCancellationAndLateRepliesAlwaysFinishOnce() async throws {
     let pending = DJConnectWatchProxyRequests(timeout: .milliseconds(20))
     let timedOut = await pending.request { _ in }
     #expect(!timedOut.success && timedOut.error == "outcome_unknown" && pending.count == 0)
@@ -74,7 +74,7 @@ private func watchSettings() throws -> DJConnectProfileDJSettingsResponse {
     #expect(pending.count == 0)
 }
 
-@Test @MainActor func watchCompanionBoundsConcurrentWorkAndDoesNotReplayTimedOutWrites() async {
+@Test(.isolatedClientResources) @MainActor func watchCompanionBoundsConcurrentWorkAndDoesNotReplayTimedOutWrites() async {
     let pending = DJConnectWatchProxyRequests(timeout: .seconds(2))
     var sends = 0
     let tasks = (0..<8).map { _ in Task { await pending.request { _ in sends += 1 } } }
@@ -86,7 +86,7 @@ private func watchSettings() throws -> DJConnectProfileDJSettingsResponse {
     #expect(pending.count == 0)
 }
 
-@Test func watchSessionCopyExistsInEveryLanguage() {
+@Test(.isolatedClientResources) func watchSessionCopyExistsInEveryLanguage() {
     for language in DJConnectLocalization.supportedLanguageCodes {
         for key in ["watch.session.loading", "watch.session.unavailable", "watch.session.waiting", "watch.session.settings"] {
             #expect(DJConnectLocalization.localized(key: key, language: language) != key)
@@ -94,7 +94,7 @@ private func watchSettings() throws -> DJConnectProfileDJSettingsResponse {
     }
 }
 
-@Test func watchForegroundCardsRetainNativeDeadlinesAndRejectMixedProfileSessionBindings() throws {
+@Test(.isolatedClientResources) func watchForegroundCardsRetainNativeDeadlinesAndRejectMixedProfileSessionBindings() throws {
     let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures")
     let root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixtures.appendingPathComponent("native-moment-receipt.json"))) as? [String: Any])
     let after = try #require(root["after"] as? [String: Any])
@@ -139,7 +139,7 @@ private extension String {
     func flatMapDate() throws -> Date { try #require(DJConnectHistoryEntry.date(self)) }
 }
 
-@Test @MainActor func watchSettingsRejectionKeepsReachableRouteAndNeverReplaysThePatch() async throws {
+@Test(.isolatedClientResources) @MainActor func watchSettingsRejectionKeepsReachableRouteAndNeverReplaysThePatch() async throws {
     let store = DJConnectInMemoryTokenStore(token: "fixture-only")
     let identity = DJConnectIdentity(deviceID: "djconnect-watch-test", deviceName: "Watch", clientType: .watchos, firmware: DJConnectProtocolVersion.current, platform: .watchos)
     let manager = DJConnectHATransportManager(localURL: URL(string: "http://fixture.invalid"), remoteURL: URL(string: "https://remote.invalid"), allowsRemoteFallback: true,
@@ -155,7 +155,7 @@ private extension String {
     #expect(calls == 1)
 }
 
-@Test @MainActor func watchSessionLostWriteOnlyReadsAndCannotReplayAcrossForegroundChanges() async throws {
+@Test(.isolatedClientResources) @MainActor func watchSessionLostWriteOnlyReadsAndCannotReplayAcrossForegroundChanges() async throws {
     let idle = DJConnectWatchSessionSnapshot(settings: try watchSettings(), session: nil)
     let state = DJConnectWatchForegroundSession()
     state.bind(owner: "watch-a", active: true)
@@ -178,7 +178,7 @@ private extension String {
     #expect(!state.outcomeUnknown && state.current() == nil)
 }
 
-@Test @MainActor func watchSessionDoesNotAdmitConcurrentWritesOrPublishAnOldOwnerCompletion() async throws {
+@Test(.isolatedClientResources) @MainActor func watchSessionDoesNotAdmitConcurrentWritesOrPublishAnOldOwnerCompletion() async throws {
     let idle = DJConnectWatchSessionSnapshot(settings: try watchSettings(), session: nil)
     let state = DJConnectWatchForegroundSession()
     state.bind(owner: "watch-a", active: true)
@@ -199,7 +199,7 @@ private extension String {
     #expect(state.current() == nil && state.outcomeUnknown && !state.isChanging)
 }
 
-@Test @MainActor func watchSessionReadFailureOffersRecoveryAndSuccessfulReadClearsIt() async throws {
+@Test(.isolatedClientResources) @MainActor func watchSessionReadFailureOffersRecoveryAndSuccessfulReadClearsIt() async throws {
     let state = DJConnectWatchForegroundSession()
     state.bind(owner: "watch", active: true)
     await state.refresh { throw DJConnectError.missingToken }
@@ -212,7 +212,7 @@ private extension String {
     #expect(!state.unavailable && state.failureKey == nil && state.current() != nil)
 }
 
-@Test @MainActor func watchSessionExplicitRecoveryOnlyAcceptsAValidatedCurrentRead() async throws {
+@Test(.isolatedClientResources) @MainActor func watchSessionExplicitRecoveryOnlyAcceptsAValidatedCurrentRead() async throws {
     let idle = DJConnectWatchSessionSnapshot(settings: try watchSettings(), session: nil)
     let state = DJConnectWatchForegroundSession()
     state.bind(owner: "watch", active: true)
@@ -225,7 +225,7 @@ private extension String {
     #expect(!state.outcomeUnknown && state.current() != nil && writes == 1)
 }
 
-@Test @MainActor func watchSessionCoherentReadIsBoundedAndNeverAdmitsAnUnsuccessfulRuntime() async throws {
+@Test(.isolatedClientResources) @MainActor func watchSessionCoherentReadIsBoundedAndNeverAdmitsAnUnsuccessfulRuntime() async throws {
     let settings = try watchSettings()
     let data = Data("{\"success\":true,\"session\":null}".utf8)
     let idle = try JSONDecoder().decode(DJConnectSessionResponse.self, from: data)
@@ -239,7 +239,7 @@ private extension String {
     } catch { #expect(error as? DJConnectError == .invalidResponse) }
 }
 
-@Test func watchInstallationPersistsBeforeCompanionRegistrationAndSurvivesNewModels() throws {
+@Test(.isolatedClientResources) func watchInstallationPersistsBeforeCompanionRegistrationAndSurvivesNewModels() throws {
     let name = "watch-installation-" + UUID().uuidString
     let defaults = try #require(UserDefaults(suiteName: name))
     defer { defaults.removePersistentDomain(forName: name) }
@@ -254,7 +254,7 @@ private extension String {
 }
 
 
-@Test @MainActor func watchSessionWriteRejectsProfileSwitchBetweenOwnerReadsWithNoActiveSession() async throws {
+@Test(.isolatedClientResources) @MainActor func watchSessionWriteRejectsProfileSwitchBetweenOwnerReadsWithNoActiveSession() async throws {
     let original = try watchSettings()
     var object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
     object["binding"] = String(repeating: "a", count: 64)
@@ -271,7 +271,7 @@ private extension String {
     #expect(writes == 0)
 }
 
-@Test @MainActor func watchSessionWriteUsesOneCoherentReadAndNeverRetriesAnUncertainWrite() async throws {
+@Test(.isolatedClientResources) @MainActor func watchSessionWriteUsesOneCoherentReadAndNeverRetriesAnUncertainWrite() async throws {
     let original = try watchSettings()
     let idle = try JSONDecoder().decode(DJConnectSessionResponse.self, from: Data("{\"success\":true,\"session\":null}".utf8))
     let intent = DJConnectWatchSessionAction(snapshot: .init(settings: original, session: nil), language: "nl")
@@ -288,7 +288,7 @@ private extension String {
     } catch { #expect(writes == 2) }
 }
 
-@Test @MainActor func watchTextReplyUsesItsOwnBoundWithoutRetryingOrChangingOtherRequests() async throws {
+@Test(.isolatedClientResources) @MainActor func watchTextReplyUsesItsOwnBoundWithoutRetryingOrChangingOtherRequests() async throws {
     let pending = DJConnectWatchProxyRequests(timeout: .milliseconds(5))
     let payload = try JSONEncoder().encode(["command": "ask_dj_message"])
     #expect(DJConnectWatchProxyRequest(operation: .askDJMessage).isAskDJTextSubmission)

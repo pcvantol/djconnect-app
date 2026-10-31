@@ -42,11 +42,16 @@ Requirements:
 See [DEVELOPMENT_ENVIRONMENT.md](DEVELOPMENT_ENVIRONMENT.md) for the expected
 local machine, toolchain, simulator, signing, and hygiene setup.
 
+The client fixture isolation and bounded parallel CI phases are documented in
+[Development](docs/DEVELOPMENT.md). Use a unique external Shared Data temporary
+root for `DJCONNECT_VALIDATION_ROOT`; independent builds must not share one
+DerivedData directory. Test parallelism does not authorize signing or release.
+
 Useful commands:
 
 ```sh
-swift test --no-parallel
-swift test --package-path Tools/qualification/vibecast-native --scratch-path /tmp/djc-vibecast-binding --jobs 2
+swift test --parallel
+swift test --parallel --num-workers 2 --package-path Tools/qualification/vibecast-native --scratch-path "$DJCONNECT_VALIDATION_ROOT/vibecast" --jobs 2
 python3 scripts/validate_localizations.py
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectMac -configuration Debug -destination platform=macOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project DJConnectApp.xcodeproj -scheme DJConnectIOS -configuration Debug -destination generic/platform=iOS -derivedDataPath .xcode-derived CODE_SIGNING_ALLOWED=NO build

@@ -27,7 +27,7 @@ private final class RendezvousOwnerWire: URLProtocol, @unchecked Sendable {
 }
 @MainActor private final class RendezvousOwnerAuthority { var current = true }
 
-@MainActor @Test func rendezvousOwnerRejectsLegacyPlaintextBeforeOwnerRequest() async throws {
+@MainActor @Test(.isolatedClientResources) func rendezvousOwnerRejectsLegacyPlaintextBeforeOwnerRequest() async throws {
     RendezvousOwnerWire.reset()
     let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [RendezvousOwnerWire.self]
     let session = URLSession(configuration:config); defer { session.invalidateAndCancel() }
@@ -80,27 +80,36 @@ private final class CredentialDispatchWire:URLProtocol,@unchecked Sendable {
         request.setValue("Bearer synthetic-owner-token",forHTTPHeaderField:"Authorization")
         return request
     }
-    @Test func credentialedTaskStartsBeforeQueuedOwnerWithdrawal() async throws {
+    @Test(.isolatedClientResources) func credentialedTaskStartsBeforeQueuedOwnerWithdrawal() async throws {
         for path in ["transport/context","display/owner/context"] {
             CredentialDispatchWire.reset()
             let config = URLSessionConfiguration.ephemeral;config.protocolClasses = [CredentialDispatchWire.self]
             var observed:URLSessionDataTask?,probe:Task<Void,Never>?
+            var resumeIssued = false, probeEntered = false
             let authority = RendezvousOwnerAuthority()
-            let transport = DJConnectSessionArtworkTransport(configuration:config,preparationTaskCreated:{observed = $0})
+            let transport = DJConnectSessionArtworkTransport(configuration:config,
+                preparationTaskCreated:{observed = $0}, preparationTaskResumed:{ task in
+                    #expect(task === observed && !probeEntered)
+                    resumeIssued = true
+                })
             _ = try await transport.prepare(request(path),isCurrent:{
                 #expect(observed?.state == .suspended)
                 probe = Task { @MainActor in
-                    #expect(observed?.state != .suspended)
+                    probeEntered = true
+                    // Foundation may publish task.state later than resume().
+                    // Observe the actual synchronous call boundary instead.
+                    #expect(resumeIssued)
                     authority.current = false
                 }
                 return authority.current
             })
             await probe?.value
+            #expect(observed?.state != .suspended)
             #expect(CredentialDispatchWire.requests.count == 1)
             #expect(CredentialDispatchWire.requests.first?.value(forHTTPHeaderField:"Authorization") == "Bearer synthetic-owner-token")
         }
     }
-    @Test func withdrawnOwnerNeverResumesCredentialedTask() async throws {
+    @Test(.isolatedClientResources) func withdrawnOwnerNeverResumesCredentialedTask() async throws {
         for path in ["transport/context","display/owner/context"] {
             CredentialDispatchWire.reset()
             let config = URLSessionConfiguration.ephemeral;config.protocolClasses = [CredentialDispatchWire.self]
@@ -109,7 +118,7 @@ private final class CredentialDispatchWire:URLProtocol,@unchecked Sendable {
             #expect(CredentialDispatchWire.requests.isEmpty)
         }
     }
-    @Test func denialPrecedesMalformedAndOversizedBodyMetadata() async throws {
+    @Test(.isolatedClientResources) func denialPrecedesMalformedAndOversizedBodyMetadata() async throws {
         for status in [401,403] {
             CredentialDispatchWire.reset(status:status)
             let config = URLSessionConfiguration.ephemeral;config.protocolClasses = [CredentialDispatchWire.self]

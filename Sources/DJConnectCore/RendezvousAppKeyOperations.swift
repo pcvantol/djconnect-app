@@ -5,7 +5,7 @@ import Foundation
 /// acquiring the slot, and resolve retries/outcome uncertainty inside its operation.
 /// This component neither authorizes an action nor generates or persists keys.
 public actor RendezvousAppKeyOperations {
-    public static let shared = RendezvousAppKeyOperations()
+    public static var shared: RendezvousAppKeyOperations { DJConnectTransportResources.current.appKeys }
     // Shared by initial generation and every legacy journal creation entry point.
     static let installationAdmissionSlot = "rendezvous-initial-generation-v1"
     @TaskLocal static var initialEnrollmentLease:RendezvousInitialEnrollmentLease?

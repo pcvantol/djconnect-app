@@ -15,7 +15,7 @@ private func contentDecode<T: Decodable>(_ value: Any, as: T.Type = T.self) thro
     try JSONDecoder().decode(T.self, from: JSONSerialization.data(withJSONObject: value))
 }
 
-@Test(arguments: ["ok", "owner", "target", "expiry", "lifetime", "unit", "disposition", "playback"])
+@Test(.isolatedClientResources, arguments: ["ok", "owner", "target", "expiry", "lifetime", "unit", "disposition", "playback"])
 func contentDeletePreviewRequiresExactServerScope(_ mutation: String) throws {
     var object = try #require(contentExamples()["prepare_response"] as? [String: Any])
     let original: DJConnectContentDeleteScope = try contentDecode(object)
@@ -36,7 +36,7 @@ func contentDeletePreviewRequiresExactServerScope(_ mutation: String) throws {
     #expect(DJConnectContentDeleteTarget(kind: "message", sessionID: "", targetID: "server-id").isValid)
 }
 
-@Test(arguments: ["ok", "owner", "operation", "confirmation", "digest", "unit", "entries", "messages", "unit_kind", "playback", "state"])
+@Test(.isolatedClientResources, arguments: ["ok", "owner", "operation", "confirmation", "digest", "unit", "entries", "messages", "unit_kind", "playback", "state"])
 func contentDeleteReceiptBindsOriginalConfirmationBodyAndCascade(_ mutation: String) throws {
     let examples = try contentExamples()
     let scope: DJConnectContentDeleteScope = try contentDecode(try #require(examples["prepare_response"]))
@@ -63,7 +63,7 @@ func contentDeleteReceiptBindsOriginalConfirmationBodyAndCascade(_ mutation: Str
     #expect(receipt.admits(scope: scope, request: request, owner: "profile-a") == (mutation == "ok"))
 }
 
-@Test func contentDeleteCapabilityRequiresExactProducerVersion() throws {
+@Test(.isolatedClientResources) func contentDeleteCapabilityRequiresExactProducerVersion() throws {
     for flag in [false, true] {
         for version in [0, 1, 2] {
             let caps: DJConnectSessionHistoryCapabilities = try contentDecode([
@@ -74,7 +74,7 @@ func contentDeleteReceiptBindsOriginalConfirmationBodyAndCascade(_ mutation: Str
     }
 }
 
-@Test(arguments: ["moment", "attempt"])
+@Test(.isolatedClientResources, arguments: ["moment", "attempt"])
 func contentDeleteUsesOriginalMomentAndAttemptScopes(_ kind: String) throws {
     let examples = try contentExamples()
     let scope: DJConnectContentDeleteScope = try contentDecode(try #require(examples[kind + "_prepare_response"]))
@@ -89,7 +89,7 @@ func contentDeleteUsesOriginalMomentAndAttemptScopes(_ kind: String) throws {
     if kind == "attempt" { #expect(scope.target.session_id == "" && scope.target.kind == "request") }
 }
 
-@Test(arguments: ["completed", "pending", "unknown", "expired_unknown", "owner", "digest", "operation", "confirmation", "definitive"])
+@Test(.isolatedClientResources, arguments: ["completed", "pending", "unknown", "expired_unknown", "owner", "digest", "operation", "confirmation", "definitive"])
 func contentDeleteStatusNeverSettlesUnboundOrUncertainResults(_ mutation: String) throws {
     let examples = try contentExamples()
     let scope: DJConnectContentDeleteScope = try contentDecode(try #require(examples["prepare_response"]))
@@ -120,7 +120,7 @@ func contentDeleteStatusNeverSettlesUnboundOrUncertainResults(_ mutation: String
 import AppKit
 @testable import DJConnectUI
 
-@Test @MainActor func revealedContributionDismissalExcludesTrashAndOtherWindows() throws {
+@Test(.isolatedAppKitResources) @MainActor func revealedContributionDismissalExcludesTrashAndOtherWindows() throws {
     _ = NSApplication.shared
     let window = NSWindow(contentRect: .init(x: -3000, y: -3000, width: 400, height: 300),
                           styleMask: [.borderless], backing: .buffered, defer: false)

@@ -20,7 +20,7 @@ private struct MouseBackNavigationProbe: View {
     }
 }
 
-@Test @MainActor func nativeMouseBackPopsOnePage() async throws {
+@Test(.isolatedAppKitResources) @MainActor func nativeMouseBackPopsOnePage() async throws {
     _ = NSApplication.shared
     let state = MouseBackPath()
     let host = NSHostingView(rootView: MouseBackNavigationProbe(state: state))

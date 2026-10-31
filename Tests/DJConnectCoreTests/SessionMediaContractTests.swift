@@ -23,7 +23,7 @@ private func artworkDate(_ media: DJConnectSessionMedia) throws -> Date {
 
 @Suite(.serialized) struct SessionMediaTests {
 
-@Test func sessionMediaDecodesActualPinnedCorePositiveProjections() throws {
+@Test(.isolatedClientResources) func sessionMediaDecodesActualPinnedCorePositiveProjections() throws {
     for name in ["playback_cover", "album_story", "artist_story", "late_artist_after_track_change", "older_entry_refresh"] {
         let media = try decodeArtwork(artworkExample(name))
         let target = try #require(media.target)
@@ -37,7 +37,7 @@ private func artworkDate(_ media: DJConnectSessionMedia) throws -> Date {
     #expect(loading.admittedArtwork(session: loading.sessionID, target: try #require(loading.target), audience: .activeFlow) == nil)
 }
 
-@Test func sessionMediaKeepsTargetAndAudienceIndependentFromCurrentPlayback() throws {
+@Test(.isolatedClientResources) func sessionMediaKeepsTargetAndAudienceIndependentFromCurrentPlayback() throws {
     let media = try decodeArtwork(artworkExample("artist_story"))
     let target = try #require(media.target)
     let now = try artworkDate(media)
@@ -49,7 +49,7 @@ private func artworkDate(_ media: DJConnectSessionMedia) throws -> Date {
     #expect(media.admittedArtwork(session: media.sessionID, target: .moment("another-moment"), audience: .activeFlow, at: now) == nil)
 }
 
-@Test func sessionMediaOriginalExpiryDoesNotSlideOnRepeatedReads() throws {
+@Test(.isolatedClientResources) func sessionMediaOriginalExpiryDoesNotSlideOnRepeatedReads() throws {
     let media = try decodeArtwork(artworkExample("playback_cover"))
     let expiry = try #require(media.artwork.expiresAt.flatMap(DJConnectHistoryEntry.date))
     let target = try #require(media.target)
@@ -59,7 +59,7 @@ private func artworkDate(_ media: DJConnectSessionMedia) throws -> Date {
     }
 }
 
-@Test func sessionMediaRejectsUnmanagedURLsIncompleteProvenanceAndInvalidGeometry() throws {
+@Test(.isolatedClientResources) func sessionMediaRejectsUnmanagedURLsIncompleteProvenanceAndInvalidGeometry() throws {
     let cases: [(String, Any)] = [
         ("url", "https://i.scdn.co/image/abcdef"), ("url", "//evil.invalid/image"),
         ("url", "/api/djconnect/v1/session/media/image/another-session/asset"),
@@ -81,7 +81,7 @@ private func artworkDate(_ media: DJConnectSessionMedia) throws -> Date {
     }
 }
 
-@Test func sessionMediaSixStatesAndFutureSchemaRemainTextOnlyWhenNotReady() throws {
+@Test(.isolatedClientResources) func sessionMediaSixStatesAndFutureSchemaRemainTextOnlyWhenNotReady() throws {
     for state in ["loading", "missing", "expired", "withdrawn", "unavailable"] {
         var object = try artworkExample("playback_cover")
         var art = try #require(object["artwork"] as? [String: Any]); art["state"] = state; object["artwork"] = art
@@ -169,7 +169,7 @@ private func liveArtworkExample() throws -> DJConnectSessionMedia {
     return try decodeArtwork(value)
 }
 
-@Test func sessionMediaAuthenticatedPixelsAndResourceFailuresKeepPairing() async throws {
+@Test(.isolatedClientResources) func sessionMediaAuthenticatedPixelsAndResourceFailuresKeepPairing() async throws {
     let media = try liveArtworkExample()
     let token = DJConnectInMemoryTokenStore(token: "fixture-artwork-token")
     let configuration = URLSessionConfiguration.ephemeral
@@ -200,7 +200,7 @@ private func liveArtworkExample() throws -> DJConnectSessionMedia {
     }
 }
 
-@Test func sessionMediaDecoderRejectsMIMEGeometryAndContentMismatch() throws {
+@Test(.isolatedClientResources) func sessionMediaDecoderRejectsMIMEGeometryAndContentMismatch() throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let data = try Data(contentsOf: root.appendingPathComponent("Fixtures/session-artwork-artist-core-5c7ecb79.png"))
     for (mime, width, height) in [("image/jpeg", 64, 64), ("image/png", 65, 64), ("image/png", 4097, 64), ("image/png", 64, 0)] {
@@ -213,7 +213,7 @@ private func liveArtworkExample() throws -> DJConnectSessionMedia {
     }
 }
 
-@Test func sessionMediaOptionalProjectionDoesNotDropMomentOrHistoryText() throws {
+@Test(.isolatedClientResources) func sessionMediaOptionalProjectionDoesNotDropMomentOrHistoryText() throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     let raw = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Fixtures/moment-contract-receipt.json"))) as! [String: Any]
     var snapshot = try #require(raw["snapshot"] as? [String: Any])
@@ -242,7 +242,7 @@ private func liveArtworkExample() throws -> DJConnectSessionMedia {
 }
 
 
-@Test func sessionMediaLateBytesCannotExtendOriginalExpiry() async throws {
+@Test(.isolatedClientResources) func sessionMediaLateBytesCannotExtendOriginalExpiry() async throws {
     var value = try artworkExample("artist_story")
     var art = try #require(value["artwork"] as? [String: Any])
     let formatter = ISO8601DateFormatter()
@@ -268,7 +268,7 @@ private func liveArtworkExample() throws -> DJConnectSessionMedia {
 }
 
 
-@Test func sessionMediaExplicitPreparationIsBoundedAndCannotSubstituteTargets() async throws {
+@Test(.isolatedClientResources) func sessionMediaExplicitPreparationIsBoundedAndCannotSubstituteTargets() async throws {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [ArtworkURLProtocol.self]
     let session = URLSession(configuration: configuration)
@@ -295,7 +295,7 @@ private func liveArtworkExample() throws -> DJConnectSessionMedia {
     }
 }
 
-@Test func sessionMediaLargePixelsAreDownsampledWithoutCropping() throws {
+@Test(.isolatedClientResources) func sessionMediaLargePixelsAreDownsampledWithoutCropping() throws {
     let context = try #require(CGContext(data: nil, width: 1024, height: 512, bitsPerComponent: 8,
         bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
     let source = try #require(context.makeImage())
@@ -319,7 +319,7 @@ private func capturedReplyExample() throws -> [String: Any] {
     return try #require(examples["reply_media"] as? [String: Any])
 }
 
-@Test func capturedReplyArtworkUsesProtectedOriginalSubjectAndReplyAudienceOnly() throws {
+@Test(.isolatedClientResources) func capturedReplyArtworkUsesProtectedOriginalSubjectAndReplyAudienceOnly() throws {
     let media = try decodeArtwork(capturedReplyExample())
     let now = try artworkDate(media), target = try #require(media.target)
     #expect(media.entryAudience == .reply)
@@ -335,7 +335,7 @@ private func capturedReplyExample() throws -> [String: Any] {
     #expect(media.admittedArtwork(session: media.sessionID, target: target, audience: .reply, at: expiry) == nil)
 }
 
-@Test func capturedReplyArtworkCannotInheritCurrentOrFlowPermissionsOrLoseAlbumEdition() throws {
+@Test(.isolatedClientResources) func capturedReplyArtworkCannotInheritCurrentOrFlowPermissionsOrLoseAlbumEdition() throws {
     let original = try capturedReplyExample()
     for (field, value) in [("reply_display_allowed", false as Any), ("current_display_allowed", true as Any),
                            ("active_flow_display_allowed", true as Any), ("edition_basis", "provider_resolved_now" as Any),
@@ -354,7 +354,7 @@ private func capturedReplyExample() throws -> [String: Any] {
     #expect(ordinary.admittedArtwork(session: ordinary.sessionID, target: try #require(ordinary.target), audience: .reply, at: try artworkDate(ordinary)) == nil)
 }
 
-@Test func capturedReplyCapabilityMustBeExactAndIndependentOfOrdinaryArt() throws {
+@Test(.isolatedClientResources) func capturedReplyCapabilityMustBeExactAndIndependentOfOrdinaryArt() throws {
     for version in [0, 1, 2] {
         let body: [String: Any] = ["capabilities": ["session_artwork": true, "captured_reply_artwork": true],
                                   "contract_versions": ["session_artwork": 1, "captured_reply_artwork": version]]
@@ -364,7 +364,7 @@ private func capturedReplyExample() throws -> [String: Any] {
     }
 }
 
-@Test func capturedAlbumArtworkBindsItselfWithoutRequiringTrackOnlyAlbumField() throws {
+@Test(.isolatedClientResources) func capturedAlbumArtworkBindsItselfWithoutRequiringTrackOnlyAlbumField() throws {
     var object = try capturedReplyExample()
     var art = try #require(object["artwork"] as? [String: Any])
     let source = "https://open.spotify.com/album/BBBBBBBBBBBBBBBBBBBBBB"
