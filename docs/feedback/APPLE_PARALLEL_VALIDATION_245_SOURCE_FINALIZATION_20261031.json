@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "scope": "Original Source245 engineering delivery only; this documentary Final requires its own exact review, protected delivery and original qualification",
+  "source_pr": 245,
+  "original_source_delivery": {
+    "source_pr": 245,
+    "candidate": "1de2ea6c767179673f89cdcd29325fead531bdf3",
+    "main": "0590166c03cd463891a295f9951acae674f102db",
+    "tree": "408a393199bc7010a2b95311138adf64166dcecb",
+    "reviewed_and_merged_tree_equal": true,
+    "main_CI_run": 41199607410,
+    "formal_run": 41201532416,
+    "original_run_attempts": 1,
+    "formal_decision": "POST_MERGE_RELEASE_EVIDENCE_QUALIFIED",
+    "formal_digest": "9f709c2eadab5d59370b04351281ded69695f662430e6530ac0347ef3fceb6fd",
+    "formal_findings": [],
+    "formal_raw_sha256": "d2d0fdc07ccf5a49d729a5b7646695e506741283f60145443ce31a6f55619af0",
+    "formal_original_artifact_id": 13042407998,
+    "formal_original_ZIP_actual_provider_sha256": "68279da11d58411adda5078f16cc1005725dc2c185ea8597479debac4dcd46c6",
+    "formal_raw_joined_to_original_ZIP": true,
+    "durable_asset_id": 695338327,
+    "durable_actual_and_provider_sha256": "e476ae0771a0e4b972e42659e844149abcf97b96a1bf377893cb69c15c36f382",
+    "durable_inner_integrity_verified": true,
+    "all12_required_checks": {
+      "post_merge_build_validation": "PASS",
+      "post_merge_ci": "PASS",
+      "post_merge_coverage": "PASS",
+      "post_merge_governance": "PASS",
+      "post_merge_lint": "PASS",
+      "post_merge_static_analysis": "PASS",
+      "post_merge_tests": "PASS",
+      "required_checks": "PASS",
+      "software_assurance": "PASS",
+      "trusted_delivery": "PASS",
+      "verification": "PASS",
+      "workflow_integrity": "PASS"
+    },
+    "review_sha256": "321a3c7d5e29d14f582b654e9d1e39af0cb8a7687b85b81f4e744acfa68fc4a8",
+    "scope": "Apple parallel CI/resource isolation and settings lifecycle Source245 engineering delivery only; no TDE analysis, clean simulator or provider/device acceptance"
+  },
+  "original_policy_and_native_coverage": {
+    "scope": "Original exact-policy deterministic validation and own coverage binding; not independent reviewer closure or native acceptance.",
+    "source_pr": 245,
+    "candidate": "1de2ea6c767179673f89cdcd29325fead531bdf3",
+    "main": "0590166c03cd463891a295f9951acae674f102db",
+    "original_qualification_receipt_sha256": "756ae135af50ff77aa74e4b9dc087b2118ee65e196d066f7fe8be0a8561727c0",
+    "policy_ref": "ebbb35f038a7a3c7d46c12660968bcd50eb67580",
+    "policy_sha256": "2419a355e1fb6b85448d362681c061470d59d45936b06f2b9a6249278351a449",
+    "policy_validation_findings": [],
+    "reconciliation_policy_sha256": "ca906d5c458a66956c3e23b59ab85d21230c0c241ee8a15b5b73526341a6b659",
+    "reconciliation_validation_findings": [],
+    "original_coverage": {
+      "main": "0590166c03cd463891a295f9951acae674f102db",
+      "own_main_run": 41199607410,
+      "artifact_id": 13042762209,
+      "actual_and_provider_zip_sha256": "1d2707894afdf03354a88238daaa90d742b4591ca118300abc7a9d0a952314e4",
+      "members": {
+        "coverage.json": {
+          "bytes": 3442414,
+          "sha256": "9ba5834609de6091319eb92f42e73bb6b9eb79dda33c9cc59d9d1f5c795eb6c1"
+        },
+        "coverage-main-sha.txt": {
+          "bytes": 41,
+          "sha256": "d2a9b43681d432d1770d9399f8cf791323c9457d9e01bb34d582f3c2503c9d67"
+        }
+      },
+      "selected_native_runtime_coverage": [
+        {
+          "name": "DJConnectBoundedHTTPTransport.swift",
+          "coveredLines": 126,
+          "executableLines": 127
+        },
+        {
+          "name": "DJConnectClient.swift",
+          "coveredLines": 2060,
+          "executableLines": 2332
+        },
+        {
+          "name": "DJConnectSpeechTransport.swift",
+          "coveredLines": 97,
+          "executableLines": 100
+        },
+        {
+          "name": "DJConnectSurfacePushHTTP.swift",
+          "coveredLines": 147,
+          "executableLines": 150
+        },
+        {
+          "name": "DJConnectSessionArtworkTransport.swift",
+          "coveredLines": 110,
+          "executableLines": 127
+        },
+        {
+          "name": "RendezvousAppKeyOperations.swift",
+          "coveredLines": 232,
+          "executableLines": 234
+        },
+        {
+          "name": "DJConnectAppModel.swift",
+          "coveredLines": 11443,
+          "executableLines": 17830
+        }
+      ],
+      "scope": "Own original selected native Core/UI runtime coverage; iOS-only SDK and widget animation are not covered by Mac target, no physical/provider/push acceptance."
+    },
+    "native_coverage_limit": "Own Source245 selected native Core/UI runtime coverage only; no clean simulator, provider, device, push or OS animation acceptance."
+  },
+  "original_owner_authorization": {
+    "schema_version": 1,
+    "kind": "trusted_delivery_owner_authorization",
+    "repository": "pcvantol/djconnect-app",
+    "branch": "main",
+    "pr_number": 245,
+    "candidate_sha": "1de2ea6c767179673f89cdcd29325fead531bdf3",
+    "classification": "HIGH_RISK",
+    "owner": "pcvantol",
+    "github_actor": "pcvantol",
+    "workflow_run_id": "41198270471",
+    "timestamp": "2026-10-31T11:47:00.696Z",
+    "result": "PASS"
+  },
+  "independent_original_source_closure": {
+    "verdict": "ORIGINAL_SOURCE_QUALIFIED",
+    "receipt_sha256": "4bc70cd600e847c29d375e5cef37107f7ced86e2d63c8e8a542ce9fbc0a06b34",
+    "source_join_packet_sha256": "eef7617f20507cb8fc4ed4e0fff522eabfc0f18217949fa0172726345064758d",
+    "members": 44
+  },
+  "original_tde_observation": {
+    "pre_merge_run": 41198213160,
+    "main_run": 41199607059,
+    "both_conclusions": "CANCELLED automatically at job limit during published-runtime installation",
+    "native_coverage_steps": "SUCCESS only within their own step scope",
+    "assessment": "NOT_QUALIFIED; no successful TDE assessment claimed"
+  },
+  "validated_behavior": [
+    "Per-case transport/key-operation isolation with unchanged shipping singleton/caps2 and child-task sharing; bounded8 fixtures and exclusive native AppKit focus.",
+    "Nine independent validators, two separate Swift packages and both unsigned platform builds run with isolated output roots and bounded workers; all13 original main phase commands passed.",
+    "Settings request UUID and paired-owner/lifecycle guards prevent stale reads blocking or releasing successors; current authority withdrawal retires surface selection. Held actual URLProtocol responses cover ordering, coalescing, ABA and401 denial."
+  ],
+  "local_validation": {
+    "full_parallel": "1420tests/36suites/28.830s/exit0",
+    "native_custody": "23functions; four new functions/six cases; exit0",
+    "ci_original_main": 41199607410,
+    "formal_original": 41201532416,
+    "durable_checks": "12/12 PASS; original pinned validators report no findings"
+  },
+  "remaining": [
+    "Real shared WebSocket authentication/capabilities single-flight, one result reader, exact request-ID and cancellation/socket-generation correctness need a separate increment; the existing three collection reads already use this adapter. The rejected Discovery concurrency prototype remains excluded.",
+    "TDE observe resource/output isolation and finite installation network budgets require a separate policy-reviewed increment. Both original Source245 TDE runs were automatically job-limit CANCELLED during runtime installation, not a qualified assessment.",
+    "Preserved selected-context performance commit92abb2fe43293455d68595bfb71300c71715eec1 still needs its own integration, qualification and delivery.",
+    "Clean iOS simulator qualification remains open pending Xcode component/first-launch administrative readiness. No physical-device, provider, push, FPS, energy or whole-performance acceptance is claimed."
+  ],
+  "unchanged": [
+    "All prior work-register identities/statuses/counts and historical evidence/remaining prefixes retained",
+    "Requirement-acceptance JSON/Markdown byte-identical",
+    "No source/workflow/helper/test/app-version/install/provider/key change in this Final"
+  ]
+}
