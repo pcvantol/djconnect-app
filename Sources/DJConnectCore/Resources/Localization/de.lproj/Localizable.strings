@@ -1619,3 +1619,5 @@
 "ui.content.delete.blocked.request" = "Eine andere DJ-Anfrage ist noch offen.";
 "ui.content.delete.blocked.voice" = "Beende zuerst die Sprachaufnahme.";
 "ui.content.delete.recover_previous" = "Frühere Löschung prüfen";
+"ui.vibescape.voice.starting" = "Mikrofon wird vorbereitet…";
+"ui.vibescape.voice.start_failed" = "Die Aufnahme konnte nicht starten. Versuche es erneut.";

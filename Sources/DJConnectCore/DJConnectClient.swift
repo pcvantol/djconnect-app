@@ -630,7 +630,7 @@ public final class DJConnectClient: Sendable {
     public func visualDirectorContext(sessionID: String, visitID: UUID) async throws -> DJConnectVisualContext {
         let payload = VisualIdentity(device_id: identity.deviceID, client_type: identity.clientType.rawValue,
                                      session_id: sessionID, visit_id: visitID.uuidString)
-        return try decoder.decode(DJConnectVisualContext.self, from: await sessionArtworkTransport.prepare(visualDirectorRequest("context", payload: payload)))
+        return try decoder.decode(DJConnectVisualContext.self, from: await sessionArtworkTransport.prepare(visualDirectorRequest("context", payload: payload), allowsVisualContextReadiness: true))
     }
     public func interpretVisualDirection(_ payload: DJConnectVisualInterpretRequest) async throws -> DJConnectVisualInterpretResponse {
         guard payload.device_id == identity.deviceID, payload.client_type == identity.clientType.rawValue,
@@ -2271,6 +2271,11 @@ private struct DJConnectVisualCatalogue: Decodable {
         interpretation == "closed_visual_grammar" && application == "native_client_only" && context_required
     }
 }
+/// Explicit refusal before a context lease exists; never an interpretation retry.
+public enum DJConnectVisualContextError: Error, Sendable {
+    case awaitingObservation
+}
+
 public struct DJConnectVisualContext: Decodable, Sendable {
     public let success: Bool
     public let schema_version: Int

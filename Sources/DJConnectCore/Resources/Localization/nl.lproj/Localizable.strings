@@ -1619,3 +1619,5 @@
 "ui.content.delete.blocked.request" = "Er staat nog een ander DJ-verzoek open.";
 "ui.content.delete.blocked.voice" = "Stop eerst de spraakopname.";
 "ui.content.delete.recover_previous" = "Controleer eerdere verwijdering";
+"ui.vibescape.voice.starting" = "Microfoon wordt klaargemaakt…";
+"ui.vibescape.voice.start_failed" = "De opname kon niet starten. Probeer opnieuw.";

@@ -9218,3 +9218,61 @@ func sessionHistoryOwnerWithdrawalDuringPreflightCannotSendAfterGateRelease(_ ac
     history.suspend()
     #expect(history.contentDeletionTarget(for: retained) == nil)
 }
+
+
+@Test(.isolatedClientResources, arguments: ["ready-later", "wrong-code", "wrong-version", "extra", "success", "other-status", "wrong-type"])
+func visualContextOnlyExplicitObservationReadinessIsWaitable(_ fault: String) async throws {
+    var body: [String: Any] = ["success": false, "schema_version": 1, "error": "current_playback_unavailable"]
+    if fault == "wrong-code" { body["error"] = "visual_unavailable" }
+    if fault == "wrong-version" { body["schema_version"] = 2 }
+    if fault == "extra" { body["lease"] = "not-admitted" }
+    if fault == "success" { body["success"] = true }
+    if fault == "wrong-type" { body["schema_version"] = true }
+    let data = try historyData(body), status = fault == "other-status" ? 500 : 503
+    let wire = HistoryWireFixture { _ in (status, data, 0) }
+    defer { wire.close() }
+    do {
+        _ = try await wire.client().visualDirectorContext(sessionID: "session-a", visitID: UUID())
+        Issue.record("A refusal became a context lease")
+    } catch is DJConnectVisualContextError { #expect(fault == "ready-later") }
+    catch { #expect(fault != "ready-later") }
+    #expect(wire.requests.count == 1)
+    // The same envelope on another route never grants automatic waiting/replay.
+    do {
+        try await wire.client().revokeVisualVisit(sessionID: "session-a", visitID: UUID())
+        Issue.record("A refusal became a successful revoke")
+    } catch is DJConnectVisualContextError { Issue.record("Readiness escaped its context-only route") }
+    catch {}
+    #expect(wire.requests.count == 2)
+}
+
+
+@Test(.isolatedClientResources) @MainActor
+func visualVoiceReadinessAcrossActualContextHTTPPreservesReachabilityAndOriginalLease() async throws {
+    let visit = UUID(), counter = HTTPRecoveryActiveReadCounter(), modes = PresenceModes()
+    let ready = try historyData(["success": true, "schema_version": 1, "visit_id": visit.uuidString,
+        "context_lease_id": "original-lease", "observed_occurrence_id": "original-occurrence",
+        "lease_duration_ms": 10000, "expires_at": "2026-11-01T20:00:00Z"])
+    let unavailable = Data(#"{"success":false,"schema_version":1,"error":"current_playback_unavailable"}"#.utf8)
+    let wire = HistoryWireFixture { request in
+        guard request.url?.path.hasSuffix("/vibescape/context") == true else { throw DJConnectError.invalidResponse }
+        return counter.next() < 3 ? (503, unavailable, 0) : (200, ready, 0)
+    }
+    defer { wire.close() }
+    let manager = DJConnectHATransportManager(localURL: wire.baseURL,
+        remoteURL: URL(string: "https://remote.test"), allowsRemoteFallback: true,
+        clientFactory: { _ in wire.client() }, modeReporter: { mode, _ in modes.record(mode) })
+    var clock: TimeInterval = 100
+    let (context, requestStarted) = try await VibeScapeVoiceReadiness.read(isCurrent: { true }, now: { clock },
+        wait: { clock += 1 }) {
+            let originalStarted = clock
+            let context = try await manager.perform(allowsOperationReplay: false) {
+                try await $0.visualDirectorContext(sessionID: "session-a", visitID: visit)
+            }
+            return (context, originalStarted)
+        }
+    #expect(context.context_lease_id == "original-lease" && context.lease_duration_ms == 10000)
+    #expect(context.expires_at == "2026-11-01T20:00:00Z" && requestStarted == 102)
+    #expect(counter.value == 3 && wire.requests.count == 3)
+    #expect(modes.values == [.local, .local, .local])
+}
