@@ -597,15 +597,22 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         return matches.count == 1 ? matches.first : nil
     }
 
-    /// Drop only the exact numbered projection of the structured catalogue.
-    /// Preserve prose/captions and distinct editions, including repeated titles.
+    /// Remove only producer list lines also represented by structured music
+    /// rows. Keep prose, unmatched items and the original stored message intact.
     var catalogueTextForDisplay: String {
-        guard role == .dj, textSource == "qualified_catalog_result", !items.isEmpty,
+        guard role == .dj, !items.isEmpty,
               items.allSatisfy({ ["track", "album", "artist", "playlist"].contains($0.kind?.lowercased() ?? "") && !$0.title.isEmpty }) else { return text }
+        let history = intentInfo?.intent == "recently_played_history" && intentInfo?.action == "recently_played"
+        guard textSource == "qualified_catalog_result" || history else { return text }
         func normalized(_ value: String) -> String { value.split(whereSeparator: \.isWhitespace).joined(separator: " ") }
-        let projected = Set(items.enumerated().map { index, item in
+        let projected = Set(items.enumerated().flatMap { index, item -> [String] in
             let title = normalized(item.title), subtitle = normalized(item.subtitle ?? "")
-            return "\(index + 1). " + title + (subtitle.isEmpty || subtitle == title ? "" : " — " + subtitle)
+            if history {
+                let line = subtitle.isEmpty ? title : (item.kind?.lowercased() == "track"
+                    ? subtitle + " - " + title : title + " - " + subtitle)
+                return ["- " + line, "• " + line]
+            }
+            return ["\(index + 1). " + title + (subtitle.isEmpty || subtitle == title ? "" : " — " + subtitle)]
         })
         return text.components(separatedBy: .newlines)
             .filter { !projected.contains(normalized($0)) }
