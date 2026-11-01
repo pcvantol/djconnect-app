@@ -1,23 +1,6 @@
 import SwiftUI
 import DJConnectCore
 
-/// Match the composer's purple frost without tinting the text or controls.
-/// Opaque accessibility/preferences continue to use the shared material policy.
-private struct AskDJHelpGlassBackground: View {
-    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    var body: some View {
-        Rectangle()
-            .fill(DJConnectMaterial(.regular))
-            .overlay {
-                if glassEnabled && !reduceTransparency {
-                    DJConnectGlassAppearance.composerTint.opacity(0.30)
-                }
-            }
-            .allowsHitTesting(false)
-    }
-}
-
 /// Transient conversation scope for closing stale Help; no visibility preference.
 struct AskDJHelpScope: Equatable {
     var owner: String?
@@ -58,11 +41,12 @@ struct AskDJHelpPanel<Compact: View, Catalogue: View>: View {
                         .buttonStyle(.plain).frame(width: 44, height: 44)
                         .accessibilityLabel(backLabel).accessibilityIdentifier("ask-dj-suggestions-back")
                 }
-                Text(title).font(.headline).foregroundStyle(.white)
+                Text(title).font(.title2.bold()).foregroundStyle(.white)
+                    .accessibilityAddTraits(.isHeader)
                     .lineLimit(1).minimumScaleFactor(0.75)
                 Spacer(minLength: 0)
-                Button(action: close) { Image(systemName: "xmark") }
-                    .buttonStyle(.plain).frame(width: 44, height: 44)
+                Button(action: close) { Image(systemName: "xmark").frame(width: 44, height: 44) }
+                    .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
                     .accessibilityLabel(closeLabel).accessibilityIdentifier("ask-dj-suggestions-close")
             }
             .frame(height: headerHeight)
@@ -81,10 +65,7 @@ struct AskDJHelpPanel<Compact: View, Catalogue: View>: View {
             .frame(height: expanded ? bodyHeight : min(compactHeight, bodyHeight))
         }
         .padding(panelPadding).frame(maxWidth: 580)
-        .background {
-            AskDJHelpGlassBackground().clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        }
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(.white.opacity(0.16), lineWidth: 0.6))
+        .djSessionFrostedSurface()
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: expanded)
         .accessibilityElement(children: .contain)
     }
