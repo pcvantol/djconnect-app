@@ -13470,6 +13470,8 @@ struct SessionGlassChoiceSelector: View {
     var accessibilityLabelKey = "ui.session.select_mood"
     var optionIDs: [String]? = nil
     var selectionColor: Color = djConnectAccent
+    var sessionTheme: DJConnectSessionMoodTheme? = nil
+    private var resolvedSelectionColor: Color { sessionTheme?.controlSelectionColor ?? selectionColor }
     var preservesAppearanceWhileDisabled = true
     var selectedLabelIdentifier = "session-popover-selected-mood"
     @FocusState private var focusedOption: Int?
@@ -13482,36 +13484,7 @@ struct SessionGlassChoiceSelector: View {
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 4) {
-                ForEach(steps.indices, id: \.self) { index in
-                    Button { DJConnectHaptics.selection(); onSelect(index) } label: {
-                        Image(systemName: glyphs[safe: index] ?? "sparkles")
-                            .font(.title3.weight(.semibold))
-                            // Equal intrinsic width keeps HStack allocation independent of the symbol.
-                            .frame(width: 24, height: 28)
-                            .foregroundStyle(.white.opacity(index == selectedIndex ? 1 : 0.78))
-                            .frame(maxWidth: .infinity, minHeight: 48)
-                    }
-                    .djConnectButtonStyle(DJConnectButtonStyle(
-                        emphasis: index == selectedIndex ? .selected : .secondary,
-                        shape: .segmented, expands: true, usesLiveGlass: true,
-                        showsFocusIndicator: false, foregroundColor: .white.opacity(index == selectedIndex ? 1 : 0.78),
-                        selectionTint: selectionColor, dimsWhenDisabled: !preservesAppearanceWhileDisabled
-                    ))
-                    .focused($focusedOption, equals: index)
-                    .focusEffectDisabled()
-                    .overlay {
-                        DJConnectCardAppearance.segmentedItemShape
-                            .stroke(selectionColor.opacity(focusedOption == index ? 0.75 : 0), lineWidth: 1)
-                            .allowsHitTesting(false)
-                    }
-                    .accessibilityLabel(steps[index].label)
-                    .accessibilityAddTraits(index == selectedIndex ? .isSelected : [])
-                    .accessibilityIdentifier(optionIDs?[safe: index] ?? ("session-mood-option-" + String(index)))
-                }
-            }
-            .padding(DJConnectCardAppearance.segmentedContentInset)
-            .djConnectGradientCard()
+            optionButtons
             Text(steps[safe: selectedIndex]?.label ?? "")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.82))
@@ -13522,6 +13495,43 @@ struct SessionGlassChoiceSelector: View {
         .accessibilityLabel(localizedKey(language, accessibilityLabelKey))
         .accessibilityValue(steps[safe: selectedIndex]?.label ?? "")
     }
+    @ViewBuilder private var optionButtons: some View {
+        let buttons = HStack(spacing: 4) {
+                ForEach(steps.indices, id: \.self) { index in
+                    Button { DJConnectHaptics.selection(); onSelect(index) } label: {
+                        Image(systemName: glyphs[safe: index] ?? "sparkles")
+                            .font(.title3.weight(.semibold))
+                            // Equal intrinsic width keeps HStack allocation independent of the symbol.
+                            .frame(width: 24, height: 28)
+                            .foregroundStyle(.white.opacity(index == selectedIndex ? 1 : 0.78))
+                            .frame(maxWidth: .infinity, minHeight: 48)
+                            .background(sessionTheme != nil && index == selectedIndex
+                                ? resolvedSelectionColor.opacity(0.80) : .clear,
+                                in: DJConnectCardAppearance.segmentedItemShape)
+                    }
+                    .djConnectButtonStyle(DJConnectButtonStyle(
+                        emphasis: index == selectedIndex ? .selected : .secondary,
+                        shape: .segmented, expands: true, usesLiveGlass: true,
+                        showsFocusIndicator: false, foregroundColor: .white.opacity(index == selectedIndex ? 1 : 0.78),
+                        selectionTint: resolvedSelectionColor, dimsWhenDisabled: !preservesAppearanceWhileDisabled
+                    ))
+                    .focused($focusedOption, equals: index)
+                    .focusEffectDisabled()
+                    .overlay {
+                        DJConnectCardAppearance.segmentedItemShape
+                            .stroke(resolvedSelectionColor.opacity(focusedOption == index ? 0.75 : 0), lineWidth: 1)
+                            .allowsHitTesting(false)
+                    }
+                    .accessibilityLabel(steps[index].label)
+                    .accessibilityAddTraits(index == selectedIndex ? .isSelected : [])
+                    .accessibilityIdentifier(optionIDs?[safe: index] ?? ("session-mood-option-" + String(index)))
+                }
+            }
+            .padding(DJConnectCardAppearance.segmentedContentInset)
+        if sessionTheme != nil { buttons.djSessionFrostedSurface() }
+        else { buttons.djConnectGradientCard() }
+    }
+
 }
 
 func askDJMoodIcon(for index: Int) -> String {
