@@ -15,6 +15,10 @@ struct AskDJHelpOpenRequest: Equatable {
 enum AskDJHelpPanelLayout {
     static let coordinateSpace = "DJConnectConversationHelpViewport"
     static let gap: CGFloat = 12
+    struct Placement: Equatable {
+        var availableHeight: CGFloat = 0
+        var composerHeight: CGFloat = 0
+    }
 }
 
 /// One glass shell grows upward; both modes remain anchored to the composer.

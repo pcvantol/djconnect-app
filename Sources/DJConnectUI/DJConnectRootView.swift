@@ -13688,7 +13688,7 @@ extension View {
 struct AskDJInputBar: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var suggestionsOpen = false
-    @State private var helpAvailableHeight: CGFloat = 0
+    @State private var helpPlacement = AskDJHelpPanelLayout.Placement()
     @StateObject private var helpTapRegions = AskDJHelpTapRegions()
     let helpSurface: DJConnectAskDJCatalogue.Surface
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -13914,27 +13914,6 @@ struct AskDJInputBar: View {
             .fixedSize(horizontal: !isExpanded, vertical: false)
         }
         }
-        .onGeometryChange(for: CGFloat.self) { geometry in
-            min(600, max(0, geometry.frame(in: .named(AskDJHelpPanelLayout.coordinateSpace)).minY - 24))
-        } action: { helpAvailableHeight = $0 }
-        .overlay(alignment: .top) {
-            if suggestionsOpen && model.askDJDraft.isEmpty && !model.isSendingAskDJText && !model.isRecordingVoice {
-                AskDJComposerHelpPopout(model: model, surface: helpSurface, maximumHeight: helpAvailableHeight,
-                    close: { suggestionsOpen = false }, expand: dismissComposerFocus, send: send) { prompt in
-                    guard model.askDJDraft.isEmpty, model.canUseAskDJFeatures,
-                          !model.isSendingAskDJText, !model.isRecordingVoice else { return }
-                    model.askDJDraft = prompt
-                    suggestionsOpen = false
-                    send()
-                }
-                .background(AskDJHelpTapRegion(regions: helpTapRegions, isPanel: true))
-                .padding(.horizontal, 4)
-                .alignmentGuide(.top) { $0[.bottom] + AskDJHelpPanelLayout.gap }
-                .opacity(helpAvailableHeight > 0 ? 1 : 0)
-                .allowsHitTesting(helpAvailableHeight > 0)
-                .transition(.opacity)
-            }
-        }
         .background(AskDJHelpTapRegion(regions: helpTapRegions, isPanel: false,
             enabled: suggestionsOpen && model.askDJDraft.isEmpty && !model.isSendingAskDJText && !model.isRecordingVoice,
             close: { suggestionsOpen = false }))
@@ -14037,6 +14016,30 @@ struct AskDJInputBar: View {
                     endPoint: .trailing
                 )
                 .frame(height: 1)
+            }
+        }
+        .onGeometryChange(for: AskDJHelpPanelLayout.Placement.self) { geometry in
+            .init(availableHeight: min(600, max(0, geometry.frame(in: .named(AskDJHelpPanelLayout.coordinateSpace)).minY - 24)),
+                  composerHeight: geometry.size.height)
+        } action: { helpPlacement = $0 }
+        .overlay(alignment: .bottom) {
+            if suggestionsOpen && model.askDJDraft.isEmpty && !model.isSendingAskDJText && !model.isRecordingVoice {
+                AskDJComposerHelpPopout(model: model, surface: helpSurface, maximumHeight: helpPlacement.availableHeight,
+                    close: { suggestionsOpen = false }, expand: dismissComposerFocus, send: send) { prompt in
+                    guard model.askDJDraft.isEmpty, model.canUseAskDJFeatures,
+                          !model.isSendingAskDJText, !model.isRecordingVoice else { return }
+                    model.askDJDraft = prompt
+                    suggestionsOpen = false
+                    send()
+                }
+                .background(AskDJHelpTapRegion(regions: helpTapRegions, isPanel: true))
+                .padding(.horizontal, 4)
+                // Place the panel's bottom above the whole composer, including
+                // expanded input/context, without a conditional alignment guide.
+                .offset(y: -helpPlacement.composerHeight - AskDJHelpPanelLayout.gap)
+                .opacity(helpPlacement.availableHeight > 0 && helpPlacement.composerHeight > 0 ? 1 : 0)
+                .allowsHitTesting(helpPlacement.availableHeight > 0 && helpPlacement.composerHeight > 0)
+                .transition(.opacity)
             }
         }
     }
