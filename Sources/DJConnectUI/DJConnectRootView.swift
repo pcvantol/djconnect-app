@@ -1127,6 +1127,8 @@ public struct DJConnectRootView: View {
             guard !Task.isCancelled, history.navigationErrorKey == key else { return }
             history.clearNavigationError()
         }
+        .environment(\.responseArtworkLoader, { image in try await model.loadResponseArtwork(image) })
+        .environment(\.responseArtworkEpoch, history.responseEpoch)
         .onAppear {
             handleScreenshotScreenRequestIfNeeded()
             handleHomeScreenActionRequestIfNeeded()
@@ -13535,6 +13537,9 @@ private struct AskDJImageCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
+            if image.isProtectedReplyArtwork {
+                ResponseArtworkImageView(image: image, width: width)
+            } else {
             CachedArtworkImage(url: displayURL, mode: .fill) {
                 Image(systemName: "photo")
                     .font(.title2)
@@ -13547,6 +13552,8 @@ private struct AskDJImageCard: View {
             .overlay {
                 DJConnectCardAppearance.shape
                     .stroke(.white.opacity(0.18), lineWidth: 1)
+            }
+
             }
 
             if image.title?.isEmpty == false || image.subtitle?.isEmpty == false {

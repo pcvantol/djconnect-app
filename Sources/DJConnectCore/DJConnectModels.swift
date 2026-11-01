@@ -6821,6 +6821,9 @@ public struct DJConnectResponseImage: Codable, Equatable, Sendable, Identifiable
     public var kind: String?
     public var source: String?
     public var thumbnailURL: URL?
+    public var requiresDeviceAuth: Bool? = nil
+    public var expiresAt: String? = nil
+    public var cachePolicy: String? = nil
 
     public init(
         url: URL,
@@ -6838,6 +6841,21 @@ public struct DJConnectResponseImage: Codable, Equatable, Sendable, Identifiable
         self.thumbnailURL = thumbnailURL
     }
 
+    public var isProtectedReplyArtwork: Bool {
+        requiresDeviceAuth == true || url.path.hasPrefix("/api/djconnect/v1/ask_dj/reply/image/")
+            || url.path.hasPrefix("/api/djconnect/v1/session/media/image/")
+    }
+
+    public func admittedReplyArtworkPath(at now: Date = Date()) -> String? {
+        guard requiresDeviceAuth == true, cachePolicy == "no-store", kind == "album_art", source == "spotify",
+              let expiresAt, let deadline = DJConnectHistoryEntry.date(expiresAt), deadline > now,
+              let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              parts.query == nil, parts.fragment == nil, parts.user == nil, parts.password == nil,
+              parts.percentEncodedPath == parts.path,
+              parts.path.range(of: #"^/api/djconnect/v1/(ask_dj/reply/image/[A-Za-z0-9_-]{32}|session/media/image/[A-Za-z0-9_-]{1,128}/[A-Za-z0-9_-]{32})$"#, options: .regularExpression) != nil else { return nil }
+        return parts.path
+    }
+
     enum CodingKeys: String, CodingKey {
         case url
         case title
@@ -6846,11 +6864,15 @@ public struct DJConnectResponseImage: Codable, Equatable, Sendable, Identifiable
         case source
         case thumbnailURL = "thumbnail_url"
         case thumbnailUrl
+        case requiresDeviceAuth = "requires_device_auth", expiresAt = "expires_at", cachePolicy = "cache_policy"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         url = try container.decode(URL.self, forKey: .url)
+        requiresDeviceAuth = try container.decodeIfPresent(Bool.self, forKey: .requiresDeviceAuth)
+        expiresAt = try container.decodeIfPresent(String.self, forKey: .expiresAt)
+        cachePolicy = try container.decodeIfPresent(String.self, forKey: .cachePolicy)
         title = try container.decodeIfPresent(String.self, forKey: .title)
         subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)
         kind = try container.decodeIfPresent(String.self, forKey: .kind)
@@ -6862,6 +6884,9 @@ public struct DJConnectResponseImage: Codable, Equatable, Sendable, Identifiable
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(url, forKey: .url)
+        try container.encodeIfPresent(requiresDeviceAuth, forKey: .requiresDeviceAuth)
+        try container.encodeIfPresent(expiresAt, forKey: .expiresAt)
+        try container.encodeIfPresent(cachePolicy, forKey: .cachePolicy)
         try container.encodeIfPresent(title, forKey: .title)
         try container.encodeIfPresent(subtitle, forKey: .subtitle)
         try container.encodeIfPresent(kind, forKey: .kind)

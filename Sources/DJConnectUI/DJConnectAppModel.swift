@@ -12995,6 +12995,22 @@ public final class DJConnectAppModel: ObservableObject {
         return String(compact.prefix(117)) + "..."
     }
 
+    func responseArtworkIsCurrent(_ image: DJConnectResponseImage, epoch: UUID) -> Bool {
+        isAppInForeground && canRefreshSessionHistory && sessionHistory.hasAuthorizedOwner
+            && sessionHistory.responseEpoch == epoch && image.admittedReplyArtworkPath() != nil
+            && askDJMessages.contains(where: { $0.role == .dj && $0.images.contains(image) })
+    }
+
+    func loadResponseArtwork(_ image: DJConnectResponseImage) async throws -> DJConnectSessionArtworkImage {
+        let epoch = sessionHistory.responseEpoch
+        guard responseArtworkIsCurrent(image, epoch: epoch) else { throw CancellationError() }
+        let result = try await withHomeAssistantClient(allowsOperationReplay: false) { client in
+            try await client.responseArtwork(image, isCurrent: { self.responseArtworkIsCurrent(image, epoch: epoch) })
+        }
+        guard responseArtworkIsCurrent(image, epoch: epoch), !Task.isCancelled else { throw CancellationError() }
+        return result
+    }
+
     private func proxiedResponseImages(_ images: [DJConnectResponseImage]?) -> [DJConnectResponseImage] {
         guard let images, !images.isEmpty else {
             return []
