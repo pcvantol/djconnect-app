@@ -14437,3 +14437,17 @@ func discoveryPlayRefreshesTheQueueAfterAnyPreselectionReadFinishes(_ oldReadInF
     #expect(reads.count == (oldReadInFlight ? 2 : 1))
     #expect(recorder.requests.filter { $0.url?.path.hasSuffix("/music_discovery/play") == true }.count == 1)
 }
+
+
+@Test func discoveryQualityRatingUsesTheProducerHundredPointScale() throws {
+    let wire = Data(#"{"id":"artist-fixture","kind":"artist","title":"Fixture artist","uri":"spotify:artist:fixture","reason":"Fixture","quality_score":74,"quality_band":"medium"}"#.utf8)
+    let item = try JSONDecoder().decode(DJConnectMusicDiscoveryItem.self, from: wire)
+    #expect(item.qualityScore == 74)
+    #expect(MusicDiscoveryQualityPresentation.scoreLabel(item.qualityScore) == "74/100")
+    #expect(MusicDiscoveryQualityPresentation.scoreLabel(0) == "0/100")
+    #expect(MusicDiscoveryQualityPresentation.scoreLabel(100) == "100/100")
+    for invalid in [Double.nan, .infinity, -.infinity, -1, 101, 0.74] {
+        #expect(MusicDiscoveryQualityPresentation.scoreLabel(invalid) == nil)
+    }
+    #expect(MusicDiscoveryQualityPresentation.scoreLabel(nil) == nil)
+}

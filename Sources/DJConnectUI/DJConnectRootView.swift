@@ -6842,6 +6842,14 @@ private struct MusicDiscoveryDetailView: View {
     }
 }
 
+/// Core quality_score is an integer rating out of 100, not a 0...1 probability.
+enum MusicDiscoveryQualityPresentation {
+    static func scoreLabel(_ score: Double?) -> String? {
+        guard let score, score.isFinite, (0...100).contains(score), score.rounded() == score else { return nil }
+        return "\(Int(score))/100"
+    }
+}
+
 private struct MusicDiscoveryFitLabel: View {
     let item: DJConnectMusicDiscoveryItem
 
@@ -6861,9 +6869,7 @@ private struct MusicDiscoveryFitLabel: View {
         if let confidence = item.confidence {
             return confidence.rawValue
         }
-        if let score = item.qualityScore {
-            return "\(Int((score * 100).rounded()))%"
-        }
+        if let score = MusicDiscoveryQualityPresentation.scoreLabel(item.qualityScore) { return score }
         return nil
     }
 }
@@ -6895,9 +6901,7 @@ private struct MusicDiscoveryQualityView: View {
         if let confidence = item.confidence {
             chips.append(confidence.rawValue.replacingOccurrences(of: "_", with: " "))
         }
-        if let score = item.qualityScore {
-            chips.append("\(Int((score * 100).rounded()))%")
-        }
+        if let score = MusicDiscoveryQualityPresentation.scoreLabel(item.qualityScore) { chips.append(score) }
         if let band = item.qualityBand?.trimmingCharacters(in: .whitespacesAndNewlines), !band.isEmpty {
             chips.append(band.replacingOccurrences(of: "_", with: " "))
         }
