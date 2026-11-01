@@ -40,3 +40,15 @@ geometry. These tests do not call Activity request/update/end or token APIs;
 iPad component success does not admit an iPad status-activity transport role.
 Use a separate generated project/artifact directory per device to retain each
 result and PNG set. Simulator receipt is not proof of OS surface or APNs delivery.
+
+## Retained Session observation implementation
+
+Use `prepare_shipping_status_tests.py ... --retained-session` to qualify the
+existing `DJConnectSessionLiveActivityAttributes.ContentState` alias and the
+`DJConnectSessionPlaybackObservationView` used by both active Session surfaces.
+This selects `RetainedSessionStatusRenderTests.swift`; the default historical
+inactive-prototype tests above remain separate. The retained path has exactly
+`playback_state` and `observed_at_ms`, no private metadata or new presentation
+variant. Run separately on iPhone and iPad to preserve native-value checks and
+five-language component PNGs per device. These tests never create an Activity,
+select an owner, enroll, register a token or establish APNs/WidgetKit delivery.
