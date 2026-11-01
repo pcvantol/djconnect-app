@@ -93,6 +93,7 @@ struct PersonaReactionOverlay: View {
                                 y: appeared || !usesMotion || avatarFrame.isEmpty ? 0 : avatarFrame.midY - bounds.midY)
                         .accessibilityFocused($reading)
                         .focusable().focused($overlayFocused)
+                        .focusEffectDisabled()
                         .onKeyPress(.escape) { controller.cancel(.dismissed); return .handled }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
