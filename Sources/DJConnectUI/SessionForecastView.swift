@@ -98,6 +98,7 @@ struct SessionForecastPanel<Header: View>: View {
 struct SessionForecastContent: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
+    @State private var readProgress = ReadProgress()
     @Environment(\.scenePhase) private var scenePhase
     init(model: DJConnectAppModel) {
         self.model = model; history = model.sessionHistory
@@ -121,6 +122,18 @@ struct SessionForecastContent: View {
               authority: model.forecastAuthorityGeneration, recovering: model.djSessionIsRecovering,
               unavailable: model.djSessionLiveUnavailable, phase: scenePhase)
     }
+    // The task starts after the first paint. Idle for a new admitted context is
+    // still pending, not a backend denial. Reset on mounting a new Horizon view.
+    struct ReadProgress {
+        var completedContext: RefreshContext?
+        func showsLoading(context: RefreshContext, canRead: Bool, readInFlight: Bool) -> Bool {
+            readInFlight || (context.phase == .active && canRead && completedContext != context)
+        }
+    }
+    private var showsLoading: Bool {
+        readProgress.showsLoading(context: contextKey, canRead: model.canRefreshSessionForecast,
+                                  readInFlight: model.forecastLoading)
+    }
     var body: some View {
         TimelineView(SessionEntryRefreshSchedule(deadlines: deadlines)) { clock in
             VStack(alignment: .leading, spacing: 12) {
@@ -132,23 +145,26 @@ struct SessionForecastContent: View {
                     }
                     SessionForecastTextView(projection: projection, language: model.language)
                 } else {
-                    Text(text(model.forecastLoading ? "ui.session.forecast.loading" : "ui.session.forecast.unavailable"))
+                    Text(text(showsLoading ? "ui.session.forecast.loading" : "ui.session.forecast.unavailable"))
                         .fixedSize(horizontal: false, vertical: true)
                     Button(text("ui.refresh.page")) { Task { await model.refreshSessionForecast() } }
                         .buttonStyle(.plain)
                         .font(.callout)
                         .foregroundStyle(.white.opacity(0.78))
                         .frame(minHeight: 44, alignment: .leading)
-                        .disabled(model.forecastLoading || !model.canRefreshSessionForecast)
+                        .disabled(showsLoading || !model.canRefreshSessionForecast)
                 }
             }.padding(.horizontal, 20).padding(.bottom, 16)
                 .scrollTargetLayout()
         }
         .accessibilityIdentifier("session-forecast-panel")
         .task(id: contextKey) {
-            guard scenePhase == .active else { return }
+            let context = contextKey
+            guard context.phase == .active else { return }
             while !Task.isCancelled {
                 await model.refreshSessionForecast()
+                guard !Task.isCancelled, contextKey == context else { return }
+                readProgress.completedContext = context
                 do { try await Task.sleep(for: .seconds(30)) } catch { return }
             }
         }

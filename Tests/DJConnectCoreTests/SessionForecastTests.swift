@@ -188,3 +188,30 @@ func forecastOptionalArtRequiresCanonicalArtistIdentity(_ artistID: String) thro
     }
 }
 #endif
+
+#if canImport(DJConnectUI) && canImport(SwiftUI)
+@Test(.isolatedClientResources) @MainActor
+func forecastInitialPresentationWaitsForCurrentContextRead() {
+    func context(authority: UUID = UUID(), phase: ScenePhase = .active) -> SessionForecastContent.RefreshContext {
+        .init(scope: nil, ownerEpoch: UUID(), ownerReady: true, authority: authority,
+              recovering: false, unavailable: false, phase: phase)
+    }
+    let first = context()
+    var progress = SessionForecastContent.ReadProgress()
+    #expect(progress.showsLoading(context: first, canRead: true, readInFlight: false),
+            "First paint precedes .task and must not announce an unconfirmed failure")
+    #expect(progress.showsLoading(context: first, canRead: true, readInFlight: true))
+    progress.completedContext = first
+    #expect(!progress.showsLoading(context: first, canRead: true, readInFlight: false),
+            "A completed read without visible content must still show unavailable")
+    #expect(progress.showsLoading(context: first, canRead: true, readInFlight: true),
+            "Manual and periodic retries retain their loading state")
+    #expect(progress.showsLoading(context: context(), canRead: true, readInFlight: false),
+            "A changed owner or authority context needs its own read")
+    #expect(!progress.showsLoading(context: context(), canRead: false, readInFlight: false),
+            "An inadmissible read must not leave the panel loading forever")
+    #expect(!progress.showsLoading(context: context(phase: .background), canRead: true, readInFlight: false))
+    #expect(SessionForecastContent.ReadProgress().showsLoading(context: first, canRead: true, readInFlight: false),
+            "Re-entering Horizon starts fresh even after an earlier unavailable result")
+}
+#endif
