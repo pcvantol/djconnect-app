@@ -407,10 +407,8 @@ struct SessionTimelineScreen: View {
     @State private var query = ""
     @State private var showsForecast = false
     @State private var forecastPosition: String?
-    @State private var forecastQuery = ""
     @State private var searching = false
     @State private var flowSearchExpanded = false
-    @State private var forecastSearchExpanded = false
     @State private var inlineSearchBounds = CGRect.zero
     @State private var pendingSearchPosition: String?
     @State private var selectedMatchID: String?
@@ -469,6 +467,7 @@ struct SessionTimelineScreen: View {
         #endif
     }
     private var displayingForecast: Bool { showsForecast && activeSession != nil }
+    private var showsSessionSearch: Bool { !displayingForecast && !model.isShowingVibeScape }
     private var timeline: DJConnectSessionHistoryModel.Timeline { history.timelines[sessionID] ?? .init() }
     private struct SubmittedTurnNavigation: Equatable {
         let target: String?
@@ -579,13 +578,7 @@ struct SessionTimelineScreen: View {
                                 }
                             }
                             if displayingForecast {
-                                SessionForecastContent(model: model, query: $forecastQuery,
-                                                       searchExpanded: $forecastSearchExpanded,
-                                                       focusRequest: searchFocusRequest,
-                                                       searchBoundsChanged: {
-                                                           inlineSearchBounds = $0
-                                                           positionOpenSearch()
-                                                       })
+                                SessionForecastContent(model: model)
                                     .id("forecast-content")
                             } else {
                                 if activeSession != nil && flowSearchExpanded {
@@ -774,9 +767,7 @@ struct SessionTimelineScreen: View {
             .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
                 guard activeSession != nil, sessionControlIntent == nil, !inlineSearchBounds.isEmpty,
                       !inlineSearchBounds.contains(tap.location) else { return }
-                if displayingForecast {
-                    forecastSearchExpanded = false; forecastQuery = ""
-                } else if flowSearchExpanded {
+                if flowSearchExpanded {
                     closeSearch(proxy: proxy)
                 }
             })
@@ -785,19 +776,20 @@ struct SessionTimelineScreen: View {
             }
             .onChange(of: showsForecast) { _, value in
                 pendingSearchPosition = nil
-                flowSearchExpanded = false; forecastSearchExpanded = false; forecastQuery = ""
+                flowSearchExpanded = false
                 query = ""; selectedMatchID = nil; searching = false; history.clearSearch()
                 if value { inputFocused = false; searchFocused = false }
                 if activeSession != nil { positionSessionTopWithoutAnimation() }
             }
             .onChange(of: model.isShowingVibeScape) { _, visible in
-                if !visible {
+                if visible {
+                    pendingSearchPosition = nil; flowSearchExpanded = false
+                    searching = false; query = ""; selectedMatchID = nil
+                    inputFocused = false; searchFocused = false; history.clearSearch()
+                } else {
                     showsForecast = model.vibeScapeReturnToForecast
                     if activeSession != nil { positionSessionTopWithoutAnimation() }
                 }
-            }
-            .onChange(of: forecastSearchExpanded) { _, expanded in
-                if !expanded { pendingSearchPosition = nil }
             }
             .overlay {
                 if activeSession != nil {
@@ -826,13 +818,13 @@ struct SessionTimelineScreen: View {
         }
         #endif
             .background {
-                if activeSession != nil {
+                if activeSession != nil && showsSessionSearch {
                     // Retain Command-F without an additional visible search control.
                     Button {
                         openCurrentSearch(proxy: proxy)
                     } label: { EmptyView() }
                     .keyboardShortcut("f", modifiers: .command)
-                    .disabled(!displayingForecast && !history.searchAvailable)
+                    .disabled(!history.searchAvailable)
                     .hidden()
                     .accessibilityHidden(true)
                 }
@@ -909,8 +901,8 @@ struct SessionTimelineScreen: View {
             #if os(iOS)
             .overlay(alignment: .topTrailing) {
                 SessionControlPopoverHost(model: model, intent: $sessionControlIntent, showsHandoff: allowsHandoffPresentation,
-                    searchAction: { openCurrentSearch(proxy: proxy) },
-                    searchEnabled: displayingForecast || history.searchAvailable)
+                    searchAction: showsSessionSearch ? { openCurrentSearch(proxy: proxy) } : nil,
+                    searchEnabled: showsSessionSearch && history.searchAvailable)
 
             }
             #endif
@@ -980,7 +972,7 @@ struct SessionTimelineScreen: View {
                     if activeSession != nil {
                         pagingTask?.cancel(); pagingTask = nil
                         searching = false; searchFocused = false; query = ""; selectedMatchID = nil
-                        flowSearchExpanded = false; forecastSearchExpanded = false; forecastQuery = ""
+                        flowSearchExpanded = false
                         history.clearSearch()
                         resumePosition = "current"
                         positionSessionTopWithoutAnimation()
@@ -1134,6 +1126,7 @@ struct SessionTimelineScreen: View {
     }
 
     private func toggleFlowSearch(proxy: ScrollViewProxy) {
+        guard showsSessionSearch else { return }
         showsForecast = false
         if !searching { priorSearchPosition = visibleEntry }
         inputFocused = false
@@ -1142,7 +1135,8 @@ struct SessionTimelineScreen: View {
         searchFocusRequest = UUID()
     }
 
-    private func sessionSearchToolbarButton(proxy: ScrollViewProxy) -> some View {
+    @ViewBuilder private func sessionSearchToolbarButton(proxy: ScrollViewProxy) -> some View {
+        if showsSessionSearch {
         Button {
             if activeSession != nil { openCurrentSearch(proxy: proxy) }
             else { toggleFlowSearch(proxy: proxy) }
@@ -1150,22 +1144,23 @@ struct SessionTimelineScreen: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(searching ? djConnectAccent : .primary)
         }
-            .disabled(!displayingForecast && !history.searchAvailable)
+            .disabled(!history.searchAvailable)
             .accessibilityLabel(text("ui.session.history.search"))
             .accessibilityIdentifier("session-search-toggle")
             .keyboardShortcut("f", modifiers: .command)
+        }
     }
 
     private func openCurrentSearch(proxy: ScrollViewProxy) {
+        guard showsSessionSearch else { return }
         inputFocused = false
         searchFocused = false
         searchFocusRequest = UUID()
         submittedQuestion = nil
         sceneRestoreTask?.cancel(); anchorGeneration = UUID()
-        pendingSearchPosition = displayingForecast ? "forecast-search" : "flow-search"
+        pendingSearchPosition = "flow-search"
         inlineSearchBounds = .zero
-        if displayingForecast { forecastSearchExpanded = true }
-        else { flowSearchExpanded = true; searchFocused = true }
+        flowSearchExpanded = true; searchFocused = true
         // Use the same bound scroll controller as keyboard/layout changes.
         // Field layout and keyboard completion settle this same target again;
         // an actual user scroll releases it immediately.
@@ -1176,20 +1171,13 @@ struct SessionTimelineScreen: View {
     }
 
     private func positionOpenSearch() {
-        guard activeSession != nil, scenePhase == .active, let target = pendingSearchPosition,
-              target == (displayingForecast ? "forecast-search" : "flow-search"),
-              displayingForecast ? forecastSearchExpanded : flowSearchExpanded else { return }
+        guard activeSession != nil, showsSessionSearch, scenePhase == .active,
+              let target = pendingSearchPosition, target == "flow-search", flowSearchExpanded else { return }
         var transaction = Transaction(animation: nil)
         transaction.disablesAnimations = true
         withTransaction(transaction) {
             scrollAnchor = .top
-            if displayingForecast {
-                // A nested target does not exist until LazyVStack mounts the
-                // Forecast row. Mount that row first; its field geometry then
-                // advances this same controller to the final search target.
-                forecastPosition = SessionForecastSearchPosition.target(fieldBounds: inlineSearchBounds)
-            }
-            else { visibleEntry = target }
+            visibleEntry = target
         }
     }
 

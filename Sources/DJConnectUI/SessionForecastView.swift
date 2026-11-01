@@ -22,11 +22,10 @@ extension DJConnectAppModel {
 struct SessionForecastTextView: View {
     let projection: DJConnectSessionForecast
     let language: String
-    var query = ""
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            ForEach(projection.sections.filter { query.isEmpty || ($0.title + " " + $0.text).localizedCaseInsensitiveContains(query) }) { section in
+            ForEach(projection.sections) { section in
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .firstTextBaseline, spacing: 10) {
                         if let glyph = ["current": "play.fill", "guidance": "clock", "aim": "target"][section.id] {
@@ -73,13 +72,10 @@ struct SessionForecastPanel<Header: View>: View {
     let header: Header
     let viewport: SessionForecastViewport
     @State private var position: ScrollPosition
-    @Binding var query: String
-    @State private var searchExpanded = false
-    @State private var searchBounds = CGRect.zero
     @Environment(\.scenePhase) private var scenePhase
-    init(model: DJConnectAppModel, viewport: SessionForecastViewport, query: Binding<String>, @ViewBuilder header: () -> Header) {
+    init(model: DJConnectAppModel, viewport: SessionForecastViewport, @ViewBuilder header: () -> Header) {
         self.model = model; self.header = header()
-        self.viewport = viewport; _query = query
+        self.viewport = viewport
         // The panel is removed while Flow is selected. Restore its device-local
         // viewport even when no authored text ID intersects the top edge.
         _position = State(initialValue: ScrollPosition(y: viewport.offset))
@@ -88,25 +84,13 @@ struct SessionForecastPanel<Header: View>: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 header
-                SessionForecastContent(model: model, query: $query, searchExpanded: $searchExpanded,
-                                       searchBoundsChanged: { searchBounds = $0 })
+                SessionForecastContent(model: model)
             }
         }
         .scrollPosition($position)
-        .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
-            if searchExpanded && !searchBounds.contains(tap.location) {
-                searchExpanded = false; query = ""
-            }
-        })
         .onScrollGeometryChange(for: CGFloat.self) { geometry in
             geometry.contentOffset.y + geometry.contentInsets.top
         } action: { _, value in viewport.record(value) }
-    }
-}
-
-enum SessionForecastSearchPosition {
-    static func target(fieldBounds: CGRect) -> String {
-        fieldBounds.isEmpty ? "forecast-content" : "forecast-search"
     }
 }
 
@@ -114,17 +98,9 @@ enum SessionForecastSearchPosition {
 struct SessionForecastContent: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
-    @Binding var query: String
-    @Binding var searchExpanded: Bool
-    var focusRequest: UUID?
-    var searchBoundsChanged: (CGRect) -> Void
-    @State private var selectedSearchID: String?
-    @FocusState private var searchFocused: Bool
     @Environment(\.scenePhase) private var scenePhase
-    init(model: DJConnectAppModel, query: Binding<String>, searchExpanded: Binding<Bool>, focusRequest: UUID? = nil, searchBoundsChanged: @escaping (CGRect) -> Void) {
-        self.model = model; history = model.sessionHistory; _query = query
-        self.focusRequest = focusRequest
-        _searchExpanded = searchExpanded; self.searchBoundsChanged = searchBoundsChanged
+    init(model: DJConnectAppModel) {
+        self.model = model; history = model.sessionHistory
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     private var deadlines: [Date] {
@@ -147,50 +123,23 @@ struct SessionForecastContent: View {
     }
     var body: some View {
         TimelineView(SessionEntryRefreshSchedule(deadlines: deadlines)) { clock in
-            ScrollViewReader { proxy in
-                let resultIDs = scenePhase == .active && !query.isEmpty
-                    ? (model.visibleSessionForecast(at: clock.date)?.sections.filter {
-                        ($0.title + " " + $0.text).localizedCaseInsensitiveContains(query)
-                    }.map(\.id) ?? []) : []
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(text("ui.session.forecast.title")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
-                    Text(text("ui.session.forecast.notice")).font(.callout).foregroundStyle(.secondary)
-                    if searchExpanded {
-                    SessionCollapsibleSearch(expanded: searchExpanded, label: text("ui.session.forecast.search"),
-                                             identifier: "session-forecast-search-toggle", open: { searchExpanded = true },
-                                             boundsChanged: searchBoundsChanged) {
-                    AskDJSearchBar(language: model.language, promptKey: "ui.session.forecast.search",
-                                   fieldIdentifier: "session-forecast-search-field", countIdentifier: "session-forecast-search-count",
-                                   closeLabelKey: "ui.close.search",
-                                   focusRequest: focusRequest, text: $query, isFocused: $searchFocused,
-                                   resultCount: resultIDs.count,
-                                   selectedIndex: selectedSearchID.flatMap { resultIDs.firstIndex(of: $0) } ?? 0,
-                                   previousAction: { moveSearch(-1, resultIDs: resultIDs, proxy: proxy) },
-                                   nextAction: { moveSearch(1, resultIDs: resultIDs, proxy: proxy) },
-                                   closeAction: { searchExpanded = false },
-                                   submitAction: { moveSearch(1, resultIDs: resultIDs, proxy: proxy) })
-                    }.id("forecast-search")
+            VStack(alignment: .leading, spacing: 12) {
+                Text(text("ui.session.forecast.title")).font(.title2.bold()).accessibilityAddTraits(.isHeader)
+                Text(text("ui.session.forecast.notice")).font(.callout).foregroundStyle(.secondary)
+                if scenePhase == .active, let projection = model.visibleSessionForecast(at: clock.date) {
+                    ForEach(Array(projection.imagery.enumerated()), id: \.offset) { _, image in
+                        SessionForecastArtwork(model: model, projection: projection, artwork: image)
                     }
-                    if scenePhase == .active, let projection = model.visibleSessionForecast(at: clock.date) {
-                        ForEach(Array(projection.imagery.enumerated()), id: \.offset) { _, image in
-                            SessionForecastArtwork(model: model, projection: projection, artwork: image)
-                        }
-                        SessionForecastTextView(projection: projection, language: model.language, query: query)
-                    } else {
-                        Text(text(model.forecastLoading ? "ui.session.forecast.loading" : "ui.session.forecast.unavailable"))
-                            .fixedSize(horizontal: false, vertical: true)
-                        Button(text("ui.refresh.page")) { Task { await model.refreshSessionForecast() } }
-                            .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
-                            .disabled(model.forecastLoading || !model.canRefreshSessionForecast)
-                    }
-                }.padding(.horizontal, 20).padding(.bottom, 16)
-                    .scrollTargetLayout()
-            }
-        }
-        .onChange(of: query) { selectedSearchID = nil }
-        .onChange(of: searchExpanded) { _, expanded in
-            searchFocused = expanded
-            if !expanded { query = ""; selectedSearchID = nil }
+                    SessionForecastTextView(projection: projection, language: model.language)
+                } else {
+                    Text(text(model.forecastLoading ? "ui.session.forecast.loading" : "ui.session.forecast.unavailable"))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(text("ui.refresh.page")) { Task { await model.refreshSessionForecast() } }
+                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
+                        .disabled(model.forecastLoading || !model.canRefreshSessionForecast)
+                }
+            }.padding(.horizontal, 20).padding(.bottom, 16)
+                .scrollTargetLayout()
         }
         .accessibilityIdentifier("session-forecast-panel")
         .task(id: contextKey) {
@@ -201,15 +150,6 @@ struct SessionForecastContent: View {
             }
         }
     }
-    private func moveSearch(_ delta: Int, resultIDs: [String], proxy: ScrollViewProxy) {
-        guard !resultIDs.isEmpty else { return }
-        let current = selectedSearchID.flatMap { resultIDs.firstIndex(of: $0) }
-        let next = current.map { ($0 + delta + resultIDs.count) % resultIDs.count }
-            ?? (delta < 0 ? resultIDs.count - 1 : 0)
-        selectedSearchID = resultIDs[next]
-        proxy.scrollTo(resultIDs[next], anchor: .top)
-    }
-
 }
 
 /// Keeps the search row in place while revealing the shared glass field.

@@ -1456,7 +1456,6 @@
 "ui.session.forecast.claim.current" = "Speelt nu";
 "ui.session.forecast.claim.intention" = "Voornemen";
 "ui.session.forecast.claim.conditional_target" = "Mogelijke richting";
-"ui.session.forecast.search" = "Zoek in Horizon";
 // VibeCast rendezvous: routing preparation is distinct from display consent.
 "ui.rendezvous.scan" = "Scan TV-QR-code";
 "ui.rendezvous.choose" = "Kies je gekoppelde Home Assistant. Alleen het schermadres wordt met deze TV gedeeld.";

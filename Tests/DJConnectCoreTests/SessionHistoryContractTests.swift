@@ -7312,8 +7312,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
-    let panel = SessionForecastContent(model: model, query: .constant(""), searchExpanded: .constant(false),
-                                       searchBoundsChanged: { _ in })
+    let panel = SessionForecastContent(model: model)
     let beforeOwner = panel.contextKey
     await model.sessionHistory.prepare()
     if fence == "current" {
@@ -7453,9 +7452,6 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_ACCESSIBILITY_DIR"] {
         try await recordForecastNativeAccessibility(model: model, directory: directory)
     }
-    if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_FILTER_DIR"] {
-        try await qualifyForecastNativeFilter(model: model, directory: directory)
-    }
     if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_WITHDRAWAL_DIR"] {
         try await qualifyForecastNativeWithdrawal(model: model, directory: directory,
             readCount: { fixture.requests.filter { $0.url!.path.contains("/session/forecast/") }.count })
@@ -7476,6 +7472,16 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
 /// injecting system keyboard events or opening an ordinary installed app.
 @MainActor private final class ForecastKeyboardWindow: NSWindow {
     override var canBecomeKey: Bool { true }
+}
+
+/// Existing native probes locate authored Horizon content without a search control.
+@MainActor private func forecastNativeText(in root: NSView, model: DJConnectAppModel) -> NSTextView? {
+    guard let section = model.visibleSessionForecast(at: Date())?.sections.first else { return nil }
+    func find(_ view: NSView) -> NSTextView? {
+        if let text = view as? NSTextView, text.string.contains(section.text) { return text }
+        return view.subviews.lazy.compactMap(find).first
+    }
+    return find(root)
 }
 
 @MainActor private func qualifyForecastNativeKeyboard(model: DJConnectAppModel, directory: String) async throws {
@@ -7517,38 +7523,30 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     let action = try #require(picker.action)
     picker.selectedSegment = 1
     #expect(NSApp.sendAction(action, to: picker.target, from: picker))
-    for _ in 0..<30 where field("ui.session.forecast.search") == nil { try await Task.sleep(for: .milliseconds(50)) }
-    let forecast = try #require(field("ui.session.forecast.search"))
-    forecast.stringValue = "Catalog"
-    forecast.delegate?.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: forecast))
-    try capture("keyboard-01-forecast")
+    try await Task.sleep(for: .milliseconds(200))
+    let find = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command,
+        timestamp: 0, windowNumber: window.windowNumber, context: nil,
+        characters: "f", charactersIgnoringModifiers: "f", isARepeat: false, keyCode: 3))
+    _ = window.performKeyEquivalent(with: find)
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(picker.selectedSegment == 1 && field("ui.session.history.search") == nil,
+        "Command-F in Horizon must not open search or switch to Flow")
+    try capture("keyboard-01-horizon-without-search")
+    picker.selectedSegment = 0
+    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
+    try await Task.sleep(for: .milliseconds(200))
     try commandF()
-    for _ in 0..<30 where picker.selectedSegment != 0 || field("ui.session.history.search") == nil {
+    for _ in 0..<30 where field("ui.session.history.search") == nil {
         try await Task.sleep(for: .milliseconds(50))
     }
-    #expect(picker.selectedSegment == 0)
-    let flow = try #require(field("ui.session.history.search"), "Command-F must expose the actual Flow search field")
-    // Mounting the field may precede AppKit's asynchronous focus bridge.
+    let flow = try #require(field("ui.session.history.search"))
     for _ in 0..<30 where flow.currentEditor() == nil || window.firstResponder !== flow.currentEditor() {
         try await Task.sleep(for: .milliseconds(50))
     }
-    #expect(flow.currentEditor() != nil && window.firstResponder === flow.currentEditor(), "Visible Flow search must own native text focus")
+    #expect(flow.currentEditor() != nil && window.firstResponder === flow.currentEditor())
     #expect(model.askDJDraft == "Keep this unsent question")
     try capture("keyboard-02-flow-search")
-    picker.selectedSegment = 1
-    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
-    for _ in 0..<30 where field("ui.session.forecast.search") == nil { try await Task.sleep(for: .milliseconds(50)) }
-    #expect(field("ui.session.forecast.search")?.stringValue == "Catalog")
-    try commandF() // An already-open Flow search must be restored, not closed.
-    for _ in 0..<30 where picker.selectedSegment != 0 { try await Task.sleep(for: .milliseconds(50)) }
-    #expect(picker.selectedSegment == 0 && field("ui.session.history.search") != nil)
-    try commandF() // In Flow, the same shortcut retains its ordinary close action.
-    for _ in 0..<30 where field("ui.session.history.search") != nil { try await Task.sleep(for: .milliseconds(50)) }
-    #expect(field("ui.session.history.search") == nil)
-    #expect(model.askDJDraft == "Keep this unsent question")
-    #expect(model.activeDJSession?.id == session.id)
-    #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
-    try capture("keyboard-03-flow-search-closed")
+
 }
 
 /// Native end-of-content restoration is a semantic boundary check, not an
@@ -7568,10 +7566,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     let folder = URL(fileURLWithPath: directory)
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
-    func forecastField() -> NSTextField? {
-        let prompt = DJConnectLocalization.localized(key: "ui.session.forecast.search", language: model.language)
-        return descendants(host).compactMap { $0 as? NSTextField }.first { $0.placeholderString == prompt }
-    }
+    func forecastField() -> NSTextView? { forecastNativeText(in: host, model: model) }
     func capture(_ name: String) throws {
         host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
         let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
@@ -7646,10 +7641,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     let folder = URL(fileURLWithPath: directory)
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
-    func search() -> NSTextField? {
-        let prompt = DJConnectLocalization.localized(key: "ui.session.forecast.search", language: model.language)
-        return descendants(host).compactMap { $0 as? NSTextField }.first { $0.placeholderString == prompt }
-    }
+    func search() -> NSTextView? { forecastNativeText(in: host, model: model) }
     func capture(_ name: String) throws {
         host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
         let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
@@ -7714,7 +7706,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     let deadline = try #require(DJConnectSessionForecast.timestamp(validity))
     let epoch = model.sessionHistory.responseEpoch
     _ = NSApplication.shared
-    let view = SessionForecastPanel(model: model, viewport: SessionForecastViewport(), query: .constant("")) { EmptyView() }
+    let view = SessionForecastPanel(model: model, viewport: SessionForecastViewport()) { EmptyView() }
         .background(DJConnectCanvasBackground())
         .environment(\.scenePhase, .active).environment(\.colorScheme, .dark)
         .preferredColorScheme(.dark).frame(width: 600, height: 1000)
@@ -7765,7 +7757,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     #expect(model.canRefreshSessionForecast)
     #expect(model.visibleSessionForecast(at: Date()) != nil)
     _ = NSApplication.shared
-    let view = SessionForecastPanel(model: model, viewport: SessionForecastViewport(), query: .constant("")) { EmptyView() }
+    let view = SessionForecastPanel(model: model, viewport: SessionForecastViewport()) { EmptyView() }
         .environment(\.scenePhase, .active).environment(\.colorScheme, .dark)
         .preferredColorScheme(.dark).frame(width: 600, height: 1000)
     let host = NSHostingView(rootView: view)
@@ -7812,62 +7804,6 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     #expect(model.activeDJSession?.id == session.id)
     #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
     try capture("withdrawal-03-owner-restored")
-}
-
-/// Filter only authored presentation; the producer projection and playback
-/// remain unchanged. Native screenshots complement the text-selection bridges.
-@MainActor private func qualifyForecastNativeFilter(model: DJConnectAppModel, directory: String) async throws {
-    let session = try #require(model.activeDJSession)
-    let projection = try #require(model.visibleSessionForecast(at: Date()))
-    _ = NSApplication.shared
-    let view = ForecastNativeHost(model: model, sessionID: session.id)
-        .environment(\.scenePhase, .active).environment(\.colorScheme, .dark)
-        .preferredColorScheme(.dark).frame(width: 600, height: 1400)
-    let host = NSHostingView(rootView: view)
-    let window = NSWindow(contentRect: CGRect(x: -2000, y: -2000, width: 600, height: 1400),
-        styleMask: [.borderless], backing: .buffered, defer: false)
-    window.appearance = NSAppearance(named: .darkAqua)
-    window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
-    defer { window.close() }
-    let folder = URL(fileURLWithPath: directory)
-    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-    func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
-    func search() -> NSTextField? {
-        let prompt = DJConnectLocalization.localized(key: "ui.session.forecast.search", language: model.language)
-        return descendants(host).compactMap { $0 as? NSTextField }.first { $0.placeholderString == prompt }
-    }
-    func capture(_ name: String) throws {
-        host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
-        let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
-        host.cacheDisplay(in: host.bounds, to: image)
-        try #require(image.representation(using: .png, properties: [:])).write(to: folder.appendingPathComponent(name + ".png"))
-        let nativeText = descendants(host).compactMap { view -> String? in
-            if let text = view as? NSTextView { return text.string }
-            return nil
-        }
-        try JSONSerialization.data(withJSONObject: ["query": search()?.stringValue ?? "", "native_selectable_text": nativeText], options: [.prettyPrinted, .sortedKeys])
-            .write(to: folder.appendingPathComponent(name + ".json"))
-    }
-    try await Task.sleep(for: .milliseconds(400))
-    let picker = try #require(descendants(host).compactMap { $0 as? NSSegmentedControl }.first { $0.segmentCount == 2 })
-    let action = try #require(picker.action)
-    picker.selectedSegment = 1
-    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
-    for _ in 0..<30 where search() == nil { try await Task.sleep(for: .milliseconds(50)) }
-    _ = try #require(search())
-    try capture("filter-01-all")
-    for (query, name) in [("STEADY", "filter-02-body-match"), ("MINUTES", "filter-03-title-match"), ("zz-no-authored-match-zz", "filter-04-none"), ("", "filter-05-cleared")] {
-        let field = try #require(search())
-        field.stringValue = query
-        field.delegate?.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: field))
-        try await Task.sleep(for: .milliseconds(150))
-        #expect(search()?.stringValue == query)
-        #expect(model.visibleSessionForecast(at: Date()) == projection)
-        #expect(model.askDJDraft == "Keep this unsent question")
-        #expect(model.activeDJSession?.id == session.id)
-        #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
-        try capture(name)
-    }
 }
 
 /// Read this isolated host's public accessibility tree, without system VoiceOver
@@ -8018,11 +7954,7 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
     window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
     defer { window.close() }
     func descendants(_ root: NSView) -> [NSView] { [root] + root.subviews.flatMap(descendants) }
-    func forecastSearch() -> NSTextField? {
-        let placeholder = DJConnectLocalization.localized(key: "ui.session.forecast.search", language: model.language)
-        return descendants(host).compactMap { $0 as? NSTextField }.first { $0.placeholderString == placeholder }
-    }
-    func hasPanel() -> Bool { forecastSearch() != nil }
+    func hasPanel() -> Bool { forecastNativeText(in: host, model: model) != nil }
     func capture(_ name: String) throws {
         host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
         let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
@@ -8040,9 +7972,6 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
     #expect(NSApp.sendAction(action, to: picker.target, from: picker))
     for _ in 0..<30 where !hasPanel() { try await Task.sleep(for: .milliseconds(50)) }
     #expect(picker.selectedSegment == 1 && hasPanel())
-    let search = try #require(forecastSearch())
-    search.stringValue = "Catalog"
-    search.delegate?.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: search))
     #expect(model.askDJDraft == "Keep this unsent question")
     try capture("forecast-selected")
     picker.selectedSegment = 0
@@ -8054,9 +7983,9 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
     picker.selectedSegment = 1
     #expect(NSApp.sendAction(action, to: picker.target, from: picker))
     for _ in 0..<30 where !hasPanel() { try await Task.sleep(for: .milliseconds(50)) }
-    #expect(forecastSearch()?.stringValue == "Catalog")
+    #expect(hasPanel())
     #expect(model.askDJDraft == "Keep this unsent question")
-    try capture("forecast-restored-search")
+    try capture("forecast-restored")
     model.applySessionBroadcastEvent(.init(eventType: "runtime_ended", sessionID: session.id, payload: .init()))
     for _ in 0..<30 where hasPanel() { try await Task.sleep(for: .milliseconds(50)) }
     try await Task.sleep(for: .milliseconds(150))
