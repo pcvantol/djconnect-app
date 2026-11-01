@@ -2269,7 +2269,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     @Published private var volumeRejectedOutputKey: String?
 
-    private var volumeOutputKey: String? {
+    var volumeOutputKey: String? {
         let device = playback?.device
         guard let id = device?.id ?? device?.name else { return nil }
         return "\(musicBackendSummary.musicBackendRevision ?? 0):\(outputSelectionGeneration):\(id)"
@@ -4622,7 +4622,9 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func commitVolumeChange() {
-        guard canControlPlaybackVolume else { pendingVolumePercent = nil; return }
+        guard canUsePlaybackFeatures, canControlPlaybackVolume,
+              playback?.device?.active != false, let outputKey = volumeOutputKey,
+              pendingOutputSelectionID == nil else { pendingVolumePercent = nil; return }
         volumeCommandTask?.cancel()
         let value = DJConnectVolumeNormalizer.clampBackendPercent(Int(volume.rounded()))
         log(.debug, "User action: commit volume \(value)")
@@ -4635,7 +4637,9 @@ public final class DJConnectAppModel: ObservableObject {
             guard let self else {
                 return
             }
-            guard self.canControlPlaybackVolume else { self.pendingVolumePercent = nil; return }
+            guard self.canUsePlaybackFeatures, self.canControlPlaybackVolume,
+                  self.volumeOutputKey == outputKey, self.playback?.device?.active != false,
+                  self.pendingOutputSelectionID == nil else { self.pendingVolumePercent = nil; return }
             await self.performCommand("set_volume", value: .int(value))
             self.scheduleCommandRefresh(reason: "Volume command Now Playing refresh completed") {
                 if self.pendingVolumePercent == value {
