@@ -350,3 +350,116 @@ struct AskDJSuggestionRows: View {
         }
     }
 }
+
+#if os(iOS) || os(macOS)
+#if os(iOS)
+import UIKit
+private typealias AskDJHelpNativeRegion = UIView
+#else
+import AppKit
+private typealias AskDJHelpNativeRegion = NSView
+#endif
+
+/// Native regions preserve hit testing inside both the composer and its overlay.
+/// Observe the owning window without adding a full-screen layer over its controls.
+@MainActor final class AskDJHelpTapRegions: ObservableObject {
+    fileprivate weak var composer: AskDJHelpNativeRegion?
+    fileprivate weak var panel: AskDJHelpNativeRegion?
+
+    fileprivate func contains(_ point: CGPoint, in window: AnyObject) -> Bool {
+        [composer, panel].contains { view in
+            guard let view, view.window === window else { return false }
+            return view.convert(view.bounds, to: nil).contains(point)
+        }
+    }
+}
+
+#if os(iOS)
+struct AskDJHelpTapRegion: UIViewRepresentable {
+    let regions: AskDJHelpTapRegions
+    let isPanel: Bool
+    var enabled = false
+    var close: () -> Void = {}
+
+    func makeUIView(context: Context) -> RegionView { RegionView() }
+    func updateUIView(_ view: RegionView, context: Context) {
+        view.regions = regions; view.enabled = enabled; view.close = close
+        if isPanel { regions.panel = view } else { regions.composer = view }
+    }
+    static func dismantleUIView(_ view: RegionView, coordinator: ()) { view.detach() }
+
+    final class RegionView: UIView, UIGestureRecognizerDelegate {
+        weak var regions: AskDJHelpTapRegions?
+        var enabled = false
+        var close: () -> Void = {}
+        private weak var observedWindow: UIWindow?
+        private lazy var tap: UITapGestureRecognizer = {
+            let tap = UITapGestureRecognizer(target: self, action: #selector(outsideTap))
+            tap.cancelsTouchesInView = false
+            tap.delegate = self
+            return tap
+        }()
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            isUserInteractionEnabled = false
+        }
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            detach()
+            if let window { observedWindow = window; window.addGestureRecognizer(tap) }
+        }
+        func detach() {
+            observedWindow?.removeGestureRecognizer(tap)
+            observedWindow = nil
+        }
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            guard enabled, let window, let regions else { return false }
+            return !regions.contains(touch.location(in: window), in: window)
+        }
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }
+        @objc private func outsideTap() { if enabled { close() } }
+    }
+}
+#else
+struct AskDJHelpTapRegion: NSViewRepresentable {
+    let regions: AskDJHelpTapRegions
+    let isPanel: Bool
+    var enabled = false
+    var close: () -> Void = {}
+
+    func makeNSView(context: Context) -> RegionView { RegionView() }
+    func updateNSView(_ view: RegionView, context: Context) {
+        view.regions = regions; view.enabled = enabled; view.close = close
+        if isPanel { regions.panel = view } else { regions.composer = view }
+    }
+    static func dismantleNSView(_ view: RegionView, coordinator: ()) { view.detach() }
+
+    final class RegionView: NSView {
+        weak var regions: AskDJHelpTapRegions?
+        var enabled = false
+        var close: () -> Void = {}
+        private var monitor: Any?
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            detach()
+            guard window != nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+                self?.handle(event) ?? event
+            }
+        }
+        func handle(_ event: NSEvent) -> NSEvent {
+            guard enabled, let window, event.window === window, let regions else { return event }
+            if !regions.contains(event.locationInWindow, in: window) { close() }
+            return event
+        }
+        func detach() {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
+        }
+    }
+}
+#endif
+#endif

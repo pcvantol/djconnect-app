@@ -13560,6 +13560,7 @@ struct AskDJInputBar: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var suggestionsOpen = false
     @State private var helpAvailableHeight: CGFloat = 0
+    @StateObject private var helpTapRegions = AskDJHelpTapRegions()
     let helpSurface: DJConnectAskDJCatalogue.Surface
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -13797,6 +13798,7 @@ struct AskDJInputBar: View {
                     suggestionsOpen = false
                     send()
                 }
+                .background(AskDJHelpTapRegion(regions: helpTapRegions, isPanel: true))
                 .padding(.horizontal, 4)
                 .alignmentGuide(.top) { $0[.bottom] + AskDJHelpPanelLayout.gap }
                 .opacity(helpAvailableHeight > 0 ? 1 : 0)
@@ -13804,6 +13806,9 @@ struct AskDJInputBar: View {
                 .transition(.opacity)
             }
         }
+        .background(AskDJHelpTapRegion(regions: helpTapRegions, isPanel: false,
+            enabled: suggestionsOpen && model.askDJDraft.isEmpty && !model.isSendingAskDJText && !model.isRecordingVoice,
+            close: { suggestionsOpen = false }))
         .onChange(of: model.askDJHelpOpenRequest) { _, request in
             if request?.surface == helpSurface, model.askDJDraft.isEmpty { suggestionsOpen = true }
         }
