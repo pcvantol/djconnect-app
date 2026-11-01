@@ -849,15 +849,12 @@ struct MomentCard: View {
     var speech: DJConnectSessionSpeech? = nil
     var contributionQuestion: String? = nil
     var contributionAction: (() -> Void)? = nil
-    private var spotifyAttributionURL: URL? {
-        guard moment.sourceAttribution?["provider"] == "Spotify", spotifyAttributionLogo != nil else { return nil }
-        return moment.nativeSourceURLs.first
-    }
+    private var spotifyURLs: [URL] { moment.nativeSourceURLs.filter(SessionSourceLinks.isSpotify) }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if let media = artworkMedia, let model = artworkModel {
                 SessionArtworkView(media: media, target: .moment(moment.id), audience: .current, language: language, model: model,
-                    showsAttribution: spotifyAttributionURL == nil)
+                    showsAttribution: spotifyURLs.isEmpty)
             }
             if moment.isBulletinV1 {
                 Label(kind, systemImage: "newspaper").font(.caption.weight(.bold)).foregroundStyle(.secondary)
@@ -876,16 +873,8 @@ struct MomentCard: View {
                     .tint(djConnectAccent)
                     .accessibilityIdentifier("moment-open-track-insight")
             }
-            if let url = spotifyAttributionURL, let logo = spotifyAttributionLogo {
-                Link(destination: url) {
-                    logo.resizable().scaledToFit().frame(width: 70, height: 20)
-                        .padding(10).frame(minHeight: 44).contentShape(Rectangle())
-                }
-                .accessibilityLabel("Spotify")
-                .accessibilityValue(url.absoluteString)
-                .accessibilityIdentifier("session-spotify-attribution")
-            }
-            ForEach(moment.nativeSourceURLs.filter { $0 != spotifyAttributionURL }, id: \.absoluteString) { url in
+            SessionSpotifyAttributionLinks(urls: spotifyURLs)
+            ForEach(moment.nativeSourceURLs.filter { !SessionSourceLinks.isSpotify($0) }, id: \.absoluteString) { url in
                 let source = moment.isBulletinV1 ? moment.sources.first { $0.destination == url } : nil
                 let label = source?.attributionLabel ?? moment.sourceAttribution?["provider"] ?? url.host ?? ""
                 Link(label, destination: url)
@@ -901,11 +890,50 @@ struct MomentCard: View {
     }
 }
 
+/// One branded credit, with every distinct Spotify destination still reachable.
+struct SessionSpotifyAttributionLinks: View {
+    let urls: [URL]
+    var body: some View {
+        if let logo = spotifyAttributionLogo, let first = urls.first {
+            let mark = logo.resizable().scaledToFit().frame(width: 70, height: 20)
+                .padding(10).frame(minHeight: 44).contentShape(Rectangle())
+            Group {
+                if urls.count == 1 {
+                    Link(destination: first) { mark }
+                        .accessibilityValue(first.absoluteString)
+                } else {
+                    Menu {
+                        ForEach(urls, id: \.absoluteString) { url in
+                            Link(SessionSourceLinks.destinationLabel(url), destination: url)
+                                .accessibilityValue(url.absoluteString)
+                        }
+                    } label: { mark }
+                    .menuIndicator(.hidden)
+                    #if os(macOS)
+                    .menuStyle(.borderlessButton)
+                    #endif
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Spotify")
+            .accessibilityIdentifier("session-spotify-attribution")
+        }
+    }
+}
+
 var spotifyAttributionLogo: Image? {
     #if os(iOS)
     UIImage(named: "SpotifyAttribution").map { Image(uiImage: $0) }
     #elseif os(macOS)
-    NSImage(named: NSImage.Name("SpotifyAttribution")).map { Image(nsImage: $0) }
+    // Native Menu labels use NSImage's logical size before SwiftUI layout.
+    // Size a copy so the asset cache and its original pixels remain untouched.
+    if let logo = NSImage(named: NSImage.Name("SpotifyAttribution"))?.copy() as? NSImage,
+       logo.size.width > 0, logo.size.height > 0 {
+        let scale = min(70 / logo.size.width, 20 / logo.size.height)
+        logo.size = NSSize(width: logo.size.width * scale, height: logo.size.height * scale)
+        return Image(nsImage: logo)
+    }
+    return nil
     #else
     nil
     #endif
