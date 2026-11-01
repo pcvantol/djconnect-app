@@ -2055,6 +2055,7 @@ public final class DJConnectAppModel: ObservableObject {
     private struct DirectSessionSlot: Hashable, Sendable { let scope: DirectSessionScope; let surface: String }
     private var directSessionRuntimes: [DirectSessionSlot: DJConnectDirectSessionRuntime] = [:]
     private var directSessionSelected: [String: DJConnectDirectSessionRuntime] = [:]
+    private let registeredHostWakeRefresh = RegisteredHostWakeRefreshOwner()
     private var directSessionAttemptEpoch = UUID()
     private var sessionSurfaceActivityTask: Task<Void, Never>?
     private var sessionSurfaceActivityDispatchVersion = UUID()
@@ -11090,6 +11091,8 @@ public final class DJConnectAppModel: ObservableObject {
         // Bound retained resource/tombstone ownership without pressure eviction
         // or a fresh operation after a terminal record. This is not a send cap.
         guard directSessionRuntimes.count < 64 else { throw DJConnectError.invalidResponse }
+        let originalHostWakeToken = hostWakeOriginalAPNSToken
+        let originalHostWakeTokenEpoch = hostWakeAPNSTokenEpoch
         let client = DJConnectClient(baseURL: origin, identity: identity, tokenStore: tokenStore, session: urlSession)
         let runtime = try DJConnectDirectSessionRuntime(client: client, sessionID: scope.session, surface: surface,
             lockedDisplay: lockedDisplay, pairedIsCurrent: { [weak self] in
@@ -11108,6 +11111,14 @@ public final class DJConnectAppModel: ObservableObject {
                         self.profileDJSettings.active && self.directSessionScope == scope &&
                         self.profileDJSettingsBoundOwner == profileOwner
                 }
+            }, captureHostWakeAttempt: { [weak self] in
+                guard let token = originalHostWakeToken else { return { false } }
+                return { [weak self] in
+                    guard let self else { return false }
+                    return self.hostWakeAPNSTokenEpoch == originalHostWakeTokenEpoch && self.hostWakeOriginalAPNSToken == token &&
+                        self.profileDJSettings.active && self.directSessionScope == scope &&
+                        self.profileDJSettingsBoundOwner == profileOwner
+                }
             })
         directSessionRuntimes[slot] = runtime
         directSessionSelected[slot.surface] = runtime
@@ -11121,20 +11132,27 @@ public final class DJConnectAppModel: ObservableObject {
     public func prepareOriginalHostWake(using host: DJConnectHostWakeFirstKeyOwner) async throws {
         try Task.checkCancellation()
         guard host.state == .referenceRecorded, isAppInForeground, !isDemoMode, pairingStatus == .paired,
-              let surface = host.originalSurfaceData,
+              !host.originalSurfacesData.isEmpty,
               let token = hostWakeOriginalAPNSToken, (16...2048).contains(token.count) else { throw CancellationError() }
         let tokenEpoch = hostWakeAPNSTokenEpoch
-        let runtime = try prepareDirectSessionRuntime(surface: surface, lockedDisplay: surface == .liveActivity)
         hostWakePreparingOwner = host
-        if runtime.phase == .idle { try await runtime.begin() }
-        try Task.checkCancellation()
-        guard runtime.phase == .active, hostWakeAPNSTokenEpoch == tokenEpoch,
-              hostWakeOriginalAPNSToken == token else { throw CancellationError() }
-        try await host.prepareOriginalHostWake(runtime: runtime, token: token, tokenIsCurrent: { [weak self] in
-            guard let self else { return false }
-            return self.isAppInForeground && self.pairingStatus == .paired &&
-                self.hostWakeAPNSTokenEpoch == tokenEpoch && self.hostWakeOriginalAPNSToken == token
-        })
+        // Finish the first child's enrollment BEFORE preparing the next genuine
+        // original. API alone then chooses attestation/assertion for that child;
+        // no previously prepared kind is flipped and no proof is reused.
+        for surface in host.originalSurfacesData {
+            guard isAppInForeground, hostWakeAPNSTokenEpoch == tokenEpoch,
+                  hostWakeOriginalAPNSToken == token else { throw CancellationError() }
+            let runtime = try prepareDirectSessionRuntime(surface: surface, lockedDisplay: surface == .liveActivity)
+            if runtime.phase == .idle { try await runtime.begin() }
+            try Task.checkCancellation()
+            guard runtime.phase == .active, hostWakeAPNSTokenEpoch == tokenEpoch,
+                  hostWakeOriginalAPNSToken == token else { throw CancellationError() }
+            try await host.prepareOriginalHostWake(runtime: runtime, token: token, tokenIsCurrent: { [weak self] in
+                guard let self else { return false }
+                return self.isAppInForeground && self.pairingStatus == .paired &&
+                    self.hostWakeAPNSTokenEpoch == tokenEpoch && self.hostWakeOriginalAPNSToken == token
+            })
+        }
     }
     func readDirectSessionSurface(surface: DJConnectPassiveSurface) async throws {
         try Task.checkCancellation()
@@ -13526,6 +13544,23 @@ public final class DJConnectAppModel: ObservableObject {
 
     @discardableResult
     public func handleRemoteNotificationPayload(_ userInfo: [AnyHashable: Any], openedFromTap: Bool = false) async -> Bool {
+        if !openedFromTap, RegisteredHostWakeRefreshOwner.isContentFreeHint(userInfo) {
+            reconcileDirectSessionRuntimes()
+            let reads: [@MainActor @Sendable () async -> Bool] = [DJConnectPassiveSurface.widget, .liveActivity].compactMap { surface in
+                guard let runtime = directSessionSelected[surface.rawValue], runtime.hasRegisteredHostWakeRead else { return nil }
+                return { [weak self] in
+                    do {
+                        try await runtime.readRegisteredHostWake()
+                        guard let self, self.directSessionSelected[surface.rawValue] === runtime,
+                              runtime.hasRegisteredHostWakeRead else { return false }
+                        // Read success is not native display/clock admission.
+                        // Native publication remains separately owned.
+                        return true
+                    } catch { return false }
+                }
+            }
+            return await registeredHostWakeRefresh.run(reads) > 0
+        }
         let event = Self.pushEventType(in: userInfo)
         guard event == "music_discovery_ready" else {
             guard event == "ask_dj_response" || event == "ask_dj_confirm" || (event == nil && openedFromTap) else { return false }

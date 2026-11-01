@@ -10,6 +10,8 @@ final class ProfileDJChoiceScheduler {
     private var task: Task<Void, Never>?
     private var context: String?
     private var patch = DJConnectProfileDJSettings.Patch()
+    /// Internal test join only. Does not schedule, flush or replay a choice.
+    func waitForPendingChoice() async { await task?.value }
     func schedule(_ next: DJConnectProfileDJSettings.Patch, context: String,
                   isCurrent: @escaping () -> Bool,
                   perform: @escaping (DJConnectProfileDJSettings.Patch) async -> Void) {

@@ -41,6 +41,16 @@ public actor RendezvousAppKeyOperations {
         return try await perform(keyIdentifier: Self.installationAdmissionSlot, operation: operation)
     }
 
+    /// Exclusion for the complete host-wake proof -> submission operation. No
+    /// Rendezvous enrollment or transition lease may be borrowed as authority.
+    func performHostWakeProof<Value: Sendable>(keyIdentifier: String,
+        operation: @Sendable () async throws -> Value) async throws -> Value {
+        guard Self.initialEnrollmentLease == nil, Self.installationTransitionLease == nil else {
+            throw Failure.invalidInstallationTransition
+        }
+        return try await perform(keyIdentifier: keyIdentifier, operation: operation)
+    }
+
     public func perform<Value: Sendable>(
         keyIdentifier: String,
         operation: @Sendable () async throws -> Value
