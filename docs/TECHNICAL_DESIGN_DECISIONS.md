@@ -232,9 +232,12 @@ Conventies:
   releasepublicatie.
 - De firmware-CodeQL-workflow houdt `init`, `autobuild` en `analyze` samen op
   CodeQL Action `4.39.0`, telkens gepind op dezelfde immutable commit.
-- De TDE-observatieworkflow maakt in `RUNNER_TEMP` een geïsoleerde Python 3.11-
+- De TDE-observatieworkflow maakt in `RUNNER_TEMP` een geïsoleerde Python 3.14-
   venv met `-S`, zodat de TDE-runtime niet blokkeert op of schrijft naar de
   gedeelde PlatformIO-Pythonomgeving van de self-hosted Apple-runner.
+  De publieke runtime is exact gepind op `1.1.2`; de gekwalificeerde
+  Lizard-parser corrigeert Swift-declaratiegrenzen. Het standaardprofiel,
+  de bewijsvalidatie, beleidsdrempels en observe-modus blijven behouden.
 - De TestFlight beta workflow is `workflow_dispatch`-only, gebruikt de
   beschermde GitHub Environment `testflight-beta`, vereist expliciete
   `version`/`tag`/`UPLOAD_TESTFLIGHT` invoer, en mag geen automatische
