@@ -823,7 +823,7 @@ public struct DJConnectRootView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @StateObject private var introductionAnchors = SessionIntroductionAnchors()
     @State private var selectedSection = DJConnectSection.djSession
-    @State private var openedSavedSessionID: String?
+    @State private var openedSavedSession: SavedSessionDestination?
     #if os(macOS)
     @State private var sidebarVisibility: NavigationSplitViewVisibility = .all
     @FocusState private var focusedSidebarItem: DJConnectSidebarFocusTarget?
@@ -957,7 +957,7 @@ public struct DJConnectRootView: View {
                             isSelected: false,
                             focusTarget: .feedback,
                             focus: $focusedSidebarItem
-                        ) { openedSavedSessionID = nil; showingFeedback = true }
+                        ) { openedSavedSession = nil; showingFeedback = true }
                     }
                         }
                         .padding(12)
@@ -1143,7 +1143,7 @@ public struct DJConnectRootView: View {
         }
         .onChange(of: selectedSection) {
             #if os(macOS)
-            openedSavedSessionID = nil
+            openedSavedSession = nil
             #else
             if horizontalSizeClass != .regular, selectedSection == .more {
                 moreResetID = UUID()
@@ -1566,7 +1566,7 @@ public struct DJConnectRootView: View {
     private func selectSidebarSection(_ section: DJConnectSection) {
         // Withdraw the pushed archive before replacing its detail root, including
         // a click on the already-selected Earlier Sessions overview.
-        openedSavedSessionID = nil
+        openedSavedSession = nil
         selectedSection = section == .logs && !model.isDiagnosticLoggingEnabled ? .settings : section
     }
 
@@ -1577,7 +1577,7 @@ public struct DJConnectRootView: View {
             DJSessionView(model: model) { selectedSection = .queue }
         case .savedSessions:
             #if os(macOS)
-            SavedSessionsView(model: model, openedSessionID: $openedSavedSessionID)
+            SavedSessionsView(model: model, openedSession: $openedSavedSession)
             #else
             SavedSessionsView(model: model)
             #endif

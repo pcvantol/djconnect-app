@@ -103,3 +103,72 @@ func nativeFindMovesTypingFromComposerToMountedSearchAndRefocuses() async throws
     }
 }
 #endif
+
+#if os(macOS)
+@MainActor private final class ArchiveSearchNavigationProbe: ObservableObject {
+    @Published var openedSession: SavedSessionDestination?
+}
+private struct ArchiveSearchNavigationHost: View {
+    @ObservedObject var model: DJConnectAppModel
+    @ObservedObject var probe: ArchiveSearchNavigationProbe
+    var body: some View { SavedSessionsView(model: model, openedSession: $probe.openedSession) }
+}
+
+@MainActor private func archiveNativeListScrollView(in view: NSView) -> NSScrollView? {
+    if let scroll = view as? NSScrollView { return scroll }
+    return view.subviews.lazy.compactMap { archiveNativeListScrollView(in: $0) }.first
+}
+
+@MainActor private func archiveNativeFields(in view: NSView) -> [NSTextField] {
+    (view as? NSTextField).map { [$0] } ?? view.subviews.flatMap { archiveNativeFields(in: $0) }
+}
+
+@Test(.isolatedAppKitResources) @MainActor func archiveSearchNativeNavigationKeepsQueryAndMatchingRows() async throws {
+    _ = NSApplication.shared
+    let suite = "archive-navigation-" + UUID().uuidString
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
+    model.language = "nl"; model.startDemoMode()
+    let probe = ArchiveSearchNavigationProbe()
+    let host = NSHostingView(rootView: ArchiveSearchNavigationHost(model: model, probe: probe).environment(\.scenePhase, .active))
+    let window = NSWindow(contentRect: .init(x: -3000, y: -3000, width: 1000, height: 760), styleMask: [.titled], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false; window.contentView = host; window.makeKeyAndOrderFront(nil)
+    defer { window.close() }
+    func wait(_ predicate: () -> Bool) async throws {
+        for _ in 0..<100 { host.layoutSubtreeIfNeeded(); if predicate() { return }; try await Task.sleep(for: .milliseconds(50)) }
+        #expect(predicate(), "Native navigation state did not settle")
+    }
+    try await Task.sleep(for: .milliseconds(200))
+    for term in ["Electric", "MGMT"] {
+        let find = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
+            windowNumber: window.windowNumber, context: nil, characters: "f", charactersIgnoringModifiers: "f", isARepeat: false, keyCode: 3))
+        #expect(window.performKeyEquivalent(with: find))
+        try await wait { window.firstResponder is NSTextView }
+        let editor = try #require(window.firstResponder as? NSTextView)
+        editor.setSelectedRange(NSRange(location: 0, length: (editor.string as NSString).length))
+        editor.insertText(term, replacementRange: NSRange(location: NSNotFound, length: 0))
+        try await wait { model.sessionHistory.archiveSearchQuery == term }
+        // The filtered native List contains one result. Click its row in the
+        // hosted scroll document, rather than publishing a route from the test.
+        let document = try #require(archiveNativeListScrollView(in: host)?.documentView)
+        let point = document.convert(NSPoint(x: document.bounds.midX, y: document.bounds.midY), to: nil)
+        for kind in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            let click = try #require(NSEvent.mouseEvent(with: kind, location: point, modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                context: nil, eventNumber: 0, clickCount: 1, pressure: kind == .leftMouseDown ? 1 : 0))
+            window.sendEvent(click)
+        }
+        try await wait { probe.openedSession?.sessionID == "demo-evening" }
+        #expect(probe.openedSession?.searchQuery == term)
+        try await wait { model.sessionHistory.acceptedSearchQuery == term }
+        try await wait { archiveNativeFields(in: host).contains { $0.stringValue == term } }
+        #expect(archiveNativeFields(in: host).contains { $0.stringValue == term }, "Destination search bar must be mounted with the inherited term")
+        #expect(model.sessionHistory.acceptedSearchSessionID == "demo-evening")
+        #expect(model.sessionHistory.acceptedSearchQuery == term)
+        #expect(model.sessionHistory.searchMatches.map(\.id) == ["demo-evening-entry-1"])
+        probe.openedSession = nil
+        try await Task.sleep(for: .milliseconds(250))
+    }
+}
+#endif

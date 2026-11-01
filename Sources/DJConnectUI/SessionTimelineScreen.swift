@@ -76,6 +76,19 @@ private struct SavedSessionListRow: View, Equatable {
     }
 }
 
+/// Navigation owns the search snapshot together with the selected session.
+/// A destination must not depend on independently captured overview state.
+struct SavedSessionDestination: Hashable, Identifiable {
+    let sessionID: String
+    let searchQuery: String
+    var id: Self { self }
+
+    init(sessionID: String, searchQuery: String) {
+        self.sessionID = sessionID
+        self.searchQuery = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
 struct SavedSessionsView: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
@@ -83,19 +96,18 @@ struct SavedSessionsView: View {
     @StateObject private var manualRefresh = DJConnectManualRefreshController()
     private var refreshing: Bool { manualRefresh.isRefreshing }
     @State private var initialLoadFinished = false
-    @State private var localOpenedSessionID: String?
-    @State private var openedSessionSearch: [String: String] = [:]
+    @State private var localOpenedSession: SavedSessionDestination?
     @State private var isSearchVisible = false
     @State private var searchText = ""
     @State private var selectedSearchIndex = 0
     @State private var rowTimeZone = TimeZone.current
     @FocusState private var isSearchFocused: Bool
-    private let externalOpenedSessionID: Binding<String?>?
-    private var openedSessionID: Binding<String?> { externalOpenedSessionID ?? $localOpenedSessionID }
+    private let externalOpenedSession: Binding<SavedSessionDestination?>?
+    private var openedSession: Binding<SavedSessionDestination?> { externalOpenedSession ?? $localOpenedSession }
     private let embedsNavigationStack: Bool
-    init(model: DJConnectAppModel, embedsNavigationStack: Bool = true, openedSessionID: Binding<String?>? = nil) {
+    init(model: DJConnectAppModel, embedsNavigationStack: Bool = true, openedSession: Binding<SavedSessionDestination?>? = nil) {
         self.model = model; history = model.sessionHistory; self.embedsNavigationStack = embedsNavigationStack
-        externalOpenedSessionID = openedSessionID
+        externalOpenedSession = openedSession
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     private var searchQuery: String { searchText.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -173,9 +185,9 @@ struct SavedSessionsView: View {
                     }
                     ForEach(filteredSessions) { session in
                         Button {
-                            openedSessionSearch = [session.id: isSearchVisible ? searchQuery : ""]
                             isSearchFocused = false
-                            openedSessionID.wrappedValue = session.id
+                            openedSession.wrappedValue = SavedSessionDestination(
+                                sessionID: session.id, searchQuery: isSearchVisible ? searchQuery : "")
                         } label: {
                             SavedSessionListRow(session: session, language: model.language,
                                                 summaryAvailable: history.summaryAvailable, timeZone: rowTimeZone)
@@ -250,14 +262,12 @@ struct SavedSessionsView: View {
                     .allowsHitTesting(history.listErrorKey != nil || history.archiveSearchErrorKey != nil)
                 }
             }
-            .navigationDestination(item: openedSessionID) { sessionID in
-                SessionTimelineScreen(model: model, sessionID: sessionID,
-                    initialSearchQuery: openedSessionSearch[sessionID] ?? "")
-                    .navigationTitle(detailTitle(sessionID: sessionID))
+            .navigationDestination(item: openedSession) { destination in
+                SessionTimelineScreen(model: model, sessionID: destination.sessionID,
+                    initialSearchQuery: destination.searchQuery)
+                    .id(destination)
+                    .navigationTitle(detailTitle(sessionID: destination.sessionID))
                     .djConnectMouseBackNavigation()
-            }
-            .onChange(of: openedSessionID.wrappedValue) { _, sessionID in
-                if sessionID == nil { openedSessionSearch = [:] }
             }
             .navigationTitle(text("ui.session.history.title") + (model.isDemoMode ? " (demo)" : ""))
             .scrollBounceBehavior(.always)
@@ -300,7 +310,7 @@ struct SavedSessionsView: View {
                 }
             }
             .onChange(of: history.archiveResponseEpoch) { _, _ in
-                openedSessionID.wrappedValue = nil
+                openedSession.wrappedValue = nil
                 closeSearch()
             }
             .djStatusToastOverlay(manualRefresh.notice, screenImage: "clock.arrow.circlepath")
