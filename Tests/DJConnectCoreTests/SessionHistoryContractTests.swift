@@ -5876,7 +5876,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     #expect(receipt.admits(action, owner: "profile-a") == (mutation == "ok"))
 }
 
-@Test(.isolatedClientResources, arguments: ["completed", "completed_clear_revision", "completed_clear_revision_revoked", "pending", "wrong_receipt", "conflict", "withdrawn",
+@Test(.isolatedClientResources, arguments: ["completed", "completed_readback_failure", "completed_clear_revision", "completed_clear_revision_revoked", "pending", "wrong_receipt", "conflict", "withdrawn",
                   "status_completed", "status_pending", "status_unknown", "status_expired_unknown"])
 @MainActor func contentDeletionUsesFlatBoundWireAndNeverRenewsUnknown(_ outcome: String) async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -5913,7 +5913,9 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     let independent = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: detail)
     let list = try historyData(["success": true, "schema_version": 1,
         "sessions": [rebound(oldHeader)], "revision": "content-readback", "retention_days": 30])
-    let deletionReadback = HistoryAuthorityGate()
+    let deletionReadback = HistoryAuthorityGate(), allowConversationReadback = HistoryAuthorityGate()
+    let statusReadGate = HistoryWireResponseGate()
+    defer { statusReadGate.release() }
     let fixture = HistoryWireFixture { request in
         let path = request.url!.path
         if path.hasSuffix("/capabilities") {
@@ -5926,6 +5928,9 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
             return (200, caps, 0)
         }
         if path.hasSuffix("/ask_dj/history") {
+            if outcome == "completed_readback_failure", deletionReadback.denied, !allowConversationReadback.denied {
+                return (503, Data(#"{"success":false,"error":"temporarily_unavailable"}"#.utf8), 0)
+            }
             if outcome.hasPrefix("completed_clear_revision"), deletionReadback.denied {
                 var revised = try #require(JSONSerialization.jsonObject(with: profile) as? [String: Any])
                 revised["history_revision"] = 1000
@@ -5947,7 +5952,9 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
                 var receipt = try #require(status["receipt"] as? [String: Any])
                 receipt["operation_id"] = id; status["receipt"] = receipt
             } else { status.removeValue(forKey: "receipt") }
-            return (200, try historyData(status), 0)
+            let response = try historyData(status)
+            if outcome == "status_pending" { throw HistoryWireHeldResponse(data: response, gate: statusReadGate) }
+            return (200, response, 0)
         }
         if path.hasSuffix("/session/content/delete") {
             if outcome == "pending" || outcome.hasPrefix("status_") { return (503, pending, 0) }
@@ -6008,7 +6015,22 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
         #expect(await task.value == false)
         await history.prepare()
     } else {
-        #expect(await history.deleteContent(prepared, expectedEpoch: epoch) == (outcome.hasPrefix("completed")))
+        #expect(await history.deleteContent(prepared, expectedEpoch: epoch) == (outcome.hasPrefix("completed") && outcome != "completed_readback_failure"))
+        if outcome == "completed_readback_failure" {
+            // Actual bound completion is not lost when the current-owner history
+            // read fails. Keep the journal until qualified readback succeeds.
+            #expect(history.hasUnconfirmedDeletion && history.contentDeletionNeedsReadback)
+            #expect(history.canCheckContentDeletionStatus)
+            #expect(!history.canDeleteContent(prepared.target))
+            #expect(history.contentDeletionBlockingReason(for: prepared.target) == "ui.content.delete.blocked.pending")
+            allowConversationReadback.denied = true
+            #expect(await history.checkContentDeletionStatus())
+            #expect(!history.hasUnconfirmedDeletion && !history.contentDeletionNeedsReadback)
+            #expect(history.contentDeletionBlockingReason(for: prepared.target) == nil)
+            #expect(history.canDeleteContent(prepared.target))
+            #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/content/delete/status") })
+            #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/content/delete") }.count == 1)
+        }
     }
     let mutations = fixture.requests.filter { $0.url!.path.hasSuffix("/session/content/delete") }
     #expect(mutations.count == 1)
@@ -6073,6 +6095,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
             urlSession: fixture.session(), startBackgroundTasks: false)
         await reopened.sessionHistory.prepare()
         #expect(reopened.sessionHistory.hasUnconfirmedDeletion)
+        #expect(!reopened.sessionHistory.contentDeletionNeedsReadback)
         #expect(!reopened.sessionHistory.canDeleteContent(scope.target))
         if outcome == "pending" {
             defaults.set("changed-after-unknown", forKey: "DJConnectHAInstallID")
@@ -6083,7 +6106,25 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
             #expect(fixture.requests.count == count)
         }
         if outcome.hasPrefix("status_") {
-            #expect(await reopened.sessionHistory.checkContentDeletionStatus() == (outcome == "status_completed"))
+            if outcome == "status_completed" {
+                // Explicit refresh checks the ORIGINAL operation instead of
+                // leaving a permanent banner after refreshing only the list.
+                #expect(await reopened.refreshAskDJHistory())
+            } else if outcome == "status_pending" {
+                let checking = Task { await reopened.sessionHistory.checkContentDeletionStatus() }
+                let dispatchedBy = ContinuousClock.now.advanced(by: .seconds(3))
+                while !fixture.requests.contains(where: { $0.url!.path.hasSuffix("/session/content/delete/status") }) && ContinuousClock.now < dispatchedBy {
+                    try await Task.sleep(for: .milliseconds(5))
+                }
+                #expect(reopened.sessionHistory.isCheckingContentDeletionStatus)
+                #expect(reopened.sessionHistory.contentDeletionBusy && reopened.sessionHistory.showsUnconfirmedDeletionNotice)
+                statusReadGate.release()
+                #expect(await checking.value == false)
+                #expect(!reopened.sessionHistory.isCheckingContentDeletionStatus)
+                #expect(reopened.sessionHistory.showsUnconfirmedDeletionNotice)
+            } else {
+                #expect(await reopened.sessionHistory.checkContentDeletionStatus() == false)
+            }
             #expect(reopened.sessionHistory.hasUnconfirmedDeletion == (outcome != "status_completed"))
             let statusRead = try #require(fixture.requests.first { $0.url!.path.hasSuffix("/session/content/delete/status") })
             #expect(statusRead.httpMethod == "GET")
@@ -8365,12 +8406,14 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
                 try await Task.sleep(for: .milliseconds(5))
             }
             try #require(history.contentDeletionBusy)
+            #expect(!history.showsUnconfirmedDeletionNotice) // No warning flash during an ordinary write.
             // Keep the actual row/dialogue mounted while its write is held.
             // New commands remain blocked, and the original target is stable.
             #expect(model.canPresentAskDJHistory)
             #expect(!model.canUseAskDJFeatures && !model.canUseProfileConversation)
             #expect(history.contentDeletionTarget(for: message) == target)
             #expect(!history.canDeleteContent(target))
+            #expect(history.contentDeletionBlockingReason(for: target) == "ui.content.delete.blocked.busy")
             replyGate.release()
             #expect(await deleting.value)
         } else {

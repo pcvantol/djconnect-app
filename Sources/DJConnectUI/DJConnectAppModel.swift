@@ -6125,7 +6125,7 @@ public final class DJConnectAppModel: ObservableObject {
             log(.debug, "Ask DJ refresh skipped in demo mode")
             return false
         }
-        guard canUsePlaybackFeatures else {
+        guard (sessionHistory.profileScopeActive ? canPresentProfileConversation : canUsePlaybackFeatures) else {
             log(.warning, "Ask DJ refresh skipped because playback features are unavailable")
             if showToast {
                 showAskDJToast(localized(key: "appModel.ask.dj.is.unreachable"))
@@ -6136,6 +6136,9 @@ public final class DJConnectAppModel: ObservableObject {
         isCheckingAskDJHistoryState = true
         defer { isCheckingAskDJHistoryState = false }
         log(.info, "Refreshing Ask DJ history from user action")
+        if sessionHistory.canCheckContentDeletionStatus {
+            _ = await sessionHistory.checkContentDeletionStatus()
+        }
         let didSync = await syncAskDJHistory(showErrors: true)
         await requestAskDJIdleSuggestionIfNeeded()
         if didSync, showToast {

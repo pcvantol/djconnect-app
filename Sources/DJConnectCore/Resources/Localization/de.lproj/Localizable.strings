@@ -1490,7 +1490,7 @@
 "ui.ha_speech.unknown" = "Unbekannt";
 "ui.ha_speech.retry_delay" = "Die Sprachausgabe pausiert vorübergehend nach einem fehlgeschlagenen Versuch.";
 
-"ui.session.history.delete.unconfirmed" = "Die Löschung ist noch nicht bestätigt. Es wird kein neuer Löschauftrag gesendet. Aktualisieren liest nur den Verlauf.";
+"ui.session.history.delete.unconfirmed" = "Wir konnten noch nicht bestätigen, ob dies gelöscht wurde. Bitte prüfe es erneut.";
 
 /* Server-confirmed individual content deletion. */
 "ui.content.delete.action" = "Beitrag löschen";
@@ -1501,7 +1501,7 @@
 "ui.content.delete.scope" = "Zeilen: %d entfernt, %d nicht verfügbar. Nachrichten: %d entfernt, %d nicht verfügbar. DJ-Momente: %d. Gesperrte Anfragen: %d.";
 "ui.content.delete.playback" = "Die Session und Musikwiedergabe bleiben erhalten.";
 "ui.content.delete.expires" = "Gültig bis %@";
-"ui.content.delete.status" = "Löschstatus prüfen";
+"ui.content.delete.status" = "Erneut prüfen";
 
 "ui.session.search.clear" = "Suchbegriffe löschen";
 
@@ -1610,3 +1610,13 @@
 "surface.playback.observed.stopped" = "Stopp beobachtet";
 "surface.playback.observed.unknown" = "Wiedergabestatus unbekannt";
 "surface.playback.last.observed" = "Zuletzt beobachtet";
+"ui.content.delete.readback.pending" = "Der aktualisierte Verlauf ist noch nicht verfügbar. Bitte versuche es erneut.";
+"ui.content.delete.refresh" = "Erneut aktualisieren";
+"ui.content.delete.checking" = "Bitte warten…";
+
+"ui.content.delete.blocked.unavailable" = "Löschen ist derzeit nicht verfügbar.";
+"ui.content.delete.blocked.busy" = "Eine andere Änderung wird abgeschlossen.";
+"ui.content.delete.blocked.pending" = "Eine frühere Löschung wurde noch nicht bestätigt.";
+"ui.content.delete.blocked.request" = "Eine andere DJ-Anfrage ist noch offen.";
+"ui.content.delete.blocked.voice" = "Beende zuerst die Sprachaufnahme.";
+"ui.content.delete.recover_previous" = "Frühere Löschung prüfen";
