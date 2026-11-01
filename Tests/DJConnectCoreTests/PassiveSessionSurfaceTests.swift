@@ -164,7 +164,14 @@ private func passiveCurrent(surface: DJConnectPassiveSurface = .widget, mutation
     #expect(reads == 0) // The first permitted image is still in flight.
     releaseImage?.resume(returning: Data())
     await authorization.value
-    try await Task.sleep(for: .milliseconds(400))
+    // Starting the throttled child is itself scheduled on the UI actor. A
+    // fixed 400ms sleep does not establish that it has run under parallel load.
+    // Observe the actual pure-read publication, keeping its bounded deadline
+    // and the no-reauthorization/original-expiry assertions below unchanged.
+    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+    while (reads == 0 || model.caches[.widget]?.projection.contribution?.moment_id != "new-publication"), ContinuousClock.now < deadline {
+        try await Task.sleep(for: .milliseconds(5))
+    }
     #expect(reads == 1 && authorizes == 1)
     #expect(model.caches[.widget]?.projection.contribution?.moment_id == "new-publication")
     #expect(model.caches[.widget]?.projection.contribution?.expires_at == newest.passive_session.contribution?.expires_at)

@@ -1601,3 +1601,5 @@
 "ui.ask_dj.answer.retained_unavailable" = "Deine Anfrage wurde verarbeitet. Die ursprüngliche Antwort ist im gespeicherten Verlauf nicht verfügbar.";
 
 "ui.askdj.suggestions.title" = "Vorschläge";
+
+"surface.research.adapted" = "Auf Grundlage der obigen Quellen bearbeitet.";

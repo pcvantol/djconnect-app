@@ -22,7 +22,18 @@ public extension DJConnectPassiveActivityContent {
     func currentContribution(at now: Date, uptime: TimeInterval = ProcessInfo.processInfo.systemUptime) -> DJConnectPassiveSession.Contribution? {
         guard let contribution, contribution.isCurrent(at: now),
               fieldIsCurrent(until: contribution.expires_at, at: now, uptime: uptime) else { return nil }
+        if directLocalVersion != nil || researchAttribution != nil {
+            guard directLocalVersion == 2 else { return nil }
+            if contribution.usage_basis == "public_artist_narration_v1" {
+                guard researchAttribution?.matches(contribution) == true else { return nil }
+            } else if researchAttribution != nil { return nil }
+        }
         return contribution
+    }
+    func currentResearchAttribution(at now: Date, uptime: TimeInterval = ProcessInfo.processInfo.systemUptime) -> DJConnectDirectResearchAttribution? {
+        guard directLocalVersion == 2, let contribution = currentContribution(at: now, uptime: uptime),
+              researchAttribution?.matches(contribution) == true else { return nil }
+        return researchAttribution
     }
     func currentPlayback(at now: Date, uptime: TimeInterval = ProcessInfo.processInfo.systemUptime) -> DJConnectPassiveSession.NowPlaying? {
         guard let nowPlaying, nowPlaying.isCurrent(at: now),

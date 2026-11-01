@@ -1,0 +1,249 @@
+{
+  "classification": "SYNTHETIC_APP_FORMAT_ONLY_NO_NATIVE_CLOCK_PERMISSION_OR_PROVIDER_EVIDENCE",
+  "authorize_request": {
+    "client_type": "ios",
+    "contract_version": 1,
+    "device_id": "djconnect-ios-ABCDEF012345",
+    "enabled": true,
+    "locked_display": true,
+    "operation_id": "4cf66d62-d59f-4093-9e39-4c101ee0351b",
+    "os_snapshot_cache": true,
+    "session_id": "session-original",
+    "surface": "live_activity"
+  },
+  "read_request": {
+    "contract_version": 1,
+    "purpose_id": "63506d46-eeaf-409c-8d82-e6d01cc9e2fb"
+  },
+  "status_request": {
+    "client_type": "ios",
+    "contract_version": 1,
+    "device_id": "djconnect-ios-ABCDEF012345",
+    "operation_id": "4cf66d62-d59f-4093-9e39-4c101ee0351b",
+    "session_id": "session-original",
+    "surface": "live_activity"
+  },
+  "withdraw_request": {
+    "client_type": "ios",
+    "contract_version": 1,
+    "device_id": "djconnect-ios-ABCDEF012345",
+    "operation_id": "4cf66d62-d59f-4093-9e39-4c101ee0351b",
+    "session_id": "session-original",
+    "surface": "live_activity"
+  },
+  "authorize_response": {
+    "success": true,
+    "contract_version": 1,
+    "profile_id": "djconnect-direct-rich-v1",
+    "operation_id": "4cf66d62-d59f-4093-9e39-4c101ee0351b",
+    "request_sha256": "f90039975c0674c0b99b81ff0bb7e02cfcb7c653c90cbc44fcb5ccd91ad0ad14",
+    "purpose_id": "63506d46-eeaf-409c-8d82-e6d01cc9e2fb",
+    "surface": "live_activity",
+    "state": "active",
+    "purpose_issued_at_ms": 1793440800000,
+    "purpose_expires_at_ms": 1793469600000,
+    "frame": {
+      "schema_version": 1,
+      "binding_id": "63506d46-eeaf-409c-8d82-e6d01cc9e2fb",
+      "generation": "11111111-1111-4111-8111-111111111111",
+      "session_id": "session-original",
+      "delivery_sequence": 1,
+      "state": "active",
+      "observed_at_ms": 1793440800000,
+      "expires_at_ms": 1793440920000,
+      "playback_state": "playing",
+      "mood": {
+        "value": "groove",
+        "revision": 3
+      },
+      "presence": "balanced",
+      "persona": "radio_dj",
+      "contribution": {
+        "moment_id": "moment-original",
+        "published_at": "2026-10-31T10:00:00+00:00",
+        "text": "Original narrative.",
+        "persona": "radio_dj",
+        "source_attribution": {
+          "provider": "Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Artist",
+          "license": "CC-BY-SA-4.0",
+          "revision_url": "https://en.wikipedia.org/w/index.php?oldid=1"
+        },
+        "usage_basis": "public_artist_narration_v1",
+        "expires_at": "2026-10-31T10:02:00+00:00",
+        "rights": {
+          "passive_cache": true,
+          "os_snapshot": true,
+          "external_relay": false,
+          "watch_replication": false
+        },
+        "sources": [
+          {
+            "provider": "Wikipedia",
+            "title": "Original artist reference",
+            "url": "https://en.wikipedia.org/wiki/Artist",
+            "kind": "source",
+            "language": "en",
+            "fetched_at": "2026-10-31T10:00:00+00:00",
+            "expires_at": "2026-10-31T10:02:00+00:00",
+            "license": "CC-BY-SA-4.0",
+            "revision_url": "https://en.wikipedia.org/w/index.php?oldid=1",
+            "wikidata_id": "Q1",
+            "content_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "claim_scope": "fetched_public_music_reference"
+          }
+        ],
+        "expression_license": {
+          "id": "CC-BY-SA-4.0",
+          "url": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "adapted": true,
+          "attribution_required": true
+        }
+      },
+      "now_playing": {
+        "item_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+        "subject_uri": "spotify:track:aaaaaaaaaaaaaaaaaaaaaa",
+        "track": "Track é 🎵",
+        "artist": "Artist",
+        "album": "Album",
+        "observed_at": "2026-10-31T10:00:00+00:00",
+        "expires_at": "2026-10-31T10:02:00+00:00",
+        "source_url": "https://open.spotify.com/track/aaaaaaaaaaaaaaaaaaaaaa",
+        "attribution": {
+          "provider": "Spotify",
+          "mark": "spotify",
+          "url": "https://open.spotify.com/track/aaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "usage_basis": "spotify_temporary_passive_metadata"
+      },
+      "artwork": [],
+      "contribution_status": {
+        "state": "available",
+        "reason": "qualified"
+      },
+      "now_playing_status": {
+        "state": "available",
+        "reason": "qualified"
+      },
+      "artwork_status": {
+        "state": "unavailable",
+        "reason": "not_prepared"
+      },
+      "frame_id": "ea43ab36b72eb175ffb53df98b0f0f67e9e00cd9d4e8a3b58160004a61433d52"
+    },
+    "read_credential": "djcrichread_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "asset_credential": "djcrichasset_EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE"
+  },
+  "read_response": {
+    "success": true,
+    "contract_version": 1,
+    "profile_id": "djconnect-direct-rich-v1",
+    "operation_id": "4cf66d62-d59f-4093-9e39-4c101ee0351b",
+    "request_sha256": "981a6cb078156eadf452c6f56734fbb2a23e03f1d474fb0673f4995cf29467fd",
+    "purpose_id": "63506d46-eeaf-409c-8d82-e6d01cc9e2fb",
+    "surface": "live_activity",
+    "state": "active",
+    "purpose_issued_at_ms": 1793440800000,
+    "purpose_expires_at_ms": 1793469600000,
+    "frame": {
+      "schema_version": 1,
+      "binding_id": "63506d46-eeaf-409c-8d82-e6d01cc9e2fb",
+      "generation": "11111111-1111-4111-8111-111111111111",
+      "session_id": "session-original",
+      "delivery_sequence": 1,
+      "state": "active",
+      "observed_at_ms": 1793440800000,
+      "expires_at_ms": 1793440920000,
+      "playback_state": "playing",
+      "mood": {
+        "value": "groove",
+        "revision": 3
+      },
+      "presence": "balanced",
+      "persona": "radio_dj",
+      "contribution": {
+        "moment_id": "moment-original",
+        "published_at": "2026-10-31T10:00:00+00:00",
+        "text": "Original narrative.",
+        "persona": "radio_dj",
+        "source_attribution": {
+          "provider": "Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Artist",
+          "license": "CC-BY-SA-4.0",
+          "revision_url": "https://en.wikipedia.org/w/index.php?oldid=1"
+        },
+        "usage_basis": "public_artist_narration_v1",
+        "expires_at": "2026-10-31T10:02:00+00:00",
+        "rights": {
+          "passive_cache": true,
+          "os_snapshot": true,
+          "external_relay": false,
+          "watch_replication": false
+        },
+        "sources": [
+          {
+            "provider": "Wikipedia",
+            "title": "Original artist reference",
+            "url": "https://en.wikipedia.org/wiki/Artist",
+            "kind": "source",
+            "language": "en",
+            "fetched_at": "2026-10-31T10:00:00+00:00",
+            "expires_at": "2026-10-31T10:02:00+00:00",
+            "license": "CC-BY-SA-4.0",
+            "revision_url": "https://en.wikipedia.org/w/index.php?oldid=1",
+            "wikidata_id": "Q1",
+            "content_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "claim_scope": "fetched_public_music_reference"
+          }
+        ],
+        "expression_license": {
+          "id": "CC-BY-SA-4.0",
+          "url": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "adapted": true,
+          "attribution_required": true
+        }
+      },
+      "now_playing": {
+        "item_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+        "subject_uri": "spotify:track:aaaaaaaaaaaaaaaaaaaaaa",
+        "track": "Track é 🎵",
+        "artist": "Artist",
+        "album": "Album",
+        "observed_at": "2026-10-31T10:00:00+00:00",
+        "expires_at": "2026-10-31T10:02:00+00:00",
+        "source_url": "https://open.spotify.com/track/aaaaaaaaaaaaaaaaaaaaaa",
+        "attribution": {
+          "provider": "Spotify",
+          "mark": "spotify",
+          "url": "https://open.spotify.com/track/aaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "usage_basis": "spotify_temporary_passive_metadata"
+      },
+      "artwork": [],
+      "contribution_status": {
+        "state": "available",
+        "reason": "qualified"
+      },
+      "now_playing_status": {
+        "state": "available",
+        "reason": "qualified"
+      },
+      "artwork_status": {
+        "state": "unavailable",
+        "reason": "not_prepared"
+      },
+      "frame_id": "ea43ab36b72eb175ffb53df98b0f0f67e9e00cd9d4e8a3b58160004a61433d52"
+    }
+  },
+  "status_response": {
+    "success": true,
+    "contract_version": 1,
+    "profile_id": "djconnect-direct-rich-v1",
+    "operation_id": "4cf66d62-d59f-4093-9e39-4c101ee0351b",
+    "purpose_id": "63506d46-eeaf-409c-8d82-e6d01cc9e2fb",
+    "surface": "live_activity",
+    "state": "active",
+    "purpose_issued_at_ms": 1793440800000,
+    "purpose_expires_at_ms": 1793469600000
+  }
+}

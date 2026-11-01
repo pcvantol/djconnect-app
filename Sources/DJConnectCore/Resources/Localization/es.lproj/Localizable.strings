@@ -1601,3 +1601,5 @@
 "ui.ask_dj.answer.retained_unavailable" = "Tu solicitud se ha procesado. La respuesta original no está disponible en el historial guardado.";
 
 "ui.askdj.suggestions.title" = "Sugerencias";
+
+"surface.research.adapted" = "Adaptado de las fuentes anteriores.";

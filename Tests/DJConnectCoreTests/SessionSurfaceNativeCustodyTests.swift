@@ -35,7 +35,7 @@ import Testing
         #expect(registry["same-test-slot"] === replacement && !replacement.isRetired && original.isRetired)
         // Inert objects exercise the production registry; they are not SDK results.
     }
-    private func appModel(_ body: (DJConnectAppModel, DJConnectProfileDJSettingsResponse) async throws -> Void) async throws {
+    private func appModel(installation: Bool = false, _ body: (DJConnectAppModel, DJConnectProfileDJSettingsResponse) async throws -> Void) async throws {
         let name = "native-surface-model-" + UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
@@ -61,6 +61,7 @@ import Testing
             "/api/djconnect/v1/capabilities": Data(#"{"capabilities":{"profile_session_settings":true},"contract_versions":{"profile_session_settings":3}}"#.utf8)])
         defaults.set("https://" + host, forKey: "DJConnectHomeAssistantURL")
         defaults.set("https://" + host, forKey: "DJConnectHALocalURL")
+        if installation { defaults.set("local", forKey: "DJConnectHAConnectionMode") }
         let configuration = URLSessionConfiguration.ephemeral; configuration.protocolClasses = [NativeSurfaceObservationWire.self]
         let session = URLSession(configuration: configuration)
         let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(token: "fixture-only"),
@@ -70,12 +71,79 @@ import Testing
         model.bindProfileDJSettings(active: true)
         await model.profileDJSettings.refresh(.init(read: { response }, update: { _, _, _ in throw CancellationError() }, receipt: { _, _ in throw CancellationError() }))
         #expect(await model.refreshActiveDJSession())
+        if installation {
+            // The ordinary synthetic fixture has no hybrid discovery routes.
+            // Add this isolated selector only after that HTTP read, then bind
+            // settings to the changed actual model context before selection.
+            defaults.set("synthetic-installation", forKey: "DJConnectHAInstallID")
+            model.bindProfileDJSettings(active: true)
+            await model.profileDJSettings.refresh(.init(read: { response }, update: { _, _, _ in throw CancellationError() }, receipt: { _, _ in throw CancellationError() }))
+            try #require(model.haConnectionMode == .local && model.profileDJSettings.active && model.profileDJSettings.phase == .ready)
+            try #require(model.profileDJSettings.response?.snapshot.session?.session_id == model.activeDJSession?.id)
+        }
         try await body(model, response)
     }
     private func publication(_ model: DJConnectAppModel, snapshot: DJConnectSessionSurfaceSnapshot,
                              foreground: Bool = true, observed: Bool = false) -> SessionSurfaceNativeCustody.Ticket {
         model.prepareSessionSurfacePublication(confirmed: true, sessionID: model.activeDJSession?.id, identity: model.sessionSurfaceIdentity,
             snapshot: snapshot, foreground: foreground, observedSession: observed)
+    }
+    @Test(.isolatedClientResources) func appModelDirectOwnerIsRetainedAfterOriginABAWithoutStartingNetwork() async throws {
+        try await appModel(installation: true) { model, _ in
+            let first = try model.prepareDirectSessionRuntime(surface: .widget, lockedDisplay: false)
+            #expect(first.phase == .idle && first.originalPurposeContext == nil)
+            #expect(try model.prepareDirectSessionRuntime(surface: .widget, lockedDisplay: false) === first)
+            let address = model.homeAssistantURL
+            model.homeAssistantURL = "https://replacement.direct-owner.invalid"
+            #expect(first.phase == .closed)
+            model.homeAssistantURL = address
+            #expect(try model.prepareDirectSessionRuntime(surface: .widget, lockedDisplay: false) === first)
+            #expect(first.phase == .closed && first.originalPurposeContext == nil)
+            // No begin/read or native effect: actual AppModel selection and
+            // genuine shipping constructor, not a real HTTPS authorization.
+        }
+    }
+    @Test(.isolatedClientResources) func appModelDirectOwnerCannotBeRecreatedAfterSettingsAuthorityABA() async throws {
+        try await appModel(installation: true) { model, settings in
+            let first = try model.prepareDirectSessionRuntime(surface: .widget, lockedDisplay: false)
+            model.profileDJSettings.withdrawAuthority()
+            #expect(first.phase == .closed)
+            do { _ = try model.prepareDirectSessionRuntime(surface: .widget, lockedDisplay: false); Issue.record("Absent settings selected a direct owner") } catch {}
+            model.bindProfileDJSettings(active: true)
+            await model.profileDJSettings.refresh(.init(read: { settings }, update: { _, _, _ in throw CancellationError() }, receipt: { _, _ in throw CancellationError() }))
+            #expect(try model.prepareDirectSessionRuntime(surface: .widget, lockedDisplay: false) === first)
+            #expect(first.phase == .closed)
+        }
+    }
+    @Test(.isolatedClientResources) func appModelDirectOwnerCannotReviveAfterDemoABA() async throws {
+        try await appModel(installation: true) { model, _ in
+            let first = try model.prepareDirectSessionRuntime(surface: .widget, lockedDisplay: false)
+            model.isDemoMode = true
+            #expect(first.phase == .closed)
+            do { _ = try model.prepareDirectSessionRuntime(surface: .widget, lockedDisplay: false); Issue.record("Demo selected direct runtime") } catch {}
+            model.isDemoMode = false
+            #expect(try model.prepareDirectSessionRuntime(surface: .widget, lockedDisplay: false) === first)
+            #expect(first.phase == .closed && first.originalPurposeContext == nil)
+        }
+    }
+    @Test(.isolatedClientResources) func actualConfigurationRemovalRetiresOnlyTheRemovedDirectSurfaceBeforeAnyAwait() async throws {
+        try await appModel(installation: true) { model, _ in
+            let first = try model.prepareDirectSessionRuntime(surface: .widget, lockedDisplay: false)
+            #expect(model.retireRemovedDirectSessionSurfaces(configured: [.widget]).isEmpty)
+            #expect(first.phase == .idle)
+            let removed = model.retireRemovedDirectSessionSurfaces(configured: [.liveActivity])
+            #expect(removed.count == 1 && removed.first === first && first.phase == .closed)
+            #expect(try model.prepareDirectSessionRuntime(surface: .widget, lockedDisplay: false) === first)
+            #expect(first.phase == .closed)
+        }
+    }
+    @Test(.isolatedClientResources) func explicitSurfaceDisableAlsoRetiresThePreparedDirectOwner() async throws {
+        try await appModel(installation: true) { model, _ in
+            let first = try model.prepareDirectSessionRuntime(surface: .widget, lockedDisplay: false)
+            await model.setPassiveSurface(.widget, enabled: false)
+            #expect(first.phase == .closed && first.originalPurposeContext == nil)
+            #expect(try model.prepareDirectSessionRuntime(surface: .widget, lockedDisplay: false) === first)
+        }
     }
     @Test(.isolatedClientResources) func actualAppModelQueuesRetirementForInactiveOrWithdrawnSettingsWithTheSameRawFrame() async throws {
         for withdrawAuthority in [false, true] {
@@ -99,6 +167,44 @@ import Testing
             }
         }
     }
+    @Test(.isolatedClientResources, arguments: [false, true])
+    func actualAppModelOriginChangeImmediatelyFencesQueuedNativePublication(_ returnToOriginal: Bool) async throws {
+        try await appModel { model, _ in
+            let snapshot = DJConnectSessionSurfaceSnapshot(observedAt: Date())
+            let original = publication(model, snapshot: snapshot, observed: true)
+            #expect(original.canStart)
+            var release: CheckedContinuation<Void, Never>?
+            let queued = Task {
+                await withCheckedContinuation { release = $0 }
+                return original.canStart || original.canPublish()
+            }
+            try await waitFor { release != nil }
+            let address = model.homeAssistantURL
+            model.homeAssistantURL = "https://replacement.native-surface.invalid"
+            if returnToOriginal { model.homeAssistantURL = address }
+            #expect(!original.isOwnerCurrent && original.dispatchCapture != nil)
+            // Cached settings/Session and an old snapshot may not open a new
+            // positive native scope after an origin edit or A→B→A transition.
+            let cached = publication(model, snapshot: snapshot)
+            #expect(!cached.canStart && cached.currentSnapshot() == nil)
+            release?.resume()
+            #expect(await queued.value == false)
+        }
+    }
+
+    @Test(.isolatedClientResources) func actualOldOriginHTTPReplyCannotReconfirmAfterAddressEdit() async throws {
+        try await appModel { model, _ in
+            let wire = try #require(NativeSurfaceObservationWire.server(host: URL(string: model.homeAssistantURL)!.host!))
+            wire.holdSessionResponses()
+            let pending = Task { await model.refreshActiveDJSession() }
+            try await waitFor { wire.pendingCount > 0 }
+            model.homeAssistantURL = "https://replacement.native-surface.invalid"
+            wire.releasePending()
+            #expect(await pending.value == false)
+            #expect(model.sessionSurfaceSnapshot == nil && !model.sessionSurfaceCanStart)
+        }
+    }
+
     @Test(.isolatedClientResources) func actualAppModelWithdrawalDuringPreviousTaskAwaitAndCachedABAStayNegative() async throws {
         try await appModel { model, _ in
             let snapshot = DJConnectSessionSurfaceSnapshot(observedAt: Date())
