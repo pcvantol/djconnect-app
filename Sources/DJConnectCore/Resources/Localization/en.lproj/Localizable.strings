@@ -1607,3 +1607,10 @@
 "ui.content.delete.readback.pending" = "The updated history is not available yet. Please try again.";
 "ui.content.delete.refresh" = "Refresh again";
 "ui.content.delete.checking" = "Please wait…";
+
+"ui.content.delete.blocked.unavailable" = "Deletion is currently unavailable.";
+"ui.content.delete.blocked.busy" = "Another change is being completed.";
+"ui.content.delete.blocked.pending" = "An earlier deletion has not been confirmed yet.";
+"ui.content.delete.blocked.request" = "Another DJ request is still unresolved.";
+"ui.content.delete.blocked.voice" = "Stop the voice recording first.";
+"ui.content.delete.recover_previous" = "Check earlier deletion";

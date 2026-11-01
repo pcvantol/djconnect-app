@@ -7,9 +7,35 @@ struct ContentDeleteAction: Equatable {
     let identity: UUID
     let owner: ObjectIdentifier
     let target: DJConnectContentDeleteTarget
+    var epoch: UUID? = nil
+    var unavailableReasonKey: String? = nil
+    var recovery: (@MainActor () -> Void)? = nil
     let perform: @MainActor () -> Void
     static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.identity == rhs.identity && lhs.owner == rhs.owner && lhs.target == rhs.target
+        lhs.identity == rhs.identity && lhs.owner == rhs.owner && lhs.target == rhs.target &&
+        lhs.epoch == rhs.epoch && lhs.unavailableReasonKey == rhs.unavailableReasonKey && (lhs.recovery != nil) == (rhs.recovery != nil)
+    }
+}
+
+/// Both conversation and Session menus expose the same reason and safe recovery.
+struct ContentDeletionMenuItems: View {
+    let action: ContentDeleteAction
+    let enabled: Bool
+    let language: String
+    var identifier: String? = nil
+    private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
+    var body: some View {
+        Button(role: .destructive, action: action.perform) {
+            Label(text("ui.content.delete.action"), systemImage: "trash")
+        }
+        .disabled(!enabled)
+        .accessibilityIdentifier(identifier ?? "content-delete-" + action.target.target_id)
+        if !enabled, let key = action.unavailableReasonKey { Text(text(key)) }
+        if let recover = action.recovery {
+            Button(action: recover) {
+                Label(text("ui.content.delete.recover_previous"), systemImage: "arrow.clockwise")
+            }.accessibilityIdentifier("content-delete-recover-" + action.target.target_id)
+        }
     }
 }
 
@@ -97,10 +123,20 @@ private struct ContentDeletionActions: ViewModifier {
             prepared = scope; confirming = true
         }
     }
-    private var deletionButton: some View {
-        Button(role: .destructive, action: begin) {
-            Label(text("ui.content.delete.action"), systemImage: "trash")
-        }.disabled(!enabled).accessibilityIdentifier("content-delete-" + target.target_id)
+    private var recoveryAction: (@MainActor () -> Void)? {
+        guard history.canCheckContentDeletionStatus, !preparing else { return nil }
+        let epoch = history.responseEpoch
+        return {
+            Task { @MainActor in
+                guard history.responseEpoch == epoch else { return }
+                _ = await history.checkContentDeletionStatus()
+            }
+        }
+    }
+    private var deletionAction: ContentDeleteAction {
+        ContentDeleteAction(identity: actionIdentity, owner: ObjectIdentifier(model), target: target,
+            epoch: history.responseEpoch, unavailableReasonKey: preparing ? "ui.content.delete.blocked.busy" : history.contentDeletionBlockingReason(for: target),
+            recovery: recoveryAction, perform: begin)
     }
     func body(content: Content) -> some View {
         Group {
@@ -111,8 +147,7 @@ private struct ContentDeletionActions: ViewModifier {
         }
             // Keep the menu item mounted while eligibility changes; begin() still
             // rechecks permission and prepares a fresh server-bound scope.
-            .environment(\.djContentDeleteAction, ContentDeleteAction(identity: actionIdentity,
-                owner: ObjectIdentifier(model), target: target, perform: begin))
+            .environment(\.djContentDeleteAction, deletionAction)
             .environment(\.djContentDeletionEnabled, enabled)
             .offset(x: revealed ? -64 : 0)
             .background(alignment: .trailing) {
@@ -133,7 +168,9 @@ private struct ContentDeletionActions: ViewModifier {
             // Include the glass card's empty space in native long-press targeting.
             .contentShape(Rectangle())
             .contentDeletionContextMenu(provided: providesContextMenu) {
-                if history.contentDeletionAvailable { deletionButton }
+                if history.contentDeletionAvailable {
+                    ContentDeletionMenuItems(action: deletionAction, enabled: enabled, language: model.language)
+                }
             }
             // The native context menu owns long press and its feedback. Do not
             // install a second recognizer over the same conversation card.

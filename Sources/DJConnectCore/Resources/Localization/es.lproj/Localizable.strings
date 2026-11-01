@@ -1607,3 +1607,10 @@
 "ui.content.delete.readback.pending" = "El historial actualizado aún no está disponible. Inténtalo de nuevo.";
 "ui.content.delete.refresh" = "Volver a actualizar";
 "ui.content.delete.checking" = "Espera un momento…";
+
+"ui.content.delete.blocked.unavailable" = "La eliminación no está disponible ahora.";
+"ui.content.delete.blocked.busy" = "Se está completando otro cambio.";
+"ui.content.delete.blocked.pending" = "Una eliminación anterior aún no se ha confirmado.";
+"ui.content.delete.blocked.request" = "Otra solicitud al DJ sigue pendiente.";
+"ui.content.delete.blocked.voice" = "Detén primero la grabación de voz.";
+"ui.content.delete.recover_previous" = "Comprobar eliminación anterior";

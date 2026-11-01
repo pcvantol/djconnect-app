@@ -723,9 +723,21 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         return nil
     }
     func canDeleteContent(_ target: DJConnectContentDeleteTarget) -> Bool {
-        target.isValid && contentDeletionAvailable && !contentDeletionBusy && !hasUnconfirmedDeletion &&
-        !bulkDeletionBusy && deletingSessionID == nil && hasAuthorizedOwner && host?.canRefreshSessionHistory == true && host?.isDemoMode == false
-        && contentDeletionPreservesOtherWork(target)
+        contentDeletionBlockingReason(for: target) == nil
+    }
+    /// Explain the same eligibility gate used for preparation and submission.
+    func contentDeletionBlockingReason(for target: DJConnectContentDeleteTarget) -> String? {
+        guard target.isValid, contentDeletionAvailable, hasAuthorizedOwner,
+              host?.canRefreshSessionHistory == true, host?.isDemoMode == false else {
+            return "ui.content.delete.blocked.unavailable"
+        }
+        if contentDeletionBusy || bulkDeletionBusy || deletingSessionID != nil { return "ui.content.delete.blocked.busy" }
+        if hasUnconfirmedDeletion { return "ui.content.delete.blocked.pending" }
+        if !contentDeletionPreservesOtherWork(target) {
+            return host?.isRecordingVoice != false || host?.voiceStatus == .processing
+                ? "ui.content.delete.blocked.voice" : "ui.content.delete.blocked.request"
+        }
+        return nil
     }
     private func contentDeletionPreservesOtherWork(_ target: DJConnectContentDeleteTarget) -> Bool {
         // The cache epoch fence must not discard an unrelated request in flight.

@@ -11981,11 +11981,8 @@ struct AskDJMessageBubble: View {
 
     @ViewBuilder private var messageContextMenu: some View {
         if let contentDeleteAction {
-            Button(role: .destructive, action: contentDeleteAction.perform) {
-                Label(localizedKey(language, "ui.content.delete.action"), systemImage: "trash")
-            }
-            .accessibilityIdentifier("content-context-delete")
-            .disabled(!contentDeletionEnabled)
+            ContentDeletionMenuItems(action: contentDeleteAction, enabled: contentDeletionEnabled,
+                language: language, identifier: "content-context-delete")
         }
         if (!isReadOnly || allowsConversationMenu) && canSetPrompt && !isStaleHistory {
             Button {

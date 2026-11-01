@@ -1607,3 +1607,10 @@
 "ui.content.delete.readback.pending" = "L’historique actualisé n’est pas encore disponible. Veuillez réessayer.";
 "ui.content.delete.refresh" = "Actualiser à nouveau";
 "ui.content.delete.checking" = "Veuillez patienter…";
+
+"ui.content.delete.blocked.unavailable" = "La suppression est indisponible pour le moment.";
+"ui.content.delete.blocked.busy" = "Une autre modification est en cours.";
+"ui.content.delete.blocked.pending" = "Une suppression précédente n’a pas encore été confirmée.";
+"ui.content.delete.blocked.request" = "Une autre demande au DJ est encore en attente.";
+"ui.content.delete.blocked.voice" = "Arrêtez d’abord l’enregistrement vocal.";
+"ui.content.delete.recover_previous" = "Vérifier la suppression précédente";

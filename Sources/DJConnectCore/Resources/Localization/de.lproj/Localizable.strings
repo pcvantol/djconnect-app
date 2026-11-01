@@ -1607,3 +1607,10 @@
 "ui.content.delete.readback.pending" = "Der aktualisierte Verlauf ist noch nicht verfügbar. Bitte versuche es erneut.";
 "ui.content.delete.refresh" = "Erneut aktualisieren";
 "ui.content.delete.checking" = "Bitte warten…";
+
+"ui.content.delete.blocked.unavailable" = "Löschen ist derzeit nicht verfügbar.";
+"ui.content.delete.blocked.busy" = "Eine andere Änderung wird abgeschlossen.";
+"ui.content.delete.blocked.pending" = "Eine frühere Löschung wurde noch nicht bestätigt.";
+"ui.content.delete.blocked.request" = "Eine andere DJ-Anfrage ist noch offen.";
+"ui.content.delete.blocked.voice" = "Beende zuerst die Sprachaufnahme.";
+"ui.content.delete.recover_previous" = "Frühere Löschung prüfen";

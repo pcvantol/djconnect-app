@@ -6001,9 +6001,12 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
             #expect(history.hasUnconfirmedDeletion && history.contentDeletionNeedsReadback)
             #expect(history.canCheckContentDeletionStatus)
             #expect(!history.canDeleteContent(prepared.target))
+            #expect(history.contentDeletionBlockingReason(for: prepared.target) == "ui.content.delete.blocked.pending")
             allowConversationReadback.denied = true
             #expect(await history.checkContentDeletionStatus())
             #expect(!history.hasUnconfirmedDeletion && !history.contentDeletionNeedsReadback)
+            #expect(history.contentDeletionBlockingReason(for: prepared.target) == nil)
+            #expect(history.canDeleteContent(prepared.target))
             #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/content/delete/status") })
             #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/content/delete") }.count == 1)
         }
@@ -8389,6 +8392,7 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
             #expect(!model.canUseAskDJFeatures && !model.canUseProfileConversation)
             #expect(history.contentDeletionTarget(for: message) == target)
             #expect(!history.canDeleteContent(target))
+            #expect(history.contentDeletionBlockingReason(for: target) == "ui.content.delete.blocked.busy")
             replyGate.release()
             #expect(await deleting.value)
         } else {

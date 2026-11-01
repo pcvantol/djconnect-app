@@ -1607,3 +1607,10 @@
 "ui.content.delete.readback.pending" = "De bijgewerkte geschiedenis is nog niet beschikbaar. Probeer het opnieuw.";
 "ui.content.delete.refresh" = "Opnieuw bijwerken";
 "ui.content.delete.checking" = "Even wachten…";
+
+"ui.content.delete.blocked.unavailable" = "Verwijderen is nu niet beschikbaar.";
+"ui.content.delete.blocked.busy" = "Een andere wijziging wordt afgerond.";
+"ui.content.delete.blocked.pending" = "Een eerdere verwijdering is nog niet bevestigd.";
+"ui.content.delete.blocked.request" = "Er staat nog een ander DJ-verzoek open.";
+"ui.content.delete.blocked.voice" = "Stop eerst de spraakopname.";
+"ui.content.delete.recover_previous" = "Controleer eerdere verwijdering";
