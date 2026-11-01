@@ -33,3 +33,9 @@ are recorded in `docs/feedback/APPLE_PARALLEL_VALIDATION_245_SOURCE_FINALIZATION
 This separate documentary Final still requires its own delivery/qualification.
 General performance, actual shared WebSocket correctness, separate TDE budgets,
 selected-context92abb integration and clean simulator readiness remain open.
+
+TDE Swift analyzer servicing: the Observe workflow pins the published runtime
+1.1.2 after certified TDE source #164 / main `3ca0041`. It retains the standard
+profile, unmodified policy thresholds and non-blocking Observe mode. A completed
+analysis may produce a genuine policy FAIL; green workflow status is separate.
+See `docs/feedback/APPLE_TDE_1_1_2_ADOPTION_20261101.md`.
