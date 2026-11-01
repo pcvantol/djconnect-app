@@ -5267,7 +5267,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 
 @Test(.isolatedClientResources) func vibeCastWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.vibeCast])
-    await fastPath.setVibeCastError(DJConnectError.network(message: "timeout"))
+    await fastPath.setVibeCastError(DJConnectWebSocketPreDispatchFailure(error: DJConnectError.network(message: "unavailable before dispatch")))
     final class Counter: @unchecked Sendable {
         let lock = NSLock()
         var value = 0
@@ -5416,7 +5416,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 
 @Test(.isolatedClientResources) func commandWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
     let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.command])
-    await fastPath.setCommandError(DJConnectError.network(message: "timeout"))
+    await fastPath.setCommandError(DJConnectWebSocketPreDispatchFailure(error: DJConnectError.network(message: "unavailable before dispatch")))
     final class Counter: @unchecked Sendable {
         let lock = NSLock()
         var value = 0
@@ -5444,6 +5444,88 @@ private final class ProfileConsentServer: @unchecked Sendable {
     #expect(response.playback?.trackName == "HTTP Command Track")
     #expect(await fastPath.commandCalls == 1)
     #expect(counter.count == 1)
+}
+
+// A protocol implementation's unclassified transport error cannot prove that
+// a mutation was not sent. Reads may fall back; writes require positive proof.
+@Test(.isolatedClientResources, arguments: ["devices", "pause"], [0, 1, 2])
+func webSocketUnclassifiedFailureDoesNotReplayMutations(command: String, failureKind: Int) async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.command])
+    let failure: Error
+    switch failureKind {
+    case 0: failure = DJConnectError.network(message: "lost reply")
+    case 1: failure = DJConnectError.invalidResponse
+    default: failure = URLError(.networkConnectionLost)
+    }
+    await fastPath.setCommandError(failure)
+    final class Counter: @unchecked Sendable {
+        let lock = NSLock(); var value = 0
+        func increment() { lock.withLock { value += 1 } }
+        var count: Int { lock.withLock { value } }
+    }
+    let counter = Counter()
+    let client = DJConnectClient(baseURL: URL(string: "http://unclassified-wire.local:8123")!,
+        identity: testIOSIdentity(), tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "unclassified-wire.local") { request in
+            counter.increment()
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true}"#.utf8))
+        }, webSocketFastPath: fastPath)
+    do {
+        _ = try await client.sendCommandResponse(.init(identity: testIOSIdentity(), command: command))
+        #expect(command == "devices")
+    } catch let failure as DJConnectHybridTransportError {
+        #expect(command == "pause")
+        if case .deliveryUnknown = failure { } else { Issue.record("Wrong uncertain-delivery error") }
+    }
+    #expect(await fastPath.commandCalls == 1)
+    #expect(counter.count == (command == "devices" ? 1 : 0))
+}
+
+@Test(.isolatedClientResources, arguments: [false, true])
+func webSocketRawSDKMutationFailureCannotReplayAtAnotherOrigin(decodingFailure: Bool) async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.command])
+    let failure: Error = decodingFailure
+        ? DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "fixture-only"))
+        : NSError(domain: NSPOSIXErrorDomain, code: 57)
+    await fastPath.setCommandError(failure)
+    let client = DJConnectClient(baseURL: URL(string: "http://raw-sdk.local:8123")!,
+        identity: testIOSIdentity(), tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "raw-sdk.local") { request in
+            Issue.record("Uncertain mutation reached HTTP")
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true}"#.utf8))
+        }, webSocketFastPath: fastPath)
+    let transport = DJConnectHATransportManager(localURL: client.baseURL,
+        remoteURL: URL(string: "https://raw-sdk-remote.example")!, allowsRemoteFallback: true,
+        clientFactory: { _ in client })
+    do {
+        _ = try await transport.perform { try await $0.sendCommandResponse(.init(identity: testIOSIdentity(), command: "pause")) }
+        Issue.record("Unknown write accepted")
+    } catch let error as DJConnectHybridTransportError { #expect(error == .deliveryUnknown) }
+    #expect(await fastPath.commandCalls == 1)
+}
+
+@Test(.isolatedClientResources, arguments: ["swift", "url", "wrapped-swift", "wrapped-url"])
+func webSocketPreDispatchCancellationDoesNotBecomeHTTPFallback(kind: String) async throws {
+    let fastPath = MockWebSocketFastPathTransport(supportedRoutes: [.command])
+    let cancellation: Error
+    if kind.hasSuffix("swift") { cancellation = CancellationError() } else { cancellation = URLError(.cancelled) }
+    if kind.hasPrefix("wrapped") {
+        await fastPath.setCommandError(DJConnectWebSocketPreDispatchFailure(error: cancellation))
+    } else { await fastPath.setCommandError(cancellation) }
+    let client = DJConnectClient(baseURL: URL(string: "http://cancelled-wire.local:8123")!,
+        identity: testIOSIdentity(), tokenStore: DJConnectInMemoryTokenStore(token: "device-token"),
+        session: mockSession(host: "cancelled-wire.local") { request in
+            Issue.record("Cancelled request reached HTTP")
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true}"#.utf8))
+        }, webSocketFastPath: fastPath)
+    let transport = DJConnectHATransportManager(localURL: client.baseURL,
+        remoteURL: URL(string: "https://cancelled-wire-remote.example")!, allowsRemoteFallback: true,
+        clientFactory: { _ in client })
+    do {
+        _ = try await transport.perform { try await $0.sendCommandResponse(.init(identity: testIOSIdentity(), command: "pause")) }
+        Issue.record("Cancelled operation succeeded")
+    } catch is CancellationError { }
+    #expect(await fastPath.commandCalls == 1)
 }
 
 @Test(.isolatedClientResources) func askDJMessagePreselectsOneHTTPAttemptEvenWhenLegacyWebSocketIsAvailable() async throws {
@@ -5555,7 +5637,7 @@ private final class ProfileConsentServer: @unchecked Sendable {
 }
 
 @Test(.isolatedClientResources) func trackInsightWebSocketFailureFallsBackToHTTPExactlyOnce() async throws {
-    let fastPath = FailingTrackInsightFastPathTransport(error: DJConnectError.network(message: "timeout"))
+    let fastPath = FailingTrackInsightFastPathTransport(error: DJConnectWebSocketPreDispatchFailure(error: DJConnectError.network(message: "unavailable before dispatch")))
     final class Counter: @unchecked Sendable {
         let lock = NSLock()
         var value = 0

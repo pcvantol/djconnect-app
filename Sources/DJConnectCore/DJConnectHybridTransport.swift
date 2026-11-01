@@ -333,9 +333,12 @@ public actor DJConnectHybridTransport {
         if ["/status", "/music_dna/profile", "/session/history/open"].contains(where: path.hasSuffix) { return true }
         if path.hasSuffix("/command"), let data = request.httpBody,
            let body = try? JSONDecoder().decode(HybridObject.self, from: data), let name = body["command"]?.hybridString {
-            return ["status", "devices", "queue", "playlists", "search_playlists", "search_tracks", "search_albums", "search_media", "recently_played", "artist_recommendations", "listening_profile"].contains(name)
+            return canReplayLegacyCommand(name)
         }
         return false
+    }
+    static func canReplayLegacyCommand(_ name: String) -> Bool {
+        ["status", "devices", "queue", "playlists", "search_playlists", "search_tracks", "search_albums", "search_media", "recently_played", "artist_recommendations", "listening_profile"].contains(name)
     }
     public static func trustedOrigin(_ url: URL) -> Bool {
         guard let c = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return false }

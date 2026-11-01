@@ -5,11 +5,11 @@ import CryptoKit
 import CoreGraphics
 import ImageIO
 import Combine
+import SwiftUI
 @testable import DJConnectCore
 @testable import DJConnectUI
 #if os(macOS)
 import AppKit
-import SwiftUI
 #endif
 
 @Test(.isolatedClientResources) @MainActor func sessionHistoryPhysicalTestEndpointRequiresExplicitBoundedLaunch() {
@@ -254,6 +254,7 @@ private final class HistoryWireResponseGate: @unchecked Sendable {
     private let lock = NSLock()
     private var released = false
     private var deliveries: [@Sendable () -> Void] = []
+    var hasHeldResponse: Bool { lock.withLock { !deliveries.isEmpty } }
     func hold(_ delivery: @escaping @Sendable () -> Void) {
         let deliverNow = lock.withLock {
             if released { return true }
@@ -580,9 +581,15 @@ func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis:
     }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    func waitForCompletedSearch() async throws {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        while (!model.sessionHistory.searchComplete || model.sessionHistory.searchLoading), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+    }
     await model.sessionHistory.prepare()
     model.sessionHistory.search(sessionID: sessionID, query: "old")
-    try await Task.sleep(for: .milliseconds(600))
+    try await waitForCompletedSearch()
     let admittedIDs = model.sessionHistory.searchMatches.map(\.id)
     try #require(admittedIDs.count == entries.count && model.sessionHistory.searchComplete)
     model.sessionHistory.suspend()
@@ -598,7 +605,7 @@ func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis:
     await model.sessionHistory.prepare()
     try #require(model.sessionHistory.hasAuthorizedOwner)
     model.sessionHistory.search(sessionID: sessionID, query: "old")
-    try await Task.sleep(for: .milliseconds(600))
+    try await waitForCompletedSearch()
     #expect(model.sessionHistory.searchMatches.map(\.id) == admittedIDs)
     #expect(model.sessionHistory.searchComplete && !model.sessionHistory.searchLoading)
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
@@ -2088,6 +2095,87 @@ private func activeMoodRuntimeWire() throws -> Data {
     #expect(sessionPlaybackTime(-1) == "0:00")
     #expect(sessionPlaybackTime(67000) == "1:07")
     #expect(sessionPlaybackTime(3601000) == "60:01")
+}
+
+@Test(.isolatedClientResources) @MainActor func selectedContextRefreshPreservesFallbackUpdatesAndWithdrawal() async throws {
+    let receipt = try historyObject()
+    var page = try #require(receipt["archived_timeline"] as? [String: Any])
+    let prototype = try #require((page["entries"] as? [[String: Any]])?.first)
+    let start = Date(timeIntervalSince1970: ceil(Date().timeIntervalSince1970 / 60) * 60 + 120)
+    let firstEnd = start.addingTimeInterval(7.125), fallbackEnd = start.addingTimeInterval(10.5)
+    let updatedEnd = start.addingTimeInterval(9.25)
+    let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    var first = prototype; first["text"] = "Original selected context"; first["retained_until"] = formatter.string(from: firstEnd)
+    var fallback = prototype; fallback["text"] = "Retained fallback"; fallback["retained_until"] = formatter.string(from: fallbackEnd)
+    var updated = prototype; updated["text"] = "Updated selected context"; updated["retained_until"] = formatter.string(from: updatedEnd)
+    page["entries"] = [first]; let firstPage = try historyData(page)
+    page["entries"] = [updated]; let updatedPage = try historyData(page)
+    let pages = HistoryReplySequence([firstPage, updatedPage])
+    var history = try #require(receipt["later_historical_answer"] as? [String: Any])
+    history["messages"] = (history["messages"] as? [[String: Any]] ?? []).map { original in
+        var message = original
+        if message["role"] as? String == "assistant" { message["historical_matches"] = [fallback] }
+        return message
+    }
+    let profileData = try historyData(history)
+    let denied = HistoryAuthorityGate()
+    let caps = Data(#"{"capabilities":{"session_conversation_history":true},"contract_versions":{"session_conversation_history":1}}"#.utf8)
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if denied.denied { return (403, Data(#"{"success":false,"error":"invalid_profile"}"#.utf8), 0) }
+        if request.url!.path.contains("/session/history/") { return (200, pages.next(), 0) }
+        return (200, profileData, 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model(); defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    let entry = try JSONDecoder().decode(DJConnectHistoryEntry.self, from: JSONSerialization.data(withJSONObject: first))
+    let selected = model.sessionHistory
+    await selected.prepare()
+    #expect(await selected.loadTimeline(entry.sessionID))
+    selected.selectedEntry = entry.reference
+    #expect(selected.selectedEntryPreview(at: start) == "Original selected context")
+    #expect(Set(selected.selectedEntryRefreshDeadlines) == Set([firstEnd, fallbackEnd]))
+    let ticks = Array(SessionEntryRefreshSchedule(deadlines: selected.selectedEntryRefreshDeadlines)
+        .entries(from: start, mode: .normal).prefix(4))
+    #expect(ticks == [start, firstEnd, fallbackEnd, start.addingTimeInterval(60)])
+    #expect(selected.selectedEntryPreview(at: firstEnd.addingTimeInterval(-0.001)) == "Original selected context")
+    #expect(selected.selectedEntryPreview(at: firstEnd) == "Retained fallback")
+    #expect(selected.selectedEntryPreview(at: fallbackEnd) == nil)
+    // The previous production one-second schedule cannot repaint at this
+    // fractional deadline. This compares actual schedules, not a fake old head.
+    let previous = PeriodicTimelineSchedule(from: start, by: 1)
+    let previousTicks = Array(previous.entries(from: start, mode: .normal).prefix(12))
+    #expect(previousTicks.first(where: { $0 >= firstEnd }) == start.addingTimeInterval(8))
+    // An ordinary read updates the selected row/index without waiting for a tick.
+    #expect(await selected.loadTimeline(entry.sessionID))
+    #expect(selected.selectedEntryPreview(at: start) == "Updated selected context")
+    #expect(Set(selected.selectedEntryRefreshDeadlines) == Set([updatedEnd, fallbackEnd]))
+    selected.selectedEntry = .init(sessionID: "different-session", entryID: entry.entryID)
+    #expect(selected.selectedEntryPreview(at: start) == nil && selected.selectedEntryRefreshDeadlines.isEmpty)
+    selected.selectedEntry = entry.reference
+    #expect(selected.selectedEntryPreview(at: start) == "Updated selected context")
+    denied.denied = true
+    await selected.refreshConversation()
+    #expect(selected.selectedEntry == nil && selected.selectedEntryPreview == nil)
+    #expect(selected.selectedEntryRefreshDeadlines.isEmpty)
+    #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })
+}
+
+@Test(.isolatedClientResources) @MainActor func selectedContextIndexResolvesOnlyCurrentMatchingPositionsInLongHistory() throws {
+    let demo = try DJConnectDemoSessionData.make(language: "nl")
+    let entry = try #require(demo.timelines[demo.active.id]?.entries.first)
+    let prototype = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(entry)) as? [String: Any])
+    var rows = try (0..<1000).map { number in
+        var value = prototype; value["entry_id"] = "context-row-\(number)"; value["order"] = number + 1
+        return try JSONDecoder().decode(DJConnectHistoryEntry.self, from: JSONSerialization.data(withJSONObject: value))
+    }
+    let wanted = rows[500].reference
+    let index = SessionHistoryEntryIndex(["loaded": rows])
+    var reads = 0
+    #expect(index.rows(wanted, entryAt: { _, offset in reads += 1; return rows[offset] }).map(\.reference) == [wanted])
+    #expect(reads == 1) // Lookup after indexing does not flatten/scan all 1,000 rows.
+    rows.swapAt(500, 501)
+    #expect(index.rows(wanted, entryAt: { _, offset in rows[offset] }).isEmpty) // Stale positions cannot borrow a different entry.
 }
 
 @Test(.isolatedClientResources) @MainActor func activeMoodBoundIntentDoesNotTargetReplacementSession() async throws {
@@ -4406,14 +4494,21 @@ func activePersonaRejectsUnconfirmedMutationReplies(_ fault:String) async throws
     };defer{fixture.close()}
     let(model,defaults,name)=fixture.model();defer{defaults.removePersistentDomain(forName:name)}
     await model.sessionHistory.prepare();await model.refreshActiveDJSession();await model.refreshActiveMoodCapability()
+    // This tests the pending persona HTTP reply, not the independent broadcast
+    // recovery which may legitimately remove an ended Session altogether.
+    model.stopSessionBroadcast()
+    defer { model.markInactiveSession() }
     let epoch=model.sessionHistory.responseEpoch
     let pending=Task{await model.changeActiveSessionPersona(.radioDJ,expectedSessionID:id,expectedEpoch:epoch)}
-    try await Task.sleep(for:.milliseconds(25));#expect(model.activePersonaPending)
+    for _ in 0..<200 where !personaReply.hasHeldResponse { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(personaReply.hasHeldResponse && model.activePersonaPending)
     gate.denied=true;await model.refreshActiveDJSession()
+    model.stopSessionBroadcast() // Fence the refresh's newly scheduled recovery before yielding.
     #expect(model.activeDJSession?.runtimeState == "ended" && !model.activePersonaPending && !model.activePersonaAvailable)
     personaReply.release()
     await pending.value
     #expect(model.activeDJSession?.confirmedPersona?.selectedPersona == .homeDJ && model.activePersonaError == nil)
+    #expect(model.activeDJSession?.runtimeState == "ended")
     #expect(fixture.requests.filter{$0.url!.path.hasSuffix("/session/persona")}.count == 1)
 }
 

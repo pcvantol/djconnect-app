@@ -1959,7 +1959,7 @@ struct SessionComposerContext: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
                         Label(text("ui.session.history.selected_context"), systemImage: "quote.bubble")
-                        TimelineView(.periodic(from: .now, by: 1)) { _ in
+                        TimelineView(SessionEntryRefreshSchedule(deadlines: history.selectedEntryRefreshDeadlines)) { _ in
                             Text(history.selectedEntryPreview ?? text("ui.session.history.changed")).lineLimit(3)
                         }
                     }

@@ -145,6 +145,7 @@ private func passiveCurrent(surface: DJConnectPassiveSurface = .widget, mutation
         c["moment_id"] = "new-publication"; c["text"] = "Tweede voorbeeldbijdrage."; p["contribution"] = c
     }
     var releaseImage: CheckedContinuation<Data, Never>?
+    defer { releaseImage?.resume(returning: Data()) }
     var imageCalls = 0, reads = 0, authorizes = 0
     let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, _ in
         authorizes += 1; return first
@@ -154,6 +155,7 @@ private func passiveCurrent(surface: DJConnectPassiveSurface = .widget, mutation
         return Data()
     })
     let model = PassiveSessionSurfaceModel()
+    defer { model.bind(owner: nil, sessionID: nil, foreground: false) }
     model.bind(owner: "A", sessionID: first.passive_session.session_id, foreground: true)
     await model.discover(services)
     let authorization = Task { await model.setEnabled(true, surface: .widget, services: services) }
@@ -162,7 +164,7 @@ private func passiveCurrent(surface: DJConnectPassiveSurface = .widget, mutation
     model.invalidate(sequence: newest.passive_session.delivery_sequence, services: services)
     try await Task.sleep(for: .milliseconds(350))
     #expect(reads == 0) // The first permitted image is still in flight.
-    releaseImage?.resume(returning: Data())
+    releaseImage?.resume(returning: Data()); releaseImage = nil
     await authorization.value
     // Starting the throttled child is itself scheduled on the UI actor. A
     // fixed 400ms sleep does not establish that it has run under parallel load.
@@ -471,6 +473,7 @@ private func passivePNG() throws -> Data {
 
 @Test(.isolatedClientResources) @MainActor func passiveHintBurstOnlyRereadsExistingGrantOnceAndNeverAuthorizes() async throws {
     let model = PassiveSessionSurfaceModel(), r = try passiveCurrent()
+    defer { model.bind(owner: nil, sessionID: nil, foreground: false) }
     var reads = 0, authorizes = 0
     let services = PassiveSessionSurfaceModel.Services(available: { true }, authorize: { _, _, _ in authorizes += 1; return r },
         read: { _, _, _ in reads += 1; return r }, image: { _, _ in Data() })
