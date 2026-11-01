@@ -10,6 +10,41 @@ enum DJConnectAlbumArtworkLayout {
     static func maximumWidth(phone: Bool) -> CGFloat { phone ? .infinity : 270 }
 }
 
+/// Keep the same artwork and controls mounted while resizing the native screen.
+struct DJConnectPlaybackHeroLayout: Layout {
+    var allowsSideBySide: Bool
+    private let artworkWidth: CGFloat = 270
+    private let gap: CGFloat = 24
+
+    private func sideBySide(_ width: CGFloat?) -> Bool {
+        allowsSideBySide && (width ?? 0) >= 700
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard subviews.count == 2, sideBySide(proposal.width), let width = proposal.width else {
+            let layout = AnyLayout(VStackLayout(spacing: 16))
+            var stackCache = layout.makeCache(subviews: subviews)
+            return layout.sizeThatFits(proposal: proposal, subviews: subviews, cache: &stackCache)
+        }
+        let artwork = subviews[0].sizeThatFits(.init(width: artworkWidth, height: nil))
+        let controls = subviews[1].sizeThatFits(.init(width: width - artworkWidth - gap, height: nil))
+        return CGSize(width: width, height: max(artwork.height, controls.height))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard subviews.count == 2, sideBySide(bounds.width) else {
+            let layout = AnyLayout(VStackLayout(spacing: 16))
+            var stackCache = layout.makeCache(subviews: subviews)
+            layout.placeSubviews(in: bounds, proposal: proposal, subviews: subviews, cache: &stackCache)
+            return
+        }
+        subviews[0].place(at: bounds.origin, anchor: .topLeading,
+                          proposal: .init(width: artworkWidth, height: nil))
+        subviews[1].place(at: CGPoint(x: bounds.minX + artworkWidth + gap, y: bounds.minY), anchor: .topLeading,
+                          proposal: .init(width: bounds.width - artworkWidth - gap, height: nil))
+    }
+}
+
 extension View {
     /// Pop-outs share VibeScape Help's frosting, rounding and preference fallback.
     /// A pop-out stays live even when its presenting page uses scrolling materials.

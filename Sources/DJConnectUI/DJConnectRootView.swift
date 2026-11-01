@@ -9983,7 +9983,7 @@ private struct IOSTrackHero: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        DJConnectPlaybackHeroLayout(allowsSideBySide: UIDevice.current.userInterfaceIdiom == .pad) {
             AnimatedAlbumArtworkView(playback: playback,
                 maxWidth: artworkMaximumWidth,
                 usesDemoArtwork: model.isDemoMode)
@@ -10277,7 +10277,7 @@ struct TrackSummaryView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        DJConnectPlaybackHeroLayout(allowsSideBySide: true) {
             AnimatedAlbumArtworkView(playback: playback,
                 maxWidth: artworkMaximumWidth, usesDemoArtwork: model.isDemoMode)
                 .accessibilityIdentifier("now-playing-artwork-card")
