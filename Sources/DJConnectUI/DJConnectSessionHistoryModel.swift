@@ -169,8 +169,10 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         didSet { if oldValue != contentDeletionBusy { host?.invalidateAskDJHelpObservationContext() } }
     }
     @Published private(set) var contentRemovalRevision = UUID()
+    @Published private(set) var isCheckingContentDeletionStatus = false
     var showsUnconfirmedDeletionNotice: Bool {
-        hasUnconfirmedDeletion && !contentDeletionBusy && !bulkDeletionBusy && deletingSessionID == nil
+        hasUnconfirmedDeletion && (!contentDeletionBusy || isCheckingContentDeletionStatus) &&
+            !bulkDeletionBusy && deletingSessionID == nil
     }
     struct PendingContentDeletion: Codable {
         let owner, scope, binding: String
@@ -182,6 +184,10 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
     }
     @Published private var contentDeletionJournal: [String: PendingContentDeletion] = [:]
+    // Only an original, validated HTTP receipt reaches this RAM cache. Disk
+    // journal DATA never restores a completed outcome; restart uses status GET.
+    private var acceptedContentDeletionReceipts: [String: DJConnectContentDeleteReceipt] = [:]
+    private var lastAcceptedConversationRead = UUID()
     private var invalidContentDeletionJournal = false
     private var contentDeletionReadback: (owner: String, archiveEpoch: UUID)?
     @Published private var withdrawnContentMoments: Set<String> = []
@@ -530,6 +536,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     public func reset() {
+        acceptedContentDeletionReceipts = [:]
         cancelTextSubmissions()
         contributionExploration = nil
         contentDeletionAvailable = false
@@ -559,6 +566,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
 
     public func suspend(preservingVoicePreference: Bool = false, cancelPreparation: Bool = true,
                         preservingArchiveNavigation: Bool = false) {
+        acceptedContentDeletionReceipts = [:]
         cancelTextSubmissions()
         contributionExploration = nil
         contentDeletionAvailable = false
@@ -774,6 +782,19 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         }
     }
 
+    var contentDeletionNeedsReadback: Bool {
+        guard let host, let ownerScope,
+              let record = contentDeletionJournal[host.historyDeletionScope(owner: ownerScope)] else { return false }
+        return acceptedContentDeletionReceipt(for: record) != nil
+    }
+    private func acceptedContentDeletionReceipt(for record: PendingContentDeletion) -> DJConnectContentDeleteReceipt? {
+        guard let host, ownerScope == record.owner,
+              record.binding == host.historyDeletionScope(owner: record.owner, bindCredential: true),
+              contentDeletionJournal[record.scope]?.request == record.request,
+              let receipt = acceptedContentDeletionReceipts[record.scope],
+              receipt.admits(scope: record.prepared, request: record.request, owner: record.owner) else { return nil }
+        return receipt
+    }
     var canCheckContentDeletionStatus: Bool {
         guard contentDeletionAvailable, !contentDeletionBusy, let host, let ownerScope,
               let record = contentDeletionJournal[host.historyDeletionScope(owner: ownerScope)] else { return false }
@@ -784,7 +805,14 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         guard canCheckContentDeletionStatus, let host, let owner = ownerScope,
               let record = contentDeletionJournal[host.historyDeletionScope(owner: owner)] else { return false }
         let captured = epoch
-        contentDeletionBusy = true; defer { contentDeletionBusy = false }
+        isCheckingContentDeletionStatus = true
+        contentDeletionBusy = true
+        defer { contentDeletionBusy = false; isCheckingContentDeletionStatus = false }
+        if let receipt = acceptedContentDeletionReceipt(for: record) {
+            // Resume only the failed reads. Never redispatch the mutation, and
+            // do not ask status to rediscover a receipt already received here.
+            return await finishContentDeletion(record, receipt: receipt)
+        }
         do {
             let status = try await host.withHomeAssistantClient(allowsOperationReplay: false) {
                 try await $0.contentDeletionStatus(record.request, scope: record.prepared, expectedOwner: owner)
@@ -798,7 +826,10 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
     private func finishContentDeletion(_ record: PendingContentDeletion, receipt: DJConnectContentDeleteReceipt) async -> Bool {
         guard let host, ownerScope == record.owner,
+              record.binding == host.historyDeletionScope(owner: record.owner, bindCredential: true),
+              contentDeletionJournal[record.scope]?.request == record.request,
               receipt.admits(scope: record.prepared, request: record.request, owner: record.owner) else { return false }
+        acceptedContentDeletionReceipts[record.scope] = receipt
         for moment in record.prepared.affected_moments {
             withdrawnContentMoments.insert(record.scope + "\u{0}" + moment.session_id + "\u{0}" + moment.moment_id)
         }
@@ -821,8 +852,10 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
         contentRemovalRevision = UUID()
         contentDeletionReadback = (record.owner, archiveResponseEpoch)
         defer { contentDeletionReadback = nil }
+        let beforeRead = lastAcceptedConversationRead
         await prepare()
-        guard ownerScope == record.owner, host.canRefreshSessionHistory, !Task.isCancelled else { return false }
+        guard ownerScope == record.owner, host.canRefreshSessionHistory, !Task.isCancelled,
+              lastAcceptedConversationRead != beforeRead else { return false }
         guard await loadSessions() else { return false }
         for id in Set(receipt.affected_entries.map(\.session_id)) {
             guard await loadTimeline(id, preserveLoadedEntries: true) else { return false }
@@ -833,6 +866,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
               contentDeletionJournal[record.scope]?.request == record.request else { return false }
         contentDeletionJournal[record.scope] = nil
         guard saveContentDeletionJournal() else { invalidContentDeletionJournal = true; return false }
+        acceptedContentDeletionReceipts[record.scope] = nil
         return true
     }
 
@@ -968,6 +1002,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             historicalMatches = response.historicalMatches
             conversationMessageContexts = response.messageContexts
             reconcilePending(with: response.base)
+            lastAcceptedConversationRead = UUID()
             return true
         } catch {
             guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return false }
@@ -1542,6 +1577,7 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
             historicalMatches = response.historicalMatches
             conversationMessageContexts = response.messageContexts
             reconcilePending(with: response.base)
+            lastAcceptedConversationRead = UUID()
             if let sessionID = host.activeDJSession?.sessionID, timelines[sessionID] == nil {
                 await loadTimeline(sessionID, window: .tail, preserveLoadedEntries: true)
             }

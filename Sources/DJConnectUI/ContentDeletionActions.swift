@@ -30,10 +30,15 @@ struct ContentDeletionPendingNotice: View {
     init(model: DJConnectAppModel) { self.model = model; history = model.sessionHistory }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(DJConnectLocalization.localized(key: "ui.session.history.delete.unconfirmed", language: model.language))
+            Text(DJConnectLocalization.localized(key: history.contentDeletionNeedsReadback
+                ? "ui.content.delete.readback.pending" : "ui.session.history.delete.unconfirmed", language: model.language))
                 .font(.callout).fixedSize(horizontal: false, vertical: true)
-            if history.canCheckContentDeletionStatus {
-                Button(DJConnectLocalization.localized(key: "ui.content.delete.status", language: model.language)) {
+            if history.contentDeletionBusy {
+                ProgressView(DJConnectLocalization.localized(key: "ui.content.delete.checking", language: model.language))
+                    .controlSize(.small)
+            } else if history.canCheckContentDeletionStatus {
+                Button(DJConnectLocalization.localized(key: history.contentDeletionNeedsReadback
+                    ? "ui.content.delete.refresh" : "ui.content.delete.status", language: model.language)) {
                     Task { await history.checkContentDeletionStatus() }
                 }.buttonStyle(.borderless).accessibilityIdentifier("content-deletion-status")
             }

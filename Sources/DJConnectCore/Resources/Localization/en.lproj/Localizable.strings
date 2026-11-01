@@ -1490,7 +1490,7 @@
 "ui.ha_speech.unknown" = "Unknown";
 "ui.ha_speech.retry_delay" = "Speech output is temporarily paused after a failed attempt.";
 
-"ui.session.history.delete.unconfirmed" = "Deletion is not yet confirmed. No new deletion request will be sent. Refresh only reads the history.";
+"ui.session.history.delete.unconfirmed" = "We could not confirm whether this was deleted. Please check again.";
 
 /* Server-confirmed individual content deletion. */
 "ui.content.delete.action" = "Delete contribution";
@@ -1501,7 +1501,7 @@
 "ui.content.delete.scope" = "Rows: %d removed, %d made unavailable. Messages: %d removed, %d made unavailable. DJ moments: %d. Fenced requests: %d.";
 "ui.content.delete.playback" = "The Session and music playback are preserved.";
 "ui.content.delete.expires" = "Valid until %@";
-"ui.content.delete.status" = "Check deletion status";
+"ui.content.delete.status" = "Check again";
 
 "ui.session.search.clear" = "Clear search terms";
 
@@ -1604,3 +1604,6 @@
 
 "surface.research.adapted" = "Adapted from the sources above.";
 "ui.host.wake.reviewed.device.test" = "Start reviewed device test";
+"ui.content.delete.readback.pending" = "The updated history is not available yet. Please try again.";
+"ui.content.delete.refresh" = "Refresh again";
+"ui.content.delete.checking" = "Please wait…";

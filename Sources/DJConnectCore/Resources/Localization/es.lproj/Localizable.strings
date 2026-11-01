@@ -1490,7 +1490,7 @@
 "ui.ha_speech.unknown" = "Desconocido";
 "ui.ha_speech.retry_delay" = "La síntesis de voz está temporalmente en pausa tras un intento fallido.";
 
-"ui.session.history.delete.unconfirmed" = "La eliminación aún no está confirmada. No se enviará una nueva solicitud de eliminación. Actualizar solo lee el historial.";
+"ui.session.history.delete.unconfirmed" = "Aún no podemos confirmar si se ha eliminado. Vuelve a comprobarlo.";
 
 /* Server-confirmed individual content deletion. */
 "ui.content.delete.action" = "Eliminar contribución";
@@ -1501,7 +1501,7 @@
 "ui.content.delete.scope" = "Filas: %d eliminadas, %d no disponibles. Mensajes: %d eliminados, %d no disponibles. Momentos del DJ: %d. Solicitudes bloqueadas: %d.";
 "ui.content.delete.playback" = "Se conservan la sesión y la reproducción de música.";
 "ui.content.delete.expires" = "Válido hasta %@";
-"ui.content.delete.status" = "Consultar estado de eliminación";
+"ui.content.delete.status" = "Volver a comprobar";
 
 "ui.session.search.clear" = "Borrar términos de búsqueda";
 
@@ -1604,3 +1604,6 @@
 
 "surface.research.adapted" = "Adaptado de las fuentes anteriores.";
 "ui.host.wake.reviewed.device.test" = "Iniciar prueba de dispositivo revisada";
+"ui.content.delete.readback.pending" = "El historial actualizado aún no está disponible. Inténtalo de nuevo.";
+"ui.content.delete.refresh" = "Volver a actualizar";
+"ui.content.delete.checking" = "Espera un momento…";
