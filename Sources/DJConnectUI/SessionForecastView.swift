@@ -135,7 +135,10 @@ struct SessionForecastContent: View {
                     Text(text(model.forecastLoading ? "ui.session.forecast.loading" : "ui.session.forecast.unavailable"))
                         .fixedSize(horizontal: false, vertical: true)
                     Button(text("ui.refresh.page")) { Task { await model.refreshSessionForecast() } }
-                        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, usesLiveGlass: false))
+                        .buttonStyle(.plain)
+                        .font(.callout)
+                        .foregroundStyle(.white.opacity(0.78))
+                        .frame(minHeight: 44, alignment: .leading)
                         .disabled(model.forecastLoading || !model.canRefreshSessionForecast)
                 }
             }.padding(.horizontal, 20).padding(.bottom, 16)
