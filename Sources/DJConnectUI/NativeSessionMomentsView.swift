@@ -648,21 +648,9 @@ struct NativeSessionMomentsView: View {
                             .accessibilityValue(playbackOutputName)
                             .accessibilityIdentifier("session-playback-output")
                         Spacer(minLength: 0)
-                        Group {
-                            if playbackModel?.currentPlaybackUsesLocalBluetooth == true {
-                                BluetoothOutputSymbol()
-                                    .stroke(style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
-                                    .frame(width: 12, height: 18)
-                            } else if let volume = playbackModel?.currentPlaybackVolumePercent {
-                                Label("\(volume)%", systemImage: volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                            } else {
-                                Text("-")
-                            }
-                        }
-                        .fixedSize()
-                        .accessibilityLabel(text("watch.volume"))
-                        .accessibilityValue(playbackModel?.currentPlaybackUsesLocalBluetooth == true ? "Bluetooth" : playbackModel?.currentPlaybackVolumePercent.map { "\($0)%" } ?? "-")
-                        .accessibilityIdentifier("session-playback-volume")
+                        if let model = playbackModel {
+                            SessionPlaybackVolumeButton(model: model).id(session.id)
+                        } else { Text("-").fixedSize() }
                     }
                     .font(usesLargePlaybackTypography ? .callout : .caption).foregroundStyle(.secondary)
                 }
@@ -834,6 +822,83 @@ private struct SessionCurrentColumns: Layout {
         // wins in sizeThatFits when long text or accessibility sizes need more room.
         subviews[1].place(at: CGPoint(x: bounds.minX + music + gap, y: bounds.minY), anchor: .topLeading,
                           proposal: .init(width: card, height: bounds.height))
+    }
+}
+
+struct SessionPlaybackVolumeButton: View {
+    @ObservedObject var model: DJConnectAppModel
+    @State private var showsVolume = false
+    @Environment(\.scenePhase) private var scenePhase
+    var canPresentVolume: Bool {
+        model.canUsePlaybackFeatures && model.canControlPlaybackVolume &&
+            model.playback?.device?.active != false && model.volumeOutputKey != nil &&
+            model.pendingOutputSelectionID == nil
+    }
+    var body: some View {
+        Button { showsVolume.toggle() } label: {
+            Group {
+                if model.currentPlaybackUsesLocalBluetooth {
+                    BluetoothOutputSymbol()
+                        .stroke(style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                        .frame(width: 12, height: 18)
+                } else if let volume = model.currentPlaybackVolumePercent {
+                    Label("\(volume)%", systemImage: volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                } else { Text("-") }
+            }
+            .fixedSize().frame(minHeight: 44).contentShape(Rectangle())
+        }
+        .djConnectPlainButtonStyle()
+        .disabled(!canPresentVolume)
+        .accessibilityLabel(DJConnectLocalization.localized(key: "watch.volume", language: model.language))
+        .accessibilityValue(model.currentPlaybackUsesLocalBluetooth ? "Bluetooth" : model.currentPlaybackVolumePercent.map { "\($0)%" } ?? "-")
+        .accessibilityIdentifier("session-playback-volume")
+        .popover(isPresented: $showsVolume) {
+            SessionPlaybackVolumePanel(model: model)
+                .padding(20).frame(width: 320)
+                .environment(\.djConnectScrollingSurface, false)
+                #if os(macOS)
+                .djConnectPresentationSurface()
+                #else
+                .djConnectGlassPopoutSurface().djConnectPresentationSurface()
+                #endif
+                .presentationCompactAdaptation(.popover)
+        }
+        .onChange(of: canPresentVolume) { _, allowed in if !allowed { showsVolume = false } }
+        .onChange(of: model.volumeOutputKey) { _, _ in showsVolume = false }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { showsVolume = false } }
+    }
+}
+
+struct SessionPlaybackVolumePanel: View {
+    @ObservedObject var model: DJConnectAppModel
+    @State private var draft: Double?
+    @State private var editingOutput: String?
+    private var allowed: Bool { SessionPlaybackVolumeButton(model: model).canPresentVolume }
+    private var value: Double { draft ?? Double(model.currentPlaybackVolumePercent ?? Int(model.volume)) }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(DJConnectLocalization.localized(key: "watch.volume", language: model.language))
+                .font(.headline).accessibilityAddTraits(.isHeader)
+            if let name = model.playback?.device?.name { Text(name).font(.callout).foregroundStyle(.secondary) }
+            HStack(spacing: 12) {
+                Image(systemName: value == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                Slider(value: Binding(get: { value }, set: { draft = $0 }), in: 0...100) { editing in
+                    if editing { editingOutput = model.volumeOutputKey }
+                    else {
+                        defer { draft = nil; editingOutput = nil }
+                        guard allowed, let editingOutput, editingOutput == model.volumeOutputKey else { return }
+                        model.volume = value
+                        DJConnectHaptics.selection()
+                        model.commitVolumeChange()
+                    }
+                }
+                .tint(djConnectAccent).disabled(!allowed)
+                .accessibilityLabel(DJConnectLocalization.localized(key: "watch.volume", language: model.language))
+                .accessibilityIdentifier("session-volume-slider")
+                Text("\(Int(value.rounded()))%").monospacedDigit().frame(minWidth: 44, alignment: .trailing)
+            }
+        }
+        .onChange(of: model.volumeOutputKey) { _, _ in draft = nil; editingOutput = nil }
     }
 }
 
