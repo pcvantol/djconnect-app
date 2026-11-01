@@ -1,6 +1,23 @@
 import SwiftUI
 import DJConnectCore
 
+/// Match the composer's purple frost without tinting the text or controls.
+/// Opaque accessibility/preferences continue to use the shared material policy.
+private struct AskDJHelpGlassBackground: View {
+    @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var body: some View {
+        Rectangle()
+            .fill(DJConnectMaterial(.regular))
+            .overlay {
+                if glassEnabled && !reduceTransparency {
+                    DJConnectGlassAppearance.composerTint.opacity(0.30)
+                }
+            }
+            .allowsHitTesting(false)
+    }
+}
+
 /// Transient conversation scope for closing stale Help; no visibility preference.
 struct AskDJHelpScope: Equatable {
     var owner: String?
@@ -34,7 +51,10 @@ struct AskDJComposerHelpPopout: View {
         .padding(16)
         .frame(maxWidth: 580)
         .fixedSize(horizontal: false, vertical: true)
-        .background(DJConnectMaterial(.regular), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background {
+            AskDJHelpGlassBackground()
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        }
         .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(.white.opacity(0.16), lineWidth: 0.6))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("ask-dj-suggestions-popout-" + surface.rawValue)
@@ -91,7 +111,7 @@ struct AskDJHelpEntry<Content: View>: View {
                         .accessibilityIdentifier("ask-dj-help-close")
                     content()
                 }
-                .background(DJConnectMaterial(.regular))
+                .presentationBackground { AskDJHelpGlassBackground() }
                 .djConnectPresentationSurface()
                 .presentationCompactAdaptation(.popover)
                 .onDisappear { onDismissed?() }

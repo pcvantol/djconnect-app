@@ -13602,7 +13602,7 @@ struct AskDJInputBar: View {
     private var usesOpaqueSurface: Bool { reduceTransparency || !glassEnabled }
 
     private var composerSurfaceTint: Color {
-        surfaceColors?[safe: 1] ?? surfaceColors?.first ?? Color(red: 0.40, green: 0.16, blue: 0.66)
+        surfaceColors?[safe: 1] ?? surfaceColors?.first ?? DJConnectGlassAppearance.composerTint
     }
 
     private var editorDraft: Binding<String> {
