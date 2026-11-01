@@ -98,6 +98,16 @@ final class DJConnectIOSUITests: XCTestCase {
         XCTAssertEqual(field.value as? String, "Zoek in geladen sessies")
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "saved-sessions-search"; screenshot.lifetime = .keepAlways; add(screenshot)
+        field.tap()
+        field.typeText("Electric")
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.tap()
+        let sessionSearch = app.textFields["session-search-field"]
+        XCTAssertTrue(sessionSearch.waitForExistence(timeout: 5))
+        XCTAssertEqual(sessionSearch.value as? String, "Electric")
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Electric Feel")).firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["session-entry-demo-evening-entry-1"].firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any)["session-entry-demo-evening-entry-2"].firstMatch.exists)
     }
 
     private struct ScreenshotScreen {
