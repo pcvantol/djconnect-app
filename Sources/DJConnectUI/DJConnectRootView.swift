@@ -3643,12 +3643,11 @@ private struct AnimatedAlbumArtworkView: View {
 
     var body: some View {
         CachedArtworkImage(url: usesDemoArtwork ? nil : playback?.albumImageURL, mode: .fit,
-                           usesAlbumGlassFrame: false, animatesArtworkChanges: true) {
+                           usesAlbumGlassFrame: true, animatesArtworkChanges: true) {
             AlbumArtworkPlaceholder(tint: artworkTintColor(for: playback), isPlaying: playback?.isPlaying == true)
         }
         .aspectRatio(1, contentMode: .fit)
         .frame(maxWidth: maxWidth)
-        .clipShape(DJConnectCardAppearance.shape)
         .frame(maxWidth: .infinity, alignment: .center)
     }
 }
@@ -9891,10 +9890,11 @@ private struct IOSTrackHero: View {
                 usesDemoArtwork: model.isDemoMode)
                 .accessibilityIdentifier("now-playing-artwork-card")
             playbackCard
+                .padding(20)
+                .frame(maxWidth: .infinity)
+                .djPlaybackArtworkGlassCard(artworkURL: model.isDemoMode ? nil : playback?.albumImageURL)
         }
-        .padding(20)
         .frame(maxWidth: .infinity)
-        .djPlaybackArtworkGlassCard(artworkURL: model.isDemoMode ? nil : playback?.albumImageURL)
         .accessibilityIdentifier("now-playing-card")
     }
 
@@ -10183,10 +10183,11 @@ struct TrackSummaryView: View {
                 maxWidth: artworkMaximumWidth, usesDemoArtwork: model.isDemoMode)
                 .accessibilityIdentifier("now-playing-artwork-card")
             playbackCard
+                .padding(20)
+                .frame(maxWidth: .infinity)
+                .djPlaybackArtworkGlassCard(artworkURL: model.isDemoMode ? nil : playback?.albumImageURL)
         }
-        .padding(20)
         .frame(maxWidth: .infinity)
-        .djPlaybackArtworkGlassCard(artworkURL: model.isDemoMode ? nil : playback?.albumImageURL)
         .accessibilityIdentifier("now-playing-card")
     }
 
