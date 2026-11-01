@@ -7459,7 +7459,7 @@ public final class DJConnectAppModel: ObservableObject {
                 guard profileDJSettings.active else { syncSessionSurfaces(); return }
                 presentProfileSettingsRejection(rejected)
             }
-            presentSettingsOperationConfirmation()
+            consumeSettingsOperationConfirmation()
             syncSessionSurfaces()
             if before != nil && (before?.binding != profileDJSettings.response?.binding || before?.snapshot != profileDJSettings.response?.snapshot || before?.voice_revision != profileDJSettings.response?.voice_revision) {
                 stopResponsePlayback(clearText: false)
@@ -7475,18 +7475,17 @@ public final class DJConnectAppModel: ObservableObject {
         stopResponsePlayback(clearText: false)
         let rejected = await profileDJSettings.change(patch, using: profileDJSettingsServices)
         presentProfileSettingsRejection(rejected)
-        presentSettingsOperationConfirmation()
+        consumeSettingsOperationConfirmation()
         syncSessionSurfaces()
         // Rendering reads active Session from its existing owner; no separate write.
         _ = await refreshActiveDJSession()
     }
 
-    private func presentSettingsOperationConfirmation() {
-        guard let confirmation = profileDJSettings.takeOperationConfirmation(),
-              activeDJSession == nil, isAppInForeground, pairingStatus == .paired else { return }
-        // A Profile acknowledgement is not a fictitious Session Moment and
-        // cannot authorize speech, playback, or a duplicate live card.
-        userNotice = DJConnectUserNotice(text: confirmation.text)
+    private func consumeSettingsOperationConfirmation() {
+        // The confirmed settings already update their controls. Consume the
+        // acknowledgement without a toast, including before a Session exists.
+        // It does not authorize a Session Moment, speech or playback.
+        _ = profileDJSettings.takeOperationConfirmation()
     }
 
     private func presentProfileSettingsRejection(_ rejected: DJConnectProfileDJSettingsFailure?) {
@@ -7499,7 +7498,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     func reconcileProfileDJSettingsChoice() async {
         presentProfileSettingsRejection(await profileDJSettings.reconcile(profileDJSettingsServices))
-        presentSettingsOperationConfirmation()
+        consumeSettingsOperationConfirmation()
         syncSessionSurfaces()
         if activeDJSession != nil { _ = await refreshActiveDJSession() }
     }
