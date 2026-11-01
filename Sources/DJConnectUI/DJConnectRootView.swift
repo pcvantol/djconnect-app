@@ -6792,7 +6792,7 @@ private struct MusicDiscoveryDetailView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .djConnectButtonStyle(DJConnectButtonStyle(emphasis: .primary, expands: true))
-                    .disabled(model.playingMusicDiscoveryItemID == item.id)
+                    .disabled(model.playingMusicDiscoveryItemID != nil)
                 }
 
                 if let error = model.musicDiscoveryErrorMessage {

@@ -9918,7 +9918,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     @discardableResult
     public func playMusicDiscoveryItem(_ item: DJConnectMusicDiscoveryItem, sectionID: String) async -> Bool {
-        guard item.isDisplayable, item.isPlayable else { return false }
+        guard item.isDisplayable, item.isPlayable, playingMusicDiscoveryItemID == nil else { return false }
         if isDemoMode {
             playMusicDiscoveryStartHaptic()
             playingMusicDiscoveryItemID = item.id
@@ -9948,7 +9948,7 @@ public final class DJConnectAppModel: ObservableObject {
                 playingMusicDiscoveryItemID = nil
                 return false
             }
-            scheduleCommandRefresh(reason: "Discovery play confirmation refresh completed", delay: .zero)
+            scheduleCommandRefresh(reason: "Discovery play confirmation refresh completed", delay: .zero, includeQueue: true)
             _ = await refreshMusicDiscovery()
             playingMusicDiscoveryItemID = nil
             return true
