@@ -673,8 +673,13 @@ struct NativeSessionMomentsView: View {
                 if usesLargePlaybackTypography { Spacer(minLength: 0) }
                 if let duration = playback.durationMS, duration > 0, let position = playbackModel?.displayedSessionPositionMS(session) ?? playback.positionMS {
                     let current = max(0, min(position, duration))
-                    ProgressView(value: Double(current), total: Double(duration))
-                        .accessibilityLabel(text("ui.session.music_progress"))
+                    if let model = playbackModel {
+                        SessionPlaybackCardButton(model: model, session: session, position: current, duration: duration)
+                            .id(session.id)
+                    } else {
+                        ProgressView(value: Double(current), total: Double(duration))
+                            .accessibilityLabel(text("ui.session.music_progress"))
+                    }
                     HStack(alignment: .center, spacing: 8) {
                         if let playbackModel, playbackModel.canToggleSessionFavorite(session) {
                             FavoriteTrackButton(model: playbackModel, identifier: "session-favorite-button", sessionContext: session)
@@ -991,6 +996,49 @@ struct SessionPlaybackVolumePanel: View {
             }
         }
         .onChange(of: model.volumeOutputKey) { _, _ in draft = nil; editingOutput = nil }
+    }
+}
+
+struct SessionPlaybackCardButton: View {
+    @ObservedObject var model: DJConnectAppModel
+    let session: DJConnectSessionRuntime
+    let position: Int
+    let duration: Int
+    @State private var showsPlayback = false
+    @Environment(\.scenePhase) private var scenePhase
+    var canOpenPlayback: Bool { model.canToggleSessionFavorite(session) }
+    private var context: [String?] {
+        [session.id, session.broadcast.playback?.itemID, session.broadcast.playback?.sourceURL,
+         session.broadcast.playback?.title, session.broadcast.playback?.artist]
+    }
+    var body: some View {
+        Button { showsPlayback.toggle() } label: {
+            ProgressView(value: Double(position), total: Double(max(duration, 1)))
+                .frame(minHeight: 44).contentShape(Rectangle())
+        }
+        .djConnectPlainButtonStyle()
+        .disabled(!canOpenPlayback)
+        .accessibilityLabel(DJConnectLocalization.localized(key: "ui.playback", language: model.language))
+        .accessibilityValue("\(sessionPlaybackTime(position)) / \(sessionPlaybackTime(duration))")
+        .accessibilityIdentifier("session-playback-card-open")
+        .popover(isPresented: $showsPlayback) {
+            ScrollView {
+                NowPlayingPlaybackCardContent(model: model).padding(20)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .frame(minWidth: 280, idealWidth: 380, maxWidth: 440, maxHeight: 460)
+            .environment(\.djConnectScrollingSurface, false)
+            #if os(macOS)
+            // Let AppKit draw the single native glass rim and corner radius.
+            .djConnectPresentationSurface()
+            #else
+            .djConnectGlassPopoutSurface().djConnectPresentationSurface()
+            #endif
+            .presentationCompactAdaptation(.popover)
+        }
+        .onChange(of: context) { _, _ in showsPlayback = false }
+        .onChange(of: canOpenPlayback) { _, allowed in if !allowed { showsPlayback = false } }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { showsPlayback = false } }
     }
 }
 
