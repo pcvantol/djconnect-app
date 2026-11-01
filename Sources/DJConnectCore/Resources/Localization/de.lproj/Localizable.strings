@@ -991,7 +991,6 @@
 "ui.session.history.unavailable" = "Der Sitzungsverlauf ist vorübergehend nicht verfügbar.";
 "ui.session.history.empty" = "Keine gespeicherten Sitzungen";
 "ui.session.history.interrupted" = "Unterbrochen";
-"ui.session.history.readonly" = "Schreibgeschützte Sitzung";
 "ui.session.history.no_entries" = "Diese Sitzung enthält keine gespeicherten Beiträge.";
 "ui.session.history.changed" = "Der Kontext oder Verlauf hat sich geändert. Bitte erneut versuchen.";
 "ui.session.history.current_context" = "Aktuellen Kontext verwenden";

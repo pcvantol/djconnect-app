@@ -991,7 +991,6 @@
 "ui.session.history.unavailable" = "El historial de sesiones no está disponible temporalmente.";
 "ui.session.history.empty" = "No hay sesiones guardadas";
 "ui.session.history.interrupted" = "Interrumpida";
-"ui.session.history.readonly" = "Sesión de solo lectura";
 "ui.session.history.no_entries" = "Esta sesión no contiene aportaciones guardadas.";
 "ui.session.history.changed" = "El contexto o el historial ha cambiado. Inténtalo de nuevo.";
 "ui.session.history.current_context" = "Usar el contexto actual";

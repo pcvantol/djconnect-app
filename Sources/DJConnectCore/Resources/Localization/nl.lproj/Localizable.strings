@@ -991,7 +991,6 @@
 "ui.session.history.unavailable" = "De sessiegeschiedenis is tijdelijk niet beschikbaar.";
 "ui.session.history.empty" = "Geen bewaarde sessies";
 "ui.session.history.interrupted" = "Onderbroken";
-"ui.session.history.readonly" = "Alleen-lezen sessie";
 "ui.session.history.no_entries" = "Deze sessie bevat geen bewaarde bijdragen.";
 "ui.session.history.changed" = "De context of historie is gewijzigd. Probeer opnieuw.";
 "ui.session.history.current_context" = "Huidige context gebruiken";

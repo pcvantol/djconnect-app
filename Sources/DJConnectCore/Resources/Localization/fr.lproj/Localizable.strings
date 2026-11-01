@@ -991,7 +991,6 @@
 "ui.session.history.unavailable" = "L’historique des sessions est temporairement indisponible.";
 "ui.session.history.empty" = "Aucune session enregistrée";
 "ui.session.history.interrupted" = "Interrompue";
-"ui.session.history.readonly" = "Session en lecture seule";
 "ui.session.history.no_entries" = "Cette session ne contient aucune contribution enregistrée.";
 "ui.session.history.changed" = "Le contexte ou l’historique a changé. Réessayez.";
 "ui.session.history.current_context" = "Utiliser le contexte actuel";
