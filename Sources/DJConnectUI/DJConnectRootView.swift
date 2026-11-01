@@ -3643,12 +3643,11 @@ private struct AnimatedAlbumArtworkView: View {
 
     var body: some View {
         CachedArtworkImage(url: usesDemoArtwork ? nil : playback?.albumImageURL, mode: .fit,
-                           usesAlbumGlassFrame: false, animatesArtworkChanges: true) {
+                           usesAlbumGlassFrame: true, animatesArtworkChanges: true) {
             AlbumArtworkPlaceholder(tint: artworkTintColor(for: playback), isPlaying: playback?.isPlaying == true)
         }
         .aspectRatio(1, contentMode: .fit)
         .frame(maxWidth: maxWidth)
-        .clipShape(DJConnectCardAppearance.shape)
         .frame(maxWidth: .infinity, alignment: .center)
     }
 }
@@ -9891,10 +9890,11 @@ private struct IOSTrackHero: View {
                 usesDemoArtwork: model.isDemoMode)
                 .accessibilityIdentifier("now-playing-artwork-card")
             playbackCard
+                .padding(20)
+                .frame(maxWidth: .infinity)
+                .djPlaybackArtworkGlassCard(artworkURL: model.isDemoMode ? nil : playback?.albumImageURL)
         }
-        .padding(20)
         .frame(maxWidth: .infinity)
-        .djPlaybackArtworkGlassCard(artworkURL: model.isDemoMode ? nil : playback?.albumImageURL)
         .accessibilityIdentifier("now-playing-card")
     }
 
@@ -10183,10 +10183,11 @@ struct TrackSummaryView: View {
                 maxWidth: artworkMaximumWidth, usesDemoArtwork: model.isDemoMode)
                 .accessibilityIdentifier("now-playing-artwork-card")
             playbackCard
+                .padding(20)
+                .frame(maxWidth: .infinity)
+                .djPlaybackArtworkGlassCard(artworkURL: model.isDemoMode ? nil : playback?.albumImageURL)
         }
-        .padding(20)
         .frame(maxWidth: .infinity)
-        .djPlaybackArtworkGlassCard(artworkURL: model.isDemoMode ? nil : playback?.albumImageURL)
         .accessibilityIdentifier("now-playing-card")
     }
 
@@ -10441,8 +10442,8 @@ struct FavoriteTrackButton: View {
     @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
-    // Leave four extra points around the Session glyph inside native glass.
-    private var labelDiameter: CGFloat { sessionContext != nil && glassEnabled && !reduceTransparency ? 32 : 44 }
+    // Keep the Session glyph close to the glass edge; retain a 44-point tap target below.
+    private var labelDiameter: CGFloat { sessionContext != nil && glassEnabled && !reduceTransparency ? 24 : 44 }
 
     private var isFavorite: Bool {
         model.playback?.currentTrackFavoriteStatus == true
@@ -10467,7 +10468,8 @@ struct FavoriteTrackButton: View {
                     .buttonStyle(.glass(.regular.tint(.clear).interactive()))
                     .buttonBorderShape(.circle)
                     .tint(.clear)
-                    .controlSize(.large)
+                    .controlSize(.regular)
+                    .frame(minWidth: 44, minHeight: 44)
             }
         } else {
             favoriteButton
