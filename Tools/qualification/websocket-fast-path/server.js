@@ -103,5 +103,13 @@ server.on('upgrade', (req, socket) => {
     }
   });
 });
-server.listen(0, '127.0.0.1', () => fs.writeFileSync(report, JSON.stringify({ port: server.address().port }), { flag: 'wx' }));
+server.listen(0, '127.0.0.1', () => {
+  // Publish only complete bytes. Opening the final name before writeFileSync
+  // finishes lets the concurrently polling native test observe empty JSON.
+  // linkSync keeps the original exclusive-create behavior for the final name.
+  const pending = report + '.pending';
+  fs.writeFileSync(pending, JSON.stringify({ port: server.address().port }), { flag: 'wx' });
+  fs.linkSync(pending, report);
+  fs.unlinkSync(pending);
+});
 process.on('SIGTERM', () => { for (const s of sockets) s.destroy(); server.closeAllConnections(); server.close(() => process.exit(0)); });

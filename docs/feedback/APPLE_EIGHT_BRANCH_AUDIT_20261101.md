@@ -24,3 +24,14 @@ Local audit evidence (merge-base patches, merge simulations and exact original
 heads): `/Volumes/Shared Data/tmp/pcvantol/apple-eight-branch-audit-20261101`.
 Validation and the final protected merge receipt are retained there separately;
 historical branch feedback is not new native or provider acceptance.
+
+## Integration validation correction
+
+First integration CI run `41349848192` failed while starting one native wire
+fixture: Foundation JSONSerialization reported empty data before the fixture
+body ran. The Node fixture previously created the final port-report filename
+before writing its JSON; the native start loop could observe that empty file.
+Publish a complete closed staging file through an exclusive hard link instead.
+The original strict JSON reader, startup timeout, real socket I/O and all
+mutation/no-replay assertions remain unchanged. Preserve the failed run logs
+alongside the fresh complete validation for the corrected source head.
