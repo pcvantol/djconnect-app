@@ -11493,7 +11493,6 @@ private struct AskDJView: View {
                     }
                 }
                 ToolbarItemGroup(placement: .confirmationAction) {
-                    AskDJHelpButton(model: model, surface: .askDJ)
                     SessionConnectionToolbarButton(model: model)
                     askDJRefreshToolbarButton
                 }
@@ -11526,7 +11525,6 @@ private struct AskDJView: View {
                     }
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    AskDJHelpButton(model: model, surface: .askDJ)
                     SessionConnectionToolbarButton(model: model)
                     askDJRefreshToolbarButton
                 }
