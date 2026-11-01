@@ -152,3 +152,53 @@ struct CapturedReplyArtworkView: View {
         }
     }
 }
+
+private struct ResponseArtworkLoaderKey: EnvironmentKey {
+    static let defaultValue: (@MainActor @Sendable (DJConnectResponseImage) async throws -> DJConnectSessionArtworkImage)? = nil
+}
+private struct ResponseArtworkEpochKey: EnvironmentKey { static let defaultValue = UUID() }
+extension EnvironmentValues {
+    var responseArtworkLoader: (@MainActor @Sendable (DJConnectResponseImage) async throws -> DJConnectSessionArtworkImage)? {
+        get { self[ResponseArtworkLoaderKey.self] }
+        set { self[ResponseArtworkLoaderKey.self] = newValue }
+    }
+    var responseArtworkEpoch: UUID {
+        get { self[ResponseArtworkEpochKey.self] }
+        set { self[ResponseArtworkEpochKey.self] = newValue }
+    }
+}
+
+/// Only original authenticated reply pixels; never the generic shared URL cache.
+struct ResponseArtworkImageView: View {
+    let image: DJConnectResponseImage
+    let width: CGFloat
+    @Environment(\.responseArtworkLoader) private var loader
+    @Environment(\.responseArtworkEpoch) private var epoch
+    @Environment(\.scenePhase) private var phase
+    @State private var generation = UUID()
+    @State private var loadedKey: Key?
+    @State private var pixels: DJConnectSessionArtworkImage?
+    private struct Key: Equatable { let image: DJConnectResponseImage; let epoch: UUID; let active: Bool }
+    private var key: Key { .init(image: image, epoch: epoch, active: phase == .active) }
+    var body: some View {
+        Group {
+            if let pixels, loadedKey == key {
+                Image(decorative: pixels.image, scale: 1).resizable().scaledToFit()
+                    .frame(width: width, height: width)
+            }
+        }
+        .task(id: key) {
+            let request = UUID(); generation = request
+            pixels = nil; loadedKey = nil
+            guard key.active, let loader, image.admittedReplyArtworkPath() != nil,
+                  let expires = image.expiresAt.flatMap(DJConnectHistoryEntry.date) else { return }
+            defer { if generation == request { pixels = nil; loadedKey = nil } }
+            do {
+                let result = try await loader(image)
+                guard !Task.isCancelled, generation == request, image.admittedReplyArtworkPath() != nil else { return }
+                pixels = result; loadedKey = key
+                try await Task.sleep(for: .seconds(max(0, expires.timeIntervalSinceNow)))
+            } catch { }
+        }
+    }
+}

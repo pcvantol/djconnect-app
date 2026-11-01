@@ -14355,3 +14355,61 @@ func parallelClientCasesShareTheirOwnCapsAndKeyQueue(_ caseNumber: Int) async th
         throw error
     }
 }
+
+@MainActor private final class ResponseArtworkOwnerProbe {
+    var checks = 0
+    func next() -> Bool { checks += 1; return checks == 1 }
+}
+
+@Test(.isolatedClientResources) func responseArtworkUsesOriginalAuthenticatedLeaseWithoutGenericCache() async throws {
+    let asset = String(repeating: "a", count: 32)
+    let expiry = ISO8601DateFormatter().string(from: Date().addingTimeInterval(30))
+    let object: [String: Any] = ["url": "/api/djconnect/v1/ask_dj/reply/image/" + asset,
+        "requires_device_auth": true, "expires_at": expiry, "cache_policy": "no-store", "kind": "album_art", "source": "spotify"]
+    let image = try JSONDecoder().decode(DJConnectResponseImage.self, from: JSONSerialization.data(withJSONObject: object))
+    #expect(try JSONDecoder().decode(DJConnectResponseImage.self, from: JSONEncoder().encode(image)) == image)
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let png = try Data(contentsOf: root.appendingPathComponent("Fixtures/session-artwork-artist-core-5c7ecb79.png"))
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "reply-artwork.local") { request in
+        recorder.append(request)
+        #expect(request.httpMethod == "GET")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-artwork-token")
+        #expect(request.value(forHTTPHeaderField: "Cache-Control") == "no-store")
+        #expect(request.cachePolicy == .reloadIgnoringLocalCacheData)
+        #expect(request.url?.path == image.url.path)
+        let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        #expect(query.first(where: { $0.name == "device_id" })?.value == "djconnect-ios-artwork-test")
+        #expect(query.first(where: { $0.name == "client_type" })?.value == "ios")
+        return (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type":"image/png", "Cache-Control":"no-store"])!, png)
+    }
+    let client = DJConnectClient(baseURL: URL(string: "https://reply-artwork.local")!,
+        identity: .init(deviceID: "djconnect-ios-artwork-test", deviceName: "Fixture", clientType: .ios, firmware: "4.0.0", platform: .ios),
+        tokenStore: DJConnectInMemoryTokenStore(token: "fixture-artwork-token"), session: session)
+    let pixels = try await client.responseArtwork(image, isCurrent: { true })
+    #expect(pixels.image.width == 64)
+    var absolute = image
+    absolute.url = URL(string: "https://reply-artwork.local" + image.url.path)!
+    _ = try await client.responseArtwork(absolute, isCurrent: { true })
+    #expect(recorder.requests.count == 2, "No shared decoded or HTTP cache may replay protected pixels")
+    await #expect(throws: CancellationError.self) { try await client.responseArtwork(image, isCurrent: { false }) }
+    #expect(recorder.requests.count == 2, "A withdrawn owner is checked before dispatch")
+    let probe = await ResponseArtworkOwnerProbe()
+    await #expect(throws: CancellationError.self) {
+        try await client.responseArtwork(image, isCurrent: { probe.next() })
+    }
+    #expect(recorder.requests.count == 3, "Withdrawal after dispatch rejects decoded pixels")
+    var invalid = image
+    for mutation in 0..<5 {
+        invalid = image
+        switch mutation {
+        case 0: invalid.expiresAt = "2000-01-01T00:00:00Z"
+        case 1: invalid.requiresDeviceAuth = nil
+        case 2: invalid.cachePolicy = nil
+        case 3: invalid.url = URL(string: "https://outside.invalid" + image.url.path)!
+        default: invalid.url = URL(string: image.url.absoluteString + "?unexpected=1")!
+        }
+        await #expect(throws: DJConnectError.invalidResponse) { try await client.responseArtwork(invalid, isCurrent: { true }) }
+    }
+    #expect(recorder.requests.count == 3)
+}

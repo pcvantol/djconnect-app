@@ -925,6 +925,20 @@ public final class DJConnectClient: Sendable {
 
     /// Owner-only optional media read. No preparation, provider lookup or retry
     /// of an effectful operation. Resource absence never becomes pairing loss.
+    public func responseArtwork(_ image: DJConnectResponseImage,
+                                isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSessionArtworkImage {
+        guard let path = image.admittedReplyArtworkPath(),
+              (image.url.scheme == nil && image.url.host == nil) || (image.url.scheme == baseURL.scheme && image.url.host == baseURL.host && image.url.port == baseURL.port) else {
+            throw DJConnectError.invalidResponse
+        }
+        var request = try pairedOwnerReadRequest(path: path)
+        request.setValue("image/png, image/jpeg", forHTTPHeaderField: "Accept")
+        request.setValue("no-referrer", forHTTPHeaderField: "Referrer-Policy")
+        let result = try await sessionArtworkTransport.loadForecast(request, isCurrent: isCurrent)
+        guard image.admittedReplyArtworkPath() != nil, await isCurrent() else { throw CancellationError() }
+        return result
+    }
+
     public func sessionArtwork(_ media: DJConnectSessionMedia, sessionID: String,
                                target: DJConnectSessionMedia.Target,
                                audience: DJConnectSessionMedia.Audience) async throws -> DJConnectSessionArtworkImage {
