@@ -40,7 +40,7 @@ struct SessionForecastTextView: View {
                     Text(text("ui.session.forecast.claim." + section.claim_type))
                         .font(.caption).foregroundStyle(.white.opacity(0.78))
                     Text(section.text).foregroundStyle(.white).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
-                    if let source = section.source_url.flatMap(URL.init(string:)) {
+                    if section.id != "current", let source = section.source_url.flatMap(URL.init(string:)) {
                         Link(destination: source) {
                             Text(text("ui.session.forecast.source")).underline().foregroundStyle(.white)
                         }.frame(minHeight: 44)
