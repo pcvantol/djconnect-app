@@ -14520,6 +14520,55 @@ import SwiftUI
     #expect(image.width == 624 && image.height == 624)
     let png = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
     try png.write(to: folder.appendingPathComponent("retro-dpad.png"), options: .withoutOverwriting)
+    for game in LocalGameMode.allCases {
+        let preview = ImageRenderer(content: DJConnectRetroDPad(language: "nl", enabledDirections: game.enabledDirections,
+            fire: game.supportsFire ? {} : nil, select: { _ in })
+            .padding(24).background(Color(red: 0.16, green: 0.10, blue: 0.25)))
+        preview.scale = 3
+        let pixels = try #require(preview.cgImage)
+        let data = try #require(NSBitmapImageRep(cgImage: pixels).representation(using: .png, properties: [:]))
+        try data.write(to: folder.appendingPathComponent("retro-dpad-" + game.rawValue + ".png"), options: .withoutOverwriting)
+    }
+}
+
+@Test(.isolatedAppKitResources) @MainActor
+func retroDPadNativeClicksRespectEveryGameAxisAndCenterFire() async throws {
+    _ = NSApplication.shared
+    typealias Direction = DJConnectRetroDPad.Direction
+    let cases: [(LocalGameMode, Set<Direction>, Bool)] = [
+        (.pong, [.up, .down], false), (.asteroids, [.left, .right], true),
+        (.fly, [.up, .down], true), (.pacman, [.up, .left, .right, .down], false)
+    ]
+    #expect(cases.count == LocalGameMode.allCases.count)
+    for (game, expectedDirections, expectedFire) in cases {
+        #expect(game.enabledDirections == expectedDirections)
+        #expect(game.supportsFire == expectedFire)
+        var moves: [Direction] = [], shots = 0
+        let host = NSHostingView(rootView: DJConnectRetroDPad(language: "nl", enabledDirections: game.enabledDirections,
+            fire: game.supportsFire ? { shots += 1 } : nil, select: { moves.append($0) }).padding(20))
+        let window = NSWindow(contentRect: .init(x: -3000, y: -3000, width: 200, height: 200),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false; window.contentView = host
+        window.makeKeyAndOrderFront(nil)
+        defer { window.close() }
+        try await Task.sleep(for: .milliseconds(150))
+        host.layoutSubtreeIfNeeded()
+        func click(_ offset: CGSize) throws {
+            let point = host.convert(NSPoint(x: host.bounds.midX + offset.width,
+                y: host.bounds.midY + (host.isFlipped ? offset.height : -offset.height)), to: nil)
+            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                let event = try #require(NSEvent.mouseEvent(with: type, location: point, modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                    context: nil, eventNumber: 0, clickCount: 1, pressure: type == .leftMouseDown ? 1 : 0))
+                window.sendEvent(event)
+            }
+        }
+        for direction in Direction.allCases { try click(direction.offset) }
+        try click(.zero)
+        await Task.yield()
+        #expect(moves == Direction.allCases.filter { expectedDirections.contains($0) })
+        #expect(shots == (expectedFire ? 1 : 0))
+    }
 }
 #endif
 

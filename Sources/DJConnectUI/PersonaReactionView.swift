@@ -93,6 +93,7 @@ struct PersonaReactionOverlay: View {
                                 y: appeared || !usesMotion || avatarFrame.isEmpty ? 0 : avatarFrame.midY - bounds.midY)
                         .accessibilityFocused($reading)
                         .focusable().focused($overlayFocused)
+                        .focusEffectDisabled()
                         .onKeyPress(.escape) { controller.cancel(.dismissed); return .handled }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -121,7 +122,8 @@ struct PersonaReactionBubble: View {
                 Text(text).font(.title3.weight(.medium)).fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 Button(action: dismiss) { Image(systemName: "xmark").foregroundStyle(.white) }
-                    .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
+                    .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon, showsFocusIndicator: false))
+                    .focusEffectDisabled()
                     .accessibilityLabel(closeLabel)
             }
             if let notice { Text(notice).font(.footnote).foregroundStyle(.white.opacity(0.7)).fixedSize(horizontal: false, vertical: true) }

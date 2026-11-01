@@ -10,13 +10,60 @@ enum DJConnectAlbumArtworkLayout {
     static func maximumWidth(phone: Bool) -> CGFloat { phone ? .infinity : 270 }
 }
 
+/// Keep the same artwork and controls mounted while resizing the native screen.
+struct DJConnectPlaybackHeroLayout: Layout {
+    var allowsSideBySide: Bool
+    private let artworkWidth: CGFloat = 270
+    private let gap: CGFloat = 24
+
+    private func sideBySide(_ width: CGFloat?) -> Bool {
+        allowsSideBySide && (width ?? 0) >= 700
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard subviews.count == 2, sideBySide(proposal.width), let width = proposal.width else {
+            let layout = AnyLayout(VStackLayout(spacing: 16))
+            var stackCache = layout.makeCache(subviews: subviews)
+            return layout.sizeThatFits(proposal: proposal, subviews: subviews, cache: &stackCache)
+        }
+        let artwork = subviews[0].sizeThatFits(.init(width: artworkWidth, height: nil))
+        let controls = subviews[1].sizeThatFits(.init(width: width - artworkWidth - gap, height: nil))
+        return CGSize(width: width, height: max(artwork.height, controls.height))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard subviews.count == 2, sideBySide(bounds.width) else {
+            let layout = AnyLayout(VStackLayout(spacing: 16))
+            var stackCache = layout.makeCache(subviews: subviews)
+            layout.placeSubviews(in: bounds, proposal: proposal, subviews: subviews, cache: &stackCache)
+            return
+        }
+        subviews[0].place(at: bounds.origin, anchor: .topLeading,
+                          proposal: .init(width: artworkWidth, height: nil))
+        subviews[1].place(at: CGPoint(x: bounds.minX + artworkWidth + gap, y: bounds.minY), anchor: .topLeading,
+                          proposal: .init(width: bounds.width - artworkWidth - gap, height: nil))
+    }
+}
+
 extension View {
-    /// Pop-outs share VibeScape Help's frosting, rounding and preference fallback.
-    /// A pop-out stays live even when its presenting page uses scrolling materials.
-    @ViewBuilder func djConnectGlassPopoutSurface(enabled: Bool = true) -> some View {
+    /// Inline pop-outs own a frosted card; native Mac presentations own their rim.
+    /// Both respect the glass preference and stay live over scrolling pages.
+    @ViewBuilder func djConnectGlassPopoutSurface(enabled: Bool = true, nativePresentation: Bool = false) -> some View {
         if enabled {
+            #if os(macOS)
+            if nativePresentation {
+                // AppKit already owns the popover's glass, arrow, rim and radius.
+                // A second 32pt card inside it creates intersecting corner arcs.
+                self.djConnectPresentationSurface()
+                    .environment(\.djConnectScrollingSurface, false)
+            } else {
+                self.djSessionFrostedSurface()
+                    .environment(\.djConnectScrollingSurface, false)
+            }
+            #else
             self.djSessionFrostedSurface()
                 .environment(\.djConnectScrollingSurface, false)
+            #endif
         } else { self }
     }
 
@@ -626,8 +673,13 @@ struct NativeSessionMomentsView: View {
                 if usesLargePlaybackTypography { Spacer(minLength: 0) }
                 if let duration = playback.durationMS, duration > 0, let position = playbackModel?.displayedSessionPositionMS(session) ?? playback.positionMS {
                     let current = max(0, min(position, duration))
-                    ProgressView(value: Double(current), total: Double(duration))
-                        .accessibilityLabel(text("ui.session.music_progress"))
+                    if let model = playbackModel {
+                        SessionPlaybackCardButton(model: model, session: session, position: current, duration: duration)
+                            .id(session.id)
+                    } else {
+                        ProgressView(value: Double(current), total: Double(duration))
+                            .accessibilityLabel(text("ui.session.music_progress"))
+                    }
                     HStack(alignment: .center, spacing: 8) {
                         if let playbackModel, playbackModel.canToggleSessionFavorite(session) {
                             FavoriteTrackButton(model: playbackModel, identifier: "session-favorite-button", sessionContext: session)
@@ -642,27 +694,17 @@ struct NativeSessionMomentsView: View {
                 }
                 if let playbackOutputName {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Label(playbackOutputName, systemImage: "hifispeaker.fill")
-                            .fixedSize(horizontal: false, vertical: true)
-                            .accessibilityLabel(text("ui.output.device"))
-                            .accessibilityValue(playbackOutputName)
-                            .accessibilityIdentifier("session-playback-output")
-                        Spacer(minLength: 0)
-                        Group {
-                            if playbackModel?.currentPlaybackUsesLocalBluetooth == true {
-                                BluetoothOutputSymbol()
-                                    .stroke(style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
-                                    .frame(width: 12, height: 18)
-                            } else if let volume = playbackModel?.currentPlaybackVolumePercent {
-                                Label("\(volume)%", systemImage: volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                            } else {
-                                Text("-")
-                            }
+                        if let model = playbackModel {
+                            SessionPlaybackOutputButton(model: model, name: playbackOutputName)
+                                .id(session.id)
+                        } else {
+                            Label(playbackOutputName, systemImage: "hifispeaker.fill")
+                                .fixedSize(horizontal: false, vertical: true)
                         }
-                        .fixedSize()
-                        .accessibilityLabel(text("watch.volume"))
-                        .accessibilityValue(playbackModel?.currentPlaybackUsesLocalBluetooth == true ? "Bluetooth" : playbackModel?.currentPlaybackVolumePercent.map { "\($0)%" } ?? "-")
-                        .accessibilityIdentifier("session-playback-volume")
+                        Spacer(minLength: 0)
+                        if let model = playbackModel {
+                            SessionPlaybackVolumeButton(model: model).id(session.id)
+                        } else { Text("-").fixedSize() }
                     }
                     .font(usesLargePlaybackTypography ? .callout : .caption).foregroundStyle(.secondary)
                 }
@@ -837,6 +879,169 @@ private struct SessionCurrentColumns: Layout {
     }
 }
 
+/// Anchored to the current speaker; uses the same backend inventory and command
+/// path as Now Playing, including pending/confirmed output selection.
+struct SessionPlaybackOutputButton: View {
+    @ObservedObject var model: DJConnectAppModel
+    let name: String
+    @State private var showsOutputs = false
+    @Environment(\.scenePhase) private var scenePhase
+
+    var body: some View {
+        Button { showsOutputs.toggle() } label: {
+            Label(name, systemImage: "hifispeaker.fill")
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .djConnectPlainButtonStyle()
+        .disabled(!model.canUsePlaybackFeatures)
+        .accessibilityLabel(DJConnectLocalization.localized(key: "ui.output.device", language: model.language))
+        .accessibilityValue(name)
+        .accessibilityIdentifier("session-playback-output")
+        .popover(isPresented: $showsOutputs) {
+            OutputSelectorView(scrollsOutputs: true, model: model)
+                .padding(16)
+                .frame(minWidth: 280, idealWidth: 360, maxWidth: 400)
+                .environment(\.djConnectScrollingSurface, false)
+                #if os(macOS)
+                // AppKit owns the glass, arrow and rounded rim. No inner card.
+                .djConnectPresentationSurface()
+                #else
+                .djConnectGlassPopoutSurface()
+                .djConnectPresentationSurface()
+                #endif
+                .presentationCompactAdaptation(.popover)
+        }
+        .onChange(of: model.canUsePlaybackFeatures) { _, available in
+            if !available { showsOutputs = false }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { showsOutputs = false }
+        }
+    }
+}
+
+struct SessionPlaybackVolumeButton: View {
+    @ObservedObject var model: DJConnectAppModel
+    @State private var showsVolume = false
+    @Environment(\.scenePhase) private var scenePhase
+    var canPresentVolume: Bool {
+        model.canUsePlaybackFeatures && model.canControlPlaybackVolume &&
+            model.playback?.device?.active != false && model.volumeOutputKey != nil &&
+            model.pendingOutputSelectionID == nil
+    }
+    var body: some View {
+        Button { showsVolume.toggle() } label: {
+            Group {
+                if model.currentPlaybackUsesLocalBluetooth {
+                    BluetoothOutputSymbol()
+                        .stroke(style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                        .frame(width: 12, height: 18)
+                } else if let volume = model.currentPlaybackVolumePercent {
+                    Label("\(volume)%", systemImage: volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                } else { Text("-") }
+            }
+            .fixedSize().frame(minHeight: 44).contentShape(Rectangle())
+        }
+        .djConnectPlainButtonStyle()
+        .disabled(!canPresentVolume)
+        .accessibilityLabel(DJConnectLocalization.localized(key: "watch.volume", language: model.language))
+        .accessibilityValue(model.currentPlaybackUsesLocalBluetooth ? "Bluetooth" : model.currentPlaybackVolumePercent.map { "\($0)%" } ?? "-")
+        .accessibilityIdentifier("session-playback-volume")
+        .popover(isPresented: $showsVolume) {
+            SessionPlaybackVolumePanel(model: model)
+                .padding(20).frame(width: 320)
+                .environment(\.djConnectScrollingSurface, false)
+                #if os(macOS)
+                .djConnectPresentationSurface()
+                #else
+                .djConnectGlassPopoutSurface().djConnectPresentationSurface()
+                #endif
+                .presentationCompactAdaptation(.popover)
+        }
+        .onChange(of: canPresentVolume) { _, allowed in if !allowed { showsVolume = false } }
+        .onChange(of: model.volumeOutputKey) { _, _ in showsVolume = false }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { showsVolume = false } }
+    }
+}
+
+struct SessionPlaybackVolumePanel: View {
+    @ObservedObject var model: DJConnectAppModel
+    @State private var draft: Double?
+    @State private var editingOutput: String?
+    private var allowed: Bool { SessionPlaybackVolumeButton(model: model).canPresentVolume }
+    private var value: Double { draft ?? Double(model.currentPlaybackVolumePercent ?? Int(model.volume)) }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(DJConnectLocalization.localized(key: "watch.volume", language: model.language))
+                .font(.headline).accessibilityAddTraits(.isHeader)
+            if let name = model.playback?.device?.name { Text(name).font(.callout).foregroundStyle(.secondary) }
+            HStack(spacing: 12) {
+                Image(systemName: value == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                Slider(value: Binding(get: { value }, set: { draft = $0 }), in: 0...100) { editing in
+                    if editing { editingOutput = model.volumeOutputKey }
+                    else {
+                        defer { draft = nil; editingOutput = nil }
+                        guard allowed, let editingOutput, editingOutput == model.volumeOutputKey else { return }
+                        model.volume = value
+                        DJConnectHaptics.selection()
+                        model.commitVolumeChange()
+                    }
+                }
+                .tint(djConnectAccent).disabled(!allowed)
+                .accessibilityLabel(DJConnectLocalization.localized(key: "watch.volume", language: model.language))
+                .accessibilityIdentifier("session-volume-slider")
+                Text("\(Int(value.rounded()))%").monospacedDigit().frame(minWidth: 44, alignment: .trailing)
+            }
+        }
+        .onChange(of: model.volumeOutputKey) { _, _ in draft = nil; editingOutput = nil }
+    }
+}
+
+struct SessionPlaybackCardButton: View {
+    @ObservedObject var model: DJConnectAppModel
+    let session: DJConnectSessionRuntime
+    let position: Int
+    let duration: Int
+    @State private var showsPlayback = false
+    @Environment(\.scenePhase) private var scenePhase
+    var canOpenPlayback: Bool { model.canToggleSessionFavorite(session) }
+    private var context: [String?] {
+        [session.id, session.broadcast.playback?.itemID, session.broadcast.playback?.sourceURL,
+         session.broadcast.playback?.title, session.broadcast.playback?.artist]
+    }
+    var body: some View {
+        Button { showsPlayback.toggle() } label: {
+            ProgressView(value: Double(position), total: Double(max(duration, 1)))
+                .frame(minHeight: 44).contentShape(Rectangle())
+        }
+        .djConnectPlainButtonStyle()
+        .disabled(!canOpenPlayback)
+        .accessibilityLabel(DJConnectLocalization.localized(key: "ui.playback", language: model.language))
+        .accessibilityValue("\(sessionPlaybackTime(position)) / \(sessionPlaybackTime(duration))")
+        .accessibilityIdentifier("session-playback-card-open")
+        .popover(isPresented: $showsPlayback) {
+            ScrollView {
+                NowPlayingPlaybackCardContent(model: model).padding(20)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .frame(minWidth: 280, idealWidth: 380, maxWidth: 440, maxHeight: 460)
+            .environment(\.djConnectScrollingSurface, false)
+            #if os(macOS)
+            // Let AppKit draw the single native glass rim and corner radius.
+            .djConnectPresentationSurface()
+            #else
+            .djConnectGlassPopoutSurface().djConnectPresentationSurface()
+            #endif
+            .presentationCompactAdaptation(.popover)
+        }
+        .onChange(of: context) { _, _ in showsPlayback = false }
+        .onChange(of: canOpenPlayback) { _, allowed in if !allowed { showsPlayback = false } }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { showsPlayback = false } }
+    }
+}
+
 struct MomentCard: View {
     let moment: DJConnectMoment
     let kind: String
@@ -849,11 +1054,12 @@ struct MomentCard: View {
     var speech: DJConnectSessionSpeech? = nil
     var contributionQuestion: String? = nil
     var contributionAction: (() -> Void)? = nil
+    private var spotifyURLs: [URL] { moment.nativeSourceURLs.filter(SessionSourceLinks.isSpotify) }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if let media = artworkMedia, let model = artworkModel {
                 SessionArtworkView(media: media, target: .moment(moment.id), audience: .current, language: language, model: model,
-                    showsAttribution: moment.sourceAttribution?["provider"] != "Spotify" || moment.nativeSourceURLs.isEmpty)
+                    showsAttribution: spotifyURLs.isEmpty)
             }
             if moment.isBulletinV1 {
                 Label(kind, systemImage: "newspaper").font(.caption.weight(.bold)).foregroundStyle(.secondary)
@@ -872,17 +1078,8 @@ struct MomentCard: View {
                     .tint(djConnectAccent)
                     .accessibilityIdentifier("moment-open-track-insight")
             }
-            if moment.sourceAttribution?["provider"] == "Spotify",
-               let logo = spotifyAttributionLogo, let url = moment.nativeSourceURLs.first {
-                Link(destination: url) {
-                    logo.resizable().scaledToFit().frame(width: 70, height: 20)
-                        .padding(10).frame(minHeight: 44).contentShape(Rectangle())
-                }
-                .accessibilityLabel("Spotify")
-                .accessibilityValue(url.absoluteString)
-                .accessibilityIdentifier("session-spotify-attribution")
-            }
-            ForEach(moment.nativeSourceURLs, id: \.absoluteString) { url in
+            SessionSpotifyAttributionLinks(urls: spotifyURLs)
+            ForEach(moment.nativeSourceURLs.filter { !SessionSourceLinks.isSpotify($0) }, id: \.absoluteString) { url in
                 let source = moment.isBulletinV1 ? moment.sources.first { $0.destination == url } : nil
                 let label = source?.attributionLabel ?? moment.sourceAttribution?["provider"] ?? url.host ?? ""
                 Link(label, destination: url)
@@ -898,11 +1095,50 @@ struct MomentCard: View {
     }
 }
 
+/// One branded credit, with every distinct Spotify destination still reachable.
+struct SessionSpotifyAttributionLinks: View {
+    let urls: [URL]
+    var body: some View {
+        if let logo = spotifyAttributionLogo, let first = urls.first {
+            let mark = logo.resizable().scaledToFit().frame(width: 70, height: 20)
+                .padding(10).frame(minHeight: 44).contentShape(Rectangle())
+            Group {
+                if urls.count == 1 {
+                    Link(destination: first) { mark }
+                        .accessibilityValue(first.absoluteString)
+                } else {
+                    Menu {
+                        ForEach(urls, id: \.absoluteString) { url in
+                            Link(SessionSourceLinks.destinationLabel(url), destination: url)
+                                .accessibilityValue(url.absoluteString)
+                        }
+                    } label: { mark }
+                    .menuIndicator(.hidden)
+                    #if os(macOS)
+                    .menuStyle(.borderlessButton)
+                    #endif
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Spotify")
+            .accessibilityIdentifier("session-spotify-attribution")
+        }
+    }
+}
+
 var spotifyAttributionLogo: Image? {
     #if os(iOS)
     UIImage(named: "SpotifyAttribution").map { Image(uiImage: $0) }
     #elseif os(macOS)
-    NSImage(named: NSImage.Name("SpotifyAttribution")).map { Image(nsImage: $0) }
+    // Native Menu labels use NSImage's logical size before SwiftUI layout.
+    // Size a copy so the asset cache and its original pixels remain untouched.
+    if let logo = NSImage(named: NSImage.Name("SpotifyAttribution"))?.copy() as? NSImage,
+       logo.size.width > 0, logo.size.height > 0 {
+        let scale = min(70 / logo.size.width, 20 / logo.size.height)
+        logo.size = NSSize(width: logo.size.width * scale, height: logo.size.height * scale)
+        return Image(nsImage: logo)
+    }
+    return nil
     #else
     nil
     #endif

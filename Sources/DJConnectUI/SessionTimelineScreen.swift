@@ -76,6 +76,19 @@ private struct SavedSessionListRow: View, Equatable {
     }
 }
 
+/// Navigation owns the search snapshot together with the selected session.
+/// A destination must not depend on independently captured overview state.
+struct SavedSessionDestination: Hashable, Identifiable {
+    let sessionID: String
+    let searchQuery: String
+    var id: Self { self }
+
+    init(sessionID: String, searchQuery: String) {
+        self.sessionID = sessionID
+        self.searchQuery = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
 struct SavedSessionsView: View {
     @ObservedObject var model: DJConnectAppModel
     @ObservedObject private var history: DJConnectSessionHistoryModel
@@ -83,19 +96,18 @@ struct SavedSessionsView: View {
     @StateObject private var manualRefresh = DJConnectManualRefreshController()
     private var refreshing: Bool { manualRefresh.isRefreshing }
     @State private var initialLoadFinished = false
-    @State private var localOpenedSessionID: String?
-    @State private var openedSessionSearch: [String: String] = [:]
+    @State private var localOpenedSession: SavedSessionDestination?
     @State private var isSearchVisible = false
     @State private var searchText = ""
     @State private var selectedSearchIndex = 0
     @State private var rowTimeZone = TimeZone.current
     @FocusState private var isSearchFocused: Bool
-    private let externalOpenedSessionID: Binding<String?>?
-    private var openedSessionID: Binding<String?> { externalOpenedSessionID ?? $localOpenedSessionID }
+    private let externalOpenedSession: Binding<SavedSessionDestination?>?
+    private var openedSession: Binding<SavedSessionDestination?> { externalOpenedSession ?? $localOpenedSession }
     private let embedsNavigationStack: Bool
-    init(model: DJConnectAppModel, embedsNavigationStack: Bool = true, openedSessionID: Binding<String?>? = nil) {
+    init(model: DJConnectAppModel, embedsNavigationStack: Bool = true, openedSession: Binding<SavedSessionDestination?>? = nil) {
         self.model = model; history = model.sessionHistory; self.embedsNavigationStack = embedsNavigationStack
-        externalOpenedSessionID = openedSessionID
+        externalOpenedSession = openedSession
     }
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: model.language) }
     private var searchQuery: String { searchText.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -173,9 +185,9 @@ struct SavedSessionsView: View {
                     }
                     ForEach(filteredSessions) { session in
                         Button {
-                            openedSessionSearch = [session.id: isSearchVisible ? searchQuery : ""]
                             isSearchFocused = false
-                            openedSessionID.wrappedValue = session.id
+                            openedSession.wrappedValue = SavedSessionDestination(
+                                sessionID: session.id, searchQuery: isSearchVisible ? searchQuery : "")
                         } label: {
                             SavedSessionListRow(session: session, language: model.language,
                                                 summaryAvailable: history.summaryAvailable, timeZone: rowTimeZone)
@@ -250,14 +262,12 @@ struct SavedSessionsView: View {
                     .allowsHitTesting(history.listErrorKey != nil || history.archiveSearchErrorKey != nil)
                 }
             }
-            .navigationDestination(item: openedSessionID) { sessionID in
-                SessionTimelineScreen(model: model, sessionID: sessionID,
-                    initialSearchQuery: openedSessionSearch[sessionID] ?? "")
-                    .navigationTitle(detailTitle(sessionID: sessionID))
+            .navigationDestination(item: openedSession) { destination in
+                SessionTimelineScreen(model: model, sessionID: destination.sessionID,
+                    initialSearchQuery: destination.searchQuery)
+                    .id(destination)
+                    .navigationTitle(detailTitle(sessionID: destination.sessionID))
                     .djConnectMouseBackNavigation()
-            }
-            .onChange(of: openedSessionID.wrappedValue) { _, sessionID in
-                if sessionID == nil { openedSessionSearch = [:] }
             }
             .navigationTitle(text("ui.session.history.title") + (model.isDemoMode ? " (demo)" : ""))
             .scrollBounceBehavior(.always)
@@ -288,6 +298,9 @@ struct SavedSessionsView: View {
                         }
                     }
                 }
+                #if os(macOS)
+                ConnectionStatusToolbar(model: model)
+                #endif
                 ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
                     Button { Task { await refresh() } } label: {
                         Image(systemName: "arrow.clockwise").foregroundStyle(.white)
@@ -298,9 +311,12 @@ struct SavedSessionsView: View {
                     .accessibilityIdentifier("saved-sessions-refresh")
                     .help(text("ui.session.history.refresh"))
                 }
+                #if !os(macOS)
+                ConnectionStatusToolbar(model: model)
+                #endif
             }
             .onChange(of: history.archiveResponseEpoch) { _, _ in
-                openedSessionID.wrappedValue = nil
+                openedSession.wrappedValue = nil
                 closeSearch()
             }
             .djStatusToastOverlay(manualRefresh.notice, screenImage: "clock.arrow.circlepath")
@@ -1702,7 +1718,7 @@ struct SessionEntryView: View, Equatable {
                                 .modifier(ContributionContentAction(question: contributionQuestion, action: contributionAction))
                         }
                         SessionTimestampText(value: entry.occurredAt, language: language).font(.caption).foregroundStyle(.secondary)
-                        ForEach(SessionSourceLinks.groups(urls: sourceURLs, label: sourceLabel)) { group in
+                        ForEach(SessionSourceLinks.groups(urls: sourceURLs.filter { !SessionSourceLinks.isSpotify($0) }, label: sourceLabel)) { group in
                             if group.urls.count == 1, let url = group.urls.first {
                                 Link(group.label, destination: url)
                                     .foregroundStyle(.white).tint(.white)
@@ -1717,11 +1733,7 @@ struct SessionEntryView: View, Equatable {
                                 .foregroundStyle(.white).tint(.white)
                             }
                         }
-                        if entry.requiresSpotifyAttribution == true, let logo = spotifyAttributionLogo,
-                           let url = spotifyFooterURL {
-                            Link(destination: url) { logo.resizable().scaledToFit().frame(width: 70, height: 20).padding(10).frame(minHeight: 44).contentShape(Rectangle()) }
-                                .accessibilityLabel("Spotify")
-                        }
+                        SessionSpotifyAttributionLinks(urls: spotifyURLs)
                         if let model = artworkModel {
                             SharedDJSpeechActions(model: model, speech: entry.sessionSpeech, acceptedText: entry.text ?? "", retainedEntry: entry)
                         }
@@ -1810,12 +1822,16 @@ struct SessionEntryView: View, Equatable {
             .modifier(ContributionContentAction(question: contributionQuestion, action: contributionAction))
     }
     private var spotifyFooterURL: URL? {
-        guard entry.requiresSpotifyAttribution == true else { return nil }
         if let media = entry.sessionMedia,
            let grant = media.admittedArtwork(session: entry.sessionID, target: .entry(entry.id),
                 audience: media.entryAudience),
-           let raw = grant.sourceURL, let url = URL(string: raw) { return url }
-        return sourceURLs.first { $0.scheme == "https" && $0.host?.lowercased() == "open.spotify.com" }
+           let raw = grant.sourceURL, let url = URL(string: raw), SessionSourceLinks.isSpotify(url) { return url }
+        return sourceURLs.first(where: SessionSourceLinks.isSpotify)
+    }
+    private var spotifyURLs: [URL] {
+        var urls = spotifyFooterURL.map { [$0] } ?? []
+        for url in sourceURLs where SessionSourceLinks.isSpotify(url) && !urls.contains(url) { urls.append(url) }
+        return urls
     }
     private var askButton: some View {
         Button { DJConnectHaptics.selection(); askAction() } label: {
@@ -1851,6 +1867,9 @@ struct SessionEntryView: View, Equatable {
 /// A supplied revision is the precise version of its canonical source, not a
 /// second citation. Keep distinct articles and previous sources independently.
 enum SessionSourceLinks {
+    static func isSpotify(_ url: URL) -> Bool {
+        ["http", "https"].contains(url.scheme?.lowercased()) && url.host?.lowercased() == "open.spotify.com"
+    }
     struct Group: Identifiable {
         let label: String
         var urls: [URL]
@@ -1928,11 +1947,9 @@ struct SessionHistoryMatchCard: View {
                 Text(entry.text ?? "").font(.headline)
                 SessionTimestampText(value: entry.occurredAt, language: language).font(.caption)
                 Text(text("ui.session.history.observed")).font(.caption).foregroundStyle(.secondary)
-                if entry.requiresSpotifyAttribution == true, let logo = spotifyAttributionLogo,
-                   let raw = entry.playback?.sourceURL, let url = URL(string: raw), url.scheme == "https", url.host == "open.spotify.com" {
-                    Link(destination: url) { logo.resizable().scaledToFit().frame(width: 70, height: 20).padding(10).frame(minHeight: 44).contentShape(Rectangle()) }
-                        .accessibilityLabel("Spotify")
-                }
+                SessionSpotifyAttributionLinks(urls: SessionSourceLinks.urls(playback: entry.playback?.sourceURL,
+                    sources: (entry.sourceAttribution.map { [$0] } ?? []) + (entry.sources ?? []))
+                    .filter(SessionSourceLinks.isSpotify))
                 if let action = entry.openAction, action.reference == entry.reference {
                     Button(text("ui.session.history.open")) { DJConnectHaptics.selection(); open(action) }
                         .djConnectPlainButtonStyle()
@@ -2193,7 +2210,7 @@ struct SessionControlPopoverHost: View {
                 .background(SessionPopoverDismissalObserver { finishDismissal(captured.id) })
                 .presentationCompactAdaptation(.popover)
                 // The voice editor owns its own surface on iOS and Mac.
-                .djConnectGlassPopoutSurface(enabled: captured.kind != .voice)
+                .djConnectGlassPopoutSurface(enabled: captured.kind != .voice, nativePresentation: true)
                 .djConnectPresentationSurface()
             }
             .task(id: intent?.id) {
@@ -2330,7 +2347,7 @@ struct ActiveSessionPresenceToolbar: View {
             .onExitCommand { scope = nil }
             #endif
             .presentationCompactAdaptation(.popover)
-                .djConnectGlassPopoutSurface()
+                .djConnectGlassPopoutSurface(nativePresentation: true)
                 .djConnectPresentationSurface()
         }
         .onAppear { trace("toolbar-appeared") }
@@ -2513,7 +2530,7 @@ struct ActiveSessionMoodToolbar: View {
             .onExitCommand { moodIntent = nil }
             #endif
             .presentationCompactAdaptation(.popover)
-                .djConnectGlassPopoutSurface()
+                .djConnectGlassPopoutSurface(nativePresentation: true)
                 .djConnectPresentationSurface()
         }
         .task(id: CapabilityScope(sessionID: session.id, epoch: history.responseEpoch, authorized: model.pairingStatus == .paired)) {
@@ -2580,7 +2597,7 @@ struct SessionEndToolbarButton: View {
             requestedSessionID = model.activeDJSession?.id
             confirming = requestedSessionID != nil
         } label: {
-            Image(systemName: "xmark.circle").foregroundStyle(.red)
+            Image(systemName: "xmark.circle").foregroundStyle(djConnectAccent)
         }
         .disabled(model.isLoadingDJSession || model.activeDJSession == nil)
         .accessibilityLabel(text("ui.session.end"))
@@ -2608,7 +2625,7 @@ struct SessionEndToolbarButton: View {
     }
 }
 
-/// The same trailing status action on live product pages. Archive pages omit it.
+/// The same trailing connection status action on product and archive pages.
 struct ConnectionStatusToolbar: ToolbarContent {
     let model: DJConnectAppModel
     var body: some ToolbarContent {
@@ -2652,7 +2669,7 @@ struct SessionConnectionToolbarButton: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .ignoresSafeArea(.keyboard)
                 .presentationCompactAdaptation(.popover)
-                .djConnectGlassPopoutSurface()
+                .djConnectGlassPopoutSurface(nativePresentation: true)
                 .djConnectPresentationSurface()
         }
     }

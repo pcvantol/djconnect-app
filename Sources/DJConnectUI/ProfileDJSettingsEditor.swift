@@ -126,7 +126,7 @@ struct ProfileDJSettingsEditor: View, Equatable {
     var body: some View {
         ScrollView { content }
         .frame(height: min(620, max(1, contentHeight)))
-        .djConnectGlassPopoutSurface()
+        .djConnectGlassPopoutSurface(nativePresentation: true)
         .tint(.white)
         .accentColor(.white)
         .foregroundStyle(.white)

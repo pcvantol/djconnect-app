@@ -823,7 +823,7 @@ public struct DJConnectRootView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @StateObject private var introductionAnchors = SessionIntroductionAnchors()
     @State private var selectedSection = DJConnectSection.djSession
-    @State private var openedSavedSessionID: String?
+    @State private var openedSavedSession: SavedSessionDestination?
     #if os(macOS)
     @State private var sidebarVisibility: NavigationSplitViewVisibility = .all
     @FocusState private var focusedSidebarItem: DJConnectSidebarFocusTarget?
@@ -957,7 +957,7 @@ public struct DJConnectRootView: View {
                             isSelected: false,
                             focusTarget: .feedback,
                             focus: $focusedSidebarItem
-                        ) { openedSavedSessionID = nil; showingFeedback = true }
+                        ) { openedSavedSession = nil; showingFeedback = true }
                     }
                         }
                         .padding(12)
@@ -994,23 +994,25 @@ public struct DJConnectRootView: View {
                 }
                 .toolbar(removing: .sidebarToggle)
                 .toolbar {
-                    ToolbarItem(placement: .navigation) {
-                        Button {
-                            sidebarVisibility = sidebarVisibility == .detailOnly ? .all : .detailOnly
-                        } label: {
-                            Image(systemName: "sidebar.left")
-                                .symbolRenderingMode(.monochrome)
-                                .foregroundStyle(.white)
-                                .frame(width: 36, height: 28)
+                    if !model.isShowingVibeScape {
+                        ToolbarItem(placement: .navigation) {
+                            Button {
+                                sidebarVisibility = sidebarVisibility == .detailOnly ? .all : .detailOnly
+                            } label: {
+                                Image(systemName: "sidebar.left")
+                                    .symbolRenderingMode(.monochrome)
+                                    .foregroundStyle(.white)
+                                    .frame(width: 36, height: 28)
+                            }
+                            .djConnectPlainButtonStyle()
+                            .tint(.white)
+                            .foregroundStyle(.white)
+                            .accessibilityLabel(localizedKey(model.language, "ui.navigation.menu"))
+                            .accessibilityIdentifier("main-sidebar-toggle")
                         }
-                        .djConnectPlainButtonStyle()
-                        .tint(.white)
-                        .foregroundStyle(.white)
-                        .accessibilityLabel(localizedKey(model.language, "ui.navigation.menu"))
-                        .accessibilityIdentifier("main-sidebar-toggle")
-                    }
-                    if #available(macOS 26.0, *) {
-                        ToolbarSpacer(.fixed, placement: .navigation)
+                        if #available(macOS 26.0, *) {
+                            ToolbarSpacer(.fixed, placement: .navigation)
+                        }
                     }
                 }
                 .tint(.white)
@@ -1141,7 +1143,7 @@ public struct DJConnectRootView: View {
         }
         .onChange(of: selectedSection) {
             #if os(macOS)
-            openedSavedSessionID = nil
+            openedSavedSession = nil
             #else
             if horizontalSizeClass != .regular, selectedSection == .more {
                 moreResetID = UUID()
@@ -1564,7 +1566,7 @@ public struct DJConnectRootView: View {
     private func selectSidebarSection(_ section: DJConnectSection) {
         // Withdraw the pushed archive before replacing its detail root, including
         // a click on the already-selected Earlier Sessions overview.
-        openedSavedSessionID = nil
+        openedSavedSession = nil
         selectedSection = section == .logs && !model.isDiagnosticLoggingEnabled ? .settings : section
     }
 
@@ -1575,7 +1577,7 @@ public struct DJConnectRootView: View {
             DJSessionView(model: model) { selectedSection = .queue }
         case .savedSessions:
             #if os(macOS)
-            SavedSessionsView(model: model, openedSessionID: $openedSavedSessionID)
+            SavedSessionsView(model: model, openedSession: $openedSavedSession)
             #else
             SavedSessionsView(model: model)
             #endif
@@ -3644,6 +3646,8 @@ struct DJConnectButtonStyle: ButtonStyle {
     var showsFocusIndicator = true
     var foregroundColor: Color? = nil
     var selectionTint: Color? = nil
+    /// Applied after label padding/expansion, over the complete button shape.
+    var selectionFill: Color? = nil
     var primaryFill: Color? = nil
     var dimsWhenDisabled = true
     @Environment(\.isFocused) private var isFocused
@@ -3685,9 +3689,9 @@ struct DJConnectButtonStyle: ButtonStyle {
                         } else { outline.fill(primaryFill.map { AnyShapeStyle($0) } ?? AnyShapeStyle(DJConnectButtonAppearance.primaryGradient)) }
                     case .selected:
                         if usesLiveGlass && glassEnabled && !reduceTransparency {
-                            outline.fill((selectionTint ?? djConnectAccent).opacity(0.10))
+                            outline.fill(selectionFill ?? (selectionTint ?? djConnectAccent).opacity(0.10))
                                 .glassEffect(.regular.tint((selectionTint ?? djConnectAccent).opacity(0.22)).interactive(), in: outline)
-                        } else { outline.fill((selectionTint ?? djConnectAccent).opacity(0.22)) }
+                        } else { outline.fill(selectionFill ?? (selectionTint ?? djConnectAccent).opacity(0.22)) }
                     case .destructive:
                         if usesDestructiveGlass && usesLiveGlass && glassEnabled && !reduceTransparency {
                             outline.fill(Color.red.opacity(0.04))
@@ -4522,7 +4526,7 @@ private struct TrackInsightVisualMoodToolbar: View {
             .padding(12)
             .frame(idealWidth: 360)
             .presentationCompactAdaptation(.popover)
-                .djConnectGlassPopoutSurface()
+                .djConnectGlassPopoutSurface(nativePresentation: true)
                 .djConnectPresentationSurface()
         }
     }
@@ -9983,7 +9987,7 @@ private struct IOSTrackHero: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        DJConnectPlaybackHeroLayout(allowsSideBySide: UIDevice.current.userInterfaceIdiom == .pad) {
             AnimatedAlbumArtworkView(playback: playback,
                 maxWidth: artworkMaximumWidth,
                 usesDemoArtwork: model.isDemoMode)
@@ -10277,11 +10281,11 @@ struct TrackSummaryView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        DJConnectPlaybackHeroLayout(allowsSideBySide: true) {
             AnimatedAlbumArtworkView(playback: playback,
                 maxWidth: artworkMaximumWidth, usesDemoArtwork: model.isDemoMode)
                 .accessibilityIdentifier("now-playing-artwork-card")
-            playbackCard
+            NowPlayingPlaybackCardContent(model: model)
                 .padding(20)
                 .frame(maxWidth: .infinity)
                 .djPlaybackArtworkGlassCard(artworkURL: model.isDemoMode ? nil : playback?.albumImageURL)
@@ -10290,7 +10294,13 @@ struct TrackSummaryView: View {
         .accessibilityIdentifier("now-playing-card")
     }
 
-    private var playbackCard: some View {
+}
+
+/// Shared playback card content; the host owns its card or native popover surface.
+struct NowPlayingPlaybackCardContent: View {
+    @ObservedObject var model: DJConnectAppModel
+    private var playback: DJConnectPlayback? { model.playback }
+    var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(playback?.trackName ?? localizedKey(model.language, "ui.nothing.playing.13ae37"))
@@ -10725,7 +10735,8 @@ private extension View {
     }
 }
 
-private struct OutputSelectorView: View {
+struct OutputSelectorView: View {
+    var scrollsOutputs = false
     @StateObject private var manualRefresh = DJConnectManualRefreshController()
     @ObservedObject var model: DJConnectAppModel
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
@@ -10768,26 +10779,11 @@ private struct OutputSelectorView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                VStack(spacing: 8) {
-                    ForEach(sortedOutputs) { output in
-                        OutputDeviceChoiceRow(
-                            language: model.language,
-                            output: output,
-                            title: model.outputDisplayName(output),
-                            isActive: output.active == true,
-                            isPending: model.pendingOutputSelectionID == output.id,
-                            volumeLabel: model.outputVolumeLabel(output),
-                            isBluetooth: model.outputUsesLocalBluetooth(output),
-                            isEnabled: canUsePlayback,
-                            action: {
-                                guard canUsePlayback else {
-                                    return
-                                }
-                                model.selectOutput(output)
-                            }
-                        )
-                    }
-                }
+                if scrollsOutputs {
+                    ScrollView { outputChoices }
+                        .frame(maxHeight: 360)
+                        .accessibilityIdentifier("output-devices-scroll")
+                } else { outputChoices }
             }
         }
         .djStatusToastOverlay(manualRefresh.notice, screenImage: "speaker.wave.2")
@@ -10802,6 +10798,29 @@ private struct OutputSelectorView: View {
         .padding(14)
         #endif
     }
+    private var outputChoices: some View {
+        VStack(spacing: 8) {
+            ForEach(sortedOutputs) { output in
+                OutputDeviceChoiceRow(
+                    language: model.language,
+                    output: output,
+                    title: model.outputDisplayName(output),
+                    isActive: output.active == true,
+                    isPending: model.pendingOutputSelectionID == output.id,
+                    volumeLabel: model.outputVolumeLabel(output),
+                    isBluetooth: model.outputUsesLocalBluetooth(output),
+                    isEnabled: canUsePlayback,
+                    action: {
+                        guard canUsePlayback else {
+                            return
+                        }
+                        model.selectOutput(output)
+                    }
+                )
+            }
+        }
+    }
+
 }
 
 struct BluetoothOutputSymbol: Shape {
@@ -13623,15 +13642,14 @@ struct SessionGlassChoiceSelector: View {
                             .frame(width: 24, height: 28)
                             .foregroundStyle(.white.opacity(index == selectedIndex ? 1 : 0.78))
                             .frame(maxWidth: .infinity, minHeight: 48)
-                            .background(sessionTheme != nil && index == selectedIndex
-                                ? resolvedSelectionColor.opacity(0.80) : .clear,
-                                in: DJConnectCardAppearance.segmentedItemShape)
                     }
                     .djConnectButtonStyle(DJConnectButtonStyle(
                         emphasis: index == selectedIndex ? .selected : .secondary,
                         shape: .segmented, expands: true, usesLiveGlass: true,
                         showsFocusIndicator: false, foregroundColor: .white.opacity(index == selectedIndex ? 1 : 0.78),
-                        selectionTint: resolvedSelectionColor, dimsWhenDisabled: !preservesAppearanceWhileDisabled
+                        selectionTint: resolvedSelectionColor,
+                        selectionFill: sessionTheme != nil ? resolvedSelectionColor.opacity(0.80) : nil,
+                        dimsWhenDisabled: !preservesAppearanceWhileDisabled
                     ))
                     .focused($focusedOption, equals: index)
                     .focusEffectDisabled()
@@ -13688,7 +13706,7 @@ extension View {
 struct AskDJInputBar: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var suggestionsOpen = false
-    @State private var helpAvailableHeight: CGFloat = 0
+    @State private var helpPlacement = AskDJHelpPanelLayout.Placement()
     @StateObject private var helpTapRegions = AskDJHelpTapRegions()
     let helpSurface: DJConnectAskDJCatalogue.Surface
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -13914,27 +13932,6 @@ struct AskDJInputBar: View {
             .fixedSize(horizontal: !isExpanded, vertical: false)
         }
         }
-        .onGeometryChange(for: CGFloat.self) { geometry in
-            min(600, max(0, geometry.frame(in: .named(AskDJHelpPanelLayout.coordinateSpace)).minY - 24))
-        } action: { helpAvailableHeight = $0 }
-        .overlay(alignment: .top) {
-            if suggestionsOpen && model.askDJDraft.isEmpty && !model.isSendingAskDJText && !model.isRecordingVoice {
-                AskDJComposerHelpPopout(model: model, surface: helpSurface, maximumHeight: helpAvailableHeight,
-                    close: { suggestionsOpen = false }, expand: dismissComposerFocus, send: send) { prompt in
-                    guard model.askDJDraft.isEmpty, model.canUseAskDJFeatures,
-                          !model.isSendingAskDJText, !model.isRecordingVoice else { return }
-                    model.askDJDraft = prompt
-                    suggestionsOpen = false
-                    send()
-                }
-                .background(AskDJHelpTapRegion(regions: helpTapRegions, isPanel: true))
-                .padding(.horizontal, 4)
-                .alignmentGuide(.top) { $0[.bottom] + AskDJHelpPanelLayout.gap }
-                .opacity(helpAvailableHeight > 0 ? 1 : 0)
-                .allowsHitTesting(helpAvailableHeight > 0)
-                .transition(.opacity)
-            }
-        }
         .background(AskDJHelpTapRegion(regions: helpTapRegions, isPanel: false,
             enabled: suggestionsOpen && model.askDJDraft.isEmpty && !model.isSendingAskDJText && !model.isRecordingVoice,
             close: { suggestionsOpen = false }))
@@ -14037,6 +14034,30 @@ struct AskDJInputBar: View {
                     endPoint: .trailing
                 )
                 .frame(height: 1)
+            }
+        }
+        .onGeometryChange(for: AskDJHelpPanelLayout.Placement.self) { geometry in
+            .init(availableHeight: min(600, max(0, geometry.frame(in: .named(AskDJHelpPanelLayout.coordinateSpace)).minY - 24)),
+                  composerHeight: geometry.size.height)
+        } action: { helpPlacement = $0 }
+        .overlay(alignment: .bottom) {
+            if suggestionsOpen && model.askDJDraft.isEmpty && !model.isSendingAskDJText && !model.isRecordingVoice {
+                AskDJComposerHelpPopout(model: model, surface: helpSurface, maximumHeight: helpPlacement.availableHeight,
+                    close: { suggestionsOpen = false }, expand: dismissComposerFocus, send: send) { prompt in
+                    guard model.askDJDraft.isEmpty, model.canUseAskDJFeatures,
+                          !model.isSendingAskDJText, !model.isRecordingVoice else { return }
+                    model.askDJDraft = prompt
+                    suggestionsOpen = false
+                    send()
+                }
+                .background(AskDJHelpTapRegion(regions: helpTapRegions, isPanel: true))
+                .padding(.horizontal, 4)
+                // Place the panel's bottom above the whole composer, including
+                // expanded input/context, without a conditional alignment guide.
+                .offset(y: -helpPlacement.composerHeight - AskDJHelpPanelLayout.gap)
+                .opacity(helpPlacement.availableHeight > 0 && helpPlacement.composerHeight > 0 ? 1 : 0)
+                .allowsHitTesting(helpPlacement.availableHeight > 0 && helpPlacement.composerHeight > 0)
+                .transition(.opacity)
             }
         }
     }
@@ -15158,7 +15179,7 @@ private struct PlaylistRow: View, Equatable {
     }
 }
 
-/// Resolution-independent retro cross; the four 48-point arms are real buttons.
+/// Shared vector cross with 48-point directional and center fire hit targets.
 struct DJConnectRetroDPad: View {
     enum Direction: String, CaseIterable, Identifiable {
         case up, left, right, down
@@ -15176,6 +15197,8 @@ struct DJConnectRetroDPad: View {
         }
     }
     let language: String
+    var enabledDirections = Set(Direction.allCases)
+    var fire: (() -> Void)? = nil
     let select: (Direction) -> Void
 
     var body: some View {
@@ -15192,24 +15215,38 @@ struct DJConnectRetroDPad: View {
                 .frame(width: 144, height: 144)
                 .shadow(color: .black.opacity(0.35), radius: 3, y: 3)
             ForEach(Direction.allCases) { direction in
-                Button { select(direction) } label: {
-                    RetroDPadArrow().fill(.white.opacity(0.75))
+                let enabled = enabledDirections.contains(direction)
+                Button { if enabled { select(direction) } } label: {
+                    RetroDPadArrow().fill(.white.opacity(enabled ? 0.75 : 0.22))
                         .frame(width: 14, height: 10).rotationEffect(direction.angle)
                         .shadow(color: .black.opacity(0.8), radius: 0.5, y: 1)
                         .frame(width: 48, height: 48)
+                        .background(enabled ? .clear : Color(white: 0.24),
+                                    in: RoundedRectangle(cornerRadius: 4))
                 }
                 .buttonStyle(RetroDPadButtonStyle())
+                .disabled(!enabled)
+                .focusEffectDisabled()
                 .accessibilityLabel(localizedKey(language, "ui." + direction.rawValue))
                 .accessibilityIdentifier("games-dpad-" + direction.rawValue)
                 .help(localizedKey(language, "ui." + direction.rawValue))
                 .offset(direction.offset)
             }
-            Circle()
-                .fill(LinearGradient(colors: [.black.opacity(0.65), .white.opacity(0.04)],
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-                .overlay(Circle().stroke(.white.opacity(0.08), lineWidth: 1))
-                .frame(width: 26, height: 26)
-                .allowsHitTesting(false).accessibilityHidden(true)
+            Button { fire?() } label: {
+                Image(systemName: "sparkle")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.white.opacity(fire == nil ? 0.22 : 0.95))
+                    .frame(width: 36, height: 36)
+                    .background(fire == nil ? Color(white: 0.24) : djConnectAccent.opacity(0.85), in: Circle())
+                    .overlay(Circle().stroke(.white.opacity(0.14), lineWidth: 1))
+                    .frame(width: 48, height: 48)
+            }
+            .buttonStyle(RetroDPadButtonStyle())
+            .disabled(fire == nil)
+            .focusEffectDisabled()
+            .accessibilityLabel(localizedKey(language, "ui.fire"))
+            .accessibilityIdentifier("games-dpad-fire")
+            .help(localizedKey(language, "ui.fire"))
         }
         .frame(width: 160, height: 160)
         .accessibilityElement(children: .contain)
@@ -15242,22 +15279,33 @@ private struct RetroDPadArrow: Shape {
     }
 }
 private struct RetroDPadButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed && isEnabled
         configuration.label
-            .background(configuration.isPressed ? Color.white.opacity(0.16) : .clear,
+            .background(pressed ? Color.white.opacity(0.16) : .clear,
                         in: RoundedRectangle(cornerRadius: 4))
-            .offset(y: configuration.isPressed ? 1 : 0)
+            .offset(y: pressed ? 1 : 0)
             .contentShape(Rectangle())
     }
 }
 
-private enum LocalGameMode: String, CaseIterable, Identifiable {
+enum LocalGameMode: String, CaseIterable, Identifiable {
     case pong
     case asteroids
     case fly
     case pacman
 
     var id: String { rawValue }
+
+    var enabledDirections: Set<DJConnectRetroDPad.Direction> {
+        switch self {
+        case .pong, .fly: [.up, .down]
+        case .asteroids: [.left, .right]
+        case .pacman: Set(DJConnectRetroDPad.Direction.allCases)
+        }
+    }
+    var supportsFire: Bool { self == .asteroids || self == .fly }
 
     var title: String {
         switch self {
@@ -15491,7 +15539,6 @@ private struct LocalGameSurface: View {
     @FocusState private var isGameFocused: Bool
     private let tick = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
     private let gameAspectRatio: CGFloat = 320.0 / 170.0
-    private var isCompactLayout: Bool { horizontalSizeClass == .compact }
 
     private var fillsAvailableCanvas: Bool {
         #if os(iOS)
@@ -15678,22 +15725,6 @@ private struct LocalGameSurface: View {
         }
     }
 
-    private var primaryMoveLabel: String {
-        game == .asteroids ? localizedKey(language, "ui.left") : localizedKey(language, "ui.up")
-    }
-
-    private var secondaryMoveLabel: String {
-        game == .asteroids ? localizedKey(language, "ui.right") : localizedKey(language, "ui.down")
-    }
-
-    private var primaryMoveIcon: String {
-        game == .asteroids ? "chevron.left" : "chevron.up"
-    }
-
-    private var secondaryMoveIcon: String {
-        game == .asteroids ? "chevron.right" : "chevron.down"
-    }
-
     private var helpText: String {
         switch game {
         case .pong:
@@ -15707,65 +15738,18 @@ private struct LocalGameSurface: View {
         }
     }
 
-    @ViewBuilder
     private var controlsView: some View {
-        if game == .pacman {
-            DJConnectRetroDPad(language: language) { direction in
-                DJConnectGameHaptics.impact()
-                switch direction {
-                case .up: setPacmanDirection(dx: 0, dy: -1)
-                case .left: setPacmanDirection(dx: -1, dy: 0)
-                case .right: setPacmanDirection(dx: 1, dy: 0)
-                case .down: setPacmanDirection(dx: 0, dy: 1)
-                }
-            }
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity)
-        } else {
-            LazyVGrid(columns: controlColumns(count: game == .pong ? 2 : 3), spacing: 10) {
-                directionButton(primaryMoveLabel, icon: primaryMoveIcon) {
-                    move(-1)
-                }
-                directionButton(secondaryMoveLabel, icon: secondaryMoveIcon) {
-                    move(1)
-                }
-
-                if game != .pong {
-                    Button {
-                        DJConnectGameHaptics.impact()
-                        fire()
-                    } label: {
-                        Label(localizedKey(language, "ui.fire"), systemImage: "sparkle")
-                            .labelStyle(.iconOnly)
-                            .frame(height: 24)
-                    }
-                    .help(localizedKey(language, "ui.fire"))
-                }
-
-            }
-            // The game surface owns keyboard focus; its inherited focus state
-            // must not draw a thick focus ring on every direction control.
-            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon, showsFocusIndicator: false))
-            .controlSize(.large)
-        }
-    }
-
-    private func controlColumns(count: Int) -> [GridItem] {
-        let compactCount = min(count, 2)
-        let columnCount = isCompactLayout ? compactCount : count
-        return Array(repeating: GridItem(.flexible(minimum: 0), spacing: 10), count: columnCount)
-    }
-
-    private func directionButton(_ label: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button {
+        DJConnectRetroDPad(language: language, enabledDirections: game.enabledDirections,
+                          fire: game.supportsFire ? {
             DJConnectGameHaptics.impact()
-            action()
-        } label: {
-            Label(label, systemImage: icon)
-                .labelStyle(.iconOnly)
-                .frame(height: 24)
+            fire()
+        } : nil) { direction in
+            guard game.enabledDirections.contains(direction) else { return }
+            DJConnectGameHaptics.impact()
+            _ = handleArrowKey(direction)
         }
-        .help(label)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
     }
 
     private var resetButton: some View {
@@ -16272,14 +16256,7 @@ private struct LocalGameSurface: View {
         }
     }
 
-    private enum ArrowKey {
-        case up
-        case down
-        case left
-        case right
-    }
-
-    private func handleArrowKey(_ key: ArrowKey) -> KeyPress.Result {
+    private func handleArrowKey(_ key: DJConnectRetroDPad.Direction) -> KeyPress.Result {
         switch (game, key) {
         case (.pong, .up), (.fly, .up), (.asteroids, .left), (.pacman, .up):
             move(-1)
@@ -18339,7 +18316,7 @@ private struct AboutView: View {
                             .popover(isPresented: $showingPushStatus) {
                                 PushRegistrationDetailsView(model: model)
                                     .presentationCompactAdaptation(.popover)
-                .djConnectGlassPopoutSurface()
+                .djConnectGlassPopoutSurface(nativePresentation: true)
                 .djConnectPresentationSurface()
                             }
                         }
