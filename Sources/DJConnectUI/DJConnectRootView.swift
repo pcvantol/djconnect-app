@@ -1119,15 +1119,13 @@ public struct DJConnectRootView: View {
             await model.refreshActiveDJSession()
         }
         .task(id: model.pairingStatus) { await history.prepare() }
-        .overlay(alignment: .bottom) {
-            if let key = history.navigationErrorKey {
-                HStack {
-                    Text(localizedKey(model.language, key))
-                    Button(localizedKey(model.language, "ui.close")) { history.clearNavigationError() }
-                }
-                .font(.callout).padding(16).frame(maxWidth: 650)
-                .background(DJConnectMaterial(.regular), in: RoundedRectangle(cornerRadius: 16)).padding(.bottom, 80)
-            }
+        .djStatusToastOverlay(text: history.navigationErrorKey.map { localizedKey(model.language, $0) },
+                              systemImage: "clock.arrow.circlepath")
+        .task(id: history.navigationErrorKey) {
+            guard let key = history.navigationErrorKey else { return }
+            do { try await Task.sleep(for: .seconds(4)) } catch { return }
+            guard !Task.isCancelled, history.navigationErrorKey == key else { return }
+            history.clearNavigationError()
         }
         .onAppear {
             handleScreenshotScreenRequestIfNeeded()
