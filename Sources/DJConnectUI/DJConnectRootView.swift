@@ -15158,7 +15158,7 @@ private struct PlaylistRow: View, Equatable {
     }
 }
 
-/// Resolution-independent retro cross; the four 48-point arms are real buttons.
+/// Shared vector cross with 48-point directional and center fire hit targets.
 struct DJConnectRetroDPad: View {
     enum Direction: String, CaseIterable, Identifiable {
         case up, left, right, down
@@ -15176,6 +15176,8 @@ struct DJConnectRetroDPad: View {
         }
     }
     let language: String
+    var enabledDirections = Set(Direction.allCases)
+    var fire: (() -> Void)? = nil
     let select: (Direction) -> Void
 
     var body: some View {
@@ -15192,24 +15194,38 @@ struct DJConnectRetroDPad: View {
                 .frame(width: 144, height: 144)
                 .shadow(color: .black.opacity(0.35), radius: 3, y: 3)
             ForEach(Direction.allCases) { direction in
-                Button { select(direction) } label: {
-                    RetroDPadArrow().fill(.white.opacity(0.75))
+                let enabled = enabledDirections.contains(direction)
+                Button { if enabled { select(direction) } } label: {
+                    RetroDPadArrow().fill(.white.opacity(enabled ? 0.75 : 0.22))
                         .frame(width: 14, height: 10).rotationEffect(direction.angle)
                         .shadow(color: .black.opacity(0.8), radius: 0.5, y: 1)
                         .frame(width: 48, height: 48)
+                        .background(enabled ? .clear : Color(white: 0.24),
+                                    in: RoundedRectangle(cornerRadius: 4))
                 }
                 .buttonStyle(RetroDPadButtonStyle())
+                .disabled(!enabled)
+                .focusEffectDisabled()
                 .accessibilityLabel(localizedKey(language, "ui." + direction.rawValue))
                 .accessibilityIdentifier("games-dpad-" + direction.rawValue)
                 .help(localizedKey(language, "ui." + direction.rawValue))
                 .offset(direction.offset)
             }
-            Circle()
-                .fill(LinearGradient(colors: [.black.opacity(0.65), .white.opacity(0.04)],
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-                .overlay(Circle().stroke(.white.opacity(0.08), lineWidth: 1))
-                .frame(width: 26, height: 26)
-                .allowsHitTesting(false).accessibilityHidden(true)
+            Button { fire?() } label: {
+                Image(systemName: "sparkle")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.white.opacity(fire == nil ? 0.22 : 0.95))
+                    .frame(width: 36, height: 36)
+                    .background(fire == nil ? Color(white: 0.24) : djConnectAccent.opacity(0.85), in: Circle())
+                    .overlay(Circle().stroke(.white.opacity(0.14), lineWidth: 1))
+                    .frame(width: 48, height: 48)
+            }
+            .buttonStyle(RetroDPadButtonStyle())
+            .disabled(fire == nil)
+            .focusEffectDisabled()
+            .accessibilityLabel(localizedKey(language, "ui.fire"))
+            .accessibilityIdentifier("games-dpad-fire")
+            .help(localizedKey(language, "ui.fire"))
         }
         .frame(width: 160, height: 160)
         .accessibilityElement(children: .contain)
@@ -15242,22 +15258,33 @@ private struct RetroDPadArrow: Shape {
     }
 }
 private struct RetroDPadButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed && isEnabled
         configuration.label
-            .background(configuration.isPressed ? Color.white.opacity(0.16) : .clear,
+            .background(pressed ? Color.white.opacity(0.16) : .clear,
                         in: RoundedRectangle(cornerRadius: 4))
-            .offset(y: configuration.isPressed ? 1 : 0)
+            .offset(y: pressed ? 1 : 0)
             .contentShape(Rectangle())
     }
 }
 
-private enum LocalGameMode: String, CaseIterable, Identifiable {
+enum LocalGameMode: String, CaseIterable, Identifiable {
     case pong
     case asteroids
     case fly
     case pacman
 
     var id: String { rawValue }
+
+    var enabledDirections: Set<DJConnectRetroDPad.Direction> {
+        switch self {
+        case .pong, .fly: [.up, .down]
+        case .asteroids: [.left, .right]
+        case .pacman: Set(DJConnectRetroDPad.Direction.allCases)
+        }
+    }
+    var supportsFire: Bool { self == .asteroids || self == .fly }
 
     var title: String {
         switch self {
@@ -15491,7 +15518,6 @@ private struct LocalGameSurface: View {
     @FocusState private var isGameFocused: Bool
     private let tick = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
     private let gameAspectRatio: CGFloat = 320.0 / 170.0
-    private var isCompactLayout: Bool { horizontalSizeClass == .compact }
 
     private var fillsAvailableCanvas: Bool {
         #if os(iOS)
@@ -15678,22 +15704,6 @@ private struct LocalGameSurface: View {
         }
     }
 
-    private var primaryMoveLabel: String {
-        game == .asteroids ? localizedKey(language, "ui.left") : localizedKey(language, "ui.up")
-    }
-
-    private var secondaryMoveLabel: String {
-        game == .asteroids ? localizedKey(language, "ui.right") : localizedKey(language, "ui.down")
-    }
-
-    private var primaryMoveIcon: String {
-        game == .asteroids ? "chevron.left" : "chevron.up"
-    }
-
-    private var secondaryMoveIcon: String {
-        game == .asteroids ? "chevron.right" : "chevron.down"
-    }
-
     private var helpText: String {
         switch game {
         case .pong:
@@ -15707,65 +15717,18 @@ private struct LocalGameSurface: View {
         }
     }
 
-    @ViewBuilder
     private var controlsView: some View {
-        if game == .pacman {
-            DJConnectRetroDPad(language: language) { direction in
-                DJConnectGameHaptics.impact()
-                switch direction {
-                case .up: setPacmanDirection(dx: 0, dy: -1)
-                case .left: setPacmanDirection(dx: -1, dy: 0)
-                case .right: setPacmanDirection(dx: 1, dy: 0)
-                case .down: setPacmanDirection(dx: 0, dy: 1)
-                }
-            }
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity)
-        } else {
-            LazyVGrid(columns: controlColumns(count: game == .pong ? 2 : 3), spacing: 10) {
-                directionButton(primaryMoveLabel, icon: primaryMoveIcon) {
-                    move(-1)
-                }
-                directionButton(secondaryMoveLabel, icon: secondaryMoveIcon) {
-                    move(1)
-                }
-
-                if game != .pong {
-                    Button {
-                        DJConnectGameHaptics.impact()
-                        fire()
-                    } label: {
-                        Label(localizedKey(language, "ui.fire"), systemImage: "sparkle")
-                            .labelStyle(.iconOnly)
-                            .frame(height: 24)
-                    }
-                    .help(localizedKey(language, "ui.fire"))
-                }
-
-            }
-            // The game surface owns keyboard focus; its inherited focus state
-            // must not draw a thick focus ring on every direction control.
-            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon, showsFocusIndicator: false))
-            .controlSize(.large)
-        }
-    }
-
-    private func controlColumns(count: Int) -> [GridItem] {
-        let compactCount = min(count, 2)
-        let columnCount = isCompactLayout ? compactCount : count
-        return Array(repeating: GridItem(.flexible(minimum: 0), spacing: 10), count: columnCount)
-    }
-
-    private func directionButton(_ label: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button {
+        DJConnectRetroDPad(language: language, enabledDirections: game.enabledDirections,
+                          fire: game.supportsFire ? {
             DJConnectGameHaptics.impact()
-            action()
-        } label: {
-            Label(label, systemImage: icon)
-                .labelStyle(.iconOnly)
-                .frame(height: 24)
+            fire()
+        } : nil) { direction in
+            guard game.enabledDirections.contains(direction) else { return }
+            DJConnectGameHaptics.impact()
+            _ = handleArrowKey(direction)
         }
-        .help(label)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
     }
 
     private var resetButton: some View {
@@ -16272,14 +16235,7 @@ private struct LocalGameSurface: View {
         }
     }
 
-    private enum ArrowKey {
-        case up
-        case down
-        case left
-        case right
-    }
-
-    private func handleArrowKey(_ key: ArrowKey) -> KeyPress.Result {
+    private func handleArrowKey(_ key: DJConnectRetroDPad.Direction) -> KeyPress.Result {
         switch (game, key) {
         case (.pong, .up), (.fly, .up), (.asteroids, .left), (.pacman, .up):
             move(-1)
