@@ -14418,3 +14418,25 @@ func gameAudioWorkerKeepsMainActorResponsiveAndBoundsSoundBacklog(_ cancelPendin
     #expect(probe.snapshot.1 == [1, cancelPending ? 2000 : 1000])
     #expect(!probe.snapshot.2)
 }
+
+#if os(macOS)
+import AppKit
+import SwiftUI
+
+/// Actual shared vector component only; no app installation or game input claim.
+@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_RETRO_DPAD_PREVIEW_DIR"] != nil))
+@MainActor func retroDPadNativeVectorPreview() throws {
+    let folder = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DJCONNECT_RETRO_DPAD_PREVIEW_DIR"]))
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let renderer = ImageRenderer(content: DJConnectRetroDPad(language: "nl", select: { _ in })
+        .padding(24)
+        .background(LinearGradient(colors: [Color(red: 0.27, green: 0.17, blue: 0.45),
+                                           Color(red: 0.10, green: 0.08, blue: 0.21)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)))
+    renderer.scale = 3
+    let image = try #require(renderer.cgImage)
+    #expect(image.width == 624 && image.height == 624)
+    let png = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
+    try png.write(to: folder.appendingPathComponent("retro-dpad.png"), options: .withoutOverwriting)
+}
+#endif

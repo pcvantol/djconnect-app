@@ -15111,6 +15111,99 @@ private struct PlaylistRow: View, Equatable {
     }
 }
 
+/// Resolution-independent retro cross; the four 48-point arms are real buttons.
+struct DJConnectRetroDPad: View {
+    enum Direction: String, CaseIterable, Identifiable {
+        case up, left, right, down
+        var id: String { rawValue }
+        var offset: CGSize {
+            switch self {
+            case .up: .init(width: 0, height: -48)
+            case .left: .init(width: -48, height: 0)
+            case .right: .init(width: 48, height: 0)
+            case .down: .init(width: 0, height: 48)
+            }
+        }
+        var angle: Angle {
+            switch self { case .up: .zero; case .left: .degrees(-90); case .right: .degrees(90); case .down: .degrees(180) }
+        }
+    }
+    let language: String
+    let select: (Direction) -> Void
+
+    var body: some View {
+        ZStack {
+            Circle().fill(.black.opacity(0.22))
+                .overlay(Circle().stroke(.white.opacity(0.08), lineWidth: 1))
+            RetroDPadCross().fill(Color.black.opacity(0.7))
+                .frame(width: 144, height: 144).offset(y: 4)
+            RetroDPadCross()
+                .fill(LinearGradient(colors: [Color(white: 0.29), Color(white: 0.10)],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                .overlay(RetroDPadCross().stroke(.white.opacity(0.22),
+                    style: StrokeStyle(lineWidth: 1, lineJoin: .round)))
+                .frame(width: 144, height: 144)
+                .shadow(color: .black.opacity(0.35), radius: 3, y: 3)
+            ForEach(Direction.allCases) { direction in
+                Button { select(direction) } label: {
+                    RetroDPadArrow().fill(.white.opacity(0.75))
+                        .frame(width: 14, height: 10).rotationEffect(direction.angle)
+                        .shadow(color: .black.opacity(0.8), radius: 0.5, y: 1)
+                        .frame(width: 48, height: 48)
+                }
+                .buttonStyle(RetroDPadButtonStyle())
+                .accessibilityLabel(localizedKey(language, "ui." + direction.rawValue))
+                .accessibilityIdentifier("games-dpad-" + direction.rawValue)
+                .help(localizedKey(language, "ui." + direction.rawValue))
+                .offset(direction.offset)
+            }
+            Circle()
+                .fill(LinearGradient(colors: [.black.opacity(0.65), .white.opacity(0.04)],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                .overlay(Circle().stroke(.white.opacity(0.08), lineWidth: 1))
+                .frame(width: 26, height: 26)
+                .allowsHitTesting(false).accessibilityHidden(true)
+        }
+        .frame(width: 160, height: 160)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("games-retro-dpad")
+    }
+}
+
+private struct RetroDPadCross: Shape {
+    func path(in rect: CGRect) -> Path {
+        let points: [(CGFloat, CGFloat)] = [(1,0),(2,0),(2,1),(3,1),(3,2),(2,2),
+                                            (2,3),(1,3),(1,2),(0,2),(0,1),(1,1)]
+        var path = Path()
+        for (index, point) in points.enumerated() {
+            let position = CGPoint(x: rect.minX + point.0 * rect.width / 3,
+                                   y: rect.minY + point.1 * rect.height / 3)
+            if index == 0 { path.move(to: position) } else { path.addLine(to: position) }
+        }
+        path.closeSubpath()
+        return path
+    }
+}
+private struct RetroDPadArrow: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path { path in
+            path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+            path.closeSubpath()
+        }
+    }
+}
+private struct RetroDPadButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(configuration.isPressed ? Color.white.opacity(0.16) : .clear,
+                        in: RoundedRectangle(cornerRadius: 4))
+            .offset(y: configuration.isPressed ? 1 : 0)
+            .contentShape(Rectangle())
+    }
+}
+
 private enum LocalGameMode: String, CaseIterable, Identifiable {
     case pong
     case asteroids
@@ -15570,24 +15663,17 @@ private struct LocalGameSurface: View {
     @ViewBuilder
     private var controlsView: some View {
         if game == .pacman {
-            LazyVGrid(columns: controlColumns(count: 4), spacing: 10) {
-                directionButton(localizedKey(language, "ui.up"), icon: "chevron.up") {
-                    setPacmanDirection(dx: 0, dy: -1)
-                }
-                directionButton(localizedKey(language, "ui.down"), icon: "chevron.down") {
-                    setPacmanDirection(dx: 0, dy: 1)
-                }
-                directionButton(localizedKey(language, "ui.left"), icon: "chevron.left") {
-                    setPacmanDirection(dx: -1, dy: 0)
-                }
-                directionButton(localizedKey(language, "ui.right"), icon: "chevron.right") {
-                    setPacmanDirection(dx: 1, dy: 0)
+            DJConnectRetroDPad(language: language) { direction in
+                DJConnectGameHaptics.impact()
+                switch direction {
+                case .up: setPacmanDirection(dx: 0, dy: -1)
+                case .left: setPacmanDirection(dx: -1, dy: 0)
+                case .right: setPacmanDirection(dx: 1, dy: 0)
+                case .down: setPacmanDirection(dx: 0, dy: 1)
                 }
             }
-            // The game surface owns keyboard focus; its inherited focus state
-            // must not draw a thick focus ring on every direction control.
-            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon, showsFocusIndicator: false))
-            .controlSize(.large)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity)
         } else {
             LazyVGrid(columns: controlColumns(count: game == .pong ? 2 : 3), spacing: 10) {
                 directionButton(primaryMoveLabel, icon: primaryMoveIcon) {
