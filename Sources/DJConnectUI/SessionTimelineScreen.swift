@@ -801,7 +801,8 @@ struct SessionTimelineScreen: View {
             }
             .overlay {
                 if activeSession != nil {
-                    PersonaReactionOverlay(controller: model.personaReactions, language: model.language, avatarFrame: model.personaAvatarFrame)
+                    PersonaReactionOverlay(controller: model.personaReactions, language: model.language, avatarFrame: model.personaAvatarFrame,
+                        mood: model.djSessionLiveUnavailable || model.djSessionIsRecovering ? nil : activeSession?.selectedMood)
                 }
             }
             .djStatusToastOverlay(model.personaReactionNotice, screenImage: DJConnectFeatureSymbols.djSession)
