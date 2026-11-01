@@ -1604,3 +1604,6 @@
 
 "surface.research.adapted" = "Auf Grundlage der obigen Quellen bearbeitet.";
 "ui.host.wake.reviewed.device.test" = "Geprüften Gerätetest starten";
+
+"ui.vibescape.voice.starting" = "Mikrofon wird vorbereitet…";
+"ui.vibescape.voice.start_failed" = "Die Aufnahme konnte nicht starten. Versuche es erneut.";

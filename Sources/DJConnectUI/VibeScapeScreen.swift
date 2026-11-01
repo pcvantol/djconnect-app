@@ -525,6 +525,39 @@ import AVFoundation
     }
 }
 
+/// Wait only for the server's explicit missing-observation response. Never
+/// replay interpretation, ambiguous transport failures or an issued context.
+@MainActor enum VibeScapeVoiceReadiness {
+    static func read<Value>(isCurrent: () -> Bool,
+        now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+        wait: () async throws -> Void = { try await Task.sleep(for: .seconds(1)) },
+        request: () async throws -> Value) async throws -> Value {
+        let started = now()
+        guard started.isFinite, started >= 0 else { throw CancellationError() }
+        for attempt in 0..<6 {
+            try Task.checkCancellation()
+            guard isCurrent() else { throw CancellationError() }
+            do {
+                let value = try await request()
+                try Task.checkCancellation()
+                guard isCurrent() else { throw CancellationError() }
+                return value
+            } catch DJConnectVisualContextError.awaitingObservation {
+                let time = now()
+                guard attempt < 5, time.isFinite, time >= started, time < started + 8 else {
+                    throw DJConnectVisualContextError.awaitingObservation
+                }
+                try await wait()
+                let resumed = now()
+                guard resumed.isFinite, resumed >= time, resumed < started + 8 else {
+                    throw DJConnectVisualContextError.awaitingObservation
+                }
+            }
+        }
+        throw DJConnectVisualContextError.awaitingObservation
+    }
+}
+
 /// Separate visual-only capture. No transcript/audio enters Ask DJ or history.
 @MainActor final class VibeScapeVoiceControl: ObservableObject {
     @Published private(set) var busy = false
@@ -548,7 +581,7 @@ import AVFoundation
               let sessionID = model.activeDJSession?.id, let visitID = visit.ticket?.visit else { return }
         let epoch = model.sessionHistory.responseEpoch, language = model.language
         let origin = model.homeAssistantURL
-        let token = UUID(); operation = token; busy = true; statusKey = nil
+        let token = UUID(); operation = token; busy = true; statusKey = "ui.vibescape.voice.starting"
         func current() -> Bool {
             operation == token && !Task.isCancelled && model.voiceEnabled && model.isShowingVibeScape && model.canRefreshSessionHistory &&
             model.sessionHistory.authorizedProfileID == owner && model.sessionHistory.responseEpoch == epoch &&
@@ -559,6 +592,7 @@ import AVFoundation
         task = Task { [weak self] in
             guard let self else { return }
             defer { if operation == token { cleanupCapture(); busy = false; task = nil } }
+            var captured = false
             do {
                 _ = try await model.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
                     try await $0.visualDirectorHelp(language: language)
@@ -586,10 +620,26 @@ import AVFoundation
                         }
                     }
                 }
-                let started = visit.now()
-                let context = try await model.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
-                    guard current() else { throw CancellationError() }
-                    return try await $0.visualDirectorContext(sessionID: sessionID, visitID: visitID)
+                // Warm native capture before acquiring the short server lease.
+                // No audio is recorded until the context has been validated.
+                #if os(iOS)
+                try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .default, options: [.mixWithOthers, .defaultToSpeaker])
+                try AVAudioSession.sharedInstance().setActive(true)
+                audioSessionActive = true
+                #endif
+                let url = FileManager.default.temporaryDirectory.appendingPathComponent("djc-visual-\(UUID().uuidString).wav")
+                audioURL = url
+                let capture = try AVAudioRecorder(url: url, settings: [AVFormatIDKey: kAudioFormatLinearPCM,
+                    AVSampleRateKey: 16000, AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 16])
+                recorder = capture
+                guard capture.prepareToRecord() else { throw DJConnectDeviceSTTError.failed }
+                let (context, started) = try await VibeScapeVoiceReadiness.read(isCurrent: current, now: visit.now) {
+                    let requestStarted = visit.now()
+                    let context = try await model.withHomeAssistantClient(allowsOperationReplay: false, notifiesTransportFailure: false) {
+                        guard current() else { throw CancellationError() }
+                        return try await $0.visualDirectorContext(sessionID: sessionID, visitID: visitID)
+                    }
+                    return (context, requestStarted)
                 }
                 guard current(), context.success, context.schema_version == 1,
                       UUID(uuidString: context.visit_id) == visitID,
@@ -608,18 +658,8 @@ import AVFoundation
                     guard let self, self.operation == token else { return }
                     self.cancel(); self.statusKey = "ui.vibescape.voice.failed"
                 }
-                #if os(iOS)
-                try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .default, options: [.mixWithOthers, .defaultToSpeaker])
-                try AVAudioSession.sharedInstance().setActive(true)
-                audioSessionActive = true
-                #endif
-                let url = FileManager.default.temporaryDirectory.appendingPathComponent("djc-visual-\(UUID().uuidString).wav")
-                audioURL = url
-                let capture = try AVAudioRecorder(url: url, settings: [AVFormatIDKey: kAudioFormatLinearPCM,
-                    AVSampleRateKey: 16000, AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 16])
-                recorder = capture
-                guard capture.prepareToRecord(), capture.record(forDuration: min(8, deadline - visit.now() - 1)) else { throw DJConnectDeviceSTTError.failed }
-                recording = true; statusKey = "ui.vibescape.voice.recording"
+                guard capture.record(forDuration: min(8, deadline - visit.now() - 1)) else { throw DJConnectDeviceSTTError.failed }
+                captured = true; recording = true; statusKey = "ui.vibescape.voice.recording"
                 while recording && capture.isRecording {
                     try await Task.sleep(for: .milliseconds(100))
                     guard current(), visit.ticket == turn.scene, visit.now() < deadline else { throw CancellationError() }
@@ -664,7 +704,14 @@ import AVFoundation
             } catch {
                 if operation == token {
                     fence?.cancel()
-                    if !Task.isCancelled { statusKey = "ui.vibescape.voice.failed" }
+                    if !Task.isCancelled {
+                        switch error {
+                        case DJConnectDeviceSTTError.permission, DJConnectDeviceSTTError.unavailable:
+                            statusKey = "ui.device_stt.unavailable"
+                        default:
+                            statusKey = captured ? "ui.vibescape.voice.failed" : "ui.vibescape.voice.start_failed"
+                        }
+                    }
                 }
             }
         }

@@ -1604,3 +1604,6 @@
 
 "surface.research.adapted" = "Bewerkt op basis van de bovenstaande bronnen.";
 "ui.host.wake.reviewed.device.test" = "Start gecontroleerde apparaattest";
+
+"ui.vibescape.voice.starting" = "Microfoon wordt klaargemaakt…";
+"ui.vibescape.voice.start_failed" = "De opname kon niet starten. Probeer opnieuw.";
