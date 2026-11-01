@@ -7,6 +7,7 @@ import Foundation
 @MainActor public final class DJConnectDirectSessionRuntime {
     public enum Phase: Equatable, Sendable { case idle, authorizing, active, suspended, closed, unknown }
     private let custody: DirectRichReadCustody
+    private let captureHostWakeAttempt: (@MainActor @Sendable () -> (@MainActor @Sendable () -> Bool))?
     private var candidate: DirectRichReadCustody.Candidate?
     private var withdrawalTask: Task<Void, any Error>?
     private let withdrawalCancellation = CoreHostWakeProxyCancellation()
@@ -15,7 +16,9 @@ import Foundation
                 lockedDisplay: Bool,
                 pairedIsCurrent: @escaping @MainActor @Sendable () -> Bool,
                 ownerIsCurrent: @escaping @MainActor @Sendable () -> Bool,
-                captureAttempt: @escaping @MainActor @Sendable () -> (@MainActor @Sendable () -> Bool)) throws {
+                captureAttempt: @escaping @MainActor @Sendable () -> (@MainActor @Sendable () -> Bool),
+                captureHostWakeAttempt: (@MainActor @Sendable () -> (@MainActor @Sendable () -> Bool))? = nil) throws {
+        self.captureHostWakeAttempt = captureHostWakeAttempt
         custody = try DirectRichReadCustody(client: client, sessionID: sessionID, surface: surface,
             lockedDisplay: lockedDisplay, pairedIsCurrent: pairedIsCurrent,
             ownerIsCurrent: ownerIsCurrent, captureAttempt: captureAttempt)
@@ -23,7 +26,7 @@ import Foundation
 
     /// Internal synthetic DATA tests retain the existing injected transport's
     /// missing ReceivingContext. This cannot create a genuine parent or permit.
-    init(testCustody: DirectRichReadCustody) { custody = testCustody }
+    init(testCustody: DirectRichReadCustody) { custody = testCustody; captureHostWakeAttempt = nil }
     deinit { withdrawalCancellation.cancelAll(); custody.cancelOwnedResources() }
 
     /// Synchronous negative resource hook for the actual AppModel's deinit.
@@ -52,6 +55,25 @@ import Foundation
     /// This never replaces a failed/unknown authorization with a new UUID.
     public func read() async throws {
         let received = try await custody.read()
+        try Task.checkCancellation()
+        guard received.isCurrent else { throw CancellationError() }
+        candidate = received
+    }
+
+    /// Only the actual foreground enrollment owner can transfer an ACKed child
+    /// before suspension. Original read/asset, local resource and field bounds
+    /// remain unchanged; SDK/effect work can then close independently.
+    func retainRegisteredHostWakeRead(child: CoreHostWakeProxyCustody,
+        parent: DirectRichReadCustody.OriginalPurposeContext) throws {
+        guard captureHostWakeAttempt != nil else { throw CancellationError() }
+        try custody.retainRegisteredRead(from: child, parent: parent)
+    }
+    public var hasRegisteredHostWakeRead: Bool { custody.hasRegisteredRead }
+    /// An OS hint may read only an already transferred warm original. It never
+    /// begins authorization, adopts status history or recreates a cold owner.
+    public func readRegisteredHostWake() async throws {
+        guard let captureHostWakeAttempt else { throw CancellationError() }
+        let received = try await custody.readRegistered(captureAttempt: captureHostWakeAttempt)
         try Task.checkCancellation()
         guard received.isCurrent else { throw CancellationError() }
         candidate = received

@@ -23,9 +23,9 @@ final class HostWakeFirstKeyJournal: @unchecked Sendable {
     private var claimFile: OwnedFile?
     private var referenceFile: OwnedFile?
     private var referenceBytes: Data?
-    private var proofFile: OwnedFile?
-    private var proofBytes: Data?
-    private var proofAttempted = false
+    private var proofRecords: [String: (OwnedFile, Data)] = [:]
+    private var proofAttempts: Set<String> = []
+    private var attestationClaimed = false
     private let lock = NSLock()
     private var claimAttempted = false
     private var claimed = false
@@ -98,13 +98,17 @@ final class HostWakeFirstKeyJournal: @unchecked Sendable {
             referenceBytes = encodedReference
         }
     }
-    /// One original native proof for this warm first-key operation. Persist
+    /// One native proof per exact original child (at most the two surfaces),
+    /// with one attestation for the first key and server-selected assertions.
+    /// This is once accounting, never server enrollment/kind authority. Persist
     /// before entering the SDK; failure/unknown never refunds the reservation.
     /// The record contains binding DATA only, never opaque proof/private bytes.
     func claimNativeProofBeforeSDK(_ input: HostWakeNativeProofInputData) throws {
         try lock.withLock {
-            guard !closed, !proofAttempted else { throw Failure.closed }
-            proofAttempted = true
+            guard !closed, proofAttempts.count < 2, !proofAttempts.contains(input.operationID),
+                  input.kind != .attestation || !attestationClaimed else { throw Failure.closed }
+            proofAttempts.insert(input.operationID)
+            if input.kind == .attestation { attestationClaimed = true }
             try validateIdentity()
             guard referenceBytes == Data(input.keyIdentifier.utf8) else { throw Failure.closed }
             let record = NativeProofClaim(kind: input.kind.rawValue,
@@ -112,8 +116,8 @@ final class HostWakeFirstKeyJournal: @unchecked Sendable {
                 keyIdentifier: input.keyIdentifier)
             let encoder = JSONEncoder(); encoder.outputFormatting = .sortedKeys
             let bytes = try encoder.encode(record)
-            proofFile = try Self.create("native-proof-start.json", data: bytes, in: directory)
-            proofBytes = bytes
+            let file = try Self.create("native-proof-" + input.operationID + ".json", data: bytes, in: directory)
+            proofRecords[input.operationID] = (file, bytes)
         }
     }
     private struct NativeProofClaim: Codable {
@@ -141,9 +145,8 @@ final class HostWakeFirstKeyJournal: @unchecked Sendable {
             guard let referenceFile,
                   try Self.read("key-reference", original: referenceFile, in: directory) == referenceBytes else { throw Failure.closed }
         }
-        if let proofBytes {
-            guard let proofFile,
-                  try Self.read("native-proof-start.json", original: proofFile, in: directory) == proofBytes else { throw Failure.closed }
+        for (operation, (file, bytes)) in proofRecords {
+            guard try Self.read("native-proof-" + operation + ".json", original: file, in: directory) == bytes else { throw Failure.closed }
         }
     }
     private static func read(_ name: String, original: OwnedFile, in directory: Int32) throws -> Data {

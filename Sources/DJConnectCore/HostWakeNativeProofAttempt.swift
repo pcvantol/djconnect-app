@@ -40,7 +40,12 @@ struct HostWakeNativeProofWindow: Sendable {
             return try await withTaskCancellationHandler {
                 try Task.checkCancellation()
                 guard sdk.isSupported, isCurrent else { throw HostWakeFirstKeyAttempt.Failure.closed }
-                try storage.claimNativeProofBeforeSDK(input)
+                let storage = storage
+                // Join durable IO off the UI actor. Parent cancellation does
+                // not abandon/refund this claim; recheck before any SDK entry.
+                try await Task.detached(priority: .utility) {
+                    try storage.claimNativeProofBeforeSDK(input)
+                }.value
                 try Task.checkCancellation()
                 guard isCurrent else { throw HostWakeFirstKeyAttempt.Failure.closed }
                 let bytes = try await sdk.invoke(input, deadline: window.deadline, current: { [self] in isCurrent })

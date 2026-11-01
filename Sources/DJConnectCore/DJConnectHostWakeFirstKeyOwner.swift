@@ -15,9 +15,9 @@ import DeviceCheck
     @Published public private(set) var state: State = .closed
     private var attempt: HostWakeFirstKeyAttempt?
     private var task: Task<Void, Never>?
-    private var prepareTask: Task<Void, any Error>?
+    private var prepareTasks: [String: Task<Void, any Error>] = [:]
     private var warmReference: WarmReference?
-    private var proxy: CoreHostWakeProxyCustody?
+    private var proxies: [CoreHostWakeProxyCustody] = []
     private let selection: ReviewedSelection?
 
     // This private, immutable source selection intentionally has NO live value.
@@ -28,7 +28,7 @@ import DeviceCheck
         let build: String
         let profileSHA256: String
         let apnsEnvironment: String // Separately reviewed signed APNs entitlement; NOT App Attest AAGUID/category.
-        let surface: DJConnectPassiveSurface
+        let surfaces: [DJConnectPassiveSurface]
     }
     private static let reviewedLaunchSelection: ReviewedSelection? = nil
     private struct WarmReference {
@@ -45,14 +45,17 @@ import DeviceCheck
         guard let selection, let actual = try? ActualHost.capture(),
               actual.bundleID == selection.bundleID, actual.build == selection.build,
               actual.profileSHA256 == selection.profileSHA256,
+              !selection.surfaces.isEmpty, selection.surfaces.count <= 2,
+              Set(selection.surfaces).count == selection.surfaces.count,
               ["sandbox", "production"].contains(selection.apnsEnvironment),
               HostWakeFirstKeyJournal.namespaceIsAbsent(inExistingSupport: actual.support) else { return }
         state = .available // Still requires the actual separate local Button action.
     }
-    deinit { task?.cancel(); prepareTask?.cancel() }
+    deinit { task?.cancel(); for task in prepareTasks.values { task.cancel() } }
     public var showsOperatorAction: Bool { state == .available && selection != nil }
     /// Target DATA from the separately selected plan, never display/SDK consent.
-    public var originalSurfaceData: DJConnectPassiveSurface? { selection?.surface }
+    public var originalSurfaceData: DJConnectPassiveSurface? { selection?.surfaces.first }
+    public var originalSurfacesData: [DJConnectPassiveSurface] { selection?.surfaces ?? [] }
 
     /// The actual app's explicit local Button is the only production callsite.
     /// A future concrete selection must be reviewed before this can become live.
@@ -82,7 +85,9 @@ import DeviceCheck
     /// Foreground loss is terminal for this original operator/task. Reactivation
     /// cannot select another plan, recreate initialization or retry an unknown SDK.
     public func closeOriginalOperation() {
-        attempt?.close(); task?.cancel(); prepareTask?.cancel(); proxy?.retire()
+        attempt?.close(); task?.cancel()
+        for task in prepareTasks.values { task.cancel() }
+        for proxy in proxies { proxy.retire() }
         warmReference = nil
         state = [.running, .preparing].contains(state) ? .unknown : .closed
     }
@@ -94,17 +99,18 @@ import DeviceCheck
     public func prepareOriginalHostWake(runtime: DJConnectDirectSessionRuntime, token: Data,
         tokenIsCurrent: @escaping @MainActor @Sendable () -> Bool) async throws {
         try Task.checkCancellation()
-        guard state == .referenceRecorded, prepareTask == nil, let reference = warmReference,
+        guard [.referenceRecorded, .registered].contains(state), let reference = warmReference,
               let selection, ["sandbox", "production"].contains(selection.apnsEnvironment),
               reference.attempt.referenceIsCurrent, reference.host.isStillCurrent,
               tokenIsCurrent(), let parent = runtime.originalPurposeContext,
-              parent.surface == selection.surface.rawValue else {
+              selection.surfaces.contains(where: { $0.rawValue == parent.surface }),
+              prepareTasks[parent.surface] == nil else {
             throw HostWakeFirstKeyAttempt.Failure.closed
         }
         state = .preparing // Once BEFORE child creation or any suspension.
         do {
             let child = try parent.proxyCustody()
-            proxy = child
+            proxies.append(child)
             let intent = CoreHostWakeProxyCustody.NativeIntentData(token: token,
                 hostBundleID: reference.host.bundleID, installationID: reference.journal.installationIdentifier,
                 platform: reference.host.platform, environment: selection.apnsEnvironment, nativeKeyID: reference.key)
@@ -151,13 +157,15 @@ import DeviceCheck
                     guard current() else { throw CancellationError() }
                 }
                 guard current(), child.phase == .registered else { throw CancellationError() }
+                try runtime.retainRegisteredHostWakeRead(child: child, parent: parent)
                 self.state = .registered
             }
-            prepareTask = operation
+            prepareTasks[parent.surface] = operation
             try await withTaskCancellationHandler { try await operation.value } onCancel: { operation.cancel() }
             try Task.checkCancellation()
         } catch {
-            proxy?.retire(); attempt?.close(); warmReference = nil; state = .unknown
+            for proxy in proxies { proxy.retire() }
+            attempt?.close(); warmReference = nil; state = .unknown
             throw error // No fresh operation, UUID, key or automatic retry.
         }
     }

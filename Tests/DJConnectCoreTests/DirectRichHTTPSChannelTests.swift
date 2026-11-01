@@ -203,6 +203,22 @@ private enum DirectRichModelTaskContext { @TaskLocal static var waiter: DirectRi
         #expect(runtime.phase == .active)
     }
 
+    @Test func anAcknowledgedReadAndSuspensionCannotMintRegisteredBackgroundCustody() async throws {
+        let fixture = try wire(); defer { fixture.close() }
+        let custody = try owner(fixture, flags: DirectRichModelFlags())
+        let runtime = DJConnectDirectSessionRuntime(testCustody: custody)
+        try await runtime.begin()
+        #expect(!runtime.hasRegisteredHostWakeRead)
+        do { try await runtime.readRegisteredHostWake(); Issue.record("read ACK became native registration") } catch {}
+        runtime.suspend()
+        #expect(!runtime.hasRegisteredHostWakeRead)
+        do { try await runtime.readRegisteredHostWake(); Issue.record("suspension created background owner") } catch {}
+        #expect(runtime.phase == .suspended)
+        #expect(fixture.requests.count == 1) // No read, authorization retry or host-wake route.
+        runtime.retire()
+        #expect(!runtime.hasRegisteredHostWakeRead)
+    }
+
     @Test func lostOriginalLocalResourcesCloseReadButKeepNegativeWithdrawal() async throws {
         let fixture = try wire(); defer { fixture.close() }
         let owner = try owner(fixture, flags: DirectRichModelFlags())

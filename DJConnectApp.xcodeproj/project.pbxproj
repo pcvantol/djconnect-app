@@ -217,6 +217,7 @@
 		510927DF0C46833AB9D7B3E3 /* TrackInsightLiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B05725000CDA3CC68FEF50CE /* TrackInsightLiveActivityController.swift */; };
 		535C98B2289C07256FB25BE0 /* DJPersonaAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23A7014620D352A6EC019D9E /* DJPersonaAvatarView.swift */; };
 		540F1802406DBC2A7A8E7444 /* DJConnectCoreMac.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		544BAADF685A3C1DD22B6404 /* RegisteredHostWakeRefreshTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 999D93DFFA00327BFE8F98DD /* RegisteredHostWakeRefreshTests.swift */; };
 		545C635827E95523A6894157 /* CoreHostWakeProxyChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82924A0197A4D224A27D2993 /* CoreHostWakeProxyChannel.swift */; };
 		55CEB96E8E6294AEC1BBDA92 /* DJConnectWebSocketFastPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDE973EC0D9C7884A1B597A6 /* DJConnectWebSocketFastPath.swift */; };
 		562AFF4442CB2BECC9167547 /* DirectRichResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDB15F2D3E8FF3832326ADFE /* DirectRichResponse.swift */; };
@@ -357,7 +358,9 @@
 		88BD1E83A65EBB7D475B4949 /* RendezvousRecoveryJournal.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBC6B7589AA8767F451874D5 /* RendezvousRecoveryJournal.swift */; };
 		88E9EC5F6514592A6AEF46A4 /* DJConnectSurfacePushV3Data.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ED30158F8F13306FCCB4B00 /* DJConnectSurfacePushV3Data.swift */; };
 		894FF150DF3339C10AB3CED7 /* RendezvousSameKeyRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74BE98E24A82BC23242DBE7A /* RendezvousSameKeyRecovery.swift */; };
+		8A2106629DE0A8553C6E55ED /* RegisteredHostWakeRefreshOwner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B076B69EB27884C862E3C6 /* RegisteredHostWakeRefreshOwner.swift */; };
 		8A46F3522A8F22A056C96C37 /* DJConnectLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DFC8884D473895FD28BE17D /* DJConnectLocalization.swift */; };
+		8AA075A83167F6DE432086E5 /* RegisteredHostWakeRefreshOwner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B076B69EB27884C862E3C6 /* RegisteredHostWakeRefreshOwner.swift */; };
 		8AA5259E9E42F084AA24CDE7 /* DirectRichHTTPSChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB4A7CE09C50A23D7C6EBB67 /* DirectRichHTTPSChannel.swift */; };
 		8B7A782756C7896FF1B51CEC /* DJConnectCoreIOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DE473A51768FAF83BB87904A /* DJConnectCoreIOS.framework */; };
 		8C11EBB292BDE425408FB8A0 /* host-wake-core-proxy-request-vectors.json in Resources */ = {isa = PBXBuildFile; fileRef = A6BF72CE5D8D6A0B78D110CD /* host-wake-core-proxy-request-vectors.json */; };
@@ -1068,6 +1071,7 @@
 		97F775B7EA173D37C90A5152 /* DJConnectSurfacePushTaskOwner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSurfacePushTaskOwner.swift; sourceTree = "<group>"; };
 		98B8A94FE680649EF7310DE0 /* ContentDeletionContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentDeletionContractTests.swift; sourceTree = "<group>"; };
 		997BFD3547A11EA36182FE4D /* RendezvousRetryWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendezvousRetryWindowTests.swift; sourceTree = "<group>"; };
+		999D93DFFA00327BFE8F98DD /* RegisteredHostWakeRefreshTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegisteredHostWakeRefreshTests.swift; sourceTree = "<group>"; };
 		99A9E214088039F3BBBD73FA /* CoreHostWakeProxyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreHostWakeProxyTests.swift; sourceTree = "<group>"; };
 		9D4DDF4458E05FC14D5BE562 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		9D6012649914E5EBC29F1C20 /* ConnectionResumeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionResumeTests.swift; sourceTree = "<group>"; };
@@ -1184,6 +1188,7 @@
 		EE354E073321251BA44BDCFF /* DJConnectTrackInsightWidgetsIOS.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = DJConnectTrackInsightWidgetsIOS.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		EF55E6BE5E6AA1843606BB31 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
 		F077B2134C245B0B720FB7A4 /* DJConnectRendezvousDestination.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectRendezvousDestination.swift; sourceTree = "<group>"; };
+		F0B076B69EB27884C862E3C6 /* RegisteredHostWakeRefreshOwner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegisteredHostWakeRefreshOwner.swift; sourceTree = "<group>"; };
 		F0D0920CE93DE97375475F7C /* RendezvousAppKeyOperationsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendezvousAppKeyOperationsTests.swift; sourceTree = "<group>"; };
 		F12708B5EACDDCDDCDC9C133 /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		F181F08E3D3EF1B1329E1A21 /* RendezvousRegistrationJournal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendezvousRegistrationJournal.swift; sourceTree = "<group>"; };
@@ -1586,6 +1591,7 @@
 				E391FC2DEECA2911989690F4 /* PermissionRowNativeTests.swift */,
 				BAD6036D425BF04F7D4529C6 /* PersonaReactionTests.swift */,
 				630F5AB2D96B05949CBEE842 /* ProfileDJSettingsContractTests.swift */,
+				999D93DFFA00327BFE8F98DD /* RegisteredHostWakeRefreshTests.swift */,
 				214A7A7EC6784B440C779BC3 /* RendezvousAppAttestAdapterTests.swift */,
 				F0D0920CE93DE97375475F7C /* RendezvousAppKeyOperationsTests.swift */,
 				19555057252E624E7DD717FE /* RendezvousBuildProfileTests.swift */,
@@ -1724,6 +1730,7 @@
 				71A09632C93D839766384CA4 /* PersonaReactionController.swift */,
 				05156EF33E8A00358351EB39 /* PersonaReactionView.swift */,
 				E15C88176E255E80FB9C140A /* ProfileDJSettingsEditor.swift */,
+				F0B076B69EB27884C862E3C6 /* RegisteredHostWakeRefreshOwner.swift */,
 				DBE7DCFC839E56F90B9AD092 /* SessionArtworkView.swift */,
 				3C002F6255A070F54D84F5BB /* SessionForecastView.swift */,
 				42ED7CD519A2C9309C6F5EFD /* SessionHistorySummaryView.swift */,
@@ -2390,6 +2397,7 @@
 				9846F92B3DF88F209A9744F0 /* PermissionRowNativeTests.swift in Sources */,
 				E5CD048EC50C617B5C2FCB75 /* PersonaReactionTests.swift in Sources */,
 				B2F39A98DD8C5795371335F4 /* ProfileDJSettingsContractTests.swift in Sources */,
+				544BAADF685A3C1DD22B6404 /* RegisteredHostWakeRefreshTests.swift in Sources */,
 				E018A8E7874AC21D33F173DA /* RendezvousAppAttestAdapterTests.swift in Sources */,
 				7E7A8643492BCCA5BA67CF55 /* RendezvousAppKeyOperationsTests.swift in Sources */,
 				4960BFE9BF58E4D189DD7347 /* RendezvousBuildProfileTests.swift in Sources */,
@@ -2866,6 +2874,7 @@
 				C49A3883CD063A048112871F /* PersonaReactionController.swift in Sources */,
 				113AE925D080486029BE641C /* PersonaReactionView.swift in Sources */,
 				3457F3093B2C6D822A00C67B /* ProfileDJSettingsEditor.swift in Sources */,
+				8AA075A83167F6DE432086E5 /* RegisteredHostWakeRefreshOwner.swift in Sources */,
 				CE8E5F5A6C01BF261C04FAE1 /* SessionArtworkView.swift in Sources */,
 				5A87A01E54E8F5BAE06346C5 /* SessionForecastView.swift in Sources */,
 				7D0CD340DDAEB7E06C8EE56B /* SessionHistorySummaryView.swift in Sources */,
@@ -2929,6 +2938,7 @@
 				DE288D53542E1C3FAD60A0BA /* PersonaReactionController.swift in Sources */,
 				85AC008FAC20B2E9F1609871 /* PersonaReactionView.swift in Sources */,
 				27FF229C637E2690F9705951 /* ProfileDJSettingsEditor.swift in Sources */,
+				8A2106629DE0A8553C6E55ED /* RegisteredHostWakeRefreshOwner.swift in Sources */,
 				DFB9F73EDF11B6441FBB34CE /* SessionArtworkView.swift in Sources */,
 				45D7DD4033BB22EC310977B6 /* SessionForecastView.swift in Sources */,
 				CCE40EB1C51561E6289577B7 /* SessionHistorySummaryView.swift in Sources */,

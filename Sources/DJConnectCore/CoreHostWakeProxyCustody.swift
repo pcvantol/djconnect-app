@@ -173,7 +173,19 @@ struct CoreHostWakeProxyTokenSlot {
     private var work: Task<CoreHostWakeProxyReplyData, any Error>?
     private var workID: UUID?
     private var workPositive = false
+    private var registeredReadLive = false
+    private var registeredReadTransferred = false
     var phase: CoreHostWakeProxyStageBook.Phase { cancellation.positivesClosed ? .withdrawn : book.phase }
+
+    /// Negative continuity fence for a ONE-WAY registered read transfer. Only
+    /// the genuine parent calls this after its same child has ACKed register.
+    /// Retiring foreground SDK work does not itself withdraw that prior read.
+    func transferRegisteredReadLiveness() throws -> @MainActor @Sendable () -> Bool {
+        guard phase == .registered, registeredReadLive, !registeredReadTransferred,
+              parent?.isActive == true else { throw CancellationError() }
+        registeredReadTransferred = true
+        return { [weak self] in self?.registeredReadLive == true }
+    }
 
     init(parent: DirectRichReadCustody.OriginalPurposeContext) throws {
         try Task.checkCancellation()
@@ -246,6 +258,7 @@ struct CoreHostWakeProxyTokenSlot {
         return try await exchange(submission)
     }
     func withdraw() async throws -> CoreHostWakeProxyReplyData {
+        registeredReadLive = false
         retire() // Local positive cancellation/scrubbing precedes the first await.
         cancellation.cancelCurrent(); work?.cancel(); work = nil; workID = nil; workPositive = false
         book.withdraw() // An older history response cannot win over explicit withdrawal either.
@@ -330,6 +343,8 @@ struct CoreHostWakeProxyTokenSlot {
             // returning. A canceled consumer never leaves an advanced stage.
             try book.accept(ticket, state: value.state)
             if parent?.isActive == true { book.resolveKnownPending(request.operation, state: value.state) }
+            if book.phase == .registered { registeredReadLive = true }
+            if ["withdrawn", "expired", "unknown"].contains(value.state) { registeredReadLive = false }
             if book.phase == .withdrawn { retire() }
             if book.phase == .uncertain { token.clear(ifOwnedBy: submission.tokenOwner) }
             submission.completed = true

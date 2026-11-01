@@ -1,5 +1,33 @@
 # Rich Session native custody and runtime guards
 
+## Original host-wake enrollment and read continuation (2026-11-01)
+
+The private first-key owner now completes prepare, challenge, the genuine
+physical-iOS App Attest operation, complete, known-pending verification and
+registration. The server-retained proof kind selects the SDK operation. One
+installation key generation remains irreversible; each of at most two original
+surface children has a separate durable proof claim bound to its operation,
+key, kind and transcript hash. The journal permits at most one attestation.
+The first child's registration finishes before preparing the second child;
+neither proof reuse nor changing a prepared kind is allowed. The 30-second local
+proof resource bound is captured before awaiting the challenge and does not map
+or renew the server's UTC deadline. Lost/unknown operations never retry the SDK.
+
+Only the same genuine parent and its acknowledged registered child can transfer
+a warm read-only continuation before foreground suspension. Foreground SDK
+tasks can close independently. The continuation retains the original purpose,
+Session, generation, paired source, original read capability, local resource root
+and field rights. Token rotation and explicit withdrawal close it. A background
+read cannot reopen a positive SDK parent. No cold reconstruction exists.
+
+The OS body `{"aps":{"content-available":1}}` selects no owner. It dirties only
+already transferred continuations; callbacks join one bounded worker with at
+most two parallel reads and an independent 25-second callback resource budget.
+No authorize, prepare, challenge, registration or key recovery runs there.
+Read success is not native publication or clock qualification. Ordinary source
+selection remains `nil`; no signed operational candidate or real delivery is
+established by these source changes. The Mac native-push path is still separate.
+
 This increment connects necessary guards to the existing foreground cache,
 AppGroup, renderer and ActivityKit calls. It retains the single rich widget
 and single rich Live Activity. It does not enable a successor permission,
