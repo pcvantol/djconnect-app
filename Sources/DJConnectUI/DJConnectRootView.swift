@@ -11029,6 +11029,10 @@ private struct AskDJView: View {
         if let mood = model.transientAskDJMoodMessage { messages.append(mood) }
         askDJTimelineMessages = messages.count == model.askDJMessages.count ? orderedPersistentMessages :
             Array(messages.sorted(by: askDJTimelineMessagePrecedes).reversed())
+        if let submittedQuestionID, !askDJTimelineMessages.contains(where: { $0.id == submittedQuestionID }) {
+            self.submittedQuestionID = nil
+            followsSubmittedQuestion = false
+        }
         rebuildAskDJSearch()
     }
 
@@ -11295,7 +11299,7 @@ private struct AskDJView: View {
                                 }
                                 #endif
                                 .padding(.horizontal, djConnectScreenHorizontalPadding)
-                                .padding(.top, chatTopPadding + (submittedQuestionID == nil ? 0 : geometry.size.height))
+                                .padding(.top, chatTopPadding)
                                 .padding(.bottom, 16)
                                 .frame(width: contentWidth, alignment: .top)
                                 .frame(maxWidth: .infinity, alignment: .top)
