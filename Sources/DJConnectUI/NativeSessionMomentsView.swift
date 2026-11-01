@@ -642,11 +642,13 @@ struct NativeSessionMomentsView: View {
                 }
                 if let playbackOutputName {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Label(playbackOutputName, systemImage: "hifispeaker.fill")
-                            .fixedSize(horizontal: false, vertical: true)
-                            .accessibilityLabel(text("ui.output.device"))
-                            .accessibilityValue(playbackOutputName)
-                            .accessibilityIdentifier("session-playback-output")
+                        if let model = playbackModel {
+                            SessionPlaybackOutputButton(model: model, name: playbackOutputName)
+                                .id(session.id)
+                        } else {
+                            Label(playbackOutputName, systemImage: "hifispeaker.fill")
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                         Spacer(minLength: 0)
                         Group {
                             if playbackModel?.currentPlaybackUsesLocalBluetooth == true {
@@ -834,6 +836,49 @@ private struct SessionCurrentColumns: Layout {
         // wins in sizeThatFits when long text or accessibility sizes need more room.
         subviews[1].place(at: CGPoint(x: bounds.minX + music + gap, y: bounds.minY), anchor: .topLeading,
                           proposal: .init(width: card, height: bounds.height))
+    }
+}
+
+/// Anchored to the current speaker; uses the same backend inventory and command
+/// path as Now Playing, including pending/confirmed output selection.
+struct SessionPlaybackOutputButton: View {
+    @ObservedObject var model: DJConnectAppModel
+    let name: String
+    @State private var showsOutputs = false
+    @Environment(\.scenePhase) private var scenePhase
+
+    var body: some View {
+        Button { showsOutputs.toggle() } label: {
+            Label(name, systemImage: "hifispeaker.fill")
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .djConnectPlainButtonStyle()
+        .disabled(!model.canUsePlaybackFeatures)
+        .accessibilityLabel(DJConnectLocalization.localized(key: "ui.output.device", language: model.language))
+        .accessibilityValue(name)
+        .accessibilityIdentifier("session-playback-output")
+        .popover(isPresented: $showsOutputs) {
+            OutputSelectorView(scrollsOutputs: true, model: model)
+                .padding(16)
+                .frame(minWidth: 280, idealWidth: 360, maxWidth: 400)
+                .environment(\.djConnectScrollingSurface, false)
+                #if os(macOS)
+                // AppKit owns the glass, arrow and rounded rim. No inner card.
+                .djConnectPresentationSurface()
+                #else
+                .djConnectGlassPopoutSurface()
+                .djConnectPresentationSurface()
+                #endif
+                .presentationCompactAdaptation(.popover)
+        }
+        .onChange(of: model.canUsePlaybackFeatures) { _, available in
+            if !available { showsOutputs = false }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { showsOutputs = false }
+        }
     }
 }
 
