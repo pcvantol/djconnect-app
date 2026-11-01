@@ -82,7 +82,7 @@ struct SessionArtworkView: View {
         TimelineView(.explicit(([Date()] + [media.artwork.expiresAt.flatMap(DJConnectHistoryEntry.date)].compactMap { $0 }).sorted())) { clock in
             if key.active, loadedKey == key, let pixels,
                let grant = media.admittedArtwork(session: media.sessionID, target: target, audience: audience, at: clock.date),
-               let source = grant.sourceURL.flatMap(URL.init(string:)), let logo = spotifyAttributionLogo {
+               let source = grant.sourceURL.flatMap(URL.init(string:)), spotifyAttributionLogo != nil {
                 VStack(alignment: .leading, spacing: 8) {
                     // Preserve the source aspect ratio and round inside the glass inset.
                     Image(decorative: pixels.image, scale: 1)
@@ -92,14 +92,7 @@ struct SessionArtworkView: View {
                         .accessibilityLabel(grant.altText?[language] ?? grant.altText?["en"] ?? "")
                         .accessibilityIdentifier("session-authorized-artwork")
                         .djAlbumArtworkGlassCard(tint: artworkTint)
-                    if showsAttribution {
-                        Link(destination: source) {
-                            logo.resizable().scaledToFit().frame(width: 70, height: 20)
-                                .padding(10).frame(minHeight: 44)
-                        }
-                        .accessibilityLabel("Spotify")
-                        .accessibilityValue(source.absoluteString)
-                    }
+                    if showsAttribution { SessionSpotifyAttributionLinks(urls: [source]) }
                 }
             }
         }

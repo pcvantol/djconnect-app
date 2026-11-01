@@ -1718,7 +1718,7 @@ struct SessionEntryView: View, Equatable {
                                 .modifier(ContributionContentAction(question: contributionQuestion, action: contributionAction))
                         }
                         SessionTimestampText(value: entry.occurredAt, language: language).font(.caption).foregroundStyle(.secondary)
-                        ForEach(SessionSourceLinks.groups(urls: sourceURLs, label: sourceLabel)) { group in
+                        ForEach(SessionSourceLinks.groups(urls: sourceURLs.filter { !SessionSourceLinks.isSpotify($0) }, label: sourceLabel)) { group in
                             if group.urls.count == 1, let url = group.urls.first {
                                 Link(group.label, destination: url)
                                     .foregroundStyle(.white).tint(.white)
@@ -1733,11 +1733,7 @@ struct SessionEntryView: View, Equatable {
                                 .foregroundStyle(.white).tint(.white)
                             }
                         }
-                        if entry.requiresSpotifyAttribution == true, let logo = spotifyAttributionLogo,
-                           let url = spotifyFooterURL {
-                            Link(destination: url) { logo.resizable().scaledToFit().frame(width: 70, height: 20).padding(10).frame(minHeight: 44).contentShape(Rectangle()) }
-                                .accessibilityLabel("Spotify")
-                        }
+                        SessionSpotifyAttributionLinks(urls: spotifyURLs)
                         if let model = artworkModel {
                             SharedDJSpeechActions(model: model, speech: entry.sessionSpeech, acceptedText: entry.text ?? "", retainedEntry: entry)
                         }
@@ -1826,12 +1822,16 @@ struct SessionEntryView: View, Equatable {
             .modifier(ContributionContentAction(question: contributionQuestion, action: contributionAction))
     }
     private var spotifyFooterURL: URL? {
-        guard entry.requiresSpotifyAttribution == true else { return nil }
         if let media = entry.sessionMedia,
            let grant = media.admittedArtwork(session: entry.sessionID, target: .entry(entry.id),
                 audience: media.entryAudience),
-           let raw = grant.sourceURL, let url = URL(string: raw) { return url }
-        return sourceURLs.first { $0.scheme == "https" && $0.host?.lowercased() == "open.spotify.com" }
+           let raw = grant.sourceURL, let url = URL(string: raw), SessionSourceLinks.isSpotify(url) { return url }
+        return sourceURLs.first(where: SessionSourceLinks.isSpotify)
+    }
+    private var spotifyURLs: [URL] {
+        var urls = spotifyFooterURL.map { [$0] } ?? []
+        for url in sourceURLs where SessionSourceLinks.isSpotify(url) && !urls.contains(url) { urls.append(url) }
+        return urls
     }
     private var askButton: some View {
         Button { DJConnectHaptics.selection(); askAction() } label: {
@@ -1867,6 +1867,9 @@ struct SessionEntryView: View, Equatable {
 /// A supplied revision is the precise version of its canonical source, not a
 /// second citation. Keep distinct articles and previous sources independently.
 enum SessionSourceLinks {
+    static func isSpotify(_ url: URL) -> Bool {
+        ["http", "https"].contains(url.scheme?.lowercased()) && url.host?.lowercased() == "open.spotify.com"
+    }
     struct Group: Identifiable {
         let label: String
         var urls: [URL]
@@ -1944,11 +1947,9 @@ struct SessionHistoryMatchCard: View {
                 Text(entry.text ?? "").font(.headline)
                 SessionTimestampText(value: entry.occurredAt, language: language).font(.caption)
                 Text(text("ui.session.history.observed")).font(.caption).foregroundStyle(.secondary)
-                if entry.requiresSpotifyAttribution == true, let logo = spotifyAttributionLogo,
-                   let raw = entry.playback?.sourceURL, let url = URL(string: raw), url.scheme == "https", url.host == "open.spotify.com" {
-                    Link(destination: url) { logo.resizable().scaledToFit().frame(width: 70, height: 20).padding(10).frame(minHeight: 44).contentShape(Rectangle()) }
-                        .accessibilityLabel("Spotify")
-                }
+                SessionSpotifyAttributionLinks(urls: SessionSourceLinks.urls(playback: entry.playback?.sourceURL,
+                    sources: (entry.sourceAttribution.map { [$0] } ?? []) + (entry.sources ?? []))
+                    .filter(SessionSourceLinks.isSpotify))
                 if let action = entry.openAction, action.reference == entry.reference {
                     Button(text("ui.session.history.open")) { DJConnectHaptics.selection(); open(action) }
                         .djConnectPlainButtonStyle()
