@@ -991,7 +991,6 @@
 "ui.session.history.unavailable" = "El historial de sesiones no está disponible temporalmente.";
 "ui.session.history.empty" = "No hay sesiones guardadas";
 "ui.session.history.interrupted" = "Interrumpida";
-"ui.session.history.readonly" = "Sesión de solo lectura";
 "ui.session.history.no_entries" = "Esta sesión no contiene aportaciones guardadas.";
 "ui.session.history.changed" = "El contexto o el historial ha cambiado. Inténtalo de nuevo.";
 "ui.session.history.current_context" = "Usar el contexto actual";
@@ -1456,7 +1455,6 @@
 "ui.session.forecast.claim.current" = "Sonando ahora";
 "ui.session.forecast.claim.intention" = "Intención";
 "ui.session.forecast.claim.conditional_target" = "Objetivo posible";
-"ui.session.forecast.search" = "Buscar en Horizon";
 // VibeCast rendezvous: routing preparation is distinct from display consent.
 "ui.rendezvous.scan" = "Escanear código QR del televisor";
 "ui.rendezvous.choose" = "Elige tu Home Assistant vinculado. Solo se compartirá su dirección de pantalla con este televisor.";
@@ -1490,7 +1488,7 @@
 "ui.ha_speech.unknown" = "Desconocido";
 "ui.ha_speech.retry_delay" = "La síntesis de voz está temporalmente en pausa tras un intento fallido.";
 
-"ui.session.history.delete.unconfirmed" = "La eliminación aún no está confirmada. No se enviará una nueva solicitud de eliminación. Actualizar solo lee el historial.";
+"ui.session.history.delete.unconfirmed" = "Aún no podemos confirmar si se ha eliminado. Vuelve a comprobarlo.";
 
 /* Server-confirmed individual content deletion. */
 "ui.content.delete.action" = "Eliminar contribución";
@@ -1501,7 +1499,7 @@
 "ui.content.delete.scope" = "Filas: %d eliminadas, %d no disponibles. Mensajes: %d eliminados, %d no disponibles. Momentos del DJ: %d. Solicitudes bloqueadas: %d.";
 "ui.content.delete.playback" = "Se conservan la sesión y la reproducción de música.";
 "ui.content.delete.expires" = "Válido hasta %@";
-"ui.content.delete.status" = "Consultar estado de eliminación";
+"ui.content.delete.status" = "Volver a comprobar";
 
 "ui.session.search.clear" = "Borrar términos de búsqueda";
 
@@ -1604,3 +1602,21 @@
 
 "surface.research.adapted" = "Adaptado de las fuentes anteriores.";
 "ui.host.wake.reviewed.device.test" = "Iniciar prueba de dispositivo revisada";
+
+"surface.playback.observed.playing" = "Reproducción observada";
+"surface.playback.observed.paused" = "Pausa observada";
+"surface.playback.observed.stopped" = "Reproducción detenida";
+"surface.playback.observed.unknown" = "Estado de reproducción desconocido";
+"surface.playback.last.observed" = "Última observación";
+"ui.content.delete.readback.pending" = "El historial actualizado aún no está disponible. Inténtalo de nuevo.";
+"ui.content.delete.refresh" = "Volver a actualizar";
+"ui.content.delete.checking" = "Espera un momento…";
+
+"ui.content.delete.blocked.unavailable" = "La eliminación no está disponible ahora.";
+"ui.content.delete.blocked.busy" = "Se está completando otro cambio.";
+"ui.content.delete.blocked.pending" = "Una eliminación anterior aún no se ha confirmado.";
+"ui.content.delete.blocked.request" = "Otra solicitud al DJ sigue pendiente.";
+"ui.content.delete.blocked.voice" = "Detén primero la grabación de voz.";
+"ui.content.delete.recover_previous" = "Comprobar eliminación anterior";
+"ui.vibescape.voice.starting" = "Preparando el micrófono…";
+"ui.vibescape.voice.start_failed" = "No se pudo iniciar la grabación. Inténtalo de nuevo.";

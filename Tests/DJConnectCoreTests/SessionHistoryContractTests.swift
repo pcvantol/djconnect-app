@@ -2535,6 +2535,8 @@ private final class PresenceScript: @unchecked Sendable {
 @Test(.isolatedClientResources, arguments: ["conflict", "lost", "denial", "background", "replacement"])
 @MainActor func presenceStopsAfterUnknownOrWithdrawnOutcome(_ scenario: String) async throws {
     let runtime = try presenceRuntimeWire(), script = PresenceScript()
+    let originalReply = HistoryWireResponseGate()
+    defer { originalReply.release() }
     let after = try presenceRuntimeWire(value: "music_only", revision: 4, suffix: scenario == "replacement" ? "-new" : "")
     let fixture = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/capabilities") { return (200, presenceCapsWire, 0) }
@@ -2545,7 +2547,9 @@ private final class PresenceScript: @unchecked Sendable {
             let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as! [String: Any]
             if scenario == "denial" { return (401, Data(#"{"success":false,"error":"unauthorized"}"#.utf8), 0.08) }
             if scenario == "conflict" { return (409, try historyData(["success":false,"error":"presence_revision_conflict","current":["session_id":body["session_id"]!,"selected_presence":"music_only","presence_revision":4]]), 0.08) }
-            return (200, try historyData(["success":true,"contract_version":1,"session_id":body["session_id"]!,"selected_presence":"presenter","presence_revision":1,"changed":true]), 0.08)
+            let reply = try historyData(["success":true,"contract_version":1,"session_id":body["session_id"]!,"selected_presence":"presenter","presence_revision":1,"changed":true])
+            if scenario == "replacement" { throw HistoryWireHeldResponse(data: reply, gate: originalReply) }
+            return (200, reply, 0.08)
         }
         return (404, Data(), 0)
     }
@@ -2554,9 +2558,26 @@ private final class PresenceScript: @unchecked Sendable {
     await model.refreshActiveDJSession(); await model.refreshActiveMoodCapability()
     let id = try #require(model.activeDJSession?.id), epoch = model.sessionHistory.responseEpoch
     model.selectActiveSessionPresence(.presenter, expectedSessionID: id, expectedEpoch: epoch)
-    try await Task.sleep(for: .milliseconds(20))
+    // Change the owning scope after the original write actually reached the
+    // fixture. A fixed 20ms sleep could refresh the old Session before dispatch.
+    let dispatchedBy = ContinuousClock.now.advanced(by: .seconds(3))
+    while script.writes == 0 && ContinuousClock.now < dispatchedBy {
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    try #require(script.writes == 1)
     if scenario == "background" { model.markInactiveSession() }
-    if scenario == "replacement" { await model.refreshActiveDJSession() }
+    if scenario == "replacement" {
+        // Hold the old write until the new owning Session is installed. A timed
+        // reply could race its automatic refresh with this explicit read.
+        let replacedBy = ContinuousClock.now.advanced(by: .seconds(3))
+        repeat {
+            await model.refreshActiveDJSession()
+            if model.activeDJSession?.id == id + "-new" { break }
+            try await Task.sleep(for: .milliseconds(5))
+        } while ContinuousClock.now < replacedBy
+        try #require(model.activeDJSession?.id == id + "-new" && model.activeDJSession?.confirmedPresence?.presenceRevision == 4)
+        originalReply.release()
+    }
     for _ in 0..<50 { if !model.activePresencePending { break }; try await Task.sleep(for: .milliseconds(20)) }
     try await Task.sleep(for: .milliseconds(110))
     #expect(script.writes == 1 && !model.activePresencePending)
@@ -5855,7 +5876,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     #expect(receipt.admits(action, owner: "profile-a") == (mutation == "ok"))
 }
 
-@Test(.isolatedClientResources, arguments: ["completed", "completed_clear_revision", "completed_clear_revision_revoked", "pending", "wrong_receipt", "conflict", "withdrawn",
+@Test(.isolatedClientResources, arguments: ["completed", "completed_readback_failure", "completed_clear_revision", "completed_clear_revision_revoked", "pending", "wrong_receipt", "conflict", "withdrawn",
                   "status_completed", "status_pending", "status_unknown", "status_expired_unknown"])
 @MainActor func contentDeletionUsesFlatBoundWireAndNeverRenewsUnknown(_ outcome: String) async throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -5892,7 +5913,9 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
     let independent = try JSONDecoder().decode(DJConnectSessionTimelinePage.self, from: detail)
     let list = try historyData(["success": true, "schema_version": 1,
         "sessions": [rebound(oldHeader)], "revision": "content-readback", "retention_days": 30])
-    let deletionReadback = HistoryAuthorityGate()
+    let deletionReadback = HistoryAuthorityGate(), allowConversationReadback = HistoryAuthorityGate()
+    let statusReadGate = HistoryWireResponseGate()
+    defer { statusReadGate.release() }
     let fixture = HistoryWireFixture { request in
         let path = request.url!.path
         if path.hasSuffix("/capabilities") {
@@ -5905,6 +5928,9 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
             return (200, caps, 0)
         }
         if path.hasSuffix("/ask_dj/history") {
+            if outcome == "completed_readback_failure", deletionReadback.denied, !allowConversationReadback.denied {
+                return (503, Data(#"{"success":false,"error":"temporarily_unavailable"}"#.utf8), 0)
+            }
             if outcome.hasPrefix("completed_clear_revision"), deletionReadback.denied {
                 var revised = try #require(JSONSerialization.jsonObject(with: profile) as? [String: Any])
                 revised["history_revision"] = 1000
@@ -5926,7 +5952,9 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
                 var receipt = try #require(status["receipt"] as? [String: Any])
                 receipt["operation_id"] = id; status["receipt"] = receipt
             } else { status.removeValue(forKey: "receipt") }
-            return (200, try historyData(status), 0)
+            let response = try historyData(status)
+            if outcome == "status_pending" { throw HistoryWireHeldResponse(data: response, gate: statusReadGate) }
+            return (200, response, 0)
         }
         if path.hasSuffix("/session/content/delete") {
             if outcome == "pending" || outcome.hasPrefix("status_") { return (503, pending, 0) }
@@ -5987,7 +6015,22 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
         #expect(await task.value == false)
         await history.prepare()
     } else {
-        #expect(await history.deleteContent(prepared, expectedEpoch: epoch) == (outcome.hasPrefix("completed")))
+        #expect(await history.deleteContent(prepared, expectedEpoch: epoch) == (outcome.hasPrefix("completed") && outcome != "completed_readback_failure"))
+        if outcome == "completed_readback_failure" {
+            // Actual bound completion is not lost when the current-owner history
+            // read fails. Keep the journal until qualified readback succeeds.
+            #expect(history.hasUnconfirmedDeletion && history.contentDeletionNeedsReadback)
+            #expect(history.canCheckContentDeletionStatus)
+            #expect(!history.canDeleteContent(prepared.target))
+            #expect(history.contentDeletionBlockingReason(for: prepared.target) == "ui.content.delete.blocked.pending")
+            allowConversationReadback.denied = true
+            #expect(await history.checkContentDeletionStatus())
+            #expect(!history.hasUnconfirmedDeletion && !history.contentDeletionNeedsReadback)
+            #expect(history.contentDeletionBlockingReason(for: prepared.target) == nil)
+            #expect(history.canDeleteContent(prepared.target))
+            #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/content/delete/status") })
+            #expect(fixture.requests.filter { $0.url!.path.hasSuffix("/session/content/delete") }.count == 1)
+        }
     }
     let mutations = fixture.requests.filter { $0.url!.path.hasSuffix("/session/content/delete") }
     #expect(mutations.count == 1)
@@ -6052,6 +6095,7 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
             urlSession: fixture.session(), startBackgroundTasks: false)
         await reopened.sessionHistory.prepare()
         #expect(reopened.sessionHistory.hasUnconfirmedDeletion)
+        #expect(!reopened.sessionHistory.contentDeletionNeedsReadback)
         #expect(!reopened.sessionHistory.canDeleteContent(scope.target))
         if outcome == "pending" {
             defaults.set("changed-after-unknown", forKey: "DJConnectHAInstallID")
@@ -6062,7 +6106,25 @@ func sessionArchiveDeletionAcknowledgementBindsOwnerOperationAndTarget(_ mutatio
             #expect(fixture.requests.count == count)
         }
         if outcome.hasPrefix("status_") {
-            #expect(await reopened.sessionHistory.checkContentDeletionStatus() == (outcome == "status_completed"))
+            if outcome == "status_completed" {
+                // Explicit refresh checks the ORIGINAL operation instead of
+                // leaving a permanent banner after refreshing only the list.
+                #expect(await reopened.refreshAskDJHistory())
+            } else if outcome == "status_pending" {
+                let checking = Task { await reopened.sessionHistory.checkContentDeletionStatus() }
+                let dispatchedBy = ContinuousClock.now.advanced(by: .seconds(3))
+                while !fixture.requests.contains(where: { $0.url!.path.hasSuffix("/session/content/delete/status") }) && ContinuousClock.now < dispatchedBy {
+                    try await Task.sleep(for: .milliseconds(5))
+                }
+                #expect(reopened.sessionHistory.isCheckingContentDeletionStatus)
+                #expect(reopened.sessionHistory.contentDeletionBusy && reopened.sessionHistory.showsUnconfirmedDeletionNotice)
+                statusReadGate.release()
+                #expect(await checking.value == false)
+                #expect(!reopened.sessionHistory.isCheckingContentDeletionStatus)
+                #expect(reopened.sessionHistory.showsUnconfirmedDeletionNotice)
+            } else {
+                #expect(await reopened.sessionHistory.checkContentDeletionStatus() == false)
+            }
             #expect(reopened.sessionHistory.hasUnconfirmedDeletion == (outcome != "status_completed"))
             let statusRead = try #require(fixture.requests.first { $0.url!.path.hasSuffix("/session/content/delete/status") })
             #expect(statusRead.httpMethod == "GET")
@@ -7312,8 +7374,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
-    let panel = SessionForecastContent(model: model, query: .constant(""), searchExpanded: .constant(false),
-                                       searchBoundsChanged: { _ in })
+    let panel = SessionForecastContent(model: model)
     let beforeOwner = panel.contextKey
     await model.sessionHistory.prepare()
     if fence == "current" {
@@ -7453,9 +7514,6 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_ACCESSIBILITY_DIR"] {
         try await recordForecastNativeAccessibility(model: model, directory: directory)
     }
-    if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_FILTER_DIR"] {
-        try await qualifyForecastNativeFilter(model: model, directory: directory)
-    }
     if fence == "current", let directory = ProcessInfo.processInfo.environment["DJCONNECT_FORECAST_WITHDRAWAL_DIR"] {
         try await qualifyForecastNativeWithdrawal(model: model, directory: directory,
             readCount: { fixture.requests.filter { $0.url!.path.contains("/session/forecast/") }.count })
@@ -7476,6 +7534,16 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
 /// injecting system keyboard events or opening an ordinary installed app.
 @MainActor private final class ForecastKeyboardWindow: NSWindow {
     override var canBecomeKey: Bool { true }
+}
+
+/// Existing native probes locate authored Horizon content without a search control.
+@MainActor private func forecastNativeText(in root: NSView, model: DJConnectAppModel) -> NSTextView? {
+    guard let section = model.visibleSessionForecast(at: Date())?.sections.first else { return nil }
+    func find(_ view: NSView) -> NSTextView? {
+        if let text = view as? NSTextView, text.string.contains(section.text) { return text }
+        return view.subviews.lazy.compactMap(find).first
+    }
+    return find(root)
 }
 
 @MainActor private func qualifyForecastNativeKeyboard(model: DJConnectAppModel, directory: String) async throws {
@@ -7517,38 +7585,30 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     let action = try #require(picker.action)
     picker.selectedSegment = 1
     #expect(NSApp.sendAction(action, to: picker.target, from: picker))
-    for _ in 0..<30 where field("ui.session.forecast.search") == nil { try await Task.sleep(for: .milliseconds(50)) }
-    let forecast = try #require(field("ui.session.forecast.search"))
-    forecast.stringValue = "Catalog"
-    forecast.delegate?.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: forecast))
-    try capture("keyboard-01-forecast")
+    try await Task.sleep(for: .milliseconds(200))
+    let find = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command,
+        timestamp: 0, windowNumber: window.windowNumber, context: nil,
+        characters: "f", charactersIgnoringModifiers: "f", isARepeat: false, keyCode: 3))
+    _ = window.performKeyEquivalent(with: find)
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(picker.selectedSegment == 1 && field("ui.session.history.search") == nil,
+        "Command-F in Horizon must not open search or switch to Flow")
+    try capture("keyboard-01-horizon-without-search")
+    picker.selectedSegment = 0
+    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
+    try await Task.sleep(for: .milliseconds(200))
     try commandF()
-    for _ in 0..<30 where picker.selectedSegment != 0 || field("ui.session.history.search") == nil {
+    for _ in 0..<30 where field("ui.session.history.search") == nil {
         try await Task.sleep(for: .milliseconds(50))
     }
-    #expect(picker.selectedSegment == 0)
-    let flow = try #require(field("ui.session.history.search"), "Command-F must expose the actual Flow search field")
-    // Mounting the field may precede AppKit's asynchronous focus bridge.
+    let flow = try #require(field("ui.session.history.search"))
     for _ in 0..<30 where flow.currentEditor() == nil || window.firstResponder !== flow.currentEditor() {
         try await Task.sleep(for: .milliseconds(50))
     }
-    #expect(flow.currentEditor() != nil && window.firstResponder === flow.currentEditor(), "Visible Flow search must own native text focus")
+    #expect(flow.currentEditor() != nil && window.firstResponder === flow.currentEditor())
     #expect(model.askDJDraft == "Keep this unsent question")
     try capture("keyboard-02-flow-search")
-    picker.selectedSegment = 1
-    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
-    for _ in 0..<30 where field("ui.session.forecast.search") == nil { try await Task.sleep(for: .milliseconds(50)) }
-    #expect(field("ui.session.forecast.search")?.stringValue == "Catalog")
-    try commandF() // An already-open Flow search must be restored, not closed.
-    for _ in 0..<30 where picker.selectedSegment != 0 { try await Task.sleep(for: .milliseconds(50)) }
-    #expect(picker.selectedSegment == 0 && field("ui.session.history.search") != nil)
-    try commandF() // In Flow, the same shortcut retains its ordinary close action.
-    for _ in 0..<30 where field("ui.session.history.search") != nil { try await Task.sleep(for: .milliseconds(50)) }
-    #expect(field("ui.session.history.search") == nil)
-    #expect(model.askDJDraft == "Keep this unsent question")
-    #expect(model.activeDJSession?.id == session.id)
-    #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
-    try capture("keyboard-03-flow-search-closed")
+
 }
 
 /// Native end-of-content restoration is a semantic boundary check, not an
@@ -7568,10 +7628,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     let folder = URL(fileURLWithPath: directory)
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
-    func forecastField() -> NSTextField? {
-        let prompt = DJConnectLocalization.localized(key: "ui.session.forecast.search", language: model.language)
-        return descendants(host).compactMap { $0 as? NSTextField }.first { $0.placeholderString == prompt }
-    }
+    func forecastField() -> NSTextView? { forecastNativeText(in: host, model: model) }
     func capture(_ name: String) throws {
         host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
         let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
@@ -7646,10 +7703,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     let folder = URL(fileURLWithPath: directory)
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
-    func search() -> NSTextField? {
-        let prompt = DJConnectLocalization.localized(key: "ui.session.forecast.search", language: model.language)
-        return descendants(host).compactMap { $0 as? NSTextField }.first { $0.placeholderString == prompt }
-    }
+    func search() -> NSTextView? { forecastNativeText(in: host, model: model) }
     func capture(_ name: String) throws {
         host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
         let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
@@ -7714,7 +7768,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     let deadline = try #require(DJConnectSessionForecast.timestamp(validity))
     let epoch = model.sessionHistory.responseEpoch
     _ = NSApplication.shared
-    let view = SessionForecastPanel(model: model, viewport: SessionForecastViewport(), query: .constant("")) { EmptyView() }
+    let view = SessionForecastPanel(model: model, viewport: SessionForecastViewport()) { EmptyView() }
         .background(DJConnectCanvasBackground())
         .environment(\.scenePhase, .active).environment(\.colorScheme, .dark)
         .preferredColorScheme(.dark).frame(width: 600, height: 1000)
@@ -7765,7 +7819,7 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     #expect(model.canRefreshSessionForecast)
     #expect(model.visibleSessionForecast(at: Date()) != nil)
     _ = NSApplication.shared
-    let view = SessionForecastPanel(model: model, viewport: SessionForecastViewport(), query: .constant("")) { EmptyView() }
+    let view = SessionForecastPanel(model: model, viewport: SessionForecastViewport()) { EmptyView() }
         .environment(\.scenePhase, .active).environment(\.colorScheme, .dark)
         .preferredColorScheme(.dark).frame(width: 600, height: 1000)
     let host = NSHostingView(rootView: view)
@@ -7812,62 +7866,6 @@ func forecastNativeOwnerReadRetainsDraftAndFencesLateBackgroundResponse(fence: S
     #expect(model.activeDJSession?.id == session.id)
     #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
     try capture("withdrawal-03-owner-restored")
-}
-
-/// Filter only authored presentation; the producer projection and playback
-/// remain unchanged. Native screenshots complement the text-selection bridges.
-@MainActor private func qualifyForecastNativeFilter(model: DJConnectAppModel, directory: String) async throws {
-    let session = try #require(model.activeDJSession)
-    let projection = try #require(model.visibleSessionForecast(at: Date()))
-    _ = NSApplication.shared
-    let view = ForecastNativeHost(model: model, sessionID: session.id)
-        .environment(\.scenePhase, .active).environment(\.colorScheme, .dark)
-        .preferredColorScheme(.dark).frame(width: 600, height: 1400)
-    let host = NSHostingView(rootView: view)
-    let window = NSWindow(contentRect: CGRect(x: -2000, y: -2000, width: 600, height: 1400),
-        styleMask: [.borderless], backing: .buffered, defer: false)
-    window.appearance = NSAppearance(named: .darkAqua)
-    window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
-    defer { window.close() }
-    let folder = URL(fileURLWithPath: directory)
-    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-    func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
-    func search() -> NSTextField? {
-        let prompt = DJConnectLocalization.localized(key: "ui.session.forecast.search", language: model.language)
-        return descendants(host).compactMap { $0 as? NSTextField }.first { $0.placeholderString == prompt }
-    }
-    func capture(_ name: String) throws {
-        host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
-        let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
-        host.cacheDisplay(in: host.bounds, to: image)
-        try #require(image.representation(using: .png, properties: [:])).write(to: folder.appendingPathComponent(name + ".png"))
-        let nativeText = descendants(host).compactMap { view -> String? in
-            if let text = view as? NSTextView { return text.string }
-            return nil
-        }
-        try JSONSerialization.data(withJSONObject: ["query": search()?.stringValue ?? "", "native_selectable_text": nativeText], options: [.prettyPrinted, .sortedKeys])
-            .write(to: folder.appendingPathComponent(name + ".json"))
-    }
-    try await Task.sleep(for: .milliseconds(400))
-    let picker = try #require(descendants(host).compactMap { $0 as? NSSegmentedControl }.first { $0.segmentCount == 2 })
-    let action = try #require(picker.action)
-    picker.selectedSegment = 1
-    #expect(NSApp.sendAction(action, to: picker.target, from: picker))
-    for _ in 0..<30 where search() == nil { try await Task.sleep(for: .milliseconds(50)) }
-    _ = try #require(search())
-    try capture("filter-01-all")
-    for (query, name) in [("STEADY", "filter-02-body-match"), ("MINUTES", "filter-03-title-match"), ("zz-no-authored-match-zz", "filter-04-none"), ("", "filter-05-cleared")] {
-        let field = try #require(search())
-        field.stringValue = query
-        field.delegate?.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: field))
-        try await Task.sleep(for: .milliseconds(150))
-        #expect(search()?.stringValue == query)
-        #expect(model.visibleSessionForecast(at: Date()) == projection)
-        #expect(model.askDJDraft == "Keep this unsent question")
-        #expect(model.activeDJSession?.id == session.id)
-        #expect(model.activeDJSession?.broadcast.playback == session.broadcast.playback)
-        try capture(name)
-    }
 }
 
 /// Read this isolated host's public accessibility tree, without system VoiceOver
@@ -8018,11 +8016,7 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
     window.isReleasedWhenClosed = false; window.contentView = host; window.orderBack(nil)
     defer { window.close() }
     func descendants(_ root: NSView) -> [NSView] { [root] + root.subviews.flatMap(descendants) }
-    func forecastSearch() -> NSTextField? {
-        let placeholder = DJConnectLocalization.localized(key: "ui.session.forecast.search", language: model.language)
-        return descendants(host).compactMap { $0 as? NSTextField }.first { $0.placeholderString == placeholder }
-    }
-    func hasPanel() -> Bool { forecastSearch() != nil }
+    func hasPanel() -> Bool { forecastNativeText(in: host, model: model) != nil }
     func capture(_ name: String) throws {
         host.layoutSubtreeIfNeeded(); host.displayIfNeeded()
         let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
@@ -8040,9 +8034,6 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
     #expect(NSApp.sendAction(action, to: picker.target, from: picker))
     for _ in 0..<30 where !hasPanel() { try await Task.sleep(for: .milliseconds(50)) }
     #expect(picker.selectedSegment == 1 && hasPanel())
-    let search = try #require(forecastSearch())
-    search.stringValue = "Catalog"
-    search.delegate?.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: search))
     #expect(model.askDJDraft == "Keep this unsent question")
     try capture("forecast-selected")
     picker.selectedSegment = 0
@@ -8054,9 +8045,9 @@ func forecastNativeSourceLinkOpensOnlyProducerDestination() async throws {
     picker.selectedSegment = 1
     #expect(NSApp.sendAction(action, to: picker.target, from: picker))
     for _ in 0..<30 where !hasPanel() { try await Task.sleep(for: .milliseconds(50)) }
-    #expect(forecastSearch()?.stringValue == "Catalog")
+    #expect(hasPanel())
     #expect(model.askDJDraft == "Keep this unsent question")
-    try capture("forecast-restored-search")
+    try capture("forecast-restored")
     model.applySessionBroadcastEvent(.init(eventType: "runtime_ended", sessionID: session.id, payload: .init()))
     for _ in 0..<30 where hasPanel() { try await Task.sleep(for: .milliseconds(50)) }
     try await Task.sleep(for: .milliseconds(150))
@@ -8303,12 +8294,14 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
     }
 }
 
-@Test(.isolatedClientResources) @MainActor func askDJDeletesThreeContributionsUsingOriginalContextAfterEachClear() async throws {
+@Test(.isolatedClientResources, arguments: [false, true]) @MainActor func askDJDeletesThreeContributionsUsingOriginalContextAfterEachClear(_ holdReply: Bool) async throws {
     let producer = try historyObject()
     let state = AskDJRepeatedDeletionState(base: try #require(producer["later_historical_answer"] as? [String: Any]))
     let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_content_delete": true],
         "contract_versions": ["session_conversation_history": 1, "session_content_delete": 1]])
     let list = try historyData(["success": true, "schema_version": 1, "sessions": [], "revision": "fixture", "retention_days": 30])
+    let replyGate = HistoryWireResponseGate()
+    defer { replyGate.release() }
     let fixture = HistoryWireFixture { request in
         let path = request.url!.path
         if path.hasSuffix("/capabilities") { return (200, caps, 0) }
@@ -8318,7 +8311,11 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
         if path.hasSuffix("/session/content/delete/prepare") {
             return (200, try state.prepare(try #require(body["target"] as? [String: Any])), 0)
         }
-        if path.hasSuffix("/session/content/delete") { return (200, try state.complete(body), 0) }
+        if path.hasSuffix("/session/content/delete") {
+            let receipt = try state.complete(body)
+            if holdReply { throw HistoryWireHeldResponse(data: receipt, gate: replyGate) }
+            return (200, receipt, 0)
+        }
         return (404, Data(), 0)
     }
     defer { fixture.close() }
@@ -8331,7 +8328,27 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
         let target = try #require(history.contentDeletionTarget(for: message))
         #expect(target.kind == "message" && target.session_id == state.contexts[id])
         let prepared = try #require(await history.prepareContentDeletion(target, expectedEpoch: history.responseEpoch))
-        #expect(await history.deleteContent(prepared, expectedEpoch: history.responseEpoch))
+        if holdReply && index == 0 {
+            let deleting = Task { await history.deleteContent(prepared, expectedEpoch: history.responseEpoch) }
+            let dispatchedBy = ContinuousClock.now.advanced(by: .seconds(3))
+            while fixture.requests.filter({ $0.url!.path.hasSuffix("/session/content/delete") }).isEmpty && ContinuousClock.now < dispatchedBy {
+                try await Task.sleep(for: .milliseconds(5))
+            }
+            try #require(history.contentDeletionBusy)
+            #expect(!history.showsUnconfirmedDeletionNotice) // No warning flash during an ordinary write.
+            // Keep the actual row/dialogue mounted while its write is held.
+            // New commands remain blocked, and the original target is stable.
+            #expect(model.canPresentAskDJHistory)
+            #expect(!model.canUseAskDJFeatures && !model.canUseProfileConversation)
+            #expect(history.contentDeletionTarget(for: message) == target)
+            #expect(!history.canDeleteContent(target))
+            #expect(history.contentDeletionBlockingReason(for: target) == "ui.content.delete.blocked.busy")
+            replyGate.release()
+            #expect(await deleting.value)
+        } else {
+            #expect(await history.deleteContent(prepared, expectedEpoch: history.responseEpoch))
+        }
+        #expect(model.canPresentAskDJHistory && model.canUseProfileConversation)
         #expect(!history.hasUnconfirmedDeletion)
         #expect(model.askDJMessages.count == 2 - index)
     }
@@ -8339,6 +8356,9 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
     #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/history/delete") || $0.url!.path.hasSuffix("/session/end") })
     // A message with no admitted server context cannot borrow any active Session.
     let unknown = DJConnectAskDJMessage(serverID: "unobserved", role: .dj, text: "unknown")
+    #expect(history.contentDeletionTarget(for: unknown) == nil)
+    history.suspend()
+    #expect(!model.canPresentAskDJHistory && !model.canUseProfileConversation)
     #expect(history.contentDeletionTarget(for: unknown) == nil)
 }
 
@@ -9155,4 +9175,104 @@ func sessionHistoryOwnerWithdrawalDuringPreflightCannotSendAfterGateRelease(_ ac
     #expect(historyModel.containsHistoricalArtworkEntry(next.reference, matching: { $0.isRetained() }))
     #expect(!historyModel.containsHistoricalArtworkEntry(old.reference, matching: { _ in true }))
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" || ($0.httpMethod == "POST" && $0.url!.path.hasSuffix("/ask_dj/message")) })
+}
+
+@Test(.isolatedClientResources) @MainActor func askDJDeletionTargetStaysOnOriginalMessageWhenReplyEntryArrives() async throws {
+    let producer = try historyObject()
+    let state = AskDJRepeatedDeletionState(base: try #require(producer["later_historical_answer"] as? [String: Any]))
+    let timeline = try #require(producer["archived_timeline"] as? [String: Any])
+    var match = try #require((timeline["entries"] as? [[String: Any]])?.first { $0["kind"] as? String == "conversation_dj" })
+    match["session_id"] = "original-session-A"; match["origin_message_id"] = "ask-one"
+    match["context"] = ["session_id": "original-session-A"]
+    let matchBytes = try historyData(match), resolved = HistoryAuthorityGate()
+    let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_content_delete": true],
+        "contract_versions": ["session_conversation_history": 1, "session_content_delete": 1]])
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/ask_dj/history") {
+            var response = try #require(JSONSerialization.jsonObject(with: state.history()) as? [String: Any])
+            if resolved.denied {
+                var messages = try #require(response["messages"] as? [[String: Any]])
+                messages[0]["historical_matches"] = [try JSONSerialization.jsonObject(with: matchBytes)]
+                response["messages"] = messages
+            }
+            return (200, try historyData(response), 0)
+        }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare()
+    let message = try #require(model.askDJMessages.first { $0.serverID == "ask-one" })
+    let original = try #require(history.contentDeletionTarget(for: message))
+    #expect(original.kind == "message" && original.session_id == "original-session-A")
+    #expect(history.contextEntry(for: message) == nil)
+    resolved.denied = true
+    #expect(await history.refreshConversation())
+    let retained = try #require(model.askDJMessages.first { $0.serverID == "ask-one" })
+    _ = try #require(history.contextEntry(for: retained))
+    #expect(retained.id == message.id)
+    #expect(history.contentDeletionTarget(for: retained) == original)
+    history.suspend()
+    #expect(history.contentDeletionTarget(for: retained) == nil)
+}
+
+
+@Test(.isolatedClientResources, arguments: ["ready-later", "wrong-code", "wrong-version", "extra", "success", "other-status", "wrong-type"])
+func visualContextOnlyExplicitObservationReadinessIsWaitable(_ fault: String) async throws {
+    var body: [String: Any] = ["success": false, "schema_version": 1, "error": "current_playback_unavailable"]
+    if fault == "wrong-code" { body["error"] = "visual_unavailable" }
+    if fault == "wrong-version" { body["schema_version"] = 2 }
+    if fault == "extra" { body["lease"] = "not-admitted" }
+    if fault == "success" { body["success"] = true }
+    if fault == "wrong-type" { body["schema_version"] = true }
+    let data = try historyData(body), status = fault == "other-status" ? 500 : 503
+    let wire = HistoryWireFixture { _ in (status, data, 0) }
+    defer { wire.close() }
+    do {
+        _ = try await wire.client().visualDirectorContext(sessionID: "session-a", visitID: UUID())
+        Issue.record("A refusal became a context lease")
+    } catch is DJConnectVisualContextError { #expect(fault == "ready-later") }
+    catch { #expect(fault != "ready-later") }
+    #expect(wire.requests.count == 1)
+    // The same envelope on another route never grants automatic waiting/replay.
+    do {
+        try await wire.client().revokeVisualVisit(sessionID: "session-a", visitID: UUID())
+        Issue.record("A refusal became a successful revoke")
+    } catch is DJConnectVisualContextError { Issue.record("Readiness escaped its context-only route") }
+    catch {}
+    #expect(wire.requests.count == 2)
+}
+
+
+@Test(.isolatedClientResources) @MainActor
+func visualVoiceReadinessAcrossActualContextHTTPPreservesReachabilityAndOriginalLease() async throws {
+    let visit = UUID(), counter = HTTPRecoveryActiveReadCounter(), modes = PresenceModes()
+    let ready = try historyData(["success": true, "schema_version": 1, "visit_id": visit.uuidString,
+        "context_lease_id": "original-lease", "observed_occurrence_id": "original-occurrence",
+        "lease_duration_ms": 10000, "expires_at": "2026-11-01T20:00:00Z"])
+    let unavailable = Data(#"{"success":false,"schema_version":1,"error":"current_playback_unavailable"}"#.utf8)
+    let wire = HistoryWireFixture { request in
+        guard request.url?.path.hasSuffix("/vibescape/context") == true else { throw DJConnectError.invalidResponse }
+        return counter.next() < 3 ? (503, unavailable, 0) : (200, ready, 0)
+    }
+    defer { wire.close() }
+    let manager = DJConnectHATransportManager(localURL: wire.baseURL,
+        remoteURL: URL(string: "https://remote.test"), allowsRemoteFallback: true,
+        clientFactory: { _ in wire.client() }, modeReporter: { mode, _ in modes.record(mode) })
+    var clock: TimeInterval = 100
+    let (context, requestStarted) = try await VibeScapeVoiceReadiness.read(isCurrent: { true }, now: { clock },
+        wait: { clock += 1 }) {
+            let originalStarted = clock
+            let context = try await manager.perform(allowsOperationReplay: false) {
+                try await $0.visualDirectorContext(sessionID: "session-a", visitID: visit)
+            }
+            return (context, originalStarted)
+        }
+    #expect(context.context_lease_id == "original-lease" && context.lease_duration_ms == 10000)
+    #expect(context.expires_at == "2026-11-01T20:00:00Z" && requestStarted == 102)
+    #expect(counter.value == 3 && wire.requests.count == 3)
+    #expect(modes.values == [.local, .local, .local])
 }

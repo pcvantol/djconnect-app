@@ -239,6 +239,8 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         WKApplication: true
         WKCompanionAppBundleIdentifier: dev.djconnect.ios
+        WKSupportsLiveActivityLaunchAttributeTypes:
+          - DJConnectSessionLiveActivityAttributes
         NSLocalNetworkUsageDescription: DJConnect connects to Home Assistant on your local network.
         NSMicrophoneUsageDescription: DJConnect records your voice for push-to-talk music requests to Home Assistant.
         NSSpeechRecognitionUsageDescription: DJConnect uses speech recognition only for foreground wake phrase detection with Hey DJ.
@@ -296,6 +298,7 @@ targets:
       - path: Apps/Shared/SessionNextTrackIntent.swift
       - path: Sources/DJConnectUI/DJPersonaAvatarView.swift
       - path: Sources/DJConnectUI/StatusOnlySurfaceView.swift
+      - path: Sources/DJConnectUI/SessionPlaybackObservationView.swift
     dependencies:
       - target: DJConnectCoreIOS
     info:
@@ -319,6 +322,7 @@ targets:
       - path: Apps/DJConnectTrackInsightWidgets
       - path: Sources/DJConnectUI/DJPersonaAvatarView.swift
       - path: Sources/DJConnectUI/StatusOnlySurfaceView.swift
+      - path: Sources/DJConnectUI/SessionPlaybackObservationView.swift
     dependencies:
       - target: DJConnectCoreMac
     info:

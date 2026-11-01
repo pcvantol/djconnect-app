@@ -4,6 +4,7 @@ import DJConnectCore
 /// Hardware/UI preference only. Never sent to or stored on a DJConnect Profile.
 enum DJConnectGlassAppearance {
     static let storageKey = "DJConnectGlassEffectsEnabled"
+    static let composerTint = Color(red: 0.40, green: 0.16, blue: 0.66)
     static let toggleTint = Color(red: 0.84, green: 0.22, blue: 0.96)
     static let opaqueSurface = Color(red: 0.09, green: 0.11, blue: 0.19)
 }

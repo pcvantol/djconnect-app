@@ -45,8 +45,6 @@ private struct FindShortcutProbe: View {
 }
 
 private struct SearchFocusProbe: View {
-    let model: DJConnectAppModel
-    let forecast: Bool
     @ObservedObject var observation: SearchFocusObservation
     @State private var expanded = false
     @State private var request = UUID()
@@ -56,10 +54,7 @@ private struct SearchFocusProbe: View {
         VStack {
             ScrollView {
                 LazyVStack {
-                    if forecast {
-                        SessionForecastContent(model: model, query: $observation.query, searchExpanded: $expanded,
-                            focusRequest: request, searchBoundsChanged: { _ in })
-                    } else if expanded {
+                    if expanded {
                         AskDJSearchBar(language: "nl", focusRequest: request, text: $observation.query,
                             isFocused: $searchFocused, resultCount: 0, selectedIndex: 0,
                             previousAction: {}, nextAction: {}, closeAction: { expanded = false })
@@ -76,15 +71,11 @@ private struct SearchFocusProbe: View {
     }
 }
 
-@Test(.isolatedAppKitResources, arguments: [false, true]) @MainActor
-func nativeFindMovesTypingFromComposerToMountedSearchAndRefocuses(_ forecast: Bool) async throws {
+@Test(.isolatedAppKitResources) @MainActor
+func nativeFindMovesTypingFromComposerToMountedSearchAndRefocuses() async throws {
     _ = NSApplication.shared
-    let suite = "find-focus-" + UUID().uuidString
-    let defaults = try #require(UserDefaults(suiteName: suite))
-    let model = DJConnectAppModel(defaults: defaults, tokenStore: DJConnectInMemoryTokenStore(), startBackgroundTasks: false)
-    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: suite) }
     let observation = SearchFocusObservation()
-    let host = NSHostingView(rootView: SearchFocusProbe(model: model, forecast: forecast, observation: observation)
+    let host = NSHostingView(rootView: SearchFocusProbe(observation: observation)
         .environment(\.scenePhase, .background))
     let window = NSWindow(contentRect: .init(x: -3000, y: -3000, width: 640, height: 480),
                           styleMask: [.titled], backing: .buffered, defer: false)

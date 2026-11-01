@@ -630,7 +630,7 @@ public final class DJConnectClient: Sendable {
     public func visualDirectorContext(sessionID: String, visitID: UUID) async throws -> DJConnectVisualContext {
         let payload = VisualIdentity(device_id: identity.deviceID, client_type: identity.clientType.rawValue,
                                      session_id: sessionID, visit_id: visitID.uuidString)
-        return try decoder.decode(DJConnectVisualContext.self, from: await sessionArtworkTransport.prepare(visualDirectorRequest("context", payload: payload)))
+        return try decoder.decode(DJConnectVisualContext.self, from: await sessionArtworkTransport.prepare(visualDirectorRequest("context", payload: payload), allowsVisualContextReadiness: true))
     }
     public func interpretVisualDirection(_ payload: DJConnectVisualInterpretRequest) async throws -> DJConnectVisualInterpretResponse {
         guard payload.device_id == identity.deviceID, payload.client_type == identity.clientType.rawValue,
@@ -925,6 +925,20 @@ public final class DJConnectClient: Sendable {
 
     /// Owner-only optional media read. No preparation, provider lookup or retry
     /// of an effectful operation. Resource absence never becomes pairing loss.
+    public func responseArtwork(_ image: DJConnectResponseImage,
+                                isCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DJConnectSessionArtworkImage {
+        guard let path = image.admittedReplyArtworkPath(),
+              (image.url.scheme == nil && image.url.host == nil) || (image.url.scheme == baseURL.scheme && image.url.host == baseURL.host && image.url.port == baseURL.port) else {
+            throw DJConnectError.invalidResponse
+        }
+        var request = try pairedOwnerReadRequest(path: path)
+        request.setValue("image/png, image/jpeg", forHTTPHeaderField: "Accept")
+        request.setValue("no-referrer", forHTTPHeaderField: "Referrer-Policy")
+        let result = try await sessionArtworkTransport.loadForecast(request, isCurrent: isCurrent)
+        guard image.admittedReplyArtworkPath() != nil, await isCurrent() else { throw CancellationError() }
+        return result
+    }
+
     public func sessionArtwork(_ media: DJConnectSessionMedia, sessionID: String,
                                target: DJConnectSessionMedia.Target,
                                audience: DJConnectSessionMedia.Audience) async throws -> DJConnectSessionArtworkImage {
@@ -2271,6 +2285,11 @@ private struct DJConnectVisualCatalogue: Decodable {
         interpretation == "closed_visual_grammar" && application == "native_client_only" && context_required
     }
 }
+/// Explicit refusal before a context lease exists; never an interpretation retry.
+public enum DJConnectVisualContextError: Error, Sendable {
+    case awaitingObservation
+}
+
 public struct DJConnectVisualContext: Decodable, Sendable {
     public let success: Bool
     public let schema_version: Int

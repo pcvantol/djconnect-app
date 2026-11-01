@@ -11,6 +11,15 @@ enum DJConnectAlbumArtworkLayout {
 }
 
 extension View {
+    /// Pop-outs share VibeScape Help's frosting, rounding and preference fallback.
+    /// A pop-out stays live even when its presenting page uses scrolling materials.
+    @ViewBuilder func djConnectGlassPopoutSurface(enabled: Bool = true) -> some View {
+        if enabled {
+            self.djSessionFrostedSurface()
+                .environment(\.djConnectScrollingSurface, false)
+        } else { self }
+    }
+
     func djSessionFrostedSurface(cornerRadius: CGFloat = DJConnectCardAppearance.cornerRadius, currentMomentBorder: Bool = false, mood: String? = nil, surfaceTint: Color? = nil) -> some View {
         modifier(DJSessionGlassSurface(cornerRadius: cornerRadius, currentMomentBorder: currentMomentBorder, mood: mood, surfaceTint: surfaceTint))
     }

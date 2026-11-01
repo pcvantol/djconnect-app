@@ -8,6 +8,13 @@ import ActivityKit
 
 private let sessionURL = URL(string: "djconnect://dj-session")!
 private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key) }
+private var privateSurfaceFieldsSuppressed: Bool {
+    UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier)
+        .map { DJConnectSessionSurfaceSnapshot.privateCacheFallbackSuppressed(in: $0) } ?? false
+}
+private func activityTheme(_ snapshot: DJConnectSessionSurfaceSnapshot, stale: Bool) -> DJConnectSessionMoodTheme {
+    privateSurfaceFieldsSuppressed || snapshot.playbackObservation != nil || stale ? .brand : snapshot.renderingTheme(at: Date())
+}
 
 private extension DJConnectSessionMoodTheme {
     var colors: [Color] {
@@ -88,7 +95,8 @@ struct DJConnectSessionWidgetProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<DJConnectSessionWidgetEntry>) -> Void) {
         let entry = current()
         var entries = [entry]
-        let deadlines = Set([entry.snapshot?.expiresAt, entry.palette?.expiresAt].compactMap { $0 } + (entry.rich?.projection.deadlines ?? [])).sorted()
+        let deadlines: [Date] = entry.snapshot?.playbackObservation != nil ? [] :
+            Set([entry.snapshot?.expiresAt, entry.palette?.expiresAt].compactMap { $0 } + (entry.rich?.projection.deadlines ?? [])).sorted()
         for expiry in deadlines {
             entries.append(.init(date: expiry, snapshot: entry.snapshot, palette: entry.palette, rich: entry.rich))
         }
@@ -98,6 +106,9 @@ struct DJConnectSessionWidgetProvider: TimelineProvider {
         let now = Date()
         let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier)
         let snapshot = shared.flatMap { DJConnectSessionSurfaceSnapshot.load(from: $0, at: now) }
+        if snapshot?.playbackObservation != nil || shared.map({ DJConnectSessionSurfaceSnapshot.privateCacheFallbackSuppressed(in: $0) }) == true {
+            return .init(date: now, snapshot: snapshot) // Never read old private caches/palette as fallback.
+        }
         let palette = shared.flatMap { DJConnectWidgetPaletteSnapshot.load(from: $0, at: now) }
         let rich = shared.flatMap { DJConnectPassiveSurfaceCache.load(surface: .widget, from: $0, at: now) }
         return .init(date: now, snapshot: snapshot, palette: palette, rich: rich)
@@ -136,21 +147,24 @@ private struct DJConnectSessionWidgetView: View {
     @Environment(\.widgetFamily) private var family
     var body: some View {
         let now = max(entry.date, Date())
-        let rich = entry.rich.flatMap { $0.isCurrent(at: now) ? $0 : nil }
-        let theme = DJConnectSessionSurfaceSnapshot.widgetTheme(confirmedSession: entry.snapshot,
+        let privateSuppressed = privateSurfaceFieldsSuppressed || entry.snapshot?.playbackObservation != nil
+        let rich = !privateSuppressed ? entry.rich.flatMap { $0.isCurrent(at: now) ? $0 : nil } : nil
+        let theme = privateSuppressed ? DJConnectSessionMoodTheme.brand : DJConnectSessionSurfaceSnapshot.widgetTheme(confirmedSession: entry.snapshot,
             passiveMood: rich?.projection.mood.value, fallback: entry.theme, at: now)
         Group {
-            if let rich {
+            if let observation = entry.snapshot?.playbackObservation {
+                DJConnectSessionPlaybackObservationView(observation: observation, compact: family == .systemSmall)
+            } else if let rich {
                 PassiveSessionContentView(contribution: rich.projection.currentContribution(at: now),
                     playback: rich.projection.currentPlayback(at: now), cache: rich,
                     compact: family == .systemSmall, large: family == .systemLarge, theme: theme, date: now)
             } else {
-                DJConnectSessionSurfaceView(isActive: entry.isActive, compact: family == .systemSmall, theme: theme)
+                DJConnectSessionSurfaceView(isActive: !privateSuppressed && entry.isActive, compact: family == .systemSmall, theme: theme)
             }
         }
         .containerBackground(for: .widget) {
             SessionSurfaceBackground(theme: theme, trackID: rich?.projection.currentPlayback(at: now)?.item_id,
-                                     permitsTransition: entry.snapshot?.isCurrent(at: now) == true || rich != nil)
+                                     permitsTransition: !privateSuppressed && (entry.snapshot?.isCurrent(at: now) == true || rich != nil))
         }
         .widgetURL(sessionURL)
     }
@@ -187,22 +201,22 @@ struct DJConnectSessionWidget: Widget {
 struct DJConnectSessionActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: DJConnectSessionLiveActivityAttributes.self) { context in
-            PassiveActivityBody(snapshot: context.state, stale: context.isStale)
+            SessionActivityPresentation(snapshot: context.state, stale: context.isStale)
                 .padding(12)
                 .background {
-                    let theme = context.isStale ? DJConnectSessionMoodTheme.brand : context.state.renderingTheme(at: Date())
+                    let theme = activityTheme(context.state, stale: context.isStale)
                     SessionSurfaceBackground(theme: theme,
-                        trackID: context.state.rich?.currentPlayback(at: Date())?.item_id, artworkOpacity: 0.75,
-                        permitsTransition: !context.isStale && context.state.isCurrent(at: Date()))
+                        trackID: privateSurfaceFieldsSuppressed ? nil : context.state.rich?.currentPlayback(at: Date())?.item_id, artworkOpacity: 0.75,
+                        permitsTransition: !privateSurfaceFieldsSuppressed && !context.isStale && context.state.isCurrent(at: Date()))
                 }
-                .activityBackgroundTint((context.isStale ? DJConnectSessionMoodTheme.brand : context.state.renderingTheme(at: Date())).darkTint)
+                .activityBackgroundTint(activityTheme(context.state, stale: context.isStale).darkTint)
                 .activitySystemActionForegroundColor(.white)
                 .widgetURL(sessionURL)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 8) {
-                        SessionSurfaceAvatar(theme: context.isStale ? .brand : context.state.renderingTheme(at: Date()), side: 28)
+                        SessionSurfaceAvatar(theme: activityTheme(context.state, stale: context.isStale), side: 28)
                         Text(text("ui.session.title"))
                             .font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
                             .lineLimit(1).minimumScaleFactor(0.8)
@@ -213,6 +227,7 @@ struct DJConnectSessionActivityWidget: Widget {
                         PassiveActivityBody(snapshot: context.state, stale: context.isStale,
                                             showsSpotifyCredit: false, showsHeader: false)
                             .fixedSize(horizontal: false, vertical: true)
+                        if !privateSurfaceFieldsSuppressed, context.state.playbackObservation == nil {
                         Button(intent: DJConnectSessionNextTrackIntent(presentationID: context.attributes.presentationID)) {
                             Image(systemName: "forward.end.fill")
                                 .font(.title3.weight(.semibold)).foregroundStyle(.white)
@@ -223,18 +238,59 @@ struct DJConnectSessionActivityWidget: Widget {
                         .disabled(context.isStale || !context.state.isCurrent(at: Date()))
                         .accessibilityLabel(text("ui.next.track"))
                         .accessibilityIdentifier("session-island-next-track")
+                        }
                     }
                     .padding(.horizontal, 12).padding(.bottom, 8)
                 }
             } compactLeading: {
-                SessionSurfaceAvatar(theme: context.isStale ? .brand : context.state.renderingTheme(at: Date()), side: 22)
+                SessionSurfaceAvatar(theme: activityTheme(context.state, stale: context.isStale), side: 22)
             } compactTrailing: {
-                Image(systemName: context.isStale ? "arrow.up.forward" : "music.note").foregroundStyle(.white)
+                Image(systemName: context.state.playbackObservation?.playbackState.symbolName ?? (context.isStale ? "arrow.up.forward" : "music.note")).foregroundStyle(.white)
             } minimal: {
-                SessionSurfaceAvatar(theme: context.isStale ? .brand : context.state.renderingTheme(at: Date()), side: 20)
+                SessionSurfaceAvatar(theme: activityTheme(context.state, stale: context.isStale), side: 20)
             }
             .widgetURL(sessionURL)
-            .keylineTint((context.isStale ? DJConnectSessionMoodTheme.brand : context.state.renderingTheme(at: Date())).accent)
+            .keylineTint(activityTheme(context.state, stale: context.isStale).accent)
+        }
+        .supplementalActivityFamilies([.small, .medium])
+    }
+}
+
+/// The existing Activity chooses its OS-supplied presentation size. This adds
+/// no Activity type, native registration, cache admission or playback command.
+private struct SessionActivityPresentation: View {
+    let snapshot: DJConnectSessionSurfaceSnapshot
+    let stale: Bool
+    @Environment(\.activityFamily) private var family
+    var body: some View {
+        let now = Date()
+        if family == .small {
+            if let observation = snapshot.playbackObservation {
+                DJConnectSessionWatchObservationView(observation: observation)
+            } else if !privateSurfaceFieldsSuppressed, !stale, snapshot.isCurrent(at: now),
+                      let rich = snapshot.rich, rich.isCurrent(at: now),
+                      let playback = rich.currentPlayback(at: now) {
+                HStack(spacing: 8) {
+                    SessionSurfaceAvatar(theme: snapshot.renderingTheme(at: now), side: 28)
+                    // Retain the original provider attribution. A research
+                    // contribution cannot fit here with its complete credits.
+                    PassiveSessionContentView(contribution: nil, playback: playback, cache: nil,
+                        compact: true, showsHeader: false, theme: snapshot.renderingTheme(at: now), date: now)
+                }
+            } else {
+                HStack(spacing: 8) {
+                    SessionSurfaceAvatar(theme: .brand, side: 28)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(text("ui.session.title")).font(.caption.weight(.semibold))
+                        Text(text("surface.session.open.app")).font(.caption2).foregroundStyle(.white.opacity(0.8))
+                            .lineLimit(2)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(.white)
+            }
+        } else {
+            PassiveActivityBody(snapshot: snapshot, stale: stale)
         }
     }
 }
@@ -418,7 +474,11 @@ private struct PassiveActivityBody: View {
     var showsHeader = true
     var body: some View {
         let now = Date()
-        if !stale, snapshot.isCurrent(at: now), let rich = snapshot.rich, rich.isCurrent(at: now) {
+        if let observation = snapshot.playbackObservation {
+            DJConnectSessionPlaybackObservationView(observation: observation, compact: !showsHeader, showsHeader: showsHeader)
+        } else if privateSurfaceFieldsSuppressed {
+            DJConnectSessionSurfaceView(isActive: false, compact: !showsHeader, theme: .brand)
+        } else if !stale, snapshot.isCurrent(at: now), let rich = snapshot.rich, rich.isCurrent(at: now) {
             let contribution = rich.currentContribution(at: now)
             let playback = rich.currentPlayback(at: now)
             let cache = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier)

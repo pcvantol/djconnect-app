@@ -2764,8 +2764,8 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
         case "/api/djconnect/v1/command":
             let body = try #require(try requestBodyData(request))
             let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
-            #expect(json["command"] as? String == "status", "Post-play refresh may read status but must not replay playback")
-            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"playback":{"is_playing":true}}"#.utf8))
+            #expect(["status", "queue"].contains(json["command"] as? String ?? ""), "Post-play refresh only reads status/queue")
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"queue":[],"playback":{"is_playing":true}}"#.utf8))
         case "/api/djconnect/v1/music_discovery/play":
             return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true}"#.utf8))
         default:
@@ -14354,4 +14354,242 @@ func parallelClientCasesShareTheirOwnCapsAndKeyQueue(_ caseNumber: Int) async th
         _ = try? await one.value; _ = try? await two.value
         throw error
     }
+}
+
+@Test @MainActor func gameHapticBurstDefersHardwareAndKeepsTheMostImportantEvent() {
+    var callbacks: [@MainActor () -> Void] = []
+    var delivered: [DJConnectGameHapticScheduler.Feedback] = []
+    let scheduler = DJConnectGameHapticScheduler(schedule: { callbacks.append($0) }, deliver: { delivered.append($0) })
+    for _ in 0..<1000 { scheduler.enqueue(.selection) }
+    scheduler.enqueue(.error); scheduler.enqueue(.impact)
+    #expect(delivered.isEmpty) // No hardware work in the collision/update stack.
+    #expect(callbacks.count == 1)
+    callbacks.removeFirst()()
+    #expect(delivered == [.error])
+    scheduler.enqueue(.success)
+    callbacks.removeFirst()()
+    #expect(delivered == [.error, .success])
+}
+
+@Test @MainActor func gameHapticCancellationCannotReplayAnOldGamesFeedbackOrConsumeNewFeedback() {
+    var callbacks: [@MainActor () -> Void] = []
+    var delivered: [DJConnectGameHapticScheduler.Feedback] = []
+    let scheduler = DJConnectGameHapticScheduler(schedule: { callbacks.append($0) }, deliver: { delivered.append($0) })
+    scheduler.enqueue(.error)
+    let old = callbacks.removeFirst()
+    scheduler.cancel()
+    scheduler.enqueue(.selection)
+    old()
+    #expect(delivered.isEmpty)
+    callbacks.removeFirst()()
+    #expect(delivered == [.selection])
+}
+
+private final class GameAudioWorkerProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    let release = DispatchSemaphore(value: 0)
+    private var started = false
+    private var results: [Int] = []
+    private var touchedMain = false
+    var snapshot: (Bool, [Int], Bool) { lock.withLock { (started, results, touchedMain) } }
+    func perform(_ value: Int) {
+        lock.withLock { touchedMain = touchedMain || Thread.isMainThread; started = true }
+        if value == 1 { _ = release.wait(timeout: .now() + 5) }
+        lock.withLock { results.append(value) }
+    }
+}
+
+@Test(arguments: [false, true]) @MainActor
+func gameAudioWorkerKeepsMainActorResponsiveAndBoundsSoundBacklog(_ cancelPending: Bool) async throws {
+    let probe = GameAudioWorkerProbe()
+    let worker = DJConnectGameAudioWorker<Int> { probe.perform($0) }
+    defer { probe.release.signal() }
+    worker.submit(1)
+    let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+    while !probe.snapshot.0 && ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(5)) }
+    try #require(probe.snapshot.0)
+    var mainActorUpdates = 0
+    for value in 2...1000 { worker.submit(value); mainActorUpdates += 1 }
+    #expect(mainActorUpdates == 999 && probe.snapshot.1.isEmpty)
+    if cancelPending { worker.cancelPending(); worker.submit(2000) }
+    #expect(!probe.snapshot.2)
+    probe.release.signal()
+    while probe.snapshot.1.count < 2 && ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(probe.snapshot.1 == [1, cancelPending ? 2000 : 1000])
+    #expect(!probe.snapshot.2)
+}
+
+#if os(macOS)
+import AppKit
+import SwiftUI
+
+/// Actual shared vector component only; no app installation or game input claim.
+@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_RETRO_DPAD_PREVIEW_DIR"] != nil))
+@MainActor func retroDPadNativeVectorPreview() throws {
+    let folder = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DJCONNECT_RETRO_DPAD_PREVIEW_DIR"]))
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let renderer = ImageRenderer(content: DJConnectRetroDPad(language: "nl", select: { _ in })
+        .padding(24)
+        .background(LinearGradient(colors: [Color(red: 0.27, green: 0.17, blue: 0.45),
+                                           Color(red: 0.10, green: 0.08, blue: 0.21)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)))
+    renderer.scale = 3
+    let image = try #require(renderer.cgImage)
+    #expect(image.width == 624 && image.height == 624)
+    let png = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
+    try png.write(to: folder.appendingPathComponent("retro-dpad.png"), options: .withoutOverwriting)
+}
+#endif
+
+@MainActor @Test(.isolatedClientResources, arguments: [false, true])
+func discoveryPlayAdmitsOnlyOneRequestWhileTheOriginalReplyIsPending(_ fails: Bool) async throws {
+    let defaults = try testDefaults(), recorder = RequestRecorder(), gate = PushReplyGate()
+    defer { gate.release() }
+    let session = mockSession(host: "discovery-one-intent.test") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/v1/music_discovery/play" {
+            throw DeferredPushReply(gate: gate, response: try httpResponse(for: request, statusCode: fails ? 500 : 200),
+                data: Data((fails ? #"{"success":false}"# : #"{"success":true}"#).utf8))
+        }
+        if request.url?.path == "/api/djconnect/v1/command" {
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true}"#.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"sections":[]}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-one-intent.test", session: session)
+    defer { model.markInactiveSession() }
+    let item = DJConnectMusicDiscoveryItem(id: "one", kind: .track, title: "One", uri: "spotify:track:one", reason: "Fixture")
+    let other = DJConnectMusicDiscoveryItem(id: "two", kind: .track, title: "Two", uri: "spotify:track:two", reason: "Fixture")
+    let original = Task { await model.playMusicDiscoveryItem(item, sectionID: "fresh") }
+    await gate.waitForRequest()
+    #expect(model.playingMusicDiscoveryItemID == item.id)
+    for _ in 0..<10 {
+        #expect(await model.playMusicDiscoveryItem(item, sectionID: "fresh") == false)
+        #expect(await model.playMusicDiscoveryItem(other, sectionID: "fresh") == false)
+    }
+    #expect(recorder.requests.filter { $0.url?.path.hasSuffix("/music_discovery/play") == true }.count == 1)
+    gate.release()
+    #expect(await original.value == !fails)
+    #expect(model.playingMusicDiscoveryItemID == nil)
+    #expect(recorder.requests.filter { $0.url?.path.hasSuffix("/music_discovery/play") == true }.count == 1)
+}
+
+
+@MainActor @Test(.isolatedClientResources, arguments: [false, true])
+func discoveryPlayRefreshesTheQueueAfterAnyPreselectionReadFinishes(_ oldReadInFlight: Bool) async throws {
+    let defaults = try testDefaults(), gate = PushReplyGate(), reads = RequestCounter(), recorder = RequestRecorder()
+    defer { gate.release() }
+    let oldRow: [String: Any] = ["id":"old", "title":"Previous selection", "uri":"spotify:track:old"]
+    let old = try JSONSerialization.data(withJSONObject: ["success":true, "queue":Array(repeating:oldRow,count:12)])
+    let fresh = Data(#"{"success":true,"queue":[{"id":"new","title":"Selected track","uri":"spotify:track:new"}]}"#.utf8)
+    let session = mockSession(host: "discovery-queue-refresh.test") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/v1/command" {
+            let payload = try #require(try requestBodyData(request))
+            let body = try #require(JSONSerialization.jsonObject(with: payload) as? [String:Any])
+            if body["command"] as? String == "queue" {
+                reads.increment()
+                if oldReadInFlight && reads.count == 1 {
+                    throw DeferredPushReply(gate:gate, response:try httpResponse(for:request,statusCode:200),data:old)
+                }
+                return (try httpResponse(for:request,statusCode:200),fresh)
+            }
+            #expect(body["command"] as? String == "status")
+            return (try httpResponse(for:request,statusCode:200),Data(#"{"success":true}"#.utf8))
+        }
+        if request.url?.path.hasSuffix("/music_discovery/play") == true {
+            return (try httpResponse(for:request,statusCode:200),Data(#"{"success":true}"#.utf8))
+        }
+        return (try httpResponse(for:request,statusCode:200),Data(#"{"success":true,"enabled":true,"sections":[]}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults:defaults,host:"discovery-queue-refresh.test",session:session)
+    defer { model.markInactiveSession() }
+    model.apply(commandResponse:try JSONDecoder().decode(DJConnectCommandResponse.self,from:old))
+    #expect(model.queueItems.count == 12)
+    let earlier = oldReadInFlight ? Task { await model.refreshQueue() } : nil
+    if oldReadInFlight { await gate.waitForRequest() }
+    let item = DJConnectMusicDiscoveryItem(id:"new",kind:.track,title:"Selected track",uri:"spotify:track:new",reason:"Fixture")
+    #expect(await model.playMusicDiscoveryItem(item,sectionID:"fresh"))
+    if oldReadInFlight {
+        #expect(reads.count == 1)
+        gate.release()
+        #expect(await earlier?.value == true)
+    }
+    let deadline = ContinuousClock.now.advanced(by:.seconds(3))
+    while model.queueItems.count != 1 && ContinuousClock.now < deadline { try await Task.sleep(for:.milliseconds(10)) }
+    #expect(model.queueItems.count == 1 && model.queueItems.first?.uri == "spotify:track:new")
+    #expect(reads.count == (oldReadInFlight ? 2 : 1))
+    #expect(recorder.requests.filter { $0.url?.path.hasSuffix("/music_discovery/play") == true }.count == 1)
+}
+
+
+@Test func discoveryQualityRatingUsesTheProducerHundredPointScale() throws {
+    let wire = Data(#"{"id":"artist-fixture","kind":"artist","title":"Fixture artist","uri":"spotify:artist:fixture","reason":"Fixture","quality_score":74,"quality_band":"medium"}"#.utf8)
+    let item = try JSONDecoder().decode(DJConnectMusicDiscoveryItem.self, from: wire)
+    #expect(item.qualityScore == 74)
+    #expect(MusicDiscoveryQualityPresentation.scoreLabel(item.qualityScore) == "74/100")
+    #expect(MusicDiscoveryQualityPresentation.scoreLabel(0) == "0/100")
+    #expect(MusicDiscoveryQualityPresentation.scoreLabel(100) == "100/100")
+    for invalid in [Double.nan, .infinity, -.infinity, -1, 101, 0.74] {
+        #expect(MusicDiscoveryQualityPresentation.scoreLabel(invalid) == nil)
+    }
+    #expect(MusicDiscoveryQualityPresentation.scoreLabel(nil) == nil)
+}
+
+@MainActor private final class ResponseArtworkOwnerProbe {
+    var checks = 0
+    func next() -> Bool { checks += 1; return checks == 1 }
+}
+
+@Test(.isolatedClientResources) func responseArtworkUsesOriginalAuthenticatedLeaseWithoutGenericCache() async throws {
+    let asset = String(repeating: "a", count: 32)
+    let expiry = ISO8601DateFormatter().string(from: Date().addingTimeInterval(30))
+    let object: [String: Any] = ["url": "/api/djconnect/v1/ask_dj/reply/image/" + asset,
+        "requires_device_auth": true, "expires_at": expiry, "cache_policy": "no-store", "kind": "album_art", "source": "spotify"]
+    let image = try JSONDecoder().decode(DJConnectResponseImage.self, from: JSONSerialization.data(withJSONObject: object))
+    #expect(try JSONDecoder().decode(DJConnectResponseImage.self, from: JSONEncoder().encode(image)) == image)
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    let png = try Data(contentsOf: root.appendingPathComponent("Fixtures/session-artwork-artist-core-5c7ecb79.png"))
+    let recorder = RequestRecorder()
+    let session = mockSession(host: "reply-artwork.local") { request in
+        recorder.append(request)
+        #expect(request.httpMethod == "GET")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-artwork-token")
+        #expect(request.value(forHTTPHeaderField: "Cache-Control") == "no-store")
+        #expect(request.cachePolicy == .reloadIgnoringLocalCacheData)
+        #expect(request.url?.path == image.url.path)
+        let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        #expect(query.first(where: { $0.name == "device_id" })?.value == "djconnect-ios-artwork-test")
+        #expect(query.first(where: { $0.name == "client_type" })?.value == "ios")
+        return (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type":"image/png", "Cache-Control":"no-store"])!, png)
+    }
+    let client = DJConnectClient(baseURL: URL(string: "https://reply-artwork.local")!,
+        identity: .init(deviceID: "djconnect-ios-artwork-test", deviceName: "Fixture", clientType: .ios, firmware: "4.0.0", platform: .ios),
+        tokenStore: DJConnectInMemoryTokenStore(token: "fixture-artwork-token"), session: session)
+    let pixels = try await client.responseArtwork(image, isCurrent: { true })
+    #expect(pixels.image.width == 64)
+    var absolute = image
+    absolute.url = URL(string: "https://reply-artwork.local" + image.url.path)!
+    _ = try await client.responseArtwork(absolute, isCurrent: { true })
+    #expect(recorder.requests.count == 2, "No shared decoded or HTTP cache may replay protected pixels")
+    await #expect(throws: CancellationError.self) { try await client.responseArtwork(image, isCurrent: { false }) }
+    #expect(recorder.requests.count == 2, "A withdrawn owner is checked before dispatch")
+    let probe = await ResponseArtworkOwnerProbe()
+    await #expect(throws: CancellationError.self) {
+        try await client.responseArtwork(image, isCurrent: { probe.next() })
+    }
+    #expect(recorder.requests.count == 3, "Withdrawal after dispatch rejects decoded pixels")
+    var invalid = image
+    for mutation in 0..<5 {
+        invalid = image
+        switch mutation {
+        case 0: invalid.expiresAt = "2000-01-01T00:00:00Z"
+        case 1: invalid.requiresDeviceAuth = nil
+        case 2: invalid.cachePolicy = nil
+        case 3: invalid.url = URL(string: "https://outside.invalid" + image.url.path)!
+        default: invalid.url = URL(string: image.url.absoluteString + "?unexpected=1")!
+        }
+        await #expect(throws: DJConnectError.invalidResponse) { try await client.responseArtwork(invalid, isCurrent: { true }) }
+    }
+    #expect(recorder.requests.count == 3)
 }

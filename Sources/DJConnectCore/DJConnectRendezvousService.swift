@@ -59,11 +59,14 @@ public final class DJConnectRendezvousService: Sendable {
 
     private let session: URLSession
     private let taskCreated:(@MainActor @Sendable (URLSessionDataTask)->Void)?
+    private let taskResumed:(@MainActor @Sendable (URLSessionDataTask)->Void)?
     public convenience init() { self.init(configuration:.ephemeral) }
     // Module-internal configuration seam for isolated qualification URLProtocol.
     // Product callers have only the fixed-origin, ephemeral public initializer.
-    init(configuration:URLSessionConfiguration, taskCreated:(@MainActor @Sendable (URLSessionDataTask)->Void)? = nil) {
+    init(configuration:URLSessionConfiguration, taskCreated:(@MainActor @Sendable (URLSessionDataTask)->Void)? = nil,
+        taskResumed:(@MainActor @Sendable (URLSessionDataTask)->Void)? = nil) {
         self.taskCreated = taskCreated
+        self.taskResumed = taskResumed
         configuration.urlCache = nil; configuration.httpCookieStorage = nil
         configuration.urlCredentialStorage = nil; configuration.httpShouldSetCookies = false
         configuration.timeoutIntervalForRequest = 8; configuration.timeoutIntervalForResource = 8
@@ -198,7 +201,7 @@ public final class DJConnectRendezvousService: Sendable {
         request.setValue("identity",forHTTPHeaderField:"Accept-Encoding")
         request.httpBody = body
         let response = try await DJConnectBoundedHTTPTransport.send(request,using:session,maximumBytes:4096,
-            beforeDispatch: beforeDispatch, isBodyCurrent: bodyCurrent, taskCreated:taskCreated,validateResponse:{ http in
+            beforeDispatch: beforeDispatch, isBodyCurrent: bodyCurrent, taskCreated:taskCreated, taskResumed:taskResumed,validateResponse:{ http in
                 if let until = Self.retryNotBefore(http.value(forHTTPHeaderField: "Retry-After"), status: http.statusCode,
                                                   at: Int64(Date().timeIntervalSince1970 * 1000)) {
                     throw Failure.retryAfter(notBeforeMS: until)

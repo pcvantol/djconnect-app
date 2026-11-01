@@ -66,11 +66,12 @@ final class DJConnectSessionArtworkTransport: Sendable {
         }
     }
 
-    func prepare(_ request: URLRequest, isCurrent: (@MainActor @Sendable () -> Bool)? = nil) async throws -> Data {
+    func prepare(_ request: URLRequest, allowsVisualContextReadiness: Bool = false, isCurrent: (@MainActor @Sendable () -> Bool)? = nil) async throws -> Data {
         try await budget.acquire()
         do {
             let (data, _) = try await responseData(request, using: preparationSession,
                 maximumBytes: 64 * 1024, allowedMIMEs: ["application/json"],
+                allowsVisualContextReadiness: allowsVisualContextReadiness,
                 isCurrent:isCurrent,taskCreated:preparationTaskCreated,taskResumed:preparationTaskResumed)
             await budget.release()
             return data
@@ -82,11 +83,11 @@ final class DJConnectSessionArtworkTransport: Sendable {
 
     /// Forecast v1 supplies no dimensions; inspect bounded static bytes before
     /// using the same strict type/dimension/thumbnail decoder as Session art.
-    func loadForecast(_ request: URLRequest) async throws -> DJConnectSessionArtworkImage {
+    func loadForecast(_ request: URLRequest, isCurrent: (@MainActor @Sendable () -> Bool)? = nil) async throws -> DJConnectSessionArtworkImage {
         try await budget.acquire()
         do {
             let (data, mime) = try await responseData(request, using: session,
-                maximumBytes: Self.maximumBytes, allowedMIMEs: ["image/png", "image/jpeg"])
+                maximumBytes: Self.maximumBytes, allowedMIMEs: ["image/png", "image/jpeg"], isCurrent: isCurrent)
             guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
                   let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
                   let width = properties[kCGImagePropertyPixelWidth] as? Int,
@@ -105,6 +106,7 @@ final class DJConnectSessionArtworkTransport: Sendable {
 
     private func responseData(_ request: URLRequest, using transport: URLSession,
                               maximumBytes: Int, allowedMIMEs: [String],
+                              allowsVisualContextReadiness: Bool = false,
                               isCurrent:(@MainActor @Sendable ()->Bool)? = nil,
                               taskCreated:(@MainActor @Sendable (URLSessionDataTask)->Void)? = nil,
                               taskResumed:(@MainActor @Sendable (URLSessionDataTask)->Void)? = nil) async throws -> (Data, String) {
@@ -116,14 +118,25 @@ final class DJConnectSessionArtworkTransport: Sendable {
             },taskCreated:taskCreated,taskResumed:taskResumed,validateResponse:{ response in
                 switch response.statusCode {
                 case 200: break
+                case 503 where allowsVisualContextReadiness: break
                 case 401: throw DJConnectError.authStale(statusCode:401,message:nil)
                 case 403: throw DJConnectError.profile(code:.profileAccessDenied,statusCode:403,message:nil)
                 case 404,410: throw DJConnectError.routeMissing(message:nil)
                 default: throw DJConnectError.server(statusCode:response.statusCode,message:nil)
                 }
                 guard let mime = response.mimeType?.lowercased(),allowedMIMEs.contains(mime) else { throw DJConnectError.invalidResponse }
-                return mime
+                return response.statusCode == 503 ? "visual-context-readiness-503" : mime
             })
+        if response.mime == "visual-context-readiness-503" {
+            struct Failure: Decodable { let success: Bool; let schema_version: Int; let error: String }
+            if let keys = try? JSONSerialization.jsonObject(with: response.data) as? [String: Any],
+               Set(keys.keys) == ["success", "schema_version", "error"],
+               let failure = try? JSONDecoder().decode(Failure.self, from: response.data),
+               !failure.success, failure.schema_version == 1, failure.error == "current_playback_unavailable" {
+                throw DJConnectVisualContextError.awaitingObservation
+            }
+            throw DJConnectError.server(statusCode: 503, message: nil)
+        }
         return (response.data,response.mime)
     }
 

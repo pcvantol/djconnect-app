@@ -991,7 +991,6 @@
 "ui.session.history.unavailable" = "Session history is temporarily unavailable.";
 "ui.session.history.empty" = "No saved sessions";
 "ui.session.history.interrupted" = "Interrupted";
-"ui.session.history.readonly" = "Read-only session";
 "ui.session.history.no_entries" = "This session has no saved contributions.";
 "ui.session.history.changed" = "The context or history has changed. Please try again.";
 "ui.session.history.current_context" = "Use current context";
@@ -1456,7 +1455,6 @@
 "ui.session.forecast.claim.current" = "Playing now";
 "ui.session.forecast.claim.intention" = "Intention";
 "ui.session.forecast.claim.conditional_target" = "Conditional aim";
-"ui.session.forecast.search" = "Search Horizon";
 // VibeCast rendezvous: routing preparation is distinct from display consent.
 "ui.rendezvous.scan" = "Scan TV QR code";
 "ui.rendezvous.choose" = "Choose your linked Home Assistant. This only sends its display address to this TV.";
@@ -1490,7 +1488,7 @@
 "ui.ha_speech.unknown" = "Unknown";
 "ui.ha_speech.retry_delay" = "Speech output is temporarily paused after a failed attempt.";
 
-"ui.session.history.delete.unconfirmed" = "Deletion is not yet confirmed. No new deletion request will be sent. Refresh only reads the history.";
+"ui.session.history.delete.unconfirmed" = "We could not confirm whether this was deleted. Please check again.";
 
 /* Server-confirmed individual content deletion. */
 "ui.content.delete.action" = "Delete contribution";
@@ -1501,7 +1499,7 @@
 "ui.content.delete.scope" = "Rows: %d removed, %d made unavailable. Messages: %d removed, %d made unavailable. DJ moments: %d. Fenced requests: %d.";
 "ui.content.delete.playback" = "The Session and music playback are preserved.";
 "ui.content.delete.expires" = "Valid until %@";
-"ui.content.delete.status" = "Check deletion status";
+"ui.content.delete.status" = "Check again";
 
 "ui.session.search.clear" = "Clear search terms";
 
@@ -1604,3 +1602,21 @@
 
 "surface.research.adapted" = "Adapted from the sources above.";
 "ui.host.wake.reviewed.device.test" = "Start reviewed device test";
+
+"surface.playback.observed.playing" = "Observed: playing";
+"surface.playback.observed.paused" = "Observed: paused";
+"surface.playback.observed.stopped" = "Observed: stopped";
+"surface.playback.observed.unknown" = "Playback status unknown";
+"surface.playback.last.observed" = "Last observed";
+"ui.content.delete.readback.pending" = "The updated history is not available yet. Please try again.";
+"ui.content.delete.refresh" = "Refresh again";
+"ui.content.delete.checking" = "Please wait…";
+
+"ui.content.delete.blocked.unavailable" = "Deletion is currently unavailable.";
+"ui.content.delete.blocked.busy" = "Another change is being completed.";
+"ui.content.delete.blocked.pending" = "An earlier deletion has not been confirmed yet.";
+"ui.content.delete.blocked.request" = "Another DJ request is still unresolved.";
+"ui.content.delete.blocked.voice" = "Stop the voice recording first.";
+"ui.content.delete.recover_previous" = "Check earlier deletion";
+"ui.vibescape.voice.starting" = "Preparing the microphone…";
+"ui.vibescape.voice.start_failed" = "Recording could not start. Try again.";

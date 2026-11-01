@@ -84,6 +84,7 @@ struct SavedSessionsView: View {
     private var refreshing: Bool { manualRefresh.isRefreshing }
     @State private var initialLoadFinished = false
     @State private var localOpenedSessionID: String?
+    @State private var openedSessionSearch: [String: String] = [:]
     @State private var isSearchVisible = false
     @State private var searchText = ""
     @State private var selectedSearchIndex = 0
@@ -171,7 +172,11 @@ struct SavedSessionsView: View {
                         .accessibilityIdentifier("saved-sessions-refresh-error")
                     }
                     ForEach(filteredSessions) { session in
-                        Button { openedSessionID.wrappedValue = session.id } label: {
+                        Button {
+                            openedSessionSearch = [session.id: isSearchVisible ? searchQuery : ""]
+                            isSearchFocused = false
+                            openedSessionID.wrappedValue = session.id
+                        } label: {
                             SavedSessionListRow(session: session, language: model.language,
                                                 summaryAvailable: history.summaryAvailable, timeZone: rowTimeZone)
                                 .equatable()
@@ -246,9 +251,13 @@ struct SavedSessionsView: View {
                 }
             }
             .navigationDestination(item: openedSessionID) { sessionID in
-                SessionTimelineScreen(model: model, sessionID: sessionID)
+                SessionTimelineScreen(model: model, sessionID: sessionID,
+                    initialSearchQuery: openedSessionSearch[sessionID] ?? "")
                     .navigationTitle(detailTitle(sessionID: sessionID))
                     .djConnectMouseBackNavigation()
+            }
+            .onChange(of: openedSessionID.wrappedValue) { _, sessionID in
+                if sessionID == nil { openedSessionSearch = [:] }
             }
             .navigationTitle(text("ui.session.history.title") + (model.isDemoMode ? " (demo)" : ""))
             .scrollBounceBehavior(.always)
@@ -407,10 +416,8 @@ struct SessionTimelineScreen: View {
     @State private var query = ""
     @State private var showsForecast = false
     @State private var forecastPosition: String?
-    @State private var forecastQuery = ""
     @State private var searching = false
     @State private var flowSearchExpanded = false
-    @State private var forecastSearchExpanded = false
     @State private var inlineSearchBounds = CGRect.zero
     @State private var pendingSearchPosition: String?
     @State private var selectedMatchID: String?
@@ -426,10 +433,14 @@ struct SessionTimelineScreen: View {
     @Environment(\.scenePhase) private var scenePhase
 
     init(model: DJConnectAppModel, sessionID: String, activeSession: DJConnectSessionRuntime? = nil,
-         initialAnchor: String? = nil, openQueueAction: @escaping () -> Void = {}, refreshAction: (() async -> Bool)? = nil) {
+         initialAnchor: String? = nil, initialSearchQuery: String = "", openQueueAction: @escaping () -> Void = {}, refreshAction: (() async -> Bool)? = nil) {
         self.model = model; history = model.sessionHistory; self.sessionID = sessionID
         self.activeSession = activeSession; self.initialAnchor = initialAnchor; self.openQueueAction = openQueueAction
         self.refreshAction = refreshAction
+        let initialQuery = initialSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        _query = State(initialValue: initialQuery)
+        _searching = State(initialValue: !initialQuery.isEmpty)
+        _flowSearchExpanded = State(initialValue: !initialQuery.isEmpty)
         _visibleEntry = State(initialValue: activeSession != nil && initialAnchor == nil ? "session-mode-picker" : nil)
         _forecastPosition = State(initialValue: activeSession != nil && initialAnchor == nil ? "session-mode-picker" : nil)
     }
@@ -469,6 +480,7 @@ struct SessionTimelineScreen: View {
         #endif
     }
     private var displayingForecast: Bool { showsForecast && activeSession != nil }
+    private var showsSessionSearch: Bool { !displayingForecast && !model.isShowingVibeScape }
     private var timeline: DJConnectSessionHistoryModel.Timeline { history.timelines[sessionID] ?? .init() }
     private struct SubmittedTurnNavigation: Equatable {
         let target: String?
@@ -579,13 +591,7 @@ struct SessionTimelineScreen: View {
                                 }
                             }
                             if displayingForecast {
-                                SessionForecastContent(model: model, query: $forecastQuery,
-                                                       searchExpanded: $forecastSearchExpanded,
-                                                       focusRequest: searchFocusRequest,
-                                                       searchBoundsChanged: {
-                                                           inlineSearchBounds = $0
-                                                           positionOpenSearch()
-                                                       })
+                                SessionForecastContent(model: model)
                                     .id("forecast-content")
                             } else {
                                 if activeSession != nil && flowSearchExpanded {
@@ -613,8 +619,6 @@ struct SessionTimelineScreen: View {
                                                     SessionHistorySummaryView(summary: summary, language: model.language, showsMood: false)
                                                 }
                                             }
-                                            Label(text("ui.session.history.readonly"), systemImage: "lock")
-                                                .font(.caption).foregroundStyle(.secondary)
                                         }
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                     }
@@ -718,19 +722,6 @@ struct SessionTimelineScreen: View {
                             history.prefetchArtwork(sessionID: sessionID, visibleIDs: artworkVisibleIDs)
                         }
                     }
-                    .overlay(alignment: .bottomTrailing) {
-                        if !currentHeaderVisible {
-                            Button {
-                                jump("current", proxy: proxy)
-                            } label: { Image(systemName: "arrow.up") }
-                            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
-                            .accessibilityLabel(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
-                            .help(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
-                            .accessibilityIdentifier("session-jump-top")
-                            .padding(16)
-                            .padding(.bottom, !searching && !showsForecast && usesFloatingComposer ? floatingComposerHeight + 8 : 8)
-                        }
-                    }
                     .defaultScrollAnchor(.top, for: .initialOffset)
                     .scrollPosition(id: displayingForecast ? $forecastPosition : $visibleEntry,
                                     anchor: displayingForecast ? .top : scrollAnchor)
@@ -744,16 +735,34 @@ struct SessionTimelineScreen: View {
                             visibleEntry = target
                         }
                     }
-                    .djContentRefreshable(enabled: !showsForecast && !model.isDemoMode && model.pairingStatus == .paired) {
+                    .djContentRefreshable(enabled: displayingForecast ? model.canRefreshSessionForecast : !model.isDemoMode && model.pairingStatus == .paired) {
                         pullRefreshing = true
                         defer { pullRefreshing = false }
-                        await refreshTimeline()
+                        if displayingForecast {
+                            await model.refreshSessionForecast()
+                        } else {
+                            await refreshTimeline()
+                        }
                     }
                     }
                     .safeAreaInset(edge: .bottom, spacing: 0) {
                         if usesFloatingComposer && !searching && !showsForecast {
                             Color.clear.frame(height: floatingComposerHeight + composerBottomPadding + 8)
                                 .allowsHitTesting(false)
+                        }
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        if !currentHeaderVisible {
+                            Button {
+                                jump("current", proxy: proxy)
+                            } label: { Image(systemName: "arrow.up") }
+                            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
+                            .accessibilityLabel(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
+                            .help(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
+                            .accessibilityIdentifier("session-jump-top")
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, !searching && !showsForecast && usesFloatingComposer
+                                ? floatingComposerHeight + composerBottomPadding + 8 : 8)
                         }
                     }
                     .overlay(alignment: .bottom) {
@@ -771,12 +780,11 @@ struct SessionTimelineScreen: View {
                 }
             }
             .background(sessionBackground)
+            .coordinateSpace(name: AskDJHelpPanelLayout.coordinateSpace)
             .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
                 guard activeSession != nil, sessionControlIntent == nil, !inlineSearchBounds.isEmpty,
                       !inlineSearchBounds.contains(tap.location) else { return }
-                if displayingForecast {
-                    forecastSearchExpanded = false; forecastQuery = ""
-                } else if flowSearchExpanded {
+                if flowSearchExpanded {
                     closeSearch(proxy: proxy)
                 }
             })
@@ -785,23 +793,25 @@ struct SessionTimelineScreen: View {
             }
             .onChange(of: showsForecast) { _, value in
                 pendingSearchPosition = nil
-                flowSearchExpanded = false; forecastSearchExpanded = false; forecastQuery = ""
+                flowSearchExpanded = false
                 query = ""; selectedMatchID = nil; searching = false; history.clearSearch()
                 if value { inputFocused = false; searchFocused = false }
                 if activeSession != nil { positionSessionTopWithoutAnimation() }
             }
             .onChange(of: model.isShowingVibeScape) { _, visible in
-                if !visible {
+                if visible {
+                    pendingSearchPosition = nil; flowSearchExpanded = false
+                    searching = false; query = ""; selectedMatchID = nil
+                    inputFocused = false; searchFocused = false; history.clearSearch()
+                } else {
                     showsForecast = model.vibeScapeReturnToForecast
                     if activeSession != nil { positionSessionTopWithoutAnimation() }
                 }
             }
-            .onChange(of: forecastSearchExpanded) { _, expanded in
-                if !expanded { pendingSearchPosition = nil }
-            }
             .overlay {
                 if activeSession != nil {
-                    PersonaReactionOverlay(controller: model.personaReactions, language: model.language, avatarFrame: model.personaAvatarFrame)
+                    PersonaReactionOverlay(controller: model.personaReactions, language: model.language, avatarFrame: model.personaAvatarFrame,
+                        mood: model.djSessionLiveUnavailable || model.djSessionIsRecovering ? nil : activeSession?.selectedMood)
                 }
             }
             .djStatusToastOverlay(model.personaReactionNotice, screenImage: DJConnectFeatureSymbols.djSession)
@@ -826,13 +836,13 @@ struct SessionTimelineScreen: View {
         }
         #endif
             .background {
-                if activeSession != nil {
+                if activeSession != nil && showsSessionSearch {
                     // Retain Command-F without an additional visible search control.
                     Button {
                         openCurrentSearch(proxy: proxy)
                     } label: { EmptyView() }
                     .keyboardShortcut("f", modifiers: .command)
-                    .disabled(!displayingForecast && !history.searchAvailable)
+                    .disabled(!history.searchAvailable)
                     .hidden()
                     .accessibilityHidden(true)
                 }
@@ -909,8 +919,8 @@ struct SessionTimelineScreen: View {
             #if os(iOS)
             .overlay(alignment: .topTrailing) {
                 SessionControlPopoverHost(model: model, intent: $sessionControlIntent, showsHandoff: allowsHandoffPresentation,
-                    searchAction: { openCurrentSearch(proxy: proxy) },
-                    searchEnabled: displayingForecast || history.searchAvailable)
+                    searchAction: showsSessionSearch ? { openCurrentSearch(proxy: proxy) } : nil,
+                    searchEnabled: showsSessionSearch && history.searchAvailable)
 
             }
             #endif
@@ -926,6 +936,10 @@ struct SessionTimelineScreen: View {
                 let restoreGeneration = anchorGeneration
                 await history.prepare(); await history.loadTimeline(sessionID, window: .tail)
                 guard !Task.isCancelled, restoreGeneration == anchorGeneration else { return }
+                if filtersTimeline {
+                    history.search(sessionID: sessionID, query: query)
+                    return
+                }
                 if let initialAnchor { await selectAnchor(initialAnchor, proxy: proxy, restoreRequest: true) }
                 else if activeSession != nil { return } // Content refresh never repositions the active screen.
                 else if let anchor = history.readingAnchor(sessionID: sessionID) {
@@ -980,7 +994,7 @@ struct SessionTimelineScreen: View {
                     if activeSession != nil {
                         pagingTask?.cancel(); pagingTask = nil
                         searching = false; searchFocused = false; query = ""; selectedMatchID = nil
-                        flowSearchExpanded = false; forecastSearchExpanded = false; forecastQuery = ""
+                        flowSearchExpanded = false
                         history.clearSearch()
                         resumePosition = "current"
                         positionSessionTopWithoutAnimation()
@@ -1134,6 +1148,7 @@ struct SessionTimelineScreen: View {
     }
 
     private func toggleFlowSearch(proxy: ScrollViewProxy) {
+        guard showsSessionSearch else { return }
         showsForecast = false
         if !searching { priorSearchPosition = visibleEntry }
         inputFocused = false
@@ -1142,7 +1157,8 @@ struct SessionTimelineScreen: View {
         searchFocusRequest = UUID()
     }
 
-    private func sessionSearchToolbarButton(proxy: ScrollViewProxy) -> some View {
+    @ViewBuilder private func sessionSearchToolbarButton(proxy: ScrollViewProxy) -> some View {
+        if showsSessionSearch {
         Button {
             if activeSession != nil { openCurrentSearch(proxy: proxy) }
             else { toggleFlowSearch(proxy: proxy) }
@@ -1150,22 +1166,23 @@ struct SessionTimelineScreen: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(searching ? djConnectAccent : .primary)
         }
-            .disabled(!displayingForecast && !history.searchAvailable)
+            .disabled(!history.searchAvailable)
             .accessibilityLabel(text("ui.session.history.search"))
             .accessibilityIdentifier("session-search-toggle")
             .keyboardShortcut("f", modifiers: .command)
+        }
     }
 
     private func openCurrentSearch(proxy: ScrollViewProxy) {
+        guard showsSessionSearch else { return }
         inputFocused = false
         searchFocused = false
         searchFocusRequest = UUID()
         submittedQuestion = nil
         sceneRestoreTask?.cancel(); anchorGeneration = UUID()
-        pendingSearchPosition = displayingForecast ? "forecast-search" : "flow-search"
+        pendingSearchPosition = "flow-search"
         inlineSearchBounds = .zero
-        if displayingForecast { forecastSearchExpanded = true }
-        else { flowSearchExpanded = true; searchFocused = true }
+        flowSearchExpanded = true; searchFocused = true
         // Use the same bound scroll controller as keyboard/layout changes.
         // Field layout and keyboard completion settle this same target again;
         // an actual user scroll releases it immediately.
@@ -1176,20 +1193,13 @@ struct SessionTimelineScreen: View {
     }
 
     private func positionOpenSearch() {
-        guard activeSession != nil, scenePhase == .active, let target = pendingSearchPosition,
-              target == (displayingForecast ? "forecast-search" : "flow-search"),
-              displayingForecast ? forecastSearchExpanded : flowSearchExpanded else { return }
+        guard activeSession != nil, showsSessionSearch, scenePhase == .active,
+              let target = pendingSearchPosition, target == "flow-search", flowSearchExpanded else { return }
         var transaction = Transaction(animation: nil)
         transaction.disablesAnimations = true
         withTransaction(transaction) {
             scrollAnchor = .top
-            if displayingForecast {
-                // A nested target does not exist until LazyVStack mounts the
-                // Forecast row. Mount that row first; its field geometry then
-                // advances this same controller to the final search target.
-                forecastPosition = SessionForecastSearchPosition.target(fieldBounds: inlineSearchBounds)
-            }
-            else { visibleEntry = target }
+            visibleEntry = target
         }
     }
 
@@ -1481,6 +1491,16 @@ struct SessionTimelineScreen: View {
     }
 }
 
+/// Shared by the mode picker and active Session preference selectors.
+extension DJConnectSessionMoodTheme {
+    var controlSelectionColor: Color {
+        let rgb = colorValues[self == .groove ? 1 : 2]
+        return Color(red: Double((rgb >> 16) & 255) / 255 * 0.35,
+                     green: Double((rgb >> 8) & 255) / 255 * 0.35,
+                     blue: Double(rgb & 255) / 255 * 0.35)
+    }
+}
+
 struct SessionModeToggleButtons: View {
     @Binding var showsForecast: Bool
     let language: String
@@ -1488,11 +1508,7 @@ struct SessionModeToggleButtons: View {
     var isVibeScape = false
     var mood: String? = nil
     private var selectionColor: Color {
-        let theme = DJConnectSessionMoodTheme(sessionMood: mood)
-        let rgb = theme.colorValues[theme == .groove ? 1 : 2]
-        return Color(red: Double((rgb >> 16) & 255) / 255 * 0.35,
-                     green: Double((rgb >> 8) & 255) / 255 * 0.35,
-                     blue: Double(rgb & 255) / 255 * 0.35)
+        DJConnectSessionMoodTheme(sessionMood: mood).controlSelectionColor
     }
 
     var body: some View {
@@ -1510,6 +1526,8 @@ struct SessionModeToggleButtons: View {
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("session-flow-forecast-picker")
+        // Keep the same live glass as VibeScape inside Flow/Horizon's scroll host.
+        .environment(\.djConnectScrollingSurface, false)
     }
 
     private func modeButton(forecast: Bool, key: String) -> some View {
@@ -1546,6 +1564,7 @@ struct SessionModeToggleButtons: View {
 struct SessionHighlightedText: View {
     let text: String
     let highlights: [DJConnectHistoryHighlight]
+    var allowsTextSelection = true
     private var attributed: AttributedString {
         var result = AttributedString(text)
         for mark in highlights {
@@ -1557,7 +1576,13 @@ struct SessionHighlightedText: View {
         }
         return result
     }
-    var body: some View { Text(attributed).fixedSize(horizontal: false, vertical: true).textSelection(.enabled) }
+    @ViewBuilder var body: some View {
+        if allowsTextSelection {
+            Text(attributed).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+        } else {
+            Text(attributed).fixedSize(horizontal: false, vertical: true).textSelection(.disabled)
+        }
+    }
 }
 
 /// Attach only to contribution text, never the surrounding card or its nested
@@ -1566,9 +1591,13 @@ struct SessionHighlightedText: View {
 struct ContributionContentAction: ViewModifier {
     let question: String?
     let action: (() -> Void)?
+    var allowsTextSelection = true
     @ViewBuilder func body(content: Content) -> some View {
         if let question, let action {
-            content.textSelection(.enabled)
+            Group {
+                if allowsTextSelection { content.textSelection(.enabled) }
+                else { content.textSelection(.disabled) }
+            }
                 .onTapGesture(perform: action)
                 .accessibilityAction(named: question, action)
                 .help(question)
@@ -1673,11 +1702,20 @@ struct SessionEntryView: View, Equatable {
                                 .modifier(ContributionContentAction(question: contributionQuestion, action: contributionAction))
                         }
                         SessionTimestampText(value: entry.occurredAt, language: language).font(.caption).foregroundStyle(.secondary)
-                        ForEach(sourceURLs, id: \.absoluteString) { url in
-                            Link(sourceLabel(for: url), destination: url)
-                                .foregroundStyle(.white)
-                                .tint(.white)
-                                .accessibilityValue(url.absoluteString)
+                        ForEach(SessionSourceLinks.groups(urls: sourceURLs, label: sourceLabel)) { group in
+                            if group.urls.count == 1, let url = group.urls.first {
+                                Link(group.label, destination: url)
+                                    .foregroundStyle(.white).tint(.white)
+                                    .accessibilityValue(url.absoluteString)
+                            } else {
+                                Menu(group.label) {
+                                    ForEach(group.urls, id: \.absoluteString) { url in
+                                        Link(SessionSourceLinks.destinationLabel(url), destination: url)
+                                            .accessibilityValue(url.absoluteString)
+                                    }
+                                }
+                                .foregroundStyle(.white).tint(.white)
+                            }
                         }
                         if entry.requiresSpotifyAttribution == true, let logo = spotifyAttributionLogo,
                            let url = spotifyFooterURL {
@@ -1813,6 +1851,33 @@ struct SessionEntryView: View, Equatable {
 /// A supplied revision is the precise version of its canonical source, not a
 /// second citation. Keep distinct articles and previous sources independently.
 enum SessionSourceLinks {
+    struct Group: Identifiable {
+        let label: String
+        var urls: [URL]
+        var id: String { label }
+    }
+
+    /// Group identical visible credits, retaining every distinct destination.
+    /// A different provider/license label remains a separate attribution.
+    static func groups(urls: [URL], label: (URL) -> String) -> [Group] {
+        var groups: [Group] = []
+        for url in urls {
+            let title = label(url)
+            if let index = groups.firstIndex(where: { $0.label == title }) {
+                if !groups[index].urls.contains(url) { groups[index].urls.append(url) }
+            } else { groups.append(Group(label: title, urls: [url])) }
+        }
+        return groups
+    }
+
+    static func destinationLabel(_ url: URL) -> String {
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let wikiTitle = components?.queryItems?.first { $0.name == "title" }?.value
+        let title = wikiTitle ?? url.lastPathComponent.removingPercentEncoding ?? url.lastPathComponent
+        guard !title.isEmpty, title != "index.php" else { return url.absoluteString }
+        return title.replacingOccurrences(of: "_", with: " ")
+    }
+
     static func urls(playback: String?, sources: [[String: String]]) -> [URL] {
         func admitted(_ raw: String?) -> URL? {
             guard let raw, let url = URL(string: raw), ["http", "https"].contains(url.scheme),
@@ -2127,6 +2192,8 @@ struct SessionControlPopoverHost: View {
                 }
                 .background(SessionPopoverDismissalObserver { finishDismissal(captured.id) })
                 .presentationCompactAdaptation(.popover)
+                // The voice editor owns its own surface on iOS and Mac.
+                .djConnectGlassPopoutSurface(enabled: captured.kind != .voice)
                 .djConnectPresentationSurface()
             }
             .task(id: intent?.id) {
@@ -2180,7 +2247,9 @@ private struct SessionMoodPopoverContent: View {
         VStack(alignment: .leading, spacing: 12) {
             SessionGlassChoiceSelector(steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
                                       selectedIndex: moods.firstIndex(of: session?.selectedMood ?? "") ?? 0,
-                                      language: model.language, preservesAppearanceWhileDisabled: true) { index in
+                                      language: model.language,
+                                      sessionTheme: .init(sessionMood: session?.selectedMood),
+                                      preservesAppearanceWhileDisabled: true) { index in
                 guard canChange, moods.indices.contains(index) else { return }
                 Task { await model.changeActiveSessionMood(moods[index], expectedSessionID: sessionID, expectedEpoch: epoch) }
             }
@@ -2261,6 +2330,7 @@ struct ActiveSessionPresenceToolbar: View {
             .onExitCommand { scope = nil }
             #endif
             .presentationCompactAdaptation(.popover)
+                .djConnectGlassPopoutSurface()
                 .djConnectPresentationSurface()
         }
         .onAppear { trace("toolbar-appeared") }
@@ -2339,7 +2409,8 @@ struct ActiveSessionPresenceControl: View {
                                            glyphs: values.map(\.choiceGlyph),
                                            titleKey: "ui.session.presence.title",
                                            accessibilityLabelKey: "ui.session.presence.title",
-                                           optionIDs: values.map { "session-presence-choice-" + $0.rawValue }) { index in
+                                           optionIDs: values.map { "session-presence-choice-" + $0.rawValue },
+                                           sessionTheme: .init(sessionMood: model.activeDJSession?.selectedMood)) { index in
                     preview = Double(index); commit(preview)
                 }
                 .accessibilityIdentifier("session-presence-slider")
@@ -2417,6 +2488,7 @@ struct ActiveSessionMoodToolbar: View {
             VStack(alignment: .leading, spacing: 12) {
                 SessionGlassChoiceSelector(steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
                                          selectedIndex: selectedIndex, language: model.language,
+                                         sessionTheme: .init(sessionMood: model.activeDJSession?.selectedMood),
                                          preservesAppearanceWhileDisabled: true) { index in
                     guard canChange, moods.indices.contains(index) else { return }
                     Task { await model.changeActiveSessionMood(moods[index], expectedSessionID: intent.sessionID, expectedEpoch: intent.epoch) }
@@ -2441,6 +2513,7 @@ struct ActiveSessionMoodToolbar: View {
             .onExitCommand { moodIntent = nil }
             #endif
             .presentationCompactAdaptation(.popover)
+                .djConnectGlassPopoutSurface()
                 .djConnectPresentationSurface()
         }
         .task(id: CapabilityScope(sessionID: session.id, epoch: history.responseEpoch, authorized: model.pairingStatus == .paired)) {
@@ -2579,6 +2652,7 @@ struct SessionConnectionToolbarButton: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .ignoresSafeArea(.keyboard)
                 .presentationCompactAdaptation(.popover)
+                .djConnectGlassPopoutSurface()
                 .djConnectPresentationSurface()
         }
     }

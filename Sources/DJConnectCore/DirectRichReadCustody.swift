@@ -103,7 +103,12 @@ import Foundation
             originalBodyIsLive = { lifetime.isLive }
         }
         var isRetained: Bool {
-            guard !Task.isCancelled, let owner, owner.fence.isLive, owner.originalLocalResourcesAreCurrent,
+            !Task.isCancelled && isOwnedRetained
+        }
+        /// Ownership survives cancellation of an individual refresh reader. This
+        /// does not permit that cancelled task to dispatch or publish anything.
+        fileprivate var isOwnedRetained: Bool {
+            guard let owner, owner.fence.isLive, owner.originalLocalResourcesAreCurrent,
                   [.active, .suspended].contains(owner.state), let original = owner.original,
                   original.operationID == operationID, original.purposeID == purposeID,
                   original.sessionID == sessionID, original.surface == surface, original.generation == generation,
@@ -112,9 +117,17 @@ import Foundation
             guard receiving.isLive, receiving.pairedOrigin == pairedOrigin, owner.ownerIsCurrent(), owner.pairCurrent() else {
                 owner.retire(); return false // Observed owning loss is terminal; no ABA revival.
             }
-            return true // Suspension retains only negative/history custody.
+            return true // Positive background reads require the separate foreground transfer below.
         }
-        var isActive: Bool { isRetained && owner?.state == .active }
+        var isActive: Bool { isRetained && owner?.state == .active && owner?.lastReadWasRegistered == false }
+        /// One foreground attenuation from this exact acknowledged child and
+        /// original parent. No decoded reply/status or caller Boolean can mint it.
+        fileprivate func registeredReadContinuation(for child: CoreHostWakeProxyCustody) throws -> RegisteredReadContinuation {
+            guard isActive, proxy === child, child.phase == .registered, let owner,
+                  owner.registeredRead == nil else { throw CancellationError() }
+            return RegisteredReadContinuation(parent: self, owner: owner,
+                registrationIsCurrent: try child.transferRegisteredReadLiveness())
+        }
         var canManageNegative: Bool {
             guard !Task.isCancelled, let owner, receiving.isLive, receiving.pairedOrigin == pairedOrigin else { return false }
             let paired = owner.pairCurrent()
@@ -151,7 +164,43 @@ import Foundation
             guard let proxy, proxy.prepareWasStarted else { return nil }; return proxy
         }
     }
+    /// Warm read-only custody. It never retains a key, creates a parent,
+    /// authorizes a read purpose or calls any native/enrollment SDK operation.
+    @MainActor fileprivate final class RegisteredReadContinuation {
+        private let parent: OriginalPurposeContext
+        private weak var owner: DirectRichReadCustody?
+        private let registrationIsCurrent: @MainActor @Sendable () -> Bool
+        private var closed = false
+        fileprivate init(parent: OriginalPurposeContext, owner: DirectRichReadCustody,
+            registrationIsCurrent: @escaping @MainActor @Sendable () -> Bool) {
+            self.parent = parent; self.owner = owner; self.registrationIsCurrent = registrationIsCurrent
+        }
+        var isCurrent: Bool {
+            guard !closed, registrationIsCurrent(), let owner, parent.isOwnedRetained, owner.registeredRead === self else {
+                closed = true; return false
+            }
+            return true
+        }
+    }
+    private var registeredRead: RegisteredReadContinuation?
+    func retainRegisteredRead(from child: CoreHostWakeProxyCustody,
+        parent: OriginalPurposeContext) throws {
+        guard originalPurposeContext === parent, registeredRead == nil else { throw CancellationError() }
+        registeredRead = try parent.registeredReadContinuation(for: child)
+    }
+    var hasRegisteredRead: Bool { registeredRead?.isCurrent == true }
+    func retainsStatusParentForOwnership(_ parent: OriginalPurposeContext) -> Bool {
+        originalContextCache === parent && parent.isOwnedRetained && hasRegisteredRead
+    }
+    func readRegistered(captureAttempt: @escaping @MainActor @Sendable () -> (@MainActor @Sendable () -> Bool)) async throws -> Candidate {
+        guard let registeredRead, registeredRead.isCurrent else { throw CancellationError() }
+        return try await read(capture: {
+            let attempt = captureAttempt()
+            return { registeredRead.isCurrent && attempt() }
+        }, registered: true)
+    }
     private var originalContextCache: OriginalPurposeContext?
+    private var lastReadWasRegistered = false
     private var proxyCancellation: CoreHostWakeProxyCancellation?
     var originalPurposeContext: OriginalPurposeContext? {
         if let context = originalContextCache { return context.isRetained ? context : nil }
@@ -277,11 +326,15 @@ import Foundation
     }
 
     func read() async throws -> Candidate {
+        try await read(capture: captureAttempt)
+    }
+    private func read(capture captureReadAttempt: @escaping @MainActor @Sendable () -> (@MainActor @Sendable () -> Bool),
+        registered: Bool = false) async throws -> Candidate {
         try Task.checkCancellation()
         guard fence.isLive else { retire(unknown: state == .unknown); throw CancellationError() }
         guard [.active, .suspended].contains(state), original != nil, originalLocalResourcesAreCurrent else { throw DJConnectError.invalidResponse }
         if let shared = workResult {
-            let current = captureAttempt()
+            let current = captureReadAttempt()
             guard current(), ownerIsCurrent(), pairCurrent() else { throw CancellationError() }
             // This waiter does not own/cancel the shared request. Its own
             // cancellation and actual currentness still gate the joined result.
@@ -291,7 +344,7 @@ import Foundation
             return candidate
         }
         guard ownerIsCurrent(), pairCurrent() else { retire(); throw CancellationError() }
-        let capture = DJConnectNativeSurfaceClockCapture.capture(), current = captureAttempt()
+        let capture = DJConnectNativeSurfaceClockCapture.capture(), current = captureReadAttempt()
         let id = UUID(); workID = id
         let shared = DirectRichSharedResult<Candidate>(); workResult = shared
         let task = Task { @MainActor [self] in
@@ -302,7 +355,7 @@ import Foundation
                 let reply = try await exchange(request, credential: original.readCredential, attemptCurrent: current)
                 let accepted = try DirectRichResponse.active(reply.bytes, request: request, original: original)
                 guard fence.isLive, self.original != nil, originalLocalResourcesAreCurrent, ownerIsCurrent(), pairCurrent(), current() else { throw CancellationError() }
-                try accept(accepted.frame); state = .active
+                try accept(accepted.frame); lastReadWasRegistered = registered; state = .active
                 let candidate = Candidate(owner: self, frameID: accepted.frame.frame_id, capture: capture, attemptCurrent: current)
                 shared.complete(.success(candidate)); return candidate
             } catch {
@@ -405,6 +458,7 @@ import Foundation
     }
 
     func retire(unknown: Bool = false) {
+        registeredRead = nil
         originalLocalResources?.close() // Terminal; a later read cannot capture a new C0.
         proxyCancellation?.cancelPositive()
         originalContextCache?.retireProxy()

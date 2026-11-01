@@ -156,6 +156,11 @@ public final class DJConnectHATransportManager: Sendable {
             } catch let rejection as DJConnectProfileDJSettingsFailure {
                 modeReporter?(candidate.mode, baseURL)
                 throw rejection // Reachable owner rejection, never a route failure/replay.
+            } catch let readiness as DJConnectVisualContextError {
+                // Explicit observation readiness is a reachable server refusal.
+                // The visual client owns bounded waiting, never transport replay.
+                modeReporter?(candidate.mode, baseURL)
+                throw readiness
             } catch let conflict as DJConnectSessionPresenceConflict {
                 // An authorized CAS conflict proves this route is reachable.
                 // Preserve connection health and never replay the mutation.

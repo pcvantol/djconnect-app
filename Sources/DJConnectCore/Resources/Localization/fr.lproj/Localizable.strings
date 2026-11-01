@@ -991,7 +991,6 @@
 "ui.session.history.unavailable" = "L’historique des sessions est temporairement indisponible.";
 "ui.session.history.empty" = "Aucune session enregistrée";
 "ui.session.history.interrupted" = "Interrompue";
-"ui.session.history.readonly" = "Session en lecture seule";
 "ui.session.history.no_entries" = "Cette session ne contient aucune contribution enregistrée.";
 "ui.session.history.changed" = "Le contexte ou l’historique a changé. Réessayez.";
 "ui.session.history.current_context" = "Utiliser le contexte actuel";
@@ -1456,7 +1455,6 @@
 "ui.session.forecast.claim.current" = "En cours";
 "ui.session.forecast.claim.intention" = "Intention";
 "ui.session.forecast.claim.conditional_target" = "Objectif possible";
-"ui.session.forecast.search" = "Rechercher dans Horizon";
 // VibeCast rendezvous: routing preparation is distinct from display consent.
 "ui.rendezvous.scan" = "Scanner le code QR du téléviseur";
 "ui.rendezvous.choose" = "Choisissez votre Home Assistant associé. Seule son adresse d’affichage sera partagée avec ce téléviseur.";
@@ -1490,7 +1488,7 @@
 "ui.ha_speech.unknown" = "Inconnu";
 "ui.ha_speech.retry_delay" = "La synthèse vocale est temporairement suspendue après une tentative échouée.";
 
-"ui.session.history.delete.unconfirmed" = "La suppression n’est pas encore confirmée. Aucune nouvelle demande de suppression ne sera envoyée. L’actualisation ne fait que lire l’historique.";
+"ui.session.history.delete.unconfirmed" = "Nous ne pouvons pas encore confirmer la suppression. Veuillez vérifier à nouveau.";
 
 /* Server-confirmed individual content deletion. */
 "ui.content.delete.action" = "Supprimer la contribution";
@@ -1501,7 +1499,7 @@
 "ui.content.delete.scope" = "Lignes : %d supprimées, %d indisponibles. Messages : %d supprimés, %d indisponibles. Moments du DJ : %d. Demandes bloquées : %d.";
 "ui.content.delete.playback" = "La session et la lecture musicale sont conservées.";
 "ui.content.delete.expires" = "Valable jusqu’à %@";
-"ui.content.delete.status" = "Vérifier la suppression";
+"ui.content.delete.status" = "Vérifier à nouveau";
 
 "ui.session.search.clear" = "Effacer les termes de recherche";
 
@@ -1604,3 +1602,21 @@
 
 "surface.research.adapted" = "Adapté à partir des sources ci-dessus.";
 "ui.host.wake.reviewed.device.test" = "Lancer le test d’appareil validé";
+
+"surface.playback.observed.playing" = "Lecture observée";
+"surface.playback.observed.paused" = "Pause observée";
+"surface.playback.observed.stopped" = "Arrêt observé";
+"surface.playback.observed.unknown" = "État de lecture inconnu";
+"surface.playback.last.observed" = "Dernière observation";
+"ui.content.delete.readback.pending" = "L’historique actualisé n’est pas encore disponible. Veuillez réessayer.";
+"ui.content.delete.refresh" = "Actualiser à nouveau";
+"ui.content.delete.checking" = "Veuillez patienter…";
+
+"ui.content.delete.blocked.unavailable" = "La suppression est indisponible pour le moment.";
+"ui.content.delete.blocked.busy" = "Une autre modification est en cours.";
+"ui.content.delete.blocked.pending" = "Une suppression précédente n’a pas encore été confirmée.";
+"ui.content.delete.blocked.request" = "Une autre demande au DJ est encore en attente.";
+"ui.content.delete.blocked.voice" = "Arrêtez d’abord l’enregistrement vocal.";
+"ui.content.delete.recover_previous" = "Vérifier la suppression précédente";
+"ui.vibescape.voice.starting" = "Préparation du microphone…";
+"ui.vibescape.voice.start_failed" = "L’enregistrement n’a pas pu démarrer. Réessayez.";

@@ -597,15 +597,22 @@ public struct DJConnectAskDJMessage: Identifiable, Codable, Equatable, Sendable 
         return matches.count == 1 ? matches.first : nil
     }
 
-    /// Drop only the exact numbered projection of the structured catalogue.
-    /// Preserve prose/captions and distinct editions, including repeated titles.
+    /// Remove only producer list lines also represented by structured music
+    /// rows. Keep prose, unmatched items and the original stored message intact.
     var catalogueTextForDisplay: String {
-        guard role == .dj, textSource == "qualified_catalog_result", !items.isEmpty,
+        guard role == .dj, !items.isEmpty,
               items.allSatisfy({ ["track", "album", "artist", "playlist"].contains($0.kind?.lowercased() ?? "") && !$0.title.isEmpty }) else { return text }
+        let history = intentInfo?.intent == "recently_played_history" && intentInfo?.action == "recently_played"
+        guard textSource == "qualified_catalog_result" || history else { return text }
         func normalized(_ value: String) -> String { value.split(whereSeparator: \.isWhitespace).joined(separator: " ") }
-        let projected = Set(items.enumerated().map { index, item in
+        let projected = Set(items.enumerated().flatMap { index, item -> [String] in
             let title = normalized(item.title), subtitle = normalized(item.subtitle ?? "")
-            return "\(index + 1). " + title + (subtitle.isEmpty || subtitle == title ? "" : " — " + subtitle)
+            if history {
+                let line = subtitle.isEmpty ? title : (item.kind?.lowercased() == "track"
+                    ? subtitle + " - " + title : title + " - " + subtitle)
+                return ["- " + line, "• " + line]
+            }
+            return ["\(index + 1). " + title + (subtitle.isEmpty || subtitle == title ? "" : " — " + subtitle)]
         })
         return text.components(separatedBy: .newlines)
             .filter { !projected.contains(normalized($0)) }
@@ -1152,9 +1159,17 @@ public final class DJConnectAppModel: ObservableObject {
     private var voiceOperationGeneration = UUID()
     var voiceOperationID: UUID { voiceOperationGeneration }
     public var canRefreshSessionHistory: Bool { isAppInForeground && pairingStatus == .paired && !isDemoMode }
-    public var canUseProfileConversation: Bool {
+    // An in-flight scoped deletion blocks new commands, not presentation. If it
+    // unmounted the row, its own confirmation/task state would be discarded.
+    var canPresentProfileConversation: Bool {
         sessionHistory.available && sessionHistory.profileScopeActive && sessionHistory.hasAuthorizedOwner &&
-        canRefreshSessionHistory && !sessionHistory.contentDeletionBusy && isRuntimeCompatible && haConnectionMode != .offline
+        canRefreshSessionHistory && isRuntimeCompatible && haConnectionMode != .offline
+    }
+    var canPresentAskDJHistory: Bool {
+        !isShowingVibeScape && (sessionHistory.profileScopeActive ? canPresentProfileConversation : canUsePlaybackFeatures)
+    }
+    public var canUseProfileConversation: Bool {
+        canPresentProfileConversation && !sessionHistory.contentDeletionBusy
     }
     public var canUseAskDJFeatures: Bool {
         !isShowingVibeScape && (sessionHistory.profileScopeActive ? canUseProfileConversation : canUsePlaybackFeatures)
@@ -2055,6 +2070,11 @@ public final class DJConnectAppModel: ObservableObject {
     private struct DirectSessionSlot: Hashable, Sendable { let scope: DirectSessionScope; let surface: String }
     private var directSessionRuntimes: [DirectSessionSlot: DJConnectDirectSessionRuntime] = [:]
     private var directSessionSelected: [String: DJConnectDirectSessionRuntime] = [:]
+    private let registeredHostWakeRefresh = RegisteredHostWakeRefreshOwner()
+    private var directStatusOrigins: [String: DJConnectDirectStatusObservationOrigin] = [:]
+    #if os(iOS) && canImport(ActivityKit)
+    private var directStatusActivityCarry: DJConnectSessionSurfaceActivityController.StatusCarry?
+    #endif
     private var directSessionAttemptEpoch = UUID()
     private var sessionSurfaceActivityTask: Task<Void, Never>?
     private var sessionSurfaceActivityDispatchVersion = UUID()
@@ -6105,7 +6125,7 @@ public final class DJConnectAppModel: ObservableObject {
             log(.debug, "Ask DJ refresh skipped in demo mode")
             return false
         }
-        guard canUsePlaybackFeatures else {
+        guard (sessionHistory.profileScopeActive ? canPresentProfileConversation : canUsePlaybackFeatures) else {
             log(.warning, "Ask DJ refresh skipped because playback features are unavailable")
             if showToast {
                 showAskDJToast(localized(key: "appModel.ask.dj.is.unreachable"))
@@ -6116,6 +6136,9 @@ public final class DJConnectAppModel: ObservableObject {
         isCheckingAskDJHistoryState = true
         defer { isCheckingAskDJHistoryState = false }
         log(.info, "Refreshing Ask DJ history from user action")
+        if sessionHistory.canCheckContentDeletionStatus {
+            _ = await sessionHistory.checkContentDeletionStatus()
+        }
         let didSync = await syncAskDJHistory(showErrors: true)
         await requestAskDJIdleSuggestionIfNeeded()
         if didSync, showToast {
@@ -7459,7 +7482,7 @@ public final class DJConnectAppModel: ObservableObject {
                 guard profileDJSettings.active else { syncSessionSurfaces(); return }
                 presentProfileSettingsRejection(rejected)
             }
-            presentSettingsOperationConfirmation()
+            consumeSettingsOperationConfirmation()
             syncSessionSurfaces()
             if before != nil && (before?.binding != profileDJSettings.response?.binding || before?.snapshot != profileDJSettings.response?.snapshot || before?.voice_revision != profileDJSettings.response?.voice_revision) {
                 stopResponsePlayback(clearText: false)
@@ -7475,18 +7498,17 @@ public final class DJConnectAppModel: ObservableObject {
         stopResponsePlayback(clearText: false)
         let rejected = await profileDJSettings.change(patch, using: profileDJSettingsServices)
         presentProfileSettingsRejection(rejected)
-        presentSettingsOperationConfirmation()
+        consumeSettingsOperationConfirmation()
         syncSessionSurfaces()
         // Rendering reads active Session from its existing owner; no separate write.
         _ = await refreshActiveDJSession()
     }
 
-    private func presentSettingsOperationConfirmation() {
-        guard let confirmation = profileDJSettings.takeOperationConfirmation(),
-              activeDJSession == nil, isAppInForeground, pairingStatus == .paired else { return }
-        // A Profile acknowledgement is not a fictitious Session Moment and
-        // cannot authorize speech, playback, or a duplicate live card.
-        userNotice = DJConnectUserNotice(text: confirmation.text)
+    private func consumeSettingsOperationConfirmation() {
+        // The confirmed settings already update their controls. Consume the
+        // acknowledgement without a toast, including before a Session exists.
+        // It does not authorize a Session Moment, speech or playback.
+        _ = profileDJSettings.takeOperationConfirmation()
     }
 
     private func presentProfileSettingsRejection(_ rejected: DJConnectProfileDJSettingsFailure?) {
@@ -7499,7 +7521,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     func reconcileProfileDJSettingsChoice() async {
         presentProfileSettingsRejection(await profileDJSettings.reconcile(profileDJSettingsServices))
-        presentSettingsOperationConfirmation()
+        consumeSettingsOperationConfirmation()
         syncSessionSurfaces()
         if activeDJSession != nil { _ = await refreshActiveDJSession() }
     }
@@ -9918,7 +9940,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     @discardableResult
     public func playMusicDiscoveryItem(_ item: DJConnectMusicDiscoveryItem, sectionID: String) async -> Bool {
-        guard item.isDisplayable, item.isPlayable else { return false }
+        guard item.isDisplayable, item.isPlayable, playingMusicDiscoveryItemID == nil else { return false }
         if isDemoMode {
             playMusicDiscoveryStartHaptic()
             playingMusicDiscoveryItemID = item.id
@@ -9948,7 +9970,7 @@ public final class DJConnectAppModel: ObservableObject {
                 playingMusicDiscoveryItemID = nil
                 return false
             }
-            scheduleCommandRefresh(reason: "Discovery play confirmation refresh completed", delay: .zero)
+            scheduleCommandRefresh(reason: "Discovery play confirmation refresh completed", delay: .zero, includeQueue: true)
             _ = await refreshMusicDiscovery()
             playingMusicDiscoveryItemID = nil
             return true
@@ -11090,6 +11112,8 @@ public final class DJConnectAppModel: ObservableObject {
         // Bound retained resource/tombstone ownership without pressure eviction
         // or a fresh operation after a terminal record. This is not a send cap.
         guard directSessionRuntimes.count < 64 else { throw DJConnectError.invalidResponse }
+        let originalHostWakeToken = hostWakeOriginalAPNSToken
+        let originalHostWakeTokenEpoch = hostWakeAPNSTokenEpoch
         let client = DJConnectClient(baseURL: origin, identity: identity, tokenStore: tokenStore, session: urlSession)
         let runtime = try DJConnectDirectSessionRuntime(client: client, sessionID: scope.session, surface: surface,
             lockedDisplay: lockedDisplay, pairedIsCurrent: { [weak self] in
@@ -11108,6 +11132,17 @@ public final class DJConnectAppModel: ObservableObject {
                         self.profileDJSettings.active && self.directSessionScope == scope &&
                         self.profileDJSettingsBoundOwner == profileOwner
                 }
+            }, captureHostWakeAttempt: { [weak self] in
+                guard let token = originalHostWakeToken else { return { false } }
+                return { [weak self] in
+                    guard let self else { return false }
+                    return self.hostWakeAPNSTokenEpoch == originalHostWakeTokenEpoch && self.hostWakeOriginalAPNSToken == token &&
+                        // UI suspension is not Profile withdrawal. The already
+                        // acknowledged registered continuation owns this read;
+                        // retained binding/source/token facts only attenuate it.
+                        self.directSessionScope == scope &&
+                        self.profileDJSettingsBoundOwner == profileOwner
+                }
             })
         directSessionRuntimes[slot] = runtime
         directSessionSelected[slot.surface] = runtime
@@ -11121,20 +11156,94 @@ public final class DJConnectAppModel: ObservableObject {
     public func prepareOriginalHostWake(using host: DJConnectHostWakeFirstKeyOwner) async throws {
         try Task.checkCancellation()
         guard host.state == .referenceRecorded, isAppInForeground, !isDemoMode, pairingStatus == .paired,
-              let surface = host.originalSurfaceData,
+              !host.originalSurfacesData.isEmpty,
               let token = hostWakeOriginalAPNSToken, (16...2048).contains(token.count) else { throw CancellationError() }
         let tokenEpoch = hostWakeAPNSTokenEpoch
-        let runtime = try prepareDirectSessionRuntime(surface: surface, lockedDisplay: surface == .liveActivity)
         hostWakePreparingOwner = host
-        if runtime.phase == .idle { try await runtime.begin() }
-        try Task.checkCancellation()
-        guard runtime.phase == .active, hostWakeAPNSTokenEpoch == tokenEpoch,
-              hostWakeOriginalAPNSToken == token else { throw CancellationError() }
-        try await host.prepareOriginalHostWake(runtime: runtime, token: token, tokenIsCurrent: { [weak self] in
-            guard let self else { return false }
-            return self.isAppInForeground && self.pairingStatus == .paired &&
-                self.hostWakeAPNSTokenEpoch == tokenEpoch && self.hostWakeOriginalAPNSToken == token
-        })
+        // Finish the first child's enrollment BEFORE preparing the next genuine
+        // original. API alone then chooses attestation/assertion for that child;
+        // no previously prepared kind is flipped and no proof is reused.
+        for surface in host.originalSurfacesData {
+            guard isAppInForeground, hostWakeAPNSTokenEpoch == tokenEpoch,
+                  hostWakeOriginalAPNSToken == token else { throw CancellationError() }
+            let runtime = try prepareDirectSessionRuntime(surface: surface, lockedDisplay: surface == .liveActivity)
+            if runtime.phase == .idle { try await runtime.begin() }
+            try Task.checkCancellation()
+            guard runtime.phase == .active, hostWakeAPNSTokenEpoch == tokenEpoch,
+                  hostWakeOriginalAPNSToken == token else { throw CancellationError() }
+            try await host.prepareOriginalHostWake(runtime: runtime, token: token, tokenIsCurrent: { [weak self] in
+                guard let self else { return false }
+                return self.isAppInForeground && self.pairingStatus == .paired &&
+                    self.hostWakeAPNSTokenEpoch == tokenEpoch && self.hostWakeOriginalAPNSToken == token
+            })
+            await adoptDirectStatusObservation(surface: surface, runtime: runtime)
+        }
+    }
+    /// Only the actual original enrollment flow reaches this foreground
+    /// adoption. A wake/read response cannot select a native OS target.
+    private func adoptDirectStatusObservation(surface: DJConnectPassiveSurface, runtime: DJConnectDirectSessionRuntime) async {
+        guard startBackgroundTasks, !monkeyTestingMode, !DJConnectLocalization.isQualificationProcess,
+              isAppInForeground, let origin = runtime.captureStatusObservationOrigin(), origin.isCurrent,
+              directSessionSelected[surface.rawValue] === runtime else { return }
+        directStatusOrigins[surface.rawValue] = origin
+        do {
+            if surface == .widget {
+                _ = try await origin.adoptConfiguredWidgetObservation()
+                if let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier),
+                   DJConnectSessionSurfaceSnapshot.privateCacheFallbackSuppressed(in: shared) {
+                    await joinSuppressedPrivateSurfaceWork()
+                }
+            }
+            #if os(iOS) && canImport(ActivityKit)
+            if surface == .liveActivity, let sessionID = activeDJSession?.id,
+               origin.matchesSessionData(sessionID), ActivityAuthorizationInfo().areActivitiesEnabled {
+                // This is attenuation only. It creates neither original source
+                // ownership nor the actual Activity object returned by the SDK.
+                if let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) {
+                    DJConnectSessionSurfaceSnapshot.suppressPrivateCacheFallback(in: shared)
+                    try DJConnectPassiveSurfaceCache.replace(nil, surface: .widget, in: shared)
+                    try DJConnectPassiveSurfaceCache.replace(nil, surface: .liveActivity, in: shared)
+                    shared.removeObject(forKey: DJConnectWidgetPaletteSnapshot.storageKey)
+                }
+                await joinSuppressedPrivateSurfaceWork()
+                guard origin.isCurrent, isAppInForeground, directSessionSelected[surface.rawValue] === runtime else { return }
+                if sessionSurfaceIdentity == nil {
+                    sessionSurfaceIdentity = DJConnectSessionSurfacePresentation.identity(for: sessionID, in: defaults)
+                }
+                guard let identity = sessionSurfaceIdentity else { return }
+                let publication = prepareSessionSurfacePublication(confirmed: true, sessionID: sessionID,
+                    identity: identity, snapshot: nil, foreground: true, observedSession: true)
+                let carry = try await DJConnectSessionSurfaceActivityController.adoptStatus(origin: origin,
+                    presentationID: identity, publication: publication)
+                guard origin.isCurrent, directSessionSelected[surface.rawValue] === runtime else { carry?.retire(); return }
+                directStatusActivityCarry = carry
+                _ = try await carry?.publish()
+            }
+            #endif
+        } catch { log(.debug, "Native status observation adoption was not completed") }
+    }
+    private func joinSuppressedPrivateSurfaceWork() async {
+        sessionSurfaceNativeCustody.suppressPrivateFields() // Fence old queued work before await.
+        sessionSurfaceSnapshot = nil; lastActivitySurfaceSnapshot = nil; lastPublishedWidgetRich = nil
+        sessionSurfaceGeneration = UUID()
+        sessionSurfaceExpiryTask?.cancel(); sessionSurfaceExpiryTask = nil
+        automaticPassiveTask?.cancel(); automaticPassiveTask = nil; automaticPassiveTaskID = UUID()
+        nativeWidgetPushOwner.withdrawLocally(); nativeActivityPushOwner.withdrawLocally()
+        let old = sessionSurfaceActivityTask
+        old?.cancel(); sessionSurfaceActivityTask = nil
+        await old?.value // No old private update overlaps the status adoption.
+        #if os(iOS) && canImport(ActivityKit)
+        await DJConnectSessionSurfaceActivityController.retirePrivateContentForStatusMode()
+        #endif
+    }
+    private func publishRetainedDirectStatus(surface: DJConnectPassiveSurface, runtime: DJConnectDirectSessionRuntime) async throws -> Bool {
+        guard let origin = directStatusOrigins[surface.rawValue], runtime.retainsStatusObservationOrigin(origin),
+              directSessionSelected[surface.rawValue] === runtime else { return false }
+        if surface == .widget { return try await origin.publishConfiguredWidgetObservation() }
+        #if os(iOS) && canImport(ActivityKit)
+        if surface == .liveActivity, let carry = directStatusActivityCarry { return try await carry.publish() }
+        #endif
+        return false
     }
     func readDirectSessionSurface(surface: DJConnectPassiveSurface) async throws {
         try Task.checkCancellation()
@@ -11150,6 +11259,9 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func bindNativePushOwners() {
+        if privateSurfaceFallbackSuppressed {
+            nativeWidgetPushOwner.withdrawLocally(); nativeActivityPushOwner.withdrawLocally(); return
+        }
         guard isAppInForeground, !isDemoMode, pairingStatus == .paired,
               activeDJSession?.runtimeState == "active", profileDJSettings.active,
               let settings = profileDJSettings.response, settings.isValid,
@@ -11165,7 +11277,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
     private func observeNativePushToken(_ token: Data?, role: DJConnectSurfacePushTaskOwner.Role,
                                         target: [String: String], binding: String, session: String) {
-        guard !Task.isCancelled, isAppInForeground, !isDemoMode, pairingStatus == .paired,
+        guard !privateSurfaceFallbackSuppressed, !Task.isCancelled, isAppInForeground, !isDemoMode, pairingStatus == .paired,
               profileDJSettings.active, profileDJSettings.response?.binding == binding,
               activeDJSession?.id == session, activeDJSession?.runtimeState == "active" else { return }
         let owner = role == .widget ? nativeWidgetPushOwner : nativeActivityPushOwner
@@ -11316,7 +11428,7 @@ public final class DJConnectAppModel: ObservableObject {
                 nativeActivityPushOwner.observationGeneration == attempt.activity)
     }
     private func scheduleAutomaticPassiveSessionSurfaces() {
-        guard isAppInForeground, !isDemoMode, pairingStatus == .paired,
+        guard !privateSurfaceFallbackSuppressed, isAppInForeground, !isDemoMode, pairingStatus == .paired,
               activeDJSession?.runtimeState == "active", hasObservedSessionSurfaceAuthority,
               profileDJSettings.active, let settings = profileDJSettings.response, settings.isValid,
               let sessionID = activeDJSession?.id else { return }
@@ -11425,6 +11537,17 @@ public final class DJConnectAppModel: ObservableObject {
         // read, write the installed shared group, persist a presentation marker
         // or invoke native SDK effects. Demo remains unable to form a scope.
         let allowsEffects = startBackgroundTasks && !monkeyTestingMode && !DJConnectLocalization.isQualificationProcess
+        if allowsEffects, let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier),
+           DJConnectSessionSurfaceSnapshot.privateCacheFallbackSuppressed(in: shared) {
+            sessionSurfaceNativeCustody.suppressPrivateFields()
+            sessionSurfaceSnapshot = nil; lastActivitySurfaceSnapshot = nil; lastPublishedWidgetRich = nil
+            #if os(iOS) && canImport(ActivityKit)
+            if let carry = directStatusActivityCarry, !carry.isCurrent {
+                carry.retire(); directStatusActivityCarry = nil
+            }
+            #endif
+            return // Negative suppression never restores a cold/legacy positive owner.
+        }
         if allowsEffects { bindPassiveSessionSurfaces() }
         if observedSession { hasObservedSessionSurfaceAuthority = true }
         if allowsEffects {
@@ -11566,6 +11689,12 @@ public final class DJConnectAppModel: ObservableObject {
             }
         }
         #endif
+    }
+
+    private var privateSurfaceFallbackSuppressed: Bool {
+        guard startBackgroundTasks, !monkeyTestingMode, !DJConnectLocalization.isQualificationProcess,
+              let shared = UserDefaults(suiteName: DJConnectLocalization.appGroupIdentifier) else { return false }
+        return DJConnectSessionSurfaceSnapshot.privateCacheFallbackSuppressed(in: shared)
     }
 
     // Production scope selection reads this AppModel's actual settings state.
@@ -12866,6 +12995,22 @@ public final class DJConnectAppModel: ObservableObject {
         return String(compact.prefix(117)) + "..."
     }
 
+    func responseArtworkIsCurrent(_ image: DJConnectResponseImage, epoch: UUID) -> Bool {
+        isAppInForeground && canRefreshSessionHistory && sessionHistory.hasAuthorizedOwner
+            && sessionHistory.responseEpoch == epoch && image.admittedReplyArtworkPath() != nil
+            && askDJMessages.contains(where: { $0.role == .dj && $0.images.contains(image) })
+    }
+
+    func loadResponseArtwork(_ image: DJConnectResponseImage) async throws -> DJConnectSessionArtworkImage {
+        let epoch = sessionHistory.responseEpoch
+        guard responseArtworkIsCurrent(image, epoch: epoch) else { throw CancellationError() }
+        let result = try await withHomeAssistantClient(allowsOperationReplay: false) { client in
+            try await client.responseArtwork(image, isCurrent: { self.responseArtworkIsCurrent(image, epoch: epoch) })
+        }
+        guard responseArtworkIsCurrent(image, epoch: epoch), !Task.isCancelled else { throw CancellationError() }
+        return result
+    }
+
     private func proxiedResponseImages(_ images: [DJConnectResponseImage]?) -> [DJConnectResponseImage] {
         guard let images, !images.isEmpty else {
             return []
@@ -13526,6 +13671,21 @@ public final class DJConnectAppModel: ObservableObject {
 
     @discardableResult
     public func handleRemoteNotificationPayload(_ userInfo: [AnyHashable: Any], openedFromTap: Bool = false) async -> Bool {
+        if !openedFromTap, RegisteredHostWakeRefreshOwner.isContentFreeHint(userInfo) {
+            reconcileDirectSessionRuntimes()
+            let reads: [@MainActor @Sendable () async -> Bool] = [DJConnectPassiveSurface.widget, .liveActivity].compactMap { surface in
+                guard let runtime = directSessionSelected[surface.rawValue], runtime.hasRegisteredHostWakeRead else { return nil }
+                return { [weak self] in
+                    do {
+                        try await runtime.readRegisteredHostWake()
+                        guard let self, self.directSessionSelected[surface.rawValue] === runtime,
+                              runtime.hasRegisteredHostWakeRead else { return false }
+                        return try await self.publishRetainedDirectStatus(surface: surface, runtime: runtime)
+                    } catch { return false }
+                }
+            }
+            return await registeredHostWakeRefresh.run(reads) > 0
+        }
         let event = Self.pushEventType(in: userInfo)
         guard event == "music_discovery_ready" else {
             guard event == "ask_dj_response" || event == "ask_dj_confirm" || (event == nil && openedFromTap) else { return false }

@@ -58,6 +58,7 @@ struct ActiveSessionPersonaToolbar: View {
                 .onExitCommand { scope = nil }
                 #endif
                 .presentationCompactAdaptation(.popover)
+                .djConnectGlassPopoutSurface()
                 .djConnectPresentationSurface()
         }
         .task(id: scope?.id) {
@@ -102,6 +103,7 @@ struct ActiveSessionPersonaControl: View {
                 titleKey: "ui.session.persona.title",
                 accessibilityLabelKey: "ui.session.persona.title",
                 optionIDs: values.map { "session-persona-" + $0.rawValue },
+                sessionTheme: .init(sessionMood: model.activeDJSession?.selectedMood),
                 preservesAppearanceWhileDisabled: true
             ) { index in
                 guard canChange, values.indices.contains(index) else { return }

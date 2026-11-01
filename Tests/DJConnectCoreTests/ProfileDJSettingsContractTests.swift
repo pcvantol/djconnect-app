@@ -137,7 +137,7 @@ private func settingsOperation(_ phase: String, id: String) throws -> DJConnectP
         scheduler.schedule(.init(persona: .clubDJ), context: "A", isCurrent: { true }, perform: perform)
     }
     #expect(scheduler.hasPending && sent.isEmpty)
-    try await Task.sleep(for: .milliseconds(350))
+    await scheduler.waitForPendingChoice()
     #expect(sent == [.init(persona: .clubDJ, mood: "party", presence: .presenter)])
     #expect(!scheduler.hasPending && pending == [true, false])
 }
@@ -149,11 +149,11 @@ private func settingsOperation(_ phase: String, id: String) throws -> DJConnectP
     let perform: (DJConnectProfileDJSettings.Patch) async -> Void = { sent.append($0) }
     scheduler.schedule(.init(persona: .clubDJ), context: "A", isCurrent: { current }, perform: perform)
     current = false
-    try await Task.sleep(for: .milliseconds(350))
+    await scheduler.waitForPendingChoice()
     #expect(sent.isEmpty && !scheduler.hasPending)
     scheduler.schedule(.init(persona: .clubDJ), context: "A", isCurrent: { false }, perform: perform)
     scheduler.schedule(.init(mood: "party"), context: "B", isCurrent: { true }, perform: perform)
-    try await Task.sleep(for: .milliseconds(350))
+    await scheduler.waitForPendingChoice()
     #expect(sent == [.init(mood: "party")])
 }
 

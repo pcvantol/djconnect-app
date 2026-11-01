@@ -12,6 +12,7 @@ struct HostWakeNativeProofInputData: Sendable {
     }
     let kind: Kind
     let keyIdentifier: String
+    let operationID: String
     let clientData: Data
     let clientDataHash: Data
 
@@ -27,6 +28,7 @@ struct HostWakeNativeProofInputData: Sendable {
             advertisedHash: advertisedHash)
         guard transcript.original.object?["native_key_id_b64"]?.string == suppliedSDKKeyIdentifier else { throw DJConnectError.invalidResponse }
         self.kind = kind; keyIdentifier = suppliedSDKKeyIdentifier
+        operationID = transcript.original.object!["operation_id"]!.string!
         clientData = transcript.clientData; clientDataHash = transcript.clientDataHash
     }
 
