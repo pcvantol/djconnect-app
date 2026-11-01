@@ -11972,7 +11972,7 @@ struct AskDJMessageBubble: View {
             if let serverHighlights { SessionHighlightedText(text: displayText, highlights: serverHighlights) }
             else { AskDJMarkdownText(text: displayText, highlight: searchText).equatable() }
         }
-        .padding(.trailing, contextQuestionAction != nil && !renderablePlaybackActions.isEmpty ? 36 : 0)
+        .padding(.trailing, contextQuestionAction != nil && (usesFullWidthItems || !renderablePlaybackActions.isEmpty) ? 36 : 0)
         .tint(.white)
         .modifier(ContributionContentAction(question: contributionQuestion, action: contributionAction))
     }
@@ -12016,6 +12016,8 @@ struct AskDJMessageBubble: View {
     private var isUser: Bool {
         message.role == .user
     }
+
+    private var usesFullWidthItems: Bool { !isUser && !displayItems.isEmpty }
 
     private var isSystemMessage: Bool {
         !isUser && message.messageKind == .system
@@ -12272,7 +12274,7 @@ struct AskDJMessageBubble: View {
                             )
                         }
                     }
-                    .padding(.trailing, contextQuestionAction == nil || !renderablePlaybackActions.isEmpty ? 0 : 36)
+                    .padding(.trailing, usesFullWidthItems || contextQuestionAction == nil || !renderablePlaybackActions.isEmpty ? 0 : 36)
                     if !isUser { sharedSpeechActions?() }
                 }
                 .padding(.horizontal, 14)
@@ -12321,8 +12323,8 @@ struct AskDJMessageBubble: View {
                 }
                 .padding(.horizontal, 6)
             }
-            .frame(maxWidth: 560, alignment: isUser ? .trailing : .leading)
-            if !isUser {
+            .frame(maxWidth: usesFullWidthItems ? .infinity : 560, alignment: isUser ? .trailing : .leading)
+            if !isUser && !usesFullWidthItems {
                 Spacer(minLength: 42)
             }
         }
@@ -12564,79 +12566,87 @@ private struct AskDJItemList: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            // Repeated listens may share a URI; retain every occurrence.
+            // Keep each listening occurrence, even when tracks share a URI.
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                HStack(spacing: 10) {
-                    itemArtwork(for: item)
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(item.title)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                        if let value = item.value, !value.isEmpty, !askDJIsOpaqueIdentifier(value) {
-                            Text(value)
-                                .font(.caption2.weight(.medium))
-                                .foregroundStyle(.white.opacity(0.82))
-                                .lineLimit(2)
-                        }
-                        if let subtitle = item.subtitle, !subtitle.isEmpty {
-                            Text(subtitle)
-                                .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.72))
-                                .lineLimit(1)
-                        }
-                        if let source = item.source, !source.isEmpty {
-                            Text(itemDetailText(source: source, confidence: item.confidence))
-                                .font(.caption2.weight(.medium))
-                                .foregroundStyle(.white.opacity(0.48))
-                                .lineLimit(1)
-                        } else if let confidence = item.confidence, !confidence.isEmpty {
-                            Text(confidence)
-                                .font(.caption2.weight(.medium))
-                                .foregroundStyle(.white.opacity(0.48))
-                                .lineLimit(1)
-                        }
-                        if let playedAtText = playedAtText(for: item) {
-                            Text(playedAtText)
-                                .font(.caption2.weight(.medium))
-                                .foregroundStyle(.white.opacity(0.48))
-                                .lineLimit(1)
-                        }
-                    }
-
-                    Spacer(minLength: 0)
-                    if let action = playbackAction(item) {
-                        Button { playAction(action) } label: {
-                            ZStack {
-                                if playingActionID == action.id {
-                                    ProgressView().controlSize(.small).tint(.white)
-                                } else {
-                                    Image(systemName: "play.circle.fill")
-                                        .font(.system(size: 23, weight: .semibold))
-                                }
-                            }
-                            .foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
-                        }
+                if let action = playbackAction(item) {
+                    Button { playAction(action) } label: { itemRow(item, action: action) }
                         .djConnectPlainButtonStyle()
                         .accessibilityLabel(localizedKey(language, "ui.play.now") + " " + item.title)
                         .disabled(playingActionID != nil)
-                    }
-                }
-                .padding(.horizontal, 9)
-                .padding(.vertical, 8)
-                .frame(maxWidth: 520, alignment: .leading)
-                .background {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(.white.opacity(0.11))
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(.white.opacity(0.16), lineWidth: 1)
+                } else {
+                    itemRow(item, action: nil)
                 }
             }
         }
+    }
+
+    private func itemRow(_ item: DJConnectAskDJHistoryItem, action: DJConnectAskDJPlaybackAction?) -> some View {
+        HStack(spacing: 10) {
+            itemArtwork(for: item)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                if let value = item.value, !value.isEmpty, !askDJIsOpaqueIdentifier(value) {
+                    Text(value)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.82))
+                        .lineLimit(2)
+                }
+                if let subtitle = item.subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.72))
+                        .lineLimit(1)
+                }
+                if let source = item.source, !source.isEmpty {
+                    Text(itemDetailText(source: source, confidence: item.confidence))
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.48))
+                        .lineLimit(1)
+                } else if let confidence = item.confidence, !confidence.isEmpty {
+                    Text(confidence)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.48))
+                        .lineLimit(1)
+                }
+                if let playedAtText = playedAtText(for: item) {
+                    Text(playedAtText)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.48))
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 0)
+            if let action {
+                ZStack {
+                    if playingActionID == action.id {
+                        ProgressView().controlSize(.small).tint(.white)
+                    } else {
+                        Image(systemName: "play.circle.fill")
+                            .font(.system(size: 23, weight: .semibold))
+                    }
+                }
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+            }
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.white.opacity(0.11))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 1)
+        }
+
     }
 
     @ViewBuilder
