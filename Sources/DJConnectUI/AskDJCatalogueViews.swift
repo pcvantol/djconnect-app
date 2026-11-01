@@ -288,7 +288,7 @@ struct AskDJSuggestionStrip: View {
               original.allSatisfy({ DJConnectAskDJCatalogue.bundled?.retains($0, context: fresh, surface: surface, language: language) == true }) else {
             suggestions = []; return
         }
-        select(item.prompt) // Chips only prepare the original draft; never send.
+        select(item.prompt) // The composer sends through its existing context-bound route.
     }
     var body: some View {
         AskDJSuggestionRows(suggestions: observation.isCurrent ? suggestions : [], surface: surface,
@@ -319,7 +319,7 @@ struct AskDJSuggestionRows: View {
                         Text(suggestion.prompt).font(.subheadline.weight(.semibold))
                             .foregroundStyle(.white.opacity(0.86)).fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 4)
-                        Image(systemName: "plus").font(.caption.weight(.bold)).foregroundStyle(.white.opacity(0.50)).accessibilityHidden(true)
+                        Image(systemName: "arrow.up.circle").font(.caption.weight(.bold)).foregroundStyle(.white.opacity(0.50)).accessibilityHidden(true)
                     }
                     .padding(.horizontal, 13).padding(.vertical, 10).frame(maxWidth: 480, alignment: .leading)
                     .background(DJConnectCardAppearance.shape.fill(.white.opacity(0.09)))
