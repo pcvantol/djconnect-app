@@ -26,8 +26,6 @@ struct SessionForecastTextView: View {
     private func text(_ key: String) -> String { DJConnectLocalization.localized(key: key, language: language) }
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text(projection.summary).font(.title3.weight(.semibold))
-                .fixedSize(horizontal: false, vertical: true).textSelection(.enabled).id("forecast-summary")
             ForEach(projection.sections.filter { query.isEmpty || ($0.title + " " + $0.text).localizedCaseInsensitiveContains(query) }) { section in
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .firstTextBaseline, spacing: 10) {
