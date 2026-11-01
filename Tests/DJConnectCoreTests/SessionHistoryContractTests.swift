@@ -8324,12 +8324,14 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
     }
 }
 
-@Test(.isolatedClientResources) @MainActor func askDJDeletesThreeContributionsUsingOriginalContextAfterEachClear() async throws {
+@Test(.isolatedClientResources, arguments: [false, true]) @MainActor func askDJDeletesThreeContributionsUsingOriginalContextAfterEachClear(_ holdReply: Bool) async throws {
     let producer = try historyObject()
     let state = AskDJRepeatedDeletionState(base: try #require(producer["later_historical_answer"] as? [String: Any]))
     let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_content_delete": true],
         "contract_versions": ["session_conversation_history": 1, "session_content_delete": 1]])
     let list = try historyData(["success": true, "schema_version": 1, "sessions": [], "revision": "fixture", "retention_days": 30])
+    let replyGate = HistoryWireResponseGate()
+    defer { replyGate.release() }
     let fixture = HistoryWireFixture { request in
         let path = request.url!.path
         if path.hasSuffix("/capabilities") { return (200, caps, 0) }
@@ -8339,7 +8341,11 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
         if path.hasSuffix("/session/content/delete/prepare") {
             return (200, try state.prepare(try #require(body["target"] as? [String: Any])), 0)
         }
-        if path.hasSuffix("/session/content/delete") { return (200, try state.complete(body), 0) }
+        if path.hasSuffix("/session/content/delete") {
+            let receipt = try state.complete(body)
+            if holdReply { throw HistoryWireHeldResponse(data: receipt, gate: replyGate) }
+            return (200, receipt, 0)
+        }
         return (404, Data(), 0)
     }
     defer { fixture.close() }
@@ -8352,7 +8358,25 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
         let target = try #require(history.contentDeletionTarget(for: message))
         #expect(target.kind == "message" && target.session_id == state.contexts[id])
         let prepared = try #require(await history.prepareContentDeletion(target, expectedEpoch: history.responseEpoch))
-        #expect(await history.deleteContent(prepared, expectedEpoch: history.responseEpoch))
+        if holdReply && index == 0 {
+            let deleting = Task { await history.deleteContent(prepared, expectedEpoch: history.responseEpoch) }
+            let dispatchedBy = ContinuousClock.now.advanced(by: .seconds(3))
+            while fixture.requests.filter({ $0.url!.path.hasSuffix("/session/content/delete") }).isEmpty && ContinuousClock.now < dispatchedBy {
+                try await Task.sleep(for: .milliseconds(5))
+            }
+            try #require(history.contentDeletionBusy)
+            // Keep the actual row/dialogue mounted while its write is held.
+            // New commands remain blocked, and the original target is stable.
+            #expect(model.canPresentAskDJHistory)
+            #expect(!model.canUseAskDJFeatures && !model.canUseProfileConversation)
+            #expect(history.contentDeletionTarget(for: message) == target)
+            #expect(!history.canDeleteContent(target))
+            replyGate.release()
+            #expect(await deleting.value)
+        } else {
+            #expect(await history.deleteContent(prepared, expectedEpoch: history.responseEpoch))
+        }
+        #expect(model.canPresentAskDJHistory && model.canUseProfileConversation)
         #expect(!history.hasUnconfirmedDeletion)
         #expect(model.askDJMessages.count == 2 - index)
     }
@@ -8360,6 +8384,9 @@ private final class AskDJRepeatedDeletionState: @unchecked Sendable {
     #expect(!fixture.requests.contains { $0.url!.path.hasSuffix("/session/history/delete") || $0.url!.path.hasSuffix("/session/end") })
     // A message with no admitted server context cannot borrow any active Session.
     let unknown = DJConnectAskDJMessage(serverID: "unobserved", role: .dj, text: "unknown")
+    #expect(history.contentDeletionTarget(for: unknown) == nil)
+    history.suspend()
+    #expect(!model.canPresentAskDJHistory && !model.canUseProfileConversation)
     #expect(history.contentDeletionTarget(for: unknown) == nil)
 }
 
@@ -9176,4 +9203,46 @@ func sessionHistoryOwnerWithdrawalDuringPreflightCannotSendAfterGateRelease(_ ac
     #expect(historyModel.containsHistoricalArtworkEntry(next.reference, matching: { $0.isRetained() }))
     #expect(!historyModel.containsHistoricalArtworkEntry(old.reference, matching: { _ in true }))
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" || ($0.httpMethod == "POST" && $0.url!.path.hasSuffix("/ask_dj/message")) })
+}
+
+@Test(.isolatedClientResources) @MainActor func askDJDeletionTargetStaysOnOriginalMessageWhenReplyEntryArrives() async throws {
+    let producer = try historyObject()
+    let state = AskDJRepeatedDeletionState(base: try #require(producer["later_historical_answer"] as? [String: Any]))
+    let timeline = try #require(producer["archived_timeline"] as? [String: Any])
+    var match = try #require((timeline["entries"] as? [[String: Any]])?.first { $0["kind"] as? String == "conversation_dj" })
+    match["session_id"] = "original-session-A"; match["origin_message_id"] = "ask-one"
+    match["context"] = ["session_id": "original-session-A"]
+    let matchBytes = try historyData(match), resolved = HistoryAuthorityGate()
+    let caps = try historyData(["capabilities": ["session_conversation_history": true, "session_content_delete": true],
+        "contract_versions": ["session_conversation_history": 1, "session_content_delete": 1]])
+    let fixture = HistoryWireFixture { request in
+        if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
+        if request.url!.path.hasSuffix("/ask_dj/history") {
+            var response = try #require(JSONSerialization.jsonObject(with: state.history()) as? [String: Any])
+            if resolved.denied {
+                var messages = try #require(response["messages"] as? [[String: Any]])
+                messages[0]["historical_matches"] = [try JSONSerialization.jsonObject(with: matchBytes)]
+                response["messages"] = messages
+            }
+            return (200, try historyData(response), 0)
+        }
+        return (404, Data(), 0)
+    }
+    defer { fixture.close() }
+    let (model, defaults, name) = fixture.model()
+    defer { model.markInactiveSession(); defaults.removePersistentDomain(forName: name) }
+    let history = model.sessionHistory
+    await history.prepare()
+    let message = try #require(model.askDJMessages.first { $0.serverID == "ask-one" })
+    let original = try #require(history.contentDeletionTarget(for: message))
+    #expect(original.kind == "message" && original.session_id == "original-session-A")
+    #expect(history.contextEntry(for: message) == nil)
+    resolved.denied = true
+    #expect(await history.refreshConversation())
+    let retained = try #require(model.askDJMessages.first { $0.serverID == "ask-one" })
+    _ = try #require(history.contextEntry(for: retained))
+    #expect(retained.id == message.id)
+    #expect(history.contentDeletionTarget(for: retained) == original)
+    history.suspend()
+    #expect(history.contentDeletionTarget(for: retained) == nil)
 }

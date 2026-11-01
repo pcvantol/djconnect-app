@@ -130,12 +130,8 @@ private struct ContentDeletionActions: ViewModifier {
             .contentDeletionContextMenu(provided: providesContextMenu) {
                 if history.contentDeletionAvailable { deletionButton }
             }
-            #if os(iOS)
-            .simultaneousGesture(LongPressGesture(minimumDuration: 0.5, maximumDistance: 10).onEnded { _ in
-                guard enabled else { return }
-                DJConnectHaptics.selection()
-            })
-            #endif
+            // The native context menu owns long press and its feedback. Do not
+            // install a second recognizer over the same conversation card.
             // Rows live in LazyVStack/ScrollView, where native List.swipeActions
             // does not operate. Horizontal reveal leaves vertical scrolling intact.
             .simultaneousGesture(DragGesture(minimumDistance: 24).onEnded { value in
