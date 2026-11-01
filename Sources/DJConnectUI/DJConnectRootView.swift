@@ -994,23 +994,25 @@ public struct DJConnectRootView: View {
                 }
                 .toolbar(removing: .sidebarToggle)
                 .toolbar {
-                    ToolbarItem(placement: .navigation) {
-                        Button {
-                            sidebarVisibility = sidebarVisibility == .detailOnly ? .all : .detailOnly
-                        } label: {
-                            Image(systemName: "sidebar.left")
-                                .symbolRenderingMode(.monochrome)
-                                .foregroundStyle(.white)
-                                .frame(width: 36, height: 28)
+                    if !model.isShowingVibeScape {
+                        ToolbarItem(placement: .navigation) {
+                            Button {
+                                sidebarVisibility = sidebarVisibility == .detailOnly ? .all : .detailOnly
+                            } label: {
+                                Image(systemName: "sidebar.left")
+                                    .symbolRenderingMode(.monochrome)
+                                    .foregroundStyle(.white)
+                                    .frame(width: 36, height: 28)
+                            }
+                            .djConnectPlainButtonStyle()
+                            .tint(.white)
+                            .foregroundStyle(.white)
+                            .accessibilityLabel(localizedKey(model.language, "ui.navigation.menu"))
+                            .accessibilityIdentifier("main-sidebar-toggle")
                         }
-                        .djConnectPlainButtonStyle()
-                        .tint(.white)
-                        .foregroundStyle(.white)
-                        .accessibilityLabel(localizedKey(model.language, "ui.navigation.menu"))
-                        .accessibilityIdentifier("main-sidebar-toggle")
-                    }
-                    if #available(macOS 26.0, *) {
-                        ToolbarSpacer(.fixed, placement: .navigation)
+                        if #available(macOS 26.0, *) {
+                            ToolbarSpacer(.fixed, placement: .navigation)
+                        }
                     }
                 }
                 .tint(.white)
