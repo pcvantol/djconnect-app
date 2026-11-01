@@ -2535,6 +2535,8 @@ private final class PresenceScript: @unchecked Sendable {
 @Test(.isolatedClientResources, arguments: ["conflict", "lost", "denial", "background", "replacement"])
 @MainActor func presenceStopsAfterUnknownOrWithdrawnOutcome(_ scenario: String) async throws {
     let runtime = try presenceRuntimeWire(), script = PresenceScript()
+    let originalReply = HistoryWireResponseGate()
+    defer { originalReply.release() }
     let after = try presenceRuntimeWire(value: "music_only", revision: 4, suffix: scenario == "replacement" ? "-new" : "")
     let fixture = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/capabilities") { return (200, presenceCapsWire, 0) }
@@ -2545,7 +2547,9 @@ private final class PresenceScript: @unchecked Sendable {
             let body = try JSONSerialization.jsonObject(with: presenceRequestBody(request)) as! [String: Any]
             if scenario == "denial" { return (401, Data(#"{"success":false,"error":"unauthorized"}"#.utf8), 0.08) }
             if scenario == "conflict" { return (409, try historyData(["success":false,"error":"presence_revision_conflict","current":["session_id":body["session_id"]!,"selected_presence":"music_only","presence_revision":4]]), 0.08) }
-            return (200, try historyData(["success":true,"contract_version":1,"session_id":body["session_id"]!,"selected_presence":"presenter","presence_revision":1,"changed":true]), 0.08)
+            let reply = try historyData(["success":true,"contract_version":1,"session_id":body["session_id"]!,"selected_presence":"presenter","presence_revision":1,"changed":true])
+            if scenario == "replacement" { throw HistoryWireHeldResponse(data: reply, gate: originalReply) }
+            return (200, reply, 0.08)
         }
         return (404, Data(), 0)
     }
@@ -2562,7 +2566,18 @@ private final class PresenceScript: @unchecked Sendable {
     }
     try #require(script.writes == 1)
     if scenario == "background" { model.markInactiveSession() }
-    if scenario == "replacement" { await model.refreshActiveDJSession() }
+    if scenario == "replacement" {
+        // Hold the old write until the new owning Session is installed. A timed
+        // reply could race its automatic refresh with this explicit read.
+        let replacedBy = ContinuousClock.now.advanced(by: .seconds(3))
+        repeat {
+            await model.refreshActiveDJSession()
+            if model.activeDJSession?.id == id + "-new" { break }
+            try await Task.sleep(for: .milliseconds(5))
+        } while ContinuousClock.now < replacedBy
+        try #require(model.activeDJSession?.id == id + "-new" && model.activeDJSession?.confirmedPresence?.presenceRevision == 4)
+        originalReply.release()
+    }
     for _ in 0..<50 { if !model.activePresencePending { break }; try await Task.sleep(for: .milliseconds(20)) }
     try await Task.sleep(for: .milliseconds(110))
     #expect(script.writes == 1 && !model.activePresencePending)
