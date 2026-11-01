@@ -298,6 +298,9 @@ struct SavedSessionsView: View {
                         }
                     }
                 }
+                #if os(macOS)
+                ConnectionStatusToolbar(model: model)
+                #endif
                 ToolbarItem(placement: djConnectRefreshToolbarPlacement) {
                     Button { Task { await refresh() } } label: {
                         Image(systemName: "arrow.clockwise").foregroundStyle(.white)
@@ -308,6 +311,9 @@ struct SavedSessionsView: View {
                     .accessibilityIdentifier("saved-sessions-refresh")
                     .help(text("ui.session.history.refresh"))
                 }
+                #if !os(macOS)
+                ConnectionStatusToolbar(model: model)
+                #endif
             }
             .onChange(of: history.archiveResponseEpoch) { _, _ in
                 openedSession.wrappedValue = nil
@@ -2618,7 +2624,7 @@ struct SessionEndToolbarButton: View {
     }
 }
 
-/// The same trailing status action on live product pages. Archive pages omit it.
+/// The same trailing connection status action on product and archive pages.
 struct ConnectionStatusToolbar: ToolbarContent {
     let model: DJConnectAppModel
     var body: some ToolbarContent {
