@@ -115,7 +115,7 @@ struct PersonaReactionBubble: View {
     let dismiss: () -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 16) {
+            HStack(alignment: .center, spacing: 16) {
                 Text(text).font(.title3.weight(.medium)).fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 Button(action: dismiss) { Image(systemName: "xmark").foregroundStyle(.white) }
