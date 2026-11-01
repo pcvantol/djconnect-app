@@ -153,6 +153,13 @@ public struct DJConnectSessionSurfaceSnapshot: Codable, Equatable, Hashable, Sen
         self.rich = rich
     }
 
+    /// A field downgrade cannot extend the original aggregate observation or
+    /// expiry. Internal local-v2 data assembly; never original permission.
+    init(preserving original: Self, replacingRich rich: DJConnectPassiveActivityContent) {
+        observedAt = original.observedAt; expiresAt = original.expiresAt
+        theme = original.theme; self.rich = rich
+    }
+
     public static func observe(runtimeState: String?, authorized: Bool, isDemo: Bool,
                                confirmedMood: String? = nil, at now: Date) -> Self? {
         guard runtimeState == "active", authorized, !isDemo else { return nil }

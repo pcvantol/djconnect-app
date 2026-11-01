@@ -356,6 +356,20 @@ targets:
         buildPhase: resources
       - path: Tests/Fixtures/rich-surface-original-encoder-v1.json
         buildPhase: resources
+      - path: Tests/Fixtures/host-wake-native-transcript-api-0d686be.json
+        buildPhase: resources
+      - path: Tests/Fixtures/host-wake-core-proxy-request-vectors.json
+        buildPhase: resources
+      - path: Tests/Fixtures/host-wake-core-proxy-reply-v5.json
+        buildPhase: resources
+      - path: Tests/Fixtures/direct-rich-request-core-r8.json
+        buildPhase: resources
+      - path: Tests/Fixtures/direct-rich-synthetic-responses.json
+        buildPhase: resources
+      - path: Tests/Fixtures/host-wake-native-sdk-input-api-03323cd.json
+        buildPhase: resources
+      - path: Tests/Fixtures/session-artwork-cover-core-5c7ecb79.png
+        buildPhase: resources
     dependencies:
       - target: DJConnectCoreMac
       - target: DJConnectUIMac

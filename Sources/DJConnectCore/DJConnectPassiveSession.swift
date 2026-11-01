@@ -299,6 +299,10 @@ public struct DJConnectPassiveActivityContent: Codable, Equatable, Hashable, Sen
     public let nowPlaying: DJConnectPassiveSession.NowPlaying?
     /// Optional so an already published activity remains decodable after upgrade.
     public let playbackState: String?
+    /// Absent for every legacy encoding. DATA only: the explicit local-v2
+    /// codec and actual native custody are independently required.
+    public let directLocalVersion: Int?
+    public let researchAttribution: DJConnectDirectResearchAttribution?
     public init?(cache: DJConnectPassiveSurfaceCache, at now: Date = Date()) {
         guard cache.projection.surface == .liveActivity, cache.projection.cache_policy.locked_display,
               cache.isCurrent(at: now), let expiry = DJConnectHistoryEntry.date(cache.projection.expires_at) else { return nil }
@@ -307,9 +311,21 @@ public struct DJConnectPassiveActivityContent: Codable, Equatable, Hashable, Sen
         receivedAt = cache.receivedAt; receivedUptime = cache.receivedUptime
         contribution = p.currentContribution(at: now); nowPlaying = p.currentPlayback(at: now)
         playbackState = nowPlaying == nil ? nil : p.playback_state
+        directLocalVersion = nil; researchAttribution = nil
         expiresAt = p.deadlines.min() ?? expiry
         guard contribution != nil || nowPlaying != nil,
               let encoded = try? JSONEncoder().encode(self), encoded.count <= 2_800 else { return nil }
+    }
+    /// Internal presentation-data assembly only; does not map source clocks or
+    /// supply a native start/update permit. No public positive factory exists.
+    init(directLocalBinding binding: String, generation: String, sequence: Int,
+         receivedAt: Date, receivedUptime: TimeInterval, expiresAt: Date,
+         contribution: DJConnectPassiveSession.Contribution?, nowPlaying: DJConnectPassiveSession.NowPlaying?,
+         playbackState: String?, researchAttribution: DJConnectDirectResearchAttribution?) {
+        bindingID = binding; self.generation = generation; self.sequence = sequence
+        self.receivedAt = receivedAt; self.receivedUptime = receivedUptime; self.expiresAt = expiresAt
+        self.contribution = contribution; self.nowPlaying = nowPlaying; self.playbackState = playbackState
+        directLocalVersion = 2; self.researchAttribution = researchAttribution
     }
     public func isCurrent(at now: Date, uptime: TimeInterval = ProcessInfo.processInfo.systemUptime) -> Bool {
         now >= receivedAt && now < expiresAt && uptime >= receivedUptime &&

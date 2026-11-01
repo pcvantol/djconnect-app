@@ -1161,18 +1161,32 @@ public final class DJConnectAppModel: ObservableObject {
     }
     @Published public var homeAssistantURL = "" {
         didSet {
-            if oldValue != homeAssistantURL { invalidateAskDJHelpObservationContext(); cancelRendezvous() }
+            if oldValue != homeAssistantURL {
+                invalidateAskDJHelpObservationContext(); cancelRendezvous()
+                retireSessionSurfacesForOriginChange(interruptSessionSource:
+                    Self.normalizedHomeAssistantURL(from: oldValue) != Self.normalizedHomeAssistantURL(from: homeAssistantURL))
+            }
             defaults.set(homeAssistantURL, forKey: homeAssistantURLKey)
         }
     }
     @Published public private(set) var haLocalURL = "" {
-        didSet { if oldValue != haLocalURL { invalidateAskDJHelpObservationContext(); cancelRendezvous() } }
+        didSet { if oldValue != haLocalURL {
+            invalidateAskDJHelpObservationContext(); cancelRendezvous()
+            // Recording the already selected local address is not a switch
+            // away from the original HTTP source used to learn that address.
+            retireSessionSurfacesForOriginChange(interruptSessionSource: haConnectionMode != .remote &&
+                Self.normalizedHomeAssistantURL(from: oldValue.isEmpty ? homeAssistantURL : oldValue) != Self.normalizedHomeAssistantURL(from: haLocalURL))
+        } }
     }
     @Published public private(set) var haRemoteURL = "" {
-        didSet { if oldValue != haRemoteURL { invalidateAskDJHelpObservationContext(); cancelRendezvous() } }
+        didSet { if oldValue != haRemoteURL {
+            invalidateAskDJHelpObservationContext(); cancelRendezvous()
+            retireSessionSurfacesForOriginChange(interruptSessionSource: haConnectionMode == .remote &&
+                Self.normalizedHomeAssistantURL(from: oldValue) != Self.normalizedHomeAssistantURL(from: haRemoteURL))
+        } }
     }
     @Published public private(set) var haConnectionMode: DJConnectHAConnectionMode = .offline {
-        didSet { if oldValue != haConnectionMode { askDJHelpRuntimeGeneration = UUID() } }
+        didSet { if oldValue != haConnectionMode { askDJHelpRuntimeGeneration = UUID(); retireDirectSessionRuntimes() } }
     }
     @Published public private(set) var pushNotificationStatus = DJConnectPushNotificationStatus()
     @Published public private(set) var remoteSupported = false
@@ -1317,6 +1331,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
     @Published public var pairingStatus: DJConnectPairingStatus = .unpaired {
         didSet {
+            if pairingStatus != .paired { retireDirectSessionRuntimes() }
             if oldValue != pairingStatus { askDJHelpRuntimeGeneration = UUID(); cancelRendezvous() }
             if startBackgroundTasks, oldValue != .paired, pairingStatus == .paired {
                 schedulePairedRefresh(reason: "Pairing became online")
@@ -1410,6 +1425,7 @@ public final class DJConnectAppModel: ObservableObject {
 
     @Published public private(set) var activeDJSession: DJConnectSessionRuntime? {
         didSet {
+            reconcileDirectSessionRuntimes()
             let helpNow = Date()
             if AskDJHelpPlaybackProjection(oldValue?.broadcast.playback, at: helpNow) != AskDJHelpPlaybackProjection(activeDJSession?.broadcast.playback, at: helpNow) ||
                 oldValue.map(ForecastScope.init) != activeDJSession.map(ForecastScope.init) {
@@ -1885,7 +1901,9 @@ public final class DJConnectAppModel: ObservableObject {
             defaults.set(djAnnouncementOutput.rawValue, forKey: djAnnouncementOutputKey)
         }
     }
-    @Published public var isDemoMode = false
+    @Published public var isDemoMode = false {
+        didSet { if oldValue != isDemoMode { retireDirectSessionRuntimes() } }
+    }
     @Published public private(set) var isMonkeyTestingMode = false
     @Published public private(set) var isUITestRuntimeFixtureActive = false
     @Published public private(set) var uiTestRuntimeFixtureScenario: String?
@@ -1938,7 +1956,13 @@ public final class DJConnectAppModel: ObservableObject {
     @Published public private(set) var networkRefreshRequestID = UUID()
     @Published public private(set) var diagnosticLogLines: [DJConnectDiagnosticLogLine] = []
 
-    @Published public private(set) var identity: DJConnectIdentity
+    @Published public private(set) var identity: DJConnectIdentity {
+        didSet {
+            if oldValue.deviceID != identity.deviceID || oldValue.clientType != identity.clientType {
+                retireDirectSessionRuntimes()
+            }
+        }
+    }
 
     private let logger: Logger
     private var pairedIdentityRecoveryTask: Task<Void, Never>?
@@ -2022,6 +2046,16 @@ public final class DJConnectAppModel: ObservableObject {
     private var liveActivitySkipInFlight = false
     private var sessionSurfaceGeneration = UUID()
     private let sessionSurfaceNativeCustody = SessionSurfaceNativeCustody()
+    // Local resource selectors, not persisted permission or a settings lease.
+    // Keep terminal owners so an ABA selection cannot mint a replacement UUID.
+    private struct DirectSessionScope: Hashable, Sendable {
+        let origin: String; let installation: String
+        let binding: String; let session: String; let device: String; let client: String
+    }
+    private struct DirectSessionSlot: Hashable, Sendable { let scope: DirectSessionScope; let surface: String }
+    private var directSessionRuntimes: [DirectSessionSlot: DJConnectDirectSessionRuntime] = [:]
+    private var directSessionSelected: [String: DJConnectDirectSessionRuntime] = [:]
+    private var directSessionAttemptEpoch = UUID()
     private var sessionSurfaceActivityTask: Task<Void, Never>?
     private var sessionSurfaceActivityDispatchVersion = UUID()
     private var lastActivitySurfacePublication: SessionSurfaceNativeCustody.Ticket?
@@ -2621,6 +2655,13 @@ public final class DJConnectAppModel: ObservableObject {
         }
         currentInsightSettingsObservation = profileDJSettings.$response.sink { [weak self] response in
             guard let self else { return }
+            // Published sends before assignment. Use the incoming value here,
+            // never a delayed task that could miss owner-loss A -> B -> A.
+            if self.directSessionRuntimes.contains(where: { slot, runtime in
+                self.directSessionSelected[slot.surface] === runtime && slot.scope.binding != response?.binding
+            }) {
+                self.retireDirectSessionRuntimes()
+            }
             let style = response.map(CurrentInsightProfileStyle.init)
             if self.currentInsightObservedProfileStyle != style {
                 self.currentInsightObservedProfileStyle = style
@@ -3125,6 +3166,8 @@ public final class DJConnectAppModel: ObservableObject {
         cancelRendezvous()
         personaReactions.cancel(.background)
         isAppInForeground = false
+        directSessionAttemptEpoch = UUID()
+        for runtime in directSessionRuntimes.values { runtime.suspend() }
         sessionSurfaceNativeCustody.suspend() // Fence already queued foreground starts immediately.
         automaticSurfaceDiscovery.bind(nil)
         askDJHelpRuntimeGeneration = UUID()
@@ -3665,6 +3708,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     deinit {
+        for runtime in directSessionRuntimes.values { runtime.cancelOwnedResources() }
         networkMonitor.cancel()
         scheduledPairingTask?.cancel()
         pairingTask?.cancel()
@@ -6850,6 +6894,10 @@ public final class DJConnectAppModel: ObservableObject {
         integrationVersion: String?,
         pairingSessionID: String?
     ) {
+        if let incoming = haInstallID?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !incoming.isEmpty, incoming != defaults.string(forKey: haInstallIDKey) {
+            retireDirectSessionRuntimes()
+        }
         storeNonEmpty(haInstallID, forKey: haInstallIDKey)
         storeNonEmpty(integrationVersion, forKey: integrationVersionKey)
         storeNonEmpty(pairingSessionID, forKey: pairingSessionIDKey)
@@ -7338,6 +7386,7 @@ public final class DJConnectAppModel: ObservableObject {
     func bindProfileDJSettings(active: Bool) {
         let owner = profileSettingsOwnerFence.owner(context: profileDJSettingsContext,
             confirmedProfile: sessionHistory.authorizedProfileID)
+        if owner != profileDJSettingsBoundOwner { retireDirectSessionRuntimes() }
         // An old read must not block a new foreground/owner, nor release its
         // successor's slot when the old transport eventually completes.
         if !active || owner != profileDJSettingsBoundOwner { profileDJSettingsReadID = nil }
@@ -10991,6 +11040,92 @@ public final class DJConnectAppModel: ObservableObject {
         // passive display grants or Activity/Widget token acquisition.
     }
 
+    private var directSessionPairedOrigin: URL? {
+        guard haConnectionMode != .offline,
+              let origin = Self.normalizedHomeAssistantURL(from: haConnectionMode == .remote ? haRemoteURL : localHomeAssistantURL()),
+              origin.scheme == "https" else { return nil }
+        return origin
+    }
+    private var directSessionScope: DirectSessionScope? {
+        guard !isDemoMode, pairingStatus == .paired,
+              let session = activeDJSession, session.runtimeState == "active",
+              let settings = profileDJSettings.response, settings.isValid,
+              settings.snapshot.session?.session_id == session.id,
+              let installation = defaults.string(forKey: haInstallIDKey), !installation.isEmpty,
+              profileDJSettingsBoundOwner != nil,
+              let origin = directSessionPairedOrigin else { return nil }
+        return .init(origin: origin.absoluteString, installation: installation,
+            binding: settings.binding, session: session.id, device: identity.deviceID, client: identity.clientType.rawValue)
+    }
+
+    private func retireDirectSessionRuntimes() {
+        directSessionAttemptEpoch = UUID()
+        for runtime in directSessionRuntimes.values { runtime.retire() }
+    }
+    private func reconcileDirectSessionRuntimes() {
+        let scope = directSessionScope
+        for (slot, runtime) in directSessionRuntimes where slot.scope != scope { runtime.retire() }
+    }
+
+    /// Explicit direct-source entry only. The existing passive UI is not also
+    /// routed here: one native adoption path still needs its real clock and
+    /// enrollment suppliers. Local selectors below are negative guards only.
+    /// No native start/update, OS cache write, policy or clock is inferred here.
+    func prepareDirectSessionRuntime(surface: DJConnectPassiveSurface, lockedDisplay: Bool) throws -> DJConnectDirectSessionRuntime {
+        try Task.checkCancellation()
+        reconcileDirectSessionRuntimes()
+        guard isAppInForeground, profileDJSettings.active, profileDJSettings.phase == .ready,
+              let profileOwner = profileDJSettingsBoundOwner,
+              let scope = directSessionScope, let origin = URL(string: scope.origin) else { throw CancellationError() }
+        let slot = DirectSessionSlot(scope: scope, surface: surface.rawValue)
+        if let retained = directSessionRuntimes[slot] {
+            directSessionSelected[slot.surface] = retained
+            return retained // Includes closed/unknown: never reconstruct after loss.
+        }
+        // Bound retained resource/tombstone ownership without pressure eviction
+        // or a fresh operation after a terminal record. This is not a send cap.
+        guard directSessionRuntimes.count < 64 else { throw DJConnectError.invalidResponse }
+        let client = DJConnectClient(baseURL: origin, identity: identity, tokenStore: tokenStore, session: urlSession)
+        let runtime = try DJConnectDirectSessionRuntime(client: client, sessionID: scope.session, surface: surface,
+            lockedDisplay: lockedDisplay, pairedIsCurrent: { [weak self] in
+                guard let self else { return false }
+                return self.pairingStatus == .paired && self.identity.deviceID == scope.device &&
+                    self.identity.clientType.rawValue == scope.client && self.directSessionPairedOrigin?.absoluteString == scope.origin &&
+                    self.defaults.string(forKey: self.haInstallIDKey) == scope.installation
+            }, ownerIsCurrent: { [weak self] in
+                self?.directSessionScope == scope && self?.profileDJSettingsBoundOwner == profileOwner
+            }, captureAttempt: { [weak self] in
+                guard let self else { return { false } }
+                let epoch = self.directSessionAttemptEpoch
+                return { [weak self] in
+                    guard let self else { return false }
+                    return self.directSessionAttemptEpoch == epoch && self.isAppInForeground &&
+                        self.profileDJSettings.active && self.directSessionScope == scope &&
+                        self.profileDJSettingsBoundOwner == profileOwner
+                }
+            })
+        directSessionRuntimes[slot] = runtime
+        directSessionSelected[slot.surface] = runtime
+        return runtime
+    }
+
+    func beginDirectSessionSurface(surface: DJConnectPassiveSurface, lockedDisplay: Bool) async throws {
+        let runtime = try prepareDirectSessionRuntime(surface: surface, lockedDisplay: lockedDisplay)
+        try await runtime.begin()
+    }
+    func readDirectSessionSurface(surface: DJConnectPassiveSurface) async throws {
+        try Task.checkCancellation()
+        reconcileDirectSessionRuntimes()
+        guard isAppInForeground, profileDJSettings.active, let scope = directSessionScope,
+              let runtime = directSessionRuntimes[.init(scope: scope, surface: surface.rawValue)] else { throw CancellationError() }
+        try await runtime.read()
+    }
+    func withdrawDirectSessionSurface(surface: DJConnectPassiveSurface) async throws {
+        guard let runtime = directSessionSelected[surface.rawValue] else { return }
+        runtime.retire() // Synchronous before any async call.
+        try await runtime.withdraw()
+    }
+
     private func bindNativePushOwners() {
         guard isAppInForeground, !isDemoMode, pairingStatus == .paired,
               activeDJSession?.runtimeState == "active", profileDJSettings.active,
@@ -11034,6 +11169,28 @@ public final class DJConnectAppModel: ObservableObject {
         // belongs to the already bound exact paired origin for this operation.
         let client = DJConnectClient(baseURL: origin, identity: identity, tokenStore: tokenStore, session: urlSession)
         owner.register(using: client, observationGeneration: generation)
+    }
+
+    /// An address edit is not a new original purpose or a confirmation of the
+    /// cached Session at the new origin. Fence queued native uses synchronously,
+    /// before any subsequent connection/settings/network work can await.
+    private func retireSessionSurfacesForOriginChange(interruptSessionSource: Bool) {
+        retireDirectSessionRuntimes()
+        sessionSurfaceNativeCustody.withdraw()
+        sessionSurfaceActivityTask?.cancel() // Keep serialization behind any in-flight SDK call.
+        sessionSurfaceAcceptedObservationAt = nil
+        sessionSurfaceAcceptedObservationSessionID = nil
+        sessionSurfaceSnapshot = nil
+        sessionSurfaceIdentity = nil
+        nativeWidgetPushOwner.bind(nil); nativeActivityPushOwner.bind(nil)
+        automaticSurfaceDiscovery.bind(nil)
+        passiveSurfaces.bind(owner: nil, sessionID: nil, foreground: false)
+        // An old HTTP response or Broadcast callback must not reconfirm the
+        // cleared observation after the address edit, even with identical IDs.
+        if interruptSessionSource {
+            if isLoadingDJSession { invalidateSessionRequest() }
+            if sessionBroadcastTransport != nil || sessionBroadcastSessionID != nil { stopSessionBroadcast() }
+        }
     }
 
     private func bindPassiveSessionSurfaces() {
@@ -11083,8 +11240,33 @@ public final class DJConnectAppModel: ObservableObject {
         await passiveSurfaces.discover(passiveSurfaceServices)
     }
     public func setPassiveSurface(_ surface: DJConnectPassiveSurface, enabled: Bool) async {
+        let removed = enabled ? [] : retireRemovedDirectSessionSurfaces(configured: Set(DJConnectPassiveSurface.allCases.filter { $0 != surface }))
+        async let directCleanup: Void = finishDirectSessionWithdrawals(removed)
         bindPassiveSessionSurfaces()
         await passiveSurfaces.setEnabled(enabled, surface: surface, services: passiveSurfaceServices)
+        await directCleanup
+    }
+
+    /// Negative-only OS configuration adoption. Close every removed role
+    /// synchronously before any cleanup worker can await or an old read return.
+    func retireRemovedDirectSessionSurfaces(configured: Set<DJConnectPassiveSurface>) -> [DJConnectDirectSessionRuntime] {
+        let removed = DJConnectPassiveSurface.allCases.filter { !configured.contains($0) }
+            .compactMap { directSessionSelected[$0.rawValue] }
+        for runtime in removed { runtime.retire() }
+        return removed
+    }
+    private func finishDirectSessionWithdrawals(_ runtimes: [DJConnectDirectSessionRuntime]) async {
+        await withTaskGroup(of: Bool.self) { group in
+            for runtime in runtimes {
+                group.addTask {
+                    do { try await runtime.withdraw(); return true }
+                    catch { return false }
+                }
+            }
+            for await acknowledged in group where !acknowledged {
+                log(.warning, "Direct surface withdrawal was not acknowledged")
+            }
+        }
     }
 
     #if canImport(WidgetKit)
@@ -11173,6 +11355,7 @@ public final class DJConnectAppModel: ObservableObject {
             } catch {
                 guard isCurrentNativePushInventory(inventoryAttempt, role: .widget) else { return }
                 nativeWidgetPushOwner.withdrawLocally() // Unknown OS state closes local custody, never a remote grant.
+                directSessionSelected[DJConnectPassiveSurface.widget.rawValue]?.suspend()
                 return
             }
             #endif
@@ -11191,7 +11374,10 @@ public final class DJConnectAppModel: ObservableObject {
             guard !Task.isCancelled, isAppInForeground, !isDemoMode, pairingStatus == .paired,
                   activeDJSession?.id == sessionID, activeDJSession?.runtimeState == "active",
                   profileDJSettings.active, profileDJSettings.response?.binding == settings.binding else { return }
+            let removed = retireRemovedDirectSessionSurfaces(configured: surfaces)
+            async let directCleanup: Void = finishDirectSessionWithdrawals(removed)
             await passiveSurfaces.reconcileAutomatic(surfaces: surfaces, services: passiveSurfaceServices)
+            await directCleanup
         }
     }
 
@@ -11211,6 +11397,7 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     private func syncSessionSurfaces(observedSession: Bool = false, refreshPassiveImmediately: Bool = false) {
+        reconcileDirectSessionRuntimes()
         // Isolated models still reconcile their real RAM selection. They never
         // read, write the installed shared group, persist a presentation marker
         // or invoke native SDK effects. Demo remains unable to form a scope.

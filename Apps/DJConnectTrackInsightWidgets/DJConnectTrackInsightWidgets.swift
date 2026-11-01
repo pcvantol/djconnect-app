@@ -253,10 +253,19 @@ private struct PassiveSessionContentView: View {
     var showsSpotifyCredit = true
     var showsHeader = true
     var theme: DJConnectSessionMoodTheme = .brand
+    var researchAttribution: DJConnectDirectResearchAttribution? = nil
     let date: Date
     var body: some View {
         Group {
-            if large, playback != nil, contribution == nil {
+            if researchAttribution != nil {
+                // All required research credit is visible together or this
+                // story is omitted. Never clip a factual sentence/reference
+                // to preserve a partial attribution in a small native region.
+                ViewThatFits(in: .vertical) {
+                    content(artworkSide: nil).fixedSize(horizontal: false, vertical: true)
+                    content(artworkSide: nil, suppressContribution: true)
+                }
+            } else if large, playback != nil, contribution == nil {
                 GeometryReader { geometry in
                     content(artworkSide: min(156, max(80, geometry.size.height - 190)))
                 }
@@ -266,7 +275,7 @@ private struct PassiveSessionContentView: View {
         .frame(maxWidth: .infinity, maxHeight: activity ? nil : .infinity, alignment: .topLeading)
         .accessibilityElement(children: .contain)
     }
-    private func content(artworkSide: CGFloat?) -> some View {
+    private func content(artworkSide: CGFloat?, suppressContribution: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: activity || compact ? 6 : 8) {
             if showsHeader {
             HStack(spacing: 8) {
@@ -298,23 +307,44 @@ private struct PassiveSessionContentView: View {
                 }
                 credit(playback.attribution)
             }
-            if let contribution, !activity || playback == nil {
+            if let contribution, !suppressContribution && (!activity || playback == nil || researchAttribution != nil) {
                 if playback != nil { Divider().overlay(.white.opacity(0.15)) }
                 HStack(alignment: .top, spacing: 10) {
                     if !compact, cache?.projection.currentArtwork(slot: "contribution", at: date) != nil {
                         cover(slot: "contribution").frame(width: 56, height: 56)
                     }
                     Text(contribution.text).font(compact ? .caption : .subheadline.weight(.medium))
-                        .lineLimit(large ? 6 : compact && playback != nil ? 2 : 3)
+                        .lineLimit(researchAttribution != nil ? nil : large ? 6 : compact && playback != nil ? 2 : 3)
                         .accessibilityLabel(contribution.text)
                 }
-                credit(contribution.source_attribution)
+                if let researchAttribution { researchCredit(researchAttribution) }
+                else { credit(contribution.source_attribution) }
             }
-            if contribution == nil && playback == nil {
+            if (contribution == nil || suppressContribution) && playback == nil {
                 Text(text("surface.session.active")).font(.headline)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    private func researchCredit(_ attribution: DJConnectDirectResearchAttribution) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            ForEach(Array(attribution.sources.enumerated()), id: \.offset) { _, source in
+                VStack(alignment: .leading, spacing: 1) {
+                    if let url = URL(string: source.url) {
+                        Link(source.provider + " · " + source.license, destination: url)
+                    }
+                    if let revision = URL(string: source.revision_url.isEmpty ? source.url : source.revision_url) {
+                        Link(source.title, destination: revision)
+                    }
+                }
+            }
+            if let url = URL(string: attribution.expressionLicense.url) {
+                Link(attribution.expressionLicense.id, destination: url)
+            }
+            Text(text("surface.research.adapted"))
+        }
+        .font(.caption2).foregroundStyle(.white.opacity(0.85))
+        .fixedSize(horizontal: false, vertical: true)
     }
     private func spaciousPlayback(_ playback: DJConnectPassiveSession.NowPlaying, artworkSide: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -401,7 +431,7 @@ private struct PassiveActivityBody: View {
             PassiveSessionContentView(contribution: contribution, playback: playback, cache: cache,
                                       activity: true, playbackState: playback == nil ? nil : rich.playbackState,
                                       showsSpotifyCredit: showsSpotifyCredit, showsHeader: showsHeader && playback == nil,
-                                      theme: snapshot.renderingTheme(at: now), date: now)
+                                      theme: snapshot.renderingTheme(at: now), researchAttribution: rich.currentResearchAttribution(at: now), date: now)
         } else if !showsHeader {
             // The expanded Island already supplies its small leading header.
             // Keep the fallback within its bottom region instead of inserting

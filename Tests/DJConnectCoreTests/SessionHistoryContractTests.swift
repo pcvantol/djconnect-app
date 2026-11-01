@@ -272,6 +272,10 @@ private final class HistoryWireResponseGate: @unchecked Sendable {
 private struct HistoryWireHeldResponse: Error {
     let data: Data
     let gate: HistoryWireResponseGate
+    let status: Int
+    init(data: Data, gate: HistoryWireResponseGate, status: Int = 200) {
+        self.data = data; self.gate = gate; self.status = status
+    }
 }
 
 private final class HistoryWireProtocol: URLProtocol, @unchecked Sendable {
@@ -296,7 +300,7 @@ private final class HistoryWireProtocol: URLProtocol, @unchecked Sendable {
             }
         } catch let held as HistoryWireHeldResponse {
             held.gate.hold { [self] in
-                guard !stateLock.withLock({ stopped }), let response = HTTPURLResponse(url: request.url!, statusCode: 200,
+                guard !stateLock.withLock({ stopped }), let response = HTTPURLResponse(url: request.url!, statusCode: held.status,
                     httpVersion: nil, headerFields: ["Content-Type": "application/json", "Cache-Control": "no-store"]) else { return }
                 client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
                 client?.urlProtocol(self, didLoad: held.data); client?.urlProtocolDidFinishLoading(self)
@@ -784,13 +788,14 @@ private final class HistoryReplySequence: @unchecked Sendable {
     let speechRoot = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/device-speech-core-604b80f8.json"))) as? [String: Any])
     let speechCases = try #require(speechRoot["cases"] as? [[String: Any]])
     let speech = try historyData(["success": true, "ha_install_id": "speech-install", "device_speech": try #require(speechCases.first { $0["case"] as? String == "configuration_stt_True_tts_True" }?["snapshot"])])
+    let oldVoiceReply = HistoryWireResponseGate()
     let fixture = HistoryWireFixture { request in
         if request.url!.path.hasSuffix("/status") { return (200, speech, 0) }
         if request.url!.path.hasSuffix("/capabilities") { return (200, caps, 0) }
-        if request.url!.path.hasSuffix("/voice") { return (500, Data(#"{"success":false,"error":"voice_failed"}"#.utf8), 0.4) }
+        if request.url!.path.hasSuffix("/voice") { throw HistoryWireHeldResponse(data: Data(#"{"success":false,"error":"voice_failed"}"#.utf8), gate: oldVoiceReply, status: 500) }
         return (200, history, 0)
     }
-    defer { fixture.close() }
+    defer { oldVoiceReply.release(); fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
     defaults.set("speech-install", forKey: "DJConnectHAInstallID")
     model.language = "en"
@@ -800,13 +805,22 @@ private final class HistoryReplySequence: @unchecked Sendable {
     let epoch = model.sessionHistory.responseEpoch
     // Synthetic WAV transport only, never microphone/STT acceptance.
     let oldUpload = Task { await model.uploadRecordedVoiceWAV(Data([82,73,70,70]), operation: operation, historyEpoch: epoch) }
-    try await Task.sleep(for: .milliseconds(50))
+    defer { oldUpload.cancel() }
+    // Processing begins before configuration/transport work. Observe the actual
+    // original POST before withdrawing, and hold its failure until AFTER the
+    // new capture exists; elapsed sleeps cannot establish either causal edge.
+    let dispatchDeadline = ContinuousClock.now.advanced(by: .seconds(3))
+    while fixture.requests.filter({ $0.url!.path.hasSuffix("/voice") }).isEmpty, ContinuousClock.now < dispatchDeadline {
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    _ = try #require(fixture.requests.filter { $0.url!.path.hasSuffix("/voice") }.count == 1)
     #expect(model.voiceStatus == .processing && !model.isRecordingVoice)
     model.markInactiveSession()
     #expect(model.voiceStatus == .idle)
     model.sessionHistory.captureVoiceContext()
     let newOperation = model.voiceOperationID
     let newStatus = model.voiceStatus
+    oldVoiceReply.release()
     await oldUpload.value
     #expect(model.voiceOperationID == newOperation && model.voiceStatus == newStatus)
     #expect(model.voiceErrorMessage == nil)
@@ -6529,6 +6543,12 @@ private final class HistoryBulkDeleteFixtureState: @unchecked Sendable {
     let (model,defaults,name) = fixture.model(); defer { defaults.removePersistentDomain(forName:name) }
     let history = model.sessionHistory
     #expect(await model.refreshActiveDJSession())
+    // This fixture tests snapshot-bound archive deletion and coalesced active
+    // HTTP reads, not the independent Broadcast recovery loop. That loop may
+    // queue its first tail read after the baseline below was already sampled.
+    // Fence it without ending the active Session; retain the strict read count.
+    model.stopSessionBroadcast()
+    defer { model.markInactiveSession() }
     await history.prepare(); await history.loadSessions(); await history.loadTimeline(archive.id)
     let preparedDeadline = ContinuousClock.now.advanced(by: .seconds(5))
     while history.timelines[active.id]?.loading == true,
