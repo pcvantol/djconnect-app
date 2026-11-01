@@ -103,7 +103,12 @@ struct AskDJHelpButton: View {
     @ObservedObject var model: DJConnectAppModel
     let surface: DJConnectAskDJCatalogue.Surface
     var body: some View {
-        Button { model.askDJHelpOpenRequest = .init(surface: surface) } label: { Image(systemName: "questionmark.circle") }
+        Button { model.askDJHelpOpenRequest = .init(surface: surface) } label: {
+            Image(systemName: "questionmark.circle")
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+            .buttonStyle(.plain)
             .accessibilityLabel(DJConnectLocalization.localized(key: surface == .session ? "ui.askdj.help.session.entry" : "ui.askdj.help.global.entry", language: model.language))
             .accessibilityIdentifier("ask-dj-help-" + surface.rawValue)
     }
