@@ -1516,6 +1516,8 @@ struct SessionModeToggleButtons: View {
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("session-flow-forecast-picker")
+        // Keep the same live glass as VibeScape inside Flow/Horizon's scroll host.
+        .environment(\.djConnectScrollingSurface, false)
     }
 
     private func modeButton(forecast: Bool, key: String) -> some View {
