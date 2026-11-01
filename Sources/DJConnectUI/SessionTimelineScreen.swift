@@ -1476,6 +1476,16 @@ struct SessionTimelineScreen: View {
     }
 }
 
+/// Shared by the mode picker and active Session preference selectors.
+extension DJConnectSessionMoodTheme {
+    var controlSelectionColor: Color {
+        let rgb = colorValues[self == .groove ? 1 : 2]
+        return Color(red: Double((rgb >> 16) & 255) / 255 * 0.35,
+                     green: Double((rgb >> 8) & 255) / 255 * 0.35,
+                     blue: Double(rgb & 255) / 255 * 0.35)
+    }
+}
+
 struct SessionModeToggleButtons: View {
     @Binding var showsForecast: Bool
     let language: String
@@ -1483,11 +1493,7 @@ struct SessionModeToggleButtons: View {
     var isVibeScape = false
     var mood: String? = nil
     private var selectionColor: Color {
-        let theme = DJConnectSessionMoodTheme(sessionMood: mood)
-        let rgb = theme.colorValues[theme == .groove ? 1 : 2]
-        return Color(red: Double((rgb >> 16) & 255) / 255 * 0.35,
-                     green: Double((rgb >> 8) & 255) / 255 * 0.35,
-                     blue: Double(rgb & 255) / 255 * 0.35)
+        DJConnectSessionMoodTheme(sessionMood: mood).controlSelectionColor
     }
 
     var body: some View {
@@ -1505,6 +1511,8 @@ struct SessionModeToggleButtons: View {
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("session-flow-forecast-picker")
+        // Keep the same live glass as VibeScape inside Flow/Horizon's scroll host.
+        .environment(\.djConnectScrollingSurface, false)
     }
 
     private func modeButton(forecast: Bool, key: String) -> some View {
@@ -2224,7 +2232,9 @@ private struct SessionMoodPopoverContent: View {
         VStack(alignment: .leading, spacing: 12) {
             SessionGlassChoiceSelector(steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
                                       selectedIndex: moods.firstIndex(of: session?.selectedMood ?? "") ?? 0,
-                                      language: model.language, preservesAppearanceWhileDisabled: true) { index in
+                                      language: model.language,
+                                      sessionTheme: .init(sessionMood: session?.selectedMood),
+                                      preservesAppearanceWhileDisabled: true) { index in
                 guard canChange, moods.indices.contains(index) else { return }
                 Task { await model.changeActiveSessionMood(moods[index], expectedSessionID: sessionID, expectedEpoch: epoch) }
             }
@@ -2384,7 +2394,8 @@ struct ActiveSessionPresenceControl: View {
                                            glyphs: values.map(\.choiceGlyph),
                                            titleKey: "ui.session.presence.title",
                                            accessibilityLabelKey: "ui.session.presence.title",
-                                           optionIDs: values.map { "session-presence-choice-" + $0.rawValue }) { index in
+                                           optionIDs: values.map { "session-presence-choice-" + $0.rawValue },
+                                           sessionTheme: .init(sessionMood: model.activeDJSession?.selectedMood)) { index in
                     preview = Double(index); commit(preview)
                 }
                 .accessibilityIdentifier("session-presence-slider")
@@ -2462,6 +2473,7 @@ struct ActiveSessionMoodToolbar: View {
             VStack(alignment: .leading, spacing: 12) {
                 SessionGlassChoiceSelector(steps: moods.enumerated().map { (text("ui.session.mood." + $0.element), $0.offset) },
                                          selectedIndex: selectedIndex, language: model.language,
+                                         sessionTheme: .init(sessionMood: model.activeDJSession?.selectedMood),
                                          preservesAppearanceWhileDisabled: true) { index in
                     guard canChange, moods.indices.contains(index) else { return }
                     Task { await model.changeActiveSessionMood(moods[index], expectedSessionID: intent.sessionID, expectedEpoch: intent.epoch) }
