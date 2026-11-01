@@ -711,19 +711,6 @@ struct SessionTimelineScreen: View {
                             history.prefetchArtwork(sessionID: sessionID, visibleIDs: artworkVisibleIDs)
                         }
                     }
-                    .overlay(alignment: .bottomTrailing) {
-                        if !currentHeaderVisible {
-                            Button {
-                                jump("current", proxy: proxy)
-                            } label: { Image(systemName: "arrow.up") }
-                            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
-                            .accessibilityLabel(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
-                            .help(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
-                            .accessibilityIdentifier("session-jump-top")
-                            .padding(16)
-                            .padding(.bottom, !searching && !showsForecast && usesFloatingComposer ? floatingComposerHeight + 8 : 8)
-                        }
-                    }
                     .defaultScrollAnchor(.top, for: .initialOffset)
                     .scrollPosition(id: displayingForecast ? $forecastPosition : $visibleEntry,
                                     anchor: displayingForecast ? .top : scrollAnchor)
@@ -751,6 +738,20 @@ struct SessionTimelineScreen: View {
                         if usesFloatingComposer && !searching && !showsForecast {
                             Color.clear.frame(height: floatingComposerHeight + composerBottomPadding + 8)
                                 .allowsHitTesting(false)
+                        }
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        if !currentHeaderVisible {
+                            Button {
+                                jump("current", proxy: proxy)
+                            } label: { Image(systemName: "arrow.up") }
+                            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon))
+                            .accessibilityLabel(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
+                            .help(text(activeSession == nil ? "ui.session.history.back_top" : "ui.session.back_current"))
+                            .accessibilityIdentifier("session-jump-top")
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, !searching && !showsForecast && usesFloatingComposer
+                                ? floatingComposerHeight + composerBottomPadding + 8 : 8)
                         }
                     }
                     .overlay(alignment: .bottom) {
