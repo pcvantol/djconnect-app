@@ -1603,3 +1603,4 @@
 "ui.askdj.suggestions.title" = "Suggesties";
 
 "surface.research.adapted" = "Bewerkt op basis van de bovenstaande bronnen.";
+"ui.host.wake.reviewed.device.test" = "Start gecontroleerde apparaattest";

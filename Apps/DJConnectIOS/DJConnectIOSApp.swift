@@ -8,6 +8,7 @@ import UserNotifications
 struct DJConnectIOSApp: App {
     @UIApplicationDelegateAdaptor(DJConnectIOSAppDelegate.self) private var appDelegate
     @StateObject private var model: DJConnectAppModel
+    @StateObject private var hostWakeFirstKey = DJConnectHostWakeFirstKeyOwner()
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -29,12 +30,32 @@ struct DJConnectIOSApp: App {
         // SwiftUI may evaluate the scene content builder on its async render thread.
         // Read actor-isolated app state here, before the nonisolated builder runs.
         let content = DJConnectLaunchContainer(isBusy: model.isRefreshing, content: DJConnectRootView(model: model))
+            .overlay(alignment: .bottom) {
+                // Source preparation only: the owner has no selected effect plan
+                // in ordinary builds. Focus/URLs/server replies never invoke it.
+                if hostWakeFirstKey.showsOperatorAction {
+                    Button(DJConnectLocalization.localized(key: "ui.host.wake.reviewed.device.test")) {
+                        hostWakeFirstKey.operatorRequestsFirstKey()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+            .onChange(of: hostWakeFirstKey.state) {
+                guard hostWakeFirstKey.state == .referenceRecorded else { return }
+                Task {
+                    do { try await model.prepareOriginalHostWake(using: hostWakeFirstKey) }
+                    catch { hostWakeFirstKey.closeOriginalOperation() }
+                }
+            }
             .onAppear {
                 appDelegate.model = model
                 updateSessionShortcut()
             }
             .onChange(of: model.homeScreenSessionActionTitle) { updateSessionShortcut() }
-            .onChange(of: scenePhase) { updateSessionShortcut() }
+            .onChange(of: scenePhase) {
+                if scenePhase != .active { hostWakeFirstKey.closeOriginalOperation() }
+                updateSessionShortcut()
+            }
         return WindowGroup { @Sendable in
             content
         }

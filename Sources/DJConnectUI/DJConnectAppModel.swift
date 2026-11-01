@@ -2082,6 +2082,11 @@ public final class DJConnectAppModel: ObservableObject {
     private let networkMonitorQueue = DispatchQueue(label: "dev.djconnect.app.network")
     private var shouldShowWakeWordPromptAfterPairingScreen = false
     private var currentAPNsPushToken: String?
+    // Original in-memory OS callback only. Legacy/defaults tokens cannot enter
+    // the host-wake first-key/Core-prepare handoff.
+    private var hostWakeOriginalAPNSToken: Data?
+    private var hostWakeAPNSTokenEpoch = UUID()
+    private weak var hostWakePreparingOwner: DJConnectHostWakeFirstKeyOwner?
     private var remoteNotificationRegistrationRequestedThisLaunch = false
     private var pushRegistrationInFlightSignature: String?
     private var pushRegistrationAttemptEpoch: UUID?
@@ -11113,6 +11118,24 @@ public final class DJConnectAppModel: ObservableObject {
         let runtime = try prepareDirectSessionRuntime(surface: surface, lockedDisplay: lockedDisplay)
         try await runtime.begin()
     }
+    public func prepareOriginalHostWake(using host: DJConnectHostWakeFirstKeyOwner) async throws {
+        try Task.checkCancellation()
+        guard host.state == .referenceRecorded, isAppInForeground, !isDemoMode, pairingStatus == .paired,
+              let surface = host.originalSurfaceData,
+              let token = hostWakeOriginalAPNSToken, (16...2048).contains(token.count) else { throw CancellationError() }
+        let tokenEpoch = hostWakeAPNSTokenEpoch
+        let runtime = try prepareDirectSessionRuntime(surface: surface, lockedDisplay: surface == .liveActivity)
+        hostWakePreparingOwner = host
+        if runtime.phase == .idle { try await runtime.begin() }
+        try Task.checkCancellation()
+        guard runtime.phase == .active, hostWakeAPNSTokenEpoch == tokenEpoch,
+              hostWakeOriginalAPNSToken == token else { throw CancellationError() }
+        try await host.prepareOriginalHostWake(runtime: runtime, token: token, tokenIsCurrent: { [weak self] in
+            guard let self else { return false }
+            return self.isAppInForeground && self.pairingStatus == .paired &&
+                self.hostWakeAPNSTokenEpoch == tokenEpoch && self.hostWakeOriginalAPNSToken == token
+        })
+    }
     func readDirectSessionSurface(surface: DJConnectPassiveSurface) async throws {
         try Task.checkCancellation()
         reconcileDirectSessionRuntimes()
@@ -13486,6 +13509,11 @@ public final class DJConnectAppModel: ObservableObject {
             return
         }
         currentAPNsPushToken = token
+        if hostWakeOriginalAPNSToken != deviceToken {
+            hostWakeAPNSTokenEpoch = UUID()
+            hostWakeOriginalAPNSToken = (16...2048).contains(deviceToken.count) ? Data(deviceToken) : nil
+            hostWakePreparingOwner?.closeOriginalOperation()
+        }
         defaults.removeObject(forKey: legacyPushTokenKey)
         logPush("received APNs token bytes=\(deviceToken.count) hex_length=\(token.count) push_token_present=true", level: .info)
         registerStoredPushTokenIfPossible()
@@ -13514,6 +13542,8 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func unregisterPushNotifications() {
+        hostWakeOriginalAPNSToken = nil; hostWakeAPNSTokenEpoch = UUID()
+        hostWakePreparingOwner?.closeOriginalOperation()
         guard let token = currentAPNsPushToken ?? defaults.string(forKey: legacyPushTokenKey), !token.isEmpty else {
             return
         }

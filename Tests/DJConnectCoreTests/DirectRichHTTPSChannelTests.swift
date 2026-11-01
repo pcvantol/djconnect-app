@@ -173,6 +173,81 @@ private enum DirectRichModelTaskContext { @TaskLocal static var waiter: DirectRi
         return try DirectRichWireJSON.object(response).canonicalData()
     }
 
+    @Test func originalLocalClockIsCapturedDuringAuthorizeAndNeverReanchored() async throws {
+        let fixture = try wire(); defer { fixture.close() }
+        let owner = try owner(fixture, flags: DirectRichModelFlags())
+        #expect(owner.originalLocalResources == nil)
+        let before = ContinuousClock.now
+        _ = try await owner.authorize()
+        let original = try #require(owner.originalLocalResources)
+        #expect(before <= original.started && original.started <= ContinuousClock.now)
+        #expect(original.ceiling == original.started.advanced(by: .seconds(28_800)))
+        _ = try await owner.read()
+        #expect(owner.originalLocalResources === original)
+        owner.suspend()
+        _ = try await owner.read()
+        #expect(owner.originalLocalResources === original)
+    }
+
+    @Test func ordinaryFirstKeyOwnerCannotTurnModelParentOrTokenIntoCorePrepare() async throws {
+        let fixture = try wire(); defer { fixture.close() }
+        let runtime = DJConnectDirectSessionRuntime(testCustody: try owner(fixture, flags: DirectRichModelFlags()))
+        try await runtime.begin()
+        let firstKey = DJConnectHostWakeFirstKeyOwner()
+        do {
+            try await firstKey.prepareOriginalHostWake(runtime: runtime, token: Data(repeating: 7, count: 32), tokenIsCurrent: { true })
+            Issue.record("unselected owner accepted parent/token DATA")
+        } catch {}
+        #expect(firstKey.state == .closed)
+        #expect(fixture.requests.count == 1) // Original modeled read only; no Core host-wake prepare.
+        #expect(runtime.phase == .active)
+    }
+
+    @Test func lostOriginalLocalResourcesCloseReadButKeepNegativeWithdrawal() async throws {
+        let fixture = try wire(); defer { fixture.close() }
+        let owner = try owner(fixture, flags: DirectRichModelFlags())
+        let candidate = try await owner.authorize()
+        let original = try #require(owner.originalLocalResources)
+        original.close()
+        #expect(!candidate.isCurrent)
+        do { _ = try await owner.read(); Issue.record("closed local root read escaped") } catch {}
+        #expect(owner.state == .closed && owner.originalLocalResources === original)
+        #expect(fixture.requests.filter({ $0.url?.lastPathComponent == "read" }).count == 0)
+        _ = try await owner.withdraw()
+        #expect(fixture.requests.filter({ $0.url?.lastPathComponent == "withdraw" }).count == 1)
+        do { _ = try await owner.authorize(); Issue.record("new C0 after terminal root") } catch {}
+        #expect(owner.originalLocalResources === original && !original.isCurrent)
+    }
+
+    @Test func localResourceBoundIsHalfOpenAndHasNoForeignClockInput() {
+        let start = ContinuousClock.now, end = start.advanced(by: .seconds(28_800))
+        #expect(DirectRichOriginalLocalResources.contains(started: start, ceiling: end, now: start))
+        #expect(!DirectRichOriginalLocalResources.contains(started: start, ceiling: end, now: end))
+        #expect(!DirectRichOriginalLocalResources.contains(started: start, ceiling: end, now: start.advanced(by: .nanoseconds(-1))))
+        #expect(!DirectRichOriginalLocalResources.contains(started: start, ceiling: start, now: start))
+    }
+
+    @Test func closedLocalRootRejectsAnAlreadyDispatchedReadReply() async throws {
+        let gate = DirectRichAssetGate(), fixture = try wire(readGate: gate)
+        defer { gate.release(); fixture.close() }
+        let owner = try owner(fixture, flags: DirectRichModelFlags())
+        _ = try await owner.authorize()
+        let original = try #require(owner.originalLocalResources)
+        let pending = Task { () -> Bool in
+            do { _ = try await owner.read(); return true } catch { return false }
+        }
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while fixture.requests.filter({ $0.url?.lastPathComponent == "read" }).isEmpty,
+              ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(fixture.requests.filter({ $0.url?.lastPathComponent == "read" }).count == 1)
+        original.close()
+        gate.release()
+        #expect(await pending.value == false)
+        #expect(owner.state == .closed && owner.originalLocalResources === original)
+    }
+
     @Test func genuineSameContentObservationMayKeepBroadcastSequence() async throws {
         let response = try changedRead { frame in
             frame["observed_at_ms"] = .integer(1793440801000)
