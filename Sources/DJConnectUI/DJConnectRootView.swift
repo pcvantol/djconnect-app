@@ -10442,8 +10442,8 @@ struct FavoriteTrackButton: View {
     @Environment(\.djConnectGlassEffectsEnabled) private var glassEnabled
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
-    // Leave four extra points around the Session glyph inside native glass.
-    private var labelDiameter: CGFloat { sessionContext != nil && glassEnabled && !reduceTransparency ? 32 : 44 }
+    // Keep the Session glyph close to the glass edge; retain a 44-point tap target below.
+    private var labelDiameter: CGFloat { sessionContext != nil && glassEnabled && !reduceTransparency ? 24 : 44 }
 
     private var isFavorite: Bool {
         model.playback?.currentTrackFavoriteStatus == true
@@ -10468,7 +10468,8 @@ struct FavoriteTrackButton: View {
                     .buttonStyle(.glass(.regular.tint(.clear).interactive()))
                     .buttonBorderShape(.circle)
                     .tint(.clear)
-                    .controlSize(.large)
+                    .controlSize(.regular)
+                    .frame(minWidth: 44, minHeight: 44)
             }
         } else {
             favoriteButton
