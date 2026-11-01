@@ -10729,7 +10729,8 @@ private extension View {
     }
 }
 
-private struct OutputSelectorView: View {
+struct OutputSelectorView: View {
+    var scrollsOutputs = false
     @StateObject private var manualRefresh = DJConnectManualRefreshController()
     @ObservedObject var model: DJConnectAppModel
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
@@ -10772,26 +10773,11 @@ private struct OutputSelectorView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                VStack(spacing: 8) {
-                    ForEach(sortedOutputs) { output in
-                        OutputDeviceChoiceRow(
-                            language: model.language,
-                            output: output,
-                            title: model.outputDisplayName(output),
-                            isActive: output.active == true,
-                            isPending: model.pendingOutputSelectionID == output.id,
-                            volumeLabel: model.outputVolumeLabel(output),
-                            isBluetooth: model.outputUsesLocalBluetooth(output),
-                            isEnabled: canUsePlayback,
-                            action: {
-                                guard canUsePlayback else {
-                                    return
-                                }
-                                model.selectOutput(output)
-                            }
-                        )
-                    }
-                }
+                if scrollsOutputs {
+                    ScrollView { outputChoices }
+                        .frame(maxHeight: 360)
+                        .accessibilityIdentifier("output-devices-scroll")
+                } else { outputChoices }
             }
         }
         .djStatusToastOverlay(manualRefresh.notice, screenImage: "speaker.wave.2")
@@ -10806,6 +10792,29 @@ private struct OutputSelectorView: View {
         .padding(14)
         #endif
     }
+    private var outputChoices: some View {
+        VStack(spacing: 8) {
+            ForEach(sortedOutputs) { output in
+                OutputDeviceChoiceRow(
+                    language: model.language,
+                    output: output,
+                    title: model.outputDisplayName(output),
+                    isActive: output.active == true,
+                    isPending: model.pendingOutputSelectionID == output.id,
+                    volumeLabel: model.outputVolumeLabel(output),
+                    isBluetooth: model.outputUsesLocalBluetooth(output),
+                    isEnabled: canUsePlayback,
+                    action: {
+                        guard canUsePlayback else {
+                            return
+                        }
+                        model.selectOutput(output)
+                    }
+                )
+            }
+        }
+    }
+
 }
 
 struct BluetoothOutputSymbol: Shape {
