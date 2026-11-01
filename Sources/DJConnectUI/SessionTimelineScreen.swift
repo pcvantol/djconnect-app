@@ -84,6 +84,7 @@ struct SavedSessionsView: View {
     private var refreshing: Bool { manualRefresh.isRefreshing }
     @State private var initialLoadFinished = false
     @State private var localOpenedSessionID: String?
+    @State private var openedSessionSearch: [String: String] = [:]
     @State private var isSearchVisible = false
     @State private var searchText = ""
     @State private var selectedSearchIndex = 0
@@ -171,7 +172,11 @@ struct SavedSessionsView: View {
                         .accessibilityIdentifier("saved-sessions-refresh-error")
                     }
                     ForEach(filteredSessions) { session in
-                        Button { openedSessionID.wrappedValue = session.id } label: {
+                        Button {
+                            openedSessionSearch = [session.id: isSearchVisible ? searchQuery : ""]
+                            isSearchFocused = false
+                            openedSessionID.wrappedValue = session.id
+                        } label: {
                             SavedSessionListRow(session: session, language: model.language,
                                                 summaryAvailable: history.summaryAvailable, timeZone: rowTimeZone)
                                 .equatable()
@@ -246,9 +251,13 @@ struct SavedSessionsView: View {
                 }
             }
             .navigationDestination(item: openedSessionID) { sessionID in
-                SessionTimelineScreen(model: model, sessionID: sessionID)
+                SessionTimelineScreen(model: model, sessionID: sessionID,
+                    initialSearchQuery: openedSessionSearch[sessionID] ?? "")
                     .navigationTitle(detailTitle(sessionID: sessionID))
                     .djConnectMouseBackNavigation()
+            }
+            .onChange(of: openedSessionID.wrappedValue) { _, sessionID in
+                if sessionID == nil { openedSessionSearch = [:] }
             }
             .navigationTitle(text("ui.session.history.title") + (model.isDemoMode ? " (demo)" : ""))
             .scrollBounceBehavior(.always)
@@ -424,10 +433,14 @@ struct SessionTimelineScreen: View {
     @Environment(\.scenePhase) private var scenePhase
 
     init(model: DJConnectAppModel, sessionID: String, activeSession: DJConnectSessionRuntime? = nil,
-         initialAnchor: String? = nil, openQueueAction: @escaping () -> Void = {}, refreshAction: (() async -> Bool)? = nil) {
+         initialAnchor: String? = nil, initialSearchQuery: String = "", openQueueAction: @escaping () -> Void = {}, refreshAction: (() async -> Bool)? = nil) {
         self.model = model; history = model.sessionHistory; self.sessionID = sessionID
         self.activeSession = activeSession; self.initialAnchor = initialAnchor; self.openQueueAction = openQueueAction
         self.refreshAction = refreshAction
+        let initialQuery = initialSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        _query = State(initialValue: initialQuery)
+        _searching = State(initialValue: !initialQuery.isEmpty)
+        _flowSearchExpanded = State(initialValue: !initialQuery.isEmpty)
         _visibleEntry = State(initialValue: activeSession != nil && initialAnchor == nil ? "session-mode-picker" : nil)
         _forecastPosition = State(initialValue: activeSession != nil && initialAnchor == nil ? "session-mode-picker" : nil)
     }
@@ -923,6 +936,10 @@ struct SessionTimelineScreen: View {
                 let restoreGeneration = anchorGeneration
                 await history.prepare(); await history.loadTimeline(sessionID, window: .tail)
                 guard !Task.isCancelled, restoreGeneration == anchorGeneration else { return }
+                if filtersTimeline {
+                    history.search(sessionID: sessionID, query: query)
+                    return
+                }
                 if let initialAnchor { await selectAnchor(initialAnchor, proxy: proxy, restoreRequest: true) }
                 else if activeSession != nil { return } // Content refresh never repositions the active screen.
                 else if let anchor = history.readingAnchor(sessionID: sessionID) {
