@@ -613,8 +613,6 @@ struct SessionTimelineScreen: View {
                                                     SessionHistorySummaryView(summary: summary, language: model.language, showsMood: false)
                                                 }
                                             }
-                                            Label(text("ui.session.history.readonly"), systemImage: "lock")
-                                                .font(.caption).foregroundStyle(.secondary)
                                         }
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                     }
