@@ -15822,8 +15822,7 @@ private struct LocalGameSurface: View {
                     with: .color(.white.opacity(isPowerPellet ? 0.98 : 0.82))
                 )
             }
-            context.fill(Path(ellipseIn: rect(pacmanX - 8, pacmanY - 8, 16, 16)), with: .color(.yellow))
-            drawPacmanMouth(in: &context, at: point(pacmanX, pacmanY), scaleX: scaleX, scaleY: scaleY)
+            drawPacmanBody(in: &context, at: point(pacmanX, pacmanY), scaleX: scaleX, scaleY: scaleY)
             drawPacmanEye(in: &context, at: point(pacmanX, pacmanY), scaleX: scaleX, scaleY: scaleY)
             drawGhost(in: &context, at: point(ghostX, ghostY), scaleX: scaleX, scaleY: scaleY, isVulnerable: isGhostVulnerable, isBlinking: isGhostBlinking)
             drawPacmanDeath(in: &context, rect: rect, point: point, scaleX: scaleX, scaleY: scaleY)
@@ -16126,8 +16125,8 @@ private struct LocalGameSurface: View {
         }
     }
 
-    private func drawPacmanMouth(in context: inout GraphicsContext, at center: CGPoint, scaleX: CGFloat, scaleY: CGFloat) {
-        let radius = 8 * min(scaleX, scaleY)
+    private func drawPacmanBody(in context: inout GraphicsContext, at center: CGPoint, scaleX: CGFloat, scaleY: CGFloat) {
+        let radius: CGFloat = 8
         let mouthAngle: CGFloat
         if abs(pacmanDX) >= abs(pacmanDY) {
             mouthAngle = pacmanDX < 0 ? .pi : 0
@@ -16135,17 +16134,19 @@ private struct LocalGameSurface: View {
             mouthAngle = pacmanDY < 0 ? -.pi / 2 : .pi / 2
         }
         let spread = CGFloat.pi / 5
-        var mouth = Path()
-        mouth.move(to: center)
-        mouth.addArc(
-            center: center,
-            radius: radius + 1,
-            startAngle: .radians(Double(mouthAngle - spread)),
-            endAngle: .radians(Double(mouthAngle + spread)),
+        // Fill only the body sector; the mouth exposes the scene beneath it.
+        var body = Path()
+        body.move(to: .zero)
+        body.addArc(
+            center: .zero,
+            radius: radius,
+            startAngle: .radians(Double(mouthAngle + spread)),
+            endAngle: .radians(Double(mouthAngle + 2 * .pi - spread)),
             clockwise: false
         )
-        mouth.closeSubpath()
-        context.fill(mouth, with: .color(.black.opacity(0.82)))
+        body.closeSubpath()
+        let transform = CGAffineTransform(a: scaleX, b: 0, c: 0, d: scaleY, tx: center.x, ty: center.y)
+        context.fill(body.applying(transform), with: .color(.yellow))
     }
 
     private func drawPacmanEye(in context: inout GraphicsContext, at center: CGPoint, scaleX: CGFloat, scaleY: CGFloat) {
