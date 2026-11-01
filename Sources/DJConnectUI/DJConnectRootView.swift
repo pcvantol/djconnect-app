@@ -3644,6 +3644,8 @@ struct DJConnectButtonStyle: ButtonStyle {
     var showsFocusIndicator = true
     var foregroundColor: Color? = nil
     var selectionTint: Color? = nil
+    /// Applied after label padding/expansion, over the complete button shape.
+    var selectionFill: Color? = nil
     var primaryFill: Color? = nil
     var dimsWhenDisabled = true
     @Environment(\.isFocused) private var isFocused
@@ -3685,9 +3687,9 @@ struct DJConnectButtonStyle: ButtonStyle {
                         } else { outline.fill(primaryFill.map { AnyShapeStyle($0) } ?? AnyShapeStyle(DJConnectButtonAppearance.primaryGradient)) }
                     case .selected:
                         if usesLiveGlass && glassEnabled && !reduceTransparency {
-                            outline.fill((selectionTint ?? djConnectAccent).opacity(0.10))
+                            outline.fill(selectionFill ?? (selectionTint ?? djConnectAccent).opacity(0.10))
                                 .glassEffect(.regular.tint((selectionTint ?? djConnectAccent).opacity(0.22)).interactive(), in: outline)
-                        } else { outline.fill((selectionTint ?? djConnectAccent).opacity(0.22)) }
+                        } else { outline.fill(selectionFill ?? (selectionTint ?? djConnectAccent).opacity(0.22)) }
                     case .destructive:
                         if usesDestructiveGlass && usesLiveGlass && glassEnabled && !reduceTransparency {
                             outline.fill(Color.red.opacity(0.04))
@@ -13623,15 +13625,14 @@ struct SessionGlassChoiceSelector: View {
                             .frame(width: 24, height: 28)
                             .foregroundStyle(.white.opacity(index == selectedIndex ? 1 : 0.78))
                             .frame(maxWidth: .infinity, minHeight: 48)
-                            .background(sessionTheme != nil && index == selectedIndex
-                                ? resolvedSelectionColor.opacity(0.80) : .clear,
-                                in: DJConnectCardAppearance.segmentedItemShape)
                     }
                     .djConnectButtonStyle(DJConnectButtonStyle(
                         emphasis: index == selectedIndex ? .selected : .secondary,
                         shape: .segmented, expands: true, usesLiveGlass: true,
                         showsFocusIndicator: false, foregroundColor: .white.opacity(index == selectedIndex ? 1 : 0.78),
-                        selectionTint: resolvedSelectionColor, dimsWhenDisabled: !preservesAppearanceWhileDisabled
+                        selectionTint: resolvedSelectionColor,
+                        selectionFill: sessionTheme != nil ? resolvedSelectionColor.opacity(0.80) : nil,
+                        dimsWhenDisabled: !preservesAppearanceWhileDisabled
                     ))
                     .focused($focusedOption, equals: index)
                     .focusEffectDisabled()
