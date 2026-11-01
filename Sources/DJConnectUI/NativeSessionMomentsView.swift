@@ -11,12 +11,24 @@ enum DJConnectAlbumArtworkLayout {
 }
 
 extension View {
-    /// Pop-outs share VibeScape Help's frosting, rounding and preference fallback.
-    /// A pop-out stays live even when its presenting page uses scrolling materials.
-    @ViewBuilder func djConnectGlassPopoutSurface(enabled: Bool = true) -> some View {
+    /// Inline pop-outs own a frosted card; native Mac presentations own their rim.
+    /// Both respect the glass preference and stay live over scrolling pages.
+    @ViewBuilder func djConnectGlassPopoutSurface(enabled: Bool = true, nativePresentation: Bool = false) -> some View {
         if enabled {
+            #if os(macOS)
+            if nativePresentation {
+                // AppKit already owns the popover's glass, arrow, rim and radius.
+                // A second 32pt card inside it creates intersecting corner arcs.
+                self.djConnectPresentationSurface()
+                    .environment(\.djConnectScrollingSurface, false)
+            } else {
+                self.djSessionFrostedSurface()
+                    .environment(\.djConnectScrollingSurface, false)
+            }
+            #else
             self.djSessionFrostedSurface()
                 .environment(\.djConnectScrollingSurface, false)
+            #endif
         } else { self }
     }
 

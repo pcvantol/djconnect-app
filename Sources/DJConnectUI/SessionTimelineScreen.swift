@@ -2193,7 +2193,7 @@ struct SessionControlPopoverHost: View {
                 .background(SessionPopoverDismissalObserver { finishDismissal(captured.id) })
                 .presentationCompactAdaptation(.popover)
                 // The voice editor owns its own surface on iOS and Mac.
-                .djConnectGlassPopoutSurface(enabled: captured.kind != .voice)
+                .djConnectGlassPopoutSurface(enabled: captured.kind != .voice, nativePresentation: true)
                 .djConnectPresentationSurface()
             }
             .task(id: intent?.id) {
@@ -2330,7 +2330,7 @@ struct ActiveSessionPresenceToolbar: View {
             .onExitCommand { scope = nil }
             #endif
             .presentationCompactAdaptation(.popover)
-                .djConnectGlassPopoutSurface()
+                .djConnectGlassPopoutSurface(nativePresentation: true)
                 .djConnectPresentationSurface()
         }
         .onAppear { trace("toolbar-appeared") }
@@ -2513,7 +2513,7 @@ struct ActiveSessionMoodToolbar: View {
             .onExitCommand { moodIntent = nil }
             #endif
             .presentationCompactAdaptation(.popover)
-                .djConnectGlassPopoutSurface()
+                .djConnectGlassPopoutSurface(nativePresentation: true)
                 .djConnectPresentationSurface()
         }
         .task(id: CapabilityScope(sessionID: session.id, epoch: history.responseEpoch, authorized: model.pairingStatus == .paired)) {
@@ -2652,7 +2652,7 @@ struct SessionConnectionToolbarButton: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .ignoresSafeArea(.keyboard)
                 .presentationCompactAdaptation(.popover)
-                .djConnectGlassPopoutSurface()
+                .djConnectGlassPopoutSurface(nativePresentation: true)
                 .djConnectPresentationSurface()
         }
     }
