@@ -1,5 +1,29 @@
 import Foundation
 
+/// One process-local resource window, captured by the real read owner before
+/// its first authorize. Never a remote-expiry conversion or an SDK permit.
+@MainActor final class DirectRichOriginalLocalResources {
+    let started: ContinuousClock.Instant
+    let ceiling: ContinuousClock.Instant
+    private let clock: ContinuousClock
+    private var closed = false
+    private init() {
+        let clock = ContinuousClock()
+        self.clock = clock
+        let started = clock.now
+        self.started = started
+        // Independent local resource policy; NOT a duration received from Core.
+        ceiling = started.advanced(by: .seconds(28_800))
+    }
+    static func captureBeforeAuthorize() -> DirectRichOriginalLocalResources { .init() }
+    var isCurrent: Bool { !closed && Self.contains(started: started, ceiling: ceiling, now: clock.now) }
+    func close() { closed = true }
+    static func contains(started: ContinuousClock.Instant, ceiling: ContinuousClock.Instant,
+                         now: ContinuousClock.Instant) -> Bool {
+        started < ceiling && started <= now && now < ceiling
+    }
+}
+
 /// One actual warm direct-read lifetime. No native SDK calls, persistent
 /// secrets, recovery authorization or default clock qualification. The actual
 /// AppModel/native owner must still join a genuine original clock supplier.
@@ -41,7 +65,7 @@ import Foundation
         }
         var isCurrent: Bool {
             guard let owner else { return false }
-            return !Task.isCancelled && owner.fence.isLive && owner.state == .active && owner.ownerIsCurrent() && owner.pairCurrent() &&
+            return !Task.isCancelled && owner.fence.isLive && owner.state == .active && owner.originalLocalResourcesAreCurrent && owner.ownerIsCurrent() && owner.pairCurrent() &&
                 owner.currentFrame?.frame_id == frameID && owner.candidateEpoch == epoch && attemptCurrent()
         }
         var frame: DirectRichFrame? { isCurrent ? owner?.currentFrame : nil }
@@ -79,7 +103,7 @@ import Foundation
             originalBodyIsLive = { lifetime.isLive }
         }
         var isRetained: Bool {
-            guard !Task.isCancelled, let owner, owner.fence.isLive,
+            guard !Task.isCancelled, let owner, owner.fence.isLive, owner.originalLocalResourcesAreCurrent,
                   [.active, .suspended].contains(owner.state), let original = owner.original,
                   original.operationID == operationID, original.purposeID == purposeID,
                   original.sessionID == sessionID, original.surface == surface, original.generation == generation,
@@ -166,6 +190,14 @@ import Foundation
     private var artworkWorkID: UUID?
     private var original: DirectRichResponse.Original?
     private var originalCapture: DJConnectNativeSurfaceClockCapture?
+    private(set) var originalLocalResources: DirectRichOriginalLocalResources?
+    private var originalLocalResourcesAreCurrent: Bool {
+        guard originalLocalResources?.isCurrent == true else {
+            if state != .idle { retire(unknown: state == .unknown) }
+            return false
+        }
+        return true
+    }
     private var currentFrame: DirectRichFrame?
     private var lastAccepted: (sequence: Int64, observedMS: Int64, state: String)?
     private var knownPurpose: String?
@@ -213,6 +245,7 @@ import Foundation
         guard state == .idle, pairCurrent(), ownerIsCurrent() else { throw DJConnectError.invalidResponse }
         authorizationWasStarted = true
         state = .authorizing
+        originalLocalResources = .captureBeforeAuthorize() // Before task creation or any authorize await.
         let capture = DJConnectNativeSurfaceClockCapture.capture(), current = captureAttempt()
         originalCapture = capture
         let id = UUID(); workID = id
@@ -221,7 +254,7 @@ import Foundation
             do {
                 let reply = try await exchange(authorization, credential: originalPairedToken, attemptCurrent: current)
                 let accepted = try DirectRichResponse.active(reply.bytes, request: authorization)
-                guard state == .authorizing, ownerIsCurrent(), pairCurrent(), current() else { throw CancellationError() }
+                guard state == .authorizing, originalLocalResourcesAreCurrent, ownerIsCurrent(), pairCurrent(), current() else { throw CancellationError() }
                 original = accepted.original; knownPurpose = accepted.original.purposeID
                 knownBounds = (accepted.original.issuedMS, accepted.original.expiresMS)
                 state = .active; try accept(accepted.frame)
@@ -246,7 +279,7 @@ import Foundation
     func read() async throws -> Candidate {
         try Task.checkCancellation()
         guard fence.isLive else { retire(unknown: state == .unknown); throw CancellationError() }
-        guard [.active, .suspended].contains(state), original != nil else { throw DJConnectError.invalidResponse }
+        guard [.active, .suspended].contains(state), original != nil, originalLocalResourcesAreCurrent else { throw DJConnectError.invalidResponse }
         if let shared = workResult {
             let current = captureAttempt()
             guard current(), ownerIsCurrent(), pairCurrent() else { throw CancellationError() }
@@ -268,7 +301,7 @@ import Foundation
                     "contract_version": .integer(1), "purpose_id": .string(original.purposeID)]).canonicalData())
                 let reply = try await exchange(request, credential: original.readCredential, attemptCurrent: current)
                 let accepted = try DirectRichResponse.active(reply.bytes, request: request, original: original)
-                guard fence.isLive, self.original != nil, ownerIsCurrent(), pairCurrent(), current() else { throw CancellationError() }
+                guard fence.isLive, self.original != nil, originalLocalResourcesAreCurrent, ownerIsCurrent(), pairCurrent(), current() else { throw CancellationError() }
                 try accept(accepted.frame); state = .active
                 let candidate = Candidate(owner: self, frameID: accepted.frame.frame_id, capture: capture, attemptCurrent: current)
                 shared.complete(.success(candidate)); return candidate
@@ -372,6 +405,7 @@ import Foundation
     }
 
     func retire(unknown: Bool = false) {
+        originalLocalResources?.close() // Terminal; a later read cannot capture a new C0.
         proxyCancellation?.cancelPositive()
         originalContextCache?.retireProxy()
         fence.close(); state = unknown ? .unknown : .closed
@@ -416,7 +450,7 @@ import Foundation
                           attemptCurrent: @escaping @MainActor @Sendable () -> Bool) async throws -> DirectRichHTTPSChannel.Reply {
         let fence = fence
         return try await channel.send(request, credential: credential, beforeDispatch: { [self] in
-            guard fence.isLive, pairCurrent(), ownerIsCurrent(), attemptCurrent() else { throw CancellationError() }
+            guard fence.isLive, originalLocalResourcesAreCurrent, pairCurrent(), ownerIsCurrent(), attemptCurrent() else { throw CancellationError() }
         }, isCurrent: { fence.isLive }, onServerError: { [self] code in
             if [.unavailable, .notAllowed, .unauthorized].contains(code) { retire(unknown: true) }
             else if request.operation == .read && [.frameUnavailable, .frameChanged].contains(code) {

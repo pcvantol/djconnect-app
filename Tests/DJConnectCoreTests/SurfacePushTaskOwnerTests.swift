@@ -309,11 +309,12 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
         let attempt = model.captureNativePushInventoryAttempt()
         #expect(model.isCurrentNativePushInventory(attempt, role: role))
         let gate = OwnerGate()
-        var entered = false, published = false
+        let entered = OwnerGate()
+        var published = false
         // Gated SDK-inventory model; exercises the SAME AppModel predicate used
         // after real SDK awaits and in their catch. No native SDK callback claim.
-        let pending = Task {
-            entered = true
+        let pending = Task { @MainActor in
+            entered.release()
             do {
                 await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                     gate.hold { continuation.resume() }
@@ -326,7 +327,11 @@ private final class OwnerProtocol: URLProtocol, @unchecked Sendable {
                 owner.withdrawLocally()
             }
         }
-        while !entered { await Task.yield() }
+        // Suspend until the original child starts; a polling/yield loop can
+        // starve that child under the parallel Swift Testing executor.
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            entered.hold { continuation.resume() }
+        }
         if outcome.hasPrefix("cancel") { pending.cancel() }
         else { owner.bind(nil); owner.bind(scope) } // Same visible A after a lost owner.
         let successorGeneration = owner.observationGeneration

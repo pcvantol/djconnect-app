@@ -32,6 +32,15 @@ public actor RendezvousAppKeyOperations {
         case invalidInstallationTransition, installationTransitionKeyBusy
     }
 
+    /// Host-wake borrows only the existing installation exclusion slot. It must
+    /// not inherit a Rendezvous enrollment/transition scope or its permissions.
+    func performHostWakeFirstKey<Value: Sendable>(operation: @Sendable () async throws -> Value) async throws -> Value {
+        guard Self.initialEnrollmentLease == nil, Self.installationTransitionLease == nil else {
+            throw Failure.invalidInstallationTransition
+        }
+        return try await perform(keyIdentifier: Self.installationAdmissionSlot, operation: operation)
+    }
+
     public func perform<Value: Sendable>(
         keyIdentifier: String,
         operation: @Sendable () async throws -> Value
