@@ -74,8 +74,12 @@ struct DJConnectWatchSessionView: View {
                             if snapshot.session == nil { Task { await model.changeForegroundSession() } }
                             else { endingSessionID = snapshot.session?.id; confirmsEnd = true }
                         } label: {
-                            Label(text(snapshot.session == nil ? "ui.session.start" : "ui.session.end"),
-                                  systemImage: snapshot.session == nil ? "play.fill" : "stop.fill")
+                            Label {
+                                Text(text(snapshot.session == nil ? "ui.session.start" : "ui.session.end"))
+                            } icon: {
+                                Image(systemName: snapshot.session == nil ? "play.fill" : "stop.fill")
+                                    .foregroundStyle(snapshot.session == nil ? Color.primary : Color(red: 0.84, green: 0.22, blue: 0.96))
+                            }
                         }
                         .disabled(state.isChanging || state.isRefreshing || state.outcomeUnknown || settings.hasUncertainOperation)
                         .accessibilityIdentifier(snapshot.session == nil ? "watch-session-start" : "watch-session-end")

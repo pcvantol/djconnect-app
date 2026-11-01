@@ -2580,7 +2580,7 @@ struct SessionEndToolbarButton: View {
             requestedSessionID = model.activeDJSession?.id
             confirming = requestedSessionID != nil
         } label: {
-            Image(systemName: "xmark.circle").foregroundStyle(.red)
+            Image(systemName: "xmark.circle").foregroundStyle(djConnectAccent)
         }
         .disabled(model.isLoadingDJSession || model.activeDJSession == nil)
         .accessibilityLabel(text("ui.session.end"))
