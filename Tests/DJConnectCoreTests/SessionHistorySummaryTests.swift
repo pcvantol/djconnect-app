@@ -151,3 +151,22 @@ func historySummaryAllQualifiedMoodsUseLocalizedLabels(_ value: String) throws {
     #expect(SessionSourceLinks.urls(playback: nil, sources: [["url": article, "revision_url": article]]).map(\.absoluteString) == [article])
     #expect(SessionSourceLinks.urls(playback: article, sources: [["url": article, "revision_url": "javascript:bad"]]).map(\.absoluteString) == [article])
 }
+
+
+@Test func historyCreditsGroupRepeatedLabelsWithoutDroppingDistinctSourcesOrLicenses() throws {
+    let first = try #require(URL(string: "https://nl.wikipedia.org/wiki/Son_Mieux"))
+    let second = try #require(URL(string: "https://nl.wikipedia.org/w/index.php?title=Faire_de_son_mieux&oldid=123"))
+    let data = try #require(URL(string: "https://www.wikidata.org/wiki/Q123"))
+    let otherLicense = try #require(URL(string: "https://example.org/source"))
+    let groups = SessionSourceLinks.groups(urls: [first, second, first, data, otherLicense]) { url in
+        if url == data { return "Wikidata · CC0-1.0" }
+        if url == otherLicense { return "Wikipedia · other license" }
+        return "Wikipedia · CC-BY-SA-4.0"
+    }
+    #expect(groups.map(\.label) == ["Wikipedia · CC-BY-SA-4.0", "Wikidata · CC0-1.0", "Wikipedia · other license"])
+    #expect(groups.map(\.urls) == [[first, second], [data], [otherLicense]])
+    #expect(SessionSourceLinks.destinationLabel(first) == "Son Mieux")
+    #expect(SessionSourceLinks.destinationLabel(second) == "Faire de son mieux")
+    let revisionWithoutTitle = try #require(URL(string: "https://nl.wikipedia.org/w/index.php?oldid=123"))
+    #expect(SessionSourceLinks.destinationLabel(revisionWithoutTitle) == revisionWithoutTitle.absoluteString)
+}

@@ -1686,11 +1686,20 @@ struct SessionEntryView: View, Equatable {
                                 .modifier(ContributionContentAction(question: contributionQuestion, action: contributionAction))
                         }
                         SessionTimestampText(value: entry.occurredAt, language: language).font(.caption).foregroundStyle(.secondary)
-                        ForEach(sourceURLs, id: \.absoluteString) { url in
-                            Link(sourceLabel(for: url), destination: url)
-                                .foregroundStyle(.white)
-                                .tint(.white)
-                                .accessibilityValue(url.absoluteString)
+                        ForEach(SessionSourceLinks.groups(urls: sourceURLs, label: sourceLabel)) { group in
+                            if group.urls.count == 1, let url = group.urls.first {
+                                Link(group.label, destination: url)
+                                    .foregroundStyle(.white).tint(.white)
+                                    .accessibilityValue(url.absoluteString)
+                            } else {
+                                Menu(group.label) {
+                                    ForEach(group.urls, id: \.absoluteString) { url in
+                                        Link(SessionSourceLinks.destinationLabel(url), destination: url)
+                                            .accessibilityValue(url.absoluteString)
+                                    }
+                                }
+                                .foregroundStyle(.white).tint(.white)
+                            }
                         }
                         if entry.requiresSpotifyAttribution == true, let logo = spotifyAttributionLogo,
                            let url = spotifyFooterURL {
@@ -1826,6 +1835,33 @@ struct SessionEntryView: View, Equatable {
 /// A supplied revision is the precise version of its canonical source, not a
 /// second citation. Keep distinct articles and previous sources independently.
 enum SessionSourceLinks {
+    struct Group: Identifiable {
+        let label: String
+        var urls: [URL]
+        var id: String { label }
+    }
+
+    /// Group identical visible credits, retaining every distinct destination.
+    /// A different provider/license label remains a separate attribution.
+    static func groups(urls: [URL], label: (URL) -> String) -> [Group] {
+        var groups: [Group] = []
+        for url in urls {
+            let title = label(url)
+            if let index = groups.firstIndex(where: { $0.label == title }) {
+                if !groups[index].urls.contains(url) { groups[index].urls.append(url) }
+            } else { groups.append(Group(label: title, urls: [url])) }
+        }
+        return groups
+    }
+
+    static func destinationLabel(_ url: URL) -> String {
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let wikiTitle = components?.queryItems?.first { $0.name == "title" }?.value
+        let title = wikiTitle ?? url.lastPathComponent.removingPercentEncoding ?? url.lastPathComponent
+        guard !title.isEmpty, title != "index.php" else { return url.absoluteString }
+        return title.replacingOccurrences(of: "_", with: " ")
+    }
+
     static func urls(playback: String?, sources: [[String: String]]) -> [URL] {
         func admitted(_ raw: String?) -> URL? {
             guard let raw, let url = URL(string: raw), ["http", "https"].contains(url.scheme),
