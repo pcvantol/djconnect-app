@@ -427,7 +427,7 @@ private struct VibeScapeHelpContent: View {
             .font(.body).fixedSize(horizontal: false, vertical: true).padding(24)
         }
         .frame(idealWidth: 380, maxWidth: 440, idealHeight: 400, maxHeight: 560)
-        .djSessionFrostedSurface()
+        .djConnectGlassPopoutSurface()
         .accessibilityIdentifier("vibescape-help-content")
     }
 }

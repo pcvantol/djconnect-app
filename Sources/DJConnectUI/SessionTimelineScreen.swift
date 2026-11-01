@@ -771,6 +771,7 @@ struct SessionTimelineScreen: View {
                 }
             }
             .background(sessionBackground)
+            .coordinateSpace(name: AskDJHelpPanelLayout.coordinateSpace)
             .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
                 guard activeSession != nil, sessionControlIntent == nil, !inlineSearchBounds.isEmpty,
                       !inlineSearchBounds.contains(tap.location) else { return }
@@ -2138,6 +2139,8 @@ struct SessionControlPopoverHost: View {
                 }
                 .background(SessionPopoverDismissalObserver { finishDismissal(captured.id) })
                 .presentationCompactAdaptation(.popover)
+                // The voice editor owns its own surface on iOS and Mac.
+                .djConnectGlassPopoutSurface(enabled: captured.kind != .voice)
                 .djConnectPresentationSurface()
             }
             .task(id: intent?.id) {
@@ -2272,6 +2275,7 @@ struct ActiveSessionPresenceToolbar: View {
             .onExitCommand { scope = nil }
             #endif
             .presentationCompactAdaptation(.popover)
+                .djConnectGlassPopoutSurface()
                 .djConnectPresentationSurface()
         }
         .onAppear { trace("toolbar-appeared") }
@@ -2452,6 +2456,7 @@ struct ActiveSessionMoodToolbar: View {
             .onExitCommand { moodIntent = nil }
             #endif
             .presentationCompactAdaptation(.popover)
+                .djConnectGlassPopoutSurface()
                 .djConnectPresentationSurface()
         }
         .task(id: CapabilityScope(sessionID: session.id, epoch: history.responseEpoch, authorized: model.pairingStatus == .paired)) {
@@ -2590,6 +2595,7 @@ struct SessionConnectionToolbarButton: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .ignoresSafeArea(.keyboard)
                 .presentationCompactAdaptation(.popover)
+                .djConnectGlassPopoutSurface()
                 .djConnectPresentationSurface()
         }
     }

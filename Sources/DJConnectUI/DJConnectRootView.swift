@@ -4428,6 +4428,7 @@ private struct TrackInsightVisualMoodToolbar: View {
             .padding(12)
             .frame(idealWidth: 360)
             .presentationCompactAdaptation(.popover)
+                .djConnectGlassPopoutSurface()
                 .djConnectPresentationSurface()
         }
     }
@@ -11468,6 +11469,7 @@ private struct AskDJView: View {
             .navigationTitle(screenTitle(model.language, key: "Ask DJ", isDemoMode: model.isDemoMode))
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("screen-ask-dj")
+            .coordinateSpace(name: AskDJHelpPanelLayout.coordinateSpace)
             .toolbar {
                 #if os(macOS)
                 ToolbarItemGroup(placement: .navigation) {
@@ -13569,7 +13571,8 @@ extension View {
 struct AskDJInputBar: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var suggestionsOpen = false
-    @State private var suggestionsHeight: CGFloat = 0
+    @State private var helpAvailableHeight: CGFloat = 0
+    @StateObject private var helpTapRegions = AskDJHelpTapRegions()
     let helpSurface: DJConnectAskDJCatalogue.Surface
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -13613,7 +13616,7 @@ struct AskDJInputBar: View {
     private var usesOpaqueSurface: Bool { reduceTransparency || !glassEnabled }
 
     private var composerSurfaceTint: Color {
-        surfaceColors?[safe: 1] ?? surfaceColors?.first ?? Color(red: 0.40, green: 0.16, blue: 0.66)
+        surfaceColors?[safe: 1] ?? surfaceColors?.first ?? DJConnectGlassAppearance.composerTint
     }
 
     private var editorDraft: Binding<String> {
@@ -13631,12 +13634,15 @@ struct AskDJInputBar: View {
         })
     }
 
-    private func send() {
+    private func dismissComposerFocus() {
         isInputFocused.wrappedValue = false
         #if os(iOS)
         // The UIKit multiline editor can become first responder before SwiftUI focus updates.
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         #endif
+    }
+    private func send() {
+        dismissComposerFocus()
         if let sendAction { sendAction() } else { model.sendAskDJText() }
     }
 
@@ -13791,21 +13797,30 @@ struct AskDJInputBar: View {
             .fixedSize(horizontal: !isExpanded, vertical: false)
         }
         }
+        .onGeometryChange(for: CGFloat.self) { geometry in
+            min(600, max(0, geometry.frame(in: .named(AskDJHelpPanelLayout.coordinateSpace)).minY - 24))
+        } action: { helpAvailableHeight = $0 }
         .overlay(alignment: .top) {
             if suggestionsOpen && model.askDJDraft.isEmpty && !model.isSendingAskDJText && !model.isRecordingVoice {
-                AskDJComposerHelpPopout(model: model, surface: helpSurface, close: { suggestionsOpen = false }) { prompt in
-                    guard model.askDJDraft.isEmpty, !model.isSendingAskDJText, !model.isRecordingVoice else { return }
+                AskDJComposerHelpPopout(model: model, surface: helpSurface, maximumHeight: helpAvailableHeight,
+                    close: { suggestionsOpen = false }, expand: dismissComposerFocus, send: send) { prompt in
+                    guard model.askDJDraft.isEmpty, model.canUseAskDJFeatures,
+                          !model.isSendingAskDJText, !model.isRecordingVoice else { return }
                     model.askDJDraft = prompt
                     suggestionsOpen = false
-                    // Suggestion chips prepare a draft; only explicit Send executes.
+                    send()
                 }
+                .background(AskDJHelpTapRegion(regions: helpTapRegions, isPanel: true))
                 .padding(.horizontal, 4)
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { suggestionsHeight = $0 }
-                .offset(y: -suggestionsHeight - 12)
-                .opacity(suggestionsHeight > 0 ? 1 : 0)
+                .alignmentGuide(.top) { $0[.bottom] + AskDJHelpPanelLayout.gap }
+                .opacity(helpAvailableHeight > 0 ? 1 : 0)
+                .allowsHitTesting(helpAvailableHeight > 0)
                 .transition(.opacity)
             }
         }
+        .background(AskDJHelpTapRegion(regions: helpTapRegions, isPanel: false,
+            enabled: suggestionsOpen && model.askDJDraft.isEmpty && !model.isSendingAskDJText && !model.isRecordingVoice,
+            close: { suggestionsOpen = false }))
         .onChange(of: model.askDJHelpOpenRequest) { _, request in
             if request?.surface == helpSurface, model.askDJDraft.isEmpty { suggestionsOpen = true }
         }
@@ -18116,6 +18131,7 @@ private struct AboutView: View {
                             .popover(isPresented: $showingPushStatus) {
                                 PushRegistrationDetailsView(model: model)
                                     .presentationCompactAdaptation(.popover)
+                .djConnectGlassPopoutSurface()
                 .djConnectPresentationSurface()
                             }
                         }

@@ -58,6 +58,7 @@ struct ActiveSessionPersonaToolbar: View {
                 .onExitCommand { scope = nil }
                 #endif
                 .presentationCompactAdaptation(.popover)
+                .djConnectGlassPopoutSurface()
                 .djConnectPresentationSurface()
         }
         .task(id: scope?.id) {
