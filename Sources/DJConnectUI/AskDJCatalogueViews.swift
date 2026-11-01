@@ -192,12 +192,9 @@ struct AskDJFullCatalogueReference: View {
                     Text(section.title).font(.headline).accessibilityAddTraits(.isHeader)
                     ForEach(section.items) { item in
                         Button { select(item) } label: {
-                            HStack {
-                                Text(item.prompt).multilineTextAlignment(.leading)
-                                Spacer()
-                                Image(systemName: item.requiresInput ? "pencil" : "arrow.up.circle")
-                            }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                                .contentShape(Rectangle())
+                            AskDJHelpExampleLabel(prompt: item.prompt,
+                                actionSymbol: item.requiresInput ? "pencil" : "arrow.up.circle",
+                                maximumWidth: .infinity)
                         }
                         .djConnectPlainButtonStyle()
                         .disabled(busy || !enabled)
@@ -321,6 +318,32 @@ struct AskDJSuggestionStrip: View {
     }
 }
 
+/// One visual treatment for compact suggestions and the expanded catalogue.
+private struct AskDJHelpExampleLabel: View {
+    let prompt: String
+    let actionSymbol: String
+    var maximumWidth: CGFloat = 480
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "quote.opening").font(.caption.weight(.bold))
+                .foregroundStyle(.white.opacity(0.54)).frame(width: 18).accessibilityHidden(true)
+            Text(prompt).font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.86))
+                .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+            Image(systemName: actionSymbol).font(.caption.weight(.bold))
+                .foregroundStyle(.white.opacity(0.50)).accessibilityHidden(true)
+        }
+        .padding(.horizontal, 13).padding(.vertical, 10)
+        .frame(maxWidth: maximumWidth, alignment: .leading)
+        .background(DJConnectCardAppearance.shape.fill(.white.opacity(0.09)))
+        .overlay(DJConnectCardAppearance.shape.stroke(.white.opacity(DJConnectCardAppearance.borderOpacity),
+            lineWidth: DJConnectCardAppearance.borderWidth))
+        .contentShape(DJConnectCardAppearance.shape)
+    }
+}
+
 /// Presentation only. Eligibility and tap-time validation remain in the owner.
 struct AskDJSuggestionRows: View {
     let suggestions: [DJConnectAskDJCatalogue.Suggestion]
@@ -331,17 +354,7 @@ struct AskDJSuggestionRows: View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(suggestions) { suggestion in
                 Button { select(suggestion) } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "quote.opening").font(.caption.weight(.bold))
-                            .foregroundStyle(.white.opacity(0.54)).frame(width: 18).accessibilityHidden(true)
-                        Text(suggestion.prompt).font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.86)).fixedSize(horizontal: false, vertical: true)
-                        Spacer(minLength: 4)
-                        Image(systemName: "arrow.up.circle").font(.caption.weight(.bold)).foregroundStyle(.white.opacity(0.50)).accessibilityHidden(true)
-                    }
-                    .padding(.horizontal, 13).padding(.vertical, 10).frame(maxWidth: 480, alignment: .leading)
-                    .background(DJConnectCardAppearance.shape.fill(.white.opacity(0.09)))
-                    .overlay(DJConnectCardAppearance.shape.stroke(.white.opacity(DJConnectCardAppearance.borderOpacity), lineWidth: DJConnectCardAppearance.borderWidth))
+                    AskDJHelpExampleLabel(prompt: suggestion.prompt, actionSymbol: "arrow.up.circle")
                 }
                 .djConnectPlainButtonStyle()
                 .disabled(disabled)
