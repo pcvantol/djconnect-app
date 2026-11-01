@@ -698,13 +698,16 @@ public final class DJConnectSessionHistoryModel: ObservableObject {
     }
 
     func contentDeletionTarget(for message: DJConnectAskDJMessage) -> DJConnectContentDeleteTarget? {
-        if let entry = contextEntry(for: message) {
-            return .init(kind: "entry", sessionID: entry.sessionID, targetID: entry.id)
-        }
         if let id = message.serverID, !id.isEmpty, let context = conversationMessageContexts[id] {
             // Use the message's original server context, including explicit
             // standalone scope. The current Session is never a substitute.
             return .init(kind: "message", sessionID: context.sessionID ?? "", targetID: id)
+        }
+        // Prefer the original message identity even if a timeline read later
+        // resolves the same answer to an entry. Ordinary prefetch must not
+        // change an open menu's deletion target or reset its confirmation.
+        if let entry = contextEntry(for: message) {
+            return .init(kind: "entry", sessionID: entry.sessionID, targetID: entry.id)
         }
         if let turn = pendingTurns.first(where: { $0.id == message.clientMessageID }) {
             return .init(kind: "request", sessionID: turn.context.sessionID ?? "", targetID: turn.id)

@@ -1546,6 +1546,7 @@ struct SessionModeToggleButtons: View {
 struct SessionHighlightedText: View {
     let text: String
     let highlights: [DJConnectHistoryHighlight]
+    var allowsTextSelection = true
     private var attributed: AttributedString {
         var result = AttributedString(text)
         for mark in highlights {
@@ -1557,7 +1558,13 @@ struct SessionHighlightedText: View {
         }
         return result
     }
-    var body: some View { Text(attributed).fixedSize(horizontal: false, vertical: true).textSelection(.enabled) }
+    @ViewBuilder var body: some View {
+        if allowsTextSelection {
+            Text(attributed).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+        } else {
+            Text(attributed).fixedSize(horizontal: false, vertical: true).textSelection(.disabled)
+        }
+    }
 }
 
 /// Attach only to contribution text, never the surrounding card or its nested
@@ -1566,9 +1573,13 @@ struct SessionHighlightedText: View {
 struct ContributionContentAction: ViewModifier {
     let question: String?
     let action: (() -> Void)?
+    var allowsTextSelection = true
     @ViewBuilder func body(content: Content) -> some View {
         if let question, let action {
-            content.textSelection(.enabled)
+            Group {
+                if allowsTextSelection { content.textSelection(.enabled) }
+                else { content.textSelection(.disabled) }
+            }
                 .onTapGesture(perform: action)
                 .accessibilityAction(named: question, action)
                 .help(question)

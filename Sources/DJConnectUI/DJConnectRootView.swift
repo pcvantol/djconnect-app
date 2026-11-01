@@ -11095,7 +11095,7 @@ private struct AskDJView: View {
     }
 
     private var isAskDJHistoryStale: Bool {
-        !model.isDemoMode && !model.canUseAskDJFeatures
+        !model.isDemoMode && !model.canPresentAskDJHistory
     }
 
     private var chatTopPadding: CGFloat {
@@ -11969,12 +11969,14 @@ struct AskDJMessageBubble: View {
 
     private var renderedMessageText: some View {
         Group {
-            if let serverHighlights { SessionHighlightedText(text: displayText, highlights: serverHighlights) }
+            if let serverHighlights { SessionHighlightedText(text: displayText, highlights: serverHighlights, allowsTextSelection: false) }
             else { AskDJMarkdownText(text: displayText, highlight: searchText).equatable() }
         }
         .padding(.trailing, contextQuestionAction != nil && !renderablePlaybackActions.isEmpty ? 36 : 0)
         .tint(.white)
-        .modifier(ContributionContentAction(question: contributionQuestion, action: contributionAction))
+        // The card context menu owns this long press. Native text selection
+        // on its child text would install a competing contextual interaction.
+        .modifier(ContributionContentAction(question: contributionQuestion, action: contributionAction, allowsTextSelection: false))
     }
 
     @ViewBuilder private var messageContextMenu: some View {

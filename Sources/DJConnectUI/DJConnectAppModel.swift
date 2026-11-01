@@ -1159,9 +1159,17 @@ public final class DJConnectAppModel: ObservableObject {
     private var voiceOperationGeneration = UUID()
     var voiceOperationID: UUID { voiceOperationGeneration }
     public var canRefreshSessionHistory: Bool { isAppInForeground && pairingStatus == .paired && !isDemoMode }
-    public var canUseProfileConversation: Bool {
+    // An in-flight scoped deletion blocks new commands, not presentation. If it
+    // unmounted the row, its own confirmation/task state would be discarded.
+    var canPresentProfileConversation: Bool {
         sessionHistory.available && sessionHistory.profileScopeActive && sessionHistory.hasAuthorizedOwner &&
-        canRefreshSessionHistory && !sessionHistory.contentDeletionBusy && isRuntimeCompatible && haConnectionMode != .offline
+        canRefreshSessionHistory && isRuntimeCompatible && haConnectionMode != .offline
+    }
+    var canPresentAskDJHistory: Bool {
+        !isShowingVibeScape && (sessionHistory.profileScopeActive ? canPresentProfileConversation : canUsePlaybackFeatures)
+    }
+    public var canUseProfileConversation: Bool {
+        canPresentProfileConversation && !sessionHistory.contentDeletionBusy
     }
     public var canUseAskDJFeatures: Bool {
         !isShowingVibeScape && (sessionHistory.profileScopeActive ? canUseProfileConversation : canUsePlaybackFeatures)
