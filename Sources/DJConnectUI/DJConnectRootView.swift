@@ -431,7 +431,101 @@ enum DJConnectHaptics {
     }
 }
 
-private enum DJConnectGameSoundEffect: Hashable {
+/// Coalesce collision feedback without doing hardware work in a game update.
+@MainActor final class DJConnectGameHapticScheduler {
+    enum Feedback: Int, Sendable { case selection, impact, success, warning, error }
+    private let schedule: (@escaping @MainActor () -> Void) -> Void
+    private let deliver: (Feedback) -> Void
+    private var pending: Feedback?
+    private var scheduled = false
+    private var generation = UUID()
+
+    init(schedule: @escaping (@escaping @MainActor () -> Void) -> Void,
+         deliver: @escaping (Feedback) -> Void) {
+        self.schedule = schedule; self.deliver = deliver
+    }
+    func enqueue(_ feedback: Feedback) {
+        if pending == nil || feedback.rawValue > pending!.rawValue { pending = feedback }
+        guard !scheduled else { return }
+        scheduled = true
+        let captured = generation
+        schedule { [weak self] in
+            guard let self, self.generation == captured else { return }
+            let feedback = self.pending
+            self.pending = nil; self.scheduled = false
+            if let feedback { self.deliver(feedback) }
+        }
+    }
+    func cancel() { generation = UUID(); pending = nil; scheduled = false }
+}
+
+/// At most one audio job is executing and one is waiting during a collision burst.
+/// Mutable state is locked; the supplied sound work runs only on its serial queue.
+final class DJConnectGameAudioWorker<Event: Sendable>: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "dev.djconnect.game-audio", qos: .userInitiated)
+    private let lock = NSLock()
+    private let perform: @Sendable (Event) -> Void
+    private var pending: Event?
+    private var running = false
+    init(perform: @escaping @Sendable (Event) -> Void) { self.perform = perform }
+    func submit(_ event: Event) {
+        let start = lock.withLock {
+            pending = event
+            if running { return false }
+            running = true; return true
+        }
+        if start { queue.async { self.drain() } }
+    }
+    func cancelPending() { lock.withLock { pending = nil } }
+    private func drain() {
+        while let event = lock.withLock({ () -> Event? in
+            guard let event = pending else { running = false; return nil }
+            pending = nil; return event
+        }) { perform(event) }
+    }
+}
+
+@MainActor private enum DJConnectGameHaptics {
+    #if os(iOS)
+    private static let impactGenerator = UIImpactFeedbackGenerator(style: .light)
+    private static let selectionGenerator = UISelectionFeedbackGenerator()
+    private static let notificationGenerator = UINotificationFeedbackGenerator()
+    #endif
+    private static let scheduler = DJConnectGameHapticScheduler(schedule: { work in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0 / 60.0) { work() }
+    }, deliver: { feedback in
+        // UIKit feedback remains on MainActor, with prewarmed reusable generators.
+        #if os(iOS)
+        switch feedback {
+        case .selection: selectionGenerator.selectionChanged(); selectionGenerator.prepare()
+        case .impact: impactGenerator.impactOccurred(); impactGenerator.prepare()
+        case .success: notificationGenerator.notificationOccurred(.success); notificationGenerator.prepare()
+        case .warning: notificationGenerator.notificationOccurred(.warning); notificationGenerator.prepare()
+        case .error: notificationGenerator.notificationOccurred(.error); notificationGenerator.prepare()
+        }
+        #elseif os(macOS)
+        let pattern: NSHapticFeedbackManager.FeedbackPattern = switch feedback {
+        case .selection: .alignment
+        case .success: .levelChange
+        default: .generic
+        }
+        NSHapticFeedbackManager.defaultPerformer.perform(pattern, performanceTime: .now)
+        #endif
+    })
+    static func prepare() {
+        #if os(iOS)
+        impactGenerator.prepare(); selectionGenerator.prepare(); notificationGenerator.prepare()
+        #endif
+    }
+    static func cancel() { scheduler.cancel() }
+    static func selection() { scheduler.enqueue(.selection) }
+    static func impact() { scheduler.enqueue(.impact) }
+    static func success() { scheduler.enqueue(.success) }
+    static func warning() { scheduler.enqueue(.warning) }
+    static func error() { scheduler.enqueue(.error) }
+}
+
+private enum DJConnectGameSoundEffect: Hashable, CaseIterable, Sendable {
     case start
     case move
     case fire
@@ -444,37 +538,37 @@ private enum DJConnectGameSoundEffect: Hashable {
     case gameOver
 }
 
-@MainActor
 private enum DJConnectGameSounds {
-    #if canImport(AVFoundation)
-    private static var players: [DJConnectGameSoundEffect: AVAudioPlayer] = [:]
-    #endif
-
-    static func play(_ effect: DJConnectGameSoundEffect) {
+    private enum Job: Sendable { case warmup; case play(DJConnectGameSoundEffect) }
+    /// The bank is accessed exclusively by the audio worker's serial queue.
+    private final class PlayerBank: @unchecked Sendable {
         #if canImport(AVFoundation)
-        do {
-            let player: AVAudioPlayer
-            if let cached = players[effect] {
-                player = cached
-            } else {
-                let data = wavData(for: effect)
-                let created = try AVAudioPlayer(data: data)
-                created.prepareToPlay()
-                created.volume = 0.24
-                players[effect] = created
-                player = created
+        private var players: [DJConnectGameSoundEffect: AVAudioPlayer] = [:]
+        private func player(for effect: DJConnectGameSoundEffect) throws -> AVAudioPlayer {
+            if let player = players[effect] { return player }
+            let created = try AVAudioPlayer(data: wavData(for: effect))
+            created.prepareToPlay(); created.volume = 0.24
+            players[effect] = created
+            return created
+        }
+        #endif
+        func perform(_ job: Job) {
+            #if canImport(AVFoundation)
+            switch job {
+            case .warmup:
+                for effect in DJConnectGameSoundEffect.allCases { _ = try? player(for: effect) }
+            case .play(let effect):
+                guard let player = try? player(for: effect) else { return }
+                player.currentTime = 0; player.play()
             }
-            player.currentTime = 0
-            player.play()
-        } catch {
-            #if os(iOS)
-            DJConnectHaptics.impact()
             #endif
         }
-        #else
-        _ = effect
-        #endif
     }
+    private static let bank = PlayerBank()
+    private static let worker = DJConnectGameAudioWorker<Job> { bank.perform($0) }
+    static func prepare() { worker.submit(.warmup) }
+    static func cancel() { worker.cancelPending() }
+    static func play(_ effect: DJConnectGameSoundEffect) { worker.submit(.play(effect)) }
 
     #if canImport(AVFoundation)
     private static func wavData(for effect: DJConnectGameSoundEffect) -> Data {
@@ -15055,6 +15149,99 @@ private struct PlaylistRow: View, Equatable {
     }
 }
 
+/// Resolution-independent retro cross; the four 48-point arms are real buttons.
+struct DJConnectRetroDPad: View {
+    enum Direction: String, CaseIterable, Identifiable {
+        case up, left, right, down
+        var id: String { rawValue }
+        var offset: CGSize {
+            switch self {
+            case .up: .init(width: 0, height: -48)
+            case .left: .init(width: -48, height: 0)
+            case .right: .init(width: 48, height: 0)
+            case .down: .init(width: 0, height: 48)
+            }
+        }
+        var angle: Angle {
+            switch self { case .up: .zero; case .left: .degrees(-90); case .right: .degrees(90); case .down: .degrees(180) }
+        }
+    }
+    let language: String
+    let select: (Direction) -> Void
+
+    var body: some View {
+        ZStack {
+            Circle().fill(.black.opacity(0.22))
+                .overlay(Circle().stroke(.white.opacity(0.08), lineWidth: 1))
+            RetroDPadCross().fill(Color.black.opacity(0.7))
+                .frame(width: 144, height: 144).offset(y: 4)
+            RetroDPadCross()
+                .fill(LinearGradient(colors: [Color(white: 0.29), Color(white: 0.10)],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                .overlay(RetroDPadCross().stroke(.white.opacity(0.22),
+                    style: StrokeStyle(lineWidth: 1, lineJoin: .round)))
+                .frame(width: 144, height: 144)
+                .shadow(color: .black.opacity(0.35), radius: 3, y: 3)
+            ForEach(Direction.allCases) { direction in
+                Button { select(direction) } label: {
+                    RetroDPadArrow().fill(.white.opacity(0.75))
+                        .frame(width: 14, height: 10).rotationEffect(direction.angle)
+                        .shadow(color: .black.opacity(0.8), radius: 0.5, y: 1)
+                        .frame(width: 48, height: 48)
+                }
+                .buttonStyle(RetroDPadButtonStyle())
+                .accessibilityLabel(localizedKey(language, "ui." + direction.rawValue))
+                .accessibilityIdentifier("games-dpad-" + direction.rawValue)
+                .help(localizedKey(language, "ui." + direction.rawValue))
+                .offset(direction.offset)
+            }
+            Circle()
+                .fill(LinearGradient(colors: [.black.opacity(0.65), .white.opacity(0.04)],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                .overlay(Circle().stroke(.white.opacity(0.08), lineWidth: 1))
+                .frame(width: 26, height: 26)
+                .allowsHitTesting(false).accessibilityHidden(true)
+        }
+        .frame(width: 160, height: 160)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("games-retro-dpad")
+    }
+}
+
+private struct RetroDPadCross: Shape {
+    func path(in rect: CGRect) -> Path {
+        let points: [(CGFloat, CGFloat)] = [(1,0),(2,0),(2,1),(3,1),(3,2),(2,2),
+                                            (2,3),(1,3),(1,2),(0,2),(0,1),(1,1)]
+        var path = Path()
+        for (index, point) in points.enumerated() {
+            let position = CGPoint(x: rect.minX + point.0 * rect.width / 3,
+                                   y: rect.minY + point.1 * rect.height / 3)
+            if index == 0 { path.move(to: position) } else { path.addLine(to: position) }
+        }
+        path.closeSubpath()
+        return path
+    }
+}
+private struct RetroDPadArrow: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path { path in
+            path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+            path.closeSubpath()
+        }
+    }
+}
+private struct RetroDPadButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(configuration.isPressed ? Color.white.opacity(0.16) : .clear,
+                        in: RoundedRectangle(cornerRadius: 4))
+            .offset(y: configuration.isPressed ? 1 : 0)
+            .contentShape(Rectangle())
+    }
+}
+
 private enum LocalGameMode: String, CaseIterable, Identifiable {
     case pong
     case asteroids
@@ -15386,6 +15573,7 @@ private struct LocalGameSurface: View {
                 update()
             }
             .onChange(of: game) {
+                DJConnectGameHaptics.cancel(); DJConnectGameSounds.cancel()
                 reset()
                 isPlaying = false
             }
@@ -15425,9 +15613,12 @@ private struct LocalGameSurface: View {
             return .handled
         }
         .onAppear {
+            DJConnectGameHaptics.prepare()
+            DJConnectGameSounds.prepare()
             reset()
         }
         .onDisappear {
+            DJConnectGameHaptics.cancel(); DJConnectGameSounds.cancel()
             isPlaying = false
             isGameFocused = false
             reset()
@@ -15510,24 +15701,17 @@ private struct LocalGameSurface: View {
     @ViewBuilder
     private var controlsView: some View {
         if game == .pacman {
-            LazyVGrid(columns: controlColumns(count: 4), spacing: 10) {
-                directionButton(localizedKey(language, "ui.up"), icon: "chevron.up") {
-                    setPacmanDirection(dx: 0, dy: -1)
-                }
-                directionButton(localizedKey(language, "ui.down"), icon: "chevron.down") {
-                    setPacmanDirection(dx: 0, dy: 1)
-                }
-                directionButton(localizedKey(language, "ui.left"), icon: "chevron.left") {
-                    setPacmanDirection(dx: -1, dy: 0)
-                }
-                directionButton(localizedKey(language, "ui.right"), icon: "chevron.right") {
-                    setPacmanDirection(dx: 1, dy: 0)
+            DJConnectRetroDPad(language: language) { direction in
+                DJConnectGameHaptics.impact()
+                switch direction {
+                case .up: setPacmanDirection(dx: 0, dy: -1)
+                case .left: setPacmanDirection(dx: -1, dy: 0)
+                case .right: setPacmanDirection(dx: 1, dy: 0)
+                case .down: setPacmanDirection(dx: 0, dy: 1)
                 }
             }
-            // The game surface owns keyboard focus; its inherited focus state
-            // must not draw a thick focus ring on every direction control.
-            .djConnectButtonStyle(DJConnectButtonStyle(shape: .icon, showsFocusIndicator: false))
-            .controlSize(.large)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity)
         } else {
             LazyVGrid(columns: controlColumns(count: game == .pong ? 2 : 3), spacing: 10) {
                 directionButton(primaryMoveLabel, icon: primaryMoveIcon) {
@@ -15539,7 +15723,7 @@ private struct LocalGameSurface: View {
 
                 if game != .pong {
                     Button {
-                        DJConnectHaptics.impact()
+                        DJConnectGameHaptics.impact()
                         fire()
                     } label: {
                         Label(localizedKey(language, "ui.fire"), systemImage: "sparkle")
@@ -15565,7 +15749,7 @@ private struct LocalGameSurface: View {
 
     private func directionButton(_ label: String, icon: String, action: @escaping () -> Void) -> some View {
         Button {
-            DJConnectHaptics.impact()
+            DJConnectGameHaptics.impact()
             action()
         } label: {
             Label(label, systemImage: icon)
@@ -15577,7 +15761,7 @@ private struct LocalGameSurface: View {
 
     private var resetButton: some View {
         Button {
-            DJConnectHaptics.selection()
+            DJConnectGameHaptics.selection()
             reset()
         } label: {
             Label(localizedKey(language, "ui.reset"), systemImage: "arrow.clockwise")
@@ -15676,8 +15860,7 @@ private struct LocalGameSurface: View {
                     with: .color(.white.opacity(isPowerPellet ? 0.98 : 0.82))
                 )
             }
-            context.fill(Path(ellipseIn: rect(pacmanX - 8, pacmanY - 8, 16, 16)), with: .color(.yellow))
-            drawPacmanMouth(in: &context, at: point(pacmanX, pacmanY), scaleX: scaleX, scaleY: scaleY)
+            drawPacmanBody(in: &context, at: point(pacmanX, pacmanY), scaleX: scaleX, scaleY: scaleY)
             drawPacmanEye(in: &context, at: point(pacmanX, pacmanY), scaleX: scaleX, scaleY: scaleY)
             drawGhost(in: &context, at: point(ghostX, ghostY), scaleX: scaleX, scaleY: scaleY, isVulnerable: isGhostVulnerable, isBlinking: isGhostBlinking)
             drawPacmanDeath(in: &context, rect: rect, point: point, scaleX: scaleX, scaleY: scaleY)
@@ -15980,8 +16163,8 @@ private struct LocalGameSurface: View {
         }
     }
 
-    private func drawPacmanMouth(in context: inout GraphicsContext, at center: CGPoint, scaleX: CGFloat, scaleY: CGFloat) {
-        let radius = 8 * min(scaleX, scaleY)
+    private func drawPacmanBody(in context: inout GraphicsContext, at center: CGPoint, scaleX: CGFloat, scaleY: CGFloat) {
+        let radius: CGFloat = 8
         let mouthAngle: CGFloat
         if abs(pacmanDX) >= abs(pacmanDY) {
             mouthAngle = pacmanDX < 0 ? .pi : 0
@@ -15989,17 +16172,19 @@ private struct LocalGameSurface: View {
             mouthAngle = pacmanDY < 0 ? -.pi / 2 : .pi / 2
         }
         let spread = CGFloat.pi / 5
-        var mouth = Path()
-        mouth.move(to: center)
-        mouth.addArc(
-            center: center,
-            radius: radius + 1,
-            startAngle: .radians(Double(mouthAngle - spread)),
-            endAngle: .radians(Double(mouthAngle + spread)),
+        // Fill only the body sector; the mouth exposes the scene beneath it.
+        var body = Path()
+        body.move(to: .zero)
+        body.addArc(
+            center: .zero,
+            radius: radius,
+            startAngle: .radians(Double(mouthAngle + spread)),
+            endAngle: .radians(Double(mouthAngle + 2 * .pi - spread)),
             clockwise: false
         )
-        mouth.closeSubpath()
-        context.fill(mouth, with: .color(.black.opacity(0.82)))
+        body.closeSubpath()
+        let transform = CGAffineTransform(a: scaleX, b: 0, c: 0, d: scaleY, tx: center.x, ty: center.y)
+        context.fill(body.applying(transform), with: .color(.yellow))
     }
 
     private func drawPacmanEye(in context: inout GraphicsContext, at center: CGPoint, scaleX: CGFloat, scaleY: CGFloat) {
@@ -16155,7 +16340,7 @@ private struct LocalGameSurface: View {
     }
 
     private func startGame() {
-        DJConnectHaptics.selection()
+        DJConnectGameHaptics.selection()
         DJConnectGameSounds.play(.start)
         isPlaying = true
         isGameFocused = true
@@ -16192,14 +16377,14 @@ private struct LocalGameSurface: View {
     private func bouncePongBallVertically() {
         ballVY *= -1
         ballWallBounceTicks = 8
-        DJConnectHaptics.selection()
+        DJConnectGameHaptics.selection()
         DJConnectGameSounds.play(.bounce)
     }
 
     private func bouncePongBallFromRightWall() {
         ballVX = -abs(ballVX)
         ballWallBounceTicks = 8
-        DJConnectHaptics.selection()
+        DJConnectGameHaptics.selection()
         DJConnectGameSounds.play(.bounce)
     }
 
@@ -16207,13 +16392,13 @@ private struct LocalGameSurface: View {
         if ballY >= paddleY - 20 && ballY <= paddleY + 20 {
             ballVX = abs(ballVX)
             paddleHitTicks = 10
-            DJConnectHaptics.impact()
+            DJConnectGameHaptics.impact()
             DJConnectGameSounds.play(.hit)
             setScore(score + 1)
             return
         }
         flash()
-        DJConnectHaptics.error()
+        DJConnectGameHaptics.error()
         DJConnectGameSounds.play(.gameOver)
         setScore(0)
         paddleMissTicks = 24
@@ -16237,7 +16422,7 @@ private struct LocalGameSurface: View {
         } else if abs(asteroidX - shipX) < max(14, asteroidSize) && abs(asteroidY - asteroidBulletY) < max(14, asteroidSize) {
             asteroidBulletActive = false
             startMeteorExplosion()
-            DJConnectHaptics.success()
+            DJConnectGameHaptics.success()
             DJConnectGameSounds.play(.explosion)
             setScore(score + 1)
             resetAsteroid()
@@ -16246,7 +16431,7 @@ private struct LocalGameSurface: View {
 
     private func finishAsteroidRun() {
         flash()
-        DJConnectHaptics.warning()
+        DJConnectGameHaptics.warning()
         DJConnectGameSounds.play(.gameOver)
         setScore(0)
         resetAsteroid()
@@ -16280,7 +16465,7 @@ private struct LocalGameSurface: View {
         } else if abs(flyShotX - obstacleX) < 22 && abs(planeY - obstacleY) < 26 {
             flyShotActive = false
             startSkyObstacleExplosion()
-            DJConnectHaptics.success()
+            DJConnectGameHaptics.success()
             DJConnectGameSounds.play(.explosion)
             setScore(score + 1)
             resetObstacle()
@@ -16290,7 +16475,7 @@ private struct LocalGameSurface: View {
     private func crashFly() {
         flash()
         startSkyCrash()
-        DJConnectHaptics.error()
+        DJConnectGameHaptics.error()
         DJConnectGameSounds.play(.crash)
         setScore(0)
     }
@@ -16329,11 +16514,11 @@ private struct LocalGameSurface: View {
             pellets.remove(pellet)
             setScore(score + 1)
             if pacmanPowerPellets.contains(pellet) {
-                DJConnectHaptics.success()
+                DJConnectGameHaptics.success()
                 DJConnectGameSounds.play(.power)
                 ghostVulnerableTicks = pacmanPowerTicks
             } else {
-                DJConnectHaptics.selection()
+                DJConnectGameHaptics.selection()
                 DJConnectGameSounds.play(.collect)
             }
             return
@@ -16352,7 +16537,7 @@ private struct LocalGameSurface: View {
         guard abs(ghostX - pacmanX) < 14 && abs(ghostY - pacmanY) < 14 else { return }
         if isGhostVulnerable {
             flash()
-            DJConnectHaptics.success()
+            DJConnectGameHaptics.success()
             DJConnectGameSounds.play(.explosion)
             setScore(score + 5)
             ghostX = 250
@@ -16361,7 +16546,7 @@ private struct LocalGameSurface: View {
         } else {
             flash()
             startPacmanDeath()
-            DJConnectHaptics.error()
+            DJConnectGameHaptics.error()
             DJConnectGameSounds.play(.gameOver)
             setScore(0)
         }

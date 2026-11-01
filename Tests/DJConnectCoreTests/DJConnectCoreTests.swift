@@ -14355,3 +14355,88 @@ func parallelClientCasesShareTheirOwnCapsAndKeyQueue(_ caseNumber: Int) async th
         throw error
     }
 }
+
+@Test @MainActor func gameHapticBurstDefersHardwareAndKeepsTheMostImportantEvent() {
+    var callbacks: [@MainActor () -> Void] = []
+    var delivered: [DJConnectGameHapticScheduler.Feedback] = []
+    let scheduler = DJConnectGameHapticScheduler(schedule: { callbacks.append($0) }, deliver: { delivered.append($0) })
+    for _ in 0..<1000 { scheduler.enqueue(.selection) }
+    scheduler.enqueue(.error); scheduler.enqueue(.impact)
+    #expect(delivered.isEmpty) // No hardware work in the collision/update stack.
+    #expect(callbacks.count == 1)
+    callbacks.removeFirst()()
+    #expect(delivered == [.error])
+    scheduler.enqueue(.success)
+    callbacks.removeFirst()()
+    #expect(delivered == [.error, .success])
+}
+
+@Test @MainActor func gameHapticCancellationCannotReplayAnOldGamesFeedbackOrConsumeNewFeedback() {
+    var callbacks: [@MainActor () -> Void] = []
+    var delivered: [DJConnectGameHapticScheduler.Feedback] = []
+    let scheduler = DJConnectGameHapticScheduler(schedule: { callbacks.append($0) }, deliver: { delivered.append($0) })
+    scheduler.enqueue(.error)
+    let old = callbacks.removeFirst()
+    scheduler.cancel()
+    scheduler.enqueue(.selection)
+    old()
+    #expect(delivered.isEmpty)
+    callbacks.removeFirst()()
+    #expect(delivered == [.selection])
+}
+
+private final class GameAudioWorkerProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    let release = DispatchSemaphore(value: 0)
+    private var started = false
+    private var results: [Int] = []
+    private var touchedMain = false
+    var snapshot: (Bool, [Int], Bool) { lock.withLock { (started, results, touchedMain) } }
+    func perform(_ value: Int) {
+        lock.withLock { touchedMain = touchedMain || Thread.isMainThread; started = true }
+        if value == 1 { _ = release.wait(timeout: .now() + 5) }
+        lock.withLock { results.append(value) }
+    }
+}
+
+@Test(arguments: [false, true]) @MainActor
+func gameAudioWorkerKeepsMainActorResponsiveAndBoundsSoundBacklog(_ cancelPending: Bool) async throws {
+    let probe = GameAudioWorkerProbe()
+    let worker = DJConnectGameAudioWorker<Int> { probe.perform($0) }
+    defer { probe.release.signal() }
+    worker.submit(1)
+    let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+    while !probe.snapshot.0 && ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(5)) }
+    try #require(probe.snapshot.0)
+    var mainActorUpdates = 0
+    for value in 2...1000 { worker.submit(value); mainActorUpdates += 1 }
+    #expect(mainActorUpdates == 999 && probe.snapshot.1.isEmpty)
+    if cancelPending { worker.cancelPending(); worker.submit(2000) }
+    #expect(!probe.snapshot.2)
+    probe.release.signal()
+    while probe.snapshot.1.count < 2 && ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(probe.snapshot.1 == [1, cancelPending ? 2000 : 1000])
+    #expect(!probe.snapshot.2)
+}
+
+#if os(macOS)
+import AppKit
+import SwiftUI
+
+/// Actual shared vector component only; no app installation or game input claim.
+@Test(.enabled(if: ProcessInfo.processInfo.environment["DJCONNECT_RETRO_DPAD_PREVIEW_DIR"] != nil))
+@MainActor func retroDPadNativeVectorPreview() throws {
+    let folder = URL(fileURLWithPath: try #require(ProcessInfo.processInfo.environment["DJCONNECT_RETRO_DPAD_PREVIEW_DIR"]))
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let renderer = ImageRenderer(content: DJConnectRetroDPad(language: "nl", select: { _ in })
+        .padding(24)
+        .background(LinearGradient(colors: [Color(red: 0.27, green: 0.17, blue: 0.45),
+                                           Color(red: 0.10, green: 0.08, blue: 0.21)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)))
+    renderer.scale = 3
+    let image = try #require(renderer.cgImage)
+    #expect(image.width == 624 && image.height == 624)
+    let png = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
+    try png.write(to: folder.appendingPathComponent("retro-dpad.png"), options: .withoutOverwriting)
+}
+#endif
