@@ -63,6 +63,7 @@ struct PersonaReactionOverlay: View {
     @ObservedObject var controller: PersonaReactionController
     let language: String
     let avatarFrame: CGRect
+    var mood: String? = nil
     var animatesPresentation = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
@@ -81,7 +82,7 @@ struct PersonaReactionOverlay: View {
                     Color.black.opacity(0.18).ignoresSafeArea()
                         .onTapGesture { controller.cancel(.dismissed) }.accessibilityHidden(true)
                     let bubble = PersonaReactionBubble(text: reaction.text, notice: controller.notice.map(text), closeLabel: text("ui.close"),
-                                                       dismiss: { controller.cancel(.dismissed) })
+                                                       dismiss: { controller.cancel(.dismissed) }, mood: mood)
                     ViewThatFits(in: .vertical) {
                         bubble
                         ScrollView { bubble }
@@ -113,9 +114,10 @@ struct PersonaReactionBubble: View {
     let notice: String?
     let closeLabel: String
     let dismiss: () -> Void
+    var mood: String? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 16) {
+            HStack(alignment: .center, spacing: 16) {
                 Text(text).font(.title3.weight(.medium)).fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 Button(action: dismiss) { Image(systemName: "xmark").foregroundStyle(.white) }
@@ -126,7 +128,8 @@ struct PersonaReactionBubble: View {
         }
         .foregroundStyle(.white)
         .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-        .djSessionFrostedSurface(currentMomentBorder: true)
+        .djSessionFrostedSurface(currentMomentBorder: true, mood: mood)
+        .environment(\.djConnectScrollingSurface, false)
     }
 }
 
