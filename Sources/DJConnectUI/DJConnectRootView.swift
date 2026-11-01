@@ -10281,7 +10281,7 @@ struct TrackSummaryView: View {
             AnimatedAlbumArtworkView(playback: playback,
                 maxWidth: artworkMaximumWidth, usesDemoArtwork: model.isDemoMode)
                 .accessibilityIdentifier("now-playing-artwork-card")
-            playbackCard
+            NowPlayingPlaybackCardContent(model: model)
                 .padding(20)
                 .frame(maxWidth: .infinity)
                 .djPlaybackArtworkGlassCard(artworkURL: model.isDemoMode ? nil : playback?.albumImageURL)
@@ -10290,7 +10290,13 @@ struct TrackSummaryView: View {
         .accessibilityIdentifier("now-playing-card")
     }
 
-    private var playbackCard: some View {
+}
+
+/// Shared playback card content; the host owns its card or native popover surface.
+struct NowPlayingPlaybackCardContent: View {
+    @ObservedObject var model: DJConnectAppModel
+    private var playback: DJConnectPlayback? { model.playback }
+    var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(playback?.trackName ?? localizedKey(model.language, "ui.nothing.playing.13ae37"))
