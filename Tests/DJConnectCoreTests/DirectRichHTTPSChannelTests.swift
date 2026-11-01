@@ -209,9 +209,11 @@ private enum DirectRichModelTaskContext { @TaskLocal static var waiter: DirectRi
         let runtime = DJConnectDirectSessionRuntime(testCustody: custody)
         try await runtime.begin()
         #expect(!runtime.hasRegisteredHostWakeRead)
+        #expect(runtime.captureStatusObservationOrigin() == nil)
         do { try await runtime.readRegisteredHostWake(); Issue.record("read ACK became native registration") } catch {}
         runtime.suspend()
         #expect(!runtime.hasRegisteredHostWakeRead)
+        #expect(runtime.captureStatusObservationOrigin() == nil)
         do { try await runtime.readRegisteredHostWake(); Issue.record("suspension created background owner") } catch {}
         #expect(runtime.phase == .suspended)
         #expect(fixture.requests.count == 1) // No read, authorization retry or host-wake route.

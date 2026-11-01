@@ -103,7 +103,12 @@ import Foundation
             originalBodyIsLive = { lifetime.isLive }
         }
         var isRetained: Bool {
-            guard !Task.isCancelled, let owner, owner.fence.isLive, owner.originalLocalResourcesAreCurrent,
+            !Task.isCancelled && isOwnedRetained
+        }
+        /// Ownership survives cancellation of an individual refresh reader. This
+        /// does not permit that cancelled task to dispatch or publish anything.
+        fileprivate var isOwnedRetained: Bool {
+            guard let owner, owner.fence.isLive, owner.originalLocalResourcesAreCurrent,
                   [.active, .suspended].contains(owner.state), let original = owner.original,
                   original.operationID == operationID, original.purposeID == purposeID,
                   original.sessionID == sessionID, original.surface == surface, original.generation == generation,
@@ -171,7 +176,7 @@ import Foundation
             self.parent = parent; self.owner = owner; self.registrationIsCurrent = registrationIsCurrent
         }
         var isCurrent: Bool {
-            guard !closed, registrationIsCurrent(), let owner, parent.isRetained, owner.registeredRead === self else {
+            guard !closed, registrationIsCurrent(), let owner, parent.isOwnedRetained, owner.registeredRead === self else {
                 closed = true; return false
             }
             return true
@@ -184,6 +189,9 @@ import Foundation
         registeredRead = try parent.registeredReadContinuation(for: child)
     }
     var hasRegisteredRead: Bool { registeredRead?.isCurrent == true }
+    func retainsStatusParentForOwnership(_ parent: OriginalPurposeContext) -> Bool {
+        originalContextCache === parent && parent.isOwnedRetained && hasRegisteredRead
+    }
     func readRegistered(captureAttempt: @escaping @MainActor @Sendable () -> (@MainActor @Sendable () -> Bool)) async throws -> Candidate {
         guard let registeredRead, registeredRead.isCurrent else { throw CancellationError() }
         return try await read(capture: {

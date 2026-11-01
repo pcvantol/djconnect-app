@@ -145,19 +145,63 @@ public struct DJConnectSessionSurfaceSnapshot: Codable, Equatable, Hashable, Sen
     /// it never grants permission to export Moment/artwork or generated copy.
     public let theme: DJConnectSessionMoodTheme?
     public let rich: DJConnectPassiveActivityContent?
+    public let playbackObservation: DJConnectSessionPlaybackObservation?
+    /// Negative-only privacy latch. It cannot establish an OS choice, native
+    /// target, original grant or publication authority.
+    public static let statusPrivacyLatchKey = "DJConnectSessionSurfaceSnapshot.suppressPrivateFallback.v1"
 
     public init(observedAt: Date, theme: DJConnectSessionMoodTheme? = nil, rich: DJConnectPassiveActivityContent? = nil) {
         self.observedAt = observedAt
         self.expiresAt = min(observedAt.addingTimeInterval(Self.maximumLifetime), rich?.expiresAt ?? .distantFuture)
         self.theme = theme
         self.rich = rich
+        playbackObservation = nil
+    }
+
+    init(playbackObservation: DJConnectSessionPlaybackObservation) {
+        self.playbackObservation = playbackObservation
+        observedAt = playbackObservation.observedAt; expiresAt = observedAt
+        theme = nil; rich = nil // No invented field/window expiry or private fallback.
+    }
+    private enum CodingKeys: String, CodingKey { case observedAt, expiresAt, theme, rich }
+    private init(decodedObservedAt: Date, decodedExpiresAt: Date,
+        theme: DJConnectSessionMoodTheme?, rich: DJConnectPassiveActivityContent?) {
+        observedAt = decodedObservedAt; expiresAt = decodedExpiresAt
+        self.theme = theme; self.rich = rich; playbackObservation = nil
+    }
+    public init(from decoder: any Decoder) throws {
+        let probe = try decoder.container(keyedBy: ObservationKey.self)
+        let keys = Set(probe.allKeys.map(\.stringValue))
+        if keys.contains("playback_state") || keys.contains("observed_at_ms") {
+            self.init(playbackObservation: try DJConnectSessionPlaybackObservation(from: decoder))
+            return
+        }
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(decodedObservedAt: try c.decode(Date.self, forKey: .observedAt),
+            decodedExpiresAt: try c.decode(Date.self, forKey: .expiresAt),
+            theme: try c.decodeIfPresent(DJConnectSessionMoodTheme.self, forKey: .theme),
+            rich: try c.decodeIfPresent(DJConnectPassiveActivityContent.self, forKey: .rich))
+    }
+    public func encode(to encoder: any Encoder) throws {
+        if let playbackObservation { try playbackObservation.encode(to: encoder); return }
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(observedAt, forKey: .observedAt); try c.encode(expiresAt, forKey: .expiresAt)
+        try c.encodeIfPresent(theme, forKey: .theme); try c.encodeIfPresent(rich, forKey: .rich)
+    }
+    public static func privateCacheFallbackSuppressed(in defaults: UserDefaults) -> Bool {
+        defaults.bool(forKey: statusPrivacyLatchKey)
+    }
+    public static func suppressPrivateCacheFallback(in defaults: UserDefaults) {
+        defaults.set(true, forKey: statusPrivacyLatchKey)
     }
 
     /// A field downgrade cannot extend the original aggregate observation or
     /// expiry. Internal local-v2 data assembly; never original permission.
     init(preserving original: Self, replacingRich rich: DJConnectPassiveActivityContent) {
         observedAt = original.observedAt; expiresAt = original.expiresAt
-        theme = original.theme; self.rich = rich
+        theme = original.playbackObservation == nil ? original.theme : nil
+        self.rich = original.playbackObservation == nil ? rich : nil
+        playbackObservation = original.playbackObservation
     }
 
     public static func observe(runtimeState: String?, authorized: Bool, isDemo: Bool,
@@ -175,11 +219,13 @@ public struct DJConnectSessionSurfaceSnapshot: Codable, Equatable, Hashable, Sen
     /// cache. Neither source extends the other's original lifetime.
     public static func widgetTheme(confirmedSession: Self?, passiveMood: String?,
                                    fallback: DJConnectSessionMoodTheme, at now: Date) -> DJConnectSessionMoodTheme {
+        if confirmedSession?.playbackObservation != nil { return .brand }
         if let confirmedSession, confirmedSession.isCurrent(at: now), let theme = confirmedSession.theme { return theme }
         return passiveMood.map { DJConnectSessionMoodTheme(sessionMood: $0) } ?? fallback
     }
 
     public static func needsWidgetReload(current: Self?, previous: Self?, lastReloadAt: Date?, at now: Date) -> Bool {
+        if current?.playbackObservation != previous?.playbackObservation { return true }
         if (current == nil) != (previous == nil) || current?.theme != previous?.theme { return true }
         guard current != nil else { return false }
         guard let lastReloadAt else { return true }
@@ -195,13 +241,16 @@ public struct DJConnectSessionSurfaceSnapshot: Codable, Equatable, Hashable, Sen
     /// Rich fields may expire earlier than the independently observed Session.
     /// Removing them preserves its original observation, never a sliding lease.
     public func neutral(at now: Date) -> Self? {
+        if playbackObservation != nil { return self }
         let value = Self(observedAt: observedAt, theme: theme)
         return value.isCurrent(at: now) ? value : nil
     }
 
     public static func load(from defaults: UserDefaults, at now: Date = Date()) -> Self? {
         guard let data = defaults.data(forKey: storageKey),
-              let snapshot = try? JSONDecoder().decode(Self.self, from: data), snapshot.isCurrent(at: now) else { return nil }
+              let snapshot = try? JSONDecoder().decode(Self.self, from: data) else { return nil }
+        if snapshot.playbackObservation != nil { return snapshot } // Accepted stale OS observation DATA only.
+        guard !privateCacheFallbackSuppressed(in: defaults), snapshot.isCurrent(at: now) else { return nil }
         return snapshot
     }
 
@@ -212,6 +261,9 @@ public struct DJConnectSessionSurfaceSnapshot: Codable, Equatable, Hashable, Sen
     @discardableResult
     static func replace(_ snapshot: Self?, in defaults: UserDefaults,
                         now: () -> Date, uptime: () -> TimeInterval) throws -> Bool {
+        guard snapshot?.playbackObservation == nil, !privateCacheFallbackSuppressed(in: defaults) else {
+            throw DJConnectError.invalidResponse // DATA/legacy work cannot replace the owned status projection.
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         let encoded = try snapshot.map { try encoder.encode($0) }

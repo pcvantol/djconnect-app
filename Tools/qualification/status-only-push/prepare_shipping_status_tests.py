@@ -12,7 +12,7 @@ import subprocess
 import xml.etree.ElementTree as ET
 
 
-def prepare(destination: Path, jose: Path, platform: str) -> None:
+def prepare(destination: Path, jose: Path, platform: str, retained_session: bool = False) -> None:
     root = Path(__file__).resolve().parents[3]
     helper = root / "Tools/qualification/vibecast-product/prepare_native_consent_tests.py"
     spec = importlib.util.spec_from_file_location("consent_preparation", helper)
@@ -25,7 +25,8 @@ def prepare(destination: Path, jose: Path, platform: str) -> None:
     project["targets"] = {key: project["targets"][key] for key in ("ConsentCore", "ConsentUI")}
     project["targets"]["ShippingStatusRenderTests"] = {
         "type": "bundle.unit-test", "platform": platform,
-        "sources": [{"path": str(root / "Tools/qualification/status-only-push/ShippingStatusRenderTests.swift")}],
+        "sources": [{"path": str(root / "Tools/qualification/status-only-push" /
+                                      ("RetainedSessionStatusRenderTests.swift" if retained_session else "ShippingStatusRenderTests.swift"))}],
         "dependencies": [{"target": "ConsentCore"}, {"target": "ConsentUI"}],
         "settings": {"base": {"PRODUCT_BUNDLE_IDENTIFIER": "dev.djconnect.qualification.shippingstatus." + platform.lower(),
                                "GENERATE_INFOPLIST_FILE": "YES"}}}
@@ -48,5 +49,6 @@ if __name__ == "__main__":
     parser.add_argument("destination", type=Path)
     parser.add_argument("--jose-checkout", type=Path, required=True)
     parser.add_argument("--platform", choices=("iOS", "macOS"), required=True)
+    parser.add_argument("--retained-session", action="store_true", help="Qualify the active Session alias and shared observation component, not the inactive status prototype")
     args = parser.parse_args()
-    prepare(args.destination.resolve(), args.jose_checkout.resolve(), args.platform)
+    prepare(args.destination.resolve(), args.jose_checkout.resolve(), args.platform, args.retained_session)

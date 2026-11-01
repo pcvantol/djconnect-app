@@ -4,6 +4,29 @@ import Testing
 @testable import DJConnectUI
 
 @Suite @MainActor struct SessionSurfaceNativeCustodyTests {
+    @Test func statusAttenuationFencesPrivateWorkWithoutInventingNativeOwnership() {
+        let custody = SessionSurfaceNativeCustody()
+        let scope = SessionSurfaceNativeCustody.Scope(installation: "model-install", binding: "model-profile",
+            session: "model-session", settingsGeneration: "model-generation", settingsRevision: 1)
+        custody.bind(scope: scope, presentationID: "model-presentation",
+            snapshot: .init(observedAt: Date(), theme: .party), foreground: true, confirmedForeground: true)
+        let queued = custody.capture()
+        #expect(queued.canStart && queued.canPublish())
+        custody.suppressPrivateFields()
+        #expect(!queued.isCurrent && queued.isOwnerCurrent)
+        let attenuated = custody.capture()
+        #expect(attenuated.privateFieldsSuppressed && !attenuated.canStart && !attenuated.canPublish())
+        #expect(attenuated.currentSnapshot() == nil)
+        #expect(attenuated.canStartStatus) // Necessary MODEL guard only; no genuine source or OS target exists.
+        custody.suspend()
+        #expect(!attenuated.canStartStatus && attenuated.isOwnerCurrent)
+        let replacement = SessionSurfaceNativeCustody.Scope(installation: "model-install", binding: "another-profile",
+            session: "model-session", settingsGeneration: "model-generation", settingsRevision: 1)
+        custody.bind(scope: replacement, presentationID: "other-presentation",
+            snapshot: .init(observedAt: Date(), theme: .party), foreground: true, confirmedForeground: true)
+        #expect(!queued.isOwnerCurrent && !attenuated.isOwnerCurrent)
+        #expect(custody.capture().currentSnapshot() == nil && !custody.capture().canPublish())
+    }
     @MainActor private final class Handle: SessionSurfaceRetirableHandle {
         private(set) var isRetired = false
         func retire() { isRetired = true }
