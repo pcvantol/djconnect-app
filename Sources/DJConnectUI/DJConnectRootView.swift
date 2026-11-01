@@ -11972,7 +11972,7 @@ struct AskDJMessageBubble: View {
             if let serverHighlights { SessionHighlightedText(text: displayText, highlights: serverHighlights) }
             else { AskDJMarkdownText(text: displayText, highlight: searchText).equatable() }
         }
-        .padding(.trailing, contextQuestionAction != nil && !renderablePlaybackActions.isEmpty ? 36 : 0)
+        .padding(.trailing, contextQuestionAction != nil && (usesFullWidthItems || !renderablePlaybackActions.isEmpty) ? 36 : 0)
         .tint(.white)
         .modifier(ContributionContentAction(question: contributionQuestion, action: contributionAction))
     }
@@ -12016,6 +12016,8 @@ struct AskDJMessageBubble: View {
     private var isUser: Bool {
         message.role == .user
     }
+
+    private var usesFullWidthItems: Bool { !isUser && !displayItems.isEmpty }
 
     private var isSystemMessage: Bool {
         !isUser && message.messageKind == .system
@@ -12272,7 +12274,7 @@ struct AskDJMessageBubble: View {
                             )
                         }
                     }
-                    .padding(.trailing, contextQuestionAction == nil || !renderablePlaybackActions.isEmpty ? 0 : 36)
+                    .padding(.trailing, usesFullWidthItems || contextQuestionAction == nil || !renderablePlaybackActions.isEmpty ? 0 : 36)
                     if !isUser { sharedSpeechActions?() }
                 }
                 .padding(.horizontal, 14)
@@ -12321,8 +12323,8 @@ struct AskDJMessageBubble: View {
                 }
                 .padding(.horizontal, 6)
             }
-            .frame(maxWidth: 560, alignment: isUser ? .trailing : .leading)
-            if !isUser {
+            .frame(maxWidth: usesFullWidthItems ? .infinity : 560, alignment: isUser ? .trailing : .leading)
+            if !isUser && !usesFullWidthItems {
                 Spacer(minLength: 42)
             }
         }
@@ -12634,7 +12636,7 @@ private struct AskDJItemList: View {
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 8)
-        .frame(maxWidth: 520, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .background {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
