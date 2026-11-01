@@ -9400,8 +9400,6 @@ struct DJSessionWelcomeArtwork: View {
                 Circle().fill(djConnectIconGradient).blur(radius: size * 0.13).opacity(0.45)
                     .frame(width: size * 0.85, height: size * 0.85)
                 animatedRecord(size: size)
-                Circle().fill(djConnectIconGradient).frame(width: size * 0.32, height: size * 0.32)
-                Circle().fill(Color(red: 0.04, green: 0.03, blue: 0.10)).frame(width: size * 0.07, height: size * 0.07)
                 artworkGlyph("music.note", size: size).offset(x: size * 0.35, y: -size * 0.25)
                 artworkGlyph("bubble.left.and.bubble.right", size: size).offset(x: -size * 0.35, y: size * 0.13)
                 HStack(spacing: size * 0.012) {
@@ -9426,9 +9424,9 @@ struct DJSessionWelcomeArtwork: View {
         if reduceMotion || scenePhase != .active {
             record(size: size, rotation: .zero)
         } else {
-            TimelineView(.animation(minimumInterval: 1.0 / 15.0)) { context in
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
                 let turn = context.date.timeIntervalSinceReferenceDate
-                    .truncatingRemainder(dividingBy: 32) / 32
+                    .truncatingRemainder(dividingBy: 8) / 8
                 record(size: size, rotation: .degrees(turn * 360))
             }
         }
@@ -9446,14 +9444,16 @@ struct DJSessionWelcomeArtwork: View {
                     .frame(width: size * (0.42 + Double(ring) * 0.065),
                            height: size * (0.42 + Double(ring) * 0.065))
             }
-            // A faint reflection makes the slow rotation visible on circular grooves.
+            // The reflection and label turn together; the surrounding badges stay fixed.
             Circle().stroke(AngularGradient(stops: [
                 .init(color: .clear, location: 0),
-                .init(color: .white.opacity(0.075), location: 0.14),
+                .init(color: .white.opacity(0.22), location: 0.14),
                 .init(color: .clear, location: 0.26),
                 .init(color: .clear, location: 1)
             ], center: .center), lineWidth: size * 0.13)
                 .frame(width: size * 0.60, height: size * 0.60)
+            Circle().fill(djConnectIconGradient).frame(width: size * 0.32, height: size * 0.32)
+            Circle().fill(Color(red: 0.04, green: 0.03, blue: 0.10)).frame(width: size * 0.07, height: size * 0.07)
         }
         .rotationEffect(rotation)
     }
