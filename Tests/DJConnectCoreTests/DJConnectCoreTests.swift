@@ -2764,8 +2764,8 @@ private func waitForFastPathState(_ condition: @MainActor () async -> Bool) asyn
         case "/api/djconnect/v1/command":
             let body = try #require(try requestBodyData(request))
             let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
-            #expect(json["command"] as? String == "status", "Post-play refresh may read status but must not replay playback")
-            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"playback":{"is_playing":true}}"#.utf8))
+            #expect(["status", "queue"].contains(json["command"] as? String ?? ""), "Post-play refresh only reads status/queue")
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"queue":[],"playback":{"is_playing":true}}"#.utf8))
         case "/api/djconnect/v1/music_discovery/play":
             return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true}"#.utf8))
         default:
@@ -14440,3 +14440,98 @@ import SwiftUI
     try png.write(to: folder.appendingPathComponent("retro-dpad.png"), options: .withoutOverwriting)
 }
 #endif
+
+@MainActor @Test(.isolatedClientResources, arguments: [false, true])
+func discoveryPlayAdmitsOnlyOneRequestWhileTheOriginalReplyIsPending(_ fails: Bool) async throws {
+    let defaults = try testDefaults(), recorder = RequestRecorder(), gate = PushReplyGate()
+    defer { gate.release() }
+    let session = mockSession(host: "discovery-one-intent.test") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/v1/music_discovery/play" {
+            throw DeferredPushReply(gate: gate, response: try httpResponse(for: request, statusCode: fails ? 500 : 200),
+                data: Data((fails ? #"{"success":false}"# : #"{"success":true}"#).utf8))
+        }
+        if request.url?.path == "/api/djconnect/v1/command" {
+            return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true}"#.utf8))
+        }
+        return (try httpResponse(for: request, statusCode: 200), Data(#"{"success":true,"enabled":true,"sections":[]}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: defaults, host: "discovery-one-intent.test", session: session)
+    defer { model.markInactiveSession() }
+    let item = DJConnectMusicDiscoveryItem(id: "one", kind: .track, title: "One", uri: "spotify:track:one", reason: "Fixture")
+    let other = DJConnectMusicDiscoveryItem(id: "two", kind: .track, title: "Two", uri: "spotify:track:two", reason: "Fixture")
+    let original = Task { await model.playMusicDiscoveryItem(item, sectionID: "fresh") }
+    await gate.waitForRequest()
+    #expect(model.playingMusicDiscoveryItemID == item.id)
+    for _ in 0..<10 {
+        #expect(await model.playMusicDiscoveryItem(item, sectionID: "fresh") == false)
+        #expect(await model.playMusicDiscoveryItem(other, sectionID: "fresh") == false)
+    }
+    #expect(recorder.requests.filter { $0.url?.path.hasSuffix("/music_discovery/play") == true }.count == 1)
+    gate.release()
+    #expect(await original.value == !fails)
+    #expect(model.playingMusicDiscoveryItemID == nil)
+    #expect(recorder.requests.filter { $0.url?.path.hasSuffix("/music_discovery/play") == true }.count == 1)
+}
+
+
+@MainActor @Test(.isolatedClientResources, arguments: [false, true])
+func discoveryPlayRefreshesTheQueueAfterAnyPreselectionReadFinishes(_ oldReadInFlight: Bool) async throws {
+    let defaults = try testDefaults(), gate = PushReplyGate(), reads = RequestCounter(), recorder = RequestRecorder()
+    defer { gate.release() }
+    let oldRow: [String: Any] = ["id":"old", "title":"Previous selection", "uri":"spotify:track:old"]
+    let old = try JSONSerialization.data(withJSONObject: ["success":true, "queue":Array(repeating:oldRow,count:12)])
+    let fresh = Data(#"{"success":true,"queue":[{"id":"new","title":"Selected track","uri":"spotify:track:new"}]}"#.utf8)
+    let session = mockSession(host: "discovery-queue-refresh.test") { request in
+        recorder.append(request)
+        if request.url?.path == "/api/djconnect/v1/command" {
+            let payload = try #require(try requestBodyData(request))
+            let body = try #require(JSONSerialization.jsonObject(with: payload) as? [String:Any])
+            if body["command"] as? String == "queue" {
+                reads.increment()
+                if oldReadInFlight && reads.count == 1 {
+                    throw DeferredPushReply(gate:gate, response:try httpResponse(for:request,statusCode:200),data:old)
+                }
+                return (try httpResponse(for:request,statusCode:200),fresh)
+            }
+            #expect(body["command"] as? String == "status")
+            return (try httpResponse(for:request,statusCode:200),Data(#"{"success":true}"#.utf8))
+        }
+        if request.url?.path.hasSuffix("/music_discovery/play") == true {
+            return (try httpResponse(for:request,statusCode:200),Data(#"{"success":true}"#.utf8))
+        }
+        return (try httpResponse(for:request,statusCode:200),Data(#"{"success":true,"enabled":true,"sections":[]}"#.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults:defaults,host:"discovery-queue-refresh.test",session:session)
+    defer { model.markInactiveSession() }
+    model.apply(commandResponse:try JSONDecoder().decode(DJConnectCommandResponse.self,from:old))
+    #expect(model.queueItems.count == 12)
+    let earlier = oldReadInFlight ? Task { await model.refreshQueue() } : nil
+    if oldReadInFlight { await gate.waitForRequest() }
+    let item = DJConnectMusicDiscoveryItem(id:"new",kind:.track,title:"Selected track",uri:"spotify:track:new",reason:"Fixture")
+    #expect(await model.playMusicDiscoveryItem(item,sectionID:"fresh"))
+    if oldReadInFlight {
+        #expect(reads.count == 1)
+        gate.release()
+        #expect(await earlier?.value == true)
+    }
+    let deadline = ContinuousClock.now.advanced(by:.seconds(3))
+    while model.queueItems.count != 1 && ContinuousClock.now < deadline { try await Task.sleep(for:.milliseconds(10)) }
+    #expect(model.queueItems.count == 1 && model.queueItems.first?.uri == "spotify:track:new")
+    #expect(reads.count == (oldReadInFlight ? 2 : 1))
+    #expect(recorder.requests.filter { $0.url?.path.hasSuffix("/music_discovery/play") == true }.count == 1)
+}
+
+
+@Test func discoveryQualityRatingUsesTheProducerHundredPointScale() throws {
+    let wire = Data(#"{"id":"artist-fixture","kind":"artist","title":"Fixture artist","uri":"spotify:artist:fixture","reason":"Fixture","quality_score":74,"quality_band":"medium"}"#.utf8)
+    let item = try JSONDecoder().decode(DJConnectMusicDiscoveryItem.self, from: wire)
+    #expect(item.qualityScore == 74)
+    #expect(MusicDiscoveryQualityPresentation.scoreLabel(item.qualityScore) == "74/100")
+    #expect(MusicDiscoveryQualityPresentation.scoreLabel(0) == "0/100")
+    #expect(MusicDiscoveryQualityPresentation.scoreLabel(100) == "100/100")
+    for invalid in [Double.nan, .infinity, -.infinity, -1, 101, 0.74] {
+        #expect(MusicDiscoveryQualityPresentation.scoreLabel(invalid) == nil)
+    }
+    #expect(MusicDiscoveryQualityPresentation.scoreLabel(nil) == nil)
+}
