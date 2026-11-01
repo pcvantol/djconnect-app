@@ -1604,3 +1604,9 @@
 
 "surface.research.adapted" = "Adapted from the sources above.";
 "ui.host.wake.reviewed.device.test" = "Start reviewed device test";
+
+"surface.playback.observed.playing" = "Observed: playing";
+"surface.playback.observed.paused" = "Observed: paused";
+"surface.playback.observed.stopped" = "Observed: stopped";
+"surface.playback.observed.unknown" = "Playback status unknown";
+"surface.playback.last.observed" = "Last observed";

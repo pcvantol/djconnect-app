@@ -6,6 +6,7 @@ import Foundation
 // and state observation stay on MainActor; lifecycle calls are serialized by
 // the app model and await ActivityKit's own asynchronous implementation.
 @preconcurrency import ActivityKit
+import UIKit
 
 /// Called serially by the app model. Widget, Lock Screen and Island consume
 /// exactly the same admitted snapshot. Playback alone can never start it.
@@ -20,13 +21,16 @@ enum DJConnectSessionSurfaceActivityController {
         let originalAttributes: Data
         let dispatchCapture: DJConnectNativeSurfaceClockCapture
         private let custody: SessionSurfaceNativeCustody.Ticket
+        private let statusOrigin: DJConnectDirectStatusObservationOrigin?
         private(set) var isRetired = false
         var activityID: String { activity.id }
         var presentationID: String { activity.attributes.presentationID }
         fileprivate init(activity: Activity<DJConnectSessionLiveActivityAttributes>, attributes: Data,
-                         custody: SessionSurfaceNativeCustody.Ticket, capture: DJConnectNativeSurfaceClockCapture) {
+                         custody: SessionSurfaceNativeCustody.Ticket, capture: DJConnectNativeSurfaceClockCapture,
+                         statusOrigin: DJConnectDirectStatusObservationOrigin? = nil) {
             self.activity = activity; originalAttributes = attributes; self.custody = custody
             dispatchCapture = capture
+            self.statusOrigin = statusOrigin
         }
         var isCurrent: Bool {
             guard !isRetired, custody.isOwnerCurrent,
@@ -36,8 +40,97 @@ enum DJConnectSessionSurfaceActivityController {
             return inventory.count == 1 && inventory[0].attributes.presentationID == presentationID
         }
         func retire() { isRetired = true }
+        fileprivate func carriesStatusOrigin(_ origin: DJConnectDirectStatusObservationOrigin) -> Bool {
+            isCurrent && statusOrigin === origin && origin.isCurrent
+        }
+        fileprivate func updateStatus(from origin: DJConnectDirectStatusObservationOrigin) async throws -> Bool {
+            guard carriesStatusOrigin(origin), origin.surfaceData == "live_activity",
+                  let snapshot = origin.currentSnapshotData, snapshot.playbackObservation != nil else { throw CancellationError() }
+            await activity.update(ActivityContent(state: snapshot, staleDate: nil))
+            return isCurrent && origin.isCurrent
+        }
+        fileprivate func endOwnedStatus() async {
+            isRetired = true
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+    }
+    @MainActor final class StatusCarry {
+        private let origin: DJConnectDirectStatusObservationOrigin
+        private let target: NativeTarget
+        private var retired = false
+        private var cleanup: Task<Void, Never>?
+        fileprivate init(origin: DJConnectDirectStatusObservationOrigin, target: NativeTarget) {
+            self.origin = origin; self.target = target
+        }
+        var isCurrent: Bool { !retired && origin.isCurrent && target.isCurrent }
+        func publish() async throws -> Bool {
+            guard isCurrent else { throw CancellationError() }
+            return try await target.updateStatus(from: origin)
+        }
+        func retire() {
+            guard !retired else { return }; retired = true
+            nativeTargets.retire(target, id: target.activityID)
+            let target = target, origin = origin
+            cleanup = Task {
+                await target.endOwnedStatus() // Exact owned handle only, never replacement inventory.
+                await origin.withdrawOriginalRead()
+            }
+        }
     }
     private static let nativeTargets = SessionSurfaceNativeHandleRegistry<NativeTarget>()
+    private static var statusRequestAttempts: [ObjectIdentifier: DJConnectDirectStatusObservationOrigin] = [:]
+
+    /// Joins genuine original source ownership to a real foreground native
+    /// target. No status DTO, defaults bit or cold inventory constructs a carry.
+    static func adoptStatus(origin: DJConnectDirectStatusObservationOrigin, presentationID: String,
+        publication: SessionSurfaceNativeCustody.Ticket) async throws -> StatusCarry? {
+        guard !DJConnectLocalization.isQualificationProcess, origin.isCurrent, origin.surfaceData == "live_activity",
+              origin.currentSnapshotData != nil, publication.canStartStatus,
+              UIApplication.shared.applicationState == .active, UIApplication.shared.isProtectedDataAvailable,
+              ActivityAuthorizationInfo().areActivitiesEnabled else { return nil }
+        if let target = currentCapturedTarget(presentationID: presentationID), target.carriesStatusOrigin(origin) {
+            return StatusCarry(origin: origin, target: target)
+        }
+        guard statusRequestAttempts[ObjectIdentifier(origin)] == nil else { return nil }
+        // Cold inventory is negative cleanup only, never positive adoption.
+        for old in Activity<DJConnectSessionLiveActivityAttributes>.activities {
+            guard origin.isCurrent, publication.canStartStatus else { throw CancellationError() }
+            DJConnectSessionSurfacePresentation.applicationEnded(old.attributes.presentationID,
+                wasDismissed: old.activityState == .dismissed, activityID: old.id, in: .standard)
+            withdrawPush(old)
+            await old.end(nil, dismissalPolicy: .immediate)
+            guard origin.isCurrent, publication.canStartStatus else { throw CancellationError() }
+        }
+        let id = ObjectIdentifier(origin)
+        guard statusRequestAttempts[id] == nil, statusRequestAttempts.count < 64, nativeTargets.hasCapacity,
+              let capture = publication.dispatchCapture, let snapshot = origin.currentSnapshotData,
+              DJConnectSessionSurfacePresentation.canRequest(presentationID,
+                build: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown", in: .standard) else { return nil }
+        let attributes = DJConnectSessionLiveActivityAttributes(presentationID: presentationID)
+        let bytes = try JSONEncoder().encode(attributes)
+        guard origin.isCurrent, publication.canStartStatus else { throw CancellationError() }
+        statusRequestAttempts[id] = origin // Once before SDK; an unknown request never retries.
+        // The admitted push channel is host wake. No second ActivityKit APNs
+        // token/registration is synthesized for this status adoption.
+        let activity = try Activity.request(attributes: attributes,
+            content: ActivityContent(state: snapshot, staleDate: nil), pushType: nil)
+        let target = NativeTarget(activity: activity, attributes: bytes, custody: publication, capture: capture, statusOrigin: origin)
+        guard nativeTargets.insert(target, id: activity.id) else {
+            await target.endOwnedStatus(); return nil
+        }
+        DJConnectSessionSurfacePresentation.requested(presentationID,
+            build: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown", activityID: activity.id, in: .standard)
+        return StatusCarry(origin: origin, target: target)
+    }
+    /// Negative cleanup only. No cold SDK object becomes a positive target.
+    static func retirePrivateContentForStatusMode() async {
+        for old in Activity<DJConnectSessionLiveActivityAttributes>.activities where old.content.state.playbackObservation == nil {
+            DJConnectSessionSurfacePresentation.applicationEnded(old.attributes.presentationID,
+                wasDismissed: old.activityState == .dismissed, activityID: old.id, in: .standard)
+            withdrawPush(old)
+            await old.end(nil, dismissalPolicy: .immediate)
+        }
+    }
     static func currentCapturedTarget(presentationID: String) -> NativeTarget? {
         let matching = nativeTargets.values.filter { $0.presentationID == presentationID && $0.isCurrent }
         return matching.count == 1 ? matching[0] : nil
@@ -115,7 +208,7 @@ enum DJConnectSessionSurfaceActivityController {
     static func sync(snapshot: DJConnectSessionSurfaceSnapshot?, presentationID: String?,
                      canStart: Bool, publication: SessionSurfaceNativeCustody.Ticket, endReason: String,
                      nativePushChanged: (@MainActor (DJConnectActivityPushToken?, String) -> Void)? = nil) async -> String? {
-        guard publication.isCurrent else { return nil }
+        guard publication.isCurrent, !publication.privateFieldsSuppressed else { return nil }
         self.nativePushChanged = nativePushChanged
         let defaults = UserDefaults.standard
         // Retire the old fixed playback-only activity, including after upgrade.

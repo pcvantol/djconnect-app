@@ -1604,3 +1604,9 @@
 
 "surface.research.adapted" = "Adapté à partir des sources ci-dessus.";
 "ui.host.wake.reviewed.device.test" = "Lancer le test d’appareil validé";
+
+"surface.playback.observed.playing" = "Lecture observée";
+"surface.playback.observed.paused" = "Pause observée";
+"surface.playback.observed.stopped" = "Arrêt observé";
+"surface.playback.observed.unknown" = "État de lecture inconnu";
+"surface.playback.last.observed" = "Dernière observation";

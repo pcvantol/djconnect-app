@@ -1604,3 +1604,9 @@
 
 "surface.research.adapted" = "Bewerkt op basis van de bovenstaande bronnen.";
 "ui.host.wake.reviewed.device.test" = "Start gecontroleerde apparaattest";
+
+"surface.playback.observed.playing" = "Afspelen waargenomen";
+"surface.playback.observed.paused" = "Pauze waargenomen";
+"surface.playback.observed.stopped" = "Gestopt waargenomen";
+"surface.playback.observed.unknown" = "Speelstatus onbekend";
+"surface.playback.last.observed" = "Laatste waarneming";

@@ -52,12 +52,16 @@ import DJConnectCore
             return owner.ownerGeneration == ownerGeneration
         }
         var isCurrent: Bool { isOwnerCurrent && owner?.frameGeneration == frameGeneration }
-        var canStart: Bool { isCurrent && owner?.foreground == true && owner?.awaitingForegroundConfirmation == false && dispatchCapture != nil }
+        var canStart: Bool { canStartStatus && owner?.privateFieldsSuppressed == false }
+        // Necessary UI/native-root guard only. The status controller ALSO needs
+        // the genuine original source and actual OS Activity/cache choice.
+        var canStartStatus: Bool { isCurrent && owner?.foreground == true && owner?.awaitingForegroundConfirmation == false && dispatchCapture != nil }
+        var privateFieldsSuppressed: Bool { owner?.privateFieldsSuppressed != false }
         func currentSnapshot(at now: Date = Date(), uptime: TimeInterval = ProcessInfo.processInfo.systemUptime) -> DJConnectSessionSurfaceSnapshot? {
             canPublish(at: now, uptime: uptime) ? owner?.snapshot : nil
         }
         func canPublish(at now: Date = Date(), uptime: TimeInterval = ProcessInfo.processInfo.systemUptime) -> Bool {
-            guard isCurrent, let owner, owner.scope != nil, let snapshot = owner.snapshot,
+            guard isCurrent, let owner, !owner.privateFieldsSuppressed, owner.scope != nil, let snapshot = owner.snapshot,
                   snapshot.isCurrent(at: now) else { return false }
             if let rich = snapshot.rich {
                 guard rich.isCurrent(at: now, uptime: uptime),
@@ -74,6 +78,14 @@ import DJConnectCore
     private(set) var awaitingForegroundConfirmation = false
     private var ownerGeneration = UUID()
     private var frameGeneration = UUID()
+    private var privateFieldsSuppressed = false
+
+    /// Negative-only one-way attenuation. Invalidates queued private work while
+    /// preserving the identity of already owned native handles for status/end.
+    func suppressPrivateFields() {
+        guard !privateFieldsSuppressed else { return }
+        privateFieldsSuppressed = true; snapshot = nil; frameGeneration = UUID()
+    }
 
     func bind(scope next: Scope?, presentationID: String?, snapshot: DJConnectSessionSurfaceSnapshot?, foreground: Bool = true,
               confirmedForeground: Bool = false) {
@@ -85,7 +97,8 @@ import DJConnectCore
             if awaitingForegroundConfirmation { frameGeneration = UUID() }
             awaitingForegroundConfirmation = false
         }
-        scope = next; self.presentationID = presentationID; self.snapshot = snapshot
+        scope = next; self.presentationID = presentationID
+        self.snapshot = privateFieldsSuppressed ? nil : snapshot
         self.foreground = foreground
     }
     func capture() -> Ticket { Ticket(owner: self) }

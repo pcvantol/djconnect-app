@@ -296,6 +296,7 @@ targets:
       - path: Apps/Shared/SessionNextTrackIntent.swift
       - path: Sources/DJConnectUI/DJPersonaAvatarView.swift
       - path: Sources/DJConnectUI/StatusOnlySurfaceView.swift
+      - path: Sources/DJConnectUI/SessionPlaybackObservationView.swift
     dependencies:
       - target: DJConnectCoreIOS
     info:
@@ -319,6 +320,7 @@ targets:
       - path: Apps/DJConnectTrackInsightWidgets
       - path: Sources/DJConnectUI/DJPersonaAvatarView.swift
       - path: Sources/DJConnectUI/StatusOnlySurfaceView.swift
+      - path: Sources/DJConnectUI/SessionPlaybackObservationView.swift
     dependencies:
       - target: DJConnectCoreMac
     info:
