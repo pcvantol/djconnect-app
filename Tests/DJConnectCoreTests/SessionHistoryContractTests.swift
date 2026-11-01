@@ -581,9 +581,15 @@ func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis:
     }
     defer { fixture.close() }
     let (model, defaults, name) = fixture.model(); defer { defaults.removePersistentDomain(forName: name) }
+    func waitForCompletedSearch() async throws {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        while (!model.sessionHistory.searchComplete || model.sessionHistory.searchLoading), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+    }
     await model.sessionHistory.prepare()
     model.sessionHistory.search(sessionID: sessionID, query: "old")
-    try await Task.sleep(for: .milliseconds(600))
+    try await waitForCompletedSearch()
     let admittedIDs = model.sessionHistory.searchMatches.map(\.id)
     try #require(admittedIDs.count == entries.count && model.sessionHistory.searchComplete)
     model.sessionHistory.suspend()
@@ -599,7 +605,7 @@ func sessionHistoryAcceptsCorePublishedNarrationWithoutLosingOtherEntries(basis:
     await model.sessionHistory.prepare()
     try #require(model.sessionHistory.hasAuthorizedOwner)
     model.sessionHistory.search(sessionID: sessionID, query: "old")
-    try await Task.sleep(for: .milliseconds(600))
+    try await waitForCompletedSearch()
     #expect(model.sessionHistory.searchMatches.map(\.id) == admittedIDs)
     #expect(model.sessionHistory.searchComplete && !model.sessionHistory.searchLoading)
     #expect(fixture.requests.allSatisfy { $0.httpMethod == "GET" })

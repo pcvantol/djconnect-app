@@ -46,3 +46,11 @@ custody/WebSocket run and subsequent complete 1,614-test diagnostic run passed.
 This improves failure reporting; it does not claim a product lifecycle fix or
 explain away the retained one-off timeout. CI on 8405521 also passed the full
 suites and both unsigned platform builds before this reporting-only change.
+
+The next local full run exposed a separate existing search fixture assumption:
+`sessionHistorySearchRejectsOwnerlessReadUntilRequalified` checked a still-running
+admitted search after a fixed 600 ms sleep. Replace only its two positive sleeps
+with a bounded completion wait; retain exact admitted IDs, GET-only checks,
+owner qualification and the unchanged 600 ms negative no-owner observation.
+Local and CI validation on the same Mac mini are now sequenced to avoid
+competing native AppKit test processes and unnecessary host contention.
