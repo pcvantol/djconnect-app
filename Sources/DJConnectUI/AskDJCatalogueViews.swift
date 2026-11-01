@@ -65,7 +65,7 @@ struct AskDJHelpPanel<Compact: View, Catalogue: View>: View {
             .frame(height: expanded ? bodyHeight : min(compactHeight, bodyHeight))
         }
         .padding(panelPadding).frame(maxWidth: 580)
-        .djSessionFrostedSurface()
+        .djConnectGlassPopoutSurface()
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: expanded)
         .accessibilityElement(children: .contain)
     }

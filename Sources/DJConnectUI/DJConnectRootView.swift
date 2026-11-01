@@ -4429,6 +4429,7 @@ private struct TrackInsightVisualMoodToolbar: View {
             .padding(12)
             .frame(idealWidth: 360)
             .presentationCompactAdaptation(.popover)
+                .djConnectGlassPopoutSurface()
                 .djConnectPresentationSurface()
         }
     }
@@ -18119,6 +18120,7 @@ private struct AboutView: View {
                             .popover(isPresented: $showingPushStatus) {
                                 PushRegistrationDetailsView(model: model)
                                     .presentationCompactAdaptation(.popover)
+                .djConnectGlassPopoutSurface()
                 .djConnectPresentationSurface()
                             }
                         }
