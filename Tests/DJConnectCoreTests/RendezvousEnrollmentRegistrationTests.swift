@@ -220,7 +220,8 @@ private func enrollmentResponse(expiry:Int64) throws -> Data {
         let (_,_,_,qr,challenge,_) = try await enrollmentSetup(store:store)
         let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [EnrollmentWire.self]
         var observedTask:URLSessionDataTask?
-        let service = DJConnectRendezvousService(configuration:config,taskCreated:{observedTask = $0})
+        var resumedTask:URLSessionDataTask?
+        let service = DJConnectRendezvousService(configuration:config,taskCreated:{observedTask = $0},taskResumed:{resumedTask = $0})
         EnrollmentWire.configure(store:store,body:try enrollmentResponse(expiry:challenge.expiresAtMS+1000))
         var probe:Task<Void,Never>?
         _ = try await service.register(originalBody:Data("{}".utf8),qr:qr,beforeDispatch:{
@@ -229,7 +230,9 @@ private func enrollmentResponse(expiry:Int64) throws -> Data {
                 // This is exactly where a queued UI owner cancellation runs.
                 // Foundation's task must already exist and have been resumed.
                 guard let task = observedTask else { Issue.record("No task before actor release"); return }
-                #expect(task.state != .suspended)
+                // Observe the actual same resume() invocation. Foundation's
+                // later state propagation is not the actor call-order witness.
+                #expect(resumedTask === task)
             }
         })
         await probe?.value

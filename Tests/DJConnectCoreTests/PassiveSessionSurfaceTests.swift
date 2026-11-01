@@ -476,11 +476,11 @@ private func passivePNG() throws -> Data {
         read: { _, _, _ in reads += 1; return r }, image: { _, _ in Data() })
     model.bind(owner: "A", sessionID: r.passive_session.session_id, foreground: true); await model.discover(services)
     for n in 1...20 { model.invalidate(sequence: n, services: services) }
-    try await Task.sleep(for: .milliseconds(300))
+    await model.waitForPendingInvalidationRead()
     #expect(reads == 0 && authorizes == 0)
     await model.setEnabled(true, surface: .widget, services: services)
     for n in 21...40 { model.invalidate(sequence: n, services: services) }
-    try await Task.sleep(for: .milliseconds(400))
+    await model.waitForPendingInvalidationRead()
     #expect(reads == 1 && authorizes == 1)
 }
 

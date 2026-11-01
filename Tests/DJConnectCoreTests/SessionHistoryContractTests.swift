@@ -2554,7 +2554,13 @@ private final class PresenceScript: @unchecked Sendable {
     await model.refreshActiveDJSession(); await model.refreshActiveMoodCapability()
     let id = try #require(model.activeDJSession?.id), epoch = model.sessionHistory.responseEpoch
     model.selectActiveSessionPresence(.presenter, expectedSessionID: id, expectedEpoch: epoch)
-    try await Task.sleep(for: .milliseconds(20))
+    // Change the owning scope after the original write actually reached the
+    // fixture. A fixed 20ms sleep could refresh the old Session before dispatch.
+    let dispatchedBy = ContinuousClock.now.advanced(by: .seconds(3))
+    while script.writes == 0 && ContinuousClock.now < dispatchedBy {
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    try #require(script.writes == 1)
     if scenario == "background" { model.markInactiveSession() }
     if scenario == "replacement" { await model.refreshActiveDJSession() }
     for _ in 0..<50 { if !model.activePresencePending { break }; try await Task.sleep(for: .milliseconds(20)) }

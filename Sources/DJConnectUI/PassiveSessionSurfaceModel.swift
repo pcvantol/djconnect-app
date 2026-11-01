@@ -188,6 +188,13 @@ import DJConnectCore
         pendingInvalidations.formUnion(grants.keys)
         scheduleInvalidationRead(services)
     }
+    /// Join the already scheduled hint batch and its existing reads. Internal
+    /// test synchronization only: no refresh, authorization or new task starts.
+    func waitForPendingInvalidationRead() async {
+        await invalidationTask?.value
+        let reads = Array(tasks.values)
+        for read in reads { await read.value }
+    }
     private func scheduleInvalidationRead(_ services: Services) {
         guard active, !pendingInvalidations.isEmpty else { return }
         guard invalidationTask == nil else { return }
