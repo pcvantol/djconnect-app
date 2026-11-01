@@ -23,6 +23,9 @@ final class HostWakeFirstKeyJournal: @unchecked Sendable {
     private var claimFile: OwnedFile?
     private var referenceFile: OwnedFile?
     private var referenceBytes: Data?
+    private var proofFile: OwnedFile?
+    private var proofBytes: Data?
+    private var proofAttempted = false
     private let lock = NSLock()
     private var claimAttempted = false
     private var claimed = false
@@ -95,6 +98,29 @@ final class HostWakeFirstKeyJournal: @unchecked Sendable {
             referenceBytes = encodedReference
         }
     }
+    /// One original native proof for this warm first-key operation. Persist
+    /// before entering the SDK; failure/unknown never refunds the reservation.
+    /// The record contains binding DATA only, never opaque proof/private bytes.
+    func claimNativeProofBeforeSDK(_ input: HostWakeNativeProofInputData) throws {
+        try lock.withLock {
+            guard !closed, !proofAttempted else { throw Failure.closed }
+            proofAttempted = true
+            try validateIdentity()
+            guard referenceBytes == Data(input.keyIdentifier.utf8) else { throw Failure.closed }
+            let record = NativeProofClaim(kind: input.kind.rawValue,
+                clientDataSHA256: input.clientDataHash.map { String(format: "%02x", $0) }.joined(),
+                keyIdentifier: input.keyIdentifier)
+            let encoder = JSONEncoder(); encoder.outputFormatting = .sortedKeys
+            let bytes = try encoder.encode(record)
+            proofFile = try Self.create("native-proof-start.json", data: bytes, in: directory)
+            proofBytes = bytes
+        }
+    }
+    private struct NativeProofClaim: Codable {
+        let kind: String
+        let clientDataSHA256: String
+        let keyIdentifier: String
+    }
     private func validateIdentity() throws {
         var held = stat(), named = stat(), heldParent = stat(), namedParent = stat()
         guard fstat(parent, &heldParent) == 0, lstat(support.path, &namedParent) == 0,
@@ -114,6 +140,10 @@ final class HostWakeFirstKeyJournal: @unchecked Sendable {
         if let referenceBytes {
             guard let referenceFile,
                   try Self.read("key-reference", original: referenceFile, in: directory) == referenceBytes else { throw Failure.closed }
+        }
+        if let proofBytes {
+            guard let proofFile,
+                  try Self.read("native-proof-start.json", original: proofFile, in: directory) == proofBytes else { throw Failure.closed }
         }
     }
     private static func read(_ name: String, original: OwnedFile, in directory: Int32) throws -> Data {

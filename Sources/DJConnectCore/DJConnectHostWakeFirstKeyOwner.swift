@@ -11,7 +11,7 @@ import DeviceCheck
 /// Ordinary builds have no selected installation/effect plan, hence no positive
 /// operator action. Neither startup, DTO decoding nor an HA ID can select one.
 @MainActor public final class DJConnectHostWakeFirstKeyOwner: ObservableObject {
-    public enum State: Sendable { case closed, available, running, referenceRecorded, preparing, prepared, unknown }
+    public enum State: Sendable { case closed, available, running, referenceRecorded, preparing, registered, unknown }
     @Published public private(set) var state: State = .closed
     private var attempt: HostWakeFirstKeyAttempt?
     private var task: Task<Void, Never>?
@@ -89,7 +89,8 @@ import DeviceCheck
 
     /// The actual AppModel passes its retained genuine direct-read runtime and
     /// current in-memory OS token. No key-reference file or DTO is adopted here.
-    /// This reaches Core prepare only; it is NOT native verification/registration.
+    /// Runs one original enrollment. Only an acknowledged pending server job
+    /// may be polled; lost/unknown responses never restart the challenge/SDK.
     public func prepareOriginalHostWake(runtime: DJConnectDirectSessionRuntime, token: Data,
         tokenIsCurrent: @escaping @MainActor @Sendable () -> Bool) async throws {
         try Task.checkCancellation()
@@ -114,7 +115,43 @@ import DeviceCheck
                 try Task.checkCancellation()
                 guard self.state == .preparing, reference.attempt.referenceIsCurrent,
                       reference.host.isStillCurrent, tokenIsCurrent(), parent.isActive else { throw CancellationError() }
-                self.state = .prepared
+                // Capture BEFORE the first challenge await. This local 30s
+                // resource bound is independent of the server's UTC deadline.
+                let proofWindow = HostWakeNativeProofWindow()
+                _ = try await child.challenge()
+                let current: @MainActor @Sendable () -> Bool = { [weak self] in
+                    self?.state == .preparing && reference.attempt.referenceIsCurrent &&
+                        reference.host.isStillCurrent && tokenIsCurrent() && parent.isActive
+                }
+                guard current(), proofWindow.isCurrent else { throw CancellationError() }
+                let input = try child.nativeProofInputData(suppliedSDKKeyIdentifier: reference.key)
+                let proof = HostWakeNativeProofAttempt(storage: reference.journal, sdk: SystemHostWakeNativeProofSDK(),
+                    window: proofWindow, current: current)
+                // Hold the actual key's exclusion slot through SDK -> complete;
+                // neither the slot nor a parsed input supplies native authority.
+                _ = try await RendezvousAppKeyOperations.shared.performHostWakeProof(keyIdentifier: reference.key) {
+                    let bytes = try await proof.perform(input)
+                    guard await proof.isCurrent else { throw CancellationError() }
+                    return try await child.complete(proof: bytes)
+                }
+                guard current() else { throw CancellationError() }
+                for _ in 0..<12 where child.phase == .verifying {
+                    try await Task.sleep(for: .milliseconds(350))
+                    guard current() else { throw CancellationError() }
+                    _ = try await child.nativeStatus()
+                    guard current() else { throw CancellationError() }
+                }
+                guard current(), child.phase == .nativeVerified else { throw CancellationError() }
+                _ = try await child.register()
+                guard current() else { throw CancellationError() }
+                for _ in 0..<12 where child.phase == .registerPending {
+                    try await Task.sleep(for: .milliseconds(350))
+                    guard current() else { throw CancellationError() }
+                    _ = try await child.status()
+                    guard current() else { throw CancellationError() }
+                }
+                guard current(), child.phase == .registered else { throw CancellationError() }
+                self.state = .registered
             }
             prepareTask = operation
             try await withTaskCancellationHandler { try await operation.value } onCancel: { operation.cancel() }
@@ -295,6 +332,78 @@ private final class HostWakeFirstKeyCancellation: @unchecked Sendable {
               bytes.base64EncodedString() == key else { fail(); return }
         finished = true; timeout?.cancel(); timeout = nil
         continuation?.resume(returning: key); continuation = nil
+    }
+    func fail() {
+        guard !finished else { return }; finished = true
+        timeout?.cancel(); timeout = nil
+        continuation?.resume(throwing: HostWakeFirstKeyAttempt.Failure.unknown); continuation = nil
+    }
+}
+
+/// Only the private reviewed warm owner above constructs this actual adapter.
+/// Simulator and all non-iOS hosts are unsupported; no synthetic fallback.
+@MainActor private final class SystemHostWakeNativeProofSDK: HostWakeNativeProofSDK {
+    var isSupported: Bool {
+        #if os(iOS) && !targetEnvironment(simulator)
+        DCAppAttestService.shared.isSupported
+        #else
+        false
+        #endif
+    }
+    func invoke(_ input: HostWakeNativeProofInputData, deadline: ContinuousClock.Instant,
+        current: @escaping @MainActor @Sendable () -> Bool) async throws -> Data {
+        guard isSupported, current(), ContinuousClock.now < deadline else { throw HostWakeFirstKeyAttempt.Failure.closed }
+        #if os(iOS) && !targetEnvironment(simulator)
+        let reply = HostWakeNativeProofSDKReply(deadline: deadline, current: current)
+        return try await withTaskCancellationHandler {
+            try Task.checkCancellation()
+            return try await withCheckedThrowingContinuation { continuation in
+                reply.start(continuation)
+                guard !Task.isCancelled, current(), ContinuousClock.now < deadline else { reply.fail(); return }
+                let callback: @Sendable (Data?, (any Error)?) -> Void = { data, error in
+                    Task { @MainActor in reply.finish(error == nil ? data : nil) }
+                }
+                // The kind came from the retained prepared/challenge pair. Key
+                // existence, local defaults or a server DTO cannot choose it.
+                switch input.kind.sdkOperation {
+                case .attestKey:
+                    DCAppAttestService.shared.attestKey(input.keyIdentifier, clientDataHash: input.clientDataHash,
+                        completionHandler: callback)
+                case .generateAssertion:
+                    DCAppAttestService.shared.generateAssertion(input.keyIdentifier, clientDataHash: input.clientDataHash,
+                        completionHandler: callback)
+                }
+            }
+        } onCancel: { Task { @MainActor in reply.fail() } }
+        #else
+        throw HostWakeFirstKeyAttempt.Failure.closed
+        #endif
+    }
+}
+
+@MainActor private final class HostWakeNativeProofSDKReply {
+    private let current: @MainActor @Sendable () -> Bool
+    private let deadline: ContinuousClock.Instant
+    private var continuation: CheckedContinuation<Data, any Error>?
+    private var finished = false
+    private var timeout: Task<Void, Never>?
+    init(deadline: ContinuousClock.Instant, current: @escaping @MainActor @Sendable () -> Bool) {
+        self.deadline = deadline; self.current = current
+    }
+    func start(_ continuation: CheckedContinuation<Data, any Error>) {
+        guard !finished else { continuation.resume(throwing: HostWakeFirstKeyAttempt.Failure.unknown); return }
+        self.continuation = continuation
+        let deadline = deadline
+        timeout = Task { [weak self] in
+            try? await Task.sleep(until: deadline, clock: .continuous)
+            guard !Task.isCancelled else { return }; self?.fail()
+        }
+    }
+    func finish(_ bytes: Data?) {
+        guard !finished else { return }
+        guard current(), ContinuousClock.now < deadline, let bytes, (1...9216).contains(bytes.count) else { fail(); return }
+        finished = true; timeout?.cancel(); timeout = nil
+        continuation?.resume(returning: bytes); continuation = nil
     }
     func fail() {
         guard !finished else { return }; finished = true

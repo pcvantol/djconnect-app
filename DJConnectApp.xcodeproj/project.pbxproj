@@ -48,6 +48,7 @@
 		11D50DC21D19F2A8E17CC303 /* DJConnectSurfacePushContinuation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6008F2CE8D28AC4C5F79AE43 /* DJConnectSurfacePushContinuation.swift */; };
 		127A70C2EEDDE0B9B7059C58 /* AutomaticSurfaceDiscoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2004AD02B4716DA9189F6A2A /* AutomaticSurfaceDiscoveryTests.swift */; };
 		133D969E0D726F02E009B07F /* DJConnectRendezvousSubmitChallenge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840BB7CBD23A4F6C9B351A85 /* DJConnectRendezvousSubmitChallenge.swift */; };
+		1355C23D52B9F61E42D2DC49 /* HostWakeNativeProofAttempt.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07441A1AD4AC830969624A0 /* HostWakeNativeProofAttempt.swift */; };
 		13881662F93DE9D712B6D84C /* DJConnectWatchSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB18D6EC6A2FED5E85FCF77B /* DJConnectWatchSessionView.swift */; };
 		146A3DC574032DADFE6859EF /* SessionVoiceAutoplayControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18D59D1FBADA4F59C3BF7A0 /* SessionVoiceAutoplayControl.swift */; };
 		14C24A642398851F7208C2CF /* DJConnectRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A925089414284E0693A9FD97 /* DJConnectRootView.swift */; };
@@ -338,6 +339,7 @@
 		820FAC057EBD7C31439CDA12 /* HostWakeNativeProofInputData.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD80DB1D4C74B5DBAE19FA3C /* HostWakeNativeProofInputData.swift */; };
 		8310064366E3D14623CC3991 /* DJConnectNativeSurfaceClockCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = F53DBF8A47CF9464B3053B3C /* DJConnectNativeSurfaceClockCapture.swift */; };
 		83324DF5EF0EC4A5E8B276C8 /* DJConnectPersonaReaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = E46A82EE92B8DEF4D63698AC /* DJConnectPersonaReaction.swift */; };
+		83DD6E94A7B09DB91B0322C6 /* HostWakeNativeProofAttempt.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07441A1AD4AC830969624A0 /* HostWakeNativeProofAttempt.swift */; };
 		84029F44C8FEEC5E2F9693DF /* DJConnectCurrentInsight.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A3E9AE6F8AB06A11CA6536D /* DJConnectCurrentInsight.swift */; };
 		84137CA00AC8F97DBCA6130F /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 36C561DF0639DA1A6347591D /* Localizable.strings */; };
 		843FC398F95BE544C7856674 /* DJConnectRendezvousDestination.swift in Sources */ = {isa = PBXBuildFile; fileRef = F077B2134C245B0B720FB7A4 /* DJConnectRendezvousDestination.swift */; };
@@ -465,6 +467,7 @@
 		BCD1D44BFE915EB8AD1F7779 /* VibeCastRendezvousView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86B4AE3EB570CDD7CDFF69D4 /* VibeCastRendezvousView.swift */; };
 		BD27A2C25BAA6A07092F5B9C /* TrackInsightShareRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C97BDBB086FDCCF212549C6 /* TrackInsightShareRenderer.swift */; };
 		BD2C1F76D100D8FEA9F96022 /* TrackInsightPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EACDF5EC6A86A72305C5C68F /* TrackInsightPresentationTests.swift */; };
+		BEACC44FDD5FE1248D1A83D9 /* HostWakeNativeProofAttemptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E5BF4065A4E570FD1A0714 /* HostWakeNativeProofAttemptTests.swift */; };
 		BEC8E74C4004686516547BF0 /* RendezvousRepairJournal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 017498F59115FB4D0D9D7D5A /* RendezvousRepairJournal.swift */; };
 		BECAF9FC07EE86ADEEC95AF4 /* TrackInsightLiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B05725000CDA3CC68FEF50CE /* TrackInsightLiveActivityController.swift */; };
 		BED414C3150307733D114A48 /* StatusOnlySurfaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD6C1EE45A4DF9009B150EC1 /* StatusOnlySurfaceView.swift */; };
@@ -497,6 +500,7 @@
 		CA3DAD38FBA6C5A662A45C3C /* RendezvousRepairWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A30E01DCBBC74B7F694B6F6 /* RendezvousRepairWindow.swift */; };
 		CA4DEE934C0865CEE6FDB15C /* ContentDeletionActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EEAE4EC6C7497EDEA90696D /* ContentDeletionActions.swift */; };
 		CA7EB80E6A855805C42FBC04 /* GlassAppearanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54ADBFA0321B7ECA0F228ED8 /* GlassAppearanceTests.swift */; };
+		CBB30E323685FE801DFECAF5 /* HostWakeNativeProofAttempt.swift in Sources */ = {isa = PBXBuildFile; fileRef = E07441A1AD4AC830969624A0 /* HostWakeNativeProofAttempt.swift */; };
 		CCA94D967905A1C92ADBF183 /* WatchForegroundSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 230A10A5F59E57BD8C742DC3 /* WatchForegroundSessionTests.swift */; };
 		CCD6881C9E4835FBD38B72A3 /* CoreHostWakeProxyReplyData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F14C16BE36C58D99D9F688 /* CoreHostWakeProxyReplyData.swift */; };
 		CCE40EB1C51561E6289577B7 /* SessionHistorySummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42ED7CD519A2C9309C6F5EFD /* SessionHistorySummaryView.swift */; };
@@ -1098,6 +1102,7 @@
 		B4A3F38AED5FE230AE2867D8 /* RichSurfaceFragmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RichSurfaceFragmentTests.swift; sourceTree = "<group>"; };
 		B4ABF74B77230368B5FC81B8 /* SessionTimelineScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTimelineScreen.swift; sourceTree = "<group>"; };
 		B4D28D4FC8C6E0AEC5D2C3EC /* DJConnectTrackInsightWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectTrackInsightWidgets.swift; sourceTree = "<group>"; };
+		B4E5BF4065A4E570FD1A0714 /* HostWakeNativeProofAttemptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostWakeNativeProofAttemptTests.swift; sourceTree = "<group>"; };
 		B5D47182E36AF9D48D8799FA /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		B5F62DAB22758C121E6007B5 /* DJConnectSessionPresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectSessionPresence.swift; sourceTree = "<group>"; };
 		B6B1EC38E3F9E0F472687AEA /* DirectRichHTTPSChannelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectRichHTTPSChannelTests.swift; sourceTree = "<group>"; };
@@ -1152,6 +1157,7 @@
 		DF1B1366F872E9A96E8E81BE /* SessionSurfaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSurfaceTests.swift; sourceTree = "<group>"; };
 		E024E44CE136F64F716CCA82 /* RendezvousCompositionEnvelopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendezvousCompositionEnvelopeTests.swift; sourceTree = "<group>"; };
 		E038B2A373113153B9C37E33 /* RendezvousSubmissionJournal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendezvousSubmissionJournal.swift; sourceTree = "<group>"; };
+		E07441A1AD4AC830969624A0 /* HostWakeNativeProofAttempt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostWakeNativeProofAttempt.swift; sourceTree = "<group>"; };
 		E0DF4F30A6227179E1DDA94F /* RendezvousEnrollmentChallengeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendezvousEnrollmentChallengeTests.swift; sourceTree = "<group>"; };
 		E1372E7133BB3581B0031DBA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		E15C88176E255E80FB9C140A /* ProfileDJSettingsEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileDJSettingsEditor.swift; sourceTree = "<group>"; };
@@ -1435,6 +1441,7 @@
 				CDE973EC0D9C7884A1B597A6 /* DJConnectWebSocketFastPath.swift */,
 				CD94D01429C701E3E5A3FDEF /* DJConnectWebSocketSessionAuthProvider.swift */,
 				533A2B0B559B3A6146C1454C /* HostWakeFirstKeyJournal.swift */,
+				E07441A1AD4AC830969624A0 /* HostWakeNativeProofAttempt.swift */,
 				CD80DB1D4C74B5DBAE19FA3C /* HostWakeNativeProofInputData.swift */,
 				070C36FD7D525B642B9D124D /* HostWakeNativeTranscriptData.swift */,
 				DCCEF0C179543C25834F654D /* NativeStatusOnceDataJournal.swift */,
@@ -1564,6 +1571,7 @@
 				54ADBFA0321B7ECA0F228ED8 /* GlassAppearanceTests.swift */,
 				285602C75F473EB08A02680A /* HASpeechNativePresentationTests.swift */,
 				87DD55ECD2BD6414FEBE29F7 /* HostWakeFirstKeyTests.swift */,
+				B4E5BF4065A4E570FD1A0714 /* HostWakeNativeProofAttemptTests.swift */,
 				A1FA6BF793DC1EEDED5BAA45 /* HostWakeNativeProofInputDataTests.swift */,
 				094E0111267A6760D666F990 /* HostWakeNativeTranscriptDataTests.swift */,
 				DD4921C1293A50DA9EA51B5E /* HybridLocalPolicyTests.swift */,
@@ -2367,6 +2375,7 @@
 				CA7EB80E6A855805C42FBC04 /* GlassAppearanceTests.swift in Sources */,
 				85703E901F6279B32B304275 /* HASpeechNativePresentationTests.swift in Sources */,
 				2CFA72D2DAC0225CC1CF267B /* HostWakeFirstKeyTests.swift in Sources */,
+				BEACC44FDD5FE1248D1A83D9 /* HostWakeNativeProofAttemptTests.swift in Sources */,
 				A385D7A34F6E797EEE69A9EE /* HostWakeNativeProofInputDataTests.swift in Sources */,
 				E00CD6A190C7C3C851EB1548 /* HostWakeNativeTranscriptDataTests.swift in Sources */,
 				37470A8E956B26B40B193884 /* HybridLocalPolicyTests.swift in Sources */,
@@ -2539,6 +2548,7 @@
 				F87BED20A49D94050F2FE2A9 /* DirectRichWireInstant.swift in Sources */,
 				F545C220E287D359C9CEF3C6 /* DirectRichWireJSON.swift in Sources */,
 				87C5D4FC44AC036123E783ED /* HostWakeFirstKeyJournal.swift in Sources */,
+				1355C23D52B9F61E42D2DC49 /* HostWakeNativeProofAttempt.swift in Sources */,
 				F70D38DABE86959FDFEE901E /* HostWakeNativeProofInputData.swift in Sources */,
 				DED8DA25B7A5C2EC05EE2A72 /* HostWakeNativeTranscriptData.swift in Sources */,
 				8E52AA80DB7AC59F5B8D3FCB /* NativeStatusOnceDataJournal.swift in Sources */,
@@ -2667,6 +2677,7 @@
 				7A3271B739648F951A7087E6 /* DirectRichWireInstant.swift in Sources */,
 				AC1DE35237A94B7D92D0D9EC /* DirectRichWireJSON.swift in Sources */,
 				ED562CBBDAFAA08AAE589F23 /* HostWakeFirstKeyJournal.swift in Sources */,
+				83DD6E94A7B09DB91B0322C6 /* HostWakeNativeProofAttempt.swift in Sources */,
 				763F38E9282ED8CDB1363552 /* HostWakeNativeProofInputData.swift in Sources */,
 				33AA237F13D1CD099BF71335 /* HostWakeNativeTranscriptData.swift in Sources */,
 				845FC1D3613D8BFCC7C639B8 /* NativeStatusOnceDataJournal.swift in Sources */,
@@ -2799,6 +2810,7 @@
 				03E6698BD0C74B05CE05707E /* DirectRichWireInstant.swift in Sources */,
 				1EC70AF01FBE66D38CE1A1CF /* DirectRichWireJSON.swift in Sources */,
 				FF0D207E8C9E324EE5B6FB5C /* HostWakeFirstKeyJournal.swift in Sources */,
+				CBB30E323685FE801DFECAF5 /* HostWakeNativeProofAttempt.swift in Sources */,
 				820FAC057EBD7C31439CDA12 /* HostWakeNativeProofInputData.swift in Sources */,
 				EE2AB9868F0DE9F29686F513 /* HostWakeNativeTranscriptData.swift in Sources */,
 				2671FCF6CED672254CADA6E4 /* NativeStatusOnceDataJournal.swift in Sources */,
