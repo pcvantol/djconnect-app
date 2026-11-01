@@ -737,10 +737,14 @@ struct SessionTimelineScreen: View {
                             visibleEntry = target
                         }
                     }
-                    .djContentRefreshable(enabled: !showsForecast && !model.isDemoMode && model.pairingStatus == .paired) {
+                    .djContentRefreshable(enabled: displayingForecast ? model.canRefreshSessionForecast : !model.isDemoMode && model.pairingStatus == .paired) {
                         pullRefreshing = true
                         defer { pullRefreshing = false }
-                        await refreshTimeline()
+                        if displayingForecast {
+                            await model.refreshSessionForecast()
+                        } else {
+                            await refreshTimeline()
+                        }
                     }
                     }
                     .safeAreaInset(edge: .bottom, spacing: 0) {
