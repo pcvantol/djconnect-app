@@ -849,11 +849,15 @@ struct MomentCard: View {
     var speech: DJConnectSessionSpeech? = nil
     var contributionQuestion: String? = nil
     var contributionAction: (() -> Void)? = nil
+    private var spotifyAttributionURL: URL? {
+        guard moment.sourceAttribution?["provider"] == "Spotify", spotifyAttributionLogo != nil else { return nil }
+        return moment.nativeSourceURLs.first
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if let media = artworkMedia, let model = artworkModel {
                 SessionArtworkView(media: media, target: .moment(moment.id), audience: .current, language: language, model: model,
-                    showsAttribution: moment.sourceAttribution?["provider"] != "Spotify" || moment.nativeSourceURLs.isEmpty)
+                    showsAttribution: spotifyAttributionURL == nil)
             }
             if moment.isBulletinV1 {
                 Label(kind, systemImage: "newspaper").font(.caption.weight(.bold)).foregroundStyle(.secondary)
@@ -872,8 +876,7 @@ struct MomentCard: View {
                     .tint(djConnectAccent)
                     .accessibilityIdentifier("moment-open-track-insight")
             }
-            if moment.sourceAttribution?["provider"] == "Spotify",
-               let logo = spotifyAttributionLogo, let url = moment.nativeSourceURLs.first {
+            if let url = spotifyAttributionURL, let logo = spotifyAttributionLogo {
                 Link(destination: url) {
                     logo.resizable().scaledToFit().frame(width: 70, height: 20)
                         .padding(10).frame(minHeight: 44).contentShape(Rectangle())
@@ -882,7 +885,7 @@ struct MomentCard: View {
                 .accessibilityValue(url.absoluteString)
                 .accessibilityIdentifier("session-spotify-attribution")
             }
-            ForEach(moment.nativeSourceURLs, id: \.absoluteString) { url in
+            ForEach(moment.nativeSourceURLs.filter { $0 != spotifyAttributionURL }, id: \.absoluteString) { url in
                 let source = moment.isBulletinV1 ? moment.sources.first { $0.destination == url } : nil
                 let label = source?.attributionLabel ?? moment.sourceAttribution?["provider"] ?? url.host ?? ""
                 Link(label, destination: url)
