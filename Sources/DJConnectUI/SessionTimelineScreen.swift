@@ -771,6 +771,7 @@ struct SessionTimelineScreen: View {
                 }
             }
             .background(sessionBackground)
+            .coordinateSpace(name: AskDJHelpPanelLayout.coordinateSpace)
             .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
                 guard activeSession != nil, sessionControlIntent == nil, !inlineSearchBounds.isEmpty,
                       !inlineSearchBounds.contains(tap.location) else { return }

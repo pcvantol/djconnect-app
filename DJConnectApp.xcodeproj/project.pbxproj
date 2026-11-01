@@ -217,6 +217,7 @@
 		535C98B2289C07256FB25BE0 /* DJPersonaAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23A7014620D352A6EC019D9E /* DJPersonaAvatarView.swift */; };
 		540F1802406DBC2A7A8E7444 /* DJConnectCoreMac.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A3FBCBF6FC49FA0FB5B32850 /* DJConnectCoreMac.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		545C635827E95523A6894157 /* CoreHostWakeProxyChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82924A0197A4D224A27D2993 /* CoreHostWakeProxyChannel.swift */; };
+		558D0B0586F542CFD0194903 /* AskDJHelpPanelLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B938049805081173F226E299 /* AskDJHelpPanelLayoutTests.swift */; };
 		55CEB96E8E6294AEC1BBDA92 /* DJConnectWebSocketFastPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDE973EC0D9C7884A1B597A6 /* DJConnectWebSocketFastPath.swift */; };
 		562AFF4442CB2BECC9167547 /* DirectRichResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDB15F2D3E8FF3832326ADFE /* DirectRichResponse.swift */; };
 		573B84E5D1F7F79B38824085 /* DJConnectHybridTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C77F18ABA7F02CB49A64DC2 /* DJConnectHybridTransport.swift */; };
@@ -1105,6 +1106,7 @@
 		B7E1C5F0578AC3B08A73377D /* DJConnectWatchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectWatchModel.swift; sourceTree = "<group>"; };
 		B8F14C16BE36C58D99D9F688 /* CoreHostWakeProxyReplyData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreHostWakeProxyReplyData.swift; sourceTree = "<group>"; };
 		B913B7AB20FB17F7A798C9DF /* HybridTransportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HybridTransportTests.swift; sourceTree = "<group>"; };
+		B938049805081173F226E299 /* AskDJHelpPanelLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskDJHelpPanelLayoutTests.swift; sourceTree = "<group>"; };
 		B98B75141E0DC0EC78F55371 /* AppIconWatchAdaptive.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIconWatchAdaptive.icon; sourceTree = "<group>"; };
 		B98E4AF219BB5F6995CDEFEE /* DJConnectProfileDJSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJConnectProfileDJSettings.swift; sourceTree = "<group>"; };
 		BA23D1657E9EA15E93D34D13 /* SessionSpeechAutoplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSpeechAutoplayTests.swift; sourceTree = "<group>"; };
@@ -1535,6 +1537,7 @@
 				5A730C8ECC083FE75953D83A /* AskDJCatalogueTests.swift */,
 				EE329226EC9D74A42EE462B6 /* AskDJGoldenIntegrationTests.swift */,
 				5FAB6F8461660FF7B2EA72AB /* AskDJHelpObservationTests.swift */,
+				B938049805081173F226E299 /* AskDJHelpPanelLayoutTests.swift */,
 				3F27555973ECFB71FF2BFDAF /* AskDJSourcePresentationTests.swift */,
 				E2C36CDC39D17302DD319CDF /* AudioPlaybackCoordinatorTests.swift */,
 				2004AD02B4716DA9189F6A2A /* AutomaticSurfaceDiscoveryTests.swift */,
@@ -2338,6 +2341,7 @@
 				BF26835FB78331BD1FF34043 /* AskDJCatalogueTests.swift in Sources */,
 				640BBAAFA9DB986C9E8FEF77 /* AskDJGoldenIntegrationTests.swift in Sources */,
 				2B3766FDA1A847C070A79D08 /* AskDJHelpObservationTests.swift in Sources */,
+				558D0B0586F542CFD0194903 /* AskDJHelpPanelLayoutTests.swift in Sources */,
 				957F2CC79EF811ED4BF04DB0 /* AskDJSourcePresentationTests.swift in Sources */,
 				702C065C979A3AB5E74B1EEA /* AudioPlaybackCoordinatorTests.swift in Sources */,
 				127A70C2EEDDE0B9B7059C58 /* AutomaticSurfaceDiscoveryTests.swift in Sources */,

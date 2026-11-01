@@ -29,93 +29,102 @@ struct AskDJHelpOpenRequest: Equatable {
     let surface: DJConnectAskDJCatalogue.Surface
 }
 
+enum AskDJHelpPanelLayout {
+    static let coordinateSpace = "DJConnectConversationHelpViewport"
+    static let gap: CGFloat = 12
+}
+
+/// One glass shell grows upward; both modes remain anchored to the composer.
+struct AskDJHelpPanel<Compact: View, Catalogue: View>: View {
+    @Binding var expanded: Bool
+    let maximumHeight: CGFloat
+    let title: String
+    let backLabel: String
+    let closeLabel: String
+    let close: () -> Void
+    @ViewBuilder let compact: () -> Compact
+    @ViewBuilder let catalogue: () -> Catalogue
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var compactHeight: CGFloat = 0
+    private var headerHeight: CGFloat { min(44, max(0, maximumHeight)) }
+    private var panelPadding: CGFloat { min(16, max(0, (maximumHeight - headerHeight) / 2)) }
+    private var contentSpacing: CGFloat { maximumHeight >= 88 ? 12 : 0 }
+    private var bodyHeight: CGFloat { max(0, maximumHeight - headerHeight - 2 * panelPadding - contentSpacing) }
+    var body: some View {
+        VStack(alignment: .leading, spacing: contentSpacing) {
+            HStack {
+                if expanded {
+                    Button { expanded = false } label: { Image(systemName: "chevron.left") }
+                        .buttonStyle(.plain).frame(width: 44, height: 44)
+                        .accessibilityLabel(backLabel).accessibilityIdentifier("ask-dj-suggestions-back")
+                }
+                Text(title).font(.headline).foregroundStyle(.white)
+                    .lineLimit(1).minimumScaleFactor(0.75)
+                Spacer(minLength: 0)
+                Button(action: close) { Image(systemName: "xmark") }
+                    .buttonStyle(.plain).frame(width: 44, height: 44)
+                    .accessibilityLabel(closeLabel).accessibilityIdentifier("ask-dj-suggestions-close")
+            }
+            .frame(height: headerHeight)
+            .foregroundStyle(.white)
+            ZStack(alignment: .topLeading) {
+                // Keep the original suggestion visit mounted while reading More.
+                ScrollView {
+                    compact().frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { compactHeight = $0 }
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .opacity(expanded ? 0 : 1).allowsHitTesting(!expanded).accessibilityHidden(expanded)
+                if expanded { catalogue().transition(.opacity) }
+            }
+            .frame(height: expanded ? bodyHeight : min(compactHeight, bodyHeight))
+        }
+        .padding(panelPadding).frame(maxWidth: 580)
+        .background {
+            AskDJHelpGlassBackground().clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        }
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(.white.opacity(0.16), lineWidth: 0.6))
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: expanded)
+        .accessibilityElement(children: .contain)
+    }
+}
+
 /// Anchored by the shared composer, independent of timeline/history emptiness.
 struct AskDJComposerHelpPopout: View {
     @ObservedObject var model: DJConnectAppModel
     let surface: DJConnectAskDJCatalogue.Surface
+    let maximumHeight: CGFloat
     let close: () -> Void
+    let expand: () -> Void
+    let send: () -> Void
     let select: (String) -> Void
+    @State private var expanded = false
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(DJConnectLocalization.localized(key: "ui.askdj.suggestions.title", language: model.language))
-                    .font(.headline).foregroundStyle(.white)
-                Spacer()
-                Button(action: close) { Image(systemName: "xmark") }
-                    .buttonStyle(.plain).frame(width: 44, height: 44)
-                    .accessibilityLabel(DJConnectLocalization.localized(key: "ui.close", language: model.language))
-                    .accessibilityIdentifier("ask-dj-suggestions-close")
+        AskDJHelpPanel(expanded: $expanded, maximumHeight: maximumHeight,
+            title: DJConnectLocalization.localized(key: expanded ? "ui.askdj.help.catalogue.title" : "ui.askdj.suggestions.title", language: model.language),
+            backLabel: DJConnectLocalization.localized(key: "ui.askdj.suggestions.title", language: model.language),
+            closeLabel: DJConnectLocalization.localized(key: "ui.close", language: model.language), close: close) {
+                AskDJSuggestionStrip(model: model, surface: surface, reading: expanded,
+                    more: { expand(); expanded = true }, select: select)
+            } catalogue: {
+                AskDJHelpContent(model: model, surface: surface,
+                    presented: Binding(get: { expanded }, set: { if !$0 { close() } }), send: send)
             }
-            AskDJSuggestionStrip(model: model, surface: surface, reading: false, select: select)
-        }
-        .padding(16)
-        .frame(maxWidth: 580)
-        .fixedSize(horizontal: false, vertical: true)
-        .background {
-            AskDJHelpGlassBackground()
-                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        }
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(.white.opacity(0.16), lineWidth: 0.6))
-        .accessibilityElement(children: .contain)
+        .onChange(of: expanded) { _, value in model.askDJHelpIsPresented = value }
+        .onDisappear { model.askDJHelpIsPresented = false }
         .accessibilityIdentifier("ask-dj-suggestions-popout-" + surface.rawValue)
     }
 }
 
-/// Both surfaces use this renderer and the same byte-verified Core catalogue.
+/// Manual entry only; More is an inline mode change in the existing panel.
 struct AskDJHelpButton: View {
     @ObservedObject var model: DJConnectAppModel
     let surface: DJConnectAskDJCatalogue.Surface
-    var showsMoreLabel = false
-    var send: (() -> Void)? = nil
-    @State private var presented = false
     var body: some View {
-        if showsMoreLabel {
-        AskDJHelpEntry(surface: surface, language: model.language, presented: $presented, showsMoreLabel: showsMoreLabel, onDismissed: {
-            if model.askDJCatalogueInputSelection != nil { model.askDJCatalogueFocusRequest = UUID() }
-        }) {
-            AskDJHelpContent(model: model, surface: surface, presented: $presented, send: send)
-        }
-        .onChange(of: presented) { _, value in model.askDJHelpIsPresented = value }
-        .onDisappear { if presented { model.askDJHelpIsPresented = false } }
-        } else {
-            Button { model.askDJHelpOpenRequest = .init(surface: surface) } label: { Image(systemName: "questionmark.circle") }
-                .accessibilityLabel(DJConnectLocalization.localized(key: surface == .session ? "ui.askdj.help.session.entry" : "ui.askdj.help.global.entry", language: model.language))
-                .accessibilityIdentifier("ask-dj-help-" + surface.rawValue)
-        }
-    }
-}
-
-/// Native entry and popover shared by both existing conversation surfaces.
-struct AskDJHelpEntry<Content: View>: View {
-    let surface: DJConnectAskDJCatalogue.Surface
-    let language: String
-    @Binding var presented: Bool
-    var showsMoreLabel = false
-    var onDismissed: (() -> Void)? = nil
-    @ViewBuilder let content: () -> Content
-    private var key: String { surface == .session ? "ui.askdj.help.session.entry" : "ui.askdj.help.global.entry" }
-    var body: some View {
-        Button { presented = true } label: {
-            if showsMoreLabel { Label(DJConnectLocalization.localized(key: "ui.more", language: language), systemImage: "ellipsis.circle") }
-            else { Image(systemName: "questionmark.circle") }
-        }
-            .accessibilityLabel(DJConnectLocalization.localized(key: key, language: language))
-            .help(DJConnectLocalization.localized(key: key, language: language))
-            .accessibilityIdentifier((showsMoreLabel ? "ask-dj-more-" : "ask-dj-help-") + surface.rawValue)
-            .popover(isPresented: $presented) {
-                VStack(alignment: .trailing, spacing: 0) {
-                    Button { presented = false } label: { Image(systemName: "xmark") }
-                        .buttonStyle(.plain)
-                        .padding(12)
-                        .accessibilityLabel(DJConnectLocalization.localized(key: "ui.close", language: language))
-                        .accessibilityIdentifier("ask-dj-help-close")
-                    content()
-                }
-                .presentationBackground { AskDJHelpGlassBackground() }
-                .djConnectPresentationSurface()
-                .presentationCompactAdaptation(.popover)
-                .onDisappear { onDismissed?() }
-            }
+        Button { model.askDJHelpOpenRequest = .init(surface: surface) } label: { Image(systemName: "questionmark.circle") }
+            .accessibilityLabel(DJConnectLocalization.localized(key: surface == .session ? "ui.askdj.help.session.entry" : "ui.askdj.help.global.entry", language: model.language))
+            .accessibilityIdentifier("ask-dj-help-" + surface.rawValue)
     }
 }
 
@@ -143,12 +152,13 @@ private struct AskDJHelpContent: View {
         presented = false
         if item.requiresInput {
             model.askDJCatalogueInputSelection = item.inputRange
+            model.askDJCatalogueFocusRequest = UUID()
         } else { if let send { send() } else { model.sendAskDJText() } }
     }
     var body: some View {
         AskDJFullCatalogueReference(sections: catalogueModel.sections, busy: catalogueModel.busy,
             enabled: catalogueModel.isCurrent && model.askDJDraft.isEmpty && model.canUseAskDJFeatures && !model.isSendingAskDJText && !model.isRecordingVoice,
-            language: model.language) { item in Task { await choose(item) } }
+            language: model.language, showsTitle: false) { item in Task { await choose(item) } }
         .task {
             await model.refreshAskDJExampleCapabilities()
             _ = await refresh()
@@ -166,12 +176,15 @@ struct AskDJFullCatalogueReference: View {
     let busy: Bool
     let enabled: Bool
     let language: String
+    var showsTitle = true
     let select: (DJConnectAskDJCatalogue.HelpItem) -> Void
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 18) {
-                Text(DJConnectLocalization.localized(key: "ui.askdj.help.catalogue.title", language: language))
-                    .font(.title2.bold()).accessibilityAddTraits(.isHeader)
+                if showsTitle {
+                    Text(DJConnectLocalization.localized(key: "ui.askdj.help.catalogue.title", language: language))
+                        .font(.title2.bold()).accessibilityAddTraits(.isHeader)
+                }
                 Text(DJConnectLocalization.localized(key: "ui.askdj.help.catalogue.instructions", language: language))
                     .foregroundStyle(.secondary)
                 if busy { ProgressView() }
@@ -197,7 +210,7 @@ struct AskDJFullCatalogueReference: View {
                 }
             }.padding(24)
         }
-        .frame(idealWidth: 620, maxWidth: 760, idealHeight: 560, maxHeight: 720)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityIdentifier("ask-dj-full-catalogue")
     }
 }
@@ -259,6 +272,7 @@ struct AskDJSuggestionStrip: View {
     @ObservedObject var model: DJConnectAppModel
     let surface: DJConnectAskDJCatalogue.Surface
     var reading = false
+    let more: () -> Void
     let select: (String) -> Void
     @StateObject private var observation = AskDJHelpCatalogueModel()
     @State private var suggestions: [DJConnectAskDJCatalogue.Suggestion] = []
@@ -293,12 +307,16 @@ struct AskDJSuggestionStrip: View {
     var body: some View {
         AskDJSuggestionRows(suggestions: observation.isCurrent ? suggestions : [], surface: surface,
             disabled: selecting || frozen || !model.canUseAskDJFeatures) { item in Task { await choose(item) } }
-        AskDJHelpButton(model: model, surface: surface, showsMoreLabel: true)
+        Button(action: more) {
+            Label(DJConnectLocalization.localized(key: "ui.more", language: model.language), systemImage: "ellipsis.circle")
+        }
+        .accessibilityIdentifier("ask-dj-more-" + surface.rawValue)
         .task { await open() }
         .onChange(of: context) { _, next in observation.contextChanged(to: next); if !observation.isCurrent { suggestions = [] } }
         .onChange(of: model.language) { _, _ in observation.contextChanged(to: context); if !observation.isCurrent { suggestions = [] } }
         .onChange(of: observation.admittedContext) { _, value in if value == nil { suggestions = [] } }
-        .onChange(of: model.askDJExampleRefreshEpoch) { _, _ in Task { await open() } }
+        .onChange(of: model.askDJExampleRefreshEpoch) { _, _ in if !frozen { Task { await open() } } }
+        .onChange(of: frozen) { _, value in if !value && suggestions.isEmpty { Task { await open() } } }
         .onDisappear { observation.close(); suggestions = [] }
     }
 }

@@ -11466,6 +11466,7 @@ private struct AskDJView: View {
             .navigationTitle(screenTitle(model.language, key: "Ask DJ", isDemoMode: model.isDemoMode))
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("screen-ask-dj")
+            .coordinateSpace(name: AskDJHelpPanelLayout.coordinateSpace)
             .toolbar {
                 #if os(macOS)
                 ToolbarItemGroup(placement: .navigation) {
@@ -13558,7 +13559,7 @@ extension View {
 struct AskDJInputBar: View {
     @ObservedObject var model: DJConnectAppModel
     @State private var suggestionsOpen = false
-    @State private var suggestionsHeight: CGFloat = 0
+    @State private var helpAvailableHeight: CGFloat = 0
     let helpSurface: DJConnectAskDJCatalogue.Surface
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -13620,12 +13621,15 @@ struct AskDJInputBar: View {
         })
     }
 
-    private func send() {
+    private func dismissComposerFocus() {
         isInputFocused.wrappedValue = false
         #if os(iOS)
         // The UIKit multiline editor can become first responder before SwiftUI focus updates.
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         #endif
+    }
+    private func send() {
+        dismissComposerFocus()
         if let sendAction { sendAction() } else { model.sendAskDJText() }
     }
 
@@ -13780,9 +13784,13 @@ struct AskDJInputBar: View {
             .fixedSize(horizontal: !isExpanded, vertical: false)
         }
         }
+        .onGeometryChange(for: CGFloat.self) { geometry in
+            min(600, max(0, geometry.frame(in: .named(AskDJHelpPanelLayout.coordinateSpace)).minY - 24))
+        } action: { helpAvailableHeight = $0 }
         .overlay(alignment: .top) {
             if suggestionsOpen && model.askDJDraft.isEmpty && !model.isSendingAskDJText && !model.isRecordingVoice {
-                AskDJComposerHelpPopout(model: model, surface: helpSurface, close: { suggestionsOpen = false }) { prompt in
+                AskDJComposerHelpPopout(model: model, surface: helpSurface, maximumHeight: helpAvailableHeight,
+                    close: { suggestionsOpen = false }, expand: dismissComposerFocus, send: send) { prompt in
                     guard model.askDJDraft.isEmpty, model.canUseAskDJFeatures,
                           !model.isSendingAskDJText, !model.isRecordingVoice else { return }
                     model.askDJDraft = prompt
@@ -13790,9 +13798,9 @@ struct AskDJInputBar: View {
                     send()
                 }
                 .padding(.horizontal, 4)
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { suggestionsHeight = $0 }
-                .offset(y: -suggestionsHeight - 12)
-                .opacity(suggestionsHeight > 0 ? 1 : 0)
+                .alignmentGuide(.top) { $0[.bottom] + AskDJHelpPanelLayout.gap }
+                .opacity(helpAvailableHeight > 0 ? 1 : 0)
+                .allowsHitTesting(helpAvailableHeight > 0)
                 .transition(.opacity)
             }
         }
