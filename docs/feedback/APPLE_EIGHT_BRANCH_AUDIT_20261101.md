@@ -35,3 +35,14 @@ Publish a complete closed staging file through an exclusive hard link instead.
 The original strict JSON reader, startup timeout, real socket I/O and all
 mutation/no-replay assertions remain unchanged. Preserve the failed run logs
 alongside the fresh complete validation for the corrected source head.
+
+A separate local full-suite rerun exposed the pre-existing lifecycle fixture
+`actualHTTPAndLocalDisconnectRoutesCannotReconfirmFromCachedSessionBookkeeping`:
+its original bounded wait failed and a force unwrap then aborted the test process.
+Replace only that unwrap with a required snapshot and an explicit synthetic
+model-state failure message. Keep the original wait, no-cached-reconfirmation,
+expiry equality and newer-observation assertions. The targeted 49-test native
+custody/WebSocket run and subsequent complete 1,614-test diagnostic run passed.
+This improves failure reporting; it does not claim a product lifecycle fix or
+explain away the retained one-off timeout. CI on 8405521 also passed the full
+suites and both unsigned platform builds before this reporting-only change.

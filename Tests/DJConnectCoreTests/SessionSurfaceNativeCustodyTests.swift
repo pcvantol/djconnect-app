@@ -344,7 +344,9 @@ import Testing
             #expect(model.sessionSurfaceSnapshot?.expiresAt == original.expiresAt)
             wire.releasePending()
             try await waitFor { model.sessionSurfaceCanStart }
-            #expect(model.sessionSurfaceSnapshot!.observedAt > original.observedAt)
+            let fresh = try #require(model.sessionSurfaceSnapshot,
+                "Missing foreground snapshot: paired=\(model.pairingStatus), session=\(model.activeDJSession?.runtimeState ?? "nil"), settings=\(model.profileDJSettings.phase)")
+            #expect(fresh.observedAt > original.observedAt)
         }
     }
     @Test(.isolatedClientResources) func actualLateHTTPResponseCannotRenewAfterTheForegroundRequestWasWithdrawn() async throws {
