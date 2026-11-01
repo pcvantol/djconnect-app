@@ -201,7 +201,7 @@ struct DJConnectSessionWidget: Widget {
 struct DJConnectSessionActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: DJConnectSessionLiveActivityAttributes.self) { context in
-            PassiveActivityBody(snapshot: context.state, stale: context.isStale)
+            SessionActivityPresentation(snapshot: context.state, stale: context.isStale)
                 .padding(12)
                 .background {
                     let theme = activityTheme(context.state, stale: context.isStale)
@@ -251,6 +251,46 @@ struct DJConnectSessionActivityWidget: Widget {
             }
             .widgetURL(sessionURL)
             .keylineTint(activityTheme(context.state, stale: context.isStale).accent)
+        }
+        .supplementalActivityFamilies([.small, .medium])
+    }
+}
+
+/// The existing Activity chooses its OS-supplied presentation size. This adds
+/// no Activity type, native registration, cache admission or playback command.
+private struct SessionActivityPresentation: View {
+    let snapshot: DJConnectSessionSurfaceSnapshot
+    let stale: Bool
+    @Environment(\.activityFamily) private var family
+    var body: some View {
+        let now = Date()
+        if family == .small {
+            if let observation = snapshot.playbackObservation {
+                DJConnectSessionWatchObservationView(observation: observation)
+            } else if !privateSurfaceFieldsSuppressed, !stale, snapshot.isCurrent(at: now),
+                      let rich = snapshot.rich, rich.isCurrent(at: now),
+                      let playback = rich.currentPlayback(at: now) {
+                HStack(spacing: 8) {
+                    SessionSurfaceAvatar(theme: snapshot.renderingTheme(at: now), side: 28)
+                    // Retain the original provider attribution. A research
+                    // contribution cannot fit here with its complete credits.
+                    PassiveSessionContentView(contribution: nil, playback: playback, cache: nil,
+                        compact: true, showsHeader: false, theme: snapshot.renderingTheme(at: now), date: now)
+                }
+            } else {
+                HStack(spacing: 8) {
+                    SessionSurfaceAvatar(theme: .brand, side: 28)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(text("ui.session.title")).font(.caption.weight(.semibold))
+                        Text(text("surface.session.open.app")).font(.caption2).foregroundStyle(.white.opacity(0.8))
+                            .lineLimit(2)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(.white)
+            }
+        } else {
+            PassiveActivityBody(snapshot: snapshot, stale: stale)
         }
     }
 }
