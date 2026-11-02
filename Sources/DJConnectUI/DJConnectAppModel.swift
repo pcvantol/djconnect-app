@@ -2030,6 +2030,17 @@ public final class DJConnectAppModel: ObservableObject {
     private var liveConversationExpiryTask: Task<Void, Never>?
     private var pendingSelectedOutput: String?
     private var pendingSelectedOutputIsCachedSpotify = false
+    private struct PlaybackModeSelection<Value: Equatable> {
+        let id = UUID()
+        let value: Value
+        let outputKey: String?
+    }
+    @Published private var shuffleSelection: PlaybackModeSelection<Bool>?
+    @Published private var repeatSelection: PlaybackModeSelection<DJConnectRepeatState>?
+    public var displayedShuffle: Bool { shuffleSelection?.value ?? playback?.shuffle ?? false }
+    public var displayedRepeatState: DJConnectRepeatState { repeatSelection?.value ?? playback?.repeatState ?? .off }
+    public var isChangingShuffle: Bool { shuffleSelection != nil }
+    public var isChangingRepeat: Bool { repeatSelection != nil }
     private var pendingVolumePercent: Int?
     private var pendingSeekTargetMS: Int?
     private var seekCommandTask: Task<Void, Never>?
@@ -3240,6 +3251,7 @@ public final class DJConnectAppModel: ObservableObject {
         seekCommandTask = nil
         pendingVolumePercent = nil
         pendingSeekTargetMS = nil
+        shuffleSelection = nil; repeatSelection = nil
         pausePairingWaitForBackgroundIfNeeded()
         playbackProgressTask?.cancel()
         playbackProgressTask = nil
@@ -4653,13 +4665,39 @@ public final class DJConnectAppModel: ObservableObject {
     }
 
     public func setShuffle(_ value: Bool) {
-        log(.debug, "User action: set shuffle \(value)")
-        sendPlaybackCommand("set_shuffle", value: .bool(value))
+        setPlaybackMode(value, command: "set_shuffle", encoded: .bool(value), selection: \.shuffleSelection)
     }
 
     public func setRepeat(_ value: DJConnectRepeatState) {
-        log(.debug, "User action: set repeat \(value.rawValue)")
-        sendPlaybackCommand("set_repeat", value: .string(value.rawValue))
+        setPlaybackMode(value, command: "set_repeat", encoded: .string(value.rawValue), selection: \.repeatSelection)
+    }
+
+    private func setPlaybackMode<Value: Equatable>(
+        _ value: Value, command: String, encoded: DJConnectCommandValue,
+        selection: ReferenceWritableKeyPath<DJConnectAppModel, PlaybackModeSelection<Value>?>
+    ) {
+        guard self[keyPath: selection] == nil else { return }
+        let pending = PlaybackModeSelection(value: value, outputKey: volumeOutputKey)
+        self[keyPath: selection] = pending
+        Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if self[keyPath: selection]?.id == pending.id { self[keyPath: selection] = nil }
+            }
+            guard self[keyPath: selection]?.id == pending.id, volumeOutputKey == pending.outputKey else { return }
+            var confirmed = false
+            await performCommand(command, value: encoded, onConfirmed: { confirmed = true })
+            guard confirmed, self[keyPath: selection]?.id == pending.id,
+                  volumeOutputKey == pending.outputKey, isAppInForeground else { return }
+            // Providers can return their pre-command playback snapshot. Read again
+            // after propagation; keep only bounded, output-scoped presentation state.
+            do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+            guard self[keyPath: selection]?.id == pending.id else { return }
+            try? await refreshStatusWithFallback(isStillValid: { [weak self] in
+                self?[keyPath: selection]?.id == pending.id && self?.volumeOutputKey == pending.outputKey
+            })
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+        }
     }
 
     public func seekRelative(milliseconds: Int) {
@@ -6560,6 +6598,14 @@ public final class DJConnectAppModel: ObservableObject {
             passiveSurfaces.invalidatePlaybackForCommand()
         }
         self.playback = normalizedPlayback
+        if let pending = shuffleSelection,
+           pending.outputKey != volumeOutputKey || normalizedPlayback?.shuffle == pending.value {
+            shuffleSelection = nil
+        }
+        if let pending = repeatSelection,
+           pending.outputKey != volumeOutputKey || normalizedPlayback?.repeatState == pending.value {
+            repeatSelection = nil
+        }
         playbackOutputObservation += 1
         if normalizedPlayback?.device != nil {
             availableOutputs = normalizedOutputDevices(outputRowsMatchingCurrentPlayback(availableOutputs))
@@ -13941,6 +13987,9 @@ public final class DJConnectAppModel: ObservableObject {
                 if (command == "devices" || command == "set_output"), outputGeneration != outputSelectionGeneration {
                     throw CancellationError()
                 }
+                if (command == "set_shuffle" || command == "set_repeat"), volumeOutputKey != volumeKeyAtStart {
+                    throw CancellationError()
+                }
                 log(.debug, "Posting command \(command) to Home Assistant")
                 let response = try await client.sendCommandResponse(
                     DJConnectCommandPayload(
@@ -13956,6 +14005,9 @@ public final class DJConnectAppModel: ObservableObject {
                 )
                 if command == "devices" || command == "set_output" {
                     guard outputGeneration == outputSelectionGeneration else { throw CancellationError() }
+                }
+                if (command == "set_shuffle" || command == "set_repeat"), volumeOutputKey != volumeKeyAtStart {
+                    throw CancellationError()
                 }
                 if (command == "set_volume" || command == "volume_delta"),
                    response.success == false, Self.isVolumeControlUnavailable(response.message),

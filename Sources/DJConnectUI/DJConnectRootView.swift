@@ -10104,9 +10104,6 @@ private struct IOSPlaybackSurface: View {
                 FavoriteTrackButton(model: model)
                     .disabled(!canUsePlayback)
 
-                TrackInsightIconButton(model: model)
-                    .disabled(!canUsePlayback)
-
                 RepeatModeButton(model: model)
                     .disabled(!canUsePlayback)
             }
@@ -10421,44 +10418,6 @@ private struct SeekControlsView: View {
     }
 }
 
-private struct TrackInsightIconButton: View {
-    @ObservedObject var model: DJConnectAppModel
-
-    private var helpText: String {
-        if model.isLoadingTrackInsight {
-            return localizedKey(model.language, "ui.refresh.track.insight")
-        }
-        if model.currentTrackInsight != nil {
-            return localizedKey(model.language, "ui.open.track.insight")
-        }
-        return localizedKey(model.language, "ui.sends.the.current.track.to.the.backend.for.analysis.and")
-    }
-
-    var body: some View {
-        Button {
-            model.analyzeCurrentTrack(open: true)
-        } label: {
-            if model.isLoadingTrackInsight {
-                ProgressView()
-                    .controlSize(.small)
-                    .frame(width: 44, height: 44)
-            } else {
-                Image(systemName: "waveform.path.ecg")
-                    .symbolRenderingMode(.monochrome)
-                    .font(DJConnectButtonAppearance.iconFont)
-                    .foregroundStyle(model.currentTrackInsight == nil ? .white.opacity(0.68) : djConnectAccent)
-                    .frame(width: 44, height: 44)
-            }
-        }
-        .djConnectButtonStyle(DJConnectButtonStyle(emphasis: model.currentTrackInsight != nil ? .selected : .secondary, shape: .icon))
-        .disabled(model.isLoadingTrackInsight || !model.canStartTrackInsightAnalysis)
-        .opacity(model.canStartTrackInsightAnalysis ? 1 : 0.45)
-        .accessibilityLabel(localizedKey(model.language, "ui.open.track.insight"))
-        .accessibilityHint(localizedKey(model.language, "ui.sends.the.current.track.to.the.backend.for.analysis.and"))
-        .help(helpText)
-    }
-}
-
 struct PlaybackControlsView: View {
     @ObservedObject var model: DJConnectAppModel
     private var canUsePlayback: Bool { model.canUsePlaybackFeatures }
@@ -10531,9 +10490,6 @@ struct PlaybackControlsView: View {
                     .disabled(!canUsePlayback)
 
                 FavoriteTrackButton(model: model)
-                    .disabled(!canUsePlayback)
-
-                TrackInsightIconButton(model: model)
                     .disabled(!canUsePlayback)
 
                 RepeatModeButton(model: model)
@@ -10963,7 +10919,7 @@ private struct ShuffleModeButton: View {
     @ObservedObject var model: DJConnectAppModel
 
     private var isShuffling: Bool {
-        model.playback?.shuffle == true
+        model.displayedShuffle
     }
 
     private var helpText: String {
@@ -10975,9 +10931,6 @@ private struct ShuffleModeButton: View {
         Button {
             DJConnectHaptics.impact()
             let nextValue = !isShuffling
-            var updated = model.playback ?? DJConnectPlayback()
-            updated.shuffle = nextValue
-            model.playback = updated
             model.setShuffle(nextValue)
         } label: {
             Image(systemName: "shuffle")
@@ -10987,6 +10940,7 @@ private struct ShuffleModeButton: View {
                 .frame(width: 44, height: 44)
         }
         .djConnectButtonStyle(DJConnectButtonStyle(emphasis: isShuffling ? .selected : .secondary, shape: .icon))
+        .disabled(model.isChangingShuffle)
         .help(helpText)
         .accessibilityLabel(localizedKey(model.language, "ui.shuffle"))
         .accessibilityValue(isShuffling ? localizedKey(model.language, "ui.on") : localizedKey(model.language, "ui.off"))
@@ -10997,16 +10951,13 @@ private struct RepeatModeButton: View {
     @ObservedObject var model: DJConnectAppModel
 
     private var repeatState: DJConnectRepeatState {
-        model.playback?.repeatState ?? .off
+        model.displayedRepeatState
     }
 
     var body: some View {
         Button {
             DJConnectHaptics.impact()
             let nextState = repeatState.next
-            var updated = model.playback ?? DJConnectPlayback()
-            updated.repeatState = nextState
-            model.playback = updated
             model.setRepeat(nextState)
         } label: {
             Image(systemName: repeatState.systemImage)
@@ -11016,6 +10967,7 @@ private struct RepeatModeButton: View {
                 .frame(width: 44, height: 44)
         }
         .djConnectButtonStyle(DJConnectButtonStyle(emphasis: repeatState != .off ? .selected : .secondary, shape: .icon))
+        .disabled(model.isChangingRepeat)
         .help(repeatHelpText)
         .accessibilityLabel(localizedKey(model.language, "ui.repeat"))
         .accessibilityValue(repeatState.localizedName(language: model.language))

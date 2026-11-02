@@ -14724,3 +14724,49 @@ func discoveryPlayRefreshesTheQueueAfterAnyPreselectionReadFinishes(_ oldReadInF
     }
     #expect(recorder.requests.count == 3)
 }
+
+@MainActor
+@Test(.isolatedClientResources, arguments: ["confirmed", "rejected", "unconfirmed", "speaker-change", "stale"], [DJConnectRepeatState.off, .track, .context])
+func playbackModesRetainPendingChoiceAndReconcileWithProvider(_ outcome: String, _ repeatTarget: DJConnectRepeatState) async throws {
+    let shuffleTarget = repeatTarget != .off
+    let initialRepeat: DJConnectRepeatState = repeatTarget == .off ? .context : .off
+    let host = "playback-modes-\(outcome)-\(repeatTarget.rawValue).local"
+    let calls = RequestJSONRecorder()
+    let session = mockSession(host: host) { request in
+        let body = try JSONSerialization.jsonObject(with: requestBodyData(request) ?? Data()) as? [String: Any]
+        let command = body?["command"] as? String ?? ""
+        try calls.append(request)
+        let isRead = command == "status"
+        let fresh = isRead && outcome == "confirmed"
+        let success = outcome == "rejected" ? #""success":false,"# : outcome == "unconfirmed" ? "" : #""success":true,"#
+        let json = """
+        {\(success)"backend_available":true,"playback":{"has_playback":true,"is_playing":true,"track_name":"Track","shuffle":\(fresh ? shuffleTarget : !shuffleTarget),"repeat_state":"\(fresh ? repeatTarget.rawValue : initialRepeat.rawValue)","device":{"id":"speaker","name":"Speaker","active":true}}}
+        """
+        return (try httpResponse(for: request, statusCode: 200), Data(json.utf8))
+    }
+    let model = makePairedMusicDNAModel(defaults: try testDefaults(), host: host, session: session)
+    defer { model.markInactiveSession() }
+    model.isConnected = true
+    model.apply(playback: DJConnectPlayback(hasPlayback: true, shuffle: !shuffleTarget, repeatState: initialRepeat,
+        device: DJConnectPlaybackDevice(id: "speaker", name: "Speaker", active: true)))
+    model.setShuffle(shuffleTarget); model.setRepeat(repeatTarget)
+    #expect(model.displayedShuffle == shuffleTarget && model.displayedRepeatState == repeatTarget)
+    // A concurrent pre-command status read must not erase either selection.
+    model.apply(playback: model.playback)
+    #expect(model.displayedShuffle == shuffleTarget && model.displayedRepeatState == repeatTarget)
+    if outcome == "speaker-change" {
+        model.apply(playback: DJConnectPlayback(shuffle: !shuffleTarget, repeatState: initialRepeat,
+            device: DJConnectPlaybackDevice(id: "other", name: "Other", active: true)))
+        #expect(model.displayedShuffle == !shuffleTarget && model.displayedRepeatState == initialRepeat)
+    }
+    let deadline = ContinuousClock.now.advanced(by: .seconds(8))
+    while (model.isChangingShuffle || model.isChangingRepeat), .now < deadline {
+        try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(!model.isChangingShuffle && !model.isChangingRepeat)
+    #expect(model.displayedShuffle == (outcome == "confirmed" ? shuffleTarget : !shuffleTarget))
+    #expect(model.displayedRepeatState == (outcome == "confirmed" ? repeatTarget : initialRepeat))
+    #expect(calls.payloads.filter { $0["command"] as? String == "set_shuffle" }.count == (outcome == "speaker-change" ? 0 : 1))
+    #expect(calls.payloads.filter { $0["command"] as? String == "set_repeat" }.count == (outcome == "speaker-change" ? 0 : 1))
+    if outcome == "confirmed" || outcome == "stale" { #expect(calls.payloads.contains { $0["command"] as? String == "status" }) }
+}
