@@ -15676,7 +15676,8 @@ private struct LocalGameSurface: View {
             pacmanPelletCount - 1
         ]
     }
-    private var pacmanPowerTicks: Int { 150 }
+    // Ten seconds at the shared 30 Hz game tick.
+    private var pacmanPowerTicks: Int { 300 }
     private var isGhostVulnerable: Bool { ghostVulnerableTicks > 0 }
     private var isGhostBlinking: Bool {
         isGhostVulnerable && ghostVulnerableTicks < 55 && (ghostVulnerableTicks / 6).isMultiple(of: 2)
@@ -16488,7 +16489,6 @@ private struct LocalGameSurface: View {
             setScore(score + 5)
             ghostX = 250
             ghostY = 86
-            ghostVulnerableTicks = max(ghostVulnerableTicks - 60, 0)
         } else {
             flash()
             startPacmanDeath()
