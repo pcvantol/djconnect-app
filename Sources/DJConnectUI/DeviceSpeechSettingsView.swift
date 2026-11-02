@@ -2,6 +2,24 @@ import SwiftUI
 import AVFoundation
 import DJConnectCore
 
+/// Explicit full-width alignment also works outside native Form containers.
+struct SpeechPreferenceRow<Control: View>: View {
+    let label: String
+    @ViewBuilder var control: () -> Control
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 16) {
+            Text(label)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            control()
+                .labelsHidden()
+                .layoutPriority(1)
+        }
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+    }
+}
+
 /// Same device-local controls on phone, tablet, Mac and Watch; no Profile writes.
 public struct DeviceSpeechSettingsView: View {
     let language: String
@@ -23,23 +41,34 @@ public struct DeviceSpeechSettingsView: View {
     }
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Toggle(text("enabled"), isOn: $preferences.enabled).accessibilityIdentifier("device-speech-enabled")
+            SpeechPreferenceRow(label: text("enabled")) {
+                Toggle(text("enabled"), isOn: $preferences.enabled)
+                    .accessibilityIdentifier("device-speech-enabled")
+            }
             Text(text("explanation")).font(.caption).foregroundStyle(.secondary)
             if preferences.enabled {
-                Picker(text("gender"), selection: Binding(get: { preferences.gender }, set: { preferences.gender = $0; preferences.voiceID = nil })) {
-                    Text(text("system")).tag(DJConnectVoicePreference.default)
-                    if voices.contains(where: { $0.gender == .female }) { Text(text("female")).tag(DJConnectVoicePreference.female) }
-                    if voices.contains(where: { $0.gender == .male }) { Text(text("male")).tag(DJConnectVoicePreference.male) }
+                SpeechPreferenceRow(label: text("gender")) {
+                    Picker(text("gender"), selection: Binding(get: { preferences.gender }, set: { preferences.gender = $0; preferences.voiceID = nil })) {
+                        Text(text("system")).tag(DJConnectVoicePreference.default)
+                        if voices.contains(where: { $0.gender == .female }) { Text(text("female")).tag(DJConnectVoicePreference.female) }
+                        if voices.contains(where: { $0.gender == .male }) { Text(text("male")).tag(DJConnectVoicePreference.male) }
+                    }
                 }
-                Picker(text("voice"), selection: Binding(get: { preferences.voiceID ?? "" }, set: { preferences.voiceID = $0.isEmpty ? nil : $0 })) {
-                    Text(text("system")).tag("")
-                    if let id = preferences.voiceID, !matching.contains(where: { $0.id == id }) { Text(text("unavailable")).tag(id) }
-                    ForEach(matching) { voice in Text("\(voice.name) (\(voice.language))").tag(voice.id) }
-                }.accessibilityIdentifier("device-speech-voice")
-                Text(text("rate"))
-                Slider(value: $preferences.rate, in: 0...1).accessibilityLabel(text("rate"))
-                Text(text("pitch"))
-                Slider(value: $preferences.pitch, in: 0.5...2).accessibilityLabel(text("pitch"))
+                SpeechPreferenceRow(label: text("voice")) {
+                    Picker(text("voice"), selection: Binding(get: { preferences.voiceID ?? "" }, set: { preferences.voiceID = $0.isEmpty ? nil : $0 })) {
+                        Text(text("system")).tag("")
+                        if let id = preferences.voiceID, !matching.contains(where: { $0.id == id }) { Text(text("unavailable")).tag(id) }
+                        ForEach(matching) { voice in Text("\(voice.name) (\(voice.language))").tag(voice.id) }
+                    }.accessibilityIdentifier("device-speech-voice")
+                }
+                SpeechPreferenceRow(label: text("rate")) {
+                    Slider(value: $preferences.rate, in: 0...1)
+                        .frame(minWidth: 60, idealWidth: 160, maxWidth: 160).accessibilityLabel(text("rate"))
+                }
+                SpeechPreferenceRow(label: text("pitch")) {
+                    Slider(value: $preferences.pitch, in: 0.5...2)
+                        .frame(minWidth: 60, idealWidth: 160, maxWidth: 160).accessibilityLabel(text("pitch"))
+                }
                 Button(isSpeaking ? text("stop") : text("preview"), action: isSpeaking ? stop : preview)
                     #if os(watchOS)
                     .buttonStyle(.borderedProminent)
@@ -49,6 +78,7 @@ public struct DeviceSpeechSettingsView: View {
                     #endif
                     .disabled(!isSpeaking && (!previewAllowed || matching.isEmpty))
                     .accessibilityIdentifier("device-speech-preview")
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .task { voices = DJConnectAppleSpeechRenderer.voices() }
