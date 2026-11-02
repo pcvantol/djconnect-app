@@ -964,7 +964,6 @@
 "ui.vibecast.handoff.failed" = "Le code a expiré ou le transfert a échoué.";
 
 // Native Moment-first Session
-"ui.session.quiet" = "Le DJ écoute avec vous.";
 "ui.session.back_current" = "Revenir à la contribution actuelle";
 "ui.session.music_progress" = "Progression musicale";
 "ui.session.moment.generic" = "Contribution du DJ";

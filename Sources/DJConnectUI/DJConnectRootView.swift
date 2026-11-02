@@ -183,6 +183,8 @@ private extension EnvironmentValues {
 
 let djConnectAccent = Color(red: 0.84, green: 0.22, blue: 0.96)
 enum DJConnectCardAppearance {
+    static let currentDJInset: CGFloat = 16
+    static let currentDJAvatarSize: CGFloat = 80
     static let cornerRadius: CGFloat = 32
     static var searchFocusGradient: LinearGradient {
         LinearGradient(colors: [Color.white.opacity(0.92), Color(red: 0.16, green: 0.56, blue: 1.0), djConnectAccent],

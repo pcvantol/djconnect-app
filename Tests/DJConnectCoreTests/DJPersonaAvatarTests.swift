@@ -63,14 +63,14 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
 @Test(.isolatedClientResources, arguments: ["moment", "quiet", "paused", "recovering", "unavailable"], [CGFloat(320), CGFloat(620)])
 @MainActor func personaCurrentCardRenderingRetainsEveryState(state: String, width: CGFloat) throws {
     var session = try DJConnectDemoSessionData.make(language: "nl").active
-    if state == "quiet" { session.broadcast.djMoments = [] }
+    if state == "quiet" { session.broadcast.nativeDelivery?.currentMomentID = nil }
     if state == "paused" { session.broadcast.playback?.state = "paused" }
     let current = NativeSessionMomentsView(session: session, language: "nl", isRecovering: state == "recovering", isLiveUnavailable: state == "unavailable")
     let moment = state == "quiet" ? nil : session.broadcast.djMoments.first
     if state == "moment" { #expect(moment != nil) }
     let view = current.currentCard(moment)
         .environment(\.djConnectGlassEffectsEnabled, false)
-        .frame(width: width).padding(20)
+        .frame(width: width, alignment: .leading).padding(20)
         .foregroundStyle(.white).background(Color(red: 0.07, green: 0.06, blue: 0.20))
     let renderer = ImageRenderer(content: view)
     renderer.scale = 1
@@ -79,8 +79,11 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
     let rep = try #require(NSBitmapImageRep(data: tiff))
     let png = try #require(rep.representation(using: .png, properties: [:]))
     #expect(image.size.width == width + 40)
-    // The compact side-by-side card must still fit the avatar and its insets.
-    #expect(image.size.height >= 168)
+    if state == "quiet" {
+        #expect(image.size.height == 80 + 2 * DJConnectCardAppearance.currentDJInset + 40)
+    } else {
+        #expect(image.size.height >= 80 + 2 * DJConnectCardAppearance.currentDJInset + 40)
+    }
     if let directory = ProcessInfo.processInfo.environment["DJCONNECT_AVATAR_ARTIFACT_DIR"] {
         let folder = URL(fileURLWithPath: directory)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -215,5 +218,121 @@ func personaMarkRemainsWithinSquareAndWideIconBounds(size: CGFloat) {
         let pixel = try #require(rep.colorAt(x: 10, y: 100)?.usingColorSpace(.deviceRGB))
         #expect(pixel.redComponent < 0.05 && pixel.greenComponent < 0.05 && pixel.blueComponent < 0.05)
     }
+}
+#endif
+
+
+@Test(.isolatedClientResources, arguments: ["idle", "silence", "moment", "missing-body", "missing-delivery", "missing-admission", "duplicate-admission", "reordered-admissions", "unqualified", "malformed-deadline", "wrong-session", "conflict", "empty-silence", "expired-display", "expired-source", "withdrawn", "paused", "recovering", "unavailable", "no-playback", "ended"])
+@MainActor func personaIdleGeometryRequiresConfirmedPresentation(_ state: String) throws {
+    let now = Date()
+    var session = try DJConnectDemoSessionData.make(language: "nl", now: now).active
+    let original = try #require(session.broadcast.nativeCurrentMoment(at: now))
+    var expected = SessionCurrentDJCardState.unresolved
+    if ["idle", "silence", "empty-silence"].contains(state) { session.broadcast.nativeDelivery?.currentMomentID = nil }
+    if state == "silence" { session.broadcast.nativeDelivery?.currentSilenceMomentID = "silence-1" }
+    if state == "empty-silence" { session.broadcast.nativeDelivery?.currentSilenceMomentID = " " }
+    if state == "conflict" { session.broadcast.nativeDelivery?.currentSilenceMomentID = "silence-1" }
+    if state == "missing-body" { session.broadcast.djMoments = [] }
+    if state == "missing-delivery" { session.broadcast.nativeDelivery = nil }
+    if state == "missing-admission" { session.broadcast.nativeDelivery?.admissions = [] }
+    if ["duplicate-admission", "reordered-admissions"].contains(state) {
+        var duplicate = try #require(session.broadcast.nativeDelivery?.admissions.first)
+        duplicate.displayExpiresAt = ISO8601DateFormatter().string(from: now.addingTimeInterval(-1))
+        session.broadcast.nativeDelivery?.admissions.append(duplicate)
+        if state == "reordered-admissions" { session.broadcast.nativeDelivery?.admissions.reverse() }
+    }
+    if state == "unqualified" { session.broadcast.nativeDelivery?.admissions[0].qualification = "unknown" }
+    if state == "malformed-deadline" {
+        session.broadcast.nativeDelivery?.admissions[0].displayExpiresAt = "invalid"
+        session.broadcast.nativeDelivery?.admissions[0].sourceExpiresAt = ISO8601DateFormatter().string(from: now.addingTimeInterval(-1))
+    }
+    if state == "wrong-session" { session.broadcast.nativeDelivery?.sessionID = "other" }
+    if state == "expired-display" { session.broadcast.nativeDelivery?.admissions[0].displayExpiresAt = ISO8601DateFormatter().string(from: now.addingTimeInterval(-1)) }
+    if state == "expired-source" { session.broadcast.nativeDelivery?.admissions[0].sourceExpiresAt = ISO8601DateFormatter().string(from: now.addingTimeInterval(-1)) }
+    if state == "paused" { session.broadcast.playback?.state = "paused" }
+    if state == "no-playback" { session.broadcast.playback = nil }
+    if state == "ended" { session.runtimeState = "ended"; session.broadcast.session.runtimeState = "ended" }
+    if ["idle", "silence", "expired-display", "expired-source", "withdrawn"].contains(state) { expected = .compact }
+    if ["moment", "paused", "recovering", "unavailable", "no-playback", "ended"].contains(state) { expected = .expanded }
+    let moment = state == "withdrawn" ? nil : session.broadcast.nativeCurrentMoment(at: now)
+    #expect(SessionCurrentDJCardState.resolve(session: session, moment: moment,
+        recovering: state == "recovering", unavailable: state == "unavailable", withdrawn: state == "withdrawn", at: now) == expected)
+    if state == "moment" {
+        // Geometry never reads audio settings or playback completion. An admitted
+        // text-only contribution remains expanded on every unchanged refresh.
+        for _ in 0..<20 {
+            #expect(session.broadcast.nativeCurrentMoment(at: now)?.id == original.id)
+            #expect(SessionCurrentDJCardState.resolve(session: session, moment: moment, recovering: false, unavailable: false, at: now) == .expanded)
+        }
+    }
+}
+
+#if os(macOS)
+@Test(.isolatedClientResources, arguments: [CGFloat(280), CGFloat(620), CGFloat(1200)])
+@MainActor func personaIdleTileHasIntrinsicGeometryAndLeftAnchor(width: CGFloat) throws {
+    var session = try DJConnectDemoSessionData.make(language: "nl").active
+    session.broadcast.nativeDelivery?.currentMomentID = nil
+    let native = NativeSessionMomentsView(session: session, language: "nl")
+    let renderer = ImageRenderer(content: native.currentCard(nil).environment(\.djConnectGlassEffectsEnabled, false))
+    renderer.proposedSize = .init(width: width, height: nil)
+    let image = try #require(renderer.nsImage)
+    #expect(image.size == CGSize(width: 112, height: 112))
+    // The real container places its intrinsic second child at topLeading;
+    // this full-pane wrapper must leave the card's far edge unpainted.
+    let pane = ImageRenderer(content: native.currentCard(nil).environment(\.djConnectGlassEffectsEnabled, false)
+        .frame(width: width, alignment: .leading).background(Color.black))
+    pane.scale = 1
+    let tiff = try #require(pane.nsImage?.tiffRepresentation)
+    let rep = try #require(NSBitmapImageRep(data: tiff))
+    let pixel = try #require(rep.colorAt(x: Int(width) - 2, y: 56)?.usingColorSpace(.deviceRGB))
+    #expect(pixel.redComponent < 0.01 && pixel.greenComponent < 0.01 && pixel.blueComponent < 0.01)
+}
+#endif
+
+#if os(macOS)
+@Test(.isolatedClientResources, arguments: [CGFloat(0), 0.25, 0.5, 0.75, 1])
+@MainActor func personaNumericTransitionHasFiniteSizeAndUnclippedAvatar(_ fraction: CGFloat) throws {
+    let session = try DJConnectDemoSessionData.make(language: "nl").active
+    let moment = try #require(session.broadcast.djMoments.first)
+    func render(_ progress: CGFloat) -> NSImage? {
+        let renderer = ImageRenderer(content: SessionCurrentDJCardLayout(sessionID: session.id, expansion: progress, hasDetail: true, heldSize: nil) {
+            DJPersonaAvatarView(confirmedMood: "groove", language: "nl").frame(width: 80, height: 80)
+            MomentCard(moment: moment, kind: "Session", presentation: nil, language: "nl")
+        }.background(Color.red).clipShape(DJConnectCardAppearance.shape)
+            .frame(width: 620, alignment: .leading).foregroundStyle(.white))
+        renderer.scale = 1
+        return renderer.nsImage
+    }
+    let expanded = try #require(render(1))
+    let image = try #require(render(fraction))
+    #expect(image.size.width == 620)
+    let cardWidth = 112 + (620 - 112) * fraction
+    #expect(abs(image.size.height - (112 + (expanded.size.height - 112) * fraction)) <= 1)
+    #expect(image.size.width >= 112 && image.size.height >= 112)
+    let tiff = try #require(image.tiffRepresentation)
+    let bitmap = try #require(NSBitmapImageRep(data: tiff))
+    if let directory = ProcessInfo.processInfo.environment["DJCONNECT_AVATAR_ARTIFACT_DIR"],
+       let png = bitmap.representation(using: .png, properties: [:]) {
+        try png.write(to: URL(fileURLWithPath: directory).appendingPathComponent("numeric-transition-\(fraction).png"))
+    }
+    let center = try #require(bitmap.colorAt(x: 56, y: 56))
+    #expect(center.alphaComponent > 0.9 && center.redComponent < 0.5,
+            "The same dark/teal avatar stays at (56,56) over the red measurement surface")
+    let inside = try #require(bitmap.colorAt(x: Int(cardWidth) - 2, y: 56))
+    #expect(inside.alphaComponent > 0.9)
+    if fraction < 1 {
+        let outside = try #require(bitmap.colorAt(x: Int(cardWidth) + 2, y: 56))
+        #expect(outside.alphaComponent < 0.01, "No invisible full-width frame or escaped detail")
+    }
+}
+
+@Test(.isolatedClientResources) @MainActor func personaOffscreenGeometryFitsANarrowerPaneWithoutBorrowingOldWidth() throws {
+    let renderer = ImageRenderer(content: SessionCurrentDJCardLayout(sessionID: "current", expansion: 1, hasDetail: false,
+        heldSize: CGSize(width: 1000, height: 240)) {
+        DJPersonaAvatarView(confirmedMood: "groove", language: "nl").frame(width: 80, height: 80)
+    })
+    renderer.proposedSize = .init(width: 280, height: nil)
+    let image = try #require(renderer.nsImage)
+    #expect(image.size == CGSize(width: 280, height: 240))
 }
 #endif

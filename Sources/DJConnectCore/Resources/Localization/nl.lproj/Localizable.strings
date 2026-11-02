@@ -964,7 +964,6 @@
 "ui.vibecast.handoff.failed" = "De code is verlopen of de overdracht is mislukt.";
 
 // Native Moment-first Session
-"ui.session.quiet" = "De DJ luistert met je mee.";
 "ui.session.back_current" = "Terug naar de actuele bijdrage";
 "ui.session.music_progress" = "Muziekvoortgang";
 "ui.session.moment.generic" = "DJ-bijdrage";

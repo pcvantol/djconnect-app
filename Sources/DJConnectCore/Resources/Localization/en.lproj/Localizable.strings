@@ -964,7 +964,6 @@
 "ui.vibecast.handoff.failed" = "The code expired or the handoff could not be completed.";
 
 // Native Moment-first Session
-"ui.session.quiet" = "The DJ is listening with you.";
 "ui.session.back_current" = "Back to current contribution";
 "ui.session.music_progress" = "Music progress";
 "ui.session.moment.generic" = "DJ contribution";
