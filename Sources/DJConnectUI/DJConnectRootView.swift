@@ -6700,7 +6700,8 @@ private struct MusicDiscoveryCardDetails: View, Equatable {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
                 .lineLimit(2)
-            if let subtitle = item.subtitle, !subtitle.isEmpty {
+            if let subtitle = item.subtitle, !subtitle.isEmpty,
+               item.kind != .artist || subtitle.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare("artist") != .orderedSame {
                 Text(subtitle)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.62))
@@ -6712,10 +6713,12 @@ private struct MusicDiscoveryCardDetails: View, Equatable {
                     .foregroundStyle(.white.opacity(0.58))
                     .lineLimit(2)
             }
-            Text(item.kind.rawValue.capitalized)
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(.white)
-                .textCase(.uppercase)
+            if item.kind != .artist {
+                Text(item.kind.rawValue.capitalized)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.white)
+                    .textCase(.uppercase)
+            }
         }
         .frame(width: 142, alignment: .leading)
     }
