@@ -1742,9 +1742,11 @@ struct SessionEntryView: View, Equatable {
                                 .foregroundStyle(.white).tint(.white)
                             }
                         }
-                        SessionSpotifyAttributionLinks(urls: spotifyURLs)
-                        if let model = artworkModel {
-                            SharedDJSpeechActions(model: model, speech: entry.sessionSpeech, acceptedText: entry.text ?? "", retainedEntry: entry)
+                        HStack(alignment: .center, spacing: 12) {
+                            SessionSpotifyAttributionLinks(urls: spotifyURLs)
+                            if let model = artworkModel {
+                                SharedDJSpeechActions(model: model, speech: entry.sessionSpeech, acceptedText: entry.text ?? "", retainedEntry: entry)
+                            }
                         }
                     }
                     .padding(20)

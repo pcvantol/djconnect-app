@@ -449,7 +449,7 @@ struct SharedDJSpeechActions: View {
     }
     var body: some View {
         if model.profileDJSettings.effective?.announcement_output != .textOnly, let reference {
-            HStack(alignment: .bottom, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
                 Spacer(minLength: 0)
                 if model.sharedSpeechReference == reference,
                    let status = model.sharedSpeechDelivery["local"],

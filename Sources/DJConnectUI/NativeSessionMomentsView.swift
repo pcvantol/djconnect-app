@@ -1078,7 +1078,10 @@ struct MomentCard: View {
                     .tint(djConnectAccent)
                     .accessibilityIdentifier("moment-open-track-insight")
             }
-            SessionSpotifyAttributionLinks(urls: spotifyURLs)
+            HStack(alignment: .center, spacing: 12) {
+                SessionSpotifyAttributionLinks(urls: spotifyURLs)
+                if let model = artworkModel { SharedDJSpeechActions(model: model, speech: speech, acceptedText: moment.content) }
+            }
             ForEach(moment.nativeSourceURLs.filter { !SessionSourceLinks.isSpotify($0) }, id: \.absoluteString) { url in
                 let source = moment.isBulletinV1 ? moment.sources.first { $0.destination == url } : nil
                 let label = source?.attributionLabel ?? moment.sourceAttribution?["provider"] ?? url.host ?? ""
@@ -1089,7 +1092,6 @@ struct MomentCard: View {
                     .accessibilityValue(url.absoluteString)
                     .accessibilityIdentifier("moment-source-" + url.absoluteString)
             }
-            if let model = artworkModel { SharedDJSpeechActions(model: model, speech: speech, acceptedText: moment.content) }
         }
         .accessibilityElement(children: .contain)
     }
