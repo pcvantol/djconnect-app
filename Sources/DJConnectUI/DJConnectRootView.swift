@@ -15689,12 +15689,7 @@ private struct LocalGameSurface: View {
             }
         case .fly:
             drawSpaceFlightBackground(in: &context, scaleX: scaleX, scaleY: scaleY)
-            var plane = Path()
-            plane.move(to: point(62, planeY))
-            plane.addLine(to: point(30, planeY - 12))
-            plane.addLine(to: point(30, planeY + 12))
-            plane.closeSubpath()
-            context.fill(plane, with: .color(game.tint))
+            drawSkyDashJet(in: &context, rect: rect, point: point, scale: scaleX)
             drawSkyDashObstacle(in: &context, rect: rect, point: point)
             drawSkyDashCrash(in: &context, rect: rect, point: point, scaleX: scaleX, scaleY: scaleY)
             drawSkyDashObstacleExplosion(in: &context, rect: rect, point: point, scaleX: scaleX, scaleY: scaleY)
@@ -15840,6 +15835,51 @@ private struct LocalGameSurface: View {
                 Path(roundedRect: CGRect(x: (x - star.length) * scaleX, y: y * scaleY, width: star.length * scaleX, height: 1.6 * scaleY), cornerRadius: 1),
                 with: .color(.white.opacity(star.opacity))
             )
+        }
+    }
+
+    private func drawSkyDashJet(
+        in context: inout GraphicsContext,
+        rect: (CGFloat, CGFloat, CGFloat, CGFloat) -> CGRect,
+        point: (CGFloat, CGFloat) -> CGPoint,
+        scale: CGFloat
+    ) {
+        // Top-down fighter silhouette, inside the existing ship's gameplay area.
+        let outline: [(CGFloat, CGFloat)] = [
+            (62, 0), (50, -3), (40, -12), (35, -12), (42, -3),
+            (35, -2.5), (31, -8), (28, -8), (32, -1.5), (30, 0),
+            (32, 1.5), (28, 8), (31, 8), (35, 2.5), (42, 3),
+            (35, 12), (40, 12), (50, 3)
+        ]
+        var wings = Path()
+        for (index, vertex) in outline.enumerated() {
+            let position = point(vertex.0, planeY + vertex.1)
+            if index == 0 { wings.move(to: position) } else { wings.addLine(to: position) }
+        }
+        wings.closeSubpath()
+        context.fill(wings, with: .color(game.highlightTint))
+        context.stroke(wings, with: .color(.white.opacity(0.45)), lineWidth: max(0.6, scale * 0.3))
+
+        var fuselage = Path()
+        fuselage.move(to: point(62, planeY))
+        fuselage.addQuadCurve(to: point(46, planeY - 3), control: point(53, planeY - 3.8))
+        fuselage.addLine(to: point(31, planeY - 1.8))
+        fuselage.addLine(to: point(31, planeY + 1.8))
+        fuselage.addLine(to: point(46, planeY + 3))
+        fuselage.addQuadCurve(to: point(62, planeY), control: point(53, planeY + 3.8))
+        fuselage.closeSubpath()
+        context.fill(fuselage, with: .color(game.tint))
+
+        // Dark canopy and paired wing seams stay legible at the phone's scale.
+        context.fill(Path(ellipseIn: rect(48, planeY - 1.8, 8, 3.6)), with: .color(game.secondaryTint))
+        context.fill(Path(ellipseIn: rect(50, planeY - 1.1, 4, 1.2)), with: .color(.white.opacity(0.65)))
+        context.fill(Path(roundedRect: rect(30, planeY - 1.5, 3.5, 3), cornerRadius: scale * 0.5),
+                     with: .color(.black.opacity(0.75)))
+        for sign: CGFloat in [-1, 1] {
+            var seam = Path()
+            seam.move(to: point(46, planeY + sign * 3))
+            seam.addLine(to: point(37, planeY + sign * 10))
+            context.stroke(seam, with: .color(.black.opacity(0.28)), lineWidth: max(0.5, scale * 0.25))
         }
     }
 
